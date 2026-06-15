@@ -1,0 +1,40 @@
+package com.tcs.marketplace.entity;
+
+import com.tcs.masterdata.entity.Subject;
+import com.tcs.user.entity.Tutor;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Table(name = "tutor_subjects")
+@Getter
+@Setter
+@NoArgsConstructor
+public class TutorSubject {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "tutor_subject_id", length = 36, nullable = false, updatable = false)
+    private String id;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "tutor_id", nullable = false)
+    private Tutor tutor;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "subject_id", nullable = false)
+    private Subject subject;
+
+    @Column(name = "proficiency_level", length = 50)
+    private String proficiencyLevel;
+}
