@@ -1,10 +1,13 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './shared/theme/tokens.css'
-import HomePage from './features/home/pages/HomePage'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import './shared/theme/tokens.css';
+import App from './app/App';
+import { AppProvider } from './app/providers/AppProvider';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
-    <HomePage />
+    <AppProvider>
+      <App />
+    </AppProvider>
   </StrictMode>,
-)
+);

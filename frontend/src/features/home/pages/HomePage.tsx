@@ -1,9 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
-import axiosClient from '../../../shared/api/axiosClient';
-import type { FeaturedTutor, HomeData, SubjectItem } from '../types';
+import { useMemo } from 'react';
+import { useHome } from '../hooks/useHome';
+import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import './HomePage.css';
-
-type Status = 'loading' | 'success' | 'error';
 
 const currency = (value: number) =>
   new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(value);
@@ -222,29 +220,14 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 }
 
 function HomePage() {
-  const [status, setStatus] = useState<Status>('loading');
-  const [data, setData] = useState<HomeData | null>(null);
-
-  const load = () => {
-    setStatus('loading');
-    axiosClient
-      .get<HomeData>('/home')
-      .then((res) => {
-        setData(res.data);
-        setStatus('success');
-      })
-      .catch((err) => {
-        console.error('Lỗi tải trang chủ:', err);
-        setStatus('error');
-      });
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
+  const { status, data, reload } = useHome();
 
   const isEmpty = useMemo(
-    () => status === 'success' && data !== null && data.featuredTutors.length === 0 && data.subjects.length === 0,
+    () =>
+      status === 'success' &&
+      data !== null &&
+      data.featuredTutors.length === 0 &&
+      data.subjects.length === 0,
     [status, data],
   );
 
@@ -255,7 +238,7 @@ function HomePage() {
         <Hero data={data} />
 
         {status === 'loading' && <LoadingState />}
-        {status === 'error' && <ErrorState onRetry={load} />}
+        {status === 'error' && <ErrorState onRetry={reload} />}
 
         {status === 'success' && data && (
           <>

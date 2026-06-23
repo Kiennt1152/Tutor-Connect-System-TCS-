@@ -1,0 +1,50 @@
+package com.tcs.module.identity.entity;
+
+import com.tcs.module.identity.enums.VerificationStatus;
+import com.tcs.module.identity.enums.VerificationType;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
+import java.time.LocalDateTime;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
+@Entity
+@Table(name = "verification_requests")
+@Getter
+@Setter
+@NoArgsConstructor
+public class VerificationRequest {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "verification_id")
+    private Long verificationId;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_type", length = 50, nullable = false)
+    private VerificationType verificationType;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20, nullable = false)
+    private VerificationStatus status = VerificationStatus.DRAFT;
+
+    @Column(name = "submitted_at")
+    private LocalDateTime submittedAt;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
+}
