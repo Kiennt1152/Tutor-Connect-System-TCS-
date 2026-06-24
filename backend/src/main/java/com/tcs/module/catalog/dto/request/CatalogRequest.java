@@ -8,4 +8,18 @@ import lombok.Setter;
 @Setter
 @NoArgsConstructor
 public class CatalogRequest {
+
+    @Getter
+    @Setter
+    @NoArgsConstructor
+    public static class UpsertCategoryRequest {
+
+        private String name;
+
+        private String description;
+
+        private Long parentId;
+
+        private String status;
+    }
 }

@@ -1,5 +1,5 @@
-import HomePage from '../features/home/pages/HomePage';
+import CatalogPage from '../features/catalog/pages/CatalogPage';
 
 export default function App() {
-  return <HomePage />;
+  return <CatalogPage />;
 }
