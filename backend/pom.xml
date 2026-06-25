@@ -51,7 +51,6 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- BCrypt password hashing (chỉ phần crypto, không bật full Spring Security filter) -->
         <dependency>
             <groupId>org.springframework.security</groupId>
             <artifactId>spring-security-crypto</artifactId>
