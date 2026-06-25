@@ -2,6 +2,7 @@ package com.tcs.module.identity.service.impl;
 
 import com.tcs.config.JwtUtil;
 import com.tcs.module.identity.dto.request.LoginRequest;
+import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.response.AuthResponse;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.enums.UserStatus;
@@ -20,6 +21,30 @@ public class IdentityServiceImpl implements IdentityService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+
+    @Override
+    @Transactional
+    public AuthResponse register(RegisterRequest request) {
+        String email = normalizeEmail(request.getEmail());
+
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email đã được sử dụng");
+        }
+
+        User user = new User();
+        user.setEmail(email);
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setStatus(UserStatus.ACTIVE);
+        userRepository.save(user);
+
+        String token = jwtUtil.generateToken(user.getUserId(), user.getEmail());
+        return AuthResponse.builder()
+                .token(token)
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .status(user.getStatus().name())
+                .build();
+    }
 
     @Override
     @Transactional

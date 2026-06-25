@@ -8,10 +8,6 @@ import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-/**
- * Tạo sẵn 1 tài khoản test khi khởi động (chỉ phục vụ dev — có thể xóa file này).
- * Đăng nhập bằng: test@tcs.com / 123456
- */
 @Component
 @RequiredArgsConstructor
 public class DevDataSeeder implements CommandLineRunner {
@@ -21,14 +17,14 @@ public class DevDataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        String email = "test@tcs.com";
+        String email = "thanhkiu0209@gmail.com";
         if (!userRepository.existsByEmail(email)) {
             User user = new User();
             user.setEmail(email);
-            user.setPasswordHash(passwordEncoder.encode("123456"));
+            user.setPasswordHash(passwordEncoder.encode("12345678"));
             user.setStatus(UserStatus.ACTIVE);
             userRepository.save(user);
-            System.out.println(">>> [DevDataSeeder] Đã tạo tài khoản test: " + email + " / 123456");
+            System.out.println(">>> [DevDataSeeder] Đã tạo tài khoản: " + email + " / 12345678");
         }
     }
 }
