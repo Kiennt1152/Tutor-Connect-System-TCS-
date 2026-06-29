@@ -5,5 +5,6 @@ public enum EscrowStatus {
     FUNDED,
     RELEASED,
     REFUNDED,
-    ON_HOLD
+    ON_HOLD,
+    DISPUTED
 }

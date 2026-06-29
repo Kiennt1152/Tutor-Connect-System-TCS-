@@ -1,8 +1,20 @@
 import axiosClient from '../../../shared/api/axiosClient';
+import type {
+  PageUserListApiResponse,
+  UpdateUserStatusApiRequest,
+  UserListItemApiResponse,
+  UserListFilters,
+} from '../types/platformTypes';
+import { buildUserListQuery } from '../mappers/platformMapper';
 
-export const PLATFORM_API_BASE = '/platform';
+const BASE = '/platform';
 
 export const platformApi = {
-  http: axiosClient,
-  basePath: PLATFORM_API_BASE,
+  getUsers(filters: UserListFilters) {
+    return axiosClient.get<PageUserListApiResponse>(`${BASE}/users?${buildUserListQuery(filters)}`);
+  },
+
+  updateUserStatus(userId: string, payload: UpdateUserStatusApiRequest) {
+    return axiosClient.patch<UserListItemApiResponse>(`${BASE}/users/${userId}/status`, payload);
+  },
 };

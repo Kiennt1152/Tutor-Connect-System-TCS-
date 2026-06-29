@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TutorExperienceRepository extends JpaRepository<TutorExperience, Long> {
+
+    java.util.List<TutorExperience> findByTutor_TutorId(Long tutorId);
 }

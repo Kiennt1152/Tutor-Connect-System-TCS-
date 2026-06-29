@@ -1,6 +1,5 @@
-package com.tcs.module.center.entity;
+package com.tcs.module.profile.entity;
 
-import com.tcs.module.identity.entity.User;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -10,31 +9,33 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "lead_assignments")
+@Table(name = "qualifications")
 @Getter
 @Setter
 @NoArgsConstructor
-public class LeadAssignment {
+public class Qualification {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "assignment_id")
-    private Long assignmentId;
+    @Column(name = "qualification_id")
+    private Long qualificationId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "lead_id", nullable = false)
-    private Lead lead;
+    @JoinColumn(name = "tutor_id", nullable = false)
+    private Tutor tutor;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "assigned_to", nullable = false)
-    private User assignedTo;
+    @Column(name = "title", length = 150, nullable = false)
+    private String title;
 
-    @Column(name = "assigned_at", nullable = false)
-    private LocalDateTime assignedAt;
+    @Column(name = "issuer", length = 150, nullable = false)
+    private String issuer;
+
+    @Column(name = "issue_date")
+    private LocalDate issueDate;
 }

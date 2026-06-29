@@ -1,7 +1,7 @@
-package com.tcs.module.finance.entity;
+package com.tcs.module.profile.entity;
 
-import com.tcs.module.contract.entity.Contract;
-import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.identity.entity.User;
+import com.tcs.module.profile.enums.ParentChildLinkStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,7 +13,6 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -21,27 +20,28 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
-@Table(name = "escrows")
+@Table(name = "parent_child_links")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Escrow {
+public class ParentChildLink {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "escrow_id")
-    private Long escrowId;
+    @Column(name = "link_id")
+    private Long linkId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "contract_id", nullable = false)
-    private Contract contract;
+    @JoinColumn(name = "parent_user_id", nullable = false)
+    private User parentUser;
 
-    @Column(name = "amount", precision = 15, scale = 2, nullable = false)
-    private BigDecimal amount;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "child_profile_id", nullable = false)
+    private ChildProfile childProfile;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
-    private EscrowStatus status = EscrowStatus.PENDING;
+    private ParentChildLinkStatus status = ParentChildLinkStatus.ACTIVE;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

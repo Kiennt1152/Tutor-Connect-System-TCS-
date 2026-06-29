@@ -6,4 +6,10 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface FavoriteTutorRepository extends JpaRepository<FavoriteTutor, Long> {
+
+    java.util.List<FavoriteTutor> findByUser_UserId(Long userId);
+
+    java.util.Optional<FavoriteTutor> findByUser_UserIdAndTutor_TutorId(Long userId, Long tutorId);
+
+    boolean existsByUser_UserIdAndTutor_TutorId(Long userId, Long tutorId);
 }

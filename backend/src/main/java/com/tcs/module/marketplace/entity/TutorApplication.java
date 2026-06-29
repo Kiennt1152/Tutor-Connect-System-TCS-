@@ -13,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -39,6 +40,9 @@ public class TutorApplication {
     @JoinColumn(name = "tutor_id", nullable = false)
     private Tutor tutor;
 
+    @Column(name = "proposed_rate", precision = 12, scale = 2)
+    private BigDecimal proposedRate;
+
     @Column(name = "cover_letter", columnDefinition = "TEXT")
     private String coverLetter;
 
@@ -49,4 +53,7 @@ public class TutorApplication {
     @CreationTimestamp
     @Column(name = "applied_at", nullable = false, updatable = false)
     private LocalDateTime appliedAt;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
 }

@@ -1,7 +1,7 @@
-package com.tcs.module.center.entity;
+package com.tcs.module.profile.entity;
 
-import com.tcs.module.center.enums.LeadStatus;
-import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.catalog.entity.Grade;
+import com.tcs.module.profile.enums.Gender;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,48 +13,51 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
-@Table(name = "leads")
+@Table(name = "child_profiles")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Lead {
+public class ChildProfile {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    @Column(name = "lead_id")
-    private Long leadId;
+    @Column(name = "child_profile_id")
+    private Long childProfileId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "center_id", nullable = false)
-    private TutorCenter center;
+    @Column(name = "full_name", length = 100, nullable = false)
+    private String fullName;
 
-    @Column(name = "contact_name", length = 100, nullable = false)
-    private String contactName;
+    @Column(name = "date_of_birth")
+    private LocalDate dateOfBirth;
 
-    @Column(name = "contact_phone", length = 15, nullable = false)
-    private String contactPhone;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "gender", length = 10)
+    private Gender gender;
 
-    @Column(name = "contact_email", length = 100)
-    private String contactEmail;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "grade_id")
+    private Grade grade;
 
-    @Column(name = "source", length = 50)
-    private String source;
+    @Column(name = "school_name", length = 200)
+    private String schoolName;
 
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
-    @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 20, nullable = false)
-    private LeadStatus status = LeadStatus.NEW;
-
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 }

@@ -1,9 +1,11 @@
 package com.tcs.module.center.enums;
 
 public enum RecruitmentApplicationStatus {
-    SUBMITTED,
-    REVIEWING,
+    APPLIED,
+    SCREENING,
     INTERVIEW,
-    ACCEPTED,
-    REJECTED
+    PASSED,
+    HIRED,
+    REJECTED,
+    WITHDRAWN
 }

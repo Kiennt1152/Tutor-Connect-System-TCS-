@@ -33,6 +33,10 @@ public class Lesson {
     private Long lessonId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "class_id", nullable = false)
+    private TutoringClass tutoringClass;
+
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "slot_id", nullable = false)
     private ScheduleSlot slot;
 

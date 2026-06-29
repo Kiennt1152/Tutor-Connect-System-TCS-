@@ -1,7 +1,10 @@
 package com.tcs.module.contract.entity;
 
+import com.tcs.module.contract.enums.ReviewStatus;
 import com.tcs.module.contract.enums.ReviewType;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.TutoringClass;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -13,6 +16,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -20,7 +24,12 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 @Entity
-@Table(name = "reviews")
+@Table(
+        name = "reviews",
+        uniqueConstraints =
+                @UniqueConstraint(
+                        name = "uq_reviews_assignment_reviewer_type",
+                        columnNames = {"assignment_id", "reviewer_id", "review_type"}))
 @Getter
 @Setter
 @NoArgsConstructor
@@ -32,8 +41,12 @@ public class Review {
     private Long reviewId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "contract_id", nullable = false)
-    private Contract contract;
+    @JoinColumn(name = "assignment_id", nullable = false)
+    private ClassAssignment assignment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_id")
+    private TutoringClass tutoringClass;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "reviewer_id", nullable = false)
@@ -52,6 +65,10 @@ public class Review {
 
     @Column(name = "comment", columnDefinition = "TEXT")
     private String comment;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20, nullable = false)
+    private ReviewStatus status = ReviewStatus.VISIBLE;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
