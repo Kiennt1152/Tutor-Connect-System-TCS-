@@ -60,8 +60,4 @@ public class EmailOtp {
     public boolean isExpired() {
         return expiresAt != null && LocalDateTime.now().isAfter(expiresAt);
     }
-
-    public boolean isConsumed() {
-        return consumedAt != null;
-    }
 }
