@@ -219,7 +219,7 @@
   font-size: 28px;
   font-weight: 700;
   letter-spacing: 12px;
-  font-family: var(--font-mono);
+  font-family: var(--font-mono), monospace;
 }
 .auth-resend {
   text-align: center;
