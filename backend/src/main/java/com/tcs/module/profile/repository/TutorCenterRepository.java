@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TutorCenterRepository extends JpaRepository<TutorCenter, Long> {
+
+    boolean existsByPhone(String phone);
 }
