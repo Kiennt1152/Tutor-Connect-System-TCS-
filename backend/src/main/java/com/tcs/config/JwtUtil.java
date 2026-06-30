@@ -9,10 +9,7 @@ import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-/**
- * Tiện ích sinh và đọc JWT cho luồng đăng nhập.
- * Cấu hình secret/expiration trong application.properties (app.jwt.*).
- */
+
 @Component
 public class JwtUtil {
 
@@ -26,7 +23,6 @@ public class JwtUtil {
         return Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
     }
 
-    /** Sinh token với subject là userId và kèm claim email. */
     public String generateToken(Long userId, String email) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
