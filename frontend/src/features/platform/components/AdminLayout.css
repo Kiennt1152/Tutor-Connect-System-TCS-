@@ -1,0 +1,60 @@
+.adm-topbar {
+  background: var(--color-surface-2);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.adm-topbar__inner {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 var(--space-md);
+  height: 68px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  overflow: hidden;
+}
+
+.adm-topbar__nav {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+.adm-topbar__link {
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.adm-topbar__link:hover {
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+}
+
+.adm-topbar__link--active {
+  background: var(--color-primary-xlight);
+  color: var(--color-primary-dark);
+}
+
+.adm-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
+@media (max-width: 768px) {
+  .adm-topbar__inner {
+    flex-wrap: wrap;
+    height: auto;
+    padding-top: var(--space-sm);
+    padding-bottom: var(--space-sm);
+  }
+
+  .adm-topbar__nav {
+    order: 3;
+    width: 100%;
+  }
+}

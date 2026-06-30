@@ -1,0 +1,36 @@
+.tcs-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.tcs-logo__image {
+  display: block;
+  width: auto;
+  height: 140px;
+  flex-shrink: 0;
+  object-fit: contain;
+  margin-right: -35px;
+}
+
+.tcs-logo__text {
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+  .tcs-logo__text {
+    font-size: var(--fs-body-md);
+    max-width: 140px;
+    white-space: normal;
+  }
+
+  .tcs-logo__image {
+    height: 34px;
+    margin-right: -12px;
+  }
+}
