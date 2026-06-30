@@ -44,6 +44,13 @@
   --fs-label: 12px;
   --fs-badge: 11px;
 
+  /* Badge / action button (cột Thao tác — chỉnh kích thước tại đây) */
+  --btn-badge-padding-y: 7px;
+  --btn-badge-padding-x: 11px;
+  --btn-badge-font-size: 11px;
+  --btn-badge-line-height: 1.2;
+  --btn-badge-gap: 4px;
+
   /* Spacing (8px base unit) */
   --space-xs: 4px;
   --space-sm: 8px;
@@ -97,4 +104,5 @@ button {
 #root {
   width: 100%;
   min-height: 100vh;
+  text-align: left;
 }

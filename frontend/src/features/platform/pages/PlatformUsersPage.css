@@ -98,12 +98,12 @@
 .adm-table td {
   padding: 12px 10px;
   border-bottom: 1px solid var(--color-border);
-  text-align: left;
+  text-align: center;
   vertical-align: middle;
 }
 
 .adm-table th {
-  font-size: var(--fs-body-sm);
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-secondary);
   background: var(--color-surface-3);
@@ -111,16 +111,28 @@
 
 .adm-table__badge {
   white-space: nowrap;
+  text-align: center;
 }
 
 .adm-table__actions {
-  min-width: 220px;
+  min-width: 140px;
+  text-align: center;
+}
+
+.adm-row-actions .tcs-btn.tcs-btn--badge {
+  padding: var(--btn-badge-padding-y) var(--btn-badge-padding-x);
+  height: auto;
+  min-height: unset;
+  font-size: var(--btn-badge-font-size);
+  line-height: var(--btn-badge-line-height);
 }
 
 .adm-row-actions {
-  display: flex;
+  display: inline-flex;
   flex-wrap: nowrap;
-  gap: var(--space-xs);
+  align-items: center;
+  justify-content: center;
+  gap: var(--btn-badge-gap);
 }
 
 .adm-muted {

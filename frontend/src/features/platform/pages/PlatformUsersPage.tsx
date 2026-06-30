@@ -59,7 +59,7 @@ export default function PlatformUsersPage() {
         <div className="adm-toolbar">
           <input
             className="adm-field"
-            placeholder="Tìm theo email..."
+            placeholder="Tìm theo tên, email hoặc SĐT..."
             value={filters.keyword ?? ''}
             onChange={(event) => applyFilter({ keyword: event.target.value || undefined })}
           />
@@ -149,7 +149,7 @@ export default function PlatformUsersPage() {
                             <div className="adm-row-actions">
                               {user.status !== 'ACTIVE' && (
                                 <button
-                                  className="tcs-btn tcs-btn--success tcs-btn--sm"
+                                  className="tcs-btn tcs-btn--success tcs-btn--badge"
                                   type="button"
                                   disabled={mutationStatus === 'loading'}
                                   title={STATUS_ACTION_LABELS.ACTIVE}
@@ -158,9 +158,9 @@ export default function PlatformUsersPage() {
                                   Kích hoạt
                                 </button>
                               )}
-                              {user.status !== 'SUSPENDED' && (
+                              {user.status === 'ACTIVE' && (
                                 <button
-                                  className="tcs-btn tcs-btn--warning tcs-btn--sm"
+                                  className="tcs-btn tcs-btn--warning tcs-btn--badge"
                                   type="button"
                                   disabled={mutationStatus === 'loading'}
                                   title={STATUS_ACTION_LABELS.SUSPENDED}
@@ -171,7 +171,7 @@ export default function PlatformUsersPage() {
                               )}
                               {user.status !== 'BANNED' && (
                                 <button
-                                  className="tcs-btn tcs-btn--danger tcs-btn--sm"
+                                  className="tcs-btn tcs-btn--danger tcs-btn--badge"
                                   type="button"
                                   disabled={mutationStatus === 'loading'}
                                   title={STATUS_ACTION_LABELS.BANNED}

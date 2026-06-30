@@ -38,7 +38,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -212,40 +211,10 @@ public class PlatformServiceImpl implements PlatformService {
             if (roleUserIds.isEmpty()) {
                 return Page.empty(pageable);
             }
-            return filterUsersByIds(roleUserIds, status, trimmedKeyword, pageable);
+            return userRepository.searchUsersByIds(roleUserIds, status, trimmedKeyword, pageable);
         }
 
-        if (status != null && trimmedKeyword != null) {
-            return userRepository.findByStatusAndEmailContainingIgnoreCase(status, trimmedKeyword, pageable);
-        }
-        if (status != null) {
-            return userRepository.findByStatus(status, pageable);
-        }
-        if (trimmedKeyword != null) {
-            return userRepository.findByEmailContainingIgnoreCase(trimmedKeyword, pageable);
-        }
-        return userRepository.findAll(pageable);
-    }
-
-    private Page<User> filterUsersByIds(
-            List<Long> userIds, UserStatus status, String keyword, PageRequest pageable) {
-        Page<User> page = userRepository.findByUserIdIn(userIds, pageable);
-        if (status == null && keyword == null) {
-            return page;
-        }
-
-        List<User> filtered = page.getContent().stream()
-                .filter(user -> status == null || user.getStatus() == status)
-                .filter(user -> keyword == null
-                        || user.getEmail().toLowerCase().contains(keyword.toLowerCase()))
-                .sorted(Comparator.comparing(User::getUserId))
-                .toList();
-
-        if (filtered.size() == page.getContent().size()) {
-            return page;
-        }
-
-        return new PageImpl<>(filtered, pageable, filtered.size());
+        return userRepository.searchUsers(status, trimmedKeyword, pageable);
     }
 
     private List<Long> findUserIdsByRole(UserRole role) {

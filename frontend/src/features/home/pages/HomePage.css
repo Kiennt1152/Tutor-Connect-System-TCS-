@@ -2,6 +2,19 @@
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  text-align: left;
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  color-scheme: light;
+}
+
+.tcs-page h1,
+.tcs-page h2,
+.tcs-page h3,
+.tcs-page h4 {
+  color: var(--color-text-primary);
+  font-family: var(--font-sans);
+  letter-spacing: normal;
 }
 
 .tcs-container {
@@ -66,26 +79,7 @@
   align-items: center;
   justify-content: space-between;
   height: 68px;
-}
-.tcs-logo {
-  display: inline-flex;
-  align-items: center;
-  gap: 0;
-  font-weight: 700;
-  font-size: 17px;
-  color: var(--color-text-primary);
-}
-.tcs-logo__image {
-  display: block;
-  width: auto;
-  height: 140px;
-  flex-shrink: 0;
-  object-fit: contain;
-  margin-right: -35px;
-}
-.tcs-logo__text {
-  line-height: 1.2;
-  white-space: nowrap;
+  overflow: hidden;
 }
 .tcs-header__nav {
   display: flex;
@@ -113,8 +107,8 @@
   font-size: var(--fs-h1);
   line-height: 1.2;
   font-weight: 700;
-  color: var(--color-text-primary);
   margin: var(--space-md) 0;
+  color: var(--color-text-primary);
 }
 .tcs-hero__subtitle {
   font-size: var(--fs-body-lg);
@@ -153,7 +147,12 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
   font-size: var(--fs-body-md);
+  font-family: var(--font-sans);
   color: var(--color-text-primary);
+  background-color: var(--color-white);
+}
+.tcs-search__field::placeholder {
+  color: var(--color-text-disabled);
 }
 .tcs-search__field:focus {
   outline: none;
@@ -198,8 +197,8 @@
 .tcs-section__title {
   font-size: var(--fs-h2);
   font-weight: 700;
-  color: var(--color-text-primary);
   margin: 0 0 var(--space-xs);
+  color: var(--color-text-primary);
 }
 .tcs-section__subtitle {
   color: var(--color-text-secondary);
@@ -273,8 +272,8 @@
 .tcs-tutor__name {
   font-size: var(--fs-h4);
   font-weight: 600;
-  color: var(--color-text-primary);
   margin: 0 0 2px;
+  color: var(--color-text-primary);
 }
 .tcs-tutor__rating {
   display: flex;
@@ -334,8 +333,8 @@
 }
 .tcs-step__title {
   font-size: var(--fs-h4);
-  color: var(--color-text-primary);
   margin: 0 0 var(--space-xs);
+  color: var(--color-text-primary);
 }
 .tcs-step__desc {
   margin: 0;
@@ -418,14 +417,6 @@
 @media (max-width: 768px) {
   .tcs-header__nav {
     display: none;
-  }
-  .tcs-logo__text {
-    font-size: var(--fs-body-md);
-    max-width: 140px;
-    white-space: normal;
-  }
-  .tcs-logo__image {
-    height: 34px;
   }
   .tcs-hero__title {
     font-size: 24px;

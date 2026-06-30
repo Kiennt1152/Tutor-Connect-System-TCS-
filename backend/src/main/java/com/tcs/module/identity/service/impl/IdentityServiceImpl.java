@@ -25,6 +25,7 @@ import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.enums.Gender;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
@@ -44,6 +45,7 @@ public class IdentityServiceImpl implements IdentityService {
 
     private final UserRepository userRepository;
     private final ClientRepository clientRepository;
+    private final PlatformAdminRepository platformAdminRepository;
     private final TutorRepository tutorRepository;
     private final TutorCenterRepository tutorCenterRepository;
     private final WalletRepository walletRepository;
@@ -201,7 +203,7 @@ public class IdentityServiceImpl implements IdentityService {
 
     private UserProfileBundle loadProfiles(Long userId) {
         return UserProfileBundle.of(
-                null,
+                platformAdminRepository.findByUser_UserId(userId).orElse(null),
                 tutorRepository.findByUser_UserId(userId).orElse(null),
                 tutorCenterRepository.findByUser_UserId(userId).orElse(null),
                 clientRepository.findByUser_UserId(userId).orElse(null));

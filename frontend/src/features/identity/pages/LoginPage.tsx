@@ -8,7 +8,10 @@ export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? '/';
+  const from =
+    (location.state as { from?: string } | null)?.from ??
+    sessionStorage.getItem('auth_redirect') ??
+    '/';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,8 +27,11 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login({ email, password });
-      navigate(from, { replace: true });
+      const response = await login({ email, password });
+      const destination =
+        from !== '/' ? from : response.role === 'PLATFORM_ADMIN' ? '/platform/users' : '/';
+      sessionStorage.removeItem('auth_redirect');
+      navigate(destination, { replace: true });
     } catch {
       setError('Email hoặc mật khẩu không đúng');
     } finally {
