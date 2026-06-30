@@ -1,8 +1,9 @@
 package com.tcs.module.identity.service.impl;
 
-import com.tcs.module.identity.dto.request.FileUploadRequest;
+import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.identity.dto.response.FileUploadResponse;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.identity.service.FileStorageService;
 import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.profile.repository.MediaFileRepository;
@@ -35,6 +36,7 @@ public class FileStorageServiceImpl implements FileStorageService {
     private static final long MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
     private final MediaFileRepository mediaFileRepository;
+    private final UserRepository userRepository;
 
     @Value("${tcs.file.storage.path:uploads}")
     private String storagePath;
@@ -67,8 +69,8 @@ public class FileStorageServiceImpl implements FileStorageService {
             throw new RuntimeException("Failed to store file", e);
         }
 
-        User user = new User();
-        user.setUserId(uploadedBy);
+        User user = userRepository.findById(uploadedBy)
+                .orElseThrow(() -> new ResourceNotFoundException("User not found: " + uploadedBy));
 
         MediaFile mediaFile = new MediaFile();
         mediaFile.setFileName(originalName);
