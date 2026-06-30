@@ -1,13 +1,12 @@
 -- =====================================================================
--- TCS - Tai cau truc luong dang ky (UC FT-01):
---   OTP gan theo EMAIL (chua co tai khoan) + token email-da-xac-thuc.
--- Tai khoan chi duoc tao sau khi email da xac thuc va Submit thanh cong.
+-- UC-01 Register Account - Xac thuc email bang OTP truoc khi tao tai khoan.
+--   email_otps                : ma OTP gan theo email (chua co tai khoan)
+--   email_verification_tokens : token chung nhan email da xac thuc (BR-UC01-05)
+-- Noi license_no cua tutor_centers thanh NULL: dang ky chi thu thap baseline,
+--   so giay phep duoc bo sung sau khi dang nhap (BR-UC01-09).
 -- =====================================================================
 
 SET NAMES utf8mb4;
-
--- Bang OTP cu (V2) gan user_id khong con phu hop -> tao lai theo email.
-DROP TABLE IF EXISTS email_otps;
 
 CREATE TABLE email_otps (
     otp_id       BIGINT       NOT NULL AUTO_INCREMENT,
@@ -24,7 +23,6 @@ CREATE TABLE email_otps (
     INDEX idx_email_otps_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- Token chung nhan email da xac thuc (ngan han, dung mot lan), cap sau khi Verify OTP.
 CREATE TABLE email_verification_tokens (
     token_id    BIGINT       NOT NULL AUTO_INCREMENT,
     token       VARCHAR(64)  NOT NULL,
@@ -36,3 +34,6 @@ CREATE TABLE email_verification_tokens (
     CONSTRAINT uq_email_verification_tokens_token UNIQUE (token),
     INDEX idx_email_verification_tokens_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+ALTER TABLE tutor_centers
+    MODIFY COLUMN license_no VARCHAR(50) NULL;

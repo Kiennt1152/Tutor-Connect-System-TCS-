@@ -1,6 +1,15 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import { authStorage } from '../../../shared/auth/authStorage';
-import type { AuthResponse, LoginRequest, RegisterRequest } from '../types/identityTypes';
+import type {
+  AuthResponse,
+  LoginRequest,
+  RegisterRequest,
+  RegisterResponse,
+  SendOtpRequest,
+  SendOtpResponse,
+  VerifyOtpRequest,
+  VerifyOtpResponse,
+} from '../types/identityTypes';
 
 const BASE = '/identity';
 
@@ -10,8 +19,18 @@ export const identityApi = {
     return data;
   },
 
-  async register(body: RegisterRequest): Promise<AuthResponse> {
-    const { data } = await axiosClient.post<AuthResponse>(`${BASE}/register`, body);
+  async sendOtp(body: SendOtpRequest): Promise<SendOtpResponse> {
+    const { data } = await axiosClient.post<SendOtpResponse>(`${BASE}/send-otp`, body);
+    return data;
+  },
+
+  async verifyOtp(body: VerifyOtpRequest): Promise<VerifyOtpResponse> {
+    const { data } = await axiosClient.post<VerifyOtpResponse>(`${BASE}/verify-otp`, body);
+    return data;
+  },
+
+  async register(body: RegisterRequest): Promise<RegisterResponse> {
+    const { data } = await axiosClient.post<RegisterResponse>(`${BASE}/register`, body);
     return data;
   },
 

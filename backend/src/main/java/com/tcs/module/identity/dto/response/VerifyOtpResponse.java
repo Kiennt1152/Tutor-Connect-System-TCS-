@@ -9,7 +9,7 @@ public class VerifyOtpResponse {
 
     private String email;
     private String message;
-    /** Token chung nhan email da xac thuc, gui kem khi Submit dang ky (BR-05). */
+    /** Token chung nhan email da xac thuc, gui kem khi Submit dang ky (BR-UC01-05). */
     private String verifiedEmailToken;
     private long tokenExpiresInSeconds;
 }

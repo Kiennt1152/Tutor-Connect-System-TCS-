@@ -32,6 +32,8 @@ public class SecurityConfig {
                                 "/api/home",
                                 "/api/identity/login",
                                 "/api/identity/register",
+                                "/api/identity/send-otp",
+                                "/api/identity/verify-otp",
                                 "/api/identity/password/forgot",
                                 "/api/identity/password/reset",
                                 "/swagger-ui/**",

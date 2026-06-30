@@ -1,13 +1,12 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { identityApi, persistAuth } from '../../features/identity/api/identityApi';
-import type { AuthResponse, LoginRequest, RegisterRequest } from '../../features/identity/types/identityTypes';
+import type { AuthResponse, LoginRequest } from '../../features/identity/types/identityTypes';
 import { authStorage, type StoredUser } from '../auth/authStorage';
 
 type AuthContextValue = {
   user: StoredUser | null;
   isAuthenticated: boolean;
   login: (body: LoginRequest) => Promise<AuthResponse>;
-  register: (body: RegisterRequest) => Promise<AuthResponse>;
   logout: () => void;
 };
 
@@ -23,13 +22,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response;
   }, []);
 
-  const register = useCallback(async (body: RegisterRequest) => {
-    const response = await identityApi.register(body);
-    persistAuth(response);
-    setUser(authStorage.getUser());
-    return response;
-  }, []);
-
   const logout = useCallback(() => {
     authStorage.clearAll();
     setUser(null);
@@ -40,10 +32,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: !!user && !!authStorage.getToken(),
       login,
-      register,
       logout,
     }),
-    [user, login, register, logout],
+    [user, login, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

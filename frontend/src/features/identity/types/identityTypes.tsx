@@ -1,22 +1,10 @@
 export type UserRole = 'CLIENT' | 'TUTOR' | 'TUTOR_CENTER' | 'PLATFORM_ADMIN' | 'UNKNOWN';
 
+export type RegisterRole = 'CLIENT' | 'TUTOR' | 'TUTOR_CENTER';
+
 export type LoginRequest = {
   email: string;
   password: string;
-};
-
-export type RegisterRequest = {
-  email: string;
-  password: string;
-  phone?: string;
-  role: UserRole;
-  fullName: string;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER';
-  address?: string;
-  licenseNo?: string;
-  companyName?: string;
-  experienceYears?: number;
-  hourlyRate?: number;
 };
 
 export type AuthResponse = {
@@ -26,4 +14,45 @@ export type AuthResponse = {
   role: UserRole;
   displayName: string;
   status: string;
+};
+
+// ---- UC-01 Register Account (OTP qua email) ----
+
+export type SendOtpRequest = {
+  email: string;
+  role: RegisterRole;
+};
+
+export type SendOtpResponse = {
+  email: string;
+  message: string;
+  otpExpiresInSeconds: number;
+  resendCooldownSeconds: number;
+};
+
+export type VerifyOtpRequest = {
+  email: string;
+  code: string;
+};
+
+export type VerifyOtpResponse = {
+  email: string;
+  message: string;
+  verifiedEmailToken: string;
+  tokenExpiresInSeconds: number;
+};
+
+export type RegisterRequest = {
+  email: string;
+  role: RegisterRole;
+  displayName: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+  verifiedEmailToken: string;
+};
+
+export type RegisterResponse = {
+  email: string;
+  message: string;
 };

@@ -1,6 +1,6 @@
 package com.tcs.module.identity.dto.request;
 
-import com.tcs.module.identity.enums.RegisterRole;
+import com.tcs.module.profile.enums.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -8,7 +8,7 @@ import lombok.Getter;
 import lombok.Setter;
 
 /**
- * Yeu cau gui ma OTP toi email (buoc 2 cua UC). Chua tao tai khoan.
+ * UC-01 buoc 2: yeu cau gui ma OTP toi email. Chua tao tai khoan.
  */
 @Getter
 @Setter
@@ -20,5 +20,5 @@ public class SendOtpRequest {
     private String email;
 
     /** Loai tai khoan (tham khao - khong bat buoc de gui ma). */
-    private RegisterRole role;
+    private UserRole role;
 }
