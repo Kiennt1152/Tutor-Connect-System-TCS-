@@ -73,6 +73,7 @@ public class IdentityServiceImpl implements IdentityService {
     private final UserRepository userRepository;
     private final PlatformAdminRepository platformAdminRepository;
     private final ClientRepository clientRepository;
+    private final PlatformAdminRepository platformAdminRepository;
     private final TutorRepository tutorRepository;
     private final TutorCenterRepository tutorCenterRepository;
     private final WalletRepository walletRepository;
