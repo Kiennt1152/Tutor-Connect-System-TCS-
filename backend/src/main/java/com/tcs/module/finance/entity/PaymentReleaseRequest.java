@@ -1,6 +1,7 @@
 package com.tcs.module.finance.entity;
 
 import com.tcs.module.finance.enums.PaymentReleaseRequestStatus;
+import com.tcs.module.marketplace.entity.ClassAssignment;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -32,8 +33,8 @@ public class PaymentReleaseRequest {
     private Long requestId;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "escrow_id", nullable = false)
-    private Escrow escrow;
+    @JoinColumn(name = "assignment_id", nullable = false)
+    private ClassAssignment assignment;
 
     @Column(name = "amount", precision = 15, scale = 2, nullable = false)
     private BigDecimal amount;

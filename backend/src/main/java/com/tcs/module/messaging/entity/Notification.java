@@ -2,6 +2,7 @@ package com.tcs.module.messaging.entity;
 
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.messaging.enums.NotificationStatus;
+import com.tcs.module.messaging.enums.NotificationType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -39,15 +40,28 @@ public class Notification {
     @JoinColumn(name = "template_id")
     private NotificationTemplate template;
 
-    @Column(name = "title", length = 200, nullable = false)
+    @Enumerated(EnumType.STRING)
+    @Column(name = "type", length = 50, nullable = false)
+    private NotificationType type;
+
+    @Column(name = "title", length = 200)
     private String title;
 
     @Column(name = "content", columnDefinition = "TEXT", nullable = false)
     private String content;
 
+    @Column(name = "reference_type", length = 50)
+    private String referenceType;
+
+    @Column(name = "reference_id")
+    private Long referenceId;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     private NotificationStatus status = NotificationStatus.PENDING;
+
+    @Column(name = "is_read", nullable = false)
+    private Boolean isRead = false;
 
     @Column(name = "read_at")
     private LocalDateTime readAt;

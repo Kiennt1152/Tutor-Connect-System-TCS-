@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { imageAssets } from '../../../assets/images/ImageAssets';
 import { useHome } from '../hooks/useHome';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import './HomePage.css';
@@ -18,9 +19,9 @@ function Header() {
   return (
     <header className="tcs-header">
       <div className="tcs-container tcs-header__inner">
-        <a className="tcs-logo" href="/">
-          <span className="tcs-logo__mark">TC</span>
-          <span className="tcs-logo__text">Tutor Connect</span>
+        <a className="tcs-logo" href="/" aria-label="Tutor Connect System">
+          <img className="tcs-logo__image" src={imageAssets.logo} alt="" />
+          <span className="tcs-logo__text">Tutor Connect System</span>
         </a>
         <nav className="tcs-header__nav">
           <a href="#subjects">Môn học</a>

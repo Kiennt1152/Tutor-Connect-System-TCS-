@@ -1,6 +1,8 @@
 package com.tcs.module.platform.entity;
 
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.platform.enums.SupportTicketCategory;
 import com.tcs.module.platform.enums.SupportTicketPriority;
 import com.tcs.module.platform.enums.SupportTicketStatus;
 import com.tcs.module.profile.entity.PlatformAdmin;
@@ -20,6 +22,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "support_tickets")
@@ -41,14 +44,22 @@ public class SupportTicket {
     @JoinColumn(name = "assigned_admin_id")
     private PlatformAdmin assignedAdmin;
 
-    @Column(name = "type", length = 50, nullable = false)
-    private String type;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "target_class_id")
+    private TutoringClass targetClass;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "category", length = 50, nullable = false)
+    private SupportTicketCategory category;
 
     @Column(name = "subject", length = 150, nullable = false)
     private String subject;
 
     @Column(name = "description", columnDefinition = "TEXT", nullable = false)
     private String description;
+
+    @Column(name = "evidence_urls", columnDefinition = "TEXT")
+    private String evidenceUrls;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "priority", length = 20, nullable = false)
@@ -67,4 +78,8 @@ public class SupportTicket {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 }

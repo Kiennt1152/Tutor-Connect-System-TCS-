@@ -18,6 +18,8 @@ import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "verification_requests")
@@ -43,6 +45,9 @@ public class VerificationRequest {
     @Column(name = "status", length = 20, nullable = false)
     private VerificationStatus status = VerificationStatus.SUBMITTED;
 
+    @Column(name = "admin_notes", columnDefinition = "TEXT")
+    private String adminNotes;
+
     @Column(name = "submitted_at")
     private LocalDateTime submittedAt;
 
@@ -52,9 +57,14 @@ public class VerificationRequest {
     @Column(name = "reviewed_by")
     private Long reviewedBy;
 
-    @Column(name = "admin_notes", columnDefinition = "TEXT")
-    private String adminNotes;
-
     @Column(name = "rejection_reason", columnDefinition = "TEXT")
     private String rejectionReason;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 }
