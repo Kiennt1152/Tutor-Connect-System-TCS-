@@ -1,5 +1,7 @@
 package com.tcs.module.center.entity;
 
+import com.tcs.module.catalog.entity.Location;
+import com.tcs.module.catalog.entity.Subject;
 import com.tcs.module.center.enums.RecruitmentPostStatus;
 import com.tcs.module.profile.entity.TutorCenter;
 import jakarta.persistence.Column;
@@ -18,6 +20,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "recruitment_posts")
@@ -47,14 +50,35 @@ public class RecruitmentPost {
     @Column(name = "benefits", columnDefinition = "TEXT")
     private String benefits;
 
+    @Column(name = "required_experience")
+    private Integer requiredExperience = 0;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subject_id")
+    private Subject subject;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "location_id")
+    private Location location;
+
+    @Column(name = "max_positions", nullable = false)
+    private Integer maxPositions = 1;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     private RecruitmentPostStatus status = RecruitmentPostStatus.DRAFT;
 
-    @Column(name = "expired_at")
-    private LocalDateTime expiredAt;
+    @Column(name = "published_at")
+    private LocalDateTime publishedAt;
+
+    @Column(name = "closed_at")
+    private LocalDateTime closedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 }

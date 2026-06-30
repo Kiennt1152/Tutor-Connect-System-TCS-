@@ -1,3 +1,3 @@
 export const imageAssets = {
-  logo: '/icons.svg',
+  logo: '/logo.png',
 } as const;

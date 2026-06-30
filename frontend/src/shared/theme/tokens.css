@@ -93,3 +93,8 @@ button {
   font-family: inherit;
   cursor: pointer;
 }
+
+#root {
+  width: 100%;
+  min-height: 100vh;
+}

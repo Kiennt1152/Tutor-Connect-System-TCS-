@@ -39,6 +39,10 @@ public class CenterTutorMembership {
     @JoinColumn(name = "tutor_id", nullable = false)
     private Tutor tutor;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recruitment_app_id")
+    private RecruitmentApplication recruitmentApplication;
+
     @Column(name = "joined_at", nullable = false)
     private LocalDateTime joinedAt;
 
