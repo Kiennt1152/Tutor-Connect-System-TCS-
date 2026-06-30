@@ -1,0 +1,1340 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TCS Slides 18-25 Preview</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1a1a2e;
+            padding: 40px;
+        }
+        
+        .slides-container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #fff;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 28px;
+        }
+        
+        .slide {
+            width: 100%;
+            aspect-ratio: 16/9;
+            background: #fff;
+            border-radius: 8px;
+            margin-bottom: 60px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .slide-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #1B2D5C, #2D4A8A);
+        }
+        
+        .slide-logo {
+            position: absolute;
+            top: 20px;
+            left: 40px;
+            font-size: 20px;
+            font-weight: bold;
+            color: #1B2D5C;
+        }
+        
+        .slide-dots {
+            position: absolute;
+            top: 24px;
+            right: 40px;
+            display: flex;
+            gap: 8px;
+        }
+        
+        .slide-dots span {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ddd;
+        }
+        
+        .slide-dots span.active {
+            background: #1B2D5C;
+        }
+        
+        .slide-footer {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 60px;
+            background: linear-gradient(90deg, #1B2D5C, #2D4A8A);
+        }
+        
+        .slide-content {
+            position: absolute;
+            top: 60px;
+            left: 40px;
+            right: 40px;
+            bottom: 100px;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .slide-title {
+            font-size: 32px;
+            font-weight: bold;
+            color: #1B2D5C;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .slide-subtitle {
+            font-size: 16px;
+            color: #666;
+            margin-bottom: 24px;
+        }
+        
+        /* Slide 18 - Entity State */
+        .slide-18 .content-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            flex: 1;
+        }
+        
+        .status-section {
+            background: #F5F7FA;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .status-section h3 {
+            color: #1B2D5C;
+            margin-bottom: 16px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #1B2D5C;
+            margin-top: 6px;
+            flex-shrink: 0;
+        }
+        
+        .status-text h4 {
+            color: #333;
+            font-size: 14px;
+            margin-bottom: 4px;
+        }
+        
+        .status-text p {
+            color: #666;
+            font-size: 12px;
+        }
+        
+        .state-flow {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+        }
+        
+        .state-flow h3 {
+            color: #1B2D5C;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .flow-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .flow-row h4 {
+            color: #666;
+            font-size: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .state-pills {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .pill {
+            background: #1B2D5C;
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .arrow {
+            color: #2D4A8A;
+            font-size: 16px;
+        }
+        
+        /* Slide 19 - Business Rules */
+        .slide-19 .cards-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            flex: 1;
+        }
+        
+        .rule-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .rule-badge {
+            display: inline-block;
+            background: #1B2D5C;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+        
+        .rule-card h3 {
+            color: #1B2D5C;
+            font-size: 18px;
+            margin-bottom: 12px;
+        }
+        
+        .rule-card p {
+            color: #666;
+            font-size: 13px;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        
+        .check-list {
+            list-style: none;
+        }
+        
+        .check-list li {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #333;
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+        
+        .check-list li::before {
+            content: "✓";
+            color: #28A745;
+            font-weight: bold;
+        }
+        
+        /* Slide 20 - Security */
+        .slide-20 .cards-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 24px;
+            flex: 1;
+        }
+        
+        .access-list {
+            margin-top: 16px;
+        }
+        
+        .access-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px;
+            background: #F5F7FA;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+        
+        .access-icon {
+            width: 28px;
+            height: 28px;
+            background: #1B2D5C;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 14px;
+        }
+        
+        .access-info h4 {
+            color: #333;
+            font-size: 13px;
+        }
+        
+        .access-info p {
+            color: #666;
+            font-size: 11px;
+        }
+        
+        .privacy-section h4 {
+            color: #1B2D5C;
+            font-size: 14px;
+            margin: 16px 0 8px;
+        }
+        
+        .privacy-box {
+            background: #F5F7FA;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 8px;
+        }
+        
+        .privacy-box h5 {
+            color: #666;
+            font-size: 11px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
+        
+        .privacy-box ul {
+            list-style: none;
+            font-size: 12px;
+            color: #333;
+        }
+        
+        .privacy-box li {
+            margin-bottom: 4px;
+        }
+        
+        /* Slide 21 - NFR */
+        .slide-21 .nfr-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 16px;
+            flex: 1;
+        }
+        
+        .nfr-card {
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .nfr-header {
+            background: linear-gradient(135deg, #1B2D5C, #2D4A8A);
+            color: #fff;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .nfr-header .icon {
+            font-size: 24px;
+            margin-bottom: 8px;
+        }
+        
+        .nfr-header h3 {
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .nfr-body {
+            padding: 16px;
+        }
+        
+        .nfr-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 11px;
+            color: #333;
+            margin-bottom: 6px;
+        }
+        
+        .nfr-item span:last-child {
+            font-weight: 600;
+            color: #1B2D5C;
+        }
+        
+        /* Slide 22-23 - Risks */
+        .slide-22 .risk-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .risk-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .risk-table th {
+            background: #1B2D5C;
+            color: #fff;
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .risk-table td {
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .risk-table tr:nth-child(even) {
+            background: #F5F7FA;
+        }
+        
+        .risk-level {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+        }
+        
+        .risk-level.high {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .risk-level.medium {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .risk-level.low {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .risk-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+            flex: 1;
+        }
+        
+        .risk-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            border-left: 4px solid;
+        }
+        
+        .risk-card.high-risk {
+            border-left-color: #dc3545;
+        }
+        
+        .risk-card.medium-risk {
+            border-left-color: #ffc107;
+        }
+        
+        .risk-card.low-risk {
+            border-left-color: #28a745;
+        }
+        
+        .risk-card h4 {
+            color: #1B2D5C;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+        
+        .risk-card ul {
+            list-style: none;
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .risk-card li {
+            margin-bottom: 6px;
+            padding-left: 16px;
+            position: relative;
+        }
+        
+        .risk-card li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #1B2D5C;
+        }
+        
+        /* Slide 24 - Contributions */
+        .slide-24 .contrib-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            flex: 1;
+        }
+        
+        .contrib-card {
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .contrib-header {
+            background: linear-gradient(135deg, #1B2D5C, #2D4A8A);
+            color: #fff;
+            padding: 16px;
+            text-align: center;
+        }
+        
+        .contrib-header .icon {
+            font-size: 28px;
+            margin-bottom: 8px;
+        }
+        
+        .contrib-header h3 {
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .contrib-body {
+            padding: 16px;
+        }
+        
+        .contrib-item {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #333;
+            margin-bottom: 8px;
+            padding-bottom: 8px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .contrib-item:last-child {
+            border-bottom: none;
+        }
+        
+        .contrib-item span:first-child {
+            color: #666;
+        }
+        
+        .contrib-item span:last-child {
+            font-weight: 600;
+            color: #28A745;
+        }
+        
+        /* Slide 25 - Roadmap */
+        .slide-25 .roadmap-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .timeline {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 40px;
+            margin-bottom: 24px;
+            position: relative;
+        }
+        
+        .timeline::before {
+            content: "";
+            position: absolute;
+            top: 50%;
+            left: 60px;
+            right: 60px;
+            height: 4px;
+            background: #ddd;
+            z-index: 0;
+        }
+        
+        .timeline-node {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+        }
+        
+        .timeline-box {
+            background: #1B2D5C;
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .timeline-box.highlight {
+            background: linear-gradient(135deg, #4A90D9, #2D4A8A);
+        }
+        
+        .timeline-label {
+            font-size: 11px;
+            color: #666;
+        }
+        
+        .feature-cards {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            flex: 1;
+        }
+        
+        .feature-card {
+            background: #fff;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        
+        .feature-card h3 {
+            color: #1B2D5C;
+            font-size: 14px;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .feature-card ul {
+            list-style: none;
+            font-size: 12px;
+            color: #666;
+        }
+        
+        .feature-card li {
+            margin-bottom: 6px;
+            padding-left: 16px;
+            position: relative;
+        }
+        
+        .feature-card li::before {
+            content: "•";
+            position: absolute;
+            left: 0;
+            color: #4A90D9;
+        }
+        
+        .slide-number {
+            position: absolute;
+            bottom: 20px;
+            right: 40px;
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="slides-container">
+        <h1>TCS Slides 18-25 Preview</h1>
+        
+        <!-- Slide 18: Entity State Specification -->
+        <div class="slide slide-18">
+            <div class="slide-header"></div>
+            <div class="slide-logo">TCS</div>
+            <div class="slide-dots">
+                <span></span><span></span><span class="active"></span>
+            </div>
+            <div class="slide-content">
+                <h2 class="slide-title">Entity State Specification</h2>
+                <p class="slide-subtitle">Status transition definitions for core entities</p>
+                
+                <div class="content-grid">
+                    <div>
+                        <div class="status-section">
+                            <h3>👤 User Account Status</h3>
+                            <div class="status-item">
+                                <div class="status-dot"></div>
+                                <div class="status-text">
+                                    <h4>Active</h4>
+                                    <p>Normal operation - can login, transact</p>
+                                </div>
+                            </div>
+                            <div class="status-item">
+                                <div class="status-dot"></div>
+                                <div class="status-text">
+                                    <h4>Locked</h4>
+                                    <p>Temporary blocked - 5 failed attempts</p>
+                                </div>
+                            </div>
+                            <div class="status-item">
+                                <div class="status-dot"></div>
+                                <div class="status-text">
+                                    <h4>Inactive</h4>
+                                    <p>Disabled or expired account</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="status-section" style="margin-top: 16px;">
+                            <h3>💼 Job Posting Status</h3>
+                            <div class="status-item">
+                                <div class="status-dot"></div>
+                                <div class="status-text">
+                                    <h4>Draft</h4>
+                                    <p>Work in progress - not public</p>
+                                </div>
+                            </div>
+                            <div class="status-item">
+                                <div class="status-dot"></div>
+                                <div class="status-text">
+                                    <h4>Active</h4>
+                                    <p>Live recruitment - visible to tutors</p>
+                                </div>
+                            </div>
+                            <div class="status-item">
+                                <div class="status-dot"></div>
+                                <div class="status-text">
+                                    <h4>Closed</h4>
+                                    <p>Position filled - cannot reopen</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="state-flow">
+                        <h3>User Status Flow</h3>
+                        <div class="flow-row">
+                            <div class="state-pills">
+                                <span class="pill">Active</span>
+                                <span class="arrow">→</span>
+                                <span class="pill">Locked</span>
+                                <span class="arrow">→</span>
+                                <span class="pill">Inactive</span>
+                            </div>
+                        </div>
+                        <div class="flow-row">
+                            <p style="font-size: 11px; color: #666;">5 fails / Admin disable / Long lock</p>
+                        </div>
+                        
+                        <h3 style="margin-top: 24px;">Job Posting Flow</h3>
+                        <div class="flow-row">
+                            <div class="state-pills">
+                                <span class="pill">Draft</span>
+                                <span class="arrow">→</span>
+                                <span class="pill">Active</span>
+                                <span class="arrow">→</span>
+                                <span class="pill">Closed</span>
+                            </div>
+                        </div>
+                        <div class="flow-row">
+                            <p style="font-size: 11px; color: #666;">Publish / Filled or Expired</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer"></div>
+            <span class="slide-number">18</span>
+        </div>
+        
+        <!-- Slide 19: Business Rules 1 -->
+        <div class="slide slide-19">
+            <div class="slide-header"></div>
+            <div class="slide-logo">TCS</div>
+            <div class="slide-dots">
+                <span></span><span></span><span class="active"></span>
+            </div>
+            <div class="slide-content">
+                <h2 class="slide-title">Business Rules 1</h2>
+                <p class="slide-subtitle">Data & Workflow Rules</p>
+                
+                <div class="cards-grid">
+                    <div class="rule-card">
+                        <span class="rule-badge">GB-01</span>
+                        <h3>Irreversible State Transition</h3>
+                        <p>Some status changes can only proceed forward, never backward. This ensures data integrity and prevents accidental reversals.</p>
+                        
+                        <h4 style="color: #1B2D5C; margin: 16px 0 12px; font-size: 14px;">Class Flow (Example):</h4>
+                        <div class="state-pills">
+                            <span class="pill">Created</span>
+                            <span class="arrow">→</span>
+                            <span class="pill">Matched</span>
+                            <span class="arrow">→</span>
+                            <span class="pill">In Progress</span>
+                            <span class="arrow">→</span>
+                            <span class="pill">Completed</span>
+                        </div>
+                        <p style="margin-top: 12px; color: #dc3545; font-size: 12px;">✗ Cannot reverse once completed</p>
+                    </div>
+                    
+                    <div class="rule-card">
+                        <span class="rule-badge">GB-04</span>
+                        <h3>Data Uniqueness Constraint</h3>
+                        <p>Unique fields ensure data integrity across the entire system.</p>
+                        
+                        <ul class="check-list">
+                            <li>Email (UNIQUE, NOT NULL)</li>
+                            <li>Phone Number (UNIQUE, NOT NULL)</li>
+                            <li>Tutor License Number</li>
+                            <li>Center License</li>
+                            <li>Class Code (auto-generated)</li>
+                            <li>Transaction ID (UUID)</li>
+                        </ul>
+                        
+                        <p style="margin-top: 16px; color: #666; font-size: 12px;">Duplicate handling: "Email already registered"</p>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer"></div>
+            <span class="slide-number">19</span>
+        </div>
+        
+        <!-- Slide 20: Business Rules 2 -->
+        <div class="slide slide-20">
+            <div class="slide-header"></div>
+            <div class="slide-logo">TCS</div>
+            <div class="slide-dots">
+                <span></span><span></span><span class="active"></span>
+            </div>
+            <div class="slide-content">
+                <h2 class="slide-title">Business Rules 2</h2>
+                <p class="slide-subtitle">Security & Privacy Rules</p>
+                
+                <div class="cards-grid">
+                    <div class="rule-card">
+                        <span class="rule-badge">GB-03</span>
+                        <h3>CV File Security</h3>
+                        <p>🔒 AES-256 Encryption for all uploaded CVs</p>
+                        
+                        <div class="access-list">
+                            <div class="access-item">
+                                <div class="access-icon">🔒</div>
+                                <div class="access-info">
+                                    <h4>Tutor (owner)</h4>
+                                    <p>Read, Update, Delete own CV</p>
+                                </div>
+                            </div>
+                            <div class="access-item">
+                                <div class="access-icon">🔒</div>
+                                <div class="access-info">
+                                    <h4>Admin</h4>
+                                    <p>Read all CVs (audit only)</p>
+                                </div>
+                            </div>
+                            <div class="access-item">
+                                <div class="access-icon">🔒</div>
+                                <div class="access-info">
+                                    <h4>Employer</h4>
+                                    <p>Read applicant CVs only</p>
+                                </div>
+                            </div>
+                            <div class="access-item">
+                                <div class="access-icon">🚫</div>
+                                <div class="access-info">
+                                    <h4>Guest</h4>
+                                    <p>NO ACCESS</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="rule-card">
+                        <span class="rule-badge">GB-02, GB-06</span>
+                        <h3>Hide Internal Notes</h3>
+                        <p>Internal notes and ratings are hidden from candidates</p>
+                        
+                        <div class="privacy-section">
+                            <div class="privacy-box">
+                                <h5>Internal Only</h5>
+                                <ul>
+                                    <li>Internal Notes</li>
+                                    <li>Recruiter Rating</li>
+                                    <li>Screening Score</li>
+                                    <li>Salary (internal)</li>
+                                </ul>
+                            </div>
+                            <div class="privacy-box">
+                                <h5>Visible to Candidate</h5>
+                                <ul>
+                                    <li>Name, Email</li>
+                                    <li>Skills, Experience</li>
+                                    <li>Education</li>
+                                    <li>Public Profile</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer"></div>
+            <span class="slide-number">20</span>
+        </div>
+        
+        <!-- Slide 21: NFR -->
+        <div class="slide slide-21">
+            <div class="slide-header"></div>
+            <div class="slide-logo">TCS</div>
+            <div class="slide-dots">
+                <span></span><span></span><span class="active"></span>
+            </div>
+            <div class="slide-content">
+                <h2 class="slide-title">Non-Functional Requirements</h2>
+                <p class="slide-subtitle">Performance • Scalability • Security • Usability</p>
+                
+                <div class="nfr-grid">
+                    <div class="nfr-card">
+                        <div class="nfr-header">
+                            <div class="icon">⚡</div>
+                            <h3>PERFORMANCE</h3>
+                        </div>
+                        <div class="nfr-body">
+                            <div class="nfr-item"><span>Page Load</span><span>&lt; 2s</span></div>
+                            <div class="nfr-item"><span>Search</span><span>&lt; 3s</span></div>
+                            <div class="nfr-item"><span>Booking</span><span>&lt; 4s</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="nfr-card">
+                        <div class="nfr-header">
+                            <div class="icon">🖥️</div>
+                            <h3>AVAILABILITY</h3>
+                        </div>
+                        <div class="nfr-body">
+                            <div class="nfr-item"><span>Uptime</span><span>≥ 99.5%</span></div>
+                            <div class="nfr-item"><span>Recovery</span><span>≤ 30 min</span></div>
+                            <div class="nfr-item"><span>Backup</span><span>Daily</span></div>
+                            <div class="nfr-item"><span>RPO</span><span>24h</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="nfr-card">
+                        <div class="nfr-header">
+                            <div class="icon">🔒</div>
+                            <h3>SECURITY</h3>
+                        </div>
+                        <div class="nfr-body">
+                            <div class="nfr-item"><span>Password</span><span>bcrypt</span></div>
+                            <div class="nfr-item"><span>JWT</span><span>15 min</span></div>
+                            <div class="nfr-item"><span>Lockout</span><span>5 fails</span></div>
+                            <div class="nfr-item"><span>Files</span><span>MIME filter</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="nfr-card">
+                        <div class="nfr-header">
+                            <div class="icon">👤</div>
+                            <h3>USABILITY</h3>
+                        </div>
+                        <div class="nfr-body">
+                            <div class="nfr-item"><span>Booking</span><span>&lt; 5 min</span></div>
+                            <div class="nfr-item"><span>Language</span><span>Vietnamese</span></div>
+                            <div class="nfr-item"><span>Browsers</span><span>4 major</span></div>
+                            <div class="nfr-item"><span>Errors</span><span>Guided</span></div>
+                        </div>
+                    </div>
+                    
+                    <div class="nfr-card">
+                        <div class="nfr-header">
+                            <div class="icon">📊</div>
+                            <h3>SCALABILITY</h3>
+                        </div>
+                        <div class="nfr-body">
+                            <div class="nfr-item"><span>Auto-scale</span><span>Yes</span></div>
+                            <div class="nfr-item"><span>Cache</span><span>&lt; 200ms</span></div>
+                            <div class="nfr-item"><span>Users</span><span>100+</span></div>
+                            <div class="nfr-item"><span>API</span><span>Stateless</span></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer"></div>
+            <span class="slide-number">21</span>
+        </div>
+        
+        <!-- Slide 22: Risks 1 -->
+        <div class="slide slide-22">
+            <div class="slide-header"></div>
+            <div class="slide-logo">TCS</div>
+            <div class="slide-dots">
+                <span></span><span></span><span class="active"></span>
+            </div>
+            <div class="slide-content risk-content">
+                <h2 class="slide-title">Risks & Mitigations (1/2)</h2>
+                <p class="slide-subtitle">Project risk assessment and response plan</p>
+                
+                <table class="risk-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Risk</th>
+                            <th>Level</th>
+                            <th>Mitigation</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>R-01</td>
+                            <td>Facebook API changes</td>
+                            <td><span class="risk-level high">HIGH</span></td>
+                            <td>Manual import backup, webhook redundancy</td>
+                        </tr>
+                        <tr>
+                            <td>R-02</td>
+                            <td>Data privacy violation</td>
+                            <td><span class="risk-level high">HIGH</span></td>
+                            <td>GDPR/PDP compliance, encrypt all PII</td>
+                        </tr>
+                        <tr>
+                            <td>R-03</td>
+                            <td>Payment gateway downtime</td>
+                            <td><span class="risk-level high">HIGH</span></td>
+                            <td>Multi-provider, retry mechanism</td>
+                        </tr>
+                        <tr>
+                            <td>R-04</td>
+                            <td>Scope creep</td>
+                            <td><span class="risk-level medium">MEDIUM</span></td>
+                            <td>Change Control Board, MoSCoW</td>
+                        </tr>
+                        <tr>
+                            <td>R-05</td>
+                            <td>Team member leave</td>
+                            <td><span class="risk-level medium">MEDIUM</span></td>
+                            <td>Documentation, code review</td>
+                        </tr>
+                        <tr>
+                            <td>R-06</td>
+                            <td>Database performance</td>
+                            <td><span class="risk-level medium">MEDIUM</span></td>
+                            <td>Index optimization, query audit</td>
+                        </tr>
+                        <tr>
+                            <td>R-07</td>
+                            <td>Third-party service failure</td>
+                            <td><span class="risk-level low">LOW</span></td>
+                            <td>Circuit breaker, fallback UI</td>
+                        </tr>
+                        <tr>
+                            <td>R-08</td>
+                            <td>Security breach attempt</td>
+                            <td><span class="risk-level low">LOW</span></td>
+                            <td>OWASP compliance, pentest</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="risk-cards">
+                    <div class="risk-card high-risk">
+                        <h4>R-01: Facebook API Changes</h4>
+                        <ul>
+                            <li>Monitor API changelog regularly</li>
+                            <li>Quick adaptation sprint (2-3 days)</li>
+                            <li>Manual CSV import fallback</li>
+                        </ul>
+                    </div>
+                    <div class="risk-card high-risk">
+                        <h4>R-02: Data Privacy Violation</h4>
+                        <ul>
+                            <li>Encrypt all PII at rest & transit</li>
+                            <li>Role-based data access</li>
+                            <li>Privacy impact assessment</li>
+                        </ul>
+                    </div>
+                    <div class="risk-card high-risk">
+                        <h4>R-03: Payment Gateway Downtime</h4>
+                        <ul>
+                            <li>Backup: Stripe + PayOS</li>
+                            <li>Queue retry for transactions</li>
+                            <li>Clear user messaging</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer"></div>
+            <span class="slide-number">22</span>
+        </div>
+        
+        <!-- Slide 23: Risks 2 -->
+        <div class="slide slide-23">
+            <div class="slide-header"></div>
+            <div class="slide-logo">TCS</div>
+            <div class="slide-dots">
+                <span></span><span></span><span class="active"></span>
+            </div>
+            <div class="slide-content risk-content">
+                <h2 class="slide-title">Risks & Mitigations (2/2)</h2>
+                <p class="slide-subtitle">Continued risk details and monitoring</p>
+                
+                <div class="cards-grid">
+                    <div class="rule-card">
+                        <h3 style="margin-bottom: 16px;">Monitoring & Response</h3>
+                        <table class="risk-table" style="font-size: 11px;">
+                            <thead>
+                                <tr>
+                                    <th>Trigger</th>
+                                    <th>Alert</th>
+                                    <th>Response</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>API error &gt; 5%</td>
+                                    <td>PagerDuty</td>
+                                    <td>Rollback</td>
+                                </tr>
+                                <tr>
+                                    <td>Response &gt; 5s</td>
+                                    <td>Grafana</td>
+                                    <td>Scale up</td>
+                                </tr>
+                                <tr>
+                                    <td>Payment fail &gt; 2%</td>
+                                    <td>Opsgenie</td>
+                                    <td>Failover</td>
+                                </tr>
+                                <tr>
+                                    <td>Security event</td>
+                                    <td>Immediate</td>
+                                    <td>Alert team</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        
+                        <h4 style="color: #1B2D5C; margin-top: 16px; font-size: 13px;">Incident Response Team:</h4>
+                        <ul class="check-list" style="font-size: 12px;">
+                            <li>24/7 on-call rotation</li>
+                            <li>Escalation matrix defined</li>
+                            <li>Runbooks documented</li>
+                        </ul>
+                    </div>
+                    
+                    <div class="rule-card">
+                        <h3 style="margin-bottom: 16px;">Escalation Matrix</h3>
+                        <div style="margin-top: 12px;">
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                <span style="background: #f8d7da; color: #721c24; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600;">P1</span>
+                                <span style="color: #333; font-size: 12px;">Critical - Response: 15 min</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                <span style="background: #fff3cd; color: #856404; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600;">P2</span>
+                                <span style="color: #333; font-size: 12px;">High - Response: 1 hour</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+                                <span style="background: #d4edda; color: #155724; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600;">P3</span>
+                                <span style="color: #333; font-size: 12px;">Medium - Response: 4 hours</span>
+                            </div>
+                            <div style="display: flex; align-items: center; gap: 12px;">
+                                <span style="background: #cce5ff; color: #004085; padding: 4px 12px; border-radius: 12px; font-size: 11px; font-weight: 600;">P4</span>
+                                <span style="color: #333; font-size: 12px;">Low - Response: Next business day</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer"></div>
+            <span class="slide-number">23</span>
+        </div>
+        
+        <!-- Slide 24: Contributions -->
+        <div class="slide slide-24">
+            <div class="slide-header"></div>
+            <div class="slide-logo">TCS</div>
+            <div class="slide-dots">
+                <span></span><span></span><span class="active"></span>
+            </div>
+            <div class="slide-content">
+                <h2 class="slide-title">Expected Contributions</h2>
+                <p class="slide-subtitle">Business & operational impact, user experience improvements</p>
+                
+                <div class="contrib-grid">
+                    <div class="contrib-card">
+                        <div class="contrib-header">
+                            <div class="icon">📊</div>
+                            <h3>BUSINESS IMPACT</h3>
+                        </div>
+                        <div class="contrib-body">
+                            <div class="contrib-item">
+                                <span>Lead management</span>
+                                <span>20h/week saved</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Tutor matching</span>
+                                <span>60% faster</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Payment security</span>
+                                <span>100% escrow</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Center recruit</span>
+                                <span>3x faster</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Dispute resolve</span>
+                                <span>&lt; 24h</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Reports</span>
+                                <span>90% time saved</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="contrib-card">
+                        <div class="contrib-header">
+                            <div class="icon">😊</div>
+                            <h3>USER EXPERIENCE</h3>
+                        </div>
+                        <div class="contrib-body">
+                            <div class="contrib-item">
+                                <span>Client</span>
+                                <span>70% faster find</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Tutor</span>
+                                <span>Fair matching</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Center</span>
+                                <span>Scale 10x CRM</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Admin</span>
+                                <span>Value-add focus</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="contrib-card">
+                        <div class="contrib-header">
+                            <div class="icon">🎯</div>
+                            <h3>KPI TARGETS</h3>
+                        </div>
+                        <div class="contrib-body">
+                            <div class="contrib-item">
+                                <span>DAU</span>
+                                <span>1,000+</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>GMV</span>
+                                <span>500M VND/mo</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Escrow</span>
+                                <span>200+ tx/mo</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Conversion</span>
+                                <span>25% (from 8%)</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Response</span>
+                                <span>&lt; 2h</span>
+                            </div>
+                            <div class="contrib-item">
+                                <span>Retention</span>
+                                <span>70%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer"></div>
+            <span class="slide-number">24</span>
+        </div>
+        
+        <!-- Slide 25: Next Steps -->
+        <div class="slide slide-25">
+            <div class="slide-header"></div>
+            <div class="slide-logo">TCS</div>
+            <div class="slide-dots">
+                <span></span><span></span><span class="active"></span>
+            </div>
+            <div class="slide-content roadmap-content">
+                <h2 class="slide-title">Next Steps</h2>
+                <p class="slide-subtitle">v2.0 expansion plan and future roadmap</p>
+                
+                <div class="timeline">
+                    <div class="timeline-node">
+                        <div class="timeline-box">v1.0</div>
+                        <div class="timeline-label">2026 Q2<br/>Launch</div>
+                    </div>
+                    <div class="timeline-node">
+                        <div class="timeline-box">v1.1</div>
+                        <div class="timeline-label">2026 Q3<br/>Bug Fix</div>
+                    </div>
+                    <div class="timeline-node">
+                        <div class="timeline-box">v1.2</div>
+                        <div class="timeline-label">2026 Q4<br/>Stability</div>
+                    </div>
+                    <div class="timeline-node">
+                        <div class="timeline-box highlight">v2.0</div>
+                        <div class="timeline-label">2027 Q1<br/>AI v2</div>
+                    </div>
+                    <div class="timeline-node">
+                        <div class="timeline-box">v2.1</div>
+                        <div class="timeline-label">2027 Q2<br/>Video</div>
+                    </div>
+                    <div class="timeline-node">
+                        <div class="timeline-box">v2.2</div>
+                        <div class="timeline-label">2027 Q3<br/>Advanced</div>
+                    </div>
+                </div>
+                
+                <div class="feature-cards">
+                    <div class="feature-card">
+                        <h3>🤖 AI Tutor Matching v2</h3>
+                        <ul>
+                            <li>Personality matching</li>
+                            <li>Learning style compatibility</li>
+                            <li>Schedule optimization AI</li>
+                            <li>Predictive success score</li>
+                            <li>Natural language search</li>
+                        </ul>
+                    </div>
+                    <div class="feature-card">
+                        <h3>🔔 Auto-Notification System</h3>
+                        <ul>
+                            <li>Email templates</li>
+                            <li>Push notifications</li>
+                            <li>SMS for critical</li>
+                            <li>Class reminders</li>
+                            <li>Payment alerts</li>
+                        </ul>
+                    </div>
+                    <div class="feature-card">
+                        <h3>📱 Mobile & Video</h3>
+                        <ul>
+                            <li>iOS app</li>
+                            <li>Android app</li>
+                            <li>Video lesson integration</li>
+                            <li>Cross-platform sync</li>
+                            <li>Offline support</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="slide-footer"></div>
+            <span class="slide-number">25</span>
+        </div>
+    </div>
+</body>
+</html>

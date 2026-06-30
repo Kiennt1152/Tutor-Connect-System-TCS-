@@ -72,6 +72,10 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-mysql</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
     </dependencies>
 
     <build>
@@ -82,7 +86,7 @@
                 <configuration>
                     <url>jdbc:mysql://localhost:3306/tutorconnectsystem?useSSL=false&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true</url>
                     <user>root</user>
-                    <password>12345</password>
+                    <password>Xuho13102018</password>
                     <locations>
                         <location>filesystem:src/main/resources/db/migration</location>
                     </locations>

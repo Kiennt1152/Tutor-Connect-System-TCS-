@@ -1,5 +1,13 @@
-import HomePage from '../features/home/pages/HomePage';
+import { BrowserRouter } from 'react-router-dom';
+import AppShell from './AppShell';
+import AppRouter from './AppRouter';
 
 export default function App() {
-  return <HomePage />;
+  return (
+    <BrowserRouter>
+      <AppShell>
+        <AppRouter />
+      </AppShell>
+    </BrowserRouter>
+  );
 }
