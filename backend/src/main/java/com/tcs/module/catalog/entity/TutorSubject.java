@@ -31,8 +31,8 @@ public class TutorSubject {
     private Tutor tutor;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "category_id", nullable = false)
-    private Category category;
+    @JoinColumn(name = "subject_id", nullable = false)
+    private Subject subject;
 
     @Column(name = "proficiency_level", length = 50)
     private String proficiencyLevel;

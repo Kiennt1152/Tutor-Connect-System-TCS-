@@ -30,8 +30,8 @@ public class TutorExperience {
     @JoinColumn(name = "tutor_id", nullable = false)
     private Tutor tutor;
 
-    @Column(name = "title", length = 150, nullable = false)
-    private String title;
+    @Column(name = "role", length = 150, nullable = false)
+    private String role;
 
     @Column(name = "organization", length = 200, nullable = false)
     private String organization;

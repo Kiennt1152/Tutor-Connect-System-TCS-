@@ -96,7 +96,7 @@ public class HomeServiceImpl implements HomeService {
         return FeaturedTutorResponse.builder()
                 .id(tutor.getTutorId() != null ? tutor.getTutorId().toString() : null)
                 .fullName(tutor.getFullName())
-                .gender(tutor.getGender())
+                .gender(tutor.getGender() != null ? tutor.getGender().name() : null)
                 .bio(tutor.getBio())
                 .hourlyRate(tutor.getHourlyRate())
                 .ratingAvg(tutor.getRatingAvg())

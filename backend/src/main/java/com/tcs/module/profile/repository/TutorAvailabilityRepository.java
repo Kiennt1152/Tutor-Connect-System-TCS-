@@ -1,0 +1,11 @@
+package com.tcs.module.profile.repository;
+
+import com.tcs.module.profile.entity.TutorAvailability;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+@Repository
+public interface TutorAvailabilityRepository extends JpaRepository<TutorAvailability, Long> {
+
+    java.util.List<TutorAvailability> findByTutor_TutorId(Long tutorId);
+}

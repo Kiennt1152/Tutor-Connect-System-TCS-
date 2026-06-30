@@ -1,7 +1,10 @@
 package com.tcs.module.messaging.entity;
 
+import com.tcs.module.messaging.enums.ConversationStatus;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -32,6 +35,10 @@ public class Conversation {
 
     @Column(name = "type", length = 30, nullable = false)
     private String type;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", length = 20, nullable = false)
+    private ConversationStatus status = ConversationStatus.ACTIVE;
 
     @Column(name = "last_message_at")
     private LocalDateTime lastMessageAt;

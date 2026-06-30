@@ -33,7 +33,7 @@ public class RefundRequest {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "escrow_id", nullable = false)
-    private Escrow escrow;
+    private EscrowTransaction escrowTransaction;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "requested_by", nullable = false)

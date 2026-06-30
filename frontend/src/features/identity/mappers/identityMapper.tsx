@@ -1,5 +1,5 @@
-import type { IdentityResponse } from '../types/identityTypes';
+import type { AuthResponse } from '../types/identityTypes';
 
-export function mapIdentityResponse(response: IdentityResponse): IdentityResponse {
+export function mapAuthResponse(response: AuthResponse): AuthResponse {
   return response;
 }
