@@ -1,8 +1,10 @@
 package com.tcs.module.identity.service;
 
+import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.request.SendOtpRequest;
 import com.tcs.module.identity.dto.request.VerifyOtpRequest;
+import com.tcs.module.identity.dto.response.LoginResponse;
 import com.tcs.module.identity.dto.response.RegisterResponse;
 import com.tcs.module.identity.dto.response.SendOtpResponse;
 import com.tcs.module.identity.dto.response.VerifyOtpResponse;
@@ -25,4 +27,9 @@ public interface AuthService {
      * Hoan tat dang ky: kiem tra token, tao tai khoan ACTIVE va ho so co ban (BR-02..BR-09).
      */
     RegisterResponse register(RegisterRequest request);
+
+    /**
+     * Dang nhap bang email + mat khau; tra ve JWT cung thong tin co ban va vai tro.
+     */
+    LoginResponse login(LoginRequest request);
 }

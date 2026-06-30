@@ -47,3 +47,23 @@ export interface RegisterResponse {
   email: string;
   message: string;
 }
+
+export interface LoginFormValues {
+  email: string;
+  password: string;
+}
+
+export interface LoginPayload {
+  email: string;
+  password: string;
+}
+
+export interface LoginResponse {
+  token: string;
+  userId: number;
+  email: string;
+  status: string;
+  role: RegisterRole | null;
+  displayName: string | null;
+  message: string;
+}

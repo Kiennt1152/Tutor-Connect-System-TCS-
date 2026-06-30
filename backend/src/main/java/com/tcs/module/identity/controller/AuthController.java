@@ -1,8 +1,10 @@
 package com.tcs.module.identity.controller;
 
+import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.request.SendOtpRequest;
 import com.tcs.module.identity.dto.request.VerifyOtpRequest;
+import com.tcs.module.identity.dto.response.LoginResponse;
 import com.tcs.module.identity.dto.response.RegisterResponse;
 import com.tcs.module.identity.dto.response.SendOtpResponse;
 import com.tcs.module.identity.dto.response.VerifyOtpResponse;
@@ -38,6 +40,11 @@ public class AuthController {
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
+        return ResponseEntity.ok(authService.login(request));
     }
 
     private String resolveClientIp(HttpServletRequest request) {

@@ -1,6 +1,7 @@
 package com.tcs.module.profile.repository;
 
 import com.tcs.module.profile.entity.Tutor;
+import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -8,4 +9,6 @@ import org.springframework.stereotype.Repository;
 public interface TutorRepository extends JpaRepository<Tutor, Long> {
 
     boolean existsByPhone(String phone);
+
+    Optional<Tutor> findByUser_UserId(Long userId);
 }

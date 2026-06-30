@@ -1,10 +1,13 @@
 package com.tcs.module.identity.service.impl;
 
+import com.tcs.config.JwtUtil;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.repository.WalletRepository;
+import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.request.SendOtpRequest;
 import com.tcs.module.identity.dto.request.VerifyOtpRequest;
+import com.tcs.module.identity.dto.response.LoginResponse;
 import com.tcs.module.identity.dto.response.RegisterResponse;
 import com.tcs.module.identity.dto.response.SendOtpResponse;
 import com.tcs.module.identity.dto.response.VerifyOtpResponse;
@@ -57,6 +60,7 @@ public class AuthServiceImpl implements AuthService {
     private final WalletRepository walletRepository;
     private final PasswordEncoder passwordEncoder;
     private final EmailService emailService;
+    private final JwtUtil jwtUtil;
 
     @Value("${app.otp.length:6}")
     private int otpLength;
@@ -247,6 +251,70 @@ public class AuthServiceImpl implements AuthService {
                 .email(email)
                 .message("Đăng ký thành công! Tài khoản của bạn đã được kích hoạt. Vui lòng đăng nhập.")
                 .build();
+    }
+
+    // =============================================================== Login
+
+    @Override
+    @Transactional
+    public LoginResponse login(LoginRequest request) {
+        String email = normalizeEmail(request.getEmail());
+
+        // Thong bao chung cho ca "khong co email" lan "sai mat khau" de tranh do email.
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Email hoặc mật khẩu không đúng"));
+
+        if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+            throw new IllegalArgumentException("Email hoặc mật khẩu không đúng");
+        }
+
+        // Tai khoan bi khoa thi khong cho dang nhap.
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new IllegalArgumentException("Tài khoản đã bị khóa. Vui lòng liên hệ hỗ trợ.");
+        }
+        // Tai khoan chua kich hoat (vd: dang ky do dang) -> chan dang nhap.
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new IllegalArgumentException("Tài khoản chưa được kích hoạt.");
+        }
+
+        user.setLastLogin(LocalDateTime.now());
+        userRepository.save(user);
+
+        String role = resolveRole(user.getUserId());
+        String displayName = resolveDisplayName(user.getUserId());
+        String token = jwtUtil.generateToken(user.getUserId(), user.getEmail());
+
+        return LoginResponse.builder()
+                .token(token)
+                .userId(user.getUserId())
+                .email(user.getEmail())
+                .status(user.getStatus().name())
+                .role(role)
+                .displayName(displayName)
+                .message("Đăng nhập thành công.")
+                .build();
+    }
+
+    /** Tra ve vai tro dua tren ho so da tao luc dang ky (CLIENT/TUTOR/TUTOR_CENTER), null neu chua co. */
+    private String resolveRole(Long userId) {
+        if (clientRepository.findByUser_UserId(userId).isPresent()) {
+            return "CLIENT";
+        }
+        if (tutorRepository.findByUser_UserId(userId).isPresent()) {
+            return "TUTOR";
+        }
+        if (tutorCenterRepository.findByUser_UserId(userId).isPresent()) {
+            return "TUTOR_CENTER";
+        }
+        return null;
+    }
+
+    /** Ten hien thi: fullName cua Client/Tutor hoac companyName cua TutorCenter. */
+    private String resolveDisplayName(Long userId) {
+        return clientRepository.findByUser_UserId(userId).map(c -> c.getFullName())
+                .or(() -> tutorRepository.findByUser_UserId(userId).map(t -> t.getFullName()))
+                .or(() -> tutorCenterRepository.findByUser_UserId(userId).map(tc -> tc.getCompanyName()))
+                .orElse(null);
     }
 
     // ============================================================== helpers

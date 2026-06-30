@@ -106,6 +106,12 @@
             <artifactId>springdoc-openapi-starter-webmvc-ui</artifactId>
             <version>2.8.0</version>
         </dependency>
+        <!-- Spring Boot 4.x: lop tich hop tu chay Flyway nam o module rieng nay.
+             Chi co flyway-core/flyway-mysql thi FlywayAutoConfiguration khong duoc kich hoat. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
         <dependency>
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-core</artifactId>

@@ -12,6 +12,8 @@ const ROLE_OPTIONS: { value: RegisterRole; label: string; desc: string }[] = [
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_REGEX = /^(0\d{9}|\+84\d{9})$/;
 const PASSWORD_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
+/** Phat hien ky tu ngoai ASCII in duoc (vd: dau tieng Viet, khoang trang). */
+const NON_ASCII_REGEX = /[^\x21-\x7E]/;
 
 const INITIAL_VALUES: RegisterFormValues = {
   role: 'CLIENT',
@@ -29,6 +31,8 @@ function validate(values: RegisterFormValues): FieldErrors {
 
   if (!values.password) {
     errors.password = 'Vui lòng nhập mật khẩu';
+  } else if (NON_ASCII_REGEX.test(values.password)) {
+    errors.password = 'Mật khẩu chỉ gồm chữ, số và ký tự đặc biệt (không dấu, không khoảng trắng)';
   } else if (!PASSWORD_REGEX.test(values.password)) {
     errors.password = 'Mật khẩu phải có ít nhất 8 ký tự, gồm cả chữ và số';
   }
@@ -218,13 +222,13 @@ function EmailVerificationSection({
   return (
     <div className="auth-section">
       <div className="auth-field">
-        <span className="auth-field__label">Email</span>
+        <span className="auth-field__label">Gmail</span>
         <div className="auth-inline">
           <input
             className={`auth-input${emailError ? ' auth-input--error' : ''}`}
             type="email"
             value={email}
-            placeholder="ban@email.com"
+            placeholder="Mời bạn nhập Gmail"
             autoComplete="email"
             readOnly={emailVerified}
             onChange={(event) => onEmailChange(event.target.value)}

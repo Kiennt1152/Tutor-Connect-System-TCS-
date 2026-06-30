@@ -27,8 +27,9 @@ public class RegisterRequest {
 
     @NotBlank(message = "Vui lòng nhập mật khẩu")
     @Pattern(
-            regexp = "^(?=.*[A-Za-z])(?=.*\\d).{8,100}$",
-            message = "Mật khẩu phải có ít nhất 8 ký tự, gồm cả chữ và số")
+            regexp = "^(?=.*[A-Za-z])(?=.*\\d)[\\x21-\\x7E]{8,100}$",
+            message = "Mật khẩu phải có ít nhất 8 ký tự, gồm cả chữ và số, "
+                    + "chỉ dùng chữ/số/ký tự đặc biệt (không dấu, không khoảng trắng)")
     private String password;
 
     @NotBlank(message = "Vui lòng xác nhận mật khẩu")

@@ -1,5 +1,7 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  LoginPayload,
+  LoginResponse,
   RegisterPayload,
   RegisterResponse,
   SendOtpPayload,
@@ -24,5 +26,9 @@ export const authApi = {
   register: (payload: RegisterPayload) =>
     axiosClient
       .post<RegisterResponse>(`${AUTH_API_BASE}/register`, payload)
+      .then((response) => response.data),
+  login: (payload: LoginPayload) =>
+    axiosClient
+      .post<LoginResponse>(`${AUTH_API_BASE}/login`, payload)
       .then((response) => response.data),
 };
