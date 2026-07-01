@@ -62,6 +62,15 @@ export type ChildProfileRequest = {
   notes?: string;
 };
 
+export type UpdateChildProfileRequest = {
+  fullName?: string;
+  dateOfBirth?: string;
+  gender?: Gender;
+  gradeId?: number | null;
+  schoolName?: string;
+  notes?: string;
+};
+
 export type LinkGuardianRequest = {
   parentEmail: string;
 };

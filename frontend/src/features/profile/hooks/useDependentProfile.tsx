@@ -159,6 +159,24 @@ export function useDependentProfile() {
     [reload],
   );
 
+  const deleteChild = useCallback(
+    async (childProfileId: number) => {
+      setMutationStatus('loading');
+      setMutationError(null);
+      try {
+        await profileApi.deleteChild(childProfileId);
+        await reload();
+        setMutationStatus('success');
+        return true;
+      } catch (error) {
+        setMutationError(extractApiErrorMessage(error, 'Không thể xóa hồ sơ con.'));
+        setMutationStatus('error');
+        return false;
+      }
+    },
+    [reload],
+  );
+
   return {
     status,
     errorMessage,
@@ -174,6 +192,7 @@ export function useDependentProfile() {
     linkGuardian,
     createChild,
     linkChildAccount,
+    deleteChild,
   };
 }
 

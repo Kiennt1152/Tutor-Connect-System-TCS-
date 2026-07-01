@@ -5,6 +5,7 @@ import HomePage from '../features/home/pages/HomePage';
 import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import DependentProfileLinkerPage from '../features/profile/pages/DependentProfileLinkerPage';
+import ChildProfileDetailPage from '../features/profile/pages/ChildProfileDetailPage';
 import GuardianApprovalPage from '../features/profile/pages/GuardianApprovalPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import { DependentProfileGate } from '../shared/auth/DependentProfileGate';
@@ -22,6 +23,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={['CLIENT']}>
               <DependentProfileLinkerPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile/children/:childProfileId"
+          element={
+            <ProtectedRoute roles={['CLIENT']}>
+              <ChildProfileDetailPage />
             </ProtectedRoute>
           }
         />

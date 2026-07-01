@@ -9,6 +9,7 @@ import type {
   LinkChildAccountRequest,
   ProfileResponse,
   UpdateProfileRequest,
+  UpdateChildProfileRequest,
 } from '../types/profileTypes';
 import type { GuardianApproval } from '../types/guardianApprovalTypes';
 
@@ -27,6 +28,15 @@ export const profileApi = {
 
   createChild: (body: ChildProfileRequest) =>
     axiosClient.post<ChildProfile>(`${PROFILE_API_BASE}/children`, body),
+
+  getChildById: (childProfileId: number) =>
+    axiosClient.get<ChildProfile>(`${PROFILE_API_BASE}/children/${childProfileId}`),
+
+  updateChild: (childProfileId: number, body: UpdateChildProfileRequest) =>
+    axiosClient.put<ChildProfile>(`${PROFILE_API_BASE}/children/${childProfileId}`, body),
+
+  deleteChild: (childProfileId: number) =>
+    axiosClient.delete(`${PROFILE_API_BASE}/children/${childProfileId}`),
 
   linkChildAccount: (body: LinkChildAccountRequest) =>
     axiosClient.post<ChildProfile>(`${PROFILE_API_BASE}/children/link-account`, body),

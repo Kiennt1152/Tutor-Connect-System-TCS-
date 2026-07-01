@@ -3,6 +3,7 @@ export const APP_ROUTES = {
   identity: '/identity',
   profile: '/profile',
   profileDependents: '/profile/dependents',
+  childProfile: (childProfileId: number) => `/profile/children/${childProfileId}`,
   finance: '/finance',
   catalog: '/catalog',
   center: '/center',

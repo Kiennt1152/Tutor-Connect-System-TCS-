@@ -4,7 +4,11 @@ import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { ClientLayout } from '../components/ClientLayout';
 import { useDependentProfile } from '../hooks/useDependentProfile';
-import type { Gender } from '../types/profileTypes';
+import {
+  CHILD_PROFILE_LIMITS,
+  validateCreateChildForm,
+} from '../utils/childProfileValidation';
+import type { ChildProfile, Gender } from '../types/profileTypes';
 import './DependentProfileLinkerPage.css';
 
 function formatDate(value?: string) {
@@ -28,6 +32,7 @@ export default function DependentProfileLinkerPage() {
     linkGuardian,
     createChild,
     linkChildAccount,
+    deleteChild,
   } = useDependentProfile();
 
   const [dateOfBirth, setDateOfBirth] = useState('');
@@ -39,6 +44,8 @@ export default function DependentProfileLinkerPage() {
   const [childGender, setChildGender] = useState<Gender | ''>('');
   const [childGradeId, setChildGradeId] = useState('');
   const [childSchoolName, setChildSchoolName] = useState('');
+  const [createValidationError, setCreateValidationError] = useState<string | null>(null);
+  const [deleteSuccessMessage, setDeleteSuccessMessage] = useState<string | null>(null);
 
   async function handleUpdateDob(e: FormEvent) {
     e.preventDefault();
@@ -63,9 +70,35 @@ export default function DependentProfileLinkerPage() {
     if (ok) setChildAccountEmail('');
   }
 
+  async function handleDeleteChild(child: ChildProfile) {
+    const label = child.fullName || 'hồ sơ con này';
+    const message = child.linkedToUserAccount
+      ? `Gỡ liên kết tài khoản "${label}" khỏi tài khoản của bạn? Tài khoản học sinh vẫn tồn tại trên hệ thống.`
+      : `Xóa hồ sơ con "${label}"? Hành động này không thể hoàn tác.`;
+    if (!window.confirm(message)) return;
+    setDeleteSuccessMessage(null);
+    const ok = await deleteChild(child.childProfileId);
+    if (ok) {
+      setDeleteSuccessMessage(
+        child.linkedToUserAccount
+          ? `Đã gỡ liên kết "${label}" khỏi tài khoản của bạn.`
+          : `Đã xóa hồ sơ con "${label}".`,
+      );
+    }
+  }
+
   async function handleCreateChild(e: FormEvent) {
     e.preventDefault();
-    if (!childFullName.trim()) return;
+    setCreateValidationError(null);
+    const validationError = validateCreateChildForm({
+      fullName: childFullName,
+      dateOfBirth: childDateOfBirth || undefined,
+      schoolName: childSchoolName || undefined,
+    });
+    if (validationError) {
+      setCreateValidationError(validationError);
+      return;
+    }
     const ok = await createChild({
       fullName: childFullName.trim(),
       dateOfBirth: childDateOfBirth || undefined,
@@ -281,6 +314,9 @@ export default function DependentProfileLinkerPage() {
                 <p className="dpl-muted">
                   Danh sách con đã liên kết với tài khoản của bạn (tài khoản đăng ký hoặc hồ sơ thủ công).
                 </p>
+                {deleteSuccessMessage && (
+                  <div className="dpl-alert dpl-alert--success">{deleteSuccessMessage}</div>
+                )}
 
                 {children.length === 0 ? (
                   <p className="dpl-empty">Chưa có hồ sơ con nào.</p>
@@ -288,21 +324,46 @@ export default function DependentProfileLinkerPage() {
                   <ul className="dpl-child-list">
                     {children.map((child) => (
                       <li key={child.childProfileId} className="dpl-child-item">
-                        <div>
-                          <strong>{child.fullName}</strong>
+                        <div className="dpl-child-item__body">
+                          <div className="dpl-child-item__header">
+                            <strong>{child.fullName}</strong>
+                            {child.linkedToUserAccount && (
+                              <span className="tcs-badge tcs-badge--active dpl-child-item__badge">
+                                Tài khoản đăng ký
+                              </span>
+                            )}
+                          </div>
                           {child.linkedToUserAccount && (
-                            <span className="tcs-badge tcs-badge--active dpl-child-item__badge">
-                              Tài khoản đăng ký
-                            </span>
+                            <div className="dpl-child-item__row">
+                              <span className="dpl-child-item__label">Email</span>
+                              <span className="dpl-child-item__value">
+                                {child.childEmail ?? '—'}
+                              </span>
+                            </div>
                           )}
                           {child.gradeName && (
-                            <span className="dpl-child-item__meta"> · {child.gradeName}</span>
-                          )}
-                          {child.childEmail && (
-                            <span className="dpl-child-item__meta"> · {child.childEmail}</span>
+                            <div className="dpl-child-item__row">
+                              <span className="dpl-child-item__label">Khối / Lớp</span>
+                              <span className="dpl-child-item__value">{child.gradeName}</span>
+                            </div>
                           )}
                         </div>
-                        <span className="dpl-muted">{formatDate(child.dateOfBirth)}</span>
+                        <div className="dpl-child-item__actions">
+                          <Link
+                            className="tcs-btn tcs-btn--ghost dpl-child-item__manage"
+                            to={APP_ROUTES.childProfile(child.childProfileId)}
+                          >
+                            Cập nhật
+                          </Link>
+                          <button
+                            className="tcs-btn tcs-btn--danger dpl-child-item__manage"
+                            type="button"
+                            disabled={mutationStatus === 'loading'}
+                            onClick={() => handleDeleteChild(child)}
+                          >
+                            Xóa
+                          </button>
+                        </div>
                       </li>
                     ))}
                   </ul>
@@ -315,6 +376,9 @@ export default function DependentProfileLinkerPage() {
                   Dùng khi con chưa có tài khoản riêng. Bạn có thể bỏ qua bước này nếu đã liên kết
                   tài khoản con ở trên.
                 </p>
+                {createValidationError && (
+                  <div className="dpl-alert dpl-alert--error">{createValidationError}</div>
+                )}
                 <form className="dpl-form dpl-form--grid" onSubmit={handleCreateChild}>
                   <label>
                     Họ tên con *
@@ -322,6 +386,7 @@ export default function DependentProfileLinkerPage() {
                       className="dpl-field"
                       value={childFullName}
                       onChange={(e) => setChildFullName(e.target.value)}
+                      maxLength={CHILD_PROFILE_LIMITS.fullNameMax}
                       required
                     />
                   </label>
@@ -331,6 +396,7 @@ export default function DependentProfileLinkerPage() {
                       className="dpl-field"
                       type="date"
                       value={childDateOfBirth}
+                      max={new Date().toISOString().slice(0, 10)}
                       onChange={(e) => setChildDateOfBirth(e.target.value)}
                     />
                   </label>
@@ -367,6 +433,7 @@ export default function DependentProfileLinkerPage() {
                       className="dpl-field"
                       value={childSchoolName}
                       onChange={(e) => setChildSchoolName(e.target.value)}
+                      maxLength={CHILD_PROFILE_LIMITS.schoolNameMax}
                     />
                   </label>
                   <div className="dpl-form__full">
