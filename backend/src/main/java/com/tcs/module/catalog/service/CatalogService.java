@@ -3,8 +3,6 @@ package com.tcs.module.catalog.service;
 import com.tcs.module.catalog.dto.response.CatalogItemResponse;
 import com.tcs.module.catalog.dto.response.FaqResponse;
 import com.tcs.module.catalog.dto.response.LocationResponse;
-import java.util.List;
-
 import com.tcs.module.catalog.dto.request.CatalogRequest;
 import com.tcs.module.catalog.dto.response.CatalogResponse;
 import java.util.List;

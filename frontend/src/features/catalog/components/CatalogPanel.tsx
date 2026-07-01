@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useCatalog } from '../hooks/useCatalog';
 import type { CategoryItem, UpsertCategoryRequest } from '../types/catalogTypes';
 
@@ -10,30 +10,30 @@ const EMPTY_FORM: UpsertCategoryRequest = {
   status: 'ACTIVE',
 };
 
-const TAXONOMY_META: Record<string, { label: string; description: string }> = {
+const ROOT_GROUP_META: Record<string, { label: string; description: string }> = {
   SUBJECT: {
-    label: 'Subject Taxonomy',
+    label: 'Nhóm môn học',
     description: 'Danh mục môn học dùng cho tutor subject, class marketplace, matching và hiển thị trang chủ.',
   },
   EDUCATION_LEVEL: {
-    label: 'Education Level Taxonomy',
+    label: 'Nhóm cấp học',
     description: 'Danh mục cấp học và nhóm người học để chuẩn hóa hồ sơ, lead, và nhu cầu học tập.',
   },
   LOCATION: {
-    label: 'Location Taxonomy',
+    label: 'Nhóm khu vực',
     description: 'Danh mục khu vực hoạt động để phục vụ search, matching và vận hành lead theo địa bàn.',
   },
   SYSTEM_CONFIG: {
-    label: 'System Config Taxonomy',
+    label: 'Nhóm cấu hình hệ thống',
     description: 'Danh mục option hệ thống tái sử dụng như lesson mode, lead source và các cấu hình nghiệp vụ.',
   },
 };
 
-const ROOT_TAXONOMIES = ['SUBJECT', 'EDUCATION_LEVEL', 'LOCATION', 'SYSTEM_CONFIG'] as const;
-type RootTaxonomy = (typeof ROOT_TAXONOMIES)[number];
+const ROOT_GROUPS = ['SUBJECT', 'EDUCATION_LEVEL', 'LOCATION', 'SYSTEM_CONFIG'] as const;
+type RootGroup = (typeof ROOT_GROUPS)[number];
 
 export function CatalogPanel() {
-  const [activeRoot, setActiveRoot] = useState<RootTaxonomy>('SUBJECT');
+  const [activeRoot, setActiveRoot] = useState<RootGroup>('SUBJECT');
   const { status, categories, error, reload, createCategory, updateCategory, deleteCategory } =
     useCatalog(activeRoot);
   const [form, setForm] = useState<UpsertCategoryRequest>(EMPTY_FORM);
@@ -50,9 +50,9 @@ export function CatalogPanel() {
 
     return {
       root,
-      meta: TAXONOMY_META[root.name] ?? {
+      meta: ROOT_GROUP_META[root.name] ?? {
         label: root.name,
-        description: root.description ?? 'Nhóm taxonomy chưa có mô tả riêng.',
+        description: root.description ?? 'Nhóm này chưa có mô tả riêng.',
       },
     };
   }, [categories]);
@@ -60,6 +60,15 @@ export function CatalogPanel() {
     selectedCategoryId == null
       ? null
       : flatCategories.find((category) => category.categoryId === selectedCategoryId) ?? null;
+
+  useEffect(() => {
+    if (!selectedCategoryId && activeGroup) {
+      setForm((current) => ({
+        ...current,
+        parentId: current.parentId ?? activeGroup.root.categoryId,
+      }));
+    }
+  }, [activeGroup, selectedCategoryId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -118,7 +127,7 @@ export function CatalogPanel() {
     });
   }
 
-  function handleSelectRoot(root: RootTaxonomy) {
+  function handleSelectRoot(root: RootGroup) {
     setActiveRoot(root);
     setSelectedCategoryId(null);
     setSubmitError(null);
@@ -140,11 +149,15 @@ export function CatalogPanel() {
         <div className="catalog-hero">
           <span className="catalog-eyebrow">Catalog / Category Management</span>
           <h1 className="catalog-title">Quản lý category dùng chung cho subject và class</h1>
+          <p className="catalog-subtitle">
+            Mỗi nhóm category được quản lý riêng để giữ cấu trúc rõ ràng cho subject, location, education level
+            và các cấu hình dùng chung của hệ thống.
+          </p>
         </div>
 
         <section className="catalog-root-switcher">
-          {ROOT_TAXONOMIES.map((root) => {
-            const meta = TAXONOMY_META[root];
+          {ROOT_GROUPS.map((root) => {
+            const meta = ROOT_GROUP_META[root];
             const isActive = activeRoot === root;
 
             return (
@@ -166,7 +179,7 @@ export function CatalogPanel() {
           <article className="catalog-card">
             <div className="catalog-card__head">
               <div>
-                <h2 className="catalog-card__title">Category trong taxonomy đang chọn</h2>
+                <h2 className="catalog-card__title">Category trong nhóm đang chọn</h2>
               </div>
               <div className="catalog-actions">
                 <button className="catalog-btn catalog-btn--ghost" type="button" onClick={() => void reload()}>
@@ -192,7 +205,7 @@ export function CatalogPanel() {
               {status === 'error' && <div className="catalog-state catalog-state--error">{error}</div>}
 
               {status === 'success' && !activeGroup && (
-                <div className="catalog-empty">Nhánh taxonomy này hiện chưa có dữ liệu.</div>
+                <div className="catalog-empty">Nhóm này hiện chưa có dữ liệu.</div>
               )}
 
               {status === 'success' && activeGroup && (
@@ -202,6 +215,7 @@ export function CatalogPanel() {
                       <div>
                         <div className="catalog-taxonomy__eyebrow">{activeGroup.root.name}</div>
                         <h3 className="catalog-taxonomy__title">{activeGroup.meta.label}</h3>
+                        <p className="catalog-taxonomy__description">{activeGroup.meta.description}</p>
                       </div>
                       <span className="catalog-badge catalog-badge--info">
                         {countTreeNodes(activeGroup.root.children)} mục con
@@ -210,7 +224,7 @@ export function CatalogPanel() {
                     <div className="catalog-tree catalog-tree--scroller">
                       {activeGroup.root.children.length === 0 ? (
                         <div className="catalog-empty">
-                          Nhóm taxonomy này chưa có category con. Chọn root để thêm tiếp.
+                          Nhóm này chưa có category con. Chọn nhóm gốc để thêm tiếp.
                         </div>
                       ) : (
                         activeGroup.root.children.map((category) => (
@@ -244,6 +258,16 @@ export function CatalogPanel() {
               <form className="catalog-form" onSubmit={(event) => void handleSubmit(event)}>
                 <div className="catalog-form__grid">
                   <div className="catalog-field">
+                    <label htmlFor="category-taxonomy">Nhóm gốc</label>
+                    <input
+                      id="category-taxonomy"
+                      value={activeGroup?.meta.label ?? activeRoot}
+                      disabled
+                      readOnly
+                    />
+                  </div>
+
+                  <div className="catalog-field">
                     <label htmlFor="category-name">Tên category</label>
                     <input
                       id="category-name"
@@ -276,6 +300,13 @@ export function CatalogPanel() {
                           </option>
                         ))}
                     </select>
+                    <div className="catalog-form__hint">
+                      <span className="catalog-badge catalog-badge--muted">
+                        {selectedCategory
+                          ? `Đang thuộc: ${formatParentName(form.parentId, flatCategories)}`
+                          : `Tạo mới trong nhánh: ${formatParentName(form.parentId, flatCategories)}`}
+                      </span>
+                    </div>
                   </div>
 
                   <div className="catalog-field">
@@ -392,12 +423,12 @@ function CategoryNode({
               </span>
             </div>
 
-          <div className="catalog-node__meta">
-            {category.usedByTutorSubjects && (
-              <span className="catalog-badge catalog-badge--info">TutorSubject</span>
-            )}
-            {category.usedByTutoringClasses && (
-              <span className="catalog-badge catalog-badge--warn">TutoringClass</span>
+            <div className="catalog-node__meta">
+              {category.usedByTutorSubjects && (
+                <span className="catalog-badge catalog-badge--info">TutorSubject</span>
+              )}
+              {category.usedByTutoringClasses && (
+                <span className="catalog-badge catalog-badge--warn">TutoringClass</span>
               )}
               {!category.deletable && <span className="catalog-badge catalog-badge--muted">Không thể xóa</span>}
             </div>
@@ -462,4 +493,12 @@ function extractUiError(error: unknown) {
   }
 
   return 'Không lưu được category.';
+}
+
+function formatParentName(parentId: number | null, categories: CategoryItem[]) {
+  if (parentId == null) {
+    return 'Không có';
+  }
+
+  return categories.find((category) => category.categoryId === parentId)?.name ?? `#${parentId}`;
 }

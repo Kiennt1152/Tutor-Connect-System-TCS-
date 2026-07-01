@@ -1,6 +1,8 @@
 package com.tcs.module.catalog.service.impl;
 
 import com.tcs.module.catalog.dto.response.CatalogItemResponse;
+import com.tcs.module.catalog.dto.request.CatalogRequest;
+import com.tcs.module.catalog.dto.response.CatalogResponse;
 import com.tcs.module.catalog.dto.response.FaqResponse;
 import com.tcs.module.catalog.dto.response.LocationResponse;
 import com.tcs.module.catalog.entity.Category;
@@ -9,20 +11,15 @@ import com.tcs.module.catalog.entity.Grade;
 import com.tcs.module.catalog.entity.Location;
 import com.tcs.module.catalog.entity.Province;
 import com.tcs.module.catalog.entity.Subject;
+import com.tcs.module.catalog.enums.CategoryType;
+import com.tcs.module.catalog.mapper.CatalogMapper;
 import com.tcs.module.catalog.repository.CategoryRepository;
 import com.tcs.module.catalog.repository.FaqEntryRepository;
 import com.tcs.module.catalog.repository.GradeRepository;
 import com.tcs.module.catalog.repository.LocationRepository;
 import com.tcs.module.catalog.repository.ProvinceRepository;
 import com.tcs.module.catalog.repository.SubjectRepository;
-import com.tcs.module.catalog.dto.request.CatalogRequest;
-import com.tcs.module.catalog.dto.response.CatalogResponse;
-import com.tcs.module.catalog.entity.Category;
-import com.tcs.module.catalog.mapper.CatalogMapper;
-import com.tcs.module.catalog.repository.CategoryRepository;
-import com.tcs.module.catalog.repository.TutorSubjectRepository;
 import com.tcs.module.catalog.service.CatalogService;
-import java.util.List;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -44,6 +41,8 @@ public class CatalogServiceImpl implements CatalogService {
     private final ProvinceRepository provinceRepository;
     private final LocationRepository locationRepository;
     private final FaqEntryRepository faqEntryRepository;
+    private final TutoringClassRepository tutoringClassRepository;
+    private final CatalogMapper catalogMapper;
 
     @Override
     @Transactional(readOnly = true)
@@ -127,11 +126,6 @@ public class CatalogServiceImpl implements CatalogService {
                 .build();
     }
 
-    private final CategoryRepository categoryRepository;
-    private final TutorSubjectRepository tutorSubjectRepository;
-    private final TutoringClassRepository tutoringClassRepository;
-    private final CatalogMapper catalogMapper;
-
     @Override
     public List<CatalogResponse.CategoryResponse> getCategoryTree(String rootName) {
         List<Category> categories = categoryRepository.findAllByOrderByNameAsc();
@@ -202,10 +196,6 @@ public class CatalogServiceImpl implements CatalogService {
             throw new IllegalArgumentException("Cannot delete category that still has child categories.");
         }
 
-        if (tutorSubjectRepository.existsByCategory_CategoryId(categoryId)) {
-            throw new IllegalArgumentException("Cannot delete category that is assigned to tutor subjects.");
-        }
-
         if (tutoringClassRepository.existsByCategory_CategoryId(categoryId)) {
             throw new IllegalArgumentException("Cannot delete category that is assigned to tutoring classes.");
         }
@@ -233,7 +223,7 @@ public class CatalogServiceImpl implements CatalogService {
             Category category,
             List<CatalogResponse.CategoryResponse> children
     ) {
-        boolean usedByTutorSubjects = tutorSubjectRepository.existsByCategory_CategoryId(category.getCategoryId());
+        boolean usedByTutorSubjects = false;
         boolean usedByTutoringClasses = tutoringClassRepository.existsByCategory_CategoryId(category.getCategoryId());
         boolean hasChildren = categoryRepository.existsByParent_CategoryId(category.getCategoryId());
         boolean deletable = !usedByTutorSubjects && !usedByTutoringClasses && !hasChildren;
@@ -254,11 +244,13 @@ public class CatalogServiceImpl implements CatalogService {
 
         if (request.getParentId() == null) {
             category.setParent(null);
+            category.setType(resolveRootCategoryType(category, request));
             return;
         }
 
         Category parent = getRequiredCategory(request.getParentId());
         category.setParent(parent);
+        category.setType(parent.getType());
     }
 
     private void validateUpsertRequest(CatalogRequest.UpsertCategoryRequest request, Category currentCategory) {
@@ -267,13 +259,7 @@ public class CatalogServiceImpl implements CatalogService {
         }
 
         String normalizedName = normalizeName(request.getName());
-        if (currentCategory == null) {
-            if (categoryRepository.existsByNameIgnoreCase(normalizedName)) {
-                throw new IllegalArgumentException("Category name already exists.");
-            }
-        } else if (categoryRepository.existsByNameIgnoreCaseAndCategoryIdNot(normalizedName, currentCategory.getCategoryId())) {
-            throw new IllegalArgumentException("Category name already exists.");
-        }
+        validateUniqueNameWithinParent(normalizedName, request.getParentId(), currentCategory);
 
         if (currentCategory != null && request.getParentId() != null) {
             if (currentCategory.getCategoryId().equals(request.getParentId())) {
@@ -298,6 +284,47 @@ public class CatalogServiceImpl implements CatalogService {
     private Category getRequiredCategory(Long categoryId) {
         return categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new IllegalArgumentException("Category not found: " + categoryId));
+    }
+
+    private void validateUniqueNameWithinParent(
+            String normalizedName,
+            Long parentId,
+            Category currentCategory
+    ) {
+        boolean exists;
+
+        if (parentId == null) {
+            exists = currentCategory == null
+                    ? categoryRepository.existsByParentIsNullAndNameIgnoreCase(normalizedName)
+                    : categoryRepository.existsByParentIsNullAndNameIgnoreCaseAndCategoryIdNot(
+                            normalizedName,
+                            currentCategory.getCategoryId()
+                    );
+        } else {
+            exists = currentCategory == null
+                    ? categoryRepository.existsByParent_CategoryIdAndNameIgnoreCase(parentId, normalizedName)
+                    : categoryRepository.existsByParent_CategoryIdAndNameIgnoreCaseAndCategoryIdNot(
+                            parentId,
+                            normalizedName,
+                            currentCategory.getCategoryId()
+                    );
+        }
+
+        if (exists) {
+            throw new IllegalArgumentException("Category name must be unique within the same parent level.");
+        }
+    }
+
+    private CategoryType resolveRootCategoryType(Category category, CatalogRequest.UpsertCategoryRequest request) {
+        if (category.getCategoryId() != null) {
+            return category.getType();
+        }
+
+        try {
+            return CategoryType.valueOf(normalizeName(request.getName()).toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Root category name must match a supported taxonomy group.");
+        }
     }
 
     private String normalizeName(String value) {
