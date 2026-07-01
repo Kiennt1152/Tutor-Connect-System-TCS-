@@ -13,16 +13,10 @@ const PHONE_REGEX = /^(0(3|5|7|8|9)\d{8}|\+84(3|5|7|8|9)\d{8})$/;
 const PASSWORD_ASCII_REGEX = /^[\x00-\x7F]*$/;
 const PASSWORD_STRENGTH_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
-const ROLE_OPTIONS: { value: RegisterRole; label: string; desc: string }[] = [
-  { value: 'CLIENT', label: 'Học viên / Phụ huynh', desc: 'Tìm và thuê gia sư' },
-  { value: 'TUTOR', label: 'Gia sư', desc: 'Nhận lớp & giảng dạy' },
-  { value: 'TUTOR_CENTER', label: 'Trung tâm', desc: 'Quản lý đội ngũ' },
-];
-
-const BENEFITS = [
-  'Xác thực email bằng OTP an toàn',
-  'Kết nối học viên – gia sư – trung tâm minh bạch',
-  'Thanh toán qua ký quỹ, bảo vệ cả hai bên',
+const ROLE_OPTIONS: { value: RegisterRole; label: string }[] = [
+  { value: 'CLIENT', label: 'Học viên / Phụ huynh' },
+  { value: 'TUTOR', label: 'Gia sư' },
+  { value: 'TUTOR_CENTER', label: 'Trung tâm' },
 ];
 
 function extractError(error: unknown): string {
@@ -261,26 +255,7 @@ export default function RegisterPage() {
     <div className="reg-page">
       <Header />
       <main className="reg-main">
-        <div className="reg-grid">
-          <aside className="reg-aside">
-            <div className="reg-aside__badge">Tutor Connect System</div>
-            <h2 className="reg-aside__title">
-              Tham gia nền tảng kết nối gia sư uy tín
-            </h2>
-            <p className="reg-aside__sub">
-              Tạo tài khoản để bắt đầu học tập và giảng dạy hiệu quả hơn.
-            </p>
-            <ul className="reg-aside__list">
-              {BENEFITS.map((b) => (
-                <li key={b} className="reg-aside__item">
-                  <span className="reg-aside__check">✓</span>
-                  {b}
-                </li>
-              ))}
-            </ul>
-          </aside>
-
-          <section className="reg-card">
+        <section className="reg-card">
             {done ? (
               <div className="reg-success">
                 <div className="reg-success__icon">✓</div>
@@ -318,7 +293,6 @@ export default function RegisterPage() {
                       onClick={() => setRole(o.value)}
                     >
                       <span className="reg-role__label">{o.label}</span>
-                      <span className="reg-role__desc">{o.desc}</span>
                     </button>
                   ))}
                 </div>
@@ -391,45 +365,46 @@ export default function RegisterPage() {
                   </div>
                 )}
 
-                <fieldset className="reg-fieldset" disabled={!emailVerified}>
-                  {!emailVerified && (
-                    <p className="reg-hint">Vui lòng xác thực email trước khi điền thông tin bên dưới.</p>
-                  )}
-                  <label className="reg-field">
-                    <span className="reg-label">
-                      {role === 'TUTOR_CENTER' ? 'Tên trung tâm' : 'Tên hiển thị'}
-                    </span>
-                    <input
-                      className="reg-input"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder={role === 'TUTOR_CENTER' ? 'Tên trung tâm' : 'Nguyễn Văn A'}
-                    />
-                  </label>
-                  <label className="reg-field">
-                    <span className="reg-label">Số điện thoại</span>
-                    <input
-                      className="reg-input"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="0901234567 hoặc +84901234567"
-                    />
-                  </label>
-                  <div className="reg-grid2">
-                    <PasswordField
-                      label="Mật khẩu"
-                      value={password}
-                      placeholder="≥ 8 ký tự, chữ + số"
-                      onChange={setPassword}
-                    />
-                    <PasswordField
-                      label="Xác nhận mật khẩu"
-                      value={confirmPassword}
-                      placeholder="Nhập lại mật khẩu"
-                      onChange={setConfirmPassword}
-                    />
+                {emailVerified ? (
+                  <div className="reg-fieldset">
+                    <label className="reg-field">
+                      <span className="reg-label">
+                        {role === 'TUTOR_CENTER' ? 'Tên trung tâm' : 'Họ và tên'}
+                      </span>
+                      <input
+                        className="reg-input"
+                        value={displayName}
+                        onChange={(e) => setDisplayName(e.target.value)}
+                        placeholder={role === 'TUTOR_CENTER' ? 'Tên trung tâm' : 'Nguyễn Văn A'}
+                      />
+                    </label>
+                    <label className="reg-field">
+                      <span className="reg-label">Số điện thoại</span>
+                      <input
+                        className="reg-input"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                        placeholder="0901234567"
+                      />
+                    </label>
+                    <div className="reg-grid2">
+                      <PasswordField
+                        label="Mật khẩu"
+                        value={password}
+                        placeholder="≥ 8 ký tự, chữ + số"
+                        onChange={setPassword}
+                      />
+                      <PasswordField
+                        label="Xác nhận mật khẩu"
+                        value={confirmPassword}
+                        placeholder="Nhập lại"
+                        onChange={setConfirmPassword}
+                      />
+                    </div>
                   </div>
-                </fieldset>
+                ) : (
+                  <p className="reg-hint">Xác thực email để tiếp tục điền thông tin đăng ký.</p>
+                )}
 
                 {formError && <div className="reg-alert reg-alert--error">{formError}</div>}
 
@@ -442,8 +417,7 @@ export default function RegisterPage() {
                 </p>
               </form>
             )}
-          </section>
-        </div>
+        </section>
       </main>
     </div>
   );
