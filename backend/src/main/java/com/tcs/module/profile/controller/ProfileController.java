@@ -2,10 +2,13 @@ package com.tcs.module.profile.controller;
 
 import com.tcs.module.profile.dto.request.ChildProfileRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
+import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
 import com.tcs.module.profile.dto.request.TutorExperienceRequest;
 import com.tcs.module.profile.dto.request.UpdateProfileRequest;
 import com.tcs.module.profile.dto.response.ChildProfileResponse;
+import com.tcs.module.profile.dto.response.DependentLinkStatusResponse;
+import com.tcs.module.profile.dto.response.GuardianProfileResponse;
 import com.tcs.module.profile.dto.response.ProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
@@ -55,6 +58,21 @@ public class ProfileController {
     @PostMapping("/children/link")
     public ChildProfileResponse linkChild(@RequestBody LinkChildRequest request) {
         return profileService.linkChild(request);
+    }
+
+    @GetMapping("/dependent-status")
+    public DependentLinkStatusResponse getDependentLinkStatus() {
+        return profileService.getDependentLinkStatus();
+    }
+
+    @GetMapping("/guardian")
+    public GuardianProfileResponse getMyGuardian() {
+        return profileService.getMyGuardian();
+    }
+
+    @PostMapping("/guardian/link")
+    public GuardianProfileResponse linkGuardian(@RequestBody LinkGuardianRequest request) {
+        return profileService.linkGuardian(request);
     }
 
     @GetMapping("/experiences")

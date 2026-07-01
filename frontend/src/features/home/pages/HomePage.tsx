@@ -1,5 +1,7 @@
 import { useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { imageAssets } from '../../../assets/images/ImageAssets';
+import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useHome } from '../hooks/useHome';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import './HomePage.css';
@@ -16,6 +18,14 @@ const initials = (name: string) =>
     .join('');
 
 function Header() {
+  const { isAuthenticated, logout, user } = useAuth();
+  const navigate = useNavigate();
+
+  function handleLogout() {
+    logout();
+    navigate('/');
+  }
+
   return (
     <header className="tcs-header">
       <div className="tcs-container tcs-header__inner">
@@ -29,12 +39,27 @@ function Header() {
           <a href="#how">Cách hoạt động</a>
         </nav>
         <div className="tcs-header__actions">
-          <a className="tcs-btn tcs-btn--ghost" href="/login">
-            Đăng nhập
-          </a>
-          <a className="tcs-btn tcs-btn--primary" href="/register">
-            Đăng ký
-          </a>
+          {isAuthenticated ? (
+            <>
+              {user?.role === 'CLIENT' && (
+                <Link className="tcs-btn tcs-btn--ghost" to="/profile/dependents">
+                  Liên kết hồ sơ
+                </Link>
+              )}
+              <button className="tcs-btn tcs-btn--ghost" type="button" onClick={handleLogout}>
+                Đăng xuất
+              </button>
+            </>
+          ) : (
+            <>
+              <Link className="tcs-btn tcs-btn--ghost" to="/login">
+                Đăng nhập
+              </Link>
+              <Link className="tcs-btn tcs-btn--primary" to="/register">
+                Đăng ký
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>

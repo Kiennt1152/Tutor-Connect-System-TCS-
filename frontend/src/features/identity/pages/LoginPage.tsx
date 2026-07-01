@@ -4,11 +4,21 @@ import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import './AuthPages.css';
 
+function resolveRedirectPath(location: ReturnType<typeof useLocation>) {
+  const params = new URLSearchParams(location.search);
+  const queryFrom = params.get('from');
+  if (queryFrom && queryFrom.startsWith('/')) {
+    return queryFrom;
+  }
+  const stateFrom = (location.state as { from?: string } | null)?.from;
+  return stateFrom ?? '/';
+}
+
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? '/';
+  const redirectTo = resolveRedirectPath(location);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -16,7 +26,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
 
   if (isAuthenticated) {
-    return <Navigate to={from} replace />;
+    return <Navigate to={redirectTo} replace />;
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -25,7 +35,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await login({ email, password });
-      navigate(from, { replace: true });
+      navigate(redirectTo, { replace: true });
     } catch {
       setError('Email hoặc mật khẩu không đúng');
     } finally {

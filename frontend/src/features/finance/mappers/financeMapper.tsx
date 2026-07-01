@@ -1,5 +1,5 @@
-import type { FinanceResponse } from '../types/financeTypes';
+import type { WalletResponse } from '../types/financeTypes';
 
-export function mapFinanceResponse(response: FinanceResponse): FinanceResponse {
+export function mapWalletResponse(response: WalletResponse): WalletResponse {
   return response;
 }

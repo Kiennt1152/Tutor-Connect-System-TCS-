@@ -21,4 +21,19 @@ axiosClient.interceptors.request.use((config) => {
   return config;
 });
 
+axiosClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      const path = window.location.pathname;
+      authStorage.clearAll();
+      if (path !== '/login' && path !== '/register') {
+        const from = encodeURIComponent(path);
+        window.location.assign(`/login?from=${from}`);
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
 export default axiosClient;

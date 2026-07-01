@@ -1,5 +1,5 @@
-import type { ContractResponse } from '../types/contractTypes';
+import type { SignContractResponse } from '../types/contractTypes';
 
-export function mapContractResponse(response: ContractResponse): ContractResponse {
+export function mapSignContractResponse(response: SignContractResponse): SignContractResponse {
   return response;
 }

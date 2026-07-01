@@ -11,7 +11,7 @@ export type RegisterRequest = {
   phone?: string;
   role: UserRole;
   fullName: string;
-  gender?: 'MALE' | 'FEMALE' | 'OTHER';
+  gender?: 'MALE' | 'FEMALE';
   address?: string;
   licenseNo?: string;
   companyName?: string;

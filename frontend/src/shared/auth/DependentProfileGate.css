@@ -1,0 +1,25 @@
+.dpl-gate {
+  max-width: 520px;
+  margin: var(--space-2xl) auto;
+  padding: var(--space-xl);
+  text-align: center;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+.dpl-gate h2 {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--fs-h3);
+  color: var(--color-text-primary);
+}
+
+.dpl-gate p {
+  margin: 0 0 var(--space-md);
+  color: var(--color-text-secondary);
+}
+
+.dpl-gate .tcs-btn {
+  margin-top: var(--space-sm);
+}
