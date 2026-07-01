@@ -28,6 +28,12 @@
     </scm>
     <properties>
         <java.version>21</java.version>
+        <db.url>${env.DB_URL}</db.url>
+        <db.username>${env.DB_USERNAME}</db.username>
+        <db.password>${env.DB_PASSWORD}</db.password>
+        <db.url.default>jdbc:mysql://localhost:3306/tutorconnectsystem?useSSL=false&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true</db.url.default>
+        <db.username.default>root</db.username.default>
+        <db.password.default></db.password.default>
     </properties>
     <dependencies>
         <dependency>
@@ -105,9 +111,9 @@
                 <groupId>org.flywaydb</groupId>
                 <artifactId>flyway-maven-plugin</artifactId>
                 <configuration>
-                    <url>jdbc:mysql://localhost:3306/tutorconnectsystem?useSSL=false&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true</url>
-                    <user>root</user>
-                    <password>123456</password>
+                    <url>${db.url}</url>
+                    <user>${db.username}</user>
+                    <password>12345</password>
                     <locations>
                         <location>filesystem:src/main/resources/db/migration</location>
                     </locations>
@@ -164,5 +170,33 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>db-defaults</id>
+            <activation>
+                <activeByDefault>true</activeByDefault>
+            </activation>
+            <properties>
+                <db.url>${db.url.default}</db.url>
+                <db.username>${db.username.default}</db.username>
+                <db.password>${db.password.default}</db.password>
+            </properties>
+        </profile>
+
+        <profile>
+            <id>db-env</id>
+            <activation>
+                <property>
+                    <name>env.DB_URL</name>
+                </property>
+            </activation>
+            <properties>
+                <db.url>${env.DB_URL}</db.url>
+                <db.username>${env.DB_USERNAME}</db.username>
+                <db.password>${env.DB_PASSWORD}</db.password>
+            </properties>
+        </profile>
+    </profiles>
 
 </project>
