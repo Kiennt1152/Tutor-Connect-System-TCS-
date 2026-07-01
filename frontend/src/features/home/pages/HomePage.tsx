@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { imageAssets } from '../../../assets/images/ImageAssets';
 import { useHome } from '../hooks/useHome';
-import { useIdentity } from '../../identity/hooks/useIdentity';
+import { useAuth } from '../../../shared/auth/AuthProvider';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import './HomePage.css';
 
@@ -17,7 +17,7 @@ const initials = (name: string) =>
     .join('');
 
 function Header() {
-  const { user, logout } = useIdentity();
+  const { user, logout } = useAuth();
 
   return (
     <header className="tcs-header">
