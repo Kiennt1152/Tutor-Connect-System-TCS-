@@ -22,6 +22,9 @@ export type ChildProfile = {
   schoolName?: string;
   notes?: string;
   createdAt?: string;
+  linkedToUserAccount?: boolean;
+  childUserId?: number;
+  childEmail?: string;
 };
 
 export type GuardianProfile = {
@@ -39,6 +42,8 @@ export type DependentLinkStatus = {
   guardianLinked: boolean;
   childrenLinkOptional: boolean;
   linkedChildrenCount: number;
+  profileLinkComplete: boolean;
+  /** @deprecated dùng profileLinkComplete */
   canProceedToPayment: boolean;
   legalProceduresDelegatedToParent: boolean;
   legalAccountUserId?: number;
@@ -59,6 +64,10 @@ export type ChildProfileRequest = {
 
 export type LinkGuardianRequest = {
   parentEmail: string;
+};
+
+export type LinkChildAccountRequest = {
+  childEmail: string;
 };
 
 export type UpdateProfileRequest = {

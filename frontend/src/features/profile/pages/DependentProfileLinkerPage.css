@@ -259,6 +259,11 @@
   font-weight: 400;
 }
 
+.dpl-child-item__badge {
+  margin-left: var(--space-xs);
+  vertical-align: middle;
+}
+
 .dpl-empty {
   color: var(--color-text-secondary);
   font-style: italic;

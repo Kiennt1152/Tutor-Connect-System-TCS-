@@ -1,6 +1,7 @@
 package com.tcs.module.profile.service;
 
 import com.tcs.module.profile.dto.request.ChildProfileRequest;
+import com.tcs.module.profile.dto.request.LinkChildAccountRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
@@ -25,6 +26,8 @@ public interface ProfileService {
     ChildProfileResponse createChild(ChildProfileRequest request);
 
     ChildProfileResponse linkChild(LinkChildRequest request);
+
+    ChildProfileResponse linkChildAccount(LinkChildAccountRequest request);
 
     DependentLinkStatusResponse getDependentLinkStatus();
 

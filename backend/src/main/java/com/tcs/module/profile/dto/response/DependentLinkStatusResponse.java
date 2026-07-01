@@ -25,7 +25,11 @@ public class DependentLinkStatusResponse {
     /** Số hồ sơ con đã liên kết (chỉ áp dụng khi người lớn). */
     private int linkedChildrenCount;
 
-    /** Được phép tiếp tục thanh toán / tạo hợp đồng. */
+    /** Hoàn tất liên kết hồ sơ phụ thuộc (ngày sinh + phụ huynh nếu là học sinh). */
+    private boolean profileLinkComplete;
+
+    /** @deprecated dùng {@link #profileLinkComplete} */
+    @Deprecated
     private boolean canProceedToPayment;
 
     /** Thanh toán & thủ tục pháp lý chuyển sang tài khoản phụ huynh (học sinh vị thành niên). */

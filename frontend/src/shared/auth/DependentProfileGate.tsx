@@ -33,7 +33,7 @@ export function DependentProfileGate({ children }: DependentProfileGateProps) {
     );
   }
 
-  if (linkStatus && !linkStatus.canProceedToPayment) {
+  if (linkStatus && !(linkStatus.profileLinkComplete ?? linkStatus.canProceedToPayment)) {
     return (
       <div className="dpl-gate">
         <h2>Cần hoàn tất liên kết hồ sơ</h2>

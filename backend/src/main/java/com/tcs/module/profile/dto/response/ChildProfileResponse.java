@@ -19,4 +19,10 @@ public class ChildProfileResponse {
     private String schoolName;
     private String notes;
     private LocalDateTime createdAt;
+
+    /** true nếu hồ sơ con trùng khớp tài khoản CLIENT học sinh đã đăng ký. */
+    private boolean linkedToUserAccount;
+
+    private Long childUserId;
+    private String childEmail;
 }
