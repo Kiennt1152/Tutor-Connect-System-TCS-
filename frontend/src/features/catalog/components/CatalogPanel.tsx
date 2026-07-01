@@ -249,7 +249,7 @@ export function CatalogPanel() {
             <div className="catalog-card__head">
               <div>
                 <h2 className="catalog-card__title">
-                  {selectedCategory ? `Chỉnh sửa #${selectedCategory.categoryId}` : 'Tạo category mới'}
+                  {selectedCategory ? `Chỉnh sửa ${selectedCategory.name}` : 'Tạo category mới'}
                 </h2>
               </div>
             </div>
@@ -280,26 +280,12 @@ export function CatalogPanel() {
 
                   <div className="catalog-field">
                     <label htmlFor="category-parent">Category cha</label>
-                    <select
+                    <input
                       id="category-parent"
-                      value={form.parentId ?? ''}
-                      disabled={!selectedCategory}
-                      onChange={(event) =>
-                        setForm((current) => ({
-                          ...current,
-                          parentId: event.target.value === '' ? null : Number(event.target.value),
-                        }))
-                      }
-                    >
-                      <option value="">Không có</option>
-                      {flatCategories
-                        .filter((category) => category.categoryId !== selectedCategoryId)
-                        .map((category) => (
-                          <option key={category.categoryId} value={category.categoryId}>
-                            {category.name}
-                          </option>
-                        ))}
-                    </select>
+                      value={formatParentName(form.parentId, flatCategories)}
+                      disabled
+                      readOnly
+                    />
                     <div className="catalog-form__hint">
                       <span className="catalog-badge catalog-badge--muted">
                         {selectedCategory
