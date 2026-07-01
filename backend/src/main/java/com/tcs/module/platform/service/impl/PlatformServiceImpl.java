@@ -175,7 +175,6 @@ public class PlatformServiceImpl implements PlatformService {
         VerificationRequest saved = verificationRequestRepository.save(verification);
 
         recordVerificationHistory(saved, oldStatus, request.getStatus(), adminId);
-
         if (request.getStatus() == VerificationStatus.VERIFIED
                 || request.getStatus() == VerificationStatus.REJECTED) {
             ProfileVerificationStatus profileStatus = request.getStatus() == VerificationStatus.VERIFIED
@@ -206,7 +205,6 @@ public class PlatformServiceImpl implements PlatformService {
         history.setOldStatus(oldStatus != null ? oldStatus.name() : null);
         history.setNewStatus(newStatus.name());
         history.setChangedByUser(admin);
-        history.setNote("Platform review: " + newStatus.name());
         verificationHistoryRepository.save(history);
     }
 

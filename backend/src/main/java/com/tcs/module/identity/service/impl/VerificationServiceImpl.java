@@ -41,6 +41,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 public class VerificationServiceImpl implements VerificationService {
 
+    /**
+     * Review flow (start-review + review + sync status) is currently disabled.
+     * Re-enable after the verification review flow is ready to ship.
+     */
+    private static final boolean REVIEW_FLOW_ENABLED = false;
+
     private final VerificationRequestRepository verificationRequestRepository;
     private final VerificationDocumentRepository verificationDocumentRepository;
     private final VerificationHistoryRepository verificationHistoryRepository;
@@ -96,7 +102,7 @@ public class VerificationServiceImpl implements VerificationService {
             verificationDocumentRepository.save(doc);
         }
 
-        recordHistory(saved, null, VerificationStatus.SUBMITTED, user, "Tutor nộp hồ sơ xác minh");
+        recordHistory(saved, null, VerificationStatus.SUBMITTED, user);
 
         log.info("Verification submitted: userId={}, type={}, verificationId={}",
                 userId, request.getVerificationType(), saved.getVerificationId());
@@ -147,6 +153,7 @@ public class VerificationServiceImpl implements VerificationService {
     @Override
     @Transactional
     public VerificationResponse startReview(Long verificationId) {
+        guardReviewFlow();
         Long adminId = authHelper.requireRole(UserRole.PLATFORM_ADMIN).getUserId();
         VerificationRequest verification = loadVerificationOrThrow(verificationId);
 
@@ -161,8 +168,7 @@ public class VerificationServiceImpl implements VerificationService {
         verification.setStatus(VerificationStatus.UNDER_REVIEW);
         VerificationRequest saved = verificationRequestRepository.save(verification);
 
-        recordHistory(saved, oldStatus, VerificationStatus.UNDER_REVIEW, admin,
-                "Admin bắt đầu duyệt hồ sơ");
+        recordHistory(saved, oldStatus, VerificationStatus.UNDER_REVIEW, admin);
 
         log.info("Verification review started: verificationId={}, adminId={}", verificationId, adminId);
         return verificationMapper.toResponse(saved,
@@ -172,6 +178,7 @@ public class VerificationServiceImpl implements VerificationService {
     @Override
     @Transactional
     public VerificationResponse reviewVerification(Long verificationId, VerificationDecisionDto decision) {
+        guardReviewFlow();
         Long adminId = authHelper.requireRole(UserRole.PLATFORM_ADMIN).getUserId();
         VerificationRequest verification = loadVerificationOrThrow(verificationId);
 
@@ -189,22 +196,19 @@ public class VerificationServiceImpl implements VerificationService {
         verification.setAdminNotes(decision.getNote());
 
         VerificationStatus newStatus;
-        String noteForHistory;
         if ("APPROVE".equalsIgnoreCase(decision.getDecision())) {
             newStatus = VerificationStatus.VERIFIED;
             verification.setRejectionReason(null);
-            noteForHistory = "Duyệt hồ sơ: " + decision.getNote();
         } else if ("REJECT".equalsIgnoreCase(decision.getDecision())) {
             newStatus = VerificationStatus.REJECTED;
             verification.setRejectionReason(decision.getNote());
-            noteForHistory = "Từ chối hồ sơ: " + decision.getNote();
         } else {
             throw new IllegalArgumentException("Decision must be APPROVE or REJECT");
         }
         verification.setStatus(newStatus);
 
         VerificationRequest saved = verificationRequestRepository.save(verification);
-        recordHistory(saved, oldStatus, newStatus, admin, noteForHistory);
+        recordHistory(saved, oldStatus, newStatus, admin);
         syncProfileStatus(saved.getUser().getUserId(), newStatus);
         sendResultNotification(saved, newStatus);
 
@@ -259,13 +263,12 @@ public class VerificationServiceImpl implements VerificationService {
     }
 
     private void recordHistory(VerificationRequest request, VerificationStatus oldStatus,
-                               VerificationStatus newStatus, User changedBy, String note) {
+                               VerificationStatus newStatus, User changedBy) {
         VerificationHistory history = new VerificationHistory();
         history.setVerificationRequest(request);
         history.setOldStatus(oldStatus != null ? oldStatus.name() : null);
         history.setNewStatus(newStatus.name());
         history.setChangedByUser(changedBy);
-        history.setNote(note);
         verificationHistoryRepository.save(history);
     }
 
@@ -310,5 +313,12 @@ public class VerificationServiceImpl implements VerificationService {
         notification.setStatus(NotificationStatus.SENT);
         notification.setIsRead(false);
         notificationRepository.save(notification);
+    }
+
+    private void guardReviewFlow() {
+        if (!REVIEW_FLOW_ENABLED) {
+            throw new BusinessException(
+                    "Review flow is temporarily disabled.");
+        }
     }
 }
