@@ -5,11 +5,8 @@ import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.catalog.entity.Grade;
 import com.tcs.module.catalog.repository.GradeRepository;
 import com.tcs.module.identity.entity.User;
-import com.tcs.module.identity.entity.VerificationRequest;
-import com.tcs.module.identity.enums.VerificationStatus;
-import com.tcs.module.identity.enums.VerificationType;
+import com.tcs.module.identity.service.VerificationService;
 import com.tcs.module.identity.repository.UserRepository;
-import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.mapper.UserProfileBundle;
 import com.tcs.module.profile.dto.request.ChildProfileRequest;
@@ -40,7 +37,6 @@ import com.tcs.module.profile.repository.TutorExperienceRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.service.ProfileService;
 import com.tcs.security.AuthHelper;
-import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -62,7 +58,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final GradeRepository gradeRepository;
     private final TutorExperienceRepository tutorExperienceRepository;
     private final TutorAvailabilityRepository tutorAvailabilityRepository;
-    private final VerificationRequestRepository verificationRequestRepository;
+    private final VerificationService verificationService;
     private final PlatformMapper platformMapper;
 
     @Override
@@ -207,18 +203,19 @@ public class ProfileServiceImpl implements ProfileService {
 
     @Override
     @Transactional
-    public void submitVerification() {
+    public com.tcs.module.identity.dto.response.VerificationResponse submitVerification(
+            com.tcs.module.identity.dto.request.VerificationRequestDto request
+    ) {
         ProfileContext ctx = loadContext();
         if (ctx.role() != UserRole.TUTOR && ctx.role() != UserRole.TUTOR_CENTER) {
             throw new ForbiddenException("Chỉ gia sư hoặc trung tâm mới nộp xác minh");
         }
-        VerificationRequest request = new VerificationRequest();
-        request.setUser(ctx.user());
-        request.setVerificationType(
-                ctx.role() == UserRole.TUTOR ? VerificationType.TUTOR_PROFILE : VerificationType.TUTOR_CENTER_LICENSE);
-        request.setStatus(VerificationStatus.SUBMITTED);
-        request.setSubmittedAt(LocalDateTime.now());
-        verificationRequestRepository.save(request);
+        if (request.getVerificationType() == null) {
+            request.setVerificationType(ctx.role() == UserRole.TUTOR
+                    ? com.tcs.module.identity.enums.VerificationType.TUTOR_PROFILE
+                    : com.tcs.module.identity.enums.VerificationType.TUTOR_CENTER_LICENSE);
+        }
+        return verificationService.submitVerification(request);
     }
 
     private ProfileContext loadContext() {

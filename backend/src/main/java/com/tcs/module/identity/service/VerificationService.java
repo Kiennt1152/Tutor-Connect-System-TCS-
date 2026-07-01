@@ -9,7 +9,7 @@ import java.util.List;
 
 public interface VerificationService {
 
-    VerificationResponse submitVerification(Long userId, VerificationRequestDto request);
+    VerificationResponse submitVerification(VerificationRequestDto request);
 
     VerificationResponse getVerificationById(Long verificationId);
 
@@ -17,9 +17,13 @@ public interface VerificationService {
 
     List<VerificationResponse> getVerificationsByStatus(VerificationStatus status);
 
-    VerificationResponse reviewVerification(Long verificationId, Long adminId, VerificationDecisionDto decision);
+    VerificationResponse startReview(Long verificationId);
+
+    VerificationResponse reviewVerification(Long verificationId, VerificationDecisionDto decision);
 
     List<VerificationResponse> getModerationQueue();
+
+    List<VerificationResponse> getMyVerifications();
 
     boolean canResubmit(Long userId, VerificationType verificationType);
 }

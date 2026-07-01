@@ -44,4 +44,7 @@ public class VerificationHistory {
     @CreationTimestamp
     @Column(name = "changed_at", nullable = false, updatable = false)
     private LocalDateTime changedAt;
+
+    @Column(name = "note", columnDefinition = "TEXT")
+    private String note;
 }
