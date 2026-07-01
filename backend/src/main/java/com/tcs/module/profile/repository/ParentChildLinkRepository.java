@@ -18,9 +18,14 @@ public interface ParentChildLinkRepository extends JpaRepository<ParentChildLink
     boolean existsByParentUser_UserIdAndChildProfile_ChildProfileIdAndStatus(
             Long userId, Long childProfileId, ParentChildLinkStatus status);
 
+    boolean existsByChildProfile_ChildProfileIdAndStatus(Long childProfileId, ParentChildLinkStatus status);
+
     Optional<ParentChildLink> findFirstByChildProfile_FullNameAndChildProfile_DateOfBirthAndStatus(
             String fullName, LocalDate dateOfBirth, ParentChildLinkStatus status);
 
     Optional<ParentChildLink> findFirstByParentUser_UserIdAndChildProfile_FullNameAndChildProfile_DateOfBirthAndStatus(
             Long parentUserId, String fullName, LocalDate dateOfBirth, ParentChildLinkStatus status);
+
+    Optional<ParentChildLink> findFirstByParentUser_UserIdAndChildProfile_ChildProfileIdAndStatus(
+            Long parentUserId, Long childProfileId, ParentChildLinkStatus status);
 }

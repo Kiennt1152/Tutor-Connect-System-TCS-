@@ -6,6 +6,7 @@ import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
 import com.tcs.module.profile.dto.request.TutorExperienceRequest;
+import com.tcs.module.profile.dto.request.UpdateChildProfileRequest;
 import com.tcs.module.profile.dto.request.UpdateProfileRequest;
 import com.tcs.module.profile.dto.response.ChildProfileResponse;
 import com.tcs.module.profile.dto.response.DependentLinkStatusResponse;
@@ -54,6 +55,23 @@ public class ProfileController {
     @ResponseStatus(HttpStatus.CREATED)
     public ChildProfileResponse createChild(@RequestBody ChildProfileRequest request) {
         return profileService.createChild(request);
+    }
+
+    @GetMapping("/children/{childProfileId}")
+    public ChildProfileResponse getChildById(@PathVariable Long childProfileId) {
+        return profileService.getChildById(childProfileId);
+    }
+
+    @PutMapping("/children/{childProfileId}")
+    public ChildProfileResponse updateChild(
+            @PathVariable Long childProfileId, @RequestBody UpdateChildProfileRequest request) {
+        return profileService.updateChild(childProfileId, request);
+    }
+
+    @DeleteMapping("/children/{childProfileId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteChild(@PathVariable Long childProfileId) {
+        profileService.deleteChild(childProfileId);
     }
 
     @PostMapping("/children/link")

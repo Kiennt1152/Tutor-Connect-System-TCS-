@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ClassStudentRepository extends JpaRepository<ClassStudent, Long> {
+
+    boolean existsByChildProfile_ChildProfileId(Long childProfileId);
 }
