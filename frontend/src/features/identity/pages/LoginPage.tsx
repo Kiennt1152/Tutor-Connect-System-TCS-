@@ -1,19 +1,168 @@
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/auth/AuthProvider';
-import './AuthPages.css';
+import { imageAssets } from '../../../assets/images/ImageAssets';
+import './RegisterPage.css';
+
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
+const GSI_SRC = 'https://accounts.google.com/gsi/client';
+
+type GoogleCredentialResponse = { credential: string };
+type GsiButtonOptions = {
+  theme?: string;
+  size?: string;
+  width?: number;
+  text?: string;
+  shape?: string;
+  logo_alignment?: string;
+};
+type GoogleAccountsId = {
+  initialize: (config: {
+    client_id: string;
+    callback: (response: GoogleCredentialResponse) => void;
+  }) => void;
+  renderButton: (parent: HTMLElement, options: GsiButtonOptions) => void;
+};
+type GoogleGsi = { accounts: { id: GoogleAccountsId } };
+
+/** Nap script Google Identity Services mot lan (idempotent). */
+function loadGsiScript(): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${GSI_SRC}"]`)) {
+      resolve();
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = GSI_SRC;
+    script.async = true;
+    script.defer = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('Không tải được Google Identity Services'));
+    document.head.appendChild(script);
+  });
+}
+
+function Header() {
+  return (
+    <header className="reg-header">
+      <div className="reg-header__inner">
+        <Link to="/" className="reg-logo" aria-label="Tutor Connect System">
+          <img className="reg-logo__image" src={imageAssets.logo} alt="" />
+          <span className="reg-logo__text">Tutor Connect System</span>
+        </Link>
+        <Link to="/register" className="reg-header__login">
+          Đăng ký
+        </Link>
+      </div>
+    </header>
+  );
+}
+
+function EyeIcon({ off }: { off: boolean }) {
+  const common = {
+    width: 18,
+    height: 18,
+    viewBox: '0 0 24 24',
+    fill: 'none',
+    stroke: 'currentColor',
+    strokeWidth: 2,
+    strokeLinecap: 'round' as const,
+    strokeLinejoin: 'round' as const,
+    'aria-hidden': true,
+  };
+  return off ? (
+    <svg {...common}>
+      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+      <line x1="1" y1="1" x2="23" y2="23" />
+    </svg>
+  ) : (
+    <svg {...common}>
+      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+      <circle cx="12" cy="12" r="3" />
+    </svg>
+  );
+}
+
+function GoogleIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"
+      />
+      <path
+        fill="#34A853"
+        d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"
+      />
+      <path fill="#FBBC05" d="M3.97 10.72a5.4 5.4 0 0 1 0-3.44V4.95H.96a9 9 0 0 0 0 8.1l3.01-2.33z" />
+      <path
+        fill="#EA4335"
+        d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.58-2.58C13.47.9 11.43 0 9 0A9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"
+      />
+    </svg>
+  );
+}
 
 export default function LoginPage() {
-  const { login, isAuthenticated } = useAuth();
+  const { login, loginWithGoogle, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? '/';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const googleBtnRef = useRef<HTMLDivElement>(null);
+
+  // Google Identity Services: tai script, khoi tao va render nut chinh chu cua Google.
+  useEffect(() => {
+    if (!GOOGLE_CLIENT_ID) {
+      return;
+    }
+    let cancelled = false;
+
+    loadGsiScript()
+      .then(() => {
+        if (cancelled) {
+          return;
+        }
+        const google = (window as unknown as { google?: GoogleGsi }).google;
+        if (!google || !googleBtnRef.current) {
+          return;
+        }
+        google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: async (response) => {
+            setError('');
+            setLoading(true);
+            try {
+              await loginWithGoogle({ credential: response.credential });
+              navigate(from, { replace: true });
+            } catch {
+              setError('Đăng nhập Google thất bại. Vui lòng thử lại.');
+            } finally {
+              setLoading(false);
+            }
+          },
+        });
+        google.accounts.id.renderButton(googleBtnRef.current, {
+          theme: 'outline',
+          size: 'large',
+          width: 400,
+          text: 'continue_with',
+          shape: 'rectangular',
+          logo_alignment: 'center',
+        });
+      })
+      .catch(() => setError('Không tải được đăng nhập Google.'));
+
+    return () => {
+      cancelled = true;
+    };
+  }, [from, loginWithGoogle, navigate]);
 
   if (isAuthenticated) {
     return <Navigate to={from} replace />;
@@ -34,25 +183,87 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="auth-page">
-      <form className="auth-card" onSubmit={handleSubmit}>
-        <h1>Đăng nhập</h1>
-        {error && <p className="auth-error">{error}</p>}
-        <label>
-          Email
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-        </label>
-        <label>
-          Mật khẩu
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-        </label>
-        <button type="submit" disabled={loading}>
-          {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
-        </button>
-        <p>
-          Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
-        </p>
-      </form>
+    <div className="reg-page">
+      <Header />
+      <main className="reg-main">
+        <section className="reg-card reg-card--narrow">
+          <form onSubmit={handleSubmit} noValidate>
+            <div className="reg-card__head">
+              <h1 className="reg-card__title">Đăng nhập</h1>
+              <p className="reg-card__sub">Chào mừng bạn quay lại Tutor Connect System.</p>
+            </div>
+
+            <label className="reg-field">
+              <span className="reg-label">Email</span>
+              <input
+                className="reg-input"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="ban@email.com"
+                autoComplete="email"
+                required
+              />
+            </label>
+
+            <label className="reg-field">
+              <span className="reg-label">Mật khẩu</span>
+              <div className="reg-input-wrap">
+                <input
+                  className="reg-input reg-input--toggle"
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Nhập mật khẩu"
+                  autoComplete="current-password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="reg-eye"
+                  tabIndex={-1}
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  onClick={() => setShowPassword((s) => !s)}
+                >
+                  <EyeIcon off={showPassword} />
+                </button>
+              </div>
+            </label>
+
+            {error && <div className="reg-alert reg-alert--error">{error}</div>}
+
+            <button type="submit" className="reg-btn reg-btn--block" disabled={loading}>
+              {loading ? 'Đang đăng nhập…' : 'Đăng nhập'}
+            </button>
+
+            <div className="reg-divider">
+              <span>hoặc</span>
+            </div>
+
+            {GOOGLE_CLIENT_ID ? (
+              <div className="reg-google" ref={googleBtnRef} />
+            ) : (
+              <button
+                type="button"
+                className="reg-btn reg-btn--ghost reg-btn--block reg-google-fallback"
+                onClick={() =>
+                  setError('Đăng nhập Google chưa được cấu hình (thiếu VITE_GOOGLE_CLIENT_ID).')
+                }
+              >
+                <GoogleIcon />
+                Đăng nhập với Google
+              </button>
+            )}
+
+            <p className="reg-foot">
+              Chưa có tài khoản?{' '}
+              <Link to="/register" className="reg-link">
+                Đăng ký
+              </Link>
+            </p>
+          </form>
+        </section>
+      </main>
     </div>
   );
 }

@@ -2,6 +2,7 @@ package com.tcs.module.identity.service;
 
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
 import com.tcs.module.identity.dto.request.ForgotPasswordRequest;
+import com.tcs.module.identity.dto.request.GoogleLoginRequest;
 import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.request.ResetPasswordRequest;
@@ -25,6 +26,9 @@ public interface IdentityService {
     RegisterResponse register(RegisterRequest request);
 
     AuthResponse login(LoginRequest request);
+
+    /** Dang nhap bang Google: xac thuc ID token, tu tao tai khoan CLIENT neu email chua ton tai. */
+    AuthResponse loginWithGoogle(GoogleLoginRequest request);
 
     MeResponse getMe();
 

@@ -2,6 +2,7 @@ import axiosClient from '../../../shared/api/axiosClient';
 import { authStorage } from '../../../shared/auth/authStorage';
 import type {
   AuthResponse,
+  GoogleLoginRequest,
   LoginRequest,
   RegisterRequest,
   RegisterResponse,
@@ -16,6 +17,11 @@ const BASE = '/identity';
 export const identityApi = {
   async login(body: LoginRequest): Promise<AuthResponse> {
     const { data } = await axiosClient.post<AuthResponse>(`${BASE}/login`, body);
+    return data;
+  },
+
+  async loginWithGoogle(body: GoogleLoginRequest): Promise<AuthResponse> {
+    const { data } = await axiosClient.post<AuthResponse>(`${BASE}/google`, body);
     return data;
   },
 

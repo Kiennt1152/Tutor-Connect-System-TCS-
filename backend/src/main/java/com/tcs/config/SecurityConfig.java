@@ -29,8 +29,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/error",
                                 "/api/home",
                                 "/api/identity/login",
+                                "/api/identity/google",
                                 "/api/identity/register",
                                 "/api/identity/send-otp",
                                 "/api/identity/verify-otp",

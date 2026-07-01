@@ -6,6 +6,7 @@ import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
 import com.tcs.module.identity.dto.request.ForgotPasswordRequest;
+import com.tcs.module.identity.dto.request.GoogleLoginRequest;
 import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.request.ResetPasswordRequest;
@@ -39,6 +40,7 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
+import com.tcs.security.GoogleTokenVerifier;
 import com.tcs.security.JwtService;
 import java.security.SecureRandom;
 import java.time.Duration;
@@ -78,6 +80,7 @@ public class IdentityServiceImpl implements IdentityService {
     private final JwtService jwtService;
     private final PlatformMapper platformMapper;
     private final AuthHelper authHelper;
+    private final GoogleTokenVerifier googleTokenVerifier;
 
     @Value("${app.otp.length:6}")
     private int otpLength;
@@ -306,6 +309,54 @@ public class IdentityServiceImpl implements IdentityService {
         UserRole role = platformMapper.resolveRole(profiles);
         String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role);
         return buildAuthResponse(user, profiles, token);
+    }
+
+    // ======================================================= Login by Google
+
+    @Override
+    @Transactional
+    public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
+        GoogleTokenVerifier.GooglePayload payload = googleTokenVerifier.verify(request.getCredential());
+        String email = normalizeEmail(payload.getEmail());
+
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) {
+            // Lan dau dang nhap Google -> tu tao tai khoan CLIENT (khong co mat khau dung duoc).
+            user = provisionGoogleClient(email, payload.getName());
+        } else if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new IllegalArgumentException("Tài khoản đã bị khóa hoặc tạm ngưng");
+        }
+
+        user.setLastLogin(LocalDateTime.now());
+        userRepository.save(user);
+
+        UserProfileBundle profiles = loadProfiles(user.getUserId());
+        UserRole role = platformMapper.resolveRole(profiles);
+        String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role);
+        return buildAuthResponse(user, profiles, token);
+    }
+
+    /**
+     * Tao tai khoan CLIENT cho nguoi dung Google moi. Mat khau la chuoi ngau nhien (khong dung de
+     * dang nhap bang password). Ten hien thi lay tu Google; SDT de trong (bo sung sau khi dang nhap).
+     */
+    private User provisionGoogleClient(String email, String googleName) {
+        User user = new User();
+        user.setEmail(email);
+        user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
+        user.setStatus(UserStatus.ACTIVE);
+        User savedUser = userRepository.save(user);
+
+        String displayName = (googleName == null || googleName.isBlank())
+                ? email.substring(0, email.indexOf('@'))
+                : googleName.trim();
+        createBaselineProfile(savedUser, UserRole.CLIENT, displayName, "");
+
+        Wallet wallet = new Wallet();
+        wallet.setUser(savedUser);
+        walletRepository.save(wallet);
+
+        return savedUser;
     }
 
     @Override

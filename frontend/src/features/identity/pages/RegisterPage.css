@@ -420,6 +420,37 @@
   font-weight: 700;
 }
 
+/* Login card (hep hon vi it truong) */
+.reg-card--narrow {
+  max-width: 420px;
+}
+
+/* Divider "hoac" */
+.reg-divider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+}
+.reg-divider::before,
+.reg-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--color-border);
+}
+
+/* Google sign-in */
+.reg-google {
+  display: flex;
+  justify-content: center;
+  min-height: 40px;
+}
+.reg-google-fallback {
+  gap: var(--space-sm);
+}
+
 /* Responsive */
 @media (max-width: 860px) {
   .reg-page {

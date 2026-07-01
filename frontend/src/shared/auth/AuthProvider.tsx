@@ -1,12 +1,17 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { identityApi, persistAuth } from '../../features/identity/api/identityApi';
-import type { AuthResponse, LoginRequest } from '../../features/identity/types/identityTypes';
+import type {
+  AuthResponse,
+  GoogleLoginRequest,
+  LoginRequest,
+} from '../../features/identity/types/identityTypes';
 import { authStorage, type StoredUser } from '../auth/authStorage';
 
 type AuthContextValue = {
   user: StoredUser | null;
   isAuthenticated: boolean;
   login: (body: LoginRequest) => Promise<AuthResponse>;
+  loginWithGoogle: (body: GoogleLoginRequest) => Promise<AuthResponse>;
   logout: () => void;
 };
 
@@ -22,6 +27,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response;
   }, []);
 
+  const loginWithGoogle = useCallback(async (body: GoogleLoginRequest) => {
+    const response = await identityApi.loginWithGoogle(body);
+    persistAuth(response);
+    setUser(authStorage.getUser());
+    return response;
+  }, []);
+
   const logout = useCallback(() => {
     authStorage.clearAll();
     setUser(null);
@@ -32,9 +44,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: !!user && !!authStorage.getToken(),
       login,
+      loginWithGoogle,
       logout,
     }),
-    [user, login, logout],
+    [user, login, loginWithGoogle, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

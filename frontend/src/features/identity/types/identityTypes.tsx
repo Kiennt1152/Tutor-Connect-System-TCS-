@@ -7,6 +7,11 @@ export type LoginRequest = {
   password: string;
 };
 
+export type GoogleLoginRequest = {
+  /** Google ID token (JWT) tra ve tu Google Identity Services. */
+  credential: string;
+};
+
 export type AuthResponse = {
   accessToken: string;
   userId: number;
