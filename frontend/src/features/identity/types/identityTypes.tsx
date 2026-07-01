@@ -8,8 +8,8 @@ export type LoginRequest = {
 };
 
 export type GoogleLoginRequest = {
-  /** Google ID token (JWT) tra ve tu Google Identity Services. */
-  credential: string;
+  /** Google OAuth2 access token tra ve tu Google Identity Services (initTokenClient). */
+  accessToken: string;
 };
 
 export type AuthResponse = {

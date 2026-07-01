@@ -8,23 +8,16 @@ import './RegisterPage.css';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
 
-type GoogleCredentialResponse = { credential: string };
-type GsiButtonOptions = {
-  theme?: string;
-  size?: string;
-  width?: number;
-  text?: string;
-  shape?: string;
-  logo_alignment?: string;
-};
-type GoogleAccountsId = {
-  initialize: (config: {
+type TokenResponse = { access_token?: string; error?: string };
+type TokenClient = { requestAccessToken: () => void };
+type GoogleOAuth2 = {
+  initTokenClient: (config: {
     client_id: string;
-    callback: (response: GoogleCredentialResponse) => void;
-  }) => void;
-  renderButton: (parent: HTMLElement, options: GsiButtonOptions) => void;
+    scope: string;
+    callback: (response: TokenResponse) => void;
+  }) => TokenClient;
 };
-type GoogleGsi = { accounts: { id: GoogleAccountsId } };
+type GoogleGsi = { accounts: { oauth2: GoogleOAuth2 } };
 
 /** Nap script Google Identity Services mot lan (idempotent). */
 function loadGsiScript(): Promise<void> {
@@ -115,9 +108,9 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const googleBtnRef = useRef<HTMLDivElement>(null);
+  const tokenClientRef = useRef<TokenClient | null>(null);
 
-  // Google Identity Services: tai script, khoi tao va render nut chinh chu cua Google.
+  // Khoi tao Google OAuth2 token client (luong popup) cho nut Google tuy chinh.
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) {
       return;
@@ -130,16 +123,21 @@ export default function LoginPage() {
           return;
         }
         const google = (window as unknown as { google?: GoogleGsi }).google;
-        if (!google || !googleBtnRef.current) {
+        if (!google) {
           return;
         }
-        google.accounts.id.initialize({
+        tokenClientRef.current = google.accounts.oauth2.initTokenClient({
           client_id: GOOGLE_CLIENT_ID,
+          scope: 'openid email profile',
           callback: async (response) => {
+            if (response.error || !response.access_token) {
+              setError('Đăng nhập Google bị hủy hoặc thất bại.');
+              return;
+            }
             setError('');
             setLoading(true);
             try {
-              await loginWithGoogle({ credential: response.credential });
+              await loginWithGoogle({ accessToken: response.access_token });
               navigate(from, { replace: true });
             } catch {
               setError('Đăng nhập Google thất bại. Vui lòng thử lại.');
@@ -148,14 +146,6 @@ export default function LoginPage() {
             }
           },
         });
-        google.accounts.id.renderButton(googleBtnRef.current, {
-          theme: 'outline',
-          size: 'large',
-          width: 400,
-          text: 'continue_with',
-          shape: 'rectangular',
-          logo_alignment: 'center',
-        });
       })
       .catch(() => setError('Không tải được đăng nhập Google.'));
 
@@ -163,6 +153,19 @@ export default function LoginPage() {
       cancelled = true;
     };
   }, [from, loginWithGoogle, navigate]);
+
+  function handleGoogleClick() {
+    if (!GOOGLE_CLIENT_ID) {
+      setError('Đăng nhập Google chưa được cấu hình (thiếu VITE_GOOGLE_CLIENT_ID).');
+      return;
+    }
+    if (!tokenClientRef.current) {
+      setError('Đang tải Google, vui lòng thử lại sau giây lát.');
+      return;
+    }
+    setError('');
+    tokenClientRef.current.requestAccessToken();
+  }
 
   if (isAuthenticated) {
     return <Navigate to={from} replace />;
@@ -240,20 +243,15 @@ export default function LoginPage() {
               <span>hoặc</span>
             </div>
 
-            {GOOGLE_CLIENT_ID ? (
-              <div className="reg-google" ref={googleBtnRef} />
-            ) : (
-              <button
-                type="button"
-                className="reg-btn reg-btn--ghost reg-btn--block reg-google-fallback"
-                onClick={() =>
-                  setError('Đăng nhập Google chưa được cấu hình (thiếu VITE_GOOGLE_CLIENT_ID).')
-                }
-              >
-                <GoogleIcon />
-                Đăng nhập với Google
-              </button>
-            )}
+            <button
+              type="button"
+              className="reg-btn reg-btn--ghost reg-btn--block reg-google-fallback"
+              onClick={handleGoogleClick}
+              disabled={loading}
+            >
+              <GoogleIcon />
+              Đăng nhập với Google
+            </button>
 
             <p className="reg-foot">
               Chưa có tài khoản?{' '}

@@ -316,7 +316,7 @@ public class IdentityServiceImpl implements IdentityService {
     @Override
     @Transactional
     public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
-        GoogleTokenVerifier.GooglePayload payload = googleTokenVerifier.verify(request.getCredential());
+        GoogleTokenVerifier.GooglePayload payload = googleTokenVerifier.verify(request.getAccessToken());
         String email = normalizeEmail(payload.getEmail());
 
         User user = userRepository.findByEmail(email).orElse(null);
