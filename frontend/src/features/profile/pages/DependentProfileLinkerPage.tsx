@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react';
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { ClientLayout } from '../components/ClientLayout';
 import { useDependentProfile } from '../hooks/useDependentProfile';
@@ -13,7 +13,6 @@ function formatDate(value?: string) {
 }
 
 export default function DependentProfileLinkerPage() {
-  const navigate = useNavigate();
   const {
     status,
     errorMessage,
@@ -28,11 +27,13 @@ export default function DependentProfileLinkerPage() {
     updateProfile,
     linkGuardian,
     createChild,
+    linkChildAccount,
   } = useDependentProfile();
 
   const [dateOfBirth, setDateOfBirth] = useState('');
   const [gender, setGender] = useState<Gender | ''>('');
   const [parentEmail, setParentEmail] = useState('');
+  const [childAccountEmail, setChildAccountEmail] = useState('');
   const [childFullName, setChildFullName] = useState('');
   const [childDateOfBirth, setChildDateOfBirth] = useState('');
   const [childGender, setChildGender] = useState<Gender | ''>('');
@@ -55,6 +56,13 @@ export default function DependentProfileLinkerPage() {
     await linkGuardian(parentEmail.trim());
   }
 
+  async function handleLinkChildAccount(e: FormEvent) {
+    e.preventDefault();
+    if (!childAccountEmail.trim()) return;
+    const ok = await linkChildAccount(childAccountEmail.trim());
+    if (ok) setChildAccountEmail('');
+  }
+
   async function handleCreateChild(e: FormEvent) {
     e.preventDefault();
     if (!childFullName.trim()) return;
@@ -74,12 +82,13 @@ export default function DependentProfileLinkerPage() {
     }
   }
 
-  const canContinue = linkStatus?.canProceedToPayment ?? false;
+  const profileComplete =
+    linkStatus?.profileLinkComplete ?? linkStatus?.canProceedToPayment ?? false;
 
   return (
     <ClientLayout
       title="Liên kết hồ sơ phụ thuộc"
-      subtitle="Cung cấp thông tin phụ huynh hoặc con để tối ưu hóa trải nghiệm học tập và thanh toán."
+      subtitle="Liên kết tài khoản phụ huynh – con để quản lý hồ sơ học tập trên TutorConnect."
     >
       {status === 'loading' && <div className="dpl-state">Đang tải thông tin…</div>}
 
@@ -117,27 +126,19 @@ export default function DependentProfileLinkerPage() {
               {linkStatus.minorAccount && (
                 <p>
                   Tài khoản của bạn thuộc <strong>học sinh vị thành niên</strong>. Bạn cần liên kết
-                  hồ sơ phụ huynh trước khi thanh toán hoặc tạo hợp đồng với gia sư.
-                </p>
-              )}
-              {linkStatus.legalProceduresDelegatedToParent && (
-                <p>
-                  Sau khi liên kết, học sinh có thể gửi yêu cầu thanh toán và hợp đồng. Hệ thống sẽ thông báo
-                  cho phụ huynh <strong>{linkStatus.legalAccountHolderName}</strong>
-                  {linkStatus.legalAccountEmail ? ` (${linkStatus.legalAccountEmail})` : ''} qua ứng dụng và
-                  email để xác nhận trước khi có hiệu lực.
+                  hồ sơ phụ huynh để hoàn tất hồ sơ.
                 </p>
               )}
               {linkStatus.childrenLinkOptional && (
                 <p>
-                  Tài khoản của bạn thuộc <strong>phụ huynh / người lớn</strong>. Bạn có thể thêm
-                  hồ sơ con (tùy chọn) để đăng ký lớp học thay mặt con.
+                  Tài khoản của bạn thuộc <strong>phụ huynh / người lớn</strong>. Bạn có thể liên kết
+                  tài khoản con đã đăng ký hoặc thêm hồ sơ con thủ công (tùy chọn).
                 </p>
               )}
             </div>
             <div className="dpl-status-banner__badge">
-              {canContinue ? (
-                <span className="tcs-badge tcs-badge--active">Đủ điều kiện tiếp tục</span>
+              {profileComplete ? (
+                <span className="tcs-badge tcs-badge--active">Hoàn tất liên kết</span>
               ) : (
                 <span className="tcs-badge tcs-badge--suspended">Cần bổ sung thông tin</span>
               )}
@@ -248,10 +249,37 @@ export default function DependentProfileLinkerPage() {
           {linkStatus.childrenLinkOptional && (
             <>
               <section className="dpl-card">
-                <h2 className="dpl-section-title">Hồ sơ con (tùy chọn)</h2>
+                <h2 className="dpl-section-title">Liên kết tài khoản con</h2>
                 <p className="dpl-muted">
-                  Thêm thông tin con giúp bạn đăng ký lớp học và theo dõi tiến độ dễ dàng hơn. Bạn
-                  có thể bỏ qua bước này và quay lại sau.
+                  Nếu con bạn đã có tài khoản học sinh trên TutorConnect, nhập email tài khoản đó
+                  để liên kết. Con cần cập nhật họ tên và ngày sinh trước khi liên kết.
+                </p>
+                <form className="dpl-form" onSubmit={handleLinkChildAccount}>
+                  <label>
+                    Email tài khoản con *
+                    <input
+                      className="dpl-field"
+                      type="email"
+                      placeholder="hocsinh@email.com"
+                      value={childAccountEmail}
+                      onChange={(e) => setChildAccountEmail(e.target.value)}
+                      required
+                    />
+                  </label>
+                  <button
+                    className="tcs-btn tcs-btn--primary"
+                    type="submit"
+                    disabled={mutationStatus === 'loading'}
+                  >
+                    {mutationStatus === 'loading' ? 'Đang liên kết…' : 'Liên kết tài khoản con'}
+                  </button>
+                </form>
+              </section>
+
+              <section className="dpl-card">
+                <h2 className="dpl-section-title">Hồ sơ con đã liên kết</h2>
+                <p className="dpl-muted">
+                  Danh sách con đã liên kết với tài khoản của bạn (tài khoản đăng ký hoặc hồ sơ thủ công).
                 </p>
 
                 {children.length === 0 ? (
@@ -262,8 +290,16 @@ export default function DependentProfileLinkerPage() {
                       <li key={child.childProfileId} className="dpl-child-item">
                         <div>
                           <strong>{child.fullName}</strong>
+                          {child.linkedToUserAccount && (
+                            <span className="tcs-badge tcs-badge--active dpl-child-item__badge">
+                              Tài khoản đăng ký
+                            </span>
+                          )}
                           {child.gradeName && (
                             <span className="dpl-child-item__meta"> · {child.gradeName}</span>
+                          )}
+                          {child.childEmail && (
+                            <span className="dpl-child-item__meta"> · {child.childEmail}</span>
                           )}
                         </div>
                         <span className="dpl-muted">{formatDate(child.dateOfBirth)}</span>
@@ -274,7 +310,11 @@ export default function DependentProfileLinkerPage() {
               </section>
 
               <section className="dpl-card">
-                <h2 className="dpl-section-title">Thêm hồ sơ con mới</h2>
+                <h2 className="dpl-section-title">Thêm hồ sơ con thủ công</h2>
+                <p className="dpl-muted">
+                  Dùng khi con chưa có tài khoản riêng. Bạn có thể bỏ qua bước này nếu đã liên kết
+                  tài khoản con ở trên.
+                </p>
                 <form className="dpl-form dpl-form--grid" onSubmit={handleCreateChild}>
                   <label>
                     Họ tên con *
@@ -344,28 +384,6 @@ export default function DependentProfileLinkerPage() {
           )}
 
           <section className="dpl-actions">
-            {canContinue ? (
-              <>
-                <button
-                  className="tcs-btn tcs-btn--primary"
-                  type="button"
-                  onClick={() => navigate(APP_ROUTES.finance)}
-                >
-                  Tiếp tục thanh toán
-                </button>
-                <button
-                  className="tcs-btn tcs-btn--ghost"
-                  type="button"
-                  onClick={() => navigate(APP_ROUTES.contract)}
-                >
-                  Tạo hợp đồng với gia sư
-                </button>
-              </>
-            ) : (
-              <p className="dpl-muted dpl-actions__hint">
-                Hoàn tất các bước bắt buộc ở trên để tiếp tục thanh toán hoặc tạo hợp đồng.
-              </p>
-            )}
             <Link className="tcs-btn tcs-btn--ghost" to={APP_ROUTES.home}>
               Về trang chủ
             </Link>

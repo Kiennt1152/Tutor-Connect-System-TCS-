@@ -6,6 +6,7 @@ import type {
   DependentLinkStatus,
   GuardianProfile,
   LinkGuardianRequest,
+  LinkChildAccountRequest,
   ProfileResponse,
   UpdateProfileRequest,
 } from '../types/profileTypes';
@@ -26,6 +27,9 @@ export const profileApi = {
 
   createChild: (body: ChildProfileRequest) =>
     axiosClient.post<ChildProfile>(`${PROFILE_API_BASE}/children`, body),
+
+  linkChildAccount: (body: LinkChildAccountRequest) =>
+    axiosClient.post<ChildProfile>(`${PROFILE_API_BASE}/children/link-account`, body),
 
   getMyGuardian: () => axiosClient.get<GuardianProfile | null>(`${PROFILE_API_BASE}/guardian`),
 

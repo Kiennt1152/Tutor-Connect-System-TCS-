@@ -141,6 +141,24 @@ export function useDependentProfile() {
     [reload],
   );
 
+  const linkChildAccount = useCallback(
+    async (childEmail: string) => {
+      setMutationStatus('loading');
+      setMutationError(null);
+      try {
+        await profileApi.linkChildAccount({ childEmail });
+        await reload();
+        setMutationStatus('success');
+        return true;
+      } catch (error) {
+        setMutationError(extractApiErrorMessage(error, 'Không thể liên kết tài khoản con.'));
+        setMutationStatus('error');
+        return false;
+      }
+    },
+    [reload],
+  );
+
   return {
     status,
     errorMessage,
@@ -155,6 +173,7 @@ export function useDependentProfile() {
     updateProfile,
     linkGuardian,
     createChild,
+    linkChildAccount,
   };
 }
 

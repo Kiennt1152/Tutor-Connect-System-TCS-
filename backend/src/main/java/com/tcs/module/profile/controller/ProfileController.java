@@ -1,6 +1,7 @@
 package com.tcs.module.profile.controller;
 
 import com.tcs.module.profile.dto.request.ChildProfileRequest;
+import com.tcs.module.profile.dto.request.LinkChildAccountRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
@@ -58,6 +59,11 @@ public class ProfileController {
     @PostMapping("/children/link")
     public ChildProfileResponse linkChild(@RequestBody LinkChildRequest request) {
         return profileService.linkChild(request);
+    }
+
+    @PostMapping("/children/link-account")
+    public ChildProfileResponse linkChildAccount(@RequestBody LinkChildAccountRequest request) {
+        return profileService.linkChildAccount(request);
     }
 
     @GetMapping("/dependent-status")
