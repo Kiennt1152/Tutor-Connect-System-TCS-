@@ -23,15 +23,18 @@ import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
 import com.tcs.module.profile.entity.ChildProfile;
 import com.tcs.module.profile.entity.Client;
+import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.profile.entity.ParentChildLink;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorAvailability;
 import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.entity.TutorExperience;
 import com.tcs.module.profile.enums.ParentChildLinkStatus;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ChildProfileRepository;
 import com.tcs.module.profile.repository.ClientRepository;
+import com.tcs.module.profile.repository.MediaFileRepository;
 import com.tcs.module.profile.repository.ParentChildLinkRepository;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorAvailabilityRepository;
@@ -42,10 +45,13 @@ import com.tcs.module.profile.service.ProfileService;
 import com.tcs.security.AuthHelper;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Objects;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -63,7 +69,10 @@ public class ProfileServiceImpl implements ProfileService {
     private final TutorExperienceRepository tutorExperienceRepository;
     private final TutorAvailabilityRepository tutorAvailabilityRepository;
     private final VerificationRequestRepository verificationRequestRepository;
+    private final MediaFileRepository mediaFileRepository;
     private final PlatformMapper platformMapper;
+
+    private static final long MAX_AVATAR_SIZE = 5L * 1024 * 1024; // 5 MB
 
     @Override
     @Transactional(readOnly = true)
@@ -221,6 +230,56 @@ public class ProfileServiceImpl implements ProfileService {
         verificationRequestRepository.save(request);
     }
 
+    @Override
+    @Transactional
+    public String uploadAvatar(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File ảnh không được trống");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || (!contentType.equalsIgnoreCase("image/jpeg")
+                && !contentType.equalsIgnoreCase("image/png")
+                && !contentType.equalsIgnoreCase("image/webp"))) {
+            throw new IllegalArgumentException("Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP");
+        }
+        if (file.getSize() > MAX_AVATAR_SIZE) {
+            throw new IllegalArgumentException("Kích thước ảnh tối đa là 5 MB");
+        }
+
+        ProfileContext ctx = loadContext();
+        String original = StringUtils.cleanPath(
+                Objects.requireNonNullElse(file.getOriginalFilename(), "avatar"));
+        String extension = "";
+        int dot = original.lastIndexOf('.');
+        if (dot > 0) {
+            extension = original.substring(dot);
+        }
+        String storedName = "avatar_" + ctx.user().getUserId() + "_" + UUID.randomUUID() + extension;
+        String fileUrl = "/uploads/avatars/" + storedName;
+
+        MediaFile media = new MediaFile();
+        media.setUploadedBy(ctx.user());
+        media.setFileName(storedName);
+        media.setFileUrl(fileUrl);
+        media.setMimeType(contentType);
+        media.setFileSize(file.getSize());
+        mediaFileRepository.save(media);
+
+        if (ctx.client() != null) {
+            ctx.client().setAvatarUrl(fileUrl);
+            clientRepository.save(ctx.client());
+        } else if (ctx.tutor() != null) {
+            ctx.tutor().setAvatar(fileUrl);
+            tutorRepository.save(ctx.tutor());
+        } else if (ctx.center() != null) {
+            ctx.center().setAvatar(fileUrl);
+            tutorCenterRepository.save(ctx.center());
+        }
+
+        // AF-02: file storage chưa có backend thật - trả URL để FE có thể hiển thị
+        return fileUrl;
+    }
+
     private ProfileContext loadContext() {
         Long userId = authHelper.currentUserId();
         User user = userRepository
@@ -260,6 +319,8 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     private void updateTutor(Tutor tutor, UpdateProfileRequest request) {
+        boolean legalNameChanged = StringUtils.hasText(request.getFullName())
+                && !request.getFullName().equals(tutor.getFullName());
         if (StringUtils.hasText(request.getFullName())) tutor.setFullName(request.getFullName());
         if (StringUtils.hasText(request.getPhone())) tutor.setPhone(request.getPhone());
         if (request.getAddress() != null) tutor.setAddress(request.getAddress());
@@ -269,15 +330,26 @@ public class ProfileServiceImpl implements ProfileService {
         if (request.getBio() != null) tutor.setBio(request.getBio());
         if (request.getExperienceYears() != null) tutor.setExperienceYears(request.getExperienceYears());
         if (request.getHourlyRate() != null) tutor.setHourlyRate(request.getHourlyRate());
+        // BR-02: editing a verification-linked field resets verification to require re-review.
+        if (legalNameChanged && tutor.getVerificationStatus() == ProfileVerificationStatus.VERIFIED) {
+            tutor.setVerificationStatus(ProfileVerificationStatus.UNDER_VERIFY);
+        }
         tutorRepository.save(tutor);
     }
 
     private void updateCenter(TutorCenter center, UpdateProfileRequest request) {
+        boolean legalNameChanged = StringUtils.hasText(request.getCompanyName())
+                && !request.getCompanyName().equals(center.getCompanyName());
         if (StringUtils.hasText(request.getCompanyName())) center.setCompanyName(request.getCompanyName());
         if (StringUtils.hasText(request.getPhone())) center.setPhone(request.getPhone());
         if (request.getAddress() != null) center.setAddress(request.getAddress());
         if (request.getAvatarUrl() != null) center.setAvatar(request.getAvatarUrl());
         if (request.getDescription() != null) center.setDescription(request.getDescription());
+        if (StringUtils.hasText(request.getLicenseNo())) center.setLicenseNo(request.getLicenseNo());
+        // BR-02: editing a verification-linked field resets verification to require re-review.
+        if (legalNameChanged && center.getVerificationStatus() == ProfileVerificationStatus.VERIFIED) {
+            center.setVerificationStatus(ProfileVerificationStatus.UNDER_VERIFY);
+        }
         tutorCenterRepository.save(center);
     }
 
