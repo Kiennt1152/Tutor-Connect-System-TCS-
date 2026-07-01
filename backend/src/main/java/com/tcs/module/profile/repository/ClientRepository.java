@@ -15,5 +15,7 @@ public interface ClientRepository extends JpaRepository<Client, Long> {
 
     Optional<Client> findFirstByFullNameAndDateOfBirth(String fullName, LocalDate dateOfBirth);
 
+    List<Client> findByDateOfBirthAfter(LocalDate dateOfBirth);
+
     List<Client> findByUser_UserIdIn(Collection<Long> userIds);
 }

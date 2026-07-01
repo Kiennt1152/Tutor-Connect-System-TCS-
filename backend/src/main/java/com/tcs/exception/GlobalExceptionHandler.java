@@ -1,5 +1,6 @@
 package com.tcs.exception;
 
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -52,6 +53,15 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleDuplicateEmail(DuplicateEmailException exception) {
         Map<String, String> body = new HashMap<>();
         body.put("message", exception.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<Map<String, String>> handleDataIntegrity(DataIntegrityViolationException exception) {
+        Map<String, String> body = new HashMap<>();
+        body.put(
+                "message",
+                "Không thể xóa hồ sơ vì đang được sử dụng ở chức năng khác (ví dụ: lớp học).");
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 }

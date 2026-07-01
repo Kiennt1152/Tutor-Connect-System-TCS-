@@ -6,6 +6,7 @@ import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
 import com.tcs.module.profile.dto.request.TutorExperienceRequest;
+import com.tcs.module.profile.dto.request.UpdateChildProfileRequest;
 import com.tcs.module.profile.dto.request.UpdateProfileRequest;
 import com.tcs.module.profile.dto.response.ChildProfileResponse;
 import com.tcs.module.profile.dto.response.DependentLinkStatusResponse;
@@ -24,6 +25,12 @@ public interface ProfileService {
     List<ChildProfileResponse> getMyChildren();
 
     ChildProfileResponse createChild(ChildProfileRequest request);
+
+    ChildProfileResponse getChildById(Long childProfileId);
+
+    ChildProfileResponse updateChild(Long childProfileId, UpdateChildProfileRequest request);
+
+    void deleteChild(Long childProfileId);
 
     ChildProfileResponse linkChild(LinkChildRequest request);
 
