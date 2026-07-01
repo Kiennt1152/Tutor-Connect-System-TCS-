@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface PaymentMethodRepository extends JpaRepository<PaymentMethod, Long> {
+
+    java.util.List<PaymentMethod> findByWallet_WalletId(Long walletId);
 }

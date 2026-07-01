@@ -6,6 +6,9 @@ import jakarta.validation.constraints.Pattern;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * UC-01 buoc 4: xac thuc ma OTP da nhan.
+ */
 @Getter
 @Setter
 public class VerifyOtpRequest {

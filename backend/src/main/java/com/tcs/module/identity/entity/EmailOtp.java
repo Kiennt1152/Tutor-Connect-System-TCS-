@@ -16,8 +16,8 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 /**
- * Ma OTP xac thuc email khi dang ky. Gan theo dia chi email vi tai khoan
- * chua duoc tao tai thoi diem gui ma (theo UC FT-01).
+ * Ma OTP xac thuc email khi dang ky (UC-01, BR-UC01-04). Gan theo email
+ * vi tai khoan chua duoc tao tai thoi diem gui ma.
  */
 @Entity
 @Table(name = "email_otps")

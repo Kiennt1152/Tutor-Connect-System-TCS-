@@ -39,16 +39,6 @@ CREATE TABLE system_parameters (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
-CREATE TABLE lead_routing_rules (
-    rule_id  BIGINT       NOT NULL AUTO_INCREMENT,
-    name     VARCHAR(100) NOT NULL,
-    criteria TEXT         NULL,
-    priority INT          NOT NULL DEFAULT 0,
-    active   BOOLEAN      NOT NULL DEFAULT TRUE,
-    CONSTRAINT pk_lead_routing_rules PRIMARY KEY (rule_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-
 CREATE TABLE conversations (
     conversation_id BIGINT       NOT NULL AUTO_INCREMENT,
     context_type    VARCHAR(50)  NULL,
@@ -310,22 +300,6 @@ CREATE TABLE tutoring_classes (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
-CREATE TABLE leads (
-    lead_id       BIGINT       NOT NULL AUTO_INCREMENT,
-    center_id     BIGINT       NOT NULL,
-    contact_name  VARCHAR(100) NOT NULL,
-    contact_phone VARCHAR(15)  NOT NULL,
-    contact_email VARCHAR(100) NULL,
-    source        VARCHAR(50)  NULL,
-    notes         TEXT         NULL,
-    status        VARCHAR(20)  NOT NULL DEFAULT 'NEW',
-    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_leads PRIMARY KEY (lead_id),
-    CONSTRAINT fk_leads_center FOREIGN KEY (center_id) REFERENCES tutor_centers (center_id),
-    CONSTRAINT chk_leads_status CHECK (status IN ('NEW','CONTACTED','QUALIFIED','CONVERTED','LOST'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-
 CREATE TABLE recruitment_posts (
     recruitment_id BIGINT       NOT NULL AUTO_INCREMENT,
     center_id      BIGINT       NOT NULL,
@@ -353,17 +327,6 @@ CREATE TABLE center_tutor_memberships (
     CONSTRAINT fk_center_tutor_memberships_center FOREIGN KEY (center_id) REFERENCES tutor_centers (center_id),
     CONSTRAINT fk_center_tutor_memberships_tutor FOREIGN KEY (tutor_id) REFERENCES tutors (tutor_id),
     CONSTRAINT chk_center_tutor_memberships_status CHECK (status IN ('ACTIVE','INACTIVE','SUSPENDED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-
-CREATE TABLE lead_routing_rule_centers (
-    id        BIGINT NOT NULL AUTO_INCREMENT,
-    rule_id   BIGINT NOT NULL,
-    center_id BIGINT NOT NULL,
-    CONSTRAINT pk_lead_routing_rule_centers PRIMARY KEY (id),
-    CONSTRAINT uq_lead_routing_rule_centers UNIQUE (rule_id, center_id),
-    CONSTRAINT fk_lead_routing_rule_centers_rule FOREIGN KEY (rule_id) REFERENCES lead_routing_rules (rule_id),
-    CONSTRAINT fk_lead_routing_rule_centers_center FOREIGN KEY (center_id) REFERENCES tutor_centers (center_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
@@ -427,6 +390,18 @@ CREATE TABLE tutor_applications (
     CONSTRAINT fk_tutor_applications_class FOREIGN KEY (class_id) REFERENCES tutoring_classes (class_id),
     CONSTRAINT fk_tutor_applications_tutor FOREIGN KEY (tutor_id) REFERENCES tutors (tutor_id),
     CONSTRAINT chk_tutor_applications_status CHECK (status IN ('SUBMITTED','UNDER_REVIEW','ACCEPTED','REJECTED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+CREATE TABLE class_assignments (
+    assignment_id  BIGINT      NOT NULL AUTO_INCREMENT,
+    application_id BIGINT      NOT NULL,
+    assigned_date  DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    status         VARCHAR(20) NOT NULL DEFAULT 'ACTIVE',
+    CONSTRAINT pk_class_assignments PRIMARY KEY (assignment_id),
+    CONSTRAINT uq_class_assignments_application UNIQUE (application_id),
+    CONSTRAINT fk_class_assignments_application FOREIGN KEY (application_id) REFERENCES tutor_applications (application_id),
+    CONSTRAINT chk_class_assignments_status CHECK (status IN ('ACTIVE','TERMINATED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
@@ -534,18 +509,6 @@ CREATE TABLE lessons (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
-CREATE TABLE escrows (
-    escrow_id  BIGINT         NOT NULL AUTO_INCREMENT,
-    contract_id BIGINT        NOT NULL,
-    amount     DECIMAL(15,2)  NOT NULL,
-    status     VARCHAR(20)    NOT NULL DEFAULT 'PENDING',
-    created_at DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_escrows PRIMARY KEY (escrow_id),
-    CONSTRAINT fk_escrows_contract FOREIGN KEY (contract_id) REFERENCES contracts (contract_id),
-    CONSTRAINT chk_escrows_status CHECK (status IN ('PENDING','FUNDED','RELEASED','REFUNDED','ON_HOLD'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-
 CREATE TABLE contract_signatures (
     signature_id   BIGINT   NOT NULL AUTO_INCREMENT,
     contract_id    BIGINT   NOT NULL,
@@ -597,6 +560,24 @@ CREATE TABLE payment_transactions (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
+CREATE TABLE escrow_transactions (
+    escrow_id      BIGINT         NOT NULL AUTO_INCREMENT,
+    payment_id     BIGINT         NOT NULL,
+    assignment_id  BIGINT         NOT NULL,
+    amount         DECIMAL(15,2)  NOT NULL,
+    status         VARCHAR(20)    NOT NULL DEFAULT 'PENDING',
+    deposited_at   DATETIME       NULL,
+    released_at    DATETIME       NULL,
+    created_at     DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at     DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    CONSTRAINT pk_escrow_transactions PRIMARY KEY (escrow_id),
+    CONSTRAINT uq_escrow_transactions_payment UNIQUE (payment_id),
+    CONSTRAINT fk_escrow_transactions_payment FOREIGN KEY (payment_id) REFERENCES payment_transactions (transaction_id),
+    CONSTRAINT fk_escrow_transactions_assignment FOREIGN KEY (assignment_id) REFERENCES class_assignments (assignment_id),
+    CONSTRAINT chk_escrow_transactions_status CHECK (status IN ('PENDING','FUNDED','RELEASED','REFUNDED','ON_HOLD','DISPUTED'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
 CREATE TABLE withdrawal_requests (
     withdrawal_id     BIGINT         NOT NULL AUTO_INCREMENT,
     wallet_id         BIGINT         NOT NULL,
@@ -642,20 +623,6 @@ CREATE TABLE messages (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
-CREATE TABLE escrow_transactions (
-    escrow_transaction_id  BIGINT         NOT NULL AUTO_INCREMENT,
-    escrow_id              BIGINT         NOT NULL,
-    payment_transaction_id BIGINT         NOT NULL,
-    type                   VARCHAR(20)    NOT NULL,
-    amount                 DECIMAL(15,2)  NOT NULL,
-    created_at             DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT pk_escrow_transactions PRIMARY KEY (escrow_transaction_id),
-    CONSTRAINT fk_escrow_transactions_escrow FOREIGN KEY (escrow_id) REFERENCES escrows (escrow_id),
-    CONSTRAINT fk_escrow_transactions_payment FOREIGN KEY (payment_transaction_id) REFERENCES payment_transactions (transaction_id),
-    CONSTRAINT chk_escrow_transactions_type CHECK (type IN ('DEPOSIT','RELEASE','REFUND'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-
 CREATE TABLE refund_requests (
     refund_id    BIGINT         NOT NULL AUTO_INCREMENT,
     escrow_id    BIGINT         NOT NULL,
@@ -666,7 +633,7 @@ CREATE TABLE refund_requests (
     requested_at DATETIME       NOT NULL,
     processed_at DATETIME       NULL,
     CONSTRAINT pk_refund_requests PRIMARY KEY (refund_id),
-    CONSTRAINT fk_refund_requests_escrow FOREIGN KEY (escrow_id) REFERENCES escrows (escrow_id),
+    CONSTRAINT fk_refund_requests_escrow FOREIGN KEY (escrow_id) REFERENCES escrow_transactions (escrow_id),
     CONSTRAINT fk_refund_requests_user FOREIGN KEY (requested_by) REFERENCES users (user_id),
     CONSTRAINT chk_refund_requests_status CHECK (status IN ('PENDING','APPROVED','REJECTED','COMPLETED'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -680,7 +647,7 @@ CREATE TABLE disputes (
     status     VARCHAR(30) NOT NULL DEFAULT 'OPEN',
     created_at DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT pk_disputes PRIMARY KEY (dispute_id),
-    CONSTRAINT fk_disputes_escrow FOREIGN KEY (escrow_id) REFERENCES escrows (escrow_id),
+    CONSTRAINT fk_disputes_escrow FOREIGN KEY (escrow_id) REFERENCES escrow_transactions (escrow_id),
     CONSTRAINT chk_disputes_status CHECK (status IN ('OPEN','UNDER_INVESTIGATION','RESOLVED','WAITING'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -693,7 +660,7 @@ CREATE TABLE payment_release_requests (
     requested_at DATETIME       NOT NULL DEFAULT CURRENT_TIMESTAMP,
     processed_at DATETIME       NULL,
     CONSTRAINT pk_payment_release_requests PRIMARY KEY (request_id),
-    CONSTRAINT fk_payment_release_requests_escrow FOREIGN KEY (escrow_id) REFERENCES escrows (escrow_id),
+    CONSTRAINT fk_payment_release_requests_escrow FOREIGN KEY (escrow_id) REFERENCES escrow_transactions (escrow_id),
     CONSTRAINT chk_payment_release_requests_status CHECK (status IN ('PENDING','APPROVED','REJECTED','PAID'))
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -725,17 +692,6 @@ CREATE TABLE recruitment_applications (
     CONSTRAINT fk_recruitment_applications_tutor FOREIGN KEY (tutor_id) REFERENCES tutors (tutor_id),
     CONSTRAINT fk_recruitment_applications_cv FOREIGN KEY (cv_file_id) REFERENCES media_files (file_id),
     CONSTRAINT chk_recruitment_applications_status CHECK (status IN ('SUBMITTED','REVIEWING','INTERVIEW','ACCEPTED','REJECTED'))
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
-
-CREATE TABLE lead_assignments (
-    assignment_id BIGINT   NOT NULL AUTO_INCREMENT,
-    lead_id       BIGINT   NOT NULL,
-    assigned_to   BIGINT   NOT NULL,
-    assigned_at   DATETIME NOT NULL,
-    CONSTRAINT pk_lead_assignments PRIMARY KEY (assignment_id),
-    CONSTRAINT fk_lead_assignments_lead FOREIGN KEY (lead_id) REFERENCES leads (lead_id),
-    CONSTRAINT fk_lead_assignments_user FOREIGN KEY (assigned_to) REFERENCES users (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 

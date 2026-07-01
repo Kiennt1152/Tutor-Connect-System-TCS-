@@ -1,19 +1,19 @@
 package com.tcs.module.identity.dto.response;
 
-import lombok.AllArgsConstructor;
+import com.tcs.module.identity.enums.UserStatus;
+import com.tcs.module.profile.enums.UserRole;
+import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
 
 @Getter
-@Setter
-@NoArgsConstructor
-@AllArgsConstructor
 @Builder
 public class AuthResponse {
-    private String token;
+
+    private String accessToken;
     private Long userId;
     private String email;
-    private String status;
+    private UserRole role;
+    private String displayName;
+    private UserStatus status;
 }

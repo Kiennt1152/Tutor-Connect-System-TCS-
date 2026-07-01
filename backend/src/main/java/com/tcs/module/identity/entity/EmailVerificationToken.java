@@ -13,7 +13,7 @@ import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
 /**
- * Token chung nhan email da xac thuc OTP thanh cong (BR-05).
+ * Token chung nhan email da xac thuc OTP thanh cong (UC-01, BR-UC01-05).
  * Ngan han, gan voi email, dung mot lan - tieu thu khi tao tai khoan.
  */
 @Entity

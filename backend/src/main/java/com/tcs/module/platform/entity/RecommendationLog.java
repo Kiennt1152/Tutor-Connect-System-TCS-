@@ -1,5 +1,6 @@
 package com.tcs.module.platform.entity;
 
+import com.tcs.module.center.entity.RecruitmentPost;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.profile.entity.Tutor;
@@ -35,13 +36,17 @@ public class RecommendationLog {
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "class_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_id")
     private TutoringClass tutoringClass;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "tutor_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "tutor_id")
     private Tutor tutor;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recruitment_id")
+    private RecruitmentPost recruitmentPost;
 
     @Column(name = "score", precision = 5, scale = 2, nullable = false)
     private BigDecimal score;
@@ -53,6 +58,6 @@ public class RecommendationLog {
     private String reason;
 
     @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
+    @Column(name = "generated_at", nullable = false, updatable = false)
+    private LocalDateTime generatedAt;
 }

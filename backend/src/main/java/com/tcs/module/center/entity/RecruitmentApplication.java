@@ -1,7 +1,6 @@
 package com.tcs.module.center.entity;
 
 import com.tcs.module.center.enums.RecruitmentApplicationStatus;
-import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.profile.entity.Tutor;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -19,6 +18,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "recruitment_applications")
@@ -43,21 +43,27 @@ public class RecruitmentApplication {
     @Column(name = "cover_letter", columnDefinition = "TEXT")
     private String coverLetter;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cv_file_id")
-    private MediaFile cvFile;
+    @Column(name = "resume_url", length = 500)
+    private String resumeUrl;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
-    private RecruitmentApplicationStatus status = RecruitmentApplicationStatus.SUBMITTED;
+    private RecruitmentApplicationStatus status = RecruitmentApplicationStatus.APPLIED;
 
-    @Column(name = "interview_scheduled_at")
-    private LocalDateTime interviewScheduledAt;
+    @Column(name = "interview_date")
+    private LocalDateTime interviewDate;
 
-    @Column(name = "internal_notes", columnDefinition = "TEXT")
-    private String internalNotes;
+    @Column(name = "interview_notes", columnDefinition = "TEXT")
+    private String interviewNotes;
 
     @CreationTimestamp
     @Column(name = "applied_at", nullable = false, updatable = false)
     private LocalDateTime appliedAt;
+
+    @Column(name = "reviewed_at")
+    private LocalDateTime reviewedAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 }

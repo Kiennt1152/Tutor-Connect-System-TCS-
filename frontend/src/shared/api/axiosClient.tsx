@@ -1,7 +1,9 @@
 import axios from 'axios';
+import { authStorage } from '../auth/authStorage';
 
 const baseURL =
-  (import.meta.env.VITE_API_URL as string | undefined) ?? 'http://localhost:8080/api';
+  (import.meta.env.VITE_API_URL as string | undefined) ??
+  (import.meta.env.DEV ? '/api' : 'http://localhost:8080/api');
 
 const axiosClient = axios.create({
   baseURL,
@@ -11,9 +13,8 @@ const axiosClient = axios.create({
   timeout: 15000,
 });
 
-// Tự động gắn JWT vào mọi request nếu người dùng đã đăng nhập
 axiosClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
+  const token = authStorage.getToken();
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

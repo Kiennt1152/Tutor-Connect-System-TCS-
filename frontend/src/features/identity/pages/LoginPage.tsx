@@ -1,82 +1,57 @@
-import { useState, type FormEvent } from 'react';
-import { useIdentity } from '../hooks/useIdentity';
-import './LoginPage.css';
+import type { FormEvent } from 'react';
+import { useState } from 'react';
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { useAuth } from '../../../shared/auth/AuthProvider';
+import './AuthPages.css';
 
 export default function LoginPage() {
+  const { login, isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: string } | null)?.from ?? '/';
+
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const { user, loading, error, login, logout } = useIdentity();
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
+  if (isAuthenticated) {
+    return <Navigate to={from} replace />;
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
       await login({ email, password });
-      window.location.href = '/';
+      navigate(from, { replace: true });
     } catch {
-      // Lỗi đã được hook lưu vào `error`, không cần xử lý thêm
+      setError('Email hoặc mật khẩu không đúng');
+    } finally {
+      setLoading(false);
     }
-  };
-
-  if (user) {
-    return (
-      <div className="auth-wrap">
-        <div className="auth-card">
-          <h1 className="auth-title">Xin chào 👋</h1>
-          <p className="auth-sub">
-            Bạn đã đăng nhập với <strong>{user.email}</strong>
-          </p>
-          <a className="auth-btn" href="/">
-            Về trang chủ
-          </a>
-          <button className="auth-btn auth-btn--ghost" type="button" onClick={logout}>
-            Đăng xuất
-          </button>
-        </div>
-      </div>
-    );
   }
 
   return (
-    <div className="auth-wrap">
+    <div className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
-        <a className="auth-logo" href="/">
-          <span className="auth-logo__mark">TC</span> Tutor Connect
-        </a>
-        <h1 className="auth-title">Đăng nhập</h1>
-
-        <label className="auth-label" htmlFor="email">
-          Email
-        </label>
-        <input
-          id="email"
-          className="auth-input"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="Nhập Email"
-          autoComplete="email"
-          required
-        />
-
-        <label className="auth-label" htmlFor="password">
-          Mật khẩu
-        </label>
-        <input
-          id="password"
-          className="auth-input"
-          type="password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="Nhập mật khẩu"
-          autoComplete="current-password"
-          required
-        />
-
+        <h1>Đăng nhập</h1>
         {error && <p className="auth-error">{error}</p>}
-
-        <button className="auth-btn" type="submit" disabled={loading}>
-          {loading ? 'Đang xử lý…' : 'Đăng nhập'}
+        <label>
+          Email
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+        </label>
+        <label>
+          Mật khẩu
+          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+        </label>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Đang đăng nhập...' : 'Đăng nhập'}
         </button>
+        <p>
+          Chưa có tài khoản? <Link to="/register">Đăng ký</Link>
+        </p>
       </form>
     </div>
   );
