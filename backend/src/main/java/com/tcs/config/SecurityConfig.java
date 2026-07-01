@@ -37,7 +37,7 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**")
                         .permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/catalog/**")
+                        .requestMatchers("/api/catalog/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/classes/**")
                         .permitAll()
