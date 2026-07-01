@@ -14,10 +14,13 @@ import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.mapper.UserProfileBundle;
 import com.tcs.module.profile.dto.request.ChildProfileRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
+import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
 import com.tcs.module.profile.dto.request.TutorExperienceRequest;
 import com.tcs.module.profile.dto.request.UpdateProfileRequest;
 import com.tcs.module.profile.dto.response.ChildProfileResponse;
+import com.tcs.module.profile.dto.response.DependentLinkStatusResponse;
+import com.tcs.module.profile.dto.response.GuardianProfileResponse;
 import com.tcs.module.profile.dto.response.ProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
@@ -38,8 +41,12 @@ import com.tcs.module.profile.repository.TutorAvailabilityRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorExperienceRepository;
 import com.tcs.module.profile.repository.TutorRepository;
+import com.tcs.module.profile.service.ClientLegalAccountService;
+import com.tcs.module.profile.service.ClientLegalAccountService.LegalAccountContext;
 import com.tcs.module.profile.service.ProfileService;
+import com.tcs.module.profile.util.AgeUtils;
 import com.tcs.security.AuthHelper;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -64,6 +71,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final TutorAvailabilityRepository tutorAvailabilityRepository;
     private final VerificationRequestRepository verificationRequestRepository;
     private final PlatformMapper platformMapper;
+    private final ClientLegalAccountService clientLegalAccountService;
 
     @Override
     @Transactional(readOnly = true)
@@ -89,7 +97,9 @@ public class ProfileServiceImpl implements ProfileService {
     public List<ChildProfileResponse> getMyChildren() {
         ProfileContext ctx = loadContext();
         requireRole(ctx, UserRole.CLIENT);
-        return parentChildLinkRepository.findByParentUser_UserId(ctx.user().getUserId()).stream()
+        return parentChildLinkRepository
+                .findByParentUser_UserIdAndStatus(ctx.user().getUserId(), ParentChildLinkStatus.ACTIVE)
+                .stream()
                 .map(link -> toChildResponse(link.getChildProfile()))
                 .toList();
     }
@@ -119,12 +129,81 @@ public class ProfileServiceImpl implements ProfileService {
         ChildProfile child = childProfileRepository
                 .findById(request.getChildProfileId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ con"));
+        if (parentChildLinkRepository.existsByParentUser_UserIdAndChildProfile_ChildProfileIdAndStatus(
+                ctx.user().getUserId(), child.getChildProfileId(), ParentChildLinkStatus.ACTIVE)) {
+            throw new IllegalArgumentException("Hồ sơ con đã được liên kết");
+        }
         ParentChildLink link = new ParentChildLink();
         link.setParentUser(ctx.user());
         link.setChildProfile(child);
         link.setStatus(ParentChildLinkStatus.ACTIVE);
         parentChildLinkRepository.save(link);
         return toChildResponse(child);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DependentLinkStatusResponse getDependentLinkStatus() {
+        ProfileContext ctx = loadContext();
+        requireRole(ctx, UserRole.CLIENT);
+        Client client = requireClient(ctx);
+        return buildDependentLinkStatus(client);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public GuardianProfileResponse getMyGuardian() {
+        ProfileContext ctx = loadContext();
+        requireRole(ctx, UserRole.CLIENT);
+        Client client = requireClient(ctx);
+        if (!AgeUtils.isMinor(client.getDateOfBirth())) {
+            throw new ForbiddenException("Chỉ tài khoản học sinh vị thành niên mới có phụ huynh liên kết");
+        }
+        return clientLegalAccountService.findGuardianLinkForMinor(client).map(this::toGuardianResponse).orElse(null);
+    }
+
+    @Override
+    @Transactional
+    public GuardianProfileResponse linkGuardian(LinkGuardianRequest request) {
+        ProfileContext ctx = loadContext();
+        requireRole(ctx, UserRole.CLIENT);
+        Client client = requireClient(ctx);
+        if (client.getDateOfBirth() == null) {
+            throw new IllegalArgumentException("Vui lòng cập nhật ngày sinh trước khi liên kết phụ huynh");
+        }
+        if (!StringUtils.hasText(client.getFullName())) {
+            throw new IllegalArgumentException("Vui lòng cập nhật họ tên trước khi liên kết phụ huynh");
+        }
+        if (!AgeUtils.isMinor(client.getDateOfBirth())) {
+            throw new ForbiddenException("Chỉ tài khoản học sinh vị thành niên cần liên kết phụ huynh");
+        }
+        if (!StringUtils.hasText(request.getParentEmail())) {
+            throw new IllegalArgumentException("Email phụ huynh là bắt buộc");
+        }
+        User parentUser = userRepository
+                .findByEmail(request.getParentEmail().trim().toLowerCase())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản phụ huynh với email này"));
+        if (parentUser.getUserId().equals(ctx.user().getUserId())) {
+            throw new IllegalArgumentException("Không thể liên kết chính tài khoản của bạn");
+        }
+        Client parentClient = clientRepository
+                .findByUser_UserId(parentUser.getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Tài khoản phụ huynh không phải khách hàng hợp lệ"));
+        if (parentClient.getDateOfBirth() == null || !AgeUtils.isAdult(parentClient.getDateOfBirth())) {
+            throw new IllegalArgumentException("Phụ huynh liên kết phải từ 18 tuổi trở lên");
+        }
+        if (parentChildLinkRepository
+                .findFirstByParentUser_UserIdAndChildProfile_FullNameAndChildProfile_DateOfBirthAndStatus(
+                        parentUser.getUserId(), client.getFullName(), client.getDateOfBirth(), ParentChildLinkStatus.ACTIVE)
+                .isPresent()) {
+            throw new IllegalArgumentException("Phụ huynh này đã được liên kết");
+        }
+        ChildProfile childProfile = resolveChildProfileForMinor(client);
+        ParentChildLink link = new ParentChildLink();
+        link.setParentUser(parentUser);
+        link.setChildProfile(childProfile);
+        link.setStatus(ParentChildLinkStatus.ACTIVE);
+        return toGuardianResponse(parentChildLinkRepository.save(link));
     }
 
     @Override
@@ -219,6 +298,82 @@ public class ProfileServiceImpl implements ProfileService {
         request.setStatus(VerificationStatus.SUBMITTED);
         request.setSubmittedAt(LocalDateTime.now());
         verificationRequestRepository.save(request);
+    }
+
+    private Client requireClient(ProfileContext ctx) {
+        if (ctx.client() == null) {
+            throw new ResourceNotFoundException("Không tìm thấy hồ sơ khách hàng");
+        }
+        return ctx.client();
+    }
+
+    private DependentLinkStatusResponse buildDependentLinkStatus(Client client) {
+        LocalDate dateOfBirth = client.getDateOfBirth();
+        boolean dateOfBirthMissing = dateOfBirth == null;
+        boolean minorAccount = !dateOfBirthMissing && AgeUtils.isMinor(dateOfBirth);
+        boolean guardianRequired = minorAccount;
+        boolean guardianLinked = minorAccount
+                && StringUtils.hasText(client.getFullName())
+                && clientLegalAccountService.findGuardianLinkForMinor(client).isPresent();
+        int linkedChildrenCount = (int) parentChildLinkRepository
+                .findByParentUser_UserIdAndStatus(client.getUser().getUserId(), ParentChildLinkStatus.ACTIVE)
+                .size();
+        boolean childrenLinkOptional = !dateOfBirthMissing && AgeUtils.isAdult(dateOfBirth);
+        boolean canProceedToPayment =
+                !dateOfBirthMissing && (!guardianRequired || guardianLinked);
+
+        boolean legalProceduresDelegatedToParent = false;
+        Long legalAccountUserId = null;
+        String legalAccountHolderName = null;
+        String legalAccountEmail = null;
+
+        if (guardianLinked) {
+            LegalAccountContext legalContext = clientLegalAccountService.resolveForClient(client);
+            legalProceduresDelegatedToParent = legalContext.isDelegatedToParent();
+            legalAccountUserId = legalContext.getLegalUserId();
+            legalAccountHolderName = legalContext.getLegalHolderName();
+            legalAccountEmail = legalContext.getLegalHolderEmail();
+        }
+
+        return DependentLinkStatusResponse.builder()
+                .dateOfBirthMissing(dateOfBirthMissing)
+                .minorAccount(minorAccount)
+                .guardianRequired(guardianRequired)
+                .guardianLinked(guardianLinked)
+                .childrenLinkOptional(childrenLinkOptional)
+                .linkedChildrenCount(linkedChildrenCount)
+                .canProceedToPayment(canProceedToPayment)
+                .legalProceduresDelegatedToParent(legalProceduresDelegatedToParent)
+                .parentApprovalRequired(legalProceduresDelegatedToParent)
+                .legalAccountUserId(legalAccountUserId)
+                .legalAccountHolderName(legalAccountHolderName)
+                .legalAccountEmail(legalAccountEmail)
+                .build();
+    }
+
+    private ChildProfile resolveChildProfileForMinor(Client client) {
+        return childProfileRepository
+                .findFirstByFullNameAndDateOfBirth(client.getFullName(), client.getDateOfBirth())
+                .orElseGet(() -> {
+                    ChildProfile child = new ChildProfile();
+                    child.setFullName(client.getFullName());
+                    child.setDateOfBirth(client.getDateOfBirth());
+                    child.setGender(client.getGender());
+                    return childProfileRepository.save(child);
+                });
+    }
+
+    private GuardianProfileResponse toGuardianResponse(ParentChildLink link) {
+        Client parentClient = clientRepository
+                .findByUser_UserId(link.getParentUser().getUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ phụ huynh"));
+        return GuardianProfileResponse.builder()
+                .parentUserId(link.getParentUser().getUserId())
+                .fullName(parentClient.getFullName())
+                .email(link.getParentUser().getEmail())
+                .phone(parentClient.getPhone())
+                .linkedAt(link.getCreatedAt())
+                .build();
     }
 
     private ProfileContext loadContext() {
