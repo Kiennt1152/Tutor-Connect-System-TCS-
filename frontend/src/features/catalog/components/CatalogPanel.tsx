@@ -13,19 +13,19 @@ const EMPTY_FORM: UpsertCategoryRequest = {
 const ROOT_GROUP_META: Record<string, { label: string; description: string }> = {
   SUBJECT: {
     label: 'Nhóm môn học',
-    description: 'Danh mục môn học dùng cho tutor subject, class marketplace, matching và hiển thị trang chủ.',
+    description: 'Danh mục môn học dùng cho hồ sơ gia sư, lớp học, gợi ý phù hợp và hiển thị trang chủ.',
   },
   EDUCATION_LEVEL: {
     label: 'Nhóm cấp học',
-    description: 'Danh mục cấp học và nhóm người học để chuẩn hóa hồ sơ, lead, và nhu cầu học tập.',
+    description: 'Danh mục cấp học và nhóm người học để chuẩn hóa hồ sơ và nhu cầu học tập.',
   },
   LOCATION: {
     label: 'Nhóm khu vực',
-    description: 'Danh mục khu vực hoạt động để phục vụ search, matching và vận hành lead theo địa bàn.',
+    description: 'Danh mục khu vực hoạt động để phục vụ tìm kiếm và gợi ý theo địa bàn.',
   },
   SYSTEM_CONFIG: {
     label: 'Nhóm cấu hình hệ thống',
-    description: 'Danh mục option hệ thống tái sử dụng như lesson mode, lead source và các cấu hình nghiệp vụ.',
+    description: 'Danh mục lựa chọn hệ thống tái sử dụng như hình thức học và các cấu hình nghiệp vụ.',
   },
 };
 
@@ -147,10 +147,10 @@ export function CatalogPanel() {
     <section className="catalog-page">
       <div className="catalog-shell">
         <div className="catalog-hero">
-          <span className="catalog-eyebrow">Catalog / Category Management</span>
-          <h1 className="catalog-title">Quản lý category dùng chung cho subject và class</h1>
+          <span className="catalog-eyebrow">Danh mục / Quản lý phân loại</span>
+          <h1 className="catalog-title">Quản lý danh mục dùng chung cho môn học và lớp học</h1>
           <p className="catalog-subtitle">
-            Mỗi nhóm category được quản lý riêng để giữ cấu trúc rõ ràng cho subject, location, education level
+            Mỗi nhóm danh mục được quản lý riêng để giữ cấu trúc rõ ràng cho môn học, khu vực, cấp học
             và các cấu hình dùng chung của hệ thống.
           </p>
         </div>
@@ -179,7 +179,7 @@ export function CatalogPanel() {
           <article className="catalog-card">
             <div className="catalog-card__head">
               <div>
-                <h2 className="catalog-card__title">Category trong nhóm đang chọn</h2>
+                <h2 className="catalog-card__title">Danh mục trong nhóm đang chọn</h2>
               </div>
               <div className="catalog-actions">
                 <button className="catalog-btn catalog-btn--ghost" type="button" onClick={() => void reload()}>
@@ -193,15 +193,15 @@ export function CatalogPanel() {
 
             <div className="catalog-card__body">
               <div className="catalog-toolbar">
-                <span className="catalog-chip">{flatCategories.length} category trong nhánh {activeRoot}</span>
+                <span className="catalog-chip">{flatCategories.length} danh mục trong nhóm {getRootLabel(activeRoot)}</span>
                 {activeGroup && (
                   <span className="catalog-chip catalog-chip--soft">
-                    {countTreeNodes(activeGroup.root.children)} mục con dưới root
+                    {countTreeNodes(activeGroup.root.children)} mục con
                   </span>
                 )}
               </div>
 
-              {status === 'loading' && <div className="catalog-state">Đang tải category…</div>}
+              {status === 'loading' && <div className="catalog-state">Đang tải danh mục…</div>}
               {status === 'error' && <div className="catalog-state catalog-state--error">{error}</div>}
 
               {status === 'success' && !activeGroup && (
@@ -224,7 +224,7 @@ export function CatalogPanel() {
                     <div className="catalog-tree catalog-tree--scroller">
                       {activeGroup.root.children.length === 0 ? (
                         <div className="catalog-empty">
-                          Nhóm này chưa có category con. Chọn nhóm gốc để thêm tiếp.
+                          Nhóm này chưa có danh mục con. Chọn nhóm gốc để thêm tiếp.
                         </div>
                       ) : (
                         activeGroup.root.children.map((category) => (
@@ -249,7 +249,7 @@ export function CatalogPanel() {
             <div className="catalog-card__head">
               <div>
                 <h2 className="catalog-card__title">
-                  {selectedCategory ? `Chỉnh sửa ${selectedCategory.name}` : 'Tạo category mới'}
+                  {selectedCategory ? `Chỉnh sửa ${selectedCategory.name}` : 'Tạo danh mục mới'}
                 </h2>
               </div>
             </div>
@@ -268,7 +268,7 @@ export function CatalogPanel() {
                   </div>
 
                   <div className="catalog-field">
-                    <label htmlFor="category-name">Tên category</label>
+                    <label htmlFor="category-name">Tên danh mục</label>
                     <input
                       id="category-name"
                       value={form.name}
@@ -279,7 +279,7 @@ export function CatalogPanel() {
                   </div>
 
                   <div className="catalog-field">
-                    <label htmlFor="category-parent">Category cha</label>
+                    <label htmlFor="category-parent">Danh mục cha</label>
                     <input
                       id="category-parent"
                       value={formatParentName(form.parentId, flatCategories)}
@@ -290,7 +290,7 @@ export function CatalogPanel() {
                       <span className="catalog-badge catalog-badge--muted">
                         {selectedCategory
                           ? `Đang thuộc: ${formatParentName(form.parentId, flatCategories)}`
-                          : `Tạo mới trong nhánh: ${formatParentName(form.parentId, flatCategories)}`}
+                          : `Tạo mới trong nhóm: ${formatParentName(form.parentId, flatCategories)}`}
                       </span>
                     </div>
                   </div>
@@ -307,8 +307,8 @@ export function CatalogPanel() {
                         }))
                       }
                     >
-                      <option value="ACTIVE">ACTIVE</option>
-                      <option value="INACTIVE">INACTIVE</option>
+                      <option value="ACTIVE">Đang hoạt động</option>
+                      <option value="INACTIVE">Tạm ẩn</option>
                     </select>
                   </div>
 
@@ -320,7 +320,7 @@ export function CatalogPanel() {
                       onChange={(event) =>
                         setForm((current) => ({ ...current, description: event.target.value }))
                       }
-                      placeholder="Mô tả ngắn để phân biệt category này được dùng ở đâu."
+                      placeholder="Mô tả ngắn để phân biệt danh mục này được dùng ở đâu."
                     />
                   </div>
                 </div>
@@ -336,13 +336,13 @@ export function CatalogPanel() {
                           : 'catalog-badge--inactive'
                       }`}
                     >
-                      {selectedCategory.status}
+                      {formatStatusLabel(selectedCategory.status)}
                     </span>
                     {selectedCategory.usedByTutorSubjects && (
-                      <span className="catalog-badge catalog-badge--info">Đang dùng bởi TutorSubject</span>
+                      <span className="catalog-badge catalog-badge--info">Đang dùng bởi hồ sơ gia sư</span>
                     )}
                     {selectedCategory.usedByTutoringClasses && (
-                      <span className="catalog-badge catalog-badge--warn">Đang dùng bởi TutoringClass</span>
+                      <span className="catalog-badge catalog-badge--warn">Đang dùng bởi lớp học</span>
                     )}
                     {!selectedCategory.deletable && (
                       <span className="catalog-badge catalog-badge--muted">Không thể xóa</span>
@@ -352,7 +352,7 @@ export function CatalogPanel() {
 
                 <div className="catalog-form__footer">
                   <button className="catalog-btn catalog-btn--primary" type="submit" disabled={isSubmitting}>
-                    {isSubmitting ? 'Đang lưu…' : selectedCategory ? 'Cập nhật category' : 'Tạo category'}
+                    {isSubmitting ? 'Đang lưu…' : selectedCategory ? 'Cập nhật danh mục' : 'Tạo danh mục'}
                   </button>
                   <button className="catalog-btn catalog-btn--secondary" type="button" onClick={resetForm}>
                     Xóa form
@@ -364,7 +364,7 @@ export function CatalogPanel() {
                       onClick={() => void handleDelete()}
                       disabled={isSubmitting || !selectedCategory.deletable}
                     >
-                      Xóa category
+                      Xóa danh mục
                     </button>
                   )}
                 </div>
@@ -405,16 +405,16 @@ function CategoryNode({
                   category.status === 'ACTIVE' ? 'catalog-badge--active' : 'catalog-badge--inactive'
                 }`}
               >
-                {category.status}
+                {formatStatusLabel(category.status)}
               </span>
             </div>
 
             <div className="catalog-node__meta">
               {category.usedByTutorSubjects && (
-                <span className="catalog-badge catalog-badge--info">TutorSubject</span>
+                <span className="catalog-badge catalog-badge--info">Hồ sơ gia sư</span>
               )}
               {category.usedByTutoringClasses && (
-                <span className="catalog-badge catalog-badge--warn">TutoringClass</span>
+                <span className="catalog-badge catalog-badge--warn">Lớp học</span>
               )}
               {!category.deletable && <span className="catalog-badge catalog-badge--muted">Không thể xóa</span>}
             </div>
@@ -478,7 +478,7 @@ function extractUiError(error: unknown) {
     }
   }
 
-  return 'Không lưu được category.';
+  return 'Không lưu được danh mục.';
 }
 
 function formatParentName(parentId: number | null, categories: CategoryItem[]) {
@@ -487,4 +487,12 @@ function formatParentName(parentId: number | null, categories: CategoryItem[]) {
   }
 
   return categories.find((category) => category.categoryId === parentId)?.name ?? `#${parentId}`;
+}
+
+function formatStatusLabel(status: CategoryItem['status']) {
+  return status === 'ACTIVE' ? 'Đang hoạt động' : 'Tạm ẩn';
+}
+
+function getRootLabel(root: RootGroup) {
+  return ROOT_GROUP_META[root].label;
 }

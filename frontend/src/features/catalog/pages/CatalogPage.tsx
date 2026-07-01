@@ -13,7 +13,7 @@ function Header() {
         </a>
         <nav className="tcs-header__nav">
           <a href="/">Trang chủ</a>
-          <a href="/catalog">Category</a>
+          <a href="/catalog">Danh mục</a>
           <a href="/platform/users">Người dùng</a>
         </nav>
         <div className="tcs-header__actions">

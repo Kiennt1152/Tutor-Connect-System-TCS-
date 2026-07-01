@@ -74,5 +74,5 @@ function extractErrorMessage(error: unknown) {
     }
   }
 
-  return 'Không tải được dữ liệu category.';
+  return 'Không tải được dữ liệu danh mục.';
 }
