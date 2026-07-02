@@ -243,8 +243,7 @@ public class CatalogServiceImpl implements CatalogService {
         category.setStatus(normalizeStatus(request.getStatus()));
 
         if (request.getParentId() == null) {
-            category.setParent(null);
-            category.setType(resolveRootCategoryType(category, request));
+            applyRootOrBranchParent(category, request);
             return;
         }
 
@@ -259,7 +258,11 @@ public class CatalogServiceImpl implements CatalogService {
         }
 
         String normalizedName = normalizeName(request.getName());
-        validateUniqueNameWithinParent(normalizedName, request.getParentId(), currentCategory);
+        validateUniqueNameWithinParent(
+                normalizedName,
+                resolveEffectiveParentIdForValidation(request, currentCategory, normalizedName),
+                currentCategory
+        );
 
         if (currentCategory != null && request.getParentId() != null) {
             if (currentCategory.getCategoryId().equals(request.getParentId())) {
@@ -269,6 +272,27 @@ public class CatalogServiceImpl implements CatalogService {
         }
 
         normalizeStatus(request.getStatus());
+    }
+
+    private void applyRootOrBranchParent(Category category, CatalogRequest.UpsertCategoryRequest request) {
+        String normalizedName = normalizeName(request.getName());
+        CategoryType targetRootType = resolveRequestedRootType(category, request);
+
+        if (targetRootType == null) {
+            category.setParent(null);
+            category.setType(resolveRootCategoryType(category, request));
+            return;
+        }
+
+        if (normalizedName.equalsIgnoreCase(targetRootType.name())) {
+            category.setParent(null);
+            category.setType(targetRootType);
+            return;
+        }
+
+        Category rootCategory = findOrCreateRootCategory(targetRootType);
+        category.setParent(rootCategory);
+        category.setType(rootCategory.getType());
     }
 
     private void ensureNotDescendantParent(Long categoryId, Long parentId) {
@@ -284,6 +308,21 @@ public class CatalogServiceImpl implements CatalogService {
     private Category getRequiredCategory(Long categoryId) {
         return categoryRepository.findById(categoryId)
                 .orElseThrow(() -> new IllegalArgumentException("Category not found: " + categoryId));
+    }
+
+    private Category findOrCreateRootCategory(CategoryType rootType) {
+        return categoryRepository.findByNameIgnoreCase(rootType.name())
+                .filter(category -> category.getParent() == null)
+                .orElseGet(() -> {
+                    Category root = new Category();
+                    root.setName(rootType.name());
+                    root.setType(rootType);
+                    root.setDescription(defaultRootDescription(rootType));
+                    root.setStatus("ACTIVE");
+                    root.setActive(true);
+                    root.setSortOrder(0);
+                    return categoryRepository.save(root);
+                });
     }
 
     private void validateUniqueNameWithinParent(
@@ -315,6 +354,26 @@ public class CatalogServiceImpl implements CatalogService {
         }
     }
 
+    private Long resolveEffectiveParentIdForValidation(
+            CatalogRequest.UpsertCategoryRequest request,
+            Category currentCategory,
+            String normalizedName
+    ) {
+        if (request.getParentId() != null || currentCategory != null) {
+            return request.getParentId();
+        }
+
+        CategoryType requestedRootType = resolveRequestedRootType(currentCategory, request);
+        if (requestedRootType == null || normalizedName.equalsIgnoreCase(requestedRootType.name())) {
+            return null;
+        }
+
+        return categoryRepository.findByNameIgnoreCase(requestedRootType.name())
+                .filter(category -> category.getParent() == null)
+                .map(Category::getCategoryId)
+                .orElse(null);
+    }
+
     private CategoryType resolveRootCategoryType(Category category, CatalogRequest.UpsertCategoryRequest request) {
         if (category.getCategoryId() != null) {
             return category.getType();
@@ -325,6 +384,32 @@ public class CatalogServiceImpl implements CatalogService {
         } catch (IllegalArgumentException ex) {
             throw new IllegalArgumentException("Root category name must match a supported taxonomy group.");
         }
+    }
+
+    private CategoryType resolveRequestedRootType(Category category, CatalogRequest.UpsertCategoryRequest request) {
+        if (category.getCategoryId() != null) {
+            return category.getType();
+        }
+
+        String rootName = normalizeText(request.getRootName());
+        if (rootName == null) {
+            return null;
+        }
+
+        try {
+            return CategoryType.valueOf(rootName.toUpperCase(Locale.ROOT));
+        } catch (IllegalArgumentException ex) {
+            throw new IllegalArgumentException("Root category group is invalid.");
+        }
+    }
+
+    private String defaultRootDescription(CategoryType rootType) {
+        return switch (rootType) {
+            case SUBJECT -> "Nhóm gốc cho danh mục môn học.";
+            case EDUCATION_LEVEL -> "Nhóm gốc cho danh mục cấp học.";
+            case LOCATION -> "Nhóm gốc cho danh mục khu vực.";
+            case SYSTEM_CONFIG -> "Nhóm gốc cho danh mục cấu hình hệ thống.";
+        };
     }
 
     private String normalizeName(String value) {

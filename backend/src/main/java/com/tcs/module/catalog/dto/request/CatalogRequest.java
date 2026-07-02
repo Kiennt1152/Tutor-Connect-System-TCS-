@@ -18,6 +18,8 @@ public class CatalogRequest {
 
         private String description;
 
+        private String rootName;
+
         private Long parentId;
 
         private String status;

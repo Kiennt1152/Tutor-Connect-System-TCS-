@@ -1,6 +1,7 @@
 export interface UpsertCategoryRequest {
   name: string;
   description: string;
+  rootName: 'SUBJECT' | 'EDUCATION_LEVEL' | 'LOCATION' | 'SYSTEM_CONFIG';
   parentId: number | null;
   status: 'ACTIVE' | 'INACTIVE';
 }

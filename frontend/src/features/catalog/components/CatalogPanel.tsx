@@ -6,6 +6,7 @@ import type { CategoryItem, UpsertCategoryRequest } from '../types/catalogTypes'
 const EMPTY_FORM: UpsertCategoryRequest = {
   name: '',
   description: '',
+  rootName: 'SUBJECT',
   parentId: null,
   status: 'ACTIVE',
 };
@@ -65,10 +66,11 @@ export function CatalogPanel() {
     if (!selectedCategoryId && activeGroup) {
       setForm((current) => ({
         ...current,
+        rootName: activeRoot,
         parentId: current.parentId ?? activeGroup.root.categoryId,
       }));
     }
-  }, [activeGroup, selectedCategoryId]);
+  }, [activeGroup, activeRoot, selectedCategoryId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -113,6 +115,7 @@ export function CatalogPanel() {
     setForm({
       name: category.name,
       description: category.description ?? '',
+      rootName: activeRoot,
       parentId: category.parent?.categoryId ?? null,
       status: category.status,
     });
@@ -123,6 +126,7 @@ export function CatalogPanel() {
     setSubmitError(null);
     setForm({
       ...EMPTY_FORM,
+      rootName: activeRoot,
       parentId: activeGroup?.root.categoryId ?? null,
     });
   }
@@ -131,7 +135,10 @@ export function CatalogPanel() {
     setActiveRoot(root);
     setSelectedCategoryId(null);
     setSubmitError(null);
-    setForm(EMPTY_FORM);
+    setForm({
+      ...EMPTY_FORM,
+      rootName: root,
+    });
   }
 
   function prepareCreateUnder(parent: CategoryItem) {
@@ -139,6 +146,7 @@ export function CatalogPanel() {
     setSubmitError(null);
     setForm({
       ...EMPTY_FORM,
+      rootName: activeRoot,
       parentId: parent.categoryId,
     });
   }
@@ -193,7 +201,9 @@ export function CatalogPanel() {
 
             <div className="catalog-card__body">
               <div className="catalog-toolbar">
-                <span className="catalog-chip">{flatCategories.length} danh mục trong nhóm {getRootLabel(activeRoot)}</span>
+                <span className="catalog-chip">
+                  {countVisibleCategories(activeGroup)} danh mục trong nhóm {getRootLabel(activeRoot)}
+                </span>
                 {activeGroup && (
                   <span className="catalog-chip catalog-chip--soft">
                     {countTreeNodes(activeGroup.root.children)} mục con
@@ -282,15 +292,15 @@ export function CatalogPanel() {
                     <label htmlFor="category-parent">Danh mục cha</label>
                     <input
                       id="category-parent"
-                      value={formatParentName(form.parentId, flatCategories)}
+                      value={formatParentName(form.parentId, flatCategories, activeRoot)}
                       disabled
                       readOnly
                     />
                     <div className="catalog-form__hint">
                       <span className="catalog-badge catalog-badge--muted">
                         {selectedCategory
-                          ? `Đang thuộc: ${formatParentName(form.parentId, flatCategories)}`
-                          : `Tạo mới trong nhóm: ${formatParentName(form.parentId, flatCategories)}`}
+                          ? `Đang thuộc: ${formatParentName(form.parentId, flatCategories, activeRoot)}`
+                          : `Tạo mới trong nhóm: ${formatParentName(form.parentId, flatCategories, activeRoot)}`}
                       </span>
                     </div>
                   </div>
@@ -481,9 +491,9 @@ function extractUiError(error: unknown) {
   return 'Không lưu được danh mục.';
 }
 
-function formatParentName(parentId: number | null, categories: CategoryItem[]) {
+function formatParentName(parentId: number | null, categories: CategoryItem[], root: RootGroup) {
   if (parentId == null) {
-    return 'Không có';
+    return getRootLabel(root);
   }
 
   return categories.find((category) => category.categoryId === parentId)?.name ?? `#${parentId}`;
@@ -495,4 +505,12 @@ function formatStatusLabel(status: CategoryItem['status']) {
 
 function getRootLabel(root: RootGroup) {
   return ROOT_GROUP_META[root].label;
+}
+
+function countVisibleCategories(activeGroup: { root: CategoryItem } | null) {
+  if (!activeGroup) {
+    return 0;
+  }
+
+  return countTreeNodes(activeGroup.root.children);
 }
