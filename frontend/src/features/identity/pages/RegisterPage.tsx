@@ -1,9 +1,17 @@
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { Link, Navigate, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import type { UserRole } from '../types/identityTypes';
 import './AuthPages.css';
+
+function getRegisterErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
+    return error.response.data.message;
+  }
+  return 'Không thể đăng ký. Kiểm tra lại thông tin.';
+}
 
 export default function RegisterPage() {
   const { register, isAuthenticated } = useAuth();
@@ -38,8 +46,8 @@ export default function RegisterPage() {
         licenseNo: role === 'TUTOR_CENTER' ? licenseNo : undefined,
       });
       navigate('/', { replace: true });
-    } catch {
-      setError('Không thể đăng ký. Kiểm tra lại thông tin.');
+    } catch (err) {
+      setError(getRegisterErrorMessage(err));
     } finally {
       setLoading(false);
     }

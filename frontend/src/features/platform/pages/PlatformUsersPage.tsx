@@ -18,10 +18,14 @@ const STATUS_ACTION_LABELS: Record<UserStatus, string> = {
 
 function confirmStatusChange(nextStatus: UserStatus) {
   if (nextStatus === 'BANNED') {
-    return window.confirm('Khóa tài khoản này? Người dùng sẽ không thể đăng nhập.');
+    return window.confirm(
+      'Khóa tài khoản này? Người dùng sẽ không thể đăng nhập và email không thể đăng ký lại.',
+    );
   }
   if (nextStatus === 'SUSPENDED') {
-    return window.confirm('Tạm ngưng tài khoản này?');
+    return window.confirm(
+      'Tạm ngưng tài khoản này? Người dùng vẫn đăng nhập được nhưng sẽ bị giới hạn quyền (triển khai sau).',
+    );
   }
   return window.confirm('Kích hoạt lại tài khoản này?');
 }

@@ -1,8 +1,16 @@
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import './AuthPages.css';
+
+function getLoginErrorMessage(error: unknown): string {
+  if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
+    return error.response.data.message;
+  }
+  return 'Email hoặc mật khẩu không đúng';
+}
 
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
@@ -32,8 +40,8 @@ export default function LoginPage() {
         from !== '/' ? from : response.role === 'PLATFORM_ADMIN' ? '/platform/users' : '/';
       sessionStorage.removeItem('auth_redirect');
       navigate(destination, { replace: true });
-    } catch {
-      setError('Email hoặc mật khẩu không đúng');
+    } catch (err) {
+      setError(getLoginErrorMessage(err));
     } finally {
       setLoading(false);
     }

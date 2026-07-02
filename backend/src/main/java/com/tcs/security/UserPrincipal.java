@@ -23,7 +23,7 @@ public class UserPrincipal implements UserDetails {
         this.email = user.getEmail();
         this.passwordHash = user.getPasswordHash();
         this.role = role;
-        this.enabled = user.getStatus() == com.tcs.module.identity.enums.UserStatus.ACTIVE;
+        this.enabled = user.getStatus() != com.tcs.module.identity.enums.UserStatus.BANNED;
     }
 
     @Override

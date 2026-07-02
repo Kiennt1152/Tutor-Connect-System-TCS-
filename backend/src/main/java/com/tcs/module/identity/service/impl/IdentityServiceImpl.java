@@ -58,9 +58,14 @@ public class IdentityServiceImpl implements IdentityService {
     @Override
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.existsByEmail(request.getEmail().trim().toLowerCase())) {
+        String email = request.getEmail().trim().toLowerCase();
+        userRepository.findByEmail(email).ifPresent(existing -> {
+            if (existing.getStatus() == UserStatus.BANNED) {
+                throw new DuplicateEmailException(
+                        "Email này đã bị khóa vĩnh viễn và không thể đăng ký tài khoản mới");
+            }
             throw new DuplicateEmailException("Email đã được sử dụng");
-        }
+        });
         if (request.getRole() == UserRole.PLATFORM_ADMIN || request.getRole() == UserRole.UNKNOWN) {
             throw new IllegalArgumentException("Vai trò đăng ký không hợp lệ");
         }
@@ -89,8 +94,11 @@ public class IdentityServiceImpl implements IdentityService {
                 .findByEmail(request.getEmail().trim().toLowerCase())
                 .orElseThrow(() -> new IllegalArgumentException("Email hoặc mật khẩu không đúng"));
 
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new IllegalArgumentException("Tài khoản đã bị khóa hoặc tạm ngưng");
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new IllegalArgumentException("Tài khoản đã bị khóa và không thể đăng nhập");
+        }
+        if (user.getStatus() != UserStatus.ACTIVE && user.getStatus() != UserStatus.SUSPENDED) {
+            throw new IllegalArgumentException("Tài khoản không thể đăng nhập");
         }
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Email hoặc mật khẩu không đúng");
@@ -138,6 +146,9 @@ public class IdentityServiceImpl implements IdentityService {
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
         userRepository.findByEmail(request.getEmail().trim().toLowerCase()).ifPresent(user -> {
+            if (user.getStatus() == UserStatus.BANNED) {
+                return;
+            }
             PasswordResetToken token = new PasswordResetToken();
             token.setUser(user);
             token.setToken(UUID.randomUUID().toString());
@@ -156,6 +167,9 @@ public class IdentityServiceImpl implements IdentityService {
             throw new IllegalArgumentException("Token đã hết hạn hoặc đã sử dụng");
         }
         User user = token.getUser();
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new IllegalArgumentException("Tài khoản đã bị khóa và không thể đặt lại mật khẩu");
+        }
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         token.setUsedAt(LocalDateTime.now());
