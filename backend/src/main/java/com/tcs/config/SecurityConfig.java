@@ -33,6 +33,7 @@ public class SecurityConfig {
                                 "/api/home",
                                 "/api/identity/login",
                                 "/api/identity/google",
+                                "/api/identity/google/complete",
                                 "/api/identity/register",
                                 "/api/identity/send-otp",
                                 "/api/identity/verify-otp",

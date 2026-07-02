@@ -2,6 +2,7 @@ package com.tcs.module.identity.service;
 
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
 import com.tcs.module.identity.dto.request.ForgotPasswordRequest;
+import com.tcs.module.identity.dto.request.GoogleCompleteRequest;
 import com.tcs.module.identity.dto.request.GoogleLoginRequest;
 import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
@@ -9,6 +10,7 @@ import com.tcs.module.identity.dto.request.ResetPasswordRequest;
 import com.tcs.module.identity.dto.request.SendOtpRequest;
 import com.tcs.module.identity.dto.request.VerifyOtpRequest;
 import com.tcs.module.identity.dto.response.AuthResponse;
+import com.tcs.module.identity.dto.response.GoogleLoginResponse;
 import com.tcs.module.identity.dto.response.MeResponse;
 import com.tcs.module.identity.dto.response.RegisterResponse;
 import com.tcs.module.identity.dto.response.SendOtpResponse;
@@ -27,8 +29,15 @@ public interface IdentityService {
 
     AuthResponse login(LoginRequest request);
 
-    /** Dang nhap bang Google: xac thuc ID token, tu tao tai khoan CLIENT neu email chua ton tai. */
-    AuthResponse loginWithGoogle(GoogleLoginRequest request);
+    /**
+     * Dang nhap bang Google: xac thuc access token. Neu email da co tai khoan thi dang nhap luon;
+     * neu la lan dau thi tra ve {@code newUser=true} de frontend cho chon vai tro + SDT truoc khi
+     * tao tai khoan qua {@link #completeGoogleSignup}.
+     */
+    GoogleLoginResponse loginWithGoogle(GoogleLoginRequest request);
+
+    /** Hoan tat tao tai khoan cho nguoi dang nhap Google lan dau, sau khi da chon vai tro + SDT. */
+    GoogleLoginResponse completeGoogleSignup(GoogleCompleteRequest request);
 
     MeResponse getMe();
 

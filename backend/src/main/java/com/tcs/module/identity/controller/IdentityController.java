@@ -2,6 +2,7 @@ package com.tcs.module.identity.controller;
 
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
 import com.tcs.module.identity.dto.request.ForgotPasswordRequest;
+import com.tcs.module.identity.dto.request.GoogleCompleteRequest;
 import com.tcs.module.identity.dto.request.GoogleLoginRequest;
 import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
@@ -9,6 +10,7 @@ import com.tcs.module.identity.dto.request.ResetPasswordRequest;
 import com.tcs.module.identity.dto.request.SendOtpRequest;
 import com.tcs.module.identity.dto.request.VerifyOtpRequest;
 import com.tcs.module.identity.dto.response.AuthResponse;
+import com.tcs.module.identity.dto.response.GoogleLoginResponse;
 import com.tcs.module.identity.dto.response.MeResponse;
 import com.tcs.module.identity.dto.response.RegisterResponse;
 import com.tcs.module.identity.dto.response.SendOtpResponse;
@@ -65,8 +67,13 @@ public class IdentityController {
     }
 
     @PostMapping("/google")
-    public AuthResponse loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+    public GoogleLoginResponse loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
         return identityService.loginWithGoogle(request);
+    }
+
+    @PostMapping("/google/complete")
+    public GoogleLoginResponse completeGoogleSignup(@Valid @RequestBody GoogleCompleteRequest request) {
+        return identityService.completeGoogleSignup(request);
     }
 
     @GetMapping("/me")

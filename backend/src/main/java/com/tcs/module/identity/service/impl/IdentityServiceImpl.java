@@ -6,6 +6,7 @@ import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
 import com.tcs.module.identity.dto.request.ForgotPasswordRequest;
+import com.tcs.module.identity.dto.request.GoogleCompleteRequest;
 import com.tcs.module.identity.dto.request.GoogleLoginRequest;
 import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
@@ -13,6 +14,7 @@ import com.tcs.module.identity.dto.request.ResetPasswordRequest;
 import com.tcs.module.identity.dto.request.SendOtpRequest;
 import com.tcs.module.identity.dto.request.VerifyOtpRequest;
 import com.tcs.module.identity.dto.response.AuthResponse;
+import com.tcs.module.identity.dto.response.GoogleLoginResponse;
 import com.tcs.module.identity.dto.response.MeResponse;
 import com.tcs.module.identity.dto.response.RegisterResponse;
 import com.tcs.module.identity.dto.response.SendOtpResponse;
@@ -315,15 +317,21 @@ public class IdentityServiceImpl implements IdentityService {
 
     @Override
     @Transactional
-    public AuthResponse loginWithGoogle(GoogleLoginRequest request) {
+    public GoogleLoginResponse loginWithGoogle(GoogleLoginRequest request) {
         GoogleTokenVerifier.GooglePayload payload = googleTokenVerifier.verify(request.getAccessToken());
         String email = normalizeEmail(payload.getEmail());
 
         User user = userRepository.findByEmail(email).orElse(null);
         if (user == null) {
-            // Lan dau dang nhap Google -> tu tao tai khoan CLIENT (khong co mat khau dung duoc).
-            user = provisionGoogleClient(email, payload.getName());
-        } else if (user.getStatus() != UserStatus.ACTIVE) {
+            // Lan dau dang nhap Google -> chua tao tai khoan, yeu cau frontend chon vai tro + SDT
+            // roi goi completeGoogleSignup.
+            return GoogleLoginResponse.builder()
+                    .newUser(true)
+                    .email(email)
+                    .suggestedDisplayName(suggestDisplayName(email, payload.getName()))
+                    .build();
+        }
+        if (user.getStatus() != UserStatus.ACTIVE) {
             throw new IllegalArgumentException("Tài khoản đã bị khóa hoặc tạm ngưng");
         }
 
@@ -333,30 +341,50 @@ public class IdentityServiceImpl implements IdentityService {
         UserProfileBundle profiles = loadProfiles(user.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);
         String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role);
-        return buildAuthResponse(user, profiles, token);
+        return buildGoogleLoginResponse(user, profiles, token);
     }
 
-    /**
-     * Tao tai khoan CLIENT cho nguoi dung Google moi. Mat khau la chuoi ngau nhien (khong dung de
-     * dang nhap bang password). Ten hien thi lay tu Google; SDT de trong (bo sung sau khi dang nhap).
-     */
-    private User provisionGoogleClient(String email, String googleName) {
+    @Override
+    @Transactional
+    public GoogleLoginResponse completeGoogleSignup(GoogleCompleteRequest request) {
+        GoogleTokenVerifier.GooglePayload payload = googleTokenVerifier.verify(request.getAccessToken());
+        String email = normalizeEmail(payload.getEmail());
+
+        if (request.getRole() == UserRole.PLATFORM_ADMIN || request.getRole() == UserRole.UNKNOWN) {
+            throw new IllegalArgumentException("Vai trò đăng ký không hợp lệ");
+        }
+        if (userRepository.existsByEmail(email)) {
+            throw new DuplicateEmailException("Email này đã được đăng ký");
+        }
+        String phone = normalizePhone(request.getPhone());
+        if (userRepository.existsByPhone(phone)) {
+            throw new IllegalArgumentException("Số điện thoại đã được sử dụng");
+        }
+
         User user = new User();
         user.setEmail(email);
+        user.setPhone(phone);
         user.setPasswordHash(passwordEncoder.encode(UUID.randomUUID().toString()));
         user.setStatus(UserStatus.ACTIVE);
+        user.setLastLogin(LocalDateTime.now());
         User savedUser = userRepository.save(user);
 
-        String displayName = (googleName == null || googleName.isBlank())
-                ? email.substring(0, email.indexOf('@'))
-                : googleName.trim();
-        createBaselineProfile(savedUser, UserRole.CLIENT, displayName, "");
+        createBaselineProfile(savedUser, request.getRole(), suggestDisplayName(email, payload.getName()), phone);
 
         Wallet wallet = new Wallet();
         wallet.setUser(savedUser);
         walletRepository.save(wallet);
 
-        return savedUser;
+        UserProfileBundle profiles = loadProfiles(savedUser.getUserId());
+        UserRole role = platformMapper.resolveRole(profiles);
+        String token = jwtService.generateToken(savedUser.getUserId(), savedUser.getEmail(), role);
+        return buildGoogleLoginResponse(savedUser, profiles, token);
+    }
+
+    private String suggestDisplayName(String email, String googleName) {
+        return (googleName == null || googleName.isBlank())
+                ? email.substring(0, email.indexOf('@'))
+                : googleName.trim();
     }
 
     @Override
@@ -527,6 +555,18 @@ public class IdentityServiceImpl implements IdentityService {
                 .accessToken(token)
                 .userId(user.getUserId())
                 .email(user.getEmail())
+                .role(platformMapper.resolveRole(profiles))
+                .displayName(platformMapper.toUserListItem(user, profiles).getDisplayName())
+                .status(user.getStatus())
+                .build();
+    }
+
+    private GoogleLoginResponse buildGoogleLoginResponse(User user, UserProfileBundle profiles, String token) {
+        return GoogleLoginResponse.builder()
+                .newUser(false)
+                .email(user.getEmail())
+                .accessToken(token)
+                .userId(user.getUserId())
                 .role(platformMapper.resolveRole(profiles))
                 .displayName(platformMapper.toUserListItem(user, profiles).getDisplayName())
                 .status(user.getStatus())

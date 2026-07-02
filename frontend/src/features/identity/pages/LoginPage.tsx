@@ -3,10 +3,18 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { imageAssets } from '../../../assets/images/ImageAssets';
+import type { RegisterRole } from '../types/identityTypes';
 import './RegisterPage.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
+const PHONE_REGEX = /^(0(3|5|7|8|9)\d{8}|\+84(3|5|7|8|9)\d{8})$/;
+
+const ROLE_OPTIONS: { value: RegisterRole; label: string }[] = [
+  { value: 'CLIENT', label: 'Học viên / Phụ huynh' },
+  { value: 'TUTOR', label: 'Gia sư' },
+  { value: 'TUTOR_CENTER', label: 'Trung tâm' },
+];
 
 type TokenResponse = { access_token?: string; error?: string };
 type TokenClient = { requestAccessToken: () => void };
@@ -98,7 +106,7 @@ function GoogleIcon() {
 }
 
 export default function LoginPage() {
-  const { login, loginWithGoogle, isAuthenticated } = useAuth();
+  const { login, loginWithGoogle, completeGoogleSignup, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? '/';
@@ -110,6 +118,14 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const tokenClientRef = useRef<TokenClient | null>(null);
+
+  // Ho so con thieu (role + SDT) khi Google login lan dau chua co tai khoan.
+  const [googlePending, setGooglePending] = useState<{ accessToken: string; email: string } | null>(
+    null,
+  );
+  const [completeRole, setCompleteRole] = useState<RegisterRole>('CLIENT');
+  const [completePhone, setCompletePhone] = useState('');
+  const [completeSubmitting, setCompleteSubmitting] = useState(false);
 
   // Khoi tao Google OAuth2 token client (luong popup) cho nut Google tuy chinh.
   function getTokenClient(): TokenClient {
@@ -131,8 +147,13 @@ export default function LoginPage() {
         setError('');
         setLoading(true);
         try {
-          await loginWithGoogle({ accessToken: response.access_token });
-          navigate(from, { replace: true });
+          const result = await loginWithGoogle({ accessToken: response.access_token });
+          if (result.newUser) {
+            // Tai khoan Google chua ton tai -> yeu cau chon vai tro + SDT truoc khi tao tai khoan.
+            setGooglePending({ accessToken: response.access_token as string, email: result.email });
+          } else {
+            navigate(from, { replace: true });
+          }
         } catch {
           setError('Đăng nhập Google thất bại. Vui lòng thử lại.');
         } finally {
@@ -192,6 +213,97 @@ export default function LoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleCompleteGoogleSignup(e: FormEvent) {
+    e.preventDefault();
+    if (!googlePending) {
+      return;
+    }
+    setError('');
+    if (!PHONE_REGEX.test(completePhone.trim())) {
+      setError('Số điện thoại không hợp lệ (VD: 0901234567 hoặc +84901234567)');
+      return;
+    }
+    setCompleteSubmitting(true);
+    try {
+      await completeGoogleSignup({
+        accessToken: googlePending.accessToken,
+        role: completeRole,
+        phone: completePhone.trim(),
+      });
+      navigate(from, { replace: true });
+    } catch {
+      setError('Hoàn tất đăng ký thất bại. Vui lòng thử lại.');
+    } finally {
+      setCompleteSubmitting(false);
+    }
+  }
+
+  if (googlePending) {
+    return (
+      <div className="reg-page">
+        <Header />
+        <main className="reg-main">
+          <section className="reg-card reg-card--narrow">
+            <form onSubmit={handleCompleteGoogleSignup} noValidate>
+              <div className="reg-card__head">
+                <h1 className="reg-card__title">Hoàn tất đăng ký</h1>
+                <p className="reg-card__sub">
+                  Đây là lần đầu <strong>{googlePending.email}</strong> đăng nhập bằng Google. Chọn loại
+                  tài khoản và nhập số điện thoại để tiếp tục.
+                </p>
+              </div>
+
+              <div className="reg-roles">
+                {ROLE_OPTIONS.map((o) => (
+                  <button
+                    type="button"
+                    key={o.value}
+                    className={`reg-role${completeRole === o.value ? ' reg-role--active' : ''}`}
+                    onClick={() => setCompleteRole(o.value)}
+                  >
+                    <span className="reg-role__label">{o.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              <label className="reg-field">
+                <span className="reg-label">Số điện thoại</span>
+                <input
+                  className="reg-input"
+                  value={completePhone}
+                  onChange={(e) => setCompletePhone(e.target.value)}
+                  placeholder="0901234567"
+                  autoComplete="tel"
+                  required
+                />
+              </label>
+
+              {error && <div className="reg-alert reg-alert--error">{error}</div>}
+
+              <button type="submit" className="reg-btn reg-btn--block" disabled={completeSubmitting}>
+                {completeSubmitting ? 'Đang xử lý…' : 'Hoàn tất đăng ký'}
+              </button>
+
+              <p className="reg-foot">
+                <button
+                  type="button"
+                  className="reg-link"
+                  style={{ background: 'none', border: 'none', padding: 0, font: 'inherit', cursor: 'pointer' }}
+                  onClick={() => {
+                    setGooglePending(null);
+                    setError('');
+                  }}
+                >
+                  Quay lại
+                </button>
+              </p>
+            </form>
+          </section>
+        </main>
+      </div>
+    );
   }
 
   return (

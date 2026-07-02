@@ -2,7 +2,9 @@ import axiosClient from '../../../shared/api/axiosClient';
 import { authStorage } from '../../../shared/auth/authStorage';
 import type {
   AuthResponse,
+  GoogleCompleteRequest,
   GoogleLoginRequest,
+  GoogleLoginResponse,
   LoginRequest,
   RegisterRequest,
   RegisterResponse,
@@ -20,8 +22,13 @@ export const identityApi = {
     return data;
   },
 
-  async loginWithGoogle(body: GoogleLoginRequest): Promise<AuthResponse> {
-    const { data } = await axiosClient.post<AuthResponse>(`${BASE}/google`, body);
+  async loginWithGoogle(body: GoogleLoginRequest): Promise<GoogleLoginResponse> {
+    const { data } = await axiosClient.post<GoogleLoginResponse>(`${BASE}/google`, body);
+    return data;
+  },
+
+  async completeGoogleSignup(body: GoogleCompleteRequest): Promise<GoogleLoginResponse> {
+    const { data } = await axiosClient.post<GoogleLoginResponse>(`${BASE}/google/complete`, body);
     return data;
   },
 
@@ -46,7 +53,7 @@ export const identityApi = {
   },
 };
 
-export function persistAuth(response: AuthResponse) {
+export function persistAuth(response: Pick<AuthResponse, 'accessToken' | 'userId' | 'email' | 'role' | 'displayName'>) {
   authStorage.setToken(response.accessToken);
   authStorage.setUser({
     userId: response.userId,

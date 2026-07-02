@@ -12,6 +12,12 @@ export type GoogleLoginRequest = {
   accessToken: string;
 };
 
+export type GoogleCompleteRequest = {
+  accessToken: string;
+  role: RegisterRole;
+  phone: string;
+};
+
 export type AuthResponse = {
   accessToken: string;
   userId: number;
@@ -19,6 +25,22 @@ export type AuthResponse = {
   role: UserRole;
   displayName: string;
   status: string;
+};
+
+/**
+ * Ket qua dang nhap Google. newUser=true nghia la tai khoan chua ton tai: chi co email +
+ * suggestedDisplayName duoc dien, phai goi completeGoogleSignup de tao tai khoan. newUser=false
+ * nghia la da dang nhap thanh cong, cac truong con lai giong AuthResponse.
+ */
+export type GoogleLoginResponse = {
+  newUser: boolean;
+  email: string;
+  suggestedDisplayName?: string;
+  accessToken?: string;
+  userId?: number;
+  role?: UserRole;
+  displayName?: string;
+  status?: string;
 };
 
 // ---- UC-01 Register Account (OTP qua email) ----
