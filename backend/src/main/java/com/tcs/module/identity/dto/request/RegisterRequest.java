@@ -1,44 +1,46 @@
 package com.tcs.module.identity.dto.request;
 
-import com.tcs.module.profile.enums.Gender;
 import com.tcs.module.profile.enums.UserRole;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;
 
+/**
+ * UC-01 Register Account - chi thu thap cac truong baseline (BR-UC01-09).
+ * Cac chi tiet ho so theo vai tro duoc bo sung sau khi dang nhap.
+ */
 @Getter
 @Setter
 public class RegisterRequest {
 
-    @NotBlank
-    @Email
+    @NotBlank(message = "Vui lòng nhập email")
+    @Email(message = "Email không hợp lệ")
+    @Size(max = 100, message = "Email không được vượt quá 100 ký tự")
     private String email;
 
-    @NotBlank
-    @Size(min = 6, max = 100)
-    private String password;
-
-    private String phone;
-
-    @NotNull
+    @NotNull(message = "Vui lòng chọn loại tài khoản")
     private UserRole role;
 
-    @NotBlank
-    private String fullName;
+    @NotBlank(message = "Vui lòng nhập tên hiển thị")
+    @Size(min = 2, max = 50, message = "Tên hiển thị phải từ 2 đến 50 ký tự")
+    private String displayName;
 
-    private Gender gender;
+    @NotBlank(message = "Vui lòng nhập số điện thoại")
+    @Pattern(
+            regexp = "^(0|\\+84)(3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-46-9])\\d{7}$",
+            message = "Số điện thoại không hợp lệ")
+    private String phone;
 
-    private String address;
+    @NotBlank(message = "Vui lòng nhập mật khẩu")
+    private String password;
 
-    private String licenseNo;
+    @NotBlank(message = "Vui lòng xác nhận mật khẩu")
+    private String confirmPassword;
 
-    private String companyName;
-
-    private Integer experienceYears;
-
-    private BigDecimal hourlyRate;
+    @NotBlank(message = "Thiếu mã xác thực email. Vui lòng xác thực email trước.")
+    private String verifiedEmailToken;
 }

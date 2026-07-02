@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { imageAssets } from '../../../assets/images/ImageAssets';
 import { useHome } from '../hooks/useHome';
+import { useAuth } from '../../../shared/auth/AuthProvider';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import './HomePage.css';
 
@@ -16,6 +17,8 @@ const initials = (name: string) =>
     .join('');
 
 function Header() {
+  const { user, logout } = useAuth();
+
   return (
     <header className="tcs-header">
       <div className="tcs-container tcs-header__inner">
@@ -29,12 +32,20 @@ function Header() {
           <a href="#how">Cách hoạt động</a>
         </nav>
         <div className="tcs-header__actions">
-          <a className="tcs-btn tcs-btn--ghost" href="/login">
-            Đăng nhập
-          </a>
-          <a className="tcs-btn tcs-btn--primary" href="/register">
-            Đăng ký
-          </a>
+          {user ? (
+            <button className="tcs-btn tcs-btn--ghost" type="button" onClick={logout}>
+              Đăng xuất
+            </button>
+          ) : (
+            <>
+              <a className="tcs-btn tcs-btn--ghost" href="/login">
+                Đăng nhập
+              </a>
+              <a className="tcs-btn tcs-btn--primary" href="/register">
+                Đăng ký
+              </a>
+            </>
+          )}
         </div>
       </div>
     </header>

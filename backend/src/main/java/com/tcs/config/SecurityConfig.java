@@ -29,9 +29,14 @@ public class SecurityConfig {
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(
+                                "/error",
                                 "/api/home",
                                 "/api/identity/login",
+                                "/api/identity/google",
+                                "/api/identity/google/complete",
                                 "/api/identity/register",
+                                "/api/identity/send-otp",
+                                "/api/identity/verify-otp",
                                 "/api/identity/password/forgot",
                                 "/api/identity/password/reset",
                                 "/swagger-ui/**",

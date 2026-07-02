@@ -2,12 +2,21 @@ package com.tcs.module.identity.controller;
 
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
 import com.tcs.module.identity.dto.request.ForgotPasswordRequest;
+import com.tcs.module.identity.dto.request.GoogleCompleteRequest;
+import com.tcs.module.identity.dto.request.GoogleLoginRequest;
 import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.request.ResetPasswordRequest;
+import com.tcs.module.identity.dto.request.SendOtpRequest;
+import com.tcs.module.identity.dto.request.VerifyOtpRequest;
 import com.tcs.module.identity.dto.response.AuthResponse;
+import com.tcs.module.identity.dto.response.GoogleLoginResponse;
 import com.tcs.module.identity.dto.response.MeResponse;
+import com.tcs.module.identity.dto.response.RegisterResponse;
+import com.tcs.module.identity.dto.response.SendOtpResponse;
+import com.tcs.module.identity.dto.response.VerifyOtpResponse;
 import com.tcs.module.identity.service.IdentityService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -27,15 +36,44 @@ public class IdentityController {
 
     private final IdentityService identityService;
 
+    @PostMapping("/send-otp")
+    public SendOtpResponse sendOtp(
+            @Valid @RequestBody SendOtpRequest request, HttpServletRequest servletRequest) {
+        return identityService.sendOtp(request, resolveClientIp(servletRequest));
+    }
+
+    @PostMapping("/verify-otp")
+    public VerifyOtpResponse verifyOtp(@Valid @RequestBody VerifyOtpRequest request) {
+        return identityService.verifyOtp(request);
+    }
+
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
-    public AuthResponse register(@Valid @RequestBody RegisterRequest request) {
+    public RegisterResponse register(@Valid @RequestBody RegisterRequest request) {
         return identityService.register(request);
+    }
+
+    private String resolveClientIp(HttpServletRequest request) {
+        String forwarded = request.getHeader("X-Forwarded-For");
+        if (forwarded != null && !forwarded.isBlank()) {
+            return forwarded.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
     }
 
     @PostMapping("/login")
     public AuthResponse login(@Valid @RequestBody LoginRequest request) {
         return identityService.login(request);
+    }
+
+    @PostMapping("/google")
+    public GoogleLoginResponse loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        return identityService.loginWithGoogle(request);
+    }
+
+    @PostMapping("/google/complete")
+    public GoogleLoginResponse completeGoogleSignup(@Valid @RequestBody GoogleCompleteRequest request) {
+        return identityService.completeGoogleSignup(request);
     }
 
     @GetMapping("/me")

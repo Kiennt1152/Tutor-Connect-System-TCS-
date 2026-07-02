@@ -1,13 +1,21 @@
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
 import { identityApi, persistAuth } from '../../features/identity/api/identityApi';
-import type { AuthResponse, LoginRequest, RegisterRequest } from '../../features/identity/types/identityTypes';
+import type {
+  AuthResponse,
+  GoogleCompleteRequest,
+  GoogleLoginRequest,
+  GoogleLoginResponse,
+  LoginRequest,
+} from '../../features/identity/types/identityTypes';
 import { authStorage, type StoredUser } from '../auth/authStorage';
 
 type AuthContextValue = {
   user: StoredUser | null;
   isAuthenticated: boolean;
   login: (body: LoginRequest) => Promise<AuthResponse>;
-  register: (body: RegisterRequest) => Promise<AuthResponse>;
+  /** newUser=true nghia la chua co tai khoan; goi completeGoogleSignup de hoan tat. */
+  loginWithGoogle: (body: GoogleLoginRequest) => Promise<GoogleLoginResponse>;
+  completeGoogleSignup: (body: GoogleCompleteRequest) => Promise<GoogleLoginResponse>;
   logout: () => void;
 };
 
@@ -23,9 +31,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response;
   }, []);
 
-  const register = useCallback(async (body: RegisterRequest) => {
-    const response = await identityApi.register(body);
-    persistAuth(response);
+  const loginWithGoogle = useCallback(async (body: GoogleLoginRequest) => {
+    const response = await identityApi.loginWithGoogle(body);
+    if (!response.newUser) {
+      persistAuth(response as Required<Pick<GoogleLoginResponse, 'accessToken' | 'userId' | 'email' | 'role' | 'displayName'>>);
+      setUser(authStorage.getUser());
+    }
+    return response;
+  }, []);
+
+  const completeGoogleSignup = useCallback(async (body: GoogleCompleteRequest) => {
+    const response = await identityApi.completeGoogleSignup(body);
+    persistAuth(response as Required<Pick<GoogleLoginResponse, 'accessToken' | 'userId' | 'email' | 'role' | 'displayName'>>);
     setUser(authStorage.getUser());
     return response;
   }, []);
@@ -40,10 +57,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user,
       isAuthenticated: !!user && !!authStorage.getToken(),
       login,
-      register,
+      loginWithGoogle,
+      completeGoogleSignup,
       logout,
     }),
-    [user, login, register, logout],
+    [user, login, loginWithGoogle, completeGoogleSignup, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
