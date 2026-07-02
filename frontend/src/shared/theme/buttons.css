@@ -2,15 +2,16 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 16px;
-  border-radius: var(--radius-sm);
+  gap: var(--space-xs);
+  height: 44px;
+  padding: 0 var(--space-lg);
   border: 1px solid transparent;
+  border-radius: var(--radius-md);
   font-size: var(--fs-body-md);
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
-  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
 }
 
 .tcs-btn:disabled {
@@ -19,28 +20,58 @@
 }
 
 .tcs-btn--sm {
-  padding: 6px 10px;
+  height: 36px;
+  padding: 0 var(--space-md);
   font-size: var(--fs-body-sm);
 }
 
-.tcs-btn--primary {
-  background: var(--color-primary);
+.tcs-btn--primary,
+.tcs-btn--market {
+  background-color: var(--color-primary);
   color: var(--color-white);
-  border-color: var(--color-primary-dark);
 }
 
-.tcs-btn--primary:hover:not(:disabled) {
-  background: var(--color-primary-dark);
+.tcs-btn--primary:hover:not(:disabled),
+.tcs-btn--market:hover:not(:disabled) {
+  background-color: var(--color-primary-dark);
 }
 
 .tcs-btn--ghost {
-  background: var(--color-surface-2);
+  background-color: transparent;
   color: var(--color-text-primary);
   border-color: var(--color-border-strong);
 }
 
 .tcs-btn--ghost:hover:not(:disabled) {
-  background: var(--color-surface-3);
+  background-color: var(--color-surface-3);
+}
+
+.tcs-btn--soft {
+  background-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  height: 38px;
+  padding: 0 var(--space-md);
+}
+
+.tcs-btn--soft:hover:not(:disabled) {
+  background-color: #fed7aa;
+}
+
+.tcs-btn--header {
+  height: 34px;
+  padding: 0 11px;
+  font-size: 12px;
+}
+
+.tcs-btn--logout {
+  color: var(--color-error);
+  border-color: #fca5a5;
+}
+
+.tcs-btn--logout:hover:not(:disabled) {
+  background: var(--color-error-light);
+  color: #991b1b;
+  border-color: #f87171;
 }
 
 .tcs-btn--success {
