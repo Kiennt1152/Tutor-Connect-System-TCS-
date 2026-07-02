@@ -45,7 +45,7 @@ export function CatalogPanel() {
   const flatCategories = useMemo(() => flattenCategories(categories), [categories]);
   const activeGroup = useMemo(() => {
     const root = categories[0] ?? null;
-    if (!root) {
+    if (!root || root.name !== activeRoot) {
       return null;
     }
 
@@ -138,6 +138,7 @@ export function CatalogPanel() {
     setForm({
       ...EMPTY_FORM,
       rootName: root,
+      parentId: null,
     });
   }
 
@@ -215,7 +216,9 @@ export function CatalogPanel() {
               {status === 'error' && <div className="catalog-state catalog-state--error">{error}</div>}
 
               {status === 'success' && !activeGroup && (
-                <div className="catalog-empty">Nhóm này hiện chưa có dữ liệu.</div>
+                <div className="catalog-empty">
+                  Chưa có danh mục nào trong nhóm {getRootLabel(activeRoot)}. Chọn Tạo mới để thêm danh mục đầu tiên.
+                </div>
               )}
 
               {status === 'success' && activeGroup && (

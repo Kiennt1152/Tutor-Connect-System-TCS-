@@ -171,6 +171,7 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     @Override
+    @Transactional
     public CatalogResponse.CategoryResponse createCategory(CatalogRequest.UpsertCategoryRequest request) {
         validateUpsertRequest(request, null);
 
@@ -181,6 +182,7 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     @Override
+    @Transactional
     public CatalogResponse.CategoryResponse updateCategory(Long categoryId, CatalogRequest.UpsertCategoryRequest request) {
         Category category = getRequiredCategory(categoryId);
         validateUpsertRequest(request, category);
@@ -190,14 +192,15 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     @Override
+    @Transactional
     public void deleteCategory(Long categoryId) {
         Category category = getRequiredCategory(categoryId);
         if (categoryRepository.existsByParent_CategoryId(categoryId)) {
-            throw new IllegalArgumentException("Cannot delete category that still has child categories.");
+            throw new IllegalArgumentException("Không thể xóa danh mục vẫn còn danh mục con.");
         }
 
         if (tutoringClassRepository.existsByCategory_CategoryId(categoryId)) {
-            throw new IllegalArgumentException("Cannot delete category that is assigned to tutoring classes.");
+            throw new IllegalArgumentException("Không thể xóa danh mục đang được dùng cho lớp học.");
         }
 
         categoryRepository.delete(category);
@@ -254,7 +257,7 @@ public class CatalogServiceImpl implements CatalogService {
 
     private void validateUpsertRequest(CatalogRequest.UpsertCategoryRequest request, Category currentCategory) {
         if (request == null) {
-            throw new IllegalArgumentException("Category payload is required.");
+            throw new IllegalArgumentException("Thiếu dữ liệu danh mục.");
         }
 
         String normalizedName = normalizeName(request.getName());
@@ -266,7 +269,7 @@ public class CatalogServiceImpl implements CatalogService {
 
         if (currentCategory != null && request.getParentId() != null) {
             if (currentCategory.getCategoryId().equals(request.getParentId())) {
-                throw new IllegalArgumentException("Category cannot be its own parent.");
+                throw new IllegalArgumentException("Danh mục không thể tự chọn chính nó làm danh mục cha.");
             }
             ensureNotDescendantParent(currentCategory.getCategoryId(), request.getParentId());
         }
@@ -299,7 +302,7 @@ public class CatalogServiceImpl implements CatalogService {
         Category cursor = getRequiredCategory(parentId);
         while (cursor != null) {
             if (cursor.getCategoryId().equals(categoryId)) {
-                throw new IllegalArgumentException("Category parent cannot be one of its descendants.");
+                throw new IllegalArgumentException("Danh mục cha không thể là danh mục con của chính nó.");
             }
             cursor = cursor.getParent();
         }
@@ -350,7 +353,7 @@ public class CatalogServiceImpl implements CatalogService {
         }
 
         if (exists) {
-            throw new IllegalArgumentException("Category name must be unique within the same parent level.");
+            throw new IllegalArgumentException("Tên danh mục đã tồn tại.");
         }
     }
 
@@ -375,19 +378,19 @@ public class CatalogServiceImpl implements CatalogService {
     }
 
     private CategoryType resolveRootCategoryType(Category category, CatalogRequest.UpsertCategoryRequest request) {
-        if (category.getCategoryId() != null) {
+        if (category != null && category.getCategoryId() != null) {
             return category.getType();
         }
 
         try {
             return CategoryType.valueOf(normalizeName(request.getName()).toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("Root category name must match a supported taxonomy group.");
+            throw new IllegalArgumentException("Tên nhóm gốc không hợp lệ.");
         }
     }
 
     private CategoryType resolveRequestedRootType(Category category, CatalogRequest.UpsertCategoryRequest request) {
-        if (category.getCategoryId() != null) {
+        if (category != null && category.getCategoryId() != null) {
             return category.getType();
         }
 
@@ -399,7 +402,7 @@ public class CatalogServiceImpl implements CatalogService {
         try {
             return CategoryType.valueOf(rootName.toUpperCase(Locale.ROOT));
         } catch (IllegalArgumentException ex) {
-            throw new IllegalArgumentException("Root category group is invalid.");
+            throw new IllegalArgumentException("Nhóm gốc không hợp lệ.");
         }
     }
 
@@ -415,7 +418,7 @@ public class CatalogServiceImpl implements CatalogService {
     private String normalizeName(String value) {
         String normalizedValue = normalizeText(value);
         if (normalizedValue == null) {
-            throw new IllegalArgumentException("Category name is required.");
+            throw new IllegalArgumentException("Tên danh mục là bắt buộc.");
         }
         return normalizedValue;
     }
@@ -427,7 +430,7 @@ public class CatalogServiceImpl implements CatalogService {
 
         String normalizedStatus = status.trim().toUpperCase(Locale.ROOT);
         if (!normalizedStatus.equals("ACTIVE") && !normalizedStatus.equals("INACTIVE")) {
-            throw new IllegalArgumentException("Category status must be ACTIVE or INACTIVE.");
+            throw new IllegalArgumentException("Trạng thái danh mục không hợp lệ.");
         }
         return normalizedStatus;
     }

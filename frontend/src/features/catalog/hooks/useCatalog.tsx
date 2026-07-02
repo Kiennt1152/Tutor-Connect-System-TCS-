@@ -13,6 +13,7 @@ export function useCatalog(rootName: string | null) {
   async function loadCategories() {
     setStatus('loading');
     setError(null);
+    setCategories([]);
 
     try {
       const response = await catalogApi.listCategories(rootName);
