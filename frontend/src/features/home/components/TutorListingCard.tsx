@@ -1,0 +1,82 @@
+import type { FeaturedTutor } from '../types/homeTypes';
+
+type TutorListingCardProps = {
+  tutor: FeaturedTutor;
+  isAuthenticated: boolean;
+  variant?: 'grid' | 'search';
+};
+
+const currency = (value: number) =>
+  new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(value);
+
+const initials = (name: string) =>
+  name
+    .trim()
+    .split(/\s+/)
+    .slice(-2)
+    .map((part) => part.charAt(0).toUpperCase())
+    .join('');
+
+const bioSnippet = (bio: string | null) => {
+  const text = bio?.trim();
+  if (!text) return 'Gia sư tận tâm, sẵn sàng đồng hành cùng học viên trên nền tảng TCS.';
+  return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+};
+
+export function TutorListingCard({
+  tutor,
+  isAuthenticated,
+  variant = 'grid',
+}: TutorListingCardProps) {
+  return (
+    <article className={`tcs-listing-card${variant === 'search' ? ' tcs-listing-card--compact' : ''}`}>
+      <div className="tcs-listing-card__top">
+        <div className="tcs-listing-card__profile">
+          <div className="tcs-listing-card__avatar">{initials(tutor.fullName) || 'GS'}</div>
+          <div className="tcs-listing-card__identity">
+            <h3 className="tcs-listing-card__name">{tutor.fullName}</h3>
+            <span className="tcs-listing-card__badge">Gia sư</span>
+          </div>
+        </div>
+        <div className="tcs-listing-card__price">
+          <span className="tcs-listing-card__price-value">{currency(tutor.hourlyRate)} đ</span>
+          <span className="tcs-listing-card__price-unit">/giờ</span>
+        </div>
+      </div>
+
+      <div className="tcs-listing-card__meta">
+        <div className="tcs-listing-card__row">
+          <span className="tcs-listing-card__label">Đánh giá</span>
+          <span className="tcs-listing-card__value">
+            <span className="tcs-listing-card__star">★</span> {Number(tutor.ratingAvg).toFixed(1)}
+          </span>
+        </div>
+        <div className="tcs-listing-card__row">
+          <span className="tcs-listing-card__label">Kinh nghiệm</span>
+          <span className="tcs-listing-card__value">{tutor.experienceYears} năm</span>
+        </div>
+        {tutor.gender ? (
+          <div className="tcs-listing-card__row">
+            <span className="tcs-listing-card__label">Giới tính</span>
+            <span className="tcs-listing-card__value">{tutor.gender}</span>
+          </div>
+        ) : null}
+      </div>
+
+      <p className="tcs-listing-card__bio">{bioSnippet(tutor.bio)}</p>
+
+      <div className="tcs-listing-card__foot">
+        <span className="tcs-listing-card__status">Sẵn sàng nhận lớp</span>
+        {isAuthenticated ? (
+          <button type="button" className="tcs-btn tcs-btn--market" disabled title="Sắp có">
+            Xem hồ sơ
+          </button>
+        ) : (
+          <a className="tcs-btn tcs-btn--market" href="/login">
+            Xem hồ sơ
+          </a>
+        )}
+      </div>
+    </article>
+  );
+}

@@ -10,5 +10,7 @@ export const APP_ROUTES = {
   messaging: '/messaging',
   platform: '/platform',
   platformUsers: '/platform/users',
+  platformVerifications: '/platform/verifications',
+  platformReports: '/platform/reports',
   platformProfile: '/platform/profile',
 } as const;

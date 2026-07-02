@@ -6,7 +6,6 @@
   background-color: var(--color-surface-1);
 }
 
-/* Header — dong bo voi trang chu */
 .reg-header {
   position: sticky;
   top: 0;
@@ -14,11 +13,12 @@
   flex-shrink: 0;
   background-color: var(--color-surface-2);
   border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
 }
 .reg-header__inner {
   max-width: var(--content-max);
   margin: 0 auto;
-  height: 68px;
+  height: 64px;
   padding: 0 var(--space-xl);
   display: flex;
   align-items: center;
@@ -378,7 +378,7 @@
   color: var(--color-primary-dark);
 }
 .reg-btn--soft:hover:not(:disabled) {
-  background-color: #c7defb;
+  background-color: #fed7aa;
 }
 
 /* Links / foot */

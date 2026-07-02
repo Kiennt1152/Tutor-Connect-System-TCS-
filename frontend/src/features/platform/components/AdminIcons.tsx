@@ -1,4 +1,17 @@
+import type { ComponentType } from 'react';
+import './AdminIcons.css';
+
 type IconProps = { className?: string };
+
+export type AdminIconKey =
+  | 'dashboard'
+  | 'users'
+  | 'shield'
+  | 'flag'
+  | 'book'
+  | 'graduation';
+
+export type AdminIconSize = 'sm' | 'md' | 'lg';
 
 export function IconDashboard({ className }: IconProps) {
   return (
@@ -39,6 +52,24 @@ export function IconFlag({ className }: IconProps) {
   );
 }
 
+export function IconBook({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20" />
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z" />
+    </svg>
+  );
+}
+
+export function IconGraduationCap({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+      <path d="M6 12v5c0 2 7 3 7 3s7-1 7-3v-5" />
+    </svg>
+  );
+}
+
 export function IconUser({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -53,5 +84,29 @@ export function IconChevronRight({ className }: IconProps) {
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
       <polyline points="9 18 15 12 9 6" />
     </svg>
+  );
+}
+
+const ADMIN_ICONS: Record<AdminIconKey, ComponentType<IconProps>> = {
+  dashboard: IconDashboard,
+  users: IconUsers,
+  shield: IconShield,
+  flag: IconFlag,
+  book: IconBook,
+  graduation: IconGraduationCap,
+};
+
+type AdminIconProps = {
+  name: AdminIconKey;
+  className?: string;
+  size?: AdminIconSize;
+};
+
+export function AdminIcon({ name, className, size = 'sm' }: AdminIconProps) {
+  const Icon = ADMIN_ICONS[name];
+  return (
+    <span className={['adm-icon', `adm-icon--${size}`, className].filter(Boolean).join(' ')}>
+      <Icon />
+    </span>
   );
 }

@@ -4,7 +4,9 @@ import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import PlatformDashboardPage from '../features/platform/pages/PlatformDashboardPage';
 import PlatformProfilePage from '../features/platform/pages/PlatformProfilePage';
+import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
+import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
 
 export default function App() {
@@ -27,6 +29,22 @@ export default function App() {
           element={
             <ProtectedRoute roles={['PLATFORM_ADMIN']}>
               <PlatformUsersPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/platform/verifications"
+          element={
+            <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+              <PlatformVerificationsPage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/platform/reports"
+          element={
+            <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+              <PlatformReportsPage />
             </ProtectedRoute>
           }
         />

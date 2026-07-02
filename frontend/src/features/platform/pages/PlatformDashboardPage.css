@@ -39,9 +39,87 @@
   color: var(--color-text-primary);
 }
 
-.adm-welcome__cta {
+.adm-welcome__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
   flex-shrink: 0;
-  white-space: nowrap;
+}
+
+.adm-priority {
+  margin-bottom: var(--space-lg);
+}
+
+.adm-priority__title {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--fs-h3);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.adm-priority__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-md);
+}
+
+.adm-priority-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid #fcd34d;
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, #fffbeb 0%, var(--color-surface-2) 100%);
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.adm-priority-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.adm-priority-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.adm-priority-card__label {
+  margin: 0;
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.adm-priority-card__value {
+  margin: 2px 0 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #b45309;
+}
+
+.adm-stat-card-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.adm-stat-card-link .adm-stat-card {
+  height: 100%;
+}
+
+.adm-stat-card-link:hover .adm-stat-card {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary-light);
 }
 
 .adm-dashboard-stats {
@@ -99,15 +177,17 @@
   height: 36px;
   border-radius: var(--radius-md);
   background: var(--color-surface-3);
-  font-size: 1.1rem;
+  color: var(--color-text-secondary);
 }
 
 .adm-stat-card--primary .adm-stat-card__icon {
   background: var(--color-primary-light);
+  color: var(--color-primary-dark);
 }
 
 .adm-stat-card--warn .adm-stat-card__icon {
   background: var(--color-warning-light);
+  color: #b45309;
 }
 
 .adm-stat-card__label {
@@ -195,12 +275,13 @@
   height: 44px;
   border-radius: var(--radius-md);
   background: var(--color-surface-3);
-  font-size: 1.25rem;
+  color: var(--color-text-secondary);
   flex-shrink: 0;
 }
 
 .adm-quick-link--active .adm-quick-link__icon {
   background: var(--color-primary-light);
+  color: var(--color-primary-dark);
 }
 
 .adm-quick-link__body {
@@ -273,7 +354,11 @@
     align-items: flex-start;
   }
 
-  .adm-welcome__cta {
+  .adm-welcome__actions {
     width: 100%;
+  }
+
+  .adm-welcome__actions .tcs-btn {
+    flex: 1 1 auto;
   }
 }
