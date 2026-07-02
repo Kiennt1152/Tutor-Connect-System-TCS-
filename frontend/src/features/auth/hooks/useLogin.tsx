@@ -3,7 +3,7 @@ import axios from 'axios';
 import { authApi } from '../api/authApi';
 import type { LoginFormValues, LoginResponse } from '../types/authTypes';
 
-/** Trich xuat thong bao loi tieng Viet tu phan hoi cua backend. */
+
 function extractError(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as Record<string, string> | undefined;
@@ -23,7 +23,7 @@ function extractError(error: unknown): string {
   return 'Đã có lỗi xảy ra. Vui lòng thử lại.';
 }
 
-/** Luu phien dang nhap; axiosClient se tu doc `token` de gan header Authorization. */
+
 function persistSession(data: LoginResponse) {
   localStorage.setItem('token', data.token);
   localStorage.setItem(

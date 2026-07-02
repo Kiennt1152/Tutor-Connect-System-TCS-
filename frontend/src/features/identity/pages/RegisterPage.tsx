@@ -104,8 +104,8 @@ function Header() {
           <img className="reg-logo__image" src={imageAssets.logo} alt="" />
           <span className="reg-logo__text">Tutor Connect System</span>
         </Link>
-        <Link to="/login" className="reg-header__login">
-          Đăng nhập
+        <Link to="/" className="reg-header__login">
+          Trang chủ
         </Link>
       </div>
     </header>

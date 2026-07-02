@@ -44,8 +44,8 @@ function Header() {
           <img className="reg-logo__image" src={imageAssets.logo} alt="" />
           <span className="reg-logo__text">Tutor Connect System</span>
         </Link>
-        <Link to="/register" className="reg-header__login">
-          Đăng ký
+        <Link to="/" className="reg-header__login">
+          Trang chủ
         </Link>
       </div>
     </header>
@@ -108,63 +108,72 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const tokenClientRef = useRef<TokenClient | null>(null);
 
   // Khoi tao Google OAuth2 token client (luong popup) cho nut Google tuy chinh.
+  function getTokenClient(): TokenClient {
+    if (tokenClientRef.current) {
+      return tokenClientRef.current;
+    }
+    const google = (window as unknown as { google?: GoogleGsi }).google;
+    if (!google) {
+      throw new Error('Google Identity Services chưa sẵn sàng.');
+    }
+    tokenClientRef.current = google.accounts.oauth2.initTokenClient({
+      client_id: GOOGLE_CLIENT_ID as string,
+      scope: 'openid email profile',
+      callback: async (response) => {
+        if (response.error || !response.access_token) {
+          setError('Đăng nhập Google bị hủy hoặc thất bại.');
+          return;
+        }
+        setError('');
+        setLoading(true);
+        try {
+          await loginWithGoogle({ accessToken: response.access_token });
+          navigate(from, { replace: true });
+        } catch {
+          setError('Đăng nhập Google thất bại. Vui lòng thử lại.');
+        } finally {
+          setLoading(false);
+        }
+      },
+    });
+    return tokenClientRef.current;
+  }
+
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) {
       return;
     }
-    let cancelled = false;
-
     loadGsiScript()
-      .then(() => {
-        if (cancelled) {
-          return;
-        }
-        const google = (window as unknown as { google?: GoogleGsi }).google;
-        if (!google) {
-          return;
-        }
-        tokenClientRef.current = google.accounts.oauth2.initTokenClient({
-          client_id: GOOGLE_CLIENT_ID,
-          scope: 'openid email profile',
-          callback: async (response) => {
-            if (response.error || !response.access_token) {
-              setError('Đăng nhập Google bị hủy hoặc thất bại.');
-              return;
-            }
-            setError('');
-            setLoading(true);
-            try {
-              await loginWithGoogle({ accessToken: response.access_token });
-              navigate(from, { replace: true });
-            } catch {
-              setError('Đăng nhập Google thất bại. Vui lòng thử lại.');
-            } finally {
-              setLoading(false);
-            }
-          },
-        });
-      })
-      .catch(() => setError('Không tải được đăng nhập Google.'));
+      .then(() => getTokenClient())
+      .catch(() => {
+        // Chua tai xong luc mount thi de nguoi dung bam nut se tu thu lai (handleGoogleClick).
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-    return () => {
-      cancelled = true;
-    };
-  }, [from, loginWithGoogle, navigate]);
-
-  function handleGoogleClick() {
+  async function handleGoogleClick() {
     if (!GOOGLE_CLIENT_ID) {
       setError('Đăng nhập Google chưa được cấu hình (thiếu VITE_GOOGLE_CLIENT_ID).');
       return;
     }
-    if (!tokenClientRef.current) {
-      setError('Đang tải Google, vui lòng thử lại sau giây lát.');
+    setError('');
+    if (tokenClientRef.current) {
+      tokenClientRef.current.requestAccessToken();
       return;
     }
-    setError('');
-    tokenClientRef.current.requestAccessToken();
+    setGoogleLoading(true);
+    try {
+      await loadGsiScript();
+      getTokenClient().requestAccessToken();
+    } catch {
+      setError('Không tải được đăng nhập Google. Vui lòng kiểm tra kết nối mạng và thử lại.');
+    } finally {
+      setGoogleLoading(false);
+    }
   }
 
   if (isAuthenticated) {
@@ -247,10 +256,10 @@ export default function LoginPage() {
               type="button"
               className="reg-btn reg-btn--ghost reg-btn--block reg-google-fallback"
               onClick={handleGoogleClick}
-              disabled={loading}
+              disabled={loading || googleLoading}
             >
               <GoogleIcon />
-              Đăng nhập với Google
+              {googleLoading ? 'Đang tải Google…' : 'Đăng nhập với Google'}
             </button>
 
             <p className="reg-foot">
