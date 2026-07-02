@@ -61,6 +61,10 @@ export function CatalogPanel() {
     selectedCategoryId == null
       ? null
       : flatCategories.find((category) => category.categoryId === selectedCategoryId) ?? null;
+  const parentDisplayName = useMemo(
+    () => formatParentName(form.parentId, flatCategories, activeRoot, activeGroup, selectedCategory),
+    [form.parentId, flatCategories, activeRoot, activeGroup, selectedCategory]
+  );
 
   useEffect(() => {
     if (!selectedCategoryId && activeGroup) {
@@ -226,7 +230,7 @@ export function CatalogPanel() {
                   <section className="catalog-taxonomy__group">
                     <div className="catalog-taxonomy__head">
                       <div>
-                        <div className="catalog-taxonomy__eyebrow">{activeGroup.root.name}</div>
+                        <div className="catalog-taxonomy__eyebrow">Nhóm gốc</div>
                         <h3 className="catalog-taxonomy__title">{activeGroup.meta.label}</h3>
                         <p className="catalog-taxonomy__description">{activeGroup.meta.description}</p>
                       </div>
@@ -274,7 +278,7 @@ export function CatalogPanel() {
                     <label htmlFor="category-taxonomy">Nhóm gốc</label>
                     <input
                       id="category-taxonomy"
-                      value={activeGroup?.meta.label ?? activeRoot}
+                      value={getRootLabel(activeRoot)}
                       disabled
                       readOnly
                     />
@@ -295,15 +299,15 @@ export function CatalogPanel() {
                     <label htmlFor="category-parent">Danh mục cha</label>
                     <input
                       id="category-parent"
-                      value={formatParentName(form.parentId, flatCategories, activeRoot)}
+                      value={parentDisplayName}
                       disabled
                       readOnly
                     />
                     <div className="catalog-form__hint">
                       <span className="catalog-badge catalog-badge--muted">
                         {selectedCategory
-                          ? `Đang thuộc: ${formatParentName(form.parentId, flatCategories, activeRoot)}`
-                          : `Tạo mới trong nhóm: ${formatParentName(form.parentId, flatCategories, activeRoot)}`}
+                          ? `Đang thuộc: ${parentDisplayName}`
+                          : `Tạo mới trong nhóm: ${parentDisplayName}`}
                       </span>
                     </div>
                   </div>
@@ -494,12 +498,31 @@ function extractUiError(error: unknown) {
   return 'Không lưu được danh mục.';
 }
 
-function formatParentName(parentId: number | null, categories: CategoryItem[], root: RootGroup) {
+function formatParentName(
+  parentId: number | null,
+  categories: CategoryItem[],
+  root: RootGroup,
+  activeGroup: { root: CategoryItem; meta: { label: string; description: string } } | null,
+  selectedCategory: CategoryItem | null
+) {
   if (parentId == null) {
     return getRootLabel(root);
   }
 
-  return categories.find((category) => category.categoryId === parentId)?.name ?? `#${parentId}`;
+  if (activeGroup && parentId === activeGroup.root.categoryId) {
+    return activeGroup.meta.label;
+  }
+
+  const matchedCategory = categories.find((category) => category.categoryId === parentId);
+  if (matchedCategory) {
+    return matchedCategory.name;
+  }
+
+  if (selectedCategory?.parent?.categoryId === parentId) {
+    return selectedCategory.parent.name;
+  }
+
+  return getRootLabel(root);
 }
 
 function formatStatusLabel(status: CategoryItem['status']) {
