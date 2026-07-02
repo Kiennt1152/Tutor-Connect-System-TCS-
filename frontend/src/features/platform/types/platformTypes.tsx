@@ -58,3 +58,61 @@ export interface UserListFilters {
   role?: UserRole;
   keyword?: string;
 }
+
+// ---- UC-11: Manage Document Verifications ----
+
+export type VerificationStatus =
+  | 'DRAFT'
+  | 'SUBMITTED'
+  | 'UNDER_REVIEW'
+  | 'VERIFIED'
+  | 'REJECTED';
+
+export type VerificationType = 'TUTOR_PROFILE' | 'TUTOR_CENTER_LICENSE';
+
+export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'LICENSE';
+
+export interface VerificationListItem {
+  verificationId: number;
+  userId: number;
+  userEmail: string;
+  submitterName: string | null;
+  verificationType: VerificationType;
+  status: VerificationStatus;
+  adminNotes: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+}
+
+export interface VerificationDocument {
+  documentId: number;
+  documentType: VerificationDocumentType;
+  fileId: number | null;
+  fileName: string | null;
+  fileUrl: string | null;
+  mimeType: string | null;
+  available: boolean;
+}
+
+export interface VerificationDetail {
+  verificationId: number;
+  userId: number;
+  userEmail: string;
+  verificationType: VerificationType;
+  status: VerificationStatus;
+  adminNotes: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  submitterName: string | null;
+  submitterPhone: string | null;
+  submitterDetails: Record<string, string>;
+  documents: VerificationDocument[];
+  hasUnreadableDocument: boolean;
+}
+
+export interface ReviewVerificationRequest {
+  status: 'VERIFIED' | 'REJECTED';
+  adminNotes?: string;
+}

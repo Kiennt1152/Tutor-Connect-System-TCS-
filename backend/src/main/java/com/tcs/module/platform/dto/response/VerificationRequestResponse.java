@@ -13,6 +13,7 @@ public class VerificationRequestResponse {
     private Long verificationId;
     private Long userId;
     private String userEmail;
+    private String submitterName;
     private VerificationType verificationType;
     private VerificationStatus status;
     private String adminNotes;

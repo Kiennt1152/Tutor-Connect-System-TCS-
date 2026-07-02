@@ -7,6 +7,7 @@ import com.tcs.module.platform.dto.response.DashboardResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
 import com.tcs.module.platform.dto.response.ReportResponse;
 import com.tcs.module.platform.dto.response.UserListItemResponse;
+import com.tcs.module.platform.dto.response.VerificationDetailResponse;
 import com.tcs.module.platform.dto.response.VerificationRequestResponse;
 import com.tcs.module.platform.service.PlatformService;
 import com.tcs.module.profile.enums.UserRole;
@@ -15,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -51,6 +53,11 @@ public class PlatformController {
     @GetMapping("/verifications")
     public List<VerificationRequestResponse> listVerifications() {
         return platformService.listVerificationRequests();
+    }
+
+    @PostMapping("/verifications/{verificationId}/open")
+    public VerificationDetailResponse openVerification(@PathVariable Long verificationId) {
+        return platformService.openVerification(verificationId);
     }
 
     @PatchMapping("/verifications/{verificationId}")
