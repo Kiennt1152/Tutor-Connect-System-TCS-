@@ -222,6 +222,10 @@ export default function LoginPage() {
       return;
     }
     setError('');
+    if (!completePhone.trim()) {
+      setError('Vui lòng nhập số điện thoại');
+      return;
+    }
     if (!PHONE_REGEX.test(completePhone.trim())) {
       setError('Số điện thoại không hợp lệ');
       return;
