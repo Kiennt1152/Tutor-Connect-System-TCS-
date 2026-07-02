@@ -22,12 +22,18 @@ export default function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/catalog" element={<CatalogPage />} />
         <Route path={APP_ROUTES.home} element={<HomePage />} />
         <Route path={APP_ROUTES.login} element={<LoginPage />} />
         <Route path={APP_ROUTES.register} element={<RegisterPage />} />
         <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />
-        <Route path={APP_ROUTES.catalog} element={<CatalogPage />} />
+        <Route
+          path={APP_ROUTES.catalog}
+          element={
+            <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+              <CatalogPage />
+            </ProtectedRoute>
+          }
+        />
 
         <Route
           path={APP_ROUTES.profile}

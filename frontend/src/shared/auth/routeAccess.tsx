@@ -12,7 +12,7 @@ export const ROUTE_ACCESS: Record<string, RouteAccess> = {
   '/forbidden': { type: 'public' },
   '/profile': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN'] },
   '/finance': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER'] },
-  '/catalog': { type: 'public' },
+  '/catalog': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
   '/marketplace': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER'] },
   '/contract': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER'] },
   '/messaging': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN'] },
