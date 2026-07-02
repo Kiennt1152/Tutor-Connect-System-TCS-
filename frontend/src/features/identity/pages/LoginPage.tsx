@@ -8,7 +8,8 @@ import './RegisterPage.css';
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined;
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
-const PHONE_REGEX = /^(0(3|5|7|8|9)\d{8}|\+84(3|5|7|8|9)\d{8})$/;
+// Dau so di dong VN theo nha mang (loai 095, 054, 050... khong ton tai). Chap nhan ca dang 0... va +84...
+const PHONE_REGEX = /^(0|\+84)(3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-46-9])\d{7}$/;
 
 const ROLE_OPTIONS: { value: RegisterRole; label: string }[] = [
   { value: 'CLIENT', label: 'Học viên / Phụ huynh' },
@@ -222,7 +223,7 @@ export default function LoginPage() {
     }
     setError('');
     if (!PHONE_REGEX.test(completePhone.trim())) {
-      setError('Số điện thoại không hợp lệ (VD: 0901234567 hoặc +84901234567)');
+      setError('Số điện thoại không hợp lệ');
       return;
     }
     setCompleteSubmitting(true);

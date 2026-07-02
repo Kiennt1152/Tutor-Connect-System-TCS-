@@ -9,7 +9,8 @@ import type { RegisterRole } from '../types/identityTypes';
 import './RegisterPage.css';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PHONE_REGEX = /^(0(3|5|7|8|9)\d{8}|\+84(3|5|7|8|9)\d{8})$/;
+// Dau so di dong VN theo nha mang (loai 095, 054, 050... khong ton tai). Chap nhan ca dang 0... va +84...
+const PHONE_REGEX = /^(0|\+84)(3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-46-9])\d{7}$/;
 const PASSWORD_ASCII_REGEX = /^[\x00-\x7F]*$/;
 const PASSWORD_STRENGTH_REGEX = /^(?=.*[A-Za-z])(?=.*\d).{8,}$/;
 
@@ -202,7 +203,7 @@ export default function RegisterPage() {
       return 'Tên hiển thị phải từ 2 đến 50 ký tự';
     }
     if (!PHONE_REGEX.test(phone.trim())) {
-      return 'Số điện thoại không hợp lệ (VD: 0901234567 hoặc +84901234567)';
+      return 'Số điện thoại không hợp lệ';
     }
     if (!PASSWORD_ASCII_REGEX.test(password)) {
       return 'Mật khẩu không được chứa ký tự có dấu';

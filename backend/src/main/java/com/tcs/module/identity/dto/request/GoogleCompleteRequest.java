@@ -23,7 +23,7 @@ public class GoogleCompleteRequest {
 
     @NotBlank(message = "Vui lòng nhập số điện thoại")
     @Pattern(
-            regexp = "^(0(3|5|7|8|9)\\d{8}|\\+84(3|5|7|8|9)\\d{8})$",
-            message = "Số điện thoại không hợp lệ (VD: 0901234567 hoặc +84901234567)")
+            regexp = "^(0|\\+84)(3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-46-9])\\d{7}$",
+            message = "Số điện thoại không hợp lệ")
     private String phone;
 }
