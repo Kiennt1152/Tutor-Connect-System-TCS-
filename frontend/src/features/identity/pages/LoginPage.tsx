@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import axios from 'axios';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { imageAssets } from '../../../assets/images/ImageAssets';
 import type { RegisterRole } from '../types/identityTypes';
@@ -238,8 +239,12 @@ export default function LoginPage() {
         phone: completePhone.trim(),
       });
       navigate(from, { replace: true });
-    } catch {
-      setError('Hoàn tất đăng ký thất bại. Vui lòng thử lại.');
+    } catch (err) {
+      // Ưu tiên hiển thị message cụ thể từ backend (vd: trùng số điện thoại).
+      const backendMsg = axios.isAxiosError(err)
+        ? (err.response?.data as { message?: string } | undefined)?.message
+        : undefined;
+      setError(backendMsg || 'Hoàn tất đăng ký thất bại. Vui lòng thử lại.');
     } finally {
       setCompleteSubmitting(false);
     }

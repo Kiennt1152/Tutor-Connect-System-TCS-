@@ -358,7 +358,7 @@ public class IdentityServiceImpl implements IdentityService {
         }
         String phone = normalizePhone(request.getPhone());
         if (userRepository.existsByPhone(phone)) {
-            throw new IllegalArgumentException("Số điện thoại đã được sử dụng");
+            throw new IllegalArgumentException("Số điện thoại này đã được đăng kí bởi email khác");
         }
 
         User user = new User();
