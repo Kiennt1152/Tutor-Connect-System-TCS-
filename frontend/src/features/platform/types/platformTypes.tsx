@@ -59,21 +59,7 @@ export interface UserListFilters {
   keyword?: string;
 }
 
-export interface DashboardApiResponse {
-  totalUsers: number;
-  totalTutors: number;
-  totalClasses: number;
-  pendingVerifications: number;
-  openReports: number;
-}
-
-export interface PlatformDashboard {
-  totalUsers: number;
-  totalTutors: number;
-  totalClasses: number;
-  pendingVerifications: number;
-  openReports: number;
-}
+// ---- UC-11: Manage Document Verifications ----
 
 export type VerificationStatus =
   | 'DRAFT'
@@ -84,7 +70,31 @@ export type VerificationStatus =
 
 export type VerificationType = 'TUTOR_PROFILE' | 'TUTOR_CENTER_LICENSE';
 
-export interface VerificationRequestApiResponse {
+export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'LICENSE';
+
+export interface VerificationListItem {
+  verificationId: number;
+  userId: number;
+  userEmail: string;
+  submitterName: string | null;
+  verificationType: VerificationType;
+  status: VerificationStatus;
+  adminNotes: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+}
+
+export interface VerificationDocument {
+  documentId: number;
+  documentType: VerificationDocumentType;
+  fileId: number | null;
+  fileName: string | null;
+  fileUrl: string | null;
+  mimeType: string | null;
+  available: boolean;
+}
+
+export interface VerificationDetail {
   verificationId: number;
   userId: number;
   userEmail: string;
@@ -93,52 +103,16 @@ export interface VerificationRequestApiResponse {
   adminNotes: string | null;
   submittedAt: string | null;
   reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  submitterName: string | null;
+  submitterPhone: string | null;
+  submitterDetails: Record<string, string>;
+  documents: VerificationDocument[];
+  hasUnreadableDocument: boolean;
 }
 
-export interface VerificationRequestItem {
-  id: string;
-  userId: string;
-  userEmail: string;
-  verificationType: VerificationType;
-  typeLabel: string;
-  status: VerificationStatus;
-  statusLabel: string;
-  adminNotes: string;
-  submittedAt: string;
-  reviewedAt: string;
-  canReview: boolean;
-}
-
-export interface ReviewVerificationApiRequest {
+export interface ReviewVerificationRequest {
   status: 'VERIFIED' | 'REJECTED';
   adminNotes?: string;
-}
-
-export type ReportStatus = 'PENDING' | 'RESOLVED';
-export type ReportCategory = 'FRAUD' | 'ABUSE' | 'SPAM';
-export type ReportTargetType = string;
-
-export interface ReportApiResponse {
-  reportId: number;
-  reporterId: number;
-  targetType: ReportTargetType;
-  targetId: number;
-  category: ReportCategory;
-  description: string;
-  status: ReportStatus;
-  createdAt: string;
-}
-
-export interface ReportItem {
-  id: string;
-  reporterId: string;
-  targetType: string;
-  targetTypeLabel: string;
-  targetId: string;
-  category: ReportCategory;
-  categoryLabel: string;
-  description: string;
-  status: ReportStatus;
-  statusLabel: string;
-  createdAt: string;
 }
