@@ -5,7 +5,10 @@ import { LogoutButton } from '../../../shared/components/LogoutButton';
 import { useHome } from '../hooks/useHome';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
+import { hasAnyRole, hasRole } from '../../../shared/auth/rbac';
+import type { UserRole } from '../../../shared/types/userRole';
 import { TutorSearchBlock } from '../components/TutorSearchBlock';
+import { ClassSearchBlock } from '../components/ClassSearchBlock';
 import { TutorListingCard } from '../components/TutorListingCard';
 import { ClassListingCard } from '../components/ClassListingCard';
 import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
@@ -19,6 +22,7 @@ import {
 } from '../config/homeContent';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import type { OpenClassItem } from '../types/openClassTypes';
+import type { OpenClassesStatus } from '../hooks/useOpenClasses';
 import AdminHomePage from './AdminHomePage';
 import './HomePage.css';
 
@@ -34,11 +38,15 @@ const userInitials = (displayName: string | undefined, email: string) => {
     .join('');
 };
 
+const MARKETPLACE_HOME_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'UNKNOWN'];
+const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
+
 function Header() {
   const { user } = useAuth();
 
   const profilePath =
     user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
+  const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
 
   return (
     <header className="tcs-header">
@@ -54,12 +62,17 @@ function Header() {
         <div className="tcs-header__actions">
           {user ? (
             <>
-              {user.role === 'PLATFORM_ADMIN' ? (
+              {hasRole(user.role, 'PLATFORM_ADMIN') ? (
                 <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.platform}>
                   Quản trị
                 </Link>
               ) : null}
-              {user.role === 'PLATFORM_ADMIN' ? (
+              {showCenterManage ? (
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.center}>
+                  Quản lý trung tâm
+                </Link>
+              ) : null}
+              {hasRole(user.role, 'PLATFORM_ADMIN') ? (
                 <Link to={profilePath} className="tcs-home-profile-btn">
                   <span className="tcs-home-profile-btn__avatar">
                     {userInitials(user.displayName, user.email)}
@@ -95,19 +108,25 @@ function Header() {
 function HomeHeroSection({
   data,
   subjects,
+  openClasses,
+  classesStatus,
   isAuthenticated,
   displayName,
   role,
 }: {
   data: HomeData | null;
   subjects: SubjectItem[];
+  openClasses: OpenClassItem[];
+  classesStatus: OpenClassesStatus;
   isAuthenticated: boolean;
   displayName?: string;
   role?: string;
 }) {
   const copy = role ? getAuthenticatedHeroCopy(role) : null;
   const firstName = displayName?.trim().split(/\s+/)[0] || displayName;
-  const showSearch = !isAuthenticated || role === 'CLIENT' || role === 'UNKNOWN';
+  const showSearch = !isAuthenticated || hasAnyRole(role, MARKETPLACE_HOME_ROLES);
+  const isTutor = hasRole(role, 'TUTOR');
+  const subjectLinkTarget = isTutor ? '#classes' : '#find-tutor';
 
   return (
     <section className="tcs-home-hero">
@@ -133,16 +152,27 @@ function HomeHeroSection({
           </div>
 
           {showSearch ? (
-            <TutorSearchBlock subjects={subjects} isAuthenticated={isAuthenticated} />
+            isTutor ? (
+              <ClassSearchBlock
+                subjects={subjects}
+                classes={openClasses}
+                classesStatus={classesStatus}
+                isAuthenticated={isAuthenticated}
+              />
+            ) : (
+              <TutorSearchBlock subjects={subjects} isAuthenticated={isAuthenticated} />
+            )
           ) : null}
         </div>
 
         {subjects.length > 0 ? (
           <div className="tcs-hero__subjects">
-            <p className="tcs-hero__subjects-label">Môn học phổ biến</p>
+            <p className="tcs-hero__subjects-label">
+              {isTutor ? 'Môn học đang có lớp mở' : 'Môn học phổ biến'}
+            </p>
             <div className="tcs-chips">
               {subjects.map((subject) => (
-                <a key={subject.id} href="#find-tutor" className="tcs-chip">
+                <a key={subject.id} href={subjectLinkTarget} className="tcs-chip">
                   {subject.name}
                 </a>
               ))}
@@ -436,7 +466,7 @@ function HomePage() {
     [status, data],
   );
 
-  if (user?.role === 'PLATFORM_ADMIN') {
+  if (hasRole(user?.role, 'PLATFORM_ADMIN')) {
     return <AdminHomePage />;
   }
 
@@ -450,6 +480,8 @@ function HomePage() {
         <HomeHeroSection
           data={data}
           subjects={data?.subjects ?? []}
+          openClasses={openClasses}
+          classesStatus={classesStatus}
           isAuthenticated={isAuthenticated}
           displayName={isAuthenticated ? displayName : undefined}
           role={isAuthenticated ? role : undefined}

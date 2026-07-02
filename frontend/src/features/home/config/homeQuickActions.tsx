@@ -118,7 +118,7 @@ export function getAuthenticatedHeroCopy(role: string) {
       return {
         eyebrow: 'Không gian gia sư',
         title: 'Sẵn sàng cho buổi dạy tiếp theo',
-        subtitle: 'Theo dõi lớp học, lịch dạy và cập nhật hồ sơ chuyên môn.',
+        subtitle: 'Tìm lớp học phù hợp theo môn dạy và khu vực, ứng tuyển ngay trên nền tảng.',
       };
     case 'TUTOR_CENTER':
       return {

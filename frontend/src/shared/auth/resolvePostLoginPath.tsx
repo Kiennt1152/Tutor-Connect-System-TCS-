@@ -1,18 +1,17 @@
 import { APP_ROUTES } from '../constants/routes';
+import { defaultHomePathForRole } from './rbac';
 
-/** Chuyen huong sau dang nhap: admin ve dashboard, con lai giu from hoac trang chu. */
+/** Chuyển hướng sau đăng nhập: admin → dashboard, còn lại về trang chủ (hoặc giữ deep-link). */
 export function resolvePostLoginPath(from: string, role?: string): string {
   const normalizedFrom = from.split('?')[0].split('#')[0];
   const isDefaultEntry =
-    normalizedFrom === '/' || normalizedFrom === '/login' || normalizedFrom === '/register';
+    normalizedFrom === '/' ||
+    normalizedFrom === APP_ROUTES.login ||
+    normalizedFrom === APP_ROUTES.register;
 
   if (!isDefaultEntry) {
     return normalizedFrom;
   }
 
-  if (role === 'PLATFORM_ADMIN') {
-    return APP_ROUTES.platform;
-  }
-
-  return '/';
+  return defaultHomePathForRole(role);
 }
