@@ -2,7 +2,6 @@ import { AdminLayout } from '../components/AdminLayout';
 import { useUpdateUserStatus } from '../hooks/usePlatformMutations';
 import { useUserList } from '../hooks/useUserList';
 import type { UserRole, UserStatus } from '../types/platformTypes';
-import './PlatformUsersPage.css';
 
 function statusBadgeClass(status: UserStatus) {
   if (status === 'ACTIVE') return 'tcs-badge tcs-badge--active';

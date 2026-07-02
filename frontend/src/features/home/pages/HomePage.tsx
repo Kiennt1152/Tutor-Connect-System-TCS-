@@ -1,7 +1,10 @@
 import { useMemo } from 'react';
-import { imageAssets } from '../../../assets/images/ImageAssets';
+import { Link } from 'react-router-dom';
+import { AppLogo } from '../../../shared/components/AppLogo';
+import { LogoutButton } from '../../../shared/components/LogoutButton';
 import { useHome } from '../hooks/useHome';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import './HomePage.css';
 
@@ -17,15 +20,12 @@ const initials = (name: string) =>
     .join('');
 
 function Header() {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
   return (
     <header className="tcs-header">
       <div className="tcs-container tcs-header__inner">
-        <a className="tcs-logo" href="/" aria-label="Tutor Connect System">
-          <img className="tcs-logo__image" src={imageAssets.logo} alt="" />
-          <span className="tcs-logo__text">Tutor Connect System</span>
-        </a>
+        <AppLogo href="/" />
         <nav className="tcs-header__nav">
           <a href="#subjects">Môn học</a>
           <a href="#tutors">Gia sư</a>
@@ -33,9 +33,14 @@ function Header() {
         </nav>
         <div className="tcs-header__actions">
           {user ? (
-            <button className="tcs-btn tcs-btn--ghost" type="button" onClick={logout}>
-              Đăng xuất
-            </button>
+            <>
+              {user.role === 'PLATFORM_ADMIN' ? (
+                <Link className="tcs-btn tcs-btn--primary" to={APP_ROUTES.platform}>
+                  Quản trị
+                </Link>
+              ) : null}
+              <LogoutButton />
+            </>
           ) : (
             <>
               <a className="tcs-btn tcs-btn--ghost" href="/login">

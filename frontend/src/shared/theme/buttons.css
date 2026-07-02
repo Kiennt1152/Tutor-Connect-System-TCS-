@@ -43,6 +43,24 @@
   background: var(--color-surface-3);
 }
 
+.tcs-btn--header {
+  height: 40px;
+  padding: 0 var(--space-md);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+}
+
+.tcs-btn--logout {
+  color: var(--color-error);
+  border-color: #fca5a5;
+}
+
+.tcs-btn--logout:hover:not(:disabled) {
+  background: var(--color-error-light);
+  color: #991b1b;
+  border-color: #f87171;
+}
+
 .tcs-btn--success {
   background: var(--color-success-light);
   color: #166534;

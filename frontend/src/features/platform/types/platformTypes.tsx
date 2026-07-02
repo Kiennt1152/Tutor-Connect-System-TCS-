@@ -58,3 +58,19 @@ export interface UserListFilters {
   role?: UserRole;
   keyword?: string;
 }
+
+export interface DashboardApiResponse {
+  totalUsers: number;
+  totalTutors: number;
+  totalClasses: number;
+  pendingVerifications: number;
+  openReports: number;
+}
+
+export interface PlatformDashboard {
+  totalUsers: number;
+  totalTutors: number;
+  totalClasses: number;
+  pendingVerifications: number;
+  openReports: number;
+}

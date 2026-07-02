@@ -1,6 +1,8 @@
 import type {
+  DashboardApiResponse,
   PageUserList,
   PageUserListApiResponse,
+  PlatformDashboard,
   UpdateUserStatusApiRequest,
   UserListFilters,
   UserListItem,
@@ -35,6 +37,16 @@ const formatDateTime = (value: string | null | undefined) => {
     minute: '2-digit',
   }).format(date);
 };
+
+export function mapDashboardResponse(response: DashboardApiResponse): PlatformDashboard {
+  return {
+    totalUsers: response.totalUsers,
+    totalTutors: response.totalTutors,
+    totalClasses: response.totalClasses,
+    pendingVerifications: response.pendingVerifications,
+    openReports: response.openReports,
+  };
+}
 
 export function mapUserListItem(item: UserListItemApiResponse): UserListItem {
   return {

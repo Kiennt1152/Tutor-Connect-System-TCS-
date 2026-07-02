@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { resolvePostLoginPath } from '../../../shared/auth/resolvePostLoginPath';
 import { imageAssets } from '../../../assets/images/ImageAssets';
 import type { RegisterRole } from '../types/identityTypes';
 import './RegisterPage.css';
@@ -108,7 +109,7 @@ function GoogleIcon() {
 }
 
 export default function LoginPage() {
-  const { login, loginWithGoogle, completeGoogleSignup, isAuthenticated } = useAuth();
+  const { login, loginWithGoogle, completeGoogleSignup, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = (location.state as { from?: string } | null)?.from ?? '/';
@@ -154,7 +155,7 @@ export default function LoginPage() {
             // Tai khoan Google chua ton tai -> yeu cau chon vai tro + SDT truoc khi tao tai khoan.
             setGooglePending({ accessToken: response.access_token as string, email: result.email });
           } else {
-            navigate(from, { replace: true });
+            navigate(resolvePostLoginPath(from, result.role), { replace: true });
           }
         } catch {
           setError('Đăng nhập Google thất bại. Vui lòng thử lại.');
@@ -200,7 +201,7 @@ export default function LoginPage() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to={from} replace />;
+    return <Navigate to={resolvePostLoginPath(from, user?.role)} replace />;
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -208,8 +209,8 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login({ email, password });
-      navigate(from, { replace: true });
+      const response = await login({ email, password });
+      navigate(resolvePostLoginPath(from, response.role), { replace: true });
     } catch {
       setError('Email hoặc mật khẩu không đúng');
     } finally {
@@ -233,12 +234,12 @@ export default function LoginPage() {
     }
     setCompleteSubmitting(true);
     try {
-      await completeGoogleSignup({
+      const response = await completeGoogleSignup({
         accessToken: googlePending.accessToken,
         role: completeRole,
         phone: completePhone.trim(),
       });
-      navigate(from, { replace: true });
+      navigate(resolvePostLoginPath(from, response.role), { replace: true });
     } catch (err) {
       // Ưu tiên hiển thị message cụ thể từ backend (vd: trùng số điện thoại).
       const backendMsg = axios.isAxiosError(err)

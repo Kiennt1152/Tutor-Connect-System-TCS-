@@ -1,5 +1,6 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  DashboardApiResponse,
   PageUserListApiResponse,
   UpdateUserStatusApiRequest,
   UserListItemApiResponse,
@@ -10,6 +11,10 @@ import { buildUserListQuery } from '../mappers/platformMapper';
 const BASE = '/platform';
 
 export const platformApi = {
+  getDashboard() {
+    return axiosClient.get<DashboardApiResponse>(`${BASE}/dashboard`);
+  },
+
   getUsers(filters: UserListFilters) {
     return axiosClient.get<PageUserListApiResponse>(`${BASE}/users?${buildUserListQuery(filters)}`);
   },

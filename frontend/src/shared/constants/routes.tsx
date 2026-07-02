@@ -9,4 +9,6 @@ export const APP_ROUTES = {
   contract: '/contract',
   messaging: '/messaging',
   platform: '/platform',
+  platformUsers: '/platform/users',
+  platformProfile: '/platform/profile',
 } as const;
