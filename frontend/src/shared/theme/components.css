@@ -1,0 +1,389 @@
+/* Shared UI components — cards, chips, promo, listings */
+.tcs-listing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.tcs-listing-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+}
+
+.tcs-listing-card:hover {
+  border-color: var(--color-accent-border-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.tcs-listing-card__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.tcs-listing-card__profile {
+  display: flex;
+  align-items: center;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.tcs-listing-card__avatar {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.tcs-listing-card__identity {
+  min-width: 0;
+}
+
+.tcs-listing-card__name {
+  margin: 0;
+  font-size: var(--fs-h4);
+  font-weight: 700;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tcs-listing-card__badge {
+  display: inline-flex;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-3);
+  font-size: var(--fs-badge);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+
+.tcs-listing-card__price {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.tcs-listing-card__price-value {
+  display: block;
+  font-size: var(--fs-h3);
+  font-weight: 700;
+  color: var(--color-primary);
+  line-height: 1.1;
+}
+
+.tcs-listing-card__price-unit {
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.tcs-listing-card__meta {
+  display: grid;
+  gap: 6px;
+  padding: var(--space-sm) 0;
+  border-top: 1px dashed var(--color-border);
+  border-bottom: 1px dashed var(--color-border);
+}
+
+.tcs-listing-card__row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-md);
+  font-size: var(--fs-body-sm);
+}
+
+.tcs-listing-card__label {
+  color: var(--color-text-secondary);
+}
+
+.tcs-listing-card__value {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  text-align: right;
+}
+
+.tcs-listing-card__star {
+  color: var(--color-warning);
+}
+
+.tcs-listing-card__bio {
+  margin: 0;
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.tcs-listing-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-top: auto;
+}
+
+.tcs-listing-card__status {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-success-light);
+  color: var(--color-success);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+}
+
+.tcs-listing-card__foot .tcs-btn {
+  height: 36px;
+  padding: 0 var(--space-md);
+  font-size: var(--fs-body-sm);
+}
+
+.tcs-listing-card--compact {
+  padding: var(--space-md);
+}
+
+.tcs-quick-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-md);
+}
+
+.tcs-quick-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  text-decoration: none;
+  color: inherit;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tcs-quick-card:hover {
+  border-color: var(--color-accent-border-hover);
+  box-shadow: var(--shadow-md);
+}
+
+.tcs-quick-card--disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.tcs-quick-card__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-xlight);
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+
+.tcs-quick-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tcs-quick-card__title {
+  font-size: var(--fs-body-lg);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.tcs-quick-card__desc {
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.45;
+}
+
+.tcs-quick-card__badge {
+  margin-left: auto;
+  align-self: center;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-3);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  flex-shrink: 0;
+}
+
+.tcs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.tcs-chip {
+  padding: 8px 14px;
+  background-color: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-body-md);
+  font-weight: 500;
+  color: var(--color-text-primary);
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.tcs-chip:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary-dark);
+  background: var(--color-primary-xlight);
+}
+
+.tcs-promo {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-xl);
+  padding: var(--space-xl);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  color: var(--color-white);
+  box-shadow: var(--shadow-md);
+}
+
+.tcs-promo__eyebrow {
+  display: inline-block;
+  margin-bottom: var(--space-xs);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.9;
+}
+
+.tcs-promo__title {
+  margin: 0 0 var(--space-sm);
+  font-size: var(--fs-h2);
+  font-weight: 700;
+}
+
+.tcs-promo__desc {
+  margin: 0;
+  max-width: 720px;
+  line-height: 1.6;
+  opacity: 0.95;
+}
+
+.tcs-promo__cta {
+  flex-shrink: 0;
+  background: var(--color-white);
+  color: var(--color-primary-dark);
+}
+
+.tcs-promo__cta:hover {
+  background: var(--color-primary-xlight);
+}
+
+.tcs-testimonial-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.tcs-testimonial {
+  margin: 0;
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  box-shadow: var(--shadow-sm);
+}
+
+.tcs-testimonial__quote {
+  margin: 0 0 var(--space-md);
+  font-size: var(--fs-body-md);
+  color: var(--color-text-primary);
+  line-height: 1.6;
+}
+
+.tcs-testimonial__author {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+}
+
+.tcs-testimonial__author strong {
+  color: var(--color-text-primary);
+}
+
+.tcs-step {
+  background-color: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
+.tcs-step__num {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary);
+  color: var(--color-white);
+  font-weight: 700;
+  margin-bottom: var(--space-md);
+}
+
+.tcs-step__title {
+  font-size: var(--fs-h4);
+  color: var(--color-text-primary);
+  margin: 0 0 var(--space-xs);
+}
+
+.tcs-step__desc {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-md);
+  line-height: 1.55;
+}
+
+@media (max-width: 1024px) {
+  .tcs-listing-grid,
+  .tcs-testimonial-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .tcs-listing-grid,
+  .tcs-testimonial-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .tcs-promo {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

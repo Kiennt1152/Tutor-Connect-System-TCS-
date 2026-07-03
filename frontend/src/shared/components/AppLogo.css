@@ -1,0 +1,32 @@
+.app-logo {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--color-text-primary);
+  text-decoration: none;
+}
+
+.app-logo__image {
+  display: block;
+  width: auto;
+  height: 140px;
+  flex-shrink: 0;
+  object-fit: contain;
+  margin-right: -35px;
+}
+
+.app-logo__text {
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.app-logo--compact {
+  font-size: 15px;
+}
+
+.app-logo--compact .app-logo__image {
+  height: 48px;
+  margin-right: -12px;
+}

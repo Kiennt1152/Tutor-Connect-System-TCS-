@@ -1,10 +1,12 @@
 const TOKEN_KEY = 'tcs_access_token';
 const USER_KEY = 'tcs_user';
 
+import type { UserRole } from '../types/userRole';
+
 export type StoredUser = {
   userId: number;
   email: string;
-  role: string;
+  role: UserRole;
   displayName: string;
 };
 

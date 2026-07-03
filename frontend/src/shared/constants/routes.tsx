@@ -1,5 +1,7 @@
 export const APP_ROUTES = {
   home: '/',
+  login: '/login',
+  register: '/register',
   identity: '/identity',
   profile: '/profile',
   finance: '/finance',
@@ -10,4 +12,9 @@ export const APP_ROUTES = {
   contract: '/contract',
   messaging: '/messaging',
   platform: '/platform',
+  platformUsers: '/platform/users',
+  platformVerifications: '/platform/verifications',
+  platformReports: '/platform/reports',
+  platformProfile: '/platform/profile',
+  forbidden: '/forbidden',
 } as const;
