@@ -22,8 +22,8 @@ public interface PlatformService {
 
     List<VerificationRequestResponse> listVerificationRequests();
 
-    /** UC-11: mo mot yeu cau de xet duyet — SUBMITTED -> UNDER_REVIEW + ghi lich su (BR-01). */
-    VerificationDetailResponse openVerification(Long verificationId);
+    /** Chi tiet yeu cau xac minh: ho so nguoi nop + tai lieu (chi doc). */
+    VerificationDetailResponse getVerificationDetail(Long verificationId);
 
     VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request);
 
