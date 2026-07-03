@@ -14,6 +14,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -54,10 +55,10 @@ public class VerificationRequest {
     @Column(name = "reviewed_at")
     private LocalDateTime reviewedAt;
 
-    @Column(name = "reviewed_by")
+    @Transient
     private Long reviewedBy;
 
-    @Column(name = "rejection_reason", columnDefinition = "TEXT")
+    @Transient
     private String rejectionReason;
 
     @CreationTimestamp

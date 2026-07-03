@@ -125,7 +125,12 @@ public class VerificationServiceImpl implements VerificationService {
     @Override
     @Transactional(readOnly = true)
     public List<VerificationResponse> getVerificationsByUser(Long userId) {
-        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+        UserPrincipal principal = authHelper.requireAuthenticated();
+        boolean isAdmin = principal.getRole() == UserRole.PLATFORM_ADMIN;
+        boolean isOwner = principal.getUserId().equals(userId);
+        if (!isAdmin && !isOwner) {
+            throw new ForbiddenException("Bạn không có quyền xem hồ sơ xác minh của người khác");
+        }
         return verificationRequestRepository.findByUser_UserIdOrderBySubmittedAtDesc(userId)
                 .stream()
                 .map(v -> {

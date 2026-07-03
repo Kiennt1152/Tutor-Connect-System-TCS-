@@ -151,7 +151,7 @@
                 <configuration>
                     <url>jdbc:mysql://localhost:3306/tutorconnectsystem?useSSL=false&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true</url>
                     <user>root</user>
-                    <password>Xuho13102018</password>
+                    <password>12345</password>
                     <locations>
                         <location>filesystem:src/main/resources/db/migration</location>
                     </locations>

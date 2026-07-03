@@ -17,13 +17,18 @@ const NAV_ITEMS = [
   { to: APP_ROUTES.platform, label: 'Platform' },
 ];
 
+const ROUTES_WITH_OWN_HEADER = new Set<string>([
+  APP_ROUTES.verification,
+]);
+
 export default function AppShell({ children }: Readonly<PropsWithChildren>) {
   const location = useLocation();
   const isHome = location.pathname === APP_ROUTES.home;
+  const hasOwnHeader = ROUTES_WITH_OWN_HEADER.has(location.pathname);
 
   return (
     <div className="app-shell">
-      {!isHome && (
+      {!isHome && !hasOwnHeader && (
         <header className="app-shell__header">
           <NavLink to={APP_ROUTES.home} className="app-shell__brand">
             Tutor Connect
@@ -43,7 +48,9 @@ export default function AppShell({ children }: Readonly<PropsWithChildren>) {
           </nav>
         </header>
       )}
-      <main className="app-shell__main">{children}</main>
+      <main className={`app-shell__main${hasOwnHeader ? ' app-shell__main--flush' : ''}`}>
+        {children}
+      </main>
     </div>
   );
 }

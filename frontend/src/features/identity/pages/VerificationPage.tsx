@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { VerificationHeader } from '../../../shared/components/VerificationHeader';
+import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useVerification, formatFileSize } from '../hooks/useVerification';
 import { verificationApi } from '../api/verificationApi';
 import { mapVerificationStatus } from '../mappers/verificationMapper';
@@ -13,7 +15,6 @@ import './VerificationPage.css';
 
 type LoadStatus = 'idle' | 'loading' | 'success' | 'error';
 
-const MOCK_USER_ID = 1;
 const ACCEPTED_EXTS = '.pdf,.jpg,.jpeg,.png,.webp';
 
 interface UploadedFile {
@@ -84,6 +85,8 @@ function getPalette(variant: string): StatusPalette {
 }
 
 export default function VerificationPage() {
+  const { user } = useAuth();
+  const userId = user?.userId ?? 0;
   const {
     status,
     verifications,
@@ -91,7 +94,7 @@ export default function VerificationPage() {
     isSubmitting,
     reload,
     submitVerification,
-  } = useVerification(MOCK_USER_ID);
+  } = useVerification(userId);
   const [step, setStep] = useState<SubmissionStep>('upload');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [uploadingSlot, setUploadingSlot] =
@@ -108,7 +111,7 @@ export default function VerificationPage() {
     setUploadError(null);
     setUploadingSlot(slot.key);
     try {
-      const result = await verificationApi.uploadFile(MOCK_USER_ID, file);
+      const result = await verificationApi.uploadFile(userId, file);
       setUploadedFiles((prev) => [
         ...prev,
         {
@@ -185,81 +188,84 @@ export default function VerificationPage() {
   }
 
   return (
-    <section className="verification-page">
-      <div className="verification-page__header">
-        <span className="verification-page__eyebrow">Identity / Verification</span>
-        <h1 className="verification-page__title">Tutor Verification</h1>
-        <p className="verification-page__subtitle">
-          Submit your credentials to earn a verified badge and build trust with
-          clients.
-        </p>
-      </div>
+    <div className="tcs-page verification-page">
+      <VerificationHeader />
+      <main>
+        <div className="tcs-container verification-page__container">
+          <header className="verification-page__header">
+            <span className="verification-page__eyebrow">Identity / Verification</span>
+            <h1 className="verification-page__title">Tutor Verification</h1>
+            <p className="verification-page__subtitle">
+              Submit your credentials to earn a verified badge and build trust with
+              clients.
+            </p>
+          </header>
 
-      {error && (
-        <div className="verification-alert verification-alert--error">
-          {error}
+          {error && (
+            <div className="verification-alert verification-alert--error">{error}</div>
+          )}
+
+          <div className="verification-layout">
+            <div className="verification-card">
+              <div className="verification-card__head">
+                <h2 className="verification-card__title">
+                  {step === 'done' ? 'Verification Submitted' : 'Submit Documents'}
+                </h2>
+                {step === 'done' && (
+                  <button
+                    className="verification-btn verification-btn--ghost"
+                    type="button"
+                    onClick={() => void reload()}
+                  >
+                    Refresh
+                  </button>
+                )}
+              </div>
+
+              <div className="verification-card__body">
+                {step === 'done' ? (
+                  <DoneView latest={latest} />
+                ) : (
+                  <UploadView
+                    uploadedFiles={uploadedFiles}
+                    uploadingSlot={uploadingSlot}
+                    uploadError={uploadError}
+                    dragSlot={dragSlot}
+                    isSubmitting={isSubmitting}
+                    submitError={submitError}
+                    onFileUpload={(slot, file) => void handleFileUpload(slot, file)}
+                    onRemoveFile={(slot, fileId) => removeFile(slot, fileId)}
+                    onSubmit={() => void handleSubmit()}
+                    onDragEnter={(slot) => setDragSlot(slot)}
+                    onDragLeave={() => setDragSlot(null)}
+                  />
+                )}
+
+                {step === 'done' && latest?.status === 'REJECTED' && (
+                  <button
+                    className="verification-btn verification-btn--primary"
+                    type="button"
+                    style={{ marginTop: 16 }}
+                    onClick={startResubmit}
+                  >
+                    Resubmit Verification
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="verification-card">
+              <div className="verification-card__head">
+                <h2 className="verification-card__title">Verification History</h2>
+              </div>
+              <div className="verification-card__body">
+                <VerificationHistory verifications={verifications} status={status} />
+              </div>
+            </div>
+          </div>
         </div>
-      )}
-
-      <div className="verification-layout">
-        <div className="verification-card">
-          <div className="verification-card__head">
-            <h2 className="verification-card__title">
-              {step === 'done' ? 'Verification Submitted' : 'Submit Documents'}
-            </h2>
-            {step === 'done' && (
-              <button
-                className="verification-btn verification-btn--ghost"
-                type="button"
-                onClick={() => void reload()}
-              >
-                Refresh
-              </button>
-            )}
-          </div>
-
-          <div className="verification-card__body">
-            {step === 'done' ? (
-              <DoneView latest={latest} />
-            ) : (
-              <UploadView
-                uploadedFiles={uploadedFiles}
-                uploadingSlot={uploadingSlot}
-                uploadError={uploadError}
-                dragSlot={dragSlot}
-                isSubmitting={isSubmitting}
-                submitError={submitError}
-                onFileUpload={(slot, file) => void handleFileUpload(slot, file)}
-                onRemoveFile={(slot, fileId) => removeFile(slot, fileId)}
-                onSubmit={() => void handleSubmit()}
-                onDragEnter={(slot) => setDragSlot(slot)}
-                onDragLeave={() => setDragSlot(null)}
-              />
-            )}
-
-            {step === 'done' && latest?.status === 'REJECTED' && (
-              <button
-                className="verification-btn verification-btn--primary"
-                type="button"
-                style={{ marginTop: 16 }}
-                onClick={startResubmit}
-              >
-                Resubmit Verification
-              </button>
-            )}
-          </div>
-        </div>
-
-        <div className="verification-card">
-          <div className="verification-card__head">
-            <h2 className="verification-card__title">Verification History</h2>
-          </div>
-          <div className="verification-card__body">
-            <VerificationHistory verifications={verifications} status={status} />
-          </div>
-        </div>
-      </div>
-    </section>
+      </main>
+    </div>
   );
 }
 

@@ -66,6 +66,11 @@
   width: 100%;
 }
 
+.app-shell__main--flush {
+  padding: 0;
+  max-width: none;
+}
+
 @media (max-width: 768px) {
   .app-shell__header {
     flex-direction: column;
