@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
+import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { platformApi } from '../api/platformApi';
 import { mapVerificationItem } from '../mappers/platformMapper';
 import type { VerificationRequestItem } from '../types/platformTypes';
@@ -22,11 +22,7 @@ export function useVerificationList() {
       })
       .catch((error) => {
         console.error('Lỗi tải xác minh:', error);
-        const apiMessage =
-          axios.isAxiosError(error) && typeof error.response?.data?.message === 'string'
-            ? error.response.data.message
-            : null;
-        setErrorMessage(apiMessage ?? 'Không thể tải danh sách xác minh.');
+        setErrorMessage(getApiErrorMessage(error, 'Không thể tải danh sách xác minh.'));
         setStatus('error');
       });
   }, []);
