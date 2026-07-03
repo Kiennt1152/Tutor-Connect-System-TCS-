@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
+import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { useAuth } from '../../../shared/auth/AuthProvider';
-import { useVerification, formatFileSize } from '../hooks/useVerification';
+import { useVerification } from '../hooks/useVerification';
 import { verificationApi } from '../api/verificationApi';
 import { mapVerificationStatus } from '../mappers/verificationMapper';
 import { DOCUMENT_SLOTS } from '../types/verificationTypes';
@@ -428,25 +429,26 @@ function SlotField({
         >
           {uploadedFiles.map((file) => (
             <div key={file.fileId} className="verification-doc-item">
-              <span className="verification-doc-item__icon">📄</span>
-              <div className="verification-doc-item__info">
-                <div className="verification-doc-item__name">
-                  {file.fileName}
-                </div>
-                <div className="verification-doc-item__meta">
-                  {formatFileSize(file.fileSize)}
-                </div>
-              </div>
-              <span className="verification-doc-item__type">
-                {slot.documentType}
-              </span>
-              <button
-                className="verification-doc-item__remove"
-                type="button"
-                onClick={() => onRemoveFile(slot.key, file.fileId)}
-              >
-                ×
-              </button>
+              <FileThumbnail
+                src={file.fileUrl}
+                fileName={file.fileName}
+                mimeType={file.mimeType}
+                fileSize={file.fileSize}
+                actions={
+                  <>
+                    <span className="verification-doc-item__type">
+                      {slot.documentType}
+                    </span>
+                    <button
+                      className="verification-doc-item__remove"
+                      type="button"
+                      onClick={() => onRemoveFile(slot.key, file.fileId)}
+                    >
+                      ×
+                    </button>
+                  </>
+                }
+              />
             </div>
           ))}
           {slot.multi && (
@@ -572,9 +574,19 @@ function VerificationHistory({ verifications, status }: HistoryProps) {
                   Note: {v.adminNotes}
                 </div>
               )}
-              <div style={{ fontSize: 12, color: '#888', marginTop: 4 }}>
-                {v.documents.length} document(s) submitted
-              </div>
+              {v.documents.length > 0 && (
+                <div className="verification-history-item__docs">
+                  {v.documents.map((doc) => (
+                    <FileThumbnail
+                      key={doc.documentId}
+                      src={doc.fileUrl}
+                      fileName={doc.fileName}
+                      mimeType={doc.mimeType}
+                      fileSize={doc.fileSize}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           </li>
         );
