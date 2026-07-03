@@ -14,6 +14,6 @@ public class VerificationDocumentResponse {
     private String fileName;
     private String fileUrl;
     private String mimeType;
-    /** false neu file_id/file_url bi thieu hoac hong (AF-03). */
+    /** false neu file_id/file_url bi thieu hoac hong. */
     private boolean available;
 }

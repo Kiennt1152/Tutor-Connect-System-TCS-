@@ -59,7 +59,21 @@ export interface UserListFilters {
   keyword?: string;
 }
 
-// ---- UC-11: Manage Document Verifications ----
+export interface DashboardApiResponse {
+  totalUsers: number;
+  totalTutors: number;
+  totalClasses: number;
+  pendingVerifications: number;
+  openReports: number;
+}
+
+export interface PlatformDashboard {
+  totalUsers: number;
+  totalTutors: number;
+  totalClasses: number;
+  pendingVerifications: number;
+  openReports: number;
+}
 
 export type VerificationStatus =
   | 'DRAFT'
@@ -70,13 +84,10 @@ export type VerificationStatus =
 
 export type VerificationType = 'TUTOR_PROFILE' | 'TUTOR_CENTER_LICENSE';
 
-export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'LICENSE';
-
-export interface VerificationListItem {
+export interface VerificationRequestApiResponse {
   verificationId: number;
   userId: number;
   userEmail: string;
-  submitterName: string | null;
   verificationType: VerificationType;
   status: VerificationStatus;
   adminNotes: string | null;
@@ -84,7 +95,28 @@ export interface VerificationListItem {
   reviewedAt: string | null;
 }
 
-export interface VerificationDocument {
+export interface VerificationRequestItem {
+  id: string;
+  userId: string;
+  userEmail: string;
+  verificationType: VerificationType;
+  typeLabel: string;
+  status: VerificationStatus;
+  statusLabel: string;
+  adminNotes: string;
+  submittedAt: string;
+  reviewedAt: string;
+  canReview: boolean;
+}
+
+export interface ReviewVerificationApiRequest {
+  status: 'VERIFIED' | 'REJECTED';
+  adminNotes?: string;
+}
+
+export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'LICENSE';
+
+export interface VerificationDocumentApiResponse {
   documentId: number;
   documentType: VerificationDocumentType;
   fileId: number | null;
@@ -94,7 +126,7 @@ export interface VerificationDocument {
   available: boolean;
 }
 
-export interface VerificationDetail {
+export interface VerificationDetailApiResponse {
   verificationId: number;
   userId: number;
   userEmail: string;
@@ -108,11 +140,35 @@ export interface VerificationDetail {
   submitterName: string | null;
   submitterPhone: string | null;
   submitterDetails: Record<string, string>;
-  documents: VerificationDocument[];
+  documents: VerificationDocumentApiResponse[];
   hasUnreadableDocument: boolean;
 }
 
-export interface ReviewVerificationRequest {
-  status: 'VERIFIED' | 'REJECTED';
-  adminNotes?: string;
+export type ReportStatus = 'PENDING' | 'RESOLVED';
+export type ReportCategory = 'FRAUD' | 'ABUSE' | 'SPAM';
+export type ReportTargetType = string;
+
+export interface ReportApiResponse {
+  reportId: number;
+  reporterId: number;
+  targetType: ReportTargetType;
+  targetId: number;
+  category: ReportCategory;
+  description: string;
+  status: ReportStatus;
+  createdAt: string;
+}
+
+export interface ReportItem {
+  id: string;
+  reporterId: string;
+  targetType: string;
+  targetTypeLabel: string;
+  targetId: string;
+  category: ReportCategory;
+  categoryLabel: string;
+  description: string;
+  status: ReportStatus;
+  statusLabel: string;
+  createdAt: string;
 }

@@ -1,18 +1,24 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  DashboardApiResponse,
   PageUserListApiResponse,
-  ReviewVerificationRequest,
+  ReportApiResponse,
+  ReviewVerificationApiRequest,
   UpdateUserStatusApiRequest,
   UserListItemApiResponse,
   UserListFilters,
-  VerificationDetail,
-  VerificationListItem,
+  VerificationDetailApiResponse,
+  VerificationRequestApiResponse,
 } from '../types/platformTypes';
 import { buildUserListQuery } from '../mappers/platformMapper';
 
 const BASE = '/platform';
 
 export const platformApi = {
+  getDashboard() {
+    return axiosClient.get<DashboardApiResponse>(`${BASE}/dashboard`);
+  },
+
   getUsers(filters: UserListFilters) {
     return axiosClient.get<PageUserListApiResponse>(`${BASE}/users?${buildUserListQuery(filters)}`);
   },
@@ -21,19 +27,22 @@ export const platformApi = {
     return axiosClient.patch<UserListItemApiResponse>(`${BASE}/users/${userId}/status`, payload);
   },
 
-  // UC-11: Manage Document Verifications
   getVerifications() {
-    return axiosClient.get<VerificationListItem[]>(`${BASE}/verifications`);
+    return axiosClient.get<VerificationRequestApiResponse[]>(`${BASE}/verifications`);
   },
 
-  openVerification(verificationId: number) {
-    return axiosClient.post<VerificationDetail>(`${BASE}/verifications/${verificationId}/open`);
+  getVerificationDetail(verificationId: string) {
+    return axiosClient.get<VerificationDetailApiResponse>(`${BASE}/verifications/${verificationId}`);
   },
 
-  reviewVerification(verificationId: number, payload: ReviewVerificationRequest) {
-    return axiosClient.patch<VerificationListItem>(
+  reviewVerification(verificationId: string, payload: ReviewVerificationApiRequest) {
+    return axiosClient.patch<VerificationRequestApiResponse>(
       `${BASE}/verifications/${verificationId}`,
       payload,
     );
+  },
+
+  getReports() {
+    return axiosClient.get<ReportApiResponse[]>(`${BASE}/reports`);
   },
 };

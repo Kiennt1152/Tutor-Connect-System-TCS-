@@ -15,12 +15,10 @@ import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.identity.entity.VerificationDocument;
-import com.tcs.module.identity.entity.VerificationHistory;
 import com.tcs.module.identity.entity.VerificationRequest;
 import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.enums.VerificationType;
 import com.tcs.module.identity.repository.VerificationDocumentRepository;
-import com.tcs.module.identity.repository.VerificationHistoryRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
@@ -29,9 +27,6 @@ import com.tcs.module.platform.dto.response.ReportResponse;
 import com.tcs.module.platform.dto.response.VerificationDetailResponse;
 import com.tcs.module.platform.dto.response.VerificationDocumentResponse;
 import com.tcs.module.platform.dto.response.VerificationRequestResponse;
-import com.tcs.security.AuthHelper;
-import java.time.LocalDateTime;
-import java.util.LinkedHashMap;
 import com.tcs.module.platform.entity.Report;
 import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
@@ -42,6 +37,7 @@ import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -69,10 +65,8 @@ public class PlatformServiceImpl implements PlatformService {
     private final PlatformMapper platformMapper;
     private final VerificationRequestRepository verificationRequestRepository;
     private final VerificationDocumentRepository verificationDocumentRepository;
-    private final VerificationHistoryRepository verificationHistoryRepository;
     private final ReportRepository reportRepository;
     private final TutoringClassRepository tutoringClassRepository;
-    private final AuthHelper authHelper;
 
     @Override
     @Transactional(readOnly = true)
@@ -148,101 +142,18 @@ public class PlatformServiceImpl implements PlatformService {
     @Override
     @Transactional(readOnly = true)
     public List<VerificationRequestResponse> listVerificationRequests() {
-        // Chi hien thi ban ghi dang cho xu ly: SUBMITTED / UNDER_REVIEW (DRAFT khong hien).
-        return verificationRequestRepository
-                .findByStatusInOrderBySubmittedAtAsc(
-                        List.of(VerificationStatus.SUBMITTED, VerificationStatus.UNDER_REVIEW))
-                .stream()
+        return verificationRequestRepository.findAll().stream()
                 .map(this::toVerificationResponse)
                 .toList();
     }
 
     @Override
-    @Transactional
-    public VerificationDetailResponse openVerification(Long verificationId) {
-        VerificationRequest req = verificationRequestRepository
-                .findById(verificationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
-
-        // BR-01: mo ban ghi SUBMITTED -> chuyen UNDER_REVIEW va ghi lich su.
-        if (req.getStatus() == VerificationStatus.SUBMITTED) {
-            VerificationStatus oldStatus = req.getStatus();
-            req.setStatus(VerificationStatus.UNDER_REVIEW);
-            req = verificationRequestRepository.save(req);
-            logHistory(req, oldStatus, VerificationStatus.UNDER_REVIEW);
-        }
-        return buildDetail(req);
-    }
-
-    @Override
-    @Transactional
-    public VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request) {
-        VerificationStatus decision = request.getStatus();
-        if (decision != VerificationStatus.VERIFIED && decision != VerificationStatus.REJECTED) {
-            throw new IllegalArgumentException("Quyết định không hợp lệ (chỉ Duyệt hoặc Từ chối)");
-        }
-
-        VerificationRequest req = verificationRequestRepository
-                .findById(verificationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
-
-        // BR-02 / AF-02: chi ban ghi UNDER_REVIEW moi duoc duyet/tu choi.
-        if (req.getStatus() != VerificationStatus.UNDER_REVIEW) {
-            throw new IllegalArgumentException("Yêu cầu này đã được xử lý.");
-        }
-
-        // BR-03 / AF-01: tu choi bat buoc co ly do (toi thieu 10 ky tu, khong tinh khoang trang).
-        String notes = request.getAdminNotes() == null ? "" : request.getAdminNotes().trim();
-        if (decision == VerificationStatus.REJECTED && notes.length() < 10) {
-            throw new IllegalArgumentException("Vui lòng nhập lý do từ chối (tối thiểu 10 ký tự).");
-        }
-
-        VerificationStatus oldStatus = req.getStatus();
-        req.setStatus(decision);
-        req.setReviewedAt(LocalDateTime.now());
-        req.setAdminNotes(decision == VerificationStatus.REJECTED ? notes : null);
-        VerificationRequest saved = verificationRequestRepository.save(req);
-
-        // BR-06: ghi lich su chuyen trang thai.
-        logHistory(saved, oldStatus, decision);
-
-        // BR-04: cap nhat verification_status cua ho so nguoi nop.
-        ProfileVerificationStatus profileStatus = decision == VerificationStatus.VERIFIED
-                ? ProfileVerificationStatus.VERIFIED
-                : ProfileVerificationStatus.REJECTED;
-        Long userId = saved.getUser().getUserId();
-        tutorRepository.findByUser_UserId(userId).ifPresent(tutor -> {
-            tutor.setVerificationStatus(profileStatus);
-            tutorRepository.save(tutor);
-        });
-        tutorCenterRepository.findByUser_UserId(userId).ifPresent(center -> {
-            center.setVerificationStatus(profileStatus);
-            tutorCenterRepository.save(center);
-        });
-
-        return toVerificationResponse(saved);
-    }
-
-    @Override
     @Transactional(readOnly = true)
-    public List<ReportResponse> listReports() {
-        return reportRepository.findAll().stream().map(this::toReportResponse).toList();
-    }
+    public VerificationDetailResponse getVerificationDetail(Long verificationId) {
+        VerificationRequest req = verificationRequestRepository
+                .findById(verificationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
 
-    /** BR-06: ghi mot dong lich su cho moi lan chuyen trang thai. */
-    private void logHistory(VerificationRequest req, VerificationStatus oldStatus, VerificationStatus newStatus) {
-        User admin = userRepository
-                .findById(authHelper.currentUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quản trị viên"));
-        VerificationHistory history = new VerificationHistory();
-        history.setVerificationRequest(req);
-        history.setOldStatus(oldStatus == null ? null : oldStatus.name());
-        history.setNewStatus(newStatus.name());
-        history.setChangedByUser(admin);
-        verificationHistoryRepository.save(history);
-    }
-
-    private VerificationDetailResponse buildDetail(VerificationRequest req) {
         Long userId = req.getUser().getUserId();
         Map<String, String> details = new LinkedHashMap<>();
         String submitterName = null;
@@ -279,7 +190,7 @@ public class PlatformServiceImpl implements PlatformService {
         }
 
         List<VerificationDocumentResponse> documents = verificationDocumentRepository
-                .findByVerificationRequest_VerificationId(req.getVerificationId())
+                .findByVerificationRequest_VerificationId(verificationId)
                 .stream()
                 .map(this::toDocumentResponse)
                 .toList();
@@ -318,12 +229,42 @@ public class PlatformServiceImpl implements PlatformService {
                 .build();
     }
 
-    private String resolveSubmitterName(VerificationRequest v) {
-        Long userId = v.getUser().getUserId();
-        if (v.getVerificationType() == VerificationType.TUTOR_PROFILE) {
-            return tutorRepository.findByUser_UserId(userId).map(Tutor::getFullName).orElse(null);
+    @Override
+    @Transactional
+    public VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request) {
+        if (request.getStatus() == null) {
+            throw new IllegalArgumentException("Trạng thái xác minh không được để trống");
         }
-        return tutorCenterRepository.findByUser_UserId(userId).map(TutorCenter::getCompanyName).orElse(null);
+        VerificationRequest verification = verificationRequestRepository
+                .findById(verificationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
+        verification.setStatus(request.getStatus());
+        verification.setAdminNotes(request.getAdminNotes());
+        verification.setReviewedAt(java.time.LocalDateTime.now());
+        VerificationRequest saved = verificationRequestRepository.save(verification);
+
+        if (request.getStatus() == VerificationStatus.VERIFIED
+                || request.getStatus() == VerificationStatus.REJECTED) {
+            ProfileVerificationStatus profileStatus = request.getStatus() == VerificationStatus.VERIFIED
+                    ? ProfileVerificationStatus.VERIFIED
+                    : ProfileVerificationStatus.REJECTED;
+            Long userId = saved.getUser().getUserId();
+            tutorRepository.findByUser_UserId(userId).ifPresent(tutor -> {
+                tutor.setVerificationStatus(profileStatus);
+                tutorRepository.save(tutor);
+            });
+            tutorCenterRepository.findByUser_UserId(userId).ifPresent(center -> {
+                center.setVerificationStatus(profileStatus);
+                tutorCenterRepository.save(center);
+            });
+        }
+        return toVerificationResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ReportResponse> listReports() {
+        return reportRepository.findAll().stream().map(this::toReportResponse).toList();
     }
 
     private VerificationRequestResponse toVerificationResponse(VerificationRequest v) {
@@ -331,7 +272,6 @@ public class PlatformServiceImpl implements PlatformService {
                 .verificationId(v.getVerificationId())
                 .userId(v.getUser().getUserId())
                 .userEmail(v.getUser().getEmail())
-                .submitterName(resolveSubmitterName(v))
                 .verificationType(v.getVerificationType())
                 .status(v.getStatus())
                 .adminNotes(v.getAdminNotes())

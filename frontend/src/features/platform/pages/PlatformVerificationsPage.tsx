@@ -2,20 +2,15 @@ import { useState } from 'react';
 import axios from 'axios';
 import { AdminLayout } from '../components/AdminLayout';
 import { platformApi } from '../api/platformApi';
-import { useVerifications } from '../hooks/useVerifications';
+import { useReviewVerification } from '../hooks/usePlatformMutations';
+import { useVerificationList } from '../hooks/useVerificationList';
 import type {
-  VerificationDetail,
+  VerificationDetailApiResponse,
   VerificationDocumentType,
+  VerificationRequestItem,
   VerificationStatus,
-  VerificationType,
 } from '../types/platformTypes';
-import './PlatformUsersPage.css';
 import './PlatformVerificationsPage.css';
-
-const TYPE_LABEL: Record<VerificationType, string> = {
-  TUTOR_PROFILE: 'Hồ sơ gia sư',
-  TUTOR_CENTER_LICENSE: 'Giấy phép trung tâm',
-};
 
 const DOC_LABEL: Record<VerificationDocumentType, string> = {
   ID_CARD: 'CMND/CCCD',
@@ -24,13 +19,12 @@ const DOC_LABEL: Record<VerificationDocumentType, string> = {
   LICENSE: 'Giấy phép',
 };
 
-const STATUS_LABEL: Record<VerificationStatus, string> = {
-  DRAFT: 'Nháp',
-  SUBMITTED: 'Chờ duyệt',
-  UNDER_REVIEW: 'Đang xét',
-  VERIFIED: 'Đã duyệt',
-  REJECTED: 'Từ chối',
-};
+function verificationBadgeClass(status: VerificationStatus) {
+  if (status === 'VERIFIED') return 'tcs-badge tcs-badge--active';
+  if (status === 'REJECTED') return 'tcs-badge tcs-badge--banned';
+  if (status === 'SUBMITTED' || status === 'UNDER_REVIEW') return 'tcs-badge tcs-badge--suspended';
+  return 'tcs-badge tcs-badge--role';
+}
 
 function extractError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
@@ -39,104 +33,98 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
-function formatDate(value: string | null): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  return Number.isNaN(d.getTime()) ? value : d.toLocaleString('vi-VN');
-}
-
 export default function PlatformVerificationsPage() {
-  const { status, items, reload, errorMessage } = useVerifications();
+  const { status, items, errorMessage, reload } = useVerificationList();
+  const { status: mutationStatus, errorMessage: mutationError, review, reset } =
+    useReviewVerification();
 
-  const [detail, setDetail] = useState<VerificationDetail | null>(null);
-  const [openingId, setOpeningId] = useState<number | null>(null);
+  const [selected, setSelected] = useState<VerificationRequestItem | null>(null);
+  const [detail, setDetail] = useState<VerificationDetailApiResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
   const [rejecting, setRejecting] = useState(false);
   const [rejectNotes, setRejectNotes] = useState('');
-  const [actionBusy, setActionBusy] = useState(false);
-  const [actionError, setActionError] = useState('');
+  const [formError, setFormError] = useState('');
 
-  const closeDetail = () => {
+  const pendingCount = items.filter((item) => item.canReview).length;
+
+  const closeModal = () => {
+    setSelected(null);
     setDetail(null);
+    setDetailError('');
     setRejecting(false);
     setRejectNotes('');
-    setActionError('');
+    setFormError('');
+    reset();
   };
 
-  const handleOpen = async (verificationId: number) => {
-    setOpeningId(verificationId);
-    setActionError('');
+  const openDetail = async (item: VerificationRequestItem) => {
+    setSelected(item);
+    setDetail(null);
+    setDetailError('');
+    setRejecting(false);
+    setRejectNotes('');
+    setFormError('');
+    reset();
+    setDetailLoading(true);
     try {
-      const response = await platformApi.openVerification(verificationId);
+      const response = await platformApi.getVerificationDetail(item.id);
       setDetail(response.data);
-      setRejecting(false);
-      setRejectNotes('');
-      void reload(); // trạng thái có thể chuyển SUBMITTED -> UNDER_REVIEW
     } catch (error) {
-      window.alert(extractError(error, 'Không mở được yêu cầu xác minh.'));
+      setDetailError(extractError(error, 'Không tải được chi tiết hồ sơ.'));
     } finally {
-      setOpeningId(null);
+      setDetailLoading(false);
     }
   };
 
   const handleApprove = async () => {
-    if (!detail) return;
-    if (detail.hasUnreadableDocument) {
-      const proceed = window.confirm(
-        'Có tài liệu bị thiếu/không đọc được. Bạn vẫn muốn DUYỆT?',
-      );
-      if (!proceed) return;
-    } else if (!window.confirm('Duyệt hồ sơ này?')) {
-      return;
-    }
-    setActionBusy(true);
-    setActionError('');
-    try {
-      await platformApi.reviewVerification(detail.verificationId, { status: 'VERIFIED' });
-      closeDetail();
-      void reload();
-    } catch (error) {
-      setActionError(extractError(error, 'Không duyệt được yêu cầu.'));
-    } finally {
-      setActionBusy(false);
+    if (!selected) return;
+    setFormError('');
+    const ok = await review(selected.id, 'VERIFIED');
+    if (ok) {
+      closeModal();
+      reload();
     }
   };
 
   const handleReject = async () => {
-    if (!detail) return;
-    if (rejectNotes.trim().length < 10) {
-      setActionError('Vui lòng nhập lý do từ chối (tối thiểu 10 ký tự).');
+    if (!selected) return;
+    if (!rejectNotes.trim()) {
+      setFormError('Vui lòng nhập lý do từ chối.');
       return;
     }
-    setActionBusy(true);
-    setActionError('');
-    try {
-      await platformApi.reviewVerification(detail.verificationId, {
-        status: 'REJECTED',
-        adminNotes: rejectNotes.trim(),
-      });
-      closeDetail();
-      void reload();
-    } catch (error) {
-      setActionError(extractError(error, 'Không từ chối được yêu cầu.'));
-    } finally {
-      setActionBusy(false);
+    const ok = await review(selected.id, 'REJECTED', rejectNotes.trim());
+    if (ok) {
+      closeModal();
+      reload();
     }
   };
 
   return (
     <AdminLayout
-      title="Duyệt hồ sơ xác minh"
-      subtitle="Xem xét và phê duyệt/từ chối hồ sơ gia sư và giấy phép trung tâm."
+      title="Duyệt xác minh"
+      subtitle="Xử lý hồ sơ xác minh gia sư và trung tâm gia sư."
     >
+      <div className="adm-summary-row">
+        <article className="adm-summary-card adm-summary-card--warn">
+          <p className="adm-summary-card__label">Chờ xử lý</p>
+          <p className="adm-summary-card__value">{pendingCount}</p>
+        </article>
+        <article className="adm-summary-card">
+          <p className="adm-summary-card__label">Tổng yêu cầu</p>
+          <p className="adm-summary-card__value">{items.length}</p>
+        </article>
+      </div>
+
       <div className="adm-card">
         <div className="adm-toolbar">
-          <span className="adm-muted">Chỉ hiển thị hồ sơ đang chờ xử lý (Chờ duyệt / Đang xét).</span>
           <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reload}>
             Làm mới
           </button>
         </div>
 
-        {status === 'loading' && <div className="adm-state">Đang tải danh sách…</div>}
+        {status === 'loading' && <div className="adm-state">Đang tải danh sách xác minh…</div>}
+
         {status === 'error' && (
           <div className="adm-state">
             <p>{errorMessage ?? 'Không tải được dữ liệu.'}</p>
@@ -152,43 +140,39 @@ export default function PlatformVerificationsPage() {
               <thead>
                 <tr>
                   <th>ID</th>
-                  <th>Người nộp</th>
+                  <th>Email</th>
                   <th>Loại</th>
                   <th>Trạng thái</th>
-                  <th>Ngày nộp</th>
+                  <th>Gửi lúc</th>
+                  <th>Duyệt lúc</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={6}>Không có hồ sơ nào đang chờ duyệt.</td>
+                    <td colSpan={7}>Chưa có yêu cầu xác minh nào.</td>
                   </tr>
                 ) : (
                   items.map((item) => (
-                    <tr key={item.verificationId}>
-                      <td>{item.verificationId}</td>
-                      <td>
-                        <div className="adm-submitter">
-                          <span className="adm-submitter__name">{item.submitterName ?? '—'}</span>
-                          <span className="adm-submitter__email">{item.userEmail}</span>
-                        </div>
-                      </td>
-                      <td>{TYPE_LABEL[item.verificationType]}</td>
+                    <tr key={item.id}>
+                      <td>{item.id}</td>
+                      <td>{item.userEmail}</td>
+                      <td>{item.typeLabel}</td>
                       <td className="adm-table__badge">
-                        <span className={`adm-vbadge adm-vbadge--${item.status.toLowerCase()}`}>
-                          {STATUS_LABEL[item.status]}
+                        <span className={verificationBadgeClass(item.status)}>
+                          {item.statusLabel}
                         </span>
                       </td>
-                      <td>{formatDate(item.submittedAt)}</td>
+                      <td>{item.submittedAt}</td>
+                      <td>{item.reviewedAt}</td>
                       <td className="adm-table__actions">
                         <button
                           className="tcs-btn tcs-btn--primary tcs-btn--sm"
                           type="button"
-                          disabled={openingId === item.verificationId}
-                          onClick={() => handleOpen(item.verificationId)}
+                          onClick={() => openDetail(item)}
                         >
-                          {openingId === item.verificationId ? 'Đang mở…' : 'Xem & duyệt'}
+                          Xem & duyệt
                         </button>
                       </td>
                     </tr>
@@ -200,89 +184,99 @@ export default function PlatformVerificationsPage() {
         )}
       </div>
 
-      {detail && (
-        <div className="adm-modal" role="dialog" aria-modal="true">
-          <div className="adm-modal__backdrop" onClick={closeDetail} />
-          <div className="adm-modal__card">
-            <div className="adm-modal__head">
+      {selected && (
+        <div className="pv-modal" role="dialog" aria-modal="true">
+          <div className="pv-modal__backdrop" onClick={closeModal} />
+          <div className="pv-modal__card">
+            <div className="pv-modal__head">
               <div>
-                <h2 className="adm-modal__title">
-                  {detail.submitterName ?? detail.userEmail}
+                <h2 className="pv-modal__title">
+                  {detail?.submitterName ?? selected.userEmail}
                 </h2>
-                <p className="adm-modal__sub">
-                  {TYPE_LABEL[detail.verificationType]} ·{' '}
-                  <span className={`adm-vbadge adm-vbadge--${detail.status.toLowerCase()}`}>
-                    {STATUS_LABEL[detail.status]}
+                <p className="pv-modal__sub">
+                  {selected.typeLabel} ·{' '}
+                  <span className={verificationBadgeClass(selected.status)}>
+                    {selected.statusLabel}
                   </span>
                 </p>
               </div>
-              <button className="adm-modal__close" type="button" onClick={closeDetail} aria-label="Đóng">
+              <button className="pv-modal__close" type="button" onClick={closeModal} aria-label="Đóng">
                 ×
               </button>
             </div>
 
-            <div className="adm-modal__body">
-              <section className="adm-section">
-                <h3 className="adm-section__title">Thông tin người nộp</h3>
-                <div className="adm-kv">
-                  <div className="adm-kv__row">
-                    <span className="adm-kv__k">Email</span>
-                    <span className="adm-kv__v">{detail.userEmail}</span>
-                  </div>
-                  <div className="adm-kv__row">
-                    <span className="adm-kv__k">Số điện thoại</span>
-                    <span className="adm-kv__v">{detail.submitterPhone ?? '—'}</span>
-                  </div>
-                  {Object.entries(detail.submitterDetails).map(([k, v]) => (
-                    <div className="adm-kv__row" key={k}>
-                      <span className="adm-kv__k">{k}</span>
-                      <span className="adm-kv__v">{v}</span>
+            <div className="pv-modal__body">
+              {detailLoading && <div className="adm-state">Đang tải chi tiết…</div>}
+              {detailError && <div className="adm-alert adm-alert--error">{detailError}</div>}
+
+              {detail && (
+                <>
+                  <section className="pv-section">
+                    <h3 className="pv-section__title">Thông tin người nộp</h3>
+                    <div className="pv-kv">
+                      <div className="pv-kv__row">
+                        <span className="pv-kv__k">Email</span>
+                        <span className="pv-kv__v">{detail.userEmail}</span>
+                      </div>
+                      <div className="pv-kv__row">
+                        <span className="pv-kv__k">Số điện thoại</span>
+                        <span className="pv-kv__v">{detail.submitterPhone ?? '—'}</span>
+                      </div>
+                      {Object.entries(detail.submitterDetails).map(([k, v]) => (
+                        <div className="pv-kv__row" key={k}>
+                          <span className="pv-kv__k">{k}</span>
+                          <span className="pv-kv__v">{v}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </section>
+                  </section>
 
-              <section className="adm-section">
-                <h3 className="adm-section__title">Tài liệu ({detail.documents.length})</h3>
-                {detail.documents.length === 0 ? (
-                  <p className="adm-muted">Không có tài liệu đính kèm.</p>
-                ) : (
-                  <ul className="adm-docs">
-                    {detail.documents.map((doc) => (
-                      <li className="adm-docs__item" key={doc.documentId}>
-                        <span className="adm-docs__type">{DOC_LABEL[doc.documentType]}</span>
-                        {doc.available && doc.fileUrl ? (
-                          <a
-                            className="adm-docs__link"
-                            href={doc.fileUrl}
-                            target="_blank"
-                            rel="noreferrer"
-                          >
-                            {doc.fileName ?? 'Xem tài liệu'}
-                          </a>
-                        ) : (
-                          <span className="adm-docs__broken">⚠ Thiếu / không đọc được</span>
-                        )}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {detail.hasUnreadableDocument && (
-                  <div className="adm-alert adm-alert--warning">
-                    Có tài liệu bị thiếu hoặc không đọc được — cân nhắc kỹ trước khi Duyệt.
-                  </div>
-                )}
-              </section>
+                  <section className="pv-section">
+                    <h3 className="pv-section__title">Tài liệu ({detail.documents.length})</h3>
+                    {detail.documents.length === 0 ? (
+                      <p className="adm-muted">Không có tài liệu đính kèm.</p>
+                    ) : (
+                      <ul className="pv-docs">
+                        {detail.documents.map((doc) => (
+                          <li className="pv-docs__item" key={doc.documentId}>
+                            <span className="pv-docs__type">{DOC_LABEL[doc.documentType]}</span>
+                            {doc.available && doc.fileUrl ? (
+                              <a
+                                className="pv-docs__link"
+                                href={doc.fileUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                              >
+                                {doc.fileName ?? 'Xem tài liệu'}
+                              </a>
+                            ) : (
+                              <span className="pv-docs__broken">⚠ Thiếu / không đọc được</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {detail.hasUnreadableDocument && (
+                      <div className="adm-alert adm-alert--warning">
+                        Có tài liệu bị thiếu hoặc không đọc được — cân nhắc kỹ trước khi Duyệt.
+                      </div>
+                    )}
+                  </section>
+                </>
+              )}
 
-              {actionError && <div className="adm-alert adm-alert--error">{actionError}</div>}
+              {formError && <div className="adm-alert adm-alert--error">{formError}</div>}
+              {mutationStatus === 'error' && mutationError && (
+                <div className="adm-alert adm-alert--error">{mutationError}</div>
+              )}
 
               {rejecting && (
-                <section className="adm-section">
-                  <h3 className="adm-section__title">Lý do từ chối</h3>
+                <section className="pv-section">
+                  <h3 className="pv-section__title">Lý do từ chối</h3>
                   <textarea
-                    className="adm-textarea"
+                    className="pv-textarea"
                     rows={3}
-                    placeholder="Nhập lý do từ chối (tối thiểu 10 ký tự)…"
+                    placeholder="Nhập lý do từ chối…"
                     value={rejectNotes}
                     onChange={(e) => setRejectNotes(e.target.value)}
                   />
@@ -290,53 +284,55 @@ export default function PlatformVerificationsPage() {
               )}
             </div>
 
-            <div className="adm-modal__foot">
-              {rejecting ? (
-                <>
-                  <button
-                    className="tcs-btn tcs-btn--ghost"
-                    type="button"
-                    disabled={actionBusy}
-                    onClick={() => {
-                      setRejecting(false);
-                      setActionError('');
-                    }}
-                  >
-                    Quay lại
-                  </button>
-                  <button
-                    className="tcs-btn tcs-btn--danger"
-                    type="button"
-                    disabled={actionBusy}
-                    onClick={handleReject}
-                  >
-                    {actionBusy ? 'Đang xử lý…' : 'Xác nhận từ chối'}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    className="tcs-btn tcs-btn--danger"
-                    type="button"
-                    disabled={actionBusy}
-                    onClick={() => {
-                      setRejecting(true);
-                      setActionError('');
-                    }}
-                  >
-                    Từ chối
-                  </button>
-                  <button
-                    className="tcs-btn tcs-btn--success"
-                    type="button"
-                    disabled={actionBusy}
-                    onClick={handleApprove}
-                  >
-                    {actionBusy ? 'Đang xử lý…' : 'Duyệt'}
-                  </button>
-                </>
-              )}
-            </div>
+            {selected.canReview && (
+              <div className="pv-modal__foot">
+                {rejecting ? (
+                  <>
+                    <button
+                      className="tcs-btn tcs-btn--ghost"
+                      type="button"
+                      disabled={mutationStatus === 'loading'}
+                      onClick={() => {
+                        setRejecting(false);
+                        setFormError('');
+                      }}
+                    >
+                      Quay lại
+                    </button>
+                    <button
+                      className="tcs-btn tcs-btn--danger"
+                      type="button"
+                      disabled={mutationStatus === 'loading'}
+                      onClick={handleReject}
+                    >
+                      {mutationStatus === 'loading' ? 'Đang xử lý…' : 'Xác nhận từ chối'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="tcs-btn tcs-btn--danger"
+                      type="button"
+                      disabled={mutationStatus === 'loading' || detailLoading}
+                      onClick={() => {
+                        setRejecting(true);
+                        setFormError('');
+                      }}
+                    >
+                      Từ chối
+                    </button>
+                    <button
+                      className="tcs-btn tcs-btn--success"
+                      type="button"
+                      disabled={mutationStatus === 'loading' || detailLoading}
+                      onClick={handleApprove}
+                    >
+                      {mutationStatus === 'loading' ? 'Đang xử lý…' : 'Duyệt'}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

@@ -16,7 +16,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -55,9 +54,9 @@ public class PlatformController {
         return platformService.listVerificationRequests();
     }
 
-    @PostMapping("/verifications/{verificationId}/open")
-    public VerificationDetailResponse openVerification(@PathVariable Long verificationId) {
-        return platformService.openVerification(verificationId);
+    @GetMapping("/verifications/{verificationId}")
+    public VerificationDetailResponse getVerificationDetail(@PathVariable Long verificationId) {
+        return platformService.getVerificationDetail(verificationId);
     }
 
     @PatchMapping("/verifications/{verificationId}")
