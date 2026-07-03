@@ -1,3 +1,6 @@
+import { useState } from 'react';
+import { ConfirmDialog } from '../../../shared/components';
+import type { ConfirmDialogVariant } from '../../../shared/components';
 import { AdminLayout } from '../components/AdminLayout';
 import { useUpdateUserStatus } from '../hooks/usePlatformMutations';
 import { useUserList } from '../hooks/useUserList';
@@ -15,19 +18,41 @@ const STATUS_ACTION_LABELS: Record<UserStatus, string> = {
   BANNED: 'Khóa',
 };
 
-function confirmStatusChange(nextStatus: UserStatus) {
-  if (nextStatus === 'BANNED') {
-    return window.confirm(
-      'Khóa tài khoản này? Người dùng sẽ không thể đăng nhập và email không thể đăng ký lại.',
-    );
-  }
-  if (nextStatus === 'SUSPENDED') {
-    return window.confirm(
-      'Tạm ngưng tài khoản này? Người dùng vẫn đăng nhập được nhưng sẽ bị giới hạn quyền (triển khai sau).',
-    );
-  }
-  return window.confirm('Kích hoạt lại tài khoản này?');
-}
+type StatusDialogConfig = {
+  title: string;
+  confirmLabel: string;
+  variant: ConfirmDialogVariant;
+  describe: (name: string) => string;
+};
+
+const STATUS_DIALOG: Record<UserStatus, StatusDialogConfig> = {
+  BANNED: {
+    title: 'Khóa tài khoản',
+    confirmLabel: 'Khóa',
+    variant: 'danger',
+    describe: (name) =>
+      `Khóa tài khoản "${name}"? Người dùng sẽ không thể đăng nhập và email không thể đăng ký lại.`,
+  },
+  SUSPENDED: {
+    title: 'Tạm ngưng tài khoản',
+    confirmLabel: 'Tạm ngưng',
+    variant: 'warning',
+    describe: (name) =>
+      `Tạm ngưng tài khoản "${name}"? Người dùng vẫn đăng nhập được nhưng sẽ bị giới hạn quyền (triển khai sau).`,
+  },
+  ACTIVE: {
+    title: 'Kích hoạt tài khoản',
+    confirmLabel: 'Kích hoạt',
+    variant: 'primary',
+    describe: (name) => `Kích hoạt lại tài khoản "${name}"?`,
+  },
+};
+
+type PendingStatusChange = {
+  userId: string;
+  displayName: string;
+  nextStatus: UserStatus;
+};
 
 export default function PlatformUsersPage() {
   const { status, data, filters, setFilters, reload, errorMessage: listErrorMessage } = useUserList({
@@ -35,18 +60,33 @@ export default function PlatformUsersPage() {
     size: 10,
   });
   const { status: mutationStatus, errorMessage, updateStatus, reset } = useUpdateUserStatus();
+  const [pending, setPending] = useState<PendingStatusChange | null>(null);
 
   const applyFilter = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch, page: 0 }));
   };
 
-  const handleStatusChange = async (userId: string, nextStatus: UserStatus, role: UserRole) => {
+  const requestStatusChange = (
+    userId: string,
+    displayName: string,
+    nextStatus: UserStatus,
+    role: UserRole,
+  ) => {
     if (role === 'PLATFORM_ADMIN') return;
-    if (!confirmStatusChange(nextStatus)) return;
-
     reset();
-    const ok = await updateStatus(userId, nextStatus);
+    setPending({ userId, displayName, nextStatus });
+  };
+
+  const confirmStatusChange = async () => {
+    if (!pending) return;
+    const ok = await updateStatus(pending.userId, pending.nextStatus);
+    setPending(null);
     if (ok) reload();
+  };
+
+  const cancelStatusChange = () => {
+    if (mutationStatus === 'loading') return;
+    setPending(null);
   };
 
   return (
@@ -156,7 +196,9 @@ export default function PlatformUsersPage() {
                                   type="button"
                                   disabled={mutationStatus === 'loading'}
                                   title={STATUS_ACTION_LABELS.ACTIVE}
-                                  onClick={() => handleStatusChange(user.id, 'ACTIVE', user.role)}
+                                  onClick={() =>
+                                    requestStatusChange(user.id, user.displayName, 'ACTIVE', user.role)
+                                  }
                                 >
                                   Kích hoạt
                                 </button>
@@ -167,7 +209,9 @@ export default function PlatformUsersPage() {
                                   type="button"
                                   disabled={mutationStatus === 'loading'}
                                   title={STATUS_ACTION_LABELS.SUSPENDED}
-                                  onClick={() => handleStatusChange(user.id, 'SUSPENDED', user.role)}
+                                  onClick={() =>
+                                    requestStatusChange(user.id, user.displayName, 'SUSPENDED', user.role)
+                                  }
                                 >
                                   Tạm ngưng
                                 </button>
@@ -178,7 +222,9 @@ export default function PlatformUsersPage() {
                                   type="button"
                                   disabled={mutationStatus === 'loading'}
                                   title={STATUS_ACTION_LABELS.BANNED}
-                                  onClick={() => handleStatusChange(user.id, 'BANNED', user.role)}
+                                  onClick={() =>
+                                    requestStatusChange(user.id, user.displayName, 'BANNED', user.role)
+                                  }
                                 >
                                   Khóa
                                 </button>
@@ -219,6 +265,19 @@ export default function PlatformUsersPage() {
           </>
         )}
       </div>
+
+      {pending && (
+        <ConfirmDialog
+          open
+          title={STATUS_DIALOG[pending.nextStatus].title}
+          message={STATUS_DIALOG[pending.nextStatus].describe(pending.displayName)}
+          confirmLabel={STATUS_DIALOG[pending.nextStatus].confirmLabel}
+          variant={STATUS_DIALOG[pending.nextStatus].variant}
+          loading={mutationStatus === 'loading'}
+          onConfirm={confirmStatusChange}
+          onCancel={cancelStatusChange}
+        />
+      )}
     </AdminLayout>
   );
 }

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
+import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { platformApi } from '../api/platformApi';
 import { mapPageUserList } from '../mappers/platformMapper';
 import type { PageUserList, UserListFilters } from '../types/platformTypes';
@@ -21,25 +21,7 @@ export function useUserList(initialFilters: UserListFilters) {
       setStatus('success');
     } catch (error) {
       console.error('Lỗi tải danh sách người dùng:', error);
-      if (axios.isAxiosError(error)) {
-        if (!error.response) {
-          setErrorMessage(
-            'Không kết nối được backend. Hãy chạy BackendApplication (port 8080) rồi bấm Thử lại.',
-          );
-        } else if (error.response.status === 401 || error.response.status === 403) {
-          setErrorMessage(
-            typeof error.response.data?.message === 'string'
-              ? error.response.data.message
-              : 'Phiên đăng nhập hết hạn hoặc không có quyền admin.',
-          );
-        } else {
-          const apiMessage =
-            typeof error.response.data?.message === 'string' ? error.response.data.message : null;
-          setErrorMessage(apiMessage ?? `Lỗi máy chủ (${error.response.status}).`);
-        }
-      } else {
-        setErrorMessage('Không tải được danh sách người dùng.');
-      }
+      setErrorMessage(getApiErrorMessage(error, 'Không tải được danh sách người dùng.'));
       setStatus('error');
     }
   }, [filters]);

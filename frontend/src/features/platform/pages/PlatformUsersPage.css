@@ -103,7 +103,7 @@
 }
 
 .adm-table th {
-  font-size: 14px;
+  font-size: var(--fs-body-lg);
   font-weight: 600;
   color: var(--color-text-secondary);
   background: var(--color-surface-3);

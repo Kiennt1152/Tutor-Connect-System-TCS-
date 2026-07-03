@@ -89,10 +89,6 @@ public class PlatformServiceImpl implements PlatformService {
     @Override
     @Transactional
     public UserListItemResponse updateUserStatus(Long userId, UpdateUserStatusRequest request) {
-        if (request.getStatus() == null) {
-            throw new IllegalArgumentException("Trạng thái không được để trống");
-        }
-
         User user = findUserOrThrow(userId);
         UserProfileBundle profiles = loadProfiles(userId);
 
@@ -100,14 +96,7 @@ public class PlatformServiceImpl implements PlatformService {
             throw new IllegalArgumentException("Không thể thay đổi trạng thái tài khoản quản trị viên");
         }
 
-        UserStatus newStatus = request.getStatus();
-        if (newStatus != UserStatus.ACTIVE
-                && newStatus != UserStatus.SUSPENDED
-                && newStatus != UserStatus.BANNED) {
-            throw new IllegalArgumentException("Trạng thái không hợp lệ");
-        }
-
-        user.setStatus(newStatus);
+        user.setStatus(request.getStatus());
         User saved = userRepository.save(user);
         return platformMapper.toUserListItem(saved, profiles);
     }
@@ -142,9 +131,6 @@ public class PlatformServiceImpl implements PlatformService {
     @Override
     @Transactional
     public VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request) {
-        if (request.getStatus() == null) {
-            throw new IllegalArgumentException("Trạng thái xác minh không được để trống");
-        }
         VerificationRequest verification = verificationRequestRepository
                 .findById(verificationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));

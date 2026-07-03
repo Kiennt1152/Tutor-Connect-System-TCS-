@@ -49,9 +49,9 @@
   --fs-badge: 11px;
 
   /* Badge / action button (cột Thao tác — chỉnh kích thước tại đây) */
-  --btn-badge-padding-y: 7px;
-  --btn-badge-padding-x: 11px;
-  --btn-badge-font-size: 11px;
+  --btn-badge-padding-y: 4px;
+  --btn-badge-padding-x: 9px;
+  --btn-badge-font-size: 10px;
   --btn-badge-line-height: 1.2;
   --btn-badge-gap: 4px;
 
