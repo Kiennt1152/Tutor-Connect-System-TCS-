@@ -211,8 +211,9 @@ export default function LoginPage() {
     try {
       const response = await login({ email, password });
       navigate(resolvePostLoginPath(from, response.role), { replace: true });
-    } catch {
-      setError('Email hoặc mật khẩu không đúng');
+    } catch (err) {
+      // Hien thi message that tu backend (vd: tai khoan bi khoa); mac dinh la sai thong tin dang nhap.
+      setError(getApiErrorMessage(err, 'Email hoặc mật khẩu không đúng'));
     } finally {
       setLoading(false);
     }
