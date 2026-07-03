@@ -75,6 +75,17 @@ export function useVerification(userId: number) {
     }
   }
 
+  async function cancelVerification(verificationId: number) {
+    setError(null);
+    try {
+      await verificationApi.cancelVerification(verificationId);
+      await loadVerifications();
+    } catch (err) {
+      setError(extractErrorMessage(err));
+      throw err;
+    }
+  }
+
   return {
     status,
     verifications,
@@ -83,6 +94,7 @@ export function useVerification(userId: number) {
     reload: loadVerifications,
     submitVerification,
     reviewVerification,
+    cancelVerification,
   };
 }
 

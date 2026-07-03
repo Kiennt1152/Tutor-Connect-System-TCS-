@@ -54,4 +54,8 @@ export const verificationApi = {
     const response = await axiosClient.get<Verification[]>(`${BASE}/moderation-queue`);
     return response.data;
   },
+
+  async cancelVerification(verificationId: number) {
+    await axiosClient.delete(`${BASE}/${verificationId}`);
+  },
 };

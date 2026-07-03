@@ -1,11 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useVerification } from '../hooks/useVerification';
 import { verificationApi } from '../api/verificationApi';
 import { mapVerificationStatus } from '../mappers/verificationMapper';
-import { DOCUMENT_SLOTS } from '../types/verificationTypes';
+import {
+  getSlotsForRole,
+  getVerificationTypeForRole,
+} from '../types/verificationTypes';
 import type {
   DocumentSlotConfig,
   DocumentUpload,
@@ -31,6 +35,7 @@ interface UploadedFile {
 type SubmissionStep = 'upload' | 'done';
 
 interface UploadViewProps {
+  readonly slots: readonly DocumentSlotConfig[];
   readonly uploadedFiles: UploadedFile[];
   readonly uploadingSlot: DocumentSlotConfig['key'] | null;
   readonly uploadError: string | null;
@@ -60,11 +65,14 @@ interface SlotFieldProps {
 
 interface DoneViewProps {
   readonly latest: Verification | null | undefined;
+  readonly hasActiveRequest: boolean;
+  readonly onStartNew: () => void;
 }
 
 interface HistoryProps {
   readonly verifications: Verification[];
   readonly status: LoadStatus;
+  readonly onCancel: (verificationId: number) => void;
 }
 
 interface StatusPalette {
@@ -88,6 +96,10 @@ function getPalette(variant: string): StatusPalette {
 export default function VerificationPage() {
   const { user } = useAuth();
   const userId = user?.userId ?? 0;
+  const role = user?.role ?? 'CLIENT';
+  const isCenter = role === 'TUTOR_CENTER';
+  const slots = useMemo(() => getSlotsForRole(role), [role]);
+  const verificationType = getVerificationTypeForRole(role);
   const {
     status,
     verifications,
@@ -95,6 +107,7 @@ export default function VerificationPage() {
     isSubmitting,
     reload,
     submitVerification,
+    cancelVerification,
   } = useVerification(userId);
   const [step, setStep] = useState<SubmissionStep>('upload');
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -107,6 +120,42 @@ export default function VerificationPage() {
   );
 
   const latest = verifications[0] ?? null;
+
+  const hasActiveRequest = useMemo(
+    () =>
+      verifications.some(
+        (v) =>
+          v.status === 'SUBMITTED' ||
+          v.status === 'UNDER_REVIEW' ||
+          v.status === 'VERIFIED',
+      ),
+    [verifications],
+  );
+
+  // Đồng bộ step với trạng thái thực của backend khi load lần đầu:
+  // - Đã có active request từ DB -> DoneView (không hiện form upload)
+  // - Chưa có gì -> upload form
+  // Sau khi user đã tương tác trong session (submit hoặc cancel), step được
+  // điều khiển bởi local state để tránh xóa mất uploadedFiles giữa chừng.
+  const [hasInteracted, setHasInteracted] = useState(false);
+  useEffect(() => {
+    if (status !== 'success' || hasInteracted) {
+      return;
+    }
+    setStep(hasActiveRequest ? 'done' : 'upload');
+  }, [hasActiveRequest, hasInteracted, status]);
+
+  // Khi user vừa cancel xong (active request biến mất trong session) -> quay lại upload
+  useEffect(() => {
+    if (!hasInteracted || status !== 'success') {
+      return;
+    }
+    if (!hasActiveRequest && step === 'done') {
+      setStep('upload');
+      setUploadedFiles([]);
+      setSubmitError(null);
+    }
+  }, [hasActiveRequest, hasInteracted, step, status]);
 
   async function handleFileUpload(slot: DocumentSlotConfig, file: File) {
     setUploadError(null);
@@ -142,12 +191,12 @@ export default function VerificationPage() {
 
   const missingRequired = useMemo(
     () =>
-      DOCUMENT_SLOTS.filter(
+      slots.filter(
         (s) =>
           s.required &&
           !uploadedFiles.some((f) => f.slotKey === s.key),
       ),
-    [uploadedFiles],
+    [slots, uploadedFiles],
   );
 
   const requiredComplete = missingRequired.length === 0;
@@ -168,17 +217,25 @@ export default function VerificationPage() {
       }));
 
       await submitVerification({
-        verificationType: 'TUTOR_PROFILE',
+        verificationType,
         documents,
       });
       setStep('done');
       setUploadedFiles([]);
+      setHasInteracted(true);
     } catch (err) {
-      setSubmitError(
-        err instanceof Error
-          ? err.message
-          : 'Submission failed. Please try again.',
-      );
+      if (axios.isAxiosError(err) && err.response?.status === 409) {
+        const msg = (err.response.data as { message?: string } | undefined)?.message;
+        setSubmitError(
+          msg ?? 'You already have an active verification. Cancel it first to submit a new one.',
+        );
+      } else {
+        setSubmitError(
+          err instanceof Error
+            ? err.message
+            : 'Submission failed. Please try again.',
+        );
+      }
     }
   }
 
@@ -186,6 +243,7 @@ export default function VerificationPage() {
     setStep('upload');
     setUploadedFiles([]);
     setSubmitError(null);
+    setHasInteracted(true);
   }
 
   return (
@@ -195,10 +253,13 @@ export default function VerificationPage() {
         <div className="tcs-container verification-page__container">
           <header className="verification-page__header">
             <span className="verification-page__eyebrow">Identity / Verification</span>
-            <h1 className="verification-page__title">Tutor Verification</h1>
+            <h1 className="verification-page__title">
+              {isCenter ? 'Tutor Center Verification' : 'Tutor Verification'}
+            </h1>
             <p className="verification-page__subtitle">
-              Submit your credentials to earn a verified badge and build trust with
-              clients.
+              {isCenter
+                ? 'Nộp các chứng từ pháp lý bắt buộc để xác minh trung tâm và nhận huy hiệu đã xác minh theo quy định Việt Nam.'
+                : 'Submit your credentials to earn a verified badge and build trust with clients.'}
             </p>
           </header>
 
@@ -225,9 +286,14 @@ export default function VerificationPage() {
 
               <div className="verification-card__body">
                 {step === 'done' ? (
-                  <DoneView latest={latest} />
+                  <DoneView
+                    latest={latest}
+                    hasActiveRequest={hasActiveRequest}
+                    onStartNew={startResubmit}
+                  />
                 ) : (
                   <UploadView
+                    slots={slots}
                     uploadedFiles={uploadedFiles}
                     uploadingSlot={uploadingSlot}
                     uploadError={uploadError}
@@ -242,7 +308,7 @@ export default function VerificationPage() {
                   />
                 )}
 
-                {step === 'done' && latest?.status === 'REJECTED' && (
+                {step === 'done' && latest?.status === 'REJECTED' && !hasActiveRequest && (
                   <button
                     className="verification-btn verification-btn--primary"
                     type="button"
@@ -260,7 +326,14 @@ export default function VerificationPage() {
                 <h2 className="verification-card__title">Verification History</h2>
               </div>
               <div className="verification-card__body">
-                <VerificationHistory verifications={verifications} status={status} />
+                <VerificationHistory
+                  verifications={verifications}
+                  status={status}
+                  onCancel={async (id) => {
+                    await cancelVerification(id);
+                    setHasInteracted(true);
+                  }}
+                />
               </div>
             </div>
           </div>
@@ -270,7 +343,7 @@ export default function VerificationPage() {
   );
 }
 
-function DoneView({ latest }: DoneViewProps) {
+function DoneView({ latest, hasActiveRequest, onStartNew }: DoneViewProps) {
   if (!latest) {
     return <div className="verification-empty">No verification found.</div>;
   }
@@ -303,11 +376,22 @@ function DoneView({ latest }: DoneViewProps) {
       <p style={{ fontSize: 14, color: '#555', margin: 0 }}>
         You will be notified once the platform admin reviews your documents.
       </p>
+      {!hasActiveRequest && (
+        <button
+          className="verification-btn verification-btn--primary"
+          type="button"
+          style={{ alignSelf: 'flex-start' }}
+          onClick={onStartNew}
+        >
+          Submit New Verification
+        </button>
+      )}
     </div>
   );
 }
 
 function UploadView({
+  slots,
   uploadedFiles,
   uploadingSlot,
   uploadError,
@@ -322,7 +406,7 @@ function UploadView({
 }: UploadViewProps) {
   return (
     <div className="verification-form">
-      {DOCUMENT_SLOTS.map((slot) => (
+      {slots.map((slot) => (
         <SlotField
           key={slot.key}
           slot={slot}
@@ -521,14 +605,16 @@ function UploadButton({
   );
 }
 
-function VerificationHistory({ verifications, status }: HistoryProps) {
+function VerificationHistory({ verifications, status, onCancel }: HistoryProps) {
   if (status === 'loading') {
     return <div className="verification-state">Loading history…</div>;
   }
 
   if (verifications.length === 0) {
     return (
-      <div className="verification-empty">No verification submissions yet.</div>
+      <div className="verification-empty">
+        Chưa có yêu cầu xác minh nào.
+      </div>
     );
   }
 
@@ -540,6 +626,11 @@ function VerificationHistory({ verifications, status }: HistoryProps) {
         const submittedLabel = v.submittedAt
           ? new Date(v.submittedAt).toLocaleString()
           : 'N/A';
+        const canCancel = v.status === 'SUBMITTED';
+        const typeLabel =
+          v.verificationType === 'TUTOR_CENTER_LICENSE'
+            ? 'Trung tâm gia sư'
+            : 'Gia sư';
 
         return (
           <li key={v.verificationId} className="verification-history-item">
@@ -552,7 +643,7 @@ function VerificationHistory({ verifications, status }: HistoryProps) {
             <div className="verification-history-item__content">
               <div className="verification-history-item__header">
                 <span className="verification-history-item__type">
-                  {v.verificationType}
+                  {typeLabel}
                 </span>
                 <span
                   className="verification-badge"
@@ -560,6 +651,22 @@ function VerificationHistory({ verifications, status }: HistoryProps) {
                 >
                   {info.label}
                 </span>
+                {canCancel && (
+                  <button
+                    type="button"
+                    className="verification-history-item__cancel"
+                    onClick={() => {
+                      if (window.confirm('Hủy yêu cầu xác minh này? Hành động không thể hoàn tác.')) {
+                        onCancel(v.verificationId);
+                      }
+                    }}
+                    title="Hủy yêu cầu này"
+                    aria-label="Cancel verification request"
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    ×
+                  </button>
+                )}
               </div>
               <div className="verification-history-item__date">
                 {submittedLabel}

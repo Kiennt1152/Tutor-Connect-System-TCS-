@@ -304,6 +304,28 @@
   border-top: 1px solid #f3f4f6;
 }
 
+.verification-history-item__cancel {
+  background: transparent;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-error);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+  padding: 0;
+}
+
+.verification-history-item__cancel:hover {
+  background: var(--color-error-light);
+  border-color: var(--color-error);
+}
+
 .verification-history-item {
   display: flex;
   gap: var(--space-md);

@@ -11,6 +11,7 @@ import com.tcs.module.identity.entity.VerificationDocument;
 import com.tcs.module.identity.entity.VerificationHistory;
 import com.tcs.module.identity.entity.VerificationRequest;
 import com.tcs.module.identity.enums.VerificationStatus;
+import com.tcs.module.identity.enums.VerificationDocumentType;
 import com.tcs.module.identity.enums.VerificationType;
 import com.tcs.module.identity.mapper.VerificationMapper;
 import com.tcs.module.identity.repository.VerificationDocumentRepository;
@@ -31,6 +32,8 @@ import com.tcs.security.AuthHelper;
 import com.tcs.security.UserPrincipal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -70,13 +73,38 @@ public class VerificationServiceImpl implements VerificationService {
             throw new ForbiddenException("Chỉ gia sư hoặc trung tâm mới được nộp xác minh");
         }
 
+        if (role == UserRole.TUTOR && request.getVerificationType() != VerificationType.TUTOR_PROFILE) {
+            throw new BusinessException("Tài khoản gia sư chỉ được nộp hồ sơ loại TUTOR_PROFILE");
+        }
+        if (role == UserRole.TUTOR_CENTER
+                && request.getVerificationType() != VerificationType.TUTOR_CENTER_LICENSE) {
+            throw new BusinessException(
+                    "Tài khoản trung tâm chỉ được nộp hồ sơ loại TUTOR_CENTER_LICENSE");
+        }
+
         if (!canResubmit(userId, request.getVerificationType())) {
-            throw new BusinessException("A verification request is already pending or approved for this type");
+            List<VerificationRequest> existing = verificationRequestRepository
+                    .findByUser_UserIdOrderBySubmittedAtDesc(userId).stream()
+                    .filter(v -> v.getVerificationType() == request.getVerificationType())
+                    .filter(v -> v.getStatus() == VerificationStatus.SUBMITTED
+                            || v.getStatus() == VerificationStatus.UNDER_REVIEW
+                            || v.getStatus() == VerificationStatus.VERIFIED)
+                    .toList();
+            String detail = existing.isEmpty()
+                    ? ""
+                    : " (hồ sơ #" + existing.get(0).getVerificationId()
+                            + " hiện ở trạng thái " + existing.get(0).getStatus().name() + ")";
+            throw new BusinessException(
+                    "Bạn đã có hồ sơ xác minh đang xử lý hoặc đã được duyệt"
+                            + detail
+                            + ". Hãy hủy hồ sơ cũ trước khi nộp mới.");
         }
 
         if (request.getDocuments() == null || request.getDocuments().isEmpty()) {
             throw new IllegalArgumentException("At least one document is required");
         }
+
+        validateRequiredDocuments(request);
 
         VerificationRequest verification = new VerificationRequest();
         verification.setUser(user);
@@ -243,6 +271,30 @@ public class VerificationServiceImpl implements VerificationService {
     }
 
     @Override
+    @Transactional
+    public void cancelVerification(Long verificationId) {
+        Long userId = authHelper.currentUserId();
+        VerificationRequest verification = loadVerificationOrThrow(verificationId);
+
+        if (verification.getUser() == null
+                || !verification.getUser().getUserId().equals(userId)) {
+            throw new ForbiddenException("Bạn không có quyền hủy hồ sơ xác minh này");
+        }
+
+        if (verification.getStatus() != VerificationStatus.SUBMITTED) {
+            throw new BusinessException(
+                    "Chỉ có thể hủy hồ sơ ở trạng thái SUBMITTED. Trạng thái hiện tại: "
+                            + verification.getStatus().name());
+        }
+
+        verificationDocumentRepository.deleteAllByVerificationId(verificationId);
+        verificationHistoryRepository.deleteAllByVerificationId(verificationId);
+        verificationRequestRepository.delete(verification);
+
+        log.info("Verification cancelled: verificationId={}, userId={}", verificationId, userId);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public boolean canResubmit(Long userId, VerificationType verificationType) {
         return !verificationRequestRepository.existsByUser_UserIdAndVerificationTypeAndStatusIn(
@@ -324,6 +376,37 @@ public class VerificationServiceImpl implements VerificationService {
         if (!REVIEW_FLOW_ENABLED) {
             throw new BusinessException(
                     "Review flow is temporarily disabled.");
+        }
+    }
+
+    /**
+     * Trung tâm cần nộp đủ 4 chứng từ bắt buộc theo quy định pháp luật VN:
+     * Giấy ĐKKD, MST, Giấy phép hoạt động GD, CCCD người đại diện PL.
+     * Do DB CHECK constraint hiện tại chỉ cho phép 4 enum values (ID_CARD, DEGREE,
+     * CERTIFICATE, LICENSE), frontend map 4 slots vào 3 giá trị DB:
+     * - LICENSE  : 2 (business license + education permit)
+     * - ID_CARD  : 1 (legal rep CCCD)
+     * - CERTIFICATE: 1 (tax code)
+     */
+    private void validateRequiredDocuments(VerificationRequestDto request) {
+        if (request.getVerificationType() == VerificationType.TUTOR_CENTER_LICENSE) {
+            Map<VerificationDocumentType, Long> counts = request.getDocuments().stream()
+                    .collect(Collectors.groupingBy(
+                            VerificationRequestDto.DocumentUpload::getDocumentType,
+                            Collectors.counting()));
+
+            long licenseCount = counts.getOrDefault(VerificationDocumentType.LICENSE, 0L);
+            long idCardCount = counts.getOrDefault(VerificationDocumentType.ID_CARD, 0L);
+            long certificateCount = counts.getOrDefault(VerificationDocumentType.CERTIFICATE, 0L);
+            long total = request.getDocuments().size();
+
+            if (total != 4 || licenseCount != 2 || idCardCount != 1 || certificateCount != 1) {
+                throw new BusinessException(
+                        "Hồ sơ trung tâm cần đủ 4 chứng từ bắt buộc: "
+                                + "Giấy ĐKKD (LICENSE), Giấy phép hoạt động giáo dục (LICENSE), "
+                                + "Mã số thuế / Đăng ký thuế (CERTIFICATE), "
+                                + "CCCD người đại diện pháp luật (ID_CARD).");
+            }
         }
     }
 }

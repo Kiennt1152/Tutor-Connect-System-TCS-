@@ -33,7 +33,7 @@ export default function App() {
           <Route
             path={APP_ROUTES.verification}
             element={
-              <ProtectedRoute roles={['TUTOR']}>
+              <ProtectedRoute roles={['TUTOR', 'TUTOR_CENTER']}>
                 <VerificationPage />
               </ProtectedRoute>
             }

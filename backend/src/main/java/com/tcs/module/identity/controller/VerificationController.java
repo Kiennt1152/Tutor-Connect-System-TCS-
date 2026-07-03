@@ -12,6 +12,7 @@ import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -41,6 +42,12 @@ public class VerificationController {
             @Valid @RequestBody VerificationRequestDto request
     ) {
         return ResponseEntity.ok(verificationService.submitVerification(request));
+    }
+
+    @DeleteMapping("/{verificationId}")
+    public ResponseEntity<Void> cancelVerification(@PathVariable Long verificationId) {
+        verificationService.cancelVerification(verificationId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/my")

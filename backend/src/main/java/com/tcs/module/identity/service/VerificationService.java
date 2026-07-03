@@ -11,6 +11,8 @@ public interface VerificationService {
 
     VerificationResponse submitVerification(VerificationRequestDto request);
 
+    void cancelVerification(Long verificationId);
+
     VerificationResponse getVerificationById(Long verificationId);
 
     List<VerificationResponse> getVerificationsByUser(Long userId);
