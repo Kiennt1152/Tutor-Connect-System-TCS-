@@ -1,6 +1,7 @@
 package com.tcs.module.marketplace.entity;
 
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
+import com.tcs.module.profile.entity.Tutor;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -10,6 +11,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
 import java.time.LocalDateTime;
@@ -30,8 +32,15 @@ public class ClassAssignment {
     @Column(name = "assignment_id")
     private Long assignmentId;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "application_id", nullable = false, unique = true)
+    // Nguon su that cua tutor. Voi gan noi bo (INTERNAL) chi co tutor,
+    // voi tuyen qua marketplace (EXTERNAL) co them application.
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "tutor_id", nullable = false)
+    private Tutor tutor;
+
+    // Nullable: chi set khi tutor duoc chon qua don ung tuyen (EXTERNAL).
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "application_id", unique = true)
     private TutorApplication application;
 
     @CreationTimestamp
