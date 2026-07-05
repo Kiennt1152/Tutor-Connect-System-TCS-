@@ -114,6 +114,36 @@ export interface ReviewVerificationApiRequest {
   adminNotes?: string;
 }
 
+export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'LICENSE';
+
+export interface VerificationDocumentApiResponse {
+  documentId: number;
+  documentType: VerificationDocumentType;
+  fileId: number | null;
+  fileName: string | null;
+  fileUrl: string | null;
+  mimeType: string | null;
+  available: boolean;
+}
+
+export interface VerificationDetailApiResponse {
+  verificationId: number;
+  userId: number;
+  userEmail: string;
+  verificationType: VerificationType;
+  status: VerificationStatus;
+  adminNotes: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  submitterName: string | null;
+  submitterPhone: string | null;
+  submitterDetails: Record<string, string>;
+  documents: VerificationDocumentApiResponse[];
+  hasUnreadableDocument: boolean;
+}
+
 export type ReportStatus = 'PENDING' | 'RESOLVED';
 export type ReportCategory = 'FRAUD' | 'ABUSE' | 'SPAM';
 export type ReportTargetType = string;

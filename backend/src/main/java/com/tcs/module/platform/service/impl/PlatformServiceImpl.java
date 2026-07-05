@@ -14,14 +14,22 @@ import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.identity.entity.VerificationDocument;
+import com.tcs.module.identity.entity.VerificationHistory;
 import com.tcs.module.identity.entity.VerificationRequest;
 import com.tcs.module.identity.enums.VerificationStatus;
+import com.tcs.module.identity.enums.VerificationType;
+import com.tcs.module.identity.repository.VerificationDocumentRepository;
+import com.tcs.module.identity.repository.VerificationHistoryRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
 import com.tcs.module.platform.dto.response.DashboardResponse;
 import com.tcs.module.platform.dto.response.ReportResponse;
+import com.tcs.module.platform.dto.response.VerificationDetailResponse;
+import com.tcs.module.platform.dto.response.VerificationDocumentResponse;
 import com.tcs.module.platform.dto.response.VerificationRequestResponse;
+import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.platform.entity.Report;
 import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
@@ -30,8 +38,11 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
+import com.tcs.security.AuthHelper;
+import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -49,6 +60,8 @@ import org.springframework.util.StringUtils;
 public class PlatformServiceImpl implements PlatformService {
 
     private static final int MAX_PAGE_SIZE = 50;
+    /** BR-03: ly do tu choi toi thieu 10 ky tu. */
+    private static final int MIN_REJECT_NOTES_LENGTH = 10;
 
     private final UserRepository userRepository;
     private final PlatformAdminRepository platformAdminRepository;
@@ -57,8 +70,11 @@ public class PlatformServiceImpl implements PlatformService {
     private final ClientRepository clientRepository;
     private final PlatformMapper platformMapper;
     private final VerificationRequestRepository verificationRequestRepository;
+    private final VerificationDocumentRepository verificationDocumentRepository;
+    private final VerificationHistoryRepository verificationHistoryRepository;
     private final ReportRepository reportRepository;
     private final TutoringClassRepository tutoringClassRepository;
+    private final AuthHelper authHelper;
 
     @Override
     @Transactional(readOnly = true)
@@ -130,31 +146,174 @@ public class PlatformServiceImpl implements PlatformService {
 
     @Override
     @Transactional
+    public VerificationDetailResponse getVerificationDetail(Long verificationId) {
+        VerificationRequest verification = verificationRequestRepository
+                .findById(verificationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
+
+        // BR-01: mo mot ho so dang SUBMITTED se tu dong chuyen sang UNDER_REVIEW va ghi lich su.
+        if (verification.getStatus() == VerificationStatus.SUBMITTED) {
+            VerificationStatus oldStatus = verification.getStatus();
+            verification.setStatus(VerificationStatus.UNDER_REVIEW);
+            verification = verificationRequestRepository.save(verification);
+            logHistory(verification, oldStatus, VerificationStatus.UNDER_REVIEW, currentAdminUser());
+        }
+
+        return buildDetail(verification);
+    }
+
+    @Override
+    @Transactional
     public VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request) {
         VerificationRequest verification = verificationRequestRepository
                 .findById(verificationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
-        verification.setStatus(request.getStatus());
-        verification.setAdminNotes(request.getAdminNotes());
-        verification.setReviewedAt(java.time.LocalDateTime.now());
+
+        VerificationStatus decision = request.getStatus();
+        // Decision chi duoc la VERIFIED (Duyet) hoac REJECTED (Tu choi).
+        if (decision != VerificationStatus.VERIFIED && decision != VerificationStatus.REJECTED) {
+            throw new IllegalArgumentException("Quyết định không hợp lệ. Chỉ chấp nhận Duyệt hoặc Từ chối.");
+        }
+
+        // BR-02 / AF-02: chi ho so dang UNDER_REVIEW moi duoc Duyet hoac Tu choi.
+        if (verification.getStatus() != VerificationStatus.UNDER_REVIEW) {
+            throw new IllegalArgumentException("Hồ sơ này đã được xử lý bởi quản trị viên khác.");
+        }
+
+        // BR-03 / AF-01: khi Tu choi bat buoc nhap ly do (>= 10 ky tu). Khi Duyet thi bo qua ghi chu.
+        String adminNotes = null;
+        if (decision == VerificationStatus.REJECTED) {
+            String trimmed = request.getAdminNotes() == null ? "" : request.getAdminNotes().trim();
+            if (trimmed.length() < MIN_REJECT_NOTES_LENGTH) {
+                throw new IllegalArgumentException("Vui lòng nhập lý do từ chối (tối thiểu 10 ký tự).");
+            }
+            adminNotes = trimmed;
+        }
+
+        User admin = currentAdminUser();
+        VerificationStatus oldStatus = verification.getStatus();
+
+        verification.setStatus(decision);
+        verification.setAdminNotes(adminNotes);
+        verification.setReviewedAt(LocalDateTime.now());
         VerificationRequest saved = verificationRequestRepository.save(verification);
 
-        if (request.getStatus() == VerificationStatus.VERIFIED
-                || request.getStatus() == VerificationStatus.REJECTED) {
-            ProfileVerificationStatus profileStatus = request.getStatus() == VerificationStatus.VERIFIED
-                    ? ProfileVerificationStatus.VERIFIED
-                    : ProfileVerificationStatus.REJECTED;
-            Long userId = saved.getUser().getUserId();
+        // BR-06: moi lan chuyen trang thai deu ghi mot dong vao verification_histories.
+        logHistory(saved, oldStatus, decision, admin);
+
+        // BR-04: cap nhat verification_status cua nguoi nop theo dung loai ho so.
+        ProfileVerificationStatus profileStatus = decision == VerificationStatus.VERIFIED
+                ? ProfileVerificationStatus.VERIFIED
+                : ProfileVerificationStatus.REJECTED;
+        Long userId = saved.getUser().getUserId();
+        if (saved.getVerificationType() == VerificationType.TUTOR_PROFILE) {
             tutorRepository.findByUser_UserId(userId).ifPresent(tutor -> {
                 tutor.setVerificationStatus(profileStatus);
                 tutorRepository.save(tutor);
             });
+        } else {
             tutorCenterRepository.findByUser_UserId(userId).ifPresent(center -> {
                 center.setVerificationStatus(profileStatus);
                 tutorCenterRepository.save(center);
             });
         }
         return toVerificationResponse(saved);
+    }
+
+    private VerificationDetailResponse buildDetail(VerificationRequest v) {
+        Long userId = v.getUser().getUserId();
+        Map<String, String> details = new LinkedHashMap<>();
+        String submitterName = null;
+        String submitterPhone = v.getUser().getPhone();
+
+        if (v.getVerificationType() == VerificationType.TUTOR_PROFILE) {
+            Tutor tutor = tutorRepository.findByUser_UserId(userId).orElse(null);
+            if (tutor != null) {
+                submitterName = tutor.getFullName();
+                if (StringUtils.hasText(tutor.getPhone())) {
+                    submitterPhone = tutor.getPhone();
+                }
+                details.put("Giới tính", tutor.getGender() == null ? "—" : tutor.getGender().name());
+                details.put("Số năm kinh nghiệm", String.valueOf(tutor.getExperienceYears()));
+                details.put("Địa chỉ", orDash(tutor.getAddress()));
+                details.put("Giới thiệu", orDash(tutor.getBio()));
+                details.put("Trạng thái xác minh", tutor.getVerificationStatus().name());
+            }
+        } else {
+            TutorCenter center = tutorCenterRepository.findByUser_UserId(userId).orElse(null);
+            if (center != null) {
+                submitterName = center.getCompanyName();
+                if (StringUtils.hasText(center.getPhone())) {
+                    submitterPhone = center.getPhone();
+                }
+                details.put("Số giấy phép", orDash(center.getLicenseNo()));
+                details.put("Địa chỉ", orDash(center.getAddress()));
+                details.put("Mô tả", orDash(center.getDescription()));
+                details.put("Trạng thái xác minh", center.getVerificationStatus().name());
+            }
+        }
+
+        List<VerificationDocumentResponse> documents = verificationDocumentRepository
+                .findByVerificationRequest_VerificationId(v.getVerificationId())
+                .stream()
+                .map(this::toDocumentResponse)
+                .toList();
+        boolean hasUnreadable = documents.stream().anyMatch(doc -> !doc.isAvailable());
+
+        return VerificationDetailResponse.builder()
+                .verificationId(v.getVerificationId())
+                .userId(userId)
+                .userEmail(v.getUser().getEmail())
+                .verificationType(v.getVerificationType())
+                .status(v.getStatus())
+                .adminNotes(v.getAdminNotes())
+                .submittedAt(v.getSubmittedAt())
+                .reviewedAt(v.getReviewedAt())
+                .createdAt(v.getCreatedAt())
+                .updatedAt(v.getUpdatedAt())
+                .submitterName(submitterName)
+                .submitterPhone(submitterPhone)
+                .submitterDetails(details)
+                .documents(documents)
+                .hasUnreadableDocument(hasUnreadable)
+                .build();
+    }
+
+    private VerificationDocumentResponse toDocumentResponse(VerificationDocument doc) {
+        MediaFile file = doc.getFile();
+        boolean available = file != null && StringUtils.hasText(file.getFileUrl());
+        return VerificationDocumentResponse.builder()
+                .documentId(doc.getDocumentId())
+                .documentType(doc.getDocumentType())
+                .fileId(file == null ? null : file.getFileId())
+                .fileName(file == null ? null : file.getFileName())
+                .fileUrl(file == null ? null : file.getFileUrl())
+                .mimeType(file == null ? null : file.getMimeType())
+                .available(available)
+                .build();
+    }
+
+    private void logHistory(
+            VerificationRequest verification,
+            VerificationStatus oldStatus,
+            VerificationStatus newStatus,
+            User admin) {
+        VerificationHistory history = new VerificationHistory();
+        history.setVerificationRequest(verification);
+        history.setOldStatus(oldStatus == null ? null : oldStatus.name());
+        history.setNewStatus(newStatus.name());
+        history.setChangedByUser(admin);
+        verificationHistoryRepository.save(history);
+    }
+
+    private User currentAdminUser() {
+        return userRepository
+                .findById(authHelper.currentUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quản trị viên"));
+    }
+
+    private String orDash(String value) {
+        return StringUtils.hasText(value) ? value : "—";
     }
 
     @Override
