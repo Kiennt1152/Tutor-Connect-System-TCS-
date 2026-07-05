@@ -36,6 +36,7 @@ public class SecurityConfig {
                                 "/api/identity/register",
                                 "/api/identity/password/forgot",
                                 "/api/identity/password/reset",
+                                "/uploads/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**")
                         .permitAll()

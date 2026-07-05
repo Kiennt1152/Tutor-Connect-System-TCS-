@@ -51,4 +51,7 @@ public class User {
 
     @Column(name = "last_login")
     private LocalDateTime lastLogin;
+
+    @Column(name = "profile_completed_at")
+    private LocalDateTime profileCompletedAt;
 }

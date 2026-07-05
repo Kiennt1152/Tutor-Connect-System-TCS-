@@ -24,8 +24,14 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      await login({ email, password });
-      navigate(from, { replace: true });
+      const response = await login({ email, password });
+      // UC-08 BR-UC08-01: lan dang nhap dau tien (ho so chua hoan tat) -> redirect /profile
+      // de user dien fullName, phone, avatar... truoc khi dung app.
+      if (response.firstLogin) {
+        navigate('/profile', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch {
       setError('Email hoặc mật khẩu không đúng');
     } finally {

@@ -26,4 +26,5 @@ export type AuthResponse = {
   role: UserRole;
   displayName: string;
   status: string;
+  firstLogin: boolean;
 };

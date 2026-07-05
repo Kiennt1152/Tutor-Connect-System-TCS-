@@ -90,6 +90,12 @@ public class ProfileServiceImpl implements ProfileService {
             case TUTOR_CENTER -> updateCenter(ctx.center(), request);
             default -> throw new ForbiddenException("Không thể cập nhật hồ sơ cho vai trò này");
         }
+        // UC-08 BR-UC08-01: lan luu profile thanh cong dau tien dong dau "ho so da hoan tat",
+        // FE dung cot nay de an banner onboarding va khong redirect nua.
+        if (ctx.user().getProfileCompletedAt() == null) {
+            ctx.user().setProfileCompletedAt(LocalDateTime.now());
+            userRepository.save(ctx.user());
+        }
         return toProfileResponse(ctx);
     }
 
@@ -375,7 +381,9 @@ public class ProfileServiceImpl implements ProfileService {
                 .userId(ctx.user().getUserId())
                 .role(ctx.role())
                 .email(ctx.user().getEmail())
-                .phone(ctx.user().getPhone());
+                .phone(ctx.user().getPhone())
+                // UC-08 BR-UC08-01: profile chua hoan tat -> FE hien banner onboarding.
+                .firstLogin(ctx.user().getProfileCompletedAt() == null);
         if (ctx.client() != null) {
             builder.fullName(ctx.client().getFullName())
                     .phone(ctx.client().getPhone())
