@@ -5,7 +5,7 @@ import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { useVerification } from '../hooks/useVerification';
 import { verificationApi } from '../api/verificationApi';
-import { mapVerificationStatus } from '../mappers/verificationMapper';
+import { mapDocumentType, mapVerificationStatus } from '../mappers/verificationMapper';
 import {
   getSlotsForRole,
   getVerificationTypeForRole,
@@ -176,7 +176,7 @@ export default function VerificationPage() {
       ]);
     } catch (err) {
       setUploadError(
-        err instanceof Error ? err.message : 'Upload failed. Please try again.',
+        err instanceof Error ? err.message : 'Tải tệp thất bại. Vui lòng thử lại.',
       );
     } finally {
       setUploadingSlot(null);
@@ -204,7 +204,7 @@ export default function VerificationPage() {
   async function handleSubmit() {
     if (!requiredComplete) {
       setSubmitError(
-        `Please upload: ${missingRequired.map((s) => s.label).join(', ')}.`,
+        `Vui lòng tải lên: ${missingRequired.map((s) => s.label).join(', ')}.`,
       );
       return;
     }
@@ -227,13 +227,13 @@ export default function VerificationPage() {
       if (axios.isAxiosError(err) && err.response?.status === 409) {
         const msg = (err.response.data as { message?: string } | undefined)?.message;
         setSubmitError(
-          msg ?? 'You already have an active verification. Cancel it first to submit a new one.',
+          msg ?? 'Bạn đang có một yêu cầu xác minh đang xử lý. Vui lòng hủy yêu cầu cũ trước khi gửi yêu cầu mới.',
         );
       } else {
         setSubmitError(
           err instanceof Error
             ? err.message
-            : 'Submission failed. Please try again.',
+            : 'Gửi yêu cầu thất bại. Vui lòng thử lại.',
         );
       }
     }
@@ -252,14 +252,14 @@ export default function VerificationPage() {
       <main>
         <div className="tcs-container verification-page__container">
           <header className="verification-page__header">
-            <span className="verification-page__eyebrow">Identity / Verification</span>
+            <span className="verification-page__eyebrow">Hồ sơ / Xác minh</span>
             <h1 className="verification-page__title">
-              {isCenter ? 'Tutor Center Verification' : 'Tutor Verification'}
+              {isCenter ? 'Xác minh trung tâm gia sư' : 'Xác minh gia sư'}
             </h1>
             <p className="verification-page__subtitle">
               {isCenter
                 ? 'Nộp các chứng từ pháp lý bắt buộc để xác minh trung tâm và nhận huy hiệu đã xác minh theo quy định Việt Nam.'
-                : 'Submit your credentials to earn a verified badge and build trust with clients.'}
+                : 'Nộp các giấy tờ tùy thân và bằng cấp của bạn để nhận huy hiệu đã xác minh và tạo niềm tin với phụ huynh, học sinh.'}
             </p>
           </header>
 
@@ -271,7 +271,7 @@ export default function VerificationPage() {
             <div className="verification-card">
               <div className="verification-card__head">
                 <h2 className="verification-card__title">
-                  {step === 'done' ? 'Verification Submitted' : 'Submit Documents'}
+                  {step === 'done' ? 'Đã gửi yêu cầu xác minh' : 'Nộp giấy tờ'}
                 </h2>
                 {step === 'done' && (
                   <button
@@ -279,7 +279,7 @@ export default function VerificationPage() {
                     type="button"
                     onClick={() => void reload()}
                   >
-                    Refresh
+                    Làm mới
                   </button>
                 )}
               </div>
@@ -315,7 +315,7 @@ export default function VerificationPage() {
                     style={{ marginTop: 16 }}
                     onClick={startResubmit}
                   >
-                    Resubmit Verification
+                    Gửi lại yêu cầu xác minh
                   </button>
                 )}
               </div>
@@ -323,7 +323,7 @@ export default function VerificationPage() {
 
             <div className="verification-card">
               <div className="verification-card__head">
-                <h2 className="verification-card__title">Verification History</h2>
+                <h2 className="verification-card__title">Lịch sử xác minh</h2>
               </div>
               <div className="verification-card__body">
                 <VerificationHistory
@@ -345,7 +345,7 @@ export default function VerificationPage() {
 
 function DoneView({ latest, hasActiveRequest, onStartNew }: DoneViewProps) {
   if (!latest) {
-    return <div className="verification-empty">No verification found.</div>;
+    return <div className="verification-empty">Chưa có yêu cầu xác minh nào.</div>;
   }
 
   const statusInfo = mapVerificationStatus(latest.status);
@@ -357,7 +357,7 @@ function DoneView({ latest, hasActiveRequest, onStartNew }: DoneViewProps) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div className="verification-alert verification-alert--info">
-        Your verification has been submitted and is pending review.
+        Yêu cầu xác minh của bạn đã được gửi và đang chờ quản trị viên xét duyệt.
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span
@@ -370,11 +370,11 @@ function DoneView({ latest, hasActiveRequest, onStartNew }: DoneViewProps) {
       </div>
       {latest.rejectionReason && (
         <div className="verification-alert verification-alert--error">
-          <strong>Rejection reason:</strong> {latest.rejectionReason}
+          <strong>Lý do từ chối:</strong> {latest.rejectionReason}
         </div>
       )}
       <p style={{ fontSize: 14, color: '#555', margin: 0 }}>
-        You will be notified once the platform admin reviews your documents.
+        Bạn sẽ nhận được thông báo ngay khi quản trị viên hoàn tất xét duyệt hồ sơ.
       </p>
       {!hasActiveRequest && (
         <button
@@ -383,7 +383,7 @@ function DoneView({ latest, hasActiveRequest, onStartNew }: DoneViewProps) {
           style={{ alignSelf: 'flex-start' }}
           onClick={onStartNew}
         >
-          Submit New Verification
+          Gửi yêu cầu xác minh mới
         </button>
       )}
     </div>
@@ -441,7 +441,7 @@ function UploadView({
           disabled={isSubmitting}
           onClick={onSubmit}
         >
-          {isSubmitting ? 'Submitting…' : 'Submit for Verification'}
+          {isSubmitting ? 'Đang gửi…' : 'Gửi xác minh'}
         </button>
       </div>
     </div>
@@ -479,7 +479,7 @@ function SlotField({
   onDragEnter,
   onDragLeave,
 }: SlotFieldProps) {
-  const requiredTag = slot.required ? '(required)' : '(optional)';
+  const requiredTag = slot.required ? '(bắt buộc)' : '(không bắt buộc)';
   const zoneClass = [
     'verification-upload-zone',
     isDragActive ? 'verification-upload-zone--drag' : '',
@@ -521,7 +521,7 @@ function SlotField({
                 actions={
                   <>
                     <span className="verification-doc-item__type">
-                      {slot.documentType}
+                      {mapDocumentType(file.documentType)}
                     </span>
                     <button
                       className="verification-doc-item__remove"
@@ -559,14 +559,14 @@ function SlotField({
             style={HIDDEN_INPUT_STYLE}
           />
           {isUploading ? (
-            <span style={{ color: '#888' }}>Uploading…</span>
+            <span style={{ color: '#888' }}>Đang tải lên…</span>
           ) : (
             <>
               <span className="verification-upload-zone__label">
-                Click or drag file here
+                Nhấn hoặc kéo thả tệp vào đây
               </span>
               <span className="verification-upload-zone__hint">
-                PDF, JPG, PNG, WEBP — max 10MB
+                PDF, JPG, PNG, WEBP — tối đa 10MB
               </span>
             </>
           )}
@@ -599,7 +599,7 @@ function UploadButton({
         className="verification-btn verification-btn--ghost"
         style={{ alignSelf: 'flex-start', cursor: 'pointer' }}
       >
-        + Add another
+        + Thêm tệp khác
       </label>
     </>
   );
@@ -607,7 +607,7 @@ function UploadButton({
 
 function VerificationHistory({ verifications, status, onCancel }: HistoryProps) {
   if (status === 'loading') {
-    return <div className="verification-state">Loading history…</div>;
+    return <div className="verification-state">Đang tải lịch sử…</div>;
   }
 
   if (verifications.length === 0) {
@@ -661,7 +661,7 @@ function VerificationHistory({ verifications, status, onCancel }: HistoryProps) 
                       }
                     }}
                     title="Hủy yêu cầu này"
-                    aria-label="Cancel verification request"
+                    aria-label="Hủy yêu cầu xác minh"
                     style={{ marginLeft: 'auto' }}
                   >
                     ×
@@ -673,12 +673,12 @@ function VerificationHistory({ verifications, status, onCancel }: HistoryProps) 
               </div>
               {v.rejectionReason && (
                 <div className="verification-history-item__reason">
-                  Reason: {v.rejectionReason}
+                  Lý do từ chối: {v.rejectionReason}
                 </div>
               )}
               {v.adminNotes && (
                 <div style={{ fontSize: 12, color: '#666', marginTop: 4 }}>
-                  Note: {v.adminNotes}
+                  Ghi chú: {v.adminNotes}
                 </div>
               )}
               {v.documents.length > 0 && (
