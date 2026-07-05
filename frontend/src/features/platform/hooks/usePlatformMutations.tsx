@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import axios from 'axios';
+import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { platformApi } from '../api/platformApi';
 import { buildUpdateStatusPayload, buildReviewVerificationPayload } from '../mappers/platformMapper';
 import type { UserStatus } from '../types/platformTypes';
@@ -19,11 +19,7 @@ export function useUpdateUserStatus() {
       return true;
     } catch (error) {
       console.error('Lỗi cập nhật trạng thái:', error);
-      const apiMessage =
-        axios.isAxiosError(error) && typeof error.response?.data?.message === 'string'
-          ? error.response.data.message
-          : null;
-      setErrorMessage(apiMessage ?? 'Không thể cập nhật trạng thái người dùng.');
+      setErrorMessage(getApiErrorMessage(error, 'Không thể cập nhật trạng thái người dùng.'));
       setStatus('error');
       return false;
     }
@@ -54,11 +50,7 @@ export function useReviewVerification() {
         return true;
       } catch (error) {
         console.error('Lỗi duyệt xác minh:', error);
-        const apiMessage =
-          axios.isAxiosError(error) && typeof error.response?.data?.message === 'string'
-            ? error.response.data.message
-            : null;
-        setErrorMessage(apiMessage ?? 'Không thể cập nhật xác minh.');
+        setErrorMessage(getApiErrorMessage(error, 'Không thể cập nhật xác minh.'));
         setStatus('error');
         return false;
       }

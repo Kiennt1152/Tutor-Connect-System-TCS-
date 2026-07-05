@@ -1,7 +1,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { resolvePostLoginPath } from '../../../shared/auth/resolvePostLoginPath';
 import { imageAssets } from '../../../assets/images/ImageAssets';
@@ -211,8 +211,9 @@ export default function LoginPage() {
     try {
       const response = await login({ email, password });
       navigate(resolvePostLoginPath(from, response.role), { replace: true });
-    } catch {
-      setError('Email hoặc mật khẩu không đúng');
+    } catch (err) {
+      // Hien thi message that tu backend (vd: tai khoan bi khoa); mac dinh la sai thong tin dang nhap.
+      setError(getApiErrorMessage(err, 'Email hoặc mật khẩu không đúng'));
     } finally {
       setLoading(false);
     }
@@ -242,10 +243,7 @@ export default function LoginPage() {
       navigate(resolvePostLoginPath(from, response.role), { replace: true });
     } catch (err) {
       // Ưu tiên hiển thị message cụ thể từ backend (vd: trùng số điện thoại).
-      const backendMsg = axios.isAxiosError(err)
-        ? (err.response?.data as { message?: string } | undefined)?.message
-        : undefined;
-      setError(backendMsg || 'Hoàn tất đăng ký thất bại. Vui lòng thử lại.');
+      setError(getApiErrorMessage(err, 'Hoàn tất đăng ký thất bại. Vui lòng thử lại.'));
     } finally {
       setCompleteSubmitting(false);
     }

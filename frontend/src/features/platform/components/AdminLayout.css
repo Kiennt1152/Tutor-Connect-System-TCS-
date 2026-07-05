@@ -334,7 +334,7 @@
 }
 
 .adm-table th {
-  font-size: var(--fs-body-sm);
+  font-size: var(--fs-body-md);
   font-weight: 600;
   color: var(--color-text-secondary);
   background: var(--color-surface-3);
@@ -392,7 +392,15 @@
 .adm-row-actions {
   display: flex;
   flex-wrap: nowrap;
-  gap: var(--space-xs);
+  gap: var(--btn-badge-gap);
+}
+
+.adm-row-actions .tcs-btn {
+  height: auto;
+  min-height: unset;
+  padding: var(--btn-badge-padding-y) var(--btn-badge-padding-x);
+  font-size: var(--btn-badge-font-size);
+  line-height: var(--btn-badge-line-height);
 }
 
 .adm-muted {

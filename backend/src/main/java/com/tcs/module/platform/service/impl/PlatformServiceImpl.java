@@ -38,7 +38,6 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -90,10 +89,6 @@ public class PlatformServiceImpl implements PlatformService {
     @Override
     @Transactional
     public UserListItemResponse updateUserStatus(Long userId, UpdateUserStatusRequest request) {
-        if (request.getStatus() == null) {
-            throw new IllegalArgumentException("Trạng thái không được để trống");
-        }
-
         User user = findUserOrThrow(userId);
         UserProfileBundle profiles = loadProfiles(userId);
 
@@ -101,14 +96,7 @@ public class PlatformServiceImpl implements PlatformService {
             throw new IllegalArgumentException("Không thể thay đổi trạng thái tài khoản quản trị viên");
         }
 
-        UserStatus newStatus = request.getStatus();
-        if (newStatus != UserStatus.ACTIVE
-                && newStatus != UserStatus.SUSPENDED
-                && newStatus != UserStatus.BANNED) {
-            throw new IllegalArgumentException("Trạng thái không hợp lệ");
-        }
-
-        user.setStatus(newStatus);
+        user.setStatus(request.getStatus());
         User saved = userRepository.save(user);
         return platformMapper.toUserListItem(saved, profiles);
     }
@@ -143,9 +131,6 @@ public class PlatformServiceImpl implements PlatformService {
     @Override
     @Transactional
     public VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request) {
-        if (request.getStatus() == null) {
-            throw new IllegalArgumentException("Trạng thái xác minh không được để trống");
-        }
         VerificationRequest verification = verificationRequestRepository
                 .findById(verificationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
@@ -212,40 +197,10 @@ public class PlatformServiceImpl implements PlatformService {
             if (roleUserIds.isEmpty()) {
                 return Page.empty(pageable);
             }
-            return filterUsersByIds(roleUserIds, status, trimmedKeyword, pageable);
+            return userRepository.searchUsersByIds(roleUserIds, status, trimmedKeyword, pageable);
         }
 
-        if (status != null && trimmedKeyword != null) {
-            return userRepository.findByStatusAndEmailContainingIgnoreCase(status, trimmedKeyword, pageable);
-        }
-        if (status != null) {
-            return userRepository.findByStatus(status, pageable);
-        }
-        if (trimmedKeyword != null) {
-            return userRepository.findByEmailContainingIgnoreCase(trimmedKeyword, pageable);
-        }
-        return userRepository.findAll(pageable);
-    }
-
-    private Page<User> filterUsersByIds(
-            List<Long> userIds, UserStatus status, String keyword, PageRequest pageable) {
-        Page<User> page = userRepository.findByUserIdIn(userIds, pageable);
-        if (status == null && keyword == null) {
-            return page;
-        }
-
-        List<User> filtered = page.getContent().stream()
-                .filter(user -> status == null || user.getStatus() == status)
-                .filter(user -> keyword == null
-                        || user.getEmail().toLowerCase().contains(keyword.toLowerCase()))
-                .sorted(Comparator.comparing(User::getUserId))
-                .toList();
-
-        if (filtered.size() == page.getContent().size()) {
-            return page;
-        }
-
-        return new PageImpl<>(filtered, pageable, filtered.size());
+        return userRepository.searchUsers(status, trimmedKeyword, pageable);
     }
 
     private List<Long> findUserIdsByRole(UserRole role) {
