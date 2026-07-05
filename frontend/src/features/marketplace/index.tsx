@@ -1,7 +1,10 @@
-export { default as MarketplaceModule } from './MarketplaceModule';
 export { default as MarketplacePage } from './pages/MarketplacePage';
-export { MarketplacePanel } from './components/MarketplacePanel';
+export { default as MarketplaceModule } from './pages/MarketplacePage';
+export { ClientView } from './components/ClientView';
+export { TutorView } from './components/TutorView';
+export { ApplicationRow } from './components/ApplicationRow';
+export { StatusBadge } from './components/StatusBadge';
+export { RejectApplicationModal } from './components/RejectApplicationModal';
 export * from './types/marketplaceTypes';
 export * from './api/marketplaceApi';
 export * from './hooks/useMarketplace';
-export * from './mappers/marketplaceMapper';

@@ -2,7 +2,9 @@ package com.tcs.module.marketplace.controller;
 
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
+import com.tcs.module.marketplace.dto.request.TutorApplicationReviewRequest;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
+import com.tcs.module.marketplace.dto.response.TutorApplicationResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.service.MarketplaceService;
@@ -12,6 +14,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -77,5 +80,34 @@ public class MarketplaceController {
     @GetMapping("/favorites")
     public List<TutorSearchResponse> getFavorites() {
         return marketplaceService.getFavorites();
+    }
+
+    // ---- Tutoring Request Management ----
+
+    @GetMapping("/classes/{classId}/applications")
+    public List<TutorApplicationResponse> listApplicationsByClass(@PathVariable Long classId) {
+        return marketplaceService.listApplicationsByClass(classId);
+    }
+
+    @GetMapping("/applications/me")
+    public List<TutorApplicationResponse> listMyApplications() {
+        return marketplaceService.listMyApplications();
+    }
+
+    @GetMapping("/applications/{applicationId}")
+    public TutorApplicationResponse getApplication(@PathVariable Long applicationId) {
+        return marketplaceService.getApplication(applicationId);
+    }
+
+    @DeleteMapping("/applications/{applicationId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void withdrawApplication(@PathVariable Long applicationId) {
+        marketplaceService.withdrawApplication(applicationId);
+    }
+
+    @PatchMapping("/applications/{applicationId}/review")
+    public TutorApplicationResponse reviewApplication(
+            @PathVariable Long applicationId, @RequestBody TutorApplicationReviewRequest request) {
+        return marketplaceService.reviewApplication(applicationId, request);
     }
 }

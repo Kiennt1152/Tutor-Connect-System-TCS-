@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ClassAssignmentRepository extends JpaRepository<ClassAssignment, Long> {
+
+    boolean existsByApplication_ApplicationId(Long applicationId);
 }
