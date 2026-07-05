@@ -1,5 +1,7 @@
 package com.tcs.module.profile.service;
 
+import com.tcs.module.identity.dto.request.VerificationRequestDto;
+import com.tcs.module.identity.dto.response.VerificationResponse;
 import com.tcs.module.profile.dto.request.ChildProfileRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
@@ -35,5 +37,5 @@ public interface ProfileService {
 
     void deleteAvailability(Long availabilityId);
 
-    void submitVerification();
+    VerificationResponse submitVerification(VerificationRequestDto request);
 }

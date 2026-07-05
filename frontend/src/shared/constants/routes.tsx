@@ -6,6 +6,7 @@ export const APP_ROUTES = {
   profile: '/profile',
   finance: '/finance',
   catalog: '/catalog',
+  verification: '/identity/verification',
   center: '/center',
   marketplace: '/marketplace',
   contract: '/contract',
