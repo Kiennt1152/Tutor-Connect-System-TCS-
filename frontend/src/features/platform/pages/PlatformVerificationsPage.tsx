@@ -68,15 +68,12 @@ export default function PlatformVerificationsPage() {
     reset();
     setDetailLoading(true);
     try {
-      // BR-01: mở hồ sơ SUBMITTED sẽ tự động chuyển sang UNDER_REVIEW ở phía server.
       const response = await platformApi.getVerificationDetail(item.id);
       setDetail(response.data);
     } catch (error) {
       setDetailError(extractError(error, 'Không tải được chi tiết hồ sơ.'));
     } finally {
       setDetailLoading(false);
-      // Làm mới danh sách để phản ánh trạng thái mới (UNDER_REVIEW).
-      reload();
     }
   };
 
@@ -86,26 +83,22 @@ export default function PlatformVerificationsPage() {
     const ok = await review(selected.id, 'VERIFIED');
     if (ok) {
       closeModal();
+      reload();
     }
-    // AF-02: dù thành công hay thất bại (đã bị người khác xử lý) đều làm mới danh sách.
-    reload();
   };
 
   const handleReject = async () => {
     if (!selected) return;
-    // BR-03 / AF-01: lý do từ chối bắt buộc, tối thiểu 10 ký tự.
-    if (rejectNotes.trim().length < 10) {
-      setFormError('Vui lòng nhập lý do từ chối (tối thiểu 10 ký tự).');
+    if (!rejectNotes.trim()) {
+      setFormError('Vui lòng nhập lý do từ chối.');
       return;
     }
     const ok = await review(selected.id, 'REJECTED', rejectNotes.trim());
     if (ok) {
       closeModal();
+      reload();
     }
-    reload();
   };
-
-  const displayStatus = detail?.status ?? selected?.status ?? 'SUBMITTED';
 
   return (
     <AdminLayout
@@ -130,17 +123,12 @@ export default function PlatformVerificationsPage() {
           </button>
         </div>
 
-        {status === 'loading' && (
-          <div className="adm-state adm-state--loading">
-            <span className="adm-spinner" aria-hidden="true" />
-            Đang tải danh sách xác minh…
-          </div>
-        )}
+        {status === 'loading' && <div className="adm-state">Đang tải danh sách xác minh…</div>}
 
         {status === 'error' && (
           <div className="adm-state">
             <p>{errorMessage ?? 'Không tải được dữ liệu.'}</p>
-            <button className="tcs-btn tcs-btn--market" type="button" onClick={reload}>
+            <button className="tcs-btn tcs-btn--primary" type="button" onClick={reload}>
               Thử lại
             </button>
           </div>
@@ -157,14 +145,13 @@ export default function PlatformVerificationsPage() {
                   <th>Trạng thái</th>
                   <th>Gửi lúc</th>
                   <th>Duyệt lúc</th>
-                  <th>Ghi chú</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>Chưa có yêu cầu xác minh nào.</td>
+                    <td colSpan={7}>Chưa có yêu cầu xác minh nào.</td>
                   </tr>
                 ) : (
                   items.map((item) => (
@@ -179,14 +166,13 @@ export default function PlatformVerificationsPage() {
                       </td>
                       <td>{item.submittedAt}</td>
                       <td>{item.reviewedAt}</td>
-                      <td className="adm-table__notes">{item.adminNotes}</td>
                       <td className="adm-table__actions">
                         <button
-                          className="tcs-btn tcs-btn--market tcs-btn--sm"
+                          className="tcs-btn tcs-btn--primary tcs-btn--sm"
                           type="button"
                           onClick={() => openDetail(item)}
                         >
-                          {item.canReview ? 'Xem & duyệt' : 'Xem chi tiết'}
+                          Xem & duyệt
                         </button>
                       </td>
                     </tr>
@@ -209,25 +195,12 @@ export default function PlatformVerificationsPage() {
                 </h2>
                 <p className="pv-modal__sub">
                   {selected.typeLabel} ·{' '}
-                  <span className={verificationBadgeClass(displayStatus)}>
-                    {displayStatus === 'SUBMITTED'
-                      ? 'Chờ duyệt'
-                      : displayStatus === 'UNDER_REVIEW'
-                        ? 'Đang xem xét'
-                        : displayStatus === 'VERIFIED'
-                          ? 'Đã duyệt'
-                          : displayStatus === 'REJECTED'
-                            ? 'Từ chối'
-                            : displayStatus}
+                  <span className={verificationBadgeClass(selected.status)}>
+                    {selected.statusLabel}
                   </span>
                 </p>
               </div>
-              <button
-                className="pv-modal__close"
-                type="button"
-                onClick={closeModal}
-                aria-label="Đóng"
-              >
+              <button className="pv-modal__close" type="button" onClick={closeModal} aria-label="Đóng">
                 ×
               </button>
             </div>
@@ -303,7 +276,7 @@ export default function PlatformVerificationsPage() {
                   <textarea
                     className="pv-textarea"
                     rows={3}
-                    placeholder="Nhập lý do từ chối (tối thiểu 10 ký tự)…"
+                    placeholder="Nhập lý do từ chối…"
                     value={rejectNotes}
                     onChange={(e) => setRejectNotes(e.target.value)}
                   />

@@ -15,12 +15,10 @@ import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.identity.entity.VerificationDocument;
-import com.tcs.module.identity.entity.VerificationHistory;
 import com.tcs.module.identity.entity.VerificationRequest;
 import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.enums.VerificationType;
 import com.tcs.module.identity.repository.VerificationDocumentRepository;
-import com.tcs.module.identity.repository.VerificationHistoryRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
@@ -29,7 +27,6 @@ import com.tcs.module.platform.dto.response.ReportResponse;
 import com.tcs.module.platform.dto.response.VerificationDetailResponse;
 import com.tcs.module.platform.dto.response.VerificationDocumentResponse;
 import com.tcs.module.platform.dto.response.VerificationRequestResponse;
-import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.platform.entity.Report;
 import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
@@ -38,8 +35,6 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
-import com.tcs.security.AuthHelper;
-import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -49,6 +44,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -60,8 +56,6 @@ import org.springframework.util.StringUtils;
 public class PlatformServiceImpl implements PlatformService {
 
     private static final int MAX_PAGE_SIZE = 50;
-    /** BR-03: ly do tu choi toi thieu 10 ky tu. */
-    private static final int MIN_REJECT_NOTES_LENGTH = 10;
 
     private final UserRepository userRepository;
     private final PlatformAdminRepository platformAdminRepository;
@@ -71,10 +65,8 @@ public class PlatformServiceImpl implements PlatformService {
     private final PlatformMapper platformMapper;
     private final VerificationRequestRepository verificationRequestRepository;
     private final VerificationDocumentRepository verificationDocumentRepository;
-    private final VerificationHistoryRepository verificationHistoryRepository;
     private final ReportRepository reportRepository;
     private final TutoringClassRepository tutoringClassRepository;
-    private final AuthHelper authHelper;
 
     @Override
     @Transactional(readOnly = true)
@@ -105,6 +97,10 @@ public class PlatformServiceImpl implements PlatformService {
     @Override
     @Transactional
     public UserListItemResponse updateUserStatus(Long userId, UpdateUserStatusRequest request) {
+        if (request.getStatus() == null) {
+            throw new IllegalArgumentException("Trạng thái không được để trống");
+        }
+
         User user = findUserOrThrow(userId);
         UserProfileBundle profiles = loadProfiles(userId);
 
@@ -112,7 +108,14 @@ public class PlatformServiceImpl implements PlatformService {
             throw new IllegalArgumentException("Không thể thay đổi trạng thái tài khoản quản trị viên");
         }
 
-        user.setStatus(request.getStatus());
+        UserStatus newStatus = request.getStatus();
+        if (newStatus != UserStatus.ACTIVE
+                && newStatus != UserStatus.SUSPENDED
+                && newStatus != UserStatus.BANNED) {
+            throw new IllegalArgumentException("Trạng thái không hợp lệ");
+        }
+
+        user.setStatus(newStatus);
         User saved = userRepository.save(user);
         return platformMapper.toUserListItem(saved, profiles);
     }
@@ -145,132 +148,65 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     @Override
-    @Transactional
+    @Transactional(readOnly = true)
     public VerificationDetailResponse getVerificationDetail(Long verificationId) {
-        VerificationRequest verification = verificationRequestRepository
+        VerificationRequest req = verificationRequestRepository
                 .findById(verificationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
 
-        // BR-01: mo mot ho so dang SUBMITTED se tu dong chuyen sang UNDER_REVIEW va ghi lich su.
-        if (verification.getStatus() == VerificationStatus.SUBMITTED) {
-            VerificationStatus oldStatus = verification.getStatus();
-            verification.setStatus(VerificationStatus.UNDER_REVIEW);
-            verification = verificationRequestRepository.save(verification);
-            logHistory(verification, oldStatus, VerificationStatus.UNDER_REVIEW, currentAdminUser());
-        }
-
-        return buildDetail(verification);
-    }
-
-    @Override
-    @Transactional
-    public VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request) {
-        VerificationRequest verification = verificationRequestRepository
-                .findById(verificationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
-
-        VerificationStatus decision = request.getStatus();
-        // Decision chi duoc la VERIFIED (Duyet) hoac REJECTED (Tu choi).
-        if (decision != VerificationStatus.VERIFIED && decision != VerificationStatus.REJECTED) {
-            throw new IllegalArgumentException("Quyết định không hợp lệ. Chỉ chấp nhận Duyệt hoặc Từ chối.");
-        }
-
-        // BR-02 / AF-02: chi ho so dang UNDER_REVIEW moi duoc Duyet hoac Tu choi.
-        if (verification.getStatus() != VerificationStatus.UNDER_REVIEW) {
-            throw new IllegalArgumentException("Hồ sơ này đã được xử lý bởi quản trị viên khác.");
-        }
-
-        // BR-03 / AF-01: khi Tu choi bat buoc nhap ly do (>= 10 ky tu). Khi Duyet thi bo qua ghi chu.
-        String adminNotes = null;
-        if (decision == VerificationStatus.REJECTED) {
-            String trimmed = request.getAdminNotes() == null ? "" : request.getAdminNotes().trim();
-            if (trimmed.length() < MIN_REJECT_NOTES_LENGTH) {
-                throw new IllegalArgumentException("Vui lòng nhập lý do từ chối (tối thiểu 10 ký tự).");
-            }
-            adminNotes = trimmed;
-        }
-
-        User admin = currentAdminUser();
-        VerificationStatus oldStatus = verification.getStatus();
-
-        verification.setStatus(decision);
-        verification.setAdminNotes(adminNotes);
-        verification.setReviewedAt(LocalDateTime.now());
-        VerificationRequest saved = verificationRequestRepository.save(verification);
-
-        // BR-06: moi lan chuyen trang thai deu ghi mot dong vao verification_histories.
-        logHistory(saved, oldStatus, decision, admin);
-
-        // BR-04: cap nhat verification_status cua nguoi nop theo dung loai ho so.
-        ProfileVerificationStatus profileStatus = decision == VerificationStatus.VERIFIED
-                ? ProfileVerificationStatus.VERIFIED
-                : ProfileVerificationStatus.REJECTED;
-        Long userId = saved.getUser().getUserId();
-        if (saved.getVerificationType() == VerificationType.TUTOR_PROFILE) {
-            tutorRepository.findByUser_UserId(userId).ifPresent(tutor -> {
-                tutor.setVerificationStatus(profileStatus);
-                tutorRepository.save(tutor);
-            });
-        } else {
-            tutorCenterRepository.findByUser_UserId(userId).ifPresent(center -> {
-                center.setVerificationStatus(profileStatus);
-                tutorCenterRepository.save(center);
-            });
-        }
-        return toVerificationResponse(saved);
-    }
-
-    private VerificationDetailResponse buildDetail(VerificationRequest v) {
-        Long userId = v.getUser().getUserId();
+        Long userId = req.getUser().getUserId();
         Map<String, String> details = new LinkedHashMap<>();
         String submitterName = null;
-        String submitterPhone = v.getUser().getPhone();
+        String submitterPhone = null;
 
-        if (v.getVerificationType() == VerificationType.TUTOR_PROFILE) {
+        if (req.getVerificationType() == VerificationType.TUTOR_PROFILE) {
             Tutor tutor = tutorRepository.findByUser_UserId(userId).orElse(null);
             if (tutor != null) {
                 submitterName = tutor.getFullName();
-                if (StringUtils.hasText(tutor.getPhone())) {
-                    submitterPhone = tutor.getPhone();
-                }
-                details.put("Giới tính", tutor.getGender() == null ? "—" : tutor.getGender().name());
+                submitterPhone = tutor.getPhone();
+                details.put("Giới tính", tutor.getGender() == null ? "-" : tutor.getGender().name());
                 details.put("Số năm kinh nghiệm", String.valueOf(tutor.getExperienceYears()));
-                details.put("Địa chỉ", orDash(tutor.getAddress()));
-                details.put("Giới thiệu", orDash(tutor.getBio()));
-                details.put("Trạng thái xác minh", tutor.getVerificationStatus().name());
+                if (StringUtils.hasText(tutor.getAddress())) {
+                    details.put("Địa chỉ", tutor.getAddress());
+                }
+                if (StringUtils.hasText(tutor.getBio())) {
+                    details.put("Giới thiệu", tutor.getBio());
+                }
+                details.put("Trạng thái xác minh hiện tại", tutor.getVerificationStatus().name());
             }
         } else {
             TutorCenter center = tutorCenterRepository.findByUser_UserId(userId).orElse(null);
             if (center != null) {
                 submitterName = center.getCompanyName();
-                if (StringUtils.hasText(center.getPhone())) {
-                    submitterPhone = center.getPhone();
+                submitterPhone = center.getPhone();
+                if (StringUtils.hasText(center.getLicenseNo())) {
+                    details.put("Số giấy phép", center.getLicenseNo());
                 }
-                details.put("Số giấy phép", orDash(center.getLicenseNo()));
-                details.put("Địa chỉ", orDash(center.getAddress()));
-                details.put("Mô tả", orDash(center.getDescription()));
-                details.put("Trạng thái xác minh", center.getVerificationStatus().name());
+                if (StringUtils.hasText(center.getAddress())) {
+                    details.put("Địa chỉ", center.getAddress());
+                }
+                details.put("Trạng thái xác minh hiện tại", center.getVerificationStatus().name());
             }
         }
 
         List<VerificationDocumentResponse> documents = verificationDocumentRepository
-                .findByVerificationRequest_VerificationId(v.getVerificationId())
+                .findByVerificationRequest_VerificationId(verificationId)
                 .stream()
                 .map(this::toDocumentResponse)
                 .toList();
-        boolean hasUnreadable = documents.stream().anyMatch(doc -> !doc.isAvailable());
+        boolean hasUnreadable = documents.stream().anyMatch(d -> !d.isAvailable());
 
         return VerificationDetailResponse.builder()
-                .verificationId(v.getVerificationId())
+                .verificationId(req.getVerificationId())
                 .userId(userId)
-                .userEmail(v.getUser().getEmail())
-                .verificationType(v.getVerificationType())
-                .status(v.getStatus())
-                .adminNotes(v.getAdminNotes())
-                .submittedAt(v.getSubmittedAt())
-                .reviewedAt(v.getReviewedAt())
-                .createdAt(v.getCreatedAt())
-                .updatedAt(v.getUpdatedAt())
+                .userEmail(req.getUser().getEmail())
+                .verificationType(req.getVerificationType())
+                .status(req.getStatus())
+                .adminNotes(req.getAdminNotes())
+                .submittedAt(req.getSubmittedAt())
+                .reviewedAt(req.getReviewedAt())
+                .createdAt(req.getCreatedAt())
+                .updatedAt(req.getUpdatedAt())
                 .submitterName(submitterName)
                 .submitterPhone(submitterPhone)
                 .submitterDetails(details)
@@ -280,40 +216,49 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     private VerificationDocumentResponse toDocumentResponse(VerificationDocument doc) {
-        MediaFile file = doc.getFile();
+        var file = doc.getFile();
         boolean available = file != null && StringUtils.hasText(file.getFileUrl());
         return VerificationDocumentResponse.builder()
                 .documentId(doc.getDocumentId())
                 .documentType(doc.getDocumentType())
-                .fileId(file == null ? null : file.getFileId())
-                .fileName(file == null ? null : file.getFileName())
-                .fileUrl(file == null ? null : file.getFileUrl())
-                .mimeType(file == null ? null : file.getMimeType())
+                .fileId(file != null ? file.getFileId() : null)
+                .fileName(file != null ? file.getFileName() : null)
+                .fileUrl(file != null ? file.getFileUrl() : null)
+                .mimeType(file != null ? file.getMimeType() : null)
                 .available(available)
                 .build();
     }
 
-    private void logHistory(
-            VerificationRequest verification,
-            VerificationStatus oldStatus,
-            VerificationStatus newStatus,
-            User admin) {
-        VerificationHistory history = new VerificationHistory();
-        history.setVerificationRequest(verification);
-        history.setOldStatus(oldStatus == null ? null : oldStatus.name());
-        history.setNewStatus(newStatus.name());
-        history.setChangedByUser(admin);
-        verificationHistoryRepository.save(history);
-    }
+    @Override
+    @Transactional
+    public VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request) {
+        if (request.getStatus() == null) {
+            throw new IllegalArgumentException("Trạng thái xác minh không được để trống");
+        }
+        VerificationRequest verification = verificationRequestRepository
+                .findById(verificationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
+        verification.setStatus(request.getStatus());
+        verification.setAdminNotes(request.getAdminNotes());
+        verification.setReviewedAt(java.time.LocalDateTime.now());
+        VerificationRequest saved = verificationRequestRepository.save(verification);
 
-    private User currentAdminUser() {
-        return userRepository
-                .findById(authHelper.currentUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quản trị viên"));
-    }
-
-    private String orDash(String value) {
-        return StringUtils.hasText(value) ? value : "—";
+        if (request.getStatus() == VerificationStatus.VERIFIED
+                || request.getStatus() == VerificationStatus.REJECTED) {
+            ProfileVerificationStatus profileStatus = request.getStatus() == VerificationStatus.VERIFIED
+                    ? ProfileVerificationStatus.VERIFIED
+                    : ProfileVerificationStatus.REJECTED;
+            Long userId = saved.getUser().getUserId();
+            tutorRepository.findByUser_UserId(userId).ifPresent(tutor -> {
+                tutor.setVerificationStatus(profileStatus);
+                tutorRepository.save(tutor);
+            });
+            tutorCenterRepository.findByUser_UserId(userId).ifPresent(center -> {
+                center.setVerificationStatus(profileStatus);
+                tutorCenterRepository.save(center);
+            });
+        }
+        return toVerificationResponse(saved);
     }
 
     @Override
@@ -356,10 +301,40 @@ public class PlatformServiceImpl implements PlatformService {
             if (roleUserIds.isEmpty()) {
                 return Page.empty(pageable);
             }
-            return userRepository.searchUsersByIds(roleUserIds, status, trimmedKeyword, pageable);
+            return filterUsersByIds(roleUserIds, status, trimmedKeyword, pageable);
         }
 
-        return userRepository.searchUsers(status, trimmedKeyword, pageable);
+        if (status != null && trimmedKeyword != null) {
+            return userRepository.findByStatusAndEmailContainingIgnoreCase(status, trimmedKeyword, pageable);
+        }
+        if (status != null) {
+            return userRepository.findByStatus(status, pageable);
+        }
+        if (trimmedKeyword != null) {
+            return userRepository.findByEmailContainingIgnoreCase(trimmedKeyword, pageable);
+        }
+        return userRepository.findAll(pageable);
+    }
+
+    private Page<User> filterUsersByIds(
+            List<Long> userIds, UserStatus status, String keyword, PageRequest pageable) {
+        Page<User> page = userRepository.findByUserIdIn(userIds, pageable);
+        if (status == null && keyword == null) {
+            return page;
+        }
+
+        List<User> filtered = page.getContent().stream()
+                .filter(user -> status == null || user.getStatus() == status)
+                .filter(user -> keyword == null
+                        || user.getEmail().toLowerCase().contains(keyword.toLowerCase()))
+                .sorted(Comparator.comparing(User::getUserId))
+                .toList();
+
+        if (filtered.size() == page.getContent().size()) {
+            return page;
+        }
+
+        return new PageImpl<>(filtered, pageable, filtered.size());
     }
 
     private List<Long> findUserIdsByRole(UserRole role) {
