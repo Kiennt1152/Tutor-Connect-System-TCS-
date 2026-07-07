@@ -172,6 +172,8 @@ export function FinancePanel() {
 
   const hasBank = paymentMethods.length > 0;
   const selectedMethod = wdMethodId ?? paymentMethods[0]?.paymentMethodId ?? '';
+  // Lịch sử chỉ ghi nhận giao dịch ĐÃ THÀNH CÔNG (bỏ đơn nạp đang chờ thanh toán).
+  const history = transactions.filter((t) => t.status === 'SUCCESS');
 
   return (
     <div className="fin">
@@ -428,8 +430,8 @@ export function FinancePanel() {
       {/* Lịch sử giao dịch */}
       <section className="fin-card">
         <h2 className="fin-card__title">Lịch sử giao dịch</h2>
-        {transactions.length === 0 ? (
-          <p className="fin-card__empty">Chưa có giao dịch nào.</p>
+        {history.length === 0 ? (
+          <p className="fin-card__empty">Chưa có giao dịch thành công nào.</p>
         ) : (
           <table className="fin-table">
             <thead>
@@ -442,7 +444,7 @@ export function FinancePanel() {
               </tr>
             </thead>
             <tbody>
-              {transactions.map((t) => (
+              {history.map((t) => (
                 <tr key={t.transactionId}>
                   <td>{TYPE_LABEL[t.type]}</td>
                   <td className="fin-table__ref">{t.referenceCode ?? '—'}</td>

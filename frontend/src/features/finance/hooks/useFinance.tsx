@@ -48,7 +48,7 @@ export function useFinance() {
     }
   }, []);
 
-  /** Poll trạng thái tới khi giao dịch nạp chuyển SUCCESS/FAILED (SePay xác nhận), tối đa ~2 phút. */
+  /** Poll trạng thái tới khi giao dịch nạp chuyển SUCCESS/FAILED (SePay xác nhận), tối đa ~10 phút. */
   const watchDeposit = useCallback(
     (transactionId: number, onSettled: (settled: Transaction) => void) => {
       stopPolling();
@@ -70,13 +70,27 @@ export function useFinance() {
         } catch (error) {
           console.error('Lỗi kiểm tra giao dịch:', error);
         }
-        if (elapsed >= 120) {
+        if (elapsed >= 600) {
           stopPolling();
         }
       }, 3000);
     },
     [stopPolling],
   );
+
+  /** Kiểm tra ngay một lần (khi người dùng bấm "Tôi đã chuyển khoản"). Trả về true nếu đã SUCCESS. */
+  const recheckDeposit = useCallback(async (transactionId: number): Promise<boolean> => {
+    try {
+      const [w, txs] = await Promise.all([financeApi.getWallet(), financeApi.getTransactions()]);
+      setWallet(w);
+      setTransactions(txs);
+      const tx = txs.find((t) => t.transactionId === transactionId);
+      return !!tx && tx.status === 'SUCCESS';
+    } catch (error) {
+      console.error('Lỗi kiểm tra giao dịch:', error);
+      return false;
+    }
+  }, []);
 
   useEffect(() => stopPolling, [stopPolling]);
 
@@ -118,6 +132,7 @@ export function useFinance() {
     refresh,
     createDeposit,
     watchDeposit,
+    recheckDeposit,
     stopPolling,
     addPaymentMethod,
     deletePaymentMethod,

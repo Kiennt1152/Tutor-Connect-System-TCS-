@@ -426,7 +426,13 @@
   gap: 10px;
   color: #64748b;
   font-size: 14px;
-  margin: 0;
+  margin: 0 0 12px;
+}
+
+.fin-check-hint {
+  text-align: center;
+  color: #b45309;
+  margin: 0 0 10px;
 }
 
 .fin-spinner {
