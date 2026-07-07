@@ -1,0 +1,103 @@
+import { useCallback, useState } from 'react';
+import { financeApi } from '../api/financeApi';
+import type {
+  WalletInfo,
+  TransactionPage,
+  TransactionFilter,
+  DepositPayload,
+} from '../types/financeTypes';
+
+export function useFinance() {
+  const [wallet, setWallet] = useState<WalletInfo | null>(null);
+  const [walletLoading, setWalletLoading] = useState(false);
+  const [walletError, setWalletError] = useState<string | null>(null);
+
+  const [transactions, setTransactions] = useState<TransactionPage | null>(null);
+  const [txLoading, setTxLoading] = useState(false);
+  const [txError, setTxError] = useState<string | null>(null);
+
+  // ── Wallet ──────────────────────────────────────────────────────────────
+
+  const fetchWallet = useCallback(async () => {
+    setWalletLoading(true);
+    setWalletError(null);
+    try {
+      const data = await financeApi.getWallet();
+      setWallet(data);
+    } catch (err: unknown) {
+      setWalletError(
+        err instanceof Error ? err.message : 'Không thể tải thông tin ví'
+      );
+    } finally {
+      setWalletLoading(false);
+    }
+  }, []);
+
+  // ── Transactions ────────────────────────────────────────────────────────
+
+  const fetchTransactions = useCallback(async (filters: TransactionFilter = {}) => {
+    setTxLoading(true);
+    setTxError(null);
+    try {
+      const data = await financeApi.getTransactions({
+        page: 0,
+        size: 20,
+        ...filters,
+      });
+      setTransactions(data);
+    } catch (err: unknown) {
+      setTxError(
+        err instanceof Error ? err.message : 'Không thể tải lịch sử giao dịch'
+      );
+    } finally {
+      setTxLoading(false);
+    }
+  }, []);
+
+  const fetchTransactionsPage = useCallback(
+    async (filters: TransactionFilter) => {
+      setTxLoading(true);
+      setTxError(null);
+      try {
+        const data = await financeApi.getTransactions(filters);
+        setTransactions(data);
+      } catch (err: unknown) {
+        setTxError(
+          err instanceof Error ? err.message : 'Không thể tải trang giao dịch'
+        );
+      } finally {
+        setTxLoading(false);
+      }
+    },
+    []
+  );
+
+  // ── Deposit ─────────────────────────────────────────────────────────────
+
+  const deposit = useCallback(async (payload: DepositPayload): Promise<boolean> => {
+    try {
+      const updated = await financeApi.deposit(payload);
+      setWallet(updated);
+      await fetchTransactions({ page: 0, size: 20 });
+      return true;
+    } catch {
+      return false;
+    }
+  }, [fetchTransactions]);
+
+  return {
+    // wallet
+    wallet,
+    walletLoading,
+    walletError,
+    fetchWallet,
+    // transactions
+    transactions,
+    txLoading,
+    txError,
+    fetchTransactions,
+    fetchTransactionsPage,
+    // deposit
+    deposit,
+  };
+}

@@ -3,7 +3,9 @@ package com.tcs.module.finance.service.impl;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.finance.dto.request.DepositRequest;
 import com.tcs.module.finance.dto.response.PaymentMethodResponse;
+import com.tcs.module.finance.dto.response.TransactionResponse;
 import com.tcs.module.finance.dto.response.WalletResponse;
+import com.tcs.module.finance.dto.response.WalletTransactionsResponse;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
@@ -13,11 +15,15 @@ import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.FinanceService;
 import com.tcs.security.AuthHelper;
-import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -39,7 +45,7 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public WalletResponse deposit(DepositRequest request) {
-        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+        if (request.getAmount() == null || request.getAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Số tiền nạp phải lớn hơn 0");
         }
         Wallet wallet = requireWallet();
@@ -74,6 +80,44 @@ public class FinanceServiceImpl implements FinanceService {
                 .toList();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public WalletTransactionsResponse getMyTransactions(
+            int page,
+            int size,
+            String type,
+            LocalDate from,
+            LocalDate to) {
+
+        Wallet wallet = requireWallet();
+        Pageable pageable = PageRequest.of(page, size);
+
+        LocalDateTime fromDt = (from != null) ? from.atStartOfDay() : null;
+        LocalDateTime toDt = (to != null) ? to.atTime(LocalTime.MAX) : null;
+
+        PaymentTransactionType txType = null;
+        if (type != null && !type.isBlank()) {
+            try {
+                txType = PaymentTransactionType.valueOf(type.toUpperCase());
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        Page<PaymentTransaction> txPage = paymentTransactionRepository.findByWalletIdWithFilters(
+                wallet.getWalletId(), txType, fromDt, toDt, pageable);
+
+        List<TransactionResponse> transactions = txPage.getContent().stream()
+                .map(this::toTransactionResponse)
+                .toList();
+
+        return WalletTransactionsResponse.builder()
+                .transactions(transactions)
+                .page(txPage.getNumber())
+                .totalPages(txPage.getTotalPages())
+                .totalElements(txPage.getTotalElements())
+                .build();
+    }
+
     private Wallet requireWallet() {
         return walletRepository
                 .findByUser_UserId(authHelper.currentUserId())
@@ -87,6 +131,19 @@ public class FinanceServiceImpl implements FinanceService {
                 .frozenBalance(wallet.getFrozenBalance())
                 .status(wallet.getStatus())
                 .updatedAt(wallet.getUpdatedAt())
+                .build();
+    }
+
+    private TransactionResponse toTransactionResponse(PaymentTransaction tx) {
+        return TransactionResponse.builder()
+                .transactionId(tx.getTransactionId())
+                .type(tx.getType())
+                .status(tx.getStatus())
+                .amount(tx.getAmount())
+                .description(tx.getDescription())
+                .referenceCode(tx.getReferenceCode())
+                .processedAt(tx.getProcessedAt())
+                .createdAt(tx.getCreatedAt())
                 .build();
     }
 }
