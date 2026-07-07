@@ -72,6 +72,11 @@ function Header() {
                   Quản lý trung tâm
                 </Link>
               ) : null}
+              {hasAnyRole(user.role, ['CLIENT', 'TUTOR', 'TUTOR_CENTER']) ? (
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.finance}>
+                  Ví của tôi
+                </Link>
+              ) : null}
               {hasRole(user.role, 'PLATFORM_ADMIN') ? (
                 <Link to={profilePath} className="tcs-home-profile-btn">
                   <span className="tcs-home-profile-btn__avatar">

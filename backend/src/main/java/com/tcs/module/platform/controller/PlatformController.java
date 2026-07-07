@@ -1,5 +1,9 @@
 package com.tcs.module.platform.controller;
 
+import com.tcs.module.finance.dto.request.ReviewWithdrawalRequest;
+import com.tcs.module.finance.dto.response.AdminWithdrawalResponse;
+import com.tcs.module.finance.enums.WithdrawalRequestStatus;
+import com.tcs.module.finance.service.FinanceService;
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
@@ -26,6 +30,7 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlatformController {
 
     private final PlatformService platformService;
+    private final FinanceService financeService;
 
     @GetMapping("/users")
     public PageUserListResponse getUsers(
@@ -62,5 +67,19 @@ public class PlatformController {
     @GetMapping("/reports")
     public List<ReportResponse> listReports() {
         return platformService.listReports();
+    }
+
+    // ----- Duyet yeu cau rut tien (BF-04) -----
+
+    @GetMapping("/withdrawals")
+    public List<AdminWithdrawalResponse> listWithdrawals(
+            @RequestParam(required = false) WithdrawalRequestStatus status) {
+        return financeService.listAllWithdrawals(status);
+    }
+
+    @PatchMapping("/withdrawals/{withdrawalId}")
+    public AdminWithdrawalResponse reviewWithdrawal(
+            @PathVariable Long withdrawalId, @RequestBody ReviewWithdrawalRequest request) {
+        return financeService.reviewWithdrawal(withdrawalId, request);
     }
 }

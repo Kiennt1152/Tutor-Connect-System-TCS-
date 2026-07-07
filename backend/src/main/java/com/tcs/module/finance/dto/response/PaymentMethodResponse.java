@@ -9,7 +9,7 @@ public class PaymentMethodResponse {
 
     private Long paymentMethodId;
     private String type;
-    private String provider;
-    private String lastFour;
-    private Boolean isDefault;
+    private String bankName;
+    private String accountNo;
+    private String accountName;
 }

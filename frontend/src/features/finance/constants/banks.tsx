@@ -1,0 +1,23 @@
+/** Danh sách ngân hàng Việt Nam phổ biến cho dropdown chọn tài khoản rút tiền. */
+export const VN_BANKS: string[] = [
+  'MB Bank',
+  'Vietcombank',
+  'VietinBank',
+  'BIDV',
+  'Agribank',
+  'Techcombank',
+  'ACB',
+  'VPBank',
+  'Sacombank',
+  'TPBank',
+  'MSB',
+  'HDBank',
+  'SHB',
+  'VIB',
+  'OCB',
+  'SeABank',
+  'Eximbank',
+  'LPBank',
+  'Nam A Bank',
+  'BacABank',
+];

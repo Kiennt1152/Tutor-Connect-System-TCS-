@@ -11,7 +11,7 @@ export const ROUTE_ACCESS: Record<string, RouteAccess> = {
   '/register': { type: 'public' },
   '/forbidden': { type: 'public' },
   '/profile': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN'] },
-  '/finance': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER'] },
+  '/wallet_managerment': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER'] },
   '/catalog': { type: 'public' },
   '/marketplace': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER'] },
   '/contract': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER'] },
@@ -21,6 +21,7 @@ export const ROUTE_ACCESS: Record<string, RouteAccess> = {
   '/platform/users': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
   '/platform/verifications': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
   '/platform/reports': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
+  '/platform/withdrawals': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
   '/platform/profile': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
 };
 

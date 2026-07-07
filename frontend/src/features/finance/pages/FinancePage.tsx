@@ -1,8 +1,15 @@
+import { SiteHeader } from '../../../shared/components/SiteHeader';
+import { FinancePanel } from '../components/FinancePanel';
+import './FinancePage.css';
+
 export default function FinancePage() {
   return (
-    <div>
-      <h1>Finance</h1>
-      <p>Module placeholder — ready for implementation.</p>
+    <div className="fin-page">
+      <SiteHeader />
+      <main className="fin-page__main">
+        <h1 className="fin-page__title">Ví của tôi</h1>
+        <FinancePanel />
+      </main>
     </div>
   );
 }

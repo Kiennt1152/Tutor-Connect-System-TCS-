@@ -38,6 +38,9 @@ public class PaymentMethod {
     @Column(name = "bank_name", length = 100)
     private String bankName;
 
+    @Column(name = "account_name", length = 100)
+    private String accountName;
+
     @Column(name = "status", length = 20, nullable = false)
     private String status = "ACTIVE";
 }

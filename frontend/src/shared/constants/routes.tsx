@@ -4,7 +4,7 @@ export const APP_ROUTES = {
   register: '/register',
   identity: '/identity',
   profile: '/profile',
-  finance: '/finance',
+  finance: '/wallet_managerment',
   catalog: '/catalog',
   center: '/center',
   marketplace: '/marketplace',
@@ -14,6 +14,7 @@ export const APP_ROUTES = {
   platformUsers: '/platform/users',
   platformVerifications: '/platform/verifications',
   platformReports: '/platform/reports',
+  platformWithdrawals: '/platform/withdrawals',
   platformProfile: '/platform/profile',
   forbidden: '/forbidden',
 } as const;

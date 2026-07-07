@@ -48,6 +48,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: APP_ROUTES.platformUsers, label: 'Người dùng', icon: 'users' },
       { to: APP_ROUTES.platformVerifications, label: 'Xác minh', icon: 'shield' },
       { to: APP_ROUTES.platformReports, label: 'Báo cáo', icon: 'flag' },
+      { to: APP_ROUTES.platformWithdrawals, label: 'Duyệt rút tiền', icon: 'wallet' },
     ],
   },
 ];

@@ -1,0 +1,15 @@
+.fin-page {
+  min-height: 100vh;
+  background: #f1f5f9;
+}
+
+.fin-page__main {
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: 32px 20px 64px;
+}
+
+.fin-page__title {
+  margin: 0 0 24px;
+  font-size: 26px;
+}

@@ -42,6 +42,7 @@ public class SecurityConfig {
                                 "/api/identity/verify-otp",
                                 "/api/identity/password/forgot",
                                 "/api/identity/password/reset",
+                                "/api/finance/sepay/webhook",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**")
                         .permitAll()

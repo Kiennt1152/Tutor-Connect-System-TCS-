@@ -9,7 +9,8 @@ export type AdminIconKey =
   | 'shield'
   | 'flag'
   | 'book'
-  | 'graduation';
+  | 'graduation'
+  | 'wallet';
 
 export type AdminIconSize = 'sm' | 'md' | 'lg';
 
@@ -87,6 +88,16 @@ export function IconChevronRight({ className }: IconProps) {
   );
 }
 
+export function IconWallet({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M3 7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v1" />
+      <rect x="3" y="7" width="18" height="12" rx="2" />
+      <path d="M16 13h2" />
+    </svg>
+  );
+}
+
 const ADMIN_ICONS: Record<AdminIconKey, ComponentType<IconProps>> = {
   dashboard: IconDashboard,
   users: IconUsers,
@@ -94,6 +105,7 @@ const ADMIN_ICONS: Record<AdminIconKey, ComponentType<IconProps>> = {
   flag: IconFlag,
   book: IconBook,
   graduation: IconGraduationCap,
+  wallet: IconWallet,
 };
 
 type AdminIconProps = {
