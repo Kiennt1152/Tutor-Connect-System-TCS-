@@ -43,6 +43,8 @@ import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
+import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -194,9 +196,25 @@ public class PlatformServiceImpl implements PlatformService {
         if (decision != VerificationStatus.VERIFIED && decision != VerificationStatus.REJECTED) {
             throw new IllegalArgumentException("Quyết định không hợp lệ. Chỉ chấp nhận Duyệt hoặc Từ chối.");
         }
-        // BR-02 / AF-02: chỉ hồ sơ đang UNDER_REVIEW mới được Duyệt hoặc Từ chối.
-        if (verification.getStatus() != VerificationStatus.UNDER_REVIEW) {
-            throw new IllegalArgumentException("Hồ sơ này đã được xử lý bởi quản trị viên khác.");
+
+        // Optimistic locking: nếu hồ sơ đã bị người khác cập nhật kể từ lúc admin mở xem,
+        // chặn để tránh ghi đè quyết định của người kia (so khớp theo giây để tránh lệch nano/DB).
+        LocalDateTime expectedUpdatedAt = request.getExpectedUpdatedAt();
+        if (expectedUpdatedAt != null && verification.getUpdatedAt() != null
+                && !verification.getUpdatedAt().truncatedTo(ChronoUnit.SECONDS)
+                        .equals(expectedUpdatedAt.truncatedTo(ChronoUnit.SECONDS))) {
+            throw new IllegalArgumentException(
+                    "Hồ sơ vừa được cập nhật bởi người khác, vui lòng tải lại trước khi sửa.");
+        }
+        // Cho phép Duyệt/Từ chối khi hồ sơ đang xem xét (UNDER_REVIEW),
+        // hoặc SỬA LẠI quyết định đã có (VERIFIED/REJECTED). Chỉ chặn DRAFT/SUBMITTED
+        // vì phải mở hồ sơ để xem xét trước (BR-01 chuyển SUBMITTED -> UNDER_REVIEW).
+        VerificationStatus current = verification.getStatus();
+        if (current != VerificationStatus.UNDER_REVIEW
+                && current != VerificationStatus.VERIFIED
+                && current != VerificationStatus.REJECTED) {
+            throw new IllegalArgumentException(
+                    "Hồ sơ chưa sẵn sàng để duyệt. Vui lòng mở hồ sơ để xem xét trước.");
         }
         // BR-03 / AF-01: khi Từ chối bắt buộc nhập lý do (>= 10 ký tự).
         if (decision == VerificationStatus.REJECTED) {
@@ -346,6 +364,7 @@ public class PlatformServiceImpl implements PlatformService {
                 .fileName(file == null ? null : file.getFileName())
                 .fileUrl(file == null ? null : file.getFileUrl())
                 .mimeType(file == null ? null : file.getMimeType())
+                .fileSize(file == null ? null : file.getFileSize())
                 .available(available)
                 .build();
     }

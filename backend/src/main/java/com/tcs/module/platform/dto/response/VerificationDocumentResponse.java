@@ -14,6 +14,7 @@ public class VerificationDocumentResponse {
     private String fileName;
     private String fileUrl;
     private String mimeType;
+    private Long fileSize;
     /** false neu file_id/file_url bi thieu hoac hong. */
     private boolean available;
 }

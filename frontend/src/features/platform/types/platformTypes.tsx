@@ -107,11 +107,14 @@ export interface VerificationRequestItem {
   submittedAt: string;
   reviewedAt: string;
   canReview: boolean;
+  isReviewed: boolean;
 }
 
 export interface ReviewVerificationApiRequest {
   status: 'VERIFIED' | 'REJECTED';
   adminNotes?: string;
+  /** updatedAt của hồ sơ lúc admin mở xem — để server chống ghi đè khi có người sửa song song. */
+  expectedUpdatedAt?: string;
 }
 
 export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'LICENSE';
@@ -123,6 +126,7 @@ export interface VerificationDocumentApiResponse {
   fileName: string | null;
   fileUrl: string | null;
   mimeType: string | null;
+  fileSize: number | null;
   available: boolean;
 }
 

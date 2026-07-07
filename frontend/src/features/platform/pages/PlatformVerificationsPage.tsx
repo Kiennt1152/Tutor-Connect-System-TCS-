@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import axios from 'axios';
 import { AdminLayout } from '../components/AdminLayout';
+import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { platformApi } from '../api/platformApi';
 import { useReviewVerification } from '../hooks/usePlatformMutations';
 import { useVerificationList } from '../hooks/useVerificationList';
@@ -80,24 +81,30 @@ export default function PlatformVerificationsPage() {
   const handleApprove = async () => {
     if (!selected) return;
     setFormError('');
-    const ok = await review(selected.id, 'VERIFIED');
+    const ok = await review(selected.id, 'VERIFIED', undefined, detail?.updatedAt ?? undefined);
     if (ok) {
       closeModal();
-      reload();
     }
+    // Làm mới danh sách (thành công, hoặc bị chặn do người khác vừa sửa).
+    reload();
   };
 
   const handleReject = async () => {
     if (!selected) return;
-    if (!rejectNotes.trim()) {
-      setFormError('Vui lòng nhập lý do từ chối.');
+    if (rejectNotes.trim().length < 10) {
+      setFormError('Vui lòng nhập lý do từ chối (tối thiểu 10 ký tự).');
       return;
     }
-    const ok = await review(selected.id, 'REJECTED', rejectNotes.trim());
+    const ok = await review(
+      selected.id,
+      'REJECTED',
+      rejectNotes.trim(),
+      detail?.updatedAt ?? undefined,
+    );
     if (ok) {
       closeModal();
-      reload();
     }
+    reload();
   };
 
   return (
@@ -172,7 +179,7 @@ export default function PlatformVerificationsPage() {
                           type="button"
                           onClick={() => openDetail(item)}
                         >
-                          Xem & duyệt
+                          {item.isReviewed ? 'Chỉnh sửa' : 'Xem & duyệt'}
                         </button>
                       </td>
                     </tr>
@@ -241,14 +248,12 @@ export default function PlatformVerificationsPage() {
                           <li className="pv-docs__item" key={doc.documentId}>
                             <span className="pv-docs__type">{DOC_LABEL[doc.documentType]}</span>
                             {doc.available && doc.fileUrl ? (
-                              <a
-                                className="pv-docs__link"
-                                href={doc.fileUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                              >
-                                {doc.fileName ?? 'Xem tài liệu'}
-                              </a>
+                              <FileThumbnail
+                                src={doc.fileUrl}
+                                fileName={doc.fileName ?? 'Tài liệu'}
+                                mimeType={doc.mimeType}
+                                fileSize={doc.fileSize}
+                              />
                             ) : (
                               <span className="pv-docs__broken">⚠ Thiếu / không đọc được</span>
                             )}
@@ -263,6 +268,13 @@ export default function PlatformVerificationsPage() {
                     )}
                   </section>
                 </>
+              )}
+
+              {selected.isReviewed && (
+                <div className="adm-alert adm-alert--warning">
+                  Hồ sơ đã được {selected.status === 'VERIFIED' ? 'duyệt' : 'từ chối'}. Bạn có thể
+                  thay đổi lại quyết định bên dưới.
+                </div>
               )}
 
               {formError && <div className="adm-alert adm-alert--error">{formError}</div>}
@@ -284,7 +296,7 @@ export default function PlatformVerificationsPage() {
               )}
             </div>
 
-            {selected.canReview && (
+            {(selected.canReview || selected.isReviewed) && (
               <div className="pv-modal__foot">
                 {rejecting ? (
                   <>
