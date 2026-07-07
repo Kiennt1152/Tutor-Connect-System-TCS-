@@ -5,9 +5,11 @@ import com.tcs.module.catalog.entity.Grade;
 import com.tcs.module.catalog.entity.Location;
 import com.tcs.module.catalog.entity.Subject;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.LessonMode;
 import com.tcs.module.marketplace.enums.RecurringType;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
+import com.tcs.module.profile.entity.TutorCenter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -43,6 +45,14 @@ public class TutoringClass {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "creator_id", nullable = false)
     private User creator;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "class_type", length = 20, nullable = false)
+    private ClassType classType = ClassType.PRIVATE;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "center_id")
+    private TutorCenter center;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
@@ -82,8 +92,17 @@ public class TutoringClass {
     @Column(name = "tuition_fee", precision = 12, scale = 2, nullable = false)
     private BigDecimal tuitionFee = BigDecimal.ZERO;
 
-    @Column(name = "budget", precision = 12, scale = 2, nullable = false)
+    @Column(name = "budget", precision = 12, scale = 2)
     private BigDecimal budget;
+
+    @Column(name = "max_students")
+    private Integer maxStudents;
+
+    @Column(name = "min_students")
+    private Integer minStudents;
+
+    @Column(name = "enrollment_deadline")
+    private LocalDate enrollmentDeadline;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "recurring_type", length = 20, nullable = false)

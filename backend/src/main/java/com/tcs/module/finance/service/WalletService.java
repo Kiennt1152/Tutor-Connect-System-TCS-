@@ -1,0 +1,24 @@
+package com.tcs.module.finance.service;
+
+import com.tcs.module.finance.dto.TopupSession;
+import com.tcs.module.finance.entity.Wallet;
+import java.math.BigDecimal;
+
+/**
+ * Seam 0.3 (chu: M3). Dich vu vi dung chung cho ca escrow va nap/rut.
+ * M1/M2 khong goi truc tiep - chi goi qua EscrowService.
+ */
+public interface WalletService {
+
+    /** Dam bao user co vi (tao neu chua co) - 0.9. */
+    Wallet getOrCreate(Long userId);
+
+    BigDecimal balance(Long userId);
+
+    void debit(Long userId, BigDecimal amount, String ref);
+
+    void credit(Long userId, BigDecimal amount, String ref);
+
+    /** Tao phien nap tien qua QR (dung PaymentGateway 0.8). */
+    TopupSession createTopup(Long userId, BigDecimal amount);
+}

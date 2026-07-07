@@ -139,6 +139,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Override
     @Transactional
     public void addFavorite(Long tutorId) {
+        authHelper.requireRole(UserRole.CLIENT);
         User user = requireUser();
         Tutor tutor = tutorRepository
                 .findById(tutorId)
@@ -155,6 +156,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Override
     @Transactional
     public void removeFavorite(Long tutorId) {
+        authHelper.requireRole(UserRole.CLIENT);
         favoriteTutorRepository
                 .findByUser_UserIdAndTutor_TutorId(authHelper.currentUserId(), tutorId)
                 .ifPresent(favoriteTutorRepository::delete);
@@ -163,6 +165,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Override
     @Transactional(readOnly = true)
     public List<TutorSearchResponse> getFavorites() {
+        authHelper.requireRole(UserRole.CLIENT);
         return favoriteTutorRepository.findByUser_UserId(authHelper.currentUserId()).stream()
                 .map(f -> toTutorSearch(f.getTutor()))
                 .toList();

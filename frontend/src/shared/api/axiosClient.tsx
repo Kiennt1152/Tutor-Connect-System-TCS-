@@ -1,5 +1,6 @@
-import axios, { AxiosError } from 'axios';
+import axios from 'axios';
 import { authStorage } from '../auth/authStorage';
+import { APP_ROUTES } from '../constants/routes';
 
 const baseURL =
   (import.meta.env.VITE_API_URL as string | undefined) ??
@@ -21,32 +22,19 @@ axiosClient.interceptors.request.use((config) => {
   return config;
 });
 
-let isRedirectingToLogin = false;
-
 axiosClient.interceptors.response.use(
   (response) => response,
-  (error: AxiosError) => {
+  (error) => {
     const status = error.response?.status;
-    const requestUrl = error.config?.url ?? '';
+    const path = window.location.pathname;
 
-    const isAuthEndpoint =
-      requestUrl.includes('/identity/login') ||
-      requestUrl.includes('/identity/register') ||
-      requestUrl.includes('/identity/password/');
-
-    if ((status === 401 || status === 403) && !isAuthEndpoint && !isRedirectingToLogin) {
-      isRedirectingToLogin = true;
+    if (status === 401 && path !== APP_ROUTES.login && path !== APP_ROUTES.register) {
       authStorage.clearAll();
-      const next = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.assign(`/login?next=${next}`);
+      window.location.assign(`${APP_ROUTES.login}?session=expired`);
     }
 
-    if (error.code === 'ERR_NETWORK' || !error.response) {
-      return Promise.reject(
-        new Error(
-          'Không thể kết nối đến máy chủ. Vui lòng kiểm tra backend đang chạy và CORS đã được cấu hình.',
-        ),
-      );
+    if (status === 403 && path !== APP_ROUTES.forbidden) {
+      window.location.assign(APP_ROUTES.forbidden);
     }
 
     return Promise.reject(error);

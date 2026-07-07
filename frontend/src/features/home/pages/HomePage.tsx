@@ -1,158 +1,217 @@
 import { useMemo } from 'react';
-import { imageAssets } from '../../../assets/images/ImageAssets';
+import { Link } from 'react-router-dom';
+import { AppLogo } from '../../../shared/components/AppLogo';
+import { LogoutButton } from '../../../shared/components/LogoutButton';
 import { useHome } from '../hooks/useHome';
+import { useAuth } from '../../../shared/auth/AuthProvider';
+import { APP_ROUTES } from '../../../shared/constants/routes';
+import { hasAnyRole, hasRole } from '../../../shared/auth/rbac';
+import type { UserRole } from '../../../shared/types/userRole';
+import { TutorSearchBlock } from '../components/TutorSearchBlock';
+import { ClassSearchBlock } from '../components/ClassSearchBlock';
+import { TutorListingCard } from '../components/TutorListingCard';
+import { ClassListingCard } from '../components/ClassListingCard';
+import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
+import { useOpenClasses } from '../hooks/useOpenClasses';
+import {
+  FOOTER_LINKS,
+  HOME_CENTERS,
+  HOME_NEWS,
+  HOME_PROMO,
+  HOME_TESTIMONIALS,
+} from '../config/homeContent';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
+import type { OpenClassItem } from '../types/openClassTypes';
+import type { OpenClassesStatus } from '../hooks/useOpenClasses';
+import AdminHomePage from './AdminHomePage';
 import './HomePage.css';
 
 const currency = (value: number) =>
   new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(value);
 
-const initials = (name: string) =>
-  name
-    .trim()
+const userInitials = (displayName: string | undefined, email: string) => {
+  const source = displayName?.trim() || email;
+  return source
     .split(/\s+/)
-    .slice(-2)
+    .slice(0, 2)
     .map((part) => part.charAt(0).toUpperCase())
     .join('');
+};
+
+const MARKETPLACE_HOME_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'UNKNOWN'];
+const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
 
 function Header() {
+  const { user } = useAuth();
+
+  const profilePath =
+    user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
+  const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
+
   return (
     <header className="tcs-header">
       <div className="tcs-container tcs-header__inner">
-        <a className="tcs-logo" href="/" aria-label="Tutor Connect System">
-          <img className="tcs-logo__image" src={imageAssets.logo} alt="" />
-          <span className="tcs-logo__text">Tutor Connect System</span>
-        </a>
+        <AppLogo href="/" />
         <nav className="tcs-header__nav">
-          <a href="#subjects">Môn học</a>
-          <a href="#tutors">Gia sư</a>
-          <a href="#how">Cách hoạt động</a>
+          <a href="#find-tutor">Tìm gia sư</a>
+          <a href="#classes">Tìm lớp</a>
+          <a href="#centers">Trung tâm</a>
+          <a href="#news">Tin tức</a>
+          <a href="#reviews">Đánh giá</a>
         </nav>
         <div className="tcs-header__actions">
-          <a className="tcs-btn tcs-btn--ghost" href="/login">
-            Đăng nhập
-          </a>
-          <a className="tcs-btn tcs-btn--primary" href="/register">
-            Đăng ký
-          </a>
+          {user ? (
+            <>
+              {hasRole(user.role, 'PLATFORM_ADMIN') ? (
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.platform}>
+                  Quản trị
+                </Link>
+              ) : null}
+              {showCenterManage ? (
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.center}>
+                  Quản lý trung tâm
+                </Link>
+              ) : null}
+              {hasRole(user.role, 'PLATFORM_ADMIN') ? (
+                <Link to={profilePath} className="tcs-home-profile-btn">
+                  <span className="tcs-home-profile-btn__avatar">
+                    {userInitials(user.displayName, user.email)}
+                  </span>
+                  <span className="tcs-home-profile-btn__label">Hồ sơ</span>
+                </Link>
+              ) : (
+                <span className="tcs-home-profile-btn tcs-home-profile-btn--disabled" title="Sắp có">
+                  <span className="tcs-home-profile-btn__avatar">
+                    {userInitials(user.displayName, user.email)}
+                  </span>
+                  <span className="tcs-home-profile-btn__label">Hồ sơ</span>
+                </span>
+              )}
+              <LogoutButton />
+            </>
+          ) : (
+            <>
+              <a className="tcs-btn tcs-btn--ghost tcs-btn--header" href="/login">
+                Đăng nhập
+              </a>
+              <a className="tcs-btn tcs-btn--market tcs-btn--header" href="/register">
+                Đăng ký
+              </a>
+            </>
+          )}
         </div>
       </div>
     </header>
   );
 }
 
-function Hero({ data }: { data: HomeData | null }) {
+function HomeHeroSection({
+  data,
+  subjects,
+  openClasses,
+  classesStatus,
+  isAuthenticated,
+  displayName,
+  role,
+}: {
+  data: HomeData | null;
+  subjects: SubjectItem[];
+  openClasses: OpenClassItem[];
+  classesStatus: OpenClassesStatus;
+  isAuthenticated: boolean;
+  displayName?: string;
+  role?: string;
+}) {
+  const copy = role ? getAuthenticatedHeroCopy(role) : null;
+  const firstName = displayName?.trim().split(/\s+/)[0] || displayName;
+  const showSearch = !isAuthenticated || hasAnyRole(role, MARKETPLACE_HOME_ROLES);
+  const isTutor = hasRole(role, 'TUTOR');
+  const subjectLinkTarget = isTutor ? '#classes' : '#find-tutor';
+
   return (
-    <section className="tcs-hero">
-      <div className="tcs-container tcs-hero__inner">
-        <div className="tcs-hero__copy">
-          <span className="tcs-badge tcs-badge--info">Nền tảng kết nối gia sư uy tín</span>
-          <h1 className="tcs-hero__title">
-            Tìm gia sư phù hợp,
-            <br />
-            học tập hiệu quả hơn
-          </h1>
-          <p className="tcs-hero__subtitle">
-            Kết nối Học viên, Gia sư và Trung tâm gia sư với quy trình minh bạch, thanh toán an toàn
-            qua ký quỹ và xác minh rõ ràng.
-          </p>
+    <section className="tcs-home-hero">
+      <div className="tcs-container">
+        <div className="tcs-hero__panel">
+          <div className="tcs-hero__intro">
+            {isAuthenticated && copy ? (
+              <>
+                <p className="tcs-hero__eyebrow">{copy.eyebrow}</p>
+                <h1 className="tcs-hero__title">Xin chào, {firstName}</h1>
+                <p className="tcs-hero__subtitle">{copy.subtitle}</p>
+              </>
+            ) : (
+              <>
+                <h1 className="tcs-hero__title">Kết nối gia sư uy tín</h1>
+                <p className="tcs-hero__subtitle">
+                  Tìm gia sư theo môn học và khu vực — quy trình minh bạch, thanh toán an toàn qua ký
+                  quỹ.
+                </p>
+                <HeroStats data={data} />
+              </>
+            )}
+          </div>
 
-          <form
-            className="tcs-search"
-            onSubmit={(event) => {
-              event.preventDefault();
-            }}
-          >
-            <input className="tcs-search__field" placeholder="Bạn muốn học môn gì?" aria-label="Môn học" />
-            <input className="tcs-search__field" placeholder="Khu vực" aria-label="Khu vực" />
-            <button className="tcs-btn tcs-btn--primary tcs-search__btn" type="submit">
-              Tìm kiếm
-            </button>
-          </form>
+          {showSearch ? (
+            isTutor ? (
+              <ClassSearchBlock
+                subjects={subjects}
+                classes={openClasses}
+                classesStatus={classesStatus}
+                isAuthenticated={isAuthenticated}
+              />
+            ) : (
+              <TutorSearchBlock subjects={subjects} isAuthenticated={isAuthenticated} />
+            )
+          ) : null}
+        </div>
 
-          <div className="tcs-hero__stats">
-            <div className="tcs-stat">
-              <span className="tcs-stat__value">{data ? currency(data.totalTutors) : '—'}</span>
-              <span className="tcs-stat__label">Gia sư</span>
-            </div>
-            <div className="tcs-stat">
-              <span className="tcs-stat__value">{data ? currency(data.totalSubjects) : '—'}</span>
-              <span className="tcs-stat__label">Môn học</span>
-            </div>
-            <div className="tcs-stat">
-              <span className="tcs-stat__value">{data ? currency(data.totalClasses) : '—'}</span>
-              <span className="tcs-stat__label">Lớp học</span>
+        {subjects.length > 0 ? (
+          <div className="tcs-hero__subjects">
+            <p className="tcs-hero__subjects-label">
+              {isTutor ? 'Môn học đang có lớp mở' : 'Môn học phổ biến'}
+            </p>
+            <div className="tcs-chips">
+              {subjects.map((subject) => (
+                <a key={subject.id} href={subjectLinkTarget} className="tcs-chip">
+                  {subject.name}
+                </a>
+              ))}
             </div>
           </div>
-        </div>
+        ) : null}
       </div>
     </section>
   );
 }
 
-function SubjectsSection({ subjects }: { subjects: SubjectItem[] }) {
+function TutorListSection({
+  tutors,
+  isAuthenticated,
+}: {
+  tutors: FeaturedTutor[];
+  isAuthenticated: boolean;
+}) {
   return (
-    <section id="subjects" className="tcs-section">
+    <section id="find-tutor" className="tcs-section tcs-section--tutors">
       <div className="tcs-container">
-        <div className="tcs-section__head">
-          <h2 className="tcs-section__title">Môn học phổ biến</h2>
-          <p className="tcs-section__subtitle">Chọn môn học để bắt đầu tìm gia sư phù hợp.</p>
-        </div>
-        {subjects.length === 0 ? (
-          <p className="tcs-empty">Chưa có môn học nào.</p>
-        ) : (
-          <div className="tcs-chips">
-            {subjects.map((subject) => (
-              <span key={subject.id} className="tcs-chip">
-                {subject.name}
-              </span>
-            ))}
+        <div className="tcs-section-bar">
+          <div>
+            <h2 className="tcs-section-bar__title">Tìm gia sư</h2>
+            <p className="tcs-section-bar__subtitle">
+              Lọc theo môn học, khu vực và xem gia sư phù hợp ngay trên nền tảng.
+            </p>
           </div>
-        )}
-      </div>
-    </section>
-  );
-}
-
-function TutorCard({ tutor }: { tutor: FeaturedTutor }) {
-  return (
-    <article className="tcs-tutor">
-      <div className="tcs-tutor__head">
-        <div className="tcs-avatar">{initials(tutor.fullName) || 'GS'}</div>
-        <div>
-          <h3 className="tcs-tutor__name">{tutor.fullName}</h3>
-          <div className="tcs-tutor__rating">
-            <span className="tcs-star">★</span>
-            {Number(tutor.ratingAvg).toFixed(1)}
-            <span className="tcs-tutor__exp">· {tutor.experienceYears} năm KN</span>
-          </div>
+          {tutors.length > 0 ? (
+            <span className="tcs-section-bar__count">{tutors.length} gia sư</span>
+          ) : null}
         </div>
-      </div>
-      <p className="tcs-tutor__bio">{tutor.bio?.trim() || 'Gia sư tận tâm, sẵn sàng đồng hành cùng học viên.'}</p>
-      <div className="tcs-tutor__foot">
-        <span className="tcs-tutor__price">{currency(tutor.hourlyRate)} đ/giờ</span>
-        <a className="tcs-btn tcs-btn--soft" href="/login">
-          Xem hồ sơ
-        </a>
-      </div>
-    </article>
-  );
-}
 
-function TutorsSection({ tutors }: { tutors: FeaturedTutor[] }) {
-  return (
-    <section id="tutors" className="tcs-section tcs-section--alt">
-      <div className="tcs-container">
-        <div className="tcs-section__head">
-          <h2 className="tcs-section__title">Gia sư nổi bật</h2>
-          <p className="tcs-section__subtitle">Những gia sư được đánh giá cao trên nền tảng.</p>
-        </div>
         {tutors.length === 0 ? (
-          <p className="tcs-empty">Chưa có gia sư nổi bật.</p>
+          <p className="tcs-empty">Chưa có gia sư nào để hiển thị.</p>
         ) : (
-          <div className="tcs-grid tcs-grid--tutors">
+          <div className="tcs-listing-grid">
             {tutors.map((tutor) => (
-              <TutorCard key={tutor.id} tutor={tutor} />
+              <TutorListingCard key={tutor.id} tutor={tutor} isAuthenticated={isAuthenticated} />
             ))}
           </div>
         )}
@@ -161,26 +220,172 @@ function TutorsSection({ tutors }: { tutors: FeaturedTutor[] }) {
   );
 }
 
-const STEPS = [
-  { title: 'Tìm kiếm', desc: 'Lọc gia sư theo môn học, khu vực, ngân sách và đánh giá.' },
-  { title: 'Kết nối', desc: 'Đăng yêu cầu hoặc liên hệ trực tiếp với gia sư phù hợp.' },
-  { title: 'Học & Thanh toán', desc: 'Thanh toán an toàn qua ký quỹ, giải ngân khi hoàn thành.' },
-];
-
-function HowItWorks() {
+function HeroStats({ data }: { data: HomeData | null }) {
   return (
-    <section id="how" className="tcs-section">
+    <div className="tcs-hero__stats">
+      <div className="tcs-stat">
+        <span className="tcs-stat__value">{data ? currency(data.totalTutors) : '—'}</span>
+        <span className="tcs-stat__label">Gia sư</span>
+      </div>
+      <div className="tcs-stat">
+        <span className="tcs-stat__value">{data ? currency(data.totalSubjects) : '—'}</span>
+        <span className="tcs-stat__label">Môn học</span>
+      </div>
+      <div className="tcs-stat">
+        <span className="tcs-stat__value">{data ? currency(data.totalClasses) : '—'}</span>
+        <span className="tcs-stat__label">Lớp học</span>
+      </div>
+    </div>
+  );
+}
+
+function ClassesSection({
+  classes,
+  status,
+  isAuthenticated,
+  onRetry,
+}: {
+  classes: OpenClassItem[];
+  status: 'loading' | 'success' | 'error';
+  isAuthenticated: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <section id="classes" className="tcs-section tcs-section--listing">
       <div className="tcs-container">
-        <div className="tcs-section__head">
-          <h2 className="tcs-section__title">Cách hoạt động</h2>
+        <div className="tcs-section-bar">
+          <div>
+            <h2 className="tcs-section-bar__title">Tìm lớp</h2>
+            <p className="tcs-section-bar__subtitle">
+              Các lớp học đang mở — học viên có thể đăng ký hoặc gia sư có thể ứng tuyển.
+            </p>
+          </div>
+          {status === 'success' && classes.length > 0 ? (
+            <span className="tcs-section-bar__count">{classes.length} lớp</span>
+          ) : null}
         </div>
-        <div className="tcs-grid tcs-grid--steps">
-          {STEPS.map((step, index) => (
-            <div key={step.title} className="tcs-step">
-              <span className="tcs-step__num">{index + 1}</span>
-              <h3 className="tcs-step__title">{step.title}</h3>
-              <p className="tcs-step__desc">{step.desc}</p>
-            </div>
+
+        {status === 'loading' && (
+          <div className="tcs-search-results__state">
+            <span className="tcs-spinner" aria-hidden="true" />
+            Đang tải danh sách lớp...
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="tcs-search-results__state tcs-search-results__state--error">
+            Không thể tải danh sách lớp.
+            <button type="button" className="tcs-btn tcs-btn--ghost tcs-btn--sm" onClick={onRetry}>
+              Thử lại
+            </button>
+          </div>
+        )}
+
+        {status === 'success' && classes.length === 0 && (
+          <p className="tcs-empty">Hiện chưa có lớp học nào đang mở.</p>
+        )}
+
+        {status === 'success' && classes.length > 0 && (
+          <div className="tcs-class-list">
+            {classes.map((classItem) => (
+              <ClassListingCard
+                key={classItem.id}
+                classItem={classItem}
+                isAuthenticated={isAuthenticated}
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function CentersSection() {
+  return (
+    <section id="centers" className="tcs-section tcs-section--centers">
+      <div className="tcs-container">
+        <div className="tcs-section-bar">
+          <div>
+            <h2 className="tcs-section-bar__title">Trung tâm</h2>
+            <p className="tcs-section-bar__subtitle">
+              Các trung tâm gia sư đối tác — quy trình tuyển chọn và hỗ trợ chuyên nghiệp.
+            </p>
+          </div>
+        </div>
+
+        <div className="tcs-promo tcs-promo--inline">
+          <div className="tcs-promo__content">
+            <span className="tcs-promo__eyebrow">Đối tác nền tảng</span>
+            <h3 className="tcs-promo__title">{HOME_PROMO.title}</h3>
+            <p className="tcs-promo__desc">{HOME_PROMO.description}</p>
+          </div>
+          <a className="tcs-btn tcs-btn--market tcs-promo__cta" href={HOME_PROMO.ctaHref}>
+            {HOME_PROMO.cta}
+          </a>
+        </div>
+
+        <div className="tcs-center-grid">
+          {HOME_CENTERS.map((center) => (
+            <article key={center.id} className="tcs-center-card">
+              <h3 className="tcs-center-card__name">{center.name}</h3>
+              <p className="tcs-center-card__desc">{center.description}</p>
+              <span className="tcs-center-card__meta">{currency(center.tutors)} gia sư</span>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function NewsSection() {
+  return (
+    <section id="news" className="tcs-section tcs-section--news">
+      <div className="tcs-container">
+        <div className="tcs-section-bar">
+          <div>
+            <h2 className="tcs-section-bar__title">Tin tức</h2>
+            <p className="tcs-section-bar__subtitle">
+              Cập nhật mới về giáo dục, gia sư và hoạt động trên nền tảng.
+            </p>
+          </div>
+        </div>
+        <div className="tcs-news-grid">
+          {HOME_NEWS.map((item) => (
+            <article key={item.id} className="tcs-news-card">
+              <time className="tcs-news-card__date">{item.date}</time>
+              <h3 className="tcs-news-card__title">{item.title}</h3>
+              <p className="tcs-news-card__excerpt">{item.excerpt}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ReviewsSection() {
+  return (
+    <section id="reviews" className="tcs-section tcs-section--testimonials">
+      <div className="tcs-container">
+        <div className="tcs-section-bar">
+          <div>
+            <h2 className="tcs-section-bar__title">Đánh giá</h2>
+            <p className="tcs-section-bar__subtitle">
+              Trải nghiệm thực tế từ phụ huynh, gia sư và trung tâm trên Tutor Connect System.
+            </p>
+          </div>
+        </div>
+        <div className="tcs-testimonial-grid">
+          {HOME_TESTIMONIALS.map((item) => (
+            <blockquote key={item.author} className="tcs-testimonial">
+              <p className="tcs-testimonial__quote">“{item.quote}”</p>
+              <footer className="tcs-testimonial__author">
+                <strong>{item.author}</strong>
+                <span>{item.role}</span>
+              </footer>
+            </blockquote>
           ))}
         </div>
       </div>
@@ -191,9 +396,32 @@ function HowItWorks() {
 function Footer() {
   return (
     <footer className="tcs-footer">
-      <div className="tcs-container tcs-footer__inner">
-        <span>© {new Date().getFullYear()} Tutor Connect System</span>
-        <span className="tcs-footer__muted">SEP490 · TCS</span>
+      <div className="tcs-container">
+        <div className="tcs-footer__grid">
+          <div className="tcs-footer__brand">
+            <AppLogo href="/" variant="compact" />
+            <p className="tcs-footer__tagline">
+              Nền tảng kết nối gia sư — học viên — trung tâm với quy trình minh bạch và thanh toán an
+              toàn.
+            </p>
+          </div>
+          {FOOTER_LINKS.map((group) => (
+            <div key={group.title} className="tcs-footer__col">
+              <h3 className="tcs-footer__heading">{group.title}</h3>
+              <ul className="tcs-footer__links">
+                {group.links.map((link) => (
+                  <li key={link.label}>
+                    <a href={link.href}>{link.label}</a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+        <div className="tcs-footer__bottom">
+          <span>© {new Date().getFullYear()} Tutor Connect System</span>
+          <span className="tcs-footer__muted">SEP490 · TCS</span>
+        </div>
       </div>
     </footer>
   );
@@ -213,7 +441,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
     <div className="tcs-state">
       <div className="tcs-state__icon tcs-state__icon--error">!</div>
       <p>Không kết nối được máy chủ. Hãy kiểm tra backend đang chạy ở cổng 8080.</p>
-      <button className="tcs-btn tcs-btn--primary" onClick={onRetry}>
+      <button className="tcs-btn tcs-btn--market" onClick={onRetry}>
         Thử lại
       </button>
     </div>
@@ -222,6 +450,12 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 function HomePage() {
   const { status, data, reload } = useHome();
+  const {
+    status: classesStatus,
+    classes: openClasses,
+    reload: reloadClasses,
+  } = useOpenClasses();
+  const { user, isAuthenticated } = useAuth();
 
   const isEmpty = useMemo(
     () =>
@@ -232,29 +466,54 @@ function HomePage() {
     [status, data],
   );
 
+  if (hasRole(user?.role, 'PLATFORM_ADMIN')) {
+    return <AdminHomePage />;
+  }
+
+  const displayName = user?.displayName?.trim() || user?.email || 'bạn';
+  const role = user?.role ?? 'UNKNOWN';
+
   return (
     <div className="tcs-page">
       <Header />
       <main>
-        <Hero data={data} />
+        <HomeHeroSection
+          data={data}
+          subjects={data?.subjects ?? []}
+          openClasses={openClasses}
+          classesStatus={classesStatus}
+          isAuthenticated={isAuthenticated}
+          displayName={isAuthenticated ? displayName : undefined}
+          role={isAuthenticated ? role : undefined}
+        />
 
         {status === 'loading' && <LoadingState />}
         {status === 'error' && <ErrorState onRetry={reload} />}
 
-        {status === 'success' && data && (
-          <>
-            {isEmpty && (
-              <div className="tcs-container">
-                <p className="tcs-empty tcs-empty--page">
-                  Chưa có dữ liệu để hiển thị. Hãy chạy seed data ở backend.
-                </p>
-              </div>
-            )}
-            <SubjectsSection subjects={data.subjects} />
-            <TutorsSection tutors={data.featuredTutors} />
-            <HowItWorks />
-          </>
+        {status === 'success' && (
+          <TutorListSection
+            tutors={data?.featuredTutors ?? []}
+            isAuthenticated={isAuthenticated}
+          />
         )}
+
+        {status === 'success' && data && isEmpty && (
+          <div className="tcs-container">
+            <p className="tcs-empty tcs-empty--page">
+              Chưa có dữ liệu gia sư hoặc môn học. Hãy chạy seed data ở backend.
+            </p>
+          </div>
+        )}
+
+        <ClassesSection
+          classes={openClasses}
+          status={classesStatus}
+          isAuthenticated={isAuthenticated}
+          onRetry={reloadClasses}
+        />
+        <CentersSection />
+        <NewsSection />
+        <ReviewsSection />
       </main>
       <Footer />
     </div>

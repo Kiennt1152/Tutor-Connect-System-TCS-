@@ -1,15 +1,16 @@
-/* TCS Design Tokens — derived from Screen Design Specification (Part 1, Design Language). */
+/* TCS Design Tokens — marketplace theme (aligned with homepage). */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap');
 
 :root {
-  /* Brand / Primary */
-  --color-primary: #2563eb;
-  --color-primary-dark: #1d4ed8;
-  --color-primary-light: #dbeafe;
-  --color-primary-xlight: #eff6ff;
+  /* Brand / Primary (marketplace orange) */
+  --color-primary: #ea580c;
+  --color-primary-dark: #c2410c;
+  --color-primary-light: #ffedd5;
+  --color-primary-xlight: #fff7ed;
+  --color-accent-border-hover: #fdba74;
 
   /* Semantic / Feedback */
-  --color-success: #22c55e;
+  --color-success: #16a34a;
   --color-success-light: #dcfce7;
   --color-warning: #f59e0b;
   --color-warning-light: #fef3c7;
@@ -29,6 +30,9 @@
   --color-surface-3: #f1f5f9;
   --color-white: #ffffff;
   --color-secondary: #14b8a6;
+  --color-footer-bg: #1e293b;
+  --color-footer-text: #cbd5e1;
+  --color-footer-muted: #94a3b8;
 
   /* Typography */
   --font-sans: 'Inter', Arial, Helvetica, sans-serif;
@@ -43,6 +47,13 @@
   --fs-body-sm: 12px;
   --fs-label: 12px;
   --fs-badge: 11px;
+
+  /* Badge / action button (cột Thao tác — chỉnh kích thước tại đây) */
+  --btn-badge-padding-y: 4px;
+  --btn-badge-padding-x: 9px;
+  --btn-badge-font-size: 10px;
+  --btn-badge-line-height: 1.2;
+  --btn-badge-gap: 4px;
 
   /* Spacing (8px base unit) */
   --space-xs: 4px;
@@ -97,4 +108,5 @@ button {
 #root {
   width: 100%;
   min-height: 100vh;
+  text-align: left;
 }
