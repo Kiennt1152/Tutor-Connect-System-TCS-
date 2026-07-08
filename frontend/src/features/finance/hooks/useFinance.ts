@@ -6,6 +6,8 @@ import type {
   TransactionPage,
   TransactionFilter,
   DepositPayload,
+  TopupSessionInfo,
+  TopupStatusInfo,
 } from '../types/financeTypes';
 
 export function useFinance() {
@@ -84,6 +86,34 @@ export function useFinance() {
     }
   }, [fetchTransactions]);
 
+  const createTopup = useCallback(async (
+    payload: DepositPayload
+  ): Promise<TopupSessionInfo> => {
+    return financeApi.createTopup(payload);
+  }, []);
+
+  const checkTopupStatus = useCallback(async (
+    reference: string
+  ): Promise<TopupStatusInfo> => {
+    const data = await financeApi.getTopupStatus(reference);
+    if (data.wallet) {
+      setWallet(data.wallet);
+      await fetchTransactions({ page: 0, size: 20 });
+    }
+    return data;
+  }, [fetchTransactions]);
+
+  const simulateTopupSuccess = useCallback(async (
+    reference: string
+  ): Promise<TopupStatusInfo> => {
+    const data = await financeApi.simulateTopupSuccess(reference);
+    if (data.wallet) {
+      setWallet(data.wallet);
+      await fetchTransactions({ page: 0, size: 20 });
+    }
+    return data;
+  }, [fetchTransactions]);
+
   return {
     // wallet
     wallet,
@@ -98,5 +128,8 @@ export function useFinance() {
     fetchTransactionsPage,
     // deposit
     deposit,
+    createTopup,
+    checkTopupStatus,
+    simulateTopupSuccess,
   };
 }

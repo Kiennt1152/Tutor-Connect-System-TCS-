@@ -1,5 +1,10 @@
 package com.tcs.module.finance.service.impl;
 
+import com.tcs.module.finance.dto.request.DepositRequest;
+import com.tcs.module.finance.dto.request.SepayWebhookRequest;
+import com.tcs.module.finance.dto.response.PaymentWebhookResponse;
+import com.tcs.module.finance.dto.response.TopupSessionResponse;
+import com.tcs.module.finance.dto.response.TopupStatusResponse;
 import com.tcs.module.finance.dto.response.WalletResponse;
 import com.tcs.module.finance.dto.response.WalletTransactionsResponse;
 import com.tcs.module.finance.entity.PaymentTransaction;
@@ -15,6 +20,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -28,9 +34,11 @@ import org.springframework.data.domain.Pageable;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -80,6 +88,99 @@ class FinanceServiceImplTest {
         assertEquals(new BigDecimal("50000.00"), response.getFrozenBalance());
         assertEquals(WalletStatus.ACTIVE, response.getStatus());
         verify(walletService).getOrCreate(USER_ID);
+    }
+
+    @Test
+    @DisplayName("createTopup creates a pending wallet deposit QR session")
+    void createTopupCreatesPendingSession() {
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        DepositRequest request = new DepositRequest();
+        request.setAmount(new BigDecimal("100000"));
+        request.setDescription("Nạp tiền test");
+
+        TopupSessionResponse response = financeService.createTopup(request);
+
+        assertEquals(new BigDecimal("100000"), response.getAmount());
+        assertEquals("PENDING", response.getStatus());
+        assertTrue(response.getReference().startsWith("TOPUP-"));
+        assertTrue(response.getQrUrl().contains("img.vietqr.io"));
+        assertEquals("02660559201", response.getAccountNumber());
+        assertEquals(response.getReference(), response.getTransferContent());
+
+        ArgumentCaptor<PaymentTransaction> txCaptor = ArgumentCaptor.forClass(PaymentTransaction.class);
+        verify(paymentTransactionRepository).save(txCaptor.capture());
+        PaymentTransaction saved = txCaptor.getValue();
+        assertEquals(wallet, saved.getWallet());
+        assertEquals(PaymentTransactionType.DEPOSIT, saved.getType());
+        assertEquals(PaymentTransactionStatus.PENDING, saved.getStatus());
+        assertEquals(new BigDecimal("100000"), saved.getAmount());
+    }
+
+    @Test
+    @DisplayName("simulateTopupSuccess marks pending topup paid and credits wallet")
+    void simulateTopupSuccessCreditsWallet() {
+        PaymentTransaction tx = pendingTopup("TOPUP-ABC", new BigDecimal("100000"));
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(paymentTransactionRepository.findByReferenceCode("TOPUP-ABC")).thenReturn(Optional.of(tx));
+        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+
+        TopupStatusResponse response = financeService.simulateTopupSuccess("TOPUP-ABC");
+
+        assertEquals("SUCCESS", response.getStatus());
+        assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
+        assertEquals("SIMULATED-TOPUP-ABC", tx.getExternalTransactionId());
+        verify(walletService).credit(USER_ID, new BigDecimal("100000"), "TOPUP-ABC");
+        verify(paymentTransactionRepository).save(tx);
+    }
+
+    @Test
+    @DisplayName("handleSepayWebhook matches amount and transfer content then credits once")
+    void handleSepayWebhookMatchesPendingTopup() {
+        PaymentTransaction tx = pendingTopup("TOPUP-ABC", new BigDecimal("100000"));
+        SepayWebhookRequest request = new SepayWebhookRequest();
+        request.setId(123L);
+        request.setTransferType("in");
+        request.setTransferAmount(new BigDecimal("100000"));
+        request.setContent("Chuyen khoan TOPUP-ABC");
+        request.setAccountNumber("02660559201");
+
+        when(paymentTransactionRepository.findByExternalTransactionId("123")).thenReturn(Optional.empty());
+        when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                PaymentTransactionType.DEPOSIT,
+                PaymentTransactionStatus.PENDING,
+                new BigDecimal("100000")))
+                .thenReturn(List.of(tx));
+        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+
+        PaymentWebhookResponse response = financeService.handleSepayWebhook(request);
+
+        assertEquals("success", response.getStatus());
+        assertEquals("TOPUP-ABC", response.getReference());
+        assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
+        assertEquals("123", tx.getExternalTransactionId());
+        verify(walletService).credit(USER_ID, new BigDecimal("100000"), "TOPUP-ABC");
+    }
+
+    @Test
+    @DisplayName("handleSepayWebhook ignores duplicate external transactions")
+    void handleSepayWebhookIgnoresDuplicateExternalTransaction() {
+        SepayWebhookRequest request = new SepayWebhookRequest();
+        request.setId(123L);
+        request.setTransferType("in");
+        request.setTransferAmount(new BigDecimal("100000"));
+        request.setContent("TOPUP-ABC");
+
+        when(paymentTransactionRepository.findByExternalTransactionId("123"))
+                .thenReturn(Optional.of(pendingTopup("TOPUP-ABC", new BigDecimal("100000"))));
+
+        PaymentWebhookResponse response = financeService.handleSepayWebhook(request);
+
+        assertEquals("success", response.getStatus());
+        verify(walletService, never()).credit(any(), any(), any());
     }
 
     @Test
@@ -140,5 +241,17 @@ class FinanceServiceImplTest {
         assertThrows(IllegalArgumentException.class,
                 () -> financeService.getMyTransactions(0, 20, "UNKNOWN", null, null));
         verifyNoInteractions(paymentTransactionRepository);
+    }
+
+    private PaymentTransaction pendingTopup(String reference, BigDecimal amount) {
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setWallet(wallet);
+        tx.setType(PaymentTransactionType.DEPOSIT);
+        tx.setStatus(PaymentTransactionStatus.PENDING);
+        tx.setAmount(amount);
+        tx.setDescription("Nạp tiền ví qua VietQR");
+        tx.setReferenceCode(reference);
+        tx.setCreatedAt(LocalDateTime.now());
+        return tx;
     }
 }

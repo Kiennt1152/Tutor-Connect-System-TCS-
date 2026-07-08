@@ -56,6 +56,10 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/contract/reviews/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/payments/webhook")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/finance/webhooks/**")
+                        .permitAll()
 
                         // --- Platform admin ---
                         .requestMatchers("/api/platform/**")

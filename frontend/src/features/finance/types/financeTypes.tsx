@@ -42,3 +42,32 @@ export interface DepositPayload {
   amount: number;
   description?: string;
 }
+
+export type TopupStatus =
+  | 'PENDING'
+  | 'SUCCESS'
+  | 'EXPIRED'
+  | 'FAILED'
+  | 'CANCELLED'
+  | string;
+
+export interface TopupSessionInfo {
+  reference: string;
+  amount: number;
+  status: TopupStatus;
+  qrUrl: string;
+  bankName: string;
+  bankBin: string;
+  accountNumber: string;
+  accountName: string;
+  transferContent: string;
+  expiresAt: string;
+  expiresAtMillis: number;
+}
+
+export interface TopupStatusInfo {
+  reference: string;
+  status: TopupStatus;
+  message: string;
+  wallet?: WalletInfo;
+}

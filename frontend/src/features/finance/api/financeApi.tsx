@@ -4,6 +4,8 @@ import type {
   TransactionPage,
   TransactionFilter,
   DepositPayload,
+  TopupSessionInfo,
+  TopupStatusInfo,
 } from '../types/financeTypes';
 
 const BASE = '/finance';
@@ -23,5 +25,21 @@ export const financeApi = {
 
   deposit(payload: DepositPayload): Promise<WalletInfo> {
     return axiosClient.post(`${BASE}/wallet/deposit`, payload).then((r) => r.data);
+  },
+
+  createTopup(payload: DepositPayload): Promise<TopupSessionInfo> {
+    return axiosClient.post(`${BASE}/wallet/topups`, payload).then((r) => r.data);
+  },
+
+  getTopupStatus(reference: string): Promise<TopupStatusInfo> {
+    return axiosClient
+      .get(`${BASE}/wallet/topups/${encodeURIComponent(reference)}`)
+      .then((r) => r.data);
+  },
+
+  simulateTopupSuccess(reference: string): Promise<TopupStatusInfo> {
+    return axiosClient
+      .post(`${BASE}/wallet/topups/${encodeURIComponent(reference)}/simulate-success`)
+      .then((r) => r.data);
   },
 };

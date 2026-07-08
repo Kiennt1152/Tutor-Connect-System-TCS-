@@ -1,19 +1,164 @@
-import { useState } from 'react';
-import type { DepositPayload } from '../types/financeTypes';
+import { useEffect, useState } from 'react';
+import type {
+  DepositPayload,
+  TopupSessionInfo,
+  TopupStatusInfo,
+} from '../types/financeTypes';
 
 interface Props {
-  onDeposit: (payload: DepositPayload) => Promise<boolean>;
+  onCreateTopup: (payload: DepositPayload) => Promise<TopupSessionInfo>;
+  onCheckTopupStatus: (reference: string) => Promise<TopupStatusInfo>;
+  onSimulateTopupSuccess: (reference: string) => Promise<TopupStatusInfo>;
 }
 
-export function DepositModal({ onDeposit }: Props) {
+type TopupFlowStatus = 'form' | 'pending' | 'success' | 'expired' | 'failed';
+
+const PRESETS = [100000, 200000, 500000, 1000000];
+
+function formatMoney(value: number) {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatCountdown(ms: number) {
+  const safeMs = Math.max(ms, 0);
+  const minutes = Math.floor(safeMs / 60000);
+  const seconds = Math.floor((safeMs % 60000) / 1000);
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+}
+
+export function DepositModal({
+  onCreateTopup,
+  onCheckTopupStatus,
+  onSimulateTopupSuccess,
+}: Props) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('');
   const [description, setDescription] = useState('');
+  const [session, setSession] = useState<TopupSessionInfo | null>(null);
+  const [flowStatus, setFlowStatus] = useState<TopupFlowStatus>('form');
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
+  const [remainingMs, setRemainingMs] = useState(0);
   const [submitting, setSubmitting] = useState(false);
-  const [success, setSuccess] = useState(false);
+  const [checking, setChecking] = useState(false);
+  const [simulating, setSimulating] = useState(false);
+  const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const presets = [100000, 200000, 500000, 1000000];
+  useEffect(() => {
+    if (!open || !session || flowStatus !== 'pending') {
+      return;
+    }
+
+    const updateRemainingTime = () => {
+      const nextRemaining = Math.max(session.expiresAtMillis - Date.now(), 0);
+      setRemainingMs(nextRemaining);
+      if (nextRemaining <= 0) {
+        setFlowStatus('expired');
+        setStatusMessage('Mã QR đã hết hạn. Tạo mã mới để tiếp tục nạp tiền.');
+      }
+    };
+
+    updateRemainingTime();
+    const timer = window.setInterval(updateRemainingTime, 1000);
+    return () => window.clearInterval(timer);
+  }, [open, session, flowStatus]);
+
+  useEffect(() => {
+    if (!open || !session || flowStatus !== 'pending') {
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setInterval(async () => {
+      try {
+        const data = await onCheckTopupStatus(session.reference);
+        if (!cancelled) {
+          applyTopupStatus(data, false);
+        }
+      } catch {
+        // Polling is quiet; manual check shows the user-facing error.
+      }
+    }, 3000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [open, session, flowStatus, onCheckTopupStatus]);
+
+  function resetFlow() {
+    setAmount('');
+    setDescription('');
+    setSession(null);
+    setFlowStatus('form');
+    setStatusMessage(null);
+    setRemainingMs(0);
+    setCopied(false);
+    setError(null);
+  }
+
+  function handleClose() {
+    if (submitting || simulating) {
+      return;
+    }
+    setOpen(false);
+    resetFlow();
+  }
+
+  function applyTopupStatus(data: TopupStatusInfo, manualCheck: boolean) {
+    const normalized = data.status.toUpperCase();
+
+    if (normalized === 'SUCCESS') {
+      setFlowStatus('success');
+      setStatusMessage(data.message || 'Nạp tiền thành công. Số dư ví đã được cập nhật.');
+      setError(null);
+      return;
+    }
+
+    if (normalized === 'EXPIRED') {
+      setFlowStatus('expired');
+      setStatusMessage(data.message || 'Mã QR đã hết hạn. Tạo mã mới để tiếp tục nạp tiền.');
+      return;
+    }
+
+    if (normalized === 'FAILED' || normalized === 'CANCELLED') {
+      setFlowStatus('failed');
+      setStatusMessage(data.message || 'Giao dịch chưa hoàn tất. Vui lòng tạo mã mới.');
+      return;
+    }
+
+    if (manualCheck) {
+      setStatusMessage(data.message || 'Chưa nhận được giao dịch. Hệ thống sẽ tiếp tục kiểm tra.');
+    }
+  }
+
+  async function createSession(parsedAmount: number) {
+    setSubmitting(true);
+    setError(null);
+    setStatusMessage(null);
+    setCopied(false);
+
+    try {
+      const created = await onCreateTopup({
+        amount: parsedAmount,
+        description: description.trim() || undefined,
+      });
+      setSession(created);
+      setFlowStatus('pending');
+      setRemainingMs(Math.max(created.expiresAtMillis - Date.now(), 0));
+      setStatusMessage('Quét mã QR hoặc chuyển khoản đúng nội dung để hệ thống tự xác nhận.');
+    } catch {
+      setSession(null);
+      setFlowStatus('form');
+      setError('Không thể tạo mã QR. Vui lòng thử lại.');
+    } finally {
+      setSubmitting(false);
+    }
+  }
 
   async function handleSubmit() {
     const parsed = Number(amount);
@@ -21,21 +166,65 @@ export function DepositModal({ onDeposit }: Props) {
       setError('Số tiền phải lớn hơn 0');
       return;
     }
-    setSubmitting(true);
-    setError(null);
-    const ok = await onDeposit({ amount: parsed, description: description || undefined });
-    setSubmitting(false);
-    if (ok) {
-      setSuccess(true);
-      setAmount('');
-      setDescription('');
-      setTimeout(() => {
-        setSuccess(false);
-        setOpen(false);
-      }, 1500);
-    } else {
-      setError('Nạp tiền thất bại. Vui lòng thử lại.');
+    await createSession(parsed);
+  }
+
+  async function handleCheckStatus(manualCheck = true) {
+    if (!session || checking) {
+      return;
     }
+    setChecking(true);
+    if (manualCheck) {
+      setError(null);
+    }
+
+    try {
+      const data = await onCheckTopupStatus(session.reference);
+      applyTopupStatus(data, manualCheck);
+    } catch {
+      if (manualCheck) {
+        setError('Không thể kiểm tra giao dịch lúc này. Vui lòng thử lại.');
+      }
+    } finally {
+      setChecking(false);
+    }
+  }
+
+  async function handleSimulateSuccess() {
+    if (!session || simulating) {
+      return;
+    }
+    setSimulating(true);
+    setError(null);
+
+    try {
+      const data = await onSimulateTopupSuccess(session.reference);
+      applyTopupStatus(data, true);
+    } catch {
+      setError('Không thể xác nhận demo. Vui lòng thử lại.');
+    } finally {
+      setSimulating(false);
+    }
+  }
+
+  async function handleRefreshQr() {
+    const nextAmount = session?.amount || Number(amount);
+    if (!nextAmount || nextAmount <= 0) {
+      setFlowStatus('form');
+      setSession(null);
+      return;
+    }
+    setAmount(String(nextAmount));
+    await createSession(nextAmount);
+  }
+
+  async function handleCopyTransferContent() {
+    if (!session || !navigator.clipboard) {
+      return;
+    }
+    await navigator.clipboard.writeText(session.transferContent);
+    setCopied(true);
+    window.setTimeout(() => setCopied(false), 1200);
   }
 
   return (
@@ -45,25 +234,21 @@ export function DepositModal({ onDeposit }: Props) {
       </button>
 
       {open && (
-        <div className="modal-overlay" onClick={() => !submitting && setOpen(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay" onClick={handleClose}>
+          <div className="modal modal--topup" onClick={(e) => e.stopPropagation()}>
             <div className="modal__header">
               <h2>Nạp tiền vào ví</h2>
-              {!submitting && (
-                <button className="modal__close" onClick={() => setOpen(false)}>×</button>
+              {!submitting && !simulating && (
+                <button className="modal__close" onClick={handleClose}>×</button>
               )}
             </div>
 
-            {success ? (
-              <div className="modal__success">
-                <p>Nạp tiền thành công!</p>
-              </div>
-            ) : (
+            {!session ? (
               <>
                 <div className="modal__body">
                   <label className="form-label">Chọn nhanh</label>
                   <div className="deposit-presets">
-                    {presets.map((v) => (
+                    {PRESETS.map((v) => (
                       <button
                         key={v}
                         className={`deposit-preset ${amount === String(v) ? 'deposit-preset--active' : ''}`}
@@ -101,12 +286,105 @@ export function DepositModal({ onDeposit }: Props) {
                 </div>
 
                 <div className="modal__footer">
-                  <button className="btn btn--secondary" onClick={() => setOpen(false)}>
+                  <button className="btn btn--secondary" onClick={handleClose}>
                     Hủy
                   </button>
                   <button className="btn btn--primary" onClick={handleSubmit} disabled={submitting}>
-                    {submitting ? 'Đang xử lý…' : 'Xác nhận nạp'}
+                    {submitting ? 'Đang tạo QR…' : 'Tạo mã QR'}
                   </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="modal__body">
+                  {statusMessage && (
+                    <div className={`topup-session__status topup-session__status--${flowStatus}`}>
+                      <span>{statusMessage}</span>
+                      {flowStatus === 'pending' && (
+                        <strong>{formatCountdown(remainingMs)}</strong>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="topup-session">
+                    <div className="topup-session__qr">
+                      <img src={session.qrUrl} alt={`QR nạp tiền ${session.reference}`} />
+                      {flowStatus !== 'pending' && (
+                        <div className="topup-session__qr-overlay">
+                          {flowStatus === 'success' ? 'Đã thanh toán' : 'Cần tạo mã mới'}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="topup-session__details">
+                      <div className="topup-session__row">
+                        <span>Ngân hàng</span>
+                        <strong>{session.bankName}</strong>
+                      </div>
+                      <div className="topup-session__row">
+                        <span>Số tài khoản</span>
+                        <strong>{session.accountNumber}</strong>
+                      </div>
+                      <div className="topup-session__row">
+                        <span>Tên tài khoản</span>
+                        <strong>{session.accountName}</strong>
+                      </div>
+                      <div className="topup-session__row">
+                        <span>Số tiền</span>
+                        <strong>{formatMoney(session.amount)}</strong>
+                      </div>
+                      <div className="topup-session__row topup-session__row--column">
+                        <span>Nội dung chuyển khoản</span>
+                        <div className="topup-session__code-line">
+                          <code>{session.transferContent}</code>
+                          <button
+                            type="button"
+                            className="topup-session__copy"
+                            onClick={handleCopyTransferContent}
+                          >
+                            {copied ? 'Đã sao chép' : 'Sao chép'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {error && <p className="form-error">{error}</p>}
+                </div>
+
+                <div className="modal__footer modal__footer--wrap">
+                  <button className="btn btn--secondary" onClick={handleClose}>
+                    Đóng
+                  </button>
+
+                  {flowStatus === 'pending' && (
+                    <>
+                      <button
+                        className="btn btn--secondary"
+                        onClick={() => handleCheckStatus(true)}
+                        disabled={checking}
+                      >
+                        {checking ? 'Đang kiểm tra…' : 'Kiểm tra'}
+                      </button>
+                      <button
+                        className="btn btn--primary"
+                        onClick={handleSimulateSuccess}
+                        disabled={simulating}
+                      >
+                        {simulating ? 'Đang xác nhận…' : 'Xác nhận demo'}
+                      </button>
+                    </>
+                  )}
+
+                  {(flowStatus === 'expired' || flowStatus === 'failed') && (
+                    <button
+                      className="btn btn--primary"
+                      onClick={handleRefreshQr}
+                      disabled={submitting}
+                    >
+                      {submitting ? 'Đang tạo QR…' : 'Tạo mã mới'}
+                    </button>
+                  )}
                 </div>
               </>
             )}

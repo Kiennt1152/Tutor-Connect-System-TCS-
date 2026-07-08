@@ -28,7 +28,9 @@ export default function FinancePage() {
     txError,
     fetchTransactions,
     fetchTransactionsPage,
-    deposit,
+    createTopup,
+    checkTopupStatus,
+    simulateTopupSuccess,
   } = useFinance();
 
   const [filters, setFilters] = useState<TransactionFilter>(DEFAULT_FILTERS);
@@ -65,7 +67,11 @@ export default function FinancePage() {
             !walletError && <WalletBalanceCard loading wallet={EMPTY_WALLET} />
           )}
           <div className="finance-page__actions">
-            <DepositModal onDeposit={deposit} />
+            <DepositModal
+              onCreateTopup={createTopup}
+              onCheckTopupStatus={checkTopupStatus}
+              onSimulateTopupSuccess={simulateTopupSuccess}
+            />
             <button className="withdraw-btn" disabled>
               Rút tiền (sắp ra mắt)
             </button>
