@@ -29,7 +29,7 @@ export function TransactionList({ page, loading, filters, onFilterChange }: Prop
           className="tx-list__filter-select"
           value={filters.type ?? ''}
           onChange={(e) =>
-            onFilterChange({ ...filters, type: e.target.value || undefined })
+            onFilterChange({ ...filters, page: 0, type: e.target.value || undefined })
           }
         >
           {TX_TYPES.map((t) => (
@@ -41,7 +41,7 @@ export function TransactionList({ page, loading, filters, onFilterChange }: Prop
           className="tx-list__filter-date"
           value={filters.from ?? ''}
           onChange={(e) =>
-            onFilterChange({ ...filters, from: e.target.value || undefined })
+            onFilterChange({ ...filters, page: 0, from: e.target.value || undefined })
           }
           placeholder="Từ ngày"
         />
@@ -51,7 +51,7 @@ export function TransactionList({ page, loading, filters, onFilterChange }: Prop
           className="tx-list__filter-date"
           value={filters.to ?? ''}
           onChange={(e) =>
-            onFilterChange({ ...filters, to: e.target.value || undefined })
+            onFilterChange({ ...filters, page: 0, to: e.target.value || undefined })
           }
           placeholder="Đến ngày"
         />

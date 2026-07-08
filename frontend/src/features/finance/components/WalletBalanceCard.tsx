@@ -7,6 +7,8 @@ interface Props {
 }
 
 export function WalletBalanceCard({ wallet, loading }: Props) {
+  const availableBalance = wallet.balance ?? wallet.availableBalance;
+
   if (loading) {
     return (
       <div className="wallet-balance-card wallet-balance-card--loading">
@@ -25,7 +27,7 @@ export function WalletBalanceCard({ wallet, loading }: Props) {
         </span>
       </div>
       <div className="wallet-balance-card__available">
-        {formatCurrency(wallet.availableBalance)}
+        {formatCurrency(availableBalance)}
       </div>
       {wallet.frozenBalance > 0 && (
         <div className="wallet-balance-card__frozen">

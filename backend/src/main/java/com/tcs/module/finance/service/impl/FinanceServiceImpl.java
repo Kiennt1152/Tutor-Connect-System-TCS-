@@ -1,6 +1,5 @@
 package com.tcs.module.finance.service.impl;
 
-import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.finance.dto.request.DepositRequest;
 import com.tcs.module.finance.dto.response.PaymentMethodResponse;
 import com.tcs.module.finance.dto.response.TransactionResponse;
@@ -12,9 +11,10 @@ import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
 import com.tcs.module.finance.repository.PaymentMethodRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
-import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.FinanceService;
+import com.tcs.module.finance.service.WalletService;
 import com.tcs.security.AuthHelper;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -31,42 +31,48 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class FinanceServiceImpl implements FinanceService {
 
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int MAX_PAGE_SIZE = 100;
+
     private final AuthHelper authHelper;
-    private final WalletRepository walletRepository;
+    private final WalletService walletService;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentMethodRepository paymentMethodRepository;
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public WalletResponse getMyWallet() {
-        return toWalletResponse(requireWallet());
+        return toWalletResponse(currentWallet());
     }
 
     @Override
     @Transactional
     public WalletResponse deposit(DepositRequest request) {
-        if (request.getAmount() == null || request.getAmount().compareTo(java.math.BigDecimal.ZERO) <= 0) {
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Số tiền nạp phải lớn hơn 0");
         }
-        Wallet wallet = requireWallet();
+        Long userId = authHelper.currentUserId();
+        Wallet wallet = walletService.getOrCreate(userId);
+        String referenceCode = "TOPUP-" + UUID.randomUUID();
+
         PaymentTransaction tx = new PaymentTransaction();
         tx.setWallet(wallet);
         tx.setType(PaymentTransactionType.DEPOSIT);
         tx.setStatus(PaymentTransactionStatus.SUCCESS);
         tx.setAmount(request.getAmount());
         tx.setDescription(request.getDescription() != null ? request.getDescription() : "Nạp tiền ví");
-        tx.setReferenceCode(UUID.randomUUID().toString());
+        tx.setReferenceCode(referenceCode);
         tx.setProcessedAt(LocalDateTime.now());
         paymentTransactionRepository.save(tx);
 
-        wallet.setAvailableBalance(wallet.getAvailableBalance().add(request.getAmount()));
-        return toWalletResponse(walletRepository.save(wallet));
+        walletService.credit(userId, request.getAmount(), referenceCode);
+        return toWalletResponse(walletService.getOrCreate(userId));
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<PaymentMethodResponse> getPaymentMethods() {
-        Wallet wallet = requireWallet();
+        Wallet wallet = currentWallet();
         return paymentMethodRepository.findByWallet_WalletId(wallet.getWalletId()).stream()
                 .map(pm -> PaymentMethodResponse.builder()
                         .paymentMethodId(pm.getPaymentMethodId())
@@ -81,7 +87,7 @@ public class FinanceServiceImpl implements FinanceService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public WalletTransactionsResponse getMyTransactions(
             int page,
             int size,
@@ -89,17 +95,21 @@ public class FinanceServiceImpl implements FinanceService {
             LocalDate from,
             LocalDate to) {
 
-        Wallet wallet = requireWallet();
-        Pageable pageable = PageRequest.of(page, size);
+        Wallet wallet = currentWallet();
+        Pageable pageable = PageRequest.of(normalizePage(page), normalizeSize(size));
 
         LocalDateTime fromDt = (from != null) ? from.atStartOfDay() : null;
         LocalDateTime toDt = (to != null) ? to.atTime(LocalTime.MAX) : null;
+        if (fromDt != null && toDt != null && fromDt.isAfter(toDt)) {
+            throw new IllegalArgumentException("Ngày bắt đầu không được sau ngày kết thúc");
+        }
 
         PaymentTransactionType txType = null;
         if (type != null && !type.isBlank()) {
             try {
                 txType = PaymentTransactionType.valueOf(type.toUpperCase());
-            } catch (IllegalArgumentException ignored) {
+            } catch (IllegalArgumentException exception) {
+                throw new IllegalArgumentException("Loại giao dịch không hợp lệ: " + type);
             }
         }
 
@@ -118,15 +128,25 @@ public class FinanceServiceImpl implements FinanceService {
                 .build();
     }
 
-    private Wallet requireWallet() {
-        return walletRepository
-                .findByUser_UserId(authHelper.currentUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ví"));
+    private Wallet currentWallet() {
+        return walletService.getOrCreate(authHelper.currentUserId());
+    }
+
+    private int normalizePage(int page) {
+        return Math.max(page, 0);
+    }
+
+    private int normalizeSize(int size) {
+        if (size <= 0) {
+            return DEFAULT_PAGE_SIZE;
+        }
+        return Math.min(size, MAX_PAGE_SIZE);
     }
 
     private WalletResponse toWalletResponse(Wallet wallet) {
         return WalletResponse.builder()
                 .walletId(wallet.getWalletId())
+                .balance(wallet.getAvailableBalance())
                 .availableBalance(wallet.getAvailableBalance())
                 .frozenBalance(wallet.getFrozenBalance())
                 .status(wallet.getStatus())

@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react';
 import { financeApi } from '../api/financeApi';
+import { getApiErrorMessage } from '../../../shared/api/apiError';
 import type {
   WalletInfo,
   TransactionPage,
@@ -25,9 +26,7 @@ export function useFinance() {
       const data = await financeApi.getWallet();
       setWallet(data);
     } catch (err: unknown) {
-      setWalletError(
-        err instanceof Error ? err.message : 'Không thể tải thông tin ví'
-      );
+      setWalletError(getApiErrorMessage(err, 'Không thể tải thông tin ví'));
     } finally {
       setWalletLoading(false);
     }
@@ -47,7 +46,7 @@ export function useFinance() {
       setTransactions(data);
     } catch (err: unknown) {
       setTxError(
-        err instanceof Error ? err.message : 'Không thể tải lịch sử giao dịch'
+        getApiErrorMessage(err, 'Không thể tải lịch sử giao dịch')
       );
     } finally {
       setTxLoading(false);
@@ -63,7 +62,7 @@ export function useFinance() {
         setTransactions(data);
       } catch (err: unknown) {
         setTxError(
-          err instanceof Error ? err.message : 'Không thể tải trang giao dịch'
+          getApiErrorMessage(err, 'Không thể tải trang giao dịch')
         );
       } finally {
         setTxLoading(false);

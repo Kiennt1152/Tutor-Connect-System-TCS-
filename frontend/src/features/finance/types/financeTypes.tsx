@@ -1,5 +1,6 @@
 export interface WalletInfo {
   walletId: number;
+  balance?: number;
   availableBalance: number;
   frozenBalance: number;
   status: 'ACTIVE' | 'SUSPENDED' | 'CLOSED';
