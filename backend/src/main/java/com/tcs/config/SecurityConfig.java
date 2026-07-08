@@ -79,6 +79,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/marketplace/favorites/**")
                         .hasRole(RbacConstants.CLIENT)
 
+                        // --- Center: class management (UC-14-B) ---
+                        .requestMatchers("/api/center/classes/**")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
+
                         // --- Center mutations ---
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/*/apply")
                         .hasRole(RbacConstants.TUTOR)

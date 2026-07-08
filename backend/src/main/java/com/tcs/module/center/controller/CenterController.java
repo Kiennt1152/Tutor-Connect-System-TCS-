@@ -2,6 +2,8 @@ package com.tcs.module.center.controller;
 
 import com.tcs.module.center.dto.request.ApplyRecruitmentRequest;
 import com.tcs.module.center.dto.request.CreateRecruitmentPostRequest;
+import com.tcs.module.center.dto.request.SaveClassRequest;
+import com.tcs.module.center.dto.response.CenterClassResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
 import com.tcs.module.center.service.CenterService;
 import java.util.List;
@@ -11,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -45,5 +48,29 @@ public class CenterController {
             @PathVariable Long recruitmentId, @RequestBody ApplyRecruitmentRequest request) {
         centerService.applyToRecruitment(recruitmentId, request);
         return Map.of("message", "Đã gửi đơn ứng tuyển");
+    }
+
+    // ===== UC-14-B: Manage Classes (Tutor Center) =====
+
+    @GetMapping("/classes")
+    public List<CenterClassResponse> listMyClasses() {
+        return centerService.listMyClasses();
+    }
+
+    @GetMapping("/classes/{classId}")
+    public CenterClassResponse getMyClass(@PathVariable Long classId) {
+        return centerService.getMyClass(classId);
+    }
+
+    @PostMapping("/classes")
+    @ResponseStatus(HttpStatus.CREATED)
+    public CenterClassResponse createClass(@RequestBody SaveClassRequest request) {
+        return centerService.createClass(request);
+    }
+
+    @PutMapping("/classes/{classId}")
+    public CenterClassResponse updateClass(
+            @PathVariable Long classId, @RequestBody SaveClassRequest request) {
+        return centerService.updateClass(classId, request);
     }
 }
