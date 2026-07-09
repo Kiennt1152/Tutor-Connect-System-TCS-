@@ -19,6 +19,9 @@ public interface WalletService {
 
     void credit(Long userId, BigDecimal amount, String ref);
 
+    /** Chuyen tien kha dung sang so du bi khoa de dam bao escrow. */
+    Wallet lockFunds(Long userId, BigDecimal amount, String ref);
+
     /** Tao phien nap tien qua QR (dung PaymentGateway 0.8). */
     TopupSession createTopup(Long userId, BigDecimal amount);
 }

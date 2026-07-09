@@ -255,6 +255,41 @@ class WalletServiceImplTest {
         }
     }
 
+    // ─── lockFunds ─────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("lockFunds")
+    class LockFunds {
+
+        @Test
+        @DisplayName("moves available balance to frozen balance and writes journal")
+        void lockFundsMovesAvailableToFrozen() {
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+            when(walletRepository.save(any(Wallet.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            Wallet result = walletService.lockFunds(USER_ID, new BigDecimal("40000.00"), "ESCROW_LOCK-A10");
+
+            assertEquals(new BigDecimal("60000.00"), result.getAvailableBalance());
+            assertEquals(new BigDecimal("40000.00"), result.getFrozenBalance());
+
+            verify(financialJournalRepository).save(journalCaptor.capture());
+            var journal = journalCaptor.getValue();
+            assertEquals(JournalEntryType.DEBIT, journal.getEntryType());
+            assertEquals(new BigDecimal("40000.00"), journal.getAmount());
+            assertEquals(new BigDecimal("100000.00"), journal.getBalanceBefore());
+            assertEquals(new BigDecimal("60000.00"), journal.getBalanceAfter());
+        }
+
+        @Test
+        @DisplayName("throws when balance is insufficient")
+        void throwsOnInsufficientBalance() {
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+
+            assertThrows(BusinessException.class, () ->
+                    walletService.lockFunds(USER_ID, new BigDecimal("150000.00"), "ESCROW_LOCK-A10"));
+        }
+    }
+
     // ─── createTopup ────────────────────────────────────────────────────────
 
     @Nested
