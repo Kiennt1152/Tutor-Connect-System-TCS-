@@ -269,6 +269,75 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).save(any());
     }
 
+    @Test
+    void refundReturnsEscrowMoneyToPayer() {
+        BigDecimal amount = new BigDecimal("500000.00");
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, amount);
+        Wallet payerWallet = payerWallet();
+
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+        when(walletService.refundLockedFunds(PAYER_ID, amount, "REFUND-ESCROW-5")).thenReturn(payerWallet);
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        EscrowTransaction result = escrowService.refund(5L, "Client hủy lớp");
+
+        assertSame(escrow, result);
+        verify(walletService).refundLockedFunds(PAYER_ID, amount, "REFUND-ESCROW-5");
+        verify(walletService, never()).credit(any(), any(), any());
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        verify(paymentTransactionRepository).save(paymentCaptor.capture());
+        PaymentTransaction refundTx = paymentCaptor.getValue();
+        assertSame(payerWallet, refundTx.getWallet());
+        assertEquals(PaymentTransactionType.REFUND, refundTx.getType());
+        assertEquals(PaymentTransactionStatus.SUCCESS, refundTx.getStatus());
+        assertEquals("REFUND-ESCROW-5", refundTx.getReferenceCode());
+        assertEquals(EscrowStatus.REFUNDED, escrow.getStatus());
+    }
+
+    @Test
+    void refundReturnsExistingRefundedEscrowWithoutChargingAgain() {
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
+        escrow.setStatus(EscrowStatus.REFUNDED);
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+
+        EscrowTransaction result = escrowService.refund(5L, "Retry");
+
+        assertSame(escrow, result);
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
+        verify(paymentTransactionRepository, never()).save(any());
+        verify(escrowTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void refundRejectsReleasedEscrow() {
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
+        escrow.setStatus(EscrowStatus.RELEASED);
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+
+        assertThrows(BusinessException.class, () -> escrowService.refund(5L, "Too late"));
+
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
+        verify(paymentTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void refundRequiresFundedEscrow() {
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
+        escrow.setStatus(EscrowStatus.PENDING);
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+
+        assertThrows(BusinessException.class, () -> escrowService.refund(5L, "Not funded"));
+
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
+        verify(paymentTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void refundRequiresEscrowId() {
+        assertThrows(BusinessException.class, () -> escrowService.refund(null, "Missing id"));
+    }
+
     private Wallet payerWallet() {
         return wallet(PAYER_ID);
     }

@@ -86,6 +86,34 @@ public class EscrowServiceImpl implements EscrowService {
         escrowTransactionRepository.save(escrow);
     }
 
+    @Override
+    @Transactional
+    public EscrowTransaction refund(Long escrowId, String reason) {
+        if (escrowId == null) {
+            throw new BusinessException("Thiếu escrow cần hoàn tiền");
+        }
+
+        EscrowTransaction escrow = escrowTransactionRepository.findById(escrowId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy escrow"));
+        if (escrow.getStatus() == EscrowStatus.REFUNDED) {
+            return escrow;
+        }
+        if (escrow.getStatus() == EscrowStatus.RELEASED) {
+            throw new BusinessException("Escrow đã giải ngân nên không thể hoàn tiền");
+        }
+        if (escrow.getStatus() != EscrowStatus.FUNDED) {
+            throw new BusinessException("Chỉ escrow đã được khóa tiền mới có thể hoàn tiền");
+        }
+        if (escrow.getAmount() == null || escrow.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("Số tiền escrow không hợp lệ");
+        }
+
+        refundToPayer(escrow, payerUserId(escrow), escrow.getAmount(), reason);
+        escrow.setStatus(EscrowStatus.REFUNDED);
+        escrow.setReleasedAt(LocalDateTime.now());
+        return escrowTransactionRepository.save(escrow);
+    }
+
     private EscrowTransaction lockPrivateAssignment(EscrowLockCommand command) {
         return escrowTransactionRepository.findByAssignment_AssignmentId(command.assignmentId())
                 .orElseGet(() -> {
