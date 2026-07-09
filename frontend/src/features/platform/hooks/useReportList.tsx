@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
+import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { platformApi } from '../api/platformApi';
 import { mapReportItem } from '../mappers/platformMapper';
 import type { ReportItem } from '../types/platformTypes';
@@ -22,11 +22,7 @@ export function useReportList() {
       })
       .catch((error) => {
         console.error('Lỗi tải báo cáo:', error);
-        const apiMessage =
-          axios.isAxiosError(error) && typeof error.response?.data?.message === 'string'
-            ? error.response.data.message
-            : null;
-        setErrorMessage(apiMessage ?? 'Không thể tải danh sách báo cáo.');
+        setErrorMessage(getApiErrorMessage(error, 'Không thể tải danh sách báo cáo.'));
         setStatus('error');
       });
   }, []);

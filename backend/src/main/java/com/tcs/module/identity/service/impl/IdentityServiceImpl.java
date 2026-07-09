@@ -66,6 +66,10 @@ public class IdentityServiceImpl implements IdentityService {
 
     private static final SecureRandom RANDOM = new SecureRandom();
     private static final String RATE_LIMIT_MESSAGE = "Quá nhiều yêu cầu, vui lòng thử lại sau.";
+    private static final String BANNED_LOGIN_MESSAGE =
+            "Tài khoản của bạn đã bị khóa và không thể đăng nhập. Vui lòng liên hệ quản trị viên.";
+    private static final String BANNED_EMAIL_REGISTER_MESSAGE =
+            "Email này đã bị khóa và không thể đăng ký tài khoản mới.";
 
     /** Bo dem so lan gui ma theo IP trong 1 gio (best-effort, theo tien trinh). */
     private final Map<String, Deque<Long>> ipRequestLog = new ConcurrentHashMap<>();
@@ -117,10 +121,8 @@ public class IdentityServiceImpl implements IdentityService {
     public SendOtpResponse sendOtp(SendOtpRequest request, String clientIp) {
         String email = normalizeEmail(request.getEmail());
 
-        // BR-UC01-01 + AF-01: email da thuoc tai khoan ACTIVE -> khong gui ma.
-        if (userRepository.existsByEmail(email)) {
-            throw new DuplicateEmailException("Email này đã được đăng ký");
-        }
+        // BR-UC01-01 + AF-01: email da thuoc mot tai khoan -> khong gui ma.
+        ensureEmailRegistrable(email);
 
         // BR-UC01-07: cooldown toi thieu giua hai lan gui cho cung email.
         emailOtpRepository
@@ -257,9 +259,7 @@ public class IdentityServiceImpl implements IdentityService {
         }
 
         // BR-UC01-01
-        if (userRepository.existsByEmail(email)) {
-            throw new DuplicateEmailException("Email này đã được đăng ký");
-        }
+        ensureEmailRegistrable(email);
 
         // BR-UC01-06: so dien thoai hop le va duy nhat toan he thong.
         String phone = normalizePhone(request.getPhone());
@@ -299,8 +299,10 @@ public class IdentityServiceImpl implements IdentityService {
                 .findByEmail(request.getEmail().trim().toLowerCase())
                 .orElseThrow(() -> new IllegalArgumentException("Email hoặc mật khẩu không đúng"));
 
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new IllegalArgumentException("Tài khoản đã bị khóa hoặc tạm ngưng");
+        // Chi tai khoan BANNED moi bi chan dang nhap. SUSPENDED van vao duoc he thong
+        // nhung se bi gioi han mot so quyen (se cap nhat sau).
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new IllegalArgumentException(BANNED_LOGIN_MESSAGE);
         }
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Email hoặc mật khẩu không đúng");
@@ -333,8 +335,8 @@ public class IdentityServiceImpl implements IdentityService {
                     .suggestedDisplayName(suggestDisplayName(email, payload.getName()))
                     .build();
         }
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new IllegalArgumentException("Tài khoản đã bị khóa hoặc tạm ngưng");
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new IllegalArgumentException(BANNED_LOGIN_MESSAGE);
         }
 
         user.setLastLogin(LocalDateTime.now());
@@ -355,9 +357,7 @@ public class IdentityServiceImpl implements IdentityService {
         if (request.getRole() == UserRole.PLATFORM_ADMIN || request.getRole() == UserRole.UNKNOWN) {
             throw new IllegalArgumentException("Vai trò đăng ký không hợp lệ");
         }
-        if (userRepository.existsByEmail(email)) {
-            throw new DuplicateEmailException("Email này đã được đăng ký");
-        }
+        ensureEmailRegistrable(email);
         String phone = normalizePhone(request.getPhone());
         if (userRepository.existsByPhone(phone)) {
             throw new IllegalArgumentException("Số điện thoại này đã được đăng kí bởi email khác");
@@ -387,6 +387,19 @@ public class IdentityServiceImpl implements IdentityService {
         return (googleName == null || googleName.isBlank())
                 ? email.substring(0, email.indexOf('@'))
                 : googleName.trim();
+    }
+
+    /**
+     * Chan dang ky khi email da ton tai. Neu tai khoan da bi BANNED thi bao ro email
+     * khong the dang ky lai (BR: acc ban khong duoc dang ky); con lai bao trung email.
+     */
+    private void ensureEmailRegistrable(String email) {
+        userRepository.findByEmail(email).ifPresent(existing -> {
+            if (existing.getStatus() == UserStatus.BANNED) {
+                throw new DuplicateEmailException(BANNED_EMAIL_REGISTER_MESSAGE);
+            }
+            throw new DuplicateEmailException("Email này đã được đăng ký");
+        });
     }
 
     @Override
