@@ -22,6 +22,12 @@ public interface WalletService {
     /** Chuyen tien kha dung sang so du bi khoa de dam bao escrow. */
     Wallet lockFunds(Long userId, BigDecimal amount, String ref);
 
+    /** Giam so du bi khoa khi escrow duoc giai ngan ra khoi vi nguoi tra. */
+    Wallet releaseLockedFunds(Long userId, BigDecimal amount, String ref);
+
+    /** Chuyen tien escrow bi khoa ve lai so du kha dung cua nguoi tra. */
+    Wallet refundLockedFunds(Long userId, BigDecimal amount, String ref);
+
     /** Tao phien nap tien qua QR (dung PaymentGateway 0.8). */
     TopupSession createTopup(Long userId, BigDecimal amount);
 }

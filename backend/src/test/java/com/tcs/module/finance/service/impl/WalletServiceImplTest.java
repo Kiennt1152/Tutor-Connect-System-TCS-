@@ -290,6 +290,59 @@ class WalletServiceImplTest {
         }
     }
 
+    // ─── release/refund locked funds ───────────────────────────────────────
+
+    @Nested
+    @DisplayName("release/refund locked funds")
+    class ReleaseLockedFunds {
+
+        @Test
+        @DisplayName("releaseLockedFunds decreases frozen balance")
+        void releaseLockedFundsDecreasesFrozen() {
+            activeWallet.setFrozenBalance(new BigDecimal("40000.00"));
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+            when(walletRepository.save(any(Wallet.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            Wallet result = walletService.releaseLockedFunds(USER_ID, new BigDecimal("30000.00"), "ESCROW_RELEASE-1");
+
+            assertEquals(new BigDecimal("10000.00"), result.getFrozenBalance());
+            assertEquals(new BigDecimal("100000.00"), result.getAvailableBalance());
+            verify(financialJournalRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("refundLockedFunds moves frozen balance back to available balance and writes journal")
+        void refundLockedFundsMovesFrozenToAvailable() {
+            activeWallet.setFrozenBalance(new BigDecimal("40000.00"));
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+            when(walletRepository.save(any(Wallet.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            Wallet result = walletService.refundLockedFunds(USER_ID, new BigDecimal("30000.00"), "REFUND-ESCROW-1");
+
+            assertEquals(new BigDecimal("10000.00"), result.getFrozenBalance());
+            assertEquals(new BigDecimal("130000.00"), result.getAvailableBalance());
+
+            verify(financialJournalRepository).save(journalCaptor.capture());
+            var journal = journalCaptor.getValue();
+            assertEquals(JournalEntryType.CREDIT, journal.getEntryType());
+            assertEquals(new BigDecimal("30000.00"), journal.getAmount());
+            assertEquals(new BigDecimal("100000.00"), journal.getBalanceBefore());
+            assertEquals(new BigDecimal("130000.00"), journal.getBalanceAfter());
+        }
+
+        @Test
+        @DisplayName("throws when frozen balance is insufficient")
+        void throwsOnInsufficientFrozenBalance() {
+            activeWallet.setFrozenBalance(new BigDecimal("10000.00"));
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+
+            assertThrows(BusinessException.class, () ->
+                    walletService.releaseLockedFunds(USER_ID, new BigDecimal("30000.00"), "ESCROW_RELEASE-1"));
+            assertThrows(BusinessException.class, () ->
+                    walletService.refundLockedFunds(USER_ID, new BigDecimal("30000.00"), "REFUND-ESCROW-1"));
+        }
+    }
+
     // ─── createTopup ────────────────────────────────────────────────────────
 
     @Nested
