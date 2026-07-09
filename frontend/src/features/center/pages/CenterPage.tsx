@@ -8,6 +8,7 @@ import type {
   LessonMode,
   RecurringType,
   SaveClassRequest,
+  TutorOption,
 } from '../types/centerTypes';
 import './CenterPage.css';
 
@@ -74,6 +75,7 @@ interface FormState {
   lessonMode: LessonMode;
   recurringType: RecurringType;
   tuitionFee: string;
+  maxStudents: string;
   startDate: string;
   endDate: string;
   schedule: SlotForm[];
@@ -90,6 +92,7 @@ const EMPTY_FORM: FormState = {
   lessonMode: 'OFFLINE',
   recurringType: 'WEEKLY',
   tuitionFee: '',
+  maxStudents: '',
   startDate: '',
   endDate: '',
   schedule: [{ dayOfWeek: 1, startTime: '18:00', endTime: '20:00' }],
@@ -133,6 +136,7 @@ function toFormState(c: ClassResponse): FormState {
     lessonMode: c.lessonMode,
     recurringType: recurring,
     tuitionFee: String(c.tuitionFee),
+    maxStudents: c.maxStudents != null ? String(c.maxStudents) : '',
     startDate: c.startDate,
     endDate: c.endDate,
     schedule,
@@ -177,6 +181,19 @@ function dayLabel(value: number): string {
   return DAYS.find((d) => d.value === value)?.label ?? `Thứ ${value}`;
 }
 
+function initials(name: string): string {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(-2)
+    .map((w) => w[0]?.toUpperCase() ?? '')
+    .join('');
+}
+
+function formatCurrency(value: number): string {
+  return `${new Intl.NumberFormat('vi-VN').format(value)} đ`;
+}
+
 function buildPayload(form: FormState): SaveClassRequest {
   const num = (v: string) => (v.trim() === '' ? null : Number(v));
   const gradeName = form.gradeChoice === GRADE_OTHER ? form.gradeCustom.trim() : form.gradeChoice;
@@ -191,6 +208,7 @@ function buildPayload(form: FormState): SaveClassRequest {
     recurringType: form.recurringType,
     numberOfSessions: countSessions(form),
     tuitionFee: num(form.tuitionFee),
+    maxStudents: num(form.maxStudents),
     startDate: form.startDate || null,
     endDate: form.endDate || null,
     schedule: form.schedule.map((s) => ({
@@ -208,6 +226,7 @@ type FieldKey =
   | 'grade'
   | 'locationText'
   | 'tuitionFee'
+  | 'maxStudents'
   | 'startDate'
   | 'endDate';
 
@@ -231,6 +250,10 @@ function validateForm(form: FormState, isCreate: boolean): FormErrors {
   const fee = Number(form.tuitionFee);
   if (!form.tuitionFee.trim() || Number.isNaN(fee) || fee <= 0)
     fields.tuitionFee = 'Học phí phải là số dương';
+
+  const maxSt = Number(form.maxStudents);
+  if (!form.maxStudents.trim() || !Number.isInteger(maxSt) || maxSt <= 0)
+    fields.maxStudents = 'Số học sinh tối đa phải là số nguyên dương';
 
   if (!form.startDate) fields.startDate = 'Ngày bắt đầu là bắt buộc';
   else if (isCreate && form.startDate < TODAY)
@@ -342,6 +365,58 @@ export default function CenterPage() {
     }
   };
 
+  // ----- Gán gia sư -----
+  const [assignFor, setAssignFor] = useState<ClassResponse | null>(null);
+  const [tutors, setTutors] = useState<TutorOption[]>([]);
+  const [tutorsLoading, setTutorsLoading] = useState(false);
+  const [assignError, setAssignError] = useState('');
+  const [assignBusyId, setAssignBusyId] = useState<number | null>(null);
+
+  const openAssign = async (cls: ClassResponse) => {
+    setAssignFor(cls);
+    setAssignError('');
+    setTutorsLoading(true);
+    try {
+      const res = await centerApi.getTutors();
+      setTutors(res.data);
+    } catch (err) {
+      setAssignError(extractError(err, 'Không tải được danh sách gia sư.'));
+    } finally {
+      setTutorsLoading(false);
+    }
+  };
+
+  const closeAssign = () => {
+    setAssignFor(null);
+    setTutors([]);
+    setAssignError('');
+    setAssignBusyId(null);
+  };
+
+  const pickTutor = async (tutorId: number) => {
+    if (!assignFor) return;
+    setAssignBusyId(tutorId);
+    setAssignError('');
+    try {
+      await centerApi.assignTutor(assignFor.classId, tutorId);
+      closeAssign();
+      reloadList();
+    } catch (err) {
+      setAssignError(extractError(err, 'Không gán được gia sư.'));
+      setAssignBusyId(null);
+    }
+  };
+
+  const removeTutor = async (classId: number) => {
+    setListError('');
+    try {
+      await centerApi.unassignTutor(classId);
+      reloadList();
+    } catch (err) {
+      setListError(extractError(err, 'Không gỡ được gia sư.'));
+    }
+  };
+
   const patch = (partial: Partial<FormState>) => setForm((prev) => ({ ...prev, ...partial }));
 
   const addSlot = () =>
@@ -411,72 +486,117 @@ export default function CenterPage() {
       </header>
 
       {mode === 'list' && (
-        <section className="cc-card">
-          {listLoading && <div className="cc-state">Đang tải danh sách lớp học…</div>}
+        <>
           {listError && <div className="cc-alert cc-alert--error">{listError}</div>}
+          {listLoading && <div className="cc-card cc-state">Đang tải danh sách lớp học…</div>}
           {!listLoading && !listError && classes.length === 0 && (
-            <div className="cc-state">Chưa có lớp học nào. Bấm “Tạo lớp mới” để bắt đầu.</div>
-          )}
-          {!listLoading && classes.length > 0 && (
-            <div className="cc-table-wrap">
-              <table className="cc-table">
-                <thead>
-                  <tr>
-                    <th>Tiêu đề</th>
-                    <th>Môn</th>
-                    <th>Khối</th>
-                    <th>Hình thức</th>
-                    <th>Bắt đầu</th>
-                    <th>Kết thúc</th>
-                    <th>Trạng thái</th>
-                    <th>Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {classes.map((c) => (
-                    <tr key={c.classId}>
-                      <td>{c.title}</td>
-                      <td>{c.subjectName ?? '—'}</td>
-                      <td>{c.gradeName ?? '—'}</td>
-                      <td>{LESSON_MODE_LABELS[c.lessonMode]}</td>
-                      <td>{c.startDate}</td>
-                      <td>{c.endDate}</td>
-                      <td>
-                        <span className={`cc-badge cc-badge--${c.status.toLowerCase()}`}>
-                          {STATUS_LABELS[c.status]}
-                        </span>
-                      </td>
-                      <td>
-                        <div className="cc-row-actions">
-                          {canEditStatus(c.status) ? (
-                            <button
-                              className="cc-btn cc-btn--sm"
-                              type="button"
-                              onClick={() => openEdit(c.classId)}
-                            >
-                              Sửa
-                            </button>
-                          ) : (
-                            <span className="cc-muted">Không sửa được</span>
-                          )}
-                          {c.status === 'DRAFT' && (
-                            <button
-                              className="cc-btn cc-btn--primary cc-btn--sm"
-                              type="button"
-                              onClick={() => publish(c.classId)}
-                            >
-                              Đăng tải
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            <div className="cc-card cc-state">
+              Chưa có lớp học nào. Bấm “Tạo lớp mới” để bắt đầu.
             </div>
           )}
-        </section>
+          {!listLoading && classes.length > 0 && (
+            <div className="cc-class-grid">
+              {classes.map((c) => (
+                <article className="cc-class-card" key={c.classId}>
+                  <div className="cc-class-card__top">
+                    <h3 className="cc-class-card__title" title={c.title}>
+                      {c.title}
+                    </h3>
+                    <span className={`cc-badge cc-badge--${c.status.toLowerCase()}`}>
+                      {STATUS_LABELS[c.status]}
+                    </span>
+                  </div>
+
+                  <div className="cc-chips">
+                    {c.subjectName && <span className="cc-chip">{c.subjectName}</span>}
+                    {c.gradeName && <span className="cc-chip">{c.gradeName}</span>}
+                    <span className="cc-chip">{LESSON_MODE_LABELS[c.lessonMode]}</span>
+                  </div>
+
+                  <dl className="cc-class-meta">
+                    <div className="cc-class-meta__row">
+                      <dt>Thời gian</dt>
+                      <dd>
+                        {c.startDate} → {c.endDate}
+                      </dd>
+                    </div>
+                    <div className="cc-class-meta__row">
+                      <dt>Số buổi</dt>
+                      <dd>{c.numberOfSessions}</dd>
+                    </div>
+                    <div className="cc-class-meta__row">
+                      <dt>Sĩ số tối đa</dt>
+                      <dd>{c.maxStudents ?? '—'}</dd>
+                    </div>
+                    <div className="cc-class-meta__row">
+                      <dt>Học phí</dt>
+                      <dd className="cc-fee">{formatCurrency(c.tuitionFee)}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="cc-class-tutor">
+                    <span className="cc-class-tutor__label">Gia sư dạy</span>
+                    {c.assignedTutorName ? (
+                      <div className="cc-class-tutor__row">
+                        <span className="cc-tutor-badge">{initials(c.assignedTutorName)}</span>
+                        <span className="cc-tutor-name" title={c.assignedTutorName}>
+                          {c.assignedTutorName}
+                        </span>
+                        <div className="cc-row-actions">
+                          <button
+                            className="cc-btn cc-btn--sm"
+                            type="button"
+                            onClick={() => openAssign(c)}
+                          >
+                            Đổi
+                          </button>
+                          <button
+                            className="cc-btn cc-btn--danger cc-btn--sm"
+                            type="button"
+                            onClick={() => removeTutor(c.classId)}
+                          >
+                            Gỡ
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="cc-btn cc-btn--soft cc-btn--sm"
+                        type="button"
+                        onClick={() => openAssign(c)}
+                      >
+                        + Gán gia sư
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="cc-class-card__foot">
+                    {canEditStatus(c.status) ? (
+                      <button
+                        className="cc-btn cc-btn--ghost cc-btn--sm"
+                        type="button"
+                        onClick={() => openEdit(c.classId)}
+                      >
+                        Sửa
+                      </button>
+                    ) : (
+                      <span className="cc-muted">Không sửa được</span>
+                    )}
+                    {c.status === 'DRAFT' && (
+                      <button
+                        className="cc-btn cc-btn--primary cc-btn--sm"
+                        type="button"
+                        onClick={() => publish(c.classId)}
+                      >
+                        Đăng tải
+                      </button>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {mode === 'form' && (
@@ -594,6 +714,19 @@ export default function CenterPage() {
                 placeholder="VD: 500000"
               />
               {errText('tuitionFee')}
+            </label>
+
+            <label className="cc-field">
+              <span className="cc-label">Số học sinh tối đa *</span>
+              <input
+                className={errClass('maxStudents')}
+                type="number"
+                min={1}
+                value={form.maxStudents}
+                onChange={(e) => patch({ maxStudents: e.target.value })}
+                placeholder="VD: 20"
+              />
+              {errText('maxStudents')}
             </label>
           </div>
 
@@ -726,6 +859,73 @@ export default function CenterPage() {
             </button>
           </div>
         </section>
+      )}
+
+      {assignFor && (
+        <div className="cc-modal" role="dialog" aria-modal="true">
+          <div className="cc-modal__backdrop" onClick={closeAssign} />
+          <div className="cc-modal__card">
+            <div className="cc-modal__head">
+              <div>
+                <h2 className="cc-modal__title">Gán gia sư</h2>
+                <p className="cc-modal__sub">Lớp: {assignFor.title}</p>
+              </div>
+              <button
+                className="cc-modal__close"
+                type="button"
+                onClick={closeAssign}
+                aria-label="Đóng"
+              >
+                ×
+              </button>
+            </div>
+            <div className="cc-modal__body">
+              {assignError && <div className="cc-alert cc-alert--error">{assignError}</div>}
+              {tutorsLoading && <div className="cc-state">Đang tải danh sách gia sư…</div>}
+              {!tutorsLoading && !assignError && tutors.length === 0 && (
+                <div className="cc-state">Chưa có gia sư nào.</div>
+              )}
+              {!tutorsLoading && tutors.length > 0 && (
+                <ul className="cc-tutor-list">
+                  {tutors.map((t) => {
+                    const selected = assignFor.assignedTutorId === t.tutorId;
+                    return (
+                      <li className="cc-tutor" key={t.tutorId}>
+                        <div className="cc-tutor__avatar">{initials(t.fullName)}</div>
+                        <div className="cc-tutor__info">
+                          <div className="cc-tutor__name">
+                            {t.fullName}
+                            {t.verificationStatus === 'VERIFIED' && (
+                              <span className="cc-tutor__verified">✓ Đã xác minh</span>
+                            )}
+                          </div>
+                          <div className="cc-tutor__meta">
+                            {t.experienceYears != null && <span>{t.experienceYears} năm KN</span>}
+                            {t.ratingAvg != null && <span>★ {t.ratingAvg}</span>}
+                            {t.phone && <span>{t.phone}</span>}
+                          </div>
+                          {t.bio && <div className="cc-tutor__bio">{t.bio}</div>}
+                        </div>
+                        <button
+                          className="cc-btn cc-btn--primary cc-btn--sm"
+                          type="button"
+                          disabled={assignBusyId === t.tutorId || selected}
+                          onClick={() => pickTutor(t.tutorId)}
+                        >
+                          {selected
+                            ? 'Đang dạy'
+                            : assignBusyId === t.tutorId
+                              ? 'Đang gán…'
+                              : 'Chọn'}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+          </div>
+        </div>
       )}
       </div>
     </>

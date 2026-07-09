@@ -1,6 +1,7 @@
 package com.tcs.module.marketplace.repository;
 
 import com.tcs.module.marketplace.entity.ClassStudent;
+import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -8,4 +9,6 @@ import org.springframework.stereotype.Repository;
 public interface ClassStudentRepository extends JpaRepository<ClassStudent, Long> {
 
     boolean existsByTutoringClass_ClassIdAndEnrolledByUser_UserId(Long classId, Long userId);
+
+    long countByTutoringClass_ClassIdAndStatus(Long classId, ClassStudentStatus status);
 }

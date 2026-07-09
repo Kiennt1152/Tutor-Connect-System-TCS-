@@ -13,6 +13,7 @@ import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import CatalogPage from '../features/catalog/pages/CatalogPage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
+import MarketplaceClassDetailPage from '../features/marketplace/pages/MarketplaceClassDetailPage';
 import ContractPage from '../features/contract/pages/ContractPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
@@ -60,6 +61,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
                 <MarketplacePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/marketplace/classes/:classId"
+            element={
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+                <MarketplaceClassDetailPage />
               </ProtectedRoute>
             }
           />

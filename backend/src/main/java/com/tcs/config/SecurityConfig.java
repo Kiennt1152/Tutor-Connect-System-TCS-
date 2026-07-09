@@ -82,7 +82,7 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.CLIENT)
 
                         // --- Center: class management (UC-14-B) ---
-                        .requestMatchers("/api/center/classes/**")
+                        .requestMatchers("/api/center/classes/**", "/api/center/tutors")
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
                         // --- Center mutations ---

@@ -10,6 +10,13 @@ export type ClassStatus =
   | 'CANCELLED'
   | 'DISPUTED';
 
+export interface ScheduleSlot {
+  slotId: number;
+  dayOfWeek: number; // 1 = Thứ Hai ... 7 = Chủ Nhật
+  startTime: string;
+  endTime: string;
+}
+
 export interface MarketplaceClass {
   classId: number;
   title: string;
@@ -28,5 +35,8 @@ export interface MarketplaceClass {
   budget: number | null;
   recurringType: RecurringType;
   status: ClassStatus;
+  maxStudents: number | null;
+  enrolledCount: number;
+  schedule: ScheduleSlot[];
   createdAt: string;
 }

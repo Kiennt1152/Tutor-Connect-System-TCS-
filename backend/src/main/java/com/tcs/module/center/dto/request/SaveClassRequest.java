@@ -26,5 +26,6 @@ public class SaveClassRequest {
     private LocalDate startDate;
     private LocalDate endDate;
     private BigDecimal tuitionFee;
+    private Integer maxStudents;
     private List<ScheduleSlotRequest> schedule;
 }

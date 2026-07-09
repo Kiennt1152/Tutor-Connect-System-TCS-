@@ -38,10 +38,24 @@ export interface ClassResponse {
   startDate: string;
   endDate: string;
   tuitionFee: number;
+  maxStudents: number | null;
   status: ClassStatus;
   createdAt: string;
   updatedAt: string;
   schedule: ScheduleSlot[];
+  assignedTutorId: number | null;
+  assignedTutorName: string | null;
+}
+
+export interface TutorOption {
+  tutorId: number;
+  fullName: string;
+  experienceYears: number | null;
+  ratingAvg: number | null;
+  verificationStatus: string | null;
+  phone: string | null;
+  avatar: string | null;
+  bio: string | null;
 }
 
 export interface SaveClassRequest {
@@ -57,5 +71,6 @@ export interface SaveClassRequest {
   startDate: string | null;
   endDate: string | null;
   tuitionFee: number | null;
+  maxStudents: number | null;
   schedule: ScheduleSlot[];
 }

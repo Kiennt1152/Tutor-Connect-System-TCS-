@@ -1,5 +1,5 @@
 import axiosClient from '../../../shared/api/axiosClient';
-import type { ClassResponse, SaveClassRequest } from '../types/centerTypes';
+import type { ClassResponse, SaveClassRequest, TutorOption } from '../types/centerTypes';
 
 export const CENTER_API_BASE = '/center';
 
@@ -19,5 +19,16 @@ export const centerApi = {
   },
   publishClass(classId: number) {
     return axiosClient.post<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/publish`);
+  },
+  getTutors() {
+    return axiosClient.get<TutorOption[]>(`${CENTER_API_BASE}/tutors`);
+  },
+  assignTutor(classId: number, tutorId: number) {
+    return axiosClient.post<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/assign-tutor`, {
+      tutorId,
+    });
+  },
+  unassignTutor(classId: number) {
+    return axiosClient.delete<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/assign-tutor`);
   },
 };

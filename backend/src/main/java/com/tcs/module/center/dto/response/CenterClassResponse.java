@@ -35,8 +35,13 @@ public class CenterClassResponse {
     private LocalDate startDate;
     private LocalDate endDate;
     private BigDecimal tuitionFee;
+    private Integer maxStudents;
     private TutoringClassStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ScheduleSlotResponse> schedule;
+
+    // Gia sư đang được gán dạy lớp (null nếu chưa gán).
+    private Long assignedTutorId;
+    private String assignedTutorName;
 }

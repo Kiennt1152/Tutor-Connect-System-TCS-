@@ -54,7 +54,7 @@ function Header() {
         <AppLogo href="/" />
         <nav className="tcs-header__nav">
           <a href="#find-tutor">Tìm gia sư</a>
-          <a href="#classes">Tìm lớp</a>
+          <Link to={APP_ROUTES.marketplace}>Tìm lớp</Link>
           <a href="#centers">Trung tâm</a>
           <a href="#news">Tin tức</a>
           <a href="#reviews">Đánh giá</a>

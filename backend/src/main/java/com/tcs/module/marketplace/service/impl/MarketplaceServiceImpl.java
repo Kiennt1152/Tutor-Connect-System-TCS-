@@ -23,8 +23,10 @@ import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.TutorApplicationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
+import com.tcs.module.marketplace.dto.response.ScheduleSlotResponse;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.marketplace.repository.FavoriteTutorRepository;
+import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.MarketplaceService;
@@ -53,6 +55,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final TutoringClassRepository tutoringClassRepository;
     private final TutorApplicationRepository tutorApplicationRepository;
     private final ClassStudentRepository classStudentRepository;
+    private final ScheduleSlotRepository scheduleSlotRepository;
     private final FavoriteTutorRepository favoriteTutorRepository;
     private final CategoryRepository categoryRepository;
     private final SubjectRepository subjectRepository;
@@ -168,6 +171,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             student.setStudentEmail(user.getEmail());
             student.setStatus(ClassStudentStatus.ENROLLED);
             classStudentRepository.save(student);
+
+            // Đủ sĩ số tối đa -> tự động đóng lớp thành MATCHED (không nhận thêm ghi danh).
+            Integer max = tutoringClass.getMaxStudents();
+            if (max != null && max > 0) {
+                long enrolled = classStudentRepository
+                        .countByTutoringClass_ClassIdAndStatus(classId, ClassStudentStatus.ENROLLED);
+                if (enrolled >= max) {
+                    tutoringClass.setStatus(TutoringClassStatus.MATCHED);
+                    tutoringClassRepository.save(tutoringClass);
+                }
+            }
             return;
         }
 
@@ -286,6 +300,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .budget(c.getBudget())
                 .recurringType(c.getRecurringType())
                 .status(c.getStatus())
+                .maxStudents(c.getMaxStudents())
+                .enrolledCount(classStudentRepository
+                        .countByTutoringClass_ClassIdAndStatus(c.getClassId(), ClassStudentStatus.ENROLLED))
+                .schedule(scheduleSlotRepository.findByTutoringClass_ClassId(c.getClassId()).stream()
+                        .map(s -> ScheduleSlotResponse.builder()
+                                .slotId(s.getSlotId())
+                                .dayOfWeek(s.getDayOfWeek())
+                                .startTime(s.getStartTime())
+                                .endTime(s.getEndTime())
+                                .build())
+                        .toList())
                 .createdAt(c.getCreatedAt())
                 .build();
     }

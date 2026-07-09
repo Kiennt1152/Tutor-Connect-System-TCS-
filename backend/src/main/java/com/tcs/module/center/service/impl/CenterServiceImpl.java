@@ -19,6 +19,7 @@ import com.tcs.module.center.dto.request.ScheduleSlotRequest;
 import com.tcs.module.center.dto.response.CenterClassResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
 import com.tcs.module.center.dto.response.ScheduleSlotResponse;
+import com.tcs.module.center.dto.response.TutorOptionResponse;
 import com.tcs.module.center.entity.RecruitmentApplication;
 import com.tcs.module.center.entity.RecruitmentPost;
 import com.tcs.module.center.enums.RecruitmentApplicationStatus;
@@ -29,12 +30,18 @@ import com.tcs.module.center.service.CenterService;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.enums.UserRole;
+import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ScheduleSlot;
+import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.RecurringType;
+import com.tcs.module.marketplace.enums.TutorApplicationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
+import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
+import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
@@ -68,6 +75,8 @@ public class CenterServiceImpl implements CenterService {
     private final ProvinceRepository provinceRepository;
     private final TutoringClassRepository tutoringClassRepository;
     private final ScheduleSlotRepository scheduleSlotRepository;
+    private final ClassAssignmentRepository classAssignmentRepository;
+    private final TutorApplicationRepository tutorApplicationRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -204,6 +213,76 @@ public class CenterServiceImpl implements CenterService {
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<TutorOptionResponse> listTutors() {
+        requireCenter();
+        return tutorRepository.findAll().stream()
+                .map(t -> TutorOptionResponse.builder()
+                        .tutorId(t.getTutorId())
+                        .fullName(t.getFullName())
+                        .experienceYears(t.getExperienceYears())
+                        .ratingAvg(t.getRatingAvg())
+                        .verificationStatus(t.getVerificationStatus() == null
+                                ? null : t.getVerificationStatus().name())
+                        .phone(t.getPhone())
+                        .avatar(t.getAvatar())
+                        .bio(t.getBio())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public CenterClassResponse assignTutor(Long classId, Long tutorId) {
+        requireCenter();
+        TutoringClass tutoringClass = findClass(classId);
+        requireOwner(tutoringClass);
+        if (tutorId == null) {
+            throw new IllegalArgumentException("Vui lòng chọn gia sư");
+        }
+        Tutor tutor = tutorRepository
+                .findById(tutorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
+
+        // Kết thúc lượt gán cũ (nếu có) rồi tạo lượt gán mới.
+        classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .ifPresent(old -> {
+                    old.setStatus(ClassAssignmentStatus.TERMINATED);
+                    classAssignmentRepository.save(old);
+                });
+
+        // Liên kết lớp với gia sư qua tutor_applications (schema sẵn có, không cần cột class_id).
+        TutorApplication application = new TutorApplication();
+        application.setTutoringClass(tutoringClass);
+        application.setTutor(tutor);
+        application.setStatus(TutorApplicationStatus.ACCEPTED);
+        TutorApplication savedApp = tutorApplicationRepository.save(application);
+
+        ClassAssignment assignment = new ClassAssignment();
+        assignment.setApplication(savedApp);
+        assignment.setTutor(tutor);
+        assignment.setStatus(ClassAssignmentStatus.ACTIVE);
+        classAssignmentRepository.save(assignment);
+        return toClassResponse(tutoringClass);
+    }
+
+    @Override
+    @Transactional
+    public CenterClassResponse unassignTutor(Long classId) {
+        requireCenter();
+        TutoringClass tutoringClass = findClass(classId);
+        requireOwner(tutoringClass);
+        classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .ifPresent(a -> {
+                    a.setStatus(ClassAssignmentStatus.TERMINATED);
+                    classAssignmentRepository.save(a);
+                });
+        return toClassResponse(tutoringClass);
+    }
+
     private void validate(SaveClassRequest request, boolean isCreate) {
         // BR-01: các trường bắt buộc.
         if (!StringUtils.hasText(request.getTitle())) {
@@ -230,6 +309,10 @@ public class CenterServiceImpl implements CenterService {
         // BR-04: học phí là số dương.
         if (request.getTuitionFee() == null || request.getTuitionFee().signum() <= 0) {
             throw new IllegalArgumentException("Học phí phải là số dương");
+        }
+        // Số học sinh tối đa: số nguyên dương.
+        if (request.getMaxStudents() == null || request.getMaxStudents() <= 0) {
+            throw new IllegalArgumentException("Số học sinh tối đa phải là số nguyên dương");
         }
         // Ngày bắt đầu/kết thúc bắt buộc + BR-02.
         if (request.getStartDate() == null || request.getEndDate() == null) {
@@ -337,10 +420,15 @@ public class CenterServiceImpl implements CenterService {
         tutoringClass.setLocation(resolveOrCreateLocation(request.getLocationText()));
         tutoringClass.setLessonMode(request.getLessonMode());
         tutoringClass.setNumberOfSessions(computeSessions(request)); // tự tính, không tin giá trị client
-        tutoringClass.setRecurringType(request.getRecurringType());
+        // DB chỉ nhận ONCE/WEEKLY; "Hằng ngày" lưu dưới dạng WEEKLY (đã trải tiết ra mọi ngày trong khoảng).
+        tutoringClass.setRecurringType(
+                request.getRecurringType() == RecurringType.DAILY
+                        ? RecurringType.WEEKLY
+                        : request.getRecurringType());
         tutoringClass.setStartDate(request.getStartDate());
         tutoringClass.setEndDate(request.getEndDate());
         tutoringClass.setTuitionFee(request.getTuitionFee());
+        tutoringClass.setMaxStudents(request.getMaxStudents());
     }
 
     private void replaceScheduleSlots(TutoringClass tutoringClass, SaveClassRequest request) {
@@ -439,6 +527,9 @@ public class CenterServiceImpl implements CenterService {
     }
 
     private CenterClassResponse toClassResponse(TutoringClass c) {
+        ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                .orElse(null);
         List<ScheduleSlotResponse> schedule =
                 scheduleSlotRepository.findByTutoringClass_ClassId(c.getClassId()).stream()
                         .map(s -> ScheduleSlotResponse.builder()
@@ -469,10 +560,13 @@ public class CenterServiceImpl implements CenterService {
                 .startDate(c.getStartDate())
                 .endDate(c.getEndDate())
                 .tuitionFee(c.getTuitionFee())
+                .maxStudents(c.getMaxStudents())
                 .status(c.getStatus())
                 .createdAt(c.getCreatedAt())
                 .updatedAt(c.getUpdatedAt())
                 .schedule(schedule)
+                .assignedTutorId(assignment != null ? assignment.getTutor().getTutorId() : null)
+                .assignedTutorName(assignment != null ? assignment.getTutor().getFullName() : null)
                 .build();
     }
 

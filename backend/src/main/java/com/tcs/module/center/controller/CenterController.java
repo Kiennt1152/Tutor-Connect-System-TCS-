@@ -1,15 +1,18 @@
 package com.tcs.module.center.controller;
 
 import com.tcs.module.center.dto.request.ApplyRecruitmentRequest;
+import com.tcs.module.center.dto.request.AssignTutorRequest;
 import com.tcs.module.center.dto.request.CreateRecruitmentPostRequest;
 import com.tcs.module.center.dto.request.SaveClassRequest;
 import com.tcs.module.center.dto.response.CenterClassResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
+import com.tcs.module.center.dto.response.TutorOptionResponse;
 import com.tcs.module.center.service.CenterService;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -77,5 +80,21 @@ public class CenterController {
     @PostMapping("/classes/{classId}/publish")
     public CenterClassResponse publishClass(@PathVariable Long classId) {
         return centerService.publishClass(classId);
+    }
+
+    @GetMapping("/tutors")
+    public List<TutorOptionResponse> listTutors() {
+        return centerService.listTutors();
+    }
+
+    @PostMapping("/classes/{classId}/assign-tutor")
+    public CenterClassResponse assignTutor(
+            @PathVariable Long classId, @RequestBody AssignTutorRequest request) {
+        return centerService.assignTutor(classId, request.getTutorId());
+    }
+
+    @DeleteMapping("/classes/{classId}/assign-tutor")
+    public CenterClassResponse unassignTutor(@PathVariable Long classId) {
+        return centerService.unassignTutor(classId);
     }
 }
