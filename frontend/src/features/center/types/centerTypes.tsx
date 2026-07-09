@@ -1,5 +1,5 @@
 export type LessonMode = 'ONLINE' | 'OFFLINE' | 'HYBRID';
-export type RecurringType = 'ONCE' | 'WEEKLY';
+export type RecurringType = 'DAILY' | 'WEEKLY' | 'ONCE';
 export type ClassStatus =
   | 'DRAFT'
   | 'OPEN'

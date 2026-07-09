@@ -17,4 +17,7 @@ export const centerApi = {
   updateClass(classId: number, payload: SaveClassRequest) {
     return axiosClient.put<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}`, payload);
   },
+  publishClass(classId: number) {
+    return axiosClient.post<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/publish`);
+  },
 };

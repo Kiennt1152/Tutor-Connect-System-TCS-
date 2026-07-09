@@ -72,6 +72,8 @@ public class SecurityConfig {
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
                         // --- Marketplace mutations ---
+                        .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/register")
+                        .hasAnyRole(RbacConstants.TUTOR, RbacConstants.CLIENT)
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/apply")
                         .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/**")

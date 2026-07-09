@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface TutorApplicationRepository extends JpaRepository<TutorApplication, Long> {
+
+    boolean existsByTutoringClass_ClassIdAndTutor_TutorId(Long classId, Long tutorId);
 }

@@ -1,3 +1,32 @@
-export interface MarketplaceRequest {}
+export type LessonMode = 'ONLINE' | 'OFFLINE' | 'HYBRID';
+export type RecurringType = 'DAILY' | 'WEEKLY' | 'ONCE';
+export type ClassStatus =
+  | 'DRAFT'
+  | 'OPEN'
+  | 'MATCHED'
+  | 'ENROLLMENT_CLOSED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'DISPUTED';
 
-export interface MarketplaceResponse {}
+export interface MarketplaceClass {
+  classId: number;
+  title: string;
+  description: string | null;
+  creatorId: number;
+  creatorName: string | null;
+  subjectId: number | null;
+  subjectName: string | null;
+  gradeId: number | null;
+  gradeName: string | null;
+  lessonMode: LessonMode;
+  numberOfSessions: number;
+  startDate: string;
+  endDate: string;
+  tuitionFee: number;
+  budget: number | null;
+  recurringType: RecurringType;
+  status: ClassStatus;
+  createdAt: string;
+}

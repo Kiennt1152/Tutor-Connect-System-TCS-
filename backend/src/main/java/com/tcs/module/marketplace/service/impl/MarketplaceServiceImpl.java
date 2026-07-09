@@ -16,11 +16,14 @@ import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
+import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.FavoriteTutor;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.TutorApplicationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
+import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.marketplace.repository.FavoriteTutorRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
@@ -49,6 +52,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final TutorRepository tutorRepository;
     private final TutoringClassRepository tutoringClassRepository;
     private final TutorApplicationRepository tutorApplicationRepository;
+    private final ClassStudentRepository classStudentRepository;
     private final FavoriteTutorRepository favoriteTutorRepository;
     private final CategoryRepository categoryRepository;
     private final SubjectRepository subjectRepository;
@@ -122,6 +126,52 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         application.setCoverLetter(request.getCoverLetter());
         application.setStatus(TutorApplicationStatus.SUBMITTED);
         tutorApplicationRepository.save(application);
+    }
+
+    @Override
+    @Transactional
+    public void registerToClass(Long classId) {
+        User user = requireUser();
+        TutoringClass tutoringClass = findClass(classId);
+        if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
+            throw new IllegalArgumentException("Lớp chưa mở đăng ký");
+        }
+        Long userId = user.getUserId();
+
+        // Gia sư -> nộp đơn dạy.
+        Tutor tutor = tutorRepository.findByUser_UserId(userId).orElse(null);
+        if (tutor != null) {
+            if (tutorApplicationRepository
+                    .existsByTutoringClass_ClassIdAndTutor_TutorId(classId, tutor.getTutorId())) {
+                throw new IllegalArgumentException("Bạn đã đăng ký lớp này rồi");
+            }
+            TutorApplication application = new TutorApplication();
+            application.setTutoringClass(tutoringClass);
+            application.setTutor(tutor);
+            application.setStatus(TutorApplicationStatus.SUBMITTED);
+            tutorApplicationRepository.save(application);
+            return;
+        }
+
+        // Phụ huynh/học viên -> ghi danh.
+        Client client = clientRepository.findByUser_UserId(userId).orElse(null);
+        if (client != null) {
+            if (classStudentRepository
+                    .existsByTutoringClass_ClassIdAndEnrolledByUser_UserId(classId, userId)) {
+                throw new IllegalArgumentException("Bạn đã đăng ký lớp này rồi");
+            }
+            ClassStudent student = new ClassStudent();
+            student.setTutoringClass(tutoringClass);
+            student.setEnrolledByUser(user);
+            student.setStudentName(client.getFullName());
+            student.setStudentPhone(client.getPhone());
+            student.setStudentEmail(user.getEmail());
+            student.setStatus(ClassStudentStatus.ENROLLED);
+            classStudentRepository.save(student);
+            return;
+        }
+
+        throw new ForbiddenException("Chỉ gia sư hoặc phụ huynh/học viên mới đăng ký lớp");
     }
 
     @Override

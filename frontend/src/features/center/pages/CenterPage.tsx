@@ -42,11 +42,20 @@ const LESSON_MODE_LABELS: Record<LessonMode, string> = {
   OFFLINE: 'Trực tiếp',
   HYBRID: 'Kết hợp',
 };
-const RECURRING_TYPES: RecurringType[] = ['ONCE', 'WEEKLY'];
+const RECURRING_TYPES: RecurringType[] = ['DAILY', 'WEEKLY'];
 const RECURRING_LABELS: Record<RecurringType, string> = {
-  ONCE: 'Một lần',
+  DAILY: 'Hằng ngày',
   WEEKLY: 'Hằng tuần',
+  ONCE: 'Một lần',
 };
+
+function todayStr(): string {
+  const d = new Date();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${d.getFullYear()}-${m}-${day}`;
+}
+const TODAY = todayStr();
 
 interface SlotForm {
   dayOfWeek: number;
@@ -64,7 +73,6 @@ interface FormState {
   locationText: string;
   lessonMode: LessonMode;
   recurringType: RecurringType;
-  numberOfSessions: string;
   tuitionFee: string;
   startDate: string;
   endDate: string;
@@ -81,7 +89,6 @@ const EMPTY_FORM: FormState = {
   locationText: '',
   lessonMode: 'OFFLINE',
   recurringType: 'WEEKLY',
-  numberOfSessions: '1',
   tuitionFee: '',
   startDate: '',
   endDate: '',
@@ -98,6 +105,23 @@ function extractError(error: unknown, fallback: string): string {
 function toFormState(c: ClassResponse): FormState {
   const gradeName = c.gradeName ?? '';
   const isKnownGrade = GRADE_OPTIONS.includes(gradeName);
+  // Dữ liệu cũ 'ONCE' xem như Hằng tuần trong form.
+  const recurring: RecurringType = c.recurringType === 'ONCE' ? 'WEEKLY' : c.recurringType;
+  let schedule = c.schedule.map((s) => ({
+    dayOfWeek: s.dayOfWeek,
+    startTime: s.startTime.slice(0, 5),
+    endTime: s.endTime.slice(0, 5),
+  }));
+  // Hằng ngày: DB lưu tiết lặp cho mọi thứ -> gộp lại theo (giờ bắt đầu–kết thúc) để hiện đúng.
+  if (recurring === 'DAILY') {
+    const seen = new Set<string>();
+    schedule = schedule.filter((s) => {
+      const key = `${s.startTime}-${s.endTime}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
   return {
     title: c.title,
     description: c.description ?? '',
@@ -107,17 +131,50 @@ function toFormState(c: ClassResponse): FormState {
     gradeCustom: isKnownGrade ? '' : gradeName,
     locationText: c.locationText ?? '',
     lessonMode: c.lessonMode,
-    recurringType: c.recurringType,
-    numberOfSessions: String(c.numberOfSessions),
+    recurringType: recurring,
     tuitionFee: String(c.tuitionFee),
     startDate: c.startDate,
     endDate: c.endDate,
-    schedule: c.schedule.map((s) => ({
-      dayOfWeek: s.dayOfWeek,
-      startTime: s.startTime.slice(0, 5),
-      endTime: s.endTime.slice(0, 5),
-    })),
+    schedule,
   };
+}
+
+// Tập các thứ (1=Thứ Hai..7=Chủ Nhật) xuất hiện trong khoảng ngày đã chọn.
+function allowedDaysInRange(start: string, end: string): Set<number> {
+  if (!start || !end || end < start) return new Set([1, 2, 3, 4, 5, 6, 7]);
+  const set = new Set<number>();
+  const e = new Date(`${end}T00:00:00`);
+  for (let d = new Date(`${start}T00:00:00`); d <= e && set.size < 7; d.setDate(d.getDate() + 1)) {
+    set.add(((d.getDay() + 6) % 7) + 1);
+  }
+  return set;
+}
+
+function daysInRange(start: string, end: string): number {
+  const s = new Date(`${start}T00:00:00`).getTime();
+  const e = new Date(`${end}T00:00:00`).getTime();
+  return Math.floor((e - s) / 86400000) + 1;
+}
+
+// Số buổi tự tính: DAILY = số ngày × số tiết/ngày; WEEKLY đếm mọi lần lặp; ONCE mỗi khung một lần.
+function countSessions(form: FormState): number {
+  const { startDate, endDate, schedule, recurringType } = form;
+  if (!startDate || !endDate || endDate < startDate || schedule.length === 0) return 0;
+  if (recurringType === 'DAILY') return daysInRange(startDate, endDate) * schedule.length;
+  const allowed = allowedDaysInRange(startDate, endDate);
+  const valid = schedule.filter((s) => allowed.has(s.dayOfWeek));
+  if (recurringType === 'ONCE') return valid.length;
+  let count = 0;
+  const e = new Date(`${endDate}T00:00:00`);
+  for (let d = new Date(`${startDate}T00:00:00`); d <= e; d.setDate(d.getDate() + 1)) {
+    const iso = ((d.getDay() + 6) % 7) + 1;
+    count += valid.filter((sl) => sl.dayOfWeek === iso).length;
+  }
+  return count;
+}
+
+function dayLabel(value: number): string {
+  return DAYS.find((d) => d.value === value)?.label ?? `Thứ ${value}`;
 }
 
 function buildPayload(form: FormState): SaveClassRequest {
@@ -132,7 +189,7 @@ function buildPayload(form: FormState): SaveClassRequest {
     locationText: form.locationText.trim(),
     lessonMode: form.lessonMode,
     recurringType: form.recurringType,
-    numberOfSessions: num(form.numberOfSessions),
+    numberOfSessions: countSessions(form),
     tuitionFee: num(form.tuitionFee),
     startDate: form.startDate || null,
     endDate: form.endDate || null,
@@ -150,7 +207,6 @@ type FieldKey =
   | 'subjectName'
   | 'grade'
   | 'locationText'
-  | 'numberOfSessions'
   | 'tuitionFee'
   | 'startDate'
   | 'endDate';
@@ -160,9 +216,10 @@ interface FormErrors {
   slots: Record<number, string>;
 }
 
-function validateForm(form: FormState): FormErrors {
+function validateForm(form: FormState, isCreate: boolean): FormErrors {
   const fields: Partial<Record<FieldKey, string>> = {};
   const slots: Record<number, string> = {};
+  const daily = form.recurringType === 'DAILY';
 
   if (!form.title.trim()) fields.title = 'Tiêu đề là bắt buộc';
   if (!form.categoryName.trim()) fields.categoryName = 'Danh mục là bắt buộc';
@@ -171,32 +228,42 @@ function validateForm(form: FormState): FormErrors {
     fields.grade = 'Vui lòng nhập khối/lớp';
   if (!form.locationText.trim()) fields.locationText = 'Địa điểm là bắt buộc';
 
-  const sessions = Number(form.numberOfSessions);
-  if (!form.numberOfSessions.trim() || !Number.isInteger(sessions) || sessions <= 0)
-    fields.numberOfSessions = 'Số buổi học phải là số nguyên dương';
-
   const fee = Number(form.tuitionFee);
   if (!form.tuitionFee.trim() || Number.isNaN(fee) || fee <= 0)
     fields.tuitionFee = 'Học phí phải là số dương';
 
   if (!form.startDate) fields.startDate = 'Ngày bắt đầu là bắt buộc';
+  else if (isCreate && form.startDate < TODAY)
+    fields.startDate = 'Ngày bắt đầu phải từ hôm nay trở đi';
   if (!form.endDate) fields.endDate = 'Ngày kết thúc là bắt buộc';
   else if (form.startDate && form.endDate <= form.startDate)
     fields.endDate = 'Ngày kết thúc phải sau ngày bắt đầu';
 
+  const allowed = allowedDaysInRange(form.startDate, form.endDate);
   form.schedule.forEach((s, i) => {
-    if (!s.startTime || !s.endTime || s.endTime <= s.startTime)
+    if (!s.startTime || !s.endTime || s.endTime <= s.startTime) {
       slots[i] = 'Giờ kết thúc phải sau giờ bắt đầu';
+      return;
+    }
+    // Hằng tuần: thứ phải nằm trong khoảng ngày. Hằng ngày: không cần thứ.
+    if (!daily && !allowed.has(s.dayOfWeek))
+      slots[i] = 'Ngày học không nằm trong khoảng ngày bắt đầu–kết thúc';
   });
 
-  // Không cho hai khung trùng/chồng giờ trong cùng một ngày.
+  // Chống trùng/chồng giờ: DAILY so mọi tiết; WEEKLY so trong cùng một thứ.
   for (let i = 0; i < form.schedule.length; i++) {
     if (slots[i]) continue;
     for (let j = 0; j < i; j++) {
       if (slots[j]) continue;
       const a = form.schedule[i];
       const b = form.schedule[j];
-      if (a.dayOfWeek === b.dayOfWeek && a.startTime < b.endTime && b.startTime < a.endTime) {
+      const timeOverlap = a.startTime < b.endTime && b.startTime < a.endTime;
+      if (!timeOverlap) continue;
+      if (daily) {
+        slots[i] = 'Tiết bị trùng/chồng giờ với tiết khác';
+        break;
+      }
+      if (a.dayOfWeek === b.dayOfWeek) {
         slots[i] = 'Khung lịch bị trùng/chồng giờ với khung khác cùng ngày';
         break;
       }
@@ -222,7 +289,13 @@ export default function CenterPage() {
   const [formError, setFormError] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
-  const errors = useMemo(() => validateForm(form), [form]);
+  const errors = useMemo(() => validateForm(form, editingId == null), [form, editingId]);
+  const sessionCount = useMemo(() => countSessions(form), [form]);
+  const allowedDays = useMemo(
+    () => allowedDaysInRange(form.startDate, form.endDate),
+    [form.startDate, form.endDate],
+  );
+  const isDaily = form.recurringType === 'DAILY';
 
   const reloadList = () => {
     setListLoading(true);
@@ -256,6 +329,16 @@ export default function CenterPage() {
       setMode('form');
     } catch (err) {
       setListError(extractError(err, 'Không mở được lớp học để chỉnh sửa.'));
+    }
+  };
+
+  const publish = async (classId: number) => {
+    setListError('');
+    try {
+      await centerApi.publishClass(classId);
+      reloadList();
+    } catch (err) {
+      setListError(extractError(err, 'Không đăng tải được lớp học.'));
     }
   };
 
@@ -364,17 +447,28 @@ export default function CenterPage() {
                         </span>
                       </td>
                       <td>
-                        {canEditStatus(c.status) ? (
-                          <button
-                            className="cc-btn cc-btn--sm"
-                            type="button"
-                            onClick={() => openEdit(c.classId)}
-                          >
-                            Sửa
-                          </button>
-                        ) : (
-                          <span className="cc-muted">Không sửa được</span>
-                        )}
+                        <div className="cc-row-actions">
+                          {canEditStatus(c.status) ? (
+                            <button
+                              className="cc-btn cc-btn--sm"
+                              type="button"
+                              onClick={() => openEdit(c.classId)}
+                            >
+                              Sửa
+                            </button>
+                          ) : (
+                            <span className="cc-muted">Không sửa được</span>
+                          )}
+                          {c.status === 'DRAFT' && (
+                            <button
+                              className="cc-btn cc-btn--primary cc-btn--sm"
+                              type="button"
+                              onClick={() => publish(c.classId)}
+                            >
+                              Đăng tải
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -490,6 +584,21 @@ export default function CenterPage() {
             </label>
 
             <label className="cc-field">
+              <span className="cc-label">Học phí (VND) *</span>
+              <input
+                className={errClass('tuitionFee')}
+                type="number"
+                min={0}
+                value={form.tuitionFee}
+                onChange={(e) => patch({ tuitionFee: e.target.value })}
+                placeholder="VD: 500000"
+              />
+              {errText('tuitionFee')}
+            </label>
+          </div>
+
+          <div className="cc-grid cc-grid--after-schedule">
+            <label className="cc-field">
               <span className="cc-label">Kiểu lặp lịch *</span>
               <select
                 className="cc-input"
@@ -504,36 +613,14 @@ export default function CenterPage() {
               </select>
             </label>
 
-            <label className="cc-field">
-              <span className="cc-label">Số buổi học *</span>
-              <input
-                className={errClass('numberOfSessions')}
-                type="number"
-                min={1}
-                value={form.numberOfSessions}
-                onChange={(e) => patch({ numberOfSessions: e.target.value })}
-              />
-              {errText('numberOfSessions')}
-            </label>
-
-            <label className="cc-field">
-              <span className="cc-label">Học phí (VND) *</span>
-              <input
-                className={errClass('tuitionFee')}
-                type="number"
-                min={0}
-                value={form.tuitionFee}
-                onChange={(e) => patch({ tuitionFee: e.target.value })}
-                placeholder="VD: 500000"
-              />
-              {errText('tuitionFee')}
-            </label>
+            <div />
 
             <label className="cc-field">
               <span className="cc-label">Ngày bắt đầu *</span>
               <input
                 className={errClass('startDate')}
                 type="date"
+                min={editingId == null ? TODAY : undefined}
                 value={form.startDate}
                 onChange={(e) => patch({ startDate: e.target.value })}
               />
@@ -545,6 +632,7 @@ export default function CenterPage() {
               <input
                 className={errClass('endDate')}
                 type="date"
+                min={form.startDate || TODAY}
                 value={form.endDate}
                 onChange={(e) => patch({ endDate: e.target.value })}
               />
@@ -554,28 +642,35 @@ export default function CenterPage() {
 
           <div className="cc-schedule">
             <div className="cc-schedule__head">
-              <span className="cc-label">Lịch học (ít nhất 1 khung) *</span>
+              <span className="cc-label">
+                {isDaily ? 'Các tiết trong ngày (ít nhất 1) *' : 'Lịch học (ít nhất 1 khung) *'}
+              </span>
               <button className="cc-btn cc-btn--sm" type="button" onClick={addSlot}>
-                + Thêm khung
+                {isDaily ? '+ Thêm tiết' : '+ Thêm khung'}
               </button>
             </div>
             {form.schedule.map((slot, index) => {
               const slotError = submitted ? errors.slots[index] : undefined;
               const timeClass = `cc-input${slotError ? ' cc-input--error' : ''}`;
+              const dayOptions = DAYS.filter((d) => allowedDays.has(d.value));
+              if (!allowedDays.has(slot.dayOfWeek))
+                dayOptions.push({ value: slot.dayOfWeek, label: `${dayLabel(slot.dayOfWeek)} (ngoài phạm vi)` });
               return (
                 <div className="cc-slot-row" key={index}>
                   <div className="cc-slot">
-                    <select
-                      className="cc-input"
-                      value={slot.dayOfWeek}
-                      onChange={(e) => updateSlot(index, { dayOfWeek: Number(e.target.value) })}
-                    >
-                      {DAYS.map((d) => (
-                        <option key={d.value} value={d.value}>
-                          {d.label}
-                        </option>
-                      ))}
-                    </select>
+                    {!isDaily && (
+                      <select
+                        className={`cc-input${slotError ? ' cc-input--error' : ''}`}
+                        value={slot.dayOfWeek}
+                        onChange={(e) => updateSlot(index, { dayOfWeek: Number(e.target.value) })}
+                      >
+                        {dayOptions.map((d) => (
+                          <option key={d.value} value={d.value}>
+                            {d.label}
+                          </option>
+                        ))}
+                      </select>
+                    )}
                     <input
                       className={timeClass}
                       type="time"
@@ -602,6 +697,19 @@ export default function CenterPage() {
                 </div>
               );
             })}
+            <p className="cc-hint">
+              {isDaily
+                ? 'Các tiết áp dụng cho mọi ngày trong khoảng đã chọn.'
+                : 'Chỉ chọn được các thứ nằm trong khoảng ngày bắt đầu–kết thúc.'}
+            </p>
+          </div>
+
+          <div className="cc-grid cc-grid--after-schedule">
+            <label className="cc-field">
+              <span className="cc-label">Số buổi học</span>
+              <input className="cc-input cc-input--readonly" value={sessionCount} readOnly />
+              <span className="cc-hint">Tổng số buổi theo lịch trong khoảng ngày đã chọn.</span>
+            </label>
           </div>
 
           <div className="cc-form-foot">

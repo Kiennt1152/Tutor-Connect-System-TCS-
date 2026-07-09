@@ -25,4 +25,7 @@ public interface CenterService {
     CenterClassResponse createClass(SaveClassRequest request);
 
     CenterClassResponse updateClass(Long classId, SaveClassRequest request);
+
+    /** Đăng tải lớp (DRAFT -> OPEN) để hiển thị ở "Tìm lớp". */
+    CenterClassResponse publishClass(Long classId);
 }

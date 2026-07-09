@@ -32,15 +32,21 @@ import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.ClassType;
+import com.tcs.module.marketplace.enums.RecurringType;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -152,7 +158,7 @@ public class CenterServiceImpl implements CenterService {
     @Transactional
     public CenterClassResponse createClass(SaveClassRequest request) {
         TutorCenter center = requireCenter();
-        validate(request);
+        validate(request, true);
 
         TutoringClass tutoringClass = new TutoringClass();
         tutoringClass.setCreator(center.getUser());
@@ -162,7 +168,7 @@ public class CenterServiceImpl implements CenterService {
         applyFields(tutoringClass, request);
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
 
-        replaceScheduleSlots(saved, request.getSchedule());
+        replaceScheduleSlots(saved, request);
         return toClassResponse(saved);
     }
 
@@ -177,15 +183,28 @@ public class CenterServiceImpl implements CenterService {
                 && tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Lớp học này không thể chỉnh sửa nữa.");
         }
-        validate(request);
+        validate(request, false);
         applyFields(tutoringClass, request);
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
 
-        replaceScheduleSlots(saved, request.getSchedule());
+        replaceScheduleSlots(saved, request);
         return toClassResponse(saved);
     }
 
-    private void validate(SaveClassRequest request) {
+    @Override
+    @Transactional
+    public CenterClassResponse publishClass(Long classId) {
+        requireCenter();
+        TutoringClass tutoringClass = findClass(classId);
+        requireOwner(tutoringClass); // BR-07 / AF-04
+        if (tutoringClass.getStatus() != TutoringClassStatus.DRAFT) {
+            throw new IllegalArgumentException("Chỉ lớp ở trạng thái nháp mới có thể đăng tải");
+        }
+        tutoringClass.setStatus(TutoringClassStatus.OPEN);
+        return toClassResponse(tutoringClassRepository.save(tutoringClass));
+    }
+
+    private void validate(SaveClassRequest request, boolean isCreate) {
         // BR-01: các trường bắt buộc.
         if (!StringUtils.hasText(request.getTitle())) {
             throw new IllegalArgumentException("Tiêu đề là bắt buộc");
@@ -208,10 +227,6 @@ public class CenterServiceImpl implements CenterService {
         if (request.getRecurringType() == null) {
             throw new IllegalArgumentException("Kiểu lặp lịch là bắt buộc");
         }
-        // BR-03: số buổi là số nguyên dương.
-        if (request.getNumberOfSessions() == null || request.getNumberOfSessions() <= 0) {
-            throw new IllegalArgumentException("Số buổi học phải là số nguyên dương");
-        }
         // BR-04: học phí là số dương.
         if (request.getTuitionFee() == null || request.getTuitionFee().signum() <= 0) {
             throw new IllegalArgumentException("Học phí phải là số dương");
@@ -220,6 +235,10 @@ public class CenterServiceImpl implements CenterService {
         if (request.getStartDate() == null || request.getEndDate() == null) {
             throw new IllegalArgumentException("Ngày bắt đầu và ngày kết thúc là bắt buộc");
         }
+        // Khi tạo mới: ngày bắt đầu không được ở quá khứ.
+        if (isCreate && request.getStartDate().isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Ngày bắt đầu phải từ hôm nay trở đi");
+        }
         if (!request.getEndDate().isAfter(request.getStartDate())) {
             throw new IllegalArgumentException("Ngày kết thúc phải sau ngày bắt đầu");
         }
@@ -227,29 +246,85 @@ public class CenterServiceImpl implements CenterService {
         if (request.getSchedule() == null || request.getSchedule().isEmpty()) {
             throw new IllegalArgumentException("Cần ít nhất một khung lịch học");
         }
+        boolean daily = request.getRecurringType() == RecurringType.DAILY;
         List<ScheduleSlotRequest> slots = request.getSchedule();
         for (ScheduleSlotRequest slot : slots) {
-            if (slot.getDayOfWeek() == null || slot.getDayOfWeek() < 1 || slot.getDayOfWeek() > 7) {
-                throw new IllegalArgumentException("Thứ trong tuần của khung lịch không hợp lệ (1-7)");
-            }
             if (slot.getStartTime() == null || slot.getEndTime() == null
                     || !slot.getEndTime().isAfter(slot.getStartTime())) {
                 throw new IllegalArgumentException("Giờ kết thúc của khung lịch phải sau giờ bắt đầu");
             }
+            // Hằng ngày: không cần thứ; Hằng tuần: bắt buộc thứ 1-7.
+            if (!daily && (slot.getDayOfWeek() == null || slot.getDayOfWeek() < 1 || slot.getDayOfWeek() > 7)) {
+                throw new IllegalArgumentException("Thứ trong tuần của khung lịch không hợp lệ (1-7)");
+            }
         }
-        // Không cho hai khung trùng/chồng giờ trong cùng một ngày.
+        // Chống trùng/chồng giờ: DAILY so mọi tiết (áp cho mọi ngày); WEEKLY so trong cùng một thứ.
         for (int i = 0; i < slots.size(); i++) {
             for (int j = i + 1; j < slots.size(); j++) {
                 ScheduleSlotRequest a = slots.get(i);
                 ScheduleSlotRequest b = slots.get(j);
-                if (a.getDayOfWeek().equals(b.getDayOfWeek())
-                        && a.getStartTime().isBefore(b.getEndTime())
-                        && b.getStartTime().isBefore(a.getEndTime())) {
+                boolean timeOverlap = a.getStartTime().isBefore(b.getEndTime())
+                        && b.getStartTime().isBefore(a.getEndTime());
+                if (!timeOverlap) {
+                    continue;
+                }
+                if (daily) {
+                    throw new IllegalArgumentException("Các tiết trong ngày bị trùng/chồng giờ");
+                }
+                if (a.getDayOfWeek().equals(b.getDayOfWeek())) {
                     throw new IllegalArgumentException(
                             "Lịch học bị trùng/chồng giờ giữa các khung trong cùng một ngày");
                 }
             }
         }
+        // Hằng tuần: các thứ đã chọn phải nằm trong khoảng ngày bắt đầu–kết thúc.
+        if (!daily) {
+            Set<Integer> allowedDays = weekdaysInRange(request.getStartDate(), request.getEndDate());
+            for (ScheduleSlotRequest slot : slots) {
+                if (!allowedDays.contains(slot.getDayOfWeek())) {
+                    throw new IllegalArgumentException(
+                            "Lịch học phải nằm trong khoảng ngày bắt đầu và ngày kết thúc");
+                }
+            }
+        }
+    }
+
+    /** Tập các thứ (1=T2..7=CN) xuất hiện trong khoảng ngày [start, end]. */
+    private Set<Integer> weekdaysInRange(LocalDate start, LocalDate end) {
+        Set<Integer> days = new HashSet<>();
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            days.add(d.getDayOfWeek().getValue());
+            if (days.size() == 7) {
+                break;
+            }
+        }
+        return days;
+    }
+
+    /**
+     * Số buổi học tự tính theo lịch trong khoảng ngày.
+     * DAILY: (số ngày trong khoảng) × (số tiết/ngày); WEEKLY: đếm mọi lần lặp theo thứ; ONCE: mỗi khung một lần.
+     */
+    private int computeSessions(SaveClassRequest request) {
+        List<ScheduleSlotRequest> slots = request.getSchedule();
+        RecurringType type = request.getRecurringType();
+        if (type == RecurringType.ONCE) {
+            return slots.size();
+        }
+        if (type == RecurringType.DAILY) {
+            long days = ChronoUnit.DAYS.between(request.getStartDate(), request.getEndDate()) + 1;
+            return (int) days * slots.size();
+        }
+        int count = 0;
+        for (LocalDate d = request.getStartDate(); !d.isAfter(request.getEndDate()); d = d.plusDays(1)) {
+            int iso = d.getDayOfWeek().getValue();
+            for (ScheduleSlotRequest slot : slots) {
+                if (slot.getDayOfWeek() != null && slot.getDayOfWeek() == iso) {
+                    count++;
+                }
+            }
+        }
+        return count;
     }
 
     private void applyFields(TutoringClass tutoringClass, SaveClassRequest request) {
@@ -261,32 +336,47 @@ public class CenterServiceImpl implements CenterService {
         tutoringClass.setGrade(resolveOrCreateGrade(request.getGradeName()));
         tutoringClass.setLocation(resolveOrCreateLocation(request.getLocationText()));
         tutoringClass.setLessonMode(request.getLessonMode());
-        tutoringClass.setNumberOfSessions(request.getNumberOfSessions());
+        tutoringClass.setNumberOfSessions(computeSessions(request)); // tự tính, không tin giá trị client
         tutoringClass.setRecurringType(request.getRecurringType());
         tutoringClass.setStartDate(request.getStartDate());
         tutoringClass.setEndDate(request.getEndDate());
         tutoringClass.setTuitionFee(request.getTuitionFee());
     }
 
-    private void replaceScheduleSlots(TutoringClass tutoringClass, List<ScheduleSlotRequest> slots) {
+    private void replaceScheduleSlots(TutoringClass tutoringClass, SaveClassRequest request) {
         List<ScheduleSlot> existing =
                 scheduleSlotRepository.findByTutoringClass_ClassId(tutoringClass.getClassId());
         if (!existing.isEmpty()) {
             scheduleSlotRepository.deleteAll(existing);
         }
-        if (slots == null) {
+        List<ScheduleSlotRequest> reqSlots = request.getSchedule();
+        if (reqSlots == null) {
             return;
         }
         List<ScheduleSlot> toSave = new ArrayList<>();
-        for (ScheduleSlotRequest req : slots) {
-            ScheduleSlot slot = new ScheduleSlot();
-            slot.setTutoringClass(tutoringClass);
-            slot.setDayOfWeek(req.getDayOfWeek());
-            slot.setStartTime(req.getStartTime());
-            slot.setEndTime(req.getEndTime());
-            toSave.add(slot);
+        if (request.getRecurringType() == RecurringType.DAILY) {
+            // Hằng ngày: mỗi tiết được áp cho tất cả các thứ có trong khoảng ngày.
+            Set<Integer> days = weekdaysInRange(request.getStartDate(), request.getEndDate());
+            for (ScheduleSlotRequest req : reqSlots) {
+                for (Integer day : days) {
+                    toSave.add(newSlot(tutoringClass, day, req.getStartTime(), req.getEndTime()));
+                }
+            }
+        } else {
+            for (ScheduleSlotRequest req : reqSlots) {
+                toSave.add(newSlot(tutoringClass, req.getDayOfWeek(), req.getStartTime(), req.getEndTime()));
+            }
         }
         scheduleSlotRepository.saveAll(toSave);
+    }
+
+    private ScheduleSlot newSlot(TutoringClass tutoringClass, Integer day, LocalTime start, LocalTime end) {
+        ScheduleSlot slot = new ScheduleSlot();
+        slot.setTutoringClass(tutoringClass);
+        slot.setDayOfWeek(day);
+        slot.setStartTime(start);
+        slot.setEndTime(end);
+        return slot;
     }
 
     private void requireOwner(TutoringClass tutoringClass) {

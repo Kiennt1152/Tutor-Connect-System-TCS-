@@ -73,4 +73,9 @@ public class CenterController {
             @PathVariable Long classId, @RequestBody SaveClassRequest request) {
         return centerService.updateClass(classId, request);
     }
+
+    @PostMapping("/classes/{classId}/publish")
+    public CenterClassResponse publishClass(@PathVariable Long classId) {
+        return centerService.publishClass(classId);
+    }
 }
