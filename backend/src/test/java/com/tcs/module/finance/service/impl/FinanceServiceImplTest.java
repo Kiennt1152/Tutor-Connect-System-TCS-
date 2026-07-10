@@ -193,7 +193,7 @@ class FinanceServiceImplTest {
     }
 
     @Test
-    @DisplayName("createWithdrawal debits wallet and creates a pending withdrawal request")
+    @DisplayName("createWithdrawal locks wallet funds and creates a pending withdrawal request")
     void createWithdrawalCreatesPendingRequest() {
         CreateWithdrawalRequest request = new CreateWithdrawalRequest();
         request.setAmount(new BigDecimal("100000.00"));
@@ -210,6 +210,7 @@ class FinanceServiceImplTest {
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
         when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), any())).thenReturn(wallet);
         when(paymentMethodRepository.save(any(PaymentMethod.class))).thenReturn(savedMethod);
         when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -236,7 +237,7 @@ class FinanceServiceImplTest {
         assertEquals(PaymentTransactionType.WITHDRAWAL, tx.getType());
         assertEquals(PaymentTransactionStatus.PENDING, tx.getStatus());
         assertEquals(savedMethod, tx.getPaymentMethod());
-        verify(walletService).debit(eq(USER_ID), eq(new BigDecimal("100000.00")), eq(tx.getReferenceCode()));
+        verify(walletService).lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), eq(tx.getReferenceCode()));
 
         ArgumentCaptor<WithdrawalRequest> withdrawalCaptor = ArgumentCaptor.forClass(WithdrawalRequest.class);
         verify(withdrawalRequestRepository).save(withdrawalCaptor.capture());
@@ -261,6 +262,7 @@ class FinanceServiceImplTest {
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
         when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), any())).thenReturn(wallet);
         when(paymentMethodRepository.findById(3L)).thenReturn(Optional.of(paymentMethod));
         when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -269,7 +271,7 @@ class FinanceServiceImplTest {
         financeService.createWithdrawal(request);
 
         verify(paymentMethodRepository, never()).save(any());
-        verify(walletService).debit(eq(USER_ID), eq(new BigDecimal("100000.00")), any());
+        verify(walletService).lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), any());
     }
 
     @Test
@@ -281,7 +283,7 @@ class FinanceServiceImplTest {
 
         assertThrows(IllegalArgumentException.class, () -> financeService.createWithdrawal(request));
         verifyNoInteractions(withdrawalRequestRepository);
-        verify(walletService, never()).debit(any(), any(), any());
+        verify(walletService, never()).lockFunds(any(), any(), any());
     }
 
     @Test

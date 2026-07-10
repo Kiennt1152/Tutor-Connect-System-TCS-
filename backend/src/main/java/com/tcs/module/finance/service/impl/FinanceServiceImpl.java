@@ -203,8 +203,7 @@ public class FinanceServiceImpl implements FinanceService {
         PaymentMethod paymentMethod = resolveWithdrawalMethod(wallet, request);
         String referenceCode = "WITHDRAW-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
-        walletService.debit(userId, request.getAmount(), referenceCode);
-        Wallet updatedWallet = walletService.getOrCreate(userId);
+        Wallet updatedWallet = walletService.lockFunds(userId, request.getAmount(), referenceCode);
 
         PaymentTransaction tx = new PaymentTransaction();
         tx.setWallet(updatedWallet);

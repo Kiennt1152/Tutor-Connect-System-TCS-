@@ -419,6 +419,9 @@
   border-radius: var(--radius-lg);
   width: 100%;
   max-width: 440px;
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
   box-shadow: var(--shadow-lg);
   overflow: hidden;
 }
@@ -428,6 +431,7 @@
 }
 
 .modal__header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -464,13 +468,16 @@
 }
 
 .modal__body {
+  min-height: 0;
   padding: var(--space-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-md);
+  overflow-y: auto;
 }
 
 .modal__footer {
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   gap: var(--space-sm);
@@ -552,6 +559,17 @@
   color: var(--color-text-disabled);
 }
 
+.form-input[type="number"] {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+.form-input[type="number"]::-webkit-outer-spin-button,
+.form-input[type="number"]::-webkit-inner-spin-button {
+  margin: 0;
+  -webkit-appearance: none;
+}
+
 .form-error {
   color: var(--color-error);
   font-size: var(--fs-body-sm);
@@ -593,6 +611,255 @@
   padding: var(--space-xs) var(--space-sm);
   background: var(--color-success-light);
   border-radius: var(--radius-sm);
+}
+
+.withdrawal-presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+  gap: var(--space-sm);
+}
+
+.withdrawal-preset {
+  min-height: 36px;
+  padding: 0 var(--space-sm);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--fs-body-sm);
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, background-color 0.15s, color 0.15s;
+}
+
+.withdrawal-preset:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.withdrawal-preset--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.bank-select-field {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-xs) var(--space-md);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s, box-shadow 0.15s, background-color 0.15s;
+}
+
+.bank-select-field:hover,
+.bank-select-field:focus-visible {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+  outline: none;
+}
+
+.bank-select-field--selected {
+  background: var(--color-surface-3);
+}
+
+.bank-select-field__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bank-select-field__text strong {
+  font-size: var(--fs-body-sm);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-select-field__text small {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-caption);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-select-field__placeholder {
+  color: var(--color-text-disabled);
+  font-size: var(--fs-body-md);
+}
+
+.bank-select-field__arrow {
+  margin-left: auto;
+  color: var(--color-text-secondary);
+  font-size: 18px;
+  line-height: 1;
+}
+
+.bank-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-md);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.bank-dialog {
+  width: min(100%, 580px);
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+}
+
+.bank-dialog__header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.bank-dialog__header h3 {
+  margin: 0;
+  font-size: var(--fs-h4);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.bank-dialog__body {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  overflow-y: auto;
+}
+
+.bank-dialog .bank-list {
+  max-height: min(52vh, 360px);
+}
+
+.bank-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(172px, 1fr));
+  gap: var(--space-sm);
+  max-height: 242px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.bank-option {
+  min-width: 0;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+
+.bank-option:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+}
+
+.bank-option--active {
+  border-color: var(--color-primary);
+  background: var(--color-primary-light);
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.12);
+}
+
+.bank-logo {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--bank-color, var(--color-primary)) 12%, #fff);
+  border: 1px solid color-mix(in srgb, var(--bank-color, var(--color-primary)) 28%, var(--color-border));
+  overflow: hidden;
+}
+
+.bank-logo span {
+  color: var(--bank-color, var(--color-primary));
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.bank-logo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 5px;
+  background: #fff;
+}
+
+.bank-option__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bank-option__text strong {
+  font-size: var(--fs-body-sm);
+  line-height: 1.2;
+  color: var(--color-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-option__text small {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-caption);
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-list__empty {
+  grid-column: 1 / -1;
+  padding: var(--space-md);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  text-align: center;
 }
 
 /* Topup QR */
