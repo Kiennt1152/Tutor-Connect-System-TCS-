@@ -90,7 +90,7 @@ export interface ClassFormValues {
   wardId: string;
   wardName: string;
   address: string;
-  feePerSession: string;
+  feePerHour: string;
   billingCycle: BillingCycle;
   sessionsPerWeek: string;
   daysOfWeek: string[];
@@ -100,18 +100,26 @@ export interface ClassFormValues {
   note: string;
 }
 
-/** Khung giờ học của một buổi (kèm buổi Sáng/Chiều/Tối). */
+/** Lịch học của một thứ: môn học buổi đó + buổi (Sáng/Trưa/Tối) + khung giờ. */
 export interface DayTime {
+  subjects: string[];
   session: string;
   start: string;
   end: string;
 }
 
-// Buổi trong ngày + khung giờ gợi ý (chọn buổi sẽ tự điền, vẫn sửa được).
-export const SESSION_OPTIONS: readonly { value: string; start: string; end: string }[] = [
-  { value: 'Sáng', start: '08:00', end: '10:00' },
-  { value: 'Chiều', start: '14:00', end: '16:00' },
-  { value: 'Tối', start: '18:00', end: '20:00' },
+// Buổi trong ngày: khung giờ cho phép (min–max) + gợi ý (chọn buổi tự điền).
+export const SESSION_OPTIONS: readonly {
+  value: string;
+  label: string;
+  min: string;
+  max: string;
+  start: string;
+  end: string;
+}[] = [
+  { value: 'Sáng', label: 'Sáng (6h–12h)', min: '06:00', max: '12:00', start: '08:00', end: '10:00' },
+  { value: 'Chiều', label: 'Chiều (12h–18h)', min: '12:00', max: '18:00', start: '14:00', end: '16:00' },
+  { value: 'Tối', label: 'Tối (18h–23h30)', min: '18:00', max: '23:30', start: '18:00', end: '20:00' },
 ];
 
 export type BillingCycle = 'MONTH' | 'TERM';

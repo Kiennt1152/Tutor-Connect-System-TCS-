@@ -179,7 +179,7 @@ function ClassList({ status, classes, onEdit, onPublish }: ClassListProps) {
               <dd>{c.lessonMode === 'ONLINE' ? 'Online' : 'Offline'}</dd>
             </div>
             <div>
-              <dt>Học phí/buổi</dt>
+              <dt>Học phí/giờ</dt>
               <dd>{c.tuitionFee != null ? `${currency.format(c.tuitionFee)} đ` : '—'}</dd>
             </div>
           </dl>

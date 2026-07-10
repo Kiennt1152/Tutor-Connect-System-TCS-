@@ -165,6 +165,48 @@
   color: #1565c0;
 }
 
+/* Lịch học theo từng thứ (card) */
+.mkt-day-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-top: 4px;
+}
+.mkt-day-card {
+  border: 1px solid #e3e9f2;
+  border-radius: 10px;
+  padding: 12px 14px;
+  background: #fbfcfe;
+}
+.mkt-day-card__head {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1565c0;
+  margin-bottom: 8px;
+}
+.mkt-day-card__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.mkt-day-card__tag {
+  min-width: 40px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b6b7f;
+}
+.mkt-day-card__empty {
+  font-size: 13px;
+  color: #94a3b5;
+  font-style: italic;
+}
+.mkt-checks--sm .mkt-check {
+  padding: 4px 9px;
+  font-size: 13px;
+}
+
 /* Khung giờ học theo từng thứ */
 .mkt-day-times {
   display: flex;

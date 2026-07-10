@@ -13,7 +13,7 @@ import {
   type ClassRequestPayload,
   type LessonMode,
 } from '../types/marketplaceTypes';
-import { formToPayload } from '../mappers/marketplaceMapper';
+import { formToPayload, totalHoursPerWeek } from '../mappers/marketplaceMapper';
 import { marketplaceApi } from '../api/marketplaceApi';
 import '../pages/MarketplacePage.css';
 
@@ -30,6 +30,23 @@ interface ClassRequestFormProps {
 }
 
 const currency = new Intl.NumberFormat('vi-VN');
+
+/** Sinh các mốc giờ 24h (bước 30 phút) trong khoảng [min, max], vd "06:00".."12:00". */
+function buildTimeSlots(min: string, max: string, stepMinutes = 30): string[] {
+  const toMinutes = (t: string) => {
+    const [h, m] = t.split(':').map(Number);
+    return h * 60 + m;
+  };
+  const start = toMinutes(min);
+  const end = toMinutes(max);
+  const out: string[] = [];
+  for (let x = start; x <= end; x += stepMinutes) {
+    const hh = String(Math.floor(x / 60)).padStart(2, '0');
+    const mm = String(x % 60).padStart(2, '0');
+    out.push(`${hh}:${mm}`);
+  }
+  return out;
+}
 
 export function ClassRequestForm({
   initial,
@@ -127,7 +144,7 @@ export function ClassRequestForm({
       if (has) {
         delete dayTimes[value];
       } else {
-        dayTimes[value] = { session: '', start: '', end: '' };
+        dayTimes[value] = { subjects: [], session: '', start: '', end: '' };
       }
       return { ...prev, daysOfWeek, dayTimes };
     });
@@ -148,8 +165,10 @@ export function ClassRequestForm({
       const kept = DAY_OF_WEEK_OPTIONS.filter((d) => prev.daysOfWeek.includes(d.value))
         .slice(0, n)
         .map((d) => d.value);
-      const dayTimes: Record<string, { session: string; start: string; end: string }> = {};
-      for (const k of kept) dayTimes[k] = prev.dayTimes[k] ?? { session: '', start: '', end: '' };
+      const dayTimes: Record<string, { subjects: string[]; session: string; start: string; end: string }> =
+        {};
+      for (const k of kept)
+        dayTimes[k] = prev.dayTimes[k] ?? { subjects: [], session: '', start: '', end: '' };
       return { ...prev, sessionsPerWeek: v, daysOfWeek: kept, dayTimes };
     });
   }
@@ -159,34 +178,52 @@ export function ClassRequestForm({
       ...prev,
       dayTimes: {
         ...prev.dayTimes,
-        [day]: { ...(prev.dayTimes[day] ?? { session: '', start: '', end: '' }), [field]: value },
-      },
-    }));
-  }
-
-  // Chọn buổi (Sáng/Chiều/Tối) → điền sẵn khung giờ gợi ý (vẫn sửa được).
-  function setDaySession(day: string, session: string) {
-    const preset = SESSION_OPTIONS.find((s) => s.value === session);
-    setForm((prev) => ({
-      ...prev,
-      dayTimes: {
-        ...prev.dayTimes,
         [day]: {
-          session,
-          start: preset ? preset.start : (prev.dayTimes[day]?.start ?? ''),
-          end: preset ? preset.end : (prev.dayTimes[day]?.end ?? ''),
+          ...(prev.dayTimes[day] ?? { subjects: [], session: '', start: '', end: '' }),
+          [field]: value,
         },
       },
     }));
   }
 
+  // Chọn/bỏ môn học cho một thứ (chỉ trong các môn đã tích ở Môn học).
+  function toggleDaySubject(day: string, subjectId: string) {
+    setForm((prev) => {
+      const cur = prev.dayTimes[day] ?? { subjects: [], session: '', start: '', end: '' };
+      const subjects = cur.subjects.includes(subjectId)
+        ? cur.subjects.filter((s) => s !== subjectId)
+        : [...cur.subjects, subjectId];
+      return { ...prev, dayTimes: { ...prev.dayTimes, [day]: { ...cur, subjects } } };
+    });
+  }
+
+  // Chọn buổi (Sáng/Trưa/Tối) → điền sẵn khung giờ gợi ý (vẫn sửa được).
+  function setDaySession(day: string, session: string) {
+    const preset = SESSION_OPTIONS.find((s) => s.value === session);
+    setForm((prev) => {
+      const cur = prev.dayTimes[day] ?? { subjects: [], session: '', start: '', end: '' };
+      return {
+        ...prev,
+        dayTimes: {
+          ...prev.dayTimes,
+          [day]: {
+            ...cur,
+            session,
+            start: preset ? preset.start : cur.start,
+            end: preset ? preset.end : cur.end,
+          },
+        },
+      };
+    });
+  }
+
   const cycle = BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle) ?? BILLING_CYCLE_OPTIONS[0];
 
+  const hoursPerWeek = useMemo(() => totalHoursPerWeek(form), [form]);
   const total = useMemo(() => {
-    const fee = Number(form.feePerSession) || 0;
-    const perWeek = Math.max(1, Number(form.sessionsPerWeek) || 1);
-    return fee * perWeek * cycle.weeks;
-  }, [form.feePerSession, form.sessionsPerWeek, cycle.weeks]);
+    const fee = Number(form.feePerHour) || 0;
+    return fee * hoursPerWeek * cycle.weeks;
+  }, [form.feePerHour, hoursPerWeek, cycle.weeks]);
 
   // Số buổi/tuần là mục tiêu; số thứ đã chọn phải khớp đúng.
   const targetDays = Number(form.sessionsPerWeek) || 0;
@@ -199,15 +236,23 @@ export function ClassRequestForm({
   // Ngày hôm nay theo giờ địa phương (YYYY-MM-DD) — chặn chọn ngày quá khứ.
   const today = new Date().toLocaleDateString('en-CA');
   const startInPast = !!form.startDate && form.startDate < today;
-  // Kiểm tra khung giờ của từng thứ đã chọn (đủ giờ + giờ kết thúc sau giờ bắt đầu).
+  // Kiểm tra từng thứ đã chọn: có môn, đủ giờ, giờ hợp lệ & nằm trong buổi.
   const dayTimeErrors: string[] = [];
   for (const opt of DAY_OF_WEEK_OPTIONS) {
     if (!form.daysOfWeek.includes(opt.value)) continue;
     const t = form.dayTimes[opt.value];
+    if (!t?.subjects?.length) {
+      dayTimeErrors.push(`${opt.label}: chưa chọn môn học`);
+    }
     if (!t?.start || !t?.end) {
       dayTimeErrors.push(`${opt.label}: chưa chọn đủ giờ học`);
     } else if (t.end <= t.start) {
       dayTimeErrors.push(`${opt.label}: giờ kết thúc phải sau giờ bắt đầu`);
+    } else {
+      const s = SESSION_OPTIONS.find((o) => o.value === t.session);
+      if (s && (t.start < s.min || t.end > s.max)) {
+        dayTimeErrors.push(`${opt.label}: giờ phải trong ${s.label}`);
+      }
     }
   }
 
@@ -226,7 +271,7 @@ export function ClassRequestForm({
   if (!form.sessionsPerWeek || Number(form.sessionsPerWeek) <= 0) missing.push('Số buổi / tuần');
   if (form.daysOfWeek.length === 0) missing.push('Ngày học trong tuần');
   if (!form.startDate) missing.push('Ngày bắt đầu');
-  if (!form.feePerSession || Number(form.feePerSession) <= 0) missing.push('Học phí / buổi');
+  if (!form.feePerHour || Number(form.feePerHour) <= 0) missing.push('Học phí / giờ');
   if (!form.note.trim()) missing.push('Ghi chú / yêu cầu khác');
 
   function handleSubmit() {
@@ -236,12 +281,23 @@ export function ClassRequestForm({
   }
 
   function toggleSubject(id: string) {
-    setForm((prev) => ({
-      ...prev,
-      subjectIds: prev.subjectIds.includes(id)
+    setForm((prev) => {
+      const removing = prev.subjectIds.includes(id);
+      const subjectIds = removing
         ? prev.subjectIds.filter((s) => s !== id)
-        : [...prev.subjectIds, id],
-    }));
+        : [...prev.subjectIds, id];
+      // Bỏ tích một môn → gỡ môn đó khỏi lịch từng thứ.
+      let dayTimes = prev.dayTimes;
+      if (removing) {
+        dayTimes = Object.fromEntries(
+          Object.entries(prev.dayTimes).map(([k, v]) => [
+            k,
+            { ...v, subjects: v.subjects.filter((s) => s !== id) },
+          ]),
+        );
+      }
+      return { ...prev, subjectIds, dayTimes };
+    });
   }
 
   return (
@@ -511,46 +567,93 @@ export function ClassRequestForm({
         )}
       </div>
 
-      {/* Khung giờ học riêng cho từng thứ đã chọn */}
+      {/* Lịch từng thứ: môn học + buổi + khung giờ */}
       <div className="mkt-field">
         <span className="mkt-field__label">
-          Khung giờ học từng buổi <em>*</em>
+          Lịch học từng thứ <em>*</em>
         </span>
         {form.daysOfWeek.length === 0 ? (
-          <p className="mkt-hint">Chọn các thứ ở trên để đặt giờ học cho từng buổi.</p>
+          <p className="mkt-hint">Chọn các thứ ở trên để đặt môn học và giờ cho từng buổi.</p>
         ) : (
-          <div className="mkt-day-times">
-            {DAY_OF_WEEK_OPTIONS.filter((d) => form.daysOfWeek.includes(d.value)).map((d) => (
-              <div key={d.value} className="mkt-day-time">
-                <span className="mkt-day-time__label">{d.label}</span>
-                <select
-                  className="mkt-day-time__session"
-                  aria-label={`Buổi học ${d.label}`}
-                  value={form.dayTimes[d.value]?.session ?? ''}
-                  onChange={(e) => setDaySession(d.value, e.target.value)}
-                >
-                  <option value="">Buổi…</option>
-                  {SESSION_OPTIONS.map((s) => (
-                    <option key={s.value} value={s.value}>
-                      {s.value}
-                    </option>
-                  ))}
-                </select>
-                <input
-                  type="time"
-                  aria-label={`Giờ bắt đầu ${d.label}`}
-                  value={form.dayTimes[d.value]?.start ?? ''}
-                  onChange={(e) => setDayTime(d.value, 'start', e.target.value)}
-                />
-                <span className="mkt-day-time__sep">–</span>
-                <input
-                  type="time"
-                  aria-label={`Giờ kết thúc ${d.label}`}
-                  value={form.dayTimes[d.value]?.end ?? ''}
-                  onChange={(e) => setDayTime(d.value, 'end', e.target.value)}
-                />
-              </div>
-            ))}
+          <div className="mkt-day-cards">
+            {DAY_OF_WEEK_OPTIONS.filter((d) => form.daysOfWeek.includes(d.value)).map((d) => {
+              const dt = form.dayTimes[d.value];
+              const sess = SESSION_OPTIONS.find((s) => s.value === dt?.session);
+              const slots = buildTimeSlots(sess?.min ?? '00:00', sess?.max ?? '23:30');
+              const endSlots = dt?.start ? slots.filter((s) => s > dt.start) : slots;
+              return (
+                <div key={d.value} className="mkt-day-card">
+                  <div className="mkt-day-card__head">{d.label}</div>
+
+                  <div className="mkt-day-card__row">
+                    <span className="mkt-day-card__tag">Môn:</span>
+                    {form.subjectIds.length === 0 ? (
+                      <span className="mkt-day-card__empty">Hãy chọn môn học ở trên trước</span>
+                    ) : (
+                      <div className="mkt-checks mkt-checks--sm">
+                        {form.subjectIds.map((sid) => {
+                          const name = subjects.find((s) => String(s.id) === sid)?.name ?? sid;
+                          return (
+                            <label key={sid} className="mkt-check">
+                              <input
+                                type="checkbox"
+                                checked={dt?.subjects?.includes(sid) ?? false}
+                                onChange={() => toggleDaySubject(d.value, sid)}
+                              />
+                              <span>{name}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mkt-day-card__row">
+                    <span className="mkt-day-card__tag">Giờ:</span>
+                    <select
+                      className="mkt-day-time__session"
+                      aria-label={`Buổi học ${d.label}`}
+                      value={dt?.session ?? ''}
+                      onChange={(e) => setDaySession(d.value, e.target.value)}
+                    >
+                      <option value="">Buổi…</option>
+                      {SESSION_OPTIONS.map((s) => (
+                        <option key={s.value} value={s.value}>
+                          {s.label}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      className="mkt-day-time__session"
+                      aria-label={`Giờ bắt đầu ${d.label}`}
+                      value={dt?.start ?? ''}
+                      onChange={(e) => setDayTime(d.value, 'start', e.target.value)}
+                    >
+                      <option value="">Từ…</option>
+                      {slots.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="mkt-day-time__sep">–</span>
+                    <select
+                      className="mkt-day-time__session"
+                      aria-label={`Giờ kết thúc ${d.label}`}
+                      value={dt?.end ?? ''}
+                      onChange={(e) => setDayTime(d.value, 'end', e.target.value)}
+                    >
+                      <option value="">Đến…</option>
+                      {endSlots.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -559,22 +662,25 @@ export function ClassRequestForm({
       <div className="mkt-form__grid">
         <label className="mkt-field">
           <span className="mkt-field__label">
-            Học phí / buổi (đ) <em>*</em>
+            Học phí / giờ (đ) <em>*</em>
           </span>
           <input
             type="number"
             min={0}
             step={10000}
-            value={form.feePerSession}
-            placeholder="VD: 200000"
-            onChange={(e) => set('feePerSession', e.target.value)}
+            value={form.feePerHour}
+            placeholder="VD: 150000"
+            onChange={(e) => set('feePerHour', e.target.value)}
           />
         </label>
         <div className="mkt-field">
-          <span className="mkt-field__label">Tổng học phí ước tính ({cycle.label.toLowerCase()})</span>
+          <span className="mkt-field__label">
+            Tổng học phí ước tính ({cycle.label.toLowerCase()})
+          </span>
           <div className="mkt-total">
             {currency.format(total)} {cycle.suffix}
           </div>
+          <span className="mkt-hint">≈ {hoursPerWeek} giờ/tuần theo lịch đã chọn.</span>
         </div>
       </div>
 

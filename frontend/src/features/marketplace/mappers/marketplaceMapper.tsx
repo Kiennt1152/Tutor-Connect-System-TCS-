@@ -27,7 +27,7 @@ export function emptyForm(): ClassFormValues {
     wardId: '',
     wardName: '',
     address: '',
-    feePerSession: '',
+    feePerHour: '',
     billingCycle: 'MONTH',
     sessionsPerWeek: '2',
     daysOfWeek: [],
@@ -43,7 +43,7 @@ export function classToForm(c: ClassResponse): ClassFormValues {
     !!c.learningGoal && LEARNING_GOAL_OPTIONS.includes(c.learningGoal);
   const reqMatched =
     !!c.tutorRequirement && TUTOR_REQUIREMENT_OPTIONS.includes(c.tutorRequirement);
-  const feePerSession = c.tuitionFee != null ? String(c.tuitionFee) : '';
+  const feePerHour = c.tuitionFee != null ? String(c.tuitionFee) : '';
   return {
     subjectIds: c.subjectId != null ? [String(c.subjectId)] : [],
     gradeId: c.gradeId != null ? String(c.gradeId) : '',
@@ -59,7 +59,7 @@ export function classToForm(c: ClassResponse): ClassFormValues {
     wardId: '',
     wardName: '',
     address: c.address ?? '',
-    feePerSession,
+    feePerHour,
     billingCycle: 'MONTH',
     sessionsPerWeek: '2',
     daysOfWeek: [],
@@ -97,20 +97,37 @@ export function estimatedSessions(form: ClassFormValues): number {
   return perWeek * weeksForCycle(form);
 }
 
+/** Tổng số giờ học mỗi tuần = cộng thời lượng (end-start) của tất cả các thứ đã chọn. */
+export function totalHoursPerWeek(form: ClassFormValues): number {
+  let minutes = 0;
+  for (const day of form.daysOfWeek) {
+    const t = form.dayTimes[day];
+    if (t?.start && t?.end) {
+      const [sh, sm] = t.start.split(':').map(Number);
+      const [eh, em] = t.end.split(':').map(Number);
+      const diff = eh * 60 + em - (sh * 60 + sm);
+      if (diff > 0) minutes += diff;
+    }
+  }
+  return minutes / 60;
+}
+
 /** Câu mô tả lịch học để lưu vào phần mô tả (backend chưa có cột riêng). */
-export function buildScheduleSummary(form: ClassFormValues): string {
+export function buildScheduleSummary(form: ClassFormValues, subjects: CatalogOption[] = []): string {
   const perWeek = Math.max(1, Number(form.sessionsPerWeek) || 1);
   const cycleLabel = form.billingCycle === 'TERM' ? 'theo kỳ' : 'theo tháng';
   const parts = [`Lịch học ${cycleLabel}: ${perWeek} buổi/tuần`];
-  // Liệt kê từng thứ kèm khung giờ riêng (theo thứ tự trong tuần).
+  const nameOf = (id: string) => subjects.find((s) => String(s.id) === id)?.name ?? '';
+  // Liệt kê từng thứ: môn học + buổi + khung giờ (theo thứ tự trong tuần).
   const dayParts = DAY_OF_WEEK_OPTIONS.filter((d) => form.daysOfWeek.includes(d.value)).map((d) => {
     const t = form.dayTimes[d.value];
+    const subj = t?.subjects?.length ? ` - ${t.subjects.map(nameOf).filter(Boolean).join(', ')}` : '';
     const session = t?.session ? ` buổi ${t.session}` : '';
     const range = t?.start && t?.end ? ` (${t.start}–${t.end})` : '';
-    return `${d.label}${session}${range}`;
+    return `${d.label}${subj}${session}${range}`;
   });
   if (dayParts.length > 0) {
-    parts.push(`vào ${dayParts.join(', ')}`);
+    parts.push(`vào ${dayParts.join('; ')}`);
   }
   return `${parts.join(' ')}.`;
 }
@@ -122,7 +139,9 @@ export function formToPayload(
   subjects: CatalogOption[] = [],
 ): ClassRequestPayload {
   const sessions = estimatedSessions(form);
-  const feePerSession = Number(form.feePerSession) || 0;
+  const feePerHour = Number(form.feePerHour) || 0;
+  // Tổng học phí = đơn giá/giờ × tổng số giờ/tuần × số tuần trong chu kỳ.
+  const budget = Math.round(feePerHour * totalHoursPerWeek(form) * weeksForCycle(form));
   const startDate = form.startDate || new Date().toISOString().slice(0, 10);
   // Backend chỉ lưu 1 môn (subjectId) → môn đầu là môn chính; nếu chọn nhiều
   // môn thì ghi cả danh sách vào mô tả.
@@ -130,7 +149,7 @@ export function formToPayload(
     .map((id) => subjects.find((s) => String(s.id) === id)?.name)
     .filter((n): n is string => !!n);
   const subjectLine = subjectNames.length > 1 ? `Các môn học: ${subjectNames.join(', ')}` : '';
-  const description = [subjectLine, buildScheduleSummary(form), form.note.trim()]
+  const description = [subjectLine, buildScheduleSummary(form, subjects), form.note.trim()]
     .filter(Boolean)
     .join('\n');
   // Backend chưa có cột riêng cho tỉnh/khu vực → gộp thành một chuỗi địa chỉ đầy đủ:
@@ -155,8 +174,8 @@ export function formToPayload(
     numberOfSessions: sessions,
     startDate,
     endDate: startDate,
-    tuitionFee: feePerSession,
-    budget: feePerSession * sessions,
+    tuitionFee: feePerHour,
+    budget,
     recurringType: 'WEEKLY',
     description: description || undefined,
   };
