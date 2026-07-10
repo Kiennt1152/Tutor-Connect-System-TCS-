@@ -1,5 +1,7 @@
 package com.tcs.module.profile.controller;
 
+import com.tcs.module.identity.dto.request.VerificationRequestDto;
+import com.tcs.module.identity.dto.response.VerificationResponse;
 import com.tcs.module.profile.dto.request.ChildProfileRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
@@ -10,8 +12,8 @@ import com.tcs.module.profile.dto.response.ProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
 import com.tcs.module.profile.service.ProfileService;
+import jakarta.validation.Valid;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -92,8 +94,7 @@ public class ProfileController {
     }
 
     @PostMapping("/verification/submit")
-    public Map<String, String> submitVerification() {
-        profileService.submitVerification();
-        return Map.of("message", "Đã nộp hồ sơ xác minh");
+    public VerificationResponse submitVerification(@Valid @RequestBody VerificationRequestDto request) {
+        return profileService.submitVerification(request);
     }
 }

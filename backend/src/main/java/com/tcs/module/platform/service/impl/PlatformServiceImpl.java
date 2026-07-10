@@ -2,7 +2,9 @@ package com.tcs.module.platform.service.impl;
 
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.identity.entity.VerificationHistory;
 import com.tcs.module.identity.enums.UserStatus;
+import com.tcs.module.identity.repository.VerificationHistoryRepository;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
@@ -18,6 +20,10 @@ import com.tcs.module.identity.entity.VerificationRequest;
 import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.messaging.entity.Notification;
+import com.tcs.module.messaging.enums.NotificationStatus;
+import com.tcs.module.messaging.enums.NotificationType;
+import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
 import com.tcs.module.platform.dto.response.DashboardResponse;
 import com.tcs.module.platform.dto.response.ReportResponse;
@@ -30,6 +36,7 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
+import com.tcs.security.AuthHelper;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.List;
@@ -57,8 +64,11 @@ public class PlatformServiceImpl implements PlatformService {
     private final ClientRepository clientRepository;
     private final PlatformMapper platformMapper;
     private final VerificationRequestRepository verificationRequestRepository;
+    private final VerificationHistoryRepository verificationHistoryRepository;
+    private final NotificationRepository notificationRepository;
     private final ReportRepository reportRepository;
     private final TutoringClassRepository tutoringClassRepository;
+    private final AuthHelper authHelper;
 
     @Override
     @Transactional(readOnly = true)
@@ -89,6 +99,10 @@ public class PlatformServiceImpl implements PlatformService {
     @Override
     @Transactional
     public UserListItemResponse updateUserStatus(Long userId, UpdateUserStatusRequest request) {
+        if (request.getStatus() == null) {
+            throw new IllegalArgumentException("Trạng thái không được để trống");
+        }
+
         User user = findUserOrThrow(userId);
         UserProfileBundle profiles = loadProfiles(userId);
 
@@ -96,7 +110,14 @@ public class PlatformServiceImpl implements PlatformService {
             throw new IllegalArgumentException("Không thể thay đổi trạng thái tài khoản quản trị viên");
         }
 
-        user.setStatus(request.getStatus());
+        UserStatus newStatus = request.getStatus();
+        if (newStatus != UserStatus.ACTIVE
+                && newStatus != UserStatus.SUSPENDED
+                && newStatus != UserStatus.BANNED) {
+            throw new IllegalArgumentException("Trạng thái không hợp lệ");
+        }
+
+        user.setStatus(newStatus);
         User saved = userRepository.save(user);
         return platformMapper.toUserListItem(saved, profiles);
     }
@@ -131,14 +152,28 @@ public class PlatformServiceImpl implements PlatformService {
     @Override
     @Transactional
     public VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request) {
+        if (request.getStatus() == null) {
+            throw new IllegalArgumentException("Trạng thái xác minh không được để trống");
+        }
+        Long adminId = authHelper.requireRole(UserRole.PLATFORM_ADMIN).getUserId();
+
         VerificationRequest verification = verificationRequestRepository
                 .findById(verificationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
+
+        VerificationStatus oldStatus = verification.getStatus();
         verification.setStatus(request.getStatus());
         verification.setAdminNotes(request.getAdminNotes());
+        verification.setReviewedBy(adminId);
         verification.setReviewedAt(java.time.LocalDateTime.now());
+        if (request.getStatus() == VerificationStatus.REJECTED) {
+            verification.setRejectionReason(request.getAdminNotes());
+        } else {
+            verification.setRejectionReason(null);
+        }
         VerificationRequest saved = verificationRequestRepository.save(verification);
 
+        recordVerificationHistory(saved, oldStatus, request.getStatus(), adminId);
         if (request.getStatus() == VerificationStatus.VERIFIED
                 || request.getStatus() == VerificationStatus.REJECTED) {
             ProfileVerificationStatus profileStatus = request.getStatus() == VerificationStatus.VERIFIED
@@ -153,8 +188,48 @@ public class PlatformServiceImpl implements PlatformService {
                 center.setVerificationStatus(profileStatus);
                 tutorCenterRepository.save(center);
             });
+            sendVerificationNotification(saved, request.getStatus());
         }
         return toVerificationResponse(saved);
+    }
+
+    private void recordVerificationHistory(VerificationRequest request,
+                                           VerificationStatus oldStatus,
+                                           VerificationStatus newStatus,
+                                           Long adminId) {
+        User admin = userRepository.findById(adminId)
+                .orElseThrow(() -> new ResourceNotFoundException("Admin not found: " + adminId));
+        VerificationHistory history = new VerificationHistory();
+        history.setVerificationRequest(request);
+        history.setOldStatus(oldStatus != null ? oldStatus.name() : null);
+        history.setNewStatus(newStatus.name());
+        history.setChangedByUser(admin);
+        verificationHistoryRepository.save(history);
+    }
+
+    private void sendVerificationNotification(VerificationRequest request, VerificationStatus status) {
+        String title;
+        String content;
+        if (status == VerificationStatus.VERIFIED) {
+            title = "Hồ sơ xác minh được duyệt";
+            content = "Hồ sơ xác minh của bạn đã được duyệt.";
+        } else if (status == VerificationStatus.REJECTED) {
+            title = "Hồ sơ xác minh bị từ chối";
+            content = "Lý do: "
+                    + (request.getRejectionReason() != null ? request.getRejectionReason() : "không rõ");
+        } else {
+            return;
+        }
+        Notification notification = new Notification();
+        notification.setUser(request.getUser());
+        notification.setType(NotificationType.VERIFICATION);
+        notification.setTitle(title);
+        notification.setContent(content);
+        notification.setReferenceType("VERIFICATION_REQUEST");
+        notification.setReferenceId(request.getVerificationId());
+        notification.setStatus(NotificationStatus.SENT);
+        notification.setIsRead(false);
+        notificationRepository.save(notification);
     }
 
     @Override

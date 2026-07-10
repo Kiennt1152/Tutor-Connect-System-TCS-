@@ -1,8 +1,13 @@
  export { default as IdentityModule } from './IdentityModule';
 export { default as IdentityPage } from './pages/IdentityPage';
+export { default as VerificationPage } from './pages/VerificationPage';
 export { default as LoginPage } from './pages/LoginPage';
 export { IdentityPanel } from './components/IdentityPanel';
 export * from './types/identityTypes';
+export * from './types/verificationTypes';
 export * from './api/identityApi';
+export * from './api/verificationApi';
 export * from './hooks/useIdentity';
+export * from './hooks/useVerification';
 export * from './mappers/identityMapper';
+export * from './mappers/verificationMapper';
