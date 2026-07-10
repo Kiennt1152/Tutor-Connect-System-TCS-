@@ -1,7 +1,11 @@
 package com.tcs.module.contract.service;
 
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
+import com.tcs.module.contract.dto.request.SignContractRequest;
+import com.tcs.module.contract.dto.response.ContractResponse;
+import com.tcs.module.contract.dto.response.OtpSentResponse;
 import com.tcs.module.contract.dto.response.ReviewResponse;
+import com.tcs.module.contract.dto.response.SignatureStatusResponse;
 import com.tcs.module.contract.entity.Contract;
 import java.util.List;
 
@@ -11,25 +15,21 @@ public interface ContractService {
 
     List<ReviewResponse> getReviewsForTutor(Long tutorUserId);
 
-    // ----- Seam 0.1 (chu: M4) - hop dong dien tu. Default stub de M4 hoan thien. -----
+    Contract generateForAssignment(Long assignmentId);
 
-    /** Sinh hop dong PRIVATE tu mot ClassAssignment. */
-    default Contract generateForAssignment(Long assignmentId) {
-        throw new UnsupportedOperationException("TODO M4: generateForAssignment");
-    }
+    Contract generateForEnrollment(Long classStudentId);
 
-    /** Sinh hop dong CENTER tu mot ghi danh (ClassStudent). */
-    default Contract generateForEnrollment(Long classStudentId) {
-        throw new UnsupportedOperationException("TODO M4: generateForEnrollment");
-    }
+    void sign(Long contractId, String otp, Long signerUserId);
 
-    /** Ky hop dong bang OTP email. */
-    default void sign(Long contractId, String otp, Long signerUserId) {
-        throw new UnsupportedOperationException("TODO M4: sign");
-    }
+    boolean isFullySigned(Long contractId);
 
-    /** Da du chu ky cua tat ca cac ben chua. */
-    default boolean isFullySigned(Long contractId) {
-        throw new UnsupportedOperationException("TODO M4: isFullySigned");
-    }
+    ContractResponse getMyContract(Long contractId);
+
+    List<ContractResponse> getMyContracts();
+
+    OtpSentResponse sendSignOtp(Long contractId);
+
+    ContractResponse signContract(Long contractId, SignContractRequest request);
+
+    SignatureStatusResponse getSignatureStatus(Long contractId);
 }

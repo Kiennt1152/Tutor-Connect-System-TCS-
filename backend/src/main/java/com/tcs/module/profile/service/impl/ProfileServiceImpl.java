@@ -39,10 +39,13 @@ import com.tcs.module.profile.service.ProfileService;
 import com.tcs.security.AuthHelper;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProfileServiceImpl implements ProfileService {
@@ -216,6 +219,39 @@ public class ProfileServiceImpl implements ProfileService {
                     : com.tcs.module.identity.enums.VerificationType.TUTOR_CENTER_LICENSE);
         }
         return verificationService.submitVerification(request);
+    }
+
+    @Override
+    @Transactional
+    public String uploadAvatar(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File ảnh không được để trống");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("Chỉ chấp nhận file ảnh");
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new IllegalArgumentException("Kích thước ảnh không được vượt quá 5MB");
+        }
+        ProfileContext ctx = loadContext();
+        String avatarUrl = "/uploads/avatars/user-" + ctx.user().getUserId() + ".jpg";
+        switch (ctx.role()) {
+            case CLIENT -> {
+                ctx.client().setAvatarUrl(avatarUrl);
+                clientRepository.save(ctx.client());
+            }
+            case TUTOR -> {
+                ctx.tutor().setAvatar(avatarUrl);
+                tutorRepository.save(ctx.tutor());
+            }
+            case TUTOR_CENTER -> {
+                ctx.center().setAvatar(avatarUrl);
+                tutorCenterRepository.save(ctx.center());
+            }
+            default -> log.warn("uploadAvatar called with unsupported role: {}", ctx.role());
+        }
+        return avatarUrl;
     }
 
     private ProfileContext loadContext() {
