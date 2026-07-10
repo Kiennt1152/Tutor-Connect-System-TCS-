@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -32,6 +33,11 @@ public class MarketplaceController {
         return marketplaceService.listClasses(status);
     }
 
+    @GetMapping("/classes/mine")
+    public List<ClassResponse> listMyClasses() {
+        return marketplaceService.listMyClasses();
+    }
+
     @GetMapping("/classes/{classId}")
     public ClassResponse getClass(@PathVariable Long classId) {
         return marketplaceService.getClass(classId);
@@ -41,6 +47,11 @@ public class MarketplaceController {
     @ResponseStatus(HttpStatus.CREATED)
     public ClassResponse createClass(@RequestBody CreateClassRequest request) {
         return marketplaceService.createClass(request);
+    }
+
+    @PutMapping("/classes/{classId}")
+    public ClassResponse updateClass(@PathVariable Long classId, @RequestBody CreateClassRequest request) {
+        return marketplaceService.updateClass(classId, request);
     }
 
     @PostMapping("/classes/{classId}/publish")

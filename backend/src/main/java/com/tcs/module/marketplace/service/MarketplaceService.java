@@ -13,7 +13,11 @@ public interface MarketplaceService {
 
     ClassResponse getClass(Long classId);
 
+    List<ClassResponse> listMyClasses();
+
     ClassResponse createClass(CreateClassRequest request);
+
+    ClassResponse updateClass(Long classId, CreateClassRequest request);
 
     ClassResponse publishClass(Long classId);
 

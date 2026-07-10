@@ -22,6 +22,11 @@ public class ClassResponse {
     private String subjectName;
     private Long gradeId;
     private String gradeName;
+    private String learningGoal;
+    private String tutorRequirement;
+    private Long locationId;
+    private String locationName;
+    private String address;
     private LessonMode lessonMode;
     private Integer numberOfSessions;
     private LocalDate startDate;

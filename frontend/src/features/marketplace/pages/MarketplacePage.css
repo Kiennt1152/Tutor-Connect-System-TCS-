@@ -1,0 +1,384 @@
+.mkt-page {
+  background: #f5f7fb;
+  min-height: 100vh;
+}
+
+.mkt-container {
+  padding-top: 28px;
+  padding-bottom: 48px;
+}
+
+/* Header */
+.mkt-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+.mkt-eyebrow {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1565c0;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.mkt-title {
+  margin: 4px 0 6px;
+  font-size: 26px;
+  color: #12233b;
+}
+.mkt-subtitle {
+  margin: 0;
+  max-width: 640px;
+  color: #5b6b7f;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* Card */
+.mkt-card {
+  background: #fff;
+  border: 1px solid #e3e9f2;
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 8px 24px rgba(18, 35, 59, 0.05);
+}
+.mkt-card__head {
+  padding: 18px 24px;
+  border-bottom: 1px solid #eef2f7;
+}
+.mkt-card__head h2 {
+  margin: 0;
+  font-size: 18px;
+  color: #12233b;
+}
+.mkt-card__body {
+  padding: 24px;
+}
+
+/* Form */
+.mkt-form {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.mkt-form__grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+.mkt-form__grid--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+.mkt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mkt-field__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #33465e;
+}
+.mkt-field__label em {
+  color: #d32f2f;
+  font-style: normal;
+}
+.mkt-field input,
+.mkt-field select,
+.mkt-field textarea {
+  padding: 10px 12px;
+  border: 1px solid #cfd8e3;
+  border-radius: 9px;
+  font-size: 14px;
+  color: #12233b;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  font-family: inherit;
+}
+.mkt-field input:focus,
+.mkt-field select:focus,
+.mkt-field textarea:focus {
+  border-color: #1565c0;
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12);
+}
+.mkt-field select:disabled {
+  background: #f2f4f7;
+  color: #94a3b5;
+}
+.mkt-field textarea {
+  resize: vertical;
+}
+
+.mkt-radios {
+  display: flex;
+  gap: 20px;
+  padding-top: 4px;
+}
+.mkt-radio {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  color: #33465e;
+  cursor: pointer;
+}
+
+/* Nhóm checkbox (thứ trong tuần, buổi học) */
+.mkt-checks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding-top: 4px;
+}
+.mkt-check {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 14px;
+  color: #33465e;
+  cursor: pointer;
+  padding: 6px 10px;
+  border: 1px solid #dbe3ee;
+  border-radius: 8px;
+  background: #fff;
+  user-select: none;
+}
+.mkt-check:has(input:checked) {
+  border-color: #1565c0;
+  background: #eef5ff;
+  color: #1565c0;
+  font-weight: 600;
+}
+.mkt-check--disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.mkt-check--disabled input {
+  cursor: not-allowed;
+}
+.mkt-field__hint-inline {
+  font-weight: 400;
+  color: #1565c0;
+}
+
+/* Khung giờ học theo từng thứ */
+.mkt-day-times {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+.mkt-day-time {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.mkt-day-time__label {
+  min-width: 84px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #33465e;
+}
+.mkt-day-time__sep {
+  color: #94a3b5;
+}
+.mkt-day-time input[type='time'] {
+  padding: 8px 10px;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #12233b;
+  background: #fff;
+}
+.mkt-day-time input[type='time']:focus {
+  border-color: #1565c0;
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12);
+  outline: none;
+}
+.mkt-hint {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #94a3b5;
+  font-style: italic;
+}
+
+.mkt-total {
+  padding: 10px 12px;
+  border: 1px dashed #1565c0;
+  border-radius: 9px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #1565c0;
+  background: #f0f6ff;
+}
+
+.mkt-form__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+/* Buttons */
+.mkt-btn {
+  padding: 10px 20px;
+  border-radius: 9px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background 0.15s, opacity 0.15s;
+}
+.mkt-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.mkt-btn--primary {
+  background: #1565c0;
+  color: #fff;
+}
+.mkt-btn--primary:hover:not(:disabled) {
+  background: #0f4fa0;
+}
+.mkt-btn--ghost {
+  background: #fff;
+  color: #33465e;
+  border-color: #cfd8e3;
+}
+.mkt-btn--ghost:hover:not(:disabled) {
+  background: #f2f4f7;
+}
+
+/* Alerts / states */
+.mkt-alert {
+  padding: 12px 16px;
+  border-radius: 9px;
+  font-size: 14px;
+}
+.mkt-alert--error {
+  background: #fdecea;
+  color: #c62828;
+}
+.mkt-alert--info {
+  background: #e8f2ff;
+  color: #1565c0;
+  margin-bottom: 20px;
+}
+.mkt-state,
+.mkt-empty {
+  padding: 40px 24px;
+  text-align: center;
+  color: #5b6b7f;
+  background: #fff;
+  border: 1px dashed #d5deea;
+  border-radius: 14px;
+}
+
+/* Class list grid */
+.mkt-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 18px;
+}
+.mkt-class-card {
+  background: #fff;
+  border: 1px solid #e3e9f2;
+  border-radius: 14px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 4px 14px rgba(18, 35, 59, 0.04);
+}
+.mkt-class-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.mkt-class-card__id {
+  font-size: 12px;
+  color: #94a3b5;
+}
+.mkt-class-card__title {
+  margin: 0;
+  font-size: 16px;
+  color: #12233b;
+  line-height: 1.35;
+}
+.mkt-class-card__meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+  margin: 0;
+}
+.mkt-class-card__meta dt {
+  font-size: 11px;
+  color: #94a3b5;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.mkt-class-card__meta dd {
+  margin: 2px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: #33465e;
+}
+.mkt-class-card__goal,
+.mkt-class-card__loc {
+  margin: 0;
+  font-size: 13px;
+  color: #5b6b7f;
+}
+.mkt-class-card__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: auto;
+  padding-top: 6px;
+}
+.mkt-class-card__actions .mkt-btn {
+  flex: 1;
+  padding: 8px 12px;
+  text-align: center;
+}
+
+/* Status chips */
+.mkt-status {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.mkt-status--draft {
+  background: #eceff1;
+  color: #607d8b;
+}
+.mkt-status--open {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.mkt-status--matched,
+.mkt-status--in_progress {
+  background: #e3f2fd;
+  color: #1565c0;
+}
+.mkt-status--completed {
+  background: #ede7f6;
+  color: #5e35b1;
+}
+.mkt-status--cancelled,
+.mkt-status--disputed {
+  background: #fdecea;
+  color: #c62828;
+}
+
+@media (max-width: 720px) {
+  .mkt-form__grid,
+  .mkt-form__grid--3 {
+    grid-template-columns: 1fr;
+  }
+}
