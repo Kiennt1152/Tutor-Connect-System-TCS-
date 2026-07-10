@@ -187,6 +187,20 @@
 .mkt-day-time__sep {
   color: #94a3b5;
 }
+.mkt-day-time__session {
+  padding: 8px 10px;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #12233b;
+  background: #fff;
+  min-width: 92px;
+}
+.mkt-day-time__session:focus {
+  border-color: #1565c0;
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12);
+  outline: none;
+}
 .mkt-day-time input[type='time'] {
   padding: 8px 10px;
   border: 1px solid #cfd8e3;

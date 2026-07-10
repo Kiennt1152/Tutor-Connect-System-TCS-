@@ -4,6 +4,7 @@ import {
   LEARNING_GOAL_OPTIONS,
   LEARNING_GOAL_OTHER,
   TUTOR_REQUIREMENT_OPTIONS,
+  type CatalogOption,
   type ClassFormValues,
   type ClassRequestPayload,
   type ClassResponse,
@@ -12,7 +13,7 @@ import {
 /** Giá trị mặc định cho form tạo mới. */
 export function emptyForm(): ClassFormValues {
   return {
-    subjectId: '',
+    subjectIds: [],
     gradeId: '',
     learningGoal: '',
     learningGoalOther: '',
@@ -21,7 +22,10 @@ export function emptyForm(): ClassFormValues {
     lessonMode: 'OFFLINE',
     provinceId: '',
     provinceName: '',
-    district: '',
+    districtId: '',
+    districtName: '',
+    wardId: '',
+    wardName: '',
     address: '',
     feePerSession: '',
     billingCycle: 'MONTH',
@@ -41,7 +45,7 @@ export function classToForm(c: ClassResponse): ClassFormValues {
     !!c.tutorRequirement && TUTOR_REQUIREMENT_OPTIONS.includes(c.tutorRequirement);
   const feePerSession = c.tuitionFee != null ? String(c.tuitionFee) : '';
   return {
-    subjectId: c.subjectId != null ? String(c.subjectId) : '',
+    subjectIds: c.subjectId != null ? [String(c.subjectId)] : [],
     gradeId: c.gradeId != null ? String(c.gradeId) : '',
     learningGoal: c.learningGoal ? (goalMatched ? c.learningGoal : LEARNING_GOAL_OTHER) : '',
     learningGoalOther: c.learningGoal && !goalMatched ? c.learningGoal : '',
@@ -50,7 +54,10 @@ export function classToForm(c: ClassResponse): ClassFormValues {
     lessonMode: c.lessonMode,
     provinceId: '',
     provinceName: '',
-    district: '',
+    districtId: '',
+    districtName: '',
+    wardId: '',
+    wardName: '',
     address: c.address ?? '',
     feePerSession,
     billingCycle: 'MONTH',
@@ -98,7 +105,9 @@ export function buildScheduleSummary(form: ClassFormValues): string {
   // Liệt kê từng thứ kèm khung giờ riêng (theo thứ tự trong tuần).
   const dayParts = DAY_OF_WEEK_OPTIONS.filter((d) => form.daysOfWeek.includes(d.value)).map((d) => {
     const t = form.dayTimes[d.value];
-    return t?.start && t?.end ? `${d.label} (${t.start}–${t.end})` : d.label;
+    const session = t?.session ? ` buổi ${t.session}` : '';
+    const range = t?.start && t?.end ? ` (${t.start}–${t.end})` : '';
+    return `${d.label}${session}${range}`;
   });
   if (dayParts.length > 0) {
     parts.push(`vào ${dayParts.join(', ')}`);
@@ -106,21 +115,37 @@ export function buildScheduleSummary(form: ClassFormValues): string {
   return `${parts.join(' ')}.`;
 }
 
-/** Chuyển form → payload gửi backend. */
-export function formToPayload(form: ClassFormValues): ClassRequestPayload {
+/** Chuyển form → payload gửi backend.
+ *  `subjects` (catalog) để lấy tên môn ghi vào mô tả khi chọn nhiều môn. */
+export function formToPayload(
+  form: ClassFormValues,
+  subjects: CatalogOption[] = [],
+): ClassRequestPayload {
   const sessions = estimatedSessions(form);
   const feePerSession = Number(form.feePerSession) || 0;
   const startDate = form.startDate || new Date().toISOString().slice(0, 10);
-  const description = [buildScheduleSummary(form), form.note.trim()]
+  // Backend chỉ lưu 1 môn (subjectId) → môn đầu là môn chính; nếu chọn nhiều
+  // môn thì ghi cả danh sách vào mô tả.
+  const subjectNames = form.subjectIds
+    .map((id) => subjects.find((s) => String(s.id) === id)?.name)
+    .filter((n): n is string => !!n);
+  const subjectLine = subjectNames.length > 1 ? `Các môn học: ${subjectNames.join(', ')}` : '';
+  const description = [subjectLine, buildScheduleSummary(form), form.note.trim()]
     .filter(Boolean)
     .join('\n');
-  // Backend chưa có cột riêng cho tỉnh/khu vực → gộp thành một chuỗi địa chỉ đầy đủ.
-  const fullAddress = [form.address.trim(), form.district.trim(), form.provinceName.trim()]
+  // Backend chưa có cột riêng cho tỉnh/khu vực → gộp thành một chuỗi địa chỉ đầy đủ:
+  // [số nhà/đường], [phường/xã], [quận/huyện], [tỉnh/thành].
+  const fullAddress = [
+    form.address.trim(),
+    form.wardName.trim(),
+    form.districtName.trim(),
+    form.provinceName.trim(),
+  ]
     .filter(Boolean)
     .join(', ');
 
   return {
-    subjectId: form.subjectId ? Number(form.subjectId) : null,
+    subjectId: form.subjectIds[0] ? Number(form.subjectIds[0]) : null,
     gradeId: form.gradeId ? Number(form.gradeId) : null,
     learningGoal: resolveLearningGoal(form) || null,
     tutorRequirement: resolveTutorRequirement(form) || null,

@@ -1,10 +1,11 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   BILLING_CYCLE_OPTIONS,
   DAY_OF_WEEK_OPTIONS,
   LEARNING_GOAL_OPTIONS,
   LEARNING_GOAL_OTHER,
   LESSON_MODE_OPTIONS,
+  SESSION_OPTIONS,
   TUTOR_REQUIREMENT_OPTIONS,
   type BillingCycle,
   type CatalogOption,
@@ -13,6 +14,7 @@ import {
   type LessonMode,
 } from '../types/marketplaceTypes';
 import { formToPayload } from '../mappers/marketplaceMapper';
+import { marketplaceApi } from '../api/marketplaceApi';
 import '../pages/MarketplacePage.css';
 
 interface ClassRequestFormProps {
@@ -42,9 +44,71 @@ export function ClassRequestForm({
 }: ClassRequestFormProps) {
   const [form, setForm] = useState<ClassFormValues>(initial);
   const [touched, setTouched] = useState(false);
+  const [districts, setDistricts] = useState<CatalogOption[]>([]);
+  const [wards, setWards] = useState<CatalogOption[]>([]);
 
   function set<K extends keyof ClassFormValues>(key: K, value: ClassFormValues[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  // Tải quận/huyện khi đổi tỉnh; tải phường/xã khi đổi quận/huyện.
+  useEffect(() => {
+    if (!form.provinceId) {
+      setDistricts([]);
+      return;
+    }
+    let alive = true;
+    marketplaceApi
+      .listDistricts(Number(form.provinceId))
+      .then((d) => alive && setDistricts(d))
+      .catch(() => alive && setDistricts([]));
+    return () => {
+      alive = false;
+    };
+  }, [form.provinceId]);
+
+  useEffect(() => {
+    if (!form.districtId) {
+      setWards([]);
+      return;
+    }
+    let alive = true;
+    marketplaceApi
+      .listWards(Number(form.districtId))
+      .then((w) => alive && setWards(w))
+      .catch(() => alive && setWards([]));
+    return () => {
+      alive = false;
+    };
+  }, [form.districtId]);
+
+  function handleProvinceChange(value: string) {
+    const name = provinces.find((p) => String(p.id) === value)?.name ?? '';
+    setForm((prev) => ({
+      ...prev,
+      provinceId: value,
+      provinceName: name,
+      districtId: '',
+      districtName: '',
+      wardId: '',
+      wardName: '',
+    }));
+  }
+
+  function handleDistrictChange(value: string) {
+    const name = districts.find((d) => String(d.id) === value)?.name ?? '';
+    setForm((prev) => ({
+      ...prev,
+      districtId: value,
+      districtName: name,
+      wardId: '',
+      wardName: '',
+    }));
+  }
+
+  function handleWardChange(value: string) {
+    const name = wards.find((w) => String(w.id) === value)?.name ?? '';
+    setForm((prev) => ({ ...prev, wardId: value, wardName: name }));
   }
 
   // Bật/tắt một thứ; khi bật thì khởi tạo khung giờ rỗng cho thứ đó.
@@ -63,7 +127,7 @@ export function ClassRequestForm({
       if (has) {
         delete dayTimes[value];
       } else {
-        dayTimes[value] = { start: '', end: '' };
+        dayTimes[value] = { session: '', start: '', end: '' };
       }
       return { ...prev, daysOfWeek, dayTimes };
     });
@@ -84,8 +148,8 @@ export function ClassRequestForm({
       const kept = DAY_OF_WEEK_OPTIONS.filter((d) => prev.daysOfWeek.includes(d.value))
         .slice(0, n)
         .map((d) => d.value);
-      const dayTimes: Record<string, { start: string; end: string }> = {};
-      for (const k of kept) dayTimes[k] = prev.dayTimes[k] ?? { start: '', end: '' };
+      const dayTimes: Record<string, { session: string; start: string; end: string }> = {};
+      for (const k of kept) dayTimes[k] = prev.dayTimes[k] ?? { session: '', start: '', end: '' };
       return { ...prev, sessionsPerWeek: v, daysOfWeek: kept, dayTimes };
     });
   }
@@ -95,7 +159,23 @@ export function ClassRequestForm({
       ...prev,
       dayTimes: {
         ...prev.dayTimes,
-        [day]: { ...(prev.dayTimes[day] ?? { start: '', end: '' }), [field]: value },
+        [day]: { ...(prev.dayTimes[day] ?? { session: '', start: '', end: '' }), [field]: value },
+      },
+    }));
+  }
+
+  // Chọn buổi (Sáng/Chiều/Tối) → điền sẵn khung giờ gợi ý (vẫn sửa được).
+  function setDaySession(day: string, session: string) {
+    const preset = SESSION_OPTIONS.find((s) => s.value === session);
+    setForm((prev) => ({
+      ...prev,
+      dayTimes: {
+        ...prev.dayTimes,
+        [day]: {
+          session,
+          start: preset ? preset.start : (prev.dayTimes[day]?.start ?? ''),
+          end: preset ? preset.end : (prev.dayTimes[day]?.end ?? ''),
+        },
       },
     }));
   }
@@ -132,13 +212,14 @@ export function ClassRequestForm({
   }
 
   const missing: string[] = [];
-  if (!form.subjectId) missing.push('Môn học');
+  if (form.subjectIds.length === 0) missing.push('Môn học');
   if (!form.gradeId) missing.push('Lớp');
   if (!form.learningGoal) missing.push('Mục tiêu học tập');
   if (goalNeedsCustom && !form.learningGoalOther.trim()) missing.push('Mục tiêu cụ thể');
   if (isOffline) {
     if (!form.provinceId) missing.push('Tỉnh / Thành phố');
-    if (!form.district.trim()) missing.push('Quận / Huyện · Phường / Xã');
+    if (!form.districtId) missing.push('Quận / Huyện');
+    if (!form.wardId) missing.push('Phường / Xã');
     if (!form.address.trim()) missing.push('Địa chỉ chi tiết');
   }
   if (!form.tutorRequirementDetail.trim()) missing.push('Yêu cầu bổ sung');
@@ -151,33 +232,49 @@ export function ClassRequestForm({
   function handleSubmit() {
     setTouched(true);
     if (missing.length > 0 || startInPast || dayTimeErrors.length > 0 || dayCountShort) return;
-    onSubmit(formToPayload(form));
+    onSubmit(formToPayload(form, subjects));
   }
 
-  function handleProvinceChange(value: string) {
-    const name = provinces.find((p) => String(p.id) === value)?.name ?? '';
-    setForm((prev) => ({ ...prev, provinceId: value, provinceName: name }));
+  function toggleSubject(id: string) {
+    setForm((prev) => ({
+      ...prev,
+      subjectIds: prev.subjectIds.includes(id)
+        ? prev.subjectIds.filter((s) => s !== id)
+        : [...prev.subjectIds, id],
+    }));
   }
 
   return (
     <div className="mkt-form">
-      <div className="mkt-form__grid">
-        {/* Môn học */}
-        <label className="mkt-field">
-          <span className="mkt-field__label">
-            Môn học <em>*</em>
-          </span>
-          <select value={form.subjectId} onChange={(e) => set('subjectId', e.target.value)}>
-            <option value="">-- Chọn môn học --</option>
-            {subjects.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/* Môn học — chọn nhiều môn */}
+      <div className="mkt-field">
+        <span className="mkt-field__label">
+          Môn học <em>*</em>
+          <span className="mkt-field__hint-inline"> (có thể chọn nhiều môn)</span>
+        </span>
+        {subjects.length === 0 ? (
+          <p className="mkt-hint">Đang tải danh sách môn học…</p>
+        ) : (
+          <div className="mkt-checks">
+            {subjects.map((s) => {
+              const id = String(s.id);
+              return (
+                <label key={s.id} className="mkt-check">
+                  <input
+                    type="checkbox"
+                    checked={form.subjectIds.includes(id)}
+                    onChange={() => toggleSubject(id)}
+                  />
+                  <span>{s.name}</span>
+                </label>
+              );
+            })}
+          </div>
+        )}
+      </div>
 
-        {/* Lớp */}
+      {/* Lớp */}
+      <div className="mkt-form__grid">
         <label className="mkt-field">
           <span className="mkt-field__label">
             Lớp <em>*</em>
@@ -240,47 +337,74 @@ export function ClassRequestForm({
         </div>
       </div>
 
-      {/* Địa điểm (chỉ khi offline) */}
+      {/* Địa điểm (chỉ khi offline) — cascade Tỉnh → Quận/Huyện → Phường/Xã */}
       {isOffline && (
-        <div className="mkt-form__grid">
-          <label className="mkt-field">
-            <span className="mkt-field__label">
-              Tỉnh / Thành phố <em>*</em>
-            </span>
-            <select value={form.provinceId} onChange={(e) => handleProvinceChange(e.target.value)}>
-              <option value="">-- Chọn tỉnh thành --</option>
-              {provinces.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
+        <>
+          <div className="mkt-form__grid mkt-form__grid--3">
+            <label className="mkt-field">
+              <span className="mkt-field__label">
+                Tỉnh / Thành phố <em>*</em>
+              </span>
+              <select value={form.provinceId} onChange={(e) => handleProvinceChange(e.target.value)}>
+                <option value="">-- Chọn tỉnh thành --</option>
+                {provinces.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="mkt-field">
+              <span className="mkt-field__label">
+                Quận / Huyện <em>*</em>
+              </span>
+              <select
+                value={form.districtId}
+                onChange={(e) => handleDistrictChange(e.target.value)}
+                disabled={!form.provinceId}
+              >
+                <option value="">
+                  {form.provinceId ? '-- Chọn quận/huyện --' : 'Chọn tỉnh thành trước'}
                 </option>
-              ))}
-            </select>
-          </label>
+                {districts.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="mkt-field">
+              <span className="mkt-field__label">
+                Phường / Xã <em>*</em>
+              </span>
+              <select
+                value={form.wardId}
+                onChange={(e) => handleWardChange(e.target.value)}
+                disabled={!form.districtId}
+              >
+                <option value="">
+                  {form.districtId ? '-- Chọn phường/xã --' : 'Chọn quận/huyện trước'}
+                </option>
+                {wards.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
           <label className="mkt-field">
             <span className="mkt-field__label">
-              Quận / Huyện · Phường / Xã <em>*</em>
+              Địa chỉ chi tiết <em>*</em>
             </span>
             <input
               type="text"
-              value={form.district}
-              placeholder="VD: Quận Cầu Giấy / Phường Dịch Vọng"
-              onChange={(e) => set('district', e.target.value)}
+              value={form.address}
+              placeholder="Số nhà, tên đường…"
+              onChange={(e) => set('address', e.target.value)}
             />
           </label>
-        </div>
-      )}
-      {isOffline && (
-        <label className="mkt-field">
-          <span className="mkt-field__label">
-            Địa chỉ chi tiết <em>*</em>
-          </span>
-          <input
-            type="text"
-            value={form.address}
-            placeholder="Số nhà, tên đường, phường/xã…"
-            onChange={(e) => set('address', e.target.value)}
-          />
-        </label>
+        </>
       )}
 
       {/* Yêu cầu đối với gia sư */}
@@ -399,6 +523,19 @@ export function ClassRequestForm({
             {DAY_OF_WEEK_OPTIONS.filter((d) => form.daysOfWeek.includes(d.value)).map((d) => (
               <div key={d.value} className="mkt-day-time">
                 <span className="mkt-day-time__label">{d.label}</span>
+                <select
+                  className="mkt-day-time__session"
+                  aria-label={`Buổi học ${d.label}`}
+                  value={form.dayTimes[d.value]?.session ?? ''}
+                  onChange={(e) => setDaySession(d.value, e.target.value)}
+                >
+                  <option value="">Buổi…</option>
+                  {SESSION_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>
+                      {s.value}
+                    </option>
+                  ))}
+                </select>
                 <input
                   type="time"
                   aria-label={`Giờ bắt đầu ${d.label}`}

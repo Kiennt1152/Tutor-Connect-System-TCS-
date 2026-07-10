@@ -69,12 +69,19 @@ export default function FindTutorPage() {
         <section className="tcs-home-hero tcs-find-hero">
           <div className="tcs-container">
             <div className="tcs-find-hero__intro">
-              <p className="tcs-hero__eyebrow">Tìm gia sư</p>
-              <h1 className="tcs-hero__title">Đăng yêu cầu tìm gia sư</h1>
-              <p className="tcs-hero__subtitle">
+              <h1 className="tcs-find-title">
+                <span className="tcs-find-title__icon">🎓</span>
+                <span className="tcs-find-title__text">Đăng yêu cầu tìm gia sư</span>
+              </h1>
+              <p className="tcs-find-subtitle">
                 Điền thông tin nhu cầu học tập của bạn — môn học, mục tiêu, hình thức, học phí. Gia sư
                 phù hợp sẽ nhận được yêu cầu và liên hệ với bạn.
               </p>
+              <div className="tcs-find-chips">
+                <span className="tcs-find-chip">✅ Miễn phí đăng tin</span>
+                <span className="tcs-find-chip">🔒 Thanh toán ký quỹ an toàn</span>
+                <span className="tcs-find-chip">⭐ Gia sư đã xác minh</span>
+              </div>
             </div>
 
             <div className="tcs-find-form-card">

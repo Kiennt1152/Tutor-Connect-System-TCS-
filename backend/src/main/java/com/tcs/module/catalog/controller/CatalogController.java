@@ -38,6 +38,16 @@ public class CatalogController {
         return catalogService.getProvinces();
     }
 
+    @GetMapping("/districts")
+    public List<CatalogItemResponse> getDistricts(@RequestParam Long provinceId) {
+        return catalogService.getDistricts(provinceId);
+    }
+
+    @GetMapping("/wards")
+    public List<CatalogItemResponse> getWards(@RequestParam Long districtId) {
+        return catalogService.getWards(districtId);
+    }
+
     @GetMapping("/locations")
     public List<LocationResponse> getLocations(@RequestParam(required = false) Long provinceId) {
         return catalogService.getLocations(provinceId);

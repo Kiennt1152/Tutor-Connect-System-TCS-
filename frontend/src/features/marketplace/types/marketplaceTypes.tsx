@@ -76,7 +76,7 @@ export interface ClassRequestPayload {
 
 /** Giá trị của form (trạng thái nhập liệu). */
 export interface ClassFormValues {
-  subjectId: string;
+  subjectIds: string[];
   gradeId: string;
   learningGoal: string;
   learningGoalOther: string;
@@ -85,7 +85,10 @@ export interface ClassFormValues {
   lessonMode: LessonMode;
   provinceId: string;
   provinceName: string;
-  district: string;
+  districtId: string;
+  districtName: string;
+  wardId: string;
+  wardName: string;
   address: string;
   feePerSession: string;
   billingCycle: BillingCycle;
@@ -97,11 +100,19 @@ export interface ClassFormValues {
   note: string;
 }
 
-/** Khung giờ học của một buổi. */
+/** Khung giờ học của một buổi (kèm buổi Sáng/Chiều/Tối). */
 export interface DayTime {
+  session: string;
   start: string;
   end: string;
 }
+
+// Buổi trong ngày + khung giờ gợi ý (chọn buổi sẽ tự điền, vẫn sửa được).
+export const SESSION_OPTIONS: readonly { value: string; start: string; end: string }[] = [
+  { value: 'Sáng', start: '08:00', end: '10:00' },
+  { value: 'Chiều', start: '14:00', end: '16:00' },
+  { value: 'Tối', start: '18:00', end: '20:00' },
+];
 
 export type BillingCycle = 'MONTH' | 'TERM';
 

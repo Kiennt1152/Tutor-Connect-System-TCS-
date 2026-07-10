@@ -60,6 +60,16 @@ export const marketplaceApi = {
       .get<CatalogItemDto[]>('/catalog/provinces')
       .then((r) => r.data.map(toOption)),
 
+  listDistricts: (provinceId: number) =>
+    axiosClient
+      .get<CatalogItemDto[]>('/catalog/districts', { params: { provinceId } })
+      .then((r) => r.data.map(toOption)),
+
+  listWards: (districtId: number) =>
+    axiosClient
+      .get<CatalogItemDto[]>('/catalog/wards', { params: { districtId } })
+      .then((r) => r.data.map(toOption)),
+
   listLocations: (provinceId: number) =>
     axiosClient
       .get<LocationDto[]>('/catalog/locations', { params: { provinceId } })

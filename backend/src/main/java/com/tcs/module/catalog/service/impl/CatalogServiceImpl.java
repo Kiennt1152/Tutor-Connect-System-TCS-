@@ -10,11 +10,13 @@ import com.tcs.module.catalog.entity.Location;
 import com.tcs.module.catalog.entity.Province;
 import com.tcs.module.catalog.entity.Subject;
 import com.tcs.module.catalog.repository.CategoryRepository;
+import com.tcs.module.catalog.repository.DistrictRepository;
 import com.tcs.module.catalog.repository.FaqEntryRepository;
 import com.tcs.module.catalog.repository.GradeRepository;
 import com.tcs.module.catalog.repository.LocationRepository;
 import com.tcs.module.catalog.repository.ProvinceRepository;
 import com.tcs.module.catalog.repository.SubjectRepository;
+import com.tcs.module.catalog.repository.WardRepository;
 import com.tcs.module.catalog.service.CatalogService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -29,6 +31,8 @@ public class CatalogServiceImpl implements CatalogService {
     private final CategoryRepository categoryRepository;
     private final GradeRepository gradeRepository;
     private final ProvinceRepository provinceRepository;
+    private final DistrictRepository districtRepository;
+    private final WardRepository wardRepository;
     private final LocationRepository locationRepository;
     private final FaqEntryRepository faqEntryRepository;
 
@@ -68,6 +72,34 @@ public class CatalogServiceImpl implements CatalogService {
                 .map(p -> CatalogItemResponse.builder()
                         .id(p.getProvinceId())
                         .name(p.getProvinceName())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CatalogItemResponse> getDistricts(Long provinceId) {
+        if (provinceId == null) {
+            return List.of();
+        }
+        return districtRepository.findByProvinceIdOrderByDistrictName(provinceId).stream()
+                .map(d -> CatalogItemResponse.builder()
+                        .id(d.getDistrictId())
+                        .name(d.getDistrictName())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CatalogItemResponse> getWards(Long districtId) {
+        if (districtId == null) {
+            return List.of();
+        }
+        return wardRepository.findByDistrictIdOrderByWardName(districtId).stream()
+                .map(w -> CatalogItemResponse.builder()
+                        .id(w.getWardId())
+                        .name(w.getWardName())
                         .build())
                 .toList();
     }
