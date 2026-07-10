@@ -1,19 +1,25 @@
 package com.tcs.module.finance.service.impl;
 
 import com.tcs.module.finance.dto.request.DepositRequest;
+import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
 import com.tcs.module.finance.dto.request.SepayWebhookRequest;
 import com.tcs.module.finance.dto.response.PaymentWebhookResponse;
 import com.tcs.module.finance.dto.response.TopupSessionResponse;
 import com.tcs.module.finance.dto.response.TopupStatusResponse;
 import com.tcs.module.finance.dto.response.WalletResponse;
 import com.tcs.module.finance.dto.response.WalletTransactionsResponse;
+import com.tcs.module.finance.dto.response.WithdrawalResponse;
+import com.tcs.module.finance.entity.PaymentMethod;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.entity.Wallet;
+import com.tcs.module.finance.entity.WithdrawalRequest;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
+import com.tcs.module.finance.enums.WithdrawalRequestStatus;
 import com.tcs.module.finance.enums.WalletStatus;
 import com.tcs.module.finance.repository.PaymentMethodRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
+import com.tcs.module.finance.repository.WithdrawalRequestRepository;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
@@ -59,6 +65,9 @@ class FinanceServiceImplTest {
 
     @Mock
     private PaymentMethodRepository paymentMethodRepository;
+
+    @Mock
+    private WithdrawalRequestRepository withdrawalRequestRepository;
 
     @InjectMocks
     private FinanceServiceImpl financeService;
@@ -181,6 +190,98 @@ class FinanceServiceImplTest {
 
         assertEquals("success", response.getStatus());
         verify(walletService, never()).credit(any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("createWithdrawal debits wallet and creates a pending withdrawal request")
+    void createWithdrawalCreatesPendingRequest() {
+        CreateWithdrawalRequest request = new CreateWithdrawalRequest();
+        request.setAmount(new BigDecimal("100000.00"));
+        request.setBankName("TPBank");
+        request.setAccountNo("1234567890");
+
+        PaymentMethod savedMethod = new PaymentMethod();
+        savedMethod.setPaymentMethodId(3L);
+        savedMethod.setWallet(wallet);
+        savedMethod.setType("BANK_TRANSFER");
+        savedMethod.setBankName("TPBank");
+        savedMethod.setAccountNo("1234567890");
+        savedMethod.setStatus("ACTIVE");
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(paymentMethodRepository.save(any(PaymentMethod.class))).thenReturn(savedMethod);
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(withdrawalRequestRepository.save(any(WithdrawalRequest.class))).thenAnswer(invocation -> {
+            WithdrawalRequest withdrawal = invocation.getArgument(0);
+            withdrawal.setWithdrawalId(15L);
+            return withdrawal;
+        });
+
+        WithdrawalResponse response = financeService.createWithdrawal(request);
+
+        assertEquals(15L, response.getWithdrawalId());
+        assertEquals(new BigDecimal("100000.00"), response.getAmount());
+        assertEquals(WithdrawalRequestStatus.PENDING, response.getStatus());
+        assertEquals(3L, response.getPaymentMethodId());
+        assertEquals("TPBank", response.getBankName());
+        assertEquals("****7890", response.getAccountNoMasked());
+        assertTrue(response.getReferenceCode().startsWith("WITHDRAW-"));
+        assertEquals(USER_ID, response.getWallet().getWalletId());
+
+        ArgumentCaptor<PaymentTransaction> txCaptor = ArgumentCaptor.forClass(PaymentTransaction.class);
+        verify(paymentTransactionRepository).save(txCaptor.capture());
+        PaymentTransaction tx = txCaptor.getValue();
+        assertEquals(PaymentTransactionType.WITHDRAWAL, tx.getType());
+        assertEquals(PaymentTransactionStatus.PENDING, tx.getStatus());
+        assertEquals(savedMethod, tx.getPaymentMethod());
+        verify(walletService).debit(eq(USER_ID), eq(new BigDecimal("100000.00")), eq(tx.getReferenceCode()));
+
+        ArgumentCaptor<WithdrawalRequest> withdrawalCaptor = ArgumentCaptor.forClass(WithdrawalRequest.class);
+        verify(withdrawalRequestRepository).save(withdrawalCaptor.capture());
+        assertEquals(savedMethod, withdrawalCaptor.getValue().getPaymentMethod());
+        assertEquals(WithdrawalRequestStatus.PENDING, withdrawalCaptor.getValue().getStatus());
+    }
+
+    @Test
+    @DisplayName("createWithdrawal can use an active saved payment method")
+    void createWithdrawalUsesSavedPaymentMethod() {
+        CreateWithdrawalRequest request = new CreateWithdrawalRequest();
+        request.setAmount(new BigDecimal("100000.00"));
+        request.setPaymentMethodId(3L);
+
+        PaymentMethod paymentMethod = new PaymentMethod();
+        paymentMethod.setPaymentMethodId(3L);
+        paymentMethod.setWallet(wallet);
+        paymentMethod.setType("BANK_TRANSFER");
+        paymentMethod.setBankName("TPBank");
+        paymentMethod.setAccountNo("1234567890");
+        paymentMethod.setStatus("ACTIVE");
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(paymentMethodRepository.findById(3L)).thenReturn(Optional.of(paymentMethod));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(withdrawalRequestRepository.save(any(WithdrawalRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        financeService.createWithdrawal(request);
+
+        verify(paymentMethodRepository, never()).save(any());
+        verify(walletService).debit(eq(USER_ID), eq(new BigDecimal("100000.00")), any());
+    }
+
+    @Test
+    @DisplayName("createWithdrawal rejects missing bank account data")
+    void createWithdrawalRejectsMissingBankData() {
+        CreateWithdrawalRequest request = new CreateWithdrawalRequest();
+        request.setAmount(new BigDecimal("100000.00"));
+        request.setBankName("TPBank");
+
+        assertThrows(IllegalArgumentException.class, () -> financeService.createWithdrawal(request));
+        verifyNoInteractions(withdrawalRequestRepository);
+        verify(walletService, never()).debit(any(), any(), any());
     }
 
     @Test

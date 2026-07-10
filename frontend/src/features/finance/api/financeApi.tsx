@@ -6,6 +6,9 @@ import type {
   DepositPayload,
   TopupSessionInfo,
   TopupStatusInfo,
+  PaymentMethodInfo,
+  WithdrawalPayload,
+  WithdrawalInfo,
 } from '../types/financeTypes';
 
 const BASE = '/finance';
@@ -41,5 +44,13 @@ export const financeApi = {
     return axiosClient
       .post(`${BASE}/wallet/topups/${encodeURIComponent(reference)}/simulate-success`)
       .then((r) => r.data);
+  },
+
+  getPaymentMethods(): Promise<PaymentMethodInfo[]> {
+    return axiosClient.get(`${BASE}/payment-methods`).then((r) => r.data);
+  },
+
+  createWithdrawal(payload: WithdrawalPayload): Promise<WithdrawalInfo> {
+    return axiosClient.post(`${BASE}/withdrawals`, payload).then((r) => r.data);
   },
 };

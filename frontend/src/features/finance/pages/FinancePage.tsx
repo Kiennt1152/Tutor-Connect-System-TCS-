@@ -5,6 +5,7 @@ import { useFinance } from '../hooks/useFinance';
 import { WalletBalanceCard } from '../components/WalletBalanceCard';
 import { TransactionList } from '../components/TransactionList';
 import { DepositModal } from '../components/DepositModal';
+import { WithdrawalModal } from '../components/WithdrawalModal';
 import type { TransactionFilter, WalletInfo } from '../types/financeTypes';
 
 const DEFAULT_FILTERS: TransactionFilter = { page: 0, size: 20 };
@@ -31,6 +32,10 @@ export default function FinancePage() {
     createTopup,
     checkTopupStatus,
     simulateTopupSuccess,
+    paymentMethods,
+    paymentMethodsLoading,
+    fetchPaymentMethods,
+    createWithdrawal,
   } = useFinance();
 
   const [filters, setFilters] = useState<TransactionFilter>(DEFAULT_FILTERS);
@@ -72,9 +77,13 @@ export default function FinancePage() {
               onCheckTopupStatus={checkTopupStatus}
               onSimulateTopupSuccess={simulateTopupSuccess}
             />
-            <button className="withdraw-btn" disabled>
-              Rút tiền (sắp ra mắt)
-            </button>
+            <WithdrawalModal
+              wallet={wallet}
+              paymentMethods={paymentMethods}
+              paymentMethodsLoading={paymentMethodsLoading}
+              onLoadPaymentMethods={fetchPaymentMethods}
+              onWithdraw={createWithdrawal}
+            />
           </div>
         </div>
 

@@ -1,6 +1,7 @@
 package com.tcs.module.finance.service.impl;
 
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
 import com.tcs.module.finance.dto.request.DepositRequest;
 import com.tcs.module.finance.dto.request.SepayWebhookRequest;
 import com.tcs.module.finance.dto.response.PaymentWebhookResponse;
@@ -10,12 +11,17 @@ import com.tcs.module.finance.dto.response.TopupStatusResponse;
 import com.tcs.module.finance.dto.response.TransactionResponse;
 import com.tcs.module.finance.dto.response.WalletResponse;
 import com.tcs.module.finance.dto.response.WalletTransactionsResponse;
+import com.tcs.module.finance.dto.response.WithdrawalResponse;
+import com.tcs.module.finance.entity.PaymentMethod;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.entity.Wallet;
+import com.tcs.module.finance.entity.WithdrawalRequest;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
+import com.tcs.module.finance.enums.WithdrawalRequestStatus;
 import com.tcs.module.finance.repository.PaymentMethodRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
+import com.tcs.module.finance.repository.WithdrawalRequestRepository;
 import com.tcs.module.finance.service.FinanceService;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.security.AuthHelper;
@@ -52,6 +58,7 @@ public class FinanceServiceImpl implements FinanceService {
     private final WalletService walletService;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentMethodRepository paymentMethodRepository;
+    private final WithdrawalRequestRepository withdrawalRequestRepository;
 
     @Override
     @Transactional
@@ -188,6 +195,40 @@ public class FinanceServiceImpl implements FinanceService {
 
     @Override
     @Transactional
+    public WithdrawalResponse createWithdrawal(CreateWithdrawalRequest request) {
+        validateWithdrawalRequest(request);
+
+        Long userId = authHelper.currentUserId();
+        Wallet wallet = walletService.getOrCreate(userId);
+        PaymentMethod paymentMethod = resolveWithdrawalMethod(wallet, request);
+        String referenceCode = "WITHDRAW-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+
+        walletService.debit(userId, request.getAmount(), referenceCode);
+        Wallet updatedWallet = walletService.getOrCreate(userId);
+
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setWallet(updatedWallet);
+        tx.setPaymentMethod(paymentMethod);
+        tx.setType(PaymentTransactionType.WITHDRAWAL);
+        tx.setStatus(PaymentTransactionStatus.PENDING);
+        tx.setAmount(request.getAmount());
+        tx.setDescription("Yêu cầu rút tiền đang chờ xử lý");
+        tx.setReferenceCode(referenceCode);
+        paymentTransactionRepository.save(tx);
+
+        WithdrawalRequest withdrawal = new WithdrawalRequest();
+        withdrawal.setWallet(updatedWallet);
+        withdrawal.setPaymentMethod(paymentMethod);
+        withdrawal.setAmount(request.getAmount());
+        withdrawal.setStatus(WithdrawalRequestStatus.PENDING);
+        withdrawal.setRequestedAt(LocalDateTime.now());
+        WithdrawalRequest savedWithdrawal = withdrawalRequestRepository.save(withdrawal);
+
+        return toWithdrawalResponse(savedWithdrawal, tx, updatedWallet);
+    }
+
+    @Override
+    @Transactional
     public WalletTransactionsResponse getMyTransactions(
             int page,
             int size,
@@ -236,6 +277,43 @@ public class FinanceServiceImpl implements FinanceService {
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Số tiền nạp phải lớn hơn 0");
         }
+    }
+
+    private void validateWithdrawalRequest(CreateWithdrawalRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thiếu thông tin rút tiền");
+        }
+        if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Số tiền rút phải lớn hơn 0");
+        }
+        if (request.getPaymentMethodId() == null) {
+            if (isBlank(request.getBankName())) {
+                throw new IllegalArgumentException("Vui lòng nhập tên ngân hàng nhận tiền");
+            }
+            if (isBlank(request.getAccountNo())) {
+                throw new IllegalArgumentException("Vui lòng nhập số tài khoản nhận tiền");
+            }
+        }
+    }
+
+    private PaymentMethod resolveWithdrawalMethod(Wallet wallet, CreateWithdrawalRequest request) {
+        if (request.getPaymentMethodId() != null) {
+            PaymentMethod paymentMethod = paymentMethodRepository.findById(request.getPaymentMethodId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản nhận tiền"));
+            if (!paymentMethod.getWallet().getWalletId().equals(wallet.getWalletId())
+                    || !"ACTIVE".equalsIgnoreCase(paymentMethod.getStatus())) {
+                throw new ResourceNotFoundException("Không tìm thấy tài khoản nhận tiền");
+            }
+            return paymentMethod;
+        }
+
+        PaymentMethod paymentMethod = new PaymentMethod();
+        paymentMethod.setWallet(wallet);
+        paymentMethod.setType("BANK_TRANSFER");
+        paymentMethod.setBankName(request.getBankName().trim());
+        paymentMethod.setAccountNo(request.getAccountNo().trim());
+        paymentMethod.setStatus("ACTIVE");
+        return paymentMethodRepository.save(paymentMethod);
     }
 
     private String createTopupReference() {
@@ -440,5 +518,34 @@ public class FinanceServiceImpl implements FinanceService {
                 .processedAt(tx.getProcessedAt())
                 .createdAt(tx.getCreatedAt())
                 .build();
+    }
+
+    private WithdrawalResponse toWithdrawalResponse(
+            WithdrawalRequest withdrawal,
+            PaymentTransaction tx,
+            Wallet wallet) {
+        PaymentMethod paymentMethod = withdrawal.getPaymentMethod();
+        return WithdrawalResponse.builder()
+                .withdrawalId(withdrawal.getWithdrawalId())
+                .amount(withdrawal.getAmount())
+                .status(withdrawal.getStatus())
+                .paymentMethodId(paymentMethod.getPaymentMethodId())
+                .bankName(paymentMethod.getBankName())
+                .accountNoMasked(maskAccountNo(paymentMethod.getAccountNo()))
+                .referenceCode(tx.getReferenceCode())
+                .requestedAt(withdrawal.getRequestedAt())
+                .wallet(toWalletResponse(wallet))
+                .build();
+    }
+
+    private String maskAccountNo(String accountNo) {
+        if (accountNo == null || accountNo.isBlank()) {
+            return "";
+        }
+        String trimmed = accountNo.trim();
+        if (trimmed.length() <= 4) {
+            return trimmed;
+        }
+        return "****" + trimmed.substring(trimmed.length() - 4);
     }
 }
