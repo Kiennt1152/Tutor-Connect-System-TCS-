@@ -44,4 +44,7 @@ public class CenterClassResponse {
     // Gia sư đang được gán dạy lớp (null nếu chưa gán).
     private Long assignedTutorId;
     private String assignedTutorName;
+
+    // Danh sách học sinh đã ghi danh (ENROLLED) – dùng cho phần xem chi tiết.
+    private List<StudentAttendanceResponse> students;
 }

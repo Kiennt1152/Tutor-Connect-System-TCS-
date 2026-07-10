@@ -37,6 +37,7 @@ export function VerificationHeader() {
           <Link to={APP_ROUTES.catalog}>Tìm gia sư</Link>
           <Link to={APP_ROUTES.marketplace}>Tìm lớp</Link>
           {showCenterManage ? <Link to={APP_ROUTES.center}>Trung tâm</Link> : null}
+          {showVerification ? <Link to="/tutor/schedule">Lịch dạy</Link> : null}
           {showVerification ? <Link to={APP_ROUTES.verification}>Xác minh</Link> : null}
         </nav>
         <div className="tcs-header__actions">

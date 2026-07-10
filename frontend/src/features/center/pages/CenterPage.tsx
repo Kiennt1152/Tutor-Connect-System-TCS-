@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { centerApi } from '../api/centerApi';
@@ -349,6 +350,7 @@ export default function CenterPage() {
       const res = await centerApi.getClass(classId);
       setForm(toFormState(res.data));
       setEditingId(classId);
+      closeDetail();
       setMode('form');
     } catch (err) {
       setListError(extractError(err, 'Không mở được lớp học để chỉnh sửa.'));
@@ -360,9 +362,45 @@ export default function CenterPage() {
     try {
       await centerApi.publishClass(classId);
       reloadList();
+      if (detailData?.classId === classId) refreshDetail(classId);
     } catch (err) {
       setListError(extractError(err, 'Không đăng tải được lớp học.'));
     }
+  };
+
+  // ----- Xem chi tiết lớp -----
+  const [detailData, setDetailData] = useState<ClassResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [showStudents, setShowStudents] = useState(false);
+
+  const openDetail = async (classId: number) => {
+    setDetailError('');
+    setDetailLoading(true);
+    setShowStudents(false);
+    setDetailData({ classId } as ClassResponse); // mở modal ngay, hiển thị trạng thái tải
+    try {
+      const res = await centerApi.getClass(classId);
+      setDetailData(res.data);
+    } catch (err) {
+      setDetailError(extractError(err, 'Không tải được chi tiết lớp học.'));
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const refreshDetail = async (classId: number) => {
+    try {
+      const res = await centerApi.getClass(classId);
+      setDetailData(res.data);
+    } catch {
+      /* giữ nguyên dữ liệu cũ nếu tải lại lỗi */
+    }
+  };
+
+  const closeDetail = () => {
+    setDetailData(null);
+    setDetailError('');
   };
 
   // ----- Gán gia sư -----
@@ -397,10 +435,12 @@ export default function CenterPage() {
     if (!assignFor) return;
     setAssignBusyId(tutorId);
     setAssignError('');
+    const targetId = assignFor.classId;
     try {
-      await centerApi.assignTutor(assignFor.classId, tutorId);
+      await centerApi.assignTutor(targetId, tutorId);
       closeAssign();
       reloadList();
+      if (detailData?.classId === targetId) refreshDetail(targetId);
     } catch (err) {
       setAssignError(extractError(err, 'Không gán được gia sư.'));
       setAssignBusyId(null);
@@ -412,6 +452,7 @@ export default function CenterPage() {
     try {
       await centerApi.unassignTutor(classId);
       reloadList();
+      if (detailData?.classId === classId) refreshDetail(classId);
     } catch (err) {
       setListError(extractError(err, 'Không gỡ được gia sư.'));
     }
@@ -475,9 +516,14 @@ export default function CenterPage() {
       <header className="cc-header">
         <h1 className="cc-title">{pageTitle}</h1>
         {mode === 'list' ? (
-          <button className="cc-btn cc-btn--primary" type="button" onClick={openCreate}>
-            + Tạo lớp mới
-          </button>
+          <div className="cc-row-actions">
+            <Link className="cc-btn cc-btn--ghost" to="/center/schedule">
+              📅 Lịch hôm nay
+            </Link>
+            <button className="cc-btn cc-btn--primary" type="button" onClick={openCreate}>
+              + Tạo lớp mới
+            </button>
+          </div>
         ) : (
           <button className="cc-btn cc-btn--ghost" type="button" onClick={() => setMode('list')}>
             ← Quay lại danh sách
@@ -498,99 +544,25 @@ export default function CenterPage() {
             <div className="cc-class-grid">
               {classes.map((c) => (
                 <article className="cc-class-card" key={c.classId}>
-                  <div className="cc-class-card__top">
+                  <div className="cc-class-card__header">
                     <h3 className="cc-class-card__title" title={c.title}>
                       {c.title}
                     </h3>
+                    <div className="cc-chips">
+                      {c.subjectName && <span className="cc-chip">{c.subjectName}</span>}
+                      {c.gradeName && <span className="cc-chip">{c.gradeName}</span>}
+                      <span className="cc-chip">{LESSON_MODE_LABELS[c.lessonMode]}</span>
+                    </div>
                     <span className={`cc-badge cc-badge--${c.status.toLowerCase()}`}>
                       {STATUS_LABELS[c.status]}
                     </span>
-                  </div>
-
-                  <div className="cc-chips">
-                    {c.subjectName && <span className="cc-chip">{c.subjectName}</span>}
-                    {c.gradeName && <span className="cc-chip">{c.gradeName}</span>}
-                    <span className="cc-chip">{LESSON_MODE_LABELS[c.lessonMode]}</span>
-                  </div>
-
-                  <dl className="cc-class-meta">
-                    <div className="cc-class-meta__row">
-                      <dt>Thời gian</dt>
-                      <dd>
-                        {c.startDate} → {c.endDate}
-                      </dd>
-                    </div>
-                    <div className="cc-class-meta__row">
-                      <dt>Số buổi</dt>
-                      <dd>{c.numberOfSessions}</dd>
-                    </div>
-                    <div className="cc-class-meta__row">
-                      <dt>Sĩ số tối đa</dt>
-                      <dd>{c.maxStudents ?? '—'}</dd>
-                    </div>
-                    <div className="cc-class-meta__row">
-                      <dt>Học phí</dt>
-                      <dd className="cc-fee">{formatCurrency(c.tuitionFee)}</dd>
-                    </div>
-                  </dl>
-
-                  <div className="cc-class-tutor">
-                    <span className="cc-class-tutor__label">Gia sư dạy</span>
-                    {c.assignedTutorName ? (
-                      <div className="cc-class-tutor__row">
-                        <span className="cc-tutor-badge">{initials(c.assignedTutorName)}</span>
-                        <span className="cc-tutor-name" title={c.assignedTutorName}>
-                          {c.assignedTutorName}
-                        </span>
-                        <div className="cc-row-actions">
-                          <button
-                            className="cc-btn cc-btn--sm"
-                            type="button"
-                            onClick={() => openAssign(c)}
-                          >
-                            Đổi
-                          </button>
-                          <button
-                            className="cc-btn cc-btn--danger cc-btn--sm"
-                            type="button"
-                            onClick={() => removeTutor(c.classId)}
-                          >
-                            Gỡ
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <button
-                        className="cc-btn cc-btn--soft cc-btn--sm"
-                        type="button"
-                        onClick={() => openAssign(c)}
-                      >
-                        + Gán gia sư
-                      </button>
-                    )}
-                  </div>
-
-                  <div className="cc-class-card__foot">
-                    {canEditStatus(c.status) ? (
-                      <button
-                        className="cc-btn cc-btn--ghost cc-btn--sm"
-                        type="button"
-                        onClick={() => openEdit(c.classId)}
-                      >
-                        Sửa
-                      </button>
-                    ) : (
-                      <span className="cc-muted">Không sửa được</span>
-                    )}
-                    {c.status === 'DRAFT' && (
-                      <button
-                        className="cc-btn cc-btn--primary cc-btn--sm"
-                        type="button"
-                        onClick={() => publish(c.classId)}
-                      >
-                        Đăng tải
-                      </button>
-                    )}
+                    <button
+                      className="cc-btn cc-btn--soft cc-btn--sm cc-class-card__detailbtn"
+                      type="button"
+                      onClick={() => openDetail(c.classId)}
+                    >
+                      Xem chi tiết →
+                    </button>
                   </div>
                 </article>
               ))}
@@ -859,6 +831,200 @@ export default function CenterPage() {
             </button>
           </div>
         </section>
+      )}
+
+      {detailData && (
+        <div className="cc-modal" role="dialog" aria-modal="true">
+          <div className="cc-modal__backdrop" onClick={closeDetail} />
+          <div className="cc-modal__card cc-modal__card--lg">
+            <div className="cc-modal__head">
+              <div>
+                <h2 className="cc-modal__title">
+                  {detailLoading ? 'Chi tiết lớp học' : detailData.title}
+                </h2>
+                {!detailLoading && (
+                  <span className={`cc-badge cc-badge--${detailData.status.toLowerCase()}`}>
+                    {STATUS_LABELS[detailData.status]}
+                  </span>
+                )}
+              </div>
+              <button
+                className="cc-modal__close"
+                type="button"
+                onClick={closeDetail}
+                aria-label="Đóng"
+              >
+                ×
+              </button>
+            </div>
+            <div className="cc-modal__body">
+              {detailError && <div className="cc-alert cc-alert--error">{detailError}</div>}
+              {detailLoading && <div className="cc-state">Đang tải chi tiết…</div>}
+
+              {!detailLoading && (
+                <>
+                  <div className="cc-chips cc-detail__chips">
+                    {detailData.subjectName && (
+                      <span className="cc-chip">{detailData.subjectName}</span>
+                    )}
+                    {detailData.gradeName && <span className="cc-chip">{detailData.gradeName}</span>}
+                    <span className="cc-chip">{LESSON_MODE_LABELS[detailData.lessonMode]}</span>
+                  </div>
+
+                  {detailData.description && (
+                    <div className="cc-detail__section">
+                      <span className="cc-detail__label">Mô tả</span>
+                      <p className="cc-detail__desc">{detailData.description}</p>
+                    </div>
+                  )}
+
+                  <dl className="cc-detail__grid">
+                    <div className="cc-detail__item">
+                      <dt>Danh mục</dt>
+                      <dd>{detailData.categoryName ?? '—'}</dd>
+                    </div>
+                    <div className="cc-detail__item">
+                      <dt>Địa điểm</dt>
+                      <dd>{detailData.locationText ?? detailData.locationLabel ?? '—'}</dd>
+                    </div>
+                    <div className="cc-detail__item">
+                      <dt>Kiểu lặp lịch</dt>
+                      <dd>{RECURRING_LABELS[detailData.recurringType]}</dd>
+                    </div>
+                    <div className="cc-detail__item">
+                      <dt>Thời gian</dt>
+                      <dd>
+                        {detailData.startDate} → {detailData.endDate}
+                      </dd>
+                    </div>
+                    <div className="cc-detail__item">
+                      <dt>Số buổi</dt>
+                      <dd>{detailData.numberOfSessions}</dd>
+                    </div>
+                    <div className="cc-detail__item">
+                      <dt>Sĩ số tối đa</dt>
+                      <dd>{detailData.maxStudents ?? '—'}</dd>
+                    </div>
+                    <div className="cc-detail__item">
+                      <dt>Học phí</dt>
+                      <dd className="cc-fee">{formatCurrency(detailData.tuitionFee)}</dd>
+                    </div>
+                  </dl>
+
+                  <div className="cc-detail__section">
+                    <span className="cc-detail__label">Lịch học</span>
+                    {detailData.schedule.length === 0 ? (
+                      <p className="cc-muted">Chưa có lịch học.</p>
+                    ) : (
+                      <ul className="cc-detail__slots">
+                        {detailData.schedule.map((s, i) => (
+                          <li className="cc-detail__slot" key={s.slotId ?? i}>
+                            <span className="cc-detail__slotday">
+                              {detailData.recurringType === 'DAILY'
+                                ? 'Hằng ngày'
+                                : dayLabel(s.dayOfWeek)}
+                            </span>
+                            <span className="cc-detail__slottime">
+                              {s.startTime.slice(0, 5)} → {s.endTime.slice(0, 5)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  <div className="cc-detail__section">
+                    <span className="cc-detail__label">Gia sư dạy</span>
+                    {detailData.assignedTutorName ? (
+                      <div className="cc-class-tutor__row">
+                        <span className="cc-tutor-badge">
+                          {initials(detailData.assignedTutorName)}
+                        </span>
+                        <span className="cc-tutor-name" title={detailData.assignedTutorName}>
+                          {detailData.assignedTutorName}
+                        </span>
+                        <div className="cc-row-actions">
+                          <button
+                            className="cc-btn cc-btn--sm"
+                            type="button"
+                            onClick={() => openAssign(detailData)}
+                          >
+                            Đổi
+                          </button>
+                          <button
+                            className="cc-btn cc-btn--danger cc-btn--sm"
+                            type="button"
+                            onClick={() => removeTutor(detailData.classId)}
+                          >
+                            Gỡ
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="cc-btn cc-btn--soft cc-btn--sm"
+                        type="button"
+                        onClick={() => openAssign(detailData)}
+                      >
+                        + Gán gia sư
+                      </button>
+                    )}
+                  </div>
+
+                  {detailData.students && detailData.students.length > 0 && (
+                    <div className="cc-detail__section">
+                      <button
+                        type="button"
+                        className="cc-detail__toggle"
+                        onClick={() => setShowStudents((v) => !v)}
+                        aria-expanded={showStudents}
+                      >
+                        <span>👥 Học sinh đã đăng ký ({detailData.students.length})</span>
+                        <span className={`cc-detail__chev${showStudents ? ' is-open' : ''}`}>▾</span>
+                      </button>
+                      {showStudents && (
+                        <ul className="cc-detail__students">
+                          {detailData.students.map((st, i) => (
+                            <li className="cc-detail__student" key={st.classStudentId}>
+                              <span className="cc-detail__studentnum">{i + 1}</span>
+                              <div className="cc-detail__studentinfo">
+                                <span className="cc-detail__studentname">{st.studentName}</span>
+                                {st.studentPhone && (
+                                  <span className="cc-detail__studentphone">{st.studentPhone}</span>
+                                )}
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                    </div>
+                  )}
+
+                  <div className="cc-detail__foot">
+                    {canEditStatus(detailData.status) && (
+                      <button
+                        className="cc-btn cc-btn--ghost"
+                        type="button"
+                        onClick={() => openEdit(detailData.classId)}
+                      >
+                        ✎ Sửa lớp học
+                      </button>
+                    )}
+                    {detailData.status === 'DRAFT' && (
+                      <button
+                        className="cc-btn cc-btn--primary"
+                        type="button"
+                        onClick={() => publish(detailData.classId)}
+                      >
+                        Đăng tải
+                      </button>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
       )}
 
       {assignFor && (

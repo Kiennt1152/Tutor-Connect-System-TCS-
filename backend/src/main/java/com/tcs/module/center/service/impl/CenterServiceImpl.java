@@ -17,8 +17,10 @@ import com.tcs.module.center.dto.request.CreateRecruitmentPostRequest;
 import com.tcs.module.center.dto.request.SaveClassRequest;
 import com.tcs.module.center.dto.request.ScheduleSlotRequest;
 import com.tcs.module.center.dto.response.CenterClassResponse;
+import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
 import com.tcs.module.center.dto.response.ScheduleSlotResponse;
+import com.tcs.module.center.dto.response.StudentAttendanceResponse;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
 import com.tcs.module.center.entity.RecruitmentApplication;
 import com.tcs.module.center.entity.RecruitmentPost;
@@ -31,15 +33,20 @@ import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
+import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.RecurringType;
 import com.tcs.module.marketplace.enums.TutorApplicationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
+import com.tcs.module.marketplace.repository.ClassStudentRepository;
+import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
+import com.tcs.module.marketplace.repository.LessonRepository;
 import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
@@ -51,8 +58,11 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -77,6 +87,9 @@ public class CenterServiceImpl implements CenterService {
     private final ScheduleSlotRepository scheduleSlotRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
     private final TutorApplicationRepository tutorApplicationRepository;
+    private final ClassStudentRepository classStudentRepository;
+    private final LessonRepository lessonRepository;
+    private final LessonAttendanceRepository lessonAttendanceRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -281,6 +294,95 @@ public class CenterServiceImpl implements CenterService {
                     classAssignmentRepository.save(a);
                 });
         return toClassResponse(tutoringClass);
+    }
+
+    // ===================== Lịch lớp CENTER =====================
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CenterScheduleClassResponse> getSchedule(LocalDate date) {
+        requireCenter();
+        LocalDate d = date != null ? date : LocalDate.now();
+        int weekday = d.getDayOfWeek().getValue();
+        List<CenterScheduleClassResponse> result = new ArrayList<>();
+        for (TutoringClass c : tutoringClassRepository.findByCreator_UserId(authHelper.currentUserId())) {
+            if (c.getStartDate() == null || c.getEndDate() == null
+                    || d.isBefore(c.getStartDate()) || d.isAfter(c.getEndDate())) {
+                continue;
+            }
+            CenterScheduleClassResponse item = buildScheduleItem(c, d, weekday);
+            if (item != null) {
+                result.add(item);
+            }
+        }
+        return result;
+    }
+
+    private List<ScheduleSlot> slotsOn(Long classId, int weekday) {
+        return scheduleSlotRepository.findByTutoringClass_ClassId(classId).stream()
+                .filter(s -> s.getDayOfWeek() != null && s.getDayOfWeek() == weekday)
+                .sorted(Comparator.comparing(ScheduleSlot::getStartTime))
+                .toList();
+    }
+
+    private int sessionSequence(LocalDate start, LocalDate date) {
+        return (int) Math.max(0, ChronoUnit.DAYS.between(start, date));
+    }
+
+    private CenterScheduleClassResponse buildScheduleItem(TutoringClass c, LocalDate date, int weekday) {
+        List<ScheduleSlot> slotsToday = slotsOn(c.getClassId(), weekday);
+        if (slotsToday.isEmpty()) {
+            return null; // lớp không học hôm nay
+        }
+
+        ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                .orElse(null);
+        List<ClassStudent> students = classStudentRepository
+                .findByTutoringClass_ClassIdAndStatus(c.getClassId(), ClassStudentStatus.ENROLLED);
+
+        // Đọc điểm danh của buổi hôm nay (nếu đã có lesson).
+        Map<Long, String> attendanceByStudent = new HashMap<>();
+        ScheduleSlot repSlot = slotsToday.get(0);
+        int seq = sessionSequence(c.getStartDate(), date);
+        lessonRepository
+                .findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
+                        c.getClassId(), repSlot.getSlotId(), seq)
+                .ifPresent(lesson -> lessonAttendanceRepository.findByLesson_LessonId(lesson.getLessonId())
+                        .forEach(a -> attendanceByStudent.put(
+                                a.getClassStudent().getClassStudentId(), a.getStatus().name())));
+
+        List<StudentAttendanceResponse> studentItems = students.stream()
+                .map(s -> StudentAttendanceResponse.builder()
+                        .classStudentId(s.getClassStudentId())
+                        .studentName(s.getStudentName())
+                        .studentPhone(s.getStudentPhone())
+                        .status(attendanceByStudent.get(s.getClassStudentId()))
+                        .build())
+                .toList();
+
+        List<ScheduleSlotResponse> slotResponses = slotsToday.stream()
+                .map(s -> ScheduleSlotResponse.builder()
+                        .slotId(s.getSlotId())
+                        .dayOfWeek(s.getDayOfWeek())
+                        .startTime(s.getStartTime())
+                        .endTime(s.getEndTime())
+                        .build())
+                .toList();
+
+        return CenterScheduleClassResponse.builder()
+                .classId(c.getClassId())
+                .title(c.getTitle())
+                .subjectName(c.getSubject() != null ? c.getSubject().getSubjectName() : null)
+                .gradeName(c.getGrade() != null ? c.getGrade().getGradeName() : null)
+                .lessonMode(c.getLessonMode())
+                .slots(slotResponses)
+                .assignedTutorId(assignment != null ? assignment.getTutor().getTutorId() : null)
+                .assignedTutorName(assignment != null ? assignment.getTutor().getFullName() : null)
+                .studentCount(students.size())
+                .students(studentItems)
+                .attendanceTaken(!attendanceByStudent.isEmpty())
+                .build();
     }
 
     private void validate(SaveClassRequest request, boolean isCreate) {
@@ -539,6 +641,15 @@ public class CenterServiceImpl implements CenterService {
                                 .endTime(s.getEndTime())
                                 .build())
                         .toList();
+        List<StudentAttendanceResponse> students = classStudentRepository
+                .findByTutoringClass_ClassIdAndStatus(c.getClassId(), ClassStudentStatus.ENROLLED).stream()
+                .map(s -> StudentAttendanceResponse.builder()
+                        .classStudentId(s.getClassStudentId())
+                        .studentName(s.getStudentName())
+                        .studentPhone(s.getStudentPhone())
+                        .status(null)
+                        .build())
+                .toList();
         return CenterClassResponse.builder()
                 .classId(c.getClassId())
                 .title(c.getTitle())
@@ -567,6 +678,7 @@ public class CenterServiceImpl implements CenterService {
                 .schedule(schedule)
                 .assignedTutorId(assignment != null ? assignment.getTutor().getTutorId() : null)
                 .assignedTutorName(assignment != null ? assignment.getTutor().getFullName() : null)
+                .students(students)
                 .build();
     }
 

@@ -9,6 +9,9 @@ import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage'
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import CenterPage from '../features/center/pages/CenterPage';
+import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
+import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
+import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import CatalogPage from '../features/catalog/pages/CatalogPage';
@@ -93,6 +96,30 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/schedule"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tutor/schedule"
+            element={
+              <ProtectedRoute roles={['TUTOR']}>
+                <TutorSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tutor/classes/:classId/attendance"
+            element={
+              <ProtectedRoute roles={['TUTOR']}>
+                <TutorAttendancePage />
               </ProtectedRoute>
             }
           />

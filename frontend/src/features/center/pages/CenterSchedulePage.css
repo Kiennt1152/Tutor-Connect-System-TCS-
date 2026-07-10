@@ -1,0 +1,503 @@
+.cs-page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 20px 16px 48px;
+}
+
+.cs-topbar {
+  margin-bottom: 12px;
+}
+.cs-back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  background: #fff;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: 14px;
+}
+.cs-back:hover {
+  border-color: var(--color-accent-border-hover);
+  background: var(--color-primary-xlight);
+}
+
+.cs-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+.cs-title {
+  margin: 0;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+.cs-subtitle {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary);
+}
+.cs-datepick {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.cs-datepick input {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 14px;
+}
+.cs-datepick input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15);
+}
+
+.cs-state,
+.cs-muted {
+  color: var(--color-text-secondary);
+}
+.cs-state {
+  padding: 32px;
+  text-align: center;
+}
+.cs-empty {
+  text-align: center;
+  padding: 48px 16px;
+  color: var(--color-text-secondary);
+}
+.cs-empty__emoji {
+  font-size: 40px;
+  margin-bottom: 8px;
+}
+.cs-alert--error {
+  background: var(--color-error-light);
+  color: #991b1b;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.cs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.cs-card {
+  position: relative;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px 20px 16px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+  overflow: hidden;
+}
+.cs-card::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--color-primary);
+}
+.cs-card:hover {
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-accent-border-hover);
+}
+.cs-card.is-open {
+  box-shadow: var(--shadow-md);
+}
+.cs-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+.cs-card__headmain {
+  min-width: 0;
+}
+.cs-card__title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  line-height: 1.3;
+}
+.cs-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cs-chip {
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+}
+.cs-times {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  align-items: flex-end;
+}
+.cs-time {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-xlight);
+  padding: 3px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+/* Meta grid: tutor / attendance / headcount */
+.cs-meta {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 16px 0 14px;
+  padding: 14px;
+  background: var(--color-surface-1);
+  border-radius: var(--radius-md);
+}
+.cs-meta__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.cs-meta__label {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.cs-meta__value {
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-size: 14px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cs-meta__value--none {
+  color: var(--color-error);
+}
+
+/* Toggle button for student roster */
+.cs-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: #fff;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+.cs-toggle:hover {
+  background: var(--color-primary-xlight);
+  border-color: var(--color-accent-border-hover);
+}
+.cs-toggle__count {
+  margin-left: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #166534;
+  background: var(--color-success-light);
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+}
+.cs-toggle__chev {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  transition: transform 0.18s ease;
+}
+.cs-toggle__chev.is-open {
+  transform: rotate(180deg);
+}
+
+.cs-students {
+  margin-top: 12px;
+  animation: cs-slide 0.18s ease;
+}
+@keyframes cs-slide {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.cs-roster {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cs-student {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.cs-student__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cs-student__name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.cs-student__phone {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* View-only attendance badges (center) */
+.cs-attstate {
+  margin-left: auto;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 10px;
+  border-radius: var(--radius-pill);
+}
+.cs-attstate--done {
+  background: var(--color-success-light);
+  color: #166534;
+}
+.cs-attstate--pending {
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+}
+.cs-attbadge {
+  flex: 0 0 auto;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+}
+.cs-attbadge--present {
+  background: var(--color-success-light);
+  color: #166534;
+}
+.cs-attbadge--absent {
+  background: var(--color-error-light);
+  color: #991b1b;
+}
+.cs-attbadge--excused {
+  background: var(--color-warning-light);
+  color: #92400e;
+}
+.cs-attbadge--none {
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+}
+
+.cs-att {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+.cs-att__btn {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--color-border-strong);
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.cs-att__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.cs-att__btn--present.is-active {
+  background: var(--color-success-light);
+  color: #166534;
+  border-color: #86efac;
+}
+.cs-att__btn--absent.is-active {
+  background: var(--color-error-light);
+  color: #991b1b;
+  border-color: #fca5a5;
+}
+.cs-att__btn--excused.is-active {
+  background: var(--color-warning-light);
+  color: #92400e;
+  border-color: #fcd34d;
+}
+
+/* Schedule row (tutor list) */
+.cs-card--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.cs-card__main {
+  min-width: 0;
+}
+.cs-card__main .cs-chips {
+  margin-top: 6px;
+}
+.cs-rowmeta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+.cs-rowmeta__students {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+/* Buttons */
+.cs-btn {
+  padding: 9px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+.cs-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.cs-btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+.cs-btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+.cs-btn--ghost {
+  background: transparent;
+  border-color: var(--color-border-strong);
+}
+.cs-btn--done {
+  background: var(--color-success-light);
+  color: #166534;
+  border-color: #86efac;
+}
+.cs-btn--lg {
+  padding: 12px 20px;
+  font-size: 15px;
+}
+
+/* Attendance page */
+.cs-roster--page {
+  margin-bottom: 16px;
+}
+.cs-savebar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+}
+.cs-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.cs-summary__ok {
+  color: #166534;
+}
+.cs-summary__no {
+  color: #991b1b;
+}
+.cs-summary__ex {
+  color: #92400e;
+}
+.cs-alert--ok {
+  background: var(--color-success-light);
+  color: #166534;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  font-weight: 600;
+}
+.cs-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-xlight);
+  border: 1px solid var(--color-primary-light);
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.cs-confirm__actions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .cs-student {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .cs-card--row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .cs-meta {
+    grid-template-columns: 1fr;
+  }
+  .cs-card__head {
+    flex-direction: column;
+  }
+  .cs-times {
+    align-items: flex-start;
+  }
+}

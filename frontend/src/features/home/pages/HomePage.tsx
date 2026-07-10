@@ -72,6 +72,11 @@ function Header() {
                   Quản lý trung tâm
                 </Link>
               ) : null}
+              {hasRole(user.role, 'TUTOR') ? (
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to="/tutor/schedule">
+                  Lịch dạy
+                </Link>
+              ) : null}
               {hasRole(user.role, 'PLATFORM_ADMIN') ? (
                 <Link to={profilePath} className="tcs-home-profile-btn">
                   <span className="tcs-home-profile-btn__avatar">

@@ -45,6 +45,7 @@ export interface ClassResponse {
   schedule: ScheduleSlot[];
   assignedTutorId: number | null;
   assignedTutorName: string | null;
+  students?: StudentAttendance[];
 }
 
 export interface TutorOption {
@@ -56,6 +57,29 @@ export interface TutorOption {
   phone: string | null;
   avatar: string | null;
   bio: string | null;
+}
+
+export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED';
+
+export interface StudentAttendance {
+  classStudentId: number;
+  studentName: string;
+  studentPhone: string | null;
+  status: AttendanceStatus | null;
+}
+
+export interface ScheduleClass {
+  classId: number;
+  title: string;
+  subjectName: string | null;
+  gradeName: string | null;
+  lessonMode: LessonMode;
+  slots: ScheduleSlot[];
+  assignedTutorId: number | null;
+  assignedTutorName: string | null;
+  studentCount: number;
+  students: StudentAttendance[];
+  attendanceTaken: boolean;
 }
 
 export interface SaveClassRequest {

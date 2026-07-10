@@ -4,8 +4,10 @@ import com.tcs.module.center.dto.request.ApplyRecruitmentRequest;
 import com.tcs.module.center.dto.request.CreateRecruitmentPostRequest;
 import com.tcs.module.center.dto.request.SaveClassRequest;
 import com.tcs.module.center.dto.response.CenterClassResponse;
+import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
+import java.time.LocalDate;
 import java.util.List;
 
 public interface CenterService {
@@ -38,4 +40,9 @@ public interface CenterService {
 
     /** Gỡ gia sư đang gán khỏi lớp. */
     CenterClassResponse unassignTutor(Long classId);
+
+    // ===== Lịch lớp CENTER (theo ngày) — chỉ xem =====
+
+    /** Các lớp của trung tâm có buổi học trong ngày, kèm gia sư + học sinh + trạng thái điểm danh (chỉ xem). */
+    List<CenterScheduleClassResponse> getSchedule(LocalDate date);
 }

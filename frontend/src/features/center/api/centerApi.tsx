@@ -1,5 +1,10 @@
 import axiosClient from '../../../shared/api/axiosClient';
-import type { ClassResponse, SaveClassRequest, TutorOption } from '../types/centerTypes';
+import type {
+  ClassResponse,
+  SaveClassRequest,
+  ScheduleClass,
+  TutorOption,
+} from '../types/centerTypes';
 
 export const CENTER_API_BASE = '/center';
 
@@ -30,5 +35,9 @@ export const centerApi = {
   },
   unassignTutor(classId: number) {
     return axiosClient.delete<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/assign-tutor`);
+  },
+  getSchedule(date?: string) {
+    const q = date ? `?date=${date}` : '';
+    return axiosClient.get<ScheduleClass[]>(`${CENTER_API_BASE}/schedule${q}`);
   },
 };

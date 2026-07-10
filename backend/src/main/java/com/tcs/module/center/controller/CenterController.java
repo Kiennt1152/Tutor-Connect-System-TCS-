@@ -5,11 +5,14 @@ import com.tcs.module.center.dto.request.AssignTutorRequest;
 import com.tcs.module.center.dto.request.CreateRecruitmentPostRequest;
 import com.tcs.module.center.dto.request.SaveClassRequest;
 import com.tcs.module.center.dto.response.CenterClassResponse;
+import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
 import com.tcs.module.center.service.CenterService;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
+import org.springframework.format.annotation.DateTimeFormat;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +22,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -96,5 +100,13 @@ public class CenterController {
     @DeleteMapping("/classes/{classId}/assign-tutor")
     public CenterClassResponse unassignTutor(@PathVariable Long classId) {
         return centerService.unassignTutor(classId);
+    }
+
+    // ===== Lịch lớp CENTER =====
+
+    @GetMapping("/schedule")
+    public List<CenterScheduleClassResponse> getSchedule(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
+        return centerService.getSchedule(date);
     }
 }
