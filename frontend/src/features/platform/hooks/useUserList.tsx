@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import axios from 'axios';
+import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { platformApi } from '../api/platformApi';
 import { mapPageUserList } from '../mappers/platformMapper';
 import type { PageUserList, UserListFilters } from '../types/platformTypes';
@@ -21,11 +21,7 @@ export function useUserList(initialFilters: UserListFilters) {
       setStatus('success');
     } catch (error) {
       console.error('Lỗi tải danh sách người dùng:', error);
-      const apiMessage =
-        axios.isAxiosError(error) && typeof error.response?.data?.message === 'string'
-          ? error.response.data.message
-          : null;
-      setErrorMessage(apiMessage ?? 'Không tải được danh sách người dùng.');
+      setErrorMessage(getApiErrorMessage(error, 'Không tải được danh sách người dùng.'));
       setStatus('error');
     }
   }, [filters]);

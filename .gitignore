@@ -1,0 +1,6 @@
+# Claude Code (local tooling config)
+.claude/
+
+# Postman (API testing artifacts)
+.postman/
+postman/

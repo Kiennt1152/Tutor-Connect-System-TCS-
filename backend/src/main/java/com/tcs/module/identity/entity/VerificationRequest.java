@@ -12,7 +12,9 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -42,7 +44,7 @@ public class VerificationRequest {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
-    private VerificationStatus status = VerificationStatus.DRAFT;
+    private VerificationStatus status = VerificationStatus.SUBMITTED;
 
     @Column(name = "admin_notes", columnDefinition = "TEXT")
     private String adminNotes;
@@ -52,6 +54,12 @@ public class VerificationRequest {
 
     @Column(name = "reviewed_at")
     private LocalDateTime reviewedAt;
+
+    @Transient
+    private Long reviewedBy;
+
+    @Transient
+    private String rejectionReason;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

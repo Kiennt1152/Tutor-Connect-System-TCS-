@@ -9,7 +9,8 @@ export type AdminIconKey =
   | 'shield'
   | 'flag'
   | 'book'
-  | 'graduation';
+  | 'graduation'
+  | 'folder';
 
 export type AdminIconSize = 'sm' | 'md' | 'lg';
 
@@ -70,6 +71,15 @@ export function IconGraduationCap({ className }: IconProps) {
   );
 }
 
+export function IconFolder({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M3 10h18" />
+    </svg>
+  );
+}
+
 export function IconUser({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -94,6 +104,7 @@ const ADMIN_ICONS: Record<AdminIconKey, ComponentType<IconProps>> = {
   flag: IconFlag,
   book: IconBook,
   graduation: IconGraduationCap,
+  folder: IconFolder,
 };
 
 type AdminIconProps = {
