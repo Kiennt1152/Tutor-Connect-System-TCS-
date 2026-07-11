@@ -3,6 +3,7 @@ import {
   DAY_OF_WEEK_OPTIONS,
   LEARNING_GOAL_OPTIONS,
   LEARNING_GOAL_OTHER,
+  OTHER_SUBJECT,
   TUTOR_REQUIREMENT_OPTIONS,
   type CatalogOption,
   type ClassFormValues,
@@ -14,6 +15,7 @@ import {
 export function emptyForm(): ClassFormValues {
   return {
     subjectIds: [],
+    subjectOther: '',
     gradeId: '',
     learningGoal: '',
     learningGoalOther: '',
@@ -29,16 +31,24 @@ export function emptyForm(): ClassFormValues {
     address: '',
     feePerHour: '',
     billingCycle: 'MONTH',
-    sessionsPerWeek: '2',
-    daysOfWeek: [],
-    dayTimes: {},
-    startDate: '',
+    months: '1',
+    scheduleMode: 'WEEKLY',
+    slots: [],
     note: '',
   };
 }
 
 /** Nạp dữ liệu lớp đã có vào form khi sửa. */
 export function classToForm(c: ClassResponse): ClassFormValues {
+  // Ưu tiên nạp lại nguyên trạng form từ JSON snapshot (khôi phục 100%).
+  if (c.detailsJson) {
+    try {
+      const parsed = JSON.parse(c.detailsJson) as Partial<ClassFormValues>;
+      return { ...emptyForm(), ...parsed };
+    } catch {
+      // JSON hỏng → rơi xuống nạp theo cột bên dưới.
+    }
+  }
   const goalMatched =
     !!c.learningGoal && LEARNING_GOAL_OPTIONS.includes(c.learningGoal);
   const reqMatched =
@@ -46,6 +56,7 @@ export function classToForm(c: ClassResponse): ClassFormValues {
   const feePerHour = c.tuitionFee != null ? String(c.tuitionFee) : '';
   return {
     subjectIds: c.subjectId != null ? [String(c.subjectId)] : [],
+    subjectOther: '',
     gradeId: c.gradeId != null ? String(c.gradeId) : '',
     learningGoal: c.learningGoal ? (goalMatched ? c.learningGoal : LEARNING_GOAL_OTHER) : '',
     learningGoalOther: c.learningGoal && !goalMatched ? c.learningGoal : '',
@@ -61,12 +72,20 @@ export function classToForm(c: ClassResponse): ClassFormValues {
     address: c.address ?? '',
     feePerHour,
     billingCycle: 'MONTH',
-    sessionsPerWeek: '2',
-    daysOfWeek: [],
-    dayTimes: {},
-    startDate: c.startDate ?? '',
+    months: '1',
+    scheduleMode: 'WEEKLY',
+    slots: [],
     note: c.description ?? '',
   };
+}
+
+/** Thời lượng (giờ) của một buổi từ start/end "HH:MM". */
+function slotHours(start: string, end: string): number {
+  if (!start || !end) return 0;
+  const [sh, sm] = start.split(':').map(Number);
+  const [eh, em] = end.split(':').map(Number);
+  const diff = eh * 60 + em - (sh * 60 + sm);
+  return diff > 0 ? diff / 60 : 0;
 }
 
 /** Ghép mục tiêu học tập cuối cùng (chọn sẵn hoặc tự nhập). */
@@ -86,50 +105,60 @@ export function resolveTutorRequirement(form: ClassFormValues): string {
   return form.tutorRequirement;
 }
 
-/** Số tuần ước tính theo chu kỳ học phí. */
+/** Số tuần ước tính theo chu kỳ học phí (Theo tháng = số tháng × 4 tuần). */
 export function weeksForCycle(form: ClassFormValues): number {
+  if (form.billingCycle === 'MONTH') {
+    return Math.max(1, Number(form.months) || 1) * 4;
+  }
   return BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle)?.weeks ?? 4;
 }
 
-/** Tổng số buổi ước tính = số buổi/tuần × số tuần trong chu kỳ. */
+/** Nhãn chu kỳ để hiển thị/mô tả (Theo tháng kèm số tháng). */
+export function cycleLabelOf(form: ClassFormValues): string {
+  if (form.billingCycle === 'MONTH') {
+    return `${Math.max(1, Number(form.months) || 1)} tháng`;
+  }
+  return BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle)?.label ?? 'Theo tháng';
+}
+
+/** Tổng số buổi ước tính = số buổi/tuần (số slot) × số tuần trong chu kỳ. */
 export function estimatedSessions(form: ClassFormValues): number {
-  const perWeek = Math.max(1, Number(form.sessionsPerWeek) || 1);
+  const perWeek = Math.max(1, form.slots.length);
   return perWeek * weeksForCycle(form);
 }
 
-/** Tổng số giờ học mỗi tuần = cộng thời lượng (end-start) của tất cả các thứ đã chọn. */
+/** Tổng số giờ học mỗi tuần = cộng thời lượng của tất cả buổi trong lịch. */
 export function totalHoursPerWeek(form: ClassFormValues): number {
-  let minutes = 0;
-  for (const day of form.daysOfWeek) {
-    const t = form.dayTimes[day];
-    if (t?.start && t?.end) {
-      const [sh, sm] = t.start.split(':').map(Number);
-      const [eh, em] = t.end.split(':').map(Number);
-      const diff = eh * 60 + em - (sh * 60 + sm);
-      if (diff > 0) minutes += diff;
-    }
-  }
-  return minutes / 60;
+  return form.slots.reduce((sum, s) => sum + slotHours(s.start, s.end), 0);
 }
 
-/** Câu mô tả lịch học để lưu vào phần mô tả (backend chưa có cột riêng). */
+/** Tên thứ (Vi) của một ngày YYYY-MM-DD. */
+export function weekdayVi(dateStr: string): string {
+  if (!dateStr) return '';
+  const d = new Date(`${dateStr}T00:00:00`);
+  return ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][d.getDay()] ?? '';
+}
+
+/** Câu mô tả lịch học để lưu vào phần mô tả (nhóm theo môn, theo ngày). */
 export function buildScheduleSummary(form: ClassFormValues, subjects: CatalogOption[] = []): string {
-  const perWeek = Math.max(1, Number(form.sessionsPerWeek) || 1);
-  const cycleLabel = form.billingCycle === 'TERM' ? 'theo kỳ' : 'theo tháng';
-  const parts = [`Lịch học ${cycleLabel}: ${perWeek} buổi/tuần`];
+  const parts = [`Lịch học ${cycleLabelOf(form).toLowerCase()} (${form.slots.length} buổi)`];
   const nameOf = (id: string) => subjects.find((s) => String(s.id) === id)?.name ?? '';
-  // Liệt kê từng thứ: môn học + buổi + khung giờ (theo thứ tự trong tuần).
-  const dayParts = DAY_OF_WEEK_OPTIONS.filter((d) => form.daysOfWeek.includes(d.value)).map((d) => {
-    const t = form.dayTimes[d.value];
-    const subj = t?.subjects?.length ? ` - ${t.subjects.map(nameOf).filter(Boolean).join(', ')}` : '';
-    const session = t?.session ? ` buổi ${t.session}` : '';
-    const range = t?.start && t?.end ? ` (${t.start}–${t.end})` : '';
-    return `${d.label}${subj}${session}${range}`;
-  });
-  if (dayParts.length > 0) {
-    parts.push(`vào ${dayParts.join('; ')}`);
+  const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
+  const whenOf = (s: ClassFormValues['slots'][number]) =>
+    form.scheduleMode === 'WEEKLY' ? `${dayLabel(s.day)} hàng tuần` : `${weekdayVi(s.date)} ${s.date}`;
+  // Nhóm slot theo môn.
+  const bySubject = form.subjectIds
+    .map((sid) => {
+      const rows = form.slots
+        .filter((s) => s.subjectId === sid)
+        .map((s) => `${whenOf(s)} ${s.session} (${s.start}–${s.end})`);
+      return rows.length ? `${nameOf(sid)}: ${rows.join(', ')}` : '';
+    })
+    .filter(Boolean);
+  if (bySubject.length > 0) {
+    parts.push(bySubject.join('; '));
   }
-  return `${parts.join(' ')}.`;
+  return `${parts.join('. ')}.`;
 }
 
 /** Chuyển form → payload gửi backend.
@@ -142,13 +171,32 @@ export function formToPayload(
   const feePerHour = Number(form.feePerHour) || 0;
   // Tổng học phí = đơn giá/giờ × tổng số giờ/tuần × số tuần trong chu kỳ.
   const budget = Math.round(feePerHour * totalHoursPerWeek(form) * weeksForCycle(form));
-  const startDate = form.startDate || new Date().toISOString().slice(0, 10);
+  // Ngày bắt đầu/kết thúc: CUSTOM suy từ các ngày đã đặt; WEEKLY = hôm nay → +số tuần.
+  const today = new Date().toISOString().slice(0, 10);
+  let startDate: string;
+  let endDate: string;
+  if (form.scheduleMode === 'CUSTOM') {
+    const dates = form.slots.map((s) => s.date).filter(Boolean).sort();
+    startDate = dates[0] ?? today;
+    endDate = dates[dates.length - 1] ?? startDate;
+  } else {
+    startDate = today;
+    const d = new Date(`${today}T00:00:00`);
+    d.setDate(d.getDate() + weeksForCycle(form) * 7);
+    endDate = d.toISOString().slice(0, 10);
+  }
   // Backend chỉ lưu 1 môn (subjectId) → môn đầu là môn chính; nếu chọn nhiều
   // môn thì ghi cả danh sách vào mô tả.
   const subjectNames = form.subjectIds
-    .map((id) => subjects.find((s) => String(s.id) === id)?.name)
+    .map((id) =>
+      id === OTHER_SUBJECT
+        ? form.subjectOther.trim() || 'Môn học khác'
+        : subjects.find((s) => String(s.id) === id)?.name,
+    )
     .filter((n): n is string => !!n);
-  const subjectLine = subjectNames.length > 1 ? `Các môn học: ${subjectNames.join(', ')}` : '';
+  const subjectLine = subjectNames.length > 0 ? `Môn học: ${subjectNames.join(', ')}` : '';
+  // Môn chính gửi backend = môn thật đầu tiên (bỏ qua "Khác"); null nếu chỉ có "Khác".
+  const primarySubjectId = form.subjectIds.find((id) => id !== OTHER_SUBJECT);
   const description = [subjectLine, buildScheduleSummary(form, subjects), form.note.trim()]
     .filter(Boolean)
     .join('\n');
@@ -164,7 +212,7 @@ export function formToPayload(
     .join(', ');
 
   return {
-    subjectId: form.subjectIds[0] ? Number(form.subjectIds[0]) : null,
+    subjectId: primarySubjectId ? Number(primarySubjectId) : null,
     gradeId: form.gradeId ? Number(form.gradeId) : null,
     learningGoal: resolveLearningGoal(form) || null,
     tutorRequirement: resolveTutorRequirement(form) || null,
@@ -173,10 +221,12 @@ export function formToPayload(
     lessonMode: form.lessonMode,
     numberOfSessions: sessions,
     startDate,
-    endDate: startDate,
+    endDate,
     tuitionFee: feePerHour,
     budget,
     recurringType: 'WEEKLY',
     description: description || undefined,
+    // Lưu nguyên trạng form để nạp lại đầy đủ khi Sửa.
+    detailsJson: JSON.stringify(form),
   };
 }

@@ -85,6 +85,9 @@ public class TutoringClass {
     @Column(name = "description", columnDefinition = "TEXT", nullable = false)
     private String description;
 
+    @Column(name = "details_json", columnDefinition = "TEXT")
+    private String detailsJson;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "lesson_mode", length = 20, nullable = false)
     private LessonMode lessonMode = LessonMode.OFFLINE;

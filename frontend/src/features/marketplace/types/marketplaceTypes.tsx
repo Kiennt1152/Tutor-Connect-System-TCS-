@@ -33,6 +33,7 @@ export interface ClassResponse {
   classId: number;
   title: string;
   description: string;
+  detailsJson: string | null;
   creatorId: number;
   creatorName: string;
   subjectId: number | null;
@@ -59,6 +60,7 @@ export interface ClassResponse {
 export interface ClassRequestPayload {
   title?: string;
   description?: string;
+  detailsJson?: string;
   subjectId: number | null;
   gradeId: number | null;
   learningGoal?: string | null;
@@ -77,6 +79,8 @@ export interface ClassRequestPayload {
 /** Giá trị của form (trạng thái nhập liệu). */
 export interface ClassFormValues {
   subjectIds: string[];
+  /** Tên môn học tự nhập khi chọn "Khác". */
+  subjectOther: string;
   gradeId: string;
   learningGoal: string;
   learningGoalOther: string;
@@ -92,17 +96,27 @@ export interface ClassFormValues {
   address: string;
   feePerHour: string;
   billingCycle: BillingCycle;
-  sessionsPerWeek: string;
-  daysOfWeek: string[];
-  /** Khung giờ học theo từng thứ đã chọn (key = giá trị thứ, vd 'T4'). */
-  dayTimes: Record<string, DayTime>;
-  startDate: string;
+  /** Số tháng cụ thể khi chọn "Theo tháng". */
+  months: string;
+  /** WEEKLY = lặp lại hàng tuần (theo Thứ); CUSTOM = chọn ngày cụ thể. */
+  scheduleMode: ScheduleMode;
+  /** Lịch học theo từng môn: mỗi phần tử = 1 buổi của 1 môn (không trùng giờ nhau). */
+  slots: ScheduleSlot[];
   note: string;
 }
 
-/** Lịch học của một thứ: môn học buổi đó + buổi (Sáng/Trưa/Tối) + khung giờ. */
-export interface DayTime {
-  subjects: string[];
+export type ScheduleMode = 'WEEKLY' | 'CUSTOM';
+
+export const SCHEDULE_MODE_OPTIONS: readonly { value: ScheduleMode; label: string }[] = [
+  { value: 'WEEKLY', label: 'Lặp lại hàng tuần' },
+  { value: 'CUSTOM', label: 'Chọn ngày cụ thể (lịch cá nhân)' },
+];
+
+/** Một buổi học: thuộc môn nào; theo Thứ (WEEKLY) hoặc ngày cụ thể (CUSTOM); buổi + khung giờ. */
+export interface ScheduleSlot {
+  subjectId: string;
+  day: string;
+  date: string;
   session: string;
   start: string;
   end: string;
@@ -122,7 +136,7 @@ export const SESSION_OPTIONS: readonly {
   { value: 'Tối', label: 'Tối (18h–23h30)', min: '18:00', max: '23:30', start: '18:00', end: '20:00' },
 ];
 
-export type BillingCycle = 'MONTH' | 'TERM';
+export type BillingCycle = 'MONTH' | 'TERM' | 'QUARTER' | 'YEAR';
 
 // Gợi ý đáp án cho "Mục tiêu học tập".
 export const LEARNING_GOAL_OPTIONS: readonly string[] = [
@@ -131,10 +145,12 @@ export const LEARNING_GOAL_OPTIONS: readonly string[] = [
   'Luyện thi chuyển cấp (vào 10)',
   'Luyện thi Đại học',
   'Luyện thi chứng chỉ (IELTS, TOEIC...)',
-  'Giao tiếp cơ bản',
 ];
 
 export const LEARNING_GOAL_OTHER = 'Khác';
+
+/** Giá trị đại diện cho môn học "Khác" (tự nhập). */
+export const OTHER_SUBJECT = 'other';
 
 // Gợi ý đáp án cho "Yêu cầu đối với gia sư".
 export const TUTOR_REQUIREMENT_OPTIONS: readonly string[] = [
@@ -163,6 +179,8 @@ export const BILLING_CYCLE_OPTIONS: readonly {
 }[] = [
   { value: 'MONTH', label: 'Theo tháng', weeks: 4, suffix: 'đ / tháng' },
   { value: 'TERM', label: 'Theo kỳ (3 tháng)', weeks: 12, suffix: 'đ / kỳ' },
+  { value: 'QUARTER', label: 'Theo quý (6 tháng)', weeks: 24, suffix: 'đ / quý' },
+  { value: 'YEAR', label: 'Theo năm (12 tháng)', weeks: 48, suffix: 'đ / năm' },
 ];
 
 // Các thứ trong tuần.

@@ -131,6 +131,33 @@
   flex-wrap: wrap;
 }
 
+/* Nút "Xem yêu cầu của tôi" trong hero */
+.tcs-find-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+.tcs-find-myreq {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 24px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(92deg, #ea5a1c 0%, #f08f34 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  box-shadow: 0 6px 16px rgba(234, 90, 28, 0.26);
+  transition: transform 0.12s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.tcs-find-myreq:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(234, 90, 28, 0.32);
+}
+
 /* Active state cho mục nav "Tìm gia sư" */
 .tcs-header__nav-link--active {
   color: var(--tcs-brand, #ea5a1c);

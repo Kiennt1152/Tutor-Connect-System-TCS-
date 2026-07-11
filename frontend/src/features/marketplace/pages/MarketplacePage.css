@@ -164,6 +164,10 @@
   font-weight: 400;
   color: #1565c0;
 }
+.mkt-subject-other {
+  margin-top: 10px;
+  width: 100%;
+}
 
 /* Lịch học theo từng thứ (card) */
 .mkt-day-cards {
@@ -205,6 +209,47 @@
 .mkt-checks--sm .mkt-check {
   padding: 4px 9px;
   font-size: 13px;
+}
+
+/* Một buổi trong lịch theo môn */
+.mkt-slot-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 8px;
+}
+.mkt-slot-date {
+  padding: 7px 10px;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #12233b;
+  background: #fff;
+}
+.mkt-slot-date:focus {
+  border-color: #1565c0;
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12);
+  outline: none;
+}
+.mkt-slot-remove {
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid #f0c2b5;
+  background: #fff;
+  color: #c0392b;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mkt-slot-remove:hover {
+  background: #fdecea;
+}
+.mkt-btn--sm {
+  padding: 7px 14px;
+  font-size: 13px;
+  margin-top: 10px;
 }
 
 /* Khung giờ học theo từng thứ */

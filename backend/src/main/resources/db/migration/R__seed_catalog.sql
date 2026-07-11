@@ -18,7 +18,7 @@ INSERT IGNORE INTO subjects (subject_name, description) VALUES
     ('Lịch sử', NULL),
     ('Địa lý', NULL),
     ('Tin học', NULL),
-    ('Giáo dục công dân', NULL);
+    ('Thi chứng chỉ (IELTS, TOEIC...)', NULL);
 
 -- Khối lớp ------------------------------------------------------------
 INSERT IGNORE INTO grades (grade_name) VALUES

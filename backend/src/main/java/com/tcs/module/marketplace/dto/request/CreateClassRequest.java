@@ -13,6 +13,7 @@ public class CreateClassRequest {
 
     private String title;
     private String description;
+    private String detailsJson;
     private Long categoryId;
     private Long subjectId;
     private Long gradeId;

@@ -5,6 +5,8 @@ import {
   LEARNING_GOAL_OPTIONS,
   LEARNING_GOAL_OTHER,
   LESSON_MODE_OPTIONS,
+  OTHER_SUBJECT,
+  SCHEDULE_MODE_OPTIONS,
   SESSION_OPTIONS,
   TUTOR_REQUIREMENT_OPTIONS,
   type BillingCycle,
@@ -12,8 +14,15 @@ import {
   type ClassFormValues,
   type ClassRequestPayload,
   type LessonMode,
+  type ScheduleMode,
+  type ScheduleSlot,
 } from '../types/marketplaceTypes';
-import { formToPayload, totalHoursPerWeek } from '../mappers/marketplaceMapper';
+import {
+  cycleLabelOf,
+  formToPayload,
+  totalHoursPerWeek,
+  weeksForCycle,
+} from '../mappers/marketplaceMapper';
 import { marketplaceApi } from '../api/marketplaceApi';
 import '../pages/MarketplacePage.css';
 
@@ -31,21 +40,62 @@ interface ClassRequestFormProps {
 
 const currency = new Intl.NumberFormat('vi-VN');
 
-/** Sinh các mốc giờ 24h (bước 30 phút) trong khoảng [min, max], vd "06:00".."12:00". */
+/** Sinh các mốc giờ 24h (bước 30 phút) trong khoảng [min, max]. */
 function buildTimeSlots(min: string, max: string, stepMinutes = 30): string[] {
   const toMinutes = (t: string) => {
     const [h, m] = t.split(':').map(Number);
     return h * 60 + m;
   };
-  const start = toMinutes(min);
-  const end = toMinutes(max);
   const out: string[] = [];
-  for (let x = start; x <= end; x += stepMinutes) {
-    const hh = String(Math.floor(x / 60)).padStart(2, '0');
-    const mm = String(x % 60).padStart(2, '0');
-    out.push(`${hh}:${mm}`);
+  for (let x = toMinutes(min); x <= toMinutes(max); x += stepMinutes) {
+    out.push(`${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`);
   }
   return out;
+}
+
+function emptySlot(subjectId: string): ScheduleSlot {
+  return { subjectId, day: '', date: '', session: '', start: '', end: '' };
+}
+
+/** Mục tiêu theo LỚP (vd Lớp 1 không có "Luyện thi Đại học"). */
+function goalsByGrade(gradeName: string | undefined): readonly string[] {
+  if (!gradeName) return LEARNING_GOAL_OPTIONS;
+  const m = /^Lớp\s+(\d+)/.exec(gradeName);
+  if (m) {
+    const n = Number(m[1]);
+    return LEARNING_GOAL_OPTIONS.filter((g) => {
+      if (g === 'Luyện thi chuyển cấp (vào 10)') return n === 9;
+      if (g === 'Luyện thi Đại học') return n === 12;
+      return true;
+    });
+  }
+  if (gradeName.includes('Đại học')) {
+    return LEARNING_GOAL_OPTIONS.filter((g) =>
+      ['Lấy lại gốc', 'Luyện thi Đại học', 'Luyện thi chứng chỉ (IELTS, TOEIC...)'].includes(g),
+    );
+  }
+  if (gradeName.toLowerCase().includes('chứng chỉ')) {
+    return LEARNING_GOAL_OPTIONS.filter((g) =>
+      ['Lấy lại gốc', 'Luyện thi chứng chỉ (IELTS, TOEIC...)'].includes(g),
+    );
+  }
+  return LEARNING_GOAL_OPTIONS;
+}
+
+/** Mục tiêu phù hợp với cả LỚP và MÔN HỌC.
+ *  Mục tiêu ngoại ngữ (IELTS/TOEIC, Giao tiếp) chỉ hiện khi có môn ngôn ngữ. */
+function allowedGoals(
+  gradeName: string | undefined,
+  subjectNames: string[],
+): readonly string[] {
+  const byGrade = goalsByGrade(gradeName);
+  if (subjectNames.length === 0) return byGrade;
+  const hasEnglish = subjectNames.includes('Tiếng Anh');
+  const hasCert = subjectNames.some((n) => n.toLowerCase().includes('chứng chỉ'));
+  return byGrade.filter((g) => {
+    if (g === 'Luyện thi chứng chỉ (IELTS, TOEIC...)') return hasEnglish || hasCert;
+    return true;
+  });
 }
 
 export function ClassRequestForm({
@@ -66,6 +116,31 @@ export function ClassRequestForm({
 
   function set<K extends keyof ClassFormValues>(key: K, value: ClassFormValues[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  const subjName = (id: string) =>
+    id === OTHER_SUBJECT
+      ? form.subjectOther.trim() || 'Môn học khác'
+      : (subjects.find((s) => String(s.id) === id)?.name ?? id);
+  const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
+  const isWeekly = form.scheduleMode === 'WEEKLY';
+  const currentSubjectNames = form.subjectIds.map(subjName);
+  const gradeName = grades.find((g) => String(g.id) === form.gradeId)?.name;
+  const goalOptions = allowedGoals(gradeName, currentSubjectNames);
+
+  // Giữ mục tiêu nếu vẫn hợp (hoặc "Khác"), ngược lại xóa để chọn lại.
+  function keepGoal(goal: string, allowed: readonly string[]): string {
+    return goal === LEARNING_GOAL_OTHER || allowed.includes(goal) ? goal : '';
+  }
+
+  // Đổi lớp → cập nhật mục tiêu nếu không còn hợp.
+  function handleGradeChange(gradeId: string) {
+    const gName = grades.find((g) => String(g.id) === gradeId)?.name;
+    setForm((prev) => ({
+      ...prev,
+      gradeId,
+      learningGoal: keepGoal(prev.learningGoal, allowedGoals(gName, prev.subjectIds.map(subjName))),
+    }));
   }
 
   // Tải quận/huyện khi đổi tỉnh; tải phường/xã khi đổi quận/huyện.
@@ -114,13 +189,7 @@ export function ClassRequestForm({
 
   function handleDistrictChange(value: string) {
     const name = districts.find((d) => String(d.id) === value)?.name ?? '';
-    setForm((prev) => ({
-      ...prev,
-      districtId: value,
-      districtName: name,
-      wardId: '',
-      wardName: '',
-    }));
+    setForm((prev) => ({ ...prev, districtId: value, districtName: name, wardId: '', wardName: '' }));
   }
 
   function handleWardChange(value: string) {
@@ -128,138 +197,110 @@ export function ClassRequestForm({
     setForm((prev) => ({ ...prev, wardId: value, wardName: name }));
   }
 
-  // Bật/tắt một thứ; khi bật thì khởi tạo khung giờ rỗng cho thứ đó.
-  // Không cho chọn quá số buổi/tuần đã nhập.
-  function toggleDay(value: string) {
+  // Chọn/bỏ môn học — bỏ môn thì xóa lịch của môn đó; thêm môn thì tạo sẵn 1 buổi.
+  function toggleSubject(id: string) {
     setForm((prev) => {
-      const has = prev.daysOfWeek.includes(value);
-      const limit = Number(prev.sessionsPerWeek) || 0;
-      if (!has && limit > 0 && prev.daysOfWeek.length >= limit) {
-        return prev; // đã chọn đủ số buổi/tuần
-      }
-      const daysOfWeek = has
-        ? prev.daysOfWeek.filter((v) => v !== value)
-        : [...prev.daysOfWeek, value];
-      const dayTimes = { ...prev.dayTimes };
-      if (has) {
-        delete dayTimes[value];
-      } else {
-        dayTimes[value] = { subjects: [], session: '', start: '', end: '' };
-      }
-      return { ...prev, daysOfWeek, dayTimes };
+      const removing = prev.subjectIds.includes(id);
+      const subjectIds = removing
+        ? prev.subjectIds.filter((s) => s !== id)
+        : [...prev.subjectIds, id];
+      const slots = removing
+        ? prev.slots.filter((s) => s.subjectId !== id)
+        : [...prev.slots, emptySlot(id)];
+      // Mục tiêu có thể không còn hợp với môn mới → cập nhật.
+      const gName = grades.find((g) => String(g.id) === prev.gradeId)?.name;
+      const learningGoal = keepGoal(prev.learningGoal, allowedGoals(gName, subjectIds.map(subjName)));
+      return { ...prev, subjectIds, slots, learningGoal };
     });
   }
 
-  // Đổi số buổi/tuần (chỉ nhận nguyên 1–7); nếu giảm thì bớt bớt các thứ dư.
-  function setSessionsPerWeek(v: string) {
-    if (v === '') {
-      set('sessionsPerWeek', '');
-      return;
-    }
-    const n = Number(v);
-    if (!Number.isInteger(n) || n < 1 || n > 7) return;
-    setForm((prev) => {
-      if (prev.daysOfWeek.length <= n) {
-        return { ...prev, sessionsPerWeek: v };
-      }
-      const kept = DAY_OF_WEEK_OPTIONS.filter((d) => prev.daysOfWeek.includes(d.value))
-        .slice(0, n)
-        .map((d) => d.value);
-      const dayTimes: Record<string, { subjects: string[]; session: string; start: string; end: string }> =
-        {};
-      for (const k of kept)
-        dayTimes[k] = prev.dayTimes[k] ?? { subjects: [], session: '', start: '', end: '' };
-      return { ...prev, sessionsPerWeek: v, daysOfWeek: kept, dayTimes };
-    });
+  function addSlot(subjectId: string) {
+    setForm((prev) => ({ ...prev, slots: [...prev.slots, emptySlot(subjectId)] }));
   }
 
-  function setDayTime(day: string, field: 'start' | 'end', value: string) {
+  function removeSlot(index: number) {
+    setForm((prev) => ({ ...prev, slots: prev.slots.filter((_, i) => i !== index) }));
+  }
+
+  function updateSlot(index: number, patch: Partial<ScheduleSlot>) {
     setForm((prev) => ({
       ...prev,
-      dayTimes: {
-        ...prev.dayTimes,
-        [day]: {
-          ...(prev.dayTimes[day] ?? { subjects: [], session: '', start: '', end: '' }),
-          [field]: value,
-        },
-      },
+      slots: prev.slots.map((s, i) => (i === index ? { ...s, ...patch } : s)),
     }));
   }
 
-  // Chọn/bỏ môn học cho một thứ (chỉ trong các môn đã tích ở Môn học).
-  function toggleDaySubject(day: string, subjectId: string) {
-    setForm((prev) => {
-      const cur = prev.dayTimes[day] ?? { subjects: [], session: '', start: '', end: '' };
-      const subjects = cur.subjects.includes(subjectId)
-        ? cur.subjects.filter((s) => s !== subjectId)
-        : [...cur.subjects, subjectId];
-      return { ...prev, dayTimes: { ...prev.dayTimes, [day]: { ...cur, subjects } } };
-    });
-  }
-
-  // Chọn buổi (Sáng/Trưa/Tối) → điền sẵn khung giờ gợi ý (vẫn sửa được).
-  function setDaySession(day: string, session: string) {
+  // Chọn buổi → điền sẵn khung giờ gợi ý (vẫn sửa được).
+  function setSlotSession(index: number, session: string) {
     const preset = SESSION_OPTIONS.find((s) => s.value === session);
-    setForm((prev) => {
-      const cur = prev.dayTimes[day] ?? { subjects: [], session: '', start: '', end: '' };
-      return {
-        ...prev,
-        dayTimes: {
-          ...prev.dayTimes,
-          [day]: {
-            ...cur,
-            session,
-            start: preset ? preset.start : cur.start,
-            end: preset ? preset.end : cur.end,
-          },
-        },
-      };
-    });
+    updateSlot(index, preset ? { session, start: preset.start, end: preset.end } : { session });
   }
 
-  const cycle = BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle) ?? BILLING_CYCLE_OPTIONS[0];
+  const cycle =
+    BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle) ?? BILLING_CYCLE_OPTIONS[0];
+  const isMonth = form.billingCycle === 'MONTH';
+  const weeks = weeksForCycle(form);
+  const cycleName = cycleLabelOf(form); // "N tháng" hoặc nhãn cố định
+  const cycleLabelDisplay = isMonth ? cycleName : cycle.label.toLowerCase();
+  const cycleSuffix = isMonth ? `đ / ${cycleName}` : cycle.suffix;
 
   const hoursPerWeek = useMemo(() => totalHoursPerWeek(form), [form]);
-  const total = useMemo(() => {
-    const fee = Number(form.feePerHour) || 0;
-    return fee * hoursPerWeek * cycle.weeks;
-  }, [form.feePerHour, hoursPerWeek, cycle.weeks]);
-
-  // Số buổi/tuần là mục tiêu; số thứ đã chọn phải khớp đúng.
-  const targetDays = Number(form.sessionsPerWeek) || 0;
-  const atDayLimit = targetDays > 0 && form.daysOfWeek.length >= targetDays;
-  const dayCountShort =
-    targetDays > 0 && form.daysOfWeek.length > 0 && form.daysOfWeek.length < targetDays;
+  const total = useMemo(
+    () => (Number(form.feePerHour) || 0) * hoursPerWeek * weeks,
+    [form.feePerHour, hoursPerWeek, weeks],
+  );
 
   const isOffline = form.lessonMode !== 'ONLINE';
   const goalNeedsCustom = form.learningGoal === LEARNING_GOAL_OTHER;
-  // Ngày hôm nay theo giờ địa phương (YYYY-MM-DD) — chặn chọn ngày quá khứ.
   const today = new Date().toLocaleDateString('en-CA');
-  const startInPast = !!form.startDate && form.startDate < today;
-  // Kiểm tra từng thứ đã chọn: có môn, đủ giờ, giờ hợp lệ & nằm trong buổi.
-  const dayTimeErrors: string[] = [];
-  for (const opt of DAY_OF_WEEK_OPTIONS) {
-    if (!form.daysOfWeek.includes(opt.value)) continue;
-    const t = form.dayTimes[opt.value];
-    if (!t?.subjects?.length) {
-      dayTimeErrors.push(`${opt.label}: chưa chọn môn học`);
-    }
-    if (!t?.start || !t?.end) {
-      dayTimeErrors.push(`${opt.label}: chưa chọn đủ giờ học`);
-    } else if (t.end <= t.start) {
-      dayTimeErrors.push(`${opt.label}: giờ kết thúc phải sau giờ bắt đầu`);
+
+  // Kiểm tra từng buổi: đủ thông tin (Thứ hoặc Ngày) + ngày không quá khứ + giờ hợp lệ.
+  const slotErrorSet = new Set<string>();
+  form.slots.forEach((s) => {
+    const nm = subjName(s.subjectId);
+    const whenMissing = isWeekly ? !s.day : !s.date;
+    if (whenMissing || !s.session || !s.start || !s.end) {
+      slotErrorSet.add(`${nm}: có buổi chưa đủ thông tin (${isWeekly ? 'thứ' : 'ngày'} / buổi / giờ)`);
+    } else if (!isWeekly && s.date < today) {
+      slotErrorSet.add(`${nm}: ngày học không được ở quá khứ`);
+    } else if (s.end <= s.start) {
+      slotErrorSet.add(`${nm}: giờ kết thúc phải sau giờ bắt đầu`);
     } else {
-      const s = SESSION_OPTIONS.find((o) => o.value === t.session);
-      if (s && (t.start < s.min || t.end > s.max)) {
-        dayTimeErrors.push(`${opt.label}: giờ phải trong ${s.label}`);
+      const sess = SESSION_OPTIONS.find((o) => o.value === s.session);
+      if (sess && (s.start < sess.min || s.end > sess.max)) {
+        slotErrorSet.add(`${nm}: giờ phải trong ${sess.label}`);
+      }
+    }
+  });
+  for (const sid of form.subjectIds) {
+    if (!form.slots.some((s) => s.subjectId === sid)) {
+      slotErrorSet.add(`${subjName(sid)}: chưa có buổi học nào`);
+    }
+  }
+  const slotErrors = [...slotErrorSet];
+
+  // Chống trùng giờ: 2 buổi cùng Thứ (WEEKLY) hoặc cùng Ngày (CUSTOM) và giờ giao nhau.
+  const conflicts: string[] = [];
+  for (let i = 0; i < form.slots.length; i++) {
+    for (let j = i + 1; j < form.slots.length; j++) {
+      const a = form.slots[i];
+      const b = form.slots[j];
+      const sameWhen = isWeekly ? !!a.day && a.day === b.day : !!a.date && a.date === b.date;
+      if (sameWhen && a.start && a.end && b.start && b.end && a.start < b.end && b.start < a.end) {
+        const when = isWeekly ? dayLabel(a.day) : `ngày ${a.date}`;
+        conflicts.push(
+          `Trùng giờ ${when}: ${subjName(a.subjectId)} (${a.start}–${a.end}) & ${subjName(
+            b.subjectId,
+          )} (${b.start}–${b.end})`,
+        );
       }
     }
   }
 
   const missing: string[] = [];
   if (form.subjectIds.length === 0) missing.push('Môn học');
+  if (form.subjectIds.includes(OTHER_SUBJECT) && !form.subjectOther.trim())
+    missing.push('Tên môn học khác');
   if (!form.gradeId) missing.push('Lớp');
-  if (!form.learningGoal) missing.push('Mục tiêu học tập');
   if (goalNeedsCustom && !form.learningGoalOther.trim()) missing.push('Mục tiêu cụ thể');
   if (isOffline) {
     if (!form.provinceId) missing.push('Tỉnh / Thành phố');
@@ -268,36 +309,14 @@ export function ClassRequestForm({
     if (!form.address.trim()) missing.push('Địa chỉ chi tiết');
   }
   if (!form.tutorRequirementDetail.trim()) missing.push('Yêu cầu bổ sung');
-  if (!form.sessionsPerWeek || Number(form.sessionsPerWeek) <= 0) missing.push('Số buổi / tuần');
-  if (form.daysOfWeek.length === 0) missing.push('Ngày học trong tuần');
-  if (!form.startDate) missing.push('Ngày bắt đầu');
+  if (form.slots.length === 0) missing.push('Lịch học');
   if (!form.feePerHour || Number(form.feePerHour) <= 0) missing.push('Học phí / giờ');
   if (!form.note.trim()) missing.push('Ghi chú / yêu cầu khác');
 
   function handleSubmit() {
     setTouched(true);
-    if (missing.length > 0 || startInPast || dayTimeErrors.length > 0 || dayCountShort) return;
+    if (missing.length > 0 || slotErrors.length > 0 || conflicts.length > 0) return;
     onSubmit(formToPayload(form, subjects));
-  }
-
-  function toggleSubject(id: string) {
-    setForm((prev) => {
-      const removing = prev.subjectIds.includes(id);
-      const subjectIds = removing
-        ? prev.subjectIds.filter((s) => s !== id)
-        : [...prev.subjectIds, id];
-      // Bỏ tích một môn → gỡ môn đó khỏi lịch từng thứ.
-      let dayTimes = prev.dayTimes;
-      if (removing) {
-        dayTimes = Object.fromEntries(
-          Object.entries(prev.dayTimes).map(([k, v]) => [
-            k,
-            { ...v, subjects: v.subjects.filter((s) => s !== id) },
-          ]),
-        );
-      }
-      return { ...prev, subjectIds, dayTimes };
-    });
   }
 
   return (
@@ -325,7 +344,28 @@ export function ClassRequestForm({
                 </label>
               );
             })}
+            <label className="mkt-check">
+              <input
+                type="checkbox"
+                checked={form.subjectIds.includes(OTHER_SUBJECT)}
+                onChange={() => toggleSubject(OTHER_SUBJECT)}
+              />
+              <span>Khác</span>
+            </label>
           </div>
+        )}
+        {form.subjectIds.includes(OTHER_SUBJECT) && (
+          <label className="mkt-field mkt-subject-other">
+            <span className="mkt-field__label">
+              Tên môn học khác <em>*</em>
+            </span>
+            <input
+              type="text"
+              value={form.subjectOther}
+              placeholder="Nhập tên môn học khác…"
+              onChange={(e) => set('subjectOther', e.target.value)}
+            />
+          </label>
         )}
       </div>
 
@@ -335,7 +375,7 @@ export function ClassRequestForm({
           <span className="mkt-field__label">
             Lớp <em>*</em>
           </span>
-          <select value={form.gradeId} onChange={(e) => set('gradeId', e.target.value)}>
+          <select value={form.gradeId} onChange={(e) => handleGradeChange(e.target.value)}>
             <option value="">-- Chọn lớp --</option>
             {grades.map((g) => (
               <option key={g.id} value={g.id}>
@@ -348,12 +388,10 @@ export function ClassRequestForm({
 
       {/* Mục tiêu học tập */}
       <label className="mkt-field">
-        <span className="mkt-field__label">
-          Mục tiêu học tập <em>*</em>
-        </span>
+        <span className="mkt-field__label">Mục tiêu học tập</span>
         <select value={form.learningGoal} onChange={(e) => set('learningGoal', e.target.value)}>
           <option value="">-- Chọn mục tiêu --</option>
-          {LEARNING_GOAL_OPTIONS.map((goal) => (
+          {goalOptions.map((goal) => (
             <option key={goal} value={goal}>
               {goal}
             </option>
@@ -485,14 +523,14 @@ export function ClassRequestForm({
           <input
             type="text"
             value={form.tutorRequirementDetail}
-            placeholder="VD: Có chứng chỉ IELTS 7.0, ưu tiên nữ"
+            placeholder="VD: Có chứng chỉ IELTS 7.0"
             onChange={(e) => set('tutorRequirementDetail', e.target.value)}
           />
         </label>
       </div>
 
-      {/* Lịch học */}
-      <div className="mkt-form__grid mkt-form__grid--3">
+      {/* Học theo */}
+      <div className="mkt-form__grid">
         <label className="mkt-field">
           <span className="mkt-field__label">Học theo</span>
           <select
@@ -506,154 +544,145 @@ export function ClassRequestForm({
             ))}
           </select>
         </label>
-        <label className="mkt-field">
-          <span className="mkt-field__label">
-            Số buổi / tuần <em>*</em>
-          </span>
-          <input
-            type="number"
-            min={1}
-            max={7}
-            value={form.sessionsPerWeek}
-            onChange={(e) => setSessionsPerWeek(e.target.value)}
-          />
-        </label>
-        <label className="mkt-field">
-          <span className="mkt-field__label">
-            Ngày bắt đầu mong muốn <em>*</em>
-          </span>
-          <input
-            type="date"
-            value={form.startDate}
-            min={today}
-            onChange={(e) => set('startDate', e.target.value)}
-          />
-        </label>
-      </div>
-
-      <div className="mkt-field">
-        <span className="mkt-field__label">
-          Học các thứ trong tuần <em>*</em>
-          {targetDays > 0 && (
-            <span className="mkt-field__hint-inline">
-              {' '}
-              (đã chọn {form.daysOfWeek.length}/{targetDays})
-            </span>
-          )}
-        </span>
-        <div className="mkt-checks">
-          {DAY_OF_WEEK_OPTIONS.map((day) => {
-            const checked = form.daysOfWeek.includes(day.value);
-            return (
-              <label
-                key={day.value}
-                className={`mkt-check${!checked && atDayLimit ? ' mkt-check--disabled' : ''}`}
-              >
-                <input
-                  type="checkbox"
-                  checked={checked}
-                  disabled={!checked && atDayLimit}
-                  onChange={() => toggleDay(day.value)}
-                />
-                <span>{day.label}</span>
-              </label>
-            );
-          })}
-        </div>
-        {atDayLimit && (
-          <p className="mkt-hint">
-            Đã chọn đủ {targetDays} buổi/tuần. Tăng “Số buổi / tuần” nếu muốn thêm thứ.
-          </p>
+        {isMonth && (
+          <label className="mkt-field">
+            <span className="mkt-field__label">Số tháng</span>
+            <select value={form.months} onChange={(e) => set('months', e.target.value)}>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <option key={m} value={String(m)}>
+                  {m} tháng
+                </option>
+              ))}
+            </select>
+          </label>
         )}
       </div>
 
-      {/* Lịch từng thứ: môn học + buổi + khung giờ */}
+      {/* Chế độ lịch: lặp hàng tuần hay chọn ngày cụ thể */}
+      <div className="mkt-field">
+        <span className="mkt-field__label">Kiểu lịch học</span>
+        <div className="mkt-radios">
+          {SCHEDULE_MODE_OPTIONS.map((opt) => (
+            <label key={opt.value} className="mkt-radio">
+              <input
+                type="radio"
+                name="scheduleMode"
+                checked={form.scheduleMode === opt.value}
+                onChange={() => set('scheduleMode', opt.value as ScheduleMode)}
+              />
+              <span>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+        <span className="mkt-hint">
+          {isWeekly
+            ? 'Lặp lại cùng khung giờ theo Thứ ở các tuần tiếp theo.'
+            : 'Chọn từng ngày cụ thể (không lặp lại) — hết các ngày/tuần đã chọn, bạn cần nhập lại lịch cho tuần tiếp theo.'}
+        </span>
+      </div>
+
+      {/* Lịch học theo từng môn — mỗi môn có nhiều buổi, không trùng giờ */}
       <div className="mkt-field">
         <span className="mkt-field__label">
-          Lịch học từng thứ <em>*</em>
+          Lịch học theo môn <em>*</em>
+          <span className="mkt-field__hint-inline"> (các buổi không được trùng giờ)</span>
         </span>
-        {form.daysOfWeek.length === 0 ? (
-          <p className="mkt-hint">Chọn các thứ ở trên để đặt môn học và giờ cho từng buổi.</p>
+        {form.subjectIds.length === 0 ? (
+          <p className="mkt-hint">Hãy chọn môn học ở trên trước, rồi đặt lịch cho từng môn.</p>
         ) : (
           <div className="mkt-day-cards">
-            {DAY_OF_WEEK_OPTIONS.filter((d) => form.daysOfWeek.includes(d.value)).map((d) => {
-              const dt = form.dayTimes[d.value];
-              const sess = SESSION_OPTIONS.find((s) => s.value === dt?.session);
-              const slots = buildTimeSlots(sess?.min ?? '00:00', sess?.max ?? '23:30');
-              const endSlots = dt?.start ? slots.filter((s) => s > dt.start) : slots;
-              return (
-                <div key={d.value} className="mkt-day-card">
-                  <div className="mkt-day-card__head">{d.label}</div>
-
-                  <div className="mkt-day-card__row">
-                    <span className="mkt-day-card__tag">Môn:</span>
-                    {form.subjectIds.length === 0 ? (
-                      <span className="mkt-day-card__empty">Hãy chọn môn học ở trên trước</span>
-                    ) : (
-                      <div className="mkt-checks mkt-checks--sm">
-                        {form.subjectIds.map((sid) => {
-                          const name = subjects.find((s) => String(s.id) === sid)?.name ?? sid;
-                          return (
-                            <label key={sid} className="mkt-check">
-                              <input
-                                type="checkbox"
-                                checked={dt?.subjects?.includes(sid) ?? false}
-                                onChange={() => toggleDaySubject(d.value, sid)}
-                              />
-                              <span>{name}</span>
-                            </label>
-                          );
-                        })}
+            {form.subjectIds.map((sid) => (
+              <div key={sid} className="mkt-day-card">
+                <div className="mkt-day-card__head">{subjName(sid)}</div>
+                {form.slots
+                  .map((slot, idx) => ({ slot, idx }))
+                  .filter((x) => x.slot.subjectId === sid)
+                  .map(({ slot, idx }) => {
+                    const sess = SESSION_OPTIONS.find((o) => o.value === slot.session);
+                    const times = buildTimeSlots(sess?.min ?? '00:00', sess?.max ?? '23:30');
+                    const endTimes = slot.start ? times.filter((t) => t > slot.start) : times;
+                    return (
+                      <div key={idx} className="mkt-slot-row">
+                        {isWeekly ? (
+                          <select
+                            className="mkt-day-time__session"
+                            aria-label="Thứ"
+                            value={slot.day}
+                            onChange={(e) => updateSlot(idx, { day: e.target.value })}
+                          >
+                            <option value="">Thứ…</option>
+                            {DAY_OF_WEEK_OPTIONS.map((d) => (
+                              <option key={d.value} value={d.value}>
+                                {d.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input
+                            type="date"
+                            className="mkt-slot-date"
+                            aria-label="Ngày học"
+                            min={today}
+                            value={slot.date}
+                            onChange={(e) => updateSlot(idx, { date: e.target.value })}
+                          />
+                        )}
+                        <select
+                          className="mkt-day-time__session"
+                          aria-label="Buổi"
+                          value={slot.session}
+                          onChange={(e) => setSlotSession(idx, e.target.value)}
+                        >
+                          <option value="">Buổi…</option>
+                          {SESSION_OPTIONS.map((s) => (
+                            <option key={s.value} value={s.value}>
+                              {s.label}
+                            </option>
+                          ))}
+                        </select>
+                        <select
+                          className="mkt-day-time__session"
+                          aria-label="Giờ bắt đầu"
+                          value={slot.start}
+                          onChange={(e) => updateSlot(idx, { start: e.target.value })}
+                        >
+                          <option value="">Từ…</option>
+                          {times.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="mkt-day-time__sep">–</span>
+                        <select
+                          className="mkt-day-time__session"
+                          aria-label="Giờ kết thúc"
+                          value={slot.end}
+                          onChange={(e) => updateSlot(idx, { end: e.target.value })}
+                        >
+                          <option value="">Đến…</option>
+                          {endTimes.map((t) => (
+                            <option key={t} value={t}>
+                              {t}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="mkt-slot-remove"
+                          aria-label="Xóa buổi"
+                          onClick={() => removeSlot(idx)}
+                        >
+                          ×
+                        </button>
                       </div>
-                    )}
-                  </div>
-
-                  <div className="mkt-day-card__row">
-                    <span className="mkt-day-card__tag">Giờ:</span>
-                    <select
-                      className="mkt-day-time__session"
-                      aria-label={`Buổi học ${d.label}`}
-                      value={dt?.session ?? ''}
-                      onChange={(e) => setDaySession(d.value, e.target.value)}
-                    >
-                      <option value="">Buổi…</option>
-                      {SESSION_OPTIONS.map((s) => (
-                        <option key={s.value} value={s.value}>
-                          {s.label}
-                        </option>
-                      ))}
-                    </select>
-                    <select
-                      className="mkt-day-time__session"
-                      aria-label={`Giờ bắt đầu ${d.label}`}
-                      value={dt?.start ?? ''}
-                      onChange={(e) => setDayTime(d.value, 'start', e.target.value)}
-                    >
-                      <option value="">Từ…</option>
-                      {slots.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="mkt-day-time__sep">–</span>
-                    <select
-                      className="mkt-day-time__session"
-                      aria-label={`Giờ kết thúc ${d.label}`}
-                      value={dt?.end ?? ''}
-                      onChange={(e) => setDayTime(d.value, 'end', e.target.value)}
-                    >
-                      <option value="">Đến…</option>
-                      {endSlots.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              );
-            })}
+                    );
+                  })}
+                <button type="button" className="mkt-btn mkt-btn--ghost mkt-btn--sm" onClick={() => addSlot(sid)}>
+                  + Thêm buổi
+                </button>
+              </div>
+            ))}
           </div>
         )}
       </div>
@@ -674,13 +703,13 @@ export function ClassRequestForm({
           />
         </label>
         <div className="mkt-field">
-          <span className="mkt-field__label">
-            Tổng học phí ước tính ({cycle.label.toLowerCase()})
-          </span>
+          <span className="mkt-field__label">Tổng học phí ước tính ({cycleLabelDisplay})</span>
           <div className="mkt-total">
-            {currency.format(total)} {cycle.suffix}
+            {currency.format(total)} {cycleSuffix}
           </div>
-          <span className="mkt-hint">≈ {hoursPerWeek} giờ/tuần theo lịch đã chọn.</span>
+          <span className="mkt-hint">
+            ≈ {hoursPerWeek} giờ/tuần · {form.slots.length} buổi/tuần.
+          </span>
         </div>
       </div>
 
@@ -697,34 +726,32 @@ export function ClassRequestForm({
         />
       </label>
 
-      {touched && startInPast && (
-        <div className="mkt-alert mkt-alert--error">
-          Ngày bắt đầu không được ở trong quá khứ.
-        </div>
+      {touched && conflicts.length > 0 && (
+        <div className="mkt-alert mkt-alert--error">{conflicts.join('. ')}.</div>
       )}
-      {touched && dayCountShort && (
-        <div className="mkt-alert mkt-alert--error">
-          Bạn chọn {targetDays} buổi/tuần — vui lòng chọn đủ {targetDays} thứ (đang chọn{' '}
-          {form.daysOfWeek.length}).
-        </div>
-      )}
-      {touched && dayTimeErrors.length > 0 && (
-        <div className="mkt-alert mkt-alert--error">
-          {dayTimeErrors.join('. ')}.
-        </div>
+      {touched && slotErrors.length > 0 && (
+        <div className="mkt-alert mkt-alert--error">{slotErrors.join('. ')}.</div>
       )}
       {touched && missing.length > 0 && (
-        <div className="mkt-alert mkt-alert--error">
-          Vui lòng nhập: {missing.join(', ')}.
-        </div>
+        <div className="mkt-alert mkt-alert--error">Vui lòng nhập: {missing.join(', ')}.</div>
       )}
       {error && <div className="mkt-alert mkt-alert--error">{error}</div>}
 
       <div className="mkt-form__actions">
-        <button type="button" className="mkt-btn mkt-btn--ghost" onClick={onCancel} disabled={submitting}>
+        <button
+          type="button"
+          className="mkt-btn mkt-btn--ghost"
+          onClick={onCancel}
+          disabled={submitting}
+        >
           Hủy
         </button>
-        <button type="button" className="mkt-btn mkt-btn--primary" onClick={handleSubmit} disabled={submitting}>
+        <button
+          type="button"
+          className="mkt-btn mkt-btn--primary"
+          onClick={handleSubmit}
+          disabled={submitting}
+        >
           {submitting ? 'Đang lưu…' : isEdit ? 'Lưu thay đổi' : 'Tạo lớp'}
         </button>
       </div>

@@ -82,7 +82,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     public ClassResponse createClass(CreateClassRequest request) {
         User creator = requireUser();
         requireClient(creator.getUserId());
-        if (request.getSubjectId() == null) {
+        if (request.getSubjectId() == null && !StringUtils.hasText(request.getDetailsJson())) {
             throw new IllegalArgumentException("Vui lòng chọn môn học");
         }
         TutoringClass tutoringClass = new TutoringClass();
@@ -104,7 +104,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 && tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Chỉ có thể sửa lớp ở trạng thái nháp hoặc đang mở");
         }
-        if (request.getSubjectId() == null) {
+        if (request.getSubjectId() == null && !StringUtils.hasText(request.getDetailsJson())) {
             throw new IllegalArgumentException("Vui lòng chọn môn học");
         }
         applyRequest(tutoringClass, request);
@@ -125,6 +125,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         tutoringClass.setAddress(trimToNull(request.getAddress()));
         tutoringClass.setTitle(resolveTitle(request.getTitle(), subject, grade));
         tutoringClass.setDescription(resolveDescription(request, subject, grade));
+        tutoringClass.setDetailsJson(request.getDetailsJson());
         if (request.getLessonMode() != null) tutoringClass.setLessonMode(request.getLessonMode());
         if (request.getNumberOfSessions() != null) tutoringClass.setNumberOfSessions(request.getNumberOfSessions());
         if (request.getStartDate() != null) tutoringClass.setStartDate(request.getStartDate());
@@ -306,6 +307,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .classId(c.getClassId())
                 .title(c.getTitle())
                 .description(c.getDescription())
+                .detailsJson(c.getDetailsJson())
                 .creatorId(c.getCreator().getUserId())
                 .creatorName(client != null ? client.getFullName() : c.getCreator().getEmail())
                 .subjectId(c.getSubject() != null ? c.getSubject().getSubjectId() : null)

@@ -16,6 +16,7 @@ public class ClassResponse {
     private Long classId;
     private String title;
     private String description;
+    private String detailsJson;
     private Long creatorId;
     private String creatorName;
     private Long subjectId;
