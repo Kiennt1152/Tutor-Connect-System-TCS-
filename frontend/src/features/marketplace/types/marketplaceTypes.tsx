@@ -94,7 +94,8 @@ export interface ClassFormValues {
   wardId: string;
   wardName: string;
   address: string;
-  feePerHour: string;
+  /** Học phí/giờ theo từng môn (key = subjectId, kể cả "other"). */
+  subjectFees: Record<string, string>;
   billingCycle: BillingCycle;
   /** Số tháng cụ thể khi chọn "Theo tháng". */
   months: string;

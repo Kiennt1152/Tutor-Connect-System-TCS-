@@ -64,21 +64,12 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                   Quản lý trung tâm
                 </Link>
               ) : null}
-              {hasRole(user.role, 'PLATFORM_ADMIN') ? (
-                <Link to={profilePath} className="tcs-home-profile-btn">
-                  <span className="tcs-home-profile-btn__avatar">
-                    {userInitials(user.displayName, user.email)}
-                  </span>
-                  <span className="tcs-home-profile-btn__label">Hồ sơ</span>
-                </Link>
-              ) : (
-                <span className="tcs-home-profile-btn tcs-home-profile-btn--disabled" title="Sắp có">
-                  <span className="tcs-home-profile-btn__avatar">
-                    {userInitials(user.displayName, user.email)}
-                  </span>
-                  <span className="tcs-home-profile-btn__label">Hồ sơ</span>
+              <Link to={profilePath} className="tcs-home-profile-btn">
+                <span className="tcs-home-profile-btn__avatar">
+                  {userInitials(user.displayName, user.email)}
                 </span>
-              )}
+                <span className="tcs-home-profile-btn__label">Hồ sơ</span>
+              </Link>
               <LogoutButton />
             </>
           ) : (

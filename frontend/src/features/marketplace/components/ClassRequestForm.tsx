@@ -20,6 +20,7 @@ import {
 import {
   cycleLabelOf,
   formToPayload,
+  totalBudget,
   totalHoursPerWeek,
   weeksForCycle,
 } from '../mappers/marketplaceMapper';
@@ -207,11 +208,21 @@ export function ClassRequestForm({
       const slots = removing
         ? prev.slots.filter((s) => s.subjectId !== id)
         : [...prev.slots, emptySlot(id)];
+      const subjectFees = { ...prev.subjectFees };
+      if (removing) delete subjectFees[id];
+      else if (!(id in subjectFees)) subjectFees[id] = '';
       // Mục tiêu có thể không còn hợp với môn mới → cập nhật.
       const gName = grades.find((g) => String(g.id) === prev.gradeId)?.name;
       const learningGoal = keepGoal(prev.learningGoal, allowedGoals(gName, subjectIds.map(subjName)));
-      return { ...prev, subjectIds, slots, learningGoal };
+      return { ...prev, subjectIds, slots, subjectFees, learningGoal };
     });
+  }
+
+  function setSubjectFee(subjectId: string, value: string) {
+    setForm((prev) => ({
+      ...prev,
+      subjectFees: { ...prev.subjectFees, [subjectId]: value },
+    }));
   }
 
   function addSlot(subjectId: string) {
@@ -244,13 +255,9 @@ export function ClassRequestForm({
   const cycleSuffix = isMonth ? `đ / ${cycleName}` : cycle.suffix;
 
   const hoursPerWeek = useMemo(() => totalHoursPerWeek(form), [form]);
-  const total = useMemo(
-    () => (Number(form.feePerHour) || 0) * hoursPerWeek * weeks,
-    [form.feePerHour, hoursPerWeek, weeks],
-  );
+  const total = useMemo(() => totalBudget(form), [form]);
 
   const isOffline = form.lessonMode !== 'ONLINE';
-  const goalNeedsCustom = form.learningGoal === LEARNING_GOAL_OTHER;
   const today = new Date().toLocaleDateString('en-CA');
 
   // Kiểm tra từng buổi: đủ thông tin (Thứ hoặc Ngày) + ngày không quá khứ + giờ hợp lệ.
@@ -274,6 +281,9 @@ export function ClassRequestForm({
   for (const sid of form.subjectIds) {
     if (!form.slots.some((s) => s.subjectId === sid)) {
       slotErrorSet.add(`${subjName(sid)}: chưa có buổi học nào`);
+    }
+    if (!(Number(form.subjectFees[sid]) > 0)) {
+      slotErrorSet.add(`${subjName(sid)}: chưa nhập học phí/giờ`);
     }
   }
   const slotErrors = [...slotErrorSet];
@@ -301,7 +311,6 @@ export function ClassRequestForm({
   if (form.subjectIds.includes(OTHER_SUBJECT) && !form.subjectOther.trim())
     missing.push('Tên môn học khác');
   if (!form.gradeId) missing.push('Lớp');
-  if (goalNeedsCustom && !form.learningGoalOther.trim()) missing.push('Mục tiêu cụ thể');
   if (isOffline) {
     if (!form.provinceId) missing.push('Tỉnh / Thành phố');
     if (!form.districtId) missing.push('Quận / Huyện');
@@ -310,7 +319,6 @@ export function ClassRequestForm({
   }
   if (!form.tutorRequirementDetail.trim()) missing.push('Yêu cầu bổ sung');
   if (form.slots.length === 0) missing.push('Lịch học');
-  if (!form.feePerHour || Number(form.feePerHour) <= 0) missing.push('Học phí / giờ');
   if (!form.note.trim()) missing.push('Ghi chú / yêu cầu khác');
 
   function handleSubmit() {
@@ -396,22 +404,8 @@ export function ClassRequestForm({
               {goal}
             </option>
           ))}
-          <option value={LEARNING_GOAL_OTHER}>{LEARNING_GOAL_OTHER}…</option>
         </select>
       </label>
-      {goalNeedsCustom && (
-        <label className="mkt-field">
-          <span className="mkt-field__label">
-            Mục tiêu cụ thể <em>*</em>
-          </span>
-          <input
-            type="text"
-            value={form.learningGoalOther}
-            placeholder="VD: Luyện thi HSG Toán cấp tỉnh"
-            onChange={(e) => set('learningGoalOther', e.target.value)}
-          />
-        </label>
-      )}
 
       {/* Hình thức học */}
       <div className="mkt-field">
@@ -593,7 +587,21 @@ export function ClassRequestForm({
           <div className="mkt-day-cards">
             {form.subjectIds.map((sid) => (
               <div key={sid} className="mkt-day-card">
-                <div className="mkt-day-card__head">{subjName(sid)}</div>
+                <div className="mkt-day-card__head mkt-day-card__head--fee">
+                  <span>{subjName(sid)}</span>
+                  <span className="mkt-subj-fee">
+                    <input
+                      type="number"
+                      min={0}
+                      step={10000}
+                      value={form.subjectFees[sid] ?? ''}
+                      placeholder="Học phí/giờ"
+                      aria-label={`Học phí/giờ môn ${subjName(sid)}`}
+                      onChange={(e) => setSubjectFee(sid, e.target.value)}
+                    />
+                    <span className="mkt-subj-fee__unit">đ/giờ</span>
+                  </span>
+                </div>
                 {form.slots
                   .map((slot, idx) => ({ slot, idx }))
                   .filter((x) => x.slot.subjectId === sid)
@@ -687,30 +695,16 @@ export function ClassRequestForm({
         )}
       </div>
 
-      {/* Học phí */}
-      <div className="mkt-form__grid">
-        <label className="mkt-field">
-          <span className="mkt-field__label">
-            Học phí / giờ (đ) <em>*</em>
-          </span>
-          <input
-            type="number"
-            min={0}
-            step={10000}
-            value={form.feePerHour}
-            placeholder="VD: 150000"
-            onChange={(e) => set('feePerHour', e.target.value)}
-          />
-        </label>
-        <div className="mkt-field">
-          <span className="mkt-field__label">Tổng học phí ước tính ({cycleLabelDisplay})</span>
-          <div className="mkt-total">
-            {currency.format(total)} {cycleSuffix}
-          </div>
-          <span className="mkt-hint">
-            ≈ {hoursPerWeek} giờ/tuần · {form.slots.length} buổi/tuần.
-          </span>
+      {/* Tổng học phí (học phí/giờ nhập theo từng môn ở trên) */}
+      <div className="mkt-field">
+        <span className="mkt-field__label">Tổng học phí ước tính ({cycleLabelDisplay})</span>
+        <div className="mkt-total">
+          {currency.format(total)} {cycleSuffix}
         </div>
+        <span className="mkt-hint">
+          {hoursPerWeek} giờ/tuần · {form.slots.length} buổi/tuần — Tổng: {hoursPerWeek * weeks} giờ ·{' '}
+          {form.slots.length * weeks} buổi.
+        </span>
       </div>
 
       {/* Ghi chú bổ sung */}

@@ -77,13 +77,6 @@ export default function FindTutorPage() {
                 Điền thông tin nhu cầu học tập của bạn — môn học, mục tiêu, hình thức, học phí. Gia sư
                 phù hợp sẽ nhận được yêu cầu và liên hệ với bạn.
               </p>
-              {isClient && (
-                <div className="tcs-find-actions">
-                  <Link className="tcs-btn tcs-btn--ghost tcs-find-myreq" to={APP_ROUTES.marketplace}>
-                    📋 Xem yêu cầu của tôi
-                  </Link>
-                </div>
-              )}
             </div>
 
             <div className="tcs-find-form-card">

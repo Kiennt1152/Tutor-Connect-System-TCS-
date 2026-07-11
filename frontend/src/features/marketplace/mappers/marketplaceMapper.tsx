@@ -29,7 +29,7 @@ export function emptyForm(): ClassFormValues {
     wardId: '',
     wardName: '',
     address: '',
-    feePerHour: '',
+    subjectFees: {},
     billingCycle: 'MONTH',
     months: '1',
     scheduleMode: 'WEEKLY',
@@ -53,9 +53,10 @@ export function classToForm(c: ClassResponse): ClassFormValues {
     !!c.learningGoal && LEARNING_GOAL_OPTIONS.includes(c.learningGoal);
   const reqMatched =
     !!c.tutorRequirement && TUTOR_REQUIREMENT_OPTIONS.includes(c.tutorRequirement);
-  const feePerHour = c.tuitionFee != null ? String(c.tuitionFee) : '';
+  const fee = c.tuitionFee != null ? String(c.tuitionFee) : '';
+  const subjIds = c.subjectId != null ? [String(c.subjectId)] : [];
   return {
-    subjectIds: c.subjectId != null ? [String(c.subjectId)] : [],
+    subjectIds: subjIds,
     subjectOther: '',
     gradeId: c.gradeId != null ? String(c.gradeId) : '',
     learningGoal: c.learningGoal ? (goalMatched ? c.learningGoal : LEARNING_GOAL_OTHER) : '',
@@ -70,7 +71,7 @@ export function classToForm(c: ClassResponse): ClassFormValues {
     wardId: '',
     wardName: '',
     address: c.address ?? '',
-    feePerHour,
+    subjectFees: subjIds[0] ? { [subjIds[0]]: fee } : {},
     billingCycle: 'MONTH',
     months: '1',
     scheduleMode: 'WEEKLY',
@@ -132,6 +133,25 @@ export function totalHoursPerWeek(form: ClassFormValues): number {
   return form.slots.reduce((sum, s) => sum + slotHours(s.start, s.end), 0);
 }
 
+/** Số giờ/tuần của một môn (cộng thời lượng các buổi của môn đó). */
+export function hoursPerWeekForSubject(form: ClassFormValues, subjectId: string): number {
+  return form.slots
+    .filter((s) => s.subjectId === subjectId)
+    .reduce((sum, s) => sum + slotHours(s.start, s.end), 0);
+}
+
+/** Tổng học phí = Σ (học phí/giờ mỗi môn × giờ/tuần môn đó × số tuần). */
+export function totalBudget(form: ClassFormValues): number {
+  const weeks = weeksForCycle(form);
+  return Math.round(
+    form.subjectIds.reduce(
+      (sum, sid) =>
+        sum + (Number(form.subjectFees[sid]) || 0) * hoursPerWeekForSubject(form, sid) * weeks,
+      0,
+    ),
+  );
+}
+
 /** Tên thứ (Vi) của một ngày YYYY-MM-DD. */
 export function weekdayVi(dateStr: string): string {
   if (!dateStr) return '';
@@ -142,17 +162,24 @@ export function weekdayVi(dateStr: string): string {
 /** Câu mô tả lịch học để lưu vào phần mô tả (nhóm theo môn, theo ngày). */
 export function buildScheduleSummary(form: ClassFormValues, subjects: CatalogOption[] = []): string {
   const parts = [`Lịch học ${cycleLabelOf(form).toLowerCase()} (${form.slots.length} buổi)`];
-  const nameOf = (id: string) => subjects.find((s) => String(s.id) === id)?.name ?? '';
+  const money = new Intl.NumberFormat('vi-VN');
+  const nameOf = (id: string) =>
+    id === OTHER_SUBJECT
+      ? form.subjectOther.trim() || 'Môn học khác'
+      : (subjects.find((s) => String(s.id) === id)?.name ?? '');
   const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
   const whenOf = (s: ClassFormValues['slots'][number]) =>
     form.scheduleMode === 'WEEKLY' ? `${dayLabel(s.day)} hàng tuần` : `${weekdayVi(s.date)} ${s.date}`;
-  // Nhóm slot theo môn.
+  // Nhóm slot theo môn (kèm học phí/giờ của môn đó).
   const bySubject = form.subjectIds
     .map((sid) => {
       const rows = form.slots
         .filter((s) => s.subjectId === sid)
         .map((s) => `${whenOf(s)} ${s.session} (${s.start}–${s.end})`);
-      return rows.length ? `${nameOf(sid)}: ${rows.join(', ')}` : '';
+      if (!rows.length) return '';
+      const fee = Number(form.subjectFees[sid]) || 0;
+      const feeStr = fee > 0 ? ` [${money.format(fee)}đ/giờ]` : '';
+      return `${nameOf(sid)}${feeStr}: ${rows.join(', ')}`;
     })
     .filter(Boolean);
   if (bySubject.length > 0) {
@@ -168,9 +195,10 @@ export function formToPayload(
   subjects: CatalogOption[] = [],
 ): ClassRequestPayload {
   const sessions = estimatedSessions(form);
-  const feePerHour = Number(form.feePerHour) || 0;
-  // Tổng học phí = đơn giá/giờ × tổng số giờ/tuần × số tuần trong chu kỳ.
-  const budget = Math.round(feePerHour * totalHoursPerWeek(form) * weeksForCycle(form));
+  // Tổng học phí = cộng theo từng môn (học phí/giờ riêng × giờ/tuần môn đó × số tuần).
+  const budget = totalBudget(form);
+  // Học phí/giờ đại diện gửi backend = của môn chính đầu tiên.
+  const primaryFee = Number(form.subjectFees[form.subjectIds[0]]) || 0;
   // Ngày bắt đầu/kết thúc: CUSTOM suy từ các ngày đã đặt; WEEKLY = hôm nay → +số tuần.
   const today = new Date().toISOString().slice(0, 10);
   let startDate: string;
@@ -222,7 +250,7 @@ export function formToPayload(
     numberOfSessions: sessions,
     startDate,
     endDate,
-    tuitionFee: feePerHour,
+    tuitionFee: primaryFee,
     budget,
     recurringType: 'WEEKLY',
     description: description || undefined,

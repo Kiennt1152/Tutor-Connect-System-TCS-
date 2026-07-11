@@ -188,6 +188,37 @@
   color: #1565c0;
   margin-bottom: 8px;
 }
+.mkt-day-card__head--fee {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mkt-subj-fee {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+  color: #33465e;
+}
+.mkt-subj-fee input {
+  width: 130px;
+  padding: 7px 10px;
+  border: 1px solid #cfd8e3;
+  border-radius: 8px;
+  font-size: 14px;
+  color: #12233b;
+}
+.mkt-subj-fee input:focus {
+  border-color: #1565c0;
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12);
+  outline: none;
+}
+.mkt-subj-fee__unit {
+  font-size: 13px;
+  color: #5b6b7f;
+}
 .mkt-day-card__row {
   display: flex;
   align-items: center;
