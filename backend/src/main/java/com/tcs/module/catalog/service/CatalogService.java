@@ -17,6 +17,10 @@ public interface CatalogService {
 
     List<CatalogItemResponse> getProvinces();
 
+    List<CatalogItemResponse> getDistricts(Long provinceId);
+
+    List<CatalogItemResponse> getWards(Long districtId);
+
     List<LocationResponse> getLocations(Long provinceId);
 
     List<FaqResponse> getFaqEntries();

@@ -1,12 +1,10 @@
 import { useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import { AppLogo } from '../../../shared/components/AppLogo';
-import { LogoutButton } from '../../../shared/components/LogoutButton';
 import { useHome } from '../hooks/useHome';
 import { useAuth } from '../../../shared/auth/AuthProvider';
-import { APP_ROUTES } from '../../../shared/constants/routes';
 import { hasAnyRole, hasRole } from '../../../shared/auth/rbac';
 import type { UserRole } from '../../../shared/types/userRole';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 import { TutorSearchBlock } from '../components/TutorSearchBlock';
 import { ClassSearchBlock } from '../components/ClassSearchBlock';
 import { TutorListingCard } from '../components/TutorListingCard';
@@ -14,7 +12,6 @@ import { ClassListingCard } from '../components/ClassListingCard';
 import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
 import { useOpenClasses } from '../hooks/useOpenClasses';
 import {
-  FOOTER_LINKS,
   HOME_CENTERS,
   HOME_NEWS,
   HOME_PROMO,
@@ -29,81 +26,7 @@ import './HomePage.css';
 const currency = (value: number) =>
   new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(value);
 
-const userInitials = (displayName: string | undefined, email: string) => {
-  const source = displayName?.trim() || email;
-  return source
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0).toUpperCase())
-    .join('');
-};
-
 const MARKETPLACE_HOME_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'UNKNOWN'];
-const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
-
-function Header() {
-  const { user } = useAuth();
-
-  const profilePath =
-    user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
-  const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
-
-  return (
-    <header className="tcs-header">
-      <div className="tcs-container tcs-header__inner">
-        <AppLogo href="/" />
-        <nav className="tcs-header__nav">
-          <a href="#find-tutor">Tìm gia sư</a>
-          <a href="#classes">Tìm lớp</a>
-          <a href="#centers">Trung tâm</a>
-          <a href="#news">Tin tức</a>
-          <a href="#reviews">Đánh giá</a>
-        </nav>
-        <div className="tcs-header__actions">
-          {user ? (
-            <>
-              {hasRole(user.role, 'PLATFORM_ADMIN') ? (
-                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.platform}>
-                  Quản trị
-                </Link>
-              ) : null}
-              {showCenterManage ? (
-                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.center}>
-                  Quản lý trung tâm
-                </Link>
-              ) : null}
-              {hasRole(user.role, 'PLATFORM_ADMIN') ? (
-                <Link to={profilePath} className="tcs-home-profile-btn">
-                  <span className="tcs-home-profile-btn__avatar">
-                    {userInitials(user.displayName, user.email)}
-                  </span>
-                  <span className="tcs-home-profile-btn__label">Hồ sơ</span>
-                </Link>
-              ) : (
-                <span className="tcs-home-profile-btn tcs-home-profile-btn--disabled" title="Sắp có">
-                  <span className="tcs-home-profile-btn__avatar">
-                    {userInitials(user.displayName, user.email)}
-                  </span>
-                  <span className="tcs-home-profile-btn__label">Hồ sơ</span>
-                </span>
-              )}
-              <LogoutButton />
-            </>
-          ) : (
-            <>
-              <a className="tcs-btn tcs-btn--ghost tcs-btn--header" href="/login">
-                Đăng nhập
-              </a>
-              <a className="tcs-btn tcs-btn--market tcs-btn--header" href="/register">
-                Đăng ký
-              </a>
-            </>
-          )}
-        </div>
-      </div>
-    </header>
-  );
-}
 
 function HomeHeroSection({
   data,
@@ -393,40 +316,6 @@ function ReviewsSection() {
   );
 }
 
-function Footer() {
-  return (
-    <footer className="tcs-footer">
-      <div className="tcs-container">
-        <div className="tcs-footer__grid">
-          <div className="tcs-footer__brand">
-            <AppLogo href="/" variant="compact" />
-            <p className="tcs-footer__tagline">
-              Nền tảng kết nối gia sư — học viên — trung tâm với quy trình minh bạch và thanh toán an
-              toàn.
-            </p>
-          </div>
-          {FOOTER_LINKS.map((group) => (
-            <div key={group.title} className="tcs-footer__col">
-              <h3 className="tcs-footer__heading">{group.title}</h3>
-              <ul className="tcs-footer__links">
-                {group.links.map((link) => (
-                  <li key={link.label}>
-                    <a href={link.href}>{link.label}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-        <div className="tcs-footer__bottom">
-          <span>© {new Date().getFullYear()} Tutor Connect System</span>
-          <span className="tcs-footer__muted">SEP490 · TCS</span>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 function LoadingState() {
   return (
     <div className="tcs-state">
@@ -475,7 +364,7 @@ function HomePage() {
 
   return (
     <div className="tcs-page">
-      <Header />
+      <SiteHeader />
       <main>
         <HomeHeroSection
           data={data}
@@ -515,7 +404,7 @@ function HomePage() {
         <NewsSection />
         <ReviewsSection />
       </main>
-      <Footer />
+      <SiteFooter />
     </div>
   );
 }

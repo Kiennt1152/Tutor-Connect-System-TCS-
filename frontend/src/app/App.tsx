@@ -1,6 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import HomePage from '../features/home/pages/HomePage';
-import CatalogPage from '../features/catalog/pages/CatalogPage';
+import FindTutorPage from '../features/home/pages/FindTutorPage';
 import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
@@ -26,6 +26,7 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path={APP_ROUTES.home} element={<HomePage />} />
+          <Route path={APP_ROUTES.findTutor} element={<FindTutorPage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />

@@ -13,10 +13,14 @@ public class CreateClassRequest {
 
     private String title;
     private String description;
+    private String detailsJson;
     private Long categoryId;
     private Long subjectId;
     private Long gradeId;
+    private String learningGoal;
+    private String tutorRequirement;
     private Long locationId;
+    private String address;
     private LessonMode lessonMode;
     private Integer numberOfSessions;
     private LocalDate startDate;
