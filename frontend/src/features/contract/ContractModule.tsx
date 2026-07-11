@@ -1,5 +1,5 @@
-import { ContractPanel } from './components/ContractPanel';
+import ContractListPage from './pages/ContractListPage';
 
 export default function ContractModule() {
-  return <ContractPanel />;
+  return <ContractListPage />;
 }
