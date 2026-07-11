@@ -1,5 +1,6 @@
 package com.tcs.module.contract.service.impl;
 
+import com.tcs.common.event.ContractSigned;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
@@ -16,6 +17,8 @@ import com.tcs.module.contract.repository.ContractSignatureRepository;
 import com.tcs.module.contract.repository.ReviewRepository;
 import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.contract.service.OtpService;
+import com.tcs.module.finance.dto.EscrowLockCommand;
+import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.ClassAssignment;
@@ -31,13 +34,17 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ContractServiceImpl implements ContractService {
@@ -53,6 +60,8 @@ public class ContractServiceImpl implements ContractService {
     private final ClientRepository clientRepository;
     private final TutorCenterRepository tutorCenterRepository;
     private final OtpService otpService;
+    private final EscrowService escrowService;
+    private final ApplicationEventPublisher eventPublisher;
 
     // ===================== REVIEW =====================
 
@@ -103,6 +112,18 @@ public class ContractServiceImpl implements ContractService {
             throw new IllegalArgumentException("Hợp đồng đã tồn tại cho phân công này");
         }
 
+        Long currentUserId = authHelper.currentUserId();
+        boolean isTutor = assignment.getTutor() != null
+                && assignment.getTutor().getUser() != null
+                && assignment.getTutor().getUser().getUserId().equals(currentUserId);
+        boolean isClassCreator = assignment.getApplication() != null
+                && assignment.getApplication().getTutoringClass() != null
+                && assignment.getApplication().getTutoringClass().getCreator() != null
+                && assignment.getApplication().getTutoringClass().getCreator().getUserId().equals(currentUserId);
+        if (!isTutor && !isClassCreator) {
+            throw new ForbiddenException("Bạn không có quyền tạo hợp đồng cho phân công này");
+        }
+
         Contract contract = new Contract();
         contract.setContractNo(generateContractNo());
         contract.setAssignment(assignment);
@@ -119,6 +140,16 @@ public class ContractServiceImpl implements ContractService {
 
         if (contractRepository.findByClassStudent_ClassStudentId(classStudentId).isPresent()) {
             throw new IllegalArgumentException("Hợp đồng đã tồn tại cho ghi danh này");
+        }
+
+        Long currentUserId = authHelper.currentUserId();
+        TutoringClass cls = cs.getTutoringClass();
+        boolean isCenter = cls != null && cls.getCreator() != null
+                && cls.getCreator().getUserId().equals(currentUserId);
+        boolean isEnroller = cs.getEnrolledByUser() != null
+                && cs.getEnrolledByUser().getUserId().equals(currentUserId);
+        if (!isCenter && !isEnroller) {
+            throw new ForbiddenException("Bạn không có quyền tạo hợp đồng cho ghi danh này");
         }
 
         Contract contract = new Contract();
@@ -160,7 +191,64 @@ public class ContractServiceImpl implements ContractService {
             contract.setStatus(ContractStatus.SIGNED);
             contract.setSignedAt(LocalDateTime.now());
             contractRepository.save(contract);
+            publishContractSigned(contract);
         }
+    }
+
+    private void publishContractSigned(Contract contract) {
+        Long classId = null;
+        Long payerUserId = null;
+        Long beneficiaryUserId = null;
+        BigDecimal amount = BigDecimal.ZERO;
+        TutoringClass cls = null;
+        Long assignmentId = null;
+        Long classStudentId = null;
+
+        if (contract.getAssignment() != null) {
+            assignmentId = contract.getAssignment().getAssignmentId();
+            TutorApplication app = contract.getAssignment().getApplication();
+            if (app != null) {
+                cls = app.getTutoringClass();
+                if (cls != null) {
+                    classId = cls.getClassId();
+                    amount = cls.getTuitionFee() != null ? cls.getTuitionFee() : BigDecimal.ZERO;
+                    payerUserId = cls.getCreator() != null ? cls.getCreator().getUserId() : null;
+                }
+            }
+            beneficiaryUserId = contract.getAssignment().getTutor() != null
+                    && contract.getAssignment().getTutor().getUser() != null
+                    ? contract.getAssignment().getTutor().getUser().getUserId() : null;
+        } else if (contract.getClassStudent() != null) {
+            classStudentId = contract.getClassStudent().getClassStudentId();
+            cls = contract.getClassStudent().getTutoringClass();
+            if (cls != null) {
+                classId = cls.getClassId();
+                amount = cls.getTuitionFee() != null ? cls.getTuitionFee() : BigDecimal.ZERO;
+                payerUserId = contract.getClassStudent().getEnrolledByUser() != null
+                        ? contract.getClassStudent().getEnrolledByUser().getUserId() : null;
+                beneficiaryUserId = cls.getCreator() != null ? cls.getCreator().getUserId() : null;
+            }
+        }
+
+        if (payerUserId != null && amount.compareTo(BigDecimal.ZERO) > 0
+                && (assignmentId != null || classStudentId != null)) {
+            try {
+                EscrowLockCommand cmd = new EscrowLockCommand(
+                        payerUserId, amount, assignmentId, classStudentId);
+                escrowService.lock(cmd);
+            } catch (Exception ex) {
+                log.error("[Contract] Loi khi lock escrow cho contract={}: {}",
+                        contract.getContractId(), ex.getMessage(), ex);
+                throw ex;
+            }
+        } else {
+            log.warn("[Contract] Skip lock escrow: payer={}, amount={}, assignmentId={}, classStudentId={}",
+                    payerUserId, amount, assignmentId, classStudentId);
+        }
+
+        ContractSigned event = new ContractSigned(
+                contract.getContractId(), classId, payerUserId, beneficiaryUserId, amount);
+        eventPublisher.publishEvent(event);
     }
 
     @Override
@@ -184,12 +272,14 @@ public class ContractServiceImpl implements ContractService {
     @Transactional(readOnly = true)
     public List<ContractResponse> getMyContracts() {
         Long userId = authHelper.currentUserId();
-        var assignmentContracts = contractRepository.findByAssignment_Tutor_UserId(userId);
-        var classStudentContracts = contractRepository.findByClassStudent_UserId(userId);
+        var asTutor = contractRepository.findByAssignment_Tutor_UserId(userId);
+        var asClassCreator = contractRepository.findByAssignment_ClassCreator_UserId(userId);
+        var asClassStudent = contractRepository.findByClassStudent_UserId(userId);
 
         var allContracts = new java.util.LinkedHashSet<Contract>();
-        allContracts.addAll(assignmentContracts);
-        allContracts.addAll(classStudentContracts);
+        allContracts.addAll(asTutor);
+        allContracts.addAll(asClassCreator);
+        allContracts.addAll(asClassStudent);
 
         return allContracts.stream()
                 .map(c -> toContractResponse(c, userId))
