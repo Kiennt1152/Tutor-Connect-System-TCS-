@@ -2,6 +2,8 @@ package com.tcs.config;
 
 import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.repository.ContractRepository;
+import com.tcs.module.finance.entity.Wallet;
+import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.identity.repository.UserRepository;
@@ -14,7 +16,9 @@ import com.tcs.module.marketplace.enums.RecurringType;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
+import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.entity.PlatformAdmin;
@@ -23,10 +27,12 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.context.annotation.Profile;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 @Component
+@Profile("dev")
 @RequiredArgsConstructor
 public class DevDataSeeder implements CommandLineRunner {
 
@@ -35,9 +41,11 @@ public class DevDataSeeder implements CommandLineRunner {
     private final PasswordEncoder passwordEncoder;
     private final TutorRepository tutorRepository;
     private final TutorCenterRepository tutorCenterRepository;
+    private final ClientRepository clientRepository;
     private final TutoringClassRepository tutoringClassRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
     private final ContractRepository contractRepository;
+    private final WalletRepository walletRepository;
 
     @Override
     public void run(String... args) {
@@ -65,10 +73,38 @@ public class DevDataSeeder implements CommandLineRunner {
                 userRepository.save(user);
                 System.out.println(">>> [DevDataSeeder] Da cap nhat password cho: " + acc[0] + " / " + acc[1]);
             }
+
+            ensureWallet(user, new BigDecimal("5000000"));
         }
+
+        ensureClientProfile("test.client67@tcs.com");
 
         // Seed contract cho test tutor
         seedContractForTutor("test.tutor67@tcs.com");
+    }
+
+    private void ensureWallet(User user, BigDecimal initialBalance) {
+        if (walletRepository.findByUser_UserId(user.getUserId()).isEmpty()) {
+            Wallet wallet = new Wallet();
+            wallet.setUser(user);
+            wallet.setAvailableBalance(initialBalance);
+            wallet.setFrozenBalance(BigDecimal.ZERO);
+            walletRepository.save(wallet);
+            System.out.println(">>> [DevDataSeeder] Da tao wallet cho " + user.getEmail()
+                    + " voi so du " + initialBalance);
+        }
+    }
+
+    private void ensureClientProfile(String email) {
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null) return;
+        if (clientRepository.findByUser_UserId(user.getUserId()).isEmpty()) {
+            Client client = new Client();
+            client.setUser(user);
+            client.setFullName("Test Client");
+            clientRepository.save(client);
+            System.out.println(">>> [DevDataSeeder] Da gan profile CLIENT cho: " + email);
+        }
     }
 
     private void seedContractForTutor(String tutorEmail) {

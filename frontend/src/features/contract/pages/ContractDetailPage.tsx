@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import { useContractDetail, useSignContract } from '../hooks/useContract';
-import type { ContractStatus, SignatureStatusResponse } from '../types/contractTypes';
+import type { ContractStatus } from '../types/contractTypes';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
@@ -15,7 +15,6 @@ const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
 export default function ContractDetailPage() {
   const { contractId } = useParams<{ contractId: string }>();
   const id = Number(contractId);
-  const navigate = useNavigate();
 
   const { contract, signatures, loading, error, reload } = useContractDetail();
   const { otpSent, sendingOtp, signing, error: signError, sendOtp, sign } = useSignContract();

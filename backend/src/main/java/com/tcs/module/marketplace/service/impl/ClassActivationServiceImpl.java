@@ -12,10 +12,12 @@ import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.ClassActivationService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ClassActivationServiceImpl implements ClassActivationService {
@@ -26,53 +28,34 @@ public class ClassActivationServiceImpl implements ClassActivationService {
     private final ClassStudentRepository classStudentRepository;
 
     @Override
-    @EventListener
     @Transactional
+    @EventListener
     public void onContractSigned(ContractSigned event) {
-        Long classId = resolveClassId(event);
-
-        escrowService.lock(new EscrowLockCommand(
-                event.payerUserId(),
-                event.amount(),
-                event.assignmentId(),
-                event.classStudentId()));
-
-        activate(classId);
+        log.info("[ClassActivation] Nhan ContractSigned cho contract={}, class={}",
+                event.contractId(), event.classId());
+        activate(event.classId());
     }
 
     @Override
     @Transactional
     public void activate(Long classId) {
-        TutoringClass tutoringClass = tutoringClassRepository.findById(classId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
-
-        if (tutoringClass.getStatus() == TutoringClassStatus.IN_PROGRESS) {
+        if (classId == null) {
+            log.warn("[ClassActivation] classId null, skip activate");
             return;
         }
-        if (tutoringClass.getStatus() == TutoringClassStatus.COMPLETED
-                || tutoringClass.getStatus() == TutoringClassStatus.CANCELLED
-                || tutoringClass.getStatus() == TutoringClassStatus.DISPUTED) {
-            throw new BusinessException("Lớp không thể kích hoạt ở trạng thái hiện tại");
+        TutoringClass cls = tutoringClassRepository.findById(classId).orElse(null);
+        if (cls == null) {
+            log.warn("[ClassActivation] Khong tim thay class id={}", classId);
+            return;
         }
-
-        tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
-        tutoringClassRepository.save(tutoringClass);
-    }
-
-    private Long resolveClassId(ContractSigned event) {
-        if (event.classId() != null) {
-            return event.classId();
+        if (cls.getStatus() == TutoringClassStatus.IN_PROGRESS
+                || cls.getStatus() == TutoringClassStatus.COMPLETED
+                || cls.getStatus() == TutoringClassStatus.CANCELLED) {
+            log.info("[ClassActivation] Class {} da o trang thai {}, skip", classId, cls.getStatus());
+            return;
         }
-        if (event.assignmentId() != null) {
-            return classAssignmentRepository.findById(event.assignmentId())
-                    .map(assignment -> assignment.getApplication().getTutoringClass().getClassId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công lớp"));
-        }
-        if (event.classStudentId() != null) {
-            return classStudentRepository.findById(event.classStudentId())
-                    .map(classStudent -> classStudent.getTutoringClass().getClassId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ghi danh học viên"));
-        }
-        throw new BusinessException("Thiếu lớp hoặc target để kích hoạt");
+        cls.setStatus(TutoringClassStatus.IN_PROGRESS);
+        tutoringClassRepository.save(cls);
+        log.info("[ClassActivation] Da kich hoat class id={}", classId);
     }
 }

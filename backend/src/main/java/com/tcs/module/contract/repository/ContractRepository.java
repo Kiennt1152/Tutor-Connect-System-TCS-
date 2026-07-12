@@ -19,6 +19,10 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
     java.util.List<Contract> findByAssignment_Tutor_UserId(@Param("userId") Long userId);
 
     @Query("SELECT DISTINCT c FROM Contract c WHERE " +
+           "c.assignment IS NOT NULL AND c.assignment.application.tutoringClass.creator.userId = :userId")
+    java.util.List<Contract> findByAssignment_ClassCreator_UserId(@Param("userId") Long userId);
+
+    @Query("SELECT DISTINCT c FROM Contract c WHERE " +
            "c.classStudent IS NOT NULL AND (c.classStudent.tutoringClass.creator.userId = :userId OR c.classStudent.enrolledByUser.userId = :userId)")
     java.util.List<Contract> findByClassStudent_UserId(@Param("userId") Long userId);
 }
