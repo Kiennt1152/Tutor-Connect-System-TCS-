@@ -49,7 +49,7 @@ function HomeHeroSection({
   const firstName = displayName?.trim().split(/\s+/)[0] || displayName;
   const showSearch = !isAuthenticated || hasAnyRole(role, MARKETPLACE_HOME_ROLES);
   const isTutor = hasRole(role, 'TUTOR');
-  const subjectLinkTarget = isTutor ? '#classes' : '#find-tutor';
+  const subjectLinkTarget = isTutor ? '/tim-lop' : '#find-tutor';
 
   return (
     <section className="tcs-home-hero">
@@ -162,7 +162,7 @@ function HeroStats({ data }: { data: HomeData | null }) {
   );
 }
 
-function ClassesSection({
+export function ClassesSection({
   classes,
   status,
   isAuthenticated,
@@ -339,11 +339,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 function HomePage() {
   const { status, data, reload } = useHome();
-  const {
-    status: classesStatus,
-    classes: openClasses,
-    reload: reloadClasses,
-  } = useOpenClasses();
+  const { status: classesStatus, classes: openClasses } = useOpenClasses();
   const { user, isAuthenticated } = useAuth();
 
   const isEmpty = useMemo(
@@ -394,12 +390,6 @@ function HomePage() {
           </div>
         )}
 
-        <ClassesSection
-          classes={openClasses}
-          status={classesStatus}
-          isAuthenticated={isAuthenticated}
-          onRetry={reloadClasses}
-        />
         <CentersSection />
         <NewsSection />
         <ReviewsSection />

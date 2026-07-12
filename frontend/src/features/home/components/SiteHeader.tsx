@@ -46,7 +46,7 @@ export function SiteHeader({ active }: SiteHeaderProps) {
           >
             Tìm gia sư
           </Link>
-          <a href="/#classes">Tìm lớp</a>
+          <Link to={APP_ROUTES.findClass}>Tìm lớp</Link>
           <a href="/#centers">Trung tâm</a>
           <a href="/#news">Tin tức</a>
           <a href="/#reviews">Đánh giá</a>

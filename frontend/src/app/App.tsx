@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import HomePage from '../features/home/pages/HomePage';
 import FindTutorPage from '../features/home/pages/FindTutorPage';
+import FindClassPage from '../features/home/pages/FindClassPage';
 import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
@@ -13,6 +14,7 @@ import CenterPage from '../features/center/pages/CenterPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
+import CatalogPage from '../features/catalog/pages/CatalogPage';
 import ContractPage from '../features/contract/pages/ContractPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
@@ -27,6 +29,7 @@ export default function App() {
         <Routes>
           <Route path={APP_ROUTES.home} element={<HomePage />} />
           <Route path={APP_ROUTES.findTutor} element={<FindTutorPage />} />
+          <Route path={APP_ROUTES.findClass} element={<FindClassPage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />
