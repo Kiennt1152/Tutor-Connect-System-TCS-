@@ -54,6 +54,30 @@ export interface ClassResponse {
   recurringType: RecurringType;
   status: ClassStatus;
   createdAt: string;
+  /** Số gia sư đã ứng tuyển vào lớp. */
+  applicationCount: number | null;
+}
+
+/** Một gia sư ứng tuyển vào lớp, kèm điểm gợi ý của AI (ApplicantResponse). */
+export interface ApplicantResponse {
+  applicationId: number;
+  tutorId: number;
+  userId: number;
+  fullName: string;
+  avatar: string | null;
+  bio: string | null;
+  experienceYears: number | null;
+  hourlyRate: number | null;
+  ratingAvg: number | null;
+  verificationStatus: 'UNDER_VERIFY' | 'VERIFIED' | 'REJECTED';
+  proposedRate: number | null;
+  coverLetter: string | null;
+  status: 'SUBMITTED' | 'UNDER_REVIEW' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
+  appliedAt: string;
+  /** Điểm AI gợi ý 0–100. */
+  matchScore: number;
+  /** Nằm trong Top 5 AI gợi ý. */
+  recommended: boolean;
 }
 
 /** Payload gửi lên khi tạo/sửa lớp (CreateClassRequest). */

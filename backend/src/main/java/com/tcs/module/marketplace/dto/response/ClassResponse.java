@@ -37,4 +37,6 @@ public class ClassResponse {
     private RecurringType recurringType;
     private TutoringClassStatus status;
     private LocalDateTime createdAt;
+    /** Số gia sư đã ứng tuyển vào lớp (để Client biết có đơn để xem). */
+    private Long applicationCount;
 }

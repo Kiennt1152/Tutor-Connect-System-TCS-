@@ -1,5 +1,6 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  ApplicantResponse,
   CatalogOption,
   ClassRequestPayload,
   ClassResponse,
@@ -53,6 +54,19 @@ export const marketplaceApi = {
   publishClass: (classId: number) =>
     axiosClient
       .post<ClassResponse>(`/marketplace/classes/${classId}/publish`)
+      .then((r) => r.data),
+
+  // --- Ứng viên của lớp (Client xem + AI gợi ý top 5) ---
+  listApplicants: (classId: number) =>
+    axiosClient
+      .get<ApplicantResponse[]>(`/marketplace/classes/${classId}/applications`)
+      .then((r) => r.data),
+
+  chooseApplicant: (classId: number, applicationId: number) =>
+    axiosClient
+      .post<{ message: string }>(
+        `/marketplace/classes/${classId}/applications/${applicationId}/choose`,
+      )
       .then((r) => r.data),
 
   // --- Catalog cho dropdown của form ---

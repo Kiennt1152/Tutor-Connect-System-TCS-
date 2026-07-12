@@ -5,6 +5,7 @@ import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { ClassRequestForm } from '../components/ClassRequestForm';
+import { ApplicantsModal } from '../components/ApplicantsModal';
 import { classToForm, emptyForm } from '../mappers/marketplaceMapper';
 import {
   CLASS_STATUS_LABELS,
@@ -27,6 +28,7 @@ export default function MarketplacePage() {
     subjects,
     grades,
     provinces,
+    reload,
     createClass,
     updateClass,
     publishClass,
@@ -35,6 +37,7 @@ export default function MarketplacePage() {
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [viewingApplicants, setViewingApplicants] = useState<ClassResponse | null>(null);
 
   function openEdit(target: ClassResponse) {
     setError(null);
@@ -121,10 +124,20 @@ export default function MarketplacePage() {
               classes={classes}
               onEdit={openEdit}
               onPublish={handlePublish}
+              onViewApplicants={setViewingApplicants}
             />
           )}
         </div>
       </main>
+
+      {viewingApplicants && (
+        <ApplicantsModal
+          classId={viewingApplicants.classId}
+          classTitle={viewingApplicants.title}
+          onClose={() => setViewingApplicants(null)}
+          onChosen={reload}
+        />
+      )}
     </div>
   );
 }
@@ -134,9 +147,10 @@ interface ClassListProps {
   readonly classes: ClassResponse[];
   readonly onEdit: (c: ClassResponse) => void;
   readonly onPublish: (classId: number) => void;
+  readonly onViewApplicants: (c: ClassResponse) => void;
 }
 
-function ClassList({ status, classes, onEdit, onPublish }: ClassListProps) {
+function ClassList({ status, classes, onEdit, onPublish, onViewApplicants }: ClassListProps) {
   if (status === 'loading') {
     return <div className="mkt-state">Đang tải danh sách lớp…</div>;
   }
@@ -187,7 +201,7 @@ function ClassList({ status, classes, onEdit, onPublish }: ClassListProps) {
             </p>
           )}
           <div className="mkt-class-card__actions">
-            {(c.status === 'DRAFT' || c.status === 'OPEN') && (
+            {c.status === 'DRAFT' && (
               <button type="button" className="mkt-btn mkt-btn--ghost" onClick={() => onEdit(c)}>
                 Sửa
               </button>
@@ -199,6 +213,18 @@ function ClassList({ status, classes, onEdit, onPublish }: ClassListProps) {
                 onClick={() => onPublish(c.classId)}
               >
                 Đăng lớp
+              </button>
+            )}
+            {c.status !== 'DRAFT' && (
+              <button
+                type="button"
+                className="mkt-btn mkt-btn--primary"
+                onClick={() => onViewApplicants(c)}
+              >
+                Xem gia sư ứng tuyển
+                {c.applicationCount != null && c.applicationCount > 0
+                  ? ` (${c.applicationCount})`
+                  : ''}
               </button>
             )}
           </div>

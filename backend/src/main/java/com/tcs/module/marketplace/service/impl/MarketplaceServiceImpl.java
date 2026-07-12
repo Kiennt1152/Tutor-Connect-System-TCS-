@@ -14,6 +14,7 @@ import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
+import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.entity.FavoriteTutor;
@@ -32,6 +33,7 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
@@ -100,9 +102,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (!tutoringClass.getCreator().getUserId().equals(authHelper.currentUserId())) {
             throw new ForbiddenException("Không có quyền sửa lớp này");
         }
-        if (tutoringClass.getStatus() != TutoringClassStatus.DRAFT
-                && tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
-            throw new IllegalArgumentException("Chỉ có thể sửa lớp ở trạng thái nháp hoặc đang mở");
+        if (tutoringClass.getStatus() != TutoringClassStatus.DRAFT) {
+            throw new IllegalArgumentException("Lớp đã đăng thì không thể sửa nữa");
         }
         if (request.getSubjectId() == null && !StringUtils.hasText(request.getDetailsJson())) {
             throw new IllegalArgumentException("Vui lòng chọn môn học");
@@ -192,6 +193,110 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         application.setCoverLetter(request.getCoverLetter());
         application.setStatus(TutorApplicationStatus.SUBMITTED);
         tutorApplicationRepository.save(application);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ApplicantResponse> listApplicants(Long classId) {
+        TutoringClass tutoringClass = requireOwnedClass(classId);
+        List<TutorApplication> applications =
+                tutorApplicationRepository.findByTutoringClass_ClassId(tutoringClass.getClassId());
+        // Chấm điểm AI rồi xếp hạng giảm dần; Top 5 điểm cao nhất được đánh dấu "gợi ý".
+        List<ApplicantResponse> ranked = applications.stream()
+                .map(app -> toApplicant(app, tutoringClass))
+                .sorted(Comparator.comparingInt(ApplicantResponse::getMatchScore).reversed())
+                .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
+        for (int i = 0; i < ranked.size() && i < 5; i++) {
+            ranked.get(i).setRecommended(true);
+        }
+        return ranked;
+    }
+
+    @Override
+    @Transactional
+    public void chooseApplicant(Long classId, Long applicationId) {
+        TutoringClass tutoringClass = requireOwnedClass(classId);
+        TutorApplication chosen = tutorApplicationRepository
+                .findById(applicationId)
+                .filter(a -> a.getTutoringClass().getClassId().equals(tutoringClass.getClassId()))
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn ứng tuyển"));
+        for (TutorApplication app :
+                tutorApplicationRepository.findByTutoringClass_ClassId(tutoringClass.getClassId())) {
+            app.setStatus(
+                    app.getApplicationId().equals(applicationId)
+                            ? TutorApplicationStatus.ACCEPTED
+                            : TutorApplicationStatus.REJECTED);
+            app.setReviewedAt(java.time.LocalDateTime.now());
+        }
+        tutoringClass.setStatus(TutoringClassStatus.MATCHED);
+        tutoringClassRepository.save(tutoringClass);
+    }
+
+    /** Lấy lớp và đảm bảo người gọi là Client đã tạo lớp đó. */
+    private TutoringClass requireOwnedClass(Long classId) {
+        TutoringClass tutoringClass = findClass(classId);
+        if (!tutoringClass.getCreator().getUserId().equals(authHelper.currentUserId())) {
+            throw new ForbiddenException("Không có quyền xem ứng viên của lớp này");
+        }
+        return tutoringClass;
+    }
+
+    private ApplicantResponse toApplicant(TutorApplication app, TutoringClass tutoringClass) {
+        Tutor tutor = app.getTutor();
+        int score = aiMatchScore(app, tutor, tutoringClass);
+        return ApplicantResponse.builder()
+                .applicationId(app.getApplicationId())
+                .tutorId(tutor.getTutorId())
+                .userId(tutor.getUser().getUserId())
+                .fullName(tutor.getFullName())
+                .avatar(tutor.getAvatar())
+                .bio(tutor.getBio())
+                .experienceYears(tutor.getExperienceYears())
+                .hourlyRate(tutor.getHourlyRate())
+                .ratingAvg(tutor.getRatingAvg())
+                .verificationStatus(tutor.getVerificationStatus().name())
+                .proposedRate(app.getProposedRate())
+                .coverLetter(app.getCoverLetter())
+                .status(app.getStatus().name())
+                .appliedAt(app.getAppliedAt())
+                .matchScore(score)
+                .recommended(false)
+                .build();
+    }
+
+    /**
+     * Điểm gợi ý AI 0–100 cho một ứng viên, tổng hợp có trọng số:
+     * đánh giá (40%), kinh nghiệm (25%), mức phí phù hợp ngân sách (20%), đã xác minh hồ sơ (15%).
+     */
+    private int aiMatchScore(TutorApplication app, Tutor tutor, TutoringClass tutoringClass) {
+        double rating = tutor.getRatingAvg() != null ? tutor.getRatingAvg().doubleValue() / 5.0 : 0;
+        double experience = Math.min((tutor.getExperienceYears() != null ? tutor.getExperienceYears() : 0) / 10.0, 1.0);
+        double verified =
+                switch (tutor.getVerificationStatus()) {
+                    case VERIFIED -> 1.0;
+                    case UNDER_VERIFY -> 0.5;
+                    case REJECTED -> 0.0;
+                };
+        double priceFit = priceFit(app, tutor, tutoringClass);
+        double total = 0.40 * clamp01(rating) + 0.25 * experience + 0.20 * priceFit + 0.15 * verified;
+        return (int) Math.round(clamp01(total) * 100);
+    }
+
+    /** Mức phí gia sư đề xuất so với học phí Client mong muốn: đạt/thấp hơn = 1; cao hơn giảm dần. */
+    private double priceFit(TutorApplication app, Tutor tutor, TutoringClass tutoringClass) {
+        BigDecimal expected = tutoringClass.getTuitionFee();
+        BigDecimal rate = app.getProposedRate() != null ? app.getProposedRate() : tutor.getHourlyRate();
+        if (expected == null || expected.signum() <= 0 || rate == null || rate.signum() <= 0) {
+            return 0.7; // thiếu dữ liệu giá → trung tính
+        }
+        if (rate.compareTo(expected) <= 0) {
+            return 1.0;
+        }
+        return clamp01(expected.doubleValue() / rate.doubleValue());
+    }
+
+    private double clamp01(double v) {
+        return Math.max(0.0, Math.min(1.0, v));
     }
 
     @Override
@@ -328,6 +433,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .recurringType(c.getRecurringType())
                 .status(c.getStatus())
                 .createdAt(c.getCreatedAt())
+                .applicationCount(tutorApplicationRepository.countByTutoringClass_ClassId(c.getClassId()))
                 .build();
     }
 

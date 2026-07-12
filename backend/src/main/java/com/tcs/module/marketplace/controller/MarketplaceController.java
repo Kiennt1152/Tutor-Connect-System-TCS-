@@ -2,6 +2,7 @@ package com.tcs.module.marketplace.controller;
 
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
+import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
@@ -64,6 +65,18 @@ public class MarketplaceController {
     public Map<String, String> applyToClass(@PathVariable Long classId, @RequestBody ApplyClassRequest request) {
         marketplaceService.applyToClass(classId, request);
         return Map.of("message", "Đã gửi đơn ứng tuyển");
+    }
+
+    @GetMapping("/classes/{classId}/applications")
+    public List<ApplicantResponse> listApplicants(@PathVariable Long classId) {
+        return marketplaceService.listApplicants(classId);
+    }
+
+    @PostMapping("/classes/{classId}/applications/{applicationId}/choose")
+    public Map<String, String> chooseApplicant(
+            @PathVariable Long classId, @PathVariable Long applicationId) {
+        marketplaceService.chooseApplicant(classId, applicationId);
+        return Map.of("message", "Đã chọn gia sư cho lớp");
     }
 
     @GetMapping("/tutors/search")
