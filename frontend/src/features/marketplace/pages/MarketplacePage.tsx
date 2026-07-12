@@ -1,6 +1,8 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { ClassRequestForm } from '../components/ClassRequestForm';
 import { classToForm, emptyForm } from '../mappers/marketplaceMapper';
@@ -33,11 +35,6 @@ export default function MarketplacePage() {
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  function openCreate() {
-    setError(null);
-    setMode({ kind: 'create' });
-  }
 
   function openEdit(target: ClassResponse) {
     setError(null);
@@ -87,9 +84,9 @@ export default function MarketplacePage() {
               </p>
             </div>
             {mode.kind === 'list' && isClient && (
-              <button type="button" className="mkt-btn mkt-btn--primary" onClick={openCreate}>
+              <Link className="mkt-btn mkt-btn--primary" to={APP_ROUTES.findTutor}>
                 + Tạo lớp mới
-              </button>
+              </Link>
             )}
           </header>
 
