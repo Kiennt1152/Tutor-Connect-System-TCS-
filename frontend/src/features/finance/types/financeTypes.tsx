@@ -76,8 +76,15 @@ export interface PaymentMethodInfo {
   paymentMethodId: number;
   type: string;
   provider: string | null;
+  bankName?: string | null;
   lastFour: string | null;
+  accountNoMasked?: string | null;
   isDefault: boolean;
+}
+
+export interface PaymentMethodPayload {
+  bankName: string;
+  accountNo: string;
 }
 
 export interface WithdrawalPayload {

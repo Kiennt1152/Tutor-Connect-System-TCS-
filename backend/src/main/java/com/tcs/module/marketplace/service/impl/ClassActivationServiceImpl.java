@@ -1,14 +1,8 @@
 package com.tcs.module.marketplace.service.impl;
 
 import com.tcs.common.event.ContractSigned;
-import com.tcs.exception.BusinessException;
-import com.tcs.exception.ResourceNotFoundException;
-import com.tcs.module.finance.dto.EscrowLockCommand;
-import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
-import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
-import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.ClassActivationService;
 import lombok.RequiredArgsConstructor;
@@ -22,10 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ClassActivationServiceImpl implements ClassActivationService {
 
-    private final EscrowService escrowService;
     private final TutoringClassRepository tutoringClassRepository;
-    private final ClassAssignmentRepository classAssignmentRepository;
-    private final ClassStudentRepository classStudentRepository;
 
     @Override
     @Transactional

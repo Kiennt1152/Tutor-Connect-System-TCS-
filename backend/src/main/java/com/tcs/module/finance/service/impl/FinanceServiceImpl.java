@@ -3,6 +3,7 @@ package com.tcs.module.finance.service.impl;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
 import com.tcs.module.finance.dto.request.DepositRequest;
+import com.tcs.module.finance.dto.request.PaymentMethodRequest;
 import com.tcs.module.finance.dto.request.SepayWebhookRequest;
 import com.tcs.module.finance.dto.response.PaymentWebhookResponse;
 import com.tcs.module.finance.dto.response.PaymentMethodResponse;
@@ -34,6 +35,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -53,6 +55,9 @@ public class FinanceServiceImpl implements FinanceService {
     private static final String TOPUP_BANK_BIN = "970423";
     private static final String TOPUP_ACCOUNT_NUMBER = "02660559201";
     private static final String TOPUP_ACCOUNT_NAME = "TUTOR CONNECT SYSTEM";
+    private static final String BANK_TRANSFER_TYPE = "BANK_TRANSFER";
+    private static final String PAYMENT_METHOD_ACTIVE = "ACTIVE";
+    private static final String PAYMENT_METHOD_INACTIVE = "INACTIVE";
 
     private final AuthHelper authHelper;
     private final WalletService walletService;
@@ -180,17 +185,72 @@ public class FinanceServiceImpl implements FinanceService {
     @Transactional
     public List<PaymentMethodResponse> getPaymentMethods() {
         Wallet wallet = currentWallet();
-        return paymentMethodRepository.findByWallet_WalletId(wallet.getWalletId()).stream()
-                .map(pm -> PaymentMethodResponse.builder()
-                        .paymentMethodId(pm.getPaymentMethodId())
-                        .type(pm.getType())
-                        .provider(pm.getBankName())
-                        .lastFour(pm.getAccountNo() != null && pm.getAccountNo().length() >= 4
-                                ? pm.getAccountNo().substring(pm.getAccountNo().length() - 4)
-                                : pm.getAccountNo())
-                        .isDefault(false)
-                        .build())
+        List<PaymentMethod> methods = activePaymentMethods(wallet);
+        Long defaultMethodId = defaultPaymentMethodId(methods);
+        return methods.stream()
+                .map(method -> toPaymentMethodResponse(method, Objects.equals(method.getPaymentMethodId(), defaultMethodId)))
                 .toList();
+    }
+
+    @Override
+    @Transactional
+    public PaymentMethodResponse createPaymentMethod(PaymentMethodRequest request) {
+        PaymentMethodData data = validatePaymentMethodRequest(request);
+        Wallet wallet = currentWallet();
+        List<PaymentMethod> activeMethods = activePaymentMethods(wallet);
+
+        PaymentMethod method = paymentMethodRepository
+                .findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
+                        wallet.getWalletId(),
+                        data.bankName(),
+                        data.accountNo(),
+                        PAYMENT_METHOD_ACTIVE)
+                .orElseGet(() -> {
+                    PaymentMethod paymentMethod = new PaymentMethod();
+                    paymentMethod.setWallet(wallet);
+                    paymentMethod.setType(BANK_TRANSFER_TYPE);
+                    paymentMethod.setBankName(data.bankName());
+                    paymentMethod.setAccountNo(data.accountNo());
+                    paymentMethod.setStatus(PAYMENT_METHOD_ACTIVE);
+                    return paymentMethodRepository.save(paymentMethod);
+                });
+
+        boolean isDefault = activeMethods.isEmpty()
+                || Objects.equals(method.getPaymentMethodId(), defaultPaymentMethodId(activeMethods));
+        return toPaymentMethodResponse(method, isDefault);
+    }
+
+    @Override
+    @Transactional
+    public PaymentMethodResponse updatePaymentMethod(Long paymentMethodId, PaymentMethodRequest request) {
+        PaymentMethodData data = validatePaymentMethodRequest(request);
+        Wallet wallet = currentWallet();
+        PaymentMethod method = requireOwnedActivePaymentMethod(wallet, paymentMethodId);
+
+        paymentMethodRepository
+                .findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
+                        wallet.getWalletId(),
+                        data.bankName(),
+                        data.accountNo(),
+                        PAYMENT_METHOD_ACTIVE)
+                .filter(existing -> !Objects.equals(existing.getPaymentMethodId(), method.getPaymentMethodId()))
+                .ifPresent(existing -> {
+                    throw new IllegalArgumentException("Tài khoản nhận tiền này đã tồn tại");
+                });
+
+        method.setBankName(data.bankName());
+        method.setAccountNo(data.accountNo());
+        PaymentMethod saved = paymentMethodRepository.save(method);
+        return toPaymentMethodResponse(saved, isDefaultPaymentMethod(wallet, saved));
+    }
+
+    @Override
+    @Transactional
+    public void deletePaymentMethod(Long paymentMethodId) {
+        Wallet wallet = currentWallet();
+        PaymentMethod method = requireOwnedActivePaymentMethod(wallet, paymentMethodId);
+        method.setStatus(PAYMENT_METHOD_INACTIVE);
+        paymentMethodRepository.save(method);
     }
 
     @Override
@@ -297,22 +357,25 @@ public class FinanceServiceImpl implements FinanceService {
 
     private PaymentMethod resolveWithdrawalMethod(Wallet wallet, CreateWithdrawalRequest request) {
         if (request.getPaymentMethodId() != null) {
-            PaymentMethod paymentMethod = paymentMethodRepository.findById(request.getPaymentMethodId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản nhận tiền"));
-            if (!paymentMethod.getWallet().getWalletId().equals(wallet.getWalletId())
-                    || !"ACTIVE".equalsIgnoreCase(paymentMethod.getStatus())) {
-                throw new ResourceNotFoundException("Không tìm thấy tài khoản nhận tiền");
-            }
-            return paymentMethod;
+            return requireOwnedActivePaymentMethod(wallet, request.getPaymentMethodId());
         }
 
-        PaymentMethod paymentMethod = new PaymentMethod();
-        paymentMethod.setWallet(wallet);
-        paymentMethod.setType("BANK_TRANSFER");
-        paymentMethod.setBankName(request.getBankName().trim());
-        paymentMethod.setAccountNo(request.getAccountNo().trim());
-        paymentMethod.setStatus("ACTIVE");
-        return paymentMethodRepository.save(paymentMethod);
+        PaymentMethodData data = validatePaymentMethodRequest(request.getBankName(), request.getAccountNo());
+        return paymentMethodRepository
+                .findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
+                        wallet.getWalletId(),
+                        data.bankName(),
+                        data.accountNo(),
+                        PAYMENT_METHOD_ACTIVE)
+                .orElseGet(() -> {
+                    PaymentMethod paymentMethod = new PaymentMethod();
+                    paymentMethod.setWallet(wallet);
+                    paymentMethod.setType(BANK_TRANSFER_TYPE);
+                    paymentMethod.setBankName(data.bankName());
+                    paymentMethod.setAccountNo(data.accountNo());
+                    paymentMethod.setStatus(PAYMENT_METHOD_ACTIVE);
+                    return paymentMethodRepository.save(paymentMethod);
+                });
     }
 
     private String createTopupReference() {
@@ -495,6 +558,77 @@ public class FinanceServiceImpl implements FinanceService {
         return Math.min(size, MAX_PAGE_SIZE);
     }
 
+    private List<PaymentMethod> activePaymentMethods(Wallet wallet) {
+        return paymentMethodRepository.findByWallet_WalletIdAndStatusOrderByPaymentMethodIdAsc(
+                wallet.getWalletId(),
+                PAYMENT_METHOD_ACTIVE);
+    }
+
+    private Long defaultPaymentMethodId(List<PaymentMethod> methods) {
+        return methods.isEmpty() ? null : methods.get(0).getPaymentMethodId();
+    }
+
+    private boolean isDefaultPaymentMethod(Wallet wallet, PaymentMethod method) {
+        return Objects.equals(method.getPaymentMethodId(), defaultPaymentMethodId(activePaymentMethods(wallet)));
+    }
+
+    private PaymentMethod requireOwnedActivePaymentMethod(Wallet wallet, Long paymentMethodId) {
+        if (paymentMethodId == null) {
+            throw new ResourceNotFoundException("Không tìm thấy tài khoản nhận tiền");
+        }
+        return paymentMethodRepository.findByPaymentMethodIdAndWallet_WalletIdAndStatus(
+                        paymentMethodId,
+                        wallet.getWalletId(),
+                        PAYMENT_METHOD_ACTIVE)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tài khoản nhận tiền"));
+    }
+
+    private PaymentMethodData validatePaymentMethodRequest(PaymentMethodRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thiếu thông tin tài khoản nhận tiền");
+        }
+        return validatePaymentMethodRequest(request.getBankName(), request.getAccountNo());
+    }
+
+    private PaymentMethodData validatePaymentMethodRequest(String bankName, String accountNo) {
+        if (isBlank(bankName)) {
+            throw new IllegalArgumentException("Vui lòng nhập tên ngân hàng nhận tiền");
+        }
+        if (isBlank(accountNo)) {
+            throw new IllegalArgumentException("Vui lòng nhập số tài khoản nhận tiền");
+        }
+
+        String normalizedBankName = bankName.trim().replaceAll("\\s+", " ");
+        String normalizedAccountNo = accountNo.trim().replaceAll("\\s+", "");
+        if (normalizedBankName.length() > 100) {
+            throw new IllegalArgumentException("Tên ngân hàng không được vượt quá 100 ký tự");
+        }
+        if (!normalizedAccountNo.matches("[A-Za-z0-9]{4,50}")) {
+            throw new IllegalArgumentException("Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự");
+        }
+        return new PaymentMethodData(normalizedBankName, normalizedAccountNo);
+    }
+
+    private PaymentMethodResponse toPaymentMethodResponse(PaymentMethod method, boolean isDefault) {
+        return PaymentMethodResponse.builder()
+                .paymentMethodId(method.getPaymentMethodId())
+                .type(method.getType())
+                .provider(method.getBankName())
+                .bankName(method.getBankName())
+                .lastFour(lastFour(method.getAccountNo()))
+                .accountNoMasked(maskAccountNo(method.getAccountNo()))
+                .isDefault(isDefault)
+                .build();
+    }
+
+    private String lastFour(String accountNo) {
+        if (accountNo == null || accountNo.isBlank()) {
+            return "";
+        }
+        String trimmed = accountNo.trim();
+        return trimmed.length() <= 4 ? trimmed : trimmed.substring(trimmed.length() - 4);
+    }
+
     private WalletResponse toWalletResponse(Wallet wallet) {
         return WalletResponse.builder()
                 .walletId(wallet.getWalletId())
@@ -546,5 +680,8 @@ public class FinanceServiceImpl implements FinanceService {
             return trimmed;
         }
         return "****" + trimmed.substring(trimmed.length() - 4);
+    }
+
+    private record PaymentMethodData(String bankName, String accountNo) {
     }
 }

@@ -12,12 +12,11 @@ import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
-import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.WalletService;
-import com.tcs.module.identity.entity.User;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
+import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import java.math.BigDecimal;
@@ -38,7 +37,6 @@ public class EscrowServiceImpl implements EscrowService {
     private static final String REFUND_REF_PREFIX = "REFUND-ESCROW-";
 
     private final WalletService walletService;
-    private final WalletRepository walletRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
@@ -48,77 +46,22 @@ public class EscrowServiceImpl implements EscrowService {
     @Transactional
     public EscrowTransaction lock(EscrowLockCommand command) {
         validateCommand(command);
-        if (command.assignmentId() == null && command.classStudentId() == null) {
-            throw new IllegalArgumentException("Phai cung cap assignmentId hoac classStudentId");
-        }
-        if (command.amount() == null || command.amount().compareTo(BigDecimal.ZERO) <= 0) {
-            throw new IllegalArgumentException("So tien lock phai > 0");
-        }
-
-        Wallet payerWallet = walletRepository.findByUser_UserId(command.payerUserId())
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Khong tim thay wallet cua payer userId=" + command.payerUserId()));
-
-        PaymentTransaction payment = new PaymentTransaction();
-        payment.setWallet(payerWallet);
-        payment.setType(PaymentTransactionType.ESCROW_DEPOSIT);
-        payment.setStatus(PaymentTransactionStatus.SUCCESS);
-        payment.setAmount(command.amount());
-        payment.setProcessedAt(LocalDateTime.now());
-        payment.setReferenceCode("ESCROW-LOCK-" + System.currentTimeMillis());
-        payment.setDescription("Khoa escrow khi hop dong duoc ky du");
-        payment = paymentTransactionRepository.save(payment);
-
-        payerWallet.setFrozenBalance(
-                payerWallet.getFrozenBalance().add(command.amount()));
-        if (payerWallet.getAvailableBalance().compareTo(command.amount()) >= 0) {
-            payerWallet.setAvailableBalance(
-                    payerWallet.getAvailableBalance().subtract(command.amount()));
-        }
-        walletRepository.save(payerWallet);
-
-        EscrowTransaction escrow = new EscrowTransaction();
-        escrow.setPayment(payment);
-        escrow.setAmount(command.amount());
-        escrow.setStatus(EscrowStatus.ON_HOLD);
-        escrow.setDepositedAt(LocalDateTime.now());
-
         if (command.assignmentId() != null) {
             return lockPrivateAssignment(command);
-            ClassAssignment assignment = classAssignmentRepository.findById(command.assignmentId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Khong tim thay assignment id=" + command.assignmentId()));
-            escrow.setAssignment(assignment);
-        } else {
-            ClassStudent cs = classStudentRepository.findById(command.classStudentId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Khong tim thay classStudent id=" + command.classStudentId()));
-            escrow.setClassStudent(cs);
         }
         return lockCenterEnrollment(command);
-
-        escrow = escrowTransactionRepository.save(escrow);
-        log.info("[Escrow] Da lock escrow id={} amount={} payer={}",
-                escrow.getEscrowId(), command.amount(), command.payerUserId());
-        return escrow;
     }
 
     @Override
     @Transactional
     public void apply(ReleaseInstruction instruction) {
         validateReleaseInstruction(instruction);
-        if (instruction.escrowId() == null) {
-            throw new IllegalArgumentException("ReleaseInstruction phai co escrowId");
-        }
 
         EscrowTransaction escrow = escrowTransactionRepository.findById(instruction.escrowId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy escrow"));
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Khong tim thay escrow id=" + instruction.escrowId()));
 
         if (escrow.getStatus() == EscrowStatus.RELEASED || escrow.getStatus() == EscrowStatus.REFUNDED) {
-            log.warn("[Escrow] Escrow id={} da settled (status={}), bo qua",
-                    escrow.getEscrowId(), escrow.getStatus());
+            log.warn("[Escrow] Escrow id={} đã tất toán, bỏ qua", escrow.getEscrowId());
             return;
         }
         if (escrow.getStatus() != EscrowStatus.FUNDED) {
@@ -131,59 +74,23 @@ public class EscrowServiceImpl implements EscrowService {
         if (totalSettlement.compareTo(escrow.getAmount()) != 0) {
             throw new BusinessException("Tổng tiền giải ngân/hoàn phải bằng số tiền escrow");
         }
-        BigDecimal releaseAmount = instruction.releaseToBeneficiary() != null
-                ? instruction.releaseToBeneficiary() : BigDecimal.ZERO;
-        BigDecimal refundAmount = instruction.refundToPayer() != null
-                ? instruction.refundToPayer() : BigDecimal.ZERO;
-
-        Wallet payerWallet = escrow.getPayment().getWallet();
 
         Long payerUserId = payerUserId(escrow);
         if (releaseAmount.compareTo(BigDecimal.ZERO) > 0) {
             releaseToBeneficiary(escrow, payerUserId, releaseAmount, instruction.reason());
-            Wallet beneficiaryWallet = resolveBeneficiaryWallet(escrow);
-            beneficiaryWallet.setAvailableBalance(
-                    beneficiaryWallet.getAvailableBalance().add(releaseAmount));
-            walletRepository.save(beneficiaryWallet);
-
-            PaymentTransaction release = new PaymentTransaction();
-            release.setWallet(beneficiaryWallet);
-            release.setType(PaymentTransactionType.ESCROW_RELEASE);
-            release.setStatus(PaymentTransactionStatus.SUCCESS);
-            release.setAmount(releaseAmount);
-            release.setProcessedAt(LocalDateTime.now());
-            release.setReferenceCode("ESCROW-RELEASE-" + escrow.getEscrowId());
-            release.setDescription(instruction.reason());
-            paymentTransactionRepository.save(release);
         }
-
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
             refundToPayer(escrow, payerUserId, refundAmount, instruction.reason());
-            payerWallet.setAvailableBalance(
-                    payerWallet.getAvailableBalance().add(refundAmount));
-            PaymentTransaction refund = new PaymentTransaction();
-            refund.setWallet(payerWallet);
-            refund.setType(PaymentTransactionType.REFUND);
-            refund.setStatus(PaymentTransactionStatus.SUCCESS);
-            refund.setAmount(refundAmount);
-            refund.setProcessedAt(LocalDateTime.now());
-            refund.setReferenceCode("REFUND-" + escrow.getEscrowId());
-            refund.setDescription(instruction.reason());
-            paymentTransactionRepository.save(refund);
         }
 
         escrow.setStatus(releaseAmount.compareTo(BigDecimal.ZERO) > 0
                 ? EscrowStatus.RELEASED
                 : EscrowStatus.REFUNDED);
-        BigDecimal totalFrozen = releaseAmount.add(refundAmount);
-        BigDecimal currentFrozen = payerWallet.getFrozenBalance();
-        BigDecimal deducted = totalFrozen.min(currentFrozen);
-        payerWallet.setFrozenBalance(currentFrozen.subtract(deducted));
-        walletRepository.save(payerWallet);
-
-        escrow.setStatus(EscrowStatus.RELEASED);
         escrow.setReleasedAt(LocalDateTime.now());
         escrowTransactionRepository.save(escrow);
+
+        log.info("[Escrow] Đã tất toán escrow id={} release={} refund={} reason={}",
+                escrow.getEscrowId(), releaseAmount, refundAmount, instruction.reason());
     }
 
     @Override
@@ -228,10 +135,11 @@ public class EscrowServiceImpl implements EscrowService {
                     escrow.setAmount(command.amount());
                     escrow.setStatus(EscrowStatus.FUNDED);
                     escrow.setDepositedAt(LocalDateTime.now());
-                    return escrowTransactionRepository.save(escrow);
+                    EscrowTransaction saved = escrowTransactionRepository.save(escrow);
+                    log.info("[Escrow] Đã khóa escrow cho assignment={} amount={}",
+                            command.assignmentId(), command.amount());
+                    return saved;
                 });
-        log.info("[Escrow] Da settle escrow id={} release={} refund={} reason={}",
-                escrow.getEscrowId(), releaseAmount, refundAmount, instruction.reason());
     }
 
     private EscrowTransaction lockCenterEnrollment(EscrowLockCommand command) {
@@ -248,7 +156,10 @@ public class EscrowServiceImpl implements EscrowService {
                     escrow.setAmount(command.amount());
                     escrow.setStatus(EscrowStatus.FUNDED);
                     escrow.setDepositedAt(LocalDateTime.now());
-                    return escrowTransactionRepository.save(escrow);
+                    EscrowTransaction saved = escrowTransactionRepository.save(escrow);
+                    log.info("[Escrow] Đã khóa escrow cho ghi danh={} amount={}",
+                            command.classStudentId(), command.amount());
+                    return saved;
                 });
     }
 
@@ -271,6 +182,7 @@ public class EscrowServiceImpl implements EscrowService {
             Long payerUserId,
             BigDecimal amount,
             String reason) {
+
         String reference = RELEASE_REF_PREFIX + escrow.getEscrowId();
         walletService.releaseLockedFunds(payerUserId, amount, reference);
 
@@ -294,6 +206,7 @@ public class EscrowServiceImpl implements EscrowService {
             Long payerUserId,
             BigDecimal amount,
             String reason) {
+
         String reference = REFUND_REF_PREFIX + escrow.getEscrowId();
         Wallet payerWallet = walletService.refundLockedFunds(payerUserId, amount, reference);
 
@@ -312,25 +225,34 @@ public class EscrowServiceImpl implements EscrowService {
         if (escrow.getPayment() == null || escrow.getPayment().getWallet() == null) {
             throw new BusinessException("Escrow không có ví người thanh toán");
         }
-        return escrow.getPayment().getWallet().getWalletId();
+        Wallet wallet = escrow.getPayment().getWallet();
+        if (wallet.getUser() != null && wallet.getUser().getUserId() != null) {
+            return wallet.getUser().getUserId();
+        }
+        if (wallet.getWalletId() != null) {
+            return wallet.getWalletId();
+        }
+        throw new BusinessException("Escrow không xác định được người thanh toán");
     }
 
     private Long beneficiaryUserId(EscrowTransaction escrow) {
-    private Wallet resolveBeneficiaryWallet(EscrowTransaction escrow) {
         if (escrow.getAssignment() != null
                 && escrow.getAssignment().getTutor() != null
                 && escrow.getAssignment().getTutor().getUser() != null) {
             return escrow.getAssignment().getTutor().getUser().getUserId();
-            Long tutorUserId = escrow.getAssignment().getTutor().getUser().getUserId();
-            return walletRepository.findByUser_UserId(tutorUserId)
-                    .orElseGet(() -> createWalletFor(tutorUserId));
         }
-        if (escrow.getClassStudent() != null
-                && escrow.getClassStudent().getTutoringClass() != null
-                && escrow.getClassStudent().getTutoringClass().getCenter() != null
-                && escrow.getClassStudent().getTutoringClass().getCenter().getUser() != null) {
-            return escrow.getClassStudent().getTutoringClass().getCenter().getUser().getUserId();
+
+        ClassStudent classStudent = escrow.getClassStudent();
+        TutoringClass tutoringClass = classStudent != null ? classStudent.getTutoringClass() : null;
+        if (tutoringClass != null
+                && tutoringClass.getCenter() != null
+                && tutoringClass.getCenter().getUser() != null) {
+            return tutoringClass.getCenter().getUser().getUserId();
         }
+        if (tutoringClass != null && tutoringClass.getCreator() != null) {
+            return tutoringClass.getCreator().getUserId();
+        }
+
         throw new BusinessException("Không xác định được người nhận giải ngân escrow");
     }
 
@@ -372,25 +294,10 @@ public class EscrowServiceImpl implements EscrowService {
         }
         if (releaseAmount.add(refundAmount).compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("Cần có số tiền giải ngân hoặc hoàn tiền");
-                && escrow.getClassStudent().getTutoringClass().getCreator() != null) {
-            Long centerUserId = escrow.getClassStudent().getTutoringClass()
-                    .getCreator().getUserId();
-            return walletRepository.findByUser_UserId(centerUserId)
-                    .orElseGet(() -> createWalletFor(centerUserId));
         }
-        throw new IllegalStateException(
-                "Khong xac dinh duoc beneficiary cho escrow id=" + escrow.getEscrowId());
     }
 
     private BigDecimal amountOrZero(BigDecimal amount) {
         return amount != null ? amount : BigDecimal.ZERO;
-    private Wallet createWalletFor(Long userId) {
-        Wallet wallet = new Wallet();
-        User user = new User();
-        user.setUserId(userId);
-        wallet.setUser(user);
-        wallet.setAvailableBalance(BigDecimal.ZERO);
-        wallet.setFrozenBalance(BigDecimal.ZERO);
-        return walletRepository.save(wallet);
     }
 }

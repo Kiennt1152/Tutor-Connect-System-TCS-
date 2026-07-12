@@ -7,6 +7,7 @@ import type {
   TopupSessionInfo,
   TopupStatusInfo,
   PaymentMethodInfo,
+  PaymentMethodPayload,
   WithdrawalPayload,
   WithdrawalInfo,
 } from '../types/financeTypes';
@@ -48,6 +49,23 @@ export const financeApi = {
 
   getPaymentMethods(): Promise<PaymentMethodInfo[]> {
     return axiosClient.get(`${BASE}/payment-methods`).then((r) => r.data);
+  },
+
+  createPaymentMethod(payload: PaymentMethodPayload): Promise<PaymentMethodInfo> {
+    return axiosClient.post(`${BASE}/payment-methods`, payload).then((r) => r.data);
+  },
+
+  updatePaymentMethod(
+    paymentMethodId: number,
+    payload: PaymentMethodPayload,
+  ): Promise<PaymentMethodInfo> {
+    return axiosClient
+      .patch(`${BASE}/payment-methods/${paymentMethodId}`, payload)
+      .then((r) => r.data);
+  },
+
+  deletePaymentMethod(paymentMethodId: number): Promise<void> {
+    return axiosClient.delete(`${BASE}/payment-methods/${paymentMethodId}`).then((r) => r.data);
   },
 
   createWithdrawal(payload: WithdrawalPayload): Promise<WithdrawalInfo> {

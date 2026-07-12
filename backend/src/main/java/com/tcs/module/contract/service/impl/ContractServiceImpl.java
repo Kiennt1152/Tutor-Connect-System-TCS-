@@ -247,7 +247,13 @@ public class ContractServiceImpl implements ContractService {
         }
 
         ContractSigned event = new ContractSigned(
-                contract.getContractId(), classId, payerUserId, beneficiaryUserId, amount);
+                contract.getContractId(),
+                classId,
+                payerUserId,
+                beneficiaryUserId,
+                amount,
+                assignmentId,
+                classStudentId);
         eventPublisher.publishEvent(event);
     }
 

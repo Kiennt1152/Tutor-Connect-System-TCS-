@@ -2,6 +2,7 @@ package com.tcs.module.finance.service;
 
 import com.tcs.module.finance.dto.request.DepositRequest;
 import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
+import com.tcs.module.finance.dto.request.PaymentMethodRequest;
 import com.tcs.module.finance.dto.request.SepayWebhookRequest;
 import com.tcs.module.finance.dto.response.PaymentWebhookResponse;
 import com.tcs.module.finance.dto.response.TopupSessionResponse;
@@ -27,6 +28,12 @@ public interface FinanceService {
     PaymentWebhookResponse handleSepayWebhook(SepayWebhookRequest request);
 
     List<PaymentMethodResponse> getPaymentMethods();
+
+    PaymentMethodResponse createPaymentMethod(PaymentMethodRequest request);
+
+    PaymentMethodResponse updatePaymentMethod(Long paymentMethodId, PaymentMethodRequest request);
+
+    void deletePaymentMethod(Long paymentMethodId);
 
     WithdrawalResponse createWithdrawal(CreateWithdrawalRequest request);
 

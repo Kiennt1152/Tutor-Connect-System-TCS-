@@ -48,8 +48,12 @@ export function AccessGuard({
   readonly access: RouteAccess;
   readonly children: ReactNode;
 }) {
-  const { isAuthenticated, user } = useAuth();
+  const { isAuthenticated, user, authLoading } = useAuth();
   const location = useLocation();
+
+  if (authLoading) {
+    return null;
+  }
 
   if (access.type === 'public') {
     return <>{children}</>;

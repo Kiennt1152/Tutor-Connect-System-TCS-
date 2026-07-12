@@ -6,6 +6,7 @@ import { WalletBalanceCard } from '../components/WalletBalanceCard';
 import { TransactionList } from '../components/TransactionList';
 import { DepositModal } from '../components/DepositModal';
 import { WithdrawalModal } from '../components/WithdrawalModal';
+import { PaymentMethodsPanel } from '../components/PaymentMethodsPanel';
 import type { TransactionFilter, WalletInfo } from '../types/financeTypes';
 
 const DEFAULT_FILTERS: TransactionFilter = { page: 0, size: 20 };
@@ -35,6 +36,9 @@ export default function FinancePage() {
     paymentMethods,
     paymentMethodsLoading,
     fetchPaymentMethods,
+    createPaymentMethod,
+    updatePaymentMethod,
+    deletePaymentMethod,
     createWithdrawal,
   } = useFinance();
 
@@ -43,7 +47,8 @@ export default function FinancePage() {
   useEffect(() => {
     fetchWallet();
     fetchTransactions(DEFAULT_FILTERS);
-  }, [fetchWallet, fetchTransactions]);
+    fetchPaymentMethods();
+  }, [fetchWallet, fetchTransactions, fetchPaymentMethods]);
 
   function handleFilterChange(newFilters: TransactionFilter) {
     setFilters(newFilters);
@@ -86,6 +91,15 @@ export default function FinancePage() {
             />
           </div>
         </div>
+
+        <PaymentMethodsPanel
+          paymentMethods={paymentMethods}
+          loading={paymentMethodsLoading}
+          onLoad={fetchPaymentMethods}
+          onCreate={createPaymentMethod}
+          onUpdate={updatePaymentMethod}
+          onDelete={deletePaymentMethod}
+        />
 
         <section className="finance-page__transactions">
           <h2>Lịch sử giao dịch</h2>

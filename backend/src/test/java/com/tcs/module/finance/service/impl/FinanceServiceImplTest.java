@@ -2,8 +2,10 @@ package com.tcs.module.finance.service.impl;
 
 import com.tcs.module.finance.dto.request.DepositRequest;
 import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
+import com.tcs.module.finance.dto.request.PaymentMethodRequest;
 import com.tcs.module.finance.dto.request.SepayWebhookRequest;
 import com.tcs.module.finance.dto.response.PaymentWebhookResponse;
+import com.tcs.module.finance.dto.response.PaymentMethodResponse;
 import com.tcs.module.finance.dto.response.TopupSessionResponse;
 import com.tcs.module.finance.dto.response.TopupStatusResponse;
 import com.tcs.module.finance.dto.response.WalletResponse;
@@ -193,6 +195,123 @@ class FinanceServiceImplTest {
     }
 
     @Test
+    @DisplayName("getPaymentMethods returns active saved payout accounts")
+    void getPaymentMethodsReturnsActiveMethods() {
+        PaymentMethod method = new PaymentMethod();
+        method.setPaymentMethodId(3L);
+        method.setWallet(wallet);
+        method.setType("BANK_TRANSFER");
+        method.setBankName("TPBank");
+        method.setAccountNo("1234567890");
+        method.setStatus("ACTIVE");
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(paymentMethodRepository.findByWallet_WalletIdAndStatusOrderByPaymentMethodIdAsc(USER_ID, "ACTIVE"))
+                .thenReturn(List.of(method));
+
+        List<PaymentMethodResponse> response = financeService.getPaymentMethods();
+
+        assertEquals(1, response.size());
+        assertEquals(3L, response.get(0).getPaymentMethodId());
+        assertEquals("TPBank", response.get(0).getBankName());
+        assertEquals("7890", response.get(0).getLastFour());
+        assertEquals("****7890", response.get(0).getAccountNoMasked());
+        assertTrue(response.get(0).getIsDefault());
+    }
+
+    @Test
+    @DisplayName("createPaymentMethod validates and creates an active payout account")
+    void createPaymentMethodCreatesActiveMethod() {
+        PaymentMethodRequest request = new PaymentMethodRequest();
+        request.setBankName(" TPBank ");
+        request.setAccountNo(" 1234 5678 90 ");
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(paymentMethodRepository.findByWallet_WalletIdAndStatusOrderByPaymentMethodIdAsc(USER_ID, "ACTIVE"))
+                .thenReturn(List.of());
+        when(paymentMethodRepository.findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
+                USER_ID, "TPBank", "1234567890", "ACTIVE"))
+                .thenReturn(Optional.empty());
+        when(paymentMethodRepository.save(any(PaymentMethod.class))).thenAnswer(invocation -> {
+            PaymentMethod method = invocation.getArgument(0);
+            method.setPaymentMethodId(3L);
+            return method;
+        });
+
+        PaymentMethodResponse response = financeService.createPaymentMethod(request);
+
+        assertEquals(3L, response.getPaymentMethodId());
+        assertEquals("TPBank", response.getBankName());
+        assertEquals("****7890", response.getAccountNoMasked());
+        assertTrue(response.getIsDefault());
+
+        ArgumentCaptor<PaymentMethod> methodCaptor = ArgumentCaptor.forClass(PaymentMethod.class);
+        verify(paymentMethodRepository).save(methodCaptor.capture());
+        assertEquals("BANK_TRANSFER", methodCaptor.getValue().getType());
+        assertEquals("ACTIVE", methodCaptor.getValue().getStatus());
+        assertEquals("1234567890", methodCaptor.getValue().getAccountNo());
+    }
+
+    @Test
+    @DisplayName("updatePaymentMethod rejects duplicate active payout accounts")
+    void updatePaymentMethodRejectsDuplicate() {
+        PaymentMethodRequest request = new PaymentMethodRequest();
+        request.setBankName("TPBank");
+        request.setAccountNo("1234567890");
+
+        PaymentMethod current = new PaymentMethod();
+        current.setPaymentMethodId(3L);
+        current.setWallet(wallet);
+        current.setType("BANK_TRANSFER");
+        current.setBankName("VCB");
+        current.setAccountNo("99998888");
+        current.setStatus("ACTIVE");
+
+        PaymentMethod duplicate = new PaymentMethod();
+        duplicate.setPaymentMethodId(4L);
+        duplicate.setWallet(wallet);
+        duplicate.setType("BANK_TRANSFER");
+        duplicate.setBankName("TPBank");
+        duplicate.setAccountNo("1234567890");
+        duplicate.setStatus("ACTIVE");
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(paymentMethodRepository.findByPaymentMethodIdAndWallet_WalletIdAndStatus(3L, USER_ID, "ACTIVE"))
+                .thenReturn(Optional.of(current));
+        when(paymentMethodRepository.findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
+                USER_ID, "TPBank", "1234567890", "ACTIVE"))
+                .thenReturn(Optional.of(duplicate));
+
+        assertThrows(IllegalArgumentException.class, () -> financeService.updatePaymentMethod(3L, request));
+        verify(paymentMethodRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("deletePaymentMethod marks the payout account inactive")
+    void deletePaymentMethodMarksInactive() {
+        PaymentMethod method = new PaymentMethod();
+        method.setPaymentMethodId(3L);
+        method.setWallet(wallet);
+        method.setType("BANK_TRANSFER");
+        method.setBankName("TPBank");
+        method.setAccountNo("1234567890");
+        method.setStatus("ACTIVE");
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(paymentMethodRepository.findByPaymentMethodIdAndWallet_WalletIdAndStatus(3L, USER_ID, "ACTIVE"))
+                .thenReturn(Optional.of(method));
+
+        financeService.deletePaymentMethod(3L);
+
+        assertEquals("INACTIVE", method.getStatus());
+        verify(paymentMethodRepository).save(method);
+    }
+
+    @Test
     @DisplayName("createWithdrawal locks wallet funds and creates a pending withdrawal request")
     void createWithdrawalCreatesPendingRequest() {
         CreateWithdrawalRequest request = new CreateWithdrawalRequest();
@@ -211,6 +330,9 @@ class FinanceServiceImplTest {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
         when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
         when(walletService.lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), any())).thenReturn(wallet);
+        when(paymentMethodRepository.findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
+                USER_ID, "TPBank", "1234567890", "ACTIVE"))
+                .thenReturn(Optional.empty());
         when(paymentMethodRepository.save(any(PaymentMethod.class))).thenReturn(savedMethod);
         when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -263,7 +385,8 @@ class FinanceServiceImplTest {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
         when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
         when(walletService.lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), any())).thenReturn(wallet);
-        when(paymentMethodRepository.findById(3L)).thenReturn(Optional.of(paymentMethod));
+        when(paymentMethodRepository.findByPaymentMethodIdAndWallet_WalletIdAndStatus(3L, USER_ID, "ACTIVE"))
+                .thenReturn(Optional.of(paymentMethod));
         when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(withdrawalRequestRepository.save(any(WithdrawalRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));

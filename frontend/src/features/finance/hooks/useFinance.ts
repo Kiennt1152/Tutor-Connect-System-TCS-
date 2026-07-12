@@ -9,6 +9,7 @@ import type {
   TopupSessionInfo,
   TopupStatusInfo,
   PaymentMethodInfo,
+  PaymentMethodPayload,
   WithdrawalPayload,
   WithdrawalInfo,
 } from '../types/financeTypes';
@@ -132,6 +133,30 @@ export function useFinance() {
     }
   }, []);
 
+  const createPaymentMethod = useCallback(async (
+    payload: PaymentMethodPayload
+  ): Promise<PaymentMethodInfo> => {
+    const data = await financeApi.createPaymentMethod(payload);
+    await fetchPaymentMethods();
+    return data;
+  }, [fetchPaymentMethods]);
+
+  const updatePaymentMethod = useCallback(async (
+    paymentMethodId: number,
+    payload: PaymentMethodPayload
+  ): Promise<PaymentMethodInfo> => {
+    const data = await financeApi.updatePaymentMethod(paymentMethodId, payload);
+    await fetchPaymentMethods();
+    return data;
+  }, [fetchPaymentMethods]);
+
+  const deletePaymentMethod = useCallback(async (
+    paymentMethodId: number
+  ): Promise<void> => {
+    await financeApi.deletePaymentMethod(paymentMethodId);
+    await fetchPaymentMethods();
+  }, [fetchPaymentMethods]);
+
   const createWithdrawal = useCallback(async (
     payload: WithdrawalPayload
   ): Promise<WithdrawalInfo> => {
@@ -163,6 +188,9 @@ export function useFinance() {
     paymentMethods,
     paymentMethodsLoading,
     fetchPaymentMethods,
+    createPaymentMethod,
+    updatePaymentMethod,
+    deletePaymentMethod,
     createWithdrawal,
   };
 }

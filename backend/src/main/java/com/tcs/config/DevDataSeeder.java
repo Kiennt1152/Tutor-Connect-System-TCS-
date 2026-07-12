@@ -18,6 +18,8 @@ import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
+import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.profile.enums.Gender;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
@@ -53,9 +55,9 @@ public class DevDataSeeder implements CommandLineRunner {
 
         // Seed test accounts
         String[][] testAccounts = {
-            {"test.client67@tcs.com", "password123", "Test Client"},
-            {"test.tutor67@tcs.com", "password123", "Test Tutor"},
-            {"test.center67@tcs.com", "password123", "Test Center"}
+            {"test.client67@tcs.com", "password123", "Test Client", "CLIENT", "0901000067"},
+            {"test.tutor67@tcs.com", "password123", "Test Tutor", "TUTOR", "0902000067"},
+            {"test.center67@tcs.com", "password123", "Test Center", "TUTOR_CENTER", "0903000067"}
         };
 
         for (String[] acc : testAccounts) {
@@ -63,6 +65,7 @@ public class DevDataSeeder implements CommandLineRunner {
             if (user == null) {
                 user = new User();
                 user.setEmail(acc[0]);
+                user.setPhone(acc[4]);
                 user.setPasswordHash(passwordEncoder.encode(acc[1]));
                 user.setStatus(UserStatus.ACTIVE);
                 user = userRepository.save(user);
@@ -70,14 +73,16 @@ public class DevDataSeeder implements CommandLineRunner {
             } else {
                 // Update password for existing test users
                 user.setPasswordHash(passwordEncoder.encode(acc[1]));
+                if (user.getPhone() == null || user.getPhone().isBlank()) {
+                    user.setPhone(acc[4]);
+                }
                 userRepository.save(user);
                 System.out.println(">>> [DevDataSeeder] Da cap nhat password cho: " + acc[0] + " / " + acc[1]);
             }
 
             ensureWallet(user, new BigDecimal("5000000"));
+            ensureProfile(user, acc[2], acc[3], acc[4]);
         }
-
-        ensureClientProfile("test.client67@tcs.com");
 
         // Seed contract cho test tutor
         seedContractForTutor("test.tutor67@tcs.com");
@@ -95,16 +100,63 @@ public class DevDataSeeder implements CommandLineRunner {
         }
     }
 
-    private void ensureClientProfile(String email) {
-        User user = userRepository.findByEmail(email).orElse(null);
-        if (user == null) return;
-        if (clientRepository.findByUser_UserId(user.getUserId()).isEmpty()) {
+    private void ensureProfile(User user, String displayName, String role, String phone) {
+        switch (role) {
+            case "CLIENT" -> ensureClientProfile(user, displayName, phone);
+            case "TUTOR" -> ensureTutorProfile(user, displayName, phone);
+            case "TUTOR_CENTER" -> ensureCenterProfile(user, displayName, phone);
+            default -> throw new IllegalArgumentException("Role dev seed khong hop le: " + role);
+        }
+    }
+
+    private void ensureClientProfile(User user, String fullName, String phone) {
+        clientRepository.findByUser_UserId(user.getUserId()).ifPresentOrElse(client -> {
+            if (client.getPhone() == null || client.getPhone().isBlank()) {
+                client.setPhone(phone);
+                clientRepository.save(client);
+            }
+        }, () -> {
             Client client = new Client();
             client.setUser(user);
-            client.setFullName("Test Client");
+            client.setFullName(fullName);
+            client.setPhone(phone);
             clientRepository.save(client);
-            System.out.println(">>> [DevDataSeeder] Da gan profile CLIENT cho: " + email);
-        }
+            System.out.println(">>> [DevDataSeeder] Da gan profile CLIENT cho: " + user.getEmail());
+        });
+    }
+
+    private void ensureTutorProfile(User user, String fullName, String phone) {
+        tutorRepository.findByUser_UserId(user.getUserId()).ifPresentOrElse(tutor -> {
+            if (tutor.getPhone() == null || tutor.getPhone().isBlank()) {
+                tutor.setPhone(phone);
+                tutorRepository.save(tutor);
+            }
+        }, () -> {
+            Tutor tutor = new Tutor();
+            tutor.setUser(user);
+            tutor.setFullName(fullName);
+            tutor.setGender(Gender.OTHER);
+            tutor.setPhone(phone);
+            tutorRepository.save(tutor);
+            System.out.println(">>> [DevDataSeeder] Da gan profile TUTOR cho: " + user.getEmail());
+        });
+    }
+
+    private void ensureCenterProfile(User user, String companyName, String phone) {
+        tutorCenterRepository.findByUser_UserId(user.getUserId()).ifPresentOrElse(center -> {
+            if (center.getPhone() == null || center.getPhone().isBlank()) {
+                center.setPhone(phone);
+                tutorCenterRepository.save(center);
+            }
+        }, () -> {
+            TutorCenter center = new TutorCenter();
+            center.setUser(user);
+            center.setCompanyName(companyName);
+            center.setPhone(phone);
+            center.setAddress("N/A");
+            tutorCenterRepository.save(center);
+            System.out.println(">>> [DevDataSeeder] Da gan profile TUTOR_CENTER cho: " + user.getEmail());
+        });
     }
 
     private void seedContractForTutor(String tutorEmail) {
