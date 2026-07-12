@@ -9,6 +9,7 @@ import { TutorFindClass } from '../../marketplace/components/TutorFindClass';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import type { CatalogOption } from '../../marketplace/types/marketplaceTypes';
 import './HomePage.css';
+import './FindTutorPage.css';
 import '../../marketplace/pages/MarketplacePage.css';
 
 /** Màn "Tìm lớp" độc lập (route /tim-lop). Gia sư → bản chấm điểm phù hợp;
@@ -36,22 +37,26 @@ function TutorFindClassPage() {
   }, []);
 
   return (
-    <div className="tcs-page mkt-page">
+    <div className="tcs-page">
       <SiteHeader />
       <main>
-        <div className="tcs-container mkt-container">
-          <header className="mkt-header">
-            <div>
-              <span className="mkt-eyebrow">Lớp học gia sư</span>
-              <h1 className="mkt-title">Tìm lớp phù hợp</h1>
-              <p className="mkt-subtitle">
+        <section className="tcs-home-hero tcs-find-hero">
+          <div className="tcs-container">
+            <div className="tcs-find-hero__intro">
+              <h1 className="tcs-find-title">
+                <span className="tcs-find-title__icon">🎓</span>
+                <span className="tcs-find-title__text">Tìm lớp phù hợp</span>
+              </h1>
+              <p className="tcs-find-subtitle">
                 Khai báo môn dạy, khu vực, học phí và lịch rảnh — hệ thống chấm điểm và xếp hạng các
                 lớp đang mở để bạn dễ chọn lớp nhận dạy.
               </p>
             </div>
-          </header>
-          <TutorFindClass subjects={subjects} grades={grades} provinces={provinces} />
-        </div>
+            <div className="tfc-container">
+              <TutorFindClass subjects={subjects} grades={grades} provinces={provinces} />
+            </div>
+          </div>
+        </section>
       </main>
       <SiteFooter />
     </div>

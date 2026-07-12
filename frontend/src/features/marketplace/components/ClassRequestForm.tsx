@@ -395,17 +395,19 @@ export function ClassRequestForm({
       </div>
 
       {/* Mục tiêu học tập */}
-      <label className="mkt-field">
-        <span className="mkt-field__label">Mục tiêu học tập</span>
-        <select value={form.learningGoal} onChange={(e) => set('learningGoal', e.target.value)}>
-          <option value="">-- Chọn mục tiêu --</option>
-          {goalOptions.map((goal) => (
-            <option key={goal} value={goal}>
-              {goal}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="mkt-form__grid">
+        <label className="mkt-field">
+          <span className="mkt-field__label">Mục tiêu học tập</span>
+          <select value={form.learningGoal} onChange={(e) => set('learningGoal', e.target.value)}>
+            <option value="">-- Chọn mục tiêu --</option>
+            {goalOptions.map((goal) => (
+              <option key={goal} value={goal}>
+                {goal}
+              </option>
+            ))}
+          </select>
+        </label>
+      </div>
 
       {/* Hình thức học */}
       <div className="mkt-field">

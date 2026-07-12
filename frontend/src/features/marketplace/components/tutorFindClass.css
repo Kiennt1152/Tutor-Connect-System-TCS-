@@ -1,25 +1,90 @@
 /* ============ Gia sư tìm lớp (matching score) ============ */
+/* Bố cục dọc: form nhập tiêu chí ở trên, kết quả xếp hạng bên dưới. */
 .tfc {
-  display: grid;
-  grid-template-columns: 340px 1fr;
+  display: flex;
+  flex-direction: column;
   gap: 24px;
-  align-items: start;
 }
+/* Thẻ form — cùng token với thẻ ".tcs-find-form-card" ở màn Tìm gia sư. */
 .tfc-panel {
   background: #fff;
   border: 1px solid #e3e9f2;
-  border-radius: 14px;
-  padding: 20px;
-  position: sticky;
-  top: 16px;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 12px 32px rgba(18, 35, 59, 0.08);
 }
-.tfc-panel__title { margin: 0 0 6px; font-size: 18px; color: #12233b; }
-.tfc-panel__desc { margin: 0 0 18px; font-size: 13px; line-height: 1.5; color: #5b6b7f; }
-.tfc-field { margin-bottom: 18px; }
-.tfc-label { display: block; font-size: 13px; font-weight: 600; color: #12233b; margin-bottom: 8px; }
+.tfc-panel__title { margin: 0 0 6px; font-size: 20px; font-weight: 800; color: #12233b; }
+.tfc-panel__desc { margin: 0 0 22px; font-size: 13.5px; line-height: 1.6; color: #5b6b7f; max-width: 760px; }
+.tfc-panel__desc strong { color: #12233b; }
+
+/* Thẻ form nằm trong hero (căn giữa) — nền warm bao quanh giống màn Tìm gia sư. */
+.tfc-container {
+  max-width: 1040px;
+  margin: 8px auto 0;
+}
+
+/* Lưới field: 2 cột trên desktop; field lớn (chip/lịch/ưu tiên) chiếm cả hàng. */
+.tfc-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px 24px;
+  align-items: start;
+}
+.tfc-field--wide { grid-column: 1 / -1; }
+
+/* Khu vực (trái, cao) + Trình độ (dưới trái) + Học phí (dưới phải, ngang Trình độ). */
+.tfc-subgrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px 24px;
+  align-items: start;
+}
+.tfc-subgrid__khuvuc { grid-column: 1; grid-row: 1; }
+.tfc-subgrid__trinhdo { grid-column: 1; grid-row: 2; }
+.tfc-subgrid__hocphi { grid-column: 2; grid-row: 2; }
+
+/* Khối ưu tiên chia đôi: trái = kéo thả, phải = công thức. */
+.tfc-priority {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+  align-items: center;
+}
+.tfc-priority__left { min-width: 0; }
+.tfc-priority__right { min-width: 0; }
+.tfc-weight-list { display: flex; flex-direction: column; gap: 6px; }
+
+.tfc-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid #eef2f7;
+}
+.tfc-form-actions__err { margin: 0; margin-right: auto; font-size: 13px; color: #d32f2f; }
+.tfc-btn--lg {
+  padding: 12px 28px;
+  font-size: 15px;
+  border-radius: 9px;
+  box-shadow: 0 8px 18px rgba(21, 101, 192, 0.22);
+  transition: transform 0.12s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.tfc-btn--lg:hover:not(:disabled) {
+  filter: brightness(1.03);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(21, 101, 192, 0.28);
+}
+
+.tfc-field { margin-bottom: 0; }
+.tfc-label { display: block; font-size: 13px; font-weight: 600; color: #33465e; margin-bottom: 8px; }
 .tfc-hint { display: block; margin-top: 6px; font-size: 12px; color: #8592a3; }
+.tfc-req { color: #d32f2f; font-weight: 700; }
+.tfc-err { display: block; margin-top: 6px; font-size: 12px; color: #d32f2f; }
 .tfc-input {
-  width: 100%; padding: 9px 11px; border: 1px solid #cfd8e3; border-radius: 8px;
+  width: 100%; padding: 10px 12px; border: 1px solid #cfd8e3; border-radius: 9px;
   font-size: 14px; color: #12233b; background: #fff;
 }
 .tfc-input:focus { outline: none; border-color: #1565c0; box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12); }
@@ -36,22 +101,40 @@
 .tfc-check--top { margin-top: 0; margin-bottom: 10px; }
 .tfc-avail table { width: 100%; border-collapse: collapse; }
 .tfc-avail th { font-size: 12px; font-weight: 600; color: #5b6b7f; padding: 4px; text-align: center; }
+.tfc-avail__time { display: block; font-size: 10.5px; font-weight: 500; color: #94a3b5; margin-top: 1px; }
 .tfc-avail tbody th { text-align: left; white-space: nowrap; }
-.tfc-avail td { padding: 3px; }
+.tfc-avail td { padding: 3px; text-align: center; }
 .tfc-avail__cell {
-  width: 100%; min-width: 42px; height: 30px; border: 1px solid #cfd8e3; background: #f7f9fc;
-  border-radius: 6px; cursor: pointer; color: #1565c0; font-weight: 700;
+  width: 100px; max-width: 100%; height: 26px; border: 1px solid #cfd8e3; background: #f7f9fc;
+  border-radius: 6px; cursor: pointer; color: #1565c0; font-weight: 700; font-size: 13px;
+  display: inline-block; padding: 0; line-height: 24px;
 }
 .tfc-avail__cell:hover { border-color: #1565c0; }
 .tfc-avail__cell.is-on { background: #1565c0; border-color: #1565c0; color: #fff; }
-.tfc-weight { margin-bottom: 12px; }
+.tfc-weight-intro { margin: 0 0 14px; font-size: 12.5px; line-height: 1.5; color: #5b6b7f; }
+.tfc-weight-legend { color: #8592a3; font-size: 12px; }
+.tfc-weight { margin-bottom: 14px; }
 .tfc-weight__head { display: flex; justify-content: space-between; font-size: 13px; color: #12233b; margin-bottom: 2px; }
-.tfc-weight__val { font-weight: 700; color: #1565c0; }
+.tfc-weight__val { font-weight: 700; color: #1565c0; white-space: nowrap; }
+.tfc-weight__val.is-zero { color: #94a3b5; }
 .tfc-weight input[type="range"] { width: 100%; accent-color: #1565c0; }
-.tfc-results__head { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 14px; }
-.tfc-results__head h2 { margin: 0; font-size: 20px; color: #12233b; }
-.tfc-results__count { font-size: 13px; color: #5b6b7f; }
+.tfc-weight__scale { display: flex; justify-content: space-between; font-size: 10.5px; color: #b0bac6; margin-top: -2px; }
+.tfc-results__head { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin: 4px 0 16px; }
+.tfc-results__head h2 { margin: 0; font-size: 22px; font-weight: 800; color: #0f172a; }
+/* Pill đếm số lớp — cùng tông ấm với ".tcs-section-bar__count" ở màn Tìm gia sư. */
+.tfc-results__count {
+  font-size: 12px;
+  font-weight: 700;
+  color: #c2410c;
+  background: #fff7ed;
+  padding: 4px 12px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.tfc-results__count:empty { display: none; }
 .tfc-notice { background: #e8f4ea; border: 1px solid #b6dcc0; color: #1b5e20; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 14px; }
+.tfc-notice--warn { background: #fff5e6; border-color: #f2d19b; color: #8a5a00; }
+.tfc-notice--warn strong { color: #6b4500; }
 .tfc-state { background: #fff; border: 1px dashed #cfd8e3; border-radius: 12px; padding: 28px; text-align: center; color: #5b6b7f; }
 .tfc-state--error { border-color: #f0b7b2; color: #c62828; }
 .tfc-list { display: flex; flex-direction: column; gap: 14px; }
@@ -60,7 +143,7 @@
   flex: 0 0 76px; align-self: flex-start; display: flex; flex-direction: column;
   align-items: center; justify-content: center; width: 76px; height: 76px; border-radius: 12px; color: #fff;
 }
-.tfc-score__num { font-size: 28px; font-weight: 800; line-height: 1; }
+.tfc-score__num { font-size: 24px; font-weight: 800; line-height: 1; }
 .tfc-score__unit { font-size: 11px; opacity: 0.9; margin-top: 2px; }
 .tfc-score--high { background: linear-gradient(135deg, #2e7d32, #43a047); }
 .tfc-score--mid { background: linear-gradient(135deg, #ef6c00, #fb8c00); }
@@ -126,10 +209,16 @@
 .cdm-budget small { color: #8592a3; }
 .cdm__foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #eef2f7; }
 
-@media (max-width: 960px) {
-  .tfc { grid-template-columns: 1fr; }
-  .tfc-panel { position: static; }
+@media (max-width: 720px) {
+  .tfc-form-grid { grid-template-columns: 1fr; }
+  .tfc-priority { grid-template-columns: 1fr; }
   .tfc-break { grid-template-columns: 1fr; }
+  .tfc-form-actions { justify-content: stretch; }
+  .tfc-btn--lg { flex: 1; }
+  .tfc-subgrid { grid-template-columns: 1fr; }
+  .tfc-subgrid__khuvuc,
+  .tfc-subgrid__trinhdo,
+  .tfc-subgrid__hocphi { grid-column: 1; grid-row: auto; }
 }
 @media (max-width: 560px) {
   .cdm-grid { grid-template-columns: 1fr; }

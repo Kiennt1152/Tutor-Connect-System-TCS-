@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import axios from 'axios';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { ClassDetailModal } from './ClassDetailModal';
+import { FALLBACK_SUBJECTS, FALLBACK_GRADES } from '../constants/catalogFallback';
 import {
   DAY_OF_WEEK_OPTIONS,
   SESSION_OPTIONS,
@@ -18,6 +19,7 @@ import {
   type MatchWeights,
   type TutorCriteria,
 } from '../matching/tutorMatching';
+import { FormulaExplainer } from './FormulaExplainer';
 import './tutorFindClass.css';
 
 const currency = new Intl.NumberFormat('vi-VN');
@@ -29,6 +31,10 @@ const WEIGHT_LABELS: { key: keyof MatchWeights; label: string; hint: string }[] 
   { key: 'schedule', label: 'Lịch học (T)', hint: 'Trùng khung giờ bạn rảnh' },
   { key: 'experience', label: 'Trình độ (E)', hint: 'Phù hợp yêu cầu bằng cấp' },
 ];
+
+// Nhãn chữ cho từng mức trọng số 0–5 để người dùng dễ hiểu.
+const WEIGHT_SCALE = ['Bỏ qua', 'Rất thấp', 'Thấp', 'Vừa', 'Cao', 'Rất cao'];
+const weightLabel = (v: number) => WEIGHT_SCALE[v] ?? '';
 
 interface Props {
   readonly subjects: CatalogOption[];
@@ -45,6 +51,9 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [detailTarget, setDetailTarget] = useState<ClassResponse | null>(null);
   const [districts, setDistricts] = useState<CatalogOption[]>([]);
+  // Tiêu chí đã "bấm tìm" — kết quả chỉ hiện sau khi gia sư nhập xong và bấm.
+  const [searched, setSearched] = useState<TutorCriteria | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     setStatus('loading');
@@ -69,16 +78,30 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
       .catch(() => setDistricts([]));
   }, [criteria.provinceId]);
 
-  const subjectName = useMemo(() => {
-    const m = new Map(subjects.map((s) => [String(s.id), s.name]));
-    return (id: string) => (id === OTHER_SUBJECT ? 'Môn khác' : (m.get(id) ?? `#${id}`));
-  }, [subjects]);
-  const gradeName = useMemo(() => {
-    const m = new Map(grades.map((g) => [String(g.id), g.name]));
-    return (id: string) => m.get(id) ?? '';
-  }, [grades]);
+  // Nếu backend không trả được catalog (lỗi/404) thì dùng danh sách dự phòng
+  // (ID khớp seed DB nên chấm điểm vẫn đúng) — chip môn/lớp luôn hiển thị.
+  const effSubjects = subjects.length > 0 ? subjects : [...FALLBACK_SUBJECTS];
+  const effGrades = grades.length > 0 ? grades : [...FALLBACK_GRADES];
 
-  const results = useMemo(() => rankClasses(classes, criteria), [classes, criteria]);
+  const subjectName = useMemo(() => {
+    const m = new Map(effSubjects.map((s) => [String(s.id), s.name]));
+    return (id: string) => (id === OTHER_SUBJECT ? 'Môn khác' : (m.get(id) ?? `#${id}`));
+  }, [effSubjects]);
+  const gradeName = useMemo(() => {
+    const m = new Map(effGrades.map((g) => [String(g.id), g.name]));
+    return (id: string) => m.get(id) ?? '';
+  }, [effGrades]);
+
+  // Kết quả tính từ tiêu chí ĐÃ bấm tìm (snapshot), không phải tiêu chí đang gõ.
+  const results = useMemo(
+    () => (searched ? rankClasses(classes, searched) : []),
+    [classes, searched],
+  );
+
+  // Bắt buộc gia sư chọn ít nhất 1 môn và 1 khối lớp trước khi xem lớp phù hợp.
+  const needCriteria = criteria.subjectIds.length === 0 || criteria.gradeIds.length === 0;
+  // Tiêu chí đã đổi so với lần tìm gần nhất → nhắc gia sư bấm tìm lại.
+  const dirty = searched != null && JSON.stringify(searched) !== JSON.stringify(criteria);
 
   // --- Cập nhật tiêu chí ---
   const patch = (p: Partial<TutorCriteria>) => setCriteria((c) => ({ ...c, ...p }));
@@ -102,6 +125,21 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const setWeight = (key: keyof MatchWeights, value: number) =>
     setCriteria((c) => ({ ...c, weights: { ...c.weights, [key]: value } }));
 
+  // Gia sư bấm "Xem lớp phù hợp" → chốt tiêu chí và hiện danh sách bên dưới.
+  function handleSearch(e: FormEvent) {
+    e.preventDefault();
+    if (needCriteria) {
+      setFormError('Vui lòng chọn ít nhất 1 môn và 1 khối lớp trước khi tìm.');
+      return;
+    }
+    setFormError(null);
+    setSearched(criteria);
+    // Cuộn xuống khu vực kết quả cho dễ thấy.
+    requestAnimationFrame(() =>
+      document.getElementById('tfc-results')?.scrollIntoView({ behavior: 'smooth', block: 'start' }),
+    );
+  }
+
   async function handleApply(classId: number) {
     setApplyingId(classId);
     setNotice(null);
@@ -122,53 +160,73 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
 
   return (
     <div className="tfc">
-      <aside className="tfc-panel">
+      <form className="tfc-panel" onSubmit={handleSearch}>
         <h2 className="tfc-panel__title">Tiêu chí của bạn</h2>
         <p className="tfc-panel__desc">
-          Khai báo môn dạy, khu vực, học phí mong muốn và lịch rảnh. Hệ thống chấm điểm độ phù hợp
-          của từng lớp theo trọng số bạn đặt.
+          Khai báo môn dạy, khu vực, học phí mong muốn và lịch rảnh, rồi bấm{' '}
+          <strong>Xem lớp phù hợp</strong> — hệ thống sẽ chấm điểm và xếp hạng các lớp theo tiêu chí
+          của bạn.
         </p>
 
-        <div className="tfc-field">
-          <span className="tfc-label">Môn bạn dạy</span>
-          <div className="tfc-chips">
-            {subjects.map((s) => {
-              const on = criteria.subjectIds.includes(String(s.id));
-              return (
-                <button
-                  key={s.id}
-                  type="button"
-                  className={`tfc-chip ${on ? 'is-on' : ''}`}
-                  onClick={() => toggleId('subjectIds', String(s.id))}
-                >
-                  {s.name}
-                </button>
-              );
-            })}
-          </div>
+        <div className="tfc-form-grid">
+        <div className="tfc-field tfc-field--wide">
+          <span className="tfc-label">
+            Môn bạn dạy <span className="tfc-req">*</span>
+          </span>
+          {effSubjects.length === 0 ? (
+            <small className="tfc-hint">Đang tải danh sách môn… (kiểm tra backend đang chạy).</small>
+          ) : (
+            <div className="tfc-chips">
+              {effSubjects.map((s) => {
+                const on = criteria.subjectIds.includes(String(s.id));
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    className={`tfc-chip ${on ? 'is-on' : ''}`}
+                    onClick={() => toggleId('subjectIds', String(s.id))}
+                  >
+                    {s.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {effSubjects.length > 0 && criteria.subjectIds.length === 0 && (
+            <small className="tfc-err">Vui lòng chọn ít nhất 1 môn bạn dạy.</small>
+          )}
         </div>
 
-        <div className="tfc-field">
-          <span className="tfc-label">Khối lớp bạn nhận</span>
-          <div className="tfc-chips">
-            {grades.map((g) => {
-              const on = criteria.gradeIds.includes(String(g.id));
-              return (
-                <button
-                  key={g.id}
-                  type="button"
-                  className={`tfc-chip ${on ? 'is-on' : ''}`}
-                  onClick={() => toggleId('gradeIds', String(g.id))}
-                >
-                  {g.name}
-                </button>
-              );
-            })}
-          </div>
-          <small className="tfc-hint">Bỏ trống = nhận mọi khối lớp.</small>
+        <div className="tfc-field tfc-field--wide">
+          <span className="tfc-label">
+            Khối lớp bạn nhận <span className="tfc-req">*</span>
+          </span>
+          {effGrades.length === 0 ? (
+            <small className="tfc-hint">Đang tải danh sách khối lớp…</small>
+          ) : (
+            <div className="tfc-chips">
+              {effGrades.map((g) => {
+                const on = criteria.gradeIds.includes(String(g.id));
+                return (
+                  <button
+                    key={g.id}
+                    type="button"
+                    className={`tfc-chip ${on ? 'is-on' : ''}`}
+                    onClick={() => toggleId('gradeIds', String(g.id))}
+                  >
+                    {g.name}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {effGrades.length > 0 && criteria.gradeIds.length === 0 && (
+            <small className="tfc-err">Vui lòng chọn ít nhất 1 khối lớp.</small>
+          )}
         </div>
 
-        <div className="tfc-field">
+        <div className="tfc-field--wide tfc-subgrid">
+        <div className="tfc-field tfc-subgrid__khuvuc">
           <span className="tfc-label">Khu vực</span>
           <label className="tfc-check tfc-check--top">
             <input
@@ -214,21 +272,20 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
           )}
         </div>
 
-        <div className="tfc-field">
+        <div className="tfc-field tfc-subgrid__hocphi">
           <span className="tfc-label">Học phí/giờ mong muốn (đ)</span>
           <input
-            type="number"
-            min={0}
-            step={10000}
+            type="text"
+            inputMode="numeric"
             className="tfc-input"
             placeholder="VD: 150000"
             value={criteria.expectedFee}
-            onChange={(e) => patch({ expectedFee: e.target.value })}
+            onChange={(e) => patch({ expectedFee: e.target.value.replace(/\D/g, '') })}
           />
           <small className="tfc-hint">Bỏ trống = không đặt mức tối thiểu.</small>
         </div>
 
-        <div className="tfc-field">
+        <div className="tfc-field tfc-subgrid__trinhdo">
           <span className="tfc-label">Trình độ của bạn</span>
           <select
             className="tfc-input"
@@ -242,8 +299,9 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
             ))}
           </select>
         </div>
+        </div>
 
-        <div className="tfc-field">
+        <div className="tfc-field tfc-field--wide">
           <span className="tfc-label">Lịch rảnh</span>
           <div className="tfc-avail">
             <table>
@@ -251,7 +309,10 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
                 <tr>
                   <th />
                   {SESSION_OPTIONS.map((s) => (
-                    <th key={s.value}>{s.value}</th>
+                    <th key={s.value}>
+                      {s.value}
+                      <span className="tfc-avail__time">{s.label.replace(s.value, '').trim()}</span>
+                    </th>
                   ))}
                 </tr>
               </thead>
@@ -284,66 +345,110 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
           <small className="tfc-hint">Bỏ trống = lịch linh hoạt.</small>
         </div>
 
-        <div className="tfc-field">
-          <span className="tfc-label">Mức độ ưu tiên (trọng số 0–5)</span>
-          {WEIGHT_LABELS.map((w) => (
-            <div key={w.key} className="tfc-weight">
-              <div className="tfc-weight__head">
-                <span>{w.label}</span>
-                <span className="tfc-weight__val">{criteria.weights[w.key]}</span>
+        <div className="tfc-field tfc-field--wide tfc-priority">
+          <div className="tfc-priority__left">
+          <span className="tfc-label">Mức độ ưu tiên</span>
+          <p className="tfc-weight-intro">
+            Kéo để chọn tiêu chí nào <strong>quan trọng hơn</strong> khi xếp hạng lớp.
+            <br />
+            <span className="tfc-weight-legend">0 = bỏ qua · 3 = bình thường · 5 = ưu tiên cao nhất</span>
+          </p>
+          <div className="tfc-weight-list">
+          {WEIGHT_LABELS.map((w) => {
+            const v = criteria.weights[w.key];
+            return (
+              <div key={w.key} className="tfc-weight">
+                <div className="tfc-weight__head">
+                  <span>{w.label}</span>
+                  <span className={`tfc-weight__val ${v === 0 ? 'is-zero' : ''}`}>
+                    {v} · {weightLabel(v)}
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={5}
+                  step={1}
+                  value={v}
+                  onChange={(e) => setWeight(w.key, Number(e.target.value))}
+                />
+                <div className="tfc-weight__scale">
+                  <span>Bỏ qua</span>
+                  <span>Rất cao</span>
+                </div>
+                <small className="tfc-hint">{w.hint}</small>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={5}
-                step={1}
-                value={criteria.weights[w.key]}
-                onChange={(e) => setWeight(w.key, Number(e.target.value))}
-              />
-              <small className="tfc-hint">{w.hint}</small>
-            </div>
-          ))}
+            );
+          })}
+          </div>
+          </div>
+          <div className="tfc-priority__right">
+            <FormulaExplainer weights={criteria.weights} />
+          </div>
         </div>
-      </aside>
+        </div>
 
-      <section className="tfc-results">
+        <div className="tfc-form-actions">
+          {formError && <p className="tfc-form-actions__err">{formError}</p>}
+          <button type="submit" className="tfc-btn tfc-btn--primary tfc-btn--lg">
+            {searched ? 'Cập nhật kết quả' : 'Xem lớp phù hợp'}
+          </button>
+        </div>
+      </form>
+
+      <section className="tfc-results" id="tfc-results">
         <header className="tfc-results__head">
           <h2>Lớp phù hợp với bạn</h2>
           <span className="tfc-results__count">
-            {status === 'success' ? `${results.length} lớp đang mở` : ''}
+            {status === 'success' && searched ? `${results.length} lớp đang mở` : ''}
           </span>
         </header>
 
         {notice && <div className="tfc-notice">{notice}</div>}
-        {status === 'loading' && <div className="tfc-state">Đang tải danh sách lớp…</div>}
-        {status === 'error' && (
-          <div className="tfc-state tfc-state--error">Không tải được danh sách lớp.</div>
-        )}
-        {status === 'success' && results.length === 0 && (
-          <div className="tfc-state">Chưa có lớp nào đang mở đơn ứng tuyển.</div>
+        {searched && dirty && (
+          <div className="tfc-notice tfc-notice--warn">
+            Bạn vừa đổi tiêu chí — bấm <strong>Cập nhật kết quả</strong> để xếp hạng lại.
+          </div>
         )}
 
-        <div className="tfc-list">
-          {results.map((r) => (
-            <ClassCard
-              key={r.parsed.raw.classId}
-              result={r}
-              subjectName={subjectName}
-              gradeName={gradeName}
-              applied={applied.has(r.parsed.raw.classId)}
-              applying={applyingId === r.parsed.raw.classId}
-              onApply={() => handleApply(r.parsed.raw.classId)}
-              onDetail={() => setDetailTarget(r.parsed.raw)}
-            />
-          ))}
-        </div>
+        {!searched ? (
+          <div className="tfc-state">
+            Điền tiêu chí ở form phía trên rồi bấm <strong>Xem lớp phù hợp</strong> để hệ thống chấm
+            điểm và hiển thị các lớp phù hợp với bạn.
+          </div>
+        ) : (
+          <>
+            {status === 'loading' && <div className="tfc-state">Đang tải danh sách lớp…</div>}
+            {status === 'error' && (
+              <div className="tfc-state tfc-state--error">Không tải được danh sách lớp.</div>
+            )}
+            {status === 'success' && results.length === 0 && (
+              <div className="tfc-state">Chưa có lớp nào đang mở đơn ứng tuyển.</div>
+            )}
+
+            <div className="tfc-list">
+              {results.map((r) => (
+                <ClassCard
+                  key={r.parsed.raw.classId}
+                  result={r}
+                  subjectName={subjectName}
+                  gradeName={gradeName}
+                  applied={applied.has(r.parsed.raw.classId)}
+                  applying={applyingId === r.parsed.raw.classId}
+                  onApply={() => handleApply(r.parsed.raw.classId)}
+                  onDetail={() => setDetailTarget(r.parsed.raw)}
+                />
+              ))}
+            </div>
+          </>
+        )}
       </section>
 
       {detailTarget && (
         <ClassDetailModal
           raw={detailTarget}
-          subjects={subjects}
-          grades={grades}
+          subjects={effSubjects}
+          grades={effGrades}
           applied={applied.has(detailTarget.classId)}
           applying={applyingId === detailTarget.classId}
           onApply={() => handleApply(detailTarget.classId)}
@@ -389,8 +494,8 @@ function ClassCard({
   return (
     <article className="tfc-card">
       <div className={`tfc-score tfc-score--${tone}`}>
-        <span className="tfc-score__num">{pct}</span>
-        <span className="tfc-score__unit">điểm</span>
+        <span className="tfc-score__num">{pct}%</span>
+        <span className="tfc-score__unit">phù hợp</span>
       </div>
       <div className="tfc-card__body">
         <div className="tfc-card__top">
