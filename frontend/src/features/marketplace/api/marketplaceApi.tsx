@@ -33,6 +33,17 @@ export const marketplaceApi = {
   getClass: (classId: number) =>
     axiosClient.get<ClassResponse>(`/marketplace/classes/${classId}`).then((r) => r.data),
 
+  // --- Gia sư tìm lớp: danh sách lớp đang mở đơn ứng tuyển ---
+  listOpenClasses: () =>
+    axiosClient
+      .get<ClassResponse[]>('/marketplace/classes', { params: { status: 'OPEN' } })
+      .then((r) => r.data),
+
+  applyToClass: (classId: number, payload: { proposedRate?: number; coverLetter?: string }) =>
+    axiosClient
+      .post<{ message: string }>(`/marketplace/classes/${classId}/apply`, payload)
+      .then((r) => r.data),
+
   createClass: (payload: ClassRequestPayload) =>
     axiosClient.post<ClassResponse>('/marketplace/classes', payload).then((r) => r.data),
 
