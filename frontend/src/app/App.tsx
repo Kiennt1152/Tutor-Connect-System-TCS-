@@ -4,6 +4,7 @@ import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
+import ContractPage from '../features/contract/pages/ContractPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
 
 export default function App() {
@@ -18,6 +19,14 @@ export default function App() {
           element={
             <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
               <ProfilePage />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/contracts/:id"
+          element={
+            <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+              <ContractPage />
             </ProtectedRoute>
           }
         />

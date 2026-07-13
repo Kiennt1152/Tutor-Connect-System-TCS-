@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { imageAssets } from '../../../assets/images/ImageAssets';
 import { useHome } from '../hooks/useHome';
+import { useAuth } from '../../../shared/auth/AuthProvider';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import './HomePage.css';
 
@@ -16,6 +18,14 @@ const initials = (name: string) =>
     .join('');
 
 function Header() {
+  const { user, isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/', { replace: true });
+  };
+
   return (
     <header className="tcs-header">
       <div className="tcs-container tcs-header__inner">
@@ -29,12 +39,28 @@ function Header() {
           <a href="#how">Cách hoạt động</a>
         </nav>
         <div className="tcs-header__actions">
-          <a className="tcs-btn tcs-btn--ghost" href="/login">
-            Đăng nhập
-          </a>
-          <a className="tcs-btn tcs-btn--primary" href="/register">
-            Đăng ký
-          </a>
+          {isAuthenticated && user ? (
+            <>
+              <span className="tcs-header__user">
+                Xin chào, <strong>{user.displayName || user.email}</strong>
+              </span>
+              <Link className="tcs-btn tcs-btn--ghost" to="/profile">
+                Hồ sơ
+              </Link>
+              <button type="button" className="tcs-btn tcs-btn--primary" onClick={handleLogout}>
+                Đăng xuất
+              </button>
+            </>
+          ) : (
+            <>
+              <Link className="tcs-btn tcs-btn--ghost" to="/login">
+                Đăng nhập
+              </Link>
+              <Link className="tcs-btn tcs-btn--primary" to="/register">
+                Đăng ký
+              </Link>
+            </>
+          )}
         </div>
       </div>
     </header>
@@ -131,9 +157,9 @@ function TutorCard({ tutor }: { tutor: FeaturedTutor }) {
       <p className="tcs-tutor__bio">{tutor.bio?.trim() || 'Gia sư tận tâm, sẵn sàng đồng hành cùng học viên.'}</p>
       <div className="tcs-tutor__foot">
         <span className="tcs-tutor__price">{currency(tutor.hourlyRate)} đ/giờ</span>
-        <a className="tcs-btn tcs-btn--soft" href="/login">
+        <Link className="tcs-btn tcs-btn--soft" to="/login">
           Xem hồ sơ
-        </a>
+        </Link>
       </div>
     </article>
   );
