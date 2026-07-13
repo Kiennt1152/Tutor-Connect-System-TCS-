@@ -37,6 +37,8 @@ public interface FinanceService {
 
     WithdrawalResponse createWithdrawal(CreateWithdrawalRequest request);
 
+    WithdrawalResponse acceptWithdrawal(Long withdrawalId);
+
     WalletTransactionsResponse getMyTransactions(
             int page,
             int size,

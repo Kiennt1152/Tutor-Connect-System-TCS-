@@ -103,6 +103,11 @@ public class FinanceController {
         return financeService.createWithdrawal(request);
     }
 
+    @PostMapping("/withdrawals/{withdrawalId}/accept")
+    public WithdrawalResponse acceptWithdrawal(@PathVariable Long withdrawalId) {
+        return financeService.acceptWithdrawal(withdrawalId);
+    }
+
     @GetMapping("/settlements/preview/{classId}")
     public ReleaseInstruction previewSettlement(@PathVariable Long classId) {
         return settlementService.calculate(classId);

@@ -25,6 +25,7 @@ import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
 import com.tcs.module.finance.service.FinanceService;
 import com.tcs.module.finance.service.WalletService;
+import com.tcs.module.profile.enums.UserRole;
 import com.tcs.security.AuthHelper;
 import java.math.RoundingMode;
 import java.net.URLEncoder;
@@ -51,6 +52,7 @@ public class FinanceServiceImpl implements FinanceService {
     private static final int DEFAULT_PAGE_SIZE = 20;
     private static final int MAX_PAGE_SIZE = 100;
     private static final int TOPUP_TTL_MINUTES = 15;
+    private static final int WITHDRAWAL_MATCH_WINDOW_MINUTES = 5;
     private static final String TOPUP_BANK_NAME = "TPBank";
     private static final String TOPUP_BANK_BIN = "970423";
     private static final String TOPUP_ACCOUNT_NUMBER = "02660559201";
@@ -288,6 +290,42 @@ public class FinanceServiceImpl implements FinanceService {
 
     @Override
     @Transactional
+    public WithdrawalResponse acceptWithdrawal(Long withdrawalId) {
+        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+
+        WithdrawalRequest withdrawal = withdrawalRequestRepository.findById(withdrawalId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu rút tiền"));
+        if (withdrawal.getStatus() != WithdrawalRequestStatus.PENDING) {
+            throw new IllegalArgumentException("Chỉ yêu cầu rút tiền đang xử lý mới có thể được duyệt");
+        }
+
+        PaymentTransaction tx = findSafeWithdrawalTransaction(withdrawal);
+        if (tx == null) {
+            throw new IllegalArgumentException("Không xác định được giao dịch rút tiền tương ứng");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        Wallet wallet = walletService.releaseLockedFunds(
+                withdrawal.getWallet().getWalletId(),
+                withdrawal.getAmount(),
+                tx.getReferenceCode());
+
+        tx.setStatus(PaymentTransactionStatus.SUCCESS);
+        tx.setDescription("Yêu cầu rút tiền đã được duyệt");
+        tx.setProcessedAt(now);
+        tx.setFailureReason(null);
+        paymentTransactionRepository.save(tx);
+
+        withdrawal.setStatus(WithdrawalRequestStatus.COMPLETED);
+        withdrawal.setProcessedAt(now);
+        withdrawal.setFailureReason(null);
+        WithdrawalRequest savedWithdrawal = withdrawalRequestRepository.save(withdrawal);
+
+        return toWithdrawalResponse(savedWithdrawal, tx, wallet);
+    }
+
+    @Override
+    @Transactional
     public WalletTransactionsResponse getMyTransactions(
             int page,
             int size,
@@ -495,6 +533,26 @@ public class FinanceServiceImpl implements FinanceService {
     private boolean isTopupExpired(PaymentTransaction tx) {
         LocalDateTime createdAt = tx.getCreatedAt();
         return createdAt != null && LocalDateTime.now().isAfter(createdAt.plusMinutes(TOPUP_TTL_MINUTES));
+    }
+
+    private PaymentTransaction findSafeWithdrawalTransaction(WithdrawalRequest withdrawal) {
+        if (withdrawal.getWallet() == null || withdrawal.getRequestedAt() == null || withdrawal.getAmount() == null) {
+            return null;
+        }
+
+        LocalDateTime from = withdrawal.getRequestedAt().minusMinutes(WITHDRAWAL_MATCH_WINDOW_MINUTES);
+        LocalDateTime to = withdrawal.getRequestedAt().plusMinutes(WITHDRAWAL_MATCH_WINDOW_MINUTES);
+        List<PaymentTransaction> candidates =
+                paymentTransactionRepository
+                        .findByWallet_WalletIdAndTypeAndStatusAndAmountAndCreatedAtBetweenOrderByCreatedAtAsc(
+                                withdrawal.getWallet().getWalletId(),
+                                PaymentTransactionType.WITHDRAWAL,
+                                PaymentTransactionStatus.PENDING,
+                                withdrawal.getAmount(),
+                                from,
+                                to);
+
+        return candidates.size() == 1 ? candidates.get(0) : null;
     }
 
     private TopupSessionResponse toTopupSessionResponse(

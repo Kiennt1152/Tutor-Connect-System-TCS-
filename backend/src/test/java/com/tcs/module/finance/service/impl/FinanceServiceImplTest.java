@@ -23,6 +23,7 @@ import com.tcs.module.finance.repository.PaymentMethodRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
 import com.tcs.module.finance.service.WalletService;
+import com.tcs.module.profile.enums.UserRole;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -410,6 +411,68 @@ class FinanceServiceImplTest {
     }
 
     @Test
+    @DisplayName("acceptWithdrawal completes a pending withdrawal and releases frozen funds")
+    void acceptWithdrawalCompletesPendingRequest() {
+        BigDecimal amount = new BigDecimal("100000.00");
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 7, 13, 9, 0);
+        PaymentMethod method = savedPaymentMethod();
+        WithdrawalRequest withdrawal = pendingWithdrawal(15L, method, amount, requestedAt);
+        PaymentTransaction tx = pendingWithdrawalTransaction(method, amount, "WITHDRAW-ABC", requestedAt);
+
+        Wallet releasedWallet = new Wallet();
+        releasedWallet.setWalletId(USER_ID);
+        releasedWallet.setAvailableBalance(new BigDecimal("150000.00"));
+        releasedWallet.setFrozenBalance(BigDecimal.ZERO);
+        releasedWallet.setStatus(WalletStatus.ACTIVE);
+
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(null);
+        when(withdrawalRequestRepository.findById(15L)).thenReturn(Optional.of(withdrawal));
+        when(paymentTransactionRepository
+                .findByWallet_WalletIdAndTypeAndStatusAndAmountAndCreatedAtBetweenOrderByCreatedAtAsc(
+                        USER_ID,
+                        PaymentTransactionType.WITHDRAWAL,
+                        PaymentTransactionStatus.PENDING,
+                        amount,
+                        requestedAt.minusMinutes(5),
+                        requestedAt.plusMinutes(5)))
+                .thenReturn(List.of(tx));
+        when(walletService.releaseLockedFunds(USER_ID, amount, "WITHDRAW-ABC")).thenReturn(releasedWallet);
+        when(withdrawalRequestRepository.save(any(WithdrawalRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        WithdrawalResponse response = financeService.acceptWithdrawal(15L);
+
+        assertEquals(WithdrawalRequestStatus.COMPLETED, response.getStatus());
+        assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
+        assertEquals("Yêu cầu rút tiền đã được duyệt", tx.getDescription());
+        assertEquals(WithdrawalRequestStatus.COMPLETED, withdrawal.getStatus());
+        assertEquals(USER_ID, response.getWallet().getWalletId());
+        assertEquals(BigDecimal.ZERO, response.getWallet().getFrozenBalance());
+        verify(walletService).releaseLockedFunds(USER_ID, amount, "WITHDRAW-ABC");
+        verify(paymentTransactionRepository).save(tx);
+        verify(withdrawalRequestRepository).save(withdrawal);
+    }
+
+    @Test
+    @DisplayName("acceptWithdrawal rejects requests that are no longer pending")
+    void acceptWithdrawalRejectsNonPendingRequest() {
+        PaymentMethod method = savedPaymentMethod();
+        WithdrawalRequest withdrawal = pendingWithdrawal(
+                15L,
+                method,
+                new BigDecimal("100000.00"),
+                LocalDateTime.of(2026, 7, 13, 9, 0));
+        withdrawal.setStatus(WithdrawalRequestStatus.COMPLETED);
+
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(null);
+        when(withdrawalRequestRepository.findById(15L)).thenReturn(Optional.of(withdrawal));
+
+        assertThrows(IllegalArgumentException.class, () -> financeService.acceptWithdrawal(15L));
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        verify(paymentTransactionRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("getMyTransactions applies type and date filters")
     void getMyTransactionsAppliesFilters() {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
@@ -478,6 +541,50 @@ class FinanceServiceImplTest {
         tx.setDescription("Nạp tiền ví qua VietQR");
         tx.setReferenceCode(reference);
         tx.setCreatedAt(LocalDateTime.now());
+        return tx;
+    }
+
+    private PaymentMethod savedPaymentMethod() {
+        PaymentMethod method = new PaymentMethod();
+        method.setPaymentMethodId(3L);
+        method.setWallet(wallet);
+        method.setType("BANK_TRANSFER");
+        method.setBankName("TPBank");
+        method.setAccountNo("1234567890");
+        method.setStatus("ACTIVE");
+        return method;
+    }
+
+    private WithdrawalRequest pendingWithdrawal(
+            Long withdrawalId,
+            PaymentMethod method,
+            BigDecimal amount,
+            LocalDateTime requestedAt) {
+
+        WithdrawalRequest withdrawal = new WithdrawalRequest();
+        withdrawal.setWithdrawalId(withdrawalId);
+        withdrawal.setWallet(wallet);
+        withdrawal.setPaymentMethod(method);
+        withdrawal.setAmount(amount);
+        withdrawal.setStatus(WithdrawalRequestStatus.PENDING);
+        withdrawal.setRequestedAt(requestedAt);
+        return withdrawal;
+    }
+
+    private PaymentTransaction pendingWithdrawalTransaction(
+            PaymentMethod method,
+            BigDecimal amount,
+            String reference,
+            LocalDateTime createdAt) {
+
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setWallet(wallet);
+        tx.setPaymentMethod(method);
+        tx.setType(PaymentTransactionType.WITHDRAWAL);
+        tx.setStatus(PaymentTransactionStatus.PENDING);
+        tx.setAmount(amount);
+        tx.setReferenceCode(reference);
+        tx.setCreatedAt(createdAt);
         return tx;
     }
 }
