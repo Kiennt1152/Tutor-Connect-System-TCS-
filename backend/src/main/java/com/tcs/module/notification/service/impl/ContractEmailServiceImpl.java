@@ -13,13 +13,13 @@ import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-public class EmailServiceImpl implements EmailService {
+public class ContractEmailServiceImpl implements EmailService {
 
     private final JavaMailSender mailSender;
     private final String fromAddress;
     private final boolean mailEnabled;
 
-    public EmailServiceImpl(
+    public ContractEmailServiceImpl(
             JavaMailSender mailSender,
             @Value("${app.mail.from:noreply@tcs.local}") String fromAddress,
             @Value("${app.mail.enabled:false}") boolean mailEnabled) {
