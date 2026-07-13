@@ -3,6 +3,7 @@ package com.tcs.module.contract.entity;
 import com.tcs.module.contract.enums.ContractSourceType;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.ClassStudent;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -37,9 +38,14 @@ public class Contract {
     @Column(name = "contract_no", length = 50, nullable = false, unique = true)
     private String contractNo;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
+@OneToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "assignment_id")
     private ClassAssignment assignment;
+
+    // Hop dong CENTER theo tung ghi danh (client <-> center).
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_student_id", unique = true)
+    private ClassStudent classStudent;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "template_id")

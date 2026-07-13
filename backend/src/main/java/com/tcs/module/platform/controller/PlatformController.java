@@ -10,6 +10,7 @@ import com.tcs.module.platform.dto.response.UserListItemResponse;
 import com.tcs.module.platform.dto.response.VerificationRequestResponse;
 import com.tcs.module.platform.service.PlatformService;
 import com.tcs.module.profile.enums.UserRole;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -39,7 +40,7 @@ public class PlatformController {
 
     @PatchMapping("/users/{userId}/status")
     public UserListItemResponse updateUserStatus(
-            @PathVariable Long userId, @RequestBody UpdateUserStatusRequest request) {
+            @PathVariable Long userId, @Valid @RequestBody UpdateUserStatusRequest request) {
         return platformService.updateUserStatus(userId, request);
     }
 
@@ -55,7 +56,7 @@ public class PlatformController {
 
     @PatchMapping("/verifications/{verificationId}")
     public VerificationRequestResponse reviewVerification(
-            @PathVariable Long verificationId, @RequestBody ReviewVerificationRequest request) {
+            @PathVariable Long verificationId, @Valid @RequestBody ReviewVerificationRequest request) {
         return platformService.reviewVerification(verificationId, request);
     }
 

@@ -41,7 +41,7 @@ public class TutorCenter {
     @Column(name = "company_name", length = 150, nullable = false)
     private String companyName;
 
-    @Column(name = "license_no", length = 50, nullable = false, unique = true)
+    @Column(name = "license_no", length = 50, unique = true)
     private String licenseNo;
 
     @Column(name = "phone", length = 15, nullable = false)

@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { authStorage } from '../auth/authStorage';
+import { APP_ROUTES } from '../constants/routes';
 
 const baseURL =
   (import.meta.env.VITE_API_URL as string | undefined) ??
@@ -21,6 +22,7 @@ axiosClient.interceptors.request.use((config) => {
   return config;
 });
 
+<<<<<<< HEAD
 let isRedirectingToLogin = false;
 
 axiosClient.interceptors.response.use(
@@ -47,6 +49,21 @@ axiosClient.interceptors.response.use(
           'Không thể kết nối đến máy chủ. Vui lòng kiểm tra backend đang chạy và CORS đã được cấu hình.',
         ),
       );
+=======
+axiosClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+    const path = window.location.pathname;
+
+    if (status === 401 && path !== APP_ROUTES.login && path !== APP_ROUTES.register) {
+      authStorage.clearAll();
+      window.location.assign(`${APP_ROUTES.login}?session=expired`);
+    }
+
+    if (status === 403 && path !== APP_ROUTES.forbidden) {
+      window.location.assign(APP_ROUTES.forbidden);
+>>>>>>> main
     }
 
     return Promise.reject(error);
