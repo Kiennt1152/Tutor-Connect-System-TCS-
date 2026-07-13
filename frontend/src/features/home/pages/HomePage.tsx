@@ -1,10 +1,4 @@
 import { useMemo } from 'react';
-<<<<<<< HEAD
-import { Link, useNavigate } from 'react-router-dom';
-import { imageAssets } from '../../../assets/images/ImageAssets';
-import { useHome } from '../hooks/useHome';
-import { useAuth } from '../../../shared/auth/AuthProvider';
-=======
 import { Link } from 'react-router-dom';
 import { AppLogo } from '../../../shared/components/AppLogo';
 import { LogoutButton } from '../../../shared/components/LogoutButton';
@@ -26,7 +20,6 @@ import {
   HOME_PROMO,
   HOME_TESTIMONIALS,
 } from '../config/homeContent';
->>>>>>> main
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import type { OpenClassItem } from '../types/openClassTypes';
 import type { OpenClassesStatus } from '../hooks/useOpenClasses';
@@ -49,21 +42,11 @@ const MARKETPLACE_HOME_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER', '
 const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
 
 function Header() {
-<<<<<<< HEAD
-  const { user, isAuthenticated, logout } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    navigate('/', { replace: true });
-  };
-=======
   const { user } = useAuth();
 
   const profilePath =
     user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
   const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
->>>>>>> main
 
   return (
     <header className="tcs-header">
@@ -77,28 +60,6 @@ function Header() {
           <a href="#reviews">Đánh giá</a>
         </nav>
         <div className="tcs-header__actions">
-<<<<<<< HEAD
-          {isAuthenticated && user ? (
-            <>
-              <span className="tcs-header__user">
-                Xin chào, <strong>{user.displayName || user.email}</strong>
-              </span>
-              <Link className="tcs-btn tcs-btn--ghost" to="/profile">
-                Hồ sơ
-              </Link>
-              <button type="button" className="tcs-btn tcs-btn--primary" onClick={handleLogout}>
-                Đăng xuất
-              </button>
-            </>
-          ) : (
-            <>
-              <Link className="tcs-btn tcs-btn--ghost" to="/login">
-                Đăng nhập
-              </Link>
-              <Link className="tcs-btn tcs-btn--primary" to="/register">
-                Đăng ký
-              </Link>
-=======
           {user ? (
             <>
               {hasRole(user.role, 'PLATFORM_ADMIN') ? (
@@ -111,32 +72,22 @@ function Header() {
                   Quản lý trung tâm
                 </Link>
               ) : null}
-              {hasRole(user.role, 'PLATFORM_ADMIN') ? (
-                <Link to={profilePath} className="tcs-home-profile-btn">
-                  <span className="tcs-home-profile-btn__avatar">
-                    {userInitials(user.displayName, user.email)}
-                  </span>
-                  <span className="tcs-home-profile-btn__label">Hồ sơ</span>
-                </Link>
-              ) : (
-                <span className="tcs-home-profile-btn tcs-home-profile-btn--disabled" title="Sắp có">
-                  <span className="tcs-home-profile-btn__avatar">
-                    {userInitials(user.displayName, user.email)}
-                  </span>
-                  <span className="tcs-home-profile-btn__label">Hồ sơ</span>
+              <Link to={profilePath} className="tcs-home-profile-btn">
+                <span className="tcs-home-profile-btn__avatar">
+                  {userInitials(user.displayName, user.email)}
                 </span>
-              )}
+                <span className="tcs-home-profile-btn__label">Hồ sơ</span>
+              </Link>
               <LogoutButton />
             </>
           ) : (
             <>
-              <a className="tcs-btn tcs-btn--ghost tcs-btn--header" href="/login">
+              <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.login}>
                 Đăng nhập
-              </a>
-              <a className="tcs-btn tcs-btn--market tcs-btn--header" href="/register">
+              </Link>
+              <Link className="tcs-btn tcs-btn--market tcs-btn--header" to={APP_ROUTES.register}>
                 Đăng ký
-              </a>
->>>>>>> main
+              </Link>
             </>
           )}
         </div>
@@ -245,20 +196,7 @@ function TutorListSection({
             <span className="tcs-section-bar__count">{tutors.length} gia sư</span>
           ) : null}
         </div>
-<<<<<<< HEAD
-      </div>
-      <p className="tcs-tutor__bio">{tutor.bio?.trim() || 'Gia sư tận tâm, sẵn sàng đồng hành cùng học viên.'}</p>
-      <div className="tcs-tutor__foot">
-        <span className="tcs-tutor__price">{currency(tutor.hourlyRate)} đ/giờ</span>
-        <Link className="tcs-btn tcs-btn--soft" to="/login">
-          Xem hồ sơ
-        </Link>
-      </div>
-    </article>
-  );
-}
-=======
->>>>>>> main
+
 
         {tutors.length === 0 ? (
           <p className="tcs-empty">Chưa có gia sư nào để hiển thị.</p>

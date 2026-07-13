@@ -127,9 +127,20 @@ export default function ProfilePage() {
       errs.phone = 'Số điện thoại không hợp lệ (10 số, đầu 0 hoặc +84)';
     }
 
-    if (isClient && form.dateOfBirth) {
+    if ((isClient || isTutor) && form.dateOfBirth) {
       const dob = new Date(form.dateOfBirth);
-      if (Number.isNaN(dob.getTime())) errs.dateOfBirth = 'Ngày sinh không hợp lệ';
+      if (Number.isNaN(dob.getTime())) {
+        errs.dateOfBirth = 'Ngày sinh không hợp lệ';
+      } else if (dob > new Date()) {
+        errs.dateOfBirth = 'Ngày sinh không thể vượt quá hôm nay';
+      }
+    }
+
+    if (isClient || isTutor) {
+      const name = form.fullName.trim();
+      if (name && /[^a-zA-ZÀ-ỹ\s]/.test(name)) {
+        errs.fullName = 'Họ và tên không được chứa ký tự đặc biệt hoặc số';
+      }
     }
 
     if (isTutor) {
@@ -220,6 +231,11 @@ export default function ProfilePage() {
   return (
     <div className="profile-page">
       <header className="profile-header">
+        <div style={{ marginBottom: '1rem' }}>
+          <Link to="/" className="btn-secondary" style={{ display: 'inline-block', textDecoration: 'none', padding: '0.5rem 1rem' }}>
+            &larr; Về trang chủ
+          </Link>
+        </div>
         <h1>Hồ sơ cá nhân</h1>
         {profile && (
           <p className="profile-role">

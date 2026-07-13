@@ -40,10 +40,17 @@ import com.tcs.module.profile.repository.TutorExperienceRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.service.ProfileService;
 import com.tcs.security.AuthHelper;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -64,13 +71,12 @@ public class ProfileServiceImpl implements ProfileService {
     private final GradeRepository gradeRepository;
     private final TutorExperienceRepository tutorExperienceRepository;
     private final TutorAvailabilityRepository tutorAvailabilityRepository;
-<<<<<<< HEAD
-    private final VerificationRequestRepository verificationRequestRepository;
     private final MediaFileRepository mediaFileRepository;
-=======
     private final VerificationService verificationService;
->>>>>>> main
     private final PlatformMapper platformMapper;
+
+    @Value("${tcs.file.storage.path:uploads}")
+    private String storagePath;
 
     private static final long MAX_AVATAR_SIZE = 5L * 1024 * 1024; // 5 MB
 
@@ -264,6 +270,15 @@ public class ProfileServiceImpl implements ProfileService {
         String storedName = "avatar_" + ctx.user().getUserId() + "_" + UUID.randomUUID() + extension;
         String fileUrl = "/uploads/avatars/" + storedName;
 
+        try {
+            Path avatarDir = Paths.get(storagePath).toAbsolutePath().normalize().resolve("avatars");
+            Files.createDirectories(avatarDir);
+            Path target = avatarDir.resolve(storedName);
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException("Không thể lưu ảnh đại diện", e);
+        }
+
         MediaFile media = new MediaFile();
         media.setUploadedBy(ctx.user());
         media.setFileName(storedName);
@@ -283,7 +298,6 @@ public class ProfileServiceImpl implements ProfileService {
             tutorCenterRepository.save(ctx.center());
         }
 
-        // AF-02: file storage chưa có backend thật - trả URL để FE có thể hiển thị
         return fileUrl;
     }
 
