@@ -52,6 +52,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**")
                         .permitAll()
+                        .requestMatchers("/api/catalog/**")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/classes/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/tutors/**")
