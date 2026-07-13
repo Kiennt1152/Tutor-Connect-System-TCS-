@@ -10,7 +10,7 @@ export const APP_ROUTES = {
   catalog: '/catalog',
   verification: '/identity/verification',
   center: '/center',
-  marketplace: '/marketplace',
+  marketplace: '/Yeu-cau-tim-gia-su',
   contract: '/contract',
   messaging: '/messaging',
   platform: '/platform',
