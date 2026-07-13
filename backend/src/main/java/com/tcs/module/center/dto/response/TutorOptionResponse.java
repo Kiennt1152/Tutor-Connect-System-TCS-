@@ -17,4 +17,9 @@ public class TutorOptionResponse {
     private String phone;
     private String avatar;
     private String bio;
+
+    /** Gia sư bị trùng lịch dạy với lớp đang xét (chỉ có ý nghĩa khi truyền classId). */
+    private boolean scheduleConflict;
+    /** Tên lớp gây trùng lịch (null nếu không trùng). */
+    private String conflictClassTitle;
 }

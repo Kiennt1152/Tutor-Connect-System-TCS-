@@ -14,4 +14,6 @@ public interface ClassAssignmentRepository extends JpaRepository<ClassAssignment
             Long classId, ClassAssignmentStatus status);
 
     List<ClassAssignment> findByTutor_TutorIdAndStatus(Long tutorId, ClassAssignmentStatus status);
+
+    Optional<ClassAssignment> findFirstByApplication_ApplicationId(Long applicationId);
 }

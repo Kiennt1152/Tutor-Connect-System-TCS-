@@ -87,8 +87,8 @@ public class CenterController {
     }
 
     @GetMapping("/tutors")
-    public List<TutorOptionResponse> listTutors() {
-        return centerService.listTutors();
+    public List<TutorOptionResponse> listTutors(@RequestParam(required = false) Long classId) {
+        return centerService.listTutors(classId);
     }
 
     @PostMapping("/classes/{classId}/assign-tutor")

@@ -1,3 +1,12 @@
+.cc-bg {
+  min-height: calc(100vh - 64px);
+  background: linear-gradient(
+    180deg,
+    var(--color-primary-light) 0%,
+    var(--color-primary-xlight) 22%,
+    var(--color-surface-1) 60%
+  );
+}
 .cc-page {
   max-width: 960px;
   margin: 0 auto;
@@ -665,6 +674,21 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* Gia sư bị trùng lịch: làm mờ, không chọn được */
+.cc-tutor--conflict {
+  opacity: 0.55;
+  background: var(--color-surface-1);
+}
+.cc-tutor--conflict .cc-tutor__avatar {
+  filter: grayscale(1);
+}
+.cc-tutor__conflict {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--color-error);
 }
 
 @media (max-width: 720px) {

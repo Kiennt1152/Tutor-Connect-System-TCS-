@@ -57,6 +57,8 @@ export interface TutorOption {
   phone: string | null;
   avatar: string | null;
   bio: string | null;
+  scheduleConflict?: boolean;
+  conflictClassTitle?: string | null;
 }
 
 export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED';

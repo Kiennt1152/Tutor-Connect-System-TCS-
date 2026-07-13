@@ -415,7 +415,7 @@ export default function CenterPage() {
     setAssignError('');
     setTutorsLoading(true);
     try {
-      const res = await centerApi.getTutors();
+      const res = await centerApi.getTutors(cls.classId);
       setTutors(res.data);
     } catch (err) {
       setAssignError(extractError(err, 'Không tải được danh sách gia sư.'));
@@ -512,6 +512,7 @@ export default function CenterPage() {
   return (
     <>
       <VerificationHeader />
+      <div className="cc-bg">
       <div className="cc-page">
       <header className="cc-header">
         <h1 className="cc-title">{pageTitle}</h1>
@@ -1055,8 +1056,12 @@ export default function CenterPage() {
                 <ul className="cc-tutor-list">
                   {tutors.map((t) => {
                     const selected = assignFor.assignedTutorId === t.tutorId;
+                    const conflict = !!t.scheduleConflict && !selected;
                     return (
-                      <li className="cc-tutor" key={t.tutorId}>
+                      <li
+                        className={`cc-tutor${conflict ? ' cc-tutor--conflict' : ''}`}
+                        key={t.tutorId}
+                      >
                         <div className="cc-tutor__avatar">{initials(t.fullName)}</div>
                         <div className="cc-tutor__info">
                           <div className="cc-tutor__name">
@@ -1070,19 +1075,28 @@ export default function CenterPage() {
                             {t.ratingAvg != null && <span>★ {t.ratingAvg}</span>}
                             {t.phone && <span>{t.phone}</span>}
                           </div>
-                          {t.bio && <div className="cc-tutor__bio">{t.bio}</div>}
+                          {conflict ? (
+                            <div className="cc-tutor__conflict">
+                              ⚠ Trùng lịch dạy
+                              {t.conflictClassTitle ? ` với lớp "${t.conflictClassTitle}"` : ''}
+                            </div>
+                          ) : (
+                            t.bio && <div className="cc-tutor__bio">{t.bio}</div>
+                          )}
                         </div>
                         <button
                           className="cc-btn cc-btn--primary cc-btn--sm"
                           type="button"
-                          disabled={assignBusyId === t.tutorId || selected}
+                          disabled={assignBusyId === t.tutorId || selected || conflict}
                           onClick={() => pickTutor(t.tutorId)}
                         >
                           {selected
                             ? 'Đang dạy'
-                            : assignBusyId === t.tutorId
-                              ? 'Đang gán…'
-                              : 'Chọn'}
+                            : conflict
+                              ? 'Trùng lịch'
+                              : assignBusyId === t.tutorId
+                                ? 'Đang gán…'
+                                : 'Chọn'}
                         </button>
                       </li>
                     );
@@ -1093,6 +1107,7 @@ export default function CenterPage() {
           </div>
         </div>
       )}
+      </div>
       </div>
     </>
   );

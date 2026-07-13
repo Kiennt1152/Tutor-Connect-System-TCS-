@@ -228,20 +228,33 @@ public class CenterServiceImpl implements CenterService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<TutorOptionResponse> listTutors() {
+    public List<TutorOptionResponse> listTutors(Long classId) {
         requireCenter();
+        // Nếu có classId: nạp lớp (đảm bảo quyền sở hữu) để đánh dấu gia sư trùng lịch.
+        TutoringClass target = null;
+        if (classId != null) {
+            target = findClass(classId);
+            requireOwner(target);
+        }
+        final TutoringClass targetClass = target;
         return tutorRepository.findAll().stream()
-                .map(t -> TutorOptionResponse.builder()
-                        .tutorId(t.getTutorId())
-                        .fullName(t.getFullName())
-                        .experienceYears(t.getExperienceYears())
-                        .ratingAvg(t.getRatingAvg())
-                        .verificationStatus(t.getVerificationStatus() == null
-                                ? null : t.getVerificationStatus().name())
-                        .phone(t.getPhone())
-                        .avatar(t.getAvatar())
-                        .bio(t.getBio())
-                        .build())
+                .map(t -> {
+                    TutoringClass conflict =
+                            targetClass != null ? findScheduleConflict(targetClass, t.getTutorId()) : null;
+                    return TutorOptionResponse.builder()
+                            .tutorId(t.getTutorId())
+                            .fullName(t.getFullName())
+                            .experienceYears(t.getExperienceYears())
+                            .ratingAvg(t.getRatingAvg())
+                            .verificationStatus(t.getVerificationStatus() == null
+                                    ? null : t.getVerificationStatus().name())
+                            .phone(t.getPhone())
+                            .avatar(t.getAvatar())
+                            .bio(t.getBio())
+                            .scheduleConflict(conflict != null)
+                            .conflictClassTitle(conflict != null ? conflict.getTitle() : null)
+                            .build();
+                })
                 .toList();
     }
 
@@ -258,6 +271,14 @@ public class CenterServiceImpl implements CenterService {
                 .findById(tutorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
 
+        // Chống trùng lịch: gia sư không được có lịch dạy trùng thời gian với lớp đang gán.
+        TutoringClass conflict = findScheduleConflict(tutoringClass, tutorId);
+        if (conflict != null) {
+            throw new IllegalArgumentException("Gia sư " + tutor.getFullName()
+                    + " đã có lịch dạy trùng thời gian với lớp này (trùng lớp \""
+                    + conflict.getTitle() + "\"). Vui lòng chọn gia sư khác.");
+        }
+
         // Kết thúc lượt gán cũ (nếu có) rồi tạo lượt gán mới.
         classAssignmentRepository
                 .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
@@ -267,13 +288,22 @@ public class CenterServiceImpl implements CenterService {
                 });
 
         // Liên kết lớp với gia sư qua tutor_applications (schema sẵn có, không cần cột class_id).
-        TutorApplication application = new TutorApplication();
-        application.setTutoringClass(tutoringClass);
-        application.setTutor(tutor);
+        // Dùng lại đơn cũ nếu gia sư đã từng ứng tuyển/được gán lớp này — tránh vi phạm UNIQUE(class_id, tutor_id).
+        TutorApplication application = tutorApplicationRepository
+                .findFirstByTutoringClass_ClassIdAndTutor_TutorId(classId, tutor.getTutorId())
+                .orElseGet(() -> {
+                    TutorApplication app = new TutorApplication();
+                    app.setTutoringClass(tutoringClass);
+                    app.setTutor(tutor);
+                    return app;
+                });
         application.setStatus(TutorApplicationStatus.ACCEPTED);
         TutorApplication savedApp = tutorApplicationRepository.save(application);
 
-        ClassAssignment assignment = new ClassAssignment();
+        // Mỗi application chỉ có 1 lượt gán (UNIQUE application_id) — dùng lại nếu đã có, đặt lại ACTIVE.
+        ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_ApplicationId(savedApp.getApplicationId())
+                .orElseGet(ClassAssignment::new);
         assignment.setApplication(savedApp);
         assignment.setTutor(tutor);
         assignment.setStatus(ClassAssignmentStatus.ACTIVE);
@@ -472,6 +502,63 @@ public class CenterServiceImpl implements CenterService {
                 }
             }
         }
+    }
+
+    /**
+     * Tìm lớp mà gia sư đang phụ trách (ACTIVE) bị trùng lịch với lớp {@code target}.
+     * Trùng khi: khoảng ngày giao nhau, và có tiết cùng thứ (thứ đó nằm trong phần ngày giao)
+     * với giờ chồng lên nhau. Trả về lớp trùng đầu tiên tìm được, hoặc null nếu không trùng.
+     */
+    private TutoringClass findScheduleConflict(TutoringClass target, Long tutorId) {
+        if (target.getStartDate() == null || target.getEndDate() == null) {
+            return null;
+        }
+        List<ScheduleSlot> targetSlots =
+                scheduleSlotRepository.findByTutoringClass_ClassId(target.getClassId());
+        if (targetSlots.isEmpty()) {
+            return null;
+        }
+        for (ClassAssignment a :
+                classAssignmentRepository.findByTutor_TutorIdAndStatus(tutorId, ClassAssignmentStatus.ACTIVE)) {
+            TutoringClass other = a.getApplication() != null ? a.getApplication().getTutoringClass() : null;
+            if (other == null || other.getClassId().equals(target.getClassId())) {
+                continue; // bỏ qua chính lớp đang gán
+            }
+            if (other.getStartDate() == null || other.getEndDate() == null) {
+                continue;
+            }
+            // Phần ngày giao nhau giữa hai lớp.
+            LocalDate overlapStart = target.getStartDate().isAfter(other.getStartDate())
+                    ? target.getStartDate() : other.getStartDate();
+            LocalDate overlapEnd = target.getEndDate().isBefore(other.getEndDate())
+                    ? target.getEndDate() : other.getEndDate();
+            if (overlapStart.isAfter(overlapEnd)) {
+                continue; // không giao ngày
+            }
+            Set<Integer> windowDays = weekdaysInRange(overlapStart, overlapEnd);
+            List<ScheduleSlot> otherSlots =
+                    scheduleSlotRepository.findByTutoringClass_ClassId(other.getClassId());
+            for (ScheduleSlot s1 : targetSlots) {
+                if (s1.getDayOfWeek() == null || s1.getStartTime() == null || s1.getEndTime() == null
+                        || !windowDays.contains(s1.getDayOfWeek())) {
+                    continue;
+                }
+                for (ScheduleSlot s2 : otherSlots) {
+                    if (s2.getDayOfWeek() == null || s2.getStartTime() == null || s2.getEndTime() == null) {
+                        continue;
+                    }
+                    if (!s1.getDayOfWeek().equals(s2.getDayOfWeek())) {
+                        continue;
+                    }
+                    boolean timeOverlap = s1.getStartTime().isBefore(s2.getEndTime())
+                            && s2.getStartTime().isBefore(s1.getEndTime());
+                    if (timeOverlap) {
+                        return other;
+                    }
+                }
+            }
+        }
+        return null;
     }
 
     /** Tập các thứ (1=T2..7=CN) xuất hiện trong khoảng ngày [start, end]. */

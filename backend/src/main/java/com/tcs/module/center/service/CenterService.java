@@ -32,8 +32,11 @@ public interface CenterService {
     /** Đăng tải lớp (DRAFT -> OPEN) để hiển thị ở "Tìm lớp". */
     CenterClassResponse publishClass(Long classId);
 
-    /** Danh sách gia sư để trung tâm chọn gán (tạm thời lấy tất cả). */
-    List<TutorOptionResponse> listTutors();
+    /**
+     * Danh sách gia sư để trung tâm chọn gán (tạm thời lấy tất cả).
+     * Nếu truyền {@code classId}, mỗi gia sư sẽ được đánh dấu có trùng lịch với lớp đó hay không.
+     */
+    List<TutorOptionResponse> listTutors(Long classId);
 
     /** Gán 1 gia sư cho lớp của trung tâm (thay gia sư cũ nếu đã có). */
     CenterClassResponse assignTutor(Long classId, Long tutorId);

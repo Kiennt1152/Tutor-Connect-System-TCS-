@@ -65,6 +65,7 @@ export default function CenterSchedulePage() {
   return (
     <>
       <VerificationHeader />
+      <div className="cs-bg">
       <div className="cs-page">
         <div className="cs-topbar">
           <Link className="cs-back" to="/center">
@@ -197,6 +198,7 @@ export default function CenterSchedulePage() {
             })}
           </div>
         )}
+      </div>
       </div>
     </>
   );

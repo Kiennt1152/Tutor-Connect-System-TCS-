@@ -25,8 +25,9 @@ export const centerApi = {
   publishClass(classId: number) {
     return axiosClient.post<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/publish`);
   },
-  getTutors() {
-    return axiosClient.get<TutorOption[]>(`${CENTER_API_BASE}/tutors`);
+  getTutors(classId?: number) {
+    const q = classId != null ? `?classId=${classId}` : '';
+    return axiosClient.get<TutorOption[]>(`${CENTER_API_BASE}/tutors${q}`);
   },
   assignTutor(classId: number, tutorId: number) {
     return axiosClient.post<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/assign-tutor`, {
