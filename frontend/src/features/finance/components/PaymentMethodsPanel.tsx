@@ -4,6 +4,13 @@ import type {
   PaymentMethodPayload,
 } from '../types/financeTypes';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
+import {
+  BANK_OPTIONS,
+  type BankOption,
+  BankPickerDialog,
+  BankSelectField,
+  findBankByName,
+} from './BankPicker';
 
 interface Props {
   paymentMethods: PaymentMethodInfo[];
@@ -32,16 +39,19 @@ export function PaymentMethodsPanel({
 }: Props) {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<PaymentMethodInfo | null>(null);
-  const [bankName, setBankName] = useState('');
+  const [selectedBankCode, setSelectedBankCode] = useState('');
+  const [bankPickerOpen, setBankPickerOpen] = useState(false);
   const [accountNo, setAccountNo] = useState('');
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
 
   function openCreateForm() {
     setEditing(null);
-    setBankName('');
+    setSelectedBankCode('');
+    setBankPickerOpen(false);
     setAccountNo('');
     setError(null);
     setSuccess(null);
@@ -50,7 +60,8 @@ export function PaymentMethodsPanel({
 
   function openEditForm(method: PaymentMethodInfo) {
     setEditing(method);
-    setBankName(displayBankName(method));
+    setSelectedBankCode(findBankByName(displayBankName(method))?.code ?? '');
+    setBankPickerOpen(false);
     setAccountNo('');
     setError(null);
     setSuccess(null);
@@ -61,16 +72,21 @@ export function PaymentMethodsPanel({
     if (saving) return;
     setFormOpen(false);
     setEditing(null);
-    setBankName('');
+    setSelectedBankCode('');
+    setBankPickerOpen(false);
     setAccountNo('');
     setError(null);
   }
 
+  function handleSelectBank(bank: BankOption) {
+    setSelectedBankCode(bank.code);
+    setBankPickerOpen(false);
+  }
+
   async function handleSubmit() {
-    const normalizedBankName = bankName.trim();
     const normalizedAccountNo = accountNo.trim().replace(/\s+/g, '');
-    if (!normalizedBankName) {
-      setError('Vui lòng nhập tên ngân hàng');
+    if (!selectedBank) {
+      setError('Vui lòng chọn ngân hàng');
       return;
     }
     if (!/^[A-Za-z0-9]{4,50}$/.test(normalizedAccountNo)) {
@@ -84,20 +100,21 @@ export function PaymentMethodsPanel({
     try {
       if (editing) {
         await onUpdate(editing.paymentMethodId, {
-          bankName: normalizedBankName,
+          bankName: selectedBank.name,
           accountNo: normalizedAccountNo,
         });
         setSuccess('Đã cập nhật tài khoản nhận tiền.');
       } else {
         await onCreate({
-          bankName: normalizedBankName,
+          bankName: selectedBank.name,
           accountNo: normalizedAccountNo,
         });
         setSuccess('Đã thêm tài khoản nhận tiền.');
       }
       setFormOpen(false);
       setEditing(null);
-      setBankName('');
+      setSelectedBankCode('');
+      setBankPickerOpen(false);
       setAccountNo('');
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Không thể lưu tài khoản nhận tiền.'));
@@ -146,15 +163,14 @@ export function PaymentMethodsPanel({
       {formOpen && (
         <div className="payment-method-form">
           <div className="payment-method-form__grid">
-            <label>
+            <div className="payment-method-form__field">
               <span>Ngân hàng</span>
-              <input
-                className="form-input"
-                value={bankName}
-                onChange={(event) => setBankName(event.target.value)}
-                placeholder="Ví dụ: Techcombank"
+              <BankSelectField
+                id="payment-method-bank-field"
+                selectedBank={selectedBank}
+                onOpen={() => setBankPickerOpen(true)}
               />
-            </label>
+            </div>
             <label>
               <span>Số tài khoản</span>
               <input
@@ -173,6 +189,12 @@ export function PaymentMethodsPanel({
               {saving ? 'Đang lưu...' : editing ? 'Cập nhật' : 'Lưu tài khoản'}
             </button>
           </div>
+          <BankPickerDialog
+            open={bankPickerOpen}
+            selectedBankCode={selectedBankCode}
+            onSelect={handleSelectBank}
+            onClose={() => setBankPickerOpen(false)}
+          />
         </div>
       )}
 
