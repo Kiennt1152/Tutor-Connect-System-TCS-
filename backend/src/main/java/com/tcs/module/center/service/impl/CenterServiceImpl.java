@@ -771,7 +771,7 @@ public class CenterServiceImpl implements CenterService {
     // Tìm-hoặc-tạo theo tên người dùng tự nhập (giữ FK toàn vẹn mà không cần dropdown).
     private Category resolveOrCreateCategory(String name) {
         String n = name.trim();
-        return categoryRepository.findFirstByNameIgnoreCase(n).orElseGet(() -> {
+        return categoryRepository.findByNameIgnoreCase(n).orElseGet(() -> {
             Category c = new Category();
             c.setName(n);
             return categoryRepository.save(c);
