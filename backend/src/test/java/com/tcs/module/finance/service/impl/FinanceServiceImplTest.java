@@ -196,6 +196,135 @@ class FinanceServiceImplTest {
     }
 
     @Test
+    @DisplayName("handleSepayOutgoingWebhook completes a pending withdrawal from SePay money-out")
+    void handleSepayOutgoingWebhookCompletesPendingWithdrawal() {
+        BigDecimal amount = new BigDecimal("100000.00");
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 7, 13, 9, 0);
+        PaymentMethod method = savedPaymentMethod();
+        WithdrawalRequest withdrawal = pendingWithdrawal(15L, method, amount, requestedAt);
+        PaymentTransaction tx = pendingWithdrawalTransaction(method, amount, "WITHDRAW-ABC", requestedAt);
+
+        Wallet releasedWallet = new Wallet();
+        releasedWallet.setWalletId(USER_ID);
+        releasedWallet.setAvailableBalance(new BigDecimal("150000.00"));
+        releasedWallet.setFrozenBalance(BigDecimal.ZERO);
+        releasedWallet.setStatus(WalletStatus.ACTIVE);
+
+        SepayWebhookRequest request = new SepayWebhookRequest();
+        request.setId(987L);
+        request.setTransferType("out");
+        request.setTransferAmount(amount);
+        request.setContent("Chuyen tien rut vi WITHDRAW-ABC");
+        request.setAccountNumber("02660559201");
+
+        when(paymentTransactionRepository.findByExternalTransactionId("SEPAY-OUT-987"))
+                .thenReturn(Optional.empty());
+        when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                PaymentTransactionType.WITHDRAWAL,
+                PaymentTransactionStatus.PENDING,
+                amount))
+                .thenReturn(List.of(tx));
+        when(withdrawalRequestRepository
+                .findByWallet_WalletIdAndStatusAndAmountAndRequestedAtBetweenOrderByRequestedAtAsc(
+                        USER_ID,
+                        WithdrawalRequestStatus.PENDING,
+                        amount,
+                        requestedAt.minusMinutes(5),
+                        requestedAt.plusMinutes(5)))
+                .thenReturn(List.of(withdrawal));
+        when(walletService.releaseLockedFunds(USER_ID, amount, "WITHDRAW-ABC")).thenReturn(releasedWallet);
+        when(withdrawalRequestRepository.save(any(WithdrawalRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentWebhookResponse response = financeService.handleSepayOutgoingWebhook(request);
+
+        assertEquals("success", response.getStatus());
+        assertEquals("WITHDRAW-ABC", response.getReference());
+        assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
+        assertEquals("SEPAY-OUT-987", tx.getExternalTransactionId());
+        assertEquals("Yêu cầu rút tiền đã được xác nhận qua SePay", tx.getDescription());
+        assertEquals(WithdrawalRequestStatus.COMPLETED, withdrawal.getStatus());
+        verify(walletService).releaseLockedFunds(USER_ID, amount, "WITHDRAW-ABC");
+        verify(paymentTransactionRepository).save(tx);
+        verify(withdrawalRequestRepository).save(withdrawal);
+    }
+
+    @Test
+    @DisplayName("handleSepayOutgoingWebhook can match a withdrawal request id in transfer content")
+    void handleSepayOutgoingWebhookMatchesWithdrawalRequestId() {
+        BigDecimal amount = new BigDecimal("100000.00");
+        LocalDateTime requestedAt = LocalDateTime.of(2026, 7, 13, 9, 0);
+        PaymentMethod method = savedPaymentMethod();
+        WithdrawalRequest withdrawal = pendingWithdrawal(15L, method, amount, requestedAt);
+        PaymentTransaction tx = pendingWithdrawalTransaction(method, amount, "WITHDRAW-4F2A9B10", requestedAt);
+
+        Wallet releasedWallet = new Wallet();
+        releasedWallet.setWalletId(USER_ID);
+        releasedWallet.setAvailableBalance(new BigDecimal("150000.00"));
+        releasedWallet.setFrozenBalance(BigDecimal.ZERO);
+        releasedWallet.setStatus(WalletStatus.ACTIVE);
+
+        SepayWebhookRequest request = new SepayWebhookRequest();
+        request.setId(988L);
+        request.setTransferType("out");
+        request.setTransferAmount(amount);
+        request.setContent("Rut tien WITHDRAW-15");
+        request.setAccountNumber("02660559201");
+
+        when(paymentTransactionRepository.findByExternalTransactionId("SEPAY-OUT-988"))
+                .thenReturn(Optional.empty());
+        when(withdrawalRequestRepository.findById(15L)).thenReturn(Optional.of(withdrawal));
+        when(paymentTransactionRepository
+                .findByWallet_WalletIdAndTypeAndStatusAndAmountAndCreatedAtBetweenOrderByCreatedAtAsc(
+                        USER_ID,
+                        PaymentTransactionType.WITHDRAWAL,
+                        PaymentTransactionStatus.PENDING,
+                        amount,
+                        requestedAt.minusMinutes(5),
+                        requestedAt.plusMinutes(5)))
+                .thenReturn(List.of(tx));
+        when(walletService.releaseLockedFunds(USER_ID, amount, "WITHDRAW-4F2A9B10")).thenReturn(releasedWallet);
+        when(withdrawalRequestRepository.save(any(WithdrawalRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentWebhookResponse response = financeService.handleSepayOutgoingWebhook(request);
+
+        assertEquals("success", response.getStatus());
+        assertEquals("WITHDRAW-4F2A9B10", response.getReference());
+        assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
+        assertEquals("SEPAY-OUT-988", tx.getExternalTransactionId());
+        assertEquals(WithdrawalRequestStatus.COMPLETED, withdrawal.getStatus());
+        verify(walletService).releaseLockedFunds(USER_ID, amount, "WITHDRAW-4F2A9B10");
+    }
+
+    @Test
+    @DisplayName("handleSepayOutgoingWebhook ignores duplicate money-out webhooks")
+    void handleSepayOutgoingWebhookIgnoresDuplicateExternalTransaction() {
+        PaymentMethod method = savedPaymentMethod();
+        PaymentTransaction tx = pendingWithdrawalTransaction(
+                method,
+                new BigDecimal("100000.00"),
+                "WITHDRAW-ABC",
+                LocalDateTime.of(2026, 7, 13, 9, 0));
+
+        SepayWebhookRequest request = new SepayWebhookRequest();
+        request.setId(987L);
+        request.setTransferType("out");
+        request.setTransferAmount(new BigDecimal("100000.00"));
+        request.setContent("WITHDRAW-ABC");
+
+        when(paymentTransactionRepository.findByExternalTransactionId("SEPAY-OUT-987"))
+                .thenReturn(Optional.of(tx));
+
+        PaymentWebhookResponse response = financeService.handleSepayOutgoingWebhook(request);
+
+        assertEquals("success", response.getStatus());
+        assertEquals("WITHDRAW-ABC", response.getReference());
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        verify(paymentTransactionRepository, never()).save(any());
+    }
+
+    @Test
     @DisplayName("getPaymentMethods returns active saved payout accounts")
     void getPaymentMethodsReturnsActiveMethods() {
         PaymentMethod method = new PaymentMethod();

@@ -27,6 +27,10 @@ public interface FinanceService {
 
     PaymentWebhookResponse handleSepayWebhook(SepayWebhookRequest request);
 
+    PaymentWebhookResponse handleSepayIncomingWebhook(SepayWebhookRequest request);
+
+    PaymentWebhookResponse handleSepayOutgoingWebhook(SepayWebhookRequest request);
+
     List<PaymentMethodResponse> getPaymentMethods();
 
     PaymentMethodResponse createPaymentMethod(PaymentMethodRequest request);

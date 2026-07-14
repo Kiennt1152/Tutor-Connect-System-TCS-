@@ -38,6 +38,8 @@ import java.time.ZoneId;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -60,6 +62,8 @@ public class FinanceServiceImpl implements FinanceService {
     private static final String BANK_TRANSFER_TYPE = "BANK_TRANSFER";
     private static final String PAYMENT_METHOD_ACTIVE = "ACTIVE";
     private static final String PAYMENT_METHOD_INACTIVE = "INACTIVE";
+    private static final Pattern WITHDRAWAL_REQUEST_ALIAS_PATTERN =
+            Pattern.compile("(?i)\\bWITHDRAW\\s*-\\s*(\\d+)\\b");
 
     private final AuthHelper authHelper;
     private final WalletService walletService;
@@ -145,10 +149,19 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public PaymentWebhookResponse handleSepayWebhook(SepayWebhookRequest request) {
-        if (request.getId() == null || request.getTransferAmount() == null || isBlank(request.getContent())) {
+        if ("out".equalsIgnoreCase(request != null ? request.getTransferType() : null)) {
+            return handleSepayOutgoingWebhook(request);
+        }
+        return handleSepayIncomingWebhook(request);
+    }
+
+    @Override
+    @Transactional
+    public PaymentWebhookResponse handleSepayIncomingWebhook(SepayWebhookRequest request) {
+        if (isInvalidWebhookRequest(request)) {
             return PaymentWebhookResponse.builder()
                     .status("error")
-                    .message("Thiếu id, transferAmount hoặc content")
+                    .message("Thiếu id, transferAmount hoặc nội dung giao dịch")
                     .build();
         }
 
@@ -180,6 +193,58 @@ public class FinanceServiceImpl implements FinanceService {
                 .status("success")
                 .message("Đã ghi nhận giao dịch SePay thành công")
                 .reference(matched.getReferenceCode())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public PaymentWebhookResponse handleSepayOutgoingWebhook(SepayWebhookRequest request) {
+        if (isInvalidWebhookRequest(request)) {
+            return PaymentWebhookResponse.builder()
+                    .status("error")
+                    .message("Thiếu id, transferAmount hoặc nội dung giao dịch")
+                    .build();
+        }
+
+        if (!"out".equalsIgnoreCase(request.getTransferType())) {
+            return PaymentWebhookResponse.builder()
+                    .status("ignored")
+                    .message("Giao dịch không phải tiền ra")
+                    .build();
+        }
+
+        String externalTransactionId = sepayOutgoingExternalId(request.getId());
+        PaymentTransaction duplicate = paymentTransactionRepository
+                .findByExternalTransactionId(externalTransactionId)
+                .orElse(null);
+        if (duplicate != null) {
+            return PaymentWebhookResponse.builder()
+                    .status("success")
+                    .message("Webhook đã được xử lý trước đó")
+                    .reference(duplicate.getReferenceCode())
+                    .build();
+        }
+
+        WithdrawalMatch match = findMatchingWithdrawal(request);
+        PaymentTransaction tx = match != null ? match.tx() : null;
+        WithdrawalRequest withdrawal = match != null ? match.withdrawal() : null;
+        if (withdrawal == null) {
+            return PaymentWebhookResponse.builder()
+                    .status("ignored")
+                    .message("Không tìm thấy yêu cầu rút tiền khớp số tiền, nội dung và tài khoản")
+                    .reference(tx != null ? tx.getReferenceCode() : null)
+                    .build();
+        }
+
+        completeWithdrawal(
+                withdrawal,
+                tx,
+                externalTransactionId,
+                "Yêu cầu rút tiền đã được xác nhận qua SePay");
+        return PaymentWebhookResponse.builder()
+                .status("success")
+                .message("Đã xác nhận giao dịch rút tiền từ SePay")
+                .reference(tx.getReferenceCode())
                 .build();
     }
 
@@ -304,24 +369,7 @@ public class FinanceServiceImpl implements FinanceService {
             throw new IllegalArgumentException("Không xác định được giao dịch rút tiền tương ứng");
         }
 
-        LocalDateTime now = LocalDateTime.now();
-        Wallet wallet = walletService.releaseLockedFunds(
-                withdrawal.getWallet().getWalletId(),
-                withdrawal.getAmount(),
-                tx.getReferenceCode());
-
-        tx.setStatus(PaymentTransactionStatus.SUCCESS);
-        tx.setDescription("Yêu cầu rút tiền đã được duyệt");
-        tx.setProcessedAt(now);
-        tx.setFailureReason(null);
-        paymentTransactionRepository.save(tx);
-
-        withdrawal.setStatus(WithdrawalRequestStatus.COMPLETED);
-        withdrawal.setProcessedAt(now);
-        withdrawal.setFailureReason(null);
-        WithdrawalRequest savedWithdrawal = withdrawalRequestRepository.save(withdrawal);
-
-        return toWithdrawalResponse(savedWithdrawal, tx, wallet);
+        return completeWithdrawal(withdrawal, tx, null, "Yêu cầu rút tiền đã được duyệt");
     }
 
     @Override
@@ -437,16 +485,73 @@ public class FinanceServiceImpl implements FinanceService {
                 PaymentTransactionStatus.PENDING,
                 request.getTransferAmount());
 
-        String content = compact(request.getContent());
-        String code = compact(request.getCode());
+        String payload = compactWebhookPayload(request);
         String accountNumber = compact(request.getAccountNumber());
 
         return candidates.stream()
                 .filter(tx -> !isTopupExpired(tx))
                 .filter(tx -> accountMatches(accountNumber))
-                .filter(tx -> transferContentMatches(tx, content, code))
+                .filter(tx -> transferContentMatches(tx, payload))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private WithdrawalMatch findMatchingWithdrawal(SepayWebhookRequest request) {
+        WithdrawalMatch requestIdMatch = findMatchingWithdrawalByRequestId(request);
+        if (requestIdMatch != null) {
+            return requestIdMatch;
+        }
+
+        List<PaymentTransaction> matches = findMatchingWithdrawalTransactions(request);
+        if (matches.size() != 1) {
+            return null;
+        }
+
+        PaymentTransaction tx = matches.get(0);
+        WithdrawalRequest withdrawal = findMatchingPendingWithdrawal(tx);
+        return withdrawal != null ? new WithdrawalMatch(withdrawal, tx) : null;
+    }
+
+    private WithdrawalMatch findMatchingWithdrawalByRequestId(SepayWebhookRequest request) {
+        Long withdrawalId = extractWithdrawalRequestId(request);
+        if (withdrawalId == null) {
+            return null;
+        }
+
+        WithdrawalRequest withdrawal = withdrawalRequestRepository.findById(withdrawalId).orElse(null);
+        if (withdrawal == null
+                || withdrawal.getStatus() != WithdrawalRequestStatus.PENDING
+                || withdrawal.getAmount() == null
+                || withdrawal.getAmount().compareTo(request.getTransferAmount()) != 0) {
+            return null;
+        }
+
+        PaymentTransaction tx = findSafeWithdrawalTransaction(withdrawal);
+        return tx != null ? new WithdrawalMatch(withdrawal, tx) : null;
+    }
+
+    private Long extractWithdrawalRequestId(SepayWebhookRequest request) {
+        Matcher matcher = WITHDRAWAL_REQUEST_ALIAS_PATTERN.matcher(rawWebhookPayload(request));
+        if (!matcher.find()) {
+            return null;
+        }
+        return Long.valueOf(matcher.group(1));
+    }
+
+    private List<PaymentTransaction> findMatchingWithdrawalTransactions(SepayWebhookRequest request) {
+        String accountNumber = compact(request.getAccountNumber());
+        if (!accountMatches(accountNumber)) {
+            return List.of();
+        }
+
+        String payload = compactWebhookPayload(request);
+        return paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                        PaymentTransactionType.WITHDRAWAL,
+                        PaymentTransactionStatus.PENDING,
+                        request.getTransferAmount())
+                .stream()
+                .filter(tx -> transferContentMatches(tx, payload))
+                .toList();
     }
 
     private boolean accountMatches(String incomingAccountNumber) {
@@ -459,12 +564,111 @@ public class FinanceServiceImpl implements FinanceService {
                 || configuredAccount.contains(incomingAccountNumber);
     }
 
-    private boolean transferContentMatches(PaymentTransaction tx, String content, String code) {
+    private boolean transferContentMatches(PaymentTransaction tx, String payload) {
         String reference = compact(tx.getReferenceCode());
         if (reference.isBlank()) {
             return false;
         }
-        return content.contains(reference) || code.contains(reference);
+        return payload.contains(reference);
+    }
+
+    private boolean isInvalidWebhookRequest(SepayWebhookRequest request) {
+        return request == null
+                || request.getId() == null
+                || request.getTransferAmount() == null
+                || request.getTransferAmount().compareTo(BigDecimal.ZERO) <= 0
+                || compactWebhookPayload(request).isBlank();
+    }
+
+    private String compactWebhookPayload(SepayWebhookRequest request) {
+        if (request == null) {
+            return "";
+        }
+        return compact(rawWebhookPayload(request));
+    }
+
+    private String rawWebhookPayload(SepayWebhookRequest request) {
+        if (request == null) {
+            return "";
+        }
+        return valueOrEmpty(request.getContent())
+                + " "
+                + valueOrEmpty(request.getCode())
+                + " "
+                + valueOrEmpty(request.getDescription())
+                + " "
+                + valueOrEmpty(request.getReferenceCode());
+    }
+
+    private String valueOrEmpty(String value) {
+        return value == null ? "" : value;
+    }
+
+    private String sepayOutgoingExternalId(Long id) {
+        return "SEPAY-OUT-" + id;
+    }
+
+    private WithdrawalRequest findMatchingPendingWithdrawal(PaymentTransaction tx) {
+        if (tx.getWallet() == null || tx.getCreatedAt() == null || tx.getAmount() == null) {
+            return null;
+        }
+
+        LocalDateTime from = tx.getCreatedAt().minusMinutes(WITHDRAWAL_MATCH_WINDOW_MINUTES);
+        LocalDateTime to = tx.getCreatedAt().plusMinutes(WITHDRAWAL_MATCH_WINDOW_MINUTES);
+        List<WithdrawalRequest> candidates =
+                withdrawalRequestRepository
+                        .findByWallet_WalletIdAndStatusAndAmountAndRequestedAtBetweenOrderByRequestedAtAsc(
+                                tx.getWallet().getWalletId(),
+                                WithdrawalRequestStatus.PENDING,
+                                tx.getAmount(),
+                                from,
+                                to);
+
+        List<WithdrawalRequest> matched = candidates.stream()
+                .filter(withdrawal -> paymentMethodMatches(withdrawal, tx))
+                .toList();
+        return matched.size() == 1 ? matched.get(0) : null;
+    }
+
+    private boolean paymentMethodMatches(WithdrawalRequest withdrawal, PaymentTransaction tx) {
+        if (tx.getPaymentMethod() == null) {
+            return true;
+        }
+        if (withdrawal.getPaymentMethod() == null) {
+            return false;
+        }
+        return Objects.equals(
+                withdrawal.getPaymentMethod().getPaymentMethodId(),
+                tx.getPaymentMethod().getPaymentMethodId());
+    }
+
+    private WithdrawalResponse completeWithdrawal(
+            WithdrawalRequest withdrawal,
+            PaymentTransaction tx,
+            String externalTransactionId,
+            String description) {
+
+        LocalDateTime now = LocalDateTime.now();
+        Wallet wallet = walletService.releaseLockedFunds(
+                withdrawal.getWallet().getWalletId(),
+                withdrawal.getAmount(),
+                tx.getReferenceCode());
+
+        tx.setStatus(PaymentTransactionStatus.SUCCESS);
+        tx.setDescription(description);
+        if (!isBlank(externalTransactionId)) {
+            tx.setExternalTransactionId(externalTransactionId);
+        }
+        tx.setProcessedAt(now);
+        tx.setFailureReason(null);
+        paymentTransactionRepository.save(tx);
+
+        withdrawal.setStatus(WithdrawalRequestStatus.COMPLETED);
+        withdrawal.setProcessedAt(now);
+        withdrawal.setFailureReason(null);
+        WithdrawalRequest savedWithdrawal = withdrawalRequestRepository.save(withdrawal);
+
+        return toWithdrawalResponse(savedWithdrawal, tx, wallet);
     }
 
     private TopupStatusResponse completeTopup(
@@ -741,5 +945,8 @@ public class FinanceServiceImpl implements FinanceService {
     }
 
     private record PaymentMethodData(String bankName, String accountNo) {
+    }
+
+    private record WithdrawalMatch(WithdrawalRequest withdrawal, PaymentTransaction tx) {
     }
 }

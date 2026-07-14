@@ -76,6 +76,16 @@ public class FinanceController {
         return financeService.handleSepayWebhook(request);
     }
 
+    @PostMapping("/webhooks/sepay/in")
+    public PaymentWebhookResponse handleSepayIncomingWebhook(@RequestBody SepayWebhookRequest request) {
+        return financeService.handleSepayIncomingWebhook(request);
+    }
+
+    @PostMapping("/webhooks/sepay/out")
+    public PaymentWebhookResponse handleSepayOutgoingWebhook(@RequestBody SepayWebhookRequest request) {
+        return financeService.handleSepayOutgoingWebhook(request);
+    }
+
     @GetMapping("/payment-methods")
     public List<PaymentMethodResponse> getPaymentMethods() {
         return financeService.getPaymentMethods();
