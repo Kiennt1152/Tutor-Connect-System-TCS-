@@ -7,6 +7,7 @@ import type {
   UpdateUserStatusApiRequest,
   UserListItemApiResponse,
   UserListFilters,
+  VerificationDetailApiResponse,
   VerificationRequestApiResponse,
 } from '../types/platformTypes';
 import { buildUserListQuery } from '../mappers/platformMapper';
@@ -28,6 +29,10 @@ export const platformApi = {
 
   getVerifications() {
     return axiosClient.get<VerificationRequestApiResponse[]>(`${BASE}/verifications`);
+  },
+
+  getVerificationDetail(verificationId: string) {
+    return axiosClient.get<VerificationDetailApiResponse>(`${BASE}/verifications/${verificationId}`);
   },
 
   reviewVerification(verificationId: string, payload: ReviewVerificationApiRequest) {
