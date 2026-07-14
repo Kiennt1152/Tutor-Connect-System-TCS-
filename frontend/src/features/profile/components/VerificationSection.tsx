@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import type { ProfileResponse } from '../types/profileTypes';
 import { VERIFICATION_LABEL } from './profileConstants';
 
@@ -31,7 +32,7 @@ export default function VerificationSection({ profile, onSubmit }: VerificationS
         </>
       )}
       <p className="profile-hint">
-        <Link to="/profile/verification">Xem chi tiết hồ sơ xác minh</Link>
+        <Link to={APP_ROUTES.verification}>Xem chi tiết hồ sơ xác minh</Link>
       </p>
     </section>
   );
