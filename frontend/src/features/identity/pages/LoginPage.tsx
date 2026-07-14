@@ -200,7 +200,9 @@ export default function LoginPage() {
     }
   }
 
-  if (isAuthenticated) {
+  // Bo qua redirect nay trong luc dang submit: tranh dua voi navigate('/profile') o handleSubmit
+  // (setUser trong AuthProvider co the trigger re-render truoc khi handleSubmit kip goi navigate).
+  if (isAuthenticated && !loading) {
     return <Navigate to={resolvePostLoginPath(from, user?.role)} replace />;
   }
 

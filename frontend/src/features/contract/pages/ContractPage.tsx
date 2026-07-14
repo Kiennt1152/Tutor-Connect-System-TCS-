@@ -4,7 +4,6 @@ import { ContractLayout } from '../components/ContractLayout';
 import { OtpInput } from '../components/OtpInput';
 import { useContract, useContractSignatures } from '../hooks/useContract';
 import { useSendOtp, useSignWithOtp } from '../hooks/useContractMutations';
-import { mapContract } from '../mappers/contractMapper';
 import type { ContractSignatureStatus } from '../types/contractTypes';
 import './ContractPage.css';
 
@@ -121,7 +120,7 @@ export default function ContractPage() {
     );
   }
 
-  const contract = mapContract(contractData);
+  const contract = contractData;
   const canSign = contract.status === 'PENDING';
 
   return (

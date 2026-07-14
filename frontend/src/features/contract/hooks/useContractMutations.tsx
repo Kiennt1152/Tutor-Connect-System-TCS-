@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import axios from 'axios';
 import { contractApi } from '../api/contractApi';
-import { buildSignWithOtpPayload } from '../mappers/contractMapper';
+import { buildSignWithOtpPayload, mapContract } from '../mappers/contractMapper';
 import type { Contract, OtpSendResult } from '../types/contractTypes';
 
 export type MutationStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -57,7 +57,7 @@ export function useSignWithOtp() {
         buildSignWithOtpPayload(otpCode),
       );
       setStatus('success');
-      onSuccess(response.data);
+      onSuccess(mapContract(response.data));
       return true;
     } catch (error) {
       console.error('Lỗi ký hợp đồng:', error);
