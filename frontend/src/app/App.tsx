@@ -10,6 +10,7 @@ import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import CenterPage from '../features/center/pages/CenterPage';
 import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
+import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
 import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
 import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
@@ -104,6 +105,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/reschedules"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterReschedulesPage />
               </ProtectedRoute>
             }
           />

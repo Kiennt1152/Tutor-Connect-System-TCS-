@@ -14,11 +14,13 @@ import com.tcs.module.catalog.repository.ProvinceRepository;
 import com.tcs.module.catalog.repository.SubjectRepository;
 import com.tcs.module.center.dto.request.ApplyRecruitmentRequest;
 import com.tcs.module.center.dto.request.CreateRecruitmentPostRequest;
+import com.tcs.module.center.dto.request.RescheduleDecisionBody;
 import com.tcs.module.center.dto.request.SaveClassRequest;
 import com.tcs.module.center.dto.request.ScheduleSlotRequest;
 import com.tcs.module.center.dto.response.CenterClassResponse;
 import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
+import com.tcs.module.center.dto.response.RescheduleResponse;
 import com.tcs.module.center.dto.response.ScheduleSlotResponse;
 import com.tcs.module.center.dto.response.StudentAttendanceResponse;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
@@ -50,12 +52,15 @@ import com.tcs.module.marketplace.repository.LessonRepository;
 import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.marketplace.dto.RescheduleEntry;
+import com.tcs.module.marketplace.service.RescheduleService;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -64,6 +69,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -90,6 +96,9 @@ public class CenterServiceImpl implements CenterService {
     private final ClassStudentRepository classStudentRepository;
     private final LessonRepository lessonRepository;
     private final LessonAttendanceRepository lessonAttendanceRepository;
+    private final RescheduleService rescheduleService;
+
+    private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
     @Override
     @Transactional(readOnly = true)
@@ -334,10 +343,20 @@ public class CenterServiceImpl implements CenterService {
         requireCenter();
         LocalDate d = date != null ? date : LocalDate.now();
         int weekday = d.getDayOfWeek().getValue();
+
+        Map<Long, TutoringClass> myClasses = classesByCenter();
+        List<RescheduleEntry> approved = rescheduleService.listApprovedByClassIds(myClasses.keySet());
+        Set<Long> movedAway = approved.stream()
+                .filter(e -> e.originalDate().equals(d))
+                .map(RescheduleEntry::classId)
+                .collect(Collectors.toSet());
+
         List<CenterScheduleClassResponse> result = new ArrayList<>();
-        for (TutoringClass c : tutoringClassRepository.findByCreator_UserId(authHelper.currentUserId())) {
+        // Buổi thường trong ngày (bỏ qua buổi đã bị dời đi).
+        for (TutoringClass c : myClasses.values()) {
             if (c.getStartDate() == null || c.getEndDate() == null
-                    || d.isBefore(c.getStartDate()) || d.isAfter(c.getEndDate())) {
+                    || d.isBefore(c.getStartDate()) || d.isAfter(c.getEndDate())
+                    || movedAway.contains(c.getClassId())) {
                 continue;
             }
             CenterScheduleClassResponse item = buildScheduleItem(c, d, weekday);
@@ -345,7 +364,81 @@ public class CenterServiceImpl implements CenterService {
                 result.add(item);
             }
         }
+        // Buổi được dời TỚI ngày này (khung giờ theo thứ của ngày gốc).
+        for (RescheduleEntry e : approved) {
+            if (!e.newDate().equals(d)) {
+                continue;
+            }
+            TutoringClass c = myClasses.get(e.classId());
+            if (c == null) {
+                continue;
+            }
+            CenterScheduleClassResponse item =
+                    buildScheduleItem(c, d, e.originalDate().getDayOfWeek().getValue());
+            if (item != null) {
+                if (e.newStartTime() != null && e.newEndTime() != null) {
+                    item.setSlots(List.of(ScheduleSlotResponse.builder()
+                            .dayOfWeek(d.getDayOfWeek().getValue())
+                            .startTime(e.newStartTime())
+                            .endTime(e.newEndTime())
+                            .build()));
+                }
+                item.setRescheduled(true);
+                item.setRescheduleNote("Dời từ " + e.originalDate().format(D_MM));
+                result.add(item);
+            }
+        }
         return result;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RescheduleResponse> listReschedules() {
+        requireCenter();
+        Map<Long, TutoringClass> myClasses = classesByCenter();
+        return rescheduleService.listByClassIds(myClasses.keySet()).stream()
+                .map(e -> toRescheduleResponse(e, myClasses.get(e.classId())))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public RescheduleResponse decideReschedule(RescheduleDecisionBody body) {
+        requireCenter();
+        if (body.getClassId() == null || body.getOriginalDate() == null) {
+            throw new IllegalArgumentException("Thiếu thông tin yêu cầu dời lịch");
+        }
+        TutoringClass c = findClass(body.getClassId());
+        requireOwner(c); // chỉ trung tâm sở hữu lớp mới được duyệt
+        RescheduleEntry entry =
+                rescheduleService.decide(body.getClassId(), body.getOriginalDate(), body.isApprove());
+        return toRescheduleResponse(entry, c);
+    }
+
+    private Map<Long, TutoringClass> classesByCenter() {
+        Map<Long, TutoringClass> map = new HashMap<>();
+        for (TutoringClass c : tutoringClassRepository.findByCreator_UserId(authHelper.currentUserId())) {
+            map.put(c.getClassId(), c);
+        }
+        return map;
+    }
+
+    private RescheduleResponse toRescheduleResponse(RescheduleEntry e, TutoringClass c) {
+        String tutorName = e.tutorId() != null
+                ? tutorRepository.findById(e.tutorId()).map(Tutor::getFullName).orElse(null)
+                : null;
+        return RescheduleResponse.builder()
+                .classId(e.classId())
+                .className(c != null ? c.getTitle() : null)
+                .originalDate(e.originalDate())
+                .newDate(e.newDate())
+                .newStartTime(e.newStartTime())
+                .newEndTime(e.newEndTime())
+                .status(e.status())
+                .tutorId(e.tutorId())
+                .tutorName(tutorName)
+                .reason(e.reason())
+                .build();
     }
 
     private List<ScheduleSlot> slotsOn(Long classId, int weekday) {
@@ -429,8 +522,14 @@ public class CenterServiceImpl implements CenterService {
         if (!StringUtils.hasText(request.getGradeName())) {
             throw new IllegalArgumentException("Khối/lớp là bắt buộc");
         }
-        if (!StringUtils.hasText(request.getLocationText())) {
-            throw new IllegalArgumentException("Địa điểm là bắt buộc");
+        if (!StringUtils.hasText(request.getProvinceName())) {
+            throw new IllegalArgumentException("Vui lòng chọn Tỉnh/Thành phố");
+        }
+        if (!StringUtils.hasText(request.getWardName())) {
+            throw new IllegalArgumentException("Vui lòng chọn Phường/Xã");
+        }
+        if (!StringUtils.hasText(request.getAddressDetail())) {
+            throw new IllegalArgumentException("Vui lòng nhập địa chỉ cụ thể");
         }
         if (request.getLessonMode() == null) {
             throw new IllegalArgumentException("Hình thức học là bắt buộc");
@@ -606,7 +705,8 @@ public class CenterServiceImpl implements CenterService {
         tutoringClass.setCategory(resolveOrCreateCategory(request.getCategoryName()));
         tutoringClass.setSubject(resolveOrCreateSubject(request.getSubjectName()));
         tutoringClass.setGrade(resolveOrCreateGrade(request.getGradeName()));
-        tutoringClass.setLocation(resolveOrCreateLocation(request.getLocationText()));
+        tutoringClass.setLocation(resolveOrCreateLocation(
+                request.getProvinceName(), request.getWardName(), request.getAddressDetail()));
         tutoringClass.setLessonMode(request.getLessonMode());
         tutoringClass.setNumberOfSessions(computeSessions(request)); // tự tính, không tin giá trị client
         // DB chỉ nhận ONCE/WEEKLY; "Hằng ngày" lưu dưới dạng WEEKLY (đã trải tiết ra mọi ngày trong khoảng).
@@ -696,14 +796,17 @@ public class CenterServiceImpl implements CenterService {
         });
     }
 
-    private Location resolveOrCreateLocation(String text) {
-        String n = text.trim();
-        return locationRepository.findFirstByAddressLineIgnoreCase(n).orElseGet(() -> {
-            Location loc = new Location();
-            loc.setAddressLine(n);
-            loc.setProvince(resolveOrCreateProvince("Khác"));
-            return locationRepository.save(loc);
-        });
+    private Location resolveOrCreateLocation(String provinceName, String wardName, String addressDetail) {
+        String province = provinceName.trim();
+        String ward = wardName.trim();
+        String detail = addressDetail.trim();
+        // Mô hình 2 cấp: address_line lưu địa chỉ cụ thể; ward_name/province lưu cấp hành chính.
+        Location loc = new Location();
+        loc.setAddressLine(detail);
+        loc.setWardName(ward);
+        loc.setDistrictName(null);
+        loc.setProvince(resolveOrCreateProvince(province));
+        return locationRepository.save(loc);
     }
 
     private Province resolveOrCreateProvince(String name) {
@@ -752,6 +855,10 @@ public class CenterServiceImpl implements CenterService {
                 .locationId(c.getLocation() != null ? c.getLocation().getLocationId() : null)
                 .locationLabel(locationLabel(c.getLocation()))
                 .locationText(c.getLocation() != null ? c.getLocation().getAddressLine() : null)
+                .provinceName(c.getLocation() != null && c.getLocation().getProvince() != null
+                        ? c.getLocation().getProvince().getProvinceName() : null)
+                .wardName(c.getLocation() != null ? c.getLocation().getWardName() : null)
+                .addressDetail(c.getLocation() != null ? c.getLocation().getAddressLine() : null)
                 .lessonMode(c.getLessonMode())
                 .numberOfSessions(c.getNumberOfSessions())
                 .recurringType(c.getRecurringType())
@@ -774,8 +881,11 @@ public class CenterServiceImpl implements CenterService {
             return null;
         }
         StringBuilder sb = new StringBuilder(location.getAddressLine());
-        if (StringUtils.hasText(location.getDistrictName())) {
-            sb.append(", ").append(location.getDistrictName());
+        if (StringUtils.hasText(location.getWardName())) {
+            sb.append(", ").append(location.getWardName());
+        }
+        if (location.getProvince() != null && StringUtils.hasText(location.getProvince().getProvinceName())) {
+            sb.append(", ").append(location.getProvince().getProvinceName());
         }
         return sb.toString();
     }

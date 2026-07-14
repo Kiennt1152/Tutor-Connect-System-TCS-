@@ -691,11 +691,24 @@
   color: var(--color-error);
 }
 
+/* Bộ chọn địa điểm (Tỉnh / Huyện / Xã) */
+.cc-loc__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+.cc-loc__grid .cc-field {
+  margin: 0;
+}
+
 @media (max-width: 720px) {
   .cc-class-card__header .cc-badge {
     margin-left: 0;
   }
   .cc-detail__grid {
+    grid-template-columns: 1fr;
+  }
+  .cc-loc__grid {
     grid-template-columns: 1fr;
   }
 }

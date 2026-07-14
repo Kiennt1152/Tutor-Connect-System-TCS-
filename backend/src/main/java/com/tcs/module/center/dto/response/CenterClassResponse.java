@@ -27,8 +27,12 @@ public class CenterClassResponse {
     private String gradeName;
     private Long locationId;
     private String locationLabel;
-    /** Địa chỉ thô (address_line) để đổ vào ô tự nhập khi chỉnh sửa. */
+    /** Địa chỉ thô (address_line) để hiển thị. */
     private String locationText;
+    /** Địa điểm 2 cấp + địa chỉ cụ thể, để đổ lại form khi chỉnh sửa. */
+    private String provinceName;
+    private String wardName;
+    private String addressDetail;
     private LessonMode lessonMode;
     private Integer numberOfSessions;
     private RecurringType recurringType;

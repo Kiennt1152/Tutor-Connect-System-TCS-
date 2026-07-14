@@ -19,6 +19,11 @@ public class SaveClassRequest {
     private String categoryName;
     private String subjectName;
     private String gradeName;
+    // Địa điểm theo mô hình 2 cấp: Tỉnh/Thành → Phường/Xã, kèm địa chỉ cụ thể tự nhập.
+    private String provinceName;
+    private String wardName;
+    private String addressDetail;
+    // (Cũ) địa chỉ tự nhập — giữ lại để tương thích, không bắt buộc.
     private String locationText;
     private LessonMode lessonMode;
     private Integer numberOfSessions;

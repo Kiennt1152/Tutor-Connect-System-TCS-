@@ -2,7 +2,9 @@ package com.tcs.module.tutor.controller;
 
 import com.tcs.module.center.dto.request.BatchAttendanceRequest;
 import com.tcs.module.center.dto.request.MarkAttendanceRequest;
+import com.tcs.module.center.dto.request.RescheduleRequestBody;
 import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
+import com.tcs.module.center.dto.response.RescheduleResponse;
 import com.tcs.module.tutor.service.TutorService;
 import java.time.LocalDate;
 import java.util.List;
@@ -50,5 +52,16 @@ public class TutorController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
             @RequestBody BatchAttendanceRequest request) {
         return tutorService.markAttendanceBatch(classId, date, request.getRecords());
+    }
+
+    @PostMapping("/classes/{classId}/reschedule")
+    public RescheduleResponse requestReschedule(
+            @PathVariable Long classId, @RequestBody RescheduleRequestBody request) {
+        return tutorService.requestReschedule(classId, request);
+    }
+
+    @GetMapping("/reschedules")
+    public List<RescheduleResponse> myReschedules() {
+        return tutorService.listMyReschedules();
     }
 }

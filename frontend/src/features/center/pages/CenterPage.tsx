@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
+import { LocationPicker } from '../components/LocationPicker';
 import { centerApi } from '../api/centerApi';
 import type {
   ClassResponse,
@@ -72,7 +73,9 @@ interface FormState {
   subjectName: string;
   gradeChoice: string; // một trong GRADE_OPTIONS hoặc GRADE_OTHER
   gradeCustom: string; // dùng khi gradeChoice === GRADE_OTHER
-  locationText: string;
+  province: string;
+  ward: string;
+  addressDetail: string;
   lessonMode: LessonMode;
   recurringType: RecurringType;
   tuitionFee: string;
@@ -89,7 +92,9 @@ const EMPTY_FORM: FormState = {
   subjectName: '',
   gradeChoice: 'Lớp 1',
   gradeCustom: '',
-  locationText: '',
+  province: '',
+  ward: '',
+  addressDetail: '',
   lessonMode: 'OFFLINE',
   recurringType: 'WEEKLY',
   tuitionFee: '',
@@ -133,7 +138,9 @@ function toFormState(c: ClassResponse): FormState {
     subjectName: c.subjectName ?? '',
     gradeChoice: gradeName === '' ? 'Lớp 1' : isKnownGrade ? gradeName : GRADE_OTHER,
     gradeCustom: isKnownGrade ? '' : gradeName,
-    locationText: c.locationText ?? '',
+    province: c.provinceName ?? '',
+    ward: c.wardName ?? '',
+    addressDetail: c.addressDetail ?? '',
     lessonMode: c.lessonMode,
     recurringType: recurring,
     tuitionFee: String(c.tuitionFee),
@@ -204,7 +211,9 @@ function buildPayload(form: FormState): SaveClassRequest {
     categoryName: form.categoryName.trim(),
     subjectName: form.subjectName.trim(),
     gradeName,
-    locationText: form.locationText.trim(),
+    provinceName: form.province,
+    wardName: form.ward,
+    addressDetail: form.addressDetail.trim(),
     lessonMode: form.lessonMode,
     recurringType: form.recurringType,
     numberOfSessions: countSessions(form),
@@ -225,7 +234,9 @@ type FieldKey =
   | 'categoryName'
   | 'subjectName'
   | 'grade'
-  | 'locationText'
+  | 'province'
+  | 'ward'
+  | 'addressDetail'
   | 'tuitionFee'
   | 'maxStudents'
   | 'startDate'
@@ -246,7 +257,9 @@ function validateForm(form: FormState, isCreate: boolean): FormErrors {
   if (!form.subjectName.trim()) fields.subjectName = 'Môn học là bắt buộc';
   if (form.gradeChoice === GRADE_OTHER && !form.gradeCustom.trim())
     fields.grade = 'Vui lòng nhập khối/lớp';
-  if (!form.locationText.trim()) fields.locationText = 'Địa điểm là bắt buộc';
+  if (!form.province.trim()) fields.province = 'Vui lòng chọn Tỉnh/Thành phố';
+  if (!form.ward.trim()) fields.ward = 'Vui lòng chọn Phường/Xã';
+  if (!form.addressDetail.trim()) fields.addressDetail = 'Vui lòng nhập địa chỉ cụ thể';
 
   const fee = Number(form.tuitionFee);
   if (!form.tuitionFee.trim() || Number.isNaN(fee) || fee <= 0)
@@ -521,6 +534,9 @@ export default function CenterPage() {
             <Link className="cc-btn cc-btn--ghost" to="/center/schedule">
               📅 Lịch hôm nay
             </Link>
+            <Link className="cc-btn cc-btn--ghost" to="/center/reschedules">
+              🔄 Yêu cầu đổi lịch
+            </Link>
             <button className="cc-btn cc-btn--primary" type="button" onClick={openCreate}>
               + Tạo lớp mới
             </button>
@@ -650,16 +666,29 @@ export default function CenterPage() {
               </label>
             )}
 
-            <label className="cc-field cc-field--full">
+            <div className="cc-field cc-field--full">
               <span className="cc-label">Địa điểm *</span>
-              <input
-                className={errClass('locationText')}
-                value={form.locationText}
-                onChange={(e) => patch({ locationText: e.target.value })}
-                placeholder="VD: 123 Lê Lợi, Quận 1, TP.HCM"
+              <LocationPicker
+                value={{
+                  province: form.province,
+                  ward: form.ward,
+                  addressDetail: form.addressDetail,
+                }}
+                onChange={(loc) =>
+                  patch({
+                    province: loc.province,
+                    ward: loc.ward,
+                    addressDetail: loc.addressDetail,
+                  })
+                }
+                errors={{
+                  province: errors.fields.province,
+                  ward: errors.fields.ward,
+                  addressDetail: errors.fields.addressDetail,
+                }}
+                showErrors={submitted}
               />
-              {errText('locationText')}
-            </label>
+            </div>
 
             <label className="cc-field">
               <span className="cc-label">Hình thức học *</span>
@@ -886,7 +915,7 @@ export default function CenterPage() {
                     </div>
                     <div className="cc-detail__item">
                       <dt>Địa điểm</dt>
-                      <dd>{detailData.locationText ?? detailData.locationLabel ?? '—'}</dd>
+                      <dd>{detailData.locationLabel ?? detailData.locationText ?? '—'}</dd>
                     </div>
                     <div className="cc-detail__item">
                       <dt>Kiểu lặp lịch</dt>

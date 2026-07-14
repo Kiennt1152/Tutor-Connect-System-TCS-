@@ -371,6 +371,96 @@
   border-color: #fcd34d;
 }
 
+.cs-section-title {
+  margin: 20px 0 10px;
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+.cs-rowactions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.cs-chip--resched {
+  background: var(--color-warning-light);
+  color: #92400e;
+}
+
+/* Đổi lịch modal */
+.cs-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.cs-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+.cs-modal__card {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 440px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cs-modal__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+.cs-modal__sub {
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}
+.cs-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+}
+.cs-field input,
+.cs-field textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 14px;
+}
+.cs-field input:focus,
+.cs-field textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.15);
+}
+.cs-field2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.cs-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 4px;
+}
+
 /* Schedule row (tutor list) */
 .cs-card--row {
   display: flex;

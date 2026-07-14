@@ -1,5 +1,5 @@
 import axiosClient from '../../../shared/api/axiosClient';
-import type { AttendanceStatus, ScheduleClass } from '../../center/types/centerTypes';
+import type { AttendanceStatus, Reschedule, ScheduleClass } from '../../center/types/centerTypes';
 
 const BASE = '/tutor';
 
@@ -21,5 +21,20 @@ export const tutorApi = {
     return axiosClient.post<ScheduleClass>(`${BASE}/classes/${classId}/attendance/batch${q}`, {
       records,
     });
+  },
+  requestReschedule(
+    classId: number,
+    payload: {
+      originalDate: string;
+      newDate: string;
+      newStartTime: string;
+      newEndTime: string;
+      reason: string;
+    },
+  ) {
+    return axiosClient.post<Reschedule>(`${BASE}/classes/${classId}/reschedule`, payload);
+  },
+  getReschedules() {
+    return axiosClient.get<Reschedule[]>(`${BASE}/reschedules`);
   },
 };

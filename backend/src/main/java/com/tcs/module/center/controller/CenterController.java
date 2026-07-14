@@ -3,10 +3,12 @@ package com.tcs.module.center.controller;
 import com.tcs.module.center.dto.request.ApplyRecruitmentRequest;
 import com.tcs.module.center.dto.request.AssignTutorRequest;
 import com.tcs.module.center.dto.request.CreateRecruitmentPostRequest;
+import com.tcs.module.center.dto.request.RescheduleDecisionBody;
 import com.tcs.module.center.dto.request.SaveClassRequest;
 import com.tcs.module.center.dto.response.CenterClassResponse;
 import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
+import com.tcs.module.center.dto.response.RescheduleResponse;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
 import com.tcs.module.center.service.CenterService;
 import java.time.LocalDate;
@@ -108,5 +110,17 @@ public class CenterController {
     public List<CenterScheduleClassResponse> getSchedule(
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
         return centerService.getSchedule(date);
+    }
+
+    // ===== Duyệt yêu cầu dời buổi học =====
+
+    @GetMapping("/reschedules")
+    public List<RescheduleResponse> listReschedules() {
+        return centerService.listReschedules();
+    }
+
+    @PostMapping("/reschedules/decision")
+    public RescheduleResponse decideReschedule(@RequestBody RescheduleDecisionBody request) {
+        return centerService.decideReschedule(request);
     }
 }

@@ -5,6 +5,7 @@ import { VerificationHeader } from '../../../shared/components/VerificationHeade
 import { tutorApi } from '../api/tutorApi';
 import type { LessonMode, ScheduleClass } from '../../center/types/centerTypes';
 import '../../center/pages/CenterSchedulePage.css';
+import './TutorSchedulePage.css';
 
 const LESSON_MODE_LABELS: Record<LessonMode, string> = {
   ONLINE: 'Trực tuyến',
@@ -12,11 +13,27 @@ const LESSON_MODE_LABELS: Record<LessonMode, string> = {
   HYBRID: 'Kết hợp',
 };
 
-function todayStr(): string {
-  const d = new Date();
+const DOW_LABELS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ Nhật'];
+
+function toISO(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const day = String(d.getDate()).padStart(2, '0');
   return `${d.getFullYear()}-${m}-${day}`;
+}
+function startOfWeek(d: Date): Date {
+  const x = new Date(d);
+  x.setHours(0, 0, 0, 0);
+  const dow = (x.getDay() + 6) % 7; // 0 = Thứ Hai
+  x.setDate(x.getDate() - dow);
+  return x;
+}
+function addDays(d: Date, n: number): Date {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+}
+function ddmm(d: Date): string {
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 }
 
 function extractError(error: unknown, fallback: string): string {
@@ -26,40 +43,100 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+const TODAY_ISO = toISO(new Date());
+
 export default function TutorSchedulePage() {
   const navigate = useNavigate();
-  const [date, setDate] = useState(todayStr());
-  const [classes, setClasses] = useState<ScheduleClass[]>([]);
+  const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date()));
+  // 7 mảng lịch, tương ứng Thứ Hai..Chủ Nhật.
+  const [week, setWeek] = useState<ScheduleClass[][]>([[], [], [], [], [], [], []]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [error, setError] = useState('');
+
+  const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   const load = useCallback(() => {
     setStatus('loading');
     setError('');
-    tutorApi
-      .getSchedule(date)
-      .then((res) => {
-        setClasses(res.data);
+    const dayList = Array.from({ length: 7 }, (_, i) => toISO(addDays(weekStart, i)));
+    Promise.all(dayList.map((d) => tutorApi.getSchedule(d)))
+      .then((results) => {
+        setWeek(results.map((r) => r.data));
         setStatus('success');
       })
       .catch((err) => {
         setError(extractError(err, 'Không tải được lịch dạy.'));
         setStatus('error');
       });
-  }, [date]);
+  }, [weekStart]);
 
   useEffect(() => {
     load();
   }, [load]);
 
-  const openAttendance = (classId: number) =>
-    navigate(`/tutor/classes/${classId}/attendance?date=${date}`);
+  const openAttendance = (classId: number, dateIso: string) =>
+    navigate(`/tutor/classes/${classId}/attendance?date=${dateIso}`);
+
+  // Đổi lịch (báo ốm)
+  const [reschedFor, setReschedFor] = useState<{ cls: ScheduleClass; date: string } | null>(null);
+  const [newDate, setNewDate] = useState('');
+  const [startTime, setStartTime] = useState('');
+  const [endTime, setEndTime] = useState('');
+  const [reason, setReason] = useState('');
+  const [reschedBusy, setReschedBusy] = useState(false);
+  const [reschedError, setReschedError] = useState('');
+  const [reschedOk, setReschedOk] = useState('');
+
+  const openResched = (cls: ScheduleClass, date: string) => {
+    setReschedFor({ cls, date });
+    setNewDate('');
+    // Điền sẵn khung giờ theo buổi hiện tại cho tiện.
+    const first = cls.slots[0];
+    setStartTime(first ? first.startTime.slice(0, 5) : '');
+    setEndTime(first ? first.endTime.slice(0, 5) : '');
+    setReason('');
+    setReschedError('');
+    setReschedOk('');
+  };
+  const closeResched = () => setReschedFor(null);
+
+  const submitResched = async () => {
+    if (!reschedFor) return;
+    if (!newDate) {
+      setReschedError('Vui lòng chọn ngày dạy mới.');
+      return;
+    }
+    if (!startTime || !endTime || endTime <= startTime) {
+      setReschedError('Khung giờ mới không hợp lệ (giờ kết thúc phải sau giờ bắt đầu).');
+      return;
+    }
+    setReschedBusy(true);
+    setReschedError('');
+    try {
+      await tutorApi.requestReschedule(reschedFor.cls.classId, {
+        originalDate: reschedFor.date,
+        newDate,
+        newStartTime: startTime,
+        newEndTime: endTime,
+        reason: reason.trim(),
+      });
+      setReschedOk('Đã gửi yêu cầu đổi lịch, chờ trung tâm duyệt.');
+      setReschedFor(null);
+      load();
+    } catch (err) {
+      setReschedError(extractError(err, 'Không gửi được yêu cầu đổi lịch.'));
+    } finally {
+      setReschedBusy(false);
+    }
+  };
+
+  const rangeLabel = `${ddmm(days[0])} – ${ddmm(days[6])}`;
 
   return (
     <>
       <VerificationHeader />
-      <div className="cs-page">
-        <div className="cs-topbar">
+      <div className="tw-page">
+        <div className="tw-topbar">
           <Link className="cs-back" to="/">
             ← Trang chủ
           </Link>
@@ -68,55 +145,165 @@ export default function TutorSchedulePage() {
         <header className="cs-header">
           <div>
             <h1 className="cs-title">Lịch dạy của tôi</h1>
-            <p className="cs-subtitle">Các lớp bạn phụ trách có buổi học. Bấm “Điểm danh” để điểm danh buổi đó.</p>
+            <p className="cs-subtitle">
+              Lịch dạy trong tuần theo từng thứ. Bấm “Điểm danh” hoặc 🤒 để xin đổi lịch (báo ốm).
+            </p>
           </div>
-          <label className="cs-datepick">
-            <span>Ngày</span>
-            <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-          </label>
         </header>
 
-        {error && <div className="cs-alert cs-alert--error">{error}</div>}
-        {status === 'loading' && <div className="cs-state">Đang tải lịch…</div>}
-        {status === 'success' && classes.length === 0 && (
-          <div className="cs-empty">
-            <div className="cs-empty__emoji">🗓️</div>
-            <p>Ngày này bạn không có lớp nào phụ trách.</p>
+        <div className="tw-weekbar">
+          <div className="tw-weeknav">
+            <button
+              className="tw-navbtn"
+              type="button"
+              onClick={() => setWeekStart((w) => addDays(w, -7))}
+              aria-label="Tuần trước"
+            >
+              ←
+            </button>
+            <span className="tw-weekrange">{rangeLabel}</span>
+            <button
+              className="tw-navbtn"
+              type="button"
+              onClick={() => setWeekStart((w) => addDays(w, 7))}
+              aria-label="Tuần sau"
+            >
+              →
+            </button>
           </div>
-        )}
+          <button
+            className="tw-today-btn"
+            type="button"
+            onClick={() => setWeekStart(startOfWeek(new Date()))}
+          >
+            Về tuần này
+          </button>
+        </div>
 
-        {status === 'success' && classes.length > 0 && (
-          <div className="cs-list">
-            {classes.map((c) => (
-              <article className="cs-card cs-card--row" key={c.classId}>
-                <div className="cs-card__main">
-                  <h2 className="cs-card__title">{c.title}</h2>
-                  <div className="cs-chips">
-                    {c.subjectName && <span className="cs-chip">{c.subjectName}</span>}
-                    {c.gradeName && <span className="cs-chip">{c.gradeName}</span>}
-                    <span className="cs-chip">{LESSON_MODE_LABELS[c.lessonMode]}</span>
+        {error && <div className="cs-alert cs-alert--error">{error}</div>}
+        {reschedOk && <div className="cs-alert cs-alert--ok">{reschedOk}</div>}
+        {status === 'loading' && <div className="cs-state">Đang tải lịch…</div>}
+
+        {status === 'success' && (
+          <div className="tw-grid">
+            {days.map((day, i) => {
+              const iso = toISO(day);
+              const sessions = week[i] ?? [];
+              return (
+                <div className="tw-col" key={iso}>
+                  <div className={`tw-colhead${iso === TODAY_ISO ? ' tw-colhead--today' : ''}`}>
+                    <span className="tw-dow">{DOW_LABELS[i]}</span>
+                    <span className="tw-date">{ddmm(day)}</span>
                   </div>
-                  <div className="cs-rowmeta">
-                    {c.slots.map((s) => (
-                      <span className="cs-time" key={s.slotId}>
-                        🕒 {s.startTime.slice(0, 5)}–{s.endTime.slice(0, 5)}
-                      </span>
-                    ))}
-                    <span className="cs-rowmeta__students">👥 {c.studentCount} học sinh</span>
+                  <div className="tw-cells">
+                    {sessions.length === 0 ? (
+                      <div className="tw-empty">—</div>
+                    ) : (
+                      sessions.map((c) => (
+                        <div
+                          className={`tw-card${c.attendanceTaken ? ' tw-card--done' : ''}`}
+                          key={`${c.classId}-${c.rescheduled ? 'r' : 'n'}`}
+                        >
+                          <div className="tw-card__time">
+                            {c.slots
+                              .map((s) => `${s.startTime.slice(0, 5)}–${s.endTime.slice(0, 5)}`)
+                              .join(', ')}
+                          </div>
+                          <div className="tw-card__title">{c.title}</div>
+                          <div className="tw-card__chips">
+                            {c.subjectName && <span className="tw-chip">{c.subjectName}</span>}
+                            {c.gradeName && <span className="tw-chip">{c.gradeName}</span>}
+                            <span className="tw-chip">{LESSON_MODE_LABELS[c.lessonMode]}</span>
+                            {c.rescheduled && (
+                              <span className="tw-chip tw-chip--resched">🔄 {c.rescheduleNote}</span>
+                            )}
+                          </div>
+                          <div className="tw-card__meta">👥 {c.studentCount} học sinh</div>
+                          <div className="tw-card__actions">
+                            <button
+                              className={`tw-btn${c.attendanceTaken ? ' tw-btn--done' : ''}`}
+                              type="button"
+                              onClick={() => openAttendance(c.classId, iso)}
+                            >
+                              {c.attendanceTaken ? '✓ Đã điểm danh' : 'Điểm danh'}
+                            </button>
+                            <button
+                              className="tw-btn tw-btn--icon"
+                              type="button"
+                              title="Xin đổi lịch (báo ốm)"
+                              onClick={() => openResched(c, iso)}
+                            >
+                              🤒
+                            </button>
+                          </div>
+                        </div>
+                      ))
+                    )}
                   </div>
                 </div>
-                <button
-                  className={`cs-btn ${c.attendanceTaken ? 'cs-btn--done' : 'cs-btn--primary'}`}
-                  type="button"
-                  onClick={() => openAttendance(c.classId)}
-                >
-                  {c.attendanceTaken ? '✓ Đã điểm danh' : 'Điểm danh'}
-                </button>
-              </article>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
+
+      {reschedFor && (
+        <div className="cs-modal" role="dialog" aria-modal="true">
+          <div className="cs-modal__backdrop" onClick={closeResched} />
+          <div className="cs-modal__card">
+            <h2 className="cs-modal__title">Đổi lịch dạy (báo ốm)</h2>
+            <p className="cs-modal__sub">
+              Lớp: <b>{reschedFor.cls.title}</b> — buổi ngày {reschedFor.date}
+            </p>
+            {reschedError && <div className="cs-alert cs-alert--error">{reschedError}</div>}
+            <label className="cs-field">
+              <span>Dời sang ngày *</span>
+              <input
+                type="date"
+                min={TODAY_ISO}
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+              />
+            </label>
+            <div className="cs-field2">
+              <label className="cs-field">
+                <span>Giờ bắt đầu *</span>
+                <input
+                  type="time"
+                  value={startTime}
+                  onChange={(e) => setStartTime(e.target.value)}
+                />
+              </label>
+              <label className="cs-field">
+                <span>Giờ kết thúc *</span>
+                <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
+              </label>
+            </div>
+            <label className="cs-field">
+              <span>Lý do (tuỳ chọn)</span>
+              <textarea
+                rows={3}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="VD: Bị ốm, xin dạy bù sang ngày khác"
+              />
+            </label>
+            <div className="cs-modal__actions">
+              <button className="cs-btn cs-btn--ghost" type="button" onClick={closeResched}>
+                Huỷ
+              </button>
+              <button
+                className="cs-btn cs-btn--primary"
+                type="button"
+                disabled={reschedBusy}
+                onClick={submitResched}
+              >
+                {reschedBusy ? 'Đang gửi…' : 'Gửi yêu cầu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

@@ -32,6 +32,9 @@ export interface ClassResponse {
   locationId: number | null;
   locationLabel: string | null;
   locationText: string | null;
+  provinceName: string | null;
+  wardName: string | null;
+  addressDetail: string | null;
   lessonMode: LessonMode;
   numberOfSessions: number;
   recurringType: RecurringType;
@@ -82,6 +85,23 @@ export interface ScheduleClass {
   studentCount: number;
   students: StudentAttendance[];
   attendanceTaken: boolean;
+  rescheduled?: boolean;
+  rescheduleNote?: string | null;
+}
+
+export type RescheduleStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface Reschedule {
+  classId: number;
+  className: string | null;
+  originalDate: string;
+  newDate: string;
+  newStartTime: string | null;
+  newEndTime: string | null;
+  status: RescheduleStatus;
+  tutorId: number | null;
+  tutorName: string | null;
+  reason: string | null;
 }
 
 export interface SaveClassRequest {
@@ -90,7 +110,9 @@ export interface SaveClassRequest {
   categoryName: string;
   subjectName: string;
   gradeName: string;
-  locationText: string;
+  provinceName: string;
+  wardName: string;
+  addressDetail: string;
   lessonMode: LessonMode | null;
   numberOfSessions: number | null;
   recurringType: RecurringType | null;

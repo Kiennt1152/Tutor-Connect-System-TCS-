@@ -5,7 +5,9 @@ import com.tcs.module.center.dto.request.CreateRecruitmentPostRequest;
 import com.tcs.module.center.dto.request.SaveClassRequest;
 import com.tcs.module.center.dto.response.CenterClassResponse;
 import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
+import com.tcs.module.center.dto.request.RescheduleDecisionBody;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
+import com.tcs.module.center.dto.response.RescheduleResponse;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
 import java.time.LocalDate;
 import java.util.List;
@@ -48,4 +50,12 @@ public interface CenterService {
 
     /** Các lớp của trung tâm có buổi học trong ngày, kèm gia sư + học sinh + trạng thái điểm danh (chỉ xem). */
     List<CenterScheduleClassResponse> getSchedule(LocalDate date);
+
+    // ===== Duyệt yêu cầu dời buổi học của gia sư =====
+
+    /** Danh sách yêu cầu dời buổi (mọi trạng thái) thuộc các lớp của trung tâm. */
+    List<RescheduleResponse> listReschedules();
+
+    /** Trung tâm duyệt/từ chối một yêu cầu dời buổi. */
+    RescheduleResponse decideReschedule(RescheduleDecisionBody body);
 }

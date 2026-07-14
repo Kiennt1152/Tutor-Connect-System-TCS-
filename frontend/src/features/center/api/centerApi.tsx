@@ -1,6 +1,7 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
   ClassResponse,
+  Reschedule,
   SaveClassRequest,
   ScheduleClass,
   TutorOption,
@@ -40,5 +41,15 @@ export const centerApi = {
   getSchedule(date?: string) {
     const q = date ? `?date=${date}` : '';
     return axiosClient.get<ScheduleClass[]>(`${CENTER_API_BASE}/schedule${q}`);
+  },
+  getReschedules() {
+    return axiosClient.get<Reschedule[]>(`${CENTER_API_BASE}/reschedules`);
+  },
+  decideReschedule(classId: number, originalDate: string, approve: boolean) {
+    return axiosClient.post<Reschedule>(`${CENTER_API_BASE}/reschedules/decision`, {
+      classId,
+      originalDate,
+      approve,
+    });
   },
 };

@@ -110,6 +110,9 @@ export default function CenterSchedulePage() {
                         {c.subjectName && <span className="cs-chip">{c.subjectName}</span>}
                         {c.gradeName && <span className="cs-chip">{c.gradeName}</span>}
                         <span className="cs-chip">{LESSON_MODE_LABELS[c.lessonMode]}</span>
+                        {c.rescheduled && (
+                          <span className="cs-chip cs-chip--resched">🔄 {c.rescheduleNote}</span>
+                        )}
                       </div>
                     </div>
                     <div className="cs-times">
