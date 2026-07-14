@@ -153,12 +153,9 @@
 .tfc-card__title { margin: 0; font-size: 16px; color: #12233b; }
 .tfc-card__id { font-size: 12px; color: #8592a3; }
 .tfc-card__meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px 0 12px; font-size: 13px; color: #43546a; }
-.tfc-break { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 18px; margin-bottom: 14px; }
-.tfc-break__item { display: flex; align-items: center; gap: 8px; font-size: 12px; }
-.tfc-break__label { flex: 0 0 68px; color: #5b6b7f; }
-.tfc-break__bar { flex: 1; height: 6px; background: #eef2f7; border-radius: 4px; overflow: hidden; }
-.tfc-break__fill { display: block; height: 100%; background: #1565c0; border-radius: 4px; }
-.tfc-break__pct { flex: 0 0 34px; text-align: right; color: #43546a; font-variant-numeric: tabular-nums; }
+.tfc-card__info { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
+.tfc-card__info-row { margin: 0; font-size: 13px; line-height: 1.5; color: #43546a; }
+.tfc-card__info-row strong { color: #12233b; font-weight: 600; }
 .tfc-card__actions { display: flex; justify-content: flex-end; gap: 10px; }
 .tfc-btn { border: none; border-radius: 8px; padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .tfc-btn--primary { background: #1565c0; color: #fff; }
@@ -209,10 +206,32 @@
 .cdm-budget small { color: #8592a3; }
 .cdm__foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #eef2f7; }
 
+/* ===== Form ứng tuyển (hồ sơ gia sư) ===== */
+.apl-intro { margin: 0 0 14px; font-size: 13px; line-height: 1.5; color: #5b6b7f; }
+.apl-card { display: flex; gap: 14px; padding: 14px; background: #f7f9fc; border: 1px solid #e3e9f2; border-radius: 12px; margin-bottom: 6px; }
+.apl-card__avatar { flex: 0 0 64px; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #1565c0; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; }
+.apl-card__avatar img { width: 100%; height: 100%; object-fit: cover; }
+.apl-card__head { min-width: 0; }
+.apl-card__name { margin: 0; font-size: 18px; font-weight: 800; text-transform: uppercase; color: #12233b; }
+.apl-verified { display: inline-block; margin-top: 4px; font-size: 12px; font-weight: 600; color: #2e7d32; background: #e8f5e9; border-radius: 6px; padding: 2px 8px; }
+.apl-card__sub { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 13px; color: #43546a; }
+.apl-card__addr { margin: 8px 0 0; font-size: 13px; color: #43546a; }
+.apl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.apl-list > li { padding-left: 12px; border-left: 3px solid #1565c0; }
+.apl-list > li > strong { color: #12233b; font-size: 14px; }
+.apl-list__meta { font-size: 13px; color: #5b6b7f; margin-top: 2px; }
+.apl-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.apl-chip { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: #eef5fd; border-radius: 10px; font-size: 13px; font-weight: 600; color: #12233b; }
+.apl-chip__issuer { font-size: 12px; font-weight: 400; color: #5b6b7f; }
+.apl-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
+.apl-field > span { font-size: 13px; font-weight: 600; color: #12233b; }
+.apl-field input, .apl-field textarea { border: 1px solid #cfd8e3; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-family: inherit; }
+.apl-field input:focus, .apl-field textarea:focus { outline: none; border-color: #1565c0; }
+.apl-error { margin: 8px 0 0; color: #c62828; font-size: 13px; font-weight: 500; }
+
 @media (max-width: 720px) {
   .tfc-form-grid { grid-template-columns: 1fr; }
   .tfc-priority { grid-template-columns: 1fr; }
-  .tfc-break { grid-template-columns: 1fr; }
   .tfc-form-actions { justify-content: stretch; }
   .tfc-btn--lg { flex: 1; }
   .tfc-subgrid { grid-template-columns: 1fr; }

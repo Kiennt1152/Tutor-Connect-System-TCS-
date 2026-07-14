@@ -2,23 +2,24 @@ import { useEffect, useState } from 'react';
 import axios from 'axios';
 import { marketplaceApi } from '../api/marketplaceApi';
 import type { ApplicantResponse } from '../types/marketplaceTypes';
+import { TutorDetailModal } from './TutorDetailModal';
 import './applicantsModal.css';
 
 const currency = new Intl.NumberFormat('vi-VN');
 
 interface Props {
   readonly classId: number;
-  readonly classTitle: string;
-  readonly onClose: () => void;
   /** Gọi lại sau khi Client chọn gia sư (để trang cha tải lại danh sách lớp). */
   readonly onChosen?: () => void;
 }
 
-export function ApplicantsModal({ classId, classTitle, onClose, onChosen }: Props) {
+/** Danh sách gia sư ứng tuyển vào một lớp (dạng panel, không phải popup). */
+export function ApplicantsPanel({ classId, onChosen }: Props) {
   const [applicants, setApplicants] = useState<ApplicantResponse[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [choosingId, setChoosingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [detailApplicant, setDetailApplicant] = useState<ApplicantResponse | null>(null);
 
   useEffect(() => {
     setStatus('loading');
@@ -57,61 +58,54 @@ export function ApplicantsModal({ classId, classTitle, onClose, onChosen }: Prop
   }
 
   return (
-    <div className="apm-overlay" role="dialog" aria-modal="true" onClick={onClose}>
-      <div className="apm" onClick={(e) => e.stopPropagation()}>
-        <button type="button" className="apm__close" aria-label="Đóng" onClick={onClose}>
-          ✕
-        </button>
-        <header className="apm__head">
-          <span className="apm__eyebrow">Ứng viên gia sư</span>
-          <h2 className="apm__title">{classTitle}</h2>
-        </header>
+    <div className="apm-panel">
+      {notice && <div className="apm-notice">{notice}</div>}
 
-        <div className="apm__body">
-          {notice && <div className="apm-notice">{notice}</div>}
+      {status === 'loading' && <div className="apm-state">Đang tải danh sách ứng viên…</div>}
+      {status === 'error' && (
+        <div className="apm-state apm-state--error">Không tải được danh sách ứng viên.</div>
+      )}
+      {status === 'success' && applicants.length === 0 && (
+        <div className="apm-state">Chưa có gia sư nào ứng tuyển vào lớp này.</div>
+      )}
 
-          {status === 'loading' && <div className="apm-state">Đang tải danh sách ứng viên…</div>}
-          {status === 'error' && (
-            <div className="apm-state apm-state--error">Không tải được danh sách ứng viên.</div>
-          )}
-          {status === 'success' && applicants.length === 0 && (
-            <div className="apm-state">Chưa có gia sư nào ứng tuyển vào lớp này.</div>
-          )}
+      {status === 'success' && applicants.length > 0 && (
+        <>
+          {/* Giải thích AI + Top 5 gợi ý */}
+          <div className="apm-ai">
+            <div className="apm-ai__badge">AI</div>
+            <p className="apm-ai__text">
+              Trợ lý AI đã xếp hạng {applicants.length} ứng viên theo{' '}
+              <strong>đánh giá, kinh nghiệm, mức phí và trạng thái xác minh</strong>.
+              {recommended.length > 0 && (
+                <>
+                  {' '}
+                  <strong>Top {recommended.length}</strong> phù hợp nhất được đánh dấu ⭐ để bạn dễ
+                  chọn.
+                </>
+              )}
+            </p>
+          </div>
 
-          {status === 'success' && applicants.length > 0 && (
-            <>
-              {/* Giải thích AI + Top 5 gợi ý */}
-              <div className="apm-ai">
-                <div className="apm-ai__badge">AI</div>
-                <p className="apm-ai__text">
-                  Trợ lý AI đã xếp hạng {applicants.length} ứng viên theo{' '}
-                  <strong>đánh giá, kinh nghiệm, mức phí và trạng thái xác minh</strong>.
-                  {recommended.length > 0 && (
-                    <>
-                      {' '}
-                      <strong>Top {recommended.length}</strong> phù hợp nhất được đánh dấu ⭐ để bạn
-                      dễ chọn.
-                    </>
-                  )}
-                </p>
-              </div>
+          <div className="apm-list">
+            {applicants.map((a, idx) => (
+              <ApplicantCard
+                key={a.applicationId}
+                applicant={a}
+                rank={a.recommended ? idx + 1 : null}
+                choosing={choosingId === a.applicationId}
+                disabled={alreadyChosen || choosingId != null}
+                onChoose={() => handleChoose(a.applicationId)}
+                onDetail={() => setDetailApplicant(a)}
+              />
+            ))}
+          </div>
+        </>
+      )}
 
-              <div className="apm-list">
-                {applicants.map((a, idx) => (
-                  <ApplicantCard
-                    key={a.applicationId}
-                    applicant={a}
-                    rank={a.recommended ? idx + 1 : null}
-                    choosing={choosingId === a.applicationId}
-                    disabled={alreadyChosen || choosingId != null}
-                    onChoose={() => handleChoose(a.applicationId)}
-                  />
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
+      {detailApplicant && (
+        <TutorDetailModal applicant={detailApplicant} onClose={() => setDetailApplicant(null)} />
+      )}
     </div>
   );
 }
@@ -122,9 +116,10 @@ interface CardProps {
   readonly choosing: boolean;
   readonly disabled: boolean;
   readonly onChoose: () => void;
+  readonly onDetail: () => void;
 }
 
-function ApplicantCard({ applicant: a, rank, choosing, disabled, onChoose }: CardProps) {
+function ApplicantCard({ applicant: a, rank, choosing, disabled, onChoose, onDetail }: CardProps) {
   const initials = a.fullName
     .split(/\s+/)
     .slice(-2)
@@ -167,6 +162,9 @@ function ApplicantCard({ applicant: a, rank, choosing, disabled, onChoose }: Car
         {a.coverLetter && <p className="apm-card__cover">“{a.coverLetter}”</p>}
 
         <div className="apm-card__actions">
+          <button type="button" className="mkt-btn mkt-btn--ghost" onClick={onDetail}>
+            Xem chi tiết gia sư
+          </button>
           {accepted ? (
             <span className="apm-chip apm-chip--accepted">✓ Đã chọn gia sư này</span>
           ) : rejected ? (

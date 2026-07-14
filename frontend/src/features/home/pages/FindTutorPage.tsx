@@ -101,8 +101,8 @@ export default function FindTutorPage() {
                   <div className="tcs-find-success__icon">✓</div>
                   <h2>Đã gửi yêu cầu tìm gia sư!</h2>
                   <p>
-                    Yêu cầu <strong>“{created.title}”</strong> (mã #{created.classId}) đang ở trạng
-                    thái nháp. Vào trang quản lý để đăng công khai cho gia sư ứng tuyển.
+                    Yêu cầu <strong>“{created.title}”</strong> đang ở trạng thái nháp. Vào trang
+                    quản lý để đăng công khai cho gia sư ứng tuyển.
                   </p>
                   <div className="tcs-find-success__actions">
                     <Link className="tcs-btn tcs-btn--market" to={APP_ROUTES.marketplace}>

@@ -5,7 +5,8 @@ import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { ClassRequestForm } from '../components/ClassRequestForm';
-import { ApplicantsModal } from '../components/ApplicantsModal';
+import { ApplicantsPanel } from '../components/ApplicantsPanel';
+import { ClassDetailPanel } from '../components/ClassDetailPanel';
 import { classToForm, emptyForm } from '../mappers/marketplaceMapper';
 import {
   CLASS_STATUS_LABELS,
@@ -17,7 +18,11 @@ import './MarketplacePage.css';
 
 const currency = new Intl.NumberFormat('vi-VN');
 
-type Mode = { kind: 'list' } | { kind: 'create' } | { kind: 'edit'; target: ClassResponse };
+type Mode =
+  | { kind: 'list' }
+  | { kind: 'create' }
+  | { kind: 'edit'; target: ClassResponse }
+  | { kind: 'detail'; target: ClassResponse };
 
 export default function MarketplacePage() {
   const { user } = useAuth();
@@ -37,11 +42,14 @@ export default function MarketplacePage() {
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [viewingApplicants, setViewingApplicants] = useState<ClassResponse | null>(null);
 
   function openEdit(target: ClassResponse) {
     setError(null);
     setMode({ kind: 'edit', target });
+  }
+
+  function openDetail(target: ClassResponse) {
+    setMode({ kind: 'detail', target });
   }
 
   async function handleSubmit(payload: ClassRequestPayload) {
@@ -99,7 +107,15 @@ export default function MarketplacePage() {
             </div>
           )}
 
-          {mode.kind !== 'list' ? (
+          {mode.kind === 'detail' ? (
+            <ClassDetailScreen
+              target={mode.target}
+              subjects={subjects}
+              grades={grades}
+              onChosen={reload}
+              onBack={() => setMode({ kind: 'list' })}
+            />
+          ) : mode.kind !== 'list' ? (
             <section className="mkt-card">
               <div className="mkt-card__head">
                 <h2>{mode.kind === 'edit' ? 'Chỉnh sửa lớp' : 'Tạo lớp gia sư mới'}</h2>
@@ -124,21 +140,60 @@ export default function MarketplacePage() {
               classes={classes}
               onEdit={openEdit}
               onPublish={handlePublish}
-              onViewApplicants={setViewingApplicants}
+              onOpenDetail={openDetail}
             />
           )}
         </div>
       </main>
-
-      {viewingApplicants && (
-        <ApplicantsModal
-          classId={viewingApplicants.classId}
-          classTitle={viewingApplicants.title}
-          onClose={() => setViewingApplicants(null)}
-          onChosen={reload}
-        />
-      )}
     </div>
+  );
+}
+
+interface ClassDetailScreenProps {
+  readonly target: ClassResponse;
+  readonly subjects: ReturnType<typeof useMarketplace>['subjects'];
+  readonly grades: ReturnType<typeof useMarketplace>['grades'];
+  readonly onChosen: () => void;
+  readonly onBack: () => void;
+}
+
+/** Màn chi tiết lớp (không popup): trái = danh sách gia sư ứng tuyển, phải = thông tin lớp. */
+function ClassDetailScreen({ target, subjects, grades, onChosen, onBack }: ClassDetailScreenProps) {
+  return (
+    <section className="mkt-detail">
+      <div className="mkt-detail__bar">
+        <button type="button" className="mkt-btn mkt-btn--ghost" onClick={onBack}>
+          ← Quay lại danh sách
+        </button>
+        <span className={`mkt-status mkt-status--${target.status.toLowerCase()}`}>
+          {CLASS_STATUS_LABELS[target.status] ?? target.status}
+        </span>
+      </div>
+
+      <div className="mkt-detail__cols">
+        {/* Trái: thông tin lớp (chỉ đọc) */}
+        <aside className="mkt-detail__col mkt-detail__col--info">
+          <div className="mkt-card">
+            <div className="mkt-card__head">
+              <h2>{target.title}</h2>
+            </div>
+            <ClassDetailPanel raw={target} subjects={subjects} grades={grades} />
+          </div>
+        </aside>
+
+        {/* Phải: danh sách gia sư ứng tuyển */}
+        <div className="mkt-detail__col">
+          <div className="mkt-card">
+            <div className="mkt-card__head">
+              <h2>Gia sư ứng tuyển</h2>
+            </div>
+            <div className="mkt-card__body">
+              <ApplicantsPanel classId={target.classId} onChosen={onChosen} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -147,10 +202,10 @@ interface ClassListProps {
   readonly classes: ClassResponse[];
   readonly onEdit: (c: ClassResponse) => void;
   readonly onPublish: (classId: number) => void;
-  readonly onViewApplicants: (c: ClassResponse) => void;
+  readonly onOpenDetail: (c: ClassResponse) => void;
 }
 
-function ClassList({ status, classes, onEdit, onPublish, onViewApplicants }: ClassListProps) {
+function ClassList({ status, classes, onEdit, onPublish, onOpenDetail }: ClassListProps) {
   if (status === 'loading') {
     return <div className="mkt-state">Đang tải danh sách lớp…</div>;
   }
@@ -173,7 +228,6 @@ function ClassList({ status, classes, onEdit, onPublish, onViewApplicants }: Cla
             <span className={`mkt-status mkt-status--${c.status.toLowerCase()}`}>
               {CLASS_STATUS_LABELS[c.status] ?? c.status}
             </span>
-            <span className="mkt-class-card__id">#{c.classId}</span>
           </div>
           <h3 className="mkt-class-card__title">{c.title}</h3>
           <dl className="mkt-class-card__meta">
@@ -219,9 +273,9 @@ function ClassList({ status, classes, onEdit, onPublish, onViewApplicants }: Cla
               <button
                 type="button"
                 className="mkt-btn mkt-btn--primary"
-                onClick={() => onViewApplicants(c)}
+                onClick={() => onOpenDetail(c)}
               >
-                Xem gia sư ứng tuyển
+                Xem chi tiết &amp; gia sư ứng tuyển
                 {c.applicationCount != null && c.applicationCount > 0
                   ? ` (${c.applicationCount})`
                   : ''}

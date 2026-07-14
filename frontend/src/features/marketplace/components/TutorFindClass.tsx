@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import axios from 'axios';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { ClassDetailModal } from './ClassDetailModal';
+import { ApplyClassModal } from './ApplyClassModal';
 import { FALLBACK_SUBJECTS, FALLBACK_GRADES } from '../constants/catalogFallback';
 import {
   DAY_OF_WEEK_OPTIONS,
@@ -11,7 +11,6 @@ import {
   type ClassResponse,
 } from '../types/marketplaceTypes';
 import {
-  CRITERIA_LABELS,
   TUTOR_LEVEL_OPTIONS,
   emptyCriteria,
   rankClasses,
@@ -47,9 +46,9 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [applied, setApplied] = useState<Set<number>>(new Set());
-  const [applyingId, setApplyingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [detailTarget, setDetailTarget] = useState<ClassResponse | null>(null);
+  const [applyTarget, setApplyTarget] = useState<ClassResponse | null>(null);
   const [districts, setDistricts] = useState<CatalogOption[]>([]);
   // Tiêu chí đã "bấm tìm" — kết quả chỉ hiện sau khi gia sư nhập xong và bấm.
   const [searched, setSearched] = useState<TutorCriteria | null>(null);
@@ -140,22 +139,18 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     );
   }
 
-  async function handleApply(classId: number) {
-    setApplyingId(classId);
+  // Mở form ứng tuyển (hiển thị hồ sơ gia sư trước khi gửi).
+  function openApply(target: ClassResponse) {
     setNotice(null);
-    try {
-      const rate = Number(criteria.expectedFee) || undefined;
-      await marketplaceApi.applyToClass(classId, {
-        proposedRate: rate,
-        coverLetter: 'Tôi quan tâm và mong muốn nhận lớp này.',
-      });
-      setApplied((s) => new Set(s).add(classId));
-      setNotice(`Đã gửi đơn ứng tuyển lớp #${classId}.`);
-    } catch (err) {
-      setNotice(extractError(err));
-    } finally {
-      setApplyingId(null);
-    }
+    setApplyTarget(target);
+    setDetailTarget(null);
+  }
+
+  // Sau khi form gửi đơn thành công.
+  function handleApplied(classId: number) {
+    setApplied((s) => new Set(s).add(classId));
+    setNotice('Đã gửi đơn ứng tuyển thành công.');
+    setApplyTarget(null);
   }
 
   return (
@@ -434,8 +429,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
                   subjectName={subjectName}
                   gradeName={gradeName}
                   applied={applied.has(r.parsed.raw.classId)}
-                  applying={applyingId === r.parsed.raw.classId}
-                  onApply={() => handleApply(r.parsed.raw.classId)}
+                  onApply={() => openApply(r.parsed.raw)}
                   onDetail={() => setDetailTarget(r.parsed.raw)}
                 />
               ))}
@@ -450,9 +444,17 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
           subjects={effSubjects}
           grades={effGrades}
           applied={applied.has(detailTarget.classId)}
-          applying={applyingId === detailTarget.classId}
-          onApply={() => handleApply(detailTarget.classId)}
+          onApply={() => openApply(detailTarget)}
           onClose={() => setDetailTarget(null)}
+        />
+      )}
+
+      {applyTarget && (
+        <ApplyClassModal
+          target={applyTarget}
+          defaultRate={Number(criteria.expectedFee) || undefined}
+          onClose={() => setApplyTarget(null)}
+          onSubmitted={handleApplied}
         />
       )}
     </div>
@@ -464,7 +466,6 @@ interface CardProps {
   readonly subjectName: (id: string) => string;
   readonly gradeName: (id: string) => string;
   readonly applied: boolean;
-  readonly applying: boolean;
   readonly onApply: () => void;
   readonly onDetail: () => void;
 }
@@ -474,7 +475,6 @@ function ClassCard({
   subjectName,
   gradeName,
   applied,
-  applying,
   onApply,
   onDetail,
 }: CardProps) {
@@ -490,6 +490,16 @@ function ClassCard({
     parsed.lessonMode === 'ONLINE'
       ? 'Online'
       : parsed.provinceName || c.address || c.locationName || 'Offline';
+  // Thông tin chung của lớp (thay cho bảng chấm điểm từng tiêu chí).
+  const learningGoal = c.learningGoal?.trim() ?? '';
+  const tutorRequirement = parsed.tutorRequirement?.trim() ?? '';
+  const sessionCount = parsed.slots.length;
+  const scheduleSummary =
+    sessionCount > 0
+      ? parsed.scheduleMode === 'WEEKLY'
+        ? `${sessionCount} buổi/tuần`
+        : `${sessionCount} buổi`
+      : '';
 
   return (
     <article className="tfc-card">
@@ -500,7 +510,6 @@ function ClassCard({
       <div className="tfc-card__body">
         <div className="tfc-card__top">
           <h3 className="tfc-card__title">{c.title}</h3>
-          <span className="tfc-card__id">#{c.classId}</span>
         </div>
         <div className="tfc-card__meta">
           <span>📚 {subjectLabel}</span>
@@ -509,19 +518,22 @@ function ClassCard({
           <span>💰 {parsed.feePerHour > 0 ? `${currency.format(parsed.feePerHour)}đ/giờ` : '—'}</span>
         </div>
 
-        <div className="tfc-break">
-          {CRITERIA_LABELS.map((cl) => {
-            const v = breakdown[cl.key] as number;
-            return (
-              <div key={cl.key} className="tfc-break__item" title={`${cl.label}: ${Math.round(v * 100)}%`}>
-                <span className="tfc-break__label">{cl.label}</span>
-                <span className="tfc-break__bar">
-                  <span className="tfc-break__fill" style={{ width: `${Math.round(v * 100)}%` }} />
-                </span>
-                <span className="tfc-break__pct">{Math.round(v * 100)}%</span>
-              </div>
-            );
-          })}
+        <div className="tfc-card__info">
+          {learningGoal && (
+            <p className="tfc-card__info-row">
+              🎯 <strong>Mục tiêu:</strong> {learningGoal}
+            </p>
+          )}
+          {tutorRequirement && (
+            <p className="tfc-card__info-row">
+              🧑‍🏫 <strong>Yêu cầu gia sư:</strong> {tutorRequirement}
+            </p>
+          )}
+          {scheduleSummary && (
+            <p className="tfc-card__info-row">
+              🗓️ <strong>Lịch học:</strong> {scheduleSummary}
+            </p>
+          )}
         </div>
 
         <div className="tfc-card__actions">
@@ -531,22 +543,13 @@ function ClassCard({
           <button
             type="button"
             className="tfc-btn tfc-btn--primary"
-            disabled={applied || applying}
+            disabled={applied}
             onClick={onApply}
           >
-            {applied ? '✓ Đã ứng tuyển' : applying ? 'Đang gửi…' : 'Ứng tuyển nhận lớp'}
+            {applied ? '✓ Đã ứng tuyển' : 'Ứng tuyển nhận lớp'}
           </button>
         </div>
       </div>
     </article>
   );
-}
-
-function extractError(err: unknown): string {
-  if (axios.isAxiosError(err)) {
-    const data = err.response?.data as { message?: string } | undefined;
-    if (data?.message) return data.message;
-  }
-  if (err instanceof Error) return err.message;
-  return 'Có lỗi xảy ra. Vui lòng thử lại.';
 }

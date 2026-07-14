@@ -5,6 +5,7 @@ import type {
   ClassRequestPayload,
   ClassResponse,
   LocationOption,
+  TutorProfileCard,
 } from '../types/marketplaceTypes';
 
 export const MARKETPLACE_API_BASE = '/marketplace';
@@ -44,6 +45,10 @@ export const marketplaceApi = {
     axiosClient
       .post<{ message: string }>(`/marketplace/classes/${classId}/apply`, payload)
       .then((r) => r.data),
+
+  // --- Hồ sơ gia sư hiện tại (dùng cho form ứng tuyển) ---
+  getMyTutorProfile: () =>
+    axiosClient.get<TutorProfileCard>('/profile/me').then((r) => r.data),
 
   createClass: (payload: ClassRequestPayload) =>
     axiosClient.post<ClassResponse>('/marketplace/classes', payload).then((r) => r.data),

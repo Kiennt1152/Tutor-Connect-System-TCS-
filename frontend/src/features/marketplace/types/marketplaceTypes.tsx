@@ -80,6 +80,43 @@ export interface ApplicantResponse {
   recommended: boolean;
 }
 
+export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
+
+export interface TutorEducationItem {
+  educationId: number;
+  institution: string;
+  degree: string;
+  fieldOfStudy: string | null;
+  startYear: number | null;
+  endYear: number | null;
+}
+
+export interface TutorCertificateItem {
+  certificateId: number;
+  name: string;
+  issuer: string;
+  issueDate: string | null;
+}
+
+/** Hồ sơ gia sư hiện tại (GET /profile/me) — dùng cho form ứng tuyển. */
+export interface TutorProfileCard {
+  userId: number;
+  role: string;
+  fullName: string | null;
+  email: string | null;
+  phone: string | null;
+  address: string | null;
+  avatarUrl: string | null;
+  dateOfBirth: string | null;
+  gender: Gender | null;
+  bio: string | null;
+  experienceYears: number | null;
+  hourlyRate: number | null;
+  verificationStatus: 'UNDER_VERIFY' | 'VERIFIED' | 'REJECTED' | null;
+  educations: TutorEducationItem[] | null;
+  certificates: TutorCertificateItem[] | null;
+}
+
 /** Payload gửi lên khi tạo/sửa lớp (CreateClassRequest). */
 export interface ClassRequestPayload {
   title?: string;
