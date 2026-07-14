@@ -63,7 +63,7 @@ export function getHomeQuickActions(role: string): HomeQuickAction[] {
           title: 'Lịch dạy',
           description: 'Xem và sắp xếp lịch dạy trong tuần.',
           icon: '📅',
-          disabled: true,
+          to: '/tutor/schedule',
         },
         {
           title: 'Hồ sơ gia sư',
