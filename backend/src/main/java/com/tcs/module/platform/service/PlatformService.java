@@ -7,6 +7,7 @@ import com.tcs.module.platform.dto.response.DashboardResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
 import com.tcs.module.platform.dto.response.ReportResponse;
 import com.tcs.module.platform.dto.response.UserListItemResponse;
+import com.tcs.module.platform.dto.response.VerificationDetailResponse;
 import com.tcs.module.platform.dto.response.VerificationRequestResponse;
 import com.tcs.module.profile.enums.UserRole;
 import java.util.List;
@@ -20,6 +21,9 @@ public interface PlatformService {
     DashboardResponse getDashboard();
 
     List<VerificationRequestResponse> listVerificationRequests();
+
+    /** Chi tiet yeu cau xac minh: ho so nguoi nop + tai lieu (chi doc). */
+    VerificationDetailResponse getVerificationDetail(Long verificationId);
 
     VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request);
 
