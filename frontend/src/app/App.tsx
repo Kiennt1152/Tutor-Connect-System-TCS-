@@ -1,5 +1,6 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import HomePage from '../features/home/pages/HomePage';
+import CatalogPage from '../features/catalog/pages/CatalogPage';
 import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
@@ -15,7 +16,6 @@ import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
 import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
-import CatalogPage from '../features/catalog/pages/CatalogPage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
 import MarketplaceClassDetailPage from '../features/marketplace/pages/MarketplaceClassDetailPage';
 import ContractPage from '../features/contract/pages/ContractPage';

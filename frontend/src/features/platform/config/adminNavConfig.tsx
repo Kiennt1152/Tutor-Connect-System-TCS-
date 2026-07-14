@@ -46,6 +46,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     label: 'Vận hành',
     items: [
       { to: APP_ROUTES.platformUsers, label: 'Người dùng', icon: 'users' },
+      { to: APP_ROUTES.catalog, label: 'Danh mục', icon: 'folder' },
       { to: APP_ROUTES.platformVerifications, label: 'Xác minh', icon: 'shield' },
       { to: APP_ROUTES.platformReports, label: 'Báo cáo', icon: 'flag' },
     ],
@@ -55,6 +56,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
 export const ADMIN_HOME_NAV: Pick<AdminNavItem, 'label' | 'to'>[] = [
   { label: 'Bảng điều khiển', to: APP_ROUTES.platform },
   { label: 'Người dùng', to: APP_ROUTES.platformUsers },
+  { label: 'Danh mục', to: APP_ROUTES.catalog },
   { label: 'Xác minh', to: APP_ROUTES.platformVerifications },
   { label: 'Báo cáo', to: APP_ROUTES.platformReports },
 ];
@@ -71,6 +73,12 @@ export const ADMIN_QUICK_ACTIONS: AdminModule[] = [
     title: 'Quản lý người dùng',
     description: 'Xem danh sách và cập nhật trạng thái tài khoản.',
     to: APP_ROUTES.platformUsers,
+  },
+  {
+    icon: 'folder',
+    title: 'Quản lý danh mục',
+    description: 'Cấu hình danh mục môn học, khu vực, cấp học và tùy chọn hệ thống.',
+    to: APP_ROUTES.catalog,
   },
   {
     icon: 'shield',
