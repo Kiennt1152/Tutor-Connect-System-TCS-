@@ -7,6 +7,7 @@ import com.tcs.module.platform.dto.response.DashboardResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
 import com.tcs.module.platform.dto.response.ReportResponse;
 import com.tcs.module.platform.dto.response.UserListItemResponse;
+import com.tcs.module.platform.dto.response.VerificationDetailResponse;
 import com.tcs.module.platform.dto.response.VerificationRequestResponse;
 import com.tcs.module.platform.service.PlatformService;
 import com.tcs.module.profile.enums.UserRole;
@@ -52,6 +53,11 @@ public class PlatformController {
     @GetMapping("/verifications")
     public List<VerificationRequestResponse> listVerifications() {
         return platformService.listVerificationRequests();
+    }
+
+    @GetMapping("/verifications/{verificationId}")
+    public VerificationDetailResponse getVerificationDetail(@PathVariable Long verificationId) {
+        return platformService.getVerificationDetail(verificationId);
     }
 
     @PatchMapping("/verifications/{verificationId}")
