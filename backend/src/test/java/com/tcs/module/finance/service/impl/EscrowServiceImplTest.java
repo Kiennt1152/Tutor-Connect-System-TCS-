@@ -270,6 +270,49 @@ class EscrowServiceImplTest {
     }
 
     @Test
+    void holdForDisputeMarksEscrowAsDisputed() {
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
+
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+        when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        EscrowTransaction result = escrowService.holdForDispute(5L, "Có tranh chấp từ report");
+
+        assertSame(escrow, result);
+        assertEquals(EscrowStatus.DISPUTED, escrow.getStatus());
+        verify(escrowTransactionRepository).save(escrow);
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
+    }
+
+    @Test
+    void holdForDisputeReturnsAlreadyDisputedEscrowWithoutSavingAgain() {
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
+        escrow.setStatus(EscrowStatus.DISPUTED);
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+
+        EscrowTransaction result = escrowService.holdForDispute(5L, "Retry");
+
+        assertSame(escrow, result);
+        verify(escrowTransactionRepository, never()).save(any());
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
+    }
+
+    @Test
+    void holdForDisputeRejectsReleasedEscrow() {
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
+        escrow.setStatus(EscrowStatus.RELEASED);
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+
+        assertThrows(BusinessException.class, () -> escrowService.holdForDispute(5L, "Too late"));
+
+        verify(escrowTransactionRepository, never()).save(any());
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
+    }
+
+    @Test
     void refundReturnsEscrowMoneyToPayer() {
         BigDecimal amount = new BigDecimal("500000.00");
         EscrowTransaction escrow = fundedPrivateEscrow(5L, amount);

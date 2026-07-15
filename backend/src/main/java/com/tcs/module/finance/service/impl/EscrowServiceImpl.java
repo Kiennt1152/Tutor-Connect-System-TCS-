@@ -121,6 +121,33 @@ public class EscrowServiceImpl implements EscrowService {
         return escrowTransactionRepository.save(escrow);
     }
 
+    @Override
+    @Transactional
+    public EscrowTransaction holdForDispute(Long escrowId, String reason) {
+        if (escrowId == null) {
+            throw new BusinessException("Thiếu escrow cần tạm giữ");
+        }
+
+        EscrowTransaction escrow = escrowTransactionRepository.findById(escrowId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy escrow"));
+
+        if (escrow.getStatus() == EscrowStatus.DISPUTED) {
+            return escrow;
+        }
+        if (escrow.getStatus() == EscrowStatus.RELEASED || escrow.getStatus() == EscrowStatus.REFUNDED) {
+            throw new BusinessException("Escrow đã tất toán nên không thể chuyển sang tranh chấp");
+        }
+        if (escrow.getStatus() != EscrowStatus.FUNDED && escrow.getStatus() != EscrowStatus.ON_HOLD) {
+            throw new BusinessException("Chỉ escrow đã khóa tiền mới có thể tạm giữ khi có tranh chấp");
+        }
+
+        escrow.setStatus(EscrowStatus.DISPUTED);
+        EscrowTransaction saved = escrowTransactionRepository.save(escrow);
+        log.info("[Escrow] Đã tạm giữ escrow id={} do tranh chấp. reason={}",
+                escrow.getEscrowId(), buildLogReason(reason));
+        return saved;
+    }
+
     private EscrowTransaction lockPrivateAssignment(EscrowLockCommand command) {
         return escrowTransactionRepository.findByAssignment_AssignmentId(command.assignmentId())
                 .orElseGet(() -> {
@@ -261,6 +288,10 @@ public class EscrowServiceImpl implements EscrowService {
             return prefix;
         }
         return prefix + ": " + reason.trim();
+    }
+
+    private String buildLogReason(String reason) {
+        return reason == null || reason.isBlank() ? "N/A" : reason.trim();
     }
 
     private void validateCommand(EscrowLockCommand command) {

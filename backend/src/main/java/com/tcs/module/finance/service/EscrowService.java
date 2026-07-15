@@ -9,6 +9,7 @@ import com.tcs.module.finance.entity.EscrowTransaction;
  * - lock  : khoa tien khi kich hoat lop.
  * - apply : thuc thi tat toan theo ReleaseInstruction (0.5) tu M4.
  * - refund: hoan toan bo escrow ve nguoi tra khi lop/hop dong bi huy.
+ * - holdForDispute: tam dung tat toan khi co tranh chap.
  */
 public interface EscrowService {
 
@@ -17,4 +18,6 @@ public interface EscrowService {
     void apply(ReleaseInstruction instruction);
 
     EscrowTransaction refund(Long escrowId, String reason);
+
+    EscrowTransaction holdForDispute(Long escrowId, String reason);
 }
