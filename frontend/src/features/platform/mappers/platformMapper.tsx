@@ -129,6 +129,7 @@ const TARGET_TYPE_LABELS: Record<string, string> = {
 
 export function mapVerificationItem(item: VerificationRequestApiResponse): VerificationRequestItem {
   const canReview = item.status === 'SUBMITTED' || item.status === 'UNDER_REVIEW';
+  const isReviewed = item.status === 'VERIFIED' || item.status === 'REJECTED';
   return {
     id: String(item.verificationId),
     userId: String(item.userId),
@@ -141,6 +142,7 @@ export function mapVerificationItem(item: VerificationRequestApiResponse): Verif
     submittedAt: formatDateTime(item.submittedAt),
     reviewedAt: formatDateTime(item.reviewedAt),
     canReview,
+    isReviewed,
   };
 }
 
@@ -163,9 +165,11 @@ export function mapReportItem(item: ReportApiResponse): ReportItem {
 export function buildReviewVerificationPayload(
   status: 'VERIFIED' | 'REJECTED',
   adminNotes?: string,
+  expectedUpdatedAt?: string,
 ): ReviewVerificationApiRequest {
   return {
     status,
     adminNotes: adminNotes?.trim() || undefined,
+    expectedUpdatedAt: expectedUpdatedAt || undefined,
   };
 }

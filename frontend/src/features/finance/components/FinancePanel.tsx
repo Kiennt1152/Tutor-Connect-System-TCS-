@@ -1,3 +1,5 @@
-export function FinancePanel() {
-  return <section>Finance module</section>;
+import FinancePage from '../pages/FinancePage';
+
+export default function FinancePanel() {
+  return <FinancePage />;
 }

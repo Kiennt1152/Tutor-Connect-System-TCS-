@@ -38,13 +38,18 @@ export function useReviewVerification() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const review = useCallback(
-    async (verificationId: string, decision: 'VERIFIED' | 'REJECTED', adminNotes?: string) => {
+    async (
+      verificationId: string,
+      decision: 'VERIFIED' | 'REJECTED',
+      adminNotes?: string,
+      expectedUpdatedAt?: string,
+    ) => {
       setStatus('loading');
       setErrorMessage(null);
       try {
         await platformApi.reviewVerification(
           verificationId,
-          buildReviewVerificationPayload(decision, adminNotes),
+          buildReviewVerificationPayload(decision, adminNotes, expectedUpdatedAt),
         );
         setStatus('success');
         return true;

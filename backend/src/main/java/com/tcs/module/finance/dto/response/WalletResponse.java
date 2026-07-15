@@ -11,6 +11,7 @@ import lombok.Getter;
 public class WalletResponse {
 
     private Long walletId;
+    private BigDecimal balance;
     private BigDecimal availableBalance;
     private BigDecimal frozenBalance;
     private WalletStatus status;
