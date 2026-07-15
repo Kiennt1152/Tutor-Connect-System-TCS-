@@ -104,6 +104,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/**")
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
+                        // --- Issue, dispute & refund ---
+                        .requestMatchers("/api/disputes/**", "/api/class-issues/**")
+                        .hasAnyRole(RbacConstants.BUSINESS_ROLES)
+
                         // --- Finance ---
                         .requestMatchers("/api/finance/**")
                         .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
