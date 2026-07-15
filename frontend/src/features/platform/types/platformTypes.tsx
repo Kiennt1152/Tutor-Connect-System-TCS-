@@ -107,11 +107,45 @@ export interface VerificationRequestItem {
   submittedAt: string;
   reviewedAt: string;
   canReview: boolean;
+  isReviewed: boolean;
 }
 
 export interface ReviewVerificationApiRequest {
   status: 'VERIFIED' | 'REJECTED';
   adminNotes?: string;
+  /** updatedAt của hồ sơ lúc admin mở xem — để server chống ghi đè khi có người sửa song song. */
+  expectedUpdatedAt?: string;
+}
+
+export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'LICENSE';
+
+export interface VerificationDocumentApiResponse {
+  documentId: number;
+  documentType: VerificationDocumentType;
+  fileId: number | null;
+  fileName: string | null;
+  fileUrl: string | null;
+  mimeType: string | null;
+  fileSize: number | null;
+  available: boolean;
+}
+
+export interface VerificationDetailApiResponse {
+  verificationId: number;
+  userId: number;
+  userEmail: string;
+  verificationType: VerificationType;
+  status: VerificationStatus;
+  adminNotes: string | null;
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+  submitterName: string | null;
+  submitterPhone: string | null;
+  submitterDetails: Record<string, string>;
+  documents: VerificationDocumentApiResponse[];
+  hasUnreadableDocument: boolean;
 }
 
 export type ReportStatus = 'PENDING' | 'RESOLVED';

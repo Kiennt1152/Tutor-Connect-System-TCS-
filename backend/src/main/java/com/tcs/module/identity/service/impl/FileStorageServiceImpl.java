@@ -51,6 +51,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         } catch (IOException e) {
             throw new RuntimeException("Could not create upload directory", e);
         }
+        log.info("[TCS] File storage directory (nơi file được lưu và phục vụ /uploads/**): {}", storageLocation);
     }
 
     @Override

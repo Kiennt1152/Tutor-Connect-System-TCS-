@@ -13,7 +13,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
+        // Bảo đảm URI luôn có dấu "/" ở cuối; nếu không, Spring coi đây là file
+        // (không phải thư mục) và mọi /uploads/** sẽ trả 404.
         String absolutePath = java.nio.file.Paths.get(storagePath).toAbsolutePath().normalize().toUri().toString();
+        if (!absolutePath.endsWith("/")) {
+            absolutePath = absolutePath + "/";
+        }
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations(absolutePath);
     }
