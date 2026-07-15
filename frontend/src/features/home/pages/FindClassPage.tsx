@@ -48,8 +48,8 @@ function TutorFindClassPage() {
                 <span className="tcs-find-title__text">Tìm lớp phù hợp</span>
               </h1>
               <p className="tcs-find-subtitle">
-                Khai báo môn dạy, khu vực, học phí và lịch rảnh — hệ thống chấm điểm và xếp hạng các
-                lớp đang mở để bạn dễ chọn lớp nhận dạy.
+                Kéo mức độ ưu tiên theo tiêu chí của bạn — hệ thống tự chấm điểm và xếp hạng các lớp
+                đang mở để bạn dễ chọn lớp nhận dạy.
               </p>
             </div>
             <div className="tfc-container">
