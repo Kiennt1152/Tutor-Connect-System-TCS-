@@ -1,8 +1,10 @@
 package com.tcs.module.marketplace.controller;
 
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
+import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
+import com.tcs.module.marketplace.dto.response.ClassTerminationResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.service.MarketplaceService;
@@ -53,6 +55,13 @@ public class MarketplaceController {
     public Map<String, String> applyToClass(@PathVariable Long classId, @RequestBody ApplyClassRequest request) {
         marketplaceService.applyToClass(classId, request);
         return Map.of("message", "Đã gửi đơn ứng tuyển");
+    }
+
+    @PostMapping("/classes/{classId}/termination")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ClassTerminationResponse requestClassTermination(
+            @PathVariable Long classId, @RequestBody CreateClassTerminationRequest request) {
+        return marketplaceService.requestClassTermination(classId, request);
     }
 
     @GetMapping("/tutors/search")

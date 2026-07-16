@@ -1,7 +1,9 @@
 package com.tcs.module.marketplace.service;
 
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
+import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
+import com.tcs.module.marketplace.dto.response.ClassTerminationResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
@@ -18,6 +20,8 @@ public interface MarketplaceService {
     ClassResponse publishClass(Long classId);
 
     void applyToClass(Long classId, ApplyClassRequest request);
+
+    ClassTerminationResponse requestClassTermination(Long classId, CreateClassTerminationRequest request);
 
     List<TutorSearchResponse> searchTutors(String keyword, Long subjectId);
 

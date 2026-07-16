@@ -1,5 +1,6 @@
 package com.tcs.module.marketplace.service.impl;
 
+import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.catalog.entity.Category;
@@ -13,14 +14,22 @@ import com.tcs.module.catalog.repository.SubjectRepository;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
+import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
+import com.tcs.module.marketplace.dto.response.ClassTerminationResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
+import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.ClassTerminationRequest;
 import com.tcs.module.marketplace.entity.FavoriteTutor;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
+import com.tcs.module.marketplace.enums.ClassTerminationStatus;
 import com.tcs.module.marketplace.enums.TutorApplicationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
+import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
+import com.tcs.module.marketplace.repository.ClassTerminationRequestRepository;
 import com.tcs.module.marketplace.repository.FavoriteTutorRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
@@ -32,8 +41,10 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -48,6 +59,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final ClientRepository clientRepository;
     private final TutorRepository tutorRepository;
     private final TutoringClassRepository tutoringClassRepository;
+    private final ClassAssignmentRepository classAssignmentRepository;
+    private final ClassTerminationRequestRepository classTerminationRequestRepository;
     private final TutorApplicationRepository tutorApplicationRepository;
     private final FavoriteTutorRepository favoriteTutorRepository;
     private final CategoryRepository categoryRepository;
@@ -125,6 +138,46 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     @Override
+    @Transactional
+    public ClassTerminationResponse requestClassTermination(Long classId, CreateClassTerminationRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thiếu thông tin yêu cầu chấm dứt lớp");
+        }
+        if (!StringUtils.hasText(request.getReason())) {
+            throw new IllegalArgumentException("Lý do chấm dứt lớp là bắt buộc");
+        }
+        if (request.getEffectiveDate() != null && request.getEffectiveDate().isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Ngày hiệu lực không được nằm trong quá khứ");
+        }
+
+        User requester = requireUser();
+        TutoringClass tutoringClass = findClass(classId);
+        if (tutoringClass.getStatus() != TutoringClassStatus.IN_PROGRESS) {
+            throw new BusinessException("Chỉ lớp đang diễn ra mới có thể yêu cầu chấm dứt sớm");
+        }
+
+        ClassAssignment assignment = resolveActiveAssignment(tutoringClass, request.getAssignmentId());
+        requireTerminationParticipant(tutoringClass, assignment, requester.getUserId());
+
+        if (classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                assignment.getAssignmentId(), ClassTerminationStatus.PENDING)) {
+            throw new BusinessException("Lớp học đã có yêu cầu chấm dứt sớm đang chờ xử lý");
+        }
+
+        ClassTerminationRequest termination = new ClassTerminationRequest();
+        termination.setAssignment(assignment);
+        termination.setRequestedBy(requester);
+        termination.setReason(request.getReason().trim());
+        termination.setEffectiveDate(request.getEffectiveDate());
+        termination.setStatus(ClassTerminationStatus.PENDING);
+
+        tutoringClass.setStatus(TutoringClassStatus.DISPUTED);
+        tutoringClassRepository.save(tutoringClass);
+
+        return toTerminationResponse(classTerminationRequestRepository.save(termination), tutoringClass);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<TutorSearchResponse> searchTutors(String keyword, Long subjectId) {
         String q = keyword != null ? keyword.trim().toLowerCase(Locale.ROOT) : "";
@@ -175,6 +228,51 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return tutoringClassRepository
                 .findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
+    }
+
+    private ClassAssignment resolveActiveAssignment(TutoringClass tutoringClass, Long assignmentId) {
+        if (assignmentId != null) {
+            ClassAssignment assignment = classAssignmentRepository.findById(assignmentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công lớp"));
+            if (assignment.getStatus() != ClassAssignmentStatus.ACTIVE) {
+                throw new BusinessException("Phân công lớp không còn hoạt động");
+            }
+            if (!assignmentBelongsToClass(assignment, tutoringClass.getClassId())) {
+                throw new IllegalArgumentException("Phân công lớp không thuộc lớp học này");
+            }
+            return assignment;
+        }
+
+        List<ClassAssignment> activeAssignments =
+                classAssignmentRepository.findByApplication_TutoringClass_ClassIdAndStatus(
+                        tutoringClass.getClassId(), ClassAssignmentStatus.ACTIVE);
+        if (activeAssignments.isEmpty()) {
+            throw new ResourceNotFoundException("Không tìm thấy phân công đang hoạt động của lớp học");
+        }
+        if (activeAssignments.size() > 1) {
+            throw new BusinessException("Lớp học có nhiều phân công, vui lòng truyền assignmentId cụ thể");
+        }
+        return activeAssignments.get(0);
+    }
+
+    private boolean assignmentBelongsToClass(ClassAssignment assignment, Long classId) {
+        return assignment.getApplication() != null
+                && assignment.getApplication().getTutoringClass() != null
+                && Objects.equals(assignment.getApplication().getTutoringClass().getClassId(), classId);
+    }
+
+    private void requireTerminationParticipant(
+            TutoringClass tutoringClass,
+            ClassAssignment assignment,
+            Long requesterUserId) {
+        boolean isClassCreator = tutoringClass.getCreator() != null
+                && Objects.equals(tutoringClass.getCreator().getUserId(), requesterUserId);
+        boolean isAssignedTutor = assignment.getTutor() != null
+                && assignment.getTutor().getUser() != null
+                && Objects.equals(assignment.getTutor().getUser().getUserId(), requesterUserId);
+        if (!isClassCreator && !isAssignedTutor) {
+            throw new ForbiddenException("Bạn không có quyền yêu cầu chấm dứt lớp này");
+        }
     }
 
     private User requireUser() {
@@ -237,6 +335,22 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .recurringType(c.getRecurringType())
                 .status(c.getStatus())
                 .createdAt(c.getCreatedAt())
+                .build();
+    }
+
+    private ClassTerminationResponse toTerminationResponse(
+            ClassTerminationRequest request,
+            TutoringClass tutoringClass) {
+        return ClassTerminationResponse.builder()
+                .terminationId(request.getTerminationId())
+                .classId(tutoringClass.getClassId())
+                .assignmentId(request.getAssignment().getAssignmentId())
+                .requestedByUserId(request.getRequestedBy().getUserId())
+                .reason(request.getReason())
+                .effectiveDate(request.getEffectiveDate())
+                .status(request.getStatus())
+                .createdAt(request.getCreatedAt())
+                .processedAt(request.getProcessedAt())
                 .build();
     }
 

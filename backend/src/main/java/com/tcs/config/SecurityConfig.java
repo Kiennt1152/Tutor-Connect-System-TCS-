@@ -93,6 +93,8 @@ public class SecurityConfig {
                         // --- Marketplace mutations ---
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/apply")
                         .hasRole(RbacConstants.TUTOR)
+                        .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/termination")
+                        .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/**")
                         .hasRole(RbacConstants.CLIENT)
                         .requestMatchers("/api/marketplace/favorites/**")
