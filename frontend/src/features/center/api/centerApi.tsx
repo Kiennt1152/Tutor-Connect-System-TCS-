@@ -4,6 +4,7 @@ import type {
   Reschedule,
   SaveClassRequest,
   ScheduleClass,
+  Substitution,
   TutorOption,
 } from '../types/centerTypes';
 
@@ -38,6 +39,17 @@ export const centerApi = {
   unassignTutor(classId: number) {
     return axiosClient.delete<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/assign-tutor`);
   },
+  assignAssistant(classId: number, tutorId: number) {
+    return axiosClient.post<ClassResponse>(
+      `${CENTER_API_BASE}/classes/${classId}/assign-assistant`,
+      { tutorId },
+    );
+  },
+  unassignAssistant(classId: number) {
+    return axiosClient.delete<ClassResponse>(
+      `${CENTER_API_BASE}/classes/${classId}/assign-assistant`,
+    );
+  },
   getSchedule(date?: string) {
     const q = date ? `?date=${date}` : '';
     return axiosClient.get<ScheduleClass[]>(`${CENTER_API_BASE}/schedule${q}`);
@@ -49,6 +61,16 @@ export const centerApi = {
     return axiosClient.post<Reschedule>(`${CENTER_API_BASE}/reschedules/decision`, {
       classId,
       originalDate,
+      approve,
+    });
+  },
+  getSubstitutions() {
+    return axiosClient.get<Substitution[]>(`${CENTER_API_BASE}/substitutions`);
+  },
+  decideSubstitution(classId: number, date: string, approve: boolean) {
+    return axiosClient.post<Substitution>(`${CENTER_API_BASE}/substitutions/decision`, {
+      classId,
+      date,
       approve,
     });
   },

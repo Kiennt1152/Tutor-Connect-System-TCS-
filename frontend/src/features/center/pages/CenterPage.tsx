@@ -372,12 +372,15 @@ export default function CenterPage() {
 
   const publish = async (classId: number) => {
     setListError('');
+    setDetailError('');
     try {
       await centerApi.publishClass(classId);
       reloadList();
       if (detailData?.classId === classId) refreshDetail(classId);
     } catch (err) {
-      setListError(extractError(err, 'Không đăng tải được lớp học.'));
+      const msg = extractError(err, 'Không đăng tải được lớp học.');
+      setDetailError(msg);
+      setListError(msg);
     }
   };
 
@@ -416,15 +419,18 @@ export default function CenterPage() {
     setDetailError('');
   };
 
-  // ----- Gán gia sư -----
+  // ----- Gán gia sư (chính / phụ) -----
+  type AssignMode = 'main' | 'assistant';
   const [assignFor, setAssignFor] = useState<ClassResponse | null>(null);
+  const [assignMode, setAssignMode] = useState<AssignMode>('main');
   const [tutors, setTutors] = useState<TutorOption[]>([]);
   const [tutorsLoading, setTutorsLoading] = useState(false);
   const [assignError, setAssignError] = useState('');
   const [assignBusyId, setAssignBusyId] = useState<number | null>(null);
 
-  const openAssign = async (cls: ClassResponse) => {
+  const openAssign = async (cls: ClassResponse, mode: AssignMode = 'main') => {
     setAssignFor(cls);
+    setAssignMode(mode);
     setAssignError('');
     setTutorsLoading(true);
     try {
@@ -449,13 +455,20 @@ export default function CenterPage() {
     setAssignBusyId(tutorId);
     setAssignError('');
     const targetId = assignFor.classId;
+    const isAssistant = assignMode === 'assistant';
     try {
-      await centerApi.assignTutor(targetId, tutorId);
+      if (isAssistant) {
+        await centerApi.assignAssistant(targetId, tutorId);
+      } else {
+        await centerApi.assignTutor(targetId, tutorId);
+      }
       closeAssign();
       reloadList();
       if (detailData?.classId === targetId) refreshDetail(targetId);
     } catch (err) {
-      setAssignError(extractError(err, 'Không gán được gia sư.'));
+      setAssignError(
+        extractError(err, isAssistant ? 'Không gán được gia sư phụ.' : 'Không gán được gia sư.'),
+      );
       setAssignBusyId(null);
     }
   };
@@ -468,6 +481,17 @@ export default function CenterPage() {
       if (detailData?.classId === classId) refreshDetail(classId);
     } catch (err) {
       setListError(extractError(err, 'Không gỡ được gia sư.'));
+    }
+  };
+
+  const removeAssistant = async (classId: number) => {
+    setListError('');
+    try {
+      await centerApi.unassignAssistant(classId);
+      reloadList();
+      if (detailData?.classId === classId) refreshDetail(classId);
+    } catch (err) {
+      setListError(extractError(err, 'Không gỡ được gia sư phụ.'));
     }
   };
 
@@ -1001,6 +1025,46 @@ export default function CenterPage() {
                     )}
                   </div>
 
+                  <div className="cc-detail__section">
+                    <span className="cc-detail__label">
+                      Gia sư phụ (dạy thay khi gia sư chính bận/ốm)
+                    </span>
+                    {detailData.assistantTutorName ? (
+                      <div className="cc-class-tutor__row">
+                        <span className="cc-tutor-badge">
+                          {initials(detailData.assistantTutorName)}
+                        </span>
+                        <span className="cc-tutor-name" title={detailData.assistantTutorName}>
+                          {detailData.assistantTutorName}
+                        </span>
+                        <div className="cc-row-actions">
+                          <button
+                            className="cc-btn cc-btn--sm"
+                            type="button"
+                            onClick={() => openAssign(detailData, 'assistant')}
+                          >
+                            Đổi
+                          </button>
+                          <button
+                            className="cc-btn cc-btn--danger cc-btn--sm"
+                            type="button"
+                            onClick={() => removeAssistant(detailData.classId)}
+                          >
+                            Gỡ
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        className="cc-btn cc-btn--soft cc-btn--sm"
+                        type="button"
+                        onClick={() => openAssign(detailData, 'assistant')}
+                      >
+                        + Gán gia sư phụ
+                      </button>
+                    )}
+                  </div>
+
                   {detailData.students && detailData.students.length > 0 && (
                     <div className="cc-detail__section">
                       <button
@@ -1040,15 +1104,34 @@ export default function CenterPage() {
                         ✎ Sửa lớp học
                       </button>
                     )}
-                    {detailData.status === 'DRAFT' && (
-                      <button
-                        className="cc-btn cc-btn--primary"
-                        type="button"
-                        onClick={() => publish(detailData.classId)}
-                      >
-                        Đăng tải
-                      </button>
-                    )}
+                    {detailData.status === 'DRAFT' &&
+                      (() => {
+                        const canPublish =
+                          !!detailData.assignedTutorId && !!detailData.assistantTutorId;
+                        return (
+                          <div className="cc-publish">
+                            {!canPublish && (
+                              <p className="cc-publish__hint">
+                                ⚠ Cần gán đủ <b>gia sư chính</b> và <b>gia sư phụ</b> trước khi
+                                đăng tải.
+                              </p>
+                            )}
+                            <button
+                              className="cc-btn cc-btn--primary"
+                              type="button"
+                              disabled={!canPublish}
+                              title={
+                                canPublish
+                                  ? undefined
+                                  : 'Cần gán đủ gia sư chính và gia sư phụ trước khi đăng tải'
+                              }
+                              onClick={() => publish(detailData.classId)}
+                            >
+                              Đăng tải
+                            </button>
+                          </div>
+                        );
+                      })()}
                   </div>
                 </>
               )}
@@ -1063,7 +1146,9 @@ export default function CenterPage() {
           <div className="cc-modal__card">
             <div className="cc-modal__head">
               <div>
-                <h2 className="cc-modal__title">Gán gia sư</h2>
+                <h2 className="cc-modal__title">
+                  {assignMode === 'assistant' ? 'Gán gia sư phụ' : 'Gán gia sư'}
+                </h2>
                 <p className="cc-modal__sub">Lớp: {assignFor.title}</p>
               </div>
               <button
@@ -1084,8 +1169,15 @@ export default function CenterPage() {
               {!tutorsLoading && tutors.length > 0 && (
                 <ul className="cc-tutor-list">
                   {tutors.map((t) => {
-                    const selected = assignFor.assignedTutorId === t.tutorId;
-                    const conflict = !!t.scheduleConflict && !selected;
+                    const isAssistant = assignMode === 'assistant';
+                    const currentId = isAssistant
+                      ? assignFor.assistantTutorId
+                      : assignFor.assignedTutorId;
+                    const selected = currentId === t.tutorId;
+                    // Gia sư phụ phải khác gia sư chính đang dạy.
+                    const isMainInAssistant =
+                      isAssistant && assignFor.assignedTutorId === t.tutorId;
+                    const conflict = !isAssistant && !!t.scheduleConflict && !selected;
                     return (
                       <li
                         className={`cc-tutor${conflict ? ' cc-tutor--conflict' : ''}`}
@@ -1116,16 +1208,22 @@ export default function CenterPage() {
                         <button
                           className="cc-btn cc-btn--primary cc-btn--sm"
                           type="button"
-                          disabled={assignBusyId === t.tutorId || selected || conflict}
+                          disabled={
+                            assignBusyId === t.tutorId || selected || conflict || isMainInAssistant
+                          }
                           onClick={() => pickTutor(t.tutorId)}
                         >
-                          {selected
-                            ? 'Đang dạy'
-                            : conflict
-                              ? 'Trùng lịch'
-                              : assignBusyId === t.tutorId
-                                ? 'Đang gán…'
-                                : 'Chọn'}
+                          {isMainInAssistant
+                            ? 'Gia sư chính'
+                            : selected
+                              ? isAssistant
+                                ? 'Gia sư phụ'
+                                : 'Đang dạy'
+                              : conflict
+                                ? 'Trùng lịch'
+                                : assignBusyId === t.tutorId
+                                  ? 'Đang gán…'
+                                  : 'Chọn'}
                         </button>
                       </li>
                     );

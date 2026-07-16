@@ -95,7 +95,9 @@ public class SecurityConfig {
                                 "/api/center/tutors",
                                 "/api/center/schedule",
                                 "/api/center/reschedules",
-                                "/api/center/reschedules/**")
+                                "/api/center/reschedules/**",
+                                "/api/center/substitutions",
+                                "/api/center/substitutions/**")
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
                         // --- Tutor: teaching schedule + attendance ---

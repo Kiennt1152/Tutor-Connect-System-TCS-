@@ -1,5 +1,10 @@
 import axiosClient from '../../../shared/api/axiosClient';
-import type { AttendanceStatus, Reschedule, ScheduleClass } from '../../center/types/centerTypes';
+import type {
+  AttendanceStatus,
+  Reschedule,
+  ScheduleClass,
+  Substitution,
+} from '../../center/types/centerTypes';
 
 const BASE = '/tutor';
 
@@ -36,5 +41,11 @@ export const tutorApi = {
   },
   getReschedules() {
     return axiosClient.get<Reschedule[]>(`${BASE}/reschedules`);
+  },
+  requestSubstitute(classId: number, payload: { date: string; reason: string }) {
+    return axiosClient.post<Substitution>(`${BASE}/classes/${classId}/substitute`, payload);
+  },
+  getSubstitutions() {
+    return axiosClient.get<Substitution[]>(`${BASE}/substitutions`);
   },
 };

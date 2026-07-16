@@ -5,10 +5,12 @@ import com.tcs.module.center.dto.request.AssignTutorRequest;
 import com.tcs.module.center.dto.request.CreateRecruitmentPostRequest;
 import com.tcs.module.center.dto.request.RescheduleDecisionBody;
 import com.tcs.module.center.dto.request.SaveClassRequest;
+import com.tcs.module.center.dto.request.SubstitutionDecisionBody;
 import com.tcs.module.center.dto.response.CenterClassResponse;
 import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
 import com.tcs.module.center.dto.response.RescheduleResponse;
+import com.tcs.module.center.dto.response.SubstitutionResponse;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
 import com.tcs.module.center.service.CenterService;
 import java.time.LocalDate;
@@ -104,6 +106,17 @@ public class CenterController {
         return centerService.unassignTutor(classId);
     }
 
+    @PostMapping("/classes/{classId}/assign-assistant")
+    public CenterClassResponse assignAssistant(
+            @PathVariable Long classId, @RequestBody AssignTutorRequest request) {
+        return centerService.assignAssistant(classId, request.getTutorId());
+    }
+
+    @DeleteMapping("/classes/{classId}/assign-assistant")
+    public CenterClassResponse unassignAssistant(@PathVariable Long classId) {
+        return centerService.unassignAssistant(classId);
+    }
+
     // ===== Lịch lớp CENTER =====
 
     @GetMapping("/schedule")
@@ -122,5 +135,17 @@ public class CenterController {
     @PostMapping("/reschedules/decision")
     public RescheduleResponse decideReschedule(@RequestBody RescheduleDecisionBody request) {
         return centerService.decideReschedule(request);
+    }
+
+    // ===== Duyệt yêu cầu nhờ gia sư phụ dạy thay =====
+
+    @GetMapping("/substitutions")
+    public List<SubstitutionResponse> listSubstitutions() {
+        return centerService.listSubstitutions();
+    }
+
+    @PostMapping("/substitutions/decision")
+    public SubstitutionResponse decideSubstitution(@RequestBody SubstitutionDecisionBody request) {
+        return centerService.decideSubstitution(request);
     }
 }

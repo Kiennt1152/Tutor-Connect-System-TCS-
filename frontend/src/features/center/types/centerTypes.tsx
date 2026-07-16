@@ -48,6 +48,8 @@ export interface ClassResponse {
   schedule: ScheduleSlot[];
   assignedTutorId: number | null;
   assignedTutorName: string | null;
+  assistantTutorId: number | null;
+  assistantTutorName: string | null;
   students?: StudentAttendance[];
 }
 
@@ -87,6 +89,14 @@ export interface ScheduleClass {
   attendanceTaken: boolean;
   rescheduled?: boolean;
   rescheduleNote?: string | null;
+  /** Buổi này do gia sư phụ dạy thay (đã duyệt). */
+  substituted?: boolean;
+  substituteNote?: string | null;
+  /** (Góc nhìn gia sư chính) buổi này đã bàn giao cho gia sư phụ — không thao tác nữa. */
+  handedOff?: boolean;
+  /** Gia sư phụ của lớp (nếu có) — để gia sư chính biết có thể nhờ dạy thay. */
+  assistantTutorId?: number | null;
+  assistantTutorName?: string | null;
 }
 
 export type RescheduleStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
@@ -102,6 +112,18 @@ export interface Reschedule {
   tutorId: number | null;
   tutorName: string | null;
   reason: string | null;
+}
+
+export interface Substitution {
+  classId: number;
+  className: string | null;
+  date: string;
+  status: RescheduleStatus;
+  reason: string | null;
+  mainTutorId: number | null;
+  mainTutorName: string | null;
+  assistantTutorId: number | null;
+  assistantTutorName: string | null;
 }
 
 export interface SaveClassRequest {

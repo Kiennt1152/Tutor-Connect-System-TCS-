@@ -130,6 +130,44 @@ export default function TutorSchedulePage() {
     }
   };
 
+  // Báo bận/ốm: chọn giữa "đổi lịch" và "nhờ gia sư phụ dạy thay".
+  const [sickFor, setSickFor] = useState<{ cls: ScheduleClass; date: string } | null>(null);
+  const openSick = (cls: ScheduleClass, date: string) => setSickFor({ cls, date });
+  const closeSick = () => setSickFor(null);
+
+  // Nhờ gia sư phụ dạy thay
+  const [subsFor, setSubsFor] = useState<{ cls: ScheduleClass; date: string } | null>(null);
+  const [subReason, setSubReason] = useState('');
+  const [subBusy, setSubBusy] = useState(false);
+  const [subError, setSubError] = useState('');
+
+  const openSubstitute = (cls: ScheduleClass, date: string) => {
+    setSickFor(null);
+    setSubsFor({ cls, date });
+    setSubReason('');
+    setSubError('');
+  };
+  const closeSubstitute = () => setSubsFor(null);
+
+  const submitSubstitute = async () => {
+    if (!subsFor) return;
+    setSubBusy(true);
+    setSubError('');
+    try {
+      await tutorApi.requestSubstitute(subsFor.cls.classId, {
+        date: subsFor.date,
+        reason: subReason.trim(),
+      });
+      setReschedOk('Đã gửi yêu cầu nhờ gia sư phụ dạy thay, chờ trung tâm duyệt.');
+      setSubsFor(null);
+      load();
+    } catch (err) {
+      setSubError(extractError(err, 'Không gửi được yêu cầu dạy thay.'));
+    } finally {
+      setSubBusy(false);
+    }
+  };
+
   const rangeLabel = `${ddmm(days[0])} – ${ddmm(days[6])}`;
 
   return (
@@ -146,7 +184,8 @@ export default function TutorSchedulePage() {
           <div>
             <h1 className="cs-title">Lịch dạy của tôi</h1>
             <p className="cs-subtitle">
-              Lịch dạy trong tuần theo từng thứ. Bấm “Điểm danh” hoặc 🤒 để xin đổi lịch (báo ốm).
+              Lịch dạy trong tuần theo từng thứ. Bấm “Điểm danh”, hoặc 🤒 khi bận/ốm để xin đổi
+              lịch hoặc nhờ gia sư phụ dạy thay.
             </p>
           </div>
         </header>
@@ -217,25 +256,32 @@ export default function TutorSchedulePage() {
                             {c.rescheduled && (
                               <span className="tw-chip tw-chip--resched">🔄 {c.rescheduleNote}</span>
                             )}
+                            {c.substituted && !c.handedOff && (
+                              <span className="tw-chip tw-chip--resched">🔁 {c.substituteNote}</span>
+                            )}
                           </div>
                           <div className="tw-card__meta">👥 {c.studentCount} học sinh</div>
-                          <div className="tw-card__actions">
-                            <button
-                              className={`tw-btn${c.attendanceTaken ? ' tw-btn--done' : ''}`}
-                              type="button"
-                              onClick={() => openAttendance(c.classId, iso)}
-                            >
-                              {c.attendanceTaken ? '✓ Đã điểm danh' : 'Điểm danh'}
-                            </button>
-                            <button
-                              className="tw-btn tw-btn--icon"
-                              type="button"
-                              title="Xin đổi lịch (báo ốm)"
-                              onClick={() => openResched(c, iso)}
-                            >
-                              🤒
-                            </button>
-                          </div>
+                          {c.handedOff ? (
+                            <div className="tw-card__handed">🔁 {c.substituteNote}</div>
+                          ) : (
+                            <div className="tw-card__actions">
+                              <button
+                                className={`tw-btn${c.attendanceTaken ? ' tw-btn--done' : ''}`}
+                                type="button"
+                                onClick={() => openAttendance(c.classId, iso)}
+                              >
+                                {c.attendanceTaken ? '✓ Đã điểm danh' : 'Điểm danh'}
+                              </button>
+                              <button
+                                className="tw-btn tw-btn--icon"
+                                type="button"
+                                title="Báo bận/ốm buổi này"
+                                onClick={() => openSick(c, iso)}
+                              >
+                                🤒
+                              </button>
+                            </div>
+                          )}
                         </div>
                       ))
                     )}
@@ -246,6 +292,95 @@ export default function TutorSchedulePage() {
           </div>
         )}
       </div>
+
+      {sickFor && (
+        <div className="cs-modal" role="dialog" aria-modal="true">
+          <div className="cs-modal__backdrop" onClick={closeSick} />
+          <div className="cs-modal__card">
+            <h2 className="cs-modal__title">Báo bận/ốm buổi này</h2>
+            <p className="cs-modal__sub">
+              Lớp: <b>{sickFor.cls.title}</b> — buổi ngày {sickFor.date}
+            </p>
+            <p className="cs-modal__sub">Bạn muốn xử lý buổi này thế nào?</p>
+            <div className="tw-choice">
+              <button
+                className="tw-choice__btn"
+                type="button"
+                onClick={() => {
+                  const s = sickFor;
+                  closeSick();
+                  openResched(s.cls, s.date);
+                }}
+              >
+                <span className="tw-choice__emoji">🗓️</span>
+                <span className="tw-choice__title">Xin đổi lịch (dạy bù ngày khác)</span>
+                <span className="tw-choice__desc">
+                  Dời buổi này sang một ngày khác để dạy bù.
+                </span>
+              </button>
+              <button
+                className="tw-choice__btn"
+                type="button"
+                disabled={!sickFor.cls.assistantTutorName || !!sickFor.cls.rescheduled}
+                onClick={() => openSubstitute(sickFor.cls, sickFor.date)}
+              >
+                <span className="tw-choice__emoji">🔁</span>
+                <span className="tw-choice__title">Nhờ gia sư phụ dạy thay</span>
+                <span className="tw-choice__desc">
+                  {sickFor.cls.rescheduled
+                    ? 'Buổi này đã được dời lịch nên không thể nhờ dạy thay.'
+                    : sickFor.cls.assistantTutorName
+                      ? `Giữ nguyên lịch, ${sickFor.cls.assistantTutorName} dạy thay buổi này.`
+                      : 'Lớp chưa có gia sư phụ. Đề nghị trung tâm gán trước.'}
+                </span>
+              </button>
+            </div>
+            <div className="cs-modal__actions">
+              <button className="cs-btn cs-btn--ghost" type="button" onClick={closeSick}>
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {subsFor && (
+        <div className="cs-modal" role="dialog" aria-modal="true">
+          <div className="cs-modal__backdrop" onClick={closeSubstitute} />
+          <div className="cs-modal__card">
+            <h2 className="cs-modal__title">Nhờ gia sư phụ dạy thay</h2>
+            <p className="cs-modal__sub">
+              Lớp: <b>{subsFor.cls.title}</b> — buổi ngày {subsFor.date}
+            </p>
+            <p className="cs-modal__sub">
+              Gia sư phụ: <b>{subsFor.cls.assistantTutorName}</b>. Buổi học giữ nguyên ngày giờ.
+            </p>
+            {subError && <div className="cs-alert cs-alert--error">{subError}</div>}
+            <label className="cs-field">
+              <span>Lý do (tuỳ chọn)</span>
+              <textarea
+                rows={3}
+                value={subReason}
+                onChange={(e) => setSubReason(e.target.value)}
+                placeholder="VD: Bận việc đột xuất, nhờ gia sư phụ dạy hôm nay"
+              />
+            </label>
+            <div className="cs-modal__actions">
+              <button className="cs-btn cs-btn--ghost" type="button" onClick={closeSubstitute}>
+                Huỷ
+              </button>
+              <button
+                className="cs-btn cs-btn--primary"
+                type="button"
+                disabled={subBusy}
+                onClick={submitSubstitute}
+              >
+                {subBusy ? 'Đang gửi…' : 'Gửi yêu cầu'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {reschedFor && (
         <div className="cs-modal" role="dialog" aria-modal="true">

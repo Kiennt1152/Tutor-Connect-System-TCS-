@@ -49,6 +49,10 @@ public class CenterClassResponse {
     private Long assignedTutorId;
     private String assignedTutorName;
 
+    // Gia sư phụ (backup) của lớp, dùng để dạy thay khi gia sư chính báo ốm/bận (null nếu chưa gán).
+    private Long assistantTutorId;
+    private String assistantTutorName;
+
     // Danh sách học sinh đã ghi danh (ENROLLED) – dùng cho phần xem chi tiết.
     private List<StudentAttendanceResponse> students;
 }

@@ -17,12 +17,14 @@ import com.tcs.module.center.dto.request.CreateRecruitmentPostRequest;
 import com.tcs.module.center.dto.request.RescheduleDecisionBody;
 import com.tcs.module.center.dto.request.SaveClassRequest;
 import com.tcs.module.center.dto.request.ScheduleSlotRequest;
+import com.tcs.module.center.dto.request.SubstitutionDecisionBody;
 import com.tcs.module.center.dto.response.CenterClassResponse;
 import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
 import com.tcs.module.center.dto.response.RescheduleResponse;
 import com.tcs.module.center.dto.response.ScheduleSlotResponse;
 import com.tcs.module.center.dto.response.StudentAttendanceResponse;
+import com.tcs.module.center.dto.response.SubstitutionResponse;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
 import com.tcs.module.center.entity.RecruitmentApplication;
 import com.tcs.module.center.entity.RecruitmentPost;
@@ -53,7 +55,9 @@ import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.dto.RescheduleEntry;
+import com.tcs.module.marketplace.dto.SubstitutionEntry;
 import com.tcs.module.marketplace.service.RescheduleService;
+import com.tcs.module.marketplace.service.SubstitutionService;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
@@ -97,6 +101,7 @@ public class CenterServiceImpl implements CenterService {
     private final LessonRepository lessonRepository;
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final RescheduleService rescheduleService;
+    private final SubstitutionService substitutionService;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -231,6 +236,16 @@ public class CenterServiceImpl implements CenterService {
         if (tutoringClass.getStatus() != TutoringClassStatus.DRAFT) {
             throw new IllegalArgumentException("Chỉ lớp ở trạng thái nháp mới có thể đăng tải");
         }
+        // Bắt buộc đủ 2 gia sư (chính + phụ) trước khi đăng tải.
+        boolean hasMain = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .isPresent();
+        if (!hasMain) {
+            throw new IllegalArgumentException("Cần gán gia sư chính trước khi đăng tải lớp.");
+        }
+        if (substitutionService.findAssistant(classId).isEmpty()) {
+            throw new IllegalArgumentException("Cần gán gia sư phụ trước khi đăng tải lớp.");
+        }
         tutoringClass.setStatus(TutoringClassStatus.OPEN);
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
@@ -335,6 +350,42 @@ public class CenterServiceImpl implements CenterService {
         return toClassResponse(tutoringClass);
     }
 
+    @Override
+    @Transactional
+    public CenterClassResponse assignAssistant(Long classId, Long tutorId) {
+        requireCenter();
+        TutoringClass tutoringClass = findClass(classId);
+        requireOwner(tutoringClass);
+        if (tutorId == null) {
+            throw new IllegalArgumentException("Vui lòng chọn gia sư phụ");
+        }
+        Tutor tutor = tutorRepository
+                .findById(tutorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
+
+        // Gia sư phụ phải khác gia sư chính đang dạy lớp.
+        ClassAssignment main = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .orElse(null);
+        if (main != null && main.getTutor().getTutorId().equals(tutor.getTutorId())) {
+            throw new IllegalArgumentException(
+                    "Gia sư phụ phải khác gia sư chính. Vui lòng chọn gia sư khác.");
+        }
+
+        substitutionService.assignAssistant(classId, tutor.getTutorId());
+        return toClassResponse(tutoringClass);
+    }
+
+    @Override
+    @Transactional
+    public CenterClassResponse unassignAssistant(Long classId) {
+        requireCenter();
+        TutoringClass tutoringClass = findClass(classId);
+        requireOwner(tutoringClass);
+        substitutionService.removeAssistant(classId);
+        return toClassResponse(tutoringClass);
+    }
+
     // ===================== Lịch lớp CENTER =====================
 
     @Override
@@ -350,6 +401,11 @@ public class CenterServiceImpl implements CenterService {
                 .filter(e -> e.originalDate().equals(d))
                 .map(RescheduleEntry::classId)
                 .collect(Collectors.toSet());
+        // Buổi có gia sư phụ dạy thay (đã duyệt) trong ngày.
+        Map<Long, SubstitutionEntry> subOnDate = substitutionService
+                .listApprovedByClassIds(myClasses.keySet()).stream()
+                .filter(e -> e.date().equals(d))
+                .collect(Collectors.toMap(SubstitutionEntry::classId, e -> e, (a, b) -> a));
 
         List<CenterScheduleClassResponse> result = new ArrayList<>();
         // Buổi thường trong ngày (bỏ qua buổi đã bị dời đi).
@@ -361,6 +417,7 @@ public class CenterServiceImpl implements CenterService {
             }
             CenterScheduleClassResponse item = buildScheduleItem(c, d, weekday);
             if (item != null) {
+                applySubstitution(item, subOnDate.get(c.getClassId()));
                 result.add(item);
             }
         }
@@ -413,6 +470,68 @@ public class CenterServiceImpl implements CenterService {
         RescheduleEntry entry =
                 rescheduleService.decide(body.getClassId(), body.getOriginalDate(), body.isApprove());
         return toRescheduleResponse(entry, c);
+    }
+
+    // ===================== Duyệt yêu cầu dạy thay =====================
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SubstitutionResponse> listSubstitutions() {
+        requireCenter();
+        Map<Long, TutoringClass> myClasses = classesByCenter();
+        return substitutionService.listByClassIds(myClasses.keySet()).stream()
+                .map(e -> toSubstitutionResponse(e, myClasses.get(e.classId())))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public SubstitutionResponse decideSubstitution(SubstitutionDecisionBody body) {
+        requireCenter();
+        if (body.getClassId() == null || body.getDate() == null) {
+            throw new IllegalArgumentException("Thiếu thông tin yêu cầu dạy thay");
+        }
+        TutoringClass c = findClass(body.getClassId());
+        requireOwner(c); // chỉ trung tâm sở hữu lớp mới được duyệt
+        SubstitutionEntry entry =
+                substitutionService.decide(body.getClassId(), body.getDate(), body.isApprove());
+        return toSubstitutionResponse(entry, c);
+    }
+
+    /** Ghi đè hiển thị buổi học thành "gia sư phụ dạy thay" (góc nhìn trung tâm, chỉ xem). */
+    private void applySubstitution(CenterScheduleClassResponse item, SubstitutionEntry sub) {
+        if (sub == null) {
+            return;
+        }
+        String mainName = item.getAssignedTutorName();
+        Tutor assistant = sub.tutorId() != null
+                ? tutorRepository.findById(sub.tutorId()).orElse(null) : null;
+        if (assistant != null) {
+            item.setAssignedTutorId(assistant.getTutorId());
+            item.setAssignedTutorName(assistant.getFullName());
+        }
+        item.setSubstituted(true);
+        item.setSubstituteNote("Dạy thay" + (mainName != null ? " cho " + mainName : ""));
+    }
+
+    private SubstitutionResponse toSubstitutionResponse(SubstitutionEntry e, TutoringClass c) {
+        ClassAssignment main = c == null ? null : classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                .orElse(null);
+        String assistantName = e.tutorId() != null
+                ? tutorRepository.findById(e.tutorId()).map(Tutor::getFullName).orElse(null) : null;
+        return SubstitutionResponse.builder()
+                .classId(e.classId())
+                .className(c != null ? c.getTitle() : null)
+                .date(e.date())
+                .status(e.status())
+                .reason(e.reason())
+                .mainTutorId(main != null ? main.getTutor().getTutorId() : null)
+                .mainTutorName(main != null ? main.getTutor().getFullName() : null)
+                .assistantTutorId(e.tutorId())
+                .assistantTutorName(assistantName)
+                .build();
     }
 
     private Map<Long, TutoringClass> classesByCenter() {
@@ -822,6 +941,8 @@ public class CenterServiceImpl implements CenterService {
         ClassAssignment assignment = classAssignmentRepository
                 .findFirstByApplication_TutoringClass_ClassIdAndStatus(c.getClassId(), ClassAssignmentStatus.ACTIVE)
                 .orElse(null);
+        Long assistantId = substitutionService.findAssistant(c.getClassId()).orElse(null);
+        Tutor assistant = assistantId != null ? tutorRepository.findById(assistantId).orElse(null) : null;
         List<ScheduleSlotResponse> schedule =
                 scheduleSlotRepository.findByTutoringClass_ClassId(c.getClassId()).stream()
                         .map(s -> ScheduleSlotResponse.builder()
@@ -872,6 +993,8 @@ public class CenterServiceImpl implements CenterService {
                 .schedule(schedule)
                 .assignedTutorId(assignment != null ? assignment.getTutor().getTutorId() : null)
                 .assignedTutorName(assignment != null ? assignment.getTutor().getFullName() : null)
+                .assistantTutorId(assistant != null ? assistant.getTutorId() : null)
+                .assistantTutorName(assistant != null ? assistant.getFullName() : null)
                 .students(students)
                 .build();
     }

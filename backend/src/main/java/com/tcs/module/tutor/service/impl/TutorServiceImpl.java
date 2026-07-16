@@ -4,12 +4,16 @@ import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.center.dto.request.MarkAttendanceRequest;
 import com.tcs.module.center.dto.request.RescheduleRequestBody;
+import com.tcs.module.center.dto.request.SubstituteRequestBody;
 import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
 import com.tcs.module.center.dto.response.RescheduleResponse;
 import com.tcs.module.center.dto.response.ScheduleSlotResponse;
 import com.tcs.module.center.dto.response.StudentAttendanceResponse;
+import com.tcs.module.center.dto.response.SubstitutionResponse;
 import com.tcs.module.marketplace.dto.RescheduleEntry;
+import com.tcs.module.marketplace.dto.SubstitutionEntry;
 import com.tcs.module.marketplace.service.RescheduleService;
+import com.tcs.module.marketplace.service.SubstitutionService;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.Lesson;
@@ -59,6 +63,7 @@ public class TutorServiceImpl implements TutorService {
     private final LessonRepository lessonRepository;
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final RescheduleService rescheduleService;
+    private final SubstitutionService substitutionService;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -84,6 +89,11 @@ public class TutorServiceImpl implements TutorService {
                 .filter(e -> e.originalDate().equals(d))
                 .map(RescheduleEntry::classId)
                 .collect(java.util.stream.Collectors.toSet());
+        // Buổi mình (gia sư chính) đã bàn giao cho gia sư phụ dạy thay (đã duyệt) trong ngày.
+        Map<Long, SubstitutionEntry> handedOffOnDate = substitutionService
+                .listApprovedByClassIds(myClasses.keySet()).stream()
+                .filter(e -> e.date().equals(d))
+                .collect(Collectors.toMap(SubstitutionEntry::classId, e -> e, (a, b) -> a));
 
         List<CenterScheduleClassResponse> result = new ArrayList<>();
         // Buổi thường trong ngày (bỏ qua buổi đã bị dời đi).
@@ -95,6 +105,14 @@ public class TutorServiceImpl implements TutorService {
             }
             CenterScheduleClassResponse item = buildScheduleItem(c, d, weekday, tutor);
             if (item != null) {
+                SubstitutionEntry sub = handedOffOnDate.get(c.getClassId());
+                if (sub != null) {
+                    item.setHandedOff(true);
+                    item.setSubstituted(true);
+                    String assistantName = tutorRepository.findById(sub.tutorId())
+                            .map(Tutor::getFullName).orElse("gia sư phụ");
+                    item.setSubstituteNote("Đã nhờ " + assistantName + " dạy thay");
+                }
                 result.add(item);
             }
         }
@@ -116,7 +134,36 @@ public class TutorServiceImpl implements TutorService {
                 result.add(item);
             }
         }
+        // Buổi mình là GIA SƯ PHỤ và được duyệt dạy thay trong ngày.
+        for (Long classId : substitutionService.findClassIdsByAssistant(tutor.getTutorId())) {
+            SubstitutionEntry sub = substitutionService.find(classId, d)
+                    .filter(e -> SubstitutionEntry.APPROVED.equals(e.status()))
+                    .filter(e -> tutor.getTutorId().equals(e.tutorId()))
+                    .orElse(null);
+            if (sub == null || myClasses.containsKey(classId)) {
+                continue; // không có yêu cầu, hoặc mình vốn là gia sư chính lớp này
+            }
+            TutoringClass c = tutoringClassRepository.findById(classId).orElse(null);
+            if (c == null) {
+                continue;
+            }
+            CenterScheduleClassResponse item =
+                    buildScheduleItem(c, d, d.getDayOfWeek().getValue(), tutor);
+            if (item != null) {
+                item.setSubstituted(true);
+                String mainName = mainTutorName(classId);
+                item.setSubstituteNote("Bạn dạy thay" + (mainName != null ? " cho " + mainName : ""));
+                result.add(item);
+            }
+        }
         return result;
+    }
+
+    private String mainTutorName(Long classId) {
+        return classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .map(a -> a.getTutor().getFullName())
+                .orElse(null);
     }
 
     /** Nếu buổi dời có khung giờ mới thì thay khung giờ hiển thị bằng khung giờ đó. */
@@ -159,6 +206,14 @@ public class TutorServiceImpl implements TutorService {
         if (next.isBefore(c.getStartDate()) || next.isAfter(c.getEndDate())) {
             throw new IllegalArgumentException("Ngày mới phải nằm trong khoảng thời gian của lớp");
         }
+        // Không cho vừa nhờ dạy thay vừa đổi lịch cùng một buổi.
+        substitutionService.find(classId, original)
+                .filter(e -> !SubstitutionEntry.REJECTED.equals(e.status()))
+                .ifPresent(e -> {
+                    throw new IllegalArgumentException(
+                            "Buổi này đã có yêu cầu nhờ gia sư phụ dạy thay. "
+                            + "Không thể vừa dạy thay vừa đổi lịch.");
+                });
         LocalTime start = parseTime(body.getNewStartTime());
         LocalTime end = parseTime(body.getNewEndTime());
         if (start == null || end == null || !end.isAfter(start)) {
@@ -280,6 +335,90 @@ public class TutorServiceImpl implements TutorService {
 
     @Override
     @Transactional
+    public SubstitutionResponse requestSubstitute(Long classId, SubstituteRequestBody body) {
+        Tutor tutor = requireTutor();
+        TutoringClass c = tutoringClassRepository
+                .findById(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
+        requireAssigned(classId, tutor); // chỉ gia sư chính mới được nhờ dạy thay
+        if (body.getDate() == null) {
+            throw new IllegalArgumentException("Vui lòng chọn buổi cần nhờ dạy thay");
+        }
+        LocalDate date = body.getDate();
+        // Buổi này vốn là buổi đã được DỜI tới từ ngày khác → không nhờ dạy thay trên buổi dời.
+        if (arrivingReschedule(classId, date) != null) {
+            throw new IllegalArgumentException(
+                    "Buổi này là buổi đã được dời lịch nên không thể nhờ gia sư phụ dạy thay.");
+        }
+        // Lớp phải đã có gia sư phụ (do trung tâm gán).
+        Long assistantId = substitutionService.findAssistant(classId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Lớp chưa có gia sư phụ. Vui lòng đề nghị trung tâm gán gia sư phụ trước."));
+        // Buổi cần dạy thay phải là buổi học thật của lớp (đúng thứ, trong khoảng ngày).
+        if (c.getStartDate() == null || c.getEndDate() == null
+                || date.isBefore(c.getStartDate()) || date.isAfter(c.getEndDate())
+                || slotsOn(classId, date.getDayOfWeek().getValue()).isEmpty()) {
+            throw new IllegalArgumentException("Ngày cần dạy thay không phải buổi học của lớp");
+        }
+        if (date.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Chỉ có thể nhờ dạy thay cho buổi từ hôm nay trở đi");
+        }
+        // Không cho vừa đổi lịch vừa nhờ dạy thay cùng một buổi.
+        rescheduleService.find(classId, date)
+                .filter(e -> !RescheduleEntry.REJECTED.equals(e.status()))
+                .ifPresent(e -> {
+                    throw new IllegalArgumentException(
+                            "Buổi này đã có yêu cầu đổi lịch. Không thể vừa đổi lịch vừa nhờ dạy thay.");
+                });
+        SubstitutionEntry entry = substitutionService.request(classId, date, assistantId, body.getReason());
+        return toSubstitutionResponse(entry, c);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<SubstitutionResponse> listMySubstitutions() {
+        Tutor tutor = requireTutor();
+        Map<Long, TutoringClass> classes = new HashMap<>();
+        // Lớp mình là gia sư chính.
+        for (ClassAssignment a : classAssignmentRepository
+                .findByTutor_TutorIdAndStatus(tutor.getTutorId(), ClassAssignmentStatus.ACTIVE)) {
+            if (a.getApplication() != null && a.getApplication().getTutoringClass() != null) {
+                TutoringClass c = a.getApplication().getTutoringClass();
+                classes.put(c.getClassId(), c);
+            }
+        }
+        // Lớp mình là gia sư phụ.
+        for (Long classId : substitutionService.findClassIdsByAssistant(tutor.getTutorId())) {
+            classes.computeIfAbsent(classId, id -> tutoringClassRepository.findById(id).orElse(null));
+        }
+        classes.values().removeIf(java.util.Objects::isNull);
+        return substitutionService.listByClassIds(classes.keySet()).stream()
+                .map(e -> toSubstitutionResponse(e, classes.get(e.classId())))
+                .toList();
+    }
+
+    private SubstitutionResponse toSubstitutionResponse(SubstitutionEntry e, TutoringClass c) {
+        ClassAssignment main = c == null ? null : classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                .orElse(null);
+        String assistantName = e.tutorId() != null
+                ? tutorRepository.findById(e.tutorId()).map(Tutor::getFullName).orElse(null) : null;
+        return SubstitutionResponse.builder()
+                .classId(e.classId())
+                .className(c != null ? c.getTitle() : null)
+                .date(e.date())
+                .status(e.status())
+                .reason(e.reason())
+                .mainTutorId(main != null ? main.getTutor().getTutorId() : null)
+                .mainTutorName(main != null ? main.getTutor().getFullName() : null)
+                .assistantTutorId(e.tutorId())
+                .assistantTutorName(assistantName)
+                .build();
+    }
+
+    @Override
+    @Transactional
     public CenterScheduleClassResponse markAttendance(
             Long classId, LocalDate date, Long classStudentId, LessonAttendanceStatus status) {
         Tutor tutor = requireTutor();
@@ -290,15 +429,9 @@ public class TutorServiceImpl implements TutorService {
             throw new IllegalArgumentException("Thiếu thông tin điểm danh");
         }
 
-        // Chỉ gia sư đang phụ trách lớp này mới được điểm danh.
-        ClassAssignment assignment = classAssignmentRepository
-                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
-                .orElseThrow(() -> new ForbiddenException("Bạn không phụ trách lớp này"));
-        if (!assignment.getTutor().getTutorId().equals(tutor.getTutorId())) {
-            throw new ForbiddenException("Bạn không phụ trách lớp này");
-        }
-
         LocalDate d = date != null ? date : LocalDate.now();
+        // Gia sư chính, hoặc gia sư phụ đã được duyệt dạy thay hôm nay, mới được điểm danh.
+        requireCanTeach(classId, d, tutor);
         int weekday = slotWeekday(d, arrivingReschedule(classId, d));
         List<ScheduleSlot> slotsToday = slotsOn(classId, weekday);
         if (slotsToday.isEmpty()) {
@@ -346,8 +479,8 @@ public class TutorServiceImpl implements TutorService {
         TutoringClass c = tutoringClassRepository
                 .findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
-        requireAssigned(classId, tutor);
         LocalDate d = date != null ? date : LocalDate.now();
+        requireCanTeach(classId, d, tutor);
         RescheduleEntry arriving = arrivingReschedule(classId, d);
         int weekday = slotWeekday(d, arriving);
         CenterScheduleClassResponse item = buildScheduleItem(c, d, weekday, tutor);
@@ -387,11 +520,11 @@ public class TutorServiceImpl implements TutorService {
         TutoringClass tutoringClass = tutoringClassRepository
                 .findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
-        requireAssigned(classId, tutor);
         if (records == null || records.isEmpty()) {
             throw new IllegalArgumentException("Chưa có dữ liệu điểm danh");
         }
         LocalDate d = date != null ? date : LocalDate.now();
+        requireCanTeach(classId, d, tutor);
         int weekday = slotWeekday(d, arrivingReschedule(classId, d));
         List<ScheduleSlot> slotsToday = slotsOn(classId, weekday);
         if (slotsToday.isEmpty()) {
@@ -454,6 +587,29 @@ public class TutorServiceImpl implements TutorService {
         }
     }
 
+    /**
+     * Ai được dạy/điểm danh buổi {@code date} của lớp:
+     * gia sư phụ nếu có yêu cầu dạy thay ĐÃ DUYỆT cho ngày đó; nếu không thì gia sư chính
+     * (nhưng gia sư chính không được điểm danh buổi đã bàn giao cho gia sư phụ).
+     */
+    private void requireCanTeach(Long classId, LocalDate date, Tutor tutor) {
+        SubstitutionEntry sub = substitutionService.find(classId, date)
+                .filter(e -> SubstitutionEntry.APPROVED.equals(e.status()))
+                .orElse(null);
+        if (sub != null && tutor.getTutorId().equals(sub.tutorId())) {
+            return; // gia sư phụ được duyệt dạy thay hôm nay
+        }
+        ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .orElseThrow(() -> new ForbiddenException("Bạn không phụ trách lớp này"));
+        if (!assignment.getTutor().getTutorId().equals(tutor.getTutorId())) {
+            throw new ForbiddenException("Bạn không phụ trách lớp này");
+        }
+        if (sub != null) {
+            throw new ForbiddenException("Buổi này đã được nhờ gia sư phụ dạy thay.");
+        }
+    }
+
     private Tutor requireTutor() {
         authHelper.requireRole(UserRole.TUTOR);
         return tutorRepository
@@ -510,7 +666,7 @@ public class TutorServiceImpl implements TutorService {
                         .build())
                 .toList();
 
-        return CenterScheduleClassResponse.builder()
+        CenterScheduleClassResponse item = CenterScheduleClassResponse.builder()
                 .classId(c.getClassId())
                 .title(c.getTitle())
                 .subjectName(c.getSubject() != null ? c.getSubject().getSubjectName() : null)
@@ -523,5 +679,12 @@ public class TutorServiceImpl implements TutorService {
                 .students(studentItems)
                 .attendanceTaken(!attendanceByStudent.isEmpty())
                 .build();
+        // Đính kèm gia sư phụ của lớp (nếu có) để gia sư chính biết có thể nhờ dạy thay.
+        substitutionService.findAssistant(c.getClassId()).ifPresent(assistantId -> {
+            item.setAssistantTutorId(assistantId);
+            tutorRepository.findById(assistantId)
+                    .ifPresent(a -> item.setAssistantTutorName(a.getFullName()));
+        });
+        return item;
     }
 }

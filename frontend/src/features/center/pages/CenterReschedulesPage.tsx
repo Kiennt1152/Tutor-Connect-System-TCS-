@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { centerApi } from '../api/centerApi';
-import type { Reschedule, RescheduleStatus } from '../types/centerTypes';
+import type { Reschedule, RescheduleStatus, Substitution } from '../types/centerTypes';
 import './CenterSchedulePage.css';
 
 const STATUS_LABELS: Record<RescheduleStatus, { label: string; cls: string }> = {
@@ -26,6 +26,7 @@ function extractError(error: unknown, fallback: string): string {
 
 export default function CenterReschedulesPage() {
   const [items, setItems] = useState<Reschedule[]>([]);
+  const [subs, setSubs] = useState<Substitution[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [error, setError] = useState('');
   const [busyKey, setBusyKey] = useState('');
@@ -33,14 +34,14 @@ export default function CenterReschedulesPage() {
   const load = useCallback(() => {
     setStatus('loading');
     setError('');
-    centerApi
-      .getReschedules()
-      .then((res) => {
-        setItems(res.data);
+    Promise.all([centerApi.getReschedules(), centerApi.getSubstitutions()])
+      .then(([resched, sub]) => {
+        setItems(resched.data);
+        setSubs(sub.data);
         setStatus('success');
       })
       .catch((err) => {
-        setError(extractError(err, 'Không tải được yêu cầu đổi lịch.'));
+        setError(extractError(err, 'Không tải được yêu cầu.'));
         setStatus('error');
       });
   }, []);
@@ -50,7 +51,7 @@ export default function CenterReschedulesPage() {
   }, [load]);
 
   const decide = async (r: Reschedule, approve: boolean) => {
-    const key = `${r.classId}:${r.originalDate}`;
+    const key = `r:${r.classId}:${r.originalDate}`;
     setBusyKey(key);
     setError('');
     try {
@@ -63,11 +64,28 @@ export default function CenterReschedulesPage() {
     }
   };
 
+  const decideSub = async (s: Substitution, approve: boolean) => {
+    const key = `s:${s.classId}:${s.date}`;
+    setBusyKey(key);
+    setError('');
+    try {
+      await centerApi.decideSubstitution(s.classId, s.date, approve);
+      load();
+    } catch (err) {
+      setError(extractError(err, 'Không xử lý được yêu cầu.'));
+    } finally {
+      setBusyKey('');
+    }
+  };
+
   const pending = items.filter((i) => i.status === 'PENDING');
   const decided = items.filter((i) => i.status !== 'PENDING');
+  const subPending = subs.filter((i) => i.status === 'PENDING');
+  const subDecided = subs.filter((i) => i.status !== 'PENDING');
+  const isEmpty = items.length === 0 && subs.length === 0;
 
   const renderCard = (r: Reschedule) => {
-    const key = `${r.classId}:${r.originalDate}`;
+    const key = `r:${r.classId}:${r.originalDate}`;
     const st = STATUS_LABELS[r.status];
     return (
       <article className="cs-card" key={key}>
@@ -117,6 +135,53 @@ export default function CenterReschedulesPage() {
     );
   };
 
+  const renderSubCard = (s: Substitution) => {
+    const key = `s:${s.classId}:${s.date}`;
+    const st = STATUS_LABELS[s.status];
+    return (
+      <article className="cs-card" key={key}>
+        <div className="cs-card__head">
+          <div>
+            <h2 className="cs-card__title">{s.className ?? `Lớp #${s.classId}`}</h2>
+            <div className="cs-chips">
+              {s.mainTutorName && <span className="cs-chip">👩‍🏫 {s.mainTutorName}</span>}
+              {s.assistantTutorName && (
+                <span className="cs-chip">🔁 Thay: {s.assistantTutorName}</span>
+              )}
+              <span className={`cs-attstate cs-attstate--${st.cls === 'approved' ? 'done' : 'pending'}`}>
+                {st.label}
+              </span>
+            </div>
+          </div>
+          <div className="cs-times">
+            <span className="cs-time">Buổi {fmt(s.date)}</span>
+          </div>
+        </div>
+        {s.reason && <p className="cs-muted">Lý do: {s.reason}</p>}
+        {s.status === 'PENDING' && (
+          <div className="cs-modal__actions">
+            <button
+              className="cs-btn cs-btn--ghost"
+              type="button"
+              disabled={busyKey === key}
+              onClick={() => decideSub(s, false)}
+            >
+              Từ chối
+            </button>
+            <button
+              className="cs-btn cs-btn--primary"
+              type="button"
+              disabled={busyKey === key}
+              onClick={() => decideSub(s, true)}
+            >
+              Duyệt
+            </button>
+          </div>
+        )}
+      </article>
+    );
+  };
+
   return (
     <>
       <VerificationHeader />
@@ -130,33 +195,52 @@ export default function CenterReschedulesPage() {
 
           <header className="cs-header">
             <div>
-              <h1 className="cs-title">Yêu cầu đổi lịch</h1>
+              <h1 className="cs-title">Yêu cầu đổi lịch & dạy thay</h1>
               <p className="cs-subtitle">
-                Gia sư báo ốm và xin dời buổi dạy sang ngày khác. Duyệt để áp dụng vào lịch lớp.
+                Gia sư báo bận/ốm: xin dời buổi sang ngày khác, hoặc nhờ gia sư phụ dạy thay. Duyệt
+                để áp dụng vào lịch lớp.
               </p>
             </div>
           </header>
 
           {error && <div className="cs-alert cs-alert--error">{error}</div>}
           {status === 'loading' && <div className="cs-state">Đang tải…</div>}
-          {status === 'success' && items.length === 0 && (
+          {status === 'success' && isEmpty && (
             <div className="cs-empty">
               <div className="cs-empty__emoji">🗓️</div>
-              <p>Chưa có yêu cầu đổi lịch nào.</p>
+              <p>Chưa có yêu cầu nào.</p>
             </div>
           )}
 
+          {status === 'success' && (pending.length > 0 || decided.length > 0) && (
+            <h2 className="cs-section-title">Đổi lịch (dạy bù ngày khác)</h2>
+          )}
           {status === 'success' && pending.length > 0 && (
             <>
-              <h2 className="cs-section-title">Chờ duyệt ({pending.length})</h2>
+              <h3 className="cs-section-title">Chờ duyệt ({pending.length})</h3>
               <div className="cs-list">{pending.map(renderCard)}</div>
             </>
           )}
-
           {status === 'success' && decided.length > 0 && (
             <>
-              <h2 className="cs-section-title">Đã xử lý</h2>
+              <h3 className="cs-section-title">Đã xử lý</h3>
               <div className="cs-list">{decided.map(renderCard)}</div>
+            </>
+          )}
+
+          {status === 'success' && (subPending.length > 0 || subDecided.length > 0) && (
+            <h2 className="cs-section-title">Nhờ gia sư phụ dạy thay</h2>
+          )}
+          {status === 'success' && subPending.length > 0 && (
+            <>
+              <h3 className="cs-section-title">Chờ duyệt ({subPending.length})</h3>
+              <div className="cs-list">{subPending.map(renderSubCard)}</div>
+            </>
+          )}
+          {status === 'success' && subDecided.length > 0 && (
+            <>
+              <h3 className="cs-section-title">Đã xử lý</h3>
+              <div className="cs-list">{subDecided.map(renderSubCard)}</div>
             </>
           )}
         </div>
