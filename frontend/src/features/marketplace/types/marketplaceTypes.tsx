@@ -162,6 +162,12 @@ export interface ClassFormValues {
   months: string;
   /** WEEKLY = lặp lại hàng tuần (theo Thứ); CUSTOM = chọn ngày cụ thể. */
   scheduleMode: ScheduleMode;
+  /** Độ dài chu kỳ lặp, tính bằng tuần ("1" = hàng tuần, "3" = chu kỳ 3 tuần). Chỉ dùng khi WEEKLY. */
+  repeatEveryWeeks: string;
+  /** Những tuần HỌC trong mỗi chu kỳ, đánh số 1..N (N = repeatEveryWeeks); tuần không có
+   *  trong danh sách là tuần nghỉ. Chu kỳ 4 tuần + [1, 3] = học tuần 1 và 3, nghỉ tuần 2 và 4.
+   *  Mặc định [1]. Cho phép tuần học nằm rời rạc, không bắt buộc liền nhau. */
+  studyWeeks: number[];
   /** Lịch học theo từng môn: mỗi phần tử = 1 buổi của 1 môn (không trùng giờ nhau). */
   slots: ScheduleSlot[];
   note: string;
@@ -173,6 +179,21 @@ export const SCHEDULE_MODE_OPTIONS: readonly { value: ScheduleMode; label: strin
   { value: 'WEEKLY', label: 'Lặp lại hàng tuần' },
   { value: 'CUSTOM', label: 'Chọn ngày cụ thể (lịch cá nhân)' },
 ];
+
+/** Bước tăng/giảm của ô học phí/giờ (đ) — bấm mũi tên là nhảy 50k. */
+export const FEE_PER_HOUR_STEP = 50000;
+
+/** Học phí/giờ thấp nhất chấp nhận được (đ) — gia sư là sinh viên cũng đã từ mức này trở lên. */
+export const FEE_PER_HOUR_MIN = 50000;
+
+/** Độ dài chu kỳ lặp của lịch WEEKLY: 1–4 tuần. */
+export const REPEAT_WEEKS_OPTIONS: readonly { value: string; label: string }[] = [
+  { value: '1', label: 'Hàng tuần (học đều, không nghỉ)' },
+  { value: '2', label: 'Chu kỳ 2 tuần' },
+  { value: '3', label: 'Chu kỳ 3 tuần' },
+  { value: '4', label: 'Chu kỳ 4 tuần' },
+];
+
 
 /** Một buổi học: thuộc môn nào; theo Thứ (WEEKLY) hoặc ngày cụ thể (CUSTOM); buổi + khung giờ. */
 export interface ScheduleSlot {
@@ -232,17 +253,23 @@ export const RECURRING_OPTIONS: readonly { value: RecurringType; label: string }
   { value: 'ONCE', label: 'Học một đợt' },
 ];
 
-// Học theo tháng / theo kỳ — dùng để ước tính tổng học phí.
+// Học theo tháng / quý / nửa năm / năm — dùng để ước tính tổng học phí.
+// CẢNH BÁO: tên khóa KHÔNG khớp nhãn và không được đổi — detailsJson của các lớp đã lưu
+// dùng đúng các khóa này, đổi khóa sẽ làm lớp cũ rơi về "Tháng" và sai tổng học phí.
+//   TERM    = quý (3 tháng)      — trước đây gọi nhầm là "kỳ"
+//   QUARTER = nửa năm (6 tháng)  — trước đây gọi nhầm là "quý" (quý đúng ra là 3 tháng)
 export const BILLING_CYCLE_OPTIONS: readonly {
   value: BillingCycle;
+  /** Nhãn đầy đủ trong ô chọn. */
   label: string;
+  /** Tên gọn để ghép câu: "9.600.000 đ / năm", "Tổng học phí ước tính (quý)". */
+  short: string;
   weeks: number;
-  suffix: string;
 }[] = [
-  { value: 'MONTH', label: 'Theo tháng', weeks: 4, suffix: 'đ / tháng' },
-  { value: 'TERM', label: 'Theo kỳ (3 tháng)', weeks: 12, suffix: 'đ / kỳ' },
-  { value: 'QUARTER', label: 'Theo quý (6 tháng)', weeks: 24, suffix: 'đ / quý' },
-  { value: 'YEAR', label: 'Theo năm (12 tháng)', weeks: 48, suffix: 'đ / năm' },
+  { value: 'MONTH', label: 'Tháng', short: 'tháng', weeks: 4 },
+  { value: 'TERM', label: 'Quý (3 tháng)', short: 'quý', weeks: 12 },
+  { value: 'QUARTER', label: 'Nửa năm (6 tháng)', short: 'nửa năm', weeks: 24 },
+  { value: 'YEAR', label: 'Một năm (12 tháng)', short: 'năm', weeks: 48 },
 ];
 
 // Các thứ trong tuần.

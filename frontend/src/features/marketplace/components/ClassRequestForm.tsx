@@ -2,10 +2,13 @@ import { useEffect, useMemo, useState } from 'react';
 import {
   BILLING_CYCLE_OPTIONS,
   DAY_OF_WEEK_OPTIONS,
+  FEE_PER_HOUR_MIN,
+  FEE_PER_HOUR_STEP,
   LEARNING_GOAL_OPTIONS,
   LEARNING_GOAL_OTHER,
   LESSON_MODE_OPTIONS,
   OTHER_SUBJECT,
+  REPEAT_WEEKS_OPTIONS,
   SCHEDULE_MODE_OPTIONS,
   SESSION_OPTIONS,
   TUTOR_REQUIREMENT_OPTIONS,
@@ -20,8 +23,13 @@ import {
 import {
   cycleLabelOf,
   formToPayload,
+  patternRepeats,
+  repeatLabel,
+  repeatWeeksOf,
+  restWeeksOf,
+  studyWeeksOf,
   totalBudget,
-  totalHoursPerWeek,
+  totalHoursPerRepeat,
   weeksForCycle,
 } from '../mappers/marketplaceMapper';
 import { marketplaceApi } from '../api/marketplaceApi';
@@ -73,6 +81,23 @@ function sessionFromStart(start: string): string {
 function toMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + m;
+}
+
+/** Mỗi buổi (thứ + Sáng/Chiều/Tối) chỉ dành cho MỘT môn.
+ *  Trả về buổi → tên môn khác đã đặt trong thứ đó. */
+function takenSessions(
+  slots: ScheduleSlot[],
+  day: string,
+  exceptSubjectId: string,
+  nameOf: (id: string) => string,
+): Map<string, string> {
+  const out = new Map<string, string>();
+  for (const s of slots) {
+    if (s.subjectId !== exceptSubjectId && s.day === day && s.session) {
+      out.set(s.session, nameOf(s.subjectId));
+    }
+  }
+  return out;
 }
 
 /** Nhãn thời lượng gọn: "30 phút", "1 giờ", "1 giờ 30 phút". */
@@ -251,9 +276,11 @@ export function ClassRequestForm({
   }
 
   function setSubjectFee(subjectId: string, value: string) {
+    // Ô number vẫn cho gõ '-' và 'e' → chỉ giữ chữ số, học phí không bao giờ âm.
+    const digits = value.replace(/\D/g, '');
     setForm((prev) => ({
       ...prev,
-      subjectFees: { ...prev.subjectFees, [subjectId]: value },
+      subjectFees: { ...prev.subjectFees, [subjectId]: digits },
     }));
   }
 
@@ -271,9 +298,17 @@ export function ClassRequestForm({
           slots: prev.slots.filter((s) => !(s.subjectId === subjectId && s.day === day)),
         };
       }
+      const taken = takenSessions(prev.slots, day, subjectId, subjName);
+      // Giữ khung giờ chung của môn nếu buổi đó còn trống; không thì lấy buổi trống đầu tiên.
       const shared = prev.slots.find((s) => s.subjectId === subjectId);
-      const start = shared?.start || WEEKLY_DEFAULT_START;
-      const end = shared?.end || WEEKLY_DEFAULT_END;
+      let start = shared?.start || WEEKLY_DEFAULT_START;
+      let end = shared?.end || WEEKLY_DEFAULT_END;
+      if (taken.has(sessionFromStart(start))) {
+        const free = SESSION_OPTIONS.find((o) => !taken.has(o.value));
+        if (!free) return prev; // cả 3 buổi trong thứ này đã bị môn khác đặt
+        start = free.start;
+        end = free.end;
+      }
       return {
         ...prev,
         slots: [
@@ -294,9 +329,21 @@ export function ClassRequestForm({
         // Đổi giờ bắt đầu mà giờ kết thúc không còn hợp lệ thì xóa giờ kết thúc để chọn lại.
         let end = patch.end ?? s.end;
         if (end && start && end <= start) end = '';
-        return { ...s, start, end, session: sessionFromStart(start) };
+        // Xóa giờ bắt đầu thì giữ nguyên buổi đang chọn: ô Buổi không có lựa chọn rỗng,
+        // để session rỗng sẽ khiến nó hiện sai buổi so với dữ liệu.
+        return { ...s, start, end, session: start ? sessionFromStart(start) : s.session };
       }),
     }));
+  }
+
+  // Bật/tắt một tuần trong chu kỳ (tuần học ↔ tuần nghỉ). Luôn giữ lại ít nhất một tuần học.
+  function toggleStudyWeek(week: number) {
+    setForm((prev) => {
+      const cur = studyWeeksOf(prev);
+      const next = cur.includes(week) ? cur.filter((w) => w !== week) : [...cur, week];
+      if (next.length === 0) return prev;
+      return { ...prev, studyWeeks: next.sort((a, b) => a - b) };
+    });
   }
 
   function removeSlot(index: number) {
@@ -311,20 +358,32 @@ export function ClassRequestForm({
   }
 
   // Chọn buổi → điền sẵn khung giờ gợi ý (vẫn sửa được).
+  // Bỏ chọn buổi → xóa giờ luôn, tránh kẹt giờ của buổi cũ và báo lỗi khó hiểu.
   function setSlotSession(index: number, session: string) {
     const preset = SESSION_OPTIONS.find((s) => s.value === session);
-    updateSlot(index, preset ? { session, start: preset.start, end: preset.end } : { session });
+    updateSlot(
+      index,
+      preset
+        ? { session, start: preset.start, end: preset.end }
+        : { session, start: '', end: '' },
+    );
   }
 
   const cycle =
     BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle) ?? BILLING_CYCLE_OPTIONS[0];
   const isMonth = form.billingCycle === 'MONTH';
-  const weeks = weeksForCycle(form);
+  const repeats = patternRepeats(form);
   const cycleName = cycleLabelOf(form); // "N tháng" hoặc nhãn cố định
-  const cycleLabelDisplay = isMonth ? cycleName : cycle.label.toLowerCase();
-  const cycleSuffix = isMonth ? `đ / ${cycleName}` : cycle.suffix;
+  // Dùng tên gọn để khỏi lồng ngoặc: "(quý)" thay vì "(quý (3 tháng))".
+  const cycleLabelDisplay = isMonth ? cycleName : cycle.short;
+  const cycleSuffix = `đ / ${isMonth ? cycleName : cycle.short}`;
+  // repeats = số TUẦN HỌC trong chu kỳ, nên số giờ/buổi bên dưới luôn tính cho một tuần học
+  // (có tuần nghỉ thì nói rõ "tuần học" để không hiểu nhầm là mọi tuần trong lịch).
+  const perRepeatUnit = repeatWeeksOf(form) === 1 ? 'tuần' : 'tuần học';
+  const studyWeeks = studyWeeksOf(form);
+  const restWeeks = restWeeksOf(form);
 
-  const hoursPerWeek = useMemo(() => totalHoursPerWeek(form), [form]);
+  const hoursPerRepeat = useMemo(() => totalHoursPerRepeat(form), [form]);
   const total = useMemo(() => totalBudget(form), [form]);
 
   const isOffline = form.lessonMode !== 'ONLINE';
@@ -347,8 +406,13 @@ export function ClassRequestForm({
     if (!form.slots.some((s) => s.subjectId === sid)) {
       slotErrorSet.add(`${subjName(sid)}: chưa có buổi học nào`);
     }
-    if (!(Number(form.subjectFees[sid]) > 0)) {
+    const fee = Number(form.subjectFees[sid]);
+    if (!(fee > 0)) {
       slotErrorSet.add(`${subjName(sid)}: chưa nhập học phí/giờ`);
+    } else if (fee < FEE_PER_HOUR_MIN) {
+      slotErrorSet.add(
+        `${subjName(sid)}: học phí/giờ tối thiểu ${currency.format(FEE_PER_HOUR_MIN)}đ`,
+      );
     }
   }
   const slotErrors = [...slotErrorSet];
@@ -642,6 +706,65 @@ export function ClassRequestForm({
         </span>
       </div>
 
+      {/* Tần suất lặp — chỉ có nghĩa với lịch theo Thứ */}
+      {isWeekly && (
+        <div className="mkt-form__grid">
+          <label className="mkt-field">
+            <span className="mkt-field__label">Tần suất lặp</span>
+            <select
+              value={form.repeatEveryWeeks}
+              onChange={(e) => set('repeatEveryWeeks', e.target.value)}
+            >
+              {REPEAT_WEEKS_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <span className="mkt-hint">
+              {repeatWeeksOf(form) === 1
+                ? 'Lịch lặp lại đều mỗi tuần, không có tuần nghỉ.'
+                : `Chu kỳ ${repeatWeeksOf(form)} tuần lặp đi lặp lại đến hết ${cycleName}.`}
+            </span>
+          </label>
+          {repeatWeeksOf(form) > 1 && (
+            <div className="mkt-field">
+              <span className="mkt-field__label">Tuần học trong chu kỳ</span>
+              <div className="mkt-wdays mkt-wdays--weeks">
+                {Array.from({ length: repeatWeeksOf(form) }, (_, i) => i + 1).map((w) => {
+                  const on = studyWeeks.includes(w);
+                  // Phải còn ít nhất một tuần học → không cho tắt tuần cuối cùng.
+                  const locked = on && studyWeeks.length === 1;
+                  return (
+                    <button
+                      key={w}
+                      type="button"
+                      className={`mkt-wday${on ? ' mkt-wday--on' : ''}`}
+                      aria-pressed={on}
+                      aria-label={`Tuần ${w}`}
+                      disabled={locked}
+                      title={
+                        locked
+                          ? `Tuần ${w}: phải giữ ít nhất một tuần học`
+                          : `Tuần ${w}: ${on ? 'học — bấm để nghỉ' : 'nghỉ — bấm để học'}`
+                      }
+                      onClick={() => toggleStudyWeek(w)}
+                    >
+                      {w}
+                    </button>
+                  );
+                })}
+              </div>
+              <span className="mkt-hint">
+                {`Học tuần ${studyWeeks.join(', ')}`}
+                {restWeeks.length > 0 ? ` · nghỉ tuần ${restWeeks.join(', ')}` : ''}
+                {' — hết chu kỳ lại lặp lại như vậy.'}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Lịch học theo từng môn — mỗi môn có nhiều buổi, không trùng giờ */}
       <div className="mkt-field">
         <span className="mkt-field__label">
@@ -659,11 +782,12 @@ export function ClassRequestForm({
                   <span className="mkt-subj-fee">
                     <input
                       type="number"
-                      min={0}
-                      step={10000}
+                      min={FEE_PER_HOUR_MIN}
+                      step={FEE_PER_HOUR_STEP}
                       value={form.subjectFees[sid] ?? ''}
-                      placeholder="Học phí/giờ"
+                      placeholder={`Từ ${currency.format(FEE_PER_HOUR_MIN)}`}
                       aria-label={`Học phí/giờ môn ${subjName(sid)}`}
+                      title={`Học phí/giờ tối thiểu ${currency.format(FEE_PER_HOUR_MIN)}đ`}
                       onChange={(e) => setSubjectFee(sid, e.target.value)}
                     />
                     <span className="mkt-subj-fee__unit">đ/giờ</span>
@@ -672,8 +796,6 @@ export function ClassRequestForm({
                 {isWeekly ? (
                   (() => {
                     const allTimes = buildTimeSlots('06:00', '23:30');
-                    // Bỏ mốc cuối khỏi giờ bắt đầu để luôn còn ít nhất một giờ kết thúc.
-                    const startTimes = allTimes.slice(0, -1);
                     // Mỗi thứ đã chọn là một buổi riêng, sắp theo thứ tự T2 → CN.
                     const rows = form.slots
                       .map((slot, idx) => ({ slot, idx }))
@@ -692,6 +814,9 @@ export function ClassRequestForm({
                               const on = form.slots.some(
                                 (s) => s.subjectId === sid && s.day === d.value,
                               );
+                              // Kín cả 3 buổi vì môn khác đã đặt hết → không cho chọn thứ này.
+                              const taken = takenSessions(form.slots, d.value, sid, subjName);
+                              const full = SESSION_OPTIONS.every((o) => taken.has(o.value));
                               return (
                                 <button
                                   key={d.value}
@@ -699,7 +824,12 @@ export function ClassRequestForm({
                                   className={`mkt-wday${on ? ' mkt-wday--on' : ''}`}
                                   aria-pressed={on}
                                   aria-label={d.label}
-                                  title={d.label}
+                                  disabled={!on && full}
+                                  title={
+                                    !on && full
+                                      ? `${d.label}: các môn khác đã đặt cả 3 buổi`
+                                      : d.label
+                                  }
                                   onClick={() => toggleWeekday(sid, d.value)}
                                 >
                                   {d.value}
@@ -709,12 +839,37 @@ export function ClassRequestForm({
                           </div>
                         </div>
                         {rows.map(({ slot, idx }) => {
-                          const endTimes = slot.start
-                            ? allTimes.filter((t) => t > slot.start)
-                            : allTimes;
+                          // Giờ bắt đầu VÀ giờ kết thúc đều nằm trong đúng khung của buổi đã chọn:
+                          // buổi Sáng (6h–12h) thì muộn nhất là kết thúc 12:00, không tràn sang chiều.
+                          const sess = SESSION_OPTIONS.find((o) => o.value === slot.session);
+                          const taken = takenSessions(form.slots, slot.day, sid, subjName);
+                          const pool = sess ? buildTimeSlots(sess.min, sess.max) : allTimes;
+                          const startTimes = pool.slice(0, -1); // bỏ mốc cuối để còn chỗ cho giờ kết thúc
+                          const endTimes = pool.filter((t) => !slot.start || t > slot.start);
+                          // Lớp cũ có giờ kết thúc vắt ra ngoài khung → vẫn liệt kê để không mất giờ đã lưu.
+                          if (slot.end && !endTimes.includes(slot.end)) {
+                            endTimes.push(slot.end);
+                            endTimes.sort();
+                          }
                           return (
                             <div key={slot.day} className="mkt-wday-row">
                               <span className="mkt-wday-row__label">{dayLabel(slot.day)}</span>
+                              <select
+                                className="mkt-day-time__session"
+                                aria-label={`Buổi ${dayLabel(slot.day)}`}
+                                value={slot.session}
+                                onChange={(e) => setSlotSession(idx, e.target.value)}
+                              >
+                                {/* Không có lựa chọn rỗng: bật một thứ là luôn có buổi cụ thể. */}
+                                {SESSION_OPTIONS.map((s) => {
+                                  const owner = taken.get(s.value);
+                                  return (
+                                    <option key={s.value} value={s.value} disabled={!!owner}>
+                                      {owner ? `${s.label} — ${owner} đã học` : s.label}
+                                    </option>
+                                  );
+                                })}
+                              </select>
                               <select
                                 className="mkt-day-time__session"
                                 aria-label={`Giờ bắt đầu ${dayLabel(slot.day)}`}
@@ -748,7 +903,7 @@ export function ClassRequestForm({
                         <div className="mkt-wsummary">
                           {rows.length === 0
                             ? 'Chưa chọn ngày học nào'
-                            : `Hàng tuần: ${rows
+                            : `${repeatLabel(form).replace(/^./, (c) => c.toUpperCase())}: ${rows
                                 .map(
                                   ({ slot }) =>
                                     `${dayLabel(slot.day)}${
@@ -852,8 +1007,9 @@ export function ClassRequestForm({
           {currency.format(total)} {cycleSuffix}
         </div>
         <span className="mkt-hint">
-          {hoursPerWeek} giờ/tuần · {form.slots.length} buổi/tuần — Tổng: {hoursPerWeek * weeks} giờ ·{' '}
-          {form.slots.length * weeks} buổi.
+          {hoursPerRepeat} giờ/{perRepeatUnit} · {form.slots.length} buổi/{perRepeatUnit} — Tổng:{' '}
+          {hoursPerRepeat * repeats} giờ · {form.slots.length * repeats} buổi ({repeats} tuần học
+          {repeatWeeksOf(form) > 1 ? ` trong ${weeksForCycle(form)} tuần` : ''}).
         </span>
       </div>
 

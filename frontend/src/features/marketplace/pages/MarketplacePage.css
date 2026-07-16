@@ -188,12 +188,13 @@
   color: #1565c0;
   margin-bottom: 8px;
 }
+/* Học phí đặt ngay cạnh tên môn (không đẩy sang mép phải) cho dễ liên hệ. */
 .mkt-day-card__head--fee {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 8px 14px;
 }
 .mkt-subj-fee {
   display: inline-flex;
@@ -203,7 +204,7 @@
   color: #33465e;
 }
 .mkt-subj-fee input {
-  width: 130px;
+  width: 150px;
   padding: 7px 10px;
   border: 1px solid #cfd8e3;
   border-radius: 8px;
@@ -365,14 +366,37 @@
   cursor: pointer;
   transition: background 0.12s, color 0.12s, border-color 0.12s;
 }
-.mkt-wday:hover {
+.mkt-wday:hover:not(:disabled) {
   border-color: #1565c0;
+}
+.mkt-wday:disabled {
+  background: #f2f5f9;
+  border-color: #e3e9f0;
+  color: #b6c1cf;
+  cursor: not-allowed;
+  text-decoration: line-through;
 }
 .mkt-wday--on {
   background: #1565c0;
   border-color: #1565c0;
   color: #fff;
   font-weight: 600;
+}
+/* Nút chọn tuần học trong chu kỳ: bo vuông để không lẫn với vòng tròn chọn Thứ. */
+.mkt-wdays--weeks {
+  margin-top: 2px;
+}
+.mkt-wdays--weeks .mkt-wday {
+  width: 44px;
+  border-radius: 10px;
+}
+/* Tuần học duy nhất còn lại: vẫn hiện là đang chọn, chỉ chặn bấm tắt. */
+.mkt-wdays--weeks .mkt-wday--on:disabled {
+  background: #1565c0;
+  border-color: #1565c0;
+  color: #fff;
+  text-decoration: none;
+  opacity: 0.75;
 }
 .mkt-wdur {
   font-size: 12px;

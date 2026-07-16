@@ -108,6 +108,10 @@ export interface ParsedClass {
   lessonMode: string;
   slots: ClassFormValues['slots'];
   scheduleMode: ClassFormValues['scheduleMode'];
+  /** Độ dài chu kỳ lặp của lịch WEEKLY, tính bằng tuần (1 = hàng tuần, không nghỉ). */
+  repeatEveryWeeks: number;
+  /** Những tuần HỌC trong mỗi chu kỳ, đánh số 1..repeatEveryWeeks (mặc định [1]). */
+  studyWeeks: number[];
   tutorRequirement: string | null;
   /** Học phí/giờ đại diện = mức cao nhất trong các môn (fallback tuitionFee). */
   feePerHour: number;
@@ -143,6 +147,10 @@ export function parseClass(raw: ClassResponse): ParsedClass {
       lessonMode: form.lessonMode ?? raw.lessonMode,
       slots: form.slots ?? [],
       scheduleMode: form.scheduleMode ?? 'WEEKLY',
+      // Lớp tạo trước khi có tần suất lặp → mặc định hàng tuần.
+      repeatEveryWeeks: Math.min(4, Math.max(1, Number(form.repeatEveryWeeks) || 1)),
+      // Lớp tạo trước khi có tuần nghỉ → mặc định học tuần đầu mỗi chu kỳ (hành vi cũ).
+      studyWeeks: Array.isArray(form.studyWeeks) && form.studyWeeks.length > 0 ? form.studyWeeks : [1],
       tutorRequirement: form.tutorRequirementDetail
         ? `${form.tutorRequirement} ${form.tutorRequirementDetail}`
         : (form.tutorRequirement ?? raw.tutorRequirement),
@@ -163,6 +171,8 @@ export function parseClass(raw: ClassResponse): ParsedClass {
     lessonMode: raw.lessonMode,
     slots: [],
     scheduleMode: 'WEEKLY',
+    repeatEveryWeeks: 1,
+    studyWeeks: [1],
     tutorRequirement: raw.tutorRequirement,
     feePerHour: Number(raw.tuitionFee) || 0,
   };

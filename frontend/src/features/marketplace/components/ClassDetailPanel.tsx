@@ -11,7 +11,9 @@ import {
   classToForm,
   cycleLabelOf,
   estimatedSessions,
-  hoursPerWeekForSubject,
+  hoursPerRepeatForSubject,
+  repeatLabel,
+  repeatWeeksOf,
   resolveLearningGoal,
   resolveTutorRequirement,
   totalBudget,
@@ -44,10 +46,9 @@ export function ClassDetailPanel({ raw, subjects, grades }: Props) {
   }, [grades, form.gradeId, raw.gradeName]);
 
   const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
+  // Nhịp lặp nêu một lần ở tiêu đề mục Lịch học, không lặp lại ở từng buổi.
   const whenOf = (s: ClassFormValues['slots'][number]) =>
-    form.scheduleMode === 'WEEKLY'
-      ? `${dayLabel(s.day)} hàng tuần`
-      : `${weekdayVi(s.date)} ${s.date}`;
+    form.scheduleMode === 'WEEKLY' ? dayLabel(s.day) : `${weekdayVi(s.date)} ${s.date}`;
 
   const learningGoal = resolveLearningGoal(form);
   const tutorRequirement = resolveTutorRequirement(form);
@@ -93,13 +94,18 @@ export function ClassDetailPanel({ raw, subjects, grades }: Props) {
           <ul className="cdm-subj-list">
             {form.subjectIds.map((sid) => {
               const fee = Number(form.subjectFees[sid]) || 0;
-              const hrs = hoursPerWeekForSubject(form, sid);
+              const hrs = hoursPerRepeatForSubject(form, sid);
               return (
                 <li key={sid}>
                   <span className="cdm-subj-list__name">📚 {subjectName(sid)}</span>
                   <span className="cdm-subj-list__fee">
                     {fee > 0 ? `${currency.format(fee)}đ/giờ` : 'Chưa nêu học phí'}
-                    {hrs > 0 && <em> · {hrs} giờ/tuần</em>}
+                    {hrs > 0 && (
+                      <em>
+                        {' '}
+                        · {hrs} giờ/{repeatWeeksOf(form) === 1 ? 'tuần' : 'tuần học'}
+                      </em>
+                    )}
                   </span>
                 </li>
               );
@@ -117,7 +123,11 @@ export function ClassDetailPanel({ raw, subjects, grades }: Props) {
       {hasDetails && form.slots.length > 0 && (
         <section className="cdm-section">
           <h3>
-            Lịch học <span className="cdm-muted">({cycleLabelOf(form)})</span>
+            Lịch học{' '}
+            <span className="cdm-muted">
+              ({cycleLabelOf(form)}
+              {form.scheduleMode === 'WEEKLY' ? ` — ${repeatLabel(form)}` : ''})
+            </span>
           </h3>
           <div className="cdm-schedule">
             {form.subjectIds.map((sid) => {

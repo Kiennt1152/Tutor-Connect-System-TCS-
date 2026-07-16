@@ -449,10 +449,21 @@ function ClassCard({
   const learningGoal = c.learningGoal?.trim() ?? '';
   const tutorRequirement = parsed.tutorRequirement?.trim() ?? '';
   const sessionCount = parsed.slots.length;
+  // Nhịp lặp: hàng tuần / mỗi N tuần / học những tuần cụ thể trong chu kỳ N tuần.
+  const cycleWeeks = parsed.repeatEveryWeeks;
+  const onWeeks = [...new Set(parsed.studyWeeks)]
+    .filter((w) => Number.isInteger(w) && w >= 1 && w <= cycleWeeks)
+    .sort((a, b) => a - b);
+  const rhythm =
+    cycleWeeks === 1 || onWeeks.length >= cycleWeeks || onWeeks.length === 0
+      ? 'tuần'
+      : onWeeks.length === 1 && onWeeks[0] === 1
+        ? `${cycleWeeks} tuần`
+        : `tuần học (tuần ${onWeeks.join(', ')}/${cycleWeeks})`;
   const scheduleSummary =
     sessionCount > 0
       ? parsed.scheduleMode === 'WEEKLY'
-        ? `${sessionCount} buổi/tuần`
+        ? `${sessionCount} buổi/${rhythm}`
         : `${sessionCount} buổi`
       : '';
 
