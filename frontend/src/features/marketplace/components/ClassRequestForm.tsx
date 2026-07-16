@@ -58,6 +58,35 @@ function emptySlot(subjectId: string): ScheduleSlot {
   return { subjectId, day: '', date: '', session: '', start: '', end: '' };
 }
 
+// Giờ mặc định khi bật một thứ mới cho môn chưa có khung giờ chung.
+const WEEKLY_DEFAULT_START = '18:00';
+const WEEKLY_DEFAULT_END = '20:00';
+
+/** Suy ra buổi (Sáng/Chiều/Tối) từ giờ bắt đầu để giữ tương thích dữ liệu (payload, matching). */
+function sessionFromStart(start: string): string {
+  if (!start) return '';
+  if (start < '12:00') return 'Sáng';
+  if (start < '18:00') return 'Chiều';
+  return 'Tối';
+}
+
+function toMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+}
+
+/** Nhãn thời lượng gọn: "30 phút", "1 giờ", "1 giờ 30 phút". */
+function durationLabel(start: string, end: string): string {
+  if (!start || !end || end <= start) return '';
+  const mins = toMinutes(end) - toMinutes(start);
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  const parts = [];
+  if (h) parts.push(`${h} giờ`);
+  if (m) parts.push(`${m} phút`);
+  return parts.join(' ');
+}
+
 /** Mục tiêu theo LỚP (vd Lớp 1 không có "Luyện thi Đại học"). */
 function goalsByGrade(gradeName: string | undefined): readonly string[] {
   if (!gradeName) return LEARNING_GOAL_OPTIONS;
@@ -205,9 +234,12 @@ export function ClassRequestForm({
       const subjectIds = removing
         ? prev.subjectIds.filter((s) => s !== id)
         : [...prev.subjectIds, id];
+      // WEEKLY chọn buổi bằng vòng tròn thứ (không tạo sẵn buổi rỗng); CUSTOM tạo sẵn 1 dòng ngày.
       const slots = removing
         ? prev.slots.filter((s) => s.subjectId !== id)
-        : [...prev.slots, emptySlot(id)];
+        : prev.scheduleMode === 'WEEKLY'
+          ? prev.slots
+          : [...prev.slots, emptySlot(id)];
       const subjectFees = { ...prev.subjectFees };
       if (removing) delete subjectFees[id];
       else if (!(id in subjectFees)) subjectFees[id] = '';
@@ -227,6 +259,44 @@ export function ClassRequestForm({
 
   function addSlot(subjectId: string) {
     setForm((prev) => ({ ...prev, slots: [...prev.slots, emptySlot(subjectId)] }));
+  }
+
+  // WEEKLY: bật/tắt một thứ cho môn — thêm/xóa buổi tương ứng, giờ mặc định lấy từ buổi trước đó.
+  function toggleWeekday(subjectId: string, day: string) {
+    setForm((prev) => {
+      const has = prev.slots.some((s) => s.subjectId === subjectId && s.day === day);
+      if (has) {
+        return {
+          ...prev,
+          slots: prev.slots.filter((s) => !(s.subjectId === subjectId && s.day === day)),
+        };
+      }
+      const shared = prev.slots.find((s) => s.subjectId === subjectId);
+      const start = shared?.start || WEEKLY_DEFAULT_START;
+      const end = shared?.end || WEEKLY_DEFAULT_END;
+      return {
+        ...prev,
+        slots: [
+          ...prev.slots,
+          { subjectId, day, date: '', session: sessionFromStart(start), start, end },
+        ],
+      };
+    });
+  }
+
+  // WEEKLY: đổi giờ của riêng một buổi (một thứ) — các thứ khác giữ nguyên giờ.
+  function setSlotTime(index: number, patch: { start?: string; end?: string }) {
+    setForm((prev) => ({
+      ...prev,
+      slots: prev.slots.map((s, i) => {
+        if (i !== index) return s;
+        const start = patch.start ?? s.start;
+        // Đổi giờ bắt đầu mà giờ kết thúc không còn hợp lệ thì xóa giờ kết thúc để chọn lại.
+        let end = patch.end ?? s.end;
+        if (end && start && end <= start) end = '';
+        return { ...s, start, end, session: sessionFromStart(start) };
+      }),
+    }));
   }
 
   function removeSlot(index: number) {
@@ -271,11 +341,6 @@ export function ClassRequestForm({
       slotErrorSet.add(`${nm}: ngày học không được ở quá khứ`);
     } else if (s.end <= s.start) {
       slotErrorSet.add(`${nm}: giờ kết thúc phải sau giờ bắt đầu`);
-    } else {
-      const sess = SESSION_OPTIONS.find((o) => o.value === s.session);
-      if (sess && (s.start < sess.min || s.end > sess.max)) {
-        slotErrorSet.add(`${nm}: giờ phải trong ${sess.label}`);
-      }
     }
   });
   for (const sid of form.subjectIds) {
@@ -604,93 +669,176 @@ export function ClassRequestForm({
                     <span className="mkt-subj-fee__unit">đ/giờ</span>
                   </span>
                 </div>
-                {form.slots
-                  .map((slot, idx) => ({ slot, idx }))
-                  .filter((x) => x.slot.subjectId === sid)
-                  .map(({ slot, idx }) => {
-                    const sess = SESSION_OPTIONS.find((o) => o.value === slot.session);
-                    const times = buildTimeSlots(sess?.min ?? '00:00', sess?.max ?? '23:30');
-                    const endTimes = slot.start ? times.filter((t) => t > slot.start) : times;
+                {isWeekly ? (
+                  (() => {
+                    const allTimes = buildTimeSlots('06:00', '23:30');
+                    // Bỏ mốc cuối khỏi giờ bắt đầu để luôn còn ít nhất một giờ kết thúc.
+                    const startTimes = allTimes.slice(0, -1);
+                    // Mỗi thứ đã chọn là một buổi riêng, sắp theo thứ tự T2 → CN.
+                    const rows = form.slots
+                      .map((slot, idx) => ({ slot, idx }))
+                      .filter((x) => x.slot.subjectId === sid)
+                      .sort(
+                        (a, b) =>
+                          DAY_OF_WEEK_OPTIONS.findIndex((d) => d.value === a.slot.day) -
+                          DAY_OF_WEEK_OPTIONS.findIndex((d) => d.value === b.slot.day),
+                      );
                     return (
-                      <div key={idx} className="mkt-slot-row">
-                        {isWeekly ? (
-                          <select
-                            className="mkt-day-time__session"
-                            aria-label="Thứ"
-                            value={slot.day}
-                            onChange={(e) => updateSlot(idx, { day: e.target.value })}
-                          >
-                            <option value="">Thứ…</option>
-                            {DAY_OF_WEEK_OPTIONS.map((d) => (
-                              <option key={d.value} value={d.value}>
-                                {d.label}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <input
-                            type="date"
-                            className="mkt-slot-date"
-                            aria-label="Ngày học"
-                            min={today}
-                            value={slot.date}
-                            onChange={(e) => updateSlot(idx, { date: e.target.value })}
-                          />
-                        )}
-                        <select
-                          className="mkt-day-time__session"
-                          aria-label="Buổi"
-                          value={slot.session}
-                          onChange={(e) => setSlotSession(idx, e.target.value)}
-                        >
-                          <option value="">Buổi…</option>
-                          {SESSION_OPTIONS.map((s) => (
-                            <option key={s.value} value={s.value}>
-                              {s.label}
-                            </option>
-                          ))}
-                        </select>
-                        <select
-                          className="mkt-day-time__session"
-                          aria-label="Giờ bắt đầu"
-                          value={slot.start}
-                          onChange={(e) => updateSlot(idx, { start: e.target.value })}
-                        >
-                          <option value="">Từ…</option>
-                          {times.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="mkt-day-time__sep">–</span>
-                        <select
-                          className="mkt-day-time__session"
-                          aria-label="Giờ kết thúc"
-                          value={slot.end}
-                          onChange={(e) => updateSlot(idx, { end: e.target.value })}
-                        >
-                          <option value="">Đến…</option>
-                          {endTimes.map((t) => (
-                            <option key={t} value={t}>
-                              {t}
-                            </option>
-                          ))}
-                        </select>
-                        <button
-                          type="button"
-                          className="mkt-slot-remove"
-                          aria-label="Xóa buổi"
-                          onClick={() => removeSlot(idx)}
-                        >
-                          ×
-                        </button>
-                      </div>
+                      <>
+                        <div className="mkt-wday-row">
+                          <span className="mkt-wday-row__label">Học vào</span>
+                          <div className="mkt-wdays">
+                            {DAY_OF_WEEK_OPTIONS.map((d) => {
+                              const on = form.slots.some(
+                                (s) => s.subjectId === sid && s.day === d.value,
+                              );
+                              return (
+                                <button
+                                  key={d.value}
+                                  type="button"
+                                  className={`mkt-wday${on ? ' mkt-wday--on' : ''}`}
+                                  aria-pressed={on}
+                                  aria-label={d.label}
+                                  title={d.label}
+                                  onClick={() => toggleWeekday(sid, d.value)}
+                                >
+                                  {d.value}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        {rows.map(({ slot, idx }) => {
+                          const endTimes = slot.start
+                            ? allTimes.filter((t) => t > slot.start)
+                            : allTimes;
+                          return (
+                            <div key={slot.day} className="mkt-wday-row">
+                              <span className="mkt-wday-row__label">{dayLabel(slot.day)}</span>
+                              <select
+                                className="mkt-day-time__session"
+                                aria-label={`Giờ bắt đầu ${dayLabel(slot.day)}`}
+                                value={slot.start}
+                                onChange={(e) => setSlotTime(idx, { start: e.target.value })}
+                              >
+                                <option value="">Từ…</option>
+                                {startTimes.map((t) => (
+                                  <option key={t} value={t}>
+                                    {t}
+                                  </option>
+                                ))}
+                              </select>
+                              <span className="mkt-day-time__sep">–</span>
+                              <select
+                                className="mkt-day-time__session mkt-day-time__session--wide"
+                                aria-label={`Giờ kết thúc ${dayLabel(slot.day)}`}
+                                value={slot.end}
+                                onChange={(e) => setSlotTime(idx, { end: e.target.value })}
+                              >
+                                <option value="">Đến…</option>
+                                {endTimes.map((t) => (
+                                  <option key={t} value={t}>
+                                    {slot.start ? `${t} (${durationLabel(slot.start, t)})` : t}
+                                  </option>
+                                ))}
+                              </select>
+                            </div>
+                          );
+                        })}
+                        <div className="mkt-wsummary">
+                          {rows.length === 0
+                            ? 'Chưa chọn ngày học nào'
+                            : `Hàng tuần: ${rows
+                                .map(
+                                  ({ slot }) =>
+                                    `${dayLabel(slot.day)}${
+                                      slot.start && slot.end ? ` ${slot.start}–${slot.end}` : ''
+                                    }`,
+                                )
+                                .join(' · ')}`}
+                        </div>
+                      </>
                     );
-                  })}
-                <button type="button" className="mkt-btn mkt-btn--ghost mkt-btn--sm" onClick={() => addSlot(sid)}>
-                  + Thêm buổi
-                </button>
+                  })()
+                ) : (
+                  <>
+                    {form.slots
+                      .map((slot, idx) => ({ slot, idx }))
+                      .filter((x) => x.slot.subjectId === sid)
+                      .map(({ slot, idx }) => {
+                        const sess = SESSION_OPTIONS.find((o) => o.value === slot.session);
+                        const times = buildTimeSlots(sess?.min ?? '00:00', sess?.max ?? '23:30');
+                        const endTimes = slot.start ? times.filter((t) => t > slot.start) : times;
+                        return (
+                          <div key={idx} className="mkt-slot-row">
+                            <input
+                              type="date"
+                              className="mkt-slot-date"
+                              aria-label="Ngày học"
+                              min={today}
+                              value={slot.date}
+                              onChange={(e) => updateSlot(idx, { date: e.target.value })}
+                            />
+                            <select
+                              className="mkt-day-time__session"
+                              aria-label="Buổi"
+                              value={slot.session}
+                              onChange={(e) => setSlotSession(idx, e.target.value)}
+                            >
+                              <option value="">Buổi…</option>
+                              {SESSION_OPTIONS.map((s) => (
+                                <option key={s.value} value={s.value}>
+                                  {s.label}
+                                </option>
+                              ))}
+                            </select>
+                            <select
+                              className="mkt-day-time__session"
+                              aria-label="Giờ bắt đầu"
+                              value={slot.start}
+                              onChange={(e) => updateSlot(idx, { start: e.target.value })}
+                            >
+                              <option value="">Từ…</option>
+                              {times.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="mkt-day-time__sep">–</span>
+                            <select
+                              className="mkt-day-time__session"
+                              aria-label="Giờ kết thúc"
+                              value={slot.end}
+                              onChange={(e) => updateSlot(idx, { end: e.target.value })}
+                            >
+                              <option value="">Đến…</option>
+                              {endTimes.map((t) => (
+                                <option key={t} value={t}>
+                                  {t}
+                                </option>
+                              ))}
+                            </select>
+                            <button
+                              type="button"
+                              className="mkt-slot-remove"
+                              aria-label="Xóa buổi"
+                              onClick={() => removeSlot(idx)}
+                            >
+                              ×
+                            </button>
+                          </div>
+                        );
+                      })}
+                    <button
+                      type="button"
+                      className="mkt-btn mkt-btn--ghost mkt-btn--sm"
+                      onClick={() => addSlot(sid)}
+                    >
+                      + Thêm buổi
+                    </button>
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -722,7 +870,7 @@ export function ClassRequestForm({
         />
       </label>
 
-      {touched && conflicts.length > 0 && (
+      {conflicts.length > 0 && (
         <div className="mkt-alert mkt-alert--error">{conflicts.join('. ')}.</div>
       )}
       {touched && slotErrors.length > 0 && (
