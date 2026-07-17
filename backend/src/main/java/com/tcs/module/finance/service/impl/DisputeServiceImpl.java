@@ -2,6 +2,10 @@ package com.tcs.module.finance.service.impl;
 
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.module.contract.entity.Contract;
+import com.tcs.module.contract.enums.ContractStatus;
+import com.tcs.module.contract.repository.ContractRepository;
+import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
@@ -12,6 +16,7 @@ import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.enums.DisputeStatus;
+import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.service.DisputeService;
@@ -22,6 +27,9 @@ import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.ClassTerminationRequest;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
+import com.tcs.module.marketplace.enums.ClassTerminationStatus;
+import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassTerminationRequestRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.platform.entity.Report;
@@ -32,6 +40,7 @@ import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.security.AuthHelper;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -51,7 +60,9 @@ public class DisputeServiceImpl implements DisputeService {
     private final DisputeRepository disputeRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final TutoringClassRepository tutoringClassRepository;
+    private final ClassAssignmentRepository classAssignmentRepository;
     private final ClassTerminationRequestRepository classTerminationRequestRepository;
+    private final ContractRepository contractRepository;
     private final EscrowService escrowService;
 
     @Override
@@ -164,9 +175,55 @@ public class DisputeServiceImpl implements DisputeService {
             report.setStatus(ReportStatus.RESOLVED);
             reportRepository.save(report);
         }
+        if (nextStatus == DisputeStatus.RESOLVED) {
+            completeApprovedTermination(dispute, resolution);
+        }
 
         Dispute saved = disputeRepository.save(dispute);
         return toAdminReviewResponse(saved);
+    }
+
+    private void completeApprovedTermination(Dispute dispute, String resolution) {
+        EscrowTransaction escrow = dispute.getEscrowTransaction();
+        ClassAssignment assignment = escrow != null ? escrow.getAssignment() : null;
+        ClassTerminationRequest terminationRequest = latestTerminationRequest(assignment);
+        if (terminationRequest == null || terminationRequest.getStatus() == ClassTerminationStatus.REJECTED) {
+            return;
+        }
+
+        releaseEscrowForTermination(escrow, resolution);
+
+        terminationRequest.setStatus(ClassTerminationStatus.COMPLETED);
+        terminationRequest.setProcessedAt(java.time.LocalDateTime.now());
+        classTerminationRequestRepository.save(terminationRequest);
+
+        assignment.setStatus(ClassAssignmentStatus.TERMINATED);
+        classAssignmentRepository.save(assignment);
+
+        contractRepository.findByAssignment_AssignmentId(assignment.getAssignmentId())
+                .ifPresent(this::terminateContract);
+    }
+
+    private void terminateContract(Contract contract) {
+        if (contract.getStatus() != ContractStatus.TERMINATED) {
+            contract.setStatus(ContractStatus.TERMINATED);
+            contractRepository.save(contract);
+        }
+    }
+
+    private void releaseEscrowForTermination(EscrowTransaction escrow, String resolution) {
+        if (escrow == null || escrow.getEscrowId() == null || escrow.getAmount() == null) {
+            return;
+        }
+        if (escrow.getStatus() == EscrowStatus.RELEASED || escrow.getStatus() == EscrowStatus.REFUNDED) {
+            return;
+        }
+
+        escrowService.apply(new ReleaseInstruction(
+                escrow.getEscrowId(),
+                escrow.getAmount(),
+                BigDecimal.ZERO,
+                "Admin xác nhận chấm dứt hợp đồng: " + resolution));
     }
 
     private void validateReportInput(

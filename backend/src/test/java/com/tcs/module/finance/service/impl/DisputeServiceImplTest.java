@@ -9,6 +9,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.tcs.exception.BusinessException;
+import com.tcs.module.contract.entity.Contract;
+import com.tcs.module.contract.enums.ContractStatus;
+import com.tcs.module.contract.repository.ContractRepository;
+import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
@@ -32,8 +36,10 @@ import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.ClassTerminationRequest;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassTerminationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
+import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassTerminationRequestRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.platform.entity.Report;
@@ -52,6 +58,7 @@ import java.util.Optional;
 import org.springframework.data.domain.Sort;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -80,7 +87,13 @@ class DisputeServiceImplTest {
     private TutoringClassRepository tutoringClassRepository;
 
     @Mock
+    private ClassAssignmentRepository classAssignmentRepository;
+
+    @Mock
     private ClassTerminationRequestRepository classTerminationRequestRepository;
+
+    @Mock
+    private ContractRepository contractRepository;
 
     @Mock
     private EscrowService escrowService;
@@ -288,7 +301,52 @@ class DisputeServiceImplTest {
         assertEquals(ReportStatus.RESOLVED, report.getStatus());
         verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN);
         verify(reportRepository).save(report);
+        verify(escrowService, never()).apply(any());
         verify(disputeRepository).save(dispute);
+    }
+
+    @Test
+    void resolveDisputeWithTerminationRequestTerminatesContractAndReleasesEscrow() {
+        User reporter = user(USER_ID, "reporter@tcs.com");
+        User tutorUser = user(202L, "tutor@tcs.com");
+        User creator = user(303L, "creator@tcs.com");
+        TutoringClass tutoringClass = tutoringClass(99L, creator);
+        ClassAssignment assignment = assignment(7L, tutorUser, tutoringClass);
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.DISPUTED);
+        escrow.setAssignment(assignment);
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.UNDER_INVESTIGATION);
+        ClassTerminationRequest termination = terminationRequest(88L, assignment, reporter);
+        Contract contract = new Contract();
+        contract.setContractId(66L);
+        contract.setAssignment(assignment);
+        contract.setStatus(ContractStatus.ACTIVE);
+
+        ResolveDisputeRequest request = new ResolveDisputeRequest();
+        request.setStatus(DisputeStatus.RESOLVED);
+        request.setResolution("Đồng ý chấm dứt hợp đồng và giải ngân cho gia sư");
+
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(classTerminationRequestRepository.findFirstByAssignment_AssignmentIdOrderByCreatedAtDesc(7L))
+                .thenReturn(Optional.of(termination));
+        when(contractRepository.findByAssignment_AssignmentId(7L)).thenReturn(Optional.of(contract));
+        when(disputeRepository.save(dispute)).thenReturn(dispute);
+
+        disputeService.resolveDispute(31L, request);
+
+        ArgumentCaptor<ReleaseInstruction> instructionCaptor = ArgumentCaptor.forClass(ReleaseInstruction.class);
+        verify(escrowService).apply(instructionCaptor.capture());
+        ReleaseInstruction instruction = instructionCaptor.getValue();
+        assertEquals(11L, instruction.escrowId());
+        assertEquals(new BigDecimal("100000.00"), instruction.releaseToBeneficiary());
+        assertEquals(BigDecimal.ZERO, instruction.refundToPayer());
+        assertEquals(ClassTerminationStatus.COMPLETED, termination.getStatus());
+        assertNotNull(termination.getProcessedAt());
+        assertEquals(ClassAssignmentStatus.TERMINATED, assignment.getStatus());
+        assertEquals(ContractStatus.TERMINATED, contract.getStatus());
+        verify(classTerminationRequestRepository).save(termination);
+        verify(classAssignmentRepository).save(assignment);
+        verify(contractRepository).save(contract);
     }
 
     @Test
