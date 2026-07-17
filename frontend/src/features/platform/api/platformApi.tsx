@@ -1,6 +1,8 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  AdminDisputeReviewApiResponse,
   DashboardApiResponse,
+  DisputeStatus,
   PageUserListApiResponse,
   ReportApiResponse,
   ReviewVerificationApiRequest,
@@ -44,5 +46,14 @@ export const platformApi = {
 
   getReports() {
     return axiosClient.get<ReportApiResponse[]>(`${BASE}/reports`);
+  },
+
+  getDisputes(status?: DisputeStatus) {
+    const query = status ? `?status=${status}` : '';
+    return axiosClient.get<AdminDisputeReviewApiResponse[]>(`/disputes${query}`);
+  },
+
+  getDispute(disputeId: string) {
+    return axiosClient.get<AdminDisputeReviewApiResponse>(`/disputes/${disputeId}`);
   },
 };

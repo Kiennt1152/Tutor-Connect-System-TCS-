@@ -107,6 +107,10 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
                         // --- Issue, dispute & refund ---
+                        .requestMatchers(HttpMethod.GET, "/api/disputes", "/api/disputes/**")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.POST, "/api/disputes", "/api/class-issues")
+                        .hasAnyRole(RbacConstants.BUSINESS_ROLES)
                         .requestMatchers("/api/disputes/**", "/api/class-issues/**")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 

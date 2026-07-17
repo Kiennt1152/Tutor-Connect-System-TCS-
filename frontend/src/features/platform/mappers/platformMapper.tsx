@@ -1,5 +1,9 @@
 import type {
+  AdminDisputeReviewApiResponse,
   DashboardApiResponse,
+  DisputeReviewItem,
+  DisputeStatus,
+  EscrowStatus,
   PageUserList,
   PageUserListApiResponse,
   PlatformDashboard,
@@ -45,6 +49,15 @@ const formatDateTime = (value: string | null | undefined) => {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date);
+};
+
+const formatCurrency = (value: number | null | undefined) => {
+  if (typeof value !== 'number') return '—';
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(value);
 };
 
 export function mapDashboardResponse(response: DashboardApiResponse): PlatformDashboard {
@@ -120,6 +133,22 @@ const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   RESOLVED: 'Đã xử lý',
 };
 
+const DISPUTE_STATUS_LABELS: Record<DisputeStatus, string> = {
+  OPEN: 'Mới mở',
+  UNDER_INVESTIGATION: 'Đang xem xét',
+  WAITING: 'Chờ bổ sung',
+  RESOLVED: 'Đã xử lý',
+};
+
+const ESCROW_STATUS_LABELS: Record<EscrowStatus, string> = {
+  PENDING: 'Chờ khóa',
+  FUNDED: 'Đã khóa',
+  ON_HOLD: 'Tạm giữ',
+  DISPUTED: 'Tranh chấp',
+  RELEASED: 'Đã giải ngân',
+  REFUNDED: 'Đã hoàn tiền',
+};
+
 const TARGET_TYPE_LABELS: Record<string, string> = {
   USER: 'Người dùng',
   TUTOR: 'Gia sư',
@@ -159,6 +188,33 @@ export function mapReportItem(item: ReportApiResponse): ReportItem {
     status: item.status,
     statusLabel: REPORT_STATUS_LABELS[item.status] ?? item.status,
     createdAt: formatDateTime(item.createdAt),
+  };
+}
+
+export function mapDisputeReviewItem(item: AdminDisputeReviewApiResponse): DisputeReviewItem {
+  const reportId = item.reportId ? String(item.reportId) : '—';
+  const reporter = item.reporterEmail?.trim() || (item.reporterId ? `#${item.reporterId}` : '—');
+  const targetType = item.targetType ? (TARGET_TYPE_LABELS[item.targetType] ?? item.targetType) : '—';
+  const targetId = item.targetId ? `#${item.targetId}` : '—';
+  const category = item.category ? (REPORT_CATEGORY_LABELS[item.category] ?? item.category) : '—';
+  const escrowStatus = item.escrow?.status ?? null;
+
+  return {
+    id: String(item.disputeId),
+    status: item.disputeStatus,
+    statusLabel: DISPUTE_STATUS_LABELS[item.disputeStatus] ?? item.disputeStatus,
+    reportId,
+    reporter,
+    target: `${targetType} ${targetId}`,
+    category,
+    description: item.description?.trim() || '—',
+    evidenceCount: item.evidenceUrlList?.length ?? 0,
+    escrowStatus,
+    escrowStatusLabel: escrowStatus ? (ESCROW_STATUS_LABELS[escrowStatus] ?? escrowStatus) : '—',
+    amount: formatCurrency(item.escrow?.amount),
+    classTitle: item.tutoringClass?.title?.trim() || '—',
+    createdAt: formatDateTime(item.disputeCreatedAt),
+    raw: item,
   };
 }
 

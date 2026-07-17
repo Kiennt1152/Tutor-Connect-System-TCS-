@@ -151,6 +151,20 @@ export interface VerificationDetailApiResponse {
 export type ReportStatus = 'PENDING' | 'RESOLVED';
 export type ReportCategory = 'FRAUD' | 'ABUSE' | 'SPAM';
 export type ReportTargetType = string;
+export type DisputeStatus = 'OPEN' | 'UNDER_INVESTIGATION' | 'RESOLVED' | 'WAITING';
+export type EscrowStatus = 'PENDING' | 'FUNDED' | 'RELEASED' | 'REFUNDED' | 'ON_HOLD' | 'DISPUTED';
+export type PaymentTransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'REFUND' | 'ESCROW_DEPOSIT' | 'ESCROW_RELEASE';
+export type PaymentTransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
+export type ClassTerminationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+export type TutoringClassStatus =
+  | 'DRAFT'
+  | 'OPEN'
+  | 'MATCHED'
+  | 'ENROLLMENT_CLOSED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'DISPUTED';
 
 export interface ReportApiResponse {
   reportId: number;
@@ -175,4 +189,88 @@ export interface ReportItem {
   status: ReportStatus;
   statusLabel: string;
   createdAt: string;
+}
+
+export interface EscrowReviewApiResponse {
+  escrowId: number | null;
+  status: EscrowStatus | null;
+  amount: number | null;
+  depositedAt: string | null;
+  releasedAt: string | null;
+  assignmentId: number | null;
+  classStudentId: number | null;
+  paymentTransactionId: number | null;
+  paymentType: PaymentTransactionType | null;
+  paymentStatus: PaymentTransactionStatus | null;
+  paymentReferenceCode: string | null;
+  payerUserId: number | null;
+  payerEmail: string | null;
+}
+
+export interface ClassReviewApiResponse {
+  classId: number | null;
+  title: string | null;
+  status: TutoringClassStatus | null;
+  creatorUserId: number | null;
+  creatorEmail: string | null;
+  assignmentId: number | null;
+  tutorUserId: number | null;
+  tutorEmail: string | null;
+  tutorName: string | null;
+  classStudentId: number | null;
+  enrolledByUserId: number | null;
+  enrolledByEmail: string | null;
+  studentName: string | null;
+}
+
+export interface TerminationReviewApiResponse {
+  terminationId: number | null;
+  status: ClassTerminationStatus | null;
+  requestedByUserId: number | null;
+  requestedByEmail: string | null;
+  reason: string | null;
+  effectiveDate: string | null;
+  createdAt: string | null;
+  processedAt: string | null;
+}
+
+export interface AdminDisputeReviewApiResponse {
+  disputeId: number;
+  disputeStatus: DisputeStatus;
+  resolution: string | null;
+  disputeCreatedAt: string | null;
+  disputeUpdatedAt: string | null;
+  reportId: number | null;
+  reportStatus: ReportStatus | null;
+  reporterId: number | null;
+  reporterEmail: string | null;
+  targetType: ReportTargetType | null;
+  targetId: number | null;
+  category: ReportCategory | null;
+  description: string | null;
+  evidenceUrls: string | null;
+  evidenceUrlList: string[];
+  reportCreatedAt: string | null;
+  reportUpdatedAt: string | null;
+  escrow: EscrowReviewApiResponse | null;
+  tutoringClass: ClassReviewApiResponse | null;
+  terminationRequest: TerminationReviewApiResponse | null;
+}
+
+export interface DisputeReviewItem {
+  id: string;
+  status: DisputeStatus;
+  statusLabel: string;
+  reportId: string;
+  reporter: string;
+  target: string;
+  category: string;
+  description: string;
+  evidenceCount: number;
+  escrowStatus: EscrowStatus | null;
+  escrowStatusLabel: string;
+  amount: string;
+  classTitle: string;
+  createdAt: string;
+  raw: AdminDisputeReviewApiResponse;
 }

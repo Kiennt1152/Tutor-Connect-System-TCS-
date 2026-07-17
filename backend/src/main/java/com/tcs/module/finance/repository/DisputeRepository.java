@@ -1,7 +1,10 @@
 package com.tcs.module.finance.repository;
 
 import com.tcs.module.finance.entity.Dispute;
+import com.tcs.module.finance.enums.DisputeStatus;
+import java.util.List;
 import java.util.Optional;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -9,4 +12,6 @@ import org.springframework.stereotype.Repository;
 public interface DisputeRepository extends JpaRepository<Dispute, Long> {
 
     Optional<Dispute> findByReport_ReportId(Long reportId);
+
+    List<Dispute> findByStatus(DisputeStatus status, Sort sort);
 }
