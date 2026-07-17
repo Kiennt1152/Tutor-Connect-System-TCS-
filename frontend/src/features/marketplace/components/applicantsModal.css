@@ -177,6 +177,28 @@
   font-size: 13px;
   color: #43546a;
 }
+/* Học phí gia sư báo giá theo từng môn của lớp. */
+.apm-card__rates {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 8px;
+  padding: 0;
+}
+.apm-rate {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 4px 10px;
+  background: #f7f9fc;
+  border: 1px solid #e3e9f2;
+  border-radius: 999px;
+  font-size: 12px;
+}
+.apm-rate__subject { color: #5b6b7f; }
+.apm-rate__fee { font-weight: 700; color: #12233b; }
+
 .apm-card__bio { margin: 6px 0 0; font-size: 13px; color: #5b6b7f; line-height: 1.5; }
 .apm-card__cover {
   margin: 8px 0 0;

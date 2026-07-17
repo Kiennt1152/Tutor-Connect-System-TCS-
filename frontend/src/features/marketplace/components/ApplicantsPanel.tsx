@@ -1,7 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { marketplaceApi } from '../api/marketplaceApi';
-import type { ApplicantResponse } from '../types/marketplaceTypes';
+import { classToForm } from '../mappers/marketplaceMapper';
+import {
+  OTHER_SUBJECT,
+  type ApplicantResponse,
+  type CatalogOption,
+  type ClassResponse,
+} from '../types/marketplaceTypes';
 import { TutorDetailModal } from './TutorDetailModal';
 import './applicantsModal.css';
 
@@ -9,12 +15,15 @@ const currency = new Intl.NumberFormat('vi-VN');
 
 interface Props {
   readonly classId: number;
+  /** Lớp đang xem — dùng để đặt tên môn cho học phí gia sư báo giá. */
+  readonly target: ClassResponse;
+  readonly subjects: CatalogOption[];
   /** Gọi lại sau khi Client chọn gia sư (để trang cha tải lại danh sách lớp). */
   readonly onChosen?: () => void;
 }
 
 /** Danh sách gia sư ứng tuyển vào một lớp (dạng panel, không phải popup). */
-export function ApplicantsPanel({ classId, onChosen }: Props) {
+export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) {
   const [applicants, setApplicants] = useState<ApplicantResponse[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [choosingId, setChoosingId] = useState<number | null>(null);
@@ -34,6 +43,13 @@ export function ApplicantsPanel({ classId, onChosen }: Props) {
 
   const alreadyChosen = applicants.some((a) => a.status === 'ACCEPTED');
   const recommended = applicants.filter((a) => a.recommended);
+
+  const subjectName = useMemo(() => {
+    const form = classToForm(target);
+    const m = new Map(subjects.map((s) => [String(s.id), s.name]));
+    return (id: string) =>
+      id === OTHER_SUBJECT ? form.subjectOther.trim() || 'Môn khác' : (m.get(id) ?? `#${id}`);
+  }, [target, subjects]);
 
   async function handleChoose(applicationId: number) {
     if (!window.confirm('Chọn gia sư này cho lớp? Các ứng viên còn lại sẽ bị từ chối.')) return;
@@ -92,6 +108,7 @@ export function ApplicantsPanel({ classId, onChosen }: Props) {
               <ApplicantCard
                 key={a.applicationId}
                 applicant={a}
+                subjectName={subjectName}
                 rank={a.recommended ? idx + 1 : null}
                 choosing={choosingId === a.applicationId}
                 disabled={alreadyChosen || choosingId != null}
@@ -112,6 +129,7 @@ export function ApplicantsPanel({ classId, onChosen }: Props) {
 
 interface CardProps {
   readonly applicant: ApplicantResponse;
+  readonly subjectName: (id: string) => string;
   readonly rank: number | null;
   readonly choosing: boolean;
   readonly disabled: boolean;
@@ -119,13 +137,23 @@ interface CardProps {
   readonly onDetail: () => void;
 }
 
-function ApplicantCard({ applicant: a, rank, choosing, disabled, onChoose, onDetail }: CardProps) {
+function ApplicantCard({
+  applicant: a,
+  subjectName,
+  rank,
+  choosing,
+  disabled,
+  onChoose,
+  onDetail,
+}: CardProps) {
   const initials = a.fullName
     .split(/\s+/)
     .slice(-2)
     .map((w) => w[0])
     .join('')
     .toUpperCase();
+  // Đơn cũ chưa báo giá theo môn → vẫn hiện mức chung như trước.
+  const perSubject = Object.entries(a.proposedRates ?? {});
   const rate = a.proposedRate ?? a.hourlyRate ?? 0;
   const tone = a.matchScore >= 75 ? 'high' : a.matchScore >= 45 ? 'mid' : 'low';
   const accepted = a.status === 'ACCEPTED';
@@ -155,8 +183,21 @@ function ApplicantCard({ applicant: a, rank, choosing, disabled, onChoose, onDet
         <div className="apm-card__meta">
           <span>⭐ {a.ratingAvg != null ? Number(a.ratingAvg).toFixed(1) : '—'}/5</span>
           <span>🎓 {a.experienceYears ?? 0} năm KN</span>
-          <span>💰 {rate > 0 ? `${currency.format(rate)}đ/giờ` : '—'}</span>
+          {perSubject.length === 0 && (
+            <span>💰 {rate > 0 ? `${currency.format(rate)}đ/giờ` : '—'}</span>
+          )}
         </div>
+
+        {perSubject.length > 0 && (
+          <ul className="apm-card__rates">
+            {perSubject.map(([id, fee]) => (
+              <li key={id} className="apm-rate">
+                <span className="apm-rate__subject">{subjectName(id)}</span>
+                <span className="apm-rate__fee">{currency.format(fee)}đ/giờ</span>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {a.bio && <p className="apm-card__bio">{a.bio}</p>}
         {a.coverLetter && <p className="apm-card__cover">“{a.coverLetter}”</p>}

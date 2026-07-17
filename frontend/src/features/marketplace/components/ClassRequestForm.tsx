@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ClipboardEvent, type FormEvent } from 'react';
 import {
   BILLING_CYCLE_OPTIONS,
   DAY_OF_WEEK_OPTIONS,
@@ -82,6 +82,14 @@ function toMinutes(t: string): number {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + m;
 }
+
+/** Ô <input type="number"> của Chrome vẫn HIỆN chữ đã gõ trên màn hình dù value trả về rỗng,
+ *  nên lọc trong onChange là quá muộn — chữ đọng lại trong ô. Chặn ngay lúc nhập. */
+function blockNonDigits(e: FormEvent<HTMLInputElement>) {
+  const data = (e.nativeEvent as InputEvent).data;
+  if (data && /\D/.test(data)) e.preventDefault();
+}
+
 
 /** Mỗi buổi (thứ + Sáng/Chiều/Tối) chỉ dành cho MỘT môn.
  *  Trả về buổi → tên môn khác đã đặt trong thứ đó. */
@@ -171,6 +179,16 @@ export function ClassRequestForm({
 
   function set<K extends keyof ClassFormValues>(key: K, value: ClassFormValues[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
+  }
+
+  // Đổi kiểu lịch: buổi của kiểu cũ không mang sang được (WEEKLY gắn với Thứ, CUSTOM gắn với ngày
+  // cụ thể) → bỏ buổi không hợp lệ với kiểu mới, nếu không sẽ đọng lại dòng "ma" trống Thứ lẫn ngày.
+  function setScheduleMode(mode: ScheduleMode) {
+    setForm((prev) => {
+      if (prev.scheduleMode === mode) return prev;
+      const slots = prev.slots.filter((s) => (mode === 'WEEKLY' ? !!s.day : !!s.date));
+      return { ...prev, scheduleMode: mode, slots };
+    });
   }
 
   const subjName = (id: string) =>
@@ -446,9 +464,8 @@ export function ClassRequestForm({
     if (!form.wardId) missing.push('Phường / Xã');
     if (!form.address.trim()) missing.push('Địa chỉ chi tiết');
   }
-  if (!form.tutorRequirementDetail.trim()) missing.push('Yêu cầu bổ sung');
   if (form.slots.length === 0) missing.push('Lịch học');
-  if (!form.note.trim()) missing.push('Ghi chú / yêu cầu khác');
+  // Yêu cầu bổ sung và Ghi chú là tùy chọn — để trống vẫn đăng được.
 
   function handleSubmit() {
     setTouched(true);
@@ -642,9 +659,7 @@ export function ClassRequestForm({
           </select>
         </label>
         <label className="mkt-field">
-          <span className="mkt-field__label">
-            Yêu cầu bổ sung (chứng chỉ, bằng cấp…) <em>*</em>
-          </span>
+          <span className="mkt-field__label">Yêu cầu bổ sung (chứng chỉ, bằng cấp…)</span>
           <input
             type="text"
             value={form.tutorRequirementDetail}
@@ -693,7 +708,7 @@ export function ClassRequestForm({
                 type="radio"
                 name="scheduleMode"
                 checked={form.scheduleMode === opt.value}
-                onChange={() => set('scheduleMode', opt.value as ScheduleMode)}
+                onChange={() => setScheduleMode(opt.value as ScheduleMode)}
               />
               <span>{opt.label}</span>
             </label>
@@ -788,6 +803,13 @@ export function ClassRequestForm({
                       placeholder={`Từ ${currency.format(FEE_PER_HOUR_MIN)}`}
                       aria-label={`Học phí/giờ môn ${subjName(sid)}`}
                       title={`Học phí/giờ tối thiểu ${currency.format(FEE_PER_HOUR_MIN)}đ`}
+                      onBeforeInput={blockNonDigits}
+                      // Dán "150.000 đ" → lấy phần số (150000) thay vì chặn sạch cho người dùng hụt.
+                      onPaste={(e: ClipboardEvent<HTMLInputElement>) => {
+                        e.preventDefault();
+                        const digits = e.clipboardData.getData('text').replace(/\D/g, '');
+                        if (digits) setSubjectFee(sid, digits);
+                      }}
                       onChange={(e) => setSubjectFee(sid, e.target.value)}
                     />
                     <span className="mkt-subj-fee__unit">đ/giờ</span>
@@ -1015,9 +1037,7 @@ export function ClassRequestForm({
 
       {/* Ghi chú bổ sung */}
       <label className="mkt-field">
-        <span className="mkt-field__label">
-          Ghi chú / yêu cầu khác <em>*</em>
-        </span>
+        <span className="mkt-field__label">Ghi chú / yêu cầu khác</span>
         <textarea
           rows={3}
           value={form.note}

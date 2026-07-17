@@ -407,6 +407,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
       {applyTarget && (
         <ApplyClassModal
           target={applyTarget}
+          subjects={effSubjects}
           defaultRate={Number(criteria.expectedFee) || undefined}
           onClose={() => setApplyTarget(null)}
           onSubmitted={handleApplied}

@@ -70,7 +70,10 @@ export interface ApplicantResponse {
   hourlyRate: number | null;
   ratingAvg: number | null;
   verificationStatus: 'UNDER_VERIFY' | 'VERIFIED' | 'REJECTED';
+  /** Mức cao nhất trong proposedRates — dùng cho đơn cũ chưa báo giá theo môn. */
   proposedRate: number | null;
+  /** Học phí đề xuất theo từng môn (key = subjectId, kể cả "other"). Null với đơn cũ. */
+  proposedRates: Record<string, number> | null;
   coverLetter: string | null;
   status: 'SUBMITTED' | 'UNDER_REVIEW' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
   appliedAt: string;

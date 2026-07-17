@@ -248,6 +248,24 @@
 .apl-field input:focus, .apl-field textarea:focus { outline: none; border-color: #1565c0; }
 .apl-error { margin: 8px 0 0; color: #c62828; font-size: 13px; font-weight: 500; }
 
+/* Học phí đề xuất theo từng môn của lớp. */
+.apl-rates__intro { margin: 0 0 10px; font-size: 13px; color: #5b6b7f; }
+.apl-rates { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.apl-rate { padding: 12px; background: #f7f9fc; border: 1px solid #e3e9f2; border-radius: 10px; }
+.apl-rate__head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; margin-bottom: 8px; }
+.apl-rate__subject { font-size: 14px; font-weight: 700; color: #12233b; }
+.apl-rate__asking { font-size: 12px; color: #5b6b7f; }
+.apl-rate__input { display: flex; align-items: center; gap: 8px; }
+.apl-rate__input input {
+  flex: 1; min-width: 0; border: 1px solid #cfd8e3; border-radius: 8px;
+  padding: 9px 12px; font-size: 14px; font-family: inherit; background: #fff;
+}
+.apl-rate__input input:focus { outline: none; border-color: #1565c0; box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12); }
+.apl-rate__unit { flex: 0 0 auto; font-size: 13px; color: #5b6b7f; }
+.apl-rate__over { color: #ef6c00; }
+.apl-rate-errors { margin: 10px 0 0; padding-left: 18px; color: #c62828; font-size: 13px; }
+.apl-rate-errors > li { margin-top: 2px; }
+
 /* Màn hẹp: gộp về 1 cột — panel về trên (không dính), lớp xuống dưới. */
 @media (max-width: 960px) {
   .tfc {

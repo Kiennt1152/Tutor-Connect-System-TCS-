@@ -41,7 +41,10 @@ export const marketplaceApi = {
       .get<ClassResponse[]>('/marketplace/classes', { params: { status: 'OPEN' } })
       .then((r) => r.data),
 
-  applyToClass: (classId: number, payload: { proposedRate?: number; coverLetter?: string }) =>
+  applyToClass: (
+    classId: number,
+    payload: { proposedRates: Record<string, number>; coverLetter?: string },
+  ) =>
     axiosClient
       .post<{ message: string }>(`/marketplace/classes/${classId}/apply`, payload)
       .then((r) => r.data),

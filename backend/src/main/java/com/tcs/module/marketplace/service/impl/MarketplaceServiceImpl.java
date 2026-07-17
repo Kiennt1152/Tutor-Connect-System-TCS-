@@ -1,5 +1,9 @@
 package com.tcs.module.marketplace.service.impl;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.catalog.entity.Category;
@@ -33,9 +37,14 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +65,21 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final SubjectRepository subjectRepository;
     private final GradeRepository gradeRepository;
     private final LocationRepository locationRepository;
+    // Khởi tạo trực tiếp (không có bean ObjectMapper trong context) — giống GoogleTokenVerifier.
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** Học phí/giờ thấp nhất chấp nhận được (đ) — khớp FEE_PER_HOUR_MIN của form phía client. */
+    private static final BigDecimal MIN_RATE_PER_HOUR = BigDecimal.valueOf(50_000);
+
+    /** Khóa của môn "Khác" (tự nhập) trong detailsJson.subjectIds. */
+    private static final String OTHER_SUBJECT_KEY = "other";
+
+    /** Giới hạn cột tutoring_classes.title. */
+    private static final int TITLE_MAX_LENGTH = 150;
+
+    /** Khối phổ thông dạng "Lớp 12" — bắt lấy phần số để ghép " lớp 12". */
+    private static final Pattern GRADE_NUMBER_PATTERN =
+            Pattern.compile("^Lớp\\s+(\\d+)$", Pattern.CASE_INSENSITIVE);
 
     @Override
     @Transactional(readOnly = true)
@@ -124,7 +148,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         tutoringClass.setTutorRequirement(trimToNull(request.getTutorRequirement()));
         tutoringClass.setLocation(resolveLocation(request.getLocationId()));
         tutoringClass.setAddress(trimToNull(request.getAddress()));
-        tutoringClass.setTitle(resolveTitle(request.getTitle(), subject, grade));
+        tutoringClass.setTitle(resolveTitle(request, subject, grade));
         tutoringClass.setDescription(resolveDescription(request, subject, grade));
         tutoringClass.setDetailsJson(request.getDetailsJson());
         if (request.getLessonMode() != null) tutoringClass.setLessonMode(request.getLessonMode());
@@ -135,14 +159,34 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (request.getRecurringType() != null) tutoringClass.setRecurringType(request.getRecurringType());
     }
 
-    private String resolveTitle(String title, Subject subject, Grade grade) {
-        if (StringUtils.hasText(title)) {
-            return title.trim();
+    /**
+     * Tiêu đề tự sinh nêu ĐỦ các môn của lớp (lấy từ detailsJson), không chỉ môn chính —
+     * lớp Toán + Lý + Hóa phải hiện cả 3 để gia sư biết mình có dạy đủ hay không.
+     */
+    private String resolveTitle(CreateClassRequest request, Subject subject, Grade grade) {
+        if (StringUtils.hasText(request.getTitle())) {
+            return request.getTitle().trim();
+        }
+        return autoTitle(request.getDetailsJson(), subject, grade);
+    }
+
+    /** Tiêu đề tự sinh, bỏ qua tiêu đề người dùng nhập (dùng cả cho mô tả mặc định). */
+    private String autoTitle(String detailsJson, Subject subject, Grade grade) {
+        List<String> names = subjectNamesFromJson(detailsJson);
+        if (names.isEmpty() && subject != null) {
+            names = List.of(subject.getSubjectName());
         }
         StringBuilder sb = new StringBuilder("Cần tìm gia sư");
-        if (subject != null) sb.append(" môn ").append(subject.getSubjectName());
-        if (grade != null) sb.append(" lớp ").append(grade.getGradeName());
-        return sb.toString();
+        if (!names.isEmpty()) {
+            sb.append(names.size() > 1 ? " các môn " : " môn ").append(String.join(", ", names));
+        }
+        if (grade != null) {
+            sb.append(gradeSuffix(grade.getGradeName()));
+        }
+        String title = sb.toString();
+        return title.length() > TITLE_MAX_LENGTH
+                ? title.substring(0, TITLE_MAX_LENGTH - 1) + "…"
+                : title;
     }
 
     private String resolveDescription(CreateClassRequest request, Subject subject, Grade grade) {
@@ -158,7 +202,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             sb.append("Yêu cầu gia sư: ").append(request.getTutorRequirement().trim());
         }
         if (sb.length() == 0) {
-            sb.append(resolveTitle(null, subject, grade));
+            sb.append(autoTitle(request.getDetailsJson(), subject, grade));
         }
         return sb.toString();
     }
@@ -186,13 +230,145 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Lớp không mở đơn ứng tuyển");
         }
+        Map<String, BigDecimal> rates = resolveProposedRates(request, tutoringClass);
+
         TutorApplication application = new TutorApplication();
         application.setTutoringClass(tutoringClass);
         application.setTutor(tutor);
-        application.setProposedRate(request.getProposedRate());
+        application.setProposedRatesJson(rates.isEmpty() ? null : writeJson(rates));
+        application.setProposedRate(highestRate(rates, request.getProposedRate()));
         application.setCoverLetter(request.getCoverLetter());
         application.setStatus(TutorApplicationStatus.SUBMITTED);
         tutorApplicationRepository.save(application);
+    }
+
+    /**
+     * Gia sư phải báo giá cho MỌI môn của lớp. Đơn gửi từ client cũ (chỉ có một mức chung)
+     * được quy về mức đó cho từng môn để dữ liệu đồng nhất.
+     */
+    private Map<String, BigDecimal> resolveProposedRates(
+            ApplyClassRequest request, TutoringClass tutoringClass) {
+        List<String> subjectKeys = classSubjectKeys(tutoringClass);
+        Map<String, BigDecimal> requested = request.getProposedRates();
+        Map<String, BigDecimal> resolved = new LinkedHashMap<>();
+
+        if (requested == null || requested.isEmpty()) {
+            BigDecimal flat = request.getProposedRate();
+            if (flat == null) {
+                throw new IllegalArgumentException("Vui lòng nhập học phí đề xuất cho từng môn của lớp");
+            }
+            requireValidRate(flat, null);
+            for (String key : subjectKeys) {
+                resolved.put(key, flat);
+            }
+            return resolved;
+        }
+
+        for (String key : subjectKeys) {
+            BigDecimal rate = requested.get(key);
+            if (rate == null) {
+                throw new IllegalArgumentException("Vui lòng nhập học phí đề xuất cho tất cả các môn của lớp");
+            }
+            requireValidRate(rate, key);
+            resolved.put(key, rate);
+        }
+        return resolved;
+    }
+
+    private void requireValidRate(BigDecimal rate, String subjectKey) {
+        String subject = subjectKey == null || OTHER_SUBJECT_KEY.equals(subjectKey)
+                ? ""
+                : " cho môn #" + subjectKey;
+        if (rate.signum() <= 0) {
+            throw new IllegalArgumentException("Học phí đề xuất" + subject + " phải lớn hơn 0");
+        }
+        if (rate.compareTo(MIN_RATE_PER_HOUR) < 0) {
+            throw new IllegalArgumentException(
+                    "Học phí đề xuất" + subject + " tối thiểu " + MIN_RATE_PER_HOUR.longValue() + "đ/giờ");
+        }
+    }
+
+    /** Khóa các môn trong detailsJson.subjectIds ("other" = môn tự nhập); rỗng nếu JSON thiếu/hỏng. */
+    private List<String> subjectKeysFromJson(String detailsJson) {
+        if (!StringUtils.hasText(detailsJson)) {
+            return List.of();
+        }
+        try {
+            JsonNode ids = objectMapper.readTree(detailsJson).path("subjectIds");
+            if (!ids.isArray()) {
+                return List.of();
+            }
+            List<String> keys = new ArrayList<>();
+            for (JsonNode id : ids) {
+                keys.add(id.asText());
+            }
+            return keys;
+        } catch (JsonProcessingException e) {
+            return List.of();
+        }
+    }
+
+    /** Các môn của lớp theo khóa dùng trong detailsJson.subjectIds; lớp cũ → suy từ cột phẳng. */
+    private List<String> classSubjectKeys(TutoringClass tutoringClass) {
+        List<String> keys = subjectKeysFromJson(tutoringClass.getDetailsJson());
+        if (!keys.isEmpty()) {
+            return keys;
+        }
+        return tutoringClass.getSubject() != null
+                ? List.of(String.valueOf(tutoringClass.getSubject().getSubjectId()))
+                : List.of();
+    }
+
+    /**
+     * Phần khối lớp trong tiêu đề: "Lớp 12" → " lớp 12" (tránh lặp thành "lớp Lớp 12");
+     * khối không phải lớp phổ thông ("Luyện thi Đại học") thì nối bằng dấu gạch.
+     */
+    private String gradeSuffix(String gradeName) {
+        String name = gradeName.trim();
+        Matcher m = GRADE_NUMBER_PATTERN.matcher(name);
+        return m.matches() ? " lớp " + m.group(1) : " - " + name;
+    }
+
+    /** Tên đầy đủ các môn của lớp (kể cả môn "Khác" tự nhập) để nêu trong tiêu đề. */
+    private List<String> subjectNamesFromJson(String detailsJson) {
+        List<String> keys = subjectKeysFromJson(detailsJson);
+        if (keys.isEmpty()) {
+            return List.of();
+        }
+        String otherName = "";
+        try {
+            otherName = objectMapper.readTree(detailsJson).path("subjectOther").asText("").trim();
+        } catch (JsonProcessingException ignored) {
+            // Đã parse được subjectIds ở trên nên nhánh này gần như không xảy ra.
+        }
+        List<String> names = new ArrayList<>();
+        for (String key : keys) {
+            if (OTHER_SUBJECT_KEY.equals(key)) {
+                names.add(StringUtils.hasText(otherName) ? otherName : "Môn học khác");
+                continue;
+            }
+            try {
+                subjectRepository.findById(Long.valueOf(key))
+                        .map(Subject::getSubjectName)
+                        .ifPresent(names::add);
+            } catch (NumberFormatException ignored) {
+                // Khóa môn lạ → bỏ qua, tiêu đề vẫn nêu các môn còn lại.
+            }
+        }
+        return names;
+    }
+
+    /** Mức cao nhất trong các môn — dùng cho cột proposed_rate cũ và chấm điểm AI. */
+    private BigDecimal highestRate(Map<String, BigDecimal> rates, BigDecimal fallback) {
+        return rates.values().stream().max(BigDecimal::compareTo).orElse(fallback);
+    }
+
+    private String writeJson(Map<String, BigDecimal> rates) {
+        try {
+            return objectMapper.writeValueAsString(rates);
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException("Không đọc được học phí đề xuất", e);
+        }
     }
 
     @Override
@@ -256,12 +432,25 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .ratingAvg(tutor.getRatingAvg())
                 .verificationStatus(tutor.getVerificationStatus().name())
                 .proposedRate(app.getProposedRate())
+                .proposedRates(readRates(app.getProposedRatesJson()))
                 .coverLetter(app.getCoverLetter())
                 .status(app.getStatus().name())
                 .appliedAt(app.getAppliedAt())
                 .matchScore(score)
                 .recommended(false)
                 .build();
+    }
+
+    /** Đơn cũ (trước khi có báo giá theo môn) không có JSON → trả null, client hiện mức chung. */
+    private Map<String, BigDecimal> readRates(String json) {
+        if (!StringUtils.hasText(json)) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(json, new TypeReference<LinkedHashMap<String, BigDecimal>>() {});
+        } catch (JsonProcessingException e) {
+            return null;
+        }
     }
 
     /**

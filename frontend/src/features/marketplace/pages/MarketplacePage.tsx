@@ -188,7 +188,12 @@ function ClassDetailScreen({ target, subjects, grades, onChosen, onBack }: Class
               <h2>Gia sư ứng tuyển</h2>
             </div>
             <div className="mkt-card__body">
-              <ApplicantsPanel classId={target.classId} onChosen={onChosen} />
+              <ApplicantsPanel
+                classId={target.classId}
+                target={target}
+                subjects={subjects}
+                onChosen={onChosen}
+              />
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ package com.tcs.module.marketplace.dto.response;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Map;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,7 +24,10 @@ public class ApplicantResponse {
     private BigDecimal ratingAvg;
     private String verificationStatus;
 
+    /** Mức cao nhất trong {@link #proposedRates} — giữ cho đơn cũ chưa báo giá theo môn. */
     private BigDecimal proposedRate;
+    /** Học phí đề xuất theo từng môn: key = subjectId (hoặc "other"), value = đ/giờ. */
+    private Map<String, BigDecimal> proposedRates;
     private String coverLetter;
     private String status;
     private LocalDateTime appliedAt;
