@@ -4,6 +4,7 @@ import com.tcs.exception.BusinessException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
+import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
 import com.tcs.module.finance.dto.response.AdminDisputeReviewResponse;
 import com.tcs.module.finance.dto.response.DisputeResponse;
 import com.tcs.module.finance.entity.Dispute;
@@ -25,6 +26,7 @@ import com.tcs.module.marketplace.repository.ClassTerminationRequestRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.platform.entity.Report;
 import com.tcs.module.platform.enums.ReportCategory;
+import com.tcs.module.platform.enums.ReportStatus;
 import com.tcs.module.platform.enums.ReportTargetType;
 import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.entity.Tutor;
@@ -128,6 +130,45 @@ public class DisputeServiceImpl implements DisputeService {
         return toAdminReviewResponse(dispute);
     }
 
+    @Override
+    @Transactional
+    public AdminDisputeReviewResponse resolveDispute(Long disputeId, ResolveDisputeRequest request) {
+        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+        if (disputeId == null) {
+            throw new IllegalArgumentException("disputeId là bắt buộc");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("Thiếu thông tin quyết định xử lý tranh chấp");
+        }
+
+        DisputeStatus nextStatus = request.getStatus();
+        if (nextStatus == null) {
+            throw new IllegalArgumentException("Trạng thái xử lý là bắt buộc");
+        }
+        if (nextStatus == DisputeStatus.OPEN) {
+            throw new IllegalArgumentException("Không thể đưa tranh chấp về trạng thái mới mở");
+        }
+
+        String resolution = normalizeResolution(request.getResolution());
+        Dispute dispute = disputeRepository.findById(disputeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tranh chấp"));
+        if (dispute.getStatus() == DisputeStatus.RESOLVED) {
+            throw new BusinessException("Tranh chấp đã được xử lý, vui lòng dùng luồng khiếu nại/mở lại nếu cần");
+        }
+
+        dispute.setStatus(nextStatus);
+        dispute.setResolution(resolution);
+
+        Report report = dispute.getReport();
+        if (nextStatus == DisputeStatus.RESOLVED && report != null) {
+            report.setStatus(ReportStatus.RESOLVED);
+            reportRepository.save(report);
+        }
+
+        Dispute saved = disputeRepository.save(dispute);
+        return toAdminReviewResponse(saved);
+    }
+
     private void validateReportInput(
             ReportTargetType targetType,
             Long targetId,
@@ -139,6 +180,17 @@ public class DisputeServiceImpl implements DisputeService {
         if (!StringUtils.hasText(description)) {
             throw new IllegalArgumentException("Mô tả báo cáo là bắt buộc");
         }
+    }
+
+    private String normalizeResolution(String resolution) {
+        if (!StringUtils.hasText(resolution)) {
+            throw new IllegalArgumentException("Nội dung quyết định là bắt buộc");
+        }
+        String trimmed = resolution.trim();
+        if (trimmed.length() < 10) {
+            throw new IllegalArgumentException("Nội dung quyết định phải có ít nhất 10 ký tự");
+        }
+        return trimmed;
     }
 
     private EscrowTransaction resolveEscrow(

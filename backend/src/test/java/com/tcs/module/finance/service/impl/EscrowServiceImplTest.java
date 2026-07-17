@@ -173,6 +173,25 @@ class EscrowServiceImplTest {
     }
 
     @Test
+    void applyReleasesDisputedEscrowToTutor() {
+        BigDecimal amount = new BigDecimal("500000.00");
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, amount);
+        escrow.setStatus(EscrowStatus.DISPUTED);
+        Wallet tutorWallet = wallet(TUTOR_USER_ID);
+
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+        when(walletService.getOrCreate(TUTOR_USER_ID)).thenReturn(tutorWallet);
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        escrowService.apply(new ReleaseInstruction(5L, amount, BigDecimal.ZERO, "Admin giải ngân sau tranh chấp"));
+
+        verify(walletService).releaseLockedFunds(PAYER_ID, amount, "ESCROW_RELEASE-5");
+        verify(walletService).credit(TUTOR_USER_ID, amount, "ESCROW_RELEASE-5");
+        assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
+    }
+
+    @Test
     void applyReleasesCenterEscrowToCenterWallet() {
         BigDecimal amount = new BigDecimal("300000.00");
         EscrowTransaction escrow = fundedCenterEscrow(6L, amount);

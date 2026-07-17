@@ -117,6 +117,18 @@ export interface ReviewVerificationApiRequest {
   expectedUpdatedAt?: string;
 }
 
+export interface ResolveDisputeApiRequest {
+  status: Exclude<DisputeStatus, 'OPEN'>;
+  resolution: string;
+}
+
+export interface ExecuteSettlementApiRequest {
+  escrowId: number;
+  releaseToBeneficiary: number;
+  refundToPayer: number;
+  reason: string;
+}
+
 export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'LICENSE';
 
 export interface VerificationDocumentApiResponse {

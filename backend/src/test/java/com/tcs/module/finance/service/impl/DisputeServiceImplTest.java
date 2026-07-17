@@ -11,6 +11,7 @@ import static org.mockito.Mockito.when;
 import com.tcs.exception.BusinessException;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
+import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
 import com.tcs.module.finance.dto.response.AdminDisputeReviewResponse;
 import com.tcs.module.finance.dto.response.DisputeResponse;
 import com.tcs.module.finance.entity.Dispute;
@@ -261,6 +262,83 @@ class DisputeServiceImplTest {
     @Test
     void getDisputeForAdminRejectsMissingId() {
         assertThrows(IllegalArgumentException.class, () -> disputeService.getDisputeForAdmin(null));
+        verify(disputeRepository, never()).findById(any());
+    }
+
+    @Test
+    void resolveDisputeMarksDisputeAndReportResolved() {
+        User reporter = user(USER_ID, "reporter@tcs.com");
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.DISPUTED);
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.UNDER_INVESTIGATION);
+
+        ResolveDisputeRequest request = new ResolveDisputeRequest();
+        request.setStatus(DisputeStatus.RESOLVED);
+        request.setResolution("Chấp nhận khiếu nại và chuyển sang bước giải ngân");
+
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.save(dispute)).thenReturn(dispute);
+
+        AdminDisputeReviewResponse response = disputeService.resolveDispute(31L, request);
+
+        assertEquals(DisputeStatus.RESOLVED, response.getDisputeStatus());
+        assertEquals(ReportStatus.RESOLVED, response.getReportStatus());
+        assertEquals("Chấp nhận khiếu nại và chuyển sang bước giải ngân", response.getResolution());
+        assertEquals(DisputeStatus.RESOLVED, dispute.getStatus());
+        assertEquals(ReportStatus.RESOLVED, report.getStatus());
+        verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN);
+        verify(reportRepository).save(report);
+        verify(disputeRepository).save(dispute);
+    }
+
+    @Test
+    void resolveDisputeCanMoveToWaitingWithoutClosingReport() {
+        User reporter = user(USER_ID, "reporter@tcs.com");
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.DISPUTED);
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.OPEN);
+
+        ResolveDisputeRequest request = new ResolveDisputeRequest();
+        request.setStatus(DisputeStatus.WAITING);
+        request.setResolution("Cần người báo cáo bổ sung bằng chứng buổi học");
+
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.save(dispute)).thenReturn(dispute);
+
+        AdminDisputeReviewResponse response = disputeService.resolveDispute(31L, request);
+
+        assertEquals(DisputeStatus.WAITING, response.getDisputeStatus());
+        assertEquals(ReportStatus.PENDING, response.getReportStatus());
+        assertEquals("Cần người báo cáo bổ sung bằng chứng buổi học", response.getResolution());
+        verify(reportRepository, never()).save(any(Report.class));
+        verify(disputeRepository).save(dispute);
+    }
+
+    @Test
+    void resolveDisputeRejectsAlreadyResolvedDispute() {
+        User reporter = user(USER_ID, "reporter@tcs.com");
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.RELEASED);
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.RESOLVED);
+
+        ResolveDisputeRequest request = new ResolveDisputeRequest();
+        request.setStatus(DisputeStatus.WAITING);
+        request.setResolution("Mở lại để kiểm tra thêm bằng chứng");
+
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+
+        assertThrows(BusinessException.class, () -> disputeService.resolveDispute(31L, request));
+        verify(disputeRepository, never()).save(any());
+        verify(reportRepository, never()).save(any());
+    }
+
+    @Test
+    void resolveDisputeRejectsShortResolution() {
+        ResolveDisputeRequest request = new ResolveDisputeRequest();
+        request.setStatus(DisputeStatus.RESOLVED);
+        request.setResolution("Ngắn");
+
+        assertThrows(IllegalArgumentException.class, () -> disputeService.resolveDispute(31L, request));
         verify(disputeRepository, never()).findById(any());
     }
 

@@ -5,6 +5,7 @@ import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
 import PlatformDashboardPage from '../features/platform/pages/PlatformDashboardPage';
+import PlatformEscrowPage from '../features/platform/pages/PlatformEscrowPage';
 import PlatformProfilePage from '../features/platform/pages/PlatformProfilePage';
 import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
@@ -125,6 +126,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
                 <PlatformReportsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformEscrows}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformEscrowPage />
               </ProtectedRoute>
             }
           />

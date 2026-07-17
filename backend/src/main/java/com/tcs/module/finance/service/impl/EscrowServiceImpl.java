@@ -64,8 +64,8 @@ public class EscrowServiceImpl implements EscrowService {
             log.warn("[Escrow] Escrow id={} đã tất toán, bỏ qua", escrow.getEscrowId());
             return;
         }
-        if (escrow.getStatus() != EscrowStatus.FUNDED) {
-            throw new BusinessException("Chỉ escrow đã được khóa tiền mới có thể giải ngân");
+        if (!isSettleable(escrow.getStatus())) {
+            throw new BusinessException("Chỉ escrow đã khóa, tạm giữ hoặc tranh chấp mới có thể tất toán");
         }
 
         BigDecimal releaseAmount = amountOrZero(instruction.releaseToBeneficiary());
@@ -260,6 +260,12 @@ public class EscrowServiceImpl implements EscrowService {
             return wallet.getWalletId();
         }
         throw new BusinessException("Escrow không xác định được người thanh toán");
+    }
+
+    private boolean isSettleable(EscrowStatus status) {
+        return status == EscrowStatus.FUNDED
+                || status == EscrowStatus.ON_HOLD
+                || status == EscrowStatus.DISPUTED;
     }
 
     private Long beneficiaryUserId(EscrowTransaction escrow) {

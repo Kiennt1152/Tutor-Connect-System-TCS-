@@ -1,7 +1,10 @@
-import { useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
+import { Link } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { useDisputeReviewList } from '../hooks/useDisputeReviewList';
+import { useResolveDispute } from '../hooks/usePlatformMutations';
 import { useReportList } from '../hooks/useReportList';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import type {
   AdminDisputeReviewApiResponse,
   DisputeReviewItem,
@@ -10,6 +13,14 @@ import type {
   ReportStatus,
 } from '../types/platformTypes';
 import './PlatformReportsPage.css';
+
+type ResolutionStatus = Exclude<DisputeStatus, 'OPEN'>;
+
+const RESOLUTION_STATUS_OPTIONS: { value: ResolutionStatus; label: string }[] = [
+  { value: 'UNDER_INVESTIGATION', label: 'Đang xem xét' },
+  { value: 'WAITING', label: 'Chờ bổ sung bằng chứng' },
+  { value: 'RESOLVED', label: 'Đã xử lý' },
+];
 
 function reportBadgeClass(status: ReportStatus) {
   return status === 'PENDING' ? 'tcs-badge tcs-badge--suspended' : 'tcs-badge tcs-badge--active';
@@ -74,11 +85,64 @@ function DisputeDetail({
   detail,
   status,
   errorMessage,
+  onChanged,
 }: {
   detail: AdminDisputeReviewApiResponse | null;
   status: 'loading' | 'success' | 'error';
   errorMessage: string | null;
+  onChanged: () => void;
 }) {
+  const {
+    status: resolveStatus,
+    errorMessage: resolveErrorMessage,
+    resolveDispute,
+    reset: resetResolve,
+  } = useResolveDispute();
+  const [resolutionStatus, setResolutionStatus] = useState<ResolutionStatus>('UNDER_INVESTIGATION');
+  const [resolutionNote, setResolutionNote] = useState('');
+  const [formError, setFormError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    if (!detail) return;
+    setResolutionStatus(
+      detail.disputeStatus === 'OPEN' ? 'UNDER_INVESTIGATION' : detail.disputeStatus,
+    );
+    setResolutionNote(detail.resolution ?? '');
+    setFormError('');
+    setSuccessMessage('');
+    resetResolve();
+  }, [detail?.disputeId, detail?.disputeStatus, detail?.resolution, resetResolve]);
+
+  const handleResolve = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!detail) return;
+
+    const trimmedResolution = resolutionNote.trim();
+    if (trimmedResolution.length < 10) {
+      setFormError('Vui lòng nhập nội dung quyết định ít nhất 10 ký tự.');
+      return;
+    }
+
+    setFormError('');
+    setSuccessMessage('');
+    const updated = await resolveDispute(String(detail.disputeId), resolutionStatus, trimmedResolution);
+    if (updated) {
+      setSuccessMessage('Đã lưu quyết định xử lý tranh chấp.');
+      onChanged();
+    }
+  };
+
+  const escrowReleasePath = (() => {
+    if (!detail?.escrow?.escrowId) return APP_ROUTES.platformEscrows;
+    const params = new URLSearchParams();
+    params.set('escrowId', String(detail.escrow.escrowId));
+    if (typeof detail.escrow.amount === 'number') {
+      params.set('amount', String(detail.escrow.amount));
+    }
+    return `${APP_ROUTES.platformEscrows}?${params.toString()}`;
+  })();
+
   if (!detail) {
     return (
       <div className="pd-detail pd-detail--empty">
@@ -144,7 +208,72 @@ function DisputeDetail({
       </section>
 
       <section className="pd-section">
-        <h3 className="pd-section__title">Escrow</h3>
+        <h3 className="pd-section__title">Quyết định xử lý</h3>
+        {detail.resolution && <p className="pd-description">{detail.resolution}</p>}
+
+        {detail.disputeStatus === 'RESOLVED' ? (
+          <div className="adm-alert adm-alert--info pd-resolution-alert">
+            Tranh chấp đã được chốt. Nếu cần mở lại, dùng luồng khiếu nại/mở lại.
+          </div>
+        ) : (
+          <form className="pd-resolution-form" onSubmit={handleResolve}>
+            <label className="pd-field">
+              <span>Trạng thái sau xử lý</span>
+              <select
+                className="adm-field"
+                value={resolutionStatus}
+                disabled={resolveStatus === 'loading'}
+                onChange={(event) => setResolutionStatus(event.target.value as ResolutionStatus)}
+              >
+                {RESOLUTION_STATUS_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="pd-field">
+              <span>Nội dung quyết định</span>
+              <textarea
+                className="pd-textarea"
+                rows={4}
+                maxLength={1000}
+                placeholder="Nhập kết luận xử lý, yêu cầu bổ sung hoặc hướng xử lý tiếp theo..."
+                value={resolutionNote}
+                disabled={resolveStatus === 'loading'}
+                onChange={(event) => setResolutionNote(event.target.value)}
+              />
+            </label>
+
+            {formError && <div className="adm-alert adm-alert--error">{formError}</div>}
+            {resolveStatus === 'error' && resolveErrorMessage && (
+              <div className="adm-alert adm-alert--error">{resolveErrorMessage}</div>
+            )}
+            {successMessage && <div className="adm-alert adm-alert--success">{successMessage}</div>}
+
+            <div className="pd-resolution-actions">
+              <button
+                className="tcs-btn tcs-btn--primary"
+                type="submit"
+                disabled={resolveStatus === 'loading'}
+              >
+                {resolveStatus === 'loading' ? 'Đang lưu...' : 'Lưu quyết định'}
+              </button>
+            </div>
+          </form>
+        )}
+      </section>
+
+      <section className="pd-section">
+        <div className="pd-section__head">
+          <h3 className="pd-section__title">Escrow</h3>
+          {detail.escrow?.escrowId && (
+            <Link className="tcs-btn tcs-btn--ghost tcs-btn--sm" to={escrowReleasePath}>
+              Mở màn giải ngân
+            </Link>
+          )}
+        </div>
         <div className="pd-info-grid">
           <InfoRow label="Mã escrow" value={detail.escrow?.escrowId ? `#${detail.escrow.escrowId}` : '—'} />
           <InfoRow label="Trạng thái" value={detail.escrow?.status ?? '—'} />
@@ -289,6 +418,7 @@ export default function PlatformReportsPage() {
           detail={disputes.selected}
           status={disputes.selectedStatus}
           errorMessage={disputes.detailErrorMessage}
+          onChanged={disputes.reload}
         />
       </section>
 

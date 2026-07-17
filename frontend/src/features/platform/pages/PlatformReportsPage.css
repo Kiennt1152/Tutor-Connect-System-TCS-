@@ -153,6 +153,18 @@
   font-weight: 700;
 }
 
+.pd-section__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  margin-bottom: var(--space-sm);
+}
+
+.pd-section__head .pd-section__title {
+  margin-bottom: 0;
+}
+
 .pd-info-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -213,6 +225,63 @@
 .pd-evidence-link:hover {
   border-color: var(--color-primary);
   background: var(--color-primary-xlight);
+}
+
+.pd-resolution-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-sm);
+}
+
+.pd-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+}
+
+.pd-field .adm-field {
+  width: 100%;
+  min-width: 0;
+  flex: none;
+}
+
+.pd-textarea {
+  width: 100%;
+  min-height: 108px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.pd-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.pd-resolution-alert {
+  margin-top: var(--space-sm);
+  margin-bottom: 0;
+}
+
+.pd-resolution-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.adm-alert--success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
 }
 
 .pd-report-card {

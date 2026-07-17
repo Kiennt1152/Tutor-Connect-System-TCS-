@@ -2,6 +2,7 @@ package com.tcs.module.finance.controller;
 
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
+import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
 import com.tcs.module.finance.dto.response.AdminDisputeReviewResponse;
 import com.tcs.module.finance.dto.response.DisputeResponse;
 import com.tcs.module.finance.enums.DisputeStatus;
@@ -31,6 +32,13 @@ public class DisputeController {
     @GetMapping("/api/disputes/{disputeId}")
     public AdminDisputeReviewResponse getDispute(@PathVariable Long disputeId) {
         return disputeService.getDisputeForAdmin(disputeId);
+    }
+
+    @PostMapping("/api/disputes/{disputeId}/resolve")
+    public AdminDisputeReviewResponse resolveDispute(
+            @PathVariable Long disputeId,
+            @RequestBody ResolveDisputeRequest request) {
+        return disputeService.resolveDispute(disputeId, request);
     }
 
     @PostMapping("/api/disputes")

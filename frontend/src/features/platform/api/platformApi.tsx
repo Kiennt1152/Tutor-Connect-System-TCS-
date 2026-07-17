@@ -3,9 +3,11 @@ import type {
   AdminDisputeReviewApiResponse,
   DashboardApiResponse,
   DisputeStatus,
+  ExecuteSettlementApiRequest,
   PageUserListApiResponse,
   ReportApiResponse,
   ReviewVerificationApiRequest,
+  ResolveDisputeApiRequest,
   UpdateUserStatusApiRequest,
   UserListItemApiResponse,
   UserListFilters,
@@ -55,5 +57,13 @@ export const platformApi = {
 
   getDispute(disputeId: string) {
     return axiosClient.get<AdminDisputeReviewApiResponse>(`/disputes/${disputeId}`);
+  },
+
+  resolveDispute(disputeId: string, payload: ResolveDisputeApiRequest) {
+    return axiosClient.post<AdminDisputeReviewApiResponse>(`/disputes/${disputeId}/resolve`, payload);
+  },
+
+  executeSettlement(payload: ExecuteSettlementApiRequest) {
+    return axiosClient.post<string>('/finance/settlements/execute', payload);
   },
 };

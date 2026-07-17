@@ -15,6 +15,7 @@ export const APP_ROUTES = {
   platformUsers: '/platform/users',
   platformVerifications: '/platform/verifications',
   platformReports: '/platform/reports',
+  platformEscrows: '/platform/escrows',
   platformProfile: '/platform/profile',
   forbidden: '/forbidden',
 } as const;

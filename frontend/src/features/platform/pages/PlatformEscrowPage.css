@@ -1,0 +1,133 @@
+.pe-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 0.42fr);
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.pe-card,
+.pe-preview {
+  min-width: 0;
+}
+
+.pe-card__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.pe-card__title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--fs-h4);
+  font-weight: 700;
+}
+
+.pe-card__meta {
+  margin: 4px 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  line-height: 1.45;
+}
+
+.pe-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.pe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  min-width: 0;
+}
+
+.pe-field .adm-field {
+  width: 100%;
+  min-width: 0;
+  flex: none;
+}
+
+.pe-field--full,
+.pe-alert,
+.pe-form__actions {
+  grid-column: 1 / -1;
+}
+
+.pe-textarea {
+  width: 100%;
+  min-height: 112px;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+  font: inherit;
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.pe-textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.pe-form__actions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.adm-alert--success {
+  background: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
+
+.pe-preview__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.pe-preview__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+}
+
+.pe-preview__row strong {
+  color: var(--color-text-primary);
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+@media (max-width: 1020px) {
+  .pe-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 720px) {
+  .pe-card__head {
+    flex-direction: column;
+  }
+
+  .pe-form {
+    grid-template-columns: 1fr;
+  }
+}

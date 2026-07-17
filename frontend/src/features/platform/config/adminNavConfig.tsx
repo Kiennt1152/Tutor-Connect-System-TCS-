@@ -49,6 +49,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: APP_ROUTES.catalog, label: 'Danh mục', icon: 'folder' },
       { to: APP_ROUTES.platformVerifications, label: 'Xác minh', icon: 'shield' },
       { to: APP_ROUTES.platformReports, label: 'Báo cáo & tranh chấp', icon: 'flag' },
+      { to: APP_ROUTES.platformEscrows, label: 'Escrow', icon: 'wallet' },
     ],
   },
 ];
@@ -59,6 +60,7 @@ export const ADMIN_HOME_NAV: Pick<AdminNavItem, 'label' | 'to'>[] = [
   { label: 'Danh mục', to: APP_ROUTES.catalog },
   { label: 'Xác minh', to: APP_ROUTES.platformVerifications },
   { label: 'Báo cáo & tranh chấp', to: APP_ROUTES.platformReports },
+  { label: 'Escrow', to: APP_ROUTES.platformEscrows },
 ];
 
 export const ADMIN_QUICK_ACTIONS: AdminModule[] = [
@@ -91,6 +93,12 @@ export const ADMIN_QUICK_ACTIONS: AdminModule[] = [
     title: 'Báo cáo & tranh chấp',
     description: 'Theo dõi báo cáo vi phạm, tranh chấp lớp học và bằng chứng.',
     to: APP_ROUTES.platformReports,
+  },
+  {
+    icon: 'wallet',
+    title: 'Giải ngân escrow',
+    description: 'Thực hiện giải ngân escrow cho lớp đã đủ điều kiện tất toán.',
+    to: APP_ROUTES.platformEscrows,
   },
 ];
 
