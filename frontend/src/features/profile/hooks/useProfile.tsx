@@ -2,9 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { profileApi } from '../api/profileApi';
 import type { ProfileResponse, UpdateProfileRequest } from '../types/profileTypes';
 
-const MAX_AVATAR_SIZE_BYTES = 5 * 1024 * 1024;
-
-export interface UseProfileResult {
+interface UseProfileResult {
   profile: ProfileResponse | null;
   loading: boolean;
   error: string | null;
@@ -59,14 +57,8 @@ export function useProfile(): UseProfileResult {
   );
 
   const uploadAvatar = useCallback(async (file: File) => {
-    setError(null);
-    // Chan truoc khi goi API: file qua lon se bi container cat ket noi (ERR_NETWORK)
-    // thay vi tra loi 413 gon gang, nen phai kiem tra kich thuoc o FE truoc.
-    if (file.size > MAX_AVATAR_SIZE_BYTES) {
-      setError('Kích thước ảnh vượt quá tối đa 5 MB. Vui lòng chọn ảnh khác.');
-      return null;
-    }
     setUploadingAvatar(true);
+    setError(null);
     try {
       const url = await profileApi.uploadAvatar(file);
       setProfile((prev) => (prev ? { ...prev, avatarUrl: url } : prev));

@@ -19,11 +19,11 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Resolve the storage path to an absolute file: URI so the /uploads/** mapping works
-        // regardless of the process working directory. Honour an explicit file: prefix if present.
-        String location = storagePath.startsWith("file:")
-                ? storagePath
-                : java.nio.file.Paths.get(storagePath).toAbsolutePath().normalize().toUri().toString();
+        // Default location is "uploads" relative to the working directory, e.g. C:\...\backend\
+        // uploads when launched from the IDE or jar. If storagePath already starts with "file:" we
+        // use it verbatim, otherwise we prepend the file: scheme so Spring resolves it as an
+        // absolute filesystem location.
+        String location = storagePath.startsWith("file:") ? storagePath : "file:" + storagePath + "/";
         registry.addResourceHandler("/uploads/**").addResourceLocations(location);
     }
 }

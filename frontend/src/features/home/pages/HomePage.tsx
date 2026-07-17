@@ -130,7 +130,6 @@ function TutorListSection({
           ) : null}
         </div>
 
-
         {tutors.length === 0 ? (
           <p className="tcs-empty">Chưa có gia sư nào để hiển thị.</p>
         ) : (

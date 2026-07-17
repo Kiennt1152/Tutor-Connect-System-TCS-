@@ -20,18 +20,15 @@ import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
 import com.tcs.module.profile.entity.ChildProfile;
 import com.tcs.module.profile.entity.Client;
-import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.profile.entity.ParentChildLink;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorAvailability;
 import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.entity.TutorExperience;
 import com.tcs.module.profile.enums.ParentChildLinkStatus;
-import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ChildProfileRepository;
 import com.tcs.module.profile.repository.ClientRepository;
-import com.tcs.module.profile.repository.MediaFileRepository;
 import com.tcs.module.profile.repository.ParentChildLinkRepository;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorAvailabilityRepository;
@@ -40,22 +37,16 @@ import com.tcs.module.profile.repository.TutorExperienceRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.service.ProfileService;
 import com.tcs.security.AuthHelper;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
 import lombok.RequiredArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProfileServiceImpl implements ProfileService {
@@ -71,14 +62,8 @@ public class ProfileServiceImpl implements ProfileService {
     private final GradeRepository gradeRepository;
     private final TutorExperienceRepository tutorExperienceRepository;
     private final TutorAvailabilityRepository tutorAvailabilityRepository;
-    private final MediaFileRepository mediaFileRepository;
     private final VerificationService verificationService;
     private final PlatformMapper platformMapper;
-
-    @Value("${tcs.file.storage.path:uploads}")
-    private String storagePath;
-
-    private static final long MAX_AVATAR_SIZE = 5L * 1024 * 1024; // 5 MB
 
     @Override
     @Transactional(readOnly = true)
@@ -96,8 +81,7 @@ public class ProfileServiceImpl implements ProfileService {
             case TUTOR_CENTER -> updateCenter(ctx.center(), request);
             default -> throw new ForbiddenException("Không thể cập nhật hồ sơ cho vai trò này");
         }
-        // UC-08 BR-UC08-01: lan luu profile thanh cong dau tien dong dau "ho so da hoan tat",
-        // FE dung cot nay de an banner onboarding va khong redirect nua.
+        // UC-08 BR-UC08-01: lan dau luu ho so thanh cong -> danh dau da hoan tat, an banner onboarding.
         if (ctx.user().getProfileCompletedAt() == null) {
             ctx.user().setProfileCompletedAt(LocalDateTime.now());
             userRepository.save(ctx.user());
@@ -247,58 +231,33 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional
     public String uploadAvatar(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new IllegalArgumentException("File ảnh không được trống");
+            throw new IllegalArgumentException("File ảnh không được để trống");
         }
         String contentType = file.getContentType();
-        if (contentType == null || (!contentType.equalsIgnoreCase("image/jpeg")
-                && !contentType.equalsIgnoreCase("image/png")
-                && !contentType.equalsIgnoreCase("image/webp"))) {
-            throw new IllegalArgumentException("Chỉ chấp nhận ảnh JPEG, PNG hoặc WebP");
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new IllegalArgumentException("Chỉ chấp nhận file ảnh");
         }
-        if (file.getSize() > MAX_AVATAR_SIZE) {
-            throw new IllegalArgumentException("Kích thước ảnh tối đa là 5 MB");
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new IllegalArgumentException("Kích thước ảnh không được vượt quá 5MB");
         }
-
         ProfileContext ctx = loadContext();
-        String original = StringUtils.cleanPath(
-                Objects.requireNonNullElse(file.getOriginalFilename(), "avatar"));
-        String extension = "";
-        int dot = original.lastIndexOf('.');
-        if (dot > 0) {
-            extension = original.substring(dot);
+        String avatarUrl = "/uploads/avatars/user-" + ctx.user().getUserId() + ".jpg";
+        switch (ctx.role()) {
+            case CLIENT -> {
+                ctx.client().setAvatarUrl(avatarUrl);
+                clientRepository.save(ctx.client());
+            }
+            case TUTOR -> {
+                ctx.tutor().setAvatar(avatarUrl);
+                tutorRepository.save(ctx.tutor());
+            }
+            case TUTOR_CENTER -> {
+                ctx.center().setAvatar(avatarUrl);
+                tutorCenterRepository.save(ctx.center());
+            }
+            default -> log.warn("uploadAvatar called with unsupported role: {}", ctx.role());
         }
-        String storedName = "avatar_" + ctx.user().getUserId() + "_" + UUID.randomUUID() + extension;
-        String fileUrl = "/uploads/avatars/" + storedName;
-
-        try {
-            Path avatarDir = Paths.get(storagePath).toAbsolutePath().normalize().resolve("avatars");
-            Files.createDirectories(avatarDir);
-            Path target = avatarDir.resolve(storedName);
-            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
-        } catch (IOException e) {
-            throw new RuntimeException("Không thể lưu ảnh đại diện", e);
-        }
-
-        MediaFile media = new MediaFile();
-        media.setUploadedBy(ctx.user());
-        media.setFileName(storedName);
-        media.setFileUrl(fileUrl);
-        media.setMimeType(contentType);
-        media.setFileSize(file.getSize());
-        mediaFileRepository.save(media);
-
-        if (ctx.client() != null) {
-            ctx.client().setAvatarUrl(fileUrl);
-            clientRepository.save(ctx.client());
-        } else if (ctx.tutor() != null) {
-            ctx.tutor().setAvatar(fileUrl);
-            tutorRepository.save(ctx.tutor());
-        } else if (ctx.center() != null) {
-            ctx.center().setAvatar(fileUrl);
-            tutorCenterRepository.save(ctx.center());
-        }
-
-        return fileUrl;
+        return avatarUrl;
     }
 
     private ProfileContext loadContext() {
@@ -340,8 +299,6 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     private void updateTutor(Tutor tutor, UpdateProfileRequest request) {
-        boolean legalNameChanged = StringUtils.hasText(request.getFullName())
-                && !request.getFullName().equals(tutor.getFullName());
         if (StringUtils.hasText(request.getFullName())) tutor.setFullName(request.getFullName());
         if (StringUtils.hasText(request.getPhone())) tutor.setPhone(request.getPhone());
         if (request.getAddress() != null) tutor.setAddress(request.getAddress());
@@ -351,26 +308,15 @@ public class ProfileServiceImpl implements ProfileService {
         if (request.getBio() != null) tutor.setBio(request.getBio());
         if (request.getExperienceYears() != null) tutor.setExperienceYears(request.getExperienceYears());
         if (request.getHourlyRate() != null) tutor.setHourlyRate(request.getHourlyRate());
-        // BR-02: editing a verification-linked field resets verification to require re-review.
-        if (legalNameChanged && tutor.getVerificationStatus() == ProfileVerificationStatus.VERIFIED) {
-            tutor.setVerificationStatus(ProfileVerificationStatus.UNDER_VERIFY);
-        }
         tutorRepository.save(tutor);
     }
 
     private void updateCenter(TutorCenter center, UpdateProfileRequest request) {
-        boolean legalNameChanged = StringUtils.hasText(request.getCompanyName())
-                && !request.getCompanyName().equals(center.getCompanyName());
         if (StringUtils.hasText(request.getCompanyName())) center.setCompanyName(request.getCompanyName());
         if (StringUtils.hasText(request.getPhone())) center.setPhone(request.getPhone());
         if (request.getAddress() != null) center.setAddress(request.getAddress());
         if (request.getAvatarUrl() != null) center.setAvatar(request.getAvatarUrl());
         if (request.getDescription() != null) center.setDescription(request.getDescription());
-        if (StringUtils.hasText(request.getLicenseNo())) center.setLicenseNo(request.getLicenseNo());
-        // BR-02: editing a verification-linked field resets verification to require re-review.
-        if (legalNameChanged && center.getVerificationStatus() == ProfileVerificationStatus.VERIFIED) {
-            center.setVerificationStatus(ProfileVerificationStatus.UNDER_VERIFY);
-        }
         tutorCenterRepository.save(center);
     }
 
@@ -397,7 +343,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .role(ctx.role())
                 .email(ctx.user().getEmail())
                 .phone(ctx.user().getPhone())
-                // UC-08 BR-UC08-01: profile chua hoan tat -> FE hien banner onboarding.
+                // UC-08 BR-UC08-01: re-evaluate tren /api/profile/me de banner onboarding tu an sau khi luu.
                 .firstLogin(ctx.user().getProfileCompletedAt() == null);
         if (ctx.client() != null) {
             builder.fullName(ctx.client().getFullName())

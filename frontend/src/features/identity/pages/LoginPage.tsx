@@ -200,9 +200,7 @@ export default function LoginPage() {
     }
   }
 
-  // Bo qua redirect nay trong luc dang submit: tranh dua voi navigate('/profile') o handleSubmit
-  // (setUser trong AuthProvider co the trigger re-render truoc khi handleSubmit kip goi navigate).
-  if (isAuthenticated && !loading) {
+  if (isAuthenticated) {
     return <Navigate to={resolvePostLoginPath(from, user?.role)} replace />;
   }
 
@@ -212,13 +210,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const response = await login({ email, password });
-      // UC-08 BR-UC08-01: lan dang nhap dau tien (ho so chua hoan tat) -> redirect /profile
-      // de user dien fullName, phone, avatar... truoc khi dung app.
-      if (response.firstLogin) {
-        navigate('/profile', { replace: true });
-      } else {
-        navigate(resolvePostLoginPath(from, response.role), { replace: true });
-      }
+      navigate(resolvePostLoginPath(from, response.role), { replace: true });
     } catch (err) {
       // Hien thi message that tu backend (vd: tai khoan bi khoa); mac dinh la sai thong tin dang nhap.
       setError(getApiErrorMessage(err, 'Email hoặc mật khẩu không đúng'));
