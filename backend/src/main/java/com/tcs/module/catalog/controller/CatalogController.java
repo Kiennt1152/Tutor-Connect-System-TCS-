@@ -1,8 +1,12 @@
 package com.tcs.module.catalog.controller;
 
 import com.tcs.module.catalog.dto.request.CatalogRequest;
+import com.tcs.module.catalog.dto.request.ChatbotAskRequest;
 import com.tcs.module.catalog.dto.response.CatalogResponse;
+import com.tcs.module.catalog.dto.response.ChatbotAskResponse;
+import com.tcs.module.catalog.dto.response.FaqResponse;
 import com.tcs.module.catalog.service.CatalogService;
+import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,6 +25,19 @@ import org.springframework.web.bind.annotation.RestController;
 public class CatalogController {
 
     private final CatalogService catalogService;
+
+    @GetMapping("/faq")
+    public List<FaqResponse> getFaqEntries(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String keyword
+    ) {
+        return catalogService.getFaqEntries(category, keyword);
+    }
+
+    @PostMapping("/chatbot/ask")
+    public ChatbotAskResponse askChatbot(@Valid @RequestBody ChatbotAskRequest request) {
+        return catalogService.askChatbot(request);
+    }
 
     @GetMapping("/categories")
     public List<CatalogResponse.CategoryResponse> getCategoryTree(

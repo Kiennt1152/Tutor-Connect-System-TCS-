@@ -24,18 +24,37 @@ import com.tcs.module.identity.repository.VerificationDocumentRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
+import com.tcs.module.messaging.dto.response.TicketMessageResponse;
+import com.tcs.module.messaging.entity.Conversation;
+import com.tcs.module.messaging.entity.ConversationParticipant;
+import com.tcs.module.messaging.entity.Message;
 import com.tcs.module.messaging.entity.Notification;
+import com.tcs.module.messaging.enums.MessageType;
 import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
+import com.tcs.module.messaging.repository.ConversationParticipantRepository;
+import com.tcs.module.messaging.repository.ConversationRepository;
+import com.tcs.module.messaging.repository.MessageRepository;
 import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.platform.dto.request.CloseTicketRequest;
+import com.tcs.module.platform.dto.request.RespondTicketRequest;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
+import com.tcs.module.platform.dto.request.UpdateTicketRequest;
 import com.tcs.module.platform.dto.response.DashboardResponse;
+import com.tcs.module.platform.dto.response.PageSupportTicketResponse;
 import com.tcs.module.platform.dto.response.ReportResponse;
+import com.tcs.module.platform.dto.response.SupportTicketListItemResponse;
 import com.tcs.module.platform.dto.response.VerificationDetailResponse;
 import com.tcs.module.platform.dto.response.VerificationDocumentResponse;
 import com.tcs.module.platform.dto.response.VerificationRequestResponse;
 import com.tcs.module.platform.entity.Report;
+import com.tcs.module.platform.entity.SupportTicket;
+import com.tcs.module.platform.enums.SupportTicketCategory;
+import com.tcs.module.platform.enums.SupportTicketPriority;
+import com.tcs.module.platform.enums.SupportTicketStatus;
 import com.tcs.module.platform.repository.ReportRepository;
+import com.tcs.module.platform.repository.SupportTicketRepository;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
@@ -81,6 +100,12 @@ public class PlatformServiceImpl implements PlatformService {
     private final ReportRepository reportRepository;
     private final TutoringClassRepository tutoringClassRepository;
     private final AuthHelper authHelper;
+    private final SupportTicketRepository supportTicketRepository;
+    private final ConversationRepository conversationRepository;
+    private final ConversationParticipantRepository conversationParticipantRepository;
+    private final MessageRepository messageRepository;
+
+    private static final String TICKET_CONTEXT_TYPE = "SUPPORT_TICKET";
 
     @Override
     @Transactional(readOnly = true)
@@ -377,6 +402,241 @@ public class PlatformServiceImpl implements PlatformService {
     @Transactional(readOnly = true)
     public List<ReportResponse> listReports() {
         return reportRepository.findAll().stream().map(this::toReportResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PageSupportTicketResponse getTickets(
+            int page, int size, SupportTicketStatus status,
+            SupportTicketCategory category, SupportTicketPriority priority, String keyword) {
+        int safePage = Math.max(page, 0);
+        int safeSize = Math.min(Math.max(size, 1), MAX_PAGE_SIZE);
+        PageRequest pageable = PageRequest.of(safePage, safeSize, Sort.by(Sort.Direction.DESC, "createdAt"));
+        String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+
+        Page<SupportTicket> tickets =
+                supportTicketRepository.search(status, category, priority, trimmedKeyword, pageable);
+
+        List<SupportTicketListItemResponse> content =
+                tickets.getContent().stream().map(this::toTicketListItem).toList();
+
+        return PageSupportTicketResponse.builder()
+                .content(content)
+                .page(tickets.getNumber())
+                .size(tickets.getSize())
+                .totalElements(tickets.getTotalElements())
+                .totalPages(tickets.getTotalPages())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public SupportTicketDetailResponse getTicketDetail(Long ticketId) {
+        SupportTicket ticket = findTicketOrThrow(ticketId);
+
+        // Mở ticket lần đầu: tự động gán admin hiện tại và chuyển OPEN -> IN_PROGRESS.
+        if (ticket.getStatus() == SupportTicketStatus.OPEN) {
+            PlatformAdmin admin = currentAdminOrThrow();
+            ticket.setAssignedAdmin(admin);
+            ticket.setStatus(SupportTicketStatus.IN_PROGRESS);
+            ticket = supportTicketRepository.save(ticket);
+        }
+        return toTicketDetail(ticket);
+    }
+
+    @Override
+    @Transactional
+    public SupportTicketDetailResponse updateTicket(Long ticketId, UpdateTicketRequest request) {
+        SupportTicket ticket = findTicketOrThrow(ticketId);
+
+        if (request.getCategory() != null) {
+            ticket.setCategory(request.getCategory());
+        }
+        if (request.getPriority() != null) {
+            ticket.setPriority(request.getPriority());
+        }
+        SupportTicket saved = supportTicketRepository.save(ticket);
+        return toTicketDetail(saved);
+    }
+
+    @Override
+    @Transactional
+    public SupportTicketDetailResponse respondToTicket(Long ticketId, RespondTicketRequest request) {
+        if (!StringUtils.hasText(request.getContent())) {
+            throw new IllegalArgumentException("Nội dung phản hồi là bắt buộc");
+        }
+        SupportTicket ticket = findTicketOrThrow(ticketId);
+        PlatformAdmin admin = currentAdminOrThrow();
+
+        if (ticket.getAssignedAdmin() == null) {
+            ticket.setAssignedAdmin(admin);
+        }
+
+        Conversation conversation = getOrCreateTicketConversation(ticket, ticket.getUser());
+        ensureParticipant(conversation, admin.getUser());
+
+        Message message = new Message();
+        message.setConversation(conversation);
+        message.setSender(admin.getUser());
+        message.setMessageType(MessageType.TEXT);
+        message.setContent(request.getContent());
+        message.setSentAt(LocalDateTime.now());
+        messageRepository.save(message);
+
+        conversation.setLastMessageAt(message.getSentAt());
+        conversationRepository.save(conversation);
+
+        if (ticket.getStatus() != SupportTicketStatus.RESOLVED && ticket.getStatus() != SupportTicketStatus.CLOSED) {
+            ticket.setStatus(SupportTicketStatus.IN_REVIEW);
+        }
+        SupportTicket saved = supportTicketRepository.save(ticket);
+
+        notifyUserOfTicketResponse(saved, request.getContent());
+        return toTicketDetail(saved);
+    }
+
+    @Override
+    @Transactional
+    public SupportTicketDetailResponse closeTicket(Long ticketId, CloseTicketRequest request) {
+        if (request.getStatus() != SupportTicketStatus.RESOLVED && request.getStatus() != SupportTicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Chỉ chấp nhận trạng thái RESOLVED hoặc CLOSED");
+        }
+        SupportTicket ticket = findTicketOrThrow(ticketId);
+
+        ticket.setStatus(request.getStatus());
+        LocalDateTime now = LocalDateTime.now();
+        if (request.getStatus() == SupportTicketStatus.RESOLVED) {
+            ticket.setResolvedAt(now);
+        } else {
+            ticket.setClosedAt(now);
+            if (ticket.getResolvedAt() == null) {
+                ticket.setResolvedAt(now);
+            }
+        }
+        SupportTicket saved = supportTicketRepository.save(ticket);
+
+        if (StringUtils.hasText(request.getAdminNotes())) {
+            notifyUserOfTicketResponse(saved, request.getAdminNotes());
+        }
+        return toTicketDetail(saved);
+    }
+
+    private SupportTicket findTicketOrThrow(Long ticketId) {
+        return supportTicketRepository
+                .findById(ticketId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu hỗ trợ"));
+    }
+
+    private PlatformAdmin currentAdminOrThrow() {
+        Long adminUserId = authHelper.requireRole(UserRole.PLATFORM_ADMIN).getUserId();
+        return platformAdminRepository
+                .findByUser_UserId(adminUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ quản trị viên"));
+    }
+
+    private Conversation getOrCreateTicketConversation(SupportTicket ticket, User creator) {
+        return conversationRepository
+                .findByContextTypeAndContextId(TICKET_CONTEXT_TYPE, ticket.getTicketId())
+                .orElseGet(() -> {
+                    Conversation conversation = new Conversation();
+                    conversation.setContextType(TICKET_CONTEXT_TYPE);
+                    conversation.setContextId(ticket.getTicketId());
+                    conversation.setType(TICKET_CONTEXT_TYPE);
+                    conversation.setLastMessageAt(LocalDateTime.now());
+                    Conversation saved = conversationRepository.save(conversation);
+                    ensureParticipant(saved, creator);
+                    return saved;
+                });
+    }
+
+    private void ensureParticipant(Conversation conversation, User user) {
+        boolean alreadyParticipant = conversationParticipantRepository.findAll().stream()
+                .anyMatch(p -> p.getConversation().getConversationId().equals(conversation.getConversationId())
+                        && p.getUser().getUserId().equals(user.getUserId()));
+        if (alreadyParticipant) {
+            return;
+        }
+        ConversationParticipant participant = new ConversationParticipant();
+        participant.setConversation(conversation);
+        participant.setUser(user);
+        conversationParticipantRepository.save(participant);
+    }
+
+    private void notifyUserOfTicketResponse(SupportTicket ticket, String content) {
+        Notification notification = new Notification();
+        notification.setUser(ticket.getUser());
+        notification.setType(NotificationType.SYSTEM);
+        notification.setTitle("Phản hồi yêu cầu hỗ trợ #" + ticket.getTicketId());
+        notification.setContent(content);
+        notification.setReferenceType("SUPPORT_TICKET");
+        notification.setReferenceId(ticket.getTicketId());
+        notification.setStatus(NotificationStatus.SENT);
+        notification.setIsRead(false);
+        notificationRepository.save(notification);
+    }
+
+    private SupportTicketListItemResponse toTicketListItem(SupportTicket ticket) {
+        PlatformAdmin admin = ticket.getAssignedAdmin();
+        return SupportTicketListItemResponse.builder()
+                .ticketId(ticket.getTicketId())
+                .userId(ticket.getUser().getUserId())
+                .userEmail(ticket.getUser().getEmail())
+                .assignedAdminId(admin != null ? admin.getAdminId() : null)
+                .assignedAdminName(admin != null ? admin.getFullName() : null)
+                .category(ticket.getCategory())
+                .subject(ticket.getSubject())
+                .priority(ticket.getPriority())
+                .status(ticket.getStatus())
+                .createdAt(ticket.getCreatedAt())
+                .updatedAt(ticket.getUpdatedAt())
+                .build();
+    }
+
+    private SupportTicketDetailResponse toTicketDetail(SupportTicket ticket) {
+        List<TicketMessageResponse> messages = conversationRepository
+                .findByContextTypeAndContextId(TICKET_CONTEXT_TYPE, ticket.getTicketId())
+                .map(conversation -> messageRepository
+                        .findByConversation_ConversationIdOrderBySentAtAsc(conversation.getConversationId())
+                        .stream()
+                        .map(msg -> toTicketMessage(msg, ticket))
+                        .toList())
+                .orElse(List.of());
+
+        return SupportTicketDetailResponse.builder()
+                .ticketId(ticket.getTicketId())
+                .userId(ticket.getUser().getUserId())
+                .targetClassId(ticket.getTargetClass() != null ? ticket.getTargetClass().getClassId() : null)
+                .assignedAdminId(ticket.getAssignedAdmin() != null ? ticket.getAssignedAdmin().getAdminId() : null)
+                .category(ticket.getCategory())
+                .subject(ticket.getSubject())
+                .description(ticket.getDescription())
+                .evidenceUrls(ticket.getEvidenceUrls())
+                .priority(ticket.getPriority())
+                .status(ticket.getStatus())
+                .resolvedAt(ticket.getResolvedAt())
+                .closedAt(ticket.getClosedAt())
+                .createdAt(ticket.getCreatedAt())
+                .updatedAt(ticket.getUpdatedAt())
+                .messages(messages)
+                .build();
+    }
+
+    private TicketMessageResponse toTicketMessage(Message message, SupportTicket ticket) {
+        boolean fromAdmin = ticket.getAssignedAdmin() != null
+                && ticket.getAssignedAdmin().getUser().getUserId().equals(message.getSender().getUserId());
+        return TicketMessageResponse.builder()
+                .messageId(message.getMessageId())
+                .senderId(message.getSender().getUserId())
+                .senderName(resolveSenderName(message))
+                .fromAdmin(fromAdmin)
+                .content(message.getContent())
+                .sentAt(message.getSentAt())
+                .build();
+    }
+
+    private String resolveSenderName(Message message) {
+        String email = message.getSender().getEmail();
+        return StringUtils.hasText(email) ? email : "Người dùng #" + message.getSender().getUserId();
     }
 
     private VerificationRequestResponse toVerificationResponse(VerificationRequest v) {

@@ -1,8 +1,10 @@
 package com.tcs.module.catalog.service.impl;
 
+import com.tcs.module.catalog.dto.request.ChatbotAskRequest;
 import com.tcs.module.catalog.dto.response.CatalogItemResponse;
 import com.tcs.module.catalog.dto.request.CatalogRequest;
 import com.tcs.module.catalog.dto.response.CatalogResponse;
+import com.tcs.module.catalog.dto.response.ChatbotAskResponse;
 import com.tcs.module.catalog.dto.response.FaqResponse;
 import com.tcs.module.catalog.dto.response.LocationResponse;
 import com.tcs.module.catalog.entity.Category;
@@ -21,15 +23,20 @@ import com.tcs.module.catalog.repository.ProvinceRepository;
 import com.tcs.module.catalog.repository.SubjectRepository;
 import com.tcs.module.catalog.service.CatalogService;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -92,10 +99,73 @@ public class CatalogServiceImpl implements CatalogService {
         return locations.stream().map(this::toLocation).toList();
     }
 
+    private static final Set<String> STOP_WORDS = Set.of(
+            "la", "va", "co", "the", "khong", "nhu", "cho", "toi", "ban", "voi", "cua", "trong",
+            "de", "khi", "nao", "gi", "sao", "duoc", "lam", "neu", "thi", "nay", "hay", "hoac");
+    private static final Pattern NON_ALPHANUMERIC = Pattern.compile("[^a-z0-9\\s]");
+    /** Số từ khóa khớp tối thiểu để coi là một câu trả lời phù hợp. */
+    private static final int MIN_MATCH_SCORE = 1;
+
     @Override
     @Transactional(readOnly = true)
-    public List<FaqResponse> getFaqEntries() {
-        return faqEntryRepository.findAll().stream().map(this::toFaq).toList();
+    public List<FaqResponse> getFaqEntries(String category, String keyword) {
+        String trimmedCategory = StringUtils.hasText(category) ? category.trim() : null;
+        String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        return faqEntryRepository.search(trimmedCategory, trimmedKeyword).stream().map(this::toFaq).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ChatbotAskResponse askChatbot(ChatbotAskRequest request) {
+        List<FaqEntry> published = faqEntryRepository.findByPublishedTrueOrderBySortOrderAscFaqIdAsc();
+        Set<String> questionTokens = tokenize(request.getQuestion());
+
+        FaqEntry bestMatch = null;
+        int bestScore = 0;
+        for (FaqEntry entry : published) {
+            int score = overlapScore(questionTokens, tokenize(entry.getQuestion() + " " + entry.getAnswer()));
+            if (score > bestScore) {
+                bestScore = score;
+                bestMatch = entry;
+            }
+        }
+
+        if (bestMatch != null && bestScore >= MIN_MATCH_SCORE) {
+            return ChatbotAskResponse.builder()
+                    .matched(true)
+                    .faqId(bestMatch.getFaqId())
+                    .question(bestMatch.getQuestion())
+                    .answer(bestMatch.getAnswer())
+                    .build();
+        }
+
+        return ChatbotAskResponse.builder()
+                .matched(false)
+                .suggestion("Xin lỗi, tôi chưa tìm được câu trả lời phù hợp. "
+                        + "Bạn vui lòng tạo yêu cầu hỗ trợ để được đội ngũ hỗ trợ giải đáp trực tiếp.")
+                .build();
+    }
+
+    private int overlapScore(Set<String> questionTokens, Set<String> entryTokens) {
+        int score = 0;
+        for (String token : questionTokens) {
+            if (entryTokens.contains(token)) {
+                score++;
+            }
+        }
+        return score;
+    }
+
+    private Set<String> tokenize(String text) {
+        if (text == null) {
+            return Set.of();
+        }
+        String normalized = Normalizer.normalize(text.toLowerCase(Locale.ROOT), Normalizer.Form.NFD)
+                .replaceAll("\\p{InCombiningDiacriticalMarks}+", "");
+        String cleaned = NON_ALPHANUMERIC.matcher(normalized).replaceAll(" ");
+        return Arrays.stream(cleaned.split("\\s+"))
+                .filter(token -> token.length() > 1 && !STOP_WORDS.contains(token))
+                .collect(java.util.stream.Collectors.toSet());
     }
 
     private CatalogItemResponse toItem(Subject subject) {

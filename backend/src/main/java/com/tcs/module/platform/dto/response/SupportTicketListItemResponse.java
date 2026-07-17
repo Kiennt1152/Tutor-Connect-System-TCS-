@@ -1,4 +1,4 @@
-package com.tcs.module.messaging.dto.response;
+package com.tcs.module.platform.dto.response;
 
 import com.tcs.module.platform.enums.SupportTicketCategory;
 import com.tcs.module.platform.enums.SupportTicketPriority;
@@ -9,20 +9,17 @@ import lombok.Getter;
 
 @Getter
 @Builder
-public class SupportTicketResponse {
+public class SupportTicketListItemResponse {
 
     private Long ticketId;
     private Long userId;
-    private Long targetClassId;
+    private String userEmail;
     private Long assignedAdminId;
+    private String assignedAdminName;
     private SupportTicketCategory category;
     private String subject;
-    private String description;
-    private String evidenceUrls;
     private SupportTicketPriority priority;
     private SupportTicketStatus status;
-    private LocalDateTime resolvedAt;
-    private LocalDateTime closedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

@@ -50,6 +50,8 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/catalog/chatbot/ask")
+                        .permitAll()
                         .requestMatchers("/api/catalog/**")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/classes/**")

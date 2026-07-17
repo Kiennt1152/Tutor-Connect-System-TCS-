@@ -11,4 +11,5 @@ public class FaqResponse {
     private String question;
     private String answer;
     private String category;
+    private Integer sortOrder;
 }
