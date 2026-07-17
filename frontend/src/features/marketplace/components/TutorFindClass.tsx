@@ -18,8 +18,6 @@ import {
 import { FormulaExplainer } from './FormulaExplainer';
 import './tutorFindClass.css';
 
-const currency = new Intl.NumberFormat('vi-VN');
-
 const WEIGHT_LABELS: { key: keyof MatchWeights; label: string; hint: string }[] = [
   { key: 'subject', label: 'Môn & lớp (S)', hint: 'Đúng môn, đúng khối lớp bạn dạy' },
   { key: 'location', label: 'Địa điểm (L)', hint: 'Gần bạn / học online' },
@@ -126,6 +124,21 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
         setStatus('success');
       })
       .catch(() => setStatus('error'));
+  }, []);
+
+  // Đơn đã nộp nằm ở server: phải nạp lại, không thì F5 xong nút lại mời ứng tuyển
+  // lớp đã nộp rồi và server báo trùng.
+  useEffect(() => {
+    let alive = true;
+    marketplaceApi
+      .listMyAppliedClassIds()
+      .then((ids) => alive && setApplied(new Set(ids)))
+      .catch(() => {
+        /* Không chặn màn tìm lớp; cùng lắm nút vẫn mời ứng tuyển như trước. */
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   // Tiêu chí lấy TỰ ĐỘNG từ hồ sơ gia sư (không còn form khai báo). Hiện hồ sơ chỉ
@@ -478,11 +491,11 @@ function ClassCard({
         <div className="tfc-card__top">
           <h3 className="tfc-card__title">{c.title}</h3>
         </div>
+        {/* Không nêu học phí ở đây: lớp nhiều môn mỗi môn một giá — xem chi tiết để biết từng môn. */}
         <div className="tfc-card__meta">
           <span>📚 {subjectLabel}</span>
           <span>🎓 {gradeLabel}</span>
           <span>📍 {location}</span>
-          <span>💰 {parsed.feePerHour > 0 ? `${currency.format(parsed.feePerHour)}đ/giờ` : '—'}</span>
         </div>
 
         <div className="tfc-card__info">

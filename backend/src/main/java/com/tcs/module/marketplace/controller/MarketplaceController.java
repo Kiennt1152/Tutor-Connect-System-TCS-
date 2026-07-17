@@ -67,6 +67,12 @@ public class MarketplaceController {
         return Map.of("message", "Đã gửi đơn ứng tuyển");
     }
 
+    /** Lớp mà gia sư đang đăng nhập đã nộp đơn — UI dùng để hiện "Đã ứng tuyển". */
+    @GetMapping("/applications/mine")
+    public List<Long> listMyAppliedClassIds() {
+        return marketplaceService.listMyAppliedClassIds();
+    }
+
     @GetMapping("/classes/{classId}/applications")
     public List<ApplicantResponse> listApplicants(@PathVariable Long classId) {
         return marketplaceService.listApplicants(classId);

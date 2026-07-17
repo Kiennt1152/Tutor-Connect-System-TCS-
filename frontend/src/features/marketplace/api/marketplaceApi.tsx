@@ -49,6 +49,10 @@ export const marketplaceApi = {
       .post<{ message: string }>(`/marketplace/classes/${classId}/apply`, payload)
       .then((r) => r.data),
 
+  /** Id các lớp gia sư đã nộp đơn — để nút hiện "Đã ứng tuyển" kể cả sau khi tải lại trang. */
+  listMyAppliedClassIds: () =>
+    axiosClient.get<number[]>('/marketplace/applications/mine').then((r) => r.data),
+
   // --- Hồ sơ gia sư hiện tại (dùng cho form ứng tuyển) ---
   getMyTutorProfile: () =>
     axiosClient.get<TutorProfileCard>('/profile/me').then((r) => r.data),

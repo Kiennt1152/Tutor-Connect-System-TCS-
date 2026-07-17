@@ -24,6 +24,9 @@ public interface MarketplaceService {
 
     void applyToClass(Long classId, ApplyClassRequest request);
 
+    /** Id các lớp mà gia sư đang đăng nhập đã nộp đơn — để UI không cho ứng tuyển lại. */
+    List<Long> listMyAppliedClassIds();
+
     /** Danh sách gia sư đã ứng tuyển vào lớp (chỉ Client tạo lớp được xem), kèm điểm AI gợi ý. */
     List<ApplicantResponse> listApplicants(Long classId);
 

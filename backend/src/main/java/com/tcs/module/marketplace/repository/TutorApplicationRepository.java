@@ -11,4 +11,9 @@ public interface TutorApplicationRepository extends JpaRepository<TutorApplicati
     List<TutorApplication> findByTutoringClass_ClassId(Long classId);
 
     long countByTutoringClass_ClassId(Long classId);
+
+    /** Mỗi gia sư chỉ được nộp 1 đơn cho 1 lớp (ràng buộc uq_tutor_applications). */
+    boolean existsByTutoringClass_ClassIdAndTutor_TutorId(Long classId, Long tutorId);
+
+    List<TutorApplication> findByTutor_TutorId(Long tutorId);
 }

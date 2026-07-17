@@ -109,6 +109,8 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
 
   function setRate(subjectId: string, value: string) {
     setRates((prev) => ({ ...prev, [subjectId]: value.replace(/\D/g, '') }));
+    // Lỗi của lần gửi trước không còn đúng khi đã sửa form — bỏ đi cho khỏi gây hiểu nhầm.
+    setError(null);
   }
 
   async function handleSubmit() {
@@ -306,7 +308,10 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
                 rows={3}
                 value={coverLetter}
                 placeholder="Giới thiệu ngắn gọn vì sao bạn phù hợp với lớp này…"
-                onChange={(e) => setCoverLetter(e.target.value)}
+                onChange={(e) => {
+                  setCoverLetter(e.target.value);
+                  setError(null);
+                }}
               />
             </label>
           </section>

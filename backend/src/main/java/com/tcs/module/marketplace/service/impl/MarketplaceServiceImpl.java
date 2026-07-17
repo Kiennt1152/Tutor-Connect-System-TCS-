@@ -230,6 +230,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Lớp không mở đơn ứng tuyển");
         }
+        // Bắt trùng ở đây để báo rõ lý do, thay vì để uq_tutor_applications ném lỗi chung chung.
+        if (tutorApplicationRepository.existsByTutoringClass_ClassIdAndTutor_TutorId(
+                classId, tutor.getTutorId())) {
+            throw new IllegalArgumentException(
+                    "Bạn đã ứng tuyển lớp này rồi. Mỗi lớp chỉ nộp được một đơn.");
+        }
         Map<String, BigDecimal> rates = resolveProposedRates(request, tutoringClass);
 
         TutorApplication application = new TutorApplication();
@@ -369,6 +375,15 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         } catch (JsonProcessingException e) {
             throw new IllegalArgumentException("Không đọc được học phí đề xuất", e);
         }
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Long> listMyAppliedClassIds() {
+        Tutor tutor = requireTutor();
+        return tutorApplicationRepository.findByTutor_TutorId(tutor.getTutorId()).stream()
+                .map(app -> app.getTutoringClass().getClassId())
+                .toList();
     }
 
     @Override
