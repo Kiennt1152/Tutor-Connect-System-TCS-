@@ -1,7 +1,24 @@
+import { useState } from 'react';
+import axios from 'axios';
 import { AdminLayout } from '../components/AdminLayout';
+import { FileThumbnail } from '../../../shared/components/FileThumbnail';
+import { platformApi } from '../api/platformApi';
 import { useReviewVerification } from '../hooks/usePlatformMutations';
 import { useVerificationList } from '../hooks/useVerificationList';
-import type { VerificationStatus } from '../types/platformTypes';
+import type {
+  VerificationDetailApiResponse,
+  VerificationDocumentType,
+  VerificationRequestItem,
+  VerificationStatus,
+} from '../types/platformTypes';
+import './PlatformVerificationsPage.css';
+
+const DOC_LABEL: Record<VerificationDocumentType, string> = {
+  ID_CARD: 'CMND/CCCD',
+  DEGREE: 'Bằng cấp',
+  CERTIFICATE: 'Chứng chỉ',
+  LICENSE: 'Giấy phép',
+};
 
 function verificationBadgeClass(status: VerificationStatus) {
   if (status === 'VERIFIED') return 'tcs-badge tcs-badge--active';
@@ -10,20 +27,84 @@ function verificationBadgeClass(status: VerificationStatus) {
   return 'tcs-badge tcs-badge--role';
 }
 
+function extractError(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
+    return error.response.data.message;
+  }
+  return fallback;
+}
+
 export default function PlatformVerificationsPage() {
   const { status, items, errorMessage, reload } = useVerificationList();
   const { status: mutationStatus, errorMessage: mutationError, review, reset } =
     useReviewVerification();
 
+  const [selected, setSelected] = useState<VerificationRequestItem | null>(null);
+  const [detail, setDetail] = useState<VerificationDetailApiResponse | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [detailError, setDetailError] = useState('');
+  const [rejecting, setRejecting] = useState(false);
+  const [rejectNotes, setRejectNotes] = useState('');
+  const [formError, setFormError] = useState('');
+
   const pendingCount = items.filter((item) => item.canReview).length;
 
-  const handleReview = async (id: string, decision: 'VERIFIED' | 'REJECTED') => {
-    const label = decision === 'VERIFIED' ? 'duyệt' : 'từ chối';
-    if (!window.confirm(`Xác nhận ${label} hồ sơ xác minh #${id}?`)) return;
-    const notes = window.prompt('Ghi chú admin (tuỳ chọn):') ?? undefined;
+  const closeModal = () => {
+    setSelected(null);
+    setDetail(null);
+    setDetailError('');
+    setRejecting(false);
+    setRejectNotes('');
+    setFormError('');
     reset();
-    const ok = await review(id, decision, notes);
-    if (ok) reload();
+  };
+
+  const openDetail = async (item: VerificationRequestItem) => {
+    setSelected(item);
+    setDetail(null);
+    setDetailError('');
+    setRejecting(false);
+    setRejectNotes('');
+    setFormError('');
+    reset();
+    setDetailLoading(true);
+    try {
+      const response = await platformApi.getVerificationDetail(item.id);
+      setDetail(response.data);
+    } catch (error) {
+      setDetailError(extractError(error, 'Không tải được chi tiết hồ sơ.'));
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!selected) return;
+    setFormError('');
+    const ok = await review(selected.id, 'VERIFIED', undefined, detail?.updatedAt ?? undefined);
+    if (ok) {
+      closeModal();
+    }
+    // Làm mới danh sách (thành công, hoặc bị chặn do người khác vừa sửa).
+    reload();
+  };
+
+  const handleReject = async () => {
+    if (!selected) return;
+    if (rejectNotes.trim().length < 10) {
+      setFormError('Vui lòng nhập lý do từ chối (tối thiểu 10 ký tự).');
+      return;
+    }
+    const ok = await review(
+      selected.id,
+      'REJECTED',
+      rejectNotes.trim(),
+      detail?.updatedAt ?? undefined,
+    );
+    if (ok) {
+      closeModal();
+    }
+    reload();
   };
 
   return (
@@ -43,27 +124,18 @@ export default function PlatformVerificationsPage() {
       </div>
 
       <div className="adm-card">
-        {mutationStatus === 'error' && mutationError && (
-          <div className="adm-alert adm-alert--error">{mutationError}</div>
-        )}
-
         <div className="adm-toolbar">
           <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reload}>
             Làm mới
           </button>
         </div>
 
-        {status === 'loading' && (
-          <div className="adm-state adm-state--loading">
-            <span className="adm-spinner" aria-hidden="true" />
-            Đang tải danh sách xác minh…
-          </div>
-        )}
+        {status === 'loading' && <div className="adm-state">Đang tải danh sách xác minh…</div>}
 
         {status === 'error' && (
           <div className="adm-state">
             <p>{errorMessage ?? 'Không tải được dữ liệu.'}</p>
-            <button className="tcs-btn tcs-btn--market" type="button" onClick={reload}>
+            <button className="tcs-btn tcs-btn--primary" type="button" onClick={reload}>
               Thử lại
             </button>
           </div>
@@ -80,14 +152,13 @@ export default function PlatformVerificationsPage() {
                   <th>Trạng thái</th>
                   <th>Gửi lúc</th>
                   <th>Duyệt lúc</th>
-                  <th>Ghi chú</th>
                   <th>Thao tác</th>
                 </tr>
               </thead>
               <tbody>
                 {items.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>Chưa có yêu cầu xác minh nào.</td>
+                    <td colSpan={7}>Chưa có yêu cầu xác minh nào.</td>
                   </tr>
                 ) : (
                   items.map((item) => (
@@ -102,30 +173,14 @@ export default function PlatformVerificationsPage() {
                       </td>
                       <td>{item.submittedAt}</td>
                       <td>{item.reviewedAt}</td>
-                      <td className="adm-table__notes">{item.adminNotes}</td>
                       <td className="adm-table__actions">
-                        {item.canReview ? (
-                          <div className="adm-row-actions">
-                            <button
-                              className="tcs-btn tcs-btn--success tcs-btn--sm"
-                              type="button"
-                              disabled={mutationStatus === 'loading'}
-                              onClick={() => handleReview(item.id, 'VERIFIED')}
-                            >
-                              Duyệt
-                            </button>
-                            <button
-                              className="tcs-btn tcs-btn--danger tcs-btn--sm"
-                              type="button"
-                              disabled={mutationStatus === 'loading'}
-                              onClick={() => handleReview(item.id, 'REJECTED')}
-                            >
-                              Từ chối
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="adm-muted">—</span>
-                        )}
+                        <button
+                          className="tcs-btn tcs-btn--primary tcs-btn--sm"
+                          type="button"
+                          onClick={() => openDetail(item)}
+                        >
+                          {item.isReviewed ? 'Chỉnh sửa' : 'Xem & duyệt'}
+                        </button>
                       </td>
                     </tr>
                   ))
@@ -135,6 +190,164 @@ export default function PlatformVerificationsPage() {
           </div>
         )}
       </div>
+
+      {selected && (
+        <div className="pv-modal" role="dialog" aria-modal="true">
+          <div className="pv-modal__backdrop" onClick={closeModal} />
+          <div className="pv-modal__card">
+            <div className="pv-modal__head">
+              <div>
+                <h2 className="pv-modal__title">
+                  {detail?.submitterName ?? selected.userEmail}
+                </h2>
+                <p className="pv-modal__sub">
+                  {selected.typeLabel} ·{' '}
+                  <span className={verificationBadgeClass(selected.status)}>
+                    {selected.statusLabel}
+                  </span>
+                </p>
+              </div>
+              <button className="pv-modal__close" type="button" onClick={closeModal} aria-label="Đóng">
+                ×
+              </button>
+            </div>
+
+            <div className="pv-modal__body">
+              {detailLoading && <div className="adm-state">Đang tải chi tiết…</div>}
+              {detailError && <div className="adm-alert adm-alert--error">{detailError}</div>}
+
+              {detail && (
+                <>
+                  <section className="pv-section">
+                    <h3 className="pv-section__title">Thông tin người nộp</h3>
+                    <div className="pv-kv">
+                      <div className="pv-kv__row">
+                        <span className="pv-kv__k">Email</span>
+                        <span className="pv-kv__v">{detail.userEmail}</span>
+                      </div>
+                      <div className="pv-kv__row">
+                        <span className="pv-kv__k">Số điện thoại</span>
+                        <span className="pv-kv__v">{detail.submitterPhone ?? '—'}</span>
+                      </div>
+                      {Object.entries(detail.submitterDetails).map(([k, v]) => (
+                        <div className="pv-kv__row" key={k}>
+                          <span className="pv-kv__k">{k}</span>
+                          <span className="pv-kv__v">{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </section>
+
+                  <section className="pv-section">
+                    <h3 className="pv-section__title">Tài liệu ({detail.documents.length})</h3>
+                    {detail.documents.length === 0 ? (
+                      <p className="adm-muted">Không có tài liệu đính kèm.</p>
+                    ) : (
+                      <ul className="pv-docs">
+                        {detail.documents.map((doc) => (
+                          <li className="pv-docs__item" key={doc.documentId}>
+                            <span className="pv-docs__type">{DOC_LABEL[doc.documentType]}</span>
+                            {doc.available && doc.fileUrl ? (
+                              <FileThumbnail
+                                src={doc.fileUrl}
+                                fileName={doc.fileName ?? 'Tài liệu'}
+                                mimeType={doc.mimeType}
+                                fileSize={doc.fileSize}
+                              />
+                            ) : (
+                              <span className="pv-docs__broken">⚠ Thiếu / không đọc được</span>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {detail.hasUnreadableDocument && (
+                      <div className="adm-alert adm-alert--warning">
+                        Có tài liệu bị thiếu hoặc không đọc được — cân nhắc kỹ trước khi Duyệt.
+                      </div>
+                    )}
+                  </section>
+                </>
+              )}
+
+              {selected.isReviewed && (
+                <div className="adm-alert adm-alert--warning">
+                  Hồ sơ đã được {selected.status === 'VERIFIED' ? 'duyệt' : 'từ chối'}. Bạn có thể
+                  thay đổi lại quyết định bên dưới.
+                </div>
+              )}
+
+              {formError && <div className="adm-alert adm-alert--error">{formError}</div>}
+              {mutationStatus === 'error' && mutationError && (
+                <div className="adm-alert adm-alert--error">{mutationError}</div>
+              )}
+
+              {rejecting && (
+                <section className="pv-section">
+                  <h3 className="pv-section__title">Lý do từ chối</h3>
+                  <textarea
+                    className="pv-textarea"
+                    rows={3}
+                    placeholder="Nhập lý do từ chối…"
+                    value={rejectNotes}
+                    onChange={(e) => setRejectNotes(e.target.value)}
+                  />
+                </section>
+              )}
+            </div>
+
+            {(selected.canReview || selected.isReviewed) && (
+              <div className="pv-modal__foot">
+                {rejecting ? (
+                  <>
+                    <button
+                      className="tcs-btn tcs-btn--ghost"
+                      type="button"
+                      disabled={mutationStatus === 'loading'}
+                      onClick={() => {
+                        setRejecting(false);
+                        setFormError('');
+                      }}
+                    >
+                      Quay lại
+                    </button>
+                    <button
+                      className="tcs-btn tcs-btn--danger"
+                      type="button"
+                      disabled={mutationStatus === 'loading'}
+                      onClick={handleReject}
+                    >
+                      {mutationStatus === 'loading' ? 'Đang xử lý…' : 'Xác nhận từ chối'}
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <button
+                      className="tcs-btn tcs-btn--danger"
+                      type="button"
+                      disabled={mutationStatus === 'loading' || detailLoading}
+                      onClick={() => {
+                        setRejecting(true);
+                        setFormError('');
+                      }}
+                    >
+                      Từ chối
+                    </button>
+                    <button
+                      className="tcs-btn tcs-btn--success"
+                      type="button"
+                      disabled={mutationStatus === 'loading' || detailLoading}
+                      onClick={handleApprove}
+                    >
+                      {mutationStatus === 'loading' ? 'Đang xử lý…' : 'Duyệt'}
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }
