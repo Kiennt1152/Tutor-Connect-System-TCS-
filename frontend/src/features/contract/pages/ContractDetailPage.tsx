@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
+import { ClassTerminationModal } from '../../marketplace/components/ClassTerminationModal';
 import { useContractDetail, useSignContract } from '../hooks/useContract';
 import type { ContractStatus } from '../types/contractTypes';
 import { APP_ROUTES } from '../../../shared/constants/routes';
@@ -24,6 +25,7 @@ export default function ContractDetailPage() {
   const [otpSentSuccess, setOtpSentSuccess] = useState(false);
   const [signSuccess, setSignSuccess] = useState(false);
   const [issueModalOpen, setIssueModalOpen] = useState(false);
+  const [terminationModalOpen, setTerminationModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) reload(id);
@@ -134,22 +136,32 @@ export default function ContractDetailPage() {
         <section className="cdetail-card issue-card">
           <div className="issue-card__body">
             <div>
-              <h2>Hỗ trợ & tranh chấp</h2>
+              <h2>Hỗ trợ & xử lý lớp</h2>
               <p className="issue-card__text">
-                Gửi báo cáo khi lớp học có vấn đề cần admin xem xét.
+                Gửi báo cáo sự cố hoặc yêu cầu admin xem xét chấm dứt lớp sớm.
               </p>
             </div>
-            <button
-              className="btn btn-primary"
-              type="button"
-              disabled={!canCreateIssue}
-              onClick={() => setIssueModalOpen(true)}
-            >
-              Tạo báo cáo
-            </button>
+            <div className="issue-card__actions">
+              <button
+                className="btn btn-secondary"
+                type="button"
+                disabled={!canCreateIssue}
+                onClick={() => setIssueModalOpen(true)}
+              >
+                Báo cáo sự cố
+              </button>
+              <button
+                className="btn btn-primary"
+                type="button"
+                disabled={!canCreateIssue}
+                onClick={() => setTerminationModalOpen(true)}
+              >
+                Yêu cầu chấm dứt sớm
+              </button>
+            </div>
           </div>
           {!canCreateIssue && (
-            <p className="issue-card__hint">Hợp đồng này chưa có thông tin lớp học để tạo báo cáo.</p>
+            <p className="issue-card__hint">Hợp đồng này chưa có thông tin lớp học để gửi yêu cầu.</p>
           )}
         </section>
 
@@ -263,12 +275,20 @@ export default function ContractDetailPage() {
       </div>
 
       {contract.classId && (
-        <ClassIssueModal
-          open={issueModalOpen}
-          classId={contract.classId}
-          classTitle={contract.classTitle}
-          onClose={() => setIssueModalOpen(false)}
-        />
+        <>
+          <ClassIssueModal
+            open={issueModalOpen}
+            classId={contract.classId}
+            classTitle={contract.classTitle}
+            onClose={() => setIssueModalOpen(false)}
+          />
+          <ClassTerminationModal
+            open={terminationModalOpen}
+            classId={contract.classId}
+            classTitle={contract.classTitle}
+            onClose={() => setTerminationModalOpen(false)}
+          />
+        </>
       )}
 
       <style>{`
@@ -296,6 +316,7 @@ export default function ContractDetailPage() {
         .issue-card { border: 1px solid #fed7aa; background: #fff7ed; }
         .issue-card h2 { border-bottom: 0; padding-bottom: 0; margin-bottom: 6px; }
         .issue-card__body { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .issue-card__actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; }
         .issue-card__text { margin: 0; color: #9a3412; font-size: 14px; line-height: 1.45; }
         .issue-card__hint { margin: 10px 0 0; color: #b45309; font-size: 13px; }
         .sig-loading { color: #94a3b8; font-size: 14px; }
@@ -345,6 +366,8 @@ export default function ContractDetailPage() {
           .cdetail-topbar { align-items: flex-start; gap: 12px; flex-direction: column; }
           .cdetail-topbar-actions { width: 100%; justify-content: space-between; }
           .issue-card__body { align-items: stretch; flex-direction: column; }
+          .issue-card__actions { justify-content: stretch; flex-direction: column; }
+          .issue-card__actions .btn { width: 100%; }
         }
       `}</style>
     </div>

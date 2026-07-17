@@ -1,0 +1,201 @@
+.termination-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 82;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.46);
+}
+
+.termination-modal {
+  width: min(620px, 100%);
+  max-height: min(720px, calc(100vh - 48px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.24);
+}
+
+.termination-modal__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 20px 22px 16px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.termination-modal__eyebrow {
+  margin: 0 0 4px;
+  color: #ea580c;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.termination-modal__header h2 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 22px;
+  line-height: 1.25;
+}
+
+.termination-modal__subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 14px;
+}
+
+.termination-modal__close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.termination-modal__close:hover {
+  background: #f8fafc;
+}
+
+.termination-modal__body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 22px;
+  overflow-y: auto;
+}
+
+.termination-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.termination-field span {
+  color: #334155;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.termination-field textarea,
+.termination-field input {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.termination-field textarea {
+  min-height: 116px;
+  padding: 11px 12px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.termination-field input {
+  height: 42px;
+  padding: 0 12px;
+}
+
+.termination-field textarea:focus,
+.termination-field input:focus {
+  outline: none;
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.14);
+}
+
+.termination-error {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 14px;
+}
+
+.termination-success {
+  padding: 16px;
+  border: 1px solid #bbf7d0;
+  border-radius: 10px;
+  background: #f0fdf4;
+  color: #166534;
+}
+
+.termination-success__title {
+  margin: 0 0 6px;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.termination-success p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.termination-modal__footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 16px 22px 20px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.termination-btn {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.termination-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
+.termination-btn--primary {
+  background: #ea580c;
+  color: #fff;
+}
+
+.termination-btn--primary:hover:not(:disabled) {
+  background: #c2410c;
+}
+
+.termination-btn--secondary {
+  background: #fff;
+  color: #334155;
+  border-color: #cbd5e1;
+}
+
+.termination-btn--secondary:hover:not(:disabled) {
+  background: #f8fafc;
+}
+
+@media (max-width: 640px) {
+  .termination-modal-overlay {
+    padding: 12px;
+  }
+
+  .termination-modal__footer {
+    flex-direction: column-reverse;
+  }
+
+  .termination-btn {
+    width: 100%;
+  }
+}
