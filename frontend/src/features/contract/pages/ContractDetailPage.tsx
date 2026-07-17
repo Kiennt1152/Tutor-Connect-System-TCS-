@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
+import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
 import { useContractDetail, useSignContract } from '../hooks/useContract';
 import type { ContractStatus } from '../types/contractTypes';
 import { APP_ROUTES } from '../../../shared/constants/routes';
@@ -22,6 +23,7 @@ export default function ContractDetailPage() {
   const [otpInput, setOtpInput] = useState('');
   const [otpSentSuccess, setOtpSentSuccess] = useState(false);
   const [signSuccess, setSignSuccess] = useState(false);
+  const [issueModalOpen, setIssueModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) reload(id);
@@ -60,12 +62,23 @@ export default function ContractDetailPage() {
   const currentUserSigned = signatures?.signatures.some(s => s.isCurrentUser) ?? false;
   const allSigned = signatures?.fullySigned ?? false;
   const signRequired = contract.status === 'DRAFT';
+  const canCreateIssue = contract.classId != null;
 
   return (
     <div className="cdetail-page">
       <div className="cdetail-topbar">
         <Link to={APP_ROUTES.contract} className="cdetail-back">← Quay lại danh sách</Link>
-        <span className={`status-badge ${st.cls}`}>{st.label}</span>
+        <div className="cdetail-topbar-actions">
+          <button
+            className="btn btn-secondary btn-issue"
+            type="button"
+            disabled={!canCreateIssue}
+            onClick={() => setIssueModalOpen(true)}
+          >
+            Báo cáo sự cố
+          </button>
+          <span className={`status-badge ${st.cls}`}>{st.label}</span>
+        </div>
       </div>
 
       <div className="cdetail-grid">
@@ -116,6 +129,28 @@ export default function ContractDetailPage() {
               </div>
             )}
           </div>
+        </section>
+
+        <section className="cdetail-card issue-card">
+          <div className="issue-card__body">
+            <div>
+              <h2>Hỗ trợ & tranh chấp</h2>
+              <p className="issue-card__text">
+                Gửi báo cáo khi lớp học có vấn đề cần admin xem xét.
+              </p>
+            </div>
+            <button
+              className="btn btn-primary"
+              type="button"
+              disabled={!canCreateIssue}
+              onClick={() => setIssueModalOpen(true)}
+            >
+              Tạo báo cáo
+            </button>
+          </div>
+          {!canCreateIssue && (
+            <p className="issue-card__hint">Hợp đồng này chưa có thông tin lớp học để tạo báo cáo.</p>
+          )}
         </section>
 
         {/* Signature Status */}
@@ -227,9 +262,19 @@ export default function ContractDetailPage() {
         )}
       </div>
 
+      {contract.classId && (
+        <ClassIssueModal
+          open={issueModalOpen}
+          classId={contract.classId}
+          classTitle={contract.classTitle}
+          onClose={() => setIssueModalOpen(false)}
+        />
+      )}
+
       <style>{`
         .cdetail-page { max-width: 900px; margin: 0 auto; padding: 24px 16px; font-family: 'Segoe UI', Arial, sans-serif; }
         .cdetail-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+        .cdetail-topbar-actions { display: flex; align-items: center; gap: 10px; }
         .cdetail-back { color: #2563eb; text-decoration: none; font-weight: 600; }
         .cdetail-back:hover { text-decoration: underline; }
         .cdetail-loading, .cdetail-error { text-align: center; padding: 48px; color: #64748b; }
@@ -248,6 +293,11 @@ export default function ContractDetailPage() {
         .party-role { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; }
         .party-name { font-size: 15px; font-weight: 600; color: #1e293b; margin-top: 4px; }
         .party-email { font-size: 13px; color: #64748b; margin-top: 2px; }
+        .issue-card { border: 1px solid #fed7aa; background: #fff7ed; }
+        .issue-card h2 { border-bottom: 0; padding-bottom: 0; margin-bottom: 6px; }
+        .issue-card__body { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+        .issue-card__text { margin: 0; color: #9a3412; font-size: 14px; line-height: 1.45; }
+        .issue-card__hint { margin: 10px 0 0; color: #b45309; font-size: 13px; }
         .sig-loading { color: #94a3b8; font-size: 14px; }
         .sig-list { display: flex; flex-direction: column; gap: 10px; }
         .sig-item { display: flex; align-items: center; gap: 12px; padding: 10px; background: #f8fafc; border-radius: 8px; }
@@ -288,6 +338,14 @@ export default function ContractDetailPage() {
         .btn-primary { background: #2563eb; color: #fff; }
         .btn-primary:hover { background: #1d4ed8; }
         .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+        .btn-secondary { background: #fff; color: #334155; border: 1px solid #cbd5e1; }
+        .btn-secondary:hover:not(:disabled) { background: #f8fafc; }
+        .btn-issue { padding: 8px 14px; }
+        @media (max-width: 640px) {
+          .cdetail-topbar { align-items: flex-start; gap: 12px; flex-direction: column; }
+          .cdetail-topbar-actions { width: 100%; justify-content: space-between; }
+          .issue-card__body { align-items: stretch; flex-direction: column; }
+        }
       `}</style>
     </div>
   );
