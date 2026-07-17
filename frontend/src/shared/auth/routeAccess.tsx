@@ -22,6 +22,7 @@ export const ROUTE_ACCESS: Record<string, RouteAccess> = {
   '/contract': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER'] },
   '/messaging': { type: 'roles', roles: ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN'] },
   '/center': { type: 'roles', roles: ['TUTOR_CENTER'] },
+  '/recruitment': { type: 'roles', roles: ['TUTOR'] },
   '/identity/verification': { type: 'roles', roles: ['TUTOR'] },
   '/platform': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
   '/platform/users': { type: 'roles', roles: ['PLATFORM_ADMIN'] },

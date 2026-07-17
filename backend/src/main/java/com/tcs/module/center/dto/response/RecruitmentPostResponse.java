@@ -5,6 +5,7 @@ import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Getter;
 
+/** Một tin tuyển gia sư (FT-33) — dùng cho trung tâm quản lý và gia sư xem tin đang mở. */
 @Getter
 @Builder
 public class RecruitmentPostResponse {
@@ -14,8 +15,28 @@ public class RecruitmentPostResponse {
     private String centerName;
     private String title;
     private String description;
+    private String requirements;
+    private String benefits;
+    private Integer requiredExperience;
     private Integer maxPositions;
+
+    private Long subjectId;
+    private String subjectName;
+
+    private Long locationId;
+    /** Địa điểm gộp để hiển thị, VD: "12 Trần Phú, Hà Nội". */
+    private String locationLabel;
+    /** Tách sẵn để đổ lại form khi sửa tin. */
+    private String provinceName;
+    private String wardName;
+    private String addressDetail;
+
     private RecruitmentPostStatus status;
     private LocalDateTime publishedAt;
+    private LocalDateTime closedAt;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
+
+    /** Số đơn đã nộp (trung tâm dùng để biết tin có ứng viên chưa). */
+    private long applicationCount;
 }

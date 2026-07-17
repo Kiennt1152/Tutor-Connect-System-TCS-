@@ -6,6 +6,7 @@ import VerificationPage from '../features/identity/pages/VerificationPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import CenterPage from '../features/center/pages/CenterPage';
+import RecruitmentPage from '../features/recruitment/pages/RecruitmentPage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
 import ContractPage from '../features/contract/pages/ContractPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
@@ -31,6 +32,10 @@ export default function AppRouter() {
       <Route path={APP_ROUTES.profile} element={guard(APP_ROUTES.profile, <ProfilePage />)} />
       <Route path={APP_ROUTES.finance} element={guard(APP_ROUTES.finance, <FinancePage />)} />
       <Route path={APP_ROUTES.center} element={guard(APP_ROUTES.center, <CenterPage />)} />
+      <Route
+        path={APP_ROUTES.recruitment}
+        element={guard(APP_ROUTES.recruitment, <RecruitmentPage />)}
+      />
       <Route
         path={APP_ROUTES.marketplace}
         element={guard(APP_ROUTES.marketplace, <MarketplacePage />)}

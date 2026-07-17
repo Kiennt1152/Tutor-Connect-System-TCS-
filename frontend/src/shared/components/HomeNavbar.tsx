@@ -26,6 +26,9 @@ export function HomeNavbar() {
   const profilePath =
     user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
   const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
+  // Gia su: "Trung tam" di thang toi trang ung tuyen (/recruitment chi cho TUTOR).
+  // Vai tro khac: ve trang gioi thieu trung tam, tranh bi da sang /forbidden.
+  const centersHref = hasRole(user?.role, 'TUTOR') ? APP_ROUTES.recruitment : APP_ROUTES.centers;
   const showWallet = hasAnyRole(user?.role, WALLET_ROLES);
   const showContract = hasAnyRole(user?.role, CONTRACT_ROLES);
   const showMessaging = hasAnyRole(user?.role, MESSAGING_ROLES);
@@ -37,7 +40,7 @@ export function HomeNavbar() {
         <nav className="tcs-header__nav">
           <Link to="/#find-tutor">Tìm gia sư</Link>
           <Link to="/#classes">Tìm lớp</Link>
-          <Link to="/#centers">Trung tâm</Link>
+          <Link to={centersHref}>Trung tâm</Link>
           <Link to="/#news">Tin tức</Link>
           <Link to="/#reviews">Đánh giá</Link>
         </nav>

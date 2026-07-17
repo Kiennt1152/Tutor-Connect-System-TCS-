@@ -75,7 +75,7 @@ export const FOOTER_LINKS = [
     links: [
       { label: 'Tìm gia sư', href: '#find-tutor' },
       { label: 'Tìm lớp', href: '#classes' },
-      { label: 'Trung tâm', href: '#centers' },
+      { label: 'Trung tâm', href: '/centers' },
     ],
   },
   {

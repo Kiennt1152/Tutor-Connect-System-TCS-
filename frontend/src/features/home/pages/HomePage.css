@@ -197,6 +197,69 @@
   font-size: var(--fs-h3);
 }
 
+/* Tin tuyển gia sư trong mục "Trung tâm" (chỉ hiện với vai trò gia sư) */
+.tcs-recruit {
+  margin-bottom: var(--space-lg);
+}
+
+.tcs-recruit__title {
+  margin: 0 0 var(--space-xs);
+  font-size: var(--fs-h4);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.tcs-recruit__grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.tcs-recruit-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-1);
+  box-shadow: var(--shadow-sm);
+}
+
+.tcs-recruit-card__title {
+  margin: 0;
+  font-size: var(--fs-h4);
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.tcs-recruit-card__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.tcs-recruit-card__desc {
+  margin: 0;
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+  /* Mô tả có thể dài — cắt gọn để các thẻ đều nhau. */
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+@media (max-width: 860px) {
+  .tcs-recruit__grid {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tcs-center-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
