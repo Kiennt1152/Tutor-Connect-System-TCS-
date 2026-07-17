@@ -1,0 +1,203 @@
+.tch-page {
+  min-height: 100vh;
+  background: #f5f7fb;
+}
+.tch-main {
+  padding: 24px 0 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.tch-heading h1 {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 800;
+  color: #12233b;
+}
+.tch-heading p {
+  margin: 0;
+  font-size: 14px;
+  color: #5b6b7f;
+}
+
+.tch-card {
+  background: #fff;
+  border: 1px solid #e3e9f2;
+  border-radius: 14px;
+  padding: 18px 20px;
+}
+.tch-card h2 {
+  margin: 0 0 12px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #12233b;
+}
+.tch-count {
+  display: inline-block;
+  min-width: 20px;
+  padding: 1px 7px;
+  margin-left: 4px;
+  background: #1565c0;
+  color: #fff;
+  border-radius: 999px;
+  font-size: 12px;
+  text-align: center;
+}
+
+.tch-state {
+  background: #fff;
+  border: 1px solid #e3e9f2;
+  border-radius: 14px;
+  padding: 32px;
+  text-align: center;
+  color: #5b6b7f;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.tch-muted {
+  color: #8592a3;
+  font-size: 13px;
+}
+
+.tch-alert {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 500;
+}
+.tch-alert--ok {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+.tch-alert--err {
+  background: #ffebee;
+  color: #c62828;
+}
+
+/* --- Lời mời nhận lớp --- */
+.tch-invites,
+.tch-classes,
+.tch-lessons {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.tch-invites {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.tch-invite {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  padding: 14px;
+  background: #f7f9fc;
+  border: 1px solid #e3e9f2;
+  border-left: 4px solid #1565c0;
+  border-radius: 10px;
+}
+.tch-invite__title {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #12233b;
+}
+.tch-invite__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  font-size: 13px;
+  color: #43546a;
+}
+.tch-invite__dates {
+  margin: 6px 0;
+  font-size: 13px;
+  color: #5b6b7f;
+}
+.tch-invite__actions {
+  display: flex;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.tch-class {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-bottom: 1px solid #eef2f7;
+}
+.tch-class:last-child {
+  border-bottom: none;
+}
+.tch-class__title {
+  font-weight: 600;
+  color: #12233b;
+  font-size: 14px;
+}
+.tch-class__meta {
+  font-size: 13px;
+  color: #5b6b7f;
+}
+
+.tch-badge {
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tch-badge--pending {
+  background: #fff4e5;
+  color: #ef6c00;
+}
+.tch-badge--done {
+  background: #e8f5e9;
+  color: #2e7d32;
+}
+
+/* --- Nút --- */
+.tch-btn {
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+.tch-btn--sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+.tch-btn--primary {
+  background: #1565c0;
+  color: #fff;
+}
+.tch-btn--primary:hover {
+  background: #0f4c9a;
+}
+.tch-btn--success {
+  background: #2e7d32;
+  color: #fff;
+}
+.tch-btn--success:hover {
+  background: #24632a;
+}
+.tch-btn--ghost {
+  background: #fff;
+  color: #43546a;
+  border-color: #cfd8e3;
+}
+.tch-btn--ghost:hover {
+  border-color: #1565c0;
+  color: #1565c0;
+}
+

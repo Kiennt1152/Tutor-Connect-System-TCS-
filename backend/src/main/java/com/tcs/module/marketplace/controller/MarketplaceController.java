@@ -3,7 +3,9 @@ package com.tcs.module.marketplace.controller;
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
+import com.tcs.module.marketplace.dto.response.AssignmentResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
+import com.tcs.module.marketplace.dto.response.LessonResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.service.MarketplaceService;
@@ -82,7 +84,43 @@ public class MarketplaceController {
     public Map<String, String> chooseApplicant(
             @PathVariable Long classId, @PathVariable Long applicationId) {
         marketplaceService.chooseApplicant(classId, applicationId);
-        return Map.of("message", "Đã chọn gia sư cho lớp");
+        return Map.of("message", "Đã chọn gia sư — đang chờ gia sư nhận lớp");
+    }
+
+    // --- Phía gia sư: nhận lớp → lịch dạy → điểm danh ---
+
+    @GetMapping("/assignments/mine")
+    public List<AssignmentResponse> listMyAssignments() {
+        return marketplaceService.listMyAssignments();
+    }
+
+    @PostMapping("/assignments/{assignmentId}/accept")
+    public Map<String, String> acceptAssignment(@PathVariable Long assignmentId) {
+        marketplaceService.acceptAssignment(assignmentId);
+        return Map.of("message", "Đã nhận lớp — lịch dạy đã được tạo");
+    }
+
+    @PostMapping("/assignments/{assignmentId}/decline")
+    public Map<String, String> declineAssignment(@PathVariable Long assignmentId) {
+        marketplaceService.declineAssignment(assignmentId);
+        return Map.of("message", "Đã từ chối lớp");
+    }
+
+    @GetMapping("/lessons/mine")
+    public List<LessonResponse> listMyLessons() {
+        return marketplaceService.listMyLessons();
+    }
+
+    @PostMapping("/lessons/{lessonId}/checkin")
+    public Map<String, String> checkInLesson(@PathVariable Long lessonId) {
+        marketplaceService.checkInLesson(lessonId);
+        return Map.of("message", "Đã điểm danh vào buổi học");
+    }
+
+    @PostMapping("/lessons/{lessonId}/checkout")
+    public Map<String, String> checkOutLesson(@PathVariable Long lessonId) {
+        marketplaceService.checkOutLesson(lessonId);
+        return Map.of("message", "Đã kết thúc buổi học");
     }
 
     @GetMapping("/tutors/search")

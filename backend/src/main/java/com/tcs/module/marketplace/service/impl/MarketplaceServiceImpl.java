@@ -19,14 +19,24 @@ import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
+import com.tcs.module.marketplace.dto.response.AssignmentResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
+import com.tcs.module.marketplace.dto.response.LessonResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
+import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.FavoriteTutor;
+import com.tcs.module.marketplace.entity.Lesson;
+import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.AttendanceStatus;
+import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.TutorApplicationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
+import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.FavoriteTutorRepository;
+import com.tcs.module.marketplace.repository.LessonRepository;
+import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.MarketplaceService;
@@ -37,12 +47,19 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
+import java.time.DayOfWeek;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -65,8 +82,18 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final SubjectRepository subjectRepository;
     private final GradeRepository gradeRepository;
     private final LocationRepository locationRepository;
+    private final ClassAssignmentRepository classAssignmentRepository;
+    private final ScheduleSlotRepository scheduleSlotRepository;
+    private final LessonRepository lessonRepository;
     // Khởi tạo trực tiếp (không có bean ObjectMapper trong context) — giống GoogleTokenVerifier.
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /**
+     * Mã thứ của form ({@code detailsJson.slots[].day}) → ISO day-of-week (Thứ 2 = 1 … CN = 7),
+     * khớp {@link DayOfWeek#getValue()}. Lưu ý KHÔNG phải quy ước DAYOFWEEK() của MySQL (CN = 1).
+     */
+    private static final Map<String, Integer> DAY_CODE_TO_ISO = Map.of(
+            "T2", 1, "T3", 2, "T4", 3, "T5", 4, "T6", 5, "T7", 6, "CN", 7);
 
     /** Học phí/giờ thấp nhất chấp nhận được (đ) — khớp FEE_PER_HOUR_MIN của form phía client. */
     private static final BigDecimal MIN_RATE_PER_HOUR = BigDecimal.valueOf(50_000);
@@ -411,16 +438,386 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .findById(applicationId)
                 .filter(a -> a.getTutoringClass().getClassId().equals(tutoringClass.getClassId()))
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn ứng tuyển"));
+        if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
+            throw new IllegalArgumentException("Lớp không còn ở trạng thái đang mở để chọn gia sư");
+        }
         for (TutorApplication app :
                 tutorApplicationRepository.findByTutoringClass_ClassId(tutoringClass.getClassId())) {
             app.setStatus(
                     app.getApplicationId().equals(applicationId)
                             ? TutorApplicationStatus.ACCEPTED
                             : TutorApplicationStatus.REJECTED);
-            app.setReviewedAt(java.time.LocalDateTime.now());
+            app.setReviewedAt(LocalDateTime.now());
         }
         tutoringClass.setStatus(TutoringClassStatus.MATCHED);
         tutoringClassRepository.save(tutoringClass);
+
+        // Chọn xong mới là lời mời — gia sư phải bấm nhận thì lớp mới chạy.
+        // Dùng lại phân công cũ nếu gia sư này từng bị từ chối trước đó (uq theo application_id).
+        ClassAssignment assignment = classAssignmentRepository
+                .findByApplication_ApplicationId(applicationId)
+                .orElseGet(ClassAssignment::new);
+        assignment.setTutor(chosen.getTutor());
+        assignment.setApplication(chosen);
+        assignment.setStatus(ClassAssignmentStatus.PENDING);
+        classAssignmentRepository.save(assignment);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AssignmentResponse> listMyAssignments() {
+        // Gia sư xem lớp mình được mời/đang dạy; Client xem ai đang dạy lớp của mình.
+        List<ClassAssignment> assignments = isClient()
+                ? classAssignmentRepository.findByApplication_TutoringClass_Creator_UserIdOrderByAssignedDateDesc(
+                        authHelper.currentUserId())
+                : classAssignmentRepository.findByTutor_TutorIdOrderByAssignedDateDesc(
+                        requireTutor().getTutorId());
+        return assignments.stream()
+                .filter(a -> a.getApplication() != null) // lớp gán nội bộ (CENTER) không có đơn
+                .map(this::toAssignment)
+                .toList();
+    }
+
+    private boolean isClient() {
+        return authHelper.requireAuthenticated().getRole() == UserRole.CLIENT;
+    }
+
+    @Override
+    @Transactional
+    public void acceptAssignment(Long assignmentId) {
+        ClassAssignment assignment = requireMyPendingAssignment(assignmentId);
+        TutoringClass tutoringClass = assignment.getApplication().getTutoringClass();
+
+        assignment.setStatus(ClassAssignmentStatus.ACTIVE);
+        classAssignmentRepository.save(assignment);
+
+        generateSchedule(tutoringClass, assignment.getTutor());
+
+        tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
+        tutoringClassRepository.save(tutoringClass);
+    }
+
+    @Override
+    @Transactional
+    public void declineAssignment(Long assignmentId) {
+        ClassAssignment assignment = requireMyPendingAssignment(assignmentId);
+        TutoringClass tutoringClass = assignment.getApplication().getTutoringClass();
+
+        assignment.setStatus(ClassAssignmentStatus.DECLINED);
+        classAssignmentRepository.save(assignment);
+
+        // Mở lại lớp: đơn của gia sư từ chối giữ REJECTED, các đơn còn lại quay về SUBMITTED
+        // để Client có người mà chọn lại.
+        Long declinedId = assignment.getApplication().getApplicationId();
+        for (TutorApplication app :
+                tutorApplicationRepository.findByTutoringClass_ClassId(tutoringClass.getClassId())) {
+            if (app.getApplicationId().equals(declinedId)) {
+                app.setStatus(TutorApplicationStatus.REJECTED);
+            } else {
+                app.setStatus(TutorApplicationStatus.SUBMITTED);
+                app.setReviewedAt(null);
+            }
+        }
+        tutoringClass.setStatus(TutoringClassStatus.OPEN);
+        tutoringClassRepository.save(tutoringClass);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<LessonResponse> listMyLessons() {
+        // Cùng một thời khóa biểu: gia sư nhìn theo lớp mình dạy, Client theo lớp mình tạo.
+        List<Lesson> lessons = isClient()
+                ? lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(
+                        authHelper.currentUserId())
+                : lessonRepository.findByTutor_TutorIdOrderByLessonDateAscSequenceNoAsc(
+                        requireTutor().getTutorId());
+        LocalDate today = LocalDate.now();
+        return lessons.stream().map(lesson -> toLesson(lesson, today)).toList();
+    }
+
+    @Override
+    @Transactional
+    public void checkInLesson(Long lessonId) {
+        Lesson lesson = requireMyLesson(lessonId);
+        if (lesson.getAttendanceStatus() == AttendanceStatus.COMPLETED) {
+            throw new IllegalArgumentException("Buổi học này đã điểm danh xong");
+        }
+        requireLessonIsToday(lesson);
+        if (lesson.getTutorCheckInAt() != null) {
+            throw new IllegalArgumentException("Bạn đã điểm danh vào buổi này rồi");
+        }
+        lesson.setTutorCheckInAt(LocalDateTime.now());
+        lessonRepository.save(lesson);
+    }
+
+    @Override
+    @Transactional
+    public void checkOutLesson(Long lessonId) {
+        Lesson lesson = requireMyLesson(lessonId);
+        if (lesson.getTutorCheckInAt() == null) {
+            throw new IllegalArgumentException("Cần điểm danh vào buổi trước khi kết thúc buổi");
+        }
+        if (lesson.getTutorCheckOutAt() != null) {
+            throw new IllegalArgumentException("Buổi học này đã kết thúc rồi");
+        }
+        requireLessonIsToday(lesson);
+        lesson.setTutorCheckOutAt(LocalDateTime.now());
+        lesson.setAttendanceStatus(AttendanceStatus.COMPLETED);
+        lessonRepository.save(lesson);
+    }
+
+    /** Điểm danh chỉ trong đúng ngày buổi học diễn ra (chốt theo quyết định nghiệp vụ). */
+    private void requireLessonIsToday(Lesson lesson) {
+        LocalDate today = LocalDate.now();
+        if (!today.equals(lesson.getLessonDate())) {
+            throw new IllegalArgumentException(
+                    "Chỉ điểm danh được trong ngày diễn ra buổi học ("
+                            + lesson.getLessonDate() + "). Hôm nay là " + today + ".");
+        }
+    }
+
+    private ClassAssignment requireMyPendingAssignment(Long assignmentId) {
+        Tutor tutor = requireTutor();
+        ClassAssignment assignment = classAssignmentRepository
+                .findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lời mời nhận lớp"));
+        if (!assignment.getTutor().getTutorId().equals(tutor.getTutorId())) {
+            throw new ForbiddenException("Không có quyền xử lý lời mời của gia sư khác");
+        }
+        if (assignment.getApplication() == null) {
+            throw new IllegalArgumentException("Lời mời không gắn với lớp nào");
+        }
+        if (assignment.getStatus() != ClassAssignmentStatus.PENDING) {
+            throw new IllegalArgumentException("Lời mời này đã được xử lý trước đó");
+        }
+        return assignment;
+    }
+
+    private Lesson requireMyLesson(Long lessonId) {
+        Tutor tutor = requireTutor();
+        Lesson lesson = lessonRepository
+                .findById(lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học"));
+        if (!lesson.getTutor().getTutorId().equals(tutor.getTutorId())) {
+            throw new ForbiddenException("Không có quyền điểm danh buổi học của gia sư khác");
+        }
+        return lesson;
+    }
+
+    // --- Sinh lịch dạy ---------------------------------------------------------------
+
+    /**
+     * Bung lịch trong detailsJson thành từng buổi CÓ NGÀY CỤ THỂ.
+     * schedule_slots chưa bao giờ được ghi nên phải sinh cả slot lẫn lesson tại đây.
+     */
+    private void generateSchedule(TutoringClass tutoringClass, Tutor tutor) {
+        if (lessonRepository.countByTutoringClass_ClassId(tutoringClass.getClassId()) > 0) {
+            return; // đã sinh rồi (nhận lại lớp) — không nhân đôi lịch
+        }
+        JsonNode form = readTree(tutoringClass.getDetailsJson());
+        List<SlotSpec> specs = slotSpecs(form);
+        if (specs.isEmpty() || tutoringClass.getStartDate() == null || tutoringClass.getEndDate() == null) {
+            return; // lớp cũ không có lịch trong JSON → không sinh buổi nào
+        }
+
+        // Mỗi (thứ, giờ, môn) khác nhau = 1 schedule_slot dùng lại cho mọi tuần.
+        Map<SlotSpec, ScheduleSlot> slotRows = new LinkedHashMap<>();
+        for (SlotSpec spec : specs) {
+            slotRows.computeIfAbsent(spec, s -> {
+                ScheduleSlot row = new ScheduleSlot();
+                row.setTutoringClass(tutoringClass);
+                row.setSubject(s.subjectId() != null ? subjectRepository.findById(s.subjectId()).orElse(null) : null);
+                row.setDayOfWeek(s.dayOfWeek());
+                row.setStartTime(s.start());
+                row.setEndTime(s.end());
+                return scheduleSlotRepository.save(row);
+            });
+        }
+
+        List<Lesson> lessons = new ArrayList<>();
+        for (Map.Entry<LocalDate, SlotSpec> occurrence : expandOccurrences(form, specs, tutoringClass)) {
+            Lesson lesson = new Lesson();
+            lesson.setTutoringClass(tutoringClass);
+            lesson.setSlot(slotRows.get(occurrence.getValue()));
+            lesson.setTutor(tutor);
+            lesson.setLessonDate(occurrence.getKey());
+            lesson.setAttendanceStatus(AttendanceStatus.PENDING);
+            lessons.add(lesson);
+        }
+        // sequence_no đánh theo đúng thứ tự học: ngày rồi tới giờ bắt đầu.
+        lessons.sort(Comparator
+                .comparing(Lesson::getLessonDate)
+                .thenComparing(l -> l.getSlot().getStartTime()));
+        int seq = 1;
+        for (Lesson lesson : lessons) {
+            lesson.setSequenceNo(seq++);
+        }
+        lessonRepository.saveAll(lessons);
+    }
+
+    /** Một khung học lặp lại: thứ + giờ + môn. */
+    private record SlotSpec(Integer dayOfWeek, LocalTime start, LocalTime end, Long subjectId) {}
+
+    private List<SlotSpec> slotSpecs(JsonNode form) {
+        JsonNode slots = form.path("slots");
+        if (!slots.isArray()) {
+            return List.of();
+        }
+        boolean custom = "CUSTOM".equals(form.path("scheduleMode").asText("WEEKLY"));
+        List<SlotSpec> specs = new ArrayList<>();
+        for (JsonNode slot : slots) {
+            LocalTime start = parseTime(slot.path("start").asText(""));
+            LocalTime end = parseTime(slot.path("end").asText(""));
+            if (start == null || end == null) {
+                continue;
+            }
+            Integer day = custom
+                    ? dayOfWeekOf(parseDate(slot.path("date").asText("")))
+                    : DAY_CODE_TO_ISO.get(slot.path("day").asText(""));
+            if (day == null) {
+                continue;
+            }
+            specs.add(new SlotSpec(day, start, end, subjectIdOf(slot.path("subjectId").asText(""))));
+        }
+        return specs;
+    }
+
+    /**
+     * WEEKLY: lặp theo tuần, bỏ tuần nghỉ (studyWeeks trong chu kỳ repeatEveryWeeks).
+     * CUSTOM: mỗi slot đã có ngày sẵn.
+     */
+    private List<Map.Entry<LocalDate, SlotSpec>> expandOccurrences(
+            JsonNode form, List<SlotSpec> specs, TutoringClass tutoringClass) {
+        LocalDate startDate = tutoringClass.getStartDate();
+        LocalDate endDate = tutoringClass.getEndDate();
+        List<Map.Entry<LocalDate, SlotSpec>> out = new ArrayList<>();
+
+        if ("CUSTOM".equals(form.path("scheduleMode").asText("WEEKLY"))) {
+            JsonNode slots = form.path("slots");
+            for (int i = 0; i < slots.size() && i < specs.size(); i++) {
+                LocalDate date = parseDate(slots.get(i).path("date").asText(""));
+                if (date != null && !date.isBefore(startDate) && !date.isAfter(endDate)) {
+                    out.add(Map.entry(date, specs.get(i)));
+                }
+            }
+            return out;
+        }
+
+        int cycleWeeks = Math.min(4, Math.max(1, form.path("repeatEveryWeeks").asInt(1)));
+        Set<Integer> studyWeeks = studyWeeksOf(form, cycleWeeks);
+        // Neo vào thứ Hai của tuần chứa startDate để tính ngày theo thứ cho gọn.
+        LocalDate anchorMonday = startDate.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
+
+        for (int weekIndex = 0; ; weekIndex++) {
+            LocalDate weekStart = anchorMonday.plusWeeks(weekIndex);
+            if (weekStart.isAfter(endDate)) {
+                break;
+            }
+            if (!studyWeeks.contains((weekIndex % cycleWeeks) + 1)) {
+                continue; // tuần nghỉ
+            }
+            for (SlotSpec spec : specs) {
+                LocalDate date = weekStart.plusDays(spec.dayOfWeek() - 1L);
+                if (!date.isBefore(startDate) && !date.isAfter(endDate)) {
+                    out.add(Map.entry(date, spec));
+                }
+            }
+        }
+        return out;
+    }
+
+    private Set<Integer> studyWeeksOf(JsonNode form, int cycleWeeks) {
+        Set<Integer> weeks = new LinkedHashSet<>();
+        for (JsonNode w : form.path("studyWeeks")) {
+            int v = w.asInt(0);
+            if (v >= 1 && v <= cycleWeeks) {
+                weeks.add(v);
+            }
+        }
+        if (weeks.isEmpty()) {
+            weeks.add(1); // lớp cũ chưa có studyWeeks → học tuần đầu mỗi chu kỳ
+        }
+        return weeks;
+    }
+
+    private Long subjectIdOf(String key) {
+        if (!StringUtils.hasText(key) || OTHER_SUBJECT_KEY.equals(key)) {
+            return null;
+        }
+        try {
+            return Long.valueOf(key);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private Integer dayOfWeekOf(LocalDate date) {
+        return date != null ? date.getDayOfWeek().getValue() : null;
+    }
+
+    private LocalTime parseTime(String value) {
+        try {
+            return StringUtils.hasText(value) ? LocalTime.parse(value) : null;
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    private LocalDate parseDate(String value) {
+        try {
+            return StringUtils.hasText(value) ? LocalDate.parse(value) : null;
+        } catch (DateTimeParseException e) {
+            return null;
+        }
+    }
+
+    private JsonNode readTree(String json) {
+        if (!StringUtils.hasText(json)) {
+            return objectMapper.createObjectNode();
+        }
+        try {
+            return objectMapper.readTree(json);
+        } catch (JsonProcessingException e) {
+            return objectMapper.createObjectNode();
+        }
+    }
+
+    private AssignmentResponse toAssignment(ClassAssignment assignment) {
+        TutoringClass c = assignment.getApplication().getTutoringClass();
+        return AssignmentResponse.builder()
+                .assignmentId(assignment.getAssignmentId())
+                .classId(c.getClassId())
+                .classTitle(c.getTitle())
+                .clientName(c.getCreator().getEmail())
+                .tutorName(assignment.getTutor().getFullName())
+                .status(assignment.getStatus().name())
+                .assignedDate(assignment.getAssignedDate())
+                .subjectNames(subjectNamesFromJson(c.getDetailsJson()))
+                .gradeName(c.getGrade() != null ? c.getGrade().getGradeName() : null)
+                .address(c.getAddress())
+                .lessonMode(c.getLessonMode().name())
+                .startDate(c.getStartDate())
+                .endDate(c.getEndDate())
+                .lessonCount(lessonRepository.countByTutoringClass_ClassId(c.getClassId()))
+                .build();
+    }
+
+    private LessonResponse toLesson(Lesson lesson, LocalDate today) {
+        ScheduleSlot slot = lesson.getSlot();
+        return LessonResponse.builder()
+                .lessonId(lesson.getLessonId())
+                .classId(lesson.getTutoringClass().getClassId())
+                .classTitle(lesson.getTutoringClass().getTitle())
+                .sequenceNo(lesson.getSequenceNo())
+                .lessonDate(lesson.getLessonDate())
+                .startTime(slot.getStartTime())
+                .endTime(slot.getEndTime())
+                .subjectName(slot.getSubject() != null ? slot.getSubject().getSubjectName() : null)
+                .attendanceStatus(lesson.getAttendanceStatus().name())
+                .tutorCheckInAt(lesson.getTutorCheckInAt())
+                .tutorCheckOutAt(lesson.getTutorCheckOutAt())
+                .canCheckInToday(today.equals(lesson.getLessonDate()))
+                .build();
     }
 
     /** Lấy lớp và đảm bảo người gọi là Client đã tạo lớp đó. */

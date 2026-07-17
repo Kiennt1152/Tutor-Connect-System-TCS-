@@ -43,6 +43,8 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
 
   const alreadyChosen = applicants.some((a) => a.status === 'ACCEPTED');
   const recommended = applicants.filter((a) => a.recommended);
+  // Chọn xong lớp mới ở MATCHED; gia sư bấm nhận thì lớp mới chạy (IN_PROGRESS).
+  const tutorAccepted = target.status === 'IN_PROGRESS';
 
   const subjectName = useMemo(() => {
     const form = classToForm(target);
@@ -109,6 +111,7 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
                 key={a.applicationId}
                 applicant={a}
                 subjectName={subjectName}
+                tutorAccepted={tutorAccepted}
                 rank={a.recommended ? idx + 1 : null}
                 choosing={choosingId === a.applicationId}
                 disabled={alreadyChosen || choosingId != null}
@@ -130,6 +133,8 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
 interface CardProps {
   readonly applicant: ApplicantResponse;
   readonly subjectName: (id: string) => string;
+  /** Gia sư đã bấm nhận lớp chưa (lớp đã chuyển sang Đang học). */
+  readonly tutorAccepted: boolean;
   readonly rank: number | null;
   readonly choosing: boolean;
   readonly disabled: boolean;
@@ -140,6 +145,7 @@ interface CardProps {
 function ApplicantCard({
   applicant: a,
   subjectName,
+  tutorAccepted,
   rank,
   choosing,
   disabled,
@@ -207,7 +213,16 @@ function ApplicantCard({
             Xem chi tiết gia sư
           </button>
           {accepted ? (
-            <span className="apm-chip apm-chip--accepted">✓ Đã chọn gia sư này</span>
+            tutorAccepted ? (
+              <span className="apm-chip apm-chip--accepted">✓ Gia sư đã nhận lớp</span>
+            ) : (
+              <span
+                className="apm-chip apm-chip--accepted"
+                title="Gia sư cần bấm nhận lớp thì lịch học mới bắt đầu"
+              >
+                ✓ Đã chọn — chờ gia sư nhận lớp
+              </span>
+            )
           ) : rejected ? (
             <span className="apm-chip apm-chip--rejected">Không được chọn</span>
           ) : (

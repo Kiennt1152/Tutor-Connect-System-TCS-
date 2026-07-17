@@ -7,6 +7,8 @@ import { useMarketplace } from '../hooks/useMarketplace';
 import { ClassRequestForm } from '../components/ClassRequestForm';
 import { ApplicantsPanel } from '../components/ApplicantsPanel';
 import { ClassDetailPanel } from '../components/ClassDetailPanel';
+import { WeeklyTimetable } from '../../teaching/components/WeeklyTimetable';
+import { useClassLessons } from '../../teaching/hooks/useTeaching';
 import { classToForm, emptyForm } from '../mappers/marketplaceMapper';
 import {
   CLASS_STATUS_LABELS,
@@ -198,7 +200,33 @@ function ClassDetailScreen({ target, subjects, grades, onChosen, onBack }: Class
           </div>
         </div>
       </div>
+
+      {/* Gia sư đã nhận lớp → lịch học đã có, cho chủ lớp theo dõi ngay tại đây. */}
+      {target.status === 'IN_PROGRESS' && <ClassTimetableCard classId={target.classId} />}
     </section>
+  );
+}
+
+/** Thời khóa biểu của riêng lớp này (chỉ xem — điểm danh là việc của gia sư). */
+function ClassTimetableCard({ classId }: { readonly classId: number }) {
+  const { status, lessons } = useClassLessons(classId);
+
+  return (
+    <div className="mkt-card mkt-detail__timetable">
+      <div className="mkt-card__head">
+        <h2>Thời khóa biểu lớp</h2>
+      </div>
+      <div className="mkt-card__body">
+        {status === 'loading' && <p className="mkt-muted">Đang tải lịch học…</p>}
+        {status === 'error' && <p className="mkt-muted">Không tải được lịch học của lớp.</p>}
+        {status === 'success' &&
+          (lessons.length === 0 ? (
+            <p className="mkt-muted">Lớp chưa có buổi học nào.</p>
+          ) : (
+            <WeeklyTimetable lessons={lessons} readOnly />
+          ))}
+      </div>
+    </div>
   );
 }
 

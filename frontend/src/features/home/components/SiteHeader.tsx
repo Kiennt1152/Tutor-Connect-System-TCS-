@@ -8,6 +8,8 @@ import type { UserRole } from '../../../shared/types/userRole';
 import '../pages/HomePage.css';
 
 const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
+/** Gia sư xem lịch dạy, Client theo dõi lịch học của lớp mình — cùng một màn. */
+const TEACHING_ROLES: UserRole[] = ['TUTOR', 'CLIENT'];
 
 const userInitials = (displayName: string | undefined, email: string) => {
   const source = displayName?.trim() || email;
@@ -34,6 +36,7 @@ export function SiteHeader({ active }: SiteHeaderProps) {
   const profilePath =
     user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
   const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
+  const showTeaching = hasAnyRole(user?.role, TEACHING_ROLES);
 
   return (
     <header className="tcs-header">
@@ -62,6 +65,11 @@ export function SiteHeader({ active }: SiteHeaderProps) {
               {showCenterManage ? (
                 <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.center}>
                   Quản lý trung tâm
+                </Link>
+              ) : null}
+              {showTeaching ? (
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.teaching}>
+                  {hasRole(user.role, 'CLIENT') ? 'Lịch học' : 'Lịch dạy'}
                 </Link>
               ) : null}
               <Link to={profilePath} className="tcs-home-profile-btn">

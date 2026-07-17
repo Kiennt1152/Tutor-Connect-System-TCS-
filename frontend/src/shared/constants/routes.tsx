@@ -2,6 +2,7 @@ export const APP_ROUTES = {
   home: '/',
   findTutor: '/tim-gia-su',
   findClass: '/tim-lop',
+  teaching: '/lich-day',
   login: '/login',
   register: '/register',
   identity: '/identity',

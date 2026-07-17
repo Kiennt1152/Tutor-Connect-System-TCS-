@@ -17,6 +17,7 @@ import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
 import CatalogPage from '../features/catalog/pages/CatalogPage';
 import ContractPage from '../features/contract/pages/ContractPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
+import TeachingPage from '../features/teaching/pages/TeachingPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
@@ -39,6 +40,15 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR', 'TUTOR_CENTER']}>
                 <VerificationPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path={APP_ROUTES.teaching}
+            element={
+              <ProtectedRoute roles={['TUTOR', 'CLIENT']}>
+                <TeachingPage />
               </ProtectedRoute>
             }
           />
