@@ -1,11 +1,31 @@
 import axiosClient from '../../../shared/api/axiosClient';
-import type { CategoryItem, UpsertCategoryRequest } from '../types/catalogTypes';
+import type {
+  CategoryItem,
+  ChatbotAskRequest,
+  ChatbotAskResponse,
+  FaqEntryApiResponse,
+  UpsertCategoryRequest,
+} from '../types/catalogTypes';
 
 export const CATALOG_API_BASE = '/catalog';
 
 export const catalogApi = {
   http: axiosClient,
   basePath: CATALOG_API_BASE,
+
+  async getFaqEntries(category?: string, keyword?: string) {
+    const params: Record<string, string> = {};
+    if (category) params.category = category;
+    if (keyword?.trim()) params.keyword = keyword.trim();
+    const response = await axiosClient.get<FaqEntryApiResponse[]>(`${CATALOG_API_BASE}/faq`, { params });
+    return response.data;
+  },
+
+  async askChatbot(payload: ChatbotAskRequest) {
+    const response = await axiosClient.post<ChatbotAskResponse>(`${CATALOG_API_BASE}/chatbot/ask`, payload);
+    return response.data;
+  },
+
   async listCategories(root?: string | null) {
     const response = await axiosClient.get<CategoryItem[]>(`${CATALOG_API_BASE}/categories`, {
       params: root ? { root } : undefined,

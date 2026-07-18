@@ -1,3 +1,23 @@
+export interface FaqEntryApiResponse {
+  faqId: number;
+  question: string;
+  answer: string;
+  category: string;
+  sortOrder: number;
+}
+
+export interface ChatbotAskRequest {
+  question: string;
+}
+
+export interface ChatbotAskResponse {
+  matched: boolean;
+  faqId: number | null;
+  question: string | null;
+  answer: string | null;
+  suggestion: string | null;
+}
+
 export interface UpsertCategoryRequest {
   name: string;
   description: string;

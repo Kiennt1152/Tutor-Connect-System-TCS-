@@ -176,3 +176,138 @@ export interface ReportItem {
   statusLabel: string;
   createdAt: string;
 }
+
+/* ── Support Tickets (admin) ── */
+
+export type AdminTicketCategory =
+  | 'DISPUTE'
+  | 'SYSTEM_ERROR'
+  | 'REPORT_USER'
+  | 'BUG_REPORT'
+  | 'INQUIRY';
+
+export type AdminTicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export type AdminTicketStatus =
+  | 'OPEN'
+  | 'IN_PROGRESS'
+  | 'IN_REVIEW'
+  | 'RESOLVED'
+  | 'CLOSED';
+
+export interface AdminTicketListItemApiResponse {
+  ticketId: number;
+  userId: number;
+  userEmail: string;
+  assignedAdminId: number | null;
+  assignedAdminName: string | null;
+  category: AdminTicketCategory;
+  subject: string;
+  priority: AdminTicketPriority;
+  status: AdminTicketStatus;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminTicketMessageApiResponse {
+  messageId: number;
+  senderId: number;
+  senderName: string;
+  fromAdmin: boolean;
+  content: string;
+  sentAt: string;
+}
+
+export interface AdminTicketDetailApiResponse {
+  ticketId: number;
+  userId: number;
+  targetClassId: number | null;
+  assignedAdminId: number | null;
+  category: AdminTicketCategory;
+  subject: string;
+  description: string;
+  evidenceUrls: string | null;
+  priority: AdminTicketPriority;
+  status: AdminTicketStatus;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  messages: AdminTicketMessageApiResponse[];
+}
+
+export interface PageAdminTicketApiResponse {
+  content: AdminTicketListItemApiResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface UpdateTicketApiRequest {
+  category?: AdminTicketCategory;
+  priority?: AdminTicketPriority;
+}
+
+export interface RespondTicketApiRequest {
+  content: string;
+}
+
+export interface CloseTicketApiRequest {
+  status: 'RESOLVED' | 'CLOSED';
+  adminNotes?: string;
+}
+
+export interface AdminTicketFilters {
+  page: number;
+  size: number;
+  status?: AdminTicketStatus;
+  category?: AdminTicketCategory;
+  priority?: AdminTicketPriority;
+  keyword?: string;
+}
+
+/* view-models */
+
+export interface AdminTicketListItem {
+  id: string;
+  userId: string;
+  userEmail: string;
+  assignedAdminId: string | null;
+  assignedAdminName: string;
+  category: AdminTicketCategory;
+  categoryLabel: string;
+  subject: string;
+  priority: AdminTicketPriority;
+  priorityLabel: string;
+  priorityTone: 'low' | 'medium' | 'high' | 'urgent';
+  status: AdminTicketStatus;
+  statusLabel: string;
+  statusTone: 'open' | 'active' | 'review' | 'done';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminTicketMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  fromAdmin: boolean;
+  content: string;
+  sentAt: string;
+}
+
+export interface AdminTicketDetail extends AdminTicketListItem {
+  description: string;
+  evidenceUrls: string | null;
+  targetClassId: string | null;
+  messages: AdminTicketMessage[];
+}
+
+export interface PageAdminTicketList {
+  items: AdminTicketListItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}

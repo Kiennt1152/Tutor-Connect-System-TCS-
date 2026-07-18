@@ -11,10 +11,13 @@ export const APP_ROUTES = {
   marketplace: '/marketplace',
   contract: '/contract',
   messaging: '/messaging',
+  messagingTickets: '/messaging/tickets',
+  help: '/help',
   platform: '/platform',
   platformUsers: '/platform/users',
   platformVerifications: '/platform/verifications',
   platformReports: '/platform/reports',
+  platformTickets: '/platform/tickets',
   platformProfile: '/platform/profile',
   forbidden: '/forbidden',
 } as const;

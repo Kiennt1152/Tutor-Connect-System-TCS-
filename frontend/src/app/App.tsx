@@ -9,12 +9,14 @@ import PlatformProfilePage from '../features/platform/pages/PlatformProfilePage'
 import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
+import PlatformTicketsPage from '../features/platform/pages/PlatformTicketsPage';
 import CenterPage from '../features/center/pages/CenterPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
 import ContractPage from '../features/contract/pages/ContractPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
+import HelpPage from '../features/help/pages/HelpPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
@@ -120,10 +122,27 @@ export default function App() {
             }
           />
           <Route
+            path={APP_ROUTES.platformTickets}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformTicketsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={APP_ROUTES.platformProfile}
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
                 <PlatformProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route path={APP_ROUTES.help} element={<HelpPage />} />
+          <Route
+            path={APP_ROUTES.messagingTickets}
+            element={
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+                <MessagingPage initialTab="tickets" />
               </ProtectedRoute>
             }
           />
