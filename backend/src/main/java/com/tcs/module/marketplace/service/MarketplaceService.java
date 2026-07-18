@@ -58,6 +58,9 @@ public interface MarketplaceService {
     /** Kết thúc buổi — buổi chuyển COMPLETED. */
     void checkOutLesson(Long lessonId);
 
+    /** Điểm danh một buổi bằng một thao tác — chỉ được trong đúng ngày buổi học diễn ra. */
+    void markAttendance(Long lessonId);
+
     List<TutorSearchResponse> searchTutors(String keyword, Long subjectId);
 
     void addFavorite(Long tutorId);

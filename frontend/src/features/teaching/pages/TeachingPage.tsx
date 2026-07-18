@@ -19,7 +19,7 @@ export default function TeachingPage() {
   const { user } = useAuth();
   // Cùng một màn: gia sư nhận lớp + điểm danh, Client chỉ theo dõi lịch lớp của mình.
   const isClient = hasRole(user?.role, 'CLIENT');
-  const { status, assignments, lessons, notice, error, reload, accept, decline, checkIn, checkOut } =
+  const { status, assignments, lessons, notice, error, reload, accept, decline, attend } =
     useTeaching();
 
   const invites = assignments.filter((a) => a.status === 'PENDING');
@@ -117,8 +117,7 @@ export default function TeachingPage() {
                 <WeeklyTimetable
                   lessons={lessons}
                   readOnly={isClient}
-                  onCheckIn={(id) => void checkIn(id)}
-                  onCheckOut={(id) => void checkOut(id)}
+                  onAttend={(id) => void attend(id)}
                 />
               )}
             </section>

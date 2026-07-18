@@ -34,12 +34,12 @@ interface Props {
   readonly lessons: LessonResponse[];
   /** Chỉ xem (phía Client) — điểm danh là việc của gia sư. */
   readonly readOnly?: boolean;
-  readonly onCheckIn?: (lessonId: number) => void;
-  readonly onCheckOut?: (lessonId: number) => void;
+  /** Gia sư điểm danh một buổi (chỉ bấm được trong đúng ngày buổi học). */
+  readonly onAttend?: (lessonId: number) => void;
 }
 
 /** Thời khóa biểu theo tuần: cột = thứ, hàng = buổi (Sáng/Chiều/Tối). */
-export function WeeklyTimetable({ lessons, readOnly = false, onCheckIn, onCheckOut }: Props) {
+export function WeeklyTimetable({ lessons, readOnly = false, onAttend }: Props) {
   const [weekOffset, setWeekOffset] = useState(0);
   const todayIso = toIso(new Date());
 
@@ -145,8 +145,7 @@ export function WeeklyTimetable({ lessons, readOnly = false, onCheckIn, onCheckO
                             key={lesson.lessonId}
                             lesson={lesson}
                             readOnly={readOnly}
-                            onCheckIn={() => onCheckIn?.(lesson.lessonId)}
-                            onCheckOut={() => onCheckOut?.(lesson.lessonId)}
+                            onAttend={() => onAttend?.(lesson.lessonId)}
                           />
                         ))
                       )}
@@ -185,16 +184,13 @@ export function WeeklyTimetable({ lessons, readOnly = false, onCheckIn, onCheckO
 function LessonChip({
   lesson,
   readOnly,
-  onCheckIn,
-  onCheckOut,
+  onAttend,
 }: {
   readonly lesson: LessonResponse;
   readonly readOnly: boolean;
-  readonly onCheckIn: () => void;
-  readonly onCheckOut: () => void;
+  readonly onAttend: () => void;
 }) {
   const done = lesson.attendanceStatus === 'COMPLETED';
-  const checkedIn = !!lesson.tutorCheckInAt;
   const tone = done ? 'done' : lesson.canCheckInToday ? 'today' : 'pending';
 
   return (
@@ -206,18 +202,14 @@ function LessonChip({
         {lesson.classTitle}
       </div>
       <div className="wtt-chip__time">
-        ({hhmm(lesson.startTime)}–{hhmm(lesson.endTime)}) · #{lesson.sequenceNo}
+        ({hhmm(lesson.startTime)}–{hhmm(lesson.endTime)})
       </div>
       <div className={`wtt-chip__status wtt-chip__status--${tone}`}>
         {done ? '(đã dạy)' : `(${ATTENDANCE_STATUS_LABELS[lesson.attendanceStatus].toLowerCase()})`}
       </div>
       {!readOnly && !done && lesson.canCheckInToday && (
-        <button
-          className={`tcs-btn tcs-btn--sm ${checkedIn ? 'tcs-btn--success' : 'tcs-btn--primary'}`}
-          type="button"
-          onClick={checkedIn ? onCheckOut : onCheckIn}
-        >
-          {checkedIn ? 'Kết thúc buổi' : 'Vào buổi'}
+        <button className="tcs-btn tcs-btn--sm tcs-btn--primary" type="button" onClick={onAttend}>
+          Điểm danh
         </button>
       )}
     </div>

@@ -94,7 +94,6 @@ export function useTeaching() {
     reload,
     accept: (id: number) => run(() => teachingApi.acceptAssignment(id), 'Nhận lớp thất bại.'),
     decline: (id: number) => run(() => teachingApi.declineAssignment(id), 'Từ chối lớp thất bại.'),
-    checkIn: (id: number) => run(() => teachingApi.checkInLesson(id), 'Điểm danh thất bại.'),
-    checkOut: (id: number) => run(() => teachingApi.checkOutLesson(id), 'Kết thúc buổi thất bại.'),
+    attend: (id: number) => run(() => teachingApi.markAttendance(id), 'Điểm danh thất bại.'),
   };
 }

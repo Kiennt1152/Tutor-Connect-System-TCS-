@@ -123,6 +123,13 @@ public class MarketplaceController {
         return Map.of("message", "Đã kết thúc buổi học");
     }
 
+    /** Điểm danh một buổi bằng một cú bấm — chỉ trong đúng ngày buổi học. */
+    @PostMapping("/lessons/{lessonId}/attend")
+    public Map<String, String> markAttendance(@PathVariable Long lessonId) {
+        marketplaceService.markAttendance(lessonId);
+        return Map.of("message", "Đã điểm danh buổi học");
+    }
+
     @GetMapping("/tutors/search")
     public List<TutorSearchResponse> searchTutors(
             @RequestParam(required = false) String keyword, @RequestParam(required = false) Long subjectId) {

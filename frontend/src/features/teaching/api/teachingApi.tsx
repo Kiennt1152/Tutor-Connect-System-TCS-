@@ -34,4 +34,10 @@ export const teachingApi = {
     axiosClient
       .post<{ message: string }>(`/marketplace/lessons/${lessonId}/checkout`)
       .then((r) => r.data),
+
+  /** Điểm danh một buổi bằng một cú bấm (chỉ trong đúng ngày buổi học). */
+  markAttendance: (lessonId: number) =>
+    axiosClient
+      .post<{ message: string }>(`/marketplace/lessons/${lessonId}/attend`)
+      .then((r) => r.data),
 };

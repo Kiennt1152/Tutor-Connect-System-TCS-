@@ -566,6 +566,24 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         lessonRepository.save(lesson);
     }
 
+    @Override
+    @Transactional
+    public void markAttendance(Long lessonId) {
+        Lesson lesson = requireMyLesson(lessonId);
+        if (lesson.getAttendanceStatus() == AttendanceStatus.COMPLETED) {
+            throw new IllegalArgumentException("Buổi học này đã điểm danh xong");
+        }
+        requireLessonIsToday(lesson);
+        // Một cú bấm: ghi giờ vào/ra (nếu chưa có) rồi đánh dấu hoàn thành.
+        LocalDateTime now = LocalDateTime.now();
+        if (lesson.getTutorCheckInAt() == null) {
+            lesson.setTutorCheckInAt(now);
+        }
+        lesson.setTutorCheckOutAt(now);
+        lesson.setAttendanceStatus(AttendanceStatus.COMPLETED);
+        lessonRepository.save(lesson);
+    }
+
     /** Điểm danh chỉ trong đúng ngày buổi học diễn ra (chốt theo quyết định nghiệp vụ). */
     private void requireLessonIsToday(Lesson lesson) {
         LocalDate today = LocalDate.now();
@@ -620,6 +638,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return; // lớp cũ không có lịch trong JSON → không sinh buổi nào
         }
 
+        List<Map.Entry<LocalDate, SlotSpec>> occurrences = expandOccurrences(form, specs, tutoringClass);
+        // Không cho nhận lớp nếu bất kỳ buổi nào trùng giờ với buổi đã có (lớp khác của
+        // cùng phụ huynh hoặc của cùng gia sư) — @Transactional nên throw sẽ rollback sạch.
+        requireNoScheduleConflict(tutoringClass, tutor, occurrences);
+
         // Mỗi (thứ, giờ, môn) khác nhau = 1 schedule_slot dùng lại cho mọi tuần.
         Map<SlotSpec, ScheduleSlot> slotRows = new LinkedHashMap<>();
         for (SlotSpec spec : specs) {
@@ -635,7 +658,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
 
         List<Lesson> lessons = new ArrayList<>();
-        for (Map.Entry<LocalDate, SlotSpec> occurrence : expandOccurrences(form, specs, tutoringClass)) {
+        for (Map.Entry<LocalDate, SlotSpec> occurrence : occurrences) {
             Lesson lesson = new Lesson();
             lesson.setTutoringClass(tutoringClass);
             lesson.setSlot(slotRows.get(occurrence.getValue()));
@@ -653,6 +676,45 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             lesson.setSequenceNo(seq++);
         }
         lessonRepository.saveAll(lessons);
+    }
+
+    /**
+     * Chặn nhận lớp khi buổi mới trùng giờ với buổi đã có. Một người không thể ở hai lớp cùng lúc,
+     * nên xét cả lịch của phụ huynh (các lớp họ tạo) lẫn lịch của gia sư (các lớp họ dạy).
+     */
+    private void requireNoScheduleConflict(
+            TutoringClass tutoringClass, Tutor tutor, List<Map.Entry<LocalDate, SlotSpec>> occurrences) {
+        Long classId = tutoringClass.getClassId();
+        // Gộp buổi của phụ huynh và của gia sư; loại buổi của chính lớp đang xét (thường chưa có).
+        Map<Long, Lesson> existing = new LinkedHashMap<>();
+        for (Lesson lesson : lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(
+                tutoringClass.getCreator().getUserId())) {
+            existing.put(lesson.getLessonId(), lesson);
+        }
+        for (Lesson lesson :
+                lessonRepository.findByTutor_TutorIdOrderByLessonDateAscSequenceNoAsc(tutor.getTutorId())) {
+            existing.put(lesson.getLessonId(), lesson);
+        }
+
+        for (Map.Entry<LocalDate, SlotSpec> occurrence : occurrences) {
+            LocalDate date = occurrence.getKey();
+            SlotSpec spec = occurrence.getValue();
+            for (Lesson lesson : existing.values()) {
+                if (lesson.getTutoringClass().getClassId().equals(classId)
+                        || !date.equals(lesson.getLessonDate())) {
+                    continue;
+                }
+                LocalTime otherStart = lesson.getSlot().getStartTime();
+                LocalTime otherEnd = lesson.getSlot().getEndTime();
+                // Hai khoảng [start, end) giao nhau khi start < otherEnd và otherStart < end.
+                if (spec.start().isBefore(otherEnd) && otherStart.isBefore(spec.end())) {
+                    throw new IllegalArgumentException(
+                            "Lịch bị trùng với lớp \"" + lesson.getTutoringClass().getTitle() + "\" vào "
+                                    + date + " (" + otherStart + "–" + otherEnd
+                                    + "). Vui lòng điều chỉnh lịch trước khi nhận lớp.");
+                }
+            }
+        }
     }
 
     /** Một khung học lặp lại: thứ + giờ + môn. */
