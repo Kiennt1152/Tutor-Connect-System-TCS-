@@ -129,6 +129,27 @@ export interface ExecuteSettlementApiRequest {
   reason: string;
 }
 
+export interface ExecuteRefundApiRequest {
+  escrowId: number;
+  releaseToBeneficiary: number;
+  refundToPayer: number;
+  reason: string;
+}
+
+export interface RefundExecutionApiResponse {
+  refundId: number;
+  escrowId: number;
+  escrowStatus: EscrowStatus;
+  refundStatus: RefundRequestStatus;
+  escrowAmount: number;
+  releaseToBeneficiary: number;
+  refundToPayer: number;
+  reason: string;
+  requestedAt: string;
+  processedAt: string | null;
+  message: string;
+}
+
 export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'LICENSE';
 
 export interface VerificationDocumentApiResponse {
@@ -168,6 +189,7 @@ export type EscrowStatus = 'PENDING' | 'FUNDED' | 'RELEASED' | 'REFUNDED' | 'ON_
 export type PaymentTransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'REFUND' | 'ESCROW_DEPOSIT' | 'ESCROW_RELEASE';
 export type PaymentTransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
 export type ClassTerminationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+export type RefundRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 export type TutoringClassStatus =
   | 'DRAFT'
   | 'OPEN'
@@ -246,6 +268,17 @@ export interface TerminationReviewApiResponse {
   processedAt: string | null;
 }
 
+export interface RefundReviewApiResponse {
+  refundId: number | null;
+  status: RefundRequestStatus | null;
+  amount: number | null;
+  reason: string | null;
+  requestedByUserId: number | null;
+  requestedByEmail: string | null;
+  requestedAt: string | null;
+  processedAt: string | null;
+}
+
 export interface AdminDisputeReviewApiResponse {
   disputeId: number;
   disputeStatus: DisputeStatus;
@@ -265,6 +298,7 @@ export interface AdminDisputeReviewApiResponse {
   reportCreatedAt: string | null;
   reportUpdatedAt: string | null;
   escrow: EscrowReviewApiResponse | null;
+  latestRefundRequest: RefundReviewApiResponse | null;
   tutoringClass: ClassReviewApiResponse | null;
   terminationRequest: TerminationReviewApiResponse | null;
 }

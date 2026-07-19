@@ -13,7 +13,6 @@ import com.tcs.exception.ForbiddenException;
 import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
-import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
@@ -29,6 +28,7 @@ import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
 import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
@@ -59,7 +59,6 @@ import java.util.Optional;
 import org.springframework.data.domain.Sort;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -83,6 +82,9 @@ class DisputeServiceImplTest {
 
     @Mock
     private EscrowTransactionRepository escrowTransactionRepository;
+
+    @Mock
+    private RefundRequestRepository refundRequestRepository;
 
     @Mock
     private TutoringClassRepository tutoringClassRepository;
@@ -350,7 +352,7 @@ class DisputeServiceImplTest {
     }
 
     @Test
-    void resolveDisputeWithTerminationRequestTerminatesContractAndReleasesEscrow() {
+    void resolveDisputeWithTerminationRequestApprovesTerminationAndTerminatesContract() {
         User reporter = user(USER_ID, "reporter@tcs.com");
         User tutorUser = user(202L, "tutor@tcs.com");
         User creator = user(303L, "creator@tcs.com");
@@ -378,13 +380,8 @@ class DisputeServiceImplTest {
 
         disputeService.resolveDispute(31L, request);
 
-        ArgumentCaptor<ReleaseInstruction> instructionCaptor = ArgumentCaptor.forClass(ReleaseInstruction.class);
-        verify(escrowService).apply(instructionCaptor.capture());
-        ReleaseInstruction instruction = instructionCaptor.getValue();
-        assertEquals(11L, instruction.escrowId());
-        assertEquals(new BigDecimal("100000.00"), instruction.releaseToBeneficiary());
-        assertEquals(BigDecimal.ZERO, instruction.refundToPayer());
-        assertEquals(ClassTerminationStatus.COMPLETED, termination.getStatus());
+        verify(escrowService, never()).apply(any());
+        assertEquals(ClassTerminationStatus.APPROVED, termination.getStatus());
         assertNotNull(termination.getProcessedAt());
         assertEquals(ClassAssignmentStatus.TERMINATED, assignment.getStatus());
         assertEquals(ContractStatus.TERMINATED, contract.getStatus());

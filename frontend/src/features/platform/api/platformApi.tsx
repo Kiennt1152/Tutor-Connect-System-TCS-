@@ -3,6 +3,8 @@ import type {
   AdminDisputeReviewApiResponse,
   DashboardApiResponse,
   DisputeStatus,
+  ExecuteRefundApiRequest,
+  RefundExecutionApiResponse,
   ExecuteSettlementApiRequest,
   PageUserListApiResponse,
   ReportApiResponse,
@@ -65,5 +67,9 @@ export const platformApi = {
 
   executeSettlement(payload: ExecuteSettlementApiRequest) {
     return axiosClient.post<string>('/finance/settlements/execute', payload);
+  },
+
+  executeRefund(payload: ExecuteRefundApiRequest) {
+    return axiosClient.post<RefundExecutionApiResponse>('/finance/refunds/execute', payload);
   },
 };

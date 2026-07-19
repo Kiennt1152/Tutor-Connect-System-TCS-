@@ -4,6 +4,7 @@ import com.tcs.module.finance.enums.DisputeStatus;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
+import com.tcs.module.finance.enums.RefundRequestStatus;
 import com.tcs.module.marketplace.enums.ClassTerminationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.platform.enums.ReportCategory;
@@ -40,6 +41,7 @@ public class AdminDisputeReviewResponse {
     private LocalDateTime reportUpdatedAt;
 
     private EscrowReviewInfo escrow;
+    private RefundReviewInfo latestRefundRequest;
     private ClassReviewInfo tutoringClass;
     private TerminationReviewInfo terminationRequest;
 
@@ -60,6 +62,20 @@ public class AdminDisputeReviewResponse {
         private String paymentReferenceCode;
         private Long payerUserId;
         private String payerEmail;
+    }
+
+    @Getter
+    @Builder
+    public static class RefundReviewInfo {
+
+        private Long refundId;
+        private RefundRequestStatus status;
+        private BigDecimal amount;
+        private String reason;
+        private Long requestedByUserId;
+        private String requestedByEmail;
+        private LocalDateTime requestedAt;
+        private LocalDateTime processedAt;
     }
 
     @Getter

@@ -3,10 +3,12 @@ package com.tcs.module.finance.controller;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.request.DepositRequest;
 import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
+import com.tcs.module.finance.dto.request.ExecuteRefundRequest;
 import com.tcs.module.finance.dto.request.PaymentMethodRequest;
 import com.tcs.module.finance.dto.request.SepayWebhookRequest;
 import com.tcs.module.finance.dto.response.PaymentWebhookResponse;
 import com.tcs.module.finance.dto.response.PaymentMethodResponse;
+import com.tcs.module.finance.dto.response.RefundExecutionResponse;
 import com.tcs.module.finance.dto.response.TopupSessionResponse;
 import com.tcs.module.finance.dto.response.TopupStatusResponse;
 import com.tcs.module.finance.dto.response.WalletResponse;
@@ -138,5 +140,10 @@ public class FinanceController {
         return "Đã thực thi tất toán escrowId=" + instruction.escrowId()
                 + " | release=" + instruction.releaseToBeneficiary()
                 + " | refund=" + instruction.refundToPayer();
+    }
+
+    @PostMapping("/refunds/execute")
+    public RefundExecutionResponse executeRefund(@RequestBody ExecuteRefundRequest request) {
+        return settlementService.executeRefund(request);
     }
 }

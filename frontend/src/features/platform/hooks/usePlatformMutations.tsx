@@ -5,6 +5,8 @@ import { buildUpdateStatusPayload, buildReviewVerificationPayload } from '../map
 import type {
   AdminDisputeReviewApiResponse,
   DisputeStatus,
+  ExecuteRefundApiRequest,
+  RefundExecutionApiResponse,
   ExecuteSettlementApiRequest,
   UserStatus,
 } from '../types/platformTypes';
@@ -138,4 +140,33 @@ export function useExecuteSettlement() {
   }, []);
 
   return { status, errorMessage, executeSettlement, reset };
+}
+
+export function useExecuteRefund() {
+  const [status, setStatus] = useState<MutationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const executeRefund = useCallback(async (
+    payload: ExecuteRefundApiRequest,
+  ): Promise<RefundExecutionApiResponse | null> => {
+    setStatus('loading');
+    setErrorMessage(null);
+    try {
+      const response = await platformApi.executeRefund(payload);
+      setStatus('success');
+      return response.data;
+    } catch (error) {
+      console.error('Lỗi hoàn tiền escrow:', error);
+      setErrorMessage(getApiErrorMessage(error, 'Không thể hoàn tiền escrow.'));
+      setStatus('error');
+      return null;
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setStatus('idle');
+    setErrorMessage(null);
+  }, []);
+
+  return { status, errorMessage, executeRefund, reset };
 }

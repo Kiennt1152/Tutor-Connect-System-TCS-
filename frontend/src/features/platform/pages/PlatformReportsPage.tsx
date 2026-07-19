@@ -10,6 +10,7 @@ import type {
   DisputeReviewItem,
   DisputeStatus,
   EscrowStatus,
+  RefundRequestStatus,
   ReportStatus,
 } from '../types/platformTypes';
 import './PlatformReportsPage.css';
@@ -37,6 +38,13 @@ function escrowBadgeClass(status: EscrowStatus | null) {
   if (status === 'DISPUTED' || status === 'ON_HOLD') return 'tcs-badge tcs-badge--suspended';
   if (!status) return 'tcs-badge tcs-badge--role';
   return 'tcs-badge tcs-badge--role';
+}
+
+function refundBadgeClass(status: RefundRequestStatus | null) {
+  if (status === 'COMPLETED') return 'tcs-badge tcs-badge--active';
+  if (status === 'REJECTED') return 'tcs-badge tcs-badge--banned';
+  if (status === 'APPROVED') return 'tcs-badge tcs-badge--role';
+  return 'tcs-badge tcs-badge--suspended';
 }
 
 const formatDateTime = (value: string | null | undefined) => {
@@ -270,7 +278,7 @@ function DisputeDetail({
           <h3 className="pd-section__title">Escrow</h3>
           {detail.escrow?.escrowId && (
             <Link className="tcs-btn tcs-btn--ghost tcs-btn--sm" to={escrowReleasePath}>
-              Mở màn giải ngân
+              Tất toán/hoàn tiền
             </Link>
           )}
         </div>
@@ -282,6 +290,39 @@ function DisputeDetail({
           <InfoRow label="Người thanh toán" value={detail.escrow?.payerEmail ?? detail.escrow?.payerUserId} />
           <InfoRow label="Khóa lúc" value={formatDateTime(detail.escrow?.depositedAt)} />
         </div>
+      </section>
+
+      <section className="pd-section">
+        <h3 className="pd-section__title">Hoàn tiền</h3>
+        {detail.latestRefundRequest ? (
+          <>
+            <div className="pd-info-grid">
+              <InfoRow label="Mã yêu cầu" value={detail.latestRefundRequest.refundId ? `#${detail.latestRefundRequest.refundId}` : '—'} />
+              <div className="pd-info-row">
+                <span className="pd-info-row__label">Trạng thái</span>
+                <span className="pd-info-row__value">
+                  <span className={refundBadgeClass(detail.latestRefundRequest.status)}>
+                    {detail.latestRefundRequest.status ?? '—'}
+                  </span>
+                </span>
+              </div>
+              <InfoRow label="Số tiền hoàn" value={formatCurrency(detail.latestRefundRequest.amount)} />
+              <InfoRow label="Người xử lý" value={detail.latestRefundRequest.requestedByEmail ?? detail.latestRefundRequest.requestedByUserId} />
+              <InfoRow label="Yêu cầu lúc" value={formatDateTime(detail.latestRefundRequest.requestedAt)} />
+              <InfoRow label="Xử lý lúc" value={formatDateTime(detail.latestRefundRequest.processedAt)} />
+            </div>
+            <p className="pd-description">{detail.latestRefundRequest.reason ?? '—'}</p>
+          </>
+        ) : (
+          <div className="pd-empty-action">
+            <p className="adm-muted">Chưa có yêu cầu hoàn tiền cho escrow này.</p>
+            {detail.escrow?.escrowId && (
+              <Link className="tcs-btn tcs-btn--primary tcs-btn--sm" to={escrowReleasePath}>
+                Thực thi hoàn tiền
+              </Link>
+            )}
+          </div>
+        )}
       </section>
 
       <section className="pd-section">

@@ -278,6 +278,21 @@
   justify-content: flex-end;
 }
 
+.pd-empty-action {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-3);
+}
+
+.pd-empty-action p {
+  margin: 0;
+}
+
 .adm-alert--success {
   background: #ecfdf5;
   color: #047857;
@@ -300,7 +315,8 @@
 
 @media (max-width: 720px) {
   .pd-card-head,
-  .pd-detail__head {
+  .pd-detail__head,
+  .pd-empty-action {
     flex-direction: column;
     align-items: flex-start;
   }

@@ -79,6 +79,8 @@ public class SecurityConfig {
                                 "/api/finance/settlements/*/apply",
                                 "/api/finance/settlements/execute")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.POST, "/api/finance/refunds/execute")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
 
                         // --- Profile (specific before general) ---
                         .requestMatchers("/api/profile/children/**")

@@ -6,7 +6,6 @@ import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
-import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
@@ -15,11 +14,12 @@ import com.tcs.module.finance.dto.response.DisputeResponse;
 import com.tcs.module.finance.entity.Dispute;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
+import com.tcs.module.finance.entity.RefundRequest;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.enums.DisputeStatus;
-import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.service.DisputeService;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.identity.entity.User;
@@ -41,7 +41,6 @@ import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.security.AuthHelper;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -60,6 +59,7 @@ public class DisputeServiceImpl implements DisputeService {
     private final ReportRepository reportRepository;
     private final DisputeRepository disputeRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
+    private final RefundRequestRepository refundRequestRepository;
     private final TutoringClassRepository tutoringClassRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
     private final ClassTerminationRequestRepository classTerminationRequestRepository;
@@ -197,14 +197,14 @@ public class DisputeServiceImpl implements DisputeService {
             reportRepository.save(report);
         }
         if (nextStatus == DisputeStatus.RESOLVED) {
-            completeApprovedTermination(dispute, resolution);
+            approveRelatedTermination(dispute);
         }
 
         Dispute saved = disputeRepository.save(dispute);
         return toAdminReviewResponse(saved);
     }
 
-    private void completeApprovedTermination(Dispute dispute, String resolution) {
+    private void approveRelatedTermination(Dispute dispute) {
         EscrowTransaction escrow = dispute.getEscrowTransaction();
         ClassAssignment assignment = escrow != null ? escrow.getAssignment() : null;
         ClassTerminationRequest terminationRequest = latestTerminationRequest(assignment);
@@ -212,9 +212,7 @@ public class DisputeServiceImpl implements DisputeService {
             return;
         }
 
-        releaseEscrowForTermination(escrow, resolution);
-
-        terminationRequest.setStatus(ClassTerminationStatus.COMPLETED);
+        terminationRequest.setStatus(ClassTerminationStatus.APPROVED);
         terminationRequest.setProcessedAt(java.time.LocalDateTime.now());
         classTerminationRequestRepository.save(terminationRequest);
 
@@ -230,21 +228,6 @@ public class DisputeServiceImpl implements DisputeService {
             contract.setStatus(ContractStatus.TERMINATED);
             contractRepository.save(contract);
         }
-    }
-
-    private void releaseEscrowForTermination(EscrowTransaction escrow, String resolution) {
-        if (escrow == null || escrow.getEscrowId() == null || escrow.getAmount() == null) {
-            return;
-        }
-        if (escrow.getStatus() == EscrowStatus.RELEASED || escrow.getStatus() == EscrowStatus.REFUNDED) {
-            return;
-        }
-
-        escrowService.apply(new ReleaseInstruction(
-                escrow.getEscrowId(),
-                escrow.getAmount(),
-                BigDecimal.ZERO,
-                "Admin xác nhận chấm dứt hợp đồng: " + resolution));
     }
 
     private void validateReportInput(
@@ -495,6 +478,7 @@ public class DisputeServiceImpl implements DisputeService {
         ClassStudent classStudent = escrow != null ? escrow.getClassStudent() : null;
         TutoringClass tutoringClass = resolveTutoringClass(report, assignment, classStudent);
         ClassTerminationRequest terminationRequest = latestTerminationRequest(assignment);
+        RefundRequest latestRefundRequest = latestRefundRequest(escrow);
         User reporter = report != null ? report.getReporter() : null;
 
         return AdminDisputeReviewResponse.builder()
@@ -516,6 +500,7 @@ public class DisputeServiceImpl implements DisputeService {
                 .reportCreatedAt(report != null ? report.getCreatedAt() : null)
                 .reportUpdatedAt(report != null ? report.getUpdatedAt() : null)
                 .escrow(toEscrowReviewInfo(escrow, assignment, classStudent))
+                .latestRefundRequest(toRefundReviewInfo(latestRefundRequest))
                 .tutoringClass(toClassReviewInfo(tutoringClass, assignment, classStudent))
                 .terminationRequest(toTerminationReviewInfo(terminationRequest))
                 .build();
@@ -597,6 +582,23 @@ public class DisputeServiceImpl implements DisputeService {
                 .build();
     }
 
+    private AdminDisputeReviewResponse.RefundReviewInfo toRefundReviewInfo(RefundRequest request) {
+        if (request == null) {
+            return null;
+        }
+        User requestedBy = request.getRequestedBy();
+        return AdminDisputeReviewResponse.RefundReviewInfo.builder()
+                .refundId(request.getRefundId())
+                .status(request.getStatus())
+                .amount(request.getAmount())
+                .reason(request.getReason())
+                .requestedByUserId(requestedBy != null ? requestedBy.getUserId() : null)
+                .requestedByEmail(requestedBy != null ? requestedBy.getEmail() : null)
+                .requestedAt(request.getRequestedAt())
+                .processedAt(request.getProcessedAt())
+                .build();
+    }
+
     private TutoringClass resolveTutoringClass(
             Report report,
             ClassAssignment assignment,
@@ -623,6 +625,15 @@ public class DisputeServiceImpl implements DisputeService {
         }
         return classTerminationRequestRepository
                 .findFirstByAssignment_AssignmentIdOrderByCreatedAtDesc(assignment.getAssignmentId())
+                .orElse(null);
+    }
+
+    private RefundRequest latestRefundRequest(EscrowTransaction escrow) {
+        if (escrow == null || escrow.getEscrowId() == null) {
+            return null;
+        }
+        return refundRequestRepository
+                .findFirstByEscrowTransaction_EscrowIdOrderByRequestedAtDesc(escrow.getEscrowId())
                 .orElse(null);
     }
 
