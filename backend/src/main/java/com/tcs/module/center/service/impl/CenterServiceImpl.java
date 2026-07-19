@@ -656,6 +656,12 @@ public class CenterServiceImpl implements CenterService {
         if (request.getRecurringType() == null) {
             throw new IllegalArgumentException("Kiểu lặp lịch là bắt buộc");
         }
+        // BR-12: lớp trung tâm chỉ nhận lịch lặp Hằng ngày hoặc Hằng tuần; không cho ONCE
+        // (chặn ở service để caller gọi API trực tiếp cũng không lách được, không chỉ dựa vào UI).
+        if (request.getRecurringType() != RecurringType.DAILY
+                && request.getRecurringType() != RecurringType.WEEKLY) {
+            throw new IllegalArgumentException("Kiểu lặp lịch chỉ được là Hằng ngày hoặc Hằng tuần");
+        }
         // BR-04: học phí là số dương.
         if (request.getTuitionFee() == null || request.getTuitionFee().signum() <= 0) {
             throw new IllegalArgumentException("Học phí phải là số dương");
