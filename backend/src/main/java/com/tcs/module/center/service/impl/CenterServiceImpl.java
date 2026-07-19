@@ -921,17 +921,24 @@ public class CenterServiceImpl implements CenterService {
         });
     }
 
+    // Tìm-hoặc-tạo địa điểm: khớp theo (tỉnh + phường + địa chỉ cụ thể), chỉ tạo mới khi chưa có
+    // (UC14: match/free-text catalog rồi mới tạo mới — tránh sinh Location trùng lặp mỗi lần lưu lớp).
     private Location resolveOrCreateLocation(String provinceName, String wardName, String addressDetail) {
-        String province = provinceName.trim();
         String ward = wardName.trim();
         String detail = addressDetail.trim();
         // Mô hình 2 cấp: address_line lưu địa chỉ cụ thể; ward_name/province lưu cấp hành chính.
-        Location loc = new Location();
-        loc.setAddressLine(detail);
-        loc.setWardName(ward);
-        loc.setDistrictName(null);
-        loc.setProvince(resolveOrCreateProvince(province));
-        return locationRepository.save(loc);
+        Province province = resolveOrCreateProvince(provinceName.trim());
+        return locationRepository
+                .findFirstByProvince_ProvinceIdAndWardNameIgnoreCaseAndAddressLineIgnoreCase(
+                        province.getProvinceId(), ward, detail)
+                .orElseGet(() -> {
+                    Location loc = new Location();
+                    loc.setAddressLine(detail);
+                    loc.setWardName(ward);
+                    loc.setDistrictName(null);
+                    loc.setProvince(province);
+                    return locationRepository.save(loc);
+                });
     }
 
     private Province resolveOrCreateProvince(String name) {
