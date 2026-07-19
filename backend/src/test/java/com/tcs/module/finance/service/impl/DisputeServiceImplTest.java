@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.tcs.exception.BusinessException;
+import com.tcs.exception.ForbiddenException;
 import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
@@ -106,7 +107,16 @@ class DisputeServiceImplTest {
         User reporter = new User();
         reporter.setUserId(USER_ID);
 
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setClassId(99L);
+
+        ClassStudent classStudent = new ClassStudent();
+        classStudent.setClassStudentId(12L);
+        classStudent.setTutoringClass(tutoringClass);
+        classStudent.setEnrolledByUser(reporter);
+
         EscrowTransaction escrow = escrow(11L, EscrowStatus.FUNDED);
+        escrow.setClassStudent(classStudent);
         Report savedReport = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
         Dispute savedDispute = dispute(savedReport, escrow, 31L, DisputeStatus.OPEN);
 
@@ -148,6 +158,7 @@ class DisputeServiceImplTest {
         ClassStudent classStudent = new ClassStudent();
         classStudent.setClassStudentId(12L);
         classStudent.setTutoringClass(tutoringClass);
+        classStudent.setEnrolledByUser(reporter);
 
         EscrowTransaction escrow = escrow(11L, EscrowStatus.FUNDED);
         escrow.setClassStudent(classStudent);
@@ -190,6 +201,39 @@ class DisputeServiceImplTest {
         request.setDescription("Test");
 
         assertThrows(IllegalArgumentException.class, () -> disputeService.createDispute(request));
+        verify(reportRepository, never()).save(any());
+        verify(escrowService, never()).holdForDispute(any(), any());
+    }
+
+    @Test
+    void createDisputeRejectsEscrowThatDoesNotBelongToReporter() {
+        User reporter = user(USER_ID, "reporter@tcs.com");
+        User payer = user(101L, "payer@tcs.com");
+        User otherStudentOwner = user(202L, "owner@tcs.com");
+
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setClassId(99L);
+        ClassStudent classStudent = new ClassStudent();
+        classStudent.setClassStudentId(12L);
+        classStudent.setTutoringClass(tutoringClass);
+        classStudent.setEnrolledByUser(otherStudentOwner);
+
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.FUNDED);
+        escrow.setPayment(payment(55L, payer));
+        escrow.setClassStudent(classStudent);
+
+        CreateDisputeRequest request = new CreateDisputeRequest();
+        request.setTargetType(ReportTargetType.CLASS);
+        request.setTargetId(99L);
+        request.setCategory(ReportCategory.FRAUD);
+        request.setDescription("Có gian lận");
+        request.setEscrowId(11L);
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(reporter));
+        when(escrowTransactionRepository.findById(11L)).thenReturn(Optional.of(escrow));
+
+        assertThrows(ForbiddenException.class, () -> disputeService.createDispute(request));
         verify(reportRepository, never()).save(any());
         verify(escrowService, never()).holdForDispute(any(), any());
     }

@@ -1,6 +1,7 @@
 package com.tcs.module.finance.service.impl;
 
 import com.tcs.exception.BusinessException;
+import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
@@ -73,13 +74,24 @@ public class DisputeServiceImpl implements DisputeService {
         }
         validateReportInput(request.getTargetType(), request.getTargetId(), request.getCategory(), request.getDescription());
 
+        Long reportClassId = request.getTargetType() == ReportTargetType.CLASS ? request.getTargetId() : null;
+        validateEscrowSelector(
+                request.getEscrowId(),
+                request.getAssignmentId(),
+                request.getClassStudentId(),
+                reportClassId);
+
+        User reporter = requireCurrentUser();
         EscrowTransaction escrow = resolveEscrow(
                 request.getEscrowId(),
                 request.getAssignmentId(),
                 request.getClassStudentId(),
-                request.getTargetType() == ReportTargetType.CLASS ? request.getTargetId() : null);
+                reportClassId,
+                reporter.getUserId());
+        requireEscrowReportAccess(escrow, reporter.getUserId(), request.getTargetType(), request.getTargetId(), reportClassId);
 
         Report report = createReport(
+                reporter,
                 request.getTargetType(),
                 request.getTargetId(),
                 request.getCategory(),
@@ -103,13 +115,22 @@ public class DisputeServiceImpl implements DisputeService {
             throw new ResourceNotFoundException("Không tìm thấy lớp học");
         }
 
+        User reporter = requireCurrentUser();
         EscrowTransaction escrow = resolveEscrow(
                 request.getEscrowId(),
                 request.getAssignmentId(),
                 request.getClassStudentId(),
+                request.getClassId(),
+                reporter.getUserId());
+        requireEscrowReportAccess(
+                escrow,
+                reporter.getUserId(),
+                ReportTargetType.CLASS,
+                request.getClassId(),
                 request.getClassId());
 
         Report report = createReport(
+                reporter,
                 ReportTargetType.CLASS,
                 request.getClassId(),
                 request.getCategory(),
@@ -254,11 +275,9 @@ public class DisputeServiceImpl implements DisputeService {
             Long escrowId,
             Long assignmentId,
             Long classStudentId,
-            Long classId) {
-        int selectorCount = countPresent(escrowId, assignmentId, classStudentId);
-        if (selectorCount > 1) {
-            throw new IllegalArgumentException("Chỉ được chọn một trong escrowId, assignmentId hoặc classStudentId");
-        }
+            Long classId,
+            Long reporterUserId) {
+        validateEscrowSelector(escrowId, assignmentId, classStudentId, classId);
 
         if (escrowId != null) {
             return escrowTransactionRepository.findById(escrowId)
@@ -273,12 +292,26 @@ public class DisputeServiceImpl implements DisputeService {
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy escrow của ghi danh"));
         }
         if (classId != null) {
-            return resolveSingleEscrowForClass(classId);
+            return resolveSingleEscrowForClass(classId, reporterUserId);
         }
         throw new IllegalArgumentException("Cần cung cấp escrowId, assignmentId hoặc classStudentId");
     }
 
-    private EscrowTransaction resolveSingleEscrowForClass(Long classId) {
+    private void validateEscrowSelector(
+            Long escrowId,
+            Long assignmentId,
+            Long classStudentId,
+            Long classId) {
+        int selectorCount = countPresent(escrowId, assignmentId, classStudentId);
+        if (selectorCount > 1) {
+            throw new IllegalArgumentException("Chỉ được chọn một trong escrowId, assignmentId hoặc classStudentId");
+        }
+        if (selectorCount == 0 && classId == null) {
+            throw new IllegalArgumentException("Cần cung cấp escrowId, assignmentId hoặc classStudentId");
+        }
+    }
+
+    private EscrowTransaction resolveSingleEscrowForClass(Long classId, Long reporterUserId) {
         List<EscrowTransaction> candidates = new ArrayList<>();
         candidates.addAll(escrowTransactionRepository.findByAssignment_Application_TutoringClass_ClassId(classId));
         candidates.addAll(escrowTransactionRepository.findByClassStudent_TutoringClass_ClassId(classId));
@@ -299,21 +332,26 @@ public class DisputeServiceImpl implements DisputeService {
         if (distinct.isEmpty()) {
             throw new ResourceNotFoundException("Không tìm thấy escrow của lớp học");
         }
-        if (distinct.size() > 1) {
+
+        List<EscrowTransaction> accessible = distinct.stream()
+                .filter(escrow -> isEscrowParticipant(escrow, reporterUserId))
+                .toList();
+        if (accessible.isEmpty()) {
+            throw new ForbiddenException("Bạn không có quyền báo cáo lớp học này");
+        }
+        if (accessible.size() > 1) {
             throw new BusinessException("Lớp học có nhiều escrow, vui lòng truyền escrowId hoặc classStudentId cụ thể");
         }
-        return distinct.get(0);
+        return accessible.get(0);
     }
 
     private Report createReport(
+            User reporter,
             ReportTargetType targetType,
             Long targetId,
             ReportCategory category,
             String description,
             String evidenceUrls) {
-        User reporter = userRepository.findById(authHelper.currentUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
-
         Report report = new Report();
         report.setReporter(reporter);
         report.setTargetType(targetType);
@@ -322,6 +360,103 @@ public class DisputeServiceImpl implements DisputeService {
         report.setDescription(description.trim());
         report.setEvidenceUrls(StringUtils.hasText(evidenceUrls) ? evidenceUrls.trim() : null);
         return reportRepository.save(report);
+    }
+
+    private User requireCurrentUser() {
+        return userRepository.findById(authHelper.currentUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+    }
+
+    private void requireEscrowReportAccess(
+            EscrowTransaction escrow,
+            Long reporterUserId,
+            ReportTargetType targetType,
+            Long targetId,
+            Long classId) {
+        if (!isEscrowParticipant(escrow, reporterUserId)) {
+            throw new ForbiddenException("Bạn không có quyền báo cáo giao dịch escrow này");
+        }
+        if (classId != null && !escrowBelongsToClass(escrow, classId)) {
+            throw new ForbiddenException("Escrow không thuộc lớp học này");
+        }
+        if (targetType == ReportTargetType.USER && !isEscrowParticipant(escrow, targetId)) {
+            throw new ForbiddenException("Người bị báo cáo không thuộc lớp/giao dịch này");
+        }
+    }
+
+    private boolean escrowBelongsToClass(EscrowTransaction escrow, Long classId) {
+        ClassAssignment assignment = escrow.getAssignment();
+        if (assignment != null
+                && assignment.getApplication() != null
+                && assignment.getApplication().getTutoringClass() != null
+                && Objects.equals(assignment.getApplication().getTutoringClass().getClassId(), classId)) {
+            return true;
+        }
+
+        ClassStudent classStudent = escrow.getClassStudent();
+        return classStudent != null
+                && classStudent.getTutoringClass() != null
+                && Objects.equals(classStudent.getTutoringClass().getClassId(), classId);
+    }
+
+    private boolean isEscrowParticipant(EscrowTransaction escrow, Long userId) {
+        if (escrow == null || userId == null) {
+            return false;
+        }
+
+        if (isPayer(escrow, userId)) {
+            return true;
+        }
+
+        ClassAssignment assignment = escrow.getAssignment();
+        if (assignment != null) {
+            if (assignment.getTutor() != null
+                    && assignment.getTutor().getUser() != null
+                    && Objects.equals(assignment.getTutor().getUser().getUserId(), userId)) {
+                return true;
+            }
+            if (assignment.getApplication() != null
+                    && isClassParticipant(assignment.getApplication().getTutoringClass(), userId)) {
+                return true;
+            }
+        }
+
+        ClassStudent classStudent = escrow.getClassStudent();
+        if (classStudent != null) {
+            if (classStudent.getEnrolledByUser() != null
+                    && Objects.equals(classStudent.getEnrolledByUser().getUserId(), userId)) {
+                return true;
+            }
+            return isClassParticipant(classStudent.getTutoringClass(), userId);
+        }
+
+        return false;
+    }
+
+    private boolean isPayer(EscrowTransaction escrow, Long userId) {
+        PaymentTransaction payment = escrow.getPayment();
+        Wallet payerWallet = payment != null ? payment.getWallet() : null;
+        if (payerWallet == null) {
+            return false;
+        }
+        if (payerWallet.getUser() != null
+                && Objects.equals(payerWallet.getUser().getUserId(), userId)) {
+            return true;
+        }
+        return payerWallet.getUser() == null && Objects.equals(payerWallet.getWalletId(), userId);
+    }
+
+    private boolean isClassParticipant(TutoringClass tutoringClass, Long userId) {
+        if (tutoringClass == null || userId == null) {
+            return false;
+        }
+        if (tutoringClass.getCreator() != null
+                && Objects.equals(tutoringClass.getCreator().getUserId(), userId)) {
+            return true;
+        }
+        return tutoringClass.getCenter() != null
+                && tutoringClass.getCenter().getUser() != null
+                && Objects.equals(tutoringClass.getCenter().getUser().getUserId(), userId);
     }
 
     private DisputeResponse createAndHoldDispute(Report report, EscrowTransaction escrow, String reason) {
