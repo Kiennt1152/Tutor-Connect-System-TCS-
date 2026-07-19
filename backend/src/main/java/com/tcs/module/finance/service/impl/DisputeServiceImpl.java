@@ -6,6 +6,7 @@ import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
+import com.tcs.module.finance.dto.request.AppealDisputeRequest;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
@@ -17,6 +18,7 @@ import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.entity.RefundRequest;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.enums.DisputeStatus;
+import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.RefundRequestRepository;
@@ -41,6 +43,7 @@ import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.security.AuthHelper;
+import com.tcs.security.UserPrincipal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -204,6 +207,50 @@ public class DisputeServiceImpl implements DisputeService {
         return toAdminReviewResponse(saved);
     }
 
+    @Override
+    @Transactional
+    public AdminDisputeReviewResponse appealDispute(Long disputeId, AppealDisputeRequest request) {
+        UserPrincipal principal = authHelper.requireRole(
+                UserRole.CLIENT,
+                UserRole.TUTOR,
+                UserRole.TUTOR_CENTER,
+                UserRole.PLATFORM_ADMIN);
+        if (disputeId == null) {
+            throw new IllegalArgumentException("disputeId là bắt buộc");
+        }
+        if (request == null) {
+            throw new IllegalArgumentException("Thiếu thông tin khiếu nại/mở lại");
+        }
+
+        String reason = normalizeAppealReason(request.getReason());
+        Dispute dispute = disputeRepository.findById(disputeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tranh chấp"));
+        if (dispute.getStatus() != DisputeStatus.RESOLVED) {
+            throw new BusinessException("Chỉ tranh chấp đã xử lý mới có thể khiếu nại/mở lại");
+        }
+
+        EscrowTransaction escrow = dispute.getEscrowTransaction();
+        if (principal.getRole() != UserRole.PLATFORM_ADMIN && !isEscrowParticipant(escrow, principal.getUserId())) {
+            throw new ForbiddenException("Bạn không có quyền khiếu nại tranh chấp này");
+        }
+        ensureEscrowCanReopen(escrow);
+
+        EscrowTransaction heldEscrow = escrowService.holdForDispute(escrow.getEscrowId(), reason);
+        dispute.setEscrowTransaction(heldEscrow);
+        dispute.setStatus(DisputeStatus.UNDER_INVESTIGATION);
+        dispute.setResolution(buildAppealResolution(dispute.getResolution(), reason));
+
+        Report report = dispute.getReport();
+        if (report != null) {
+            report.setStatus(ReportStatus.PENDING);
+            report.setEvidenceUrls(appendEvidenceUrls(report.getEvidenceUrls(), request.getEvidenceUrls()));
+            reportRepository.save(report);
+        }
+
+        Dispute saved = disputeRepository.save(dispute);
+        return toAdminReviewResponse(saved);
+    }
+
     private void approveRelatedTermination(Dispute dispute) {
         EscrowTransaction escrow = dispute.getEscrowTransaction();
         ClassAssignment assignment = escrow != null ? escrow.getAssignment() : null;
@@ -252,6 +299,45 @@ public class DisputeServiceImpl implements DisputeService {
             throw new IllegalArgumentException("Nội dung quyết định phải có ít nhất 10 ký tự");
         }
         return trimmed;
+    }
+
+    private String normalizeAppealReason(String reason) {
+        if (!StringUtils.hasText(reason)) {
+            throw new IllegalArgumentException("Nội dung khiếu nại là bắt buộc");
+        }
+        String trimmed = reason.trim();
+        if (trimmed.length() < 10) {
+            throw new IllegalArgumentException("Nội dung khiếu nại phải có ít nhất 10 ký tự");
+        }
+        return trimmed;
+    }
+
+    private void ensureEscrowCanReopen(EscrowTransaction escrow) {
+        if (escrow == null || escrow.getEscrowId() == null) {
+            throw new BusinessException("Tranh chấp không có escrow để mở lại");
+        }
+        if (escrow.getStatus() == EscrowStatus.RELEASED || escrow.getStatus() == EscrowStatus.REFUNDED) {
+            throw new BusinessException("Escrow đã tất toán, không thể mở lại tranh chấp tự động");
+        }
+    }
+
+    private String buildAppealResolution(String currentResolution, String reason) {
+        String appealNote = "Mở lại tranh chấp: " + reason;
+        if (!StringUtils.hasText(currentResolution)) {
+            return appealNote;
+        }
+        return currentResolution.trim() + "\n\n" + appealNote;
+    }
+
+    private String appendEvidenceUrls(String currentEvidenceUrls, String newEvidenceUrls) {
+        if (!StringUtils.hasText(newEvidenceUrls)) {
+            return currentEvidenceUrls;
+        }
+        String trimmedNewEvidence = newEvidenceUrls.trim();
+        if (!StringUtils.hasText(currentEvidenceUrls)) {
+            return trimmedNewEvidence;
+        }
+        return currentEvidenceUrls.trim() + "\n" + trimmedNewEvidence;
     }
 
     private EscrowTransaction resolveEscrow(

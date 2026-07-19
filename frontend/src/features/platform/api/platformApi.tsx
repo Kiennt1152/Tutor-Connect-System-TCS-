@@ -1,5 +1,6 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  AppealDisputeApiRequest,
   AdminDisputeReviewApiResponse,
   DashboardApiResponse,
   DisputeStatus,
@@ -63,6 +64,10 @@ export const platformApi = {
 
   resolveDispute(disputeId: string, payload: ResolveDisputeApiRequest) {
     return axiosClient.post<AdminDisputeReviewApiResponse>(`/disputes/${disputeId}/resolve`, payload);
+  },
+
+  appealDispute(disputeId: string, payload: AppealDisputeApiRequest) {
+    return axiosClient.post<AdminDisputeReviewApiResponse>(`/disputes/${disputeId}/appeal`, payload);
   },
 
   executeSettlement(payload: ExecuteSettlementApiRequest) {

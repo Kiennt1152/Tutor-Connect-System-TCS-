@@ -1,5 +1,6 @@
 package com.tcs.module.finance.service;
 
+import com.tcs.module.finance.dto.request.AppealDisputeRequest;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
@@ -19,4 +20,6 @@ public interface DisputeService {
     AdminDisputeReviewResponse getDisputeForAdmin(Long disputeId);
 
     AdminDisputeReviewResponse resolveDispute(Long disputeId, ResolveDisputeRequest request);
+
+    AdminDisputeReviewResponse appealDispute(Long disputeId, AppealDisputeRequest request);
 }

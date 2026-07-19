@@ -268,9 +268,26 @@
   box-shadow: 0 0 0 3px var(--color-primary-light);
 }
 
+.pd-textarea--compact {
+  min-height: 84px;
+}
+
 .pd-resolution-alert {
   margin-top: var(--space-sm);
   margin-bottom: 0;
+}
+
+.pd-resolved-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.pd-appeal-form {
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-3);
 }
 
 .pd-resolution-actions {

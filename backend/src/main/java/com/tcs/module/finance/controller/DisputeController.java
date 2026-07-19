@@ -1,5 +1,6 @@
 package com.tcs.module.finance.controller;
 
+import com.tcs.module.finance.dto.request.AppealDisputeRequest;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
@@ -39,6 +40,13 @@ public class DisputeController {
             @PathVariable Long disputeId,
             @RequestBody ResolveDisputeRequest request) {
         return disputeService.resolveDispute(disputeId, request);
+    }
+
+    @PostMapping("/api/disputes/{disputeId}/appeal")
+    public AdminDisputeReviewResponse appealDispute(
+            @PathVariable Long disputeId,
+            @RequestBody AppealDisputeRequest request) {
+        return disputeService.appealDispute(disputeId, request);
     }
 
     @PostMapping("/api/disputes")

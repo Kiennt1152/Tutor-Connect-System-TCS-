@@ -3,6 +3,7 @@ import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { platformApi } from '../api/platformApi';
 import { buildUpdateStatusPayload, buildReviewVerificationPayload } from '../mappers/platformMapper';
 import type {
+  AppealDisputeApiRequest,
   AdminDisputeReviewApiResponse,
   DisputeStatus,
   ExecuteRefundApiRequest,
@@ -113,6 +114,42 @@ export function useResolveDispute() {
   }, []);
 
   return { status, errorMessage, resolveDispute, reset };
+}
+
+export function useAppealDispute() {
+  const [status, setStatus] = useState<MutationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const appealDispute = useCallback(
+    async (
+      disputeId: string,
+      payload: AppealDisputeApiRequest,
+    ): Promise<AdminDisputeReviewApiResponse | null> => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        const response = await platformApi.appealDispute(disputeId, {
+          reason: payload.reason.trim(),
+          evidenceUrls: payload.evidenceUrls?.trim() || undefined,
+        });
+        setStatus('success');
+        return response.data;
+      } catch (error) {
+        console.error('Lỗi mở lại tranh chấp:', error);
+        setErrorMessage(getApiErrorMessage(error, 'Không thể mở lại tranh chấp.'));
+        setStatus('error');
+        return null;
+      }
+    },
+    [],
+  );
+
+  const reset = useCallback(() => {
+    setStatus('idle');
+    setErrorMessage(null);
+  }, []);
+
+  return { status, errorMessage, appealDispute, reset };
 }
 
 export function useExecuteSettlement() {

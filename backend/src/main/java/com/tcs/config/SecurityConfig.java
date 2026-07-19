@@ -113,6 +113,8 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.POST, "/api/disputes/*/resolve")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.POST, "/api/disputes/*/appeal")
+                        .hasAnyRole(RbacConstants.BUSINESS_ROLES)
                         .requestMatchers(HttpMethod.POST, "/api/disputes", "/api/class-issues")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
                         .requestMatchers("/api/disputes/**", "/api/class-issues/**")

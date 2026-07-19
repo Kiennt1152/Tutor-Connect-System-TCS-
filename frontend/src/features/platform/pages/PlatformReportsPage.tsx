@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { useDisputeReviewList } from '../hooks/useDisputeReviewList';
-import { useResolveDispute } from '../hooks/usePlatformMutations';
+import { useAppealDispute, useResolveDispute } from '../hooks/usePlatformMutations';
 import { useReportList } from '../hooks/useReportList';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import type {
@@ -45,6 +45,10 @@ function refundBadgeClass(status: RefundRequestStatus | null) {
   if (status === 'REJECTED') return 'tcs-badge tcs-badge--banned';
   if (status === 'APPROVED') return 'tcs-badge tcs-badge--role';
   return 'tcs-badge tcs-badge--suspended';
+}
+
+function isEscrowSettled(status: EscrowStatus | null | undefined) {
+  return status === 'RELEASED' || status === 'REFUNDED';
 }
 
 const formatDateTime = (value: string | null | undefined) => {
@@ -106,8 +110,17 @@ function DisputeDetail({
     resolveDispute,
     reset: resetResolve,
   } = useResolveDispute();
+  const {
+    status: appealStatus,
+    errorMessage: appealErrorMessage,
+    appealDispute,
+    reset: resetAppeal,
+  } = useAppealDispute();
   const [resolutionStatus, setResolutionStatus] = useState<ResolutionStatus>('UNDER_INVESTIGATION');
   const [resolutionNote, setResolutionNote] = useState('');
+  const [appealReason, setAppealReason] = useState('');
+  const [appealEvidenceUrls, setAppealEvidenceUrls] = useState('');
+  const [appealFormError, setAppealFormError] = useState('');
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
@@ -117,10 +130,14 @@ function DisputeDetail({
       detail.disputeStatus === 'OPEN' ? 'UNDER_INVESTIGATION' : detail.disputeStatus,
     );
     setResolutionNote(detail.resolution ?? '');
+    setAppealReason('');
+    setAppealEvidenceUrls('');
+    setAppealFormError('');
     setFormError('');
     setSuccessMessage('');
     resetResolve();
-  }, [detail?.disputeId, detail?.disputeStatus, detail?.resolution, resetResolve]);
+    resetAppeal();
+  }, [detail?.disputeId, detail?.disputeStatus, detail?.resolution, resetAppeal, resetResolve]);
 
   const handleResolve = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -137,6 +154,28 @@ function DisputeDetail({
     const updated = await resolveDispute(String(detail.disputeId), resolutionStatus, trimmedResolution);
     if (updated) {
       setSuccessMessage('Đã lưu quyết định xử lý tranh chấp.');
+      onChanged();
+    }
+  };
+
+  const handleAppeal = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!detail) return;
+
+    const trimmedReason = appealReason.trim();
+    if (trimmedReason.length < 10) {
+      setAppealFormError('Vui lòng nhập nội dung mở lại ít nhất 10 ký tự.');
+      return;
+    }
+
+    setAppealFormError('');
+    setSuccessMessage('');
+    const updated = await appealDispute(String(detail.disputeId), {
+      reason: trimmedReason,
+      evidenceUrls: appealEvidenceUrls,
+    });
+    if (updated) {
+      setSuccessMessage('Đã mở lại tranh chấp để tiếp tục xem xét.');
       onChanged();
     }
   };
@@ -176,6 +215,8 @@ function DisputeDetail({
       </div>
     );
   }
+
+  const appealBlockedBySettlement = isEscrowSettled(detail.escrow?.status);
 
   return (
     <div className="pd-detail">
@@ -220,8 +261,60 @@ function DisputeDetail({
         {detail.resolution && <p className="pd-description">{detail.resolution}</p>}
 
         {detail.disputeStatus === 'RESOLVED' ? (
-          <div className="adm-alert adm-alert--info pd-resolution-alert">
-            Tranh chấp đã được chốt. Nếu cần mở lại, dùng luồng khiếu nại/mở lại.
+          <div className="pd-resolved-stack">
+            <div className="adm-alert adm-alert--info pd-resolution-alert">
+              Tranh chấp đã được chốt.
+            </div>
+
+            {appealBlockedBySettlement ? (
+              <div className="adm-alert adm-alert--error pd-resolution-alert">
+                Escrow đã tất toán nên không thể mở lại tự động.
+              </div>
+            ) : (
+              <form className="pd-resolution-form pd-appeal-form" onSubmit={handleAppeal}>
+                <label className="pd-field">
+                  <span>Nội dung mở lại</span>
+                  <textarea
+                    className="pd-textarea"
+                    rows={4}
+                    maxLength={1000}
+                    placeholder="Nhập lý do hoặc bằng chứng mới cần xem xét..."
+                    value={appealReason}
+                    disabled={appealStatus === 'loading'}
+                    onChange={(event) => setAppealReason(event.target.value)}
+                  />
+                </label>
+
+                <label className="pd-field">
+                  <span>Bằng chứng bổ sung</span>
+                  <textarea
+                    className="pd-textarea pd-textarea--compact"
+                    rows={3}
+                    maxLength={1000}
+                    placeholder="URL bằng chứng, mỗi dòng một mục"
+                    value={appealEvidenceUrls}
+                    disabled={appealStatus === 'loading'}
+                    onChange={(event) => setAppealEvidenceUrls(event.target.value)}
+                  />
+                </label>
+
+                {appealFormError && <div className="adm-alert adm-alert--error">{appealFormError}</div>}
+                {appealStatus === 'error' && appealErrorMessage && (
+                  <div className="adm-alert adm-alert--error">{appealErrorMessage}</div>
+                )}
+                {successMessage && <div className="adm-alert adm-alert--success">{successMessage}</div>}
+
+                <div className="pd-resolution-actions">
+                  <button
+                    className="tcs-btn tcs-btn--primary"
+                    type="submit"
+                    disabled={appealStatus === 'loading'}
+                  >
+                    {appealStatus === 'loading' ? 'Đang mở lại...' : 'Mở lại tranh chấp'}
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         ) : (
           <form className="pd-resolution-form" onSubmit={handleResolve}>

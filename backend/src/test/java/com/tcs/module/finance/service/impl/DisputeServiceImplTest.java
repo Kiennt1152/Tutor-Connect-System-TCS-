@@ -13,6 +13,7 @@ import com.tcs.exception.ForbiddenException;
 import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
+import com.tcs.module.finance.dto.request.AppealDisputeRequest;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
@@ -51,6 +52,7 @@ import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.security.AuthHelper;
+import com.tcs.security.UserPrincipal;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.time.LocalDate;
@@ -441,6 +443,100 @@ class DisputeServiceImplTest {
         verify(disputeRepository, never()).findById(any());
     }
 
+    @Test
+    void appealDisputeReopensResolvedDisputeAndHoldsEscrow() {
+        User reporter = user(USER_ID, "client@tcs.com");
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.FUNDED);
+        escrow.setPayment(payment(55L, reporter));
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        report.setStatus(ReportStatus.RESOLVED);
+        report.setEvidenceUrls("https://cdn.tcs.test/old-proof.png");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.RESOLVED);
+        dispute.setResolution("Đã chốt tranh chấp ban đầu");
+        EscrowTransaction heldEscrow = escrow(11L, EscrowStatus.DISPUTED);
+        heldEscrow.setPayment(escrow.getPayment());
+
+        AppealDisputeRequest request = new AppealDisputeRequest();
+        request.setReason("Bổ sung bằng chứng mới cần admin xem lại");
+        request.setEvidenceUrls("https://cdn.tcs.test/new-proof.png");
+
+        when(authHelper.requireRole(
+                UserRole.CLIENT,
+                UserRole.TUTOR,
+                UserRole.TUTOR_CENTER,
+                UserRole.PLATFORM_ADMIN))
+                .thenReturn(principal(reporter, UserRole.CLIENT));
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(escrowService.holdForDispute(11L, "Bổ sung bằng chứng mới cần admin xem lại")).thenReturn(heldEscrow);
+        when(disputeRepository.save(dispute)).thenReturn(dispute);
+
+        AdminDisputeReviewResponse response = disputeService.appealDispute(31L, request);
+
+        assertEquals(DisputeStatus.UNDER_INVESTIGATION, response.getDisputeStatus());
+        assertEquals(ReportStatus.PENDING, response.getReportStatus());
+        assertEquals(EscrowStatus.DISPUTED, response.getEscrow().getStatus());
+        assertEquals(
+                "Đã chốt tranh chấp ban đầu\n\nMở lại tranh chấp: Bổ sung bằng chứng mới cần admin xem lại",
+                response.getResolution());
+        assertEquals(
+                "https://cdn.tcs.test/old-proof.png\nhttps://cdn.tcs.test/new-proof.png",
+                report.getEvidenceUrls());
+        verify(escrowService).holdForDispute(11L, "Bổ sung bằng chứng mới cần admin xem lại");
+        verify(reportRepository).save(report);
+        verify(disputeRepository).save(dispute);
+    }
+
+    @Test
+    void appealDisputeRejectsNonParticipant() {
+        User reporter = user(USER_ID, "client@tcs.com");
+        User otherUser = user(99L, "other@tcs.com");
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.FUNDED);
+        escrow.setPayment(payment(55L, reporter));
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.RESOLVED);
+
+        AppealDisputeRequest request = new AppealDisputeRequest();
+        request.setReason("Tôi muốn mở lại tranh chấp này");
+
+        when(authHelper.requireRole(
+                UserRole.CLIENT,
+                UserRole.TUTOR,
+                UserRole.TUTOR_CENTER,
+                UserRole.PLATFORM_ADMIN))
+                .thenReturn(principal(otherUser, UserRole.CLIENT));
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+
+        assertThrows(ForbiddenException.class, () -> disputeService.appealDispute(31L, request));
+        verify(escrowService, never()).holdForDispute(any(), any());
+        verify(disputeRepository, never()).save(any());
+        verify(reportRepository, never()).save(any());
+    }
+
+    @Test
+    void appealDisputeRejectsSettledEscrow() {
+        User reporter = user(USER_ID, "client@tcs.com");
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.RELEASED);
+        escrow.setPayment(payment(55L, reporter));
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.RESOLVED);
+
+        AppealDisputeRequest request = new AppealDisputeRequest();
+        request.setReason("Bổ sung bằng chứng sau khi tranh chấp đã chốt");
+
+        when(authHelper.requireRole(
+                UserRole.CLIENT,
+                UserRole.TUTOR,
+                UserRole.TUTOR_CENTER,
+                UserRole.PLATFORM_ADMIN))
+                .thenReturn(principal(reporter, UserRole.CLIENT));
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+
+        assertThrows(BusinessException.class, () -> disputeService.appealDispute(31L, request));
+        verify(escrowService, never()).holdForDispute(any(), any());
+        verify(disputeRepository, never()).save(any());
+        verify(reportRepository, never()).save(any());
+    }
+
     private Report report(
             Long reportId,
             User reporter,
@@ -466,6 +562,10 @@ class DisputeServiceImplTest {
         user.setUserId(userId);
         user.setEmail(email);
         return user;
+    }
+
+    private UserPrincipal principal(User user, UserRole role) {
+        return new UserPrincipal(user, role);
     }
 
     private TutoringClass tutoringClass(Long classId, User creator) {

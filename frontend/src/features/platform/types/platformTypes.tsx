@@ -122,6 +122,11 @@ export interface ResolveDisputeApiRequest {
   resolution: string;
 }
 
+export interface AppealDisputeApiRequest {
+  reason: string;
+  evidenceUrls?: string;
+}
+
 export interface ExecuteSettlementApiRequest {
   escrowId: number;
   releaseToBeneficiary: number;
