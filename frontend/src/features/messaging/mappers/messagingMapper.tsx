@@ -35,7 +35,7 @@ const PRIORITY_TONES: Record<SupportTicketPriority, 'low' | 'medium' | 'high' | 
 const STATUS_LABELS: Record<SupportTicketStatus, string> = {
   OPEN: 'Chờ xử lý',
   IN_PROGRESS: 'Đang xử lý',
-  IN_REVIEW: 'Chờ phản hồi',
+  IN_REVIEW: 'Admin đã phản hồi',
   RESOLVED: 'Đã giải quyết',
   CLOSED: 'Đã đóng',
 };
