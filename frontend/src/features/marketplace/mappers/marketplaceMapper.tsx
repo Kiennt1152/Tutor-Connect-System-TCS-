@@ -1,5 +1,2 @@
-import type { MarketplaceResponse } from '../types/marketplaceTypes';
-
-export function mapMarketplaceResponse(response: MarketplaceResponse): MarketplaceResponse {
-  return response;
-}
+// Placeholder mapper cho module Marketplace — hiện chưa dùng đến.
+export {};
