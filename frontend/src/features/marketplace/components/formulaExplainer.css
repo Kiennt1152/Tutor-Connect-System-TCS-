@@ -6,6 +6,9 @@
   overflow: hidden;
 }
 .fx[open] { border-color: #f6d9c2; }
+/* Trong popup: bỏ vỏ thẻ, nội dung tự dùng nền trắng của modal. */
+.fx--bare { background: none; border: none; border-radius: 0; }
+.fx--bare .fx__body { padding: 0; }
 .fx__summary {
   display: flex;
   align-items: baseline;

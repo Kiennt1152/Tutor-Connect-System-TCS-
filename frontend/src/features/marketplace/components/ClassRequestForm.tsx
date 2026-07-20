@@ -83,6 +83,13 @@ function toMinutes(t: string): number {
   return h * 60 + m;
 }
 
+/** Ngược của toMinutes: 570 → "09:30". */
+function minutesToTime(mins: number): string {
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
 /** Ô <input type="number"> của Chrome vẫn HIỆN chữ đã gõ trên màn hình dù value trả về rỗng,
  *  nên lọc trong onChange là quá muộn — chữ đọng lại trong ô. Chặn ngay lúc nhập. */
 function blockNonDigits(e: FormEvent<HTMLInputElement>) {
@@ -93,19 +100,25 @@ function blockNonDigits(e: FormEvent<HTMLInputElement>) {
 
 /** Mỗi buổi (thứ + Sáng/Chiều/Tối) chỉ dành cho MỘT môn.
  *  Trả về buổi → tên môn khác đã đặt trong thứ đó. */
-function takenSessions(
+function busyRangesOf(
   slots: ScheduleSlot[],
-  day: string,
-  exceptSubjectId: string,
-  nameOf: (id: string) => string,
-): Map<string, string> {
-  const out = new Map<string, string>();
-  for (const s of slots) {
-    if (s.subjectId !== exceptSubjectId && s.day === day && s.session) {
-      out.set(s.session, nameOf(s.subjectId));
-    }
-  }
-  return out;
+  index: number,
+  key: 'day' | 'date',
+  when: string,
+): { start: string; end: string }[] {
+  if (!when) return [];
+  return slots
+    .filter((o, i) => i !== index && o[key] === when && !!o.start && !!o.end)
+    .map((o) => ({ start: o.start, end: o.end }));
+}
+
+/** Buổi (Sáng/Chiều/Tối) không còn mốc giờ trống nào trong ngày → khỏi cho chọn. */
+function sessionFullyBusy(
+  session: (typeof SESSION_OPTIONS)[number],
+  busy: { start: string; end: string }[],
+): boolean {
+  const pool = buildTimeSlots(session.min, session.max).slice(0, -1);
+  return pool.every((t) => busy.some((b) => b.start <= t && t < b.end));
 }
 
 /** Nhãn thời lượng gọn: "30 phút", "1 giờ", "1 giờ 30 phút". */
@@ -316,16 +329,20 @@ export function ClassRequestForm({
           slots: prev.slots.filter((s) => !(s.subjectId === subjectId && s.day === day)),
         };
       }
-      const taken = takenSessions(prev.slots, day, subjectId, subjName);
-      // Giữ khung giờ chung của môn nếu buổi đó còn trống; không thì lấy buổi trống đầu tiên.
+      const busy = busyRangesOf(prev.slots, -1, 'day', day);
+      // Giữ khung giờ chung của môn nếu giờ đó còn trống; không thì đẩy sang khung trống gần nhất.
       const shared = prev.slots.find((s) => s.subjectId === subjectId);
       let start = shared?.start || WEEKLY_DEFAULT_START;
       let end = shared?.end || WEEKLY_DEFAULT_END;
-      if (taken.has(sessionFromStart(start))) {
-        const free = SESSION_OPTIONS.find((o) => !taken.has(o.value));
-        if (!free) return prev; // cả 3 buổi trong thứ này đã bị môn khác đặt
-        start = free.start;
-        end = free.end;
+      const overlaps = (a: string, b: string) => busy.some((r) => a < r.end && r.start < b);
+      if (overlaps(start, end)) {
+        const span = toMinutes(end) - toMinutes(start);
+        const free = buildTimeSlots('06:00', '23:30').find(
+          (t) => toMinutes(t) + span <= toMinutes('23:30') && !overlaps(t, minutesToTime(toMinutes(t) + span)),
+        );
+        if (!free) return prev; // cả ngày đã kín lịch của môn khác
+        start = free;
+        end = minutesToTime(toMinutes(free) + span);
       }
       return {
         ...prev,
@@ -379,12 +396,34 @@ export function ClassRequestForm({
   // Bỏ chọn buổi → xóa giờ luôn, tránh kẹt giờ của buổi cũ và báo lỗi khó hiểu.
   function setSlotSession(index: number, session: string) {
     const preset = SESSION_OPTIONS.find((s) => s.value === session);
-    updateSlot(
-      index,
-      preset
-        ? { session, start: preset.start, end: preset.end }
-        : { session, start: '', end: '' },
-    );
+    if (!preset) {
+      updateSlot(index, { session, start: '', end: '' });
+      return;
+    }
+    setForm((prev) => {
+      const cur = prev.slots[index];
+      const weekly = prev.scheduleMode === 'WEEKLY';
+      // Khung giờ gợi ý chỉ được điền sẵn nếu không đè lên buổi khác cùng thứ/ngày
+      // và không nằm ở quá khứ — nếu không thì để trống cho người dùng chọn từ danh sách đã lọc.
+      const blocked = prev.slots.some(
+        (o, i) =>
+          i !== index &&
+          (weekly ? !!o.day && o.day === cur.day : !!o.date && o.date === cur.date) &&
+          !!o.start &&
+          !!o.end &&
+          preset.start < o.end &&
+          o.start < preset.end,
+      );
+      const past =
+        !weekly && cur.date === new Date().toLocaleDateString('en-CA')
+          ? preset.start <= new Date().toTimeString().slice(0, 5)
+          : false;
+      const patch =
+        blocked || past
+          ? { session, start: '', end: '' }
+          : { session, start: preset.start, end: preset.end };
+      return { ...prev, slots: prev.slots.map((s, i) => (i === index ? { ...s, ...patch } : s)) };
+    });
   }
 
   const cycle =
@@ -406,6 +445,8 @@ export function ClassRequestForm({
 
   const isOffline = form.lessonMode !== 'ONLINE';
   const today = new Date().toLocaleDateString('en-CA');
+  // Giờ hiện tại "HH:MM" — dùng để chặn buổi học trong ngày hôm nay nhưng đã qua giờ.
+  const nowHm = new Date().toTimeString().slice(0, 5);
 
   // Kiểm tra từng buổi: đủ thông tin (Thứ hoặc Ngày) + ngày không quá khứ + giờ hợp lệ.
   const slotErrorSet = new Set<string>();
@@ -416,6 +457,8 @@ export function ClassRequestForm({
       slotErrorSet.add(`${nm}: có buổi chưa đủ thông tin (${isWeekly ? 'thứ' : 'ngày'} / buổi / giờ)`);
     } else if (!isWeekly && s.date < today) {
       slotErrorSet.add(`${nm}: ngày học không được ở quá khứ`);
+    } else if (!isWeekly && s.date === today && s.start <= nowHm) {
+      slotErrorSet.add(`${nm}: giờ học hôm nay đã qua (phải sau ${nowHm})`);
     } else if (s.end <= s.start) {
       slotErrorSet.add(`${nm}: giờ kết thúc phải sau giờ bắt đầu`);
     }
@@ -836,9 +879,9 @@ export function ClassRequestForm({
                               const on = form.slots.some(
                                 (s) => s.subjectId === sid && s.day === d.value,
                               );
-                              // Kín cả 3 buổi vì môn khác đã đặt hết → không cho chọn thứ này.
-                              const taken = takenSessions(form.slots, d.value, sid, subjName);
-                              const full = SESSION_OPTIONS.every((o) => taken.has(o.value));
+                              // Cả ngày không còn khung giờ trống vì môn khác đã đặt hết → khóa thứ này.
+                              const dayBusy = busyRangesOf(form.slots, -1, 'day', d.value);
+                              const full = SESSION_OPTIONS.every((o) => sessionFullyBusy(o, dayBusy));
                               return (
                                 <button
                                   key={d.value}
@@ -849,7 +892,7 @@ export function ClassRequestForm({
                                   disabled={!on && full}
                                   title={
                                     !on && full
-                                      ? `${d.label}: các môn khác đã đặt cả 3 buổi`
+                                      ? `${d.label}: các môn khác đã kín lịch cả ngày`
                                       : d.label
                                   }
                                   onClick={() => toggleWeekday(sid, d.value)}
@@ -864,10 +907,23 @@ export function ClassRequestForm({
                           // Giờ bắt đầu VÀ giờ kết thúc đều nằm trong đúng khung của buổi đã chọn:
                           // buổi Sáng (6h–12h) thì muộn nhất là kết thúc 12:00, không tràn sang chiều.
                           const sess = SESSION_OPTIONS.find((o) => o.value === slot.session);
-                          const taken = takenSessions(form.slots, slot.day, sid, subjName);
                           const pool = sess ? buildTimeSlots(sess.min, sess.max) : allTimes;
-                          const startTimes = pool.slice(0, -1); // bỏ mốc cuối để còn chỗ cho giờ kết thúc
-                          const endTimes = pool.filter((t) => !slot.start || t > slot.start);
+                          // Các buổi của môn khác trong cùng Thứ → chặn đúng khung giờ đó,
+                          // không chặn cả buổi (vẫn học chung buổi Sáng ở giờ khác được).
+                          const busy = busyRangesOf(form.slots, idx, 'day', slot.day);
+                          const startTimes = pool
+                            .slice(0, -1) // bỏ mốc cuối để còn chỗ cho giờ kết thúc
+                            .filter((t) => !busy.some((b) => b.start <= t && t < b.end));
+                          // Giờ kết thúc không được tràn qua buổi bận kế tiếp (chạm sát thì được).
+                          const nextBusyStart = busy
+                            .map((b) => b.start)
+                            .filter((s) => s >= slot.start)
+                            .sort()[0];
+                          const endTimes = pool.filter(
+                            (t) =>
+                              (!slot.start || t > slot.start) &&
+                              (!nextBusyStart || t <= nextBusyStart),
+                          );
                           // Lớp cũ có giờ kết thúc vắt ra ngoài khung → vẫn liệt kê để không mất giờ đã lưu.
                           if (slot.end && !endTimes.includes(slot.end)) {
                             endTimes.push(slot.end);
@@ -884,10 +940,10 @@ export function ClassRequestForm({
                               >
                                 {/* Không có lựa chọn rỗng: bật một thứ là luôn có buổi cụ thể. */}
                                 {SESSION_OPTIONS.map((s) => {
-                                  const owner = taken.get(s.value);
+                                  const full = sessionFullyBusy(s, busy);
                                   return (
-                                    <option key={s.value} value={s.value} disabled={!!owner}>
-                                      {owner ? `${s.label} — ${owner} đã học` : s.label}
+                                    <option key={s.value} value={s.value} disabled={full}>
+                                      {full ? `${s.label} — đã kín lịch` : s.label}
                                     </option>
                                   );
                                 })}
@@ -944,8 +1000,26 @@ export function ClassRequestForm({
                       .filter((x) => x.slot.subjectId === sid)
                       .map(({ slot, idx }) => {
                         const sess = SESSION_OPTIONS.find((o) => o.value === slot.session);
-                        const times = buildTimeSlots(sess?.min ?? '00:00', sess?.max ?? '23:30');
-                        const endTimes = slot.start ? times.filter((t) => t > slot.start) : times;
+                        const sessTimes = buildTimeSlots(sess?.min ?? '00:00', sess?.max ?? '23:30');
+                        // Ngày hôm nay: chỉ cho chọn các mốc giờ còn ở tương lai.
+                        const dayTimes =
+                          slot.date === today ? sessTimes.filter((t) => t > nowHm) : sessTimes;
+                        // Các buổi khác đã đặt trong cùng ngày → không cho chọn đè lên.
+                        const busy = busyRangesOf(form.slots, idx, 'date', slot.date);
+                        // Giờ bắt đầu: không được rơi vào trong một khoảng đã bận.
+                        const times = dayTimes.filter(
+                          (t) => !busy.some((b) => b.start <= t && t < b.end),
+                        );
+                        // Giờ kết thúc: không được vượt qua buổi bận kế tiếp (chạm sát thì vẫn được).
+                        const nextBusyStart = busy
+                          .map((b) => b.start)
+                          .filter((s) => s >= slot.start)
+                          .sort()[0];
+                        const endTimes = slot.start
+                          ? dayTimes.filter(
+                              (t) => t > slot.start && (!nextBusyStart || t <= nextBusyStart),
+                            )
+                          : times;
                         return (
                           <div key={idx} className="mkt-slot-row">
                             <input
@@ -954,7 +1028,28 @@ export function ClassRequestForm({
                               aria-label="Ngày học"
                               min={today}
                               value={slot.date}
-                              onChange={(e) => updateSlot(idx, { date: e.target.value })}
+                              onChange={(e) => {
+                                const date = e.target.value;
+                                // Giờ cũ đã trôi qua, hoặc ngày mới đã có buổi khác chiếm giờ đó
+                                // → bỏ giờ để người dùng chọn lại từ danh sách đã lọc.
+                                const past = date === today && !!slot.start && slot.start <= nowHm;
+                                const clash =
+                                  !!slot.start &&
+                                  !!slot.end &&
+                                  form.slots.some(
+                                    (o, i) =>
+                                      i !== idx &&
+                                      o.date === date &&
+                                      !!o.start &&
+                                      !!o.end &&
+                                      slot.start < o.end &&
+                                      o.start < slot.end,
+                                  );
+                                updateSlot(
+                                  idx,
+                                  past || clash ? { date, start: '', end: '' } : { date },
+                                );
+                              }}
                             />
                             <select
                               className="mkt-day-time__session"

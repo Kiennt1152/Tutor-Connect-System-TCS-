@@ -13,24 +13,20 @@ const LEGEND: { short: string; label: string }[] = [
 interface Props {
   readonly weights: MatchWeights;
   readonly defaultOpen?: boolean;
+  /** true = chỉ render phần nội dung, bỏ vỏ <details> — dùng khi đặt trong popup. */
+  readonly bare?: boolean;
 }
 
 /**
  * Thẻ giải thích ngắn gọn công thức chấm độ phù hợp.
- * Đặt ngay dưới các thanh trượt "Mức độ ưu tiên" — trọng số Wx chính là mức đã kéo.
+ * Trọng số Wx chính là mức đã kéo ở các thanh trượt "Mức độ ưu tiên".
  */
-export function FormulaExplainer({ weights, defaultOpen = true }: Props) {
+export function FormulaExplainer({ weights, defaultOpen = true, bare = false }: Props) {
   const wSum =
     weights.subject + weights.location + weights.salary + weights.schedule + weights.experience;
 
-  return (
-    <details className="fx" open={defaultOpen}>
-      <summary className="fx__summary">
-        <span className="fx__summary-title">Cách tính độ phù hợp</span>
-        <span className="fx__summary-hint">0–100%</span>
-      </summary>
-
-      <div className="fx__body">
+  const body = (
+    <div className="fx__body">
         <p className="fx__lead">
           Mỗi lớp được chấm <strong>0–100%</strong> — trung bình 5 tiêu chí, mỗi tiêu chí nhân với{' '}
           <strong>mức ưu tiên</strong> bạn kéo ở trên. Ưu tiên cao thì ảnh hưởng nhiều hơn.
@@ -65,7 +61,18 @@ export function FormulaExplainer({ weights, defaultOpen = true }: Props) {
           W là mức ưu tiên (0–5) bạn đang đặt · tổng ΣW = <strong>{wSum}</strong>. Kéo một mức về{' '}
           <strong>0</strong> để bỏ tiêu chí đó khỏi công thức.
         </p>
-      </div>
+    </div>
+  );
+
+  if (bare) return <div className="fx fx--bare">{body}</div>;
+
+  return (
+    <details className="fx" open={defaultOpen}>
+      <summary className="fx__summary">
+        <span className="fx__summary-title">Cách tính độ phù hợp</span>
+        <span className="fx__summary-hint">0–100%</span>
+      </summary>
+      {body}
     </details>
   );
 }

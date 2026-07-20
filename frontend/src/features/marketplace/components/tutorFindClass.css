@@ -1,12 +1,16 @@
 /* ============ Gia sư tìm lớp (matching score) ============ */
-/* Bố cục 2 cột: trọng số + công thức (trái, dính) | danh sách lớp (phải) — để
-   gia sư nhìn thấy lớp phù hợp ngay cạnh phần kéo trọng số, không phải cuộn. */
+/* Hàng trên 2 cột: thanh search (trái) | thanh trượt ưu tiên (phải).
+   Danh sách lớp bên dưới trải hết cả 2 cột. */
 .tfc {
   display: grid;
-  grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr) minmax(0, 360px);
   gap: 24px;
-  align-items: start;
+  /* stretch (mặc định): hai thẻ hàng trên cao bằng nhau, không so le. */
 }
+.tfc-search { grid-column: 1; }
+.tfc-panel { grid-column: 2; }
+.tfc-results,
+.tfc > .tfc-state { grid-column: 1 / -1; }
 /* Thẻ form — cùng token với thẻ ".tcs-find-form-card" ở màn Tìm gia sư. */
 .tfc-panel {
   background: #fff;
@@ -14,10 +18,19 @@
   border-radius: 16px;
   padding: 20px;
   box-shadow: 0 12px 32px rgba(18, 35, 59, 0.08);
-  position: sticky;
-  top: 16px;
 }
-.tfc-panel__title { margin: 0 0 6px; font-size: 18px; font-weight: 800; color: #12233b; }
+/* flex-start: tiêu đề xuống 2 dòng thì nút "Cách tính ?" vẫn nằm ngang dòng đầu. */
+.tfc-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.tfc-panel__title { margin: 0 0 6px; font-size: 17px; font-weight: 800; color: #12233b; }
+/* Nút mở popup công thức — thay cho khối <details> nằm chình ình trong panel trước đây. */
+.tfc-formula-btn {
+  flex: 0 0 auto; border: 1px solid #cfd8e3; background: #f7f9fc; color: #1565c0;
+  border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+.tfc-formula-btn:hover { border-color: #1565c0; background: #eef5fd; }
+.tfc-formula-modal { max-width: 560px; padding: 24px; }
+.tfc-formula-modal__title { margin: 0 0 14px; font-size: 18px; font-weight: 800; color: #12233b; }
 .tfc-panel__desc { margin: 0 0 16px; font-size: 12.5px; line-height: 1.55; color: #5b6b7f; }
 .tfc-panel__desc strong { color: #12233b; }
 
@@ -27,9 +40,8 @@
   margin: 8px auto 0;
 }
 
-/* Thanh tìm môn — trải hết chiều ngang, nằm trên cả 2 cột. */
+/* Thanh tìm môn — cột trái của hàng trên. */
 .tfc-search {
-  grid-column: 1 / -1;
   background: #fff;
   border: 1px solid #e3e9f2;
   border-radius: 14px;
@@ -59,7 +71,13 @@
 .tfc-search__clear:hover { background: #e0e6ee; }
 .tfc-search__btn { flex: 0 0 auto; padding: 12px 26px; font-size: 15px; border-radius: 10px; }
 .tfc-search__chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.tfc-search__chips-label { font-size: 12.5px; color: #8592a3; margin-right: 2px; }
+/* Ba câu hỏi có độ dài khác nhau — cố định bề rộng nhãn để các hàng chip thẳng lề trái. */
+.tfc-search__chips + .tfc-search__chips { border-top: 1px dashed #eef2f7; padding-top: 10px; }
+.tfc-search__chips-label {
+  flex: 0 0 auto; min-width: 172px;
+  font-size: 13px; font-weight: 500; color: #5b6b7f; margin-right: 2px;
+}
+.tfc-search__understood .tfc-search__chips-label { min-width: 0; font-size: 12.5px; color: #8592a3; }
 .tfc-search__understood { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .tfc-search__tag {
   font-size: 12px; font-weight: 600; color: #1565c0;
@@ -95,6 +113,9 @@
 .tfc-priority__left { min-width: 0; }
 .tfc-priority__right { min-width: 0; }
 .tfc-weight-list { display: flex; flex-direction: column; gap: 4px; }
+/* Chưa bấm "Tìm lớp" → thanh trượt mờ và không tương tác được. */
+.tfc-panel.is-locked .tfc-weight-list { opacity: 0.45; pointer-events: none; user-select: none; }
+.tfc-weight input[type="range"]:disabled { cursor: not-allowed; }
 
 
 .tfc-field { margin-bottom: 0; }
@@ -138,7 +159,10 @@
 .tfc-weight__val.is-zero { color: #94a3b5; }
 .tfc-weight input[type="range"] { width: 100%; height: 18px; margin: 0; accent-color: #1565c0; }
 .tfc-weight__scale { display: flex; justify-content: space-between; font-size: 10.5px; color: #b0bac6; margin-top: -2px; }
-.tfc-results__head { display: flex; align-items: center; gap: 12px; justify-content: space-between; margin: 4px 0 16px; }
+.tfc-results__head {
+  display: flex; align-items: center; gap: 12px; justify-content: space-between;
+  margin: 4px 0 18px; padding-bottom: 12px; border-bottom: 1px solid #e8eef6;
+}
 .tfc-results__head h2 { margin: 0; font-size: 22px; font-weight: 800; color: #0f172a; }
 /* Pill đếm số lớp — cùng tông ấm với ".tcs-section-bar__count" ở màn Tìm gia sư. */
 .tfc-results__count {
@@ -156,26 +180,51 @@
 .tfc-notice--warn strong { color: #6b4500; }
 .tfc-state { background: #fff; border: 1px dashed #cfd8e3; border-radius: 12px; padding: 28px; text-align: center; color: #5b6b7f; }
 .tfc-state--error { border-color: #f0b7b2; color: #c62828; }
+/* Mỗi lớp một hàng, trải hết bề ngang — không xếp thẻ cạnh nhau theo hàng ngang. */
 .tfc-list { display: flex; flex-direction: column; gap: 14px; }
-.tfc-card { display: flex; gap: 16px; background: #fff; border: 1px solid #e3e9f2; border-radius: 14px; padding: 16px; }
-.tfc-score {
-  flex: 0 0 76px; align-self: flex-start; display: flex; flex-direction: column;
-  align-items: center; justify-content: center; width: 76px; height: 76px; border-radius: 12px; color: #fff;
+.tfc-card {
+  display: flex; gap: 16px; background: #fff; border: 1px solid #e3e9f2;
+  border-radius: 16px; padding: 18px;
+  box-shadow: 0 2px 8px rgba(18, 35, 59, 0.04);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
 }
-.tfc-score__num { font-size: 24px; font-weight: 800; line-height: 1; }
-.tfc-score__unit { font-size: 11px; opacity: 0.9; margin-top: 2px; }
+.tfc-card:hover {
+  transform: translateY(-2px);
+  border-color: #c9dcf3;
+  box-shadow: 0 14px 30px rgba(18, 35, 59, 0.1);
+}
+.tfc-score {
+  flex: 0 0 80px; align-self: flex-start; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; width: 80px; height: 80px; border-radius: 14px; color: #fff;
+  box-shadow: 0 6px 16px rgba(18, 35, 59, 0.16);
+}
+.tfc-score__num { font-size: 25px; font-weight: 800; line-height: 1; letter-spacing: -0.5px; }
+.tfc-score__unit { font-size: 11px; opacity: 0.92; margin-top: 3px; }
 .tfc-score--high { background: linear-gradient(135deg, #2e7d32, #43a047); }
 .tfc-score--mid { background: linear-gradient(135deg, #ef6c00, #fb8c00); }
 .tfc-score--low { background: linear-gradient(135deg, #78909c, #90a4ae); }
-.tfc-card__body { flex: 1; min-width: 0; }
+.tfc-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .tfc-card__top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
-.tfc-card__title { margin: 0; font-size: 16px; color: #12233b; }
+.tfc-card__title { margin: 0; font-size: 16.5px; font-weight: 700; line-height: 1.4; color: #12233b; }
 .tfc-card__id { font-size: 12px; color: #8592a3; }
-.tfc-card__meta { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 8px 0 12px; font-size: 13px; color: #43546a; }
-.tfc-card__info { display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; }
-.tfc-card__info-row { margin: 0; font-size: 13px; line-height: 1.5; color: #43546a; }
+/* Môn · khối · địa điểm dạng pill cho dễ quét mắt, không lẫn vào phần mô tả bên dưới. */
+.tfc-card__meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
+.tfc-card__meta span {
+  font-size: 12.5px; color: #43546a; background: #f4f7fb; border: 1px solid #e8eef6;
+  border-radius: 999px; padding: 4px 10px;
+}
+.tfc-card__info { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+/* Icon tách thành cột riêng để dòng dài xuống hàng vẫn thẳng lề, không chui xuống dưới icon. */
+.tfc-card__info-row {
+  margin: 0; font-size: 13px; line-height: 1.5; color: #43546a;
+  display: flex; align-items: flex-start; gap: 8px;
+}
+.tfc-card__ico { flex: 0 0 auto; line-height: 1.5; }
 .tfc-card__info-row strong { color: #12233b; font-weight: 600; }
-.tfc-card__actions { display: flex; justify-content: flex-end; gap: 10px; }
+.tfc-card__actions {
+  display: flex; justify-content: flex-end; gap: 10px;
+  margin-top: auto; padding-top: 14px; border-top: 1px solid #f0f4f9;
+}
 .tfc-btn { border: none; border-radius: 8px; padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .tfc-btn--primary { background: #1565c0; color: #fff; }
 .tfc-btn--primary:hover:not(:disabled) { background: #0d47a1; }
@@ -271,9 +320,12 @@
   .tfc {
     grid-template-columns: 1fr;
   }
-  .tfc-panel {
-    position: static;
-    top: auto;
+  /* Một cột: search và panel xếp dọc, không giữ chỗ theo cột nữa. */
+  .tfc-search,
+  .tfc-panel,
+  .tfc-results,
+  .tfc > .tfc-state {
+    grid-column: 1;
   }
 }
 @media (max-width: 720px) {
@@ -288,4 +340,6 @@
   .cdm-grid { grid-template-columns: 1fr; }
   .tfc-search__row { flex-direction: column; }
   .tfc-search__btn { width: 100%; }
+  /* Màn hẹp: nhãn câu hỏi xuống dòng riêng, chip trải hết bề ngang. */
+  .tfc-search__chips-label { min-width: 100%; }
 }
