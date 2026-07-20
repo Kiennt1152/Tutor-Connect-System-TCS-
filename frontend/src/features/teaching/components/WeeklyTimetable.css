@@ -212,3 +212,11 @@
 .wtt__dot--today {
   background: #1565c0;
 }
+
+.wtt-chip__pendingreq {
+  display: block;
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9a6b00;
+}

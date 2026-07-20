@@ -1,0 +1,122 @@
+/* Chỉ giữ phần riêng của dialog này. Ô nhập dùng .tcs-field/.tcs-input của
+   shared/theme/forms.css (đã nạp toàn cục ở main.tsx). */
+
+.lrd__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgba(18, 35, 59, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.lrd {
+  width: 100%;
+  max-width: 460px;
+  max-height: 90vh;
+  overflow-y: auto;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border);
+  box-shadow: 0 18px 48px rgba(18, 35, 59, 0.22);
+}
+
+.lrd__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+.lrd__head h3 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.lrd__x {
+  border: 0;
+  background: none;
+  font-size: 24px;
+  line-height: 1;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 0 4px;
+}
+.lrd__x:hover {
+  color: var(--color-text-primary);
+}
+
+.lrd__current {
+  margin: 0;
+  padding: 12px 20px;
+  background: #f5f7fb;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+.lrd__current strong {
+  color: var(--color-text-primary);
+}
+
+.lrd__form {
+  padding: 16px 20px 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lrd__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* .tcs-input ép height 42px nên textarea phải có luật riêng. */
+.lrd__textarea {
+  width: 100%;
+  padding: 9px var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--fs-body-md);
+  font-family: inherit;
+  color: var(--color-text-primary);
+  background: var(--color-surface-2);
+  resize: vertical;
+}
+.lrd__textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px var(--color-primary-light);
+}
+
+.lrd__err {
+  margin: 0;
+  padding: 9px 11px;
+  border-radius: var(--radius-md);
+  background: var(--color-error-light);
+  color: #b91c1c;
+  font-size: 13px;
+}
+
+.lrd__hint {
+  margin: 0;
+  font-size: 12.5px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.lrd__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+@media (max-width: 480px) {
+  .lrd__row {
+    grid-template-columns: 1fr;
+  }
+}

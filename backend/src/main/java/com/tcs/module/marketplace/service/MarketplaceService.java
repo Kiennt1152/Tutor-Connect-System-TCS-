@@ -5,7 +5,11 @@ import com.tcs.module.marketplace.dto.request.CreateClassRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
+import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
+import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
+import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.LessonResponse;
+import com.tcs.module.marketplace.dto.response.RescheduleRequestResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import java.util.List;
@@ -60,6 +64,21 @@ public interface MarketplaceService {
 
     /** Điểm danh một buổi bằng một thao tác — chỉ được trong đúng ngày buổi học diễn ra. */
     void markAttendance(Long lessonId);
+
+    /** UC-36 — xin dời một buổi sang ngày/giờ khác; bên còn lại duyệt. */
+    RescheduleRequestResponse requestReschedule(Long lessonId, RescheduleLessonRequest request);
+
+    /** UC-36 — xin thêm một buổi ngoài lịch (học bù/học thêm); bên còn lại duyệt. */
+    RescheduleRequestResponse requestExtraLesson(ExtraLessonRequest request);
+
+    /** Mọi yêu cầu đổi lịch/thêm buổi của các lớp mình tham gia. */
+    List<RescheduleRequestResponse> listMyRescheduleRequests();
+
+    /** Duyệt hoặc từ chối một yêu cầu — chỉ bên còn lại mới được gọi. */
+    void decideRescheduleRequest(Long requestId, RescheduleDecisionRequest decision);
+
+    /** Người gửi thu hồi yêu cầu khi chưa ai duyệt. */
+    void cancelRescheduleRequest(Long requestId);
 
     List<TutorSearchResponse> searchTutors(String keyword, Long subjectId);
 

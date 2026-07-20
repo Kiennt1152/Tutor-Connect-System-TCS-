@@ -19,6 +19,9 @@ public class LessonResponse {
     private LocalDate lessonDate;
     private LocalTime startTime;
     private LocalTime endTime;
+    /** Cần cho form "thêm buổi" — FE dựng danh sách môn của lớp từ chính các buổi đã có. */
+    private Long subjectId;
+
     private String subjectName;
 
     /** PENDING | COMPLETED | ABSENT | DISPUTED */

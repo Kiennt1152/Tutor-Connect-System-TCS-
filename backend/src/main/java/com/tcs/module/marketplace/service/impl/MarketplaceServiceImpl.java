@@ -18,24 +18,32 @@ import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
+import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
+import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
+import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
 import com.tcs.module.marketplace.dto.response.LessonResponse;
+import com.tcs.module.marketplace.dto.response.RescheduleRequestResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.FavoriteTutor;
 import com.tcs.module.marketplace.entity.Lesson;
+import com.tcs.module.marketplace.entity.LessonRescheduleRequest;
 import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
+import com.tcs.module.marketplace.enums.RescheduleRequestStatus;
+import com.tcs.module.marketplace.enums.RescheduleRequestType;
 import com.tcs.module.marketplace.enums.TutorApplicationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.FavoriteTutorRepository;
 import com.tcs.module.marketplace.repository.LessonRepository;
+import com.tcs.module.marketplace.repository.LessonRescheduleRequestRepository;
 import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
@@ -53,12 +61,14 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -85,6 +95,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final ClassAssignmentRepository classAssignmentRepository;
     private final ScheduleSlotRepository scheduleSlotRepository;
     private final LessonRepository lessonRepository;
+    private final LessonRescheduleRequestRepository rescheduleRequestRepository;
     // Khởi tạo trực tiếp (không có bean ObjectMapper trong context) — giống GoogleTokenVerifier.
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -525,14 +536,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Override
     @Transactional(readOnly = true)
     public List<LessonResponse> listMyLessons() {
-        // Cùng một thời khóa biểu: gia sư nhìn theo lớp mình dạy, Client theo lớp mình tạo.
-        List<Lesson> lessons = isClient()
-                ? lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(
-                        authHelper.currentUserId())
-                : lessonRepository.findByTutor_TutorIdOrderByLessonDateAscSequenceNoAsc(
-                        requireTutor().getTutorId());
         LocalDate today = LocalDate.now();
-        return lessons.stream().map(lesson -> toLesson(lesson, today)).toList();
+        return myLessons().stream().map(lesson -> toLesson(lesson, today)).toList();
     }
 
     @Override
@@ -592,6 +597,378 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     "Chỉ điểm danh được trong ngày diễn ra buổi học ("
                             + lesson.getLessonDate() + "). Hôm nay là " + today + ".");
         }
+    }
+
+    @Override
+    @Transactional
+    public RescheduleRequestResponse requestReschedule(Long lessonId, RescheduleLessonRequest request) {
+        User me = requireUser();
+        Lesson lesson = lessonRepository
+                .findById(lessonId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy buổi học"));
+        requireClassParticipant(lesson.getTutoringClass(), me);
+
+        if (lesson.getAttendanceStatus() != AttendanceStatus.PENDING) {
+            throw new IllegalArgumentException(
+                    "Buổi này đã điểm danh xong nên không đổi lịch được nữa");
+        }
+        if (rescheduleRequestRepository.existsByLesson_LessonIdAndStatus(
+                lessonId, RescheduleRequestStatus.PENDING)) {
+            throw new IllegalArgumentException("Buổi này đang có một yêu cầu đổi lịch chờ duyệt");
+        }
+
+        LocalDate date = requireUpcomingDate(request.getNewDate());
+        LocalTime start = request.getNewStartTime();
+        LocalTime end = request.getNewEndTime();
+        requireTimeRange(start, end);
+        // Báo trùng lịch ngay lúc gửi cho đỡ mất công chờ duyệt; lúc duyệt sẽ kiểm lại.
+        requireSlotFree(lesson.getTutoringClass(), lesson.getTutor(), date, start, end, lessonId);
+
+        LessonRescheduleRequest row = new LessonRescheduleRequest();
+        row.setTutoringClass(lesson.getTutoringClass());
+        row.setLesson(lesson);
+        row.setRequestType(RescheduleRequestType.RESCHEDULE);
+        row.setNewDate(date);
+        row.setNewStartTime(start);
+        row.setNewEndTime(end);
+        row.setReason(trimToNull(request.getReason()));
+        row.setRequestedBy(me);
+        return toRescheduleResponse(rescheduleRequestRepository.save(row), me);
+    }
+
+    @Override
+    @Transactional
+    public RescheduleRequestResponse requestExtraLesson(ExtraLessonRequest request) {
+        User me = requireUser();
+        if (request.getClassId() == null) {
+            throw new IllegalArgumentException("Thiếu lớp cần thêm buổi");
+        }
+        TutoringClass tutoringClass = tutoringClassRepository
+                .findById(request.getClassId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
+        requireClassParticipant(tutoringClass, me);
+
+        // Buổi thêm phải gắn với gia sư đang dạy — lấy từ chính lịch đã sinh của lớp.
+        Tutor tutor = activeTutorOf(tutoringClass);
+
+        LocalDate date = requireUpcomingDate(request.getLessonDate());
+        LocalTime start = request.getStartTime();
+        LocalTime end = request.getEndTime();
+        requireTimeRange(start, end);
+        requireSlotFree(tutoringClass, tutor, date, start, end, null);
+
+        LessonRescheduleRequest row = new LessonRescheduleRequest();
+        row.setTutoringClass(tutoringClass);
+        row.setRequestType(RescheduleRequestType.EXTRA);
+        row.setNewDate(date);
+        row.setNewStartTime(start);
+        row.setNewEndTime(end);
+        row.setSubject(resolveSubject(request.getSubjectId()));
+        row.setReason(trimToNull(request.getReason()));
+        row.setRequestedBy(me);
+        return toRescheduleResponse(rescheduleRequestRepository.save(row), me);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<RescheduleRequestResponse> listMyRescheduleRequests() {
+        User me = requireUser();
+        Set<Long> classIds = myClassIds();
+        if (classIds.isEmpty()) {
+            return List.of();
+        }
+        return rescheduleRequestRepository.findByTutoringClass_ClassIdInOrderByCreatedAtDesc(classIds).stream()
+                .map(row -> toRescheduleResponse(row, me))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void decideRescheduleRequest(Long requestId, RescheduleDecisionRequest decision) {
+        User me = requireUser();
+        LessonRescheduleRequest row = rescheduleRequestRepository
+                .findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu"));
+        requireClassParticipant(row.getTutoringClass(), me);
+
+        if (row.getStatus() != RescheduleRequestStatus.PENDING) {
+            throw new IllegalArgumentException("Yêu cầu này đã được xử lý trước đó");
+        }
+        // Người gửi không tự duyệt được — phải là bên còn lại.
+        if (row.getRequestedBy().getUserId().equals(me.getUserId())) {
+            throw new ForbiddenException("Bên còn lại mới là người duyệt yêu cầu này");
+        }
+        if (decision == null || decision.getApprove() == null) {
+            throw new IllegalArgumentException("Thiếu quyết định duyệt hay từ chối");
+        }
+
+        if (decision.getApprove()) {
+            applyRescheduleRequest(row);
+            row.setStatus(RescheduleRequestStatus.APPROVED);
+        } else {
+            row.setStatus(RescheduleRequestStatus.REJECTED);
+        }
+        row.setDecidedBy(me);
+        row.setDecidedAt(LocalDateTime.now());
+        row.setDecisionNote(trimToNull(decision.getNote()));
+        rescheduleRequestRepository.save(row);
+    }
+
+    @Override
+    @Transactional
+    public void cancelRescheduleRequest(Long requestId) {
+        User me = requireUser();
+        LessonRescheduleRequest row = rescheduleRequestRepository
+                .findById(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu"));
+        if (!row.getRequestedBy().getUserId().equals(me.getUserId())) {
+            throw new ForbiddenException("Chỉ người gửi mới thu hồi được yêu cầu");
+        }
+        if (row.getStatus() != RescheduleRequestStatus.PENDING) {
+            throw new IllegalArgumentException("Yêu cầu này đã được xử lý, không thu hồi được");
+        }
+        row.setStatus(RescheduleRequestStatus.CANCELLED);
+        rescheduleRequestRepository.save(row);
+    }
+
+    /** Áp lịch mới vào bảng {@code lessons}. Chỉ chạy khi yêu cầu được duyệt. */
+    private void applyRescheduleRequest(LessonRescheduleRequest row) {
+        TutoringClass tutoringClass = row.getTutoringClass();
+        LocalDate date = row.getNewDate();
+        LocalTime start = row.getNewStartTime();
+        LocalTime end = row.getNewEndTime();
+
+        if (row.getRequestType() == RescheduleRequestType.RESCHEDULE) {
+            Lesson lesson = row.getLesson();
+            if (lesson == null) {
+                throw new IllegalArgumentException("Yêu cầu đổi lịch không gắn với buổi nào");
+            }
+            // Trạng thái có thể đã đổi trong lúc chờ duyệt — kiểm lại trước khi áp.
+            if (lesson.getAttendanceStatus() != AttendanceStatus.PENDING) {
+                throw new IllegalArgumentException(
+                        "Buổi này đã điểm danh trong lúc chờ duyệt nên không đổi lịch được nữa");
+            }
+            requireSlotFree(tutoringClass, lesson.getTutor(), date, start, end, lesson.getLessonId());
+            lesson.setSlot(resolveSlot(tutoringClass, date, start, end, lesson.getSlot().getSubject()));
+            lesson.setLessonDate(date);
+            lessonRepository.save(lesson);
+        } else {
+            Tutor tutor = activeTutorOf(tutoringClass);
+            requireSlotFree(tutoringClass, tutor, date, start, end, null);
+            Lesson lesson = new Lesson();
+            lesson.setTutoringClass(tutoringClass);
+            lesson.setTutor(tutor);
+            lesson.setLessonDate(date);
+            lesson.setSlot(resolveSlot(tutoringClass, date, start, end, row.getSubject()));
+            lesson.setAttendanceStatus(AttendanceStatus.PENDING);
+            lesson.setSequenceNo(0); // sẽ được đánh lại ngay bên dưới
+            lessonRepository.save(lesson);
+        }
+        resequenceLessons(tutoringClass.getClassId());
+    }
+
+    /**
+     * Dùng lại schedule_slot có sẵn nếu khớp (thứ, giờ, môn); không thì tạo mới.
+     * Tránh sinh slot rác mỗi lần đổi lịch sang khung đã tồn tại.
+     */
+    private ScheduleSlot resolveSlot(
+            TutoringClass tutoringClass, LocalDate date, LocalTime start, LocalTime end, Subject subject) {
+        int dayOfWeek = date.getDayOfWeek().getValue();
+        Long subjectId = subject != null ? subject.getSubjectId() : null;
+        for (ScheduleSlot slot : scheduleSlotRepository.findByTutoringClass_ClassId(tutoringClass.getClassId())) {
+            Long slotSubjectId = slot.getSubject() != null ? slot.getSubject().getSubjectId() : null;
+            if (slot.getDayOfWeek() == dayOfWeek
+                    && start.equals(slot.getStartTime())
+                    && end.equals(slot.getEndTime())
+                    && Objects.equals(subjectId, slotSubjectId)) {
+                return slot;
+            }
+        }
+        ScheduleSlot slot = new ScheduleSlot();
+        slot.setTutoringClass(tutoringClass);
+        slot.setSubject(subject);
+        slot.setDayOfWeek(dayOfWeek);
+        slot.setStartTime(start);
+        slot.setEndTime(end);
+        return scheduleSlotRepository.save(slot);
+    }
+
+    /** Sau khi dời/thêm buổi, sequence_no phải chạy lại theo đúng thứ tự học. */
+    private void resequenceLessons(Long classId) {
+        List<Lesson> lessons =
+                new ArrayList<>(lessonRepository.findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(classId));
+        assignSequenceNumbers(lessons);
+        lessonRepository.saveAll(lessons);
+    }
+
+    /** sequence_no đánh theo đúng thứ tự học: ngày rồi tới giờ bắt đầu. Sửa tại chỗ. */
+    private void assignSequenceNumbers(List<Lesson> lessons) {
+        lessons.sort(Comparator.comparing(Lesson::getLessonDate)
+                .thenComparing(l -> l.getSlot().getStartTime()));
+        int seq = 1;
+        for (Lesson lesson : lessons) {
+            lesson.setSequenceNo(seq++);
+        }
+    }
+
+    /**
+     * Một buổi mới không được đè lên buổi nào khác của phụ huynh hoặc của gia sư.
+     * Bỏ qua chính buổi đang dời — nên vẫn bắt được va chạm với buổi khác trong cùng lớp.
+     */
+    private void requireSlotFree(
+            TutoringClass tutoringClass,
+            Tutor tutor,
+            LocalDate date,
+            LocalTime start,
+            LocalTime end,
+            Long excludeLessonId) {
+        for (Lesson lesson : busyLessonsOf(tutoringClass, tutor)) {
+            if (lesson.getLessonId().equals(excludeLessonId) || !date.equals(lesson.getLessonDate())) {
+                continue;
+            }
+            LocalTime otherStart = lesson.getSlot().getStartTime();
+            LocalTime otherEnd = lesson.getSlot().getEndTime();
+            if (overlaps(start, end, otherStart, otherEnd)) {
+                throw new IllegalArgumentException("Khung giờ này trùng với buổi \""
+                        + lesson.getTutoringClass().getTitle() + "\" ngày " + date + " ("
+                        + otherStart + "–" + otherEnd + "). Vui lòng chọn giờ khác.");
+            }
+        }
+    }
+
+    /**
+     * Mọi buổi đã chiếm chỗ của hai bên: một người không thể ở hai lớp cùng lúc, nên xét cả
+     * lịch của phụ huynh (các lớp họ tạo) lẫn lịch của gia sư (các lớp họ dạy).
+     */
+    private Collection<Lesson> busyLessonsOf(TutoringClass tutoringClass, Tutor tutor) {
+        Map<Long, Lesson> existing = new LinkedHashMap<>();
+        for (Lesson lesson : lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(
+                tutoringClass.getCreator().getUserId())) {
+            existing.put(lesson.getLessonId(), lesson);
+        }
+        for (Lesson lesson :
+                lessonRepository.findByTutor_TutorIdOrderByLessonDateAscSequenceNoAsc(tutor.getTutorId())) {
+            existing.put(lesson.getLessonId(), lesson);
+        }
+        return existing.values();
+    }
+
+    /** Hai khoảng [start, end) giao nhau khi start < otherEnd và otherStart < end. */
+    private boolean overlaps(LocalTime start, LocalTime end, LocalTime otherStart, LocalTime otherEnd) {
+        return start.isBefore(otherEnd) && otherStart.isBefore(end);
+    }
+
+    /** Gia sư đang dạy lớp — suy từ lịch đã sinh, nên chỉ có sau khi gia sư nhận lớp. */
+    private Tutor activeTutorOf(TutoringClass tutoringClass) {
+        return lessonRepository
+                .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(tutoringClass.getClassId())
+                .stream()
+                .findFirst()
+                .map(Lesson::getTutor)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Lớp chưa có lịch dạy — cần gia sư nhận lớp trước khi thêm buổi"));
+    }
+
+    /** Chỉ phụ huynh tạo lớp và gia sư đang dạy lớp mới được đụng vào lịch của lớp đó. */
+    private void requireClassParticipant(TutoringClass tutoringClass, User me) {
+        if (tutoringClass.getCreator().getUserId().equals(me.getUserId())) {
+            return;
+        }
+        boolean isTutorOfClass = lessonRepository
+                .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(tutoringClass.getClassId())
+                .stream()
+                .anyMatch(l -> l.getTutor().getUser().getUserId().equals(me.getUserId()));
+        if (!isTutorOfClass) {
+            throw new ForbiddenException("Không có quyền thay đổi lịch của lớp này");
+        }
+    }
+
+    /**
+     * Cùng một thời khóa biểu: gia sư nhìn theo lớp mình dạy, Client theo lớp mình tạo.
+     */
+    private List<Lesson> myLessons() {
+        return isClient()
+                ? lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(
+                        authHelper.currentUserId())
+                : lessonRepository.findByTutor_TutorIdOrderByLessonDateAscSequenceNoAsc(
+                        requireTutor().getTutorId());
+    }
+
+    /** Các lớp mà người đang đăng nhập tham gia. */
+    private Set<Long> myClassIds() {
+        Set<Long> ids = new LinkedHashSet<>();
+        for (Lesson lesson : myLessons()) {
+            ids.add(lesson.getTutoringClass().getClassId());
+        }
+        return ids;
+    }
+
+    private LocalDate requireUpcomingDate(LocalDate date) {
+        if (date == null) {
+            throw new IllegalArgumentException("Thiếu ngày học mới");
+        }
+        if (date.isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Không thể xếp buổi học vào ngày đã qua");
+        }
+        return date;
+    }
+
+    /** Kiểm tra cả hai đầu giờ trong một lần — luôn đi cùng nhau ở mọi chỗ gọi. */
+    private void requireTimeRange(LocalTime start, LocalTime end) {
+        if (start == null || end == null) {
+            throw new IllegalArgumentException("Thiếu giờ bắt đầu hoặc giờ kết thúc");
+        }
+        if (!start.isBefore(end)) {
+            throw new IllegalArgumentException("Giờ kết thúc phải sau giờ bắt đầu");
+        }
+    }
+
+    private RescheduleRequestResponse toRescheduleResponse(LessonRescheduleRequest row, User me) {
+        Lesson lesson = row.getLesson();
+        boolean pending = row.getStatus() == RescheduleRequestStatus.PENDING;
+        boolean mine = row.getRequestedBy().getUserId().equals(me.getUserId());
+        return RescheduleRequestResponse.builder()
+                .requestId(row.getRequestId())
+                .classId(row.getTutoringClass().getClassId())
+                .classTitle(row.getTutoringClass().getTitle())
+                .requestType(row.getRequestType().name())
+                .status(row.getStatus().name())
+                .lessonId(lesson != null ? lesson.getLessonId() : null)
+                .oldDate(lesson != null ? lesson.getLessonDate() : null)
+                .oldStartTime(lesson != null ? lesson.getSlot().getStartTime() : null)
+                .oldEndTime(lesson != null ? lesson.getSlot().getEndTime() : null)
+                .newDate(row.getNewDate())
+                .newStartTime(row.getNewStartTime())
+                .newEndTime(row.getNewEndTime())
+                .subjectName(subjectNameOf(row, lesson))
+                .reason(row.getReason())
+                .requestedByName(displayNameOf(row.getRequestedBy()))
+                .createdAt(row.getCreatedAt())
+                .decidedByName(row.getDecidedBy() != null ? displayNameOf(row.getDecidedBy()) : null)
+                .decidedAt(row.getDecidedAt())
+                .decisionNote(row.getDecisionNote())
+                .canDecide(pending && !mine)
+                .canCancel(pending && mine)
+                .build();
+    }
+
+    /** Gia sư có tên hồ sơ; phụ huynh thì chỉ có email (giống chỗ dựng AssignmentResponse). */
+    private String displayNameOf(User user) {
+        return tutorRepository
+                .findByUser_UserId(user.getUserId())
+                .map(Tutor::getFullName)
+                .filter(StringUtils::hasText)
+                .orElseGet(user::getEmail);
+    }
+
+    private String subjectNameOf(LessonRescheduleRequest row, Lesson lesson) {
+        if (row.getSubject() != null) {
+            return row.getSubject().getSubjectName();
+        }
+        if (lesson != null && lesson.getSlot().getSubject() != null) {
+            return lesson.getSlot().getSubject().getSubjectName();
+        }
+        return null;
     }
 
     private ClassAssignment requireMyPendingAssignment(Long assignmentId) {
@@ -667,14 +1044,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             lesson.setAttendanceStatus(AttendanceStatus.PENDING);
             lessons.add(lesson);
         }
-        // sequence_no đánh theo đúng thứ tự học: ngày rồi tới giờ bắt đầu.
-        lessons.sort(Comparator
-                .comparing(Lesson::getLessonDate)
-                .thenComparing(l -> l.getSlot().getStartTime()));
-        int seq = 1;
-        for (Lesson lesson : lessons) {
-            lesson.setSequenceNo(seq++);
-        }
+        assignSequenceNumbers(lessons);
         lessonRepository.saveAll(lessons);
     }
 
@@ -685,29 +1055,20 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private void requireNoScheduleConflict(
             TutoringClass tutoringClass, Tutor tutor, List<Map.Entry<LocalDate, SlotSpec>> occurrences) {
         Long classId = tutoringClass.getClassId();
-        // Gộp buổi của phụ huynh và của gia sư; loại buổi của chính lớp đang xét (thường chưa có).
-        Map<Long, Lesson> existing = new LinkedHashMap<>();
-        for (Lesson lesson : lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(
-                tutoringClass.getCreator().getUserId())) {
-            existing.put(lesson.getLessonId(), lesson);
-        }
-        for (Lesson lesson :
-                lessonRepository.findByTutor_TutorIdOrderByLessonDateAscSequenceNoAsc(tutor.getTutorId())) {
-            existing.put(lesson.getLessonId(), lesson);
-        }
+        Collection<Lesson> existing = busyLessonsOf(tutoringClass, tutor);
 
         for (Map.Entry<LocalDate, SlotSpec> occurrence : occurrences) {
             LocalDate date = occurrence.getKey();
             SlotSpec spec = occurrence.getValue();
-            for (Lesson lesson : existing.values()) {
+            for (Lesson lesson : existing) {
+                // Loại buổi của chính lớp đang xét (thường chưa có).
                 if (lesson.getTutoringClass().getClassId().equals(classId)
                         || !date.equals(lesson.getLessonDate())) {
                     continue;
                 }
                 LocalTime otherStart = lesson.getSlot().getStartTime();
                 LocalTime otherEnd = lesson.getSlot().getEndTime();
-                // Hai khoảng [start, end) giao nhau khi start < otherEnd và otherStart < end.
-                if (spec.start().isBefore(otherEnd) && otherStart.isBefore(spec.end())) {
+                if (overlaps(spec.start(), spec.end(), otherStart, otherEnd)) {
                     throw new IllegalArgumentException(
                             "Lịch bị trùng với lớp \"" + lesson.getTutoringClass().getTitle() + "\" vào "
                                     + date + " (" + otherStart + "–" + otherEnd
@@ -874,6 +1235,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .lessonDate(lesson.getLessonDate())
                 .startTime(slot.getStartTime())
                 .endTime(slot.getEndTime())
+                .subjectId(slot.getSubject() != null ? slot.getSubject().getSubjectId() : null)
                 .subjectName(slot.getSubject() != null ? slot.getSubject().getSubjectName() : null)
                 .attendanceStatus(lesson.getAttendanceStatus().name())
                 .tutorCheckInAt(lesson.getTutorCheckInAt())

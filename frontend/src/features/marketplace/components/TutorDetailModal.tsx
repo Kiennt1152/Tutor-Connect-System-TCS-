@@ -5,11 +5,13 @@ const currency = new Intl.NumberFormat('vi-VN');
 
 interface Props {
   readonly applicant: ApplicantResponse;
+  /** Đổi subjectId → tên môn. Panel truyền xuống vì chỉ nó biết môn "khác" của lớp. */
+  readonly subjectName?: (id: string) => string;
   readonly onClose: () => void;
 }
 
 /** Xem chi tiết hồ sơ một gia sư đã ứng tuyển (dữ liệu từ ApplicantResponse). */
-export function TutorDetailModal({ applicant: a, onClose }: Props) {
+export function TutorDetailModal({ applicant: a, subjectName, onClose }: Props) {
   const fullName = a.fullName?.trim() || 'Gia sư';
   const initials = fullName
     .split(/\s+/)
@@ -18,6 +20,8 @@ export function TutorDetailModal({ applicant: a, onClose }: Props) {
     .join('')
     .toUpperCase();
   const rate = a.proposedRate ?? a.hourlyRate ?? 0;
+  // Đơn cũ (trước V13) không có báo giá theo môn → rơi về mức gộp như cũ.
+  const perSubject = Object.entries(a.proposedRates ?? {});
 
   return (
     <div
@@ -58,11 +62,24 @@ export function TutorDetailModal({ applicant: a, onClose }: Props) {
             </div>
           </div>
 
-          {/* Học phí đề xuất */}
-          {a.proposedRate != null && (
+          {/* Học phí đề xuất — theo từng môn nếu gia sư đã báo giá chi tiết. */}
+          {(perSubject.length > 0 || a.proposedRate != null) && (
             <section className="cdm-section">
               <h3>Học phí đề xuất</h3>
-              <p className="cdm-note">{currency.format(a.proposedRate)}đ/giờ</p>
+              {perSubject.length > 0 ? (
+                <ul className="cdm-subj-list">
+                  {perSubject.map(([id, fee]) => (
+                    <li key={id}>
+                      <span className="cdm-subj-list__name">
+                        {subjectName ? subjectName(id) : `#${id}`}
+                      </span>
+                      <span className="cdm-subj-list__fee">{currency.format(fee)}đ/giờ</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="cdm-note">{currency.format(a.proposedRate as number)}đ/giờ</p>
+              )}
             </section>
           )}
 

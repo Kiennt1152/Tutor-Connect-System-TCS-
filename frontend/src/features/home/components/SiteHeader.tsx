@@ -4,6 +4,7 @@ import { LogoutButton } from '../../../shared/components/LogoutButton';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { hasAnyRole, hasRole } from '../../../shared/auth/rbac';
+import { usePendingInviteCount } from '../../teaching/hooks/useTeaching';
 import type { UserRole } from '../../../shared/types/userRole';
 import '../pages/HomePage.css';
 
@@ -37,6 +38,7 @@ export function SiteHeader({ active }: SiteHeaderProps) {
     user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
   const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
   const showTeaching = hasAnyRole(user?.role, TEACHING_ROLES);
+  const pendingInvites = usePendingInviteCount(hasRole(user?.role, 'TUTOR'));
 
   return (
     <header className="tcs-header">
@@ -70,6 +72,15 @@ export function SiteHeader({ active }: SiteHeaderProps) {
               {showTeaching ? (
                 <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.teaching}>
                   {hasRole(user.role, 'CLIENT') ? 'Lịch học' : 'Lịch dạy'}
+                  {/* Lời mời chỉ gia sư mới xử lý được nên chỉ báo cho gia sư. */}
+                  {pendingInvites > 0 && (
+                    <span
+                      className="tcs-header__badge"
+                      title={`${pendingInvites} lời mời nhận lớp đang chờ bạn`}
+                    >
+                      {pendingInvites}
+                    </span>
+                  )}
                 </Link>
               ) : null}
               <Link to={profilePath} className="tcs-home-profile-btn">

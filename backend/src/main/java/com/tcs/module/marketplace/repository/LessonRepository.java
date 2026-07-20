@@ -15,4 +15,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     List<Lesson> findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(Long creatorUserId);
 
     long countByTutoringClass_ClassId(Long classId);
+
+    /** Mọi buổi của một lớp — dùng khi đánh lại sequence_no sau khi đổi lịch/thêm buổi. */
+    List<Lesson> findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(Long classId);
 }

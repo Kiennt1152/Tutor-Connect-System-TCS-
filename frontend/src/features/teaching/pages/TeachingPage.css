@@ -201,3 +201,162 @@
   color: #1565c0;
 }
 
+
+.tch-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.tch-card__head h2 {
+  margin: 0;
+}
+
+.tch-reqs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.tch-req {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 14px;
+  border: 1px solid #e3e9f2;
+  border-left: 3px solid #d7dfeb;
+  border-radius: 11px;
+  background: #fff;
+}
+.tch-req--pending {
+  border-left-color: #e0a800;
+  background: #fffdf5;
+}
+.tch-req--approved {
+  border-left-color: #1a9c5b;
+}
+.tch-req--rejected,
+.tch-req--cancelled {
+  border-left-color: #b9c3d1;
+  opacity: 0.75;
+}
+
+.tch-req__body {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.tch-req__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 3px;
+}
+.tch-req__type {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: #2f6fed;
+}
+.tch-req__title {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #12233b;
+}
+.tch-req__when {
+  margin: 0 0 4px;
+  font-size: 13.5px;
+  color: #12233b;
+  line-height: 1.5;
+}
+.tch-req__when s {
+  color: #8a97a8;
+}
+.tch-req__meta {
+  margin: 0;
+  font-size: 12.5px;
+  color: #5b6b7f;
+  line-height: 1.5;
+}
+
+.tch-req__actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.tch-badge--approved {
+  background: #e6f6ee;
+  color: #157347;
+}
+.tch-badge--rejected,
+.tch-badge--cancelled {
+  background: #eef1f6;
+  color: #5b6b7f;
+}
+
+.tch-reqs__history {
+  margin-top: 12px;
+}
+.tch-reqs__history summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5b6b7f;
+  margin-bottom: 10px;
+}
+
+/* Thông báo lời mời nhận lớp — nổi bật hơn thẻ thường vì đây là việc cần gia sư hành động. */
+.tch-notify {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 1px solid #f0d089;
+  border-left: 4px solid #e0a800;
+  border-radius: 12px;
+  background: linear-gradient(90deg, #fffaed, #fffdf7);
+}
+.tch-notify__icon {
+  font-size: 22px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.tch-notify__body {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.tch-notify__body strong {
+  font-size: 15px;
+  color: #12233b;
+}
+.tch-notify__body span {
+  font-size: 13px;
+  color: #7a6320;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tch-notify .tch-btn {
+  flex-shrink: 0;
+  text-decoration: none;
+}
+
+@media (max-width: 560px) {
+  .tch-notify {
+    flex-wrap: wrap;
+  }
+  .tch-notify__body span {
+    white-space: normal;
+  }
+}

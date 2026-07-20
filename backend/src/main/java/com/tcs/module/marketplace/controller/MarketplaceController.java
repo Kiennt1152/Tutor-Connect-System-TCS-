@@ -2,10 +2,14 @@ package com.tcs.module.marketplace.controller;
 
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
+import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
+import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
+import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
 import com.tcs.module.marketplace.dto.response.LessonResponse;
+import com.tcs.module.marketplace.dto.response.RescheduleRequestResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.service.MarketplaceService;
@@ -121,6 +125,43 @@ public class MarketplaceController {
     public Map<String, String> checkOutLesson(@PathVariable Long lessonId) {
         marketplaceService.checkOutLesson(lessonId);
         return Map.of("message", "Đã kết thúc buổi học");
+    }
+
+    /** Xin dời một buổi sang ngày/giờ khác. Bên còn lại phải duyệt thì lịch mới đổi. */
+    @PostMapping("/lessons/{lessonId}/reschedule")
+    @ResponseStatus(HttpStatus.CREATED)
+    public RescheduleRequestResponse requestReschedule(
+            @PathVariable Long lessonId, @RequestBody RescheduleLessonRequest request) {
+        return marketplaceService.requestReschedule(lessonId, request);
+    }
+
+    /** Xin thêm một buổi ngoài lịch — học bù hoặc học thêm. */
+    @PostMapping("/lessons/extra")
+    @ResponseStatus(HttpStatus.CREATED)
+    public RescheduleRequestResponse requestExtraLesson(@RequestBody ExtraLessonRequest request) {
+        return marketplaceService.requestExtraLesson(request);
+    }
+
+    @GetMapping("/lessons/requests")
+    public List<RescheduleRequestResponse> listRescheduleRequests() {
+        return marketplaceService.listMyRescheduleRequests();
+    }
+
+    @PostMapping("/lessons/requests/{requestId}/decision")
+    public Map<String, String> decideRescheduleRequest(
+            @PathVariable Long requestId, @RequestBody RescheduleDecisionRequest decision) {
+        marketplaceService.decideRescheduleRequest(requestId, decision);
+        return Map.of(
+                "message",
+                Boolean.TRUE.equals(decision.getApprove())
+                        ? "Đã duyệt — lịch đã được cập nhật"
+                        : "Đã từ chối yêu cầu");
+    }
+
+    @PostMapping("/lessons/requests/{requestId}/cancel")
+    public Map<String, String> cancelRescheduleRequest(@PathVariable Long requestId) {
+        marketplaceService.cancelRescheduleRequest(requestId);
+        return Map.of("message", "Đã thu hồi yêu cầu");
     }
 
     /** Điểm danh một buổi bằng một cú bấm — chỉ trong đúng ngày buổi học. */

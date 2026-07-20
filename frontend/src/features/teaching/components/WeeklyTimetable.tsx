@@ -1,14 +1,10 @@
 import { useMemo, useState } from 'react';
 import { SESSION_OPTIONS } from '../../marketplace/types/marketplaceTypes';
+import { hhmm, toIsoDate } from '../../../shared/utils/format';
 import { ATTENDANCE_STATUS_LABELS, type LessonResponse } from '../types/teachingTypes';
 import './WeeklyTimetable.css';
 
 const DAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
-
-/** 'YYYY-MM-DD' của một Date, theo giờ máy (không dùng toISOString để khỏi lệch múi giờ). */
-function toIso(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
 
 /** Thứ 2 của tuần chứa ngày d (tuần bắt đầu từ Thứ 2, giống lịch VN). */
 function mondayOf(d: Date): Date {
@@ -19,9 +15,6 @@ function mondayOf(d: Date): Date {
 }
 
 const ddmm = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
-
-/** '18:00:00' → '18:00' */
-const hhmm = (t: string) => t.slice(0, 5);
 
 /** Buổi (Sáng/Chiều/Tối) của một giờ bắt đầu — dùng lại mốc giờ của SESSION_OPTIONS. */
 function sessionOf(startTime: string): string {
@@ -36,12 +29,22 @@ interface Props {
   readonly readOnly?: boolean;
   /** Gia sư điểm danh một buổi (chỉ bấm được trong đúng ngày buổi học). */
   readonly onAttend?: (lessonId: number) => void;
+  /** Xin đổi lịch buổi này — cả hai bên đều gửi được nên không phụ thuộc readOnly. */
+  readonly onReschedule?: (lesson: LessonResponse) => void;
+  /** Buổi đang có yêu cầu chờ duyệt — không cho gửi thêm yêu cầu nữa. */
+  readonly pendingLessonIds?: ReadonlySet<number>;
 }
 
 /** Thời khóa biểu theo tuần: cột = thứ, hàng = buổi (Sáng/Chiều/Tối). */
-export function WeeklyTimetable({ lessons, readOnly = false, onAttend }: Props) {
+export function WeeklyTimetable({
+  lessons,
+  readOnly = false,
+  onAttend,
+  onReschedule,
+  pendingLessonIds,
+}: Props) {
   const [weekOffset, setWeekOffset] = useState(0);
-  const todayIso = toIso(new Date());
+  const todayIso = toIsoDate(new Date());
 
   const days = useMemo(() => {
     const monday = mondayOf(new Date());
@@ -49,7 +52,7 @@ export function WeeklyTimetable({ lessons, readOnly = false, onAttend }: Props) 
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(monday);
       d.setDate(monday.getDate() + i);
-      return { iso: toIso(d), label: DAY_LABELS[i], ddmm: ddmm(d) };
+      return { iso: toIsoDate(d), label: DAY_LABELS[i], ddmm: ddmm(d) };
     });
   }, [weekOffset]);
 
@@ -146,6 +149,8 @@ export function WeeklyTimetable({ lessons, readOnly = false, onAttend }: Props) 
                             lesson={lesson}
                             readOnly={readOnly}
                             onAttend={() => onAttend?.(lesson.lessonId)}
+                            onReschedule={onReschedule}
+                            hasPendingRequest={pendingLessonIds?.has(lesson.lessonId) ?? false}
                           />
                         ))
                       )}
@@ -185,13 +190,19 @@ function LessonChip({
   lesson,
   readOnly,
   onAttend,
+  onReschedule,
+  hasPendingRequest,
 }: {
   readonly lesson: LessonResponse;
   readonly readOnly: boolean;
   readonly onAttend: () => void;
+  readonly onReschedule?: (lesson: LessonResponse) => void;
+  readonly hasPendingRequest: boolean;
 }) {
   const done = lesson.attendanceStatus === 'COMPLETED';
   const tone = done ? 'done' : lesson.canCheckInToday ? 'today' : 'pending';
+  // Buổi đã điểm danh là dữ liệu lịch sử — chốt lại, không cho dời.
+  const canReschedule = onReschedule && lesson.attendanceStatus === 'PENDING';
 
   return (
     <div className={`wtt-chip wtt-chip--${tone}`}>
@@ -211,6 +222,21 @@ function LessonChip({
         <button className="tcs-btn tcs-btn--sm tcs-btn--primary" type="button" onClick={onAttend}>
           Điểm danh
         </button>
+      )}
+      {hasPendingRequest ? (
+        <span className="wtt-chip__pendingreq" title="Đang chờ bên còn lại duyệt">
+          ⏳ chờ duyệt
+        </span>
+      ) : (
+        canReschedule && (
+          <button
+            className="tcs-btn tcs-btn--sm tcs-btn--ghost"
+            type="button"
+            onClick={() => onReschedule(lesson)}
+          >
+            Đổi lịch
+          </button>
+        )
       )}
     </div>
   );

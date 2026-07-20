@@ -124,7 +124,11 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
       )}
 
       {detailApplicant && (
-        <TutorDetailModal applicant={detailApplicant} onClose={() => setDetailApplicant(null)} />
+        <TutorDetailModal
+          applicant={detailApplicant}
+          subjectName={subjectName}
+          onClose={() => setDetailApplicant(null)}
+        />
       )}
     </div>
   );
