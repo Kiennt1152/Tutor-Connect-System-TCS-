@@ -80,12 +80,29 @@ public class SecurityConfig {
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
                         // --- Marketplace mutations ---
+                        .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/register")
+                        .hasAnyRole(RbacConstants.TUTOR, RbacConstants.CLIENT)
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/apply")
                         .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/**")
                         .hasRole(RbacConstants.CLIENT)
                         .requestMatchers("/api/marketplace/favorites/**")
                         .hasRole(RbacConstants.CLIENT)
+
+                        // --- Center: class management (UC-14-B) ---
+                        .requestMatchers(
+                                "/api/center/classes/**",
+                                "/api/center/tutors",
+                                "/api/center/schedule",
+                                "/api/center/reschedules",
+                                "/api/center/reschedules/**",
+                                "/api/center/substitutions",
+                                "/api/center/substitutions/**")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
+
+                        // --- Tutor: teaching schedule + attendance ---
+                        .requestMatchers("/api/tutor/**")
+                        .hasRole(RbacConstants.TUTOR)
 
                         // --- Center mutations ---
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/*/apply")
