@@ -26,6 +26,7 @@ export function HomeNavbar() {
   const profilePath =
     user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
   const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
+  const showTutorSchedule = hasRole(user?.role, 'TUTOR');
   const showWallet = hasAnyRole(user?.role, WALLET_ROLES);
   const showContract = hasAnyRole(user?.role, CONTRACT_ROLES);
   const showMessaging = hasAnyRole(user?.role, MESSAGING_ROLES);
@@ -52,6 +53,11 @@ export function HomeNavbar() {
               {showCenterManage ? (
                 <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.center}>
                   Quản lý trung tâm
+                </Link>
+              ) : null}
+              {showTutorSchedule ? (
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to="/tutor/schedule">
+                  Lịch dạy
                 </Link>
               ) : null}
               <div className="tcs-profile-menu">
