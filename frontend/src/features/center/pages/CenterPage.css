@@ -2,7 +2,10 @@
 
 .rc-bg {
   min-height: 100vh;
-  background: var(--color-surface-1);
+  /* Cùng "màu chuyển" như hero trang chủ: dịu dần từ xanh nhạt xuống nền sáng. */
+  background: linear-gradient(180deg, var(--color-primary-xlight) 0%, var(--color-surface-1) 340px);
+  background-repeat: no-repeat;
+  background-color: var(--color-surface-1);
 }
 .rc-page {
   max-width: 1000px;
@@ -11,6 +14,14 @@
 }
 .rc-topbar {
   margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.rc-topbar .rc-btn {
+  text-decoration: none;
 }
 .rc-back {
   color: var(--color-text-secondary);
@@ -454,11 +465,89 @@
   color: var(--color-text-secondary);
   white-space: pre-wrap;
 }
+
+/* Bằng cấp / chứng chỉ đã xác minh của ứng viên */
+.rc-certs {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+.rc-certs__label {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+.rc-certs__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rc-certs__link {
+  font-size: 13px;
+  color: var(--color-primary-dark);
+  text-decoration: none;
+  word-break: break-all;
+  /* Là <button> nhưng trông như link: bỏ mọi style mặc định của button. */
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rc-certs__link:hover {
+  text-decoration: underline;
+}
+/* "Đã ứng tuyển" trong trang quản lý gia sư */
+.rc-applied {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.rc-applied__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+.rc-applied__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rc-applied__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  background: var(--color-surface-3);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+
 .rc-applicant__actions {
   display: flex;
+  flex-direction: column;
   gap: 6px;
-  align-items: center;
+  align-items: stretch;
   flex: 0 0 auto;
+}
+.rc-applicant__decide {
+  display: flex;
+  gap: 6px;
+}
+.rc-certs__toggle {
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {

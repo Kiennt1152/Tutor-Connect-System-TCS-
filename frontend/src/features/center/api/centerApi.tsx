@@ -1,5 +1,7 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  CenterMember,
+  MembershipStatus,
   RecruitmentApplication,
   RecruitmentPost,
   SaveRecruitmentPostRequest,
@@ -56,6 +58,17 @@ export const centerApi = {
   getMyApplications() {
     return axiosClient.get<RecruitmentApplication[]>(
       `${CENTER_API_BASE}/recruitment/applications/mine`,
+    );
+  },
+
+  // ----- Quản lý danh sách gia sư của trung tâm -----
+  getMembers() {
+    return axiosClient.get<CenterMember[]>(`${CENTER_API_BASE}/members`);
+  },
+  updateMemberStatus(membershipId: number, status: MembershipStatus) {
+    return axiosClient.patch<CenterMember>(
+      `${CENTER_API_BASE}/members/${membershipId}/status`,
+      { status },
     );
   },
 };

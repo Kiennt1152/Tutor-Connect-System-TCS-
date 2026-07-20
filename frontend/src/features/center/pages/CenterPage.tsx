@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { centerApi } from '../api/centerApi';
 import { LocationPicker } from '../components/LocationPicker';
+import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import type {
   RecruitmentApplication,
   RecruitmentApplicationStatus,
@@ -218,11 +220,18 @@ export default function CenterPage() {
   const [appsLoading, setAppsLoading] = useState(false);
   const [appsError, setAppsError] = useState('');
   const [decidingId, setDecidingId] = useState<number | null>(null);
+  // Ứng viên đang mở xem chứng chỉ (null = không mở cái nào).
+  const [certsOpenId, setCertsOpenId] = useState<number | null>(null);
+  const toggleCerts = (appId: number) =>
+    setCertsOpenId((prev) => (prev === appId ? null : appId));
+  // Xem trước file chứng chỉ ngay trong trang (không nhảy sang tab khác).
+  const [preview, setPreview] = useState<{ src: string; fileName: string } | null>(null);
 
   const openApps = async (post: RecruitmentPost) => {
     setAppsFor(post);
     setApps([]);
     setAppsError('');
+    setCertsOpenId(null);
     setAppsLoading(true);
     try {
       const res = await centerApi.getApplications(post.recruitmentId);
@@ -254,11 +263,16 @@ export default function CenterPage() {
   };
 
   return (
-    <div className="rc-bg">
+    <>
+      <HomeNavbar />
+      <div className="rc-bg">
       <div className="rc-page">
         <div className="rc-topbar">
           <Link className="rc-back" to="/">
             ← Trang chủ
+          </Link>
+          <Link className="rc-btn rc-btn--ghost rc-btn--sm" to="/center/tutors">
+            🧑‍🏫 Gia sư của trung tâm
           </Link>
         </div>
 
@@ -538,10 +552,38 @@ export default function CenterPage() {
                             <span>Nộp: {fmtDate(a.appliedAt)}</span>
                           </div>
                           {a.coverLetter && <p className="rc-applicant__letter">{a.coverLetter}</p>}
+                          {certsOpenId === a.recruitmentAppId &&
+                            a.certificates &&
+                            a.certificates.length > 0 && (
+                              <div className="rc-certs">
+                                <span className="rc-certs__label">
+                                  📜 Bằng cấp / chứng chỉ đã xác minh
+                                </span>
+                                <ul className="rc-certs__list">
+                                  {a.certificates.map((cert) => (
+                                    <li key={cert.fileUrl}>
+                                      <button
+                                        type="button"
+                                        className="rc-certs__link"
+                                        onClick={() =>
+                                          setPreview({
+                                            src: cert.fileUrl,
+                                            fileName: cert.fileName,
+                                          })
+                                        }
+                                      >
+                                        {cert.mimeType?.startsWith('image/') ? '🖼️' : '📄'}{' '}
+                                        {cert.fileName}
+                                      </button>
+                                    </li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
                         </div>
                         <div className="rc-applicant__actions">
                           {a.status === 'APPLIED' ? (
-                            <>
+                            <div className="rc-applicant__decide">
                               <button
                                 className="rc-btn rc-btn--danger rc-btn--sm"
                                 type="button"
@@ -558,9 +600,20 @@ export default function CenterPage() {
                               >
                                 Duyệt
                               </button>
-                            </>
+                            </div>
                           ) : (
                             <span className={`rc-status rc-status--${ast.cls}`}>{ast.label}</span>
+                          )}
+                          {a.certificates && a.certificates.length > 0 && (
+                            <button
+                              className="rc-btn rc-btn--ghost rc-btn--sm rc-certs__toggle"
+                              type="button"
+                              aria-expanded={certsOpenId === a.recruitmentAppId}
+                              onClick={() => toggleCerts(a.recruitmentAppId)}
+                            >
+                              📜 Chứng chỉ ({a.certificates.length}){' '}
+                              {certsOpenId === a.recruitmentAppId ? '▲' : '▼'}
+                            </button>
                           )}
                         </div>
                       </li>
@@ -572,6 +625,14 @@ export default function CenterPage() {
           </div>
         </div>
       )}
-    </div>
+
+      <FilePreviewModal
+        src={preview?.src ?? ''}
+        fileName={preview?.fileName ?? ''}
+        isOpen={preview !== null}
+        onClose={() => setPreview(null)}
+      />
+      </div>
+    </>
   );
 }

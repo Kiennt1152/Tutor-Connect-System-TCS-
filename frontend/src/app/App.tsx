@@ -10,6 +10,7 @@ import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage'
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import CenterPage from '../features/center/pages/CenterPage';
+import CenterTutorsPage from '../features/center/pages/CenterTutorsPage';
 import CentersPage from '../features/home/pages/CentersPage';
 import RecruitmentPage from '../features/recruitment/pages/RecruitmentPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
@@ -90,6 +91,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/tutors"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterTutorsPage />
               </ProtectedRoute>
             }
           />

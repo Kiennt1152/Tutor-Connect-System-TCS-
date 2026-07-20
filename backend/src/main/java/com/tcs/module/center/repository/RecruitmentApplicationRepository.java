@@ -15,6 +15,11 @@ public interface RecruitmentApplicationRepository extends JpaRepository<Recruitm
     /** Đơn của một gia sư, mới nộp trước. */
     List<RecruitmentApplication> findByTutor_TutorIdOrderByAppliedAtDesc(Long tutorId);
 
+    /** Đơn của một gia sư vào các tin của MỘT trung tâm (để hiển thị ở trang quản lý gia sư). */
+    List<RecruitmentApplication>
+            findByTutor_TutorIdAndRecruitmentPost_Center_CenterIdOrderByAppliedAtDesc(
+                    Long tutorId, Long centerId);
+
     /** Dùng để chặn nộp trùng đơn cho cùng một tin. */
     Optional<RecruitmentApplication> findFirstByRecruitmentPost_RecruitmentIdAndTutor_TutorId(
             Long recruitmentId, Long tutorId);

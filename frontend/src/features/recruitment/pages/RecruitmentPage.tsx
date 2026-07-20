@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { centerApi } from '../../center/api/centerApi';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import type {
   RecruitmentApplication,
   RecruitmentApplicationStatus,
@@ -26,6 +28,14 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Mã lỗi backend trả về (VD: "VERIFICATION_REQUIRED") để frontend xử lý riêng. */
+function errorCode(error: unknown): string | undefined {
+  if (axios.isAxiosError(error) && typeof error.response?.data?.code === 'string') {
+    return error.response.data.code;
+  }
+  return undefined;
+}
+
 function fmtDate(value: string | null): string {
   if (!value) return '—';
   const d = new Date(value);
@@ -33,6 +43,7 @@ function fmtDate(value: string | null): string {
 }
 
 export default function RecruitmentPage() {
+  const navigate = useNavigate();
   const [tab, setTab] = useState<'open' | 'mine'>('open');
   const [posts, setPosts] = useState<RecruitmentPost[]>([]);
   const [myApps, setMyApps] = useState<RecruitmentApplication[]>([]);
@@ -88,6 +99,16 @@ export default function RecruitmentPage() {
       setApplyFor(null);
       load();
     } catch (err) {
+      // Chưa xác minh hồ sơ -> điều hướng sang trang Xác minh (không hiện lỗi đỏ).
+      if (errorCode(err) === 'VERIFICATION_REQUIRED') {
+        setApplyFor(null);
+        navigate(APP_ROUTES.verification, {
+          state: {
+            notice: 'Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển tin tuyển dụng.',
+          },
+        });
+        return;
+      }
       setApplyError(extractError(err, 'Không gửi được đơn ứng tuyển.'));
     } finally {
       setApplyBusy(false);
@@ -95,7 +116,9 @@ export default function RecruitmentPage() {
   };
 
   return (
-    <div className="rc-bg">
+    <>
+      <HomeNavbar />
+      <div className="rc-bg">
       <div className="rc-page">
         <div className="rc-topbar">
           <Link className="rc-back" to="/">
@@ -290,6 +313,7 @@ export default function RecruitmentPage() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

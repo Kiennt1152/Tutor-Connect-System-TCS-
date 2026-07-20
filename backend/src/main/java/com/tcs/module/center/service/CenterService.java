@@ -2,8 +2,10 @@ package com.tcs.module.center.service;
 
 import com.tcs.module.center.dto.request.ApplyRecruitmentRequest;
 import com.tcs.module.center.dto.request.SaveRecruitmentPostRequest;
+import com.tcs.module.center.dto.response.CenterTutorResponse;
 import com.tcs.module.center.dto.response.RecruitmentApplicationResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
+import com.tcs.module.center.enums.CenterTutorMembershipStatus;
 import java.util.List;
 
 /** FT-33: Trung tâm đăng tin tuyển gia sư; gia sư ứng tuyển; trung tâm duyệt/từ chối. */
@@ -42,4 +44,12 @@ public interface CenterService {
 
     /** Duyệt (HIRED) hoặc từ chối (REJECTED) một đơn ứng tuyển. */
     RecruitmentApplicationResponse decideApplication(Long recruitmentAppId, boolean approve);
+
+    // ===================== Quản lý danh sách gia sư của trung tâm =====================
+
+    /** Danh sách gia sư (thành viên) của trung tâm đang đăng nhập. */
+    List<CenterTutorResponse> listMyTutors();
+
+    /** Đổi trạng thái thành viên: ACTIVE / INACTIVE / TERMINATED. */
+    CenterTutorResponse updateMembershipStatus(Long membershipId, CenterTutorMembershipStatus status);
 }

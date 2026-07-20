@@ -66,6 +66,9 @@ public class SecurityConfig {
                         // Tin đang mở: ai cũng xem được.
                         .requestMatchers(HttpMethod.GET, "/api/center/recruitment/**")
                         .permitAll()
+                        // Quản lý danh sách gia sư của trung tâm.
+                        .requestMatchers("/api/center/members", "/api/center/members/**")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
                         .requestMatchers(HttpMethod.GET, "/api/contract/reviews/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payments/webhook")

@@ -2,6 +2,7 @@ package com.tcs.module.center.service.impl;
 
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.exception.VerificationRequiredException;
 import com.tcs.module.catalog.entity.Location;
 import com.tcs.module.catalog.entity.Province;
 import com.tcs.module.catalog.entity.Subject;
@@ -10,17 +11,27 @@ import com.tcs.module.catalog.repository.ProvinceRepository;
 import com.tcs.module.catalog.repository.SubjectRepository;
 import com.tcs.module.center.dto.request.ApplyRecruitmentRequest;
 import com.tcs.module.center.dto.request.SaveRecruitmentPostRequest;
+import com.tcs.module.center.dto.response.CenterTutorResponse;
 import com.tcs.module.center.dto.response.RecruitmentApplicationResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
+import com.tcs.module.center.entity.CenterTutorMembership;
 import com.tcs.module.center.entity.RecruitmentApplication;
 import com.tcs.module.center.entity.RecruitmentPost;
+import com.tcs.module.center.enums.CenterTutorMembershipStatus;
 import com.tcs.module.center.enums.RecruitmentApplicationStatus;
 import com.tcs.module.center.enums.RecruitmentPostStatus;
+import com.tcs.module.center.repository.CenterTutorMembershipRepository;
 import com.tcs.module.center.repository.RecruitmentApplicationRepository;
 import com.tcs.module.center.repository.RecruitmentPostRepository;
 import com.tcs.module.center.service.CenterService;
+import com.tcs.module.identity.enums.VerificationDocumentType;
+import com.tcs.module.identity.enums.VerificationStatus;
+import com.tcs.module.identity.enums.VerificationType;
+import com.tcs.module.identity.repository.VerificationDocumentRepository;
+import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
@@ -39,11 +50,14 @@ public class CenterServiceImpl implements CenterService {
     private final AuthHelper authHelper;
     private final RecruitmentPostRepository recruitmentPostRepository;
     private final RecruitmentApplicationRepository recruitmentApplicationRepository;
+    private final CenterTutorMembershipRepository membershipRepository;
     private final TutorCenterRepository tutorCenterRepository;
     private final TutorRepository tutorRepository;
     private final SubjectRepository subjectRepository;
     private final LocationRepository locationRepository;
     private final ProvinceRepository provinceRepository;
+    private final VerificationRequestRepository verificationRequestRepository;
+    private final VerificationDocumentRepository verificationDocumentRepository;
 
     // ===================== Phía gia sư / công khai =====================
 
@@ -61,6 +75,12 @@ public class CenterServiceImpl implements CenterService {
     @Transactional
     public void applyToRecruitment(Long recruitmentId, ApplyRecruitmentRequest request) {
         Tutor tutor = requireTutor();
+        // Mức 1: chặn cứng — chỉ gia sư đã được admin xác minh mới được ứng tuyển.
+        // Chặn ở service để caller gọi API trực tiếp cũng không lách được.
+        if (tutor.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
+            throw new VerificationRequiredException(
+                    "Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển.");
+        }
         RecruitmentPost post = findPost(recruitmentId);
         if (post.getStatus() != RecruitmentPostStatus.ACTIVE) {
             throw new IllegalArgumentException("Tin tuyển dụng chưa mở hoặc đã đóng");
@@ -185,7 +205,92 @@ public class CenterServiceImpl implements CenterService {
         application.setStatus(
                 approve ? RecruitmentApplicationStatus.HIRED : RecruitmentApplicationStatus.REJECTED);
         application.setReviewedAt(LocalDateTime.now());
-        return toApplicationResponse(recruitmentApplicationRepository.save(application));
+        RecruitmentApplication saved = recruitmentApplicationRepository.save(application);
+        if (approve) {
+            // Duyệt (HIRED) -> gia sư trở thành thành viên ACTIVE của trung tâm.
+            addOrReactivateMembership(saved);
+        }
+        return toApplicationResponse(saved);
+    }
+
+    // ===================== Quản lý danh sách gia sư của trung tâm =====================
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CenterTutorResponse> listMyTutors() {
+        TutorCenter center = requireCenter();
+        return membershipRepository
+                .findByCenter_CenterIdOrderByJoinedAtDesc(center.getCenterId())
+                .stream()
+                .map(this::toTutorResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public CenterTutorResponse updateMembershipStatus(
+            Long membershipId, CenterTutorMembershipStatus status) {
+        TutorCenter center = requireCenter();
+        if (status == null) {
+            throw new IllegalArgumentException("Thiếu trạng thái cần cập nhật");
+        }
+        CenterTutorMembership membership = membershipRepository
+                .findById(membershipId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thành viên"));
+        // Chỉ trung tâm sở hữu mới được thao tác.
+        if (!membership.getCenter().getCenterId().equals(center.getCenterId())) {
+            throw new ForbiddenException("Bạn không có quyền với thành viên này");
+        }
+        membership.setStatus(status);
+        return toTutorResponse(membershipRepository.save(membership));
+    }
+
+    /** Tạo mới hoặc khôi phục (ACTIVE) membership khi trung tâm nhận gia sư qua đơn ứng tuyển. */
+    private void addOrReactivateMembership(RecruitmentApplication application) {
+        TutorCenter center = application.getRecruitmentPost().getCenter();
+        Tutor tutor = application.getTutor();
+        CenterTutorMembership membership = membershipRepository
+                .findFirstByCenter_CenterIdAndTutor_TutorId(center.getCenterId(), tutor.getTutorId())
+                .orElseGet(CenterTutorMembership::new);
+        membership.setCenter(center);
+        membership.setTutor(tutor);
+        membership.setRecruitmentApplication(application);
+        membership.setStatus(CenterTutorMembershipStatus.ACTIVE);
+        if (membership.getJoinedAt() == null) {
+            membership.setJoinedAt(LocalDateTime.now());
+        }
+        membershipRepository.save(membership);
+    }
+
+    private CenterTutorResponse toTutorResponse(CenterTutorMembership membership) {
+        Tutor tutor = membership.getTutor();
+        Long centerId = membership.getCenter().getCenterId();
+        List<CenterTutorResponse.AppliedPost> appliedPosts = recruitmentApplicationRepository
+                .findByTutor_TutorIdAndRecruitmentPost_Center_CenterIdOrderByAppliedAtDesc(
+                        tutor.getTutorId(), centerId)
+                .stream()
+                .map(app -> CenterTutorResponse.AppliedPost.builder()
+                        .recruitmentId(app.getRecruitmentPost().getRecruitmentId())
+                        .postTitle(app.getRecruitmentPost().getTitle())
+                        .applicationStatus(app.getStatus())
+                        .appliedAt(app.getAppliedAt())
+                        .build())
+                .toList();
+        return CenterTutorResponse.builder()
+                .membershipId(membership.getMembershipId())
+                .tutorId(tutor.getTutorId())
+                .tutorName(tutor.getFullName())
+                .tutorPhone(tutor.getPhone())
+                .tutorAvatar(tutor.getAvatar())
+                .experienceYears(tutor.getExperienceYears())
+                .ratingAvg(tutor.getRatingAvg())
+                .verificationStatus(
+                        tutor.getVerificationStatus() != null
+                                ? tutor.getVerificationStatus().name() : null)
+                .joinedAt(membership.getJoinedAt())
+                .status(membership.getStatus())
+                .appliedPosts(appliedPosts)
+                .build();
     }
 
     // ===================== Helper =====================
@@ -356,6 +461,32 @@ public class CenterServiceImpl implements CenterService {
                 .status(application.getStatus())
                 .appliedAt(application.getAppliedAt())
                 .reviewedAt(application.getReviewedAt())
+                .certificates(loadCertificates(tutor))
                 .build();
+    }
+
+    /**
+     * Bằng cấp / chứng chỉ đã được xác minh của gia sư (chỉ loại CERTIFICATE) — để trung tâm
+     * tham khảo khi duyệt đơn. Chỉ lấy khi hồ sơ TUTOR_PROFILE đã VERIFIED; bỏ qua ảnh CCCD.
+     */
+    private List<RecruitmentApplicationResponse.CertificateInfo> loadCertificates(Tutor tutor) {
+        if (tutor.getUser() == null) {
+            return List.of();
+        }
+        return verificationRequestRepository
+                .findByUser_UserIdAndVerificationType(
+                        tutor.getUser().getUserId(), VerificationType.TUTOR_PROFILE)
+                .filter(req -> req.getStatus() == VerificationStatus.VERIFIED)
+                .map(req -> verificationDocumentRepository
+                        .findByVerificationRequest_VerificationId(req.getVerificationId()).stream()
+                        .filter(doc -> doc.getDocumentType() == VerificationDocumentType.CERTIFICATE)
+                        .map(doc -> RecruitmentApplicationResponse.CertificateInfo.builder()
+                                .fileName(doc.getFile().getFileName())
+                                .fileUrl(doc.getFile().getFileUrl())
+                                .mimeType(doc.getFile().getMimeType())
+                                .fileSize(doc.getFile().getFileSize())
+                                .build())
+                        .toList())
+                .orElseGet(List::of);
     }
 }

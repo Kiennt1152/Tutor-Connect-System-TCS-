@@ -3,6 +3,8 @@ package com.tcs.module.center.controller;
 import com.tcs.module.center.dto.request.ApplicationDecisionBody;
 import com.tcs.module.center.dto.request.ApplyRecruitmentRequest;
 import com.tcs.module.center.dto.request.SaveRecruitmentPostRequest;
+import com.tcs.module.center.dto.request.UpdateMembershipStatusBody;
+import com.tcs.module.center.dto.response.CenterTutorResponse;
 import com.tcs.module.center.dto.response.RecruitmentApplicationResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
 import com.tcs.module.center.service.CenterService;
@@ -11,6 +13,7 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -86,5 +89,18 @@ public class CenterController {
     public RecruitmentApplicationResponse decideApplication(
             @PathVariable Long recruitmentAppId, @RequestBody ApplicationDecisionBody request) {
         return centerService.decideApplication(recruitmentAppId, request.isApprove());
+    }
+
+    // ===== Quản lý danh sách gia sư của trung tâm =====
+
+    @GetMapping("/members")
+    public List<CenterTutorResponse> listMyTutors() {
+        return centerService.listMyTutors();
+    }
+
+    @PatchMapping("/members/{membershipId}/status")
+    public CenterTutorResponse updateMembershipStatus(
+            @PathVariable Long membershipId, @RequestBody UpdateMembershipStatusBody request) {
+        return centerService.updateMembershipStatus(membershipId, request.getStatus());
     }
 }

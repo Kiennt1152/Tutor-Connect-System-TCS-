@@ -66,4 +66,38 @@ export interface RecruitmentApplication {
   status: RecruitmentApplicationStatus;
   appliedAt: string;
   reviewedAt: string | null;
+  /** Bằng cấp / chứng chỉ đã xác minh gia sư đã nộp (không gồm ảnh CCCD). */
+  certificates?: CertificateInfo[];
+}
+
+export interface CertificateInfo {
+  fileName: string;
+  fileUrl: string;
+  mimeType: string | null;
+  fileSize: number | null;
+}
+
+export type MembershipStatus = 'ACTIVE' | 'INACTIVE' | 'TERMINATED';
+
+/** Một tin tuyển dụng của trung tâm mà gia sư đã ứng tuyển. */
+export interface AppliedPost {
+  recruitmentId: number;
+  postTitle: string | null;
+  applicationStatus: RecruitmentApplicationStatus;
+  appliedAt: string;
+}
+
+/** Một gia sư là thành viên của trung tâm. */
+export interface CenterMember {
+  membershipId: number;
+  tutorId: number;
+  tutorName: string | null;
+  tutorPhone: string | null;
+  tutorAvatar: string | null;
+  experienceYears: number | null;
+  ratingAvg: number | null;
+  verificationStatus: string | null;
+  joinedAt: string;
+  status: MembershipStatus;
+  appliedPosts?: AppliedPost[];
 }
