@@ -29,6 +29,7 @@ export function HomeNavbar() {
   // Gia su: "Trung tam" di thang toi trang ung tuyen (/recruitment chi cho TUTOR).
   // Vai tro khac: ve trang gioi thieu trung tam, tranh bi da sang /forbidden.
   const centersHref = hasRole(user?.role, 'TUTOR') ? APP_ROUTES.recruitment : APP_ROUTES.centers;
+  const showTutorSchedule = hasRole(user?.role, 'TUTOR');
   const showWallet = hasAnyRole(user?.role, WALLET_ROLES);
   const showContract = hasAnyRole(user?.role, CONTRACT_ROLES);
   const showMessaging = hasAnyRole(user?.role, MESSAGING_ROLES);
@@ -55,6 +56,11 @@ export function HomeNavbar() {
               {showCenterManage ? (
                 <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.center}>
                   Quản lý trung tâm
+                </Link>
+              ) : null}
+              {showTutorSchedule ? (
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to="/tutor/schedule">
+                  Lịch dạy
                 </Link>
               ) : null}
               <div className="tcs-profile-menu">

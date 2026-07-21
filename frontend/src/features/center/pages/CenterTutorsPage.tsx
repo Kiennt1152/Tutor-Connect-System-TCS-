@@ -95,7 +95,7 @@ export default function CenterTutorsPage() {
       <div className="rc-bg">
         <div className="rc-page">
           <div className="rc-topbar">
-            <Link className="rc-back" to="/center">
+            <Link className="rc-back" to="/center/recruitment">
               ← Tin tuyển dụng
             </Link>
           </div>

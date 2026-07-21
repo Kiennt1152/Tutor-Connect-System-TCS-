@@ -14,9 +14,17 @@ export interface LocationValue {
   addressDetail: string;
 }
 
+export interface LocationErrors {
+  province?: string;
+  ward?: string;
+  addressDetail?: string;
+}
+
 interface Props {
   value: LocationValue;
   onChange: (value: LocationValue) => void;
+  errors?: LocationErrors;
+  showErrors?: boolean;
 }
 
 function sortByName(list: GeoItem[]): GeoItem[] {
@@ -34,8 +42,12 @@ async function getWards(provinceCode: number): Promise<GeoItem[]> {
   return data.wards ?? [];
 }
 
-/** Chọn Tỉnh/Thành phố → Phường/Xã → nhập địa chỉ cụ thể. Với tin tuyển dụng, địa điểm là tuỳ chọn. */
-export function LocationPicker({ value, onChange }: Props) {
+/**
+ * Chọn Tỉnh/Thành phố → Phường/Xã → nhập địa chỉ cụ thể.
+ * Có thể truyền {@code errors}/{@code showErrors} để hiển thị lỗi (lớp học); nếu không truyền
+ * thì dùng như ô nhập bình thường (tin tuyển dụng — địa điểm tuỳ chọn).
+ */
+export function LocationPicker({ value, onChange, errors, showErrors }: Props) {
   const [provinces, setProvinces] = useState<GeoItem[]>([]);
   const [wards, setWards] = useState<GeoItem[]>([]);
   const [loadErr, setLoadErr] = useState('');
@@ -46,8 +58,7 @@ export function LocationPicker({ value, onChange }: Props) {
     getProvinces()
       .then((list) => alive && setProvinces(sortByName(list)))
       .catch(
-        () =>
-          alive && setLoadErr('Không tải được danh sách địa phương. Kiểm tra kết nối mạng.'),
+        () => alive && setLoadErr('Không tải được danh sách địa phương. Kiểm tra kết nối mạng.'),
       );
     return () => {
       alive = false;
@@ -75,16 +86,21 @@ export function LocationPicker({ value, onChange }: Props) {
     };
   }, [provinceCode]);
 
+  const cls = (key: keyof LocationErrors) =>
+    `cc-input${showErrors && errors?.[key] ? ' cc-input--error' : ''}`;
+  const msg = (key: keyof LocationErrors) =>
+    showErrors && errors?.[key] ? <span className="cc-error">{errors[key]}</span> : null;
+
   return (
-    <>
-      {loadErr && <div className="rc-alert rc-alert--error">{loadErr}</div>}
-      <div className="rc-field2">
-        <label className="rc-field">
-          <span>Tỉnh/Thành phố</span>
+    <div className="cc-loc">
+      {loadErr && <div className="cc-alert cc-alert--error">{loadErr}</div>}
+      <div className="cc-loc__grid">
+        <label className="cc-field">
+          <span className="cc-label">Tỉnh/Thành phố</span>
           <select
+            className={cls('province')}
             value={value.province}
             onChange={(e) =>
-              // Đổi tỉnh thì phường cũ không còn hợp lệ.
               onChange({ province: e.target.value, ward: '', addressDetail: value.addressDetail })
             }
           >
@@ -95,11 +111,13 @@ export function LocationPicker({ value, onChange }: Props) {
               </option>
             ))}
           </select>
+          {msg('province')}
         </label>
 
-        <label className="rc-field">
-          <span>Phường/Xã</span>
+        <label className="cc-field">
+          <span className="cc-label">Phường/Xã</span>
           <select
+            className={cls('ward')}
             value={value.ward}
             disabled={!value.province}
             onChange={(e) => onChange({ ...value, ward: e.target.value })}
@@ -113,18 +131,20 @@ export function LocationPicker({ value, onChange }: Props) {
               </option>
             ))}
           </select>
+          {msg('ward')}
+        </label>
+
+        <label className="cc-field">
+          <span className="cc-label">Địa chỉ cụ thể</span>
+          <input
+            className={cls('addressDetail')}
+            value={value.addressDetail}
+            onChange={(e) => onChange({ ...value, addressDetail: e.target.value })}
+            placeholder="VD: 123 Lê Lợi"
+          />
+          {msg('addressDetail')}
         </label>
       </div>
-
-      <label className="rc-field">
-        <span>Địa chỉ cụ thể</span>
-        <input
-          type="text"
-          value={value.addressDetail}
-          onChange={(e) => onChange({ ...value, addressDetail: e.target.value })}
-          placeholder="VD: 123 Lê Lợi"
-        />
-      </label>
-    </>
+    </div>
   );
 }

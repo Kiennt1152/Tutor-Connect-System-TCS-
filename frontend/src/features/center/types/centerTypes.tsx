@@ -1,3 +1,5 @@
+// ===================== Tin tuyển gia sư (FT-33) =====================
+
 export type RecruitmentPostStatus = 'DRAFT' | 'ACTIVE' | 'CLOSED';
 
 export type RecruitmentApplicationStatus =
@@ -100,4 +102,153 @@ export interface CenterMember {
   joinedAt: string;
   status: MembershipStatus;
   appliedPosts?: AppliedPost[];
+}
+
+// ===================== Quản lý lớp học của Trung tâm (UC-14-B) =====================
+
+export type LessonMode = 'ONLINE' | 'OFFLINE' | 'HYBRID';
+export type RecurringType = 'DAILY' | 'WEEKLY' | 'ONCE';
+export type ClassStatus =
+  | 'DRAFT'
+  | 'OPEN'
+  | 'MATCHED'
+  | 'ENROLLMENT_CLOSED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'DISPUTED';
+
+export interface ScheduleSlot {
+  slotId?: number;
+  dayOfWeek: number; // 1 = Thứ Hai ... 7 = Chủ Nhật
+  startTime: string; // "HH:mm"
+  endTime: string; // "HH:mm"
+}
+
+export interface ClassResponse {
+  classId: number;
+  title: string;
+  description: string | null;
+  creatorId: number;
+  centerId: number | null;
+  categoryId: number | null;
+  categoryName: string | null;
+  subjectId: number | null;
+  subjectName: string | null;
+  gradeId: number | null;
+  gradeName: string | null;
+  locationId: number | null;
+  locationLabel: string | null;
+  locationText: string | null;
+  provinceName: string | null;
+  wardName: string | null;
+  addressDetail: string | null;
+  lessonMode: LessonMode;
+  numberOfSessions: number;
+  recurringType: RecurringType;
+  startDate: string;
+  endDate: string;
+  tuitionFee: number;
+  maxStudents: number | null;
+  status: ClassStatus;
+  createdAt: string;
+  updatedAt: string;
+  schedule: ScheduleSlot[];
+  assignedTutorId: number | null;
+  assignedTutorName: string | null;
+  assistantTutorId: number | null;
+  assistantTutorName: string | null;
+  students?: StudentAttendance[];
+}
+
+export interface TutorOption {
+  tutorId: number;
+  fullName: string;
+  experienceYears: number | null;
+  ratingAvg: number | null;
+  verificationStatus: string | null;
+  phone: string | null;
+  avatar: string | null;
+  bio: string | null;
+  scheduleConflict?: boolean;
+  conflictClassTitle?: string | null;
+}
+
+export type AttendanceStatus = 'PRESENT' | 'ABSENT' | 'EXCUSED';
+
+export interface StudentAttendance {
+  classStudentId: number;
+  studentName: string;
+  studentPhone: string | null;
+  status: AttendanceStatus | null;
+}
+
+export interface ScheduleClass {
+  classId: number;
+  title: string;
+  subjectName: string | null;
+  gradeName: string | null;
+  lessonMode: LessonMode;
+  slots: ScheduleSlot[];
+  assignedTutorId: number | null;
+  assignedTutorName: string | null;
+  studentCount: number;
+  students: StudentAttendance[];
+  attendanceTaken: boolean;
+  rescheduled?: boolean;
+  rescheduleNote?: string | null;
+  /** Buổi này do gia sư phụ dạy thay (đã duyệt). */
+  substituted?: boolean;
+  substituteNote?: string | null;
+  /** (Góc nhìn gia sư chính) buổi này đã bàn giao cho gia sư phụ — không thao tác nữa. */
+  handedOff?: boolean;
+  /** Gia sư phụ của lớp (nếu có) — để gia sư chính biết có thể nhờ dạy thay. */
+  assistantTutorId?: number | null;
+  assistantTutorName?: string | null;
+}
+
+export type RescheduleStatus = 'PENDING' | 'APPROVED' | 'REJECTED';
+
+export interface Reschedule {
+  classId: number;
+  className: string | null;
+  originalDate: string;
+  newDate: string;
+  newStartTime: string | null;
+  newEndTime: string | null;
+  status: RescheduleStatus;
+  tutorId: number | null;
+  tutorName: string | null;
+  reason: string | null;
+}
+
+export interface Substitution {
+  classId: number;
+  className: string | null;
+  date: string;
+  status: RescheduleStatus;
+  reason: string | null;
+  mainTutorId: number | null;
+  mainTutorName: string | null;
+  assistantTutorId: number | null;
+  assistantTutorName: string | null;
+}
+
+export interface SaveClassRequest {
+  title: string;
+  description?: string;
+  categoryName: string;
+  subjectName: string;
+  gradeName: string;
+  provinceName: string;
+  wardName: string;
+  addressDetail: string;
+  lessonMode: LessonMode | null;
+  numberOfSessions: number | null;
+  recurringType: RecurringType | null;
+  startDate: string | null;
+  endDate: string | null;
+  tuitionFee: number | null;
+  maxStudents: number | null;
+  schedule: ScheduleSlot[];
 }

@@ -10,12 +10,18 @@ import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage'
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import CenterPage from '../features/center/pages/CenterPage';
+import CenterRecruitmentPage from '../features/center/pages/CenterRecruitmentPage';
+import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
+import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
+import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
+import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
 import CenterTutorsPage from '../features/center/pages/CenterTutorsPage';
 import CentersPage from '../features/home/pages/CentersPage';
 import RecruitmentPage from '../features/recruitment/pages/RecruitmentPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
+import MarketplaceClassDetailPage from '../features/marketplace/pages/MarketplaceClassDetailPage';
 import ContractPage from '../features/contract/pages/ContractPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
@@ -71,6 +77,14 @@ export default function App() {
             }
           />
           <Route
+            path="/marketplace/classes/:classId"
+            element={
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+                <MarketplaceClassDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={APP_ROUTES.contract}
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
@@ -91,6 +105,46 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/schedule"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/reschedules"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterReschedulesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tutor/schedule"
+            element={
+              <ProtectedRoute roles={['TUTOR']}>
+                <TutorSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tutor/classes/:classId/attendance"
+            element={
+              <ProtectedRoute roles={['TUTOR']}>
+                <TutorAttendancePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/recruitment"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterRecruitmentPage />
               </ProtectedRoute>
             }
           />
