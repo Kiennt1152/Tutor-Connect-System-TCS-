@@ -79,6 +79,33 @@ export function useReviewVerification() {
   return { status, errorMessage, review, reset };
 }
 
+export function useAcceptWithdrawal() {
+  const [status, setStatus] = useState<MutationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const acceptWithdrawal = useCallback(async (withdrawalId: string): Promise<boolean> => {
+    setStatus('loading');
+    setErrorMessage(null);
+    try {
+      await platformApi.acceptWithdrawal(withdrawalId);
+      setStatus('success');
+      return true;
+    } catch (error) {
+      console.error('Lỗi xác nhận yêu cầu rút tiền:', error);
+      setErrorMessage(getApiErrorMessage(error, 'Không thể xác nhận yêu cầu rút tiền.'));
+      setStatus('error');
+      return false;
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setStatus('idle');
+    setErrorMessage(null);
+  }, []);
+
+  return { status, errorMessage, acceptWithdrawal, reset };
+}
+
 export function useResolveDispute() {
   const [status, setStatus] = useState<MutationStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);

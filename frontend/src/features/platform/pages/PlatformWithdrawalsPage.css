@@ -1,0 +1,107 @@
+.pw-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.pw-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  box-shadow: var(--shadow-sm);
+}
+
+.pw-summary-card--warn {
+  background: linear-gradient(135deg, var(--color-warning-light), var(--color-surface-2));
+  border-color: #f3c66b;
+}
+
+.pw-summary-card__label {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+}
+
+.pw-summary-card__value {
+  color: var(--color-text-primary);
+  font-size: var(--fs-h3);
+  font-weight: 700;
+}
+
+.pw-toolbar .adm-field {
+  min-width: 180px;
+}
+
+.pw-table th:nth-child(1),
+.pw-table td:nth-child(1) {
+  width: 82px;
+}
+
+.pw-table th:nth-child(3),
+.pw-table td:nth-child(3) {
+  width: 170px;
+}
+
+.pw-table th:nth-child(6),
+.pw-table td:nth-child(6) {
+  width: 120px;
+}
+
+.pw-table__id,
+.pw-table__amount {
+  white-space: nowrap;
+}
+
+.pw-table__amount {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.pw-user-cell,
+.pw-bank-cell,
+.pw-ref-cell,
+.pw-time-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.pw-user-cell strong,
+.pw-bank-cell strong {
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-md);
+}
+
+.pw-user-cell span,
+.pw-bank-cell span,
+.pw-ref-cell span,
+.pw-time-cell small {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+}
+
+.pw-ref-cell code {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+@media (max-width: 1020px) {
+  .pw-summary {
+    grid-template-columns: 1fr;
+  }
+}

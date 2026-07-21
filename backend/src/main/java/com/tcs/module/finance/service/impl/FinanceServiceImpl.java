@@ -5,6 +5,8 @@ import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
 import com.tcs.module.finance.dto.request.DepositRequest;
 import com.tcs.module.finance.dto.request.PaymentMethodRequest;
 import com.tcs.module.finance.dto.request.SepayWebhookRequest;
+import com.tcs.module.finance.dto.response.AdminWithdrawalPageResponse;
+import com.tcs.module.finance.dto.response.AdminWithdrawalResponse;
 import com.tcs.module.finance.dto.response.PaymentWebhookResponse;
 import com.tcs.module.finance.dto.response.PaymentMethodResponse;
 import com.tcs.module.finance.dto.response.TopupSessionResponse;
@@ -370,6 +372,29 @@ public class FinanceServiceImpl implements FinanceService {
         }
 
         return completeWithdrawal(withdrawal, tx, null, "Yêu cầu rút tiền đã được duyệt");
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public AdminWithdrawalPageResponse getAdminWithdrawals(int page, int size, String status) {
+        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+
+        WithdrawalRequestStatus statusFilter = parseWithdrawalStatus(status);
+        Pageable pageable = PageRequest.of(normalizePage(page), normalizeSize(size));
+        Page<WithdrawalRequest> withdrawalPage =
+                withdrawalRequestRepository.findAdminPage(statusFilter, pageable);
+
+        List<AdminWithdrawalResponse> content = withdrawalPage.getContent().stream()
+                .map(withdrawal -> toAdminWithdrawalResponse(withdrawal, findWithdrawalTransaction(withdrawal)))
+                .toList();
+
+        return AdminWithdrawalPageResponse.builder()
+                .content(content)
+                .page(withdrawalPage.getNumber())
+                .size(withdrawalPage.getSize())
+                .totalPages(withdrawalPage.getTotalPages())
+                .totalElements(withdrawalPage.getTotalElements())
+                .build();
     }
 
     @Override
@@ -759,6 +784,49 @@ public class FinanceServiceImpl implements FinanceService {
         return candidates.size() == 1 ? candidates.get(0) : null;
     }
 
+    private PaymentTransaction findWithdrawalTransaction(WithdrawalRequest withdrawal) {
+        if (withdrawal.getWallet() == null || withdrawal.getRequestedAt() == null || withdrawal.getAmount() == null) {
+            return null;
+        }
+
+        LocalDateTime from = withdrawal.getRequestedAt().minusMinutes(WITHDRAWAL_MATCH_WINDOW_MINUTES);
+        LocalDateTime to = withdrawal.getRequestedAt().plusMinutes(WITHDRAWAL_MATCH_WINDOW_MINUTES);
+        List<PaymentTransaction> candidates =
+                paymentTransactionRepository
+                        .findByWallet_WalletIdAndTypeAndAmountAndCreatedAtBetweenOrderByCreatedAtAsc(
+                                withdrawal.getWallet().getWalletId(),
+                                PaymentTransactionType.WITHDRAWAL,
+                                withdrawal.getAmount(),
+                                from,
+                                to);
+
+        List<PaymentTransaction> matched = candidates.stream()
+                .filter(tx -> paymentMethodMatches(withdrawal, tx))
+                .toList();
+        PaymentTransaction statusMatched = matched.stream()
+                .filter(tx -> withdrawalStatusMatches(withdrawal.getStatus(), tx.getStatus()))
+                .findFirst()
+                .orElse(null);
+        if (statusMatched != null) {
+            return statusMatched;
+        }
+        return matched.size() == 1 ? matched.get(0) : null;
+    }
+
+    private boolean withdrawalStatusMatches(
+            WithdrawalRequestStatus withdrawalStatus,
+            PaymentTransactionStatus transactionStatus) {
+        if (withdrawalStatus == null || transactionStatus == null) {
+            return false;
+        }
+        return switch (withdrawalStatus) {
+            case PENDING, APPROVED -> transactionStatus == PaymentTransactionStatus.PENDING;
+            case COMPLETED -> transactionStatus == PaymentTransactionStatus.SUCCESS;
+            case REJECTED -> transactionStatus == PaymentTransactionStatus.FAILED
+                    || transactionStatus == PaymentTransactionStatus.CANCELLED;
+        };
+    }
+
     private TopupSessionResponse toTopupSessionResponse(
             String reference,
             BigDecimal amount,
@@ -818,6 +886,17 @@ public class FinanceServiceImpl implements FinanceService {
             return DEFAULT_PAGE_SIZE;
         }
         return Math.min(size, MAX_PAGE_SIZE);
+    }
+
+    private WithdrawalRequestStatus parseWithdrawalStatus(String status) {
+        if (status == null || status.isBlank()) {
+            return null;
+        }
+        try {
+            return WithdrawalRequestStatus.valueOf(status.trim().toUpperCase());
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalArgumentException("Trạng thái yêu cầu rút tiền không hợp lệ: " + status);
+        }
     }
 
     private List<PaymentMethod> activePaymentMethods(Wallet wallet) {
@@ -912,6 +991,30 @@ public class FinanceServiceImpl implements FinanceService {
                 .referenceCode(tx.getReferenceCode())
                 .processedAt(tx.getProcessedAt())
                 .createdAt(tx.getCreatedAt())
+                .build();
+    }
+
+    private AdminWithdrawalResponse toAdminWithdrawalResponse(
+            WithdrawalRequest withdrawal,
+            PaymentTransaction tx) {
+        Wallet wallet = withdrawal.getWallet();
+        PaymentMethod paymentMethod = withdrawal.getPaymentMethod();
+        return AdminWithdrawalResponse.builder()
+                .withdrawalId(withdrawal.getWithdrawalId())
+                .walletId(wallet != null ? wallet.getWalletId() : null)
+                .requesterEmail(wallet != null && wallet.getUser() != null ? wallet.getUser().getEmail() : null)
+                .amount(withdrawal.getAmount())
+                .status(withdrawal.getStatus())
+                .paymentMethodId(paymentMethod != null ? paymentMethod.getPaymentMethodId() : null)
+                .bankName(paymentMethod != null ? paymentMethod.getBankName() : null)
+                .accountNoMasked(paymentMethod != null ? maskAccountNo(paymentMethod.getAccountNo()) : "")
+                .transactionId(tx != null ? tx.getTransactionId() : null)
+                .transactionStatus(tx != null ? tx.getStatus() : null)
+                .referenceCode(tx != null ? tx.getReferenceCode() : null)
+                .externalTransactionId(tx != null ? tx.getExternalTransactionId() : null)
+                .requestedAt(withdrawal.getRequestedAt())
+                .processedAt(withdrawal.getProcessedAt())
+                .failureReason(withdrawal.getFailureReason())
                 .build();
     }
 

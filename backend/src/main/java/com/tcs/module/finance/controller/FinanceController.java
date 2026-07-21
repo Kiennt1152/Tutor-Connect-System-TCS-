@@ -6,6 +6,7 @@ import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
 import com.tcs.module.finance.dto.request.ExecuteRefundRequest;
 import com.tcs.module.finance.dto.request.PaymentMethodRequest;
 import com.tcs.module.finance.dto.request.SepayWebhookRequest;
+import com.tcs.module.finance.dto.response.AdminWithdrawalPageResponse;
 import com.tcs.module.finance.dto.response.PaymentWebhookResponse;
 import com.tcs.module.finance.dto.response.PaymentMethodResponse;
 import com.tcs.module.finance.dto.response.RefundExecutionResponse;
@@ -113,6 +114,14 @@ public class FinanceController {
     @PostMapping("/withdrawals")
     public WithdrawalResponse createWithdrawal(@RequestBody CreateWithdrawalRequest request) {
         return financeService.createWithdrawal(request);
+    }
+
+    @GetMapping("/withdrawals")
+    public AdminWithdrawalPageResponse getAdminWithdrawals(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String status) {
+        return financeService.getAdminWithdrawals(page, size, status);
     }
 
     @PostMapping("/withdrawals/{withdrawalId}/accept")

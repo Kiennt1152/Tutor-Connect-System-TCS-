@@ -195,6 +195,7 @@ export type PaymentTransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'REFUND' | 'ESCR
 export type PaymentTransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
 export type ClassTerminationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 export type RefundRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+export type WithdrawalRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 export type TutoringClassStatus =
   | 'DRAFT'
   | 'OPEN'
@@ -228,6 +229,64 @@ export interface ReportItem {
   status: ReportStatus;
   statusLabel: string;
   createdAt: string;
+}
+
+export interface AdminWithdrawalApiResponse {
+  withdrawalId: number;
+  walletId: number | null;
+  requesterEmail: string | null;
+  amount: number;
+  status: WithdrawalRequestStatus;
+  paymentMethodId: number | null;
+  bankName: string | null;
+  accountNoMasked: string | null;
+  transactionId: number | null;
+  transactionStatus: PaymentTransactionStatus | null;
+  referenceCode: string | null;
+  externalTransactionId: string | null;
+  requestedAt: string | null;
+  processedAt: string | null;
+  failureReason: string | null;
+}
+
+export interface PageAdminWithdrawalApiResponse {
+  content: AdminWithdrawalApiResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface AdminWithdrawalItem {
+  id: string;
+  walletId: string;
+  requester: string;
+  amount: string;
+  rawAmount: number;
+  status: WithdrawalRequestStatus;
+  statusLabel: string;
+  bankName: string;
+  accountNoMasked: string;
+  referenceCode: string;
+  transactionStatusLabel: string;
+  requestedAt: string;
+  processedAt: string;
+  canAccept: boolean;
+  raw: AdminWithdrawalApiResponse;
+}
+
+export interface PageAdminWithdrawalList {
+  items: AdminWithdrawalItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface WithdrawalListFilters {
+  page: number;
+  size: number;
+  status?: WithdrawalRequestStatus;
 }
 
 export interface EscrowReviewApiResponse {

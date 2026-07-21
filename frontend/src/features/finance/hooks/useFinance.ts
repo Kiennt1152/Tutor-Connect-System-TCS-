@@ -15,6 +15,7 @@ import type {
 } from '../types/financeTypes';
 
 export function useFinance() {
+  const DEFAULT_TX_SIZE = 10;
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
@@ -49,7 +50,7 @@ export function useFinance() {
     try {
       const data = await financeApi.getTransactions({
         page: 0,
-        size: 20,
+        size: DEFAULT_TX_SIZE,
         ...filters,
       });
       setTransactions(data);
@@ -86,7 +87,7 @@ export function useFinance() {
     try {
       const updated = await financeApi.deposit(payload);
       setWallet(updated);
-      await fetchTransactions({ page: 0, size: 20 });
+      await fetchTransactions({ page: 0, size: DEFAULT_TX_SIZE });
       return true;
     } catch {
       return false;
@@ -105,7 +106,7 @@ export function useFinance() {
     const data = await financeApi.getTopupStatus(reference);
     if (data.wallet) {
       setWallet(data.wallet);
-      await fetchTransactions({ page: 0, size: 20 });
+      await fetchTransactions({ page: 0, size: DEFAULT_TX_SIZE });
     }
     return data;
   }, [fetchTransactions]);
@@ -116,7 +117,7 @@ export function useFinance() {
     const data = await financeApi.simulateTopupSuccess(reference);
     if (data.wallet) {
       setWallet(data.wallet);
-      await fetchTransactions({ page: 0, size: 20 });
+      await fetchTransactions({ page: 0, size: DEFAULT_TX_SIZE });
     }
     return data;
   }, [fetchTransactions]);

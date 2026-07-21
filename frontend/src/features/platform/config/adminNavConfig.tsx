@@ -50,6 +50,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: APP_ROUTES.platformVerifications, label: 'Xác minh', icon: 'shield' },
       { to: APP_ROUTES.platformReports, label: 'Báo cáo & tranh chấp', icon: 'flag' },
       { to: APP_ROUTES.platformEscrows, label: 'Escrow', icon: 'wallet' },
+      { to: APP_ROUTES.platformWithdrawals, label: 'Rút tiền', icon: 'wallet' },
     ],
   },
 ];
@@ -99,6 +100,12 @@ export const ADMIN_QUICK_ACTIONS: AdminModule[] = [
     title: 'Giải ngân escrow',
     description: 'Thực hiện giải ngân escrow cho lớp đã đủ điều kiện tất toán.',
     to: APP_ROUTES.platformEscrows,
+  },
+  {
+    icon: 'wallet',
+    title: 'Quản lý rút tiền',
+    description: 'Theo dõi yêu cầu rút tiền và xác nhận giao dịch đã chuyển.',
+    to: APP_ROUTES.platformWithdrawals,
   },
 ];
 

@@ -70,6 +70,8 @@ public class SecurityConfig {
                         // --- Platform admin ---
                         .requestMatchers("/api/platform/**")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.GET, "/api/finance/withdrawals")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.POST, "/api/finance/withdrawals/*/accept")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/finance/settlements/preview/*")

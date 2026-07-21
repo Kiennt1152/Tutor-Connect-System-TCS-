@@ -4,6 +4,7 @@ import com.tcs.module.finance.dto.request.DepositRequest;
 import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
 import com.tcs.module.finance.dto.request.PaymentMethodRequest;
 import com.tcs.module.finance.dto.request.SepayWebhookRequest;
+import com.tcs.module.finance.dto.response.AdminWithdrawalPageResponse;
 import com.tcs.module.finance.dto.response.PaymentWebhookResponse;
 import com.tcs.module.finance.dto.response.TopupSessionResponse;
 import com.tcs.module.finance.dto.response.TopupStatusResponse;
@@ -42,6 +43,8 @@ public interface FinanceService {
     WithdrawalResponse createWithdrawal(CreateWithdrawalRequest request);
 
     WithdrawalResponse acceptWithdrawal(Long withdrawalId);
+
+    AdminWithdrawalPageResponse getAdminWithdrawals(int page, int size, String status);
 
     WalletTransactionsResponse getMyTransactions(
             int page,

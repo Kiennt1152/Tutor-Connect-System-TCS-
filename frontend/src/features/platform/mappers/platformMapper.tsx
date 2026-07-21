@@ -1,10 +1,14 @@
 import type {
+  AdminWithdrawalApiResponse,
+  AdminWithdrawalItem,
   AdminDisputeReviewApiResponse,
   DashboardApiResponse,
   DisputeReviewItem,
   DisputeStatus,
   EscrowStatus,
   PageUserList,
+  PageAdminWithdrawalApiResponse,
+  PageAdminWithdrawalList,
   PageUserListApiResponse,
   PlatformDashboard,
   ReportApiResponse,
@@ -22,6 +26,8 @@ import type {
   VerificationType,
   ReportCategory,
   ReportStatus,
+  WithdrawalListFilters,
+  WithdrawalRequestStatus,
 } from '../types/platformTypes';
 
 const ROLE_LABELS: Record<UserRole, string> = {
@@ -133,6 +139,13 @@ const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   RESOLVED: 'Đã xử lý',
 };
 
+const WITHDRAWAL_STATUS_LABELS: Record<WithdrawalRequestStatus, string> = {
+  PENDING: 'Chờ xử lý',
+  APPROVED: 'Đã duyệt',
+  REJECTED: 'Từ chối',
+  COMPLETED: 'Thành công',
+};
+
 const DISPUTE_STATUS_LABELS: Record<DisputeStatus, string> = {
   OPEN: 'Mới mở',
   UNDER_INVESTIGATION: 'Đang xem xét',
@@ -189,6 +202,52 @@ export function mapReportItem(item: ReportApiResponse): ReportItem {
     statusLabel: REPORT_STATUS_LABELS[item.status] ?? item.status,
     createdAt: formatDateTime(item.createdAt),
   };
+}
+
+export function mapAdminWithdrawalItem(item: AdminWithdrawalApiResponse): AdminWithdrawalItem {
+  return {
+    id: String(item.withdrawalId),
+    walletId: item.walletId ? String(item.walletId) : '—',
+    requester: item.requesterEmail?.trim() || (item.walletId ? `Ví #${item.walletId}` : '—'),
+    amount: formatCurrency(item.amount),
+    rawAmount: item.amount,
+    status: item.status,
+    statusLabel: WITHDRAWAL_STATUS_LABELS[item.status] ?? item.status,
+    bankName: item.bankName?.trim() || '—',
+    accountNoMasked: item.accountNoMasked?.trim() || '—',
+    referenceCode: item.referenceCode?.trim() || '—',
+    transactionStatusLabel: item.transactionStatus
+      ? (item.transactionStatus === 'SUCCESS' ? 'Thành công'
+        : item.transactionStatus === 'PENDING' ? 'Đang chờ'
+        : item.transactionStatus === 'FAILED' ? 'Thất bại'
+        : item.transactionStatus === 'CANCELLED' ? 'Đã hủy'
+        : item.transactionStatus)
+      : '—',
+    requestedAt: formatDateTime(item.requestedAt),
+    processedAt: formatDateTime(item.processedAt),
+    canAccept: item.status === 'PENDING',
+    raw: item,
+  };
+}
+
+export function mapPageAdminWithdrawalList(
+  response: PageAdminWithdrawalApiResponse,
+): PageAdminWithdrawalList {
+  return {
+    items: response.content.map(mapAdminWithdrawalItem),
+    page: response.page,
+    size: response.size,
+    totalElements: response.totalElements,
+    totalPages: response.totalPages,
+  };
+}
+
+export function buildWithdrawalListQuery(filters: WithdrawalListFilters) {
+  const params = new URLSearchParams();
+  params.set('page', String(filters.page));
+  params.set('size', String(filters.size));
+  if (filters.status) params.set('status', filters.status);
+  return params.toString();
 }
 
 export function mapDisputeReviewItem(item: AdminDisputeReviewApiResponse): DisputeReviewItem {

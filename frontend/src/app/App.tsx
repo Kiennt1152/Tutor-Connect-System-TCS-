@@ -10,6 +10,7 @@ import PlatformProfilePage from '../features/platform/pages/PlatformProfilePage'
 import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
+import PlatformWithdrawalsPage from '../features/platform/pages/PlatformWithdrawalsPage';
 import CenterPage from '../features/center/pages/CenterPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
@@ -134,6 +135,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
                 <PlatformEscrowPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformWithdrawals}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformWithdrawalsPage />
               </ProtectedRoute>
             }
           />

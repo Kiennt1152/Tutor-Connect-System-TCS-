@@ -9,7 +9,7 @@ import { WithdrawalModal } from '../components/WithdrawalModal';
 import { PaymentMethodsPanel } from '../components/PaymentMethodsPanel';
 import type { TransactionFilter, WalletInfo } from '../types/financeTypes';
 
-const DEFAULT_FILTERS: TransactionFilter = { page: 0, size: 20 };
+const DEFAULT_FILTERS: TransactionFilter = { page: 0, size: 10 };
 const EMPTY_WALLET: WalletInfo = {
   walletId: 0,
   balance: 0,

@@ -7,6 +7,7 @@ import type {
   ExecuteRefundApiRequest,
   RefundExecutionApiResponse,
   ExecuteSettlementApiRequest,
+  PageAdminWithdrawalApiResponse,
   PageUserListApiResponse,
   ReportApiResponse,
   ReviewVerificationApiRequest,
@@ -16,8 +17,9 @@ import type {
   UserListFilters,
   VerificationDetailApiResponse,
   VerificationRequestApiResponse,
+  WithdrawalListFilters,
 } from '../types/platformTypes';
-import { buildUserListQuery } from '../mappers/platformMapper';
+import { buildUserListQuery, buildWithdrawalListQuery } from '../mappers/platformMapper';
 
 const BASE = '/platform';
 
@@ -28,6 +30,16 @@ export const platformApi = {
 
   getUsers(filters: UserListFilters) {
     return axiosClient.get<PageUserListApiResponse>(`${BASE}/users?${buildUserListQuery(filters)}`);
+  },
+
+  getWithdrawals(filters: WithdrawalListFilters) {
+    return axiosClient.get<PageAdminWithdrawalApiResponse>(
+      `/finance/withdrawals?${buildWithdrawalListQuery(filters)}`,
+    );
+  },
+
+  acceptWithdrawal(withdrawalId: string) {
+    return axiosClient.post(`/finance/withdrawals/${withdrawalId}/accept`);
   },
 
   updateUserStatus(userId: string, payload: UpdateUserStatusApiRequest) {
