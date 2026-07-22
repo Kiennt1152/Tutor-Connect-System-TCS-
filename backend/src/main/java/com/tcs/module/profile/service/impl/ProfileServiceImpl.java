@@ -37,10 +37,19 @@ import com.tcs.module.profile.repository.TutorExperienceRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.service.ProfileService;
 import com.tcs.security.AuthHelper;
+import com.tcs.util.FileMagicDetector;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -50,6 +59,16 @@ import org.springframework.web.multipart.MultipartFile;
 @Service
 @RequiredArgsConstructor
 public class ProfileServiceImpl implements ProfileService {
+
+    private static final Set<String> ALLOWED_AVATAR_TYPES = Set.of(
+            FileMagicDetector.MIME_JPEG,
+            FileMagicDetector.MIME_PNG,
+            FileMagicDetector.MIME_WEBP,
+            FileMagicDetector.MIME_GIF
+    );
+
+    @Value("${tcs.file.storage.path:uploads}")
+    private String storagePath;
 
     private final AuthHelper authHelper;
     private final UserRepository userRepository;
@@ -233,15 +252,28 @@ public class ProfileServiceImpl implements ProfileService {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File ảnh không được để trống");
         }
-        String contentType = file.getContentType();
-        if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("Chỉ chấp nhận file ảnh");
-        }
         if (file.getSize() > 5 * 1024 * 1024) {
             throw new IllegalArgumentException("Kích thước ảnh không được vượt quá 5MB");
         }
+
+        String detectedMime = detectAvatarMime(file);
+        if (!ALLOWED_AVATAR_TYPES.contains(detectedMime)) {
+            throw new IllegalArgumentException("Chỉ chấp nhận file ảnh (JPEG, PNG, WEBP, GIF)");
+        }
+        String extension = FileMagicDetector.extensionFor(detectedMime);
+
         ProfileContext ctx = loadContext();
-        String avatarUrl = "/uploads/avatars/user-" + ctx.user().getUserId() + ".jpg";
+        String fileName = "avatars/user-" + ctx.user().getUserId() + extension;
+        Path avatarPath = Paths.get(storagePath).toAbsolutePath().normalize().resolve(fileName);
+
+        try {
+            Files.createDirectories(avatarPath.getParent());
+            Files.copy(file.getInputStream(), avatarPath, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException("Không thể lưu ảnh đại diện", e);
+        }
+
+        String avatarUrl = "/uploads/" + fileName;
         switch (ctx.role()) {
             case CLIENT -> {
                 ctx.client().setAvatarUrl(avatarUrl);
@@ -258,6 +290,18 @@ public class ProfileServiceImpl implements ProfileService {
             default -> log.warn("uploadAvatar called with unsupported role: {}", ctx.role());
         }
         return avatarUrl;
+    }
+
+    private String detectAvatarMime(MultipartFile file) {
+        try (BufferedInputStream bis = new BufferedInputStream(file.getInputStream())) {
+            String detected = FileMagicDetector.detect(bis);
+            if (detected == null) {
+                throw new IllegalArgumentException("Chỉ chấp nhận file ảnh (JPEG, PNG, WEBP, GIF)");
+            }
+            return detected;
+        } catch (IOException e) {
+            throw new RuntimeException("Không thể đọc file ảnh", e);
+        }
     }
 
     private ProfileContext loadContext() {

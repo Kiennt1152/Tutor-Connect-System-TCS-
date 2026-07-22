@@ -25,8 +25,4 @@ export const profileApi = {
     });
     return res.data.avatarUrl;
   },
-
-  async submitVerification(): Promise<void> {
-    await axiosClient.post('/profile/verification/submit');
-  },
 };

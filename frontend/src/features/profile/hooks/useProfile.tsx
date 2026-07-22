@@ -11,7 +11,6 @@ interface UseProfileResult {
   reload: () => Promise<void>;
   updateProfile: (payload: UpdateProfileRequest) => Promise<ProfileResponse | null>;
   uploadAvatar: (file: File) => Promise<string | null>;
-  submitVerification: () => Promise<boolean>;
 }
 
 export function useProfile(): UseProfileResult {
@@ -71,16 +70,6 @@ export function useProfile(): UseProfileResult {
     }
   }, []);
 
-  const submitVerification = useCallback(async () => {
-    try {
-      await profileApi.submitVerification();
-      return true;
-    } catch (e) {
-      setError(extractMessage(e, 'Không thể nộp hồ sơ xác minh'));
-      return false;
-    }
-  }, []);
-
   return {
     profile,
     loading,
@@ -90,7 +79,6 @@ export function useProfile(): UseProfileResult {
     reload,
     updateProfile,
     uploadAvatar,
-    submitVerification,
   };
 }
 
