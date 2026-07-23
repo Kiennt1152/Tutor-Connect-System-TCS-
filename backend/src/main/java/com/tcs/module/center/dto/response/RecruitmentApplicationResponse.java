@@ -41,6 +41,8 @@ public class RecruitmentApplicationResponse {
     @Getter
     @Builder
     public static class CertificateInfo {
+        /** Loại giấy tờ: ID_CARD (CCCD mặt trước), DEGREE (CCCD mặt sau), CERTIFICATE, LICENSE. */
+        private String documentType;
         private String fileName;
         private String fileUrl;
         private String mimeType;

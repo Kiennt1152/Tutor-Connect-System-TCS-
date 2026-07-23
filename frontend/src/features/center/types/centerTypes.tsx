@@ -72,7 +72,10 @@ export interface RecruitmentApplication {
   certificates?: CertificateInfo[];
 }
 
+export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'LICENSE';
+
 export interface CertificateInfo {
+  documentType: VerificationDocumentType | null;
   fileName: string;
   fileUrl: string;
   mimeType: string | null;

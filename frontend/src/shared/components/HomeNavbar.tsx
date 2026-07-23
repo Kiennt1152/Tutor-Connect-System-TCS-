@@ -40,7 +40,7 @@ export function HomeNavbar() {
         <AppLogo href="/" />
         <nav className="tcs-header__nav">
           <Link to="/#find-tutor">Tìm gia sư</Link>
-          <Link to="/#classes">Tìm lớp</Link>
+          <Link to={APP_ROUTES.marketplace}>Tìm lớp</Link>
           <Link to={centersHref}>Trung tâm</Link>
           <Link to="/#news">Tin tức</Link>
           <Link to="/#reviews">Đánh giá</Link>

@@ -1354,6 +1354,8 @@ public class CenterServiceImpl implements CenterService {
                         .findByVerificationRequest_VerificationId(req.getVerificationId()).stream()
                         .filter(doc -> doc.getDocumentType() == VerificationDocumentType.CERTIFICATE)
                         .map(doc -> RecruitmentApplicationResponse.CertificateInfo.builder()
+                                .documentType(doc.getDocumentType() == null
+                                        ? null : doc.getDocumentType().name())
                                 .fileName(doc.getFile().getFileName())
                                 .fileUrl(doc.getFile().getFileUrl())
                                 .mimeType(doc.getFile().getMimeType())
