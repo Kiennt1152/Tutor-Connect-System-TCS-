@@ -1,8 +1,37 @@
 import axiosClient from '../../../shared/api/axiosClient';
+import type {
+  ContractApiResponse,
+  ContractSignatureListApiResponse,
+  GenerateContractApiRequest,
+  SendOtpApiResponse,
+  SignWithOtpApiRequest,
+} from '../types/contractTypes';
 
-export const CONTRACT_API_BASE = '/contract';
+const BASE = '/contract';
 
 export const contractApi = {
-  http: axiosClient,
-  basePath: CONTRACT_API_BASE,
+  getContract(contractId: number) {
+    return axiosClient.get<ContractApiResponse>(`${BASE}/${contractId}`);
+  },
+
+  getSignatures(contractId: number) {
+    return axiosClient.get<ContractSignatureListApiResponse>(
+      `${BASE}/${contractId}/signatures`,
+    );
+  },
+
+  sendOtp(contractId: number) {
+    return axiosClient.post<SendOtpApiResponse>(`${BASE}/${contractId}/send-otp`);
+  },
+
+  signWithOtp(contractId: number, payload: SignWithOtpApiRequest) {
+    return axiosClient.post<ContractApiResponse>(
+      `${BASE}/${contractId}/sign`,
+      payload,
+    );
+  },
+
+  generateContract(payload: GenerateContractApiRequest) {
+    return axiosClient.post<ContractApiResponse>(`${BASE}/generate`, payload);
+  },
 };
