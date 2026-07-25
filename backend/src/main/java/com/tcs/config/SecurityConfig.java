@@ -58,6 +58,9 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/center/recruitment/**")
                         .permitAll()
+                        // Danh sach lop cho danh gia cua khach hang -> can dang nhap (dat truoc rule permitAll ben duoi).
+                        .requestMatchers(HttpMethod.GET, "/api/contract/reviews/reviewable")
+                        .hasRole(RbacConstants.CLIENT)
                         .requestMatchers(HttpMethod.GET, "/api/contract/reviews/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payments/webhook")

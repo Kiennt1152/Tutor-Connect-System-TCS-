@@ -11,6 +11,7 @@ export const APP_ROUTES = {
   marketplace: '/marketplace',
   contract: '/contract',
   messaging: '/messaging',
+  feedback: '/feedback',
   platform: '/platform',
   platformUsers: '/platform/users',
   platformVerifications: '/platform/verifications',

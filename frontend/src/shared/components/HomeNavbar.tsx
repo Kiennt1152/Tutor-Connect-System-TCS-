@@ -30,6 +30,7 @@ export function HomeNavbar() {
   const showWallet = hasAnyRole(user?.role, WALLET_ROLES);
   const showContract = hasAnyRole(user?.role, CONTRACT_ROLES);
   const showMessaging = hasAnyRole(user?.role, MESSAGING_ROLES);
+  const showFeedback = hasRole(user?.role, 'CLIENT');
 
   return (
     <header className="tcs-header">
@@ -96,6 +97,15 @@ export function HomeNavbar() {
                       role="menuitem"
                     >
                       Tin nhắn
+                    </Link>
+                  ) : null}
+                  {showFeedback ? (
+                    <Link
+                      className="tcs-profile-menu__item"
+                      to={APP_ROUTES.feedback}
+                      role="menuitem"
+                    >
+                      Đánh giá của tôi
                     </Link>
                   ) : null}
                   {hasRole(user.role, 'PLATFORM_ADMIN') ? (

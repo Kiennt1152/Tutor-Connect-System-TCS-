@@ -20,6 +20,7 @@ import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
 import MarketplaceClassDetailPage from '../features/marketplace/pages/MarketplaceClassDetailPage';
 import ContractPage from '../features/contract/pages/ContractPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
+import MyReviewsPage from '../features/reviews/pages/MyReviewsPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
@@ -89,6 +90,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN']}>
                 <MessagingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.feedback}
+            element={
+              <ProtectedRoute roles={['CLIENT']}>
+                <MyReviewsPage />
               </ProtectedRoute>
             }
           />

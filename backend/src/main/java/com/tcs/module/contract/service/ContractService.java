@@ -2,6 +2,7 @@ package com.tcs.module.contract.service;
 
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
 import com.tcs.module.contract.dto.response.ReviewResponse;
+import com.tcs.module.contract.dto.response.ReviewableAssignmentResponse;
 import com.tcs.module.contract.entity.Contract;
 import java.util.List;
 
@@ -10,6 +11,9 @@ public interface ContractService {
     ReviewResponse createReview(CreateReviewRequest request);
 
     List<ReviewResponse> getReviewsForTutor(Long tutorUserId);
+
+    /** Danh sach lop da hoan thanh cua khach hang hien tai, kem trang thai da danh gia. */
+    List<ReviewableAssignmentResponse> getMyReviewableAssignments();
 
     // ----- Seam 0.1 (chu: M4) - hop dong dien tu. Default stub de M4 hoan thien. -----
 

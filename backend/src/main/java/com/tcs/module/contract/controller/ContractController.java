@@ -2,6 +2,7 @@ package com.tcs.module.contract.controller;
 
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
 import com.tcs.module.contract.dto.response.ReviewResponse;
+import com.tcs.module.contract.dto.response.ReviewableAssignmentResponse;
 import com.tcs.module.contract.service.ContractService;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
@@ -30,5 +31,11 @@ public class ContractController {
     @GetMapping("/reviews/tutor/{tutorUserId}")
     public List<ReviewResponse> getReviewsForTutor(@PathVariable Long tutorUserId) {
         return contractService.getReviewsForTutor(tutorUserId);
+    }
+
+    /** Cac lop da hoan thanh cua khach hang hien tai, kem trang thai da danh gia (UC-65). */
+    @GetMapping("/reviews/reviewable")
+    public List<ReviewableAssignmentResponse> getMyReviewableAssignments() {
+        return contractService.getMyReviewableAssignments();
     }
 }

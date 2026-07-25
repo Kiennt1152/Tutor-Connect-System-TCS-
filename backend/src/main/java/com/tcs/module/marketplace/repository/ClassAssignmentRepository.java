@@ -16,4 +16,7 @@ public interface ClassAssignmentRepository extends JpaRepository<ClassAssignment
     List<ClassAssignment> findByTutor_TutorIdAndStatus(Long tutorId, ClassAssignmentStatus status);
 
     Optional<ClassAssignment> findFirstByApplication_ApplicationId(Long applicationId);
+
+    // Cac phan cong thuoc lop do mot khach hang (creator) tao ra -> dung cho luong khach danh gia gia su.
+    List<ClassAssignment> findByApplication_TutoringClass_Creator_UserId(Long userId);
 }
