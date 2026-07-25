@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { LocationPicker } from '../components/LocationPicker';
+import { profileApi } from '../../profile/api/profileApi';
 import { centerApi } from '../api/centerApi';
 import type {
   ClassResponse,
@@ -315,9 +317,13 @@ function hasErrors(e: FormErrors): boolean {
 }
 
 export default function CenterPage() {
+  const navigate = useNavigate();
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState('');
+
+  // Trạng thái xác minh của trung tâm: null = đang tải, true/false = đã biết.
+  const [verified, setVerified] = useState<boolean | null>(null);
 
   const [mode, setMode] = useState<'list' | 'form'>('list');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -348,7 +354,28 @@ export default function CenterPage() {
     reloadList();
   }, []);
 
+  // Tải trạng thái xác minh trung tâm để chặn tạo lớp khi chưa xác minh.
+  useEffect(() => {
+    let alive = true;
+    profileApi
+      .getMyProfile()
+      .then((p) => {
+        if (alive) setVerified(p.verificationStatus === 'VERIFIED');
+      })
+      .catch(() => {
+        if (alive) setVerified(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   const openCreate = () => {
+    // Chưa xác minh -> không cho tạo lớp, chuyển hướng sang trang xác minh.
+    if (verified === false) {
+      navigate(APP_ROUTES.verification);
+      return;
+    }
     setEditingId(null);
     setForm(EMPTY_FORM);
     setFormError('');
@@ -574,6 +601,21 @@ export default function CenterPage() {
 
       {mode === 'list' && (
         <>
+          {verified === false && (
+            <div className="cc-alert cc-alert--warn cc-verify-banner">
+              <span>
+                ⚠ Trung tâm của bạn <b>chưa được xác minh</b>. Bạn cần hoàn tất xác minh trước khi
+                tạo lớp học.
+              </span>
+              <button
+                className="cc-btn cc-btn--primary cc-btn--sm"
+                type="button"
+                onClick={() => navigate(APP_ROUTES.verification)}
+              >
+                Đi xác minh →
+              </button>
+            </div>
+          )}
           {listError && <div className="cc-alert cc-alert--error">{listError}</div>}
           {listLoading && <div className="cc-card cc-state">Đang tải danh sách lớp học…</div>}
           {!listLoading && !listError && classes.length === 0 && (

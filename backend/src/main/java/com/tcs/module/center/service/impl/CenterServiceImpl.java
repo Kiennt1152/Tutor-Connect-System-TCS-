@@ -1,5 +1,6 @@
 package com.tcs.module.center.service.impl;
 
+import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.catalog.entity.Category;
@@ -35,6 +36,7 @@ import com.tcs.module.center.repository.RecruitmentPostRepository;
 import com.tcs.module.center.service.CenterService;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
@@ -194,6 +196,7 @@ public class CenterServiceImpl implements CenterService {
     @Transactional
     public CenterClassResponse createClass(SaveClassRequest request) {
         TutorCenter center = requireCenter();
+        requireVerifiedCenter(center);
         validate(request, true);
 
         TutoringClass tutoringClass = new TutoringClass();
@@ -1031,6 +1034,14 @@ public class CenterServiceImpl implements CenterService {
         return tutorCenterRepository
                 .findByUser_UserId(authHelper.currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ trung tâm"));
+    }
+
+    /** Chỉ trung tâm đã được xác minh mới được phép tạo lớp học. */
+    private void requireVerifiedCenter(TutorCenter center) {
+        if (center.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
+            throw new BusinessException(
+                    "Trung tâm của bạn chưa được xác minh. Vui lòng hoàn tất xác minh trước khi tạo lớp học.");
+        }
     }
 
     private Tutor requireTutor() {
