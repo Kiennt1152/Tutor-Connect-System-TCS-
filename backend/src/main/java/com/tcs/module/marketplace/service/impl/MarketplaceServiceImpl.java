@@ -26,8 +26,10 @@ import com.tcs.module.marketplace.dto.response.AssignmentResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
 import com.tcs.module.marketplace.dto.response.LessonResponse;
 import com.tcs.module.marketplace.dto.response.RescheduleRequestResponse;
+import com.tcs.module.marketplace.dto.response.ScheduleSlotResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.FavoriteTutor;
 import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.entity.LessonRescheduleRequest;
@@ -36,11 +38,13 @@ import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
+import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.RescheduleRequestStatus;
 import com.tcs.module.marketplace.enums.RescheduleRequestType;
 import com.tcs.module.marketplace.enums.TutorApplicationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
+import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.marketplace.repository.FavoriteTutorRepository;
 import com.tcs.module.marketplace.repository.LessonRepository;
 import com.tcs.module.marketplace.repository.LessonRescheduleRequestRepository;
@@ -95,7 +99,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final GradeRepository gradeRepository;
     private final LocationRepository locationRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
-    private final ScheduleSlotRepository scheduleSlotRepository;
     private final LessonRepository lessonRepository;
     private final LessonRescheduleRequestRepository rescheduleRequestRepository;
     // Khởi tạo trực tiếp (không có bean ObjectMapper trong context) — giống GoogleTokenVerifier.
@@ -1326,7 +1329,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return Math.max(0.0, Math.min(1.0, v));
     }
 
-    @Override
+    // Luong dang ky cu (gia su nop don / phu huynh ghi danh) — khong con trong interface sau merge,
+    // giu lai lam tham khao. Khong con endpoint controller goi den.
     @Transactional
     public void registerToClass(Long classId) {
         User user = requireUser();

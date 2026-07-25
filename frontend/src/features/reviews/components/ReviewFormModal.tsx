@@ -125,16 +125,13 @@ export function ReviewFormModal({ assignment, onClose, onSubmitted }: ReviewForm
           </span>
         </div>
 
-        <div className="rv-summary">
-          <span>
-            Đã đánh giá {answered}/{total} tiêu chí
-          </span>
-          {answered > 0 ? (
+        {answered > 0 ? (
+          <div className="rv-summary">
             <span className="rv-summary__score">
               Điểm tổng: <strong>{overall}</strong>/5 ★
             </span>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {error ? <p className="rv-error">{error}</p> : null}
 
