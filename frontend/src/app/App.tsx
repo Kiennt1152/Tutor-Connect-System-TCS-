@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import HomePage from '../features/home/pages/HomePage';
-import CatalogPage from '../features/catalog/pages/CatalogPage';
+import FindTutorPage from '../features/home/pages/FindTutorPage';
+import FindClassPage from '../features/home/pages/FindClassPage';
 import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
@@ -17,10 +18,10 @@ import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
-import MarketplaceClassDetailPage from '../features/marketplace/pages/MarketplaceClassDetailPage';
+import CatalogPage from '../features/catalog/pages/CatalogPage';
 import ContractPage from '../features/contract/pages/ContractPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
-import MyReviewsPage from '../features/reviews/pages/MyReviewsPage';
+import TeachingPage from '../features/teaching/pages/TeachingPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
@@ -32,6 +33,8 @@ export default function App() {
       <BrowserRouter>
         <Routes>
           <Route path={APP_ROUTES.home} element={<HomePage />} />
+          <Route path={APP_ROUTES.findTutor} element={<FindTutorPage />} />
+          <Route path={APP_ROUTES.findClass} element={<FindClassPage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />
@@ -41,6 +44,15 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR', 'TUTOR_CENTER']}>
                 <VerificationPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path={APP_ROUTES.teaching}
+            element={
+              <ProtectedRoute roles={['TUTOR', 'CLIENT']}>
+                <TeachingPage />
               </ProtectedRoute>
             }
           />

@@ -1,5 +1,8 @@
 export const APP_ROUTES = {
   home: '/',
+  findTutor: '/tim-gia-su',
+  findClass: '/tim-lop',
+  teaching: '/lich-day',
   login: '/login',
   register: '/register',
   identity: '/identity',
@@ -8,7 +11,7 @@ export const APP_ROUTES = {
   catalog: '/catalog',
   verification: '/identity/verification',
   center: '/center',
-  marketplace: '/marketplace',
+  marketplace: '/Yeu-cau-tim-gia-su',
   contract: '/contract',
   messaging: '/messaging',
   feedback: '/feedback',

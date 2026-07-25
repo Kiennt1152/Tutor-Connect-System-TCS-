@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
-import { AppLogo } from '../../../shared/components/AppLogo';
-import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { useHome } from '../hooks/useHome';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasAnyRole, hasRole } from '../../../shared/auth/rbac';
 import type { UserRole } from '../../../shared/types/userRole';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 import { TutorSearchBlock } from '../components/TutorSearchBlock';
 import { ClassSearchBlock } from '../components/ClassSearchBlock';
 import { TutorListingCard } from '../components/TutorListingCard';
@@ -12,7 +12,6 @@ import { ClassListingCard } from '../components/ClassListingCard';
 import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
 import { useOpenClasses } from '../hooks/useOpenClasses';
 import {
-  FOOTER_LINKS,
   HOME_CENTERS,
   HOME_NEWS,
   HOME_PROMO,
@@ -50,7 +49,7 @@ function HomeHeroSection({
   const firstName = displayName?.trim().split(/\s+/)[0] || displayName;
   const showSearch = !isAuthenticated || hasAnyRole(role, MARKETPLACE_HOME_ROLES);
   const isTutor = hasRole(role, 'TUTOR');
-  const subjectLinkTarget = isTutor ? '#classes' : '#find-tutor';
+  const subjectLinkTarget = isTutor ? '/tim-lop' : '#find-tutor';
 
   return (
     <section className="tcs-home-hero">
@@ -163,7 +162,7 @@ function HeroStats({ data }: { data: HomeData | null }) {
   );
 }
 
-function ClassesSection({
+export function ClassesSection({
   classes,
   status,
   isAuthenticated,
@@ -317,40 +316,6 @@ function ReviewsSection() {
   );
 }
 
-function Footer() {
-  return (
-    <footer className="tcs-footer">
-      <div className="tcs-container">
-        <div className="tcs-footer__grid">
-          <div className="tcs-footer__brand">
-            <AppLogo href="/" variant="compact" />
-            <p className="tcs-footer__tagline">
-              Nền tảng kết nối gia sư — học viên — trung tâm với quy trình minh bạch và thanh toán an
-              toàn.
-            </p>
-          </div>
-          {FOOTER_LINKS.map((group) => (
-            <div key={group.title} className="tcs-footer__col">
-              <h3 className="tcs-footer__heading">{group.title}</h3>
-              <ul className="tcs-footer__links">
-                {group.links.map((link) => (
-                  <li key={link.label}>
-                    <a href={link.href}>{link.label}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-        <div className="tcs-footer__bottom">
-          <span>© {new Date().getFullYear()} Tutor Connect System</span>
-          <span className="tcs-footer__muted">SEP490 · TCS</span>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 function LoadingState() {
   return (
     <div className="tcs-state">
@@ -374,11 +339,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 function HomePage() {
   const { status, data, reload } = useHome();
-  const {
-    status: classesStatus,
-    classes: openClasses,
-    reload: reloadClasses,
-  } = useOpenClasses();
+  const { status: classesStatus, classes: openClasses } = useOpenClasses();
   const { user, isAuthenticated } = useAuth();
 
   const isEmpty = useMemo(
@@ -399,7 +360,7 @@ function HomePage() {
 
   return (
     <div className="tcs-page">
-      <HomeNavbar />
+      <SiteHeader />
       <main>
         <HomeHeroSection
           data={data}
@@ -429,17 +390,11 @@ function HomePage() {
           </div>
         )}
 
-        <ClassesSection
-          classes={openClasses}
-          status={classesStatus}
-          isAuthenticated={isAuthenticated}
-          onRetry={reloadClasses}
-        />
         <CentersSection />
         <NewsSection />
         <ReviewsSection />
       </main>
-      <Footer />
+      <SiteFooter />
     </div>
   );
 }

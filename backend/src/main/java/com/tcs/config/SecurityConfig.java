@@ -82,6 +82,14 @@ public class SecurityConfig {
                         .requestMatchers("/api/profile/**")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
+                        // --- Marketplace: nhận lớp / thời khóa biểu / điểm danh ---
+                        // Xem lịch: cả gia sư lẫn Client (mỗi bên thấy lớp của mình).
+                        .requestMatchers(HttpMethod.GET, "/api/marketplace/lessons/mine", "/api/marketplace/assignments/mine")
+                        .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR)
+                        // Nhận/từ chối lớp và điểm danh: chỉ gia sư.
+                        .requestMatchers("/api/marketplace/assignments/**", "/api/marketplace/lessons/**")
+                        .hasRole(RbacConstants.TUTOR)
+
                         // --- Marketplace mutations ---
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/register")
                         .hasAnyRole(RbacConstants.TUTOR, RbacConstants.CLIENT)

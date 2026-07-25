@@ -5,6 +5,7 @@ import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -28,4 +29,8 @@ public class ProfileResponse {
     private String licenseNo;
     private String description;
     private ProfileVerificationStatus verificationStatus;
+
+    /** Học vấn & chứng chỉ của gia sư (rỗng với vai trò khác). */
+    private List<TutorEducationResponse> educations;
+    private List<TutorCertificateResponse> certificates;
 }

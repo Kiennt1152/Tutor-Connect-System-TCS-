@@ -1,5 +1,6 @@
 package com.tcs.module.marketplace.entity;
 
+import com.tcs.module.catalog.entity.Subject;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -30,6 +31,12 @@ public class ScheduleSlot {
     @JoinColumn(name = "class_id", nullable = false)
     private TutoringClass tutoringClass;
 
+    /** Môn của buổi này (lớp có thể nhiều môn). Null với lớp cũ / lớp không nêu môn. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subject_id")
+    private Subject subject;
+
+    /** Quy ước ISO: Thứ 2 = 1 … Chủ nhật = 7 (khớp {@link java.time.DayOfWeek#getValue()}). */
     @Column(name = "day_of_week", nullable = false)
     private Integer dayOfWeek;
 
