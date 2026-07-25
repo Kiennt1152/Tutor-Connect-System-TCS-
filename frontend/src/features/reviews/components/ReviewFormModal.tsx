@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import axios from 'axios';
 import { reviewApi } from '../api/reviewApi';
+import { REVIEW_CRITERIA } from '../config/reviewCriteria';
 import type { ReviewableAssignment } from '../types/reviewTypes';
-import { StarRating } from './StarRating';
 
 type ReviewFormModalProps = {
   assignment: ReviewableAssignment;
@@ -20,23 +20,40 @@ function extractError(error: unknown, fallback: string): string {
 }
 
 export function ReviewFormModal({ assignment, onClose, onSubmitted }: ReviewFormModalProps) {
-  const [rating, setRating] = useState(0);
+  // code tieu chi -> so sao da chon
+  const [scores, setScores] = useState<Record<string, number>>({});
   const [comment, setComment] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  const answered = Object.keys(scores).length;
+  const total = REVIEW_CRITERIA.length;
+  const overall = useMemo(() => {
+    if (answered === 0) return 0;
+    const sum = Object.values(scores).reduce((a, b) => a + b, 0);
+    return Math.round(sum / answered);
+  }, [scores, answered]);
+
+  function pick(code: string, score: number) {
+    setScores((prev) => ({ ...prev, [code]: score }));
+  }
+
   async function handleSubmit() {
     setError('');
-    if (rating < 1) {
-      setError('Vui lòng chọn số sao đánh giá');
+    if (answered < total) {
+      setError('Vui lòng đánh giá tất cả các tiêu chí');
       return;
     }
     setSubmitting(true);
     try {
       await reviewApi.create({
         assignmentId: assignment.assignmentId,
-        rating,
         comment: comment.trim() || undefined,
+        criteria: REVIEW_CRITERIA.map((c) => ({
+          code: c.code,
+          question: c.question,
+          score: scores[c.code],
+        })),
       });
       onSubmitted();
     } catch (err) {
@@ -64,27 +81,59 @@ export function ReviewFormModal({ assignment, onClose, onSubmitted }: ReviewForm
           </p>
         </div>
 
-        <div className="rv-field">
-          <label className="rv-label">Chất lượng giảng dạy</label>
-          <StarRating value={rating} onChange={setRating} />
+        <div className="rv-modal__body">
+          {REVIEW_CRITERIA.map((criterion) => (
+            <fieldset key={criterion.code} className="rv-criterion">
+              <legend className="rv-criterion__q">{criterion.question}</legend>
+              <div className="rv-levels" role="radiogroup" aria-label={criterion.question}>
+                {criterion.levels.map((level) => {
+                  const selected = scores[criterion.code] === level.score;
+                  return (
+                    <button
+                      key={level.score}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      className={`rv-level${selected ? ' rv-level--on' : ''}`}
+                      onClick={() => pick(criterion.code, level.score)}
+                    >
+                      <span className="rv-level__score">{level.score}</span>
+                      <span className="rv-level__label">{level.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </fieldset>
+          ))}
         </div>
 
         <div className="rv-field">
           <label className="rv-label" htmlFor="rv-comment">
-            Phản hồi (không bắt buộc)
+            Nhận xét thêm (không bắt buộc)
           </label>
           <textarea
             id="rv-comment"
             className="rv-textarea"
-            rows={5}
+            rows={3}
             maxLength={MAX_COMMENT}
-            placeholder="Chia sẻ trải nghiệm học tập của bạn với gia sư này..."
+            placeholder="Chia sẻ thêm trải nghiệm học tập của bạn với gia sư này..."
             value={comment}
             onChange={(e) => setComment(e.target.value)}
           />
           <span className="rv-counter">
             {comment.length}/{MAX_COMMENT}
           </span>
+        </div>
+
+        <div className="rv-summary">
+          <span>
+            Đã đánh giá {answered}/{total} tiêu chí
+          </span>
+          {answered > 0 ? (
+            <span className="rv-summary__score">
+              Điểm tổng: <strong>{overall}</strong>/5 ★
+            </span>
+          ) : null}
         </div>
 
         {error ? <p className="rv-error">{error}</p> : null}
@@ -97,7 +146,7 @@ export function ReviewFormModal({ assignment, onClose, onSubmitted }: ReviewForm
             type="button"
             className="tcs-btn tcs-btn--market"
             onClick={handleSubmit}
-            disabled={submitting}
+            disabled={submitting || answered < total}
           >
             {submitting ? 'Đang gửi...' : 'Gửi đánh giá'}
           </button>

@@ -24,5 +24,6 @@ public class ReviewableAssignmentResponse {
     private Long reviewId;
     private Integer rating;
     private String comment;
+    private String criteriaJson;
     private LocalDateTime reviewedAt;
 }

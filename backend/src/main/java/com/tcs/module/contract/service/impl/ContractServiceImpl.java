@@ -1,8 +1,10 @@
 package com.tcs.module.contract.service.impl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
+import com.tcs.module.contract.dto.request.ReviewCriterionDto;
 import com.tcs.module.contract.dto.response.ReviewResponse;
 import com.tcs.module.contract.dto.response.ReviewableAssignmentResponse;
 import com.tcs.module.contract.entity.ReputationHistory;
@@ -35,6 +37,8 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ContractServiceImpl implements ContractService {
 
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
     private final AuthHelper authHelper;
     private final ReviewRepository reviewRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
@@ -48,10 +52,12 @@ public class ContractServiceImpl implements ContractService {
         // UC-65: chi khach hang (CLIENT) moi duoc gui danh gia gia su.
         Long reviewerId = authHelper.requireRole(UserRole.CLIENT).getUserId();
 
-        if (request.getAssignmentId() == null || request.getRating() == null) {
-            throw new IllegalArgumentException("assignmentId và rating là bắt buộc");
+        if (request.getAssignmentId() == null) {
+            throw new IllegalArgumentException("assignmentId là bắt buộc");
         }
-        if (request.getRating() < 1 || request.getRating() > 5) {
+        // rating tong: uu tien tinh tu cac tieu chi, neu khong co thi dung rating gui len.
+        int overallRating = resolveOverallRating(request);
+        if (overallRating < 1 || overallRating > 5) {
             throw new IllegalArgumentException("Số sao phải từ 1 đến 5");
         }
 
@@ -91,8 +97,9 @@ public class ContractServiceImpl implements ContractService {
         review.setReviewer(reviewer);
         review.setReviewee(tutorUser);
         review.setReviewType(ReviewType.CLIENT_TO_TUTOR);
-        review.setRating(request.getRating());
+        review.setRating(overallRating);
         review.setComment(trimToNull(request.getComment()));
+        review.setCriteriaJson(serializeCriteria(request.getCriteria()));
         Review saved = reviewRepository.save(review);
 
         // Cap nhat diem uy tin (rating trung binh) cua gia su + ghi lich su.
@@ -142,10 +149,40 @@ public class ContractServiceImpl implements ContractService {
                             .reviewId(r != null ? r.getReviewId() : null)
                             .rating(r != null ? r.getRating() : null)
                             .comment(r != null ? r.getComment() : null)
+                            .criteriaJson(r != null ? r.getCriteriaJson() : null)
                             .reviewedAt(r != null ? r.getCreatedAt() : null)
                             .build();
                 })
                 .toList();
+    }
+
+    /** rating tong = trung binh lam tron cua cac tieu chi (neu co), nguoc lai lay tu request.rating. */
+    private int resolveOverallRating(CreateReviewRequest request) {
+        List<ReviewCriterionDto> criteria = request.getCriteria();
+        if (criteria != null && !criteria.isEmpty()) {
+            for (ReviewCriterionDto c : criteria) {
+                if (c.getScore() == null || c.getScore() < 1 || c.getScore() > 5) {
+                    throw new IllegalArgumentException("Mỗi tiêu chí phải được chấm từ 1 đến 5 sao");
+                }
+            }
+            double average = criteria.stream().mapToInt(ReviewCriterionDto::getScore).average().orElse(0d);
+            return (int) Math.round(average);
+        }
+        if (request.getRating() == null) {
+            throw new IllegalArgumentException("Vui lòng chấm điểm đánh giá");
+        }
+        return request.getRating();
+    }
+
+    private String serializeCriteria(List<ReviewCriterionDto> criteria) {
+        if (criteria == null || criteria.isEmpty()) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.writeValueAsString(criteria);
+        } catch (Exception e) {
+            throw new IllegalStateException("Không ghi được dữ liệu tiêu chí đánh giá", e);
+        }
     }
 
     private TutoringClass resolveClass(ClassAssignment assignment) {

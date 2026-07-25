@@ -66,6 +66,10 @@ public class Review {
     @Column(name = "comment", columnDefinition = "TEXT")
     private String comment;
 
+    // JSON cac tieu chi da cham diem: [{"code","question","score"}]. rating tong = trung binh lam tron.
+    @Column(name = "criteria_json", columnDefinition = "TEXT")
+    private String criteriaJson;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     private ReviewStatus status = ReviewStatus.VISIBLE;

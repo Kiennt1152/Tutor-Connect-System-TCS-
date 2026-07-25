@@ -5,6 +5,7 @@ import { reviewApi } from '../api/reviewApi';
 import type { ReviewableAssignment } from '../types/reviewTypes';
 import { ReviewFormModal } from '../components/ReviewFormModal';
 import { StarRating } from '../components/StarRating';
+import { CriteriaBreakdown } from '../components/CriteriaBreakdown';
 import './MyReviewsPage.css';
 
 function extractError(error: unknown, fallback: string): string {
@@ -118,8 +119,10 @@ export default function MyReviewsPage() {
                     </p>
                     <div className="rv-card__review">
                       <StarRating value={item.rating ?? 0} readOnly size={18} />
+                      <span className="rv-card__overall">Điểm tổng {item.rating}/5</span>
                       <span className="rv-card__date">{formatDate(item.reviewedAt)}</span>
                     </div>
+                    <CriteriaBreakdown criteriaJson={item.criteriaJson} />
                     {item.comment ? <p className="rv-card__comment">“{item.comment}”</p> : null}
                   </div>
                 </li>

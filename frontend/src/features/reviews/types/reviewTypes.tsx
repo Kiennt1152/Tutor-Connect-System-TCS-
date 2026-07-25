@@ -1,3 +1,9 @@
+export type ReviewCriterionScore = {
+  code: string;
+  question: string;
+  score: number;
+};
+
 export type ReviewableAssignment = {
   assignmentId: number;
   classId: number;
@@ -10,13 +16,14 @@ export type ReviewableAssignment = {
   reviewId: number | null;
   rating: number | null;
   comment: string | null;
+  criteriaJson: string | null;
   reviewedAt: string | null;
 };
 
 export type CreateReviewPayload = {
   assignmentId: number;
-  rating: number;
   comment?: string;
+  criteria: ReviewCriterionScore[];
 };
 
 export type ReviewResponse = {
