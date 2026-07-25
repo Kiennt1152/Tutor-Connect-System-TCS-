@@ -1,14 +1,22 @@
 package com.tcs.module.platform.service.impl;
 
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.module.catalog.entity.SystemParameter;
+import com.tcs.module.catalog.repository.SystemParameterRepository;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.entity.VerificationHistory;
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.identity.repository.VerificationHistoryRepository;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
+import com.tcs.module.platform.dto.request.UpsertAnnouncementRequest;
+import com.tcs.module.platform.dto.request.UpsertSystemParameterRequest;
+import com.tcs.module.platform.dto.response.AnnouncementResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
+import com.tcs.module.platform.dto.response.SystemParameterResponse;
 import com.tcs.module.platform.dto.response.UserListItemResponse;
+import com.tcs.module.platform.entity.Announcement;
+import com.tcs.module.platform.repository.AnnouncementRepository;
 import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.mapper.UserProfileBundle;
 import com.tcs.module.platform.service.PlatformService;
@@ -81,6 +89,9 @@ public class PlatformServiceImpl implements PlatformService {
     private final ReportRepository reportRepository;
     private final TutoringClassRepository tutoringClassRepository;
     private final AuthHelper authHelper;
+    private final SystemParameterRepository systemParameterRepository;
+    private final AnnouncementRepository announcementRepository;
+    private final UserRepository userRepositoryForAudit;
 
     @Override
     @Transactional(readOnly = true)
