@@ -264,6 +264,18 @@
   color: #065f46;
 }
 
+.help-chatbot__feedback {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.help-chatbot__feedback-text {
+  font-size: 0.83rem;
+  color: #718096;
+  margin: 0 0 0.5rem;
+}
+
 .help-chatbot__ticket-link {
   display: inline-block;
   margin-top: 0.6rem;

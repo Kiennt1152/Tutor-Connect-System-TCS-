@@ -14,4 +14,7 @@ public class ChatbotAskResponse {
     private String question;
     private String answer;
     private String suggestion;
+
+    /** true neu answer duoc sinh boi Gemini AI (khong phai FAQ da duyet). */
+    private boolean aiGenerated;
 }

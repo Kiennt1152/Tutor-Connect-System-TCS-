@@ -113,7 +113,7 @@ export default function HelpPage() {
         {/* Chatbot panel */}
         <aside className="help-chatbot">
           <p className="help-chatbot__title">Hỏi chatbot hỗ trợ</p>
-          <p className="help-chatbot__desc">Nhập câu hỏi, chatbot sẽ tìm câu trả lời phù hợp nhất.</p>
+          <p className="help-chatbot__desc">Nhập câu hỏi, chatbot AI sẽ trả lời cho bạn.</p>
 
           {result === null ? (
             <form className="help-chatbot__form" onSubmit={handleChatSubmit}>
@@ -139,7 +139,7 @@ export default function HelpPage() {
             <div>
               {result.matched ? (
                 <div className="help-chatbot__result help-chatbot__result--matched">
-                  <span className="help-chatbot__result-label">Tìm thấy câu trả lời</span>
+                  <span className="help-chatbot__result-label">Câu trả lời từ AI</span>
                   <p className="help-chatbot__result-q">❓ {result.question}</p>
                   <p className="help-chatbot__result-a">💡 {result.answer}</p>
                 </div>
@@ -147,6 +147,12 @@ export default function HelpPage() {
                 <div className="help-chatbot__result help-chatbot__result--unmatched">
                   <span className="help-chatbot__result-label">Chưa tìm được câu trả lời</span>
                   <p style={{ margin: '0 0 0.25rem' }}>{result.suggestion}</p>
+                </div>
+              )}
+
+              {result.matched && (
+                <div className="help-chatbot__feedback">
+                  <p className="help-chatbot__feedback-text">Bạn chưa hài lòng với câu trả lời này?</p>
                   {user ? (
                     <Link to={APP_ROUTES.messagingTickets} className="help-chatbot__ticket-link">
                       Tạo yêu cầu hỗ trợ →
@@ -162,6 +168,23 @@ export default function HelpPage() {
                   )}
                 </div>
               )}
+
+              {!result.matched && (
+                user ? (
+                  <Link to={APP_ROUTES.messagingTickets} className="help-chatbot__ticket-link">
+                    Tạo yêu cầu hỗ trợ →
+                  </Link>
+                ) : (
+                  <Link
+                    to={APP_ROUTES.login}
+                    state={{ from: APP_ROUTES.messagingTickets }}
+                    className="help-chatbot__ticket-link"
+                  >
+                    Đăng nhập để gửi yêu cầu →
+                  </Link>
+                )
+              )}
+
               <button type="button" className="help-chatbot__reset-btn" onClick={reset}>
                 Đặt câu hỏi khác
               </button>
