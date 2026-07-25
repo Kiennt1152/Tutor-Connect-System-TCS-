@@ -10,6 +10,7 @@ import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage'
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import PlatformTicketsPage from '../features/platform/pages/PlatformTicketsPage';
+import PlatformFaqPage from '../features/platform/pages/PlatformFaqPage';
 import CenterPage from '../features/center/pages/CenterPage';
 import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
 import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
@@ -171,6 +172,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
                 <PlatformTicketsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformFaq}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformFaqPage />
               </ProtectedRoute>
             }
           />

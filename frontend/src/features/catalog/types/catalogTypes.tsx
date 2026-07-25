@@ -4,6 +4,28 @@ export interface FaqEntryApiResponse {
   answer: string;
   category: string;
   sortOrder: number;
+  published?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface UpsertFaqRequest {
+  question: string;
+  answer: string;
+  category: string;
+  sortOrder: number;
+  published: boolean;
+}
+
+export interface FaqItem {
+  faqId: number;
+  question: string;
+  answer: string;
+  category: string;
+  sortOrder: number;
+  published: boolean;
+  createdAt: string | null;
+  updatedAt: string | null;
 }
 
 export interface ChatbotAskRequest {

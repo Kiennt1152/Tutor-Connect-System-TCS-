@@ -2,6 +2,7 @@ package com.tcs.module.catalog.controller;
 
 import com.tcs.module.catalog.dto.request.CatalogRequest;
 import com.tcs.module.catalog.dto.request.ChatbotAskRequest;
+import com.tcs.module.catalog.dto.request.UpsertFaqRequest;
 import com.tcs.module.catalog.dto.response.CatalogResponse;
 import com.tcs.module.catalog.dto.response.ChatbotAskResponse;
 import com.tcs.module.catalog.dto.response.FaqResponse;
@@ -37,6 +38,29 @@ public class CatalogController {
     @PostMapping("/chatbot/ask")
     public ChatbotAskResponse askChatbot(@Valid @RequestBody ChatbotAskRequest request) {
         return catalogService.askChatbot(request);
+    }
+
+    @GetMapping("/faq/admin")
+    public List<FaqResponse> getFaqEntriesForAdmin(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String keyword
+    ) {
+        return catalogService.getFaqEntriesForAdmin(category, keyword);
+    }
+
+    @PostMapping("/faq")
+    public FaqResponse createFaqEntry(@Valid @RequestBody UpsertFaqRequest request) {
+        return catalogService.createFaqEntry(request);
+    }
+
+    @PutMapping("/faq/{faqId}")
+    public FaqResponse updateFaqEntry(@PathVariable Long faqId, @Valid @RequestBody UpsertFaqRequest request) {
+        return catalogService.updateFaqEntry(faqId, request);
+    }
+
+    @DeleteMapping("/faq/{faqId}")
+    public void deleteFaqEntry(@PathVariable Long faqId) {
+        catalogService.deleteFaqEntry(faqId);
     }
 
     @GetMapping("/categories")

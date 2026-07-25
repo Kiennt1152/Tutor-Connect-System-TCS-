@@ -48,6 +48,8 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/catalog/faq/admin")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/catalog/chatbot/ask")

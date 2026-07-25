@@ -24,4 +24,16 @@ public interface FaqEntryRepository extends JpaRepository<FaqEntry, Long> {
     List<FaqEntry> search(@Param("category") String category, @Param("keyword") String keyword);
 
     List<FaqEntry> findByPublishedTrueOrderBySortOrderAscFaqIdAsc();
+
+    @Query("""
+            SELECT f FROM FaqEntry f
+            WHERE (:category IS NULL OR :category = '' OR f.category = :category)
+            AND (
+                :keyword IS NULL OR :keyword = '' OR
+                LOWER(f.question) LIKE LOWER(CONCAT('%', :keyword, '%')) OR
+                LOWER(f.answer) LIKE LOWER(CONCAT('%', :keyword, '%'))
+            )
+            ORDER BY f.sortOrder ASC, f.faqId ASC
+            """)
+    List<FaqEntry> searchAdmin(@Param("category") String category, @Param("keyword") String keyword);
 }

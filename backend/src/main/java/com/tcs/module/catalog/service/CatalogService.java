@@ -1,6 +1,7 @@
 package com.tcs.module.catalog.service;
 
 import com.tcs.module.catalog.dto.request.ChatbotAskRequest;
+import com.tcs.module.catalog.dto.request.UpsertFaqRequest;
 import com.tcs.module.catalog.dto.response.CatalogItemResponse;
 import com.tcs.module.catalog.dto.response.ChatbotAskResponse;
 import com.tcs.module.catalog.dto.response.FaqResponse;
@@ -26,6 +27,15 @@ public interface CatalogService {
 
     /** Chatbot rule-based: so khớp câu hỏi với FAQ theo số từ khóa trùng, trả FAQ khớp nhất hoặc gợi ý tạo ticket. */
     ChatbotAskResponse askChatbot(ChatbotAskRequest request);
+
+    /** Admin: liệt kê tất cả FAQ (kể cả chưa xuất bản), có thể lọc theo category/keyword. */
+    List<FaqResponse> getFaqEntriesForAdmin(String category, String keyword);
+
+    FaqResponse createFaqEntry(UpsertFaqRequest request);
+
+    FaqResponse updateFaqEntry(Long faqId, UpsertFaqRequest request);
+
+    void deleteFaqEntry(Long faqId);
 
     List<CatalogResponse.CategoryResponse> getCategoryTree(String rootName);
 

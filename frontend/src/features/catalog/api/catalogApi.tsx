@@ -5,6 +5,7 @@ import type {
   ChatbotAskResponse,
   FaqEntryApiResponse,
   UpsertCategoryRequest,
+  UpsertFaqRequest,
 } from '../types/catalogTypes';
 
 export const CATALOG_API_BASE = '/catalog';
@@ -24,6 +25,28 @@ export const catalogApi = {
   async askChatbot(payload: ChatbotAskRequest) {
     const response = await axiosClient.post<ChatbotAskResponse>(`${CATALOG_API_BASE}/chatbot/ask`, payload);
     return response.data;
+  },
+
+  async getFaqEntriesForAdmin(category?: string, keyword?: string) {
+    const params: Record<string, string> = {};
+    if (category) params.category = category;
+    if (keyword?.trim()) params.keyword = keyword.trim();
+    const response = await axiosClient.get<FaqEntryApiResponse[]>(`${CATALOG_API_BASE}/faq/admin`, { params });
+    return response.data;
+  },
+
+  async createFaqEntry(payload: UpsertFaqRequest) {
+    const response = await axiosClient.post<FaqEntryApiResponse>(`${CATALOG_API_BASE}/faq`, payload);
+    return response.data;
+  },
+
+  async updateFaqEntry(faqId: number, payload: UpsertFaqRequest) {
+    const response = await axiosClient.put<FaqEntryApiResponse>(`${CATALOG_API_BASE}/faq/${faqId}`, payload);
+    return response.data;
+  },
+
+  async deleteFaqEntry(faqId: number) {
+    await axiosClient.delete(`${CATALOG_API_BASE}/faq/${faqId}`);
   },
 
   async listCategories(root?: string | null) {

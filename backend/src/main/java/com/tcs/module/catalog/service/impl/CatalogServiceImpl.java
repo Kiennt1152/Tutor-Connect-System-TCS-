@@ -1,6 +1,7 @@
 package com.tcs.module.catalog.service.impl;
 
 import com.tcs.module.catalog.dto.request.ChatbotAskRequest;
+import com.tcs.module.catalog.dto.request.UpsertFaqRequest;
 import com.tcs.module.catalog.dto.response.CatalogItemResponse;
 import com.tcs.module.catalog.dto.request.CatalogRequest;
 import com.tcs.module.catalog.dto.response.CatalogResponse;
@@ -125,6 +126,64 @@ public class CatalogServiceImpl implements CatalogService {
                 .build();
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<FaqResponse> getFaqEntriesForAdmin(String category, String keyword) {
+        String trimmedCategory = StringUtils.hasText(category) ? category.trim() : null;
+        String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        return faqEntryRepository.searchAdmin(trimmedCategory, trimmedKeyword).stream().map(this::toFaq).toList();
+    }
+
+    @Override
+    @Transactional
+    public FaqResponse createFaqEntry(UpsertFaqRequest request) {
+        FaqEntry entry = new FaqEntry();
+        applyFaqChanges(entry, request);
+        return toFaq(faqEntryRepository.save(entry));
+    }
+
+    @Override
+    @Transactional
+    public FaqResponse updateFaqEntry(Long faqId, UpsertFaqRequest request) {
+        FaqEntry entry = getRequiredFaqEntry(faqId);
+        applyFaqChanges(entry, request);
+        return toFaq(faqEntryRepository.save(entry));
+    }
+
+    @Override
+    @Transactional
+    public void deleteFaqEntry(Long faqId) {
+        FaqEntry entry = getRequiredFaqEntry(faqId);
+        faqEntryRepository.delete(entry);
+    }
+
+    private FaqEntry getRequiredFaqEntry(Long faqId) {
+        return faqEntryRepository.findById(faqId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy câu hỏi thường gặp: " + faqId));
+    }
+
+    private void applyFaqChanges(FaqEntry entry, UpsertFaqRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thiếu dữ liệu FAQ.");
+        }
+
+        String question = normalizeText(request.getQuestion());
+        if (question == null) {
+            throw new IllegalArgumentException("Câu hỏi là bắt buộc.");
+        }
+
+        String answer = normalizeText(request.getAnswer());
+        if (answer == null) {
+            throw new IllegalArgumentException("Câu trả lời là bắt buộc.");
+        }
+
+        entry.setQuestion(question);
+        entry.setAnswer(answer);
+        entry.setCategory(normalizeText(request.getCategory()));
+        entry.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
+        entry.setPublished(request.getPublished() == null || request.getPublished());
+    }
+
     private CatalogItemResponse toItem(Subject subject) {
         return CatalogItemResponse.builder()
                 .id(subject.getSubjectId())
@@ -150,6 +209,10 @@ public class CatalogServiceImpl implements CatalogService {
                 .question(entry.getQuestion())
                 .answer(entry.getAnswer())
                 .category(entry.getCategory())
+                .sortOrder(entry.getSortOrder())
+                .published(entry.getPublished())
+                .createdAt(entry.getCreatedAt())
+                .updatedAt(entry.getUpdatedAt())
                 .build();
     }
 

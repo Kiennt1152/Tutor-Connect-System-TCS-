@@ -50,6 +50,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: APP_ROUTES.platformVerifications, label: 'Xác minh', icon: 'shield' },
       { to: APP_ROUTES.platformReports, label: 'Báo cáo', icon: 'flag' },
       { to: APP_ROUTES.platformTickets, label: 'Yêu cầu hỗ trợ', icon: 'message' },
+      { to: APP_ROUTES.platformFaq, label: 'Quản lý FAQ', icon: 'help' },
     ],
   },
 ];

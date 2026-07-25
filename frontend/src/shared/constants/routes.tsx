@@ -18,6 +18,7 @@ export const APP_ROUTES = {
   platformVerifications: '/platform/verifications',
   platformReports: '/platform/reports',
   platformTickets: '/platform/tickets',
+  platformFaq: '/platform/faq',
   platformProfile: '/platform/profile',
   forbidden: '/forbidden',
 } as const;
