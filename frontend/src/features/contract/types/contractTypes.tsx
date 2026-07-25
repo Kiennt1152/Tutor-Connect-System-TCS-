@@ -1,4 +1,7 @@
-export type ContractStatus = 'DRAFT' | 'SIGNED' | 'ACTIVE' | 'COMPLETED' | 'TERMINATED';
+export type ContractStatus = 'PENDING' | 'DRAFT' | 'SIGNED' | 'ACTIVE' | 'COMPLETED' | 'TERMINATED';
+export type ContractSourceType = 'PRIVATE' | 'CENTER';
+export type ContractSignatureStatus = 'PENDING' | 'SIGNED' | 'EXPIRED';
+export type PartyRole = 'CLIENT' | 'TUTOR' | 'CENTER';
 
 export interface ContractPartyInfo {
   userId: number;
@@ -11,12 +14,31 @@ export interface ContractResponse {
   contractId: number;
   contractNo: string;
   status: ContractStatus;
+  sourceType?: ContractSourceType | null;
+  assignmentId?: number | null;
+  classId: number | null;
+  classStudentId?: number | null;
+  clientId?: number | null;
+  clientName?: string | null;
+  clientEmail?: string | null;
+  tutorId?: number | null;
+  tutorName?: string | null;
+  tutorEmail?: string | null;
+  centerId?: number | null;
+  centerName?: string | null;
+  centerEmail?: string | null;
+  templateId?: number | null;
+  templateName?: string | null;
   termsSummary: string | null;
   contractFileUrl: string | null;
+  hasAllSignatures?: boolean;
+  signedCount?: number;
+  requiredSignatures?: number;
   signedAt: string | null;
+  expiresAt?: string | null;
+  confirmedAt?: string | null;
   createdAt: string;
   updatedAt: string;
-  classId: number | null;
   classTitle: string | null;
   classType: string | null;
   tuitionFee: number | string | null;
@@ -27,12 +49,37 @@ export interface ContractResponse {
   center: ContractPartyInfo | null;
 }
 
+export type ContractApiResponse = ContractResponse;
+
+export interface ContractSignatureApiResponse {
+  signatureId: number;
+  partyRole: PartyRole;
+  partyLabel: string;
+  signerId: number | null;
+  signerName: string | null;
+  signerEmail: string | null;
+  signatureStatus: ContractSignatureStatus;
+  signedAt: string | null;
+  otpExpiresAt: string | null;
+  remainingOtpAttempts: number;
+  isOtpExpired: boolean;
+}
+
+export interface ContractSignatureListApiResponse {
+  contractId: number;
+  contractNo: string;
+  hasAllSignatures: boolean;
+  signedCount: number;
+  requiredSignatures: number;
+  signatures: ContractSignatureApiResponse[];
+}
+
 export interface SignatureInfo {
   signatureId: number;
-  signerUserId: number;
+  signerUserId: number | null;
   signerName: string;
   signerRole: string;
-  signedAt: string;
+  signedAt: string | null;
   isCurrentUser: boolean;
 }
 
@@ -45,6 +92,13 @@ export interface SignatureStatusResponse {
   signatures: SignatureInfo[];
 }
 
+export interface SendOtpApiResponse {
+  message: string;
+  maskedEmail?: string;
+  expiresInMinutes: number;
+  maxAttempts: number;
+}
+
 export interface OtpSentResponse {
   maskedEmail: string;
   message: string;
@@ -52,4 +106,77 @@ export interface OtpSentResponse {
 
 export interface SignContractRequest {
   otpCode: string;
+}
+
+export interface SignWithOtpApiRequest {
+  otpCode: string;
+}
+
+export interface GenerateContractApiRequest {
+  assignmentId?: number;
+  classStudentId?: number;
+  templateId?: number;
+}
+
+export interface Contract {
+  id: string;
+  contractNo: string;
+  status: ContractStatus;
+  statusLabel: string;
+  sourceType: ContractSourceType;
+  sourceTypeLabel: string;
+  assignmentId: number | null;
+  classId: number | null;
+  classStudentId: number | null;
+  clientId: number | null;
+  clientName: string | null;
+  clientEmail: string | null;
+  tutorId: number | null;
+  tutorName: string | null;
+  tutorEmail: string | null;
+  centerId: number | null;
+  centerName: string | null;
+  centerEmail: string | null;
+  templateId: number | null;
+  templateName: string | null;
+  termsSummary: string | null;
+  contractFileUrl: string | null;
+  hasAllSignatures: boolean;
+  signedCount: number;
+  requiredSignatures: number;
+  signedAt: string | null;
+  expiresAt: string | null;
+  confirmedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ContractSignature {
+  id: number;
+  partyRole: PartyRole;
+  partyLabel: string;
+  signerId: number | null;
+  signerName: string | null;
+  signerEmail: string | null;
+  signatureStatus: ContractSignatureStatus;
+  signatureStatusLabel: string;
+  signedAt: string | null;
+  otpExpiresAt: string | null;
+  remainingOtpAttempts: number;
+  isOtpExpired: boolean;
+}
+
+export interface ContractSignatureList {
+  contractId: number;
+  contractNo: string;
+  hasAllSignatures: boolean;
+  signedCount: number;
+  requiredSignatures: number;
+  signatures: ContractSignature[];
+}
+
+export interface OtpSendResult {
+  message: string;
+  expiresInMinutes: number;
+  maxAttempts: number;
 }

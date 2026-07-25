@@ -20,17 +20,22 @@ import com.tcs.module.marketplace.dto.response.ClassResponse;
 import com.tcs.module.marketplace.dto.response.ClassTerminationResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.ClassTerminationRequest;
 import com.tcs.module.marketplace.entity.FavoriteTutor;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
+import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.ClassTerminationStatus;
 import com.tcs.module.marketplace.enums.TutorApplicationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
+import com.tcs.module.marketplace.dto.response.ScheduleSlotResponse;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
+import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.marketplace.repository.ClassTerminationRequestRepository;
 import com.tcs.module.marketplace.repository.FavoriteTutorRepository;
+import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.MarketplaceService;
@@ -62,6 +67,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final ClassAssignmentRepository classAssignmentRepository;
     private final ClassTerminationRequestRepository classTerminationRequestRepository;
     private final TutorApplicationRepository tutorApplicationRepository;
+    private final ClassStudentRepository classStudentRepository;
+    private final ScheduleSlotRepository scheduleSlotRepository;
     private final FavoriteTutorRepository favoriteTutorRepository;
     private final CategoryRepository categoryRepository;
     private final SubjectRepository subjectRepository;
@@ -175,6 +182,63 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         tutoringClassRepository.save(tutoringClass);
 
         return toTerminationResponse(classTerminationRequestRepository.save(termination), tutoringClass);
+    }
+
+    @Override
+    @Transactional
+    public void registerToClass(Long classId) {
+        User user = requireUser();
+        TutoringClass tutoringClass = findClass(classId);
+        if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
+            throw new IllegalArgumentException("Lớp chưa mở đăng ký");
+        }
+        Long userId = user.getUserId();
+
+        // Gia sư -> nộp đơn dạy.
+        Tutor tutor = tutorRepository.findByUser_UserId(userId).orElse(null);
+        if (tutor != null) {
+            if (tutorApplicationRepository
+                    .existsByTutoringClass_ClassIdAndTutor_TutorId(classId, tutor.getTutorId())) {
+                throw new IllegalArgumentException("Bạn đã đăng ký lớp này rồi");
+            }
+            TutorApplication application = new TutorApplication();
+            application.setTutoringClass(tutoringClass);
+            application.setTutor(tutor);
+            application.setStatus(TutorApplicationStatus.SUBMITTED);
+            tutorApplicationRepository.save(application);
+            return;
+        }
+
+        // Phụ huynh/học viên -> ghi danh.
+        Client client = clientRepository.findByUser_UserId(userId).orElse(null);
+        if (client != null) {
+            if (classStudentRepository
+                    .existsByTutoringClass_ClassIdAndEnrolledByUser_UserId(classId, userId)) {
+                throw new IllegalArgumentException("Bạn đã đăng ký lớp này rồi");
+            }
+            ClassStudent student = new ClassStudent();
+            student.setTutoringClass(tutoringClass);
+            student.setEnrolledByUser(user);
+            student.setStudentName(client.getFullName());
+            student.setStudentPhone(client.getPhone());
+            student.setStudentEmail(user.getEmail());
+            student.setStatus(ClassStudentStatus.ENROLLED);
+            classStudentRepository.save(student);
+
+            // Đủ sĩ số tối đa -> tự động đóng lớp thành MATCHED (không nhận thêm ghi danh).
+            Integer max = tutoringClass.getMaxStudents();
+            if (max != null && max > 0) {
+                long enrolled = classStudentRepository
+                        .countByTutoringClass_ClassIdAndStatus(classId, ClassStudentStatus.ENROLLED);
+                if (enrolled >= max) {
+                    tutoringClass.setStatus(TutoringClassStatus.MATCHED);
+                    tutoringClassRepository.save(tutoringClass);
+                }
+            }
+            return;
+        }
+
+        throw new ForbiddenException("Chỉ gia sư hoặc phụ huynh/học viên mới đăng ký lớp");
     }
 
     @Override
@@ -334,6 +398,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .budget(c.getBudget())
                 .recurringType(c.getRecurringType())
                 .status(c.getStatus())
+                .maxStudents(c.getMaxStudents())
+                .enrolledCount(classStudentRepository
+                        .countByTutoringClass_ClassIdAndStatus(c.getClassId(), ClassStudentStatus.ENROLLED))
+                .schedule(scheduleSlotRepository.findByTutoringClass_ClassId(c.getClassId()).stream()
+                        .map(s -> ScheduleSlotResponse.builder()
+                                .slotId(s.getSlotId())
+                                .dayOfWeek(s.getDayOfWeek())
+                                .startTime(s.getStartTime())
+                                .endTime(s.getEndTime())
+                                .build())
+                        .toList())
                 .createdAt(c.getCreatedAt())
                 .build();
     }

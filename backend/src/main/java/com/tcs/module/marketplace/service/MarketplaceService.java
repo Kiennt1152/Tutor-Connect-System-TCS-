@@ -23,6 +23,9 @@ public interface MarketplaceService {
 
     ClassTerminationResponse requestClassTermination(Long classId, CreateClassTerminationRequest request);
 
+    /** Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh. */
+    void registerToClass(Long classId);
+
     List<TutorSearchResponse> searchTutors(String keyword, Long subjectId);
 
     void addFavorite(Long tutorId);

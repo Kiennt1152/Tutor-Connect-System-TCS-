@@ -64,6 +64,13 @@ public class MarketplaceController {
         return marketplaceService.requestClassTermination(classId, request);
     }
 
+    @PostMapping("/classes/{classId}/register")
+    @ResponseStatus(HttpStatus.CREATED)
+    public Map<String, String> registerToClass(@PathVariable Long classId) {
+        marketplaceService.registerToClass(classId);
+        return Map.of("message", "Đăng ký thành công");
+    }
+
     @GetMapping("/tutors/search")
     public List<TutorSearchResponse> searchTutors(
             @RequestParam(required = false) String keyword, @RequestParam(required = false) Long subjectId) {

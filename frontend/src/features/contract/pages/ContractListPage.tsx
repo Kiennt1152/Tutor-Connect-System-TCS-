@@ -5,6 +5,7 @@ import type { ContractStatus } from '../types/contractTypes';
 import './ContractPage.css';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
+  PENDING: { label: 'Chờ ký', cls: 'contract-status--pending' },
   DRAFT: { label: 'Chưa ký', cls: 'contract-status--draft' },
   SIGNED: { label: 'Đã ký', cls: 'contract-status--signed' },
   ACTIVE: { label: 'Đang hoạt động', cls: 'contract-status--active' },

@@ -1,7 +1,7 @@
 package com.tcs.dev;
 
 import com.tcs.module.identity.enums.UserStatus;
-import com.tcs.module.identity.enums.OtpPurpose;
+//import com.tcs.module.identity.enumst.OtpPurpose;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.profile.entity.Client;

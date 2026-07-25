@@ -166,6 +166,7 @@
   white-space: nowrap;
 }
 
+.contract-status--pending,
 .contract-status--draft {
   background: var(--color-warning-light);
   color: #92400e;

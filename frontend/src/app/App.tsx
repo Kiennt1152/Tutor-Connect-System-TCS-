@@ -12,9 +12,14 @@ import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import PlatformWithdrawalsPage from '../features/platform/pages/PlatformWithdrawalsPage';
 import CenterPage from '../features/center/pages/CenterPage';
+import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
+import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
+import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
+import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
+import MarketplaceClassDetailPage from '../features/marketplace/pages/MarketplaceClassDetailPage';
 import ContractListPage from '../features/contract/pages/ContractListPage';
 import ContractDetailPage from '../features/contract/pages/ContractDetailPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
@@ -67,6 +72,14 @@ export default function App() {
             }
           />
           <Route
+            path="/marketplace/classes/:classId"
+            element={
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+                <MarketplaceClassDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={APP_ROUTES.contract}
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
@@ -95,6 +108,38 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/schedule"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/reschedules"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterReschedulesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tutor/schedule"
+            element={
+              <ProtectedRoute roles={['TUTOR']}>
+                <TutorSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/tutor/classes/:classId/attendance"
+            element={
+              <ProtectedRoute roles={['TUTOR']}>
+                <TutorAttendancePage />
               </ProtectedRoute>
             }
           />

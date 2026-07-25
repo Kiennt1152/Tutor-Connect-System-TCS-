@@ -185,6 +185,20 @@
   background: #93c5fd;
   cursor: not-allowed;
 }
+.btn-primary-link {
+  display: inline-block;
+  padding: 0.55rem 1.1rem;
+  border-radius: 0.45rem;
+  font-size: 0.95rem;
+  background: #2563eb;
+  color: white;
+  text-decoration: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+.btn-primary-link:hover {
+  background: #1d4ed8;
+}
 .btn-secondary {
   background: white;
   border-color: #d1d5db;

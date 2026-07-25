@@ -9,6 +9,7 @@ import type { ContractStatus } from '../types/contractTypes';
 import './ContractPage.css';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
+  PENDING: { label: 'Chờ ký', cls: 'contract-status--pending' },
   DRAFT: { label: 'Chưa ký', cls: 'contract-status--draft' },
   SIGNED: { label: 'Đã ký', cls: 'contract-status--signed' },
   ACTIVE: { label: 'Đang hoạt động', cls: 'contract-status--active' },
@@ -98,7 +99,7 @@ export default function ContractDetailPage() {
   const status = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
   const currentUserSigned = signatures?.signatures.some((signature) => signature.isCurrentUser) ?? false;
   const allSigned = signatures?.fullySigned ?? false;
-  const signRequired = contract.status === 'DRAFT';
+  const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
   const canCreateIssue = contract.classId != null;
   const signedPercent = signatures?.totalRequired
     ? Math.round((signatures.signedCount / signatures.totalRequired) * 100)
