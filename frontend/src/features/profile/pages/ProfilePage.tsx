@@ -84,7 +84,6 @@ export default function ProfilePage() {
     reload,
     updateProfile,
     uploadAvatar,
-    submitVerification,
   } = useProfile();
 
   const [form, setForm] = useState<FormState>(emptyForm);
@@ -207,11 +206,6 @@ export default function ProfilePage() {
     setSuccess(null);
     await uploadAvatar(file);
     if (fileInputRef.current) fileInputRef.current.value = '';
-  }
-
-  async function handleSubmitVerification() {
-    const ok = await submitVerification();
-    if (ok) setSuccess('Đã nộp hồ sơ xác minh, vui lòng chờ admin xét duyệt');
   }
 
   const dirty = JSON.stringify(form) !== JSON.stringify(initial);
@@ -451,9 +445,9 @@ export default function ProfilePage() {
               {profile.verificationStatus === 'REJECTED' && (
                 <p>Hồ sơ bị từ chối. Vui lòng cập nhật thông tin rồi nộp lại.</p>
               )}
-              <button type="button" className="btn-primary" onClick={handleSubmitVerification}>
+              <Link to="/profile/verification" className="btn-primary-link">
                 Nộp hồ sơ xác minh
-              </button>
+              </Link>
             </>
           )}
           <p className="profile-hint">

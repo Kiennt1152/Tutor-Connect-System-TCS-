@@ -1,63 +1,93 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  ContractApiResponse,
   ContractResponse,
-  SignatureStatusResponse,
+  ContractSignatureListApiResponse,
+  GenerateContractApiRequest,
   OtpSentResponse,
+  SendOtpApiResponse,
+  SignatureStatusResponse,
   SignContractRequest,
+  SignWithOtpApiRequest,
 } from '../types/contractTypes';
 
-export const CONTRACT_API_BASE = '/contract';
+const BASE = '/contract';
+
+export const CONTRACT_API_BASE = BASE;
 
 export const contractApi = {
   http: axiosClient,
-  basePath: CONTRACT_API_BASE,
+  basePath: BASE,
 
   async getMyContracts(): Promise<ContractResponse[]> {
-    const res = await axiosClient.get<ContractResponse[]>('/contract');
-    return res.data;
+    const response = await axiosClient.get<ContractResponse[]>(BASE);
+    return response.data;
   },
 
   async getContract(contractId: number): Promise<ContractResponse> {
-    const res = await axiosClient.get<ContractResponse>(`/contract/${contractId}`);
-    return res.data;
+    const response = await axiosClient.get<ContractResponse>(`${BASE}/${contractId}`);
+    return response.data;
+  },
+
+  getContractRaw(contractId: number) {
+    return axiosClient.get<ContractApiResponse>(`${BASE}/${contractId}`);
   },
 
   async generateForAssignment(assignmentId: number): Promise<ContractResponse> {
-    const res = await axiosClient.post<ContractResponse>(
-      `/contract/generate/assignment/${assignmentId}`,
+    const response = await axiosClient.post<ContractResponse>(
+      `${BASE}/generate/assignment/${assignmentId}`,
     );
-    return res.data;
+    return response.data;
   },
 
   async generateForEnrollment(classStudentId: number): Promise<ContractResponse> {
-    const res = await axiosClient.post<ContractResponse>(
-      `/contract/generate/enrollment/${classStudentId}`,
+    const response = await axiosClient.post<ContractResponse>(
+      `${BASE}/generate/enrollment/${classStudentId}`,
     );
-    return res.data;
+    return response.data;
+  },
+
+  generateContract(payload: GenerateContractApiRequest) {
+    return axiosClient.post<ContractApiResponse>(`${BASE}/generate`, payload);
   },
 
   async sendSignOtp(contractId: number): Promise<OtpSentResponse> {
-    const res = await axiosClient.post<OtpSentResponse>(
-      `/contract/${contractId}/send-otp`,
-    );
-    return res.data;
+    const response = await axiosClient.post<OtpSentResponse>(`${BASE}/${contractId}/send-otp`);
+    return response.data;
+  },
+
+  sendOtp(contractId: number) {
+    return axiosClient.post<SendOtpApiResponse>(`${BASE}/${contractId}/send-otp`);
   },
 
   async signContract(
     contractId: number,
     payload: SignContractRequest,
   ): Promise<ContractResponse> {
-    const res = await axiosClient.post<ContractResponse>(
-      `/contract/${contractId}/sign`,
+    const response = await axiosClient.post<ContractResponse>(
+      `${BASE}/${contractId}/sign`,
       payload,
     );
-    return res.data;
+    return response.data;
+  },
+
+  signWithOtp(contractId: number, payload: SignWithOtpApiRequest) {
+    return axiosClient.post<ContractApiResponse>(
+      `${BASE}/${contractId}/sign`,
+      payload,
+    );
   },
 
   async getSignatureStatus(contractId: number): Promise<SignatureStatusResponse> {
-    const res = await axiosClient.get<SignatureStatusResponse>(
-      `/contract/${contractId}/signatures`,
+    const response = await axiosClient.get<SignatureStatusResponse>(
+      `${BASE}/${contractId}/signatures`,
     );
-    return res.data;
+    return response.data;
+  },
+
+  getSignatures(contractId: number) {
+    return axiosClient.get<ContractSignatureListApiResponse>(
+      `${BASE}/${contractId}/signature-details`,
+    );
   },
 };

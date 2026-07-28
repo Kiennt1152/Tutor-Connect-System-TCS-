@@ -1,35 +1,42 @@
 package com.tcs.module.contract.service;
 
-import com.tcs.module.contract.dto.request.CreateReviewRequest;
 import com.tcs.module.contract.dto.request.SignContractRequest;
+import com.tcs.module.contract.dto.request.SignWithOtpRequest;
 import com.tcs.module.contract.dto.response.ContractResponse;
+import com.tcs.module.contract.dto.response.ContractSignatureListResponse;
 import com.tcs.module.contract.dto.response.OtpSentResponse;
-import com.tcs.module.contract.dto.response.ReviewResponse;
 import com.tcs.module.contract.dto.response.SignatureStatusResponse;
 import com.tcs.module.contract.entity.Contract;
 import java.util.List;
+import java.util.Map;
 
 public interface ContractService {
-
-    ReviewResponse createReview(CreateReviewRequest request);
-
-    List<ReviewResponse> getReviewsForTutor(Long tutorUserId);
 
     Contract generateForAssignment(Long assignmentId);
 
     Contract generateForEnrollment(Long classStudentId);
 
-    void sign(Long contractId, String otp, Long signerUserId);
+    ContractResponse generateContract(Long assignmentId);
 
-    boolean isFullySigned(Long contractId);
+    ContractResponse getContract(Long contractId);
 
     ContractResponse getMyContract(Long contractId);
 
     List<ContractResponse> getMyContracts();
 
+    ContractSignatureListResponse getSignatures(Long contractId);
+
+    SignatureStatusResponse getSignatureStatus(Long contractId);
+
+    Map<String, Object> sendOtp(Long contractId);
+
     OtpSentResponse sendSignOtp(Long contractId);
+
+    ContractResponse signWithOtp(Long contractId, SignWithOtpRequest request);
 
     ContractResponse signContract(Long contractId, SignContractRequest request);
 
-    SignatureStatusResponse getSignatureStatus(Long contractId);
+    void sign(Long contractId, String otp, Long signerUserId);
+
+    boolean isFullySigned(Long contractId);
 }

@@ -5,6 +5,7 @@ import type { ContractStatus } from '../types/contractTypes';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
+  PENDING: { label: 'Chờ ký', cls: 'status-draft' },
   DRAFT: { label: 'Chưa ký', cls: 'status-draft' },
   SIGNED: { label: 'Đã ký', cls: 'status-signed' },
   ACTIVE: { label: 'Đang hoạt động', cls: 'status-active' },
@@ -59,7 +60,7 @@ export default function ContractDetailPage() {
   const st = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
   const currentUserSigned = signatures?.signatures.some(s => s.isCurrentUser) ?? false;
   const allSigned = signatures?.fullySigned ?? false;
-  const signRequired = contract.status === 'DRAFT';
+  const signRequired = contract.status === 'PENDING' || contract.status === 'DRAFT';
 
   return (
     <div className="cdetail-page">
@@ -132,7 +133,9 @@ export default function ContractDetailPage() {
                       {sig.isCurrentUser && <span className="sig-me-badge">Bạn</span>}
                     </div>
                     <div className="sig-role">{sig.signerRole}</div>
-                    <div className="sig-time">{new Date(sig.signedAt).toLocaleString('vi-VN')}</div>
+                    <div className="sig-time">
+                      {sig.signedAt ? new Date(sig.signedAt).toLocaleString('vi-VN') : '—'}
+                    </div>
                   </div>
                 </div>
               ))}

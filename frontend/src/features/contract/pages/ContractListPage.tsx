@@ -2,6 +2,7 @@ import { useContractList } from '../hooks/useContract';
 import type { ContractStatus } from '../types/contractTypes';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
+  PENDING: { label: 'Chờ ký', cls: 'status-draft' },
   DRAFT: { label: 'Chưa ký', cls: 'status-draft' },
   SIGNED: { label: 'Đã ký', cls: 'status-signed' },
   ACTIVE: { label: 'Đang hoạt động', cls: 'status-active' },
