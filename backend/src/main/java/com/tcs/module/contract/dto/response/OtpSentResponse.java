@@ -9,4 +9,6 @@ public class OtpSentResponse {
 
     private String maskedEmail;
     private String message;
+    private Integer expiresInMinutes;
+    private Integer maxAttempts;
 }
