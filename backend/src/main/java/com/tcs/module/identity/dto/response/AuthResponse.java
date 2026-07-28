@@ -16,4 +16,5 @@ public class AuthResponse {
     private UserRole role;
     private String displayName;
     private UserStatus status;
+    private boolean firstLogin;
 }

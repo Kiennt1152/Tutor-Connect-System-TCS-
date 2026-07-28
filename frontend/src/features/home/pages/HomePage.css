@@ -118,6 +118,16 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-sm);
+  align-items: center;
+}
+
+.tcs-header__user {
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+  margin-right: var(--space-xs);
+}
+.tcs-header__user strong {
+  color: var(--color-text-primary);
 }
 
 .tcs-class-card__tag {

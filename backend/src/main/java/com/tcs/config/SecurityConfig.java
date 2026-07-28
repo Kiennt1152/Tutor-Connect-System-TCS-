@@ -28,10 +28,11 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.cors(Customizer.withDefaults())
-                .csrf(AbstractHttpConfigurer::disable)
+        http.csrf(AbstractHttpConfigurer::disable)
+                .cors(cors -> {})
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // --- Public ---
                         .requestMatchers(
                                 "/error",
@@ -45,6 +46,7 @@ public class SecurityConfig {
                                 "/api/identity/verify-otp",
                                 "/api/identity/password/forgot",
                                 "/api/identity/password/reset",
+                                "/uploads/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**")
                         .permitAll()

@@ -1,35 +1,19 @@
 package com.tcs.module.contract.service;
 
-import com.tcs.module.contract.dto.request.CreateReviewRequest;
-import com.tcs.module.contract.dto.response.ReviewResponse;
-import com.tcs.module.contract.entity.Contract;
-import java.util.List;
+import com.tcs.module.contract.dto.request.SignWithOtpRequest;
+import com.tcs.module.contract.dto.response.ContractResponse;
+import com.tcs.module.contract.dto.response.ContractSignatureListResponse;
+import java.util.Map;
 
 public interface ContractService {
 
-    ReviewResponse createReview(CreateReviewRequest request);
+    ContractResponse getContract(Long contractId);
 
-    List<ReviewResponse> getReviewsForTutor(Long tutorUserId);
+ContractSignatureListResponse getSignatures(Long contractId);
 
-    // ----- Seam 0.1 (chu: M4) - hop dong dien tu. Default stub de M4 hoan thien. -----
+    Map<String, Object> sendOtp(Long contractId);
 
-    /** Sinh hop dong PRIVATE tu mot ClassAssignment. */
-    default Contract generateForAssignment(Long assignmentId) {
-        throw new UnsupportedOperationException("TODO M4: generateForAssignment");
-    }
+    ContractResponse signWithOtp(Long contractId, SignWithOtpRequest request);
 
-    /** Sinh hop dong CENTER tu mot ghi danh (ClassStudent). */
-    default Contract generateForEnrollment(Long classStudentId) {
-        throw new UnsupportedOperationException("TODO M4: generateForEnrollment");
-    }
-
-    /** Ky hop dong bang OTP email. */
-    default void sign(Long contractId, String otp, Long signerUserId) {
-        throw new UnsupportedOperationException("TODO M4: sign");
-    }
-
-    /** Da du chu ky cua tat ca cac ben chua. */
-    default boolean isFullySigned(Long contractId) {
-        throw new UnsupportedOperationException("TODO M4: isFullySigned");
-    }
+    ContractResponse generateContract(Long assignmentId);
 }

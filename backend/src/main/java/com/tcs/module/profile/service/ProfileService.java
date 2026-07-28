@@ -38,4 +38,6 @@ public interface ProfileService {
     void deleteAvailability(Long availabilityId);
 
     VerificationResponse submitVerification(VerificationRequestDto request);
+
+    String uploadAvatar(org.springframework.web.multipart.MultipartFile file);
 }

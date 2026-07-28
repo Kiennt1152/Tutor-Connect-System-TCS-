@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError } from 'axios';
 import { authStorage } from '../auth/authStorage';
 import { APP_ROUTES } from '../constants/routes';
 
@@ -22,19 +22,37 @@ axiosClient.interceptors.request.use((config) => {
   return config;
 });
 
+let isRedirectingToLogin = false;
+
 axiosClient.interceptors.response.use(
   (response) => response,
-  (error) => {
+  (error: AxiosError) => {
     const status = error.response?.status;
     const path = window.location.pathname;
+    const requestUrl = error.config?.url ?? '';
 
-    if (status === 401 && path !== APP_ROUTES.login && path !== APP_ROUTES.register) {
+    const isAuthEndpoint =
+      requestUrl.includes('/identity/login') ||
+      requestUrl.includes('/identity/register') ||
+      requestUrl.includes('/identity/password/');
+
+    if (status === 401 && !isAuthEndpoint && path !== APP_ROUTES.login && !isRedirectingToLogin) {
+      isRedirectingToLogin = true;
       authStorage.clearAll();
-      window.location.assign(`${APP_ROUTES.login}?session=expired`);
+      const next = encodeURIComponent(window.location.pathname + window.location.search);
+      window.location.assign(`${APP_ROUTES.login}?session=expired&next=${next}`);
     }
 
-    if (status === 403 && path !== APP_ROUTES.forbidden) {
+    if (status === 403 && !isAuthEndpoint && path !== APP_ROUTES.forbidden) {
       window.location.assign(APP_ROUTES.forbidden);
+    }
+
+    if (error.code === 'ERR_NETWORK' || !error.response) {
+      return Promise.reject(
+        new Error(
+          'Không thể kết nối đến máy chủ. Vui lòng kiểm tra backend đang chạy và CORS đã được cấu hình.',
+        ),
+      );
     }
 
     return Promise.reject(error);

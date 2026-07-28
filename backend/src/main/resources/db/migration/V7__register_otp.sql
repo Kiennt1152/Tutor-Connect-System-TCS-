@@ -8,7 +8,7 @@
 
 SET NAMES utf8mb4;
 
-CREATE TABLE email_otps (
+CREATE TABLE IF NOT EXISTS email_otps (
     otp_id       BIGINT       NOT NULL AUTO_INCREMENT,
     email        VARCHAR(100) NOT NULL,
     code         VARCHAR(10)  NOT NULL,
@@ -23,7 +23,7 @@ CREATE TABLE email_otps (
     INDEX idx_email_otps_email (email)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE email_verification_tokens (
+CREATE TABLE IF NOT EXISTS email_verification_tokens (
     token_id    BIGINT       NOT NULL AUTO_INCREMENT,
     token       VARCHAR(64)  NOT NULL,
     email       VARCHAR(100) NOT NULL,
