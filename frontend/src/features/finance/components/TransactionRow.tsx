@@ -36,7 +36,7 @@ export function TransactionRow({ transaction }: Props) {
         {isCredit ? '+' : '−'}{formatCurrency(transaction.amount)}
       </td>
       <td className="tx-row__status">
-        <span className={`tx-row__status ${statusClass}`}>
+        <span className={`tx-row__status-badge ${statusClass}`}>
           {transaction.status === 'SUCCESS' ? 'Thành công' :
            transaction.status === 'PENDING' ? 'Đang xử lý' :
            transaction.status === 'FAILED' ? 'Thất bại' :

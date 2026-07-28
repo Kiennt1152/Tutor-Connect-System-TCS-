@@ -6,6 +6,10 @@ import type {
   DepositPayload,
   TopupSessionInfo,
   TopupStatusInfo,
+  PaymentMethodInfo,
+  PaymentMethodPayload,
+  WithdrawalPayload,
+  WithdrawalInfo,
 } from '../types/financeTypes';
 
 const BASE = '/finance';
@@ -41,5 +45,30 @@ export const financeApi = {
     return axiosClient
       .post(`${BASE}/wallet/topups/${encodeURIComponent(reference)}/simulate-success`)
       .then((r) => r.data);
+  },
+
+  getPaymentMethods(): Promise<PaymentMethodInfo[]> {
+    return axiosClient.get(`${BASE}/payment-methods`).then((r) => r.data);
+  },
+
+  createPaymentMethod(payload: PaymentMethodPayload): Promise<PaymentMethodInfo> {
+    return axiosClient.post(`${BASE}/payment-methods`, payload).then((r) => r.data);
+  },
+
+  updatePaymentMethod(
+    paymentMethodId: number,
+    payload: PaymentMethodPayload,
+  ): Promise<PaymentMethodInfo> {
+    return axiosClient
+      .patch(`${BASE}/payment-methods/${paymentMethodId}`, payload)
+      .then((r) => r.data);
+  },
+
+  deletePaymentMethod(paymentMethodId: number): Promise<void> {
+    return axiosClient.delete(`${BASE}/payment-methods/${paymentMethodId}`).then((r) => r.data);
+  },
+
+  createWithdrawal(payload: WithdrawalPayload): Promise<WithdrawalInfo> {
+    return axiosClient.post(`${BASE}/withdrawals`, payload).then((r) => r.data);
   },
 };

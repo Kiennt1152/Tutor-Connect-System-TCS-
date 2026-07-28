@@ -38,7 +38,7 @@ public class Contract {
     @Column(name = "contract_no", length = 50, nullable = false, unique = true)
     private String contractNo;
 
-@OneToOne(fetch = FetchType.LAZY, optional = false)
+    @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "assignment_id")
     private ClassAssignment assignment;
 

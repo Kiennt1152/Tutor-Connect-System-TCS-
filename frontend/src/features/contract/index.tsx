@@ -6,5 +6,4 @@ export { OtpInput } from './components/OtpInput';
 export * from './types/contractTypes';
 export * from './api/contractApi';
 export * from './hooks/useContract';
-export * from './hooks/useContractMutations';
 export * from './mappers/contractMapper';
