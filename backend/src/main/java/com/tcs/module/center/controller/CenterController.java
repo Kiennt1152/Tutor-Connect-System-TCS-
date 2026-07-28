@@ -146,6 +146,11 @@ public class CenterController {
         return centerService.publishClass(classId);
     }
 
+    @PostMapping("/classes/{classId}/activate")
+    public CenterClassResponse activateClass(@PathVariable Long classId) {
+        return centerService.activateClass(classId);
+    }
+
     @GetMapping("/tutors")
     public List<TutorOptionResponse> listTutors(@RequestParam(required = false) Long classId) {
         return centerService.listTutors(classId);

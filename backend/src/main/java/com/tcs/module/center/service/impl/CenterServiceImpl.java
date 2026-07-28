@@ -8,11 +8,13 @@ import com.tcs.module.catalog.entity.Grade;
 import com.tcs.module.catalog.entity.Location;
 import com.tcs.module.catalog.entity.Province;
 import com.tcs.module.catalog.entity.Subject;
+import com.tcs.module.catalog.entity.SystemParameter;
 import com.tcs.module.catalog.repository.CategoryRepository;
 import com.tcs.module.catalog.repository.GradeRepository;
 import com.tcs.module.catalog.repository.LocationRepository;
 import com.tcs.module.catalog.repository.ProvinceRepository;
 import com.tcs.module.catalog.repository.SubjectRepository;
+import com.tcs.module.catalog.repository.SystemParameterRepository;
 import com.tcs.module.center.dto.request.ApplyRecruitmentRequest;
 import com.tcs.module.center.dto.request.RescheduleDecisionBody;
 import com.tcs.module.center.dto.request.SaveClassRequest;
@@ -84,6 +86,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -117,8 +120,16 @@ public class CenterServiceImpl implements CenterService {
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final RescheduleService rescheduleService;
     private final SubstitutionService substitutionService;
+    private final SystemParameterRepository systemParameterRepository;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
+
+    /** Liên kết tin tuyển dụng -> lớp, lưu trong system_parameters để khỏi cần cột/migration mới. */
+    private static final String RECRUIT_CLASS_PREFIX = "recruitclass:"; // recruitclass:{recruitmentId} -> classId
+    /** Loại lớp (EXTERNAL/SELF), lưu trong system_parameters để khỏi cần cột/migration mới. */
+    private static final String CLASS_ORIGIN_PREFIX = "classorigin:"; // classorigin:{classId} -> EXTERNAL|SELF
+    private static final String ORIGIN_EXTERNAL = "EXTERNAL";
+    private static final String ORIGIN_SELF = "SELF";
 
     // ===================== Tin tuyển gia sư — phía gia sư / công khai =====================
 
@@ -193,7 +204,9 @@ public class CenterServiceImpl implements CenterService {
         post.setCenter(center);
         post.setStatus(RecruitmentPostStatus.DRAFT); // tin mới luôn là nháp
         applyFields(post, request);
-        return toResponse(recruitmentPostRepository.save(post));
+        RecruitmentPost saved = recruitmentPostRepository.save(post);
+        savePostClassLink(saved.getRecruitmentId(), request.getClassId());
+        return toResponse(saved);
     }
 
     @Override
@@ -208,7 +221,9 @@ public class CenterServiceImpl implements CenterService {
         }
         validate(request);
         applyFields(post, request);
-        return toResponse(recruitmentPostRepository.save(post));
+        RecruitmentPost saved = recruitmentPostRepository.save(post);
+        savePostClassLink(saved.getRecruitmentId(), request.getClassId());
+        return toResponse(saved);
     }
 
     @Override
@@ -270,6 +285,11 @@ public class CenterServiceImpl implements CenterService {
         if (approve) {
             // Duyệt (HIRED) -> gia sư trở thành thành viên ACTIVE của trung tâm.
             addOrReactivateMembership(saved);
+            // Nếu tin gắn với một lớp -> tự gán gia sư vào lớp đó.
+            TutoringClass linked = findPostClassId(saved.getRecruitmentPost().getRecruitmentId())
+                    .flatMap(tutoringClassRepository::findById)
+                    .orElse(null);
+            autoAssignHiredTutor(linked, saved.getTutor());
         }
         return toApplicationResponse(saved);
     }
@@ -422,6 +442,7 @@ public class CenterServiceImpl implements CenterService {
     @Transactional
     public CenterClassResponse createClass(SaveClassRequest request) {
         TutorCenter center = requireCenter();
+        requireVerifiedCenter(center);
         validate(request, true);
 
         TutoringClass tutoringClass = new TutoringClass();
@@ -431,6 +452,7 @@ public class CenterServiceImpl implements CenterService {
         tutoringClass.setStatus(TutoringClassStatus.DRAFT); // BR-05
         applyFields(tutoringClass, request);
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
+        saveClassOrigin(saved.getClassId(), request.getOriginType());
 
         replaceScheduleSlots(saved, request);
         return toClassResponse(saved);
@@ -450,6 +472,7 @@ public class CenterServiceImpl implements CenterService {
         validate(request, false);
         applyFields(tutoringClass, request);
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
+        saveClassOrigin(saved.getClassId(), request.getOriginType());
 
         replaceScheduleSlots(saved, request);
         return toClassResponse(saved);
@@ -475,6 +498,35 @@ public class CenterServiceImpl implements CenterService {
             throw new IllegalArgumentException("Cần gán gia sư phụ trước khi đăng tải lớp.");
         }
         tutoringClass.setStatus(TutoringClassStatus.OPEN);
+        return toClassResponse(tutoringClassRepository.save(tutoringClass));
+    }
+
+    @Override
+    @Transactional
+    public CenterClassResponse activateClass(Long classId) {
+        requireCenter();
+        TutoringClass tutoringClass = findClass(classId);
+        requireOwner(tutoringClass);
+        // Chỉ kích hoạt lớp đang mở ghi danh.
+        if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
+            throw new IllegalArgumentException("Chỉ lớp đang mở (đã đăng tải) mới có thể kích hoạt.");
+        }
+        // Cổng gia sư: vẫn phải đủ gia sư chính + phụ.
+        boolean hasMain = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .isPresent();
+        if (!hasMain || substitutionService.findAssistant(classId).isEmpty()) {
+            throw new IllegalArgumentException("Cần đủ gia sư chính và gia sư phụ trước khi kích hoạt.");
+        }
+        // Cổng học sinh: đủ số học sinh tối thiểu (min_students; trống thì cần ≥ 1).
+        long enrolled = classStudentRepository
+                .countByTutoringClass_ClassIdAndStatus(classId, ClassStudentStatus.ENROLLED);
+        int required = tutoringClass.getMinStudents() != null ? tutoringClass.getMinStudents() : 1;
+        if (enrolled < required) {
+            throw new IllegalArgumentException(
+                    "Chưa đủ học sinh để kích hoạt (" + enrolled + "/" + required + ").");
+        }
+        tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
 
@@ -531,7 +583,16 @@ public class CenterServiceImpl implements CenterService {
                     + conflict.getTitle() + "\"). Vui lòng chọn gia sư khác.");
         }
 
-        // Kết thúc lượt gán cũ (nếu có) rồi tạo lượt gán mới.
+        assignMainTutorInternal(tutoringClass, tutor);
+        return toClassResponse(tutoringClass);
+    }
+
+    /**
+     * Gán gia sư chính cho lớp (không kiểm tra quyền/trùng lịch — caller tự đảm bảo).
+     * Kết thúc lượt gán cũ rồi tạo/khôi phục lượt gán mới ACTIVE.
+     */
+    private void assignMainTutorInternal(TutoringClass tutoringClass, Tutor tutor) {
+        Long classId = tutoringClass.getClassId();
         classAssignmentRepository
                 .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
                 .ifPresent(old -> {
@@ -560,7 +621,35 @@ public class CenterServiceImpl implements CenterService {
         assignment.setTutor(tutor);
         assignment.setStatus(ClassAssignmentStatus.ACTIVE);
         classAssignmentRepository.save(assignment);
-        return toClassResponse(tutoringClass);
+    }
+
+    /**
+     * Sau khi HIRE ứng viên của tin gắn với lớp: tự gán gia sư vào lớp.
+     * Ưu tiên gia sư chính (nếu lớp chưa có), kế đó gia sư phụ; đủ cả hai thì chỉ giữ thành viên.
+     * Bỏ qua nếu trùng lịch để không làm hỏng thao tác duyệt (trung tâm gán tay sau).
+     */
+    private void autoAssignHiredTutor(TutoringClass tutoringClass, Tutor tutor) {
+        if (tutoringClass == null) {
+            return;
+        }
+        Long classId = tutoringClass.getClassId();
+        ClassAssignment main = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .orElse(null);
+        if (main == null) {
+            if (findScheduleConflict(tutoringClass, tutor.getTutorId()) != null) {
+                return; // trùng lịch -> để trung tâm gán tay
+            }
+            assignMainTutorInternal(tutoringClass, tutor);
+            return;
+        }
+        // Đã có gia sư chính -> thử gán làm gia sư phụ (phải khác chính, chưa có phụ).
+        if (main.getTutor().getTutorId().equals(tutor.getTutorId())) {
+            return;
+        }
+        if (substitutionService.findAssistant(classId).isEmpty()) {
+            substitutionService.assignAssistant(classId, tutor.getTutorId());
+        }
     }
 
     @Override
@@ -1071,6 +1160,7 @@ public class CenterServiceImpl implements CenterService {
         tutoringClass.setEndDate(request.getEndDate());
         tutoringClass.setTuitionFee(request.getTuitionFee());
         tutoringClass.setMaxStudents(request.getMaxStudents());
+        tutoringClass.setMinStudents(request.getMinStudents());
     }
 
     private void replaceScheduleSlots(TutoringClass tutoringClass, SaveClassRequest request) {
@@ -1228,6 +1318,9 @@ public class CenterServiceImpl implements CenterService {
                 .endDate(c.getEndDate())
                 .tuitionFee(c.getTuitionFee())
                 .maxStudents(c.getMaxStudents())
+                .minStudents(c.getMinStudents())
+                .enrolledCount(students.size())
+                .originType(findClassOrigin(c.getClassId()))
                 .status(c.getStatus())
                 .createdAt(c.getCreatedAt())
                 .updatedAt(c.getUpdatedAt())
@@ -1261,6 +1354,18 @@ public class CenterServiceImpl implements CenterService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ trung tâm"));
     }
 
+    /**
+     * Mức 1: chặn cứng — chỉ trung tâm đã được admin xác minh mới được tạo lớp.
+     * Ném {@link VerificationRequiredException} (code VERIFICATION_REQUIRED) để frontend điều hướng
+     * sang trang Xác minh thay vì hiện lỗi cấm truy cập.
+     */
+    private void requireVerifiedCenter(TutorCenter center) {
+        if (center.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
+            throw new VerificationRequiredException(
+                    "Trung tâm của bạn cần được xác minh trước khi tạo lớp học.");
+        }
+    }
+
     private Tutor requireTutor() {
         authHelper.requireRole(UserRole.TUTOR);
         return tutorRepository
@@ -1281,13 +1386,73 @@ public class CenterServiceImpl implements CenterService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tin tuyển dụng"));
     }
 
+    // ---- Liên kết tin tuyển dụng <-> lớp qua system_parameters (không dùng cột/migration) ----
+
+    private String recruitClassKey(Long recruitmentId) {
+        return RECRUIT_CLASS_PREFIX + recruitmentId;
+    }
+
+    /** Lưu/cập nhật/xoá liên kết tin -> lớp. classId=null -> xoá liên kết (tin tuyển chung). */
+    private void savePostClassLink(Long recruitmentId, Long classId) {
+        String key = recruitClassKey(recruitmentId);
+        if (classId == null) {
+            systemParameterRepository.findByParamKey(key)
+                    .ifPresent(systemParameterRepository::delete);
+            return;
+        }
+        // Chỉ nhận lớp thuộc chính trung tâm này.
+        TutoringClass linked = findClass(classId);
+        requireOwner(linked);
+        SystemParameter param = systemParameterRepository.findByParamKey(key)
+                .orElseGet(SystemParameter::new);
+        param.setParamKey(key);
+        param.setParamValue(String.valueOf(classId));
+        param.setDescription("Lớp mà tin tuyển dụng này tuyển cho");
+        systemParameterRepository.save(param);
+    }
+
+    private Optional<Long> findPostClassId(Long recruitmentId) {
+        return systemParameterRepository.findByParamKey(recruitClassKey(recruitmentId))
+                .map(p -> {
+                    try {
+                        return Long.valueOf(p.getParamValue().trim());
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                });
+    }
+
+    // ---- Loại lớp (EXTERNAL/SELF) qua system_parameters (không dùng cột/migration) ----
+
+    private void saveClassOrigin(Long classId, String originType) {
+        String value = ORIGIN_EXTERNAL.equalsIgnoreCase(originType) ? ORIGIN_EXTERNAL : ORIGIN_SELF;
+        String key = CLASS_ORIGIN_PREFIX + classId;
+        SystemParameter param = systemParameterRepository.findByParamKey(key)
+                .orElseGet(SystemParameter::new);
+        param.setParamKey(key);
+        param.setParamValue(value);
+        param.setDescription("Loại lớp: EXTERNAL (yêu cầu ngoài) / SELF (tự tạo)");
+        systemParameterRepository.save(param);
+    }
+
+    private String findClassOrigin(Long classId) {
+        return systemParameterRepository.findByParamKey(CLASS_ORIGIN_PREFIX + classId)
+                .map(SystemParameter::getParamValue)
+                .orElse(ORIGIN_SELF);
+    }
+
     private RecruitmentPostResponse toResponse(RecruitmentPost post) {
         Location location = post.getLocation();
         Subject subject = post.getSubject();
+        TutoringClass linked = findPostClassId(post.getRecruitmentId())
+                .flatMap(tutoringClassRepository::findById)
+                .orElse(null);
         return RecruitmentPostResponse.builder()
                 .recruitmentId(post.getRecruitmentId())
                 .centerId(post.getCenter().getCenterId())
                 .centerName(post.getCenter().getCompanyName())
+                .classId(linked != null ? linked.getClassId() : null)
+                .classTitle(linked != null ? linked.getTitle() : null)
                 .title(post.getTitle())
                 .description(post.getDescription())
                 .requirements(post.getRequirements())

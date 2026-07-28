@@ -16,6 +16,9 @@ export interface RecruitmentPost {
   recruitmentId: number;
   centerId: number;
   centerName: string | null;
+  /** Lớp mà tin này tuyển cho (nếu có). Null = tin tuyển chung. */
+  classId: number | null;
+  classTitle: string | null;
   title: string;
   description: string;
   requirements: string | null;
@@ -39,6 +42,8 @@ export interface RecruitmentPost {
 
 /** Dữ liệu tạo/sửa tin. */
 export interface SaveRecruitmentPostRequest {
+  /** Lớp cần tuyển (tuỳ chọn). Null/bỏ trống = tin tuyển chung. */
+  classId?: number | null;
   title: string;
   description: string;
   requirements?: string;
@@ -153,6 +158,10 @@ export interface ClassResponse {
   endDate: string;
   tuitionFee: number;
   maxStudents: number | null;
+  minStudents: number | null;
+  enrolledCount: number;
+  /** EXTERNAL = yêu cầu ngoài (đã có học sinh); SELF = trung tâm tự tạo. */
+  originType: string | null;
   status: ClassStatus;
   createdAt: string;
   updatedAt: string;
@@ -253,5 +262,8 @@ export interface SaveClassRequest {
   endDate: string | null;
   tuitionFee: number | null;
   maxStudents: number | null;
+  minStudents?: number | null;
+  /** EXTERNAL (yêu cầu ngoài) / SELF (tự tạo). Mặc định SELF. */
+  originType?: string;
   schedule: ScheduleSlot[];
 }

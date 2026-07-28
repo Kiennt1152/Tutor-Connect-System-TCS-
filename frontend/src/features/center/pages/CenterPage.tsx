@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { LocationPicker } from '../components/LocationPicker';
+import { profileApi } from '../../profile/api/profileApi';
 import { centerApi } from '../api/centerApi';
 import type {
   ClassResponse,
@@ -80,6 +82,8 @@ interface FormState {
   recurringType: RecurringType;
   tuitionFee: string;
   maxStudents: string;
+  minStudents: string;
+  originType: 'SELF' | 'EXTERNAL';
   startDate: string;
   endDate: string;
   schedule: SlotForm[];
@@ -99,6 +103,8 @@ const EMPTY_FORM: FormState = {
   recurringType: 'WEEKLY',
   tuitionFee: '',
   maxStudents: '',
+  minStudents: '',
+  originType: 'SELF',
   startDate: '',
   endDate: '',
   schedule: [{ dayOfWeek: 1, startTime: '18:00', endTime: '20:00' }],
@@ -109,6 +115,14 @@ function extractError(error: unknown, fallback: string): string {
     return error.response.data.message;
   }
   return fallback;
+}
+
+/** Mã lỗi backend trả về (VD: "VERIFICATION_REQUIRED") để frontend xử lý riêng. */
+function errorCode(error: unknown): string | undefined {
+  if (axios.isAxiosError(error) && typeof error.response?.data?.code === 'string') {
+    return error.response.data.code;
+  }
+  return undefined;
 }
 
 function toFormState(c: ClassResponse): FormState {
@@ -145,6 +159,8 @@ function toFormState(c: ClassResponse): FormState {
     recurringType: recurring,
     tuitionFee: String(c.tuitionFee),
     maxStudents: c.maxStudents != null ? String(c.maxStudents) : '',
+    minStudents: c.minStudents != null ? String(c.minStudents) : '',
+    originType: c.originType === 'EXTERNAL' ? 'EXTERNAL' : 'SELF',
     startDate: c.startDate,
     endDate: c.endDate,
     schedule,
@@ -219,6 +235,8 @@ function buildPayload(form: FormState): SaveClassRequest {
     numberOfSessions: countSessions(form),
     tuitionFee: num(form.tuitionFee),
     maxStudents: num(form.maxStudents),
+    minStudents: num(form.minStudents),
+    originType: form.originType,
     startDate: form.startDate || null,
     endDate: form.endDate || null,
     schedule: form.schedule.map((s) => ({
@@ -315,9 +333,13 @@ function hasErrors(e: FormErrors): boolean {
 }
 
 export default function CenterPage() {
+  const navigate = useNavigate();
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState('');
+
+  // Trạng thái xác minh trung tâm: null = đang tải, true/false = đã biết.
+  const [verified, setVerified] = useState<boolean | null>(null);
 
   const [mode, setMode] = useState<'list' | 'form'>('list');
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -348,7 +370,33 @@ export default function CenterPage() {
     reloadList();
   }, []);
 
+  // Tải trạng thái xác minh trung tâm để chặn tạo lớp khi chưa xác minh.
+  useEffect(() => {
+    let alive = true;
+    profileApi.http
+      .get<{ verificationStatus?: string }>('/profile/me')
+      .then((res) => {
+        if (alive) setVerified(res.data.verificationStatus === 'VERIFIED');
+      })
+      .catch(() => {
+        if (alive) setVerified(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const goVerify = () =>
+    navigate(APP_ROUTES.verification, {
+      state: { notice: 'Trung tâm của bạn cần được xác minh trước khi tạo lớp học.' },
+    });
+
   const openCreate = () => {
+    // Mức 1: chưa xác minh -> không mở form, chuyển hướng sang trang Xác minh.
+    if (verified === false) {
+      goVerify();
+      return;
+    }
     setEditingId(null);
     setForm(EMPTY_FORM);
     setFormError('');
@@ -379,6 +427,20 @@ export default function CenterPage() {
       if (detailData?.classId === classId) refreshDetail(classId);
     } catch (err) {
       const msg = extractError(err, 'Không đăng tải được lớp học.');
+      setDetailError(msg);
+      setListError(msg);
+    }
+  };
+
+  const activate = async (classId: number) => {
+    setListError('');
+    setDetailError('');
+    try {
+      await centerApi.activateClass(classId);
+      reloadList();
+      if (detailData?.classId === classId) refreshDetail(classId);
+    } catch (err) {
+      const msg = extractError(err, 'Không kích hoạt được lớp học.');
       setDetailError(msg);
       setListError(msg);
     }
@@ -521,6 +583,12 @@ export default function CenterPage() {
       setMode('list');
       reloadList();
     } catch (err) {
+      // Phòng thủ: nếu backend chặn vì chưa xác minh -> điều hướng sang trang Xác minh.
+      if (errorCode(err) === 'VERIFICATION_REQUIRED') {
+        setVerified(false);
+        goVerify();
+        return;
+      }
       setFormError(extractError(err, 'Không lưu được lớp học.'));
     } finally {
       setSaving(false);
@@ -556,19 +624,19 @@ export default function CenterPage() {
         {mode === 'list' ? (
           <div className="cc-row-actions">
             <Link className="cc-btn cc-btn--ghost" to="/center/recruitment">
-              📢 Tin tuyển gia sư
+              Tin tuyển gia sư
             </Link>
             <Link className="cc-btn cc-btn--ghost" to="/center/tutors">
-              🧑‍🏫 Gia sư của trung tâm
+              Gia sư của trung tâm
             </Link>
             <Link className="cc-btn cc-btn--ghost" to="/center/schedule">
-              📅 Lịch hôm nay
+              Lịch hôm nay
             </Link>
             <Link className="cc-btn cc-btn--ghost" to="/center/reschedules">
-              🔄 Yêu cầu đổi lịch
+              Yêu cầu đổi lịch
             </Link>
             <button className="cc-btn cc-btn--primary" type="button" onClick={openCreate}>
-              + Tạo lớp mới
+              Tạo lớp mới
             </button>
           </div>
         ) : (
@@ -580,6 +648,17 @@ export default function CenterPage() {
 
       {mode === 'list' && (
         <>
+          {verified === false && (
+            <div className="cc-alert cc-alert--warn cc-verify-banner">
+              <span>
+                ⚠ Trung tâm của bạn <b>chưa được xác minh</b>. Bạn cần hoàn tất xác minh trước khi
+                tạo lớp học.
+              </span>
+              <button className="cc-btn cc-btn--primary cc-btn--sm" type="button" onClick={goVerify}>
+                Đi xác minh →
+              </button>
+            </div>
+          )}
           {listError && <div className="cc-alert cc-alert--error">{listError}</div>}
           {listLoading && <div className="cc-card cc-state">Đang tải danh sách lớp học…</div>}
           {!listLoading && !listError && classes.length === 0 && (
@@ -759,6 +838,31 @@ export default function CenterPage() {
                 placeholder="VD: 20"
               />
               {errText('maxStudents')}
+            </label>
+
+            <label className="cc-field">
+              <span className="cc-label">Loại lớp *</span>
+              <select
+                className="cc-input"
+                value={form.originType}
+                onChange={(e) => patch({ originType: e.target.value as FormState['originType'] })}
+              >
+                <option value="SELF">Trung tâm tự tạo (chưa có học sinh)</option>
+                <option value="EXTERNAL">Theo yêu cầu ngoài (đã có học sinh)</option>
+              </select>
+            </label>
+
+            <label className="cc-field">
+              <span className="cc-label">Số học sinh tối thiểu để kích hoạt</span>
+              <input
+                className="cc-input"
+                type="number"
+                min={1}
+                value={form.minStudents}
+                onChange={(e) => patch({ minStudents: e.target.value })}
+                placeholder="Để trống = cần ≥ 1"
+              />
+              <span className="cc-hint">Lớp chỉ kích hoạt khi đủ số học sinh này.</span>
             </label>
           </div>
 
@@ -966,6 +1070,21 @@ export default function CenterPage() {
                       <dd>{detailData.maxStudents ?? '—'}</dd>
                     </div>
                     <div className="cc-detail__item">
+                      <dt>Loại lớp</dt>
+                      <dd>
+                        {detailData.originType === 'EXTERNAL'
+                          ? 'Theo yêu cầu ngoài'
+                          : 'Trung tâm tự tạo'}
+                      </dd>
+                    </div>
+                    <div className="cc-detail__item">
+                      <dt>Học sinh đã ghi danh</dt>
+                      <dd>
+                        {detailData.enrolledCount}
+                        {detailData.minStudents != null ? ` / tối thiểu ${detailData.minStudents}` : ''}
+                      </dd>
+                    </div>
+                    <div className="cc-detail__item">
                       <dt>Học phí</dt>
                       <dd className="cc-fee">{formatCurrency(detailData.tuitionFee)}</dd>
                     </div>
@@ -1079,7 +1198,7 @@ export default function CenterPage() {
                         onClick={() => setShowStudents((v) => !v)}
                         aria-expanded={showStudents}
                       >
-                        <span>👥 Học sinh đã đăng ký ({detailData.students.length})</span>
+                        <span>Học sinh đã đăng ký ({detailData.students.length})</span>
                         <span className={`cc-detail__chev${showStudents ? ' is-open' : ''}`}>▾</span>
                       </button>
                       {showStudents && (
@@ -1107,9 +1226,25 @@ export default function CenterPage() {
                         type="button"
                         onClick={() => openEdit(detailData.classId)}
                       >
-                        ✎ Sửa lớp học
+                        Sửa lớp học
                       </button>
                     )}
+                    <button
+                      className="cc-btn cc-btn--ghost"
+                      type="button"
+                      onClick={() =>
+                        navigate('/center/recruitment', {
+                          state: {
+                            createForClass: {
+                              id: detailData.classId,
+                              title: detailData.title,
+                            },
+                          },
+                        })
+                      }
+                    >
+                      Tạo tin tuyển dụng cho lớp này
+                    </button>
                     {detailData.status === 'DRAFT' &&
                       (() => {
                         const canPublish =
@@ -1134,6 +1269,40 @@ export default function CenterPage() {
                               onClick={() => publish(detailData.classId)}
                             >
                               Đăng tải
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    {detailData.status === 'OPEN' &&
+                      (() => {
+                        const required = detailData.minStudents ?? 1;
+                        const enoughStudents = detailData.enrolledCount >= required;
+                        const enoughTutors =
+                          !!detailData.assignedTutorId && !!detailData.assistantTutorId;
+                        const canActivate = enoughStudents && enoughTutors;
+                        return (
+                          <div className="cc-publish">
+                            {!canActivate && (
+                              <p className="cc-publish__hint">
+                                ⚠ Cần đủ <b>gia sư (chính + phụ)</b> và{' '}
+                                <b>
+                                  học sinh ({detailData.enrolledCount}/{required})
+                                </b>{' '}
+                                trước khi kích hoạt.
+                              </p>
+                            )}
+                            <button
+                              className="cc-btn cc-btn--primary"
+                              type="button"
+                              disabled={!canActivate}
+                              title={
+                                canActivate
+                                  ? undefined
+                                  : 'Cần đủ gia sư và đủ học sinh tối thiểu trước khi kích hoạt'
+                              }
+                              onClick={() => activate(detailData.classId)}
+                            >
+                              Kích hoạt lớp
                             </button>
                           </div>
                         );

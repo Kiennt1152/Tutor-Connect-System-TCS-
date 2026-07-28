@@ -77,6 +77,8 @@ public interface CenterService {
     /** Đăng tải lớp (DRAFT -> OPEN) để hiển thị ở "Tìm lớp". */
     CenterClassResponse publishClass(Long classId);
 
+    CenterClassResponse activateClass(Long classId);
+
     /**
      * Danh sách gia sư để trung tâm chọn gán (tạm thời lấy tất cả).
      * Nếu truyền {@code classId}, mỗi gia sư sẽ được đánh dấu có trùng lịch với lớp đó hay không.

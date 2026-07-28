@@ -13,6 +13,11 @@ public class RecruitmentPostResponse {
     private Long recruitmentId;
     private Long centerId;
     private String centerName;
+
+    /** Lớp mà tin này tuyển cho (nếu có). Null = tin tuyển chung. */
+    private Long classId;
+    private String classTitle;
+
     private String title;
     private String description;
     private String requirements;

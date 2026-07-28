@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { centerApi } from '../api/centerApi';
 import { LocationPicker } from '../components/LocationPicker';
@@ -80,9 +80,14 @@ function initials(name: string | null): string {
 }
 
 export default function CenterRecruitmentPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [posts, setPosts] = useState<RecruitmentPost[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [listError, setListError] = useState('');
+
+  // Lớp mà tin đang tạo/sửa gắn tới (nếu có). Null = tin tuyển chung.
+  const [linkedClass, setLinkedClass] = useState<{ id: number; title: string } | null>(null);
 
   const load = useCallback(() => {
     setStatus('loading');
@@ -112,15 +117,30 @@ export default function CenterRecruitmentPage() {
 
   const patch = (partial: Partial<FormState>) => setForm((prev) => ({ ...prev, ...partial }));
 
-  const openCreate = () => {
+  const openCreate = (forClass?: { id: number; title: string } | null) => {
     setEditingId(null);
     setForm(EMPTY_FORM);
+    setLinkedClass(forClass ?? null);
     setFormError('');
     setFormOpen(true);
   };
 
+  // Đến từ trang lớp học ("Tạo tin tuyển dụng cho lớp này") -> mở form gắn sẵn lớp.
+  useEffect(() => {
+    const st = location.state as { createForClass?: { id: number; title: string } } | null;
+    if (st?.createForClass) {
+      openCreate(st.createForClass);
+      // Xoá state để F5 / back không mở lại form.
+      navigate(location.pathname, { replace: true, state: null });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
   const openEdit = (post: RecruitmentPost) => {
     setEditingId(post.recruitmentId);
+    setLinkedClass(
+      post.classId != null ? { id: post.classId, title: post.classTitle ?? `Lớp #${post.classId}` } : null,
+    );
     setForm({
       title: post.title,
       description: post.description,
@@ -157,6 +177,7 @@ export default function CenterRecruitmentPage() {
       return;
     }
     const payload: SaveRecruitmentPostRequest = {
+      classId: linkedClass?.id ?? null,
       title: form.title.trim(),
       description: form.description.trim(),
       requirements: form.requirements.trim() || undefined,
@@ -272,7 +293,7 @@ export default function CenterRecruitmentPage() {
             ← Trang chủ
           </Link>
           <Link className="rc-btn rc-btn--ghost rc-btn--sm" to="/center/tutors">
-            🧑‍🏫 Gia sư của trung tâm
+            Gia sư của trung tâm
           </Link>
         </div>
 
@@ -284,7 +305,7 @@ export default function CenterRecruitmentPage() {
               từ chối từng ứng viên.
             </p>
           </div>
-          <button className="rc-btn rc-btn--primary" type="button" onClick={openCreate}>
+          <button className="rc-btn rc-btn--primary" type="button" onClick={() => openCreate()}>
             + Tạo tin tuyển dụng
           </button>
         </header>
@@ -310,6 +331,11 @@ export default function CenterRecruitmentPage() {
                       <h2 className="rc-card__title">{p.title}</h2>
                       <div className="rc-chips">
                         <span className={`rc-status rc-status--${st.cls}`}>{st.label}</span>
+                        {p.classId != null && (
+                          <span className="rc-chip rc-chip--class">
+                            🎓 Lớp: {p.classTitle ?? `#${p.classId}`}
+                          </span>
+                        )}
                         {p.subjectName && <span className="rc-chip">📘 {p.subjectName}</span>}
                         {p.locationLabel && <span className="rc-chip">📍 {p.locationLabel}</span>}
                         <span className="rc-chip">👤 {p.maxPositions} vị trí</span>
@@ -339,7 +365,7 @@ export default function CenterRecruitmentPage() {
                             type="button"
                             onClick={() => openEdit(p)}
                           >
-                            ✎ Sửa
+                            Sửa
                           </button>
                           <button
                             className="rc-btn rc-btn--primary"
@@ -398,6 +424,21 @@ export default function CenterRecruitmentPage() {
             </div>
             <div className="rc-modal__body">
               {formError && <div className="rc-alert rc-alert--error">{formError}</div>}
+
+              {linkedClass ? (
+                <div className="rc-linked-class">
+                  <span className="rc-linked-class__badge">🎓 Tuyển cho lớp</span>
+                  <span className="rc-linked-class__title">{linkedClass.title}</span>
+                  <button
+                    type="button"
+                    className="rc-linked-class__clear"
+                    onClick={() => setLinkedClass(null)}
+                    title="Bỏ gắn lớp — chuyển thành tin tuyển chung"
+                  >
+                    ✕
+                  </button>
+                </div>
+              ) : null}
 
               <label className="rc-field">
                 <span>Tiêu đề *</span>
@@ -611,7 +652,7 @@ export default function CenterRecruitmentPage() {
                               aria-expanded={certsOpenId === a.recruitmentAppId}
                               onClick={() => toggleCerts(a.recruitmentAppId)}
                             >
-                              📜 Chứng chỉ ({a.certificates.length}){' '}
+                              Chứng chỉ ({a.certificates.length}){' '}
                               {certsOpenId === a.recruitmentAppId ? '▲' : '▼'}
                             </button>
                           )}

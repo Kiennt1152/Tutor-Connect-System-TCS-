@@ -8,6 +8,8 @@ import lombok.Setter;
 @Setter
 public class SaveRecruitmentPostRequest {
 
+    /** Lớp cần tuyển gia sư (tuỳ chọn). Null = tin tuyển chung, không gắn lớp. */
+    private Long classId;
     private String title;
     private String description;
     private String requirements;

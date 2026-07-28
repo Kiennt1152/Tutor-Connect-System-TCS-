@@ -94,6 +94,9 @@ export const centerApi = {
   publishClass(classId: number) {
     return axiosClient.post<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/publish`);
   },
+  activateClass(classId: number) {
+    return axiosClient.post<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/activate`);
+  },
   getTutors(classId?: number) {
     const q = classId != null ? `?classId=${classId}` : '';
     return axiosClient.get<TutorOption[]>(`${CENTER_API_BASE}/tutors${q}`);
