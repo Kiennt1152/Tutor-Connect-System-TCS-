@@ -1,10 +1,13 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { useDisputeReviewList } from '../hooks/useDisputeReviewList';
-import { useAppealDispute, useResolveDispute } from '../hooks/usePlatformMutations';
+import {
+  useAppealDispute,
+  useExecuteRefund,
+  useExecuteSettlement,
+  useResolveDispute,
+} from '../hooks/usePlatformMutations';
 import { useReportList } from '../hooks/useReportList';
-import { APP_ROUTES } from '../../../shared/constants/routes';
 import type {
   AdminDisputeReviewApiResponse,
   DisputeReviewItem,
@@ -51,6 +54,16 @@ function isEscrowSettled(status: EscrowStatus | null | undefined) {
   return status === 'RELEASED' || status === 'REFUNDED';
 }
 
+function isEscrowHeldForDispute(status: EscrowStatus | null | undefined) {
+  return status === 'ON_HOLD' || status === 'DISPUTED';
+}
+
+function isEscrowSettleable(status: EscrowStatus | null | undefined) {
+  return status === 'FUNDED' || status === 'ON_HOLD' || status === 'DISPUTED';
+}
+
+const normalizeDigits = (value: string) => value.replace(/[^\d]/g, '');
+
 const formatDateTime = (value: string | null | undefined) => {
   if (!value) return '—';
   const date = new Date(value);
@@ -90,6 +103,308 @@ function InfoRow({ label, value }: { label: string; value: string | number | nul
       <span className="pd-info-row__label">{label}</span>
       <span className="pd-info-row__value">{value ?? '—'}</span>
     </div>
+  );
+}
+
+function AutomationState({ detail }: { detail: AdminDisputeReviewApiResponse }) {
+  const escrowStatus = detail.escrow?.status ?? null;
+  const settled = isEscrowSettled(escrowStatus);
+  const held = isEscrowHeldForDispute(escrowStatus);
+  const hasPendingTermination = detail.terminationRequest?.status === 'PENDING';
+
+  let tone = 'neutral';
+  let title = 'Theo dõi ngoại lệ';
+  let message = 'Các luồng đủ dữ liệu sẽ tự động tất toán; admin xử lý khi có tranh chấp hoặc thiếu căn cứ.';
+
+  if (!detail.escrow?.escrowId) {
+    tone = 'warning';
+    title = 'Thiếu escrow liên quan';
+    message = 'Cần kiểm tra lại dữ liệu hợp đồng/lớp trước khi ra quyết định tài chính.';
+  } else if (settled) {
+    tone = 'success';
+    title = 'Escrow đã tất toán';
+    message = 'Tiền đã được giải ngân hoặc hoàn lại; tranh chấp chỉ còn phần kết luận hồ sơ.';
+  } else if (held) {
+    tone = 'danger';
+    title = 'Cần admin quyết định';
+    message = 'Escrow đang được giữ do tranh chấp nên hệ thống không tự release/refund.';
+  } else if (hasPendingTermination) {
+    tone = 'warning';
+    title = 'Chấm dứt sớm cần duyệt';
+    message = 'Yêu cầu chấm dứt sớm đang chờ quyết định trước khi tất toán tài chính.';
+  }
+
+  return (
+    <section className={`pd-flow pd-flow--${tone}`}>
+      <div>
+        <p className="pd-flow__label">Luồng xử lý</p>
+        <h3 className="pd-flow__title">{title}</h3>
+      </div>
+      <p className="pd-flow__message">{message}</p>
+    </section>
+  );
+}
+
+function FinancialDecisionPanel({
+  detail,
+  onChanged,
+}: {
+  detail: AdminDisputeReviewApiResponse;
+  onChanged: () => void;
+}) {
+  const {
+    status: settlementStatus,
+    errorMessage: settlementErrorMessage,
+    executeSettlement,
+    reset: resetSettlement,
+  } = useExecuteSettlement();
+  const {
+    status: refundStatus,
+    errorMessage: refundErrorMessage,
+    executeRefund,
+    reset: resetRefund,
+  } = useExecuteRefund();
+  const [releaseAmount, setReleaseAmount] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
+  const [reason, setReason] = useState('');
+  const [formError, setFormError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const escrow = detail.escrow;
+  const escrowAmount = typeof escrow?.amount === 'number' ? escrow.amount : 0;
+  const releaseAmountNumber = releaseAmount ? Number(releaseAmount) : 0;
+  const refundAmountNumber = refundAmount ? Number(refundAmount) : 0;
+  const totalSettlement = releaseAmountNumber + refundAmountNumber;
+  const remainingAmount = escrowAmount > 0 ? escrowAmount - totalSettlement : null;
+  const settled = isEscrowSettled(escrow?.status);
+  const settleable = isEscrowSettleable(escrow?.status);
+  const isSubmitting = settlementStatus === 'loading' || refundStatus === 'loading';
+
+  useEffect(() => {
+    const amount = typeof detail.escrow?.amount === 'number'
+      ? Math.trunc(detail.escrow.amount)
+      : 0;
+    setReleaseAmount(amount > 0 ? String(amount) : '');
+    setRefundAmount('');
+    setReason(`Tất toán escrow #${detail.escrow?.escrowId ?? ''} theo quyết định tranh chấp #${detail.disputeId}`);
+    setFormError('');
+    setSuccessMessage('');
+    resetSettlement();
+    resetRefund();
+  }, [detail.disputeId, detail.escrow?.escrowId, detail.escrow?.amount, resetRefund, resetSettlement]);
+
+  const setSplit = (release: number, refund: number) => {
+    setReleaseAmount(release > 0 ? String(Math.trunc(release)) : '');
+    setRefundAmount(refund > 0 ? String(Math.trunc(refund)) : '');
+    setFormError('');
+  };
+
+  const applyQuickAction = (mode: 'release-all' | 'refund-all' | 'half' | 'refund-30') => {
+    if (escrowAmount <= 0) {
+      setFormError('Escrow chưa có số tiền hợp lệ.');
+      return;
+    }
+    if (mode === 'release-all') {
+      setSplit(escrowAmount, 0);
+      return;
+    }
+    if (mode === 'refund-all') {
+      setSplit(0, escrowAmount);
+      return;
+    }
+    if (mode === 'half') {
+      const refund = Math.trunc(escrowAmount / 2);
+      setSplit(escrowAmount - refund, refund);
+      return;
+    }
+    const refund = Math.trunc(escrowAmount * 0.3);
+    setSplit(escrowAmount - refund, refund);
+  };
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!escrow?.escrowId) {
+      setFormError('Không tìm thấy escrow để tất toán.');
+      return;
+    }
+    if (settled) {
+      setFormError('Escrow đã tất toán.');
+      return;
+    }
+    if (!settleable) {
+      setFormError('Escrow chưa ở trạng thái có thể tất toán.');
+      return;
+    }
+    if (!Number.isFinite(releaseAmountNumber) || !Number.isFinite(refundAmountNumber)) {
+      setFormError('Số tiền giải ngân hoặc hoàn tiền không hợp lệ.');
+      return;
+    }
+    if (releaseAmountNumber < 0 || refundAmountNumber < 0) {
+      setFormError('Số tiền không được âm.');
+      return;
+    }
+    if (totalSettlement <= 0) {
+      setFormError('Cần có số tiền giải ngân hoặc hoàn tiền.');
+      return;
+    }
+    if (escrowAmount > 0 && totalSettlement !== escrowAmount) {
+      setFormError('Tổng giải ngân và hoàn tiền phải bằng tổng escrow.');
+      return;
+    }
+    if (reason.trim().length < 10) {
+      setFormError('Vui lòng nhập lý do tất toán ít nhất 10 ký tự.');
+      return;
+    }
+
+    setFormError('');
+    setSuccessMessage('');
+    const payload = {
+      escrowId: escrow.escrowId,
+      releaseToBeneficiary: releaseAmountNumber,
+      refundToPayer: refundAmountNumber,
+      reason: reason.trim(),
+    };
+
+    const result = refundAmountNumber > 0
+      ? await executeRefund(payload)
+      : await executeSettlement(payload);
+
+    if (result) {
+      setSuccessMessage(typeof result === 'string'
+        ? result
+        : `${result.message}: hoàn ${formatCurrency(result.refundToPayer)}, giải ngân ${formatCurrency(result.releaseToBeneficiary)}.`);
+      onChanged();
+    }
+  };
+
+  return (
+    <section className="pd-section">
+      <div className="pd-section__head">
+        <h3 className="pd-section__title">Quyết định tài chính</h3>
+        <span className={escrowBadgeClass(escrow?.status ?? null)}>{escrow?.status ?? '—'}</span>
+      </div>
+
+      {settled ? (
+        <div className="adm-alert adm-alert--info pd-resolution-alert">
+          Escrow đã tất toán, không cần thao tác release/refund thêm.
+        </div>
+      ) : (
+        <form className="pd-settlement-form" onSubmit={handleSubmit}>
+          <div className="pd-settlement-summary">
+            <div>
+              <span>Tổng escrow</span>
+              <strong>{formatCurrency(escrow?.amount)}</strong>
+            </div>
+            <div>
+              <span>Giải ngân</span>
+              <strong>{formatCurrency(releaseAmountNumber)}</strong>
+            </div>
+            <div>
+              <span>Hoàn lại</span>
+              <strong>{formatCurrency(refundAmountNumber)}</strong>
+            </div>
+            <div className={remainingAmount === 0 ? 'pd-settlement-summary__ok' : ''}>
+              <span>Còn lệch</span>
+              <strong>{remainingAmount == null ? '—' : formatCurrency(remainingAmount)}</strong>
+            </div>
+          </div>
+
+          <div className="pd-quick-actions">
+            <button
+              className="tcs-btn tcs-btn--soft tcs-btn--sm"
+              type="button"
+              disabled={isSubmitting || !settleable}
+              onClick={() => applyQuickAction('release-all')}
+            >
+              Giải ngân 100%
+            </button>
+            <button
+              className="tcs-btn tcs-btn--soft tcs-btn--sm"
+              type="button"
+              disabled={isSubmitting || !settleable}
+              onClick={() => applyQuickAction('refund-all')}
+            >
+              Hoàn 100%
+            </button>
+            <button
+              className="tcs-btn tcs-btn--soft tcs-btn--sm"
+              type="button"
+              disabled={isSubmitting || !settleable}
+              onClick={() => applyQuickAction('half')}
+            >
+              Chia 50/50
+            </button>
+            <button
+              className="tcs-btn tcs-btn--soft tcs-btn--sm"
+              type="button"
+              disabled={isSubmitting || !settleable}
+              onClick={() => applyQuickAction('refund-30')}
+            >
+              Hoàn 30%
+            </button>
+          </div>
+
+          <div className="pd-money-grid">
+            <label className="pd-field">
+              <span>Giải ngân cho tutor/trung tâm</span>
+              <input
+                className="adm-field"
+                inputMode="numeric"
+                value={releaseAmount}
+                disabled={isSubmitting || !settleable}
+                onChange={(event) => setReleaseAmount(normalizeDigits(event.target.value))}
+              />
+            </label>
+            <label className="pd-field">
+              <span>Hoàn lại người thanh toán</span>
+              <input
+                className="adm-field"
+                inputMode="numeric"
+                value={refundAmount}
+                disabled={isSubmitting || !settleable}
+                onChange={(event) => setRefundAmount(normalizeDigits(event.target.value))}
+              />
+            </label>
+          </div>
+
+          <label className="pd-field">
+            <span>Lý do tất toán</span>
+            <textarea
+              className="pd-textarea pd-textarea--compact"
+              rows={3}
+              maxLength={1000}
+              value={reason}
+              disabled={isSubmitting || !settleable}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </label>
+
+          {!settleable && (
+            <div className="adm-alert adm-alert--error">
+              Escrow hiện chưa ở trạng thái có thể tất toán.
+            </div>
+          )}
+          {formError && <div className="adm-alert adm-alert--error">{formError}</div>}
+          {settlementStatus === 'error' && settlementErrorMessage && (
+            <div className="adm-alert adm-alert--error">{settlementErrorMessage}</div>
+          )}
+          {refundStatus === 'error' && refundErrorMessage && (
+            <div className="adm-alert adm-alert--error">{refundErrorMessage}</div>
+          )}
+          {successMessage && <div className="adm-alert adm-alert--success">{successMessage}</div>}
+
+          <div className="pd-resolution-actions">
+            <button
+              className="tcs-btn tcs-btn--primary"
+              type="submit"
+              disabled={isSubmitting || !settleable}
+            >
+              {isSubmitting ? 'Đang tất toán...' : 'Thực thi tất toán'}
+            </button>
+          </div>
+        </form>
+      )}
+    </section>
   );
 }
 
@@ -180,16 +495,6 @@ function DisputeDetail({
     }
   };
 
-  const escrowReleasePath = (() => {
-    if (!detail?.escrow?.escrowId) return APP_ROUTES.platformEscrows;
-    const params = new URLSearchParams();
-    params.set('escrowId', String(detail.escrow.escrowId));
-    if (typeof detail.escrow.amount === 'number') {
-      params.set('amount', String(detail.escrow.amount));
-    }
-    return `${APP_ROUTES.platformEscrows}?${params.toString()}`;
-  })();
-
   if (!detail) {
     return (
       <div className="pd-detail pd-detail--empty">
@@ -228,6 +533,8 @@ function DisputeDetail({
         <span className={disputeBadgeClass(detail.disputeStatus)}>{detail.disputeStatus}</span>
       </div>
 
+      <AutomationState detail={detail} />
+
       <section className="pd-section">
         <h3 className="pd-section__title">Báo cáo</h3>
         <div className="pd-info-grid">
@@ -255,6 +562,8 @@ function DisputeDetail({
           </div>
         )}
       </section>
+
+      <FinancialDecisionPanel detail={detail} onChanged={onChanged} />
 
       <section className="pd-section">
         <h3 className="pd-section__title">Quyết định xử lý</h3>
@@ -367,14 +676,7 @@ function DisputeDetail({
       </section>
 
       <section className="pd-section">
-        <div className="pd-section__head">
-          <h3 className="pd-section__title">Escrow</h3>
-          {detail.escrow?.escrowId && (
-            <Link className="tcs-btn tcs-btn--ghost tcs-btn--sm" to={escrowReleasePath}>
-              Tất toán/hoàn tiền
-            </Link>
-          )}
-        </div>
+        <h3 className="pd-section__title">Escrow liên quan</h3>
         <div className="pd-info-grid">
           <InfoRow label="Mã escrow" value={detail.escrow?.escrowId ? `#${detail.escrow.escrowId}` : '—'} />
           <InfoRow label="Trạng thái" value={detail.escrow?.status ?? '—'} />
@@ -386,7 +688,7 @@ function DisputeDetail({
       </section>
 
       <section className="pd-section">
-        <h3 className="pd-section__title">Hoàn tiền</h3>
+        <h3 className="pd-section__title">Hoàn tiền gần nhất</h3>
         {detail.latestRefundRequest ? (
           <>
             <div className="pd-info-grid">
@@ -407,14 +709,7 @@ function DisputeDetail({
             <p className="pd-description">{detail.latestRefundRequest.reason ?? '—'}</p>
           </>
         ) : (
-          <div className="pd-empty-action">
-            <p className="adm-muted">Chưa có yêu cầu hoàn tiền cho escrow này.</p>
-            {detail.escrow?.escrowId && (
-              <Link className="tcs-btn tcs-btn--primary tcs-btn--sm" to={escrowReleasePath}>
-                Thực thi hoàn tiền
-              </Link>
-            )}
-          </div>
+          <p className="adm-muted">Chưa có yêu cầu hoàn tiền cho escrow này.</p>
         )}
       </section>
 
@@ -453,7 +748,7 @@ export default function PlatformReportsPage() {
 
   const openReportCount = reports.items.filter((item) => item.status === 'PENDING').length;
   const openDisputeCount = disputes.items.filter((item) => item.status !== 'RESOLVED').length;
-  const reviewingCount = disputes.items.filter((item) => item.status === 'UNDER_INVESTIGATION').length;
+  const heldEscrowCount = disputes.items.filter((item) => isEscrowHeldForDispute(item.escrowStatus)).length;
 
   const selectDispute = (item: DisputeReviewItem) => {
     disputes.selectDispute(item);
@@ -466,12 +761,12 @@ export default function PlatformReportsPage() {
     >
       <div className="adm-summary-row">
         <article className="adm-summary-card adm-summary-card--warn">
-          <p className="adm-summary-card__label">Tranh chấp cần xử lý</p>
+          <p className="adm-summary-card__label">Cần admin can thiệp</p>
           <p className="adm-summary-card__value">{openDisputeCount}</p>
         </article>
         <article className="adm-summary-card">
-          <p className="adm-summary-card__label">Đang xem xét</p>
-          <p className="adm-summary-card__value">{reviewingCount}</p>
+          <p className="adm-summary-card__label">Escrow đang giữ</p>
+          <p className="adm-summary-card__value">{heldEscrowCount}</p>
         </article>
         <article className="adm-summary-card">
           <p className="adm-summary-card__label">Báo cáo đang mở</p>

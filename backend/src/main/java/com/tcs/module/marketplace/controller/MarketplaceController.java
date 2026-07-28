@@ -35,8 +35,11 @@ public class MarketplaceController {
     }
 
     @GetMapping("/classes/{classId}")
-    public ClassResponse getClass(@PathVariable Long classId) {
-        return marketplaceService.getClass(classId);
+    public ClassResponse getClass(
+            @PathVariable Long classId,
+            @RequestParam(required = false) Long assignmentId,
+            @RequestParam(required = false) Long classStudentId) {
+        return marketplaceService.getClass(classId, assignmentId, classStudentId);
     }
 
     @PostMapping("/classes")

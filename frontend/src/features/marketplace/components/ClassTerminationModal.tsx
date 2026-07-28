@@ -7,6 +7,8 @@ import './ClassTerminationModal.css';
 type ClassTerminationModalProps = {
   open: boolean;
   classId: number;
+  assignmentId?: number | null;
+  classStudentId?: number | null;
   classTitle?: string | null;
   onClose: () => void;
 };
@@ -21,6 +23,8 @@ function todayInputValue() {
 export function ClassTerminationModal({
   open,
   classId,
+  assignmentId,
+  classStudentId,
   classTitle,
   onClose,
 }: ClassTerminationModalProps) {
@@ -51,6 +55,8 @@ export function ClassTerminationModal({
     setSubmitting(true);
     try {
       const result = await marketplaceApi.requestClassTermination(classId, {
+        assignmentId: assignmentId ?? undefined,
+        classStudentId: classStudentId ?? undefined,
         reason: reason.trim(),
         effectiveDate: effectiveDate || undefined,
       });

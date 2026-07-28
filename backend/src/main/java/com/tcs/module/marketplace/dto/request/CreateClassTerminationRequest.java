@@ -10,6 +10,8 @@ public class CreateClassTerminationRequest {
 
     private Long assignmentId;
 
+    private Long classStudentId;
+
     private String reason;
 
     private LocalDate effectiveDate;

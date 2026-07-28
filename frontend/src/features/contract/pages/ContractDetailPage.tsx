@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
-import { ClassTerminationModal } from '../../marketplace/components/ClassTerminationModal';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useContractDetail, useSignContract } from '../hooks/useContract';
@@ -43,7 +42,6 @@ export default function ContractDetailPage() {
   const [otpSentSuccess, setOtpSentSuccess] = useState(false);
   const [signSuccess, setSignSuccess] = useState(false);
   const [issueModalOpen, setIssueModalOpen] = useState(false);
-  const [terminationModalOpen, setTerminationModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) void reload(id);
@@ -101,6 +99,15 @@ export default function ContractDetailPage() {
   const allSigned = signatures?.fullySigned ?? false;
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
   const canCreateIssue = contract.classId != null;
+  const classDetailUrl = contract.classId
+    ? `/marketplace/classes/${contract.classId}${
+        contract.classStudentId
+          ? `?classStudentId=${contract.classStudentId}`
+          : contract.assignmentId
+            ? `?assignmentId=${contract.assignmentId}`
+            : ''
+      }`
+    : null;
   const signedPercent = signatures?.totalRequired
     ? Math.round((signatures.signedCount / signatures.totalRequired) * 100)
     : 0;
@@ -135,14 +142,14 @@ export default function ContractDetailPage() {
             >
               Báo cáo sự cố
             </button>
-            <button
-              className="tcs-btn tcs-btn--primary"
-              type="button"
-              disabled={!canCreateIssue}
-              onClick={() => setTerminationModalOpen(true)}
-            >
-              Yêu cầu chấm dứt sớm
-            </button>
+            {classDetailUrl ? (
+              <Link
+                className="tcs-btn tcs-btn--primary"
+                to={classDetailUrl}
+              >
+                Xem lớp liên quan
+              </Link>
+            ) : null}
           </div>
         </section>
 
@@ -334,12 +341,6 @@ export default function ContractDetailPage() {
             classId={contract.classId}
             classTitle={contract.classTitle}
             onClose={() => setIssueModalOpen(false)}
-          />
-          <ClassTerminationModal
-            open={terminationModalOpen}
-            classId={contract.classId}
-            classTitle={contract.classTitle}
-            onClose={() => setTerminationModalOpen(false)}
           />
         </>
       ) : null}

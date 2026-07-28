@@ -1,6 +1,7 @@
 package com.tcs.module.marketplace.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -9,36 +10,54 @@ import static org.mockito.Mockito.when;
 
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
+import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.catalog.repository.CategoryRepository;
 import com.tcs.module.catalog.repository.GradeRepository;
 import com.tcs.module.catalog.repository.LocationRepository;
 import com.tcs.module.catalog.repository.SubjectRepository;
+import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.entity.EscrowTransaction;
+import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.response.ClassTerminationResponse;
 import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.ClassTerminationRequest;
+import com.tcs.module.marketplace.entity.Lesson;
+import com.tcs.module.marketplace.entity.LessonAttendance;
+import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
+import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.ClassTerminationStatus;
+import com.tcs.module.marketplace.enums.LessonAttendanceStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
+import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.marketplace.repository.ClassTerminationRequestRepository;
 import com.tcs.module.marketplace.repository.FavoriteTutorRepository;
+import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
+import com.tcs.module.marketplace.repository.LessonRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -48,6 +67,7 @@ class MarketplaceServiceImplTest {
 
     private static final Long CLASS_ID = 5L;
     private static final Long ASSIGNMENT_ID = 7L;
+    private static final Long CLASS_STUDENT_ID = 8L;
     private static final Long CLIENT_USER_ID = 11L;
     private static final Long TUTOR_USER_ID = 22L;
 
@@ -64,10 +84,22 @@ class MarketplaceServiceImplTest {
     private TutorRepository tutorRepository;
 
     @Mock
+    private ContractRepository contractRepository;
+
+    @Mock
+    private EscrowTransactionRepository escrowTransactionRepository;
+
+    @Mock
+    private EscrowService escrowService;
+
+    @Mock
     private TutoringClassRepository tutoringClassRepository;
 
     @Mock
     private ClassAssignmentRepository classAssignmentRepository;
+
+    @Mock
+    private ClassStudentRepository classStudentRepository;
 
     @Mock
     private ClassTerminationRequestRepository classTerminationRequestRepository;
@@ -77,6 +109,12 @@ class MarketplaceServiceImplTest {
 
     @Mock
     private FavoriteTutorRepository favoriteTutorRepository;
+
+    @Mock
+    private LessonRepository lessonRepository;
+
+    @Mock
+    private LessonAttendanceRepository lessonAttendanceRepository;
 
     @Mock
     private CategoryRepository categoryRepository;
@@ -94,11 +132,14 @@ class MarketplaceServiceImplTest {
     private MarketplaceServiceImpl marketplaceService;
 
     @Test
-    void requestClassTerminationCreatesPendingRequestAndMarksClassDisputed() {
+    void requestClassTerminationAutoSettlesPrivateClassByCompletedSessions() {
         User clientUser = user(CLIENT_USER_ID);
         User tutorUser = user(TUTOR_USER_ID);
         TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.IN_PROGRESS);
+        tutoringClass.setNumberOfSessions(10);
         ClassAssignment assignment = assignment(tutoringClass, tutorUser);
+        List<Lesson> lessons = lessons(tutoringClass, assignment.getTutor(), 10, 4);
+        EscrowTransaction escrow = escrow(71L, new BigDecimal("1000000.00"));
 
         CreateClassTerminationRequest request = new CreateClassTerminationRequest();
         request.setReason("Gia sư cần dừng lớp sớm");
@@ -110,9 +151,16 @@ class MarketplaceServiceImplTest {
         when(classAssignmentRepository.findByApplication_TutoringClass_ClassIdAndStatus(
                         CLASS_ID, ClassAssignmentStatus.ACTIVE))
                 .thenReturn(List.of(assignment));
+        when(classStudentRepository.findByTutoringClass_ClassIdAndStatus(
+                        CLASS_ID, com.tcs.module.marketplace.enums.ClassStudentStatus.ENROLLED))
+                .thenReturn(List.of());
         when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
                         ASSIGNMENT_ID, ClassTerminationStatus.PENDING))
                 .thenReturn(false);
+        when(escrowTransactionRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID))
+                .thenReturn(Optional.of(escrow));
+        when(lessonRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(lessons);
+        when(contractRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID)).thenReturn(Optional.empty());
         when(classTerminationRequestRepository.save(any(ClassTerminationRequest.class)))
                 .thenAnswer(invocation -> {
                     ClassTerminationRequest saved = invocation.getArgument(0);
@@ -127,8 +175,125 @@ class MarketplaceServiceImplTest {
         assertEquals(CLASS_ID, response.getClassId());
         assertEquals(ASSIGNMENT_ID, response.getAssignmentId());
         assertEquals(TUTOR_USER_ID, response.getRequestedByUserId());
+        assertEquals(ClassTerminationStatus.COMPLETED, response.getStatus());
+        assertEquals(TutoringClassStatus.CANCELLED, tutoringClass.getStatus());
+        assertEquals(ClassAssignmentStatus.TERMINATED, assignment.getStatus());
+
+        ArgumentCaptor<ReleaseInstruction> instructionCaptor = ArgumentCaptor.forClass(ReleaseInstruction.class);
+        verify(escrowService).apply(instructionCaptor.capture());
+        ReleaseInstruction instruction = instructionCaptor.getValue();
+        assertEquals(71L, instruction.escrowId());
+        assertEquals(new BigDecimal("400000.00"), instruction.releaseToBeneficiary());
+        assertEquals(new BigDecimal("600000.00"), instruction.refundToPayer());
+
+        verify(tutoringClassRepository).save(tutoringClass);
+        verify(classAssignmentRepository).save(assignment);
+        verify(classTerminationRequestRepository).save(any(ClassTerminationRequest.class));
+    }
+
+    @Test
+    void requestClassTerminationAutoSettlesCenterEnrollmentByPresentAttendances() {
+        User centerUser = user(CLIENT_USER_ID);
+        User enrolledUser = user(33L);
+        TutoringClass tutoringClass = tutoringClass(centerUser, TutoringClassStatus.IN_PROGRESS);
+        tutoringClass.setNumberOfSessions(10);
+        ClassStudent classStudent = classStudent(tutoringClass, enrolledUser);
+        Tutor tutor = tutor(user(TUTOR_USER_ID));
+        List<Lesson> lessons = lessons(tutoringClass, tutor, 10, 0);
+        EscrowTransaction escrow = escrow(81L, new BigDecimal("1000000.00"));
+
+        CreateClassTerminationRequest request = new CreateClassTerminationRequest();
+        request.setClassStudentId(CLASS_STUDENT_ID);
+        request.setReason("Học viên cần dừng lớp trung tâm sớm");
+        request.setEffectiveDate(LocalDate.now().plusDays(3));
+
+        when(authHelper.currentUserId()).thenReturn(enrolledUser.getUserId());
+        when(userRepository.findById(enrolledUser.getUserId())).thenReturn(Optional.of(enrolledUser));
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(classStudentRepository.findById(CLASS_STUDENT_ID)).thenReturn(Optional.of(classStudent));
+        when(classTerminationRequestRepository.existsByClassStudent_ClassStudentIdAndStatus(
+                        CLASS_STUDENT_ID, ClassTerminationStatus.PENDING))
+                .thenReturn(false);
+        when(escrowTransactionRepository.findByClassStudent_ClassStudentId(CLASS_STUDENT_ID))
+                .thenReturn(Optional.of(escrow));
+        when(lessonRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(lessons);
+        when(lessonAttendanceRepository.findByLesson_LessonIdIn(List.of(1001L, 1002L, 1003L, 1004L, 1005L, 1006L, 1007L, 1008L, 1009L, 1010L)))
+                .thenReturn(attendances(lessons, classStudent, 3));
+        when(contractRepository.findByClassStudent_ClassStudentId(CLASS_STUDENT_ID)).thenReturn(Optional.empty());
+        when(classTerminationRequestRepository.save(any(ClassTerminationRequest.class)))
+                .thenAnswer(invocation -> {
+                    ClassTerminationRequest saved = invocation.getArgument(0);
+                    saved.setTerminationId(41L);
+                    saved.setCreatedAt(LocalDateTime.of(2026, 7, 16, 10, 0));
+                    return saved;
+                });
+
+        ClassTerminationResponse response = marketplaceService.requestClassTermination(CLASS_ID, request);
+
+        assertEquals(41L, response.getTerminationId());
+        assertEquals(CLASS_ID, response.getClassId());
+        assertNull(response.getAssignmentId());
+        assertEquals(CLASS_STUDENT_ID, response.getClassStudentId());
+        assertEquals(enrolledUser.getUserId(), response.getRequestedByUserId());
+        assertEquals(ClassTerminationStatus.COMPLETED, response.getStatus());
+        assertEquals(TutoringClassStatus.CANCELLED, tutoringClass.getStatus());
+        assertEquals(ClassStudentStatus.DROPPED, classStudent.getStatus());
+
+        ArgumentCaptor<ReleaseInstruction> instructionCaptor = ArgumentCaptor.forClass(ReleaseInstruction.class);
+        verify(escrowService).apply(instructionCaptor.capture());
+        ReleaseInstruction instruction = instructionCaptor.getValue();
+        assertEquals(81L, instruction.escrowId());
+        assertEquals(new BigDecimal("300000.00"), instruction.releaseToBeneficiary());
+        assertEquals(new BigDecimal("700000.00"), instruction.refundToPayer());
+
+        verify(tutoringClassRepository).save(tutoringClass);
+        verify(classStudentRepository).save(classStudent);
+        verify(classTerminationRequestRepository).save(any(ClassTerminationRequest.class));
+    }
+
+    @Test
+    void requestClassTerminationWaitsForAdminWhenEscrowIsDisputed() {
+        User clientUser = user(CLIENT_USER_ID);
+        User tutorUser = user(TUTOR_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.IN_PROGRESS);
+        ClassAssignment assignment = assignment(tutoringClass, tutorUser);
+        EscrowTransaction escrow = escrow(91L, new BigDecimal("1000000.00"));
+        escrow.setStatus(EscrowStatus.DISPUTED);
+
+        CreateClassTerminationRequest request = new CreateClassTerminationRequest();
+        request.setReason("Lớp đang có tranh chấp nên cần dừng");
+
+        when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+        when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(classAssignmentRepository.findByApplication_TutoringClass_ClassIdAndStatus(
+                        CLASS_ID, ClassAssignmentStatus.ACTIVE))
+                .thenReturn(List.of(assignment));
+        when(classStudentRepository.findByTutoringClass_ClassIdAndStatus(
+                        CLASS_ID, ClassStudentStatus.ENROLLED))
+                .thenReturn(List.of());
+        when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                        ASSIGNMENT_ID, ClassTerminationStatus.PENDING))
+                .thenReturn(false);
+        when(escrowTransactionRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID))
+                .thenReturn(Optional.of(escrow));
+        when(classTerminationRequestRepository.save(any(ClassTerminationRequest.class)))
+                .thenAnswer(invocation -> {
+                    ClassTerminationRequest saved = invocation.getArgument(0);
+                    saved.setTerminationId(51L);
+                    saved.setCreatedAt(LocalDateTime.of(2026, 7, 16, 11, 0));
+                    return saved;
+                });
+
+        ClassTerminationResponse response = marketplaceService.requestClassTermination(CLASS_ID, request);
+
+        assertEquals(51L, response.getTerminationId());
         assertEquals(ClassTerminationStatus.PENDING, response.getStatus());
         assertEquals(TutoringClassStatus.DISPUTED, tutoringClass.getStatus());
+        assertEquals(ClassAssignmentStatus.ACTIVE, assignment.getStatus());
+
+        verify(escrowService, never()).apply(any());
+        verify(classAssignmentRepository, never()).save(any());
         verify(tutoringClassRepository).save(tutoringClass);
         verify(classTerminationRequestRepository).save(any(ClassTerminationRequest.class));
     }
@@ -148,6 +313,9 @@ class MarketplaceServiceImplTest {
         when(classAssignmentRepository.findByApplication_TutoringClass_ClassIdAndStatus(
                         CLASS_ID, ClassAssignmentStatus.ACTIVE))
                 .thenReturn(List.of(assignment));
+        when(classStudentRepository.findByTutoringClass_ClassIdAndStatus(
+                        CLASS_ID, com.tcs.module.marketplace.enums.ClassStudentStatus.ENROLLED))
+                .thenReturn(List.of());
         when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
                         ASSIGNMENT_ID, ClassTerminationStatus.PENDING))
                 .thenReturn(true);
@@ -173,6 +341,9 @@ class MarketplaceServiceImplTest {
         when(classAssignmentRepository.findByApplication_TutoringClass_ClassIdAndStatus(
                         CLASS_ID, ClassAssignmentStatus.ACTIVE))
                 .thenReturn(List.of(assignment));
+        when(classStudentRepository.findByTutoringClass_ClassIdAndStatus(
+                        CLASS_ID, com.tcs.module.marketplace.enums.ClassStudentStatus.ENROLLED))
+                .thenReturn(List.of());
 
         assertThrows(ForbiddenException.class, () -> marketplaceService.requestClassTermination(CLASS_ID, request));
         verify(classTerminationRequestRepository, never()).save(any());
@@ -212,9 +383,7 @@ class MarketplaceServiceImplTest {
     }
 
     private ClassAssignment assignment(TutoringClass tutoringClass, User tutorUser) {
-        Tutor tutor = new Tutor();
-        tutor.setTutorId(44L);
-        tutor.setUser(tutorUser);
+        Tutor tutor = tutor(tutorUser);
 
         TutorApplication application = new TutorApplication();
         application.setApplicationId(55L);
@@ -227,5 +396,60 @@ class MarketplaceServiceImplTest {
         assignment.setApplication(application);
         assignment.setStatus(ClassAssignmentStatus.ACTIVE);
         return assignment;
+    }
+
+    private Tutor tutor(User tutorUser) {
+        Tutor tutor = new Tutor();
+        tutor.setTutorId(44L);
+        tutor.setUser(tutorUser);
+        return tutor;
+    }
+
+    private ClassStudent classStudent(TutoringClass tutoringClass, User enrolledUser) {
+        ClassStudent classStudent = new ClassStudent();
+        classStudent.setClassStudentId(CLASS_STUDENT_ID);
+        classStudent.setTutoringClass(tutoringClass);
+        classStudent.setEnrolledByUser(enrolledUser);
+        classStudent.setStudentName("Học viên test");
+        classStudent.setStatus(ClassStudentStatus.ENROLLED);
+        return classStudent;
+    }
+
+    private EscrowTransaction escrow(Long escrowId, BigDecimal amount) {
+        EscrowTransaction escrow = new EscrowTransaction();
+        escrow.setEscrowId(escrowId);
+        escrow.setAmount(amount);
+        escrow.setStatus(EscrowStatus.FUNDED);
+        return escrow;
+    }
+
+    private List<Lesson> lessons(TutoringClass tutoringClass, Tutor tutor, int total, int completed) {
+        ScheduleSlot slot = new ScheduleSlot();
+        slot.setSlotId(19L);
+        return java.util.stream.IntStream.rangeClosed(1, total)
+                .mapToObj(sequence -> {
+                    Lesson lesson = new Lesson();
+                    lesson.setLessonId(1000L + sequence);
+                    lesson.setTutoringClass(tutoringClass);
+                    lesson.setTutor(tutor);
+                    lesson.setSlot(slot);
+                    lesson.setSequenceNo(sequence);
+                    lesson.setAttendanceStatus(
+                            sequence <= completed ? AttendanceStatus.COMPLETED : AttendanceStatus.PENDING);
+                    return lesson;
+                })
+                .toList();
+    }
+
+    private List<LessonAttendance> attendances(List<Lesson> lessons, ClassStudent classStudent, int present) {
+        return java.util.stream.IntStream.range(0, lessons.size())
+                .mapToObj(index -> {
+                    LessonAttendance attendance = new LessonAttendance();
+                    attendance.setLesson(lessons.get(index));
+                    attendance.setClassStudent(classStudent);
+                    attendance.setStatus(index < present ? LessonAttendanceStatus.PRESENT : LessonAttendanceStatus.ABSENT);
+                    return attendance;
+                })
+                .toList();
     }
 }

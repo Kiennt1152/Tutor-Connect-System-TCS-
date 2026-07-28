@@ -136,6 +136,67 @@
   line-height: 1.25;
 }
 
+.pd-flow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-3);
+}
+
+.pd-flow__label {
+  margin: 0 0 4px;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  font-weight: 700;
+}
+
+.pd-flow__title {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-lg);
+  font-weight: 800;
+}
+
+.pd-flow__message {
+  max-width: 460px;
+  margin: 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  line-height: 1.45;
+}
+
+.pd-flow--success {
+  border-color: #a7f3d0;
+  background: #ecfdf5;
+}
+
+.pd-flow--success .pd-flow__title {
+  color: #047857;
+}
+
+.pd-flow--warning {
+  border-color: #fed7aa;
+  background: #fff7ed;
+}
+
+.pd-flow--warning .pd-flow__title {
+  color: #c2410c;
+}
+
+.pd-flow--danger {
+  border-color: #fecaca;
+  background: #fef2f2;
+}
+
+.pd-flow--danger .pd-flow__title {
+  color: #b91c1c;
+}
+
 .pd-section {
   padding: var(--space-md) 0;
   border-top: 1px solid var(--color-border);
@@ -295,19 +356,59 @@
   justify-content: flex-end;
 }
 
-.pd-empty-action {
+.pd-settlement-form {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  flex-direction: column;
   gap: var(--space-sm);
+}
+
+.pd-settlement-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-sm);
+}
+
+.pd-settlement-summary > div {
+  min-width: 0;
   padding: var(--space-sm);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background: var(--color-surface-3);
 }
 
-.pd-empty-action p {
-  margin: 0;
+.pd-settlement-summary span {
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+}
+
+.pd-settlement-summary strong {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-sm);
+  overflow-wrap: anywhere;
+}
+
+.pd-settlement-summary__ok {
+  border-color: #a7f3d0 !important;
+  background: #ecfdf5 !important;
+}
+
+.pd-settlement-summary__ok strong {
+  color: #047857;
+}
+
+.pd-quick-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.pd-money-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-sm);
 }
 
 .adm-alert--success {
@@ -333,13 +434,15 @@
 @media (max-width: 720px) {
   .pd-card-head,
   .pd-detail__head,
-  .pd-empty-action {
+  .pd-flow {
     flex-direction: column;
     align-items: flex-start;
   }
 
   .pd-info-grid,
-  .pd-info-row {
+  .pd-info-row,
+  .pd-settlement-summary,
+  .pd-money-grid {
     grid-template-columns: 1fr;
   }
 }

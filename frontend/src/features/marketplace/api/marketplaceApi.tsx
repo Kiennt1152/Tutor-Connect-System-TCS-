@@ -15,8 +15,16 @@ export const marketplaceApi = {
     return axiosClient.get<MarketplaceClass[]>(`${MARKETPLACE_API_BASE}/classes?status=OPEN`);
   },
 
-  getClass(classId: number) {
-    return axiosClient.get<MarketplaceClass>(`${MARKETPLACE_API_BASE}/classes/${classId}`);
+  getClass(
+    classId: number,
+    target?: { assignmentId?: number; classStudentId?: number },
+  ) {
+    return axiosClient.get<MarketplaceClass>(`${MARKETPLACE_API_BASE}/classes/${classId}`, {
+      params: {
+        assignmentId: target?.assignmentId,
+        classStudentId: target?.classStudentId,
+      },
+    });
   },
 
   register(classId: number) {

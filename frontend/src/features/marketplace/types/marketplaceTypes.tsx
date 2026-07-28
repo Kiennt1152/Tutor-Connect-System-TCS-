@@ -16,6 +16,7 @@ export type ClassTerminationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMP
 
 export interface CreateClassTerminationRequest {
   assignmentId?: number;
+  classStudentId?: number;
   reason: string;
   effectiveDate?: string;
 }
@@ -23,7 +24,8 @@ export interface CreateClassTerminationRequest {
 export interface ClassTerminationResponse {
   terminationId: number;
   classId: number;
-  assignmentId: number;
+  assignmentId: number | null;
+  classStudentId: number | null;
   requestedByUserId: number;
   reason: string;
   effectiveDate: string | null;
@@ -59,6 +61,9 @@ export interface MarketplaceClass {
   status: ClassStatus;
   maxStudents: number | null;
   enrolledCount: number;
+  canRequestTermination: boolean;
+  terminationAssignmentId: number | null;
+  terminationClassStudentId: number | null;
   schedule: ScheduleSlot[];
   createdAt: string;
 }

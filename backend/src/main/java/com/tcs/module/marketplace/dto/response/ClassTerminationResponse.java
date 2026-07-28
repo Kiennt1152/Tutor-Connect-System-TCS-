@@ -16,6 +16,8 @@ public class ClassTerminationResponse {
 
     private Long assignmentId;
 
+    private Long classStudentId;
+
     private Long requestedByUserId;
 
     private String reason;

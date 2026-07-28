@@ -11,5 +11,9 @@ public interface ClassTerminationRequestRepository extends JpaRepository<ClassTe
 
     boolean existsByAssignment_AssignmentIdAndStatus(Long assignmentId, ClassTerminationStatus status);
 
+    boolean existsByClassStudent_ClassStudentIdAndStatus(Long classStudentId, ClassTerminationStatus status);
+
     Optional<ClassTerminationRequest> findFirstByAssignment_AssignmentIdOrderByCreatedAtDesc(Long assignmentId);
+
+    Optional<ClassTerminationRequest> findFirstByClassStudent_ClassStudentIdOrderByCreatedAtDesc(Long classStudentId);
 }

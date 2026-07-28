@@ -177,6 +177,14 @@ public class SettlementServiceImpl implements SettlementService {
         if (classStudent == null || classStudent.getClassStudentId() == null) {
             return;
         }
+        classTerminationRequestRepository
+                .findFirstByClassStudent_ClassStudentIdOrderByCreatedAtDesc(classStudent.getClassStudentId())
+                .filter(request -> request.getStatus() != ClassTerminationStatus.REJECTED)
+                .ifPresent(request -> {
+                    request.setStatus(ClassTerminationStatus.COMPLETED);
+                    request.setProcessedAt(LocalDateTime.now());
+                    classTerminationRequestRepository.save(request);
+                });
         if (classStudent.getStatus() != ClassStudentStatus.DROPPED) {
             classStudent.setStatus(ClassStudentStatus.DROPPED);
             classStudentRepository.save(classStudent);

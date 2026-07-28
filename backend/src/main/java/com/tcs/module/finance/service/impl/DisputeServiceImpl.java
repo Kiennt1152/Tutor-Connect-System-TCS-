@@ -254,7 +254,8 @@ public class DisputeServiceImpl implements DisputeService {
     private void approveRelatedTermination(Dispute dispute) {
         EscrowTransaction escrow = dispute.getEscrowTransaction();
         ClassAssignment assignment = escrow != null ? escrow.getAssignment() : null;
-        ClassTerminationRequest terminationRequest = latestTerminationRequest(assignment);
+        ClassStudent classStudent = escrow != null ? escrow.getClassStudent() : null;
+        ClassTerminationRequest terminationRequest = latestTerminationRequest(assignment, classStudent);
         if (terminationRequest == null || terminationRequest.getStatus() == ClassTerminationStatus.REJECTED) {
             return;
         }
@@ -263,11 +264,20 @@ public class DisputeServiceImpl implements DisputeService {
         terminationRequest.setProcessedAt(java.time.LocalDateTime.now());
         classTerminationRequestRepository.save(terminationRequest);
 
-        assignment.setStatus(ClassAssignmentStatus.TERMINATED);
-        classAssignmentRepository.save(assignment);
+        if (assignment != null) {
+            assignment.setStatus(ClassAssignmentStatus.TERMINATED);
+            classAssignmentRepository.save(assignment);
 
-        contractRepository.findByAssignment_AssignmentId(assignment.getAssignmentId())
-                .ifPresent(this::terminateContract);
+            contractRepository.findByAssignment_AssignmentId(assignment.getAssignmentId())
+                    .ifPresent(this::terminateContract);
+            return;
+        }
+
+        if (classStudent != null) {
+            classStudent.setStatus(com.tcs.module.marketplace.enums.ClassStudentStatus.DROPPED);
+            contractRepository.findByClassStudent_ClassStudentId(classStudent.getClassStudentId())
+                    .ifPresent(this::terminateContract);
+        }
     }
 
     private void terminateContract(Contract contract) {
@@ -563,7 +573,7 @@ public class DisputeServiceImpl implements DisputeService {
         ClassAssignment assignment = escrow != null ? escrow.getAssignment() : null;
         ClassStudent classStudent = escrow != null ? escrow.getClassStudent() : null;
         TutoringClass tutoringClass = resolveTutoringClass(report, assignment, classStudent);
-        ClassTerminationRequest terminationRequest = latestTerminationRequest(assignment);
+        ClassTerminationRequest terminationRequest = latestTerminationRequest(assignment, classStudent);
         RefundRequest latestRefundRequest = latestRefundRequest(escrow);
         User reporter = report != null ? report.getReporter() : null;
 
@@ -705,13 +715,18 @@ public class DisputeServiceImpl implements DisputeService {
         return null;
     }
 
-    private ClassTerminationRequest latestTerminationRequest(ClassAssignment assignment) {
-        if (assignment == null || assignment.getAssignmentId() == null) {
-            return null;
+    private ClassTerminationRequest latestTerminationRequest(ClassAssignment assignment, ClassStudent classStudent) {
+        if (assignment != null && assignment.getAssignmentId() != null) {
+            return classTerminationRequestRepository
+                    .findFirstByAssignment_AssignmentIdOrderByCreatedAtDesc(assignment.getAssignmentId())
+                    .orElse(null);
         }
-        return classTerminationRequestRepository
-                .findFirstByAssignment_AssignmentIdOrderByCreatedAtDesc(assignment.getAssignmentId())
-                .orElse(null);
+        if (classStudent != null && classStudent.getClassStudentId() != null) {
+            return classTerminationRequestRepository
+                    .findFirstByClassStudent_ClassStudentIdOrderByCreatedAtDesc(classStudent.getClassStudentId())
+                    .orElse(null);
+        }
+        return null;
     }
 
     private RefundRequest latestRefundRequest(EscrowTransaction escrow) {

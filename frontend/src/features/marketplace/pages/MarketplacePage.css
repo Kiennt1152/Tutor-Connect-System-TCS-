@@ -348,6 +348,17 @@
   flex-direction: column;
   gap: 14px;
 }
+.mk-class-actions {
+  margin-top: 14px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
 .mk-enroll__head {
   display: flex;
   flex-direction: column;
@@ -400,6 +411,15 @@
 }
 .mk-btn--primary:hover:not(:disabled) {
   background: var(--color-primary-dark);
+}
+.mk-btn--danger {
+  background: #fff7ed;
+  color: var(--color-primary-dark);
+  border-color: var(--color-primary-light);
+}
+.mk-btn--danger:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: #fff;
 }
 .mk-btn--block {
   width: 100%;

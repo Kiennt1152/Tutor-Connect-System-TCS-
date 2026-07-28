@@ -13,7 +13,7 @@ public interface MarketplaceService {
 
     List<ClassResponse> listClasses(TutoringClassStatus status);
 
-    ClassResponse getClass(Long classId);
+    ClassResponse getClass(Long classId, Long assignmentId, Long classStudentId);
 
     ClassResponse createClass(CreateClassRequest request);
 
