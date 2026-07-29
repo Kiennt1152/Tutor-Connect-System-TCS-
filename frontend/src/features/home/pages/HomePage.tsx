@@ -11,7 +11,6 @@ import { TutorListingCard } from '../components/TutorListingCard';
 import { ClassListingCard } from '../components/ClassListingCard';
 import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
 import { useOpenClasses } from '../hooks/useOpenClasses';
-import { usePublicAnnouncements } from '../../platform/hooks/useAnnouncements';
 import {
   FOOTER_LINKS,
   HOME_CENTERS,
@@ -381,8 +380,6 @@ function HomePage() {
     reload: reloadClasses,
   } = useOpenClasses();
   const { user, isAuthenticated } = useAuth();
-  const navigate = useNavigate();
-
   const isEmpty = useMemo(
     () =>
       status === 'success' &&

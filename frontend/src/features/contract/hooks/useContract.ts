@@ -39,8 +39,8 @@ export function useContractList(): UseContractListResult {
     setLoading(true);
     setError(null);
     try {
-      const data = await contractApi.getMyContracts();
-      setContracts(data);
+      const res = await contractApi.getMyContracts();
+      setContracts(res.data);
     } catch (e) {
       setError(extractMessage(e, 'Không thể tải danh sách hợp đồng'));
     } finally {
