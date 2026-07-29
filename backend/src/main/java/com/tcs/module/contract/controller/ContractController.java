@@ -42,6 +42,11 @@ public class ContractController {
 
     // ─── CONTRACT ENDPOINTS (UC-44 M4 - DucHM) ──────────────────────────────
 
+    @GetMapping("/my")
+    public List<ContractResponse> getMyContracts() {
+        return contractService.getMyContracts();
+    }
+
     @GetMapping("/{id}")
     public ContractResponse getContract(@PathVariable Long id) {
         return contractService.getContract(id);

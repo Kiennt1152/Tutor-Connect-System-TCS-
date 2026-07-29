@@ -23,4 +23,7 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
     long countTodayContracts();
 
     long countByStatus(ContractStatus status);
+
+    @Query("SELECT c FROM Contract c LEFT JOIN c.assignment a LEFT JOIN a.application app LEFT JOIN app.tutoringClass tc WHERE (app.tutor.user.userId = :userId) OR (tc.creator.userId = :userId)")
+    List<Contract> findContractsByUserId(@Param("userId") Long userId);
 }

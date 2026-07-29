@@ -71,6 +71,14 @@ public class ContractServiceImpl implements ContractService {
         return toContractResponse(contract);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public List<ContractResponse> getMyContracts() {
+        Long userId = authHelper.currentUserId();
+        List<Contract> contracts = contractRepository.findContractsByUserId(userId);
+        return contracts.stream().map(this::toContractResponse).toList();
+    }
+
     // ─── SIGNATURES (4.4) ────────────────────────────────────────────────────
 
     @Override

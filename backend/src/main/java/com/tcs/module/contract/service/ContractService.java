@@ -9,6 +9,8 @@ public interface ContractService {
 
     ContractResponse getContract(Long contractId);
 
+    List<ContractResponse> getMyContracts();
+
 ContractSignatureListResponse getSignatures(Long contractId);
 
     Map<String, Object> sendOtp(Long contractId);
