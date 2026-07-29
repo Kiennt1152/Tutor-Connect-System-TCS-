@@ -48,6 +48,26 @@ export interface UpsertCategoryRequest {
   status: 'ACTIVE' | 'INACTIVE';
 }
 
+export interface SystemParameterResponse {
+  parameterId: number;
+  paramKey: string;
+  paramValue: string;
+  description?: string | null;
+}
+
+export interface UpsertSystemParameterRequest {
+  paramKey: string;
+  paramValue: string;
+  description: string;
+}
+
+export interface SystemParameterItem {
+  parameterId: number;
+  paramKey: string;
+  paramValue: string;
+  description: string | null;
+}
+
 export interface CategoryParent {
   categoryId: number;
   name: string;

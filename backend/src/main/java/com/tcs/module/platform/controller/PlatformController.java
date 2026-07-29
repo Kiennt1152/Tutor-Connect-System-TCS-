@@ -80,6 +80,12 @@ public class PlatformController {
         return platformService.listReports();
     }
 
+    @PatchMapping("/reports/{reportId}/resolve")
+    public ReportResponse resolveReport(
+            @PathVariable Long reportId, @Valid @RequestBody com.tcs.module.platform.dto.request.ResolveReportRequest request) {
+        return platformService.resolveReport(reportId, request);
+    }
+
     @GetMapping("/tickets")
     public PageSupportTicketResponse getTickets(
             @RequestParam(defaultValue = "0") int page,

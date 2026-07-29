@@ -11,6 +11,7 @@ import com.tcs.module.platform.dto.response.PageUserListResponse;
 import com.tcs.module.platform.dto.response.UserListItemResponse;
 import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.mapper.UserProfileBundle;
+import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.platform.service.PlatformService;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.PlatformAdmin;
@@ -104,6 +105,9 @@ public class PlatformServiceImpl implements PlatformService {
     private final ConversationRepository conversationRepository;
     private final ConversationParticipantRepository conversationParticipantRepository;
     private final MessageRepository messageRepository;
+    private final AuditLogService auditLogService;
+    private final com.tcs.module.platform.service.PlatformTaskQueueService taskQueueService;
+    private final com.tcs.module.platform.service.PlatformAnalyticsService analyticsService;
 
     private static final String TICKET_CONTEXT_TYPE = "SUPPORT_TICKET";
 
@@ -147,6 +151,7 @@ public class PlatformServiceImpl implements PlatformService {
             throw new IllegalArgumentException("Không thể thay đổi trạng thái tài khoản quản trị viên");
         }
 
+        UserStatus oldStatus = user.getStatus();
         UserStatus newStatus = request.getStatus();
         if (newStatus != UserStatus.ACTIVE
                 && newStatus != UserStatus.SUSPENDED
@@ -156,25 +161,71 @@ public class PlatformServiceImpl implements PlatformService {
 
         user.setStatus(newStatus);
         User saved = userRepository.save(user);
+        auditLogService.record("UPDATE_USER_STATUS", "User", userId, java.util.Map.of("oldStatus", oldStatus), java.util.Map.of("newStatus", request.getStatus()));
         return platformMapper.toUserListItem(saved, profiles);
     }
 
     @Override
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard() {
-        long pendingVerifications = verificationRequestRepository.findAll().stream()
-                .filter(v -> v.getStatus() == VerificationStatus.SUBMITTED
-                        || v.getStatus() == VerificationStatus.UNDER_REVIEW)
-                .count();
-        long openReports = reportRepository.findAll().stream()
-                .filter(r -> r.getStatus() == com.tcs.module.platform.enums.ReportStatus.PENDING)
-                .count();
+        com.tcs.module.platform.dto.response.TaskQueueSummaryResponse taskSummary = taskQueueService.getSummary();
+        com.tcs.module.platform.dto.response.AnalyticsSummaryResponse analyticsSummary = analyticsService.getSummary();
+
+        java.util.List<com.tcs.module.platform.dto.response.DashboardAlertResponse> alerts = new java.util.ArrayList<>();
+        if (taskSummary.getOpenDisputes() > 0) {
+            alerts.add(com.tcs.module.platform.dto.response.DashboardAlertResponse.builder()
+                    .type("CRITICAL")
+                    .title("Tranh chấp giao dịch")
+                    .message("Hiện có " + taskSummary.getOpenDisputes() + " tranh chấp thanh toán cần giải quyết gấp.")
+                    .actionUrl("/platform/tasks")
+                    .build());
+        }
+        if (taskSummary.getPendingWithdrawals() > 0) {
+            alerts.add(com.tcs.module.platform.dto.response.DashboardAlertResponse.builder()
+                    .type("WARNING")
+                    .title("Yêu cầu rút tiền")
+                    .message("Có " + taskSummary.getPendingWithdrawals() + " yêu cầu rút tiền đang chờ kiểm duyệt.")
+                    .actionUrl("/platform/tasks")
+                    .build());
+        }
+        if (taskSummary.getOpenReports() > 0) {
+            alerts.add(com.tcs.module.platform.dto.response.DashboardAlertResponse.builder()
+                    .type("WARNING")
+                    .title("Báo cáo vi phạm")
+                    .message("Có " + taskSummary.getOpenReports() + " báo cáo vi phạm chưa được xử lý.")
+                    .actionUrl("/platform/reports")
+                    .build());
+        }
+        if (taskSummary.getPendingVerifications() > 0) {
+            alerts.add(com.tcs.module.platform.dto.response.DashboardAlertResponse.builder()
+                    .type("INFO")
+                    .title("Hồ sơ xác minh")
+                    .message("Có " + taskSummary.getPendingVerifications() + " hồ sơ xác minh gia sư/trung tâm đang chờ duyệt.")
+                    .actionUrl("/platform/verifications")
+                    .build());
+        }
+        if (taskSummary.getOpenTickets() > 0) {
+            alerts.add(com.tcs.module.platform.dto.response.DashboardAlertResponse.builder()
+                    .type("INFO")
+                    .title("Khiếu nại & Hỗ trợ")
+                    .message("Có " + taskSummary.getOpenTickets() + " phiếu hỗ trợ đang mở hoặc đang xử lý.")
+                    .actionUrl("/platform/tickets")
+                    .build());
+        }
+
         return DashboardResponse.builder()
-                .totalUsers(userRepository.count())
-                .totalTutors(tutorRepository.count())
-                .totalClasses(tutoringClassRepository.count())
-                .pendingVerifications(pendingVerifications)
-                .openReports(openReports)
+                .totalUsers(analyticsSummary.getTotalUsers())
+                .totalTutors(analyticsSummary.getTotalTutors())
+                .totalClasses(analyticsSummary.getTotalClasses())
+                .activeClasses(analyticsSummary.getActiveClasses())
+                .totalRevenue(analyticsSummary.getTotalRevenue())
+                .platformFeeRevenue(analyticsSummary.getPlatformFeeRevenue())
+                .pendingVerifications(taskSummary.getPendingVerifications())
+                .openReports(taskSummary.getOpenReports())
+                .openTickets(taskSummary.getOpenTickets())
+                .pendingWithdrawals(taskSummary.getPendingWithdrawals())
+                .openDisputes(taskSummary.getOpenDisputes())
+                .alerts(alerts)
                 .build();
     }
 
@@ -260,6 +311,7 @@ public class PlatformServiceImpl implements PlatformService {
             verification.setRejectionReason(null);
         }
         VerificationRequest saved = verificationRequestRepository.save(verification);
+        auditLogService.record("REVIEW_VERIFICATION", "VerificationRequest", verificationId, null, java.util.Map.of("status", request.getStatus(), "notes", request.getAdminNotes() != null ? request.getAdminNotes() : ""));
 
         recordVerificationHistory(saved, oldStatus, request.getStatus(), adminId);
         if (request.getStatus() == VerificationStatus.VERIFIED
@@ -405,6 +457,18 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     @Override
+    @Transactional
+    public ReportResponse resolveReport(Long reportId, com.tcs.module.platform.dto.request.ResolveReportRequest request) {
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy báo cáo"));
+        com.tcs.module.platform.enums.ReportStatus oldStatus = report.getStatus();
+        report.setStatus(request.getStatus());
+        Report saved = reportRepository.save(report);
+        auditLogService.record("RESOLVE_REPORT", "Report", reportId, java.util.Map.of("oldStatus", oldStatus), java.util.Map.of("newStatus", request.getStatus(), "adminNotes", request.getAdminNotes() != null ? request.getAdminNotes() : ""));
+        return toReportResponse(saved);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public PageSupportTicketResponse getTickets(
             int page, int size, SupportTicketStatus status,
@@ -448,6 +512,8 @@ public class PlatformServiceImpl implements PlatformService {
     @Transactional
     public SupportTicketDetailResponse updateTicket(Long ticketId, UpdateTicketRequest request) {
         SupportTicket ticket = findTicketOrThrow(ticketId);
+        java.util.Map<String, Object> oldValue = java.util.Map.of(
+                "category", ticket.getCategory(), "priority", ticket.getPriority());
 
         if (request.getCategory() != null) {
             ticket.setCategory(request.getCategory());
@@ -456,6 +522,7 @@ public class PlatformServiceImpl implements PlatformService {
             ticket.setPriority(request.getPriority());
         }
         SupportTicket saved = supportTicketRepository.save(ticket);
+        auditLogService.record("UPDATE_TICKET", "SupportTicket", ticketId, oldValue, request);
         return toTicketDetail(saved);
     }
 
@@ -492,6 +559,7 @@ public class PlatformServiceImpl implements PlatformService {
         SupportTicket saved = supportTicketRepository.save(ticket);
 
         notifyUserOfTicketResponse(saved, request.getContent());
+        auditLogService.record("RESPOND_TICKET", "SupportTicket", ticketId, null, request);
         return toTicketDetail(saved);
     }
 
@@ -502,6 +570,7 @@ public class PlatformServiceImpl implements PlatformService {
             throw new IllegalArgumentException("Chỉ chấp nhận trạng thái RESOLVED hoặc CLOSED");
         }
         SupportTicket ticket = findTicketOrThrow(ticketId);
+        SupportTicketStatus oldStatus = ticket.getStatus();
 
         ticket.setStatus(request.getStatus());
         LocalDateTime now = LocalDateTime.now();
@@ -514,6 +583,8 @@ public class PlatformServiceImpl implements PlatformService {
             }
         }
         SupportTicket saved = supportTicketRepository.save(ticket);
+        auditLogService.record("CLOSE_TICKET", "SupportTicket", ticketId,
+                java.util.Map.of("oldStatus", oldStatus), java.util.Map.of("newStatus", request.getStatus()));
 
         if (StringUtils.hasText(request.getAdminNotes())) {
             notifyUserOfTicketResponse(saved, request.getAdminNotes());

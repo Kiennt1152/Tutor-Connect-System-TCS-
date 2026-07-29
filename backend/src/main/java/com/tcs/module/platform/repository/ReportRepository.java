@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ReportRepository extends JpaRepository<Report, Long> {
+    long countByStatus(com.tcs.module.platform.enums.ReportStatus status);
+    java.util.List<com.tcs.module.platform.entity.Report> findByStatusOrderByCreatedAtAsc(com.tcs.module.platform.enums.ReportStatus status);
 }

@@ -34,4 +34,7 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, Lo
             @Param("priority") SupportTicketPriority priority,
             @Param("keyword") String keyword,
             Pageable pageable);
+
+    long countByStatusIn(List<SupportTicketStatus> statuses);
+    List<SupportTicket> findByStatusInOrderByCreatedAtAsc(List<SupportTicketStatus> statuses);
 }

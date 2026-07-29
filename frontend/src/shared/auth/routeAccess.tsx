@@ -27,6 +27,14 @@ export const ROUTE_ACCESS: Record<string, RouteAccess> = {
   '/platform/users': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
   '/platform/verifications': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
   '/platform/reports': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
+  '/platform/tickets': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
+  '/platform/faq': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
+  '/platform/parameters': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
+  '/platform/tasks': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
+  '/platform/analytics': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
+  '/platform/announcements': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
+  '/platform/penalties': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
+  '/platform/audit-logs': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
   '/platform/profile': { type: 'roles', roles: ['PLATFORM_ADMIN'] },
 };
 

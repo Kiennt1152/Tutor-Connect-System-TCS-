@@ -25,6 +25,7 @@ import com.tcs.module.catalog.repository.SubjectRepository;
 import com.tcs.module.catalog.service.CatalogService;
 import com.tcs.module.catalog.service.GeminiService;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.platform.service.AuditLogService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,6 +50,7 @@ public class CatalogServiceImpl implements CatalogService {
     private final TutoringClassRepository tutoringClassRepository;
     private final CatalogMapper catalogMapper;
     private final GeminiService geminiService;
+    private final AuditLogService auditLogService;
 
     @Override
     @Transactional(readOnly = true)
@@ -139,22 +141,29 @@ public class CatalogServiceImpl implements CatalogService {
     public FaqResponse createFaqEntry(UpsertFaqRequest request) {
         FaqEntry entry = new FaqEntry();
         applyFaqChanges(entry, request);
-        return toFaq(faqEntryRepository.save(entry));
+        FaqEntry saved = faqEntryRepository.save(entry);
+        auditLogService.record("CREATE_FAQ", "FaqEntry", saved.getFaqId(), null, request);
+        return toFaq(saved);
     }
 
     @Override
     @Transactional
     public FaqResponse updateFaqEntry(Long faqId, UpsertFaqRequest request) {
         FaqEntry entry = getRequiredFaqEntry(faqId);
+        FaqResponse oldValue = toFaq(entry);
         applyFaqChanges(entry, request);
-        return toFaq(faqEntryRepository.save(entry));
+        FaqEntry saved = faqEntryRepository.save(entry);
+        auditLogService.record("UPDATE_FAQ", "FaqEntry", saved.getFaqId(), oldValue, request);
+        return toFaq(saved);
     }
 
     @Override
     @Transactional
     public void deleteFaqEntry(Long faqId) {
         FaqEntry entry = getRequiredFaqEntry(faqId);
+        FaqResponse oldValue = toFaq(entry);
         faqEntryRepository.delete(entry);
+        auditLogService.record("DELETE_FAQ", "FaqEntry", faqId, oldValue, null);
     }
 
     private FaqEntry getRequiredFaqEntry(Long faqId) {
@@ -268,6 +277,7 @@ public class CatalogServiceImpl implements CatalogService {
         Category category = new Category();
         applyCategoryChanges(category, request);
         Category savedCategory = categoryRepository.save(category);
+        auditLogService.record("CREATE_CATEGORY", "Category", savedCategory.getCategoryId(), null, request);
         return toCategoryResponse(savedCategory, List.of());
     }
 
@@ -275,9 +285,11 @@ public class CatalogServiceImpl implements CatalogService {
     @Transactional
     public CatalogResponse.CategoryResponse updateCategory(Long categoryId, CatalogRequest.UpsertCategoryRequest request) {
         Category category = getRequiredCategory(categoryId);
+        CatalogResponse.CategoryResponse oldValue = toCategoryResponse(category, List.of());
         validateUpsertRequest(request, category);
         applyCategoryChanges(category, request);
         Category savedCategory = categoryRepository.save(category);
+        auditLogService.record("UPDATE_CATEGORY", "Category", savedCategory.getCategoryId(), oldValue, request);
         return toCategoryResponse(savedCategory, List.of());
     }
 
@@ -293,7 +305,9 @@ public class CatalogServiceImpl implements CatalogService {
             throw new IllegalArgumentException("Không thể xóa danh mục đang được dùng cho lớp học.");
         }
 
+        CatalogResponse.CategoryResponse oldValue = toCategoryResponse(category, List.of());
         categoryRepository.delete(category);
+        auditLogService.record("DELETE_CATEGORY", "Category", categoryId, oldValue, null);
     }
 
     private List<CatalogResponse.CategoryResponse> buildTree(

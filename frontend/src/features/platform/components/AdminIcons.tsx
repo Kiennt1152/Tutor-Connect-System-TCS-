@@ -12,7 +12,9 @@ export type AdminIconKey =
   | 'graduation'
   | 'folder'
   | 'message'
-  | 'help';
+  | 'help'
+  | 'bar-chart'
+  | 'check-square';
 
 export type AdminIconSize = 'sm' | 'md' | 'lg';
 
@@ -127,6 +129,8 @@ const ADMIN_ICONS: Record<AdminIconKey, ComponentType<IconProps>> = {
   folder: IconFolder,
   message: IconMessage,
   help: IconHelp,
+  'bar-chart': IconDashboard,
+  'check-square': IconBook,
 };
 
 type AdminIconProps = {

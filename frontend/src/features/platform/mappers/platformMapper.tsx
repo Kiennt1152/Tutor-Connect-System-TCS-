@@ -61,11 +61,23 @@ const formatDateTime = (value: string | null | undefined) => {
 
 export function mapDashboardResponse(response: DashboardApiResponse): PlatformDashboard {
   return {
-    totalUsers: response.totalUsers,
-    totalTutors: response.totalTutors,
-    totalClasses: response.totalClasses,
-    pendingVerifications: response.pendingVerifications,
-    openReports: response.openReports,
+    totalUsers: response.totalUsers || 0,
+    totalTutors: response.totalTutors || 0,
+    totalClasses: response.totalClasses || 0,
+    activeClasses: response.activeClasses || 0,
+    pendingVerifications: response.pendingVerifications || 0,
+    openReports: response.openReports || 0,
+    openTickets: response.openTickets || 0,
+    pendingWithdrawals: response.pendingWithdrawals || 0,
+    openDisputes: response.openDisputes || 0,
+    totalRevenue: response.totalRevenue || 0,
+    platformFeeRevenue: response.platformFeeRevenue || 0,
+    alerts: (response.alerts || []).map((a) => ({
+      type: a.type,
+      title: a.title,
+      message: a.message,
+      actionUrl: a.actionUrl,
+    })),
   };
 }
 

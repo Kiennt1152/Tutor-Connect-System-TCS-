@@ -37,6 +37,8 @@ public interface PlatformService {
 
     List<ReportResponse> listReports();
 
+    ReportResponse resolveReport(Long reportId, com.tcs.module.platform.dto.request.ResolveReportRequest request);
+
     /** Danh sách ticket hỗ trợ, có filter theo status/category/priority/keyword và phân trang. */
     PageSupportTicketResponse getTickets(
             int page, int size, SupportTicketStatus status,
