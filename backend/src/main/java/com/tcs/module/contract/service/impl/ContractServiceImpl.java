@@ -445,6 +445,25 @@ public class ContractServiceImpl implements ContractService {
             builder.signerEmail(sig.getEmail());
         }
 
+        // Resolve signer name
+        String signerName = null;
+        if (sig.getContract() != null && sig.getContract().getAssignment() != null) {
+            TutorApplication application = sig.getContract().getAssignment().getApplication();
+            if (application != null) {
+                if (sig.getPartyRole() == PartyRole.TUTOR && application.getTutor() != null) {
+                    signerName = application.getTutor().getFullName();
+                } else if (application.getTutoringClass() != null && application.getTutoringClass().getCreator() != null) {
+                    Long creatorUserId = application.getTutoringClass().getCreator().getUserId();
+                    if (sig.getPartyRole() == PartyRole.CENTER) {
+                        signerName = tutorCenterRepository.findByUser_UserId(creatorUserId).map(TutorCenter::getCompanyName).orElse(null);
+                    } else if (sig.getPartyRole() == PartyRole.CLIENT) {
+                        signerName = clientRepository.findByUser_UserId(creatorUserId).map(Client::getFullName).orElse(null);
+                    }
+                }
+            }
+        }
+        builder.signerName(signerName);
+
         if (sig.getOtpExpiresAt() != null) {
             builder.isOtpExpired(sig.getOtpExpiresAt().isBefore(LocalDateTime.now()));
         }
