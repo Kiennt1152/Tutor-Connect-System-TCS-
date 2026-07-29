@@ -7,7 +7,7 @@ import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import CenterPage from '../features/center/pages/CenterPage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
-import ContractPage from '../features/contract/pages/ContractPage';
+import ContractModule from '../features/contract/ContractModule';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
 import PlatformPage from '../features/platform/pages/PlatformPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
@@ -35,7 +35,7 @@ export default function AppRouter() {
         path={APP_ROUTES.marketplace}
         element={guard(APP_ROUTES.marketplace, <MarketplacePage />)}
       />
-      <Route path={APP_ROUTES.contract} element={guard(APP_ROUTES.contract, <ContractPage />)} />
+      <Route path={APP_ROUTES.contract} element={guard(APP_ROUTES.contract, <ContractModule />)} />
       <Route
         path={APP_ROUTES.messaging}
         element={guard(APP_ROUTES.messaging, <MessagingPage />)}

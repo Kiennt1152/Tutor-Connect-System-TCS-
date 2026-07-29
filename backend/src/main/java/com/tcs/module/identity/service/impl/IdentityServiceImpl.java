@@ -280,7 +280,7 @@ public class IdentityServiceImpl implements IdentityService {
         wallet.setUser(savedUser);
         walletRepository.save(wallet);
 
-// Tieu thu token (dung mot lan - BR-UC01-05).
+        // Tieu thu token (dung mot lan - BR-UC01-05).
         token.setConsumedAt(LocalDateTime.now());
         emailVerificationTokenRepository.save(token);
 
@@ -308,15 +308,13 @@ public class IdentityServiceImpl implements IdentityService {
             throw new IllegalArgumentException("Email hoặc mật khẩu không đúng");
         }
 
-        // UC-08 BR-UC08-01: lan dang nhap dau tien sau dang ky -> firstLogin=true de FE redirect /profile.
-        boolean wasFirstLogin = user.getLastLogin() == null;
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
 
         UserProfileBundle profiles = loadProfiles(user.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);
         String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role);
-        return buildAuthResponse(user, profiles, token, wasFirstLogin);
+        return buildAuthResponse(user, profiles, token);
     }
 
     // ======================================================= Login by Google
@@ -567,7 +565,7 @@ public class IdentityServiceImpl implements IdentityService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
     }
 
-    private AuthResponse buildAuthResponse(User user, UserProfileBundle profiles, String token, boolean firstLogin) {
+    private AuthResponse buildAuthResponse(User user, UserProfileBundle profiles, String token) {
         return AuthResponse.builder()
                 .accessToken(token)
                 .userId(user.getUserId())
@@ -575,8 +573,6 @@ public class IdentityServiceImpl implements IdentityService {
                 .role(platformMapper.resolveRole(profiles))
                 .displayName(platformMapper.toUserListItem(user, profiles).getDisplayName())
                 .status(user.getStatus())
-                // UC-08 BR-UC08-01: ho so chua hoan tat (profile_completed_at IS NULL) -> FE redirect /profile.
-                .firstLogin(firstLogin || user.getProfileCompletedAt() == null)
                 .build();
     }
 

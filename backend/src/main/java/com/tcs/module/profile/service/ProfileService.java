@@ -13,6 +13,8 @@ import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
 import java.util.List;
 
+import org.springframework.web.multipart.MultipartFile;
+
 public interface ProfileService {
 
     ProfileResponse getMyProfile();
