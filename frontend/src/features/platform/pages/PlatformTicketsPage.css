@@ -1,0 +1,217 @@
+.adm-ticket-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 2rem 1rem;
+  overflow-y: auto;
+}
+
+.adm-ticket-modal {
+  background: #fff;
+  border-radius: 14px;
+  width: 100%;
+  max-width: 720px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+  overflow: hidden;
+}
+
+.adm-ticket-modal__header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.adm-ticket-modal__subject {
+  flex: 1;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 0.5rem;
+}
+
+.adm-ticket-modal__badges {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+
+.adm-ticket-modal__close {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 1.3rem;
+  color: #718096;
+  padding: 0.2rem 0.4rem;
+  border-radius: 4px;
+  line-height: 1;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.adm-ticket-modal__close:hover {
+  color: #1a202c;
+}
+
+.adm-ticket-modal__info {
+  padding: 0.75rem 1.5rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 0.83rem;
+  color: #4a5568;
+}
+
+.adm-ticket-modal__body {
+  padding: 1.25rem 1.5rem;
+}
+
+.adm-ticket-modal__section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #718096;
+  margin: 0 0 0.5rem;
+}
+
+.adm-ticket-modal__desc {
+  color: #2d3748;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.adm-ticket-conv {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 1.25rem;
+  padding-right: 0.25rem;
+}
+
+.adm-ticket-msg {
+  max-width: 85%;
+  padding: 0.7rem 0.95rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  line-height: 1.55;
+}
+
+.adm-ticket-msg--user {
+  align-self: flex-start;
+  background: #f0f4f8;
+  color: #1a202c;
+  border-bottom-left-radius: 2px;
+}
+
+.adm-ticket-msg--admin {
+  align-self: flex-end;
+  background: #e8f0fe;
+  color: #1a202c;
+  border-bottom-right-radius: 2px;
+}
+
+.adm-ticket-msg__sender {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #718096;
+  margin-bottom: 0.2rem;
+}
+
+.adm-ticket-msg--admin .adm-ticket-msg__sender {
+  text-align: right;
+  color: #1a56db;
+}
+
+.adm-ticket-msg__time {
+  font-size: 0.68rem;
+  color: #a0aec0;
+  margin-top: 0.25rem;
+}
+
+.adm-ticket-msg--admin .adm-ticket-msg__time {
+  text-align: right;
+}
+
+.adm-ticket-respond {
+  border-top: 1px solid #e2e8f0;
+  padding-top: 1rem;
+}
+
+.adm-ticket-respond__textarea {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #1a202c;
+  resize: vertical;
+  min-height: 80px;
+  outline: none;
+  box-sizing: border-box;
+  transition: border-color 0.15s;
+}
+
+.adm-ticket-respond__textarea:focus {
+  border-color: #1a56db;
+  box-shadow: 0 0 0 3px rgba(26, 86, 219, 0.1);
+}
+
+.adm-ticket-respond__actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.65rem;
+  flex-wrap: wrap;
+}
+
+.adm-ticket-respond__error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  padding: 0.6rem 0.85rem;
+  color: #991b1b;
+  font-size: 0.83rem;
+  margin-top: 0.5rem;
+}
+
+/* Ticket list table */
+.adm-ticket-filters {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+  align-items: center;
+}
+
+.adm-ticket-filter__select,
+.adm-ticket-filter__input {
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.85rem;
+  font-family: inherit;
+  color: #1a202c;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.adm-ticket-filter__select:focus,
+.adm-ticket-filter__input:focus {
+  border-color: #1a56db;
+}
+
+.adm-ticket-filter__input {
+  flex: 1;
+  min-width: 160px;
+}

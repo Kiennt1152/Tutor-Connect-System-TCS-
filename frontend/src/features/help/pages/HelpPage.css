@@ -1,0 +1,352 @@
+.help-page {
+  min-height: 100vh;
+  background: #f7f8fa;
+}
+
+.help-page__hero {
+  background: linear-gradient(135deg, #1a56db 0%, #0f3987 100%);
+  color: #fff;
+  padding: 3rem 1.5rem 2.5rem;
+  text-align: center;
+}
+
+.help-page__hero-title {
+  font-size: 2rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.help-page__hero-subtitle {
+  font-size: 1.05rem;
+  opacity: 0.85;
+  margin: 0 0 1.5rem;
+}
+
+.help-page__search-bar {
+  display: flex;
+  gap: 0.5rem;
+  max-width: 560px;
+  margin: 0 auto;
+}
+
+.help-page__search-input {
+  flex: 1;
+  padding: 0.7rem 1rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  outline: none;
+}
+
+.help-page__search-input:focus {
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.4);
+}
+
+.help-page__search-btn {
+  padding: 0.7rem 1.25rem;
+  background: #fff;
+  color: #1a56db;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.15s;
+}
+
+.help-page__search-btn:hover {
+  background: #e8f0fe;
+}
+
+.help-page__body {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (max-width: 720px) {
+  .help-page__body {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* FAQ list */
+.help-faq__heading {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.help-faq__count {
+  font-size: 0.8rem;
+  background: #e8f0fe;
+  color: #1a56db;
+  border-radius: 99px;
+  padding: 0.1rem 0.6rem;
+  font-weight: 600;
+}
+
+.help-faq__empty {
+  color: #718096;
+  font-size: 0.9rem;
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+.help-faq__item {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  margin-bottom: 0.75rem;
+  overflow: hidden;
+  transition: box-shadow 0.15s;
+}
+
+.help-faq__item:hover {
+  box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+}
+
+.help-faq__question-btn {
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  padding: 1rem 1.25rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #1a202c;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.help-faq__question-btn:hover {
+  color: #1a56db;
+}
+
+.help-faq__chevron {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  transition: transform 0.2s;
+  color: #a0aec0;
+}
+
+.help-faq__chevron--open {
+  transform: rotate(180deg);
+}
+
+.help-faq__answer {
+  padding: 0 1.25rem 1rem;
+  color: #4a5568;
+  font-size: 0.9rem;
+  line-height: 1.65;
+  border-top: 1px solid #f0f4f8;
+}
+
+/* Chatbot panel */
+.help-chatbot {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.help-chatbot__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a202c;
+  margin: 0 0 0.25rem;
+}
+
+.help-chatbot__desc {
+  font-size: 0.83rem;
+  color: #718096;
+  margin: 0 0 1rem;
+}
+
+.help-chatbot__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.help-chatbot__textarea {
+  width: 100%;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.65rem 0.9rem;
+  font-size: 0.9rem;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+  color: #1a202c;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.help-chatbot__textarea:focus {
+  border-color: #1a56db;
+  box-shadow: 0 0 0 3px rgba(26,86,219,0.1);
+}
+
+.help-chatbot__ask-btn {
+  background: #1a56db;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 0.65rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.help-chatbot__ask-btn:hover:not(:disabled) {
+  background: #1447c0;
+}
+
+.help-chatbot__ask-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.help-chatbot__result {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.help-chatbot__result--matched {
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  color: #166534;
+}
+
+.help-chatbot__result--unmatched {
+  background: #fffbeb;
+  border: 1px solid #fed7aa;
+  color: #92400e;
+}
+
+.help-chatbot__result--error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #991b1b;
+}
+
+.help-chatbot__result-label {
+  font-weight: 700;
+  margin-bottom: 0.35rem;
+  display: block;
+}
+
+.help-chatbot__result-q {
+  font-style: italic;
+  margin-bottom: 0.4rem;
+}
+
+.help-chatbot__result-a {
+  color: #065f46;
+}
+
+.help-chatbot__feedback {
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px dashed #e2e8f0;
+}
+
+.help-chatbot__feedback-text {
+  font-size: 0.83rem;
+  color: #718096;
+  margin: 0 0 0.5rem;
+}
+
+.help-chatbot__ticket-link {
+  display: inline-block;
+  margin-top: 0.6rem;
+  background: #f59e0b;
+  color: #fff;
+  border-radius: 6px;
+  padding: 0.4rem 0.8rem;
+  font-size: 0.83rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.help-chatbot__ticket-link:hover {
+  background: #d97706;
+}
+
+.help-chatbot__reset-btn {
+  background: none;
+  border: none;
+  color: #718096;
+  font-size: 0.8rem;
+  cursor: pointer;
+  margin-top: 0.5rem;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* Help page top nav */
+.help-page__topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1.5rem;
+  background: #fff;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.help-page__brand {
+  font-size: 1rem;
+  font-weight: 700;
+  color: #1a56db;
+  text-decoration: none;
+}
+
+.help-page__nav-links {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.help-page__nav-link {
+  font-size: 0.88rem;
+  color: #4a5568;
+  text-decoration: none;
+  padding: 0.35rem 0.7rem;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.help-page__nav-link:hover {
+  background: #f7f8fa;
+  color: #1a56db;
+}
+
+.help-page__nav-link--cta {
+  background: #1a56db;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.help-page__nav-link--cta:hover {
+  background: #1447c0 !important;
+}

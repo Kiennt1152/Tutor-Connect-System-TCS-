@@ -11,7 +11,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface ContractRepository extends JpaRepository<Contract, Long> {
-
     Optional<Contract> findByContractNo(String contractNo);
 
     @Query("SELECT c FROM Contract c WHERE c.assignment.assignmentId = :assignmentId")
@@ -22,4 +21,6 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
 
     @Query("SELECT COUNT(c) FROM Contract c WHERE FUNCTION('DATE', c.createdAt) = FUNCTION('DATE', CURRENT_DATE)")
     long countTodayContracts();
+
+    long countByStatus(ContractStatus status);
 }

@@ -4,8 +4,10 @@ import com.tcs.module.messaging.dto.request.CreateReportRequest;
 import com.tcs.module.messaging.dto.request.CreateSupportTicketRequest;
 import com.tcs.module.messaging.dto.response.NotificationResponse;
 import com.tcs.module.messaging.dto.response.ReportResponse;
+import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.messaging.dto.response.SupportTicketResponse;
 import com.tcs.module.messaging.service.MessagingService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -37,9 +39,19 @@ public class MessagingController {
         return Map.of("message", "Đã đánh dấu đã đọc");
     }
 
+    @GetMapping("/support-tickets")
+    public List<SupportTicketResponse> getMySupportTickets() {
+        return messagingService.getMySupportTickets();
+    }
+
+    @GetMapping("/support-tickets/{ticketId}")
+    public SupportTicketDetailResponse getMySupportTicketDetail(@PathVariable Long ticketId) {
+        return messagingService.getMySupportTicketDetail(ticketId);
+    }
+
     @PostMapping("/support-tickets")
     @ResponseStatus(HttpStatus.CREATED)
-    public SupportTicketResponse createSupportTicket(@RequestBody CreateSupportTicketRequest request) {
+    public SupportTicketResponse createSupportTicket(@Valid @RequestBody CreateSupportTicketRequest request) {
         return messagingService.createSupportTicket(request);
     }
 

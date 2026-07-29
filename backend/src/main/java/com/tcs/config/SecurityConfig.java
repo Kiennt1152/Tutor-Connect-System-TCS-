@@ -38,6 +38,7 @@ public class SecurityConfig {
                                 "/error",
                                 "/uploads/**",
                                 "/api/home",
+                                "/api/home/announcements",
                                 "/api/identity/login",
                                 "/api/identity/google",
                                 "/api/identity/google/complete",
@@ -50,7 +51,13 @@ public class SecurityConfig {
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/catalog/faq/admin")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.GET, "/api/catalog/parameters/**")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**")
+                        .permitAll()
+                        .requestMatchers("/api/ai/**")
                         .permitAll()
                         .requestMatchers("/api/catalog/**")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)

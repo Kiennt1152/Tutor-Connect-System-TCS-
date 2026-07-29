@@ -1,8 +1,11 @@
 package com.tcs.module.catalog.service.impl;
 
+import com.tcs.module.catalog.dto.request.ChatbotAskRequest;
+import com.tcs.module.catalog.dto.request.UpsertFaqRequest;
 import com.tcs.module.catalog.dto.response.CatalogItemResponse;
 import com.tcs.module.catalog.dto.request.CatalogRequest;
 import com.tcs.module.catalog.dto.response.CatalogResponse;
+import com.tcs.module.catalog.dto.response.ChatbotAskResponse;
 import com.tcs.module.catalog.dto.response.FaqResponse;
 import com.tcs.module.catalog.dto.response.LocationResponse;
 import com.tcs.module.catalog.entity.Category;
@@ -20,7 +23,9 @@ import com.tcs.module.catalog.repository.LocationRepository;
 import com.tcs.module.catalog.repository.ProvinceRepository;
 import com.tcs.module.catalog.repository.SubjectRepository;
 import com.tcs.module.catalog.service.CatalogService;
+import com.tcs.module.catalog.service.GeminiService;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.platform.service.AuditLogService;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -30,6 +35,7 @@ import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
@@ -43,6 +49,8 @@ public class CatalogServiceImpl implements CatalogService {
     private final FaqEntryRepository faqEntryRepository;
     private final TutoringClassRepository tutoringClassRepository;
     private final CatalogMapper catalogMapper;
+    private final GeminiService geminiService;
+    private final AuditLogService auditLogService;
 
     @Override
     @Transactional(readOnly = true)
@@ -94,8 +102,95 @@ public class CatalogServiceImpl implements CatalogService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<FaqResponse> getFaqEntries() {
-        return faqEntryRepository.findAll().stream().map(this::toFaq).toList();
+    public List<FaqResponse> getFaqEntries(String category, String keyword) {
+        String trimmedCategory = StringUtils.hasText(category) ? category.trim() : null;
+        String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        return faqEntryRepository.search(trimmedCategory, trimmedKeyword).stream().map(this::toFaq).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ChatbotAskResponse askChatbot(ChatbotAskRequest request) {
+        Optional<String> aiAnswer = geminiService.askQuestion(request.getQuestion());
+        if (aiAnswer.isPresent()) {
+            return ChatbotAskResponse.builder()
+                    .matched(true)
+                    .aiGenerated(true)
+                    .question(request.getQuestion())
+                    .answer(aiAnswer.get())
+                    .build();
+        }
+
+        return ChatbotAskResponse.builder()
+                .matched(false)
+                .suggestion("Xin lỗi, tôi chưa tìm được câu trả lời phù hợp. "
+                        + "Bạn vui lòng tạo yêu cầu hỗ trợ để được đội ngũ hỗ trợ giải đáp trực tiếp.")
+                .build();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<FaqResponse> getFaqEntriesForAdmin(String category, String keyword) {
+        String trimmedCategory = StringUtils.hasText(category) ? category.trim() : null;
+        String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
+        return faqEntryRepository.searchAdmin(trimmedCategory, trimmedKeyword).stream().map(this::toFaq).toList();
+    }
+
+    @Override
+    @Transactional
+    public FaqResponse createFaqEntry(UpsertFaqRequest request) {
+        FaqEntry entry = new FaqEntry();
+        applyFaqChanges(entry, request);
+        FaqEntry saved = faqEntryRepository.save(entry);
+        auditLogService.record("CREATE_FAQ", "FaqEntry", saved.getFaqId(), null, request);
+        return toFaq(saved);
+    }
+
+    @Override
+    @Transactional
+    public FaqResponse updateFaqEntry(Long faqId, UpsertFaqRequest request) {
+        FaqEntry entry = getRequiredFaqEntry(faqId);
+        FaqResponse oldValue = toFaq(entry);
+        applyFaqChanges(entry, request);
+        FaqEntry saved = faqEntryRepository.save(entry);
+        auditLogService.record("UPDATE_FAQ", "FaqEntry", saved.getFaqId(), oldValue, request);
+        return toFaq(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteFaqEntry(Long faqId) {
+        FaqEntry entry = getRequiredFaqEntry(faqId);
+        FaqResponse oldValue = toFaq(entry);
+        faqEntryRepository.delete(entry);
+        auditLogService.record("DELETE_FAQ", "FaqEntry", faqId, oldValue, null);
+    }
+
+    private FaqEntry getRequiredFaqEntry(Long faqId) {
+        return faqEntryRepository.findById(faqId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy câu hỏi thường gặp: " + faqId));
+    }
+
+    private void applyFaqChanges(FaqEntry entry, UpsertFaqRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thiếu dữ liệu FAQ.");
+        }
+
+        String question = normalizeText(request.getQuestion());
+        if (question == null) {
+            throw new IllegalArgumentException("Câu hỏi là bắt buộc.");
+        }
+
+        String answer = normalizeText(request.getAnswer());
+        if (answer == null) {
+            throw new IllegalArgumentException("Câu trả lời là bắt buộc.");
+        }
+
+        entry.setQuestion(question);
+        entry.setAnswer(answer);
+        entry.setCategory(normalizeText(request.getCategory()));
+        entry.setSortOrder(request.getSortOrder() != null ? request.getSortOrder() : 0);
+        entry.setPublished(request.getPublished() == null || request.getPublished());
     }
 
     private CatalogItemResponse toItem(Subject subject) {
@@ -123,6 +218,10 @@ public class CatalogServiceImpl implements CatalogService {
                 .question(entry.getQuestion())
                 .answer(entry.getAnswer())
                 .category(entry.getCategory())
+                .sortOrder(entry.getSortOrder())
+                .published(entry.getPublished())
+                .createdAt(entry.getCreatedAt())
+                .updatedAt(entry.getUpdatedAt())
                 .build();
     }
 
@@ -178,6 +277,7 @@ public class CatalogServiceImpl implements CatalogService {
         Category category = new Category();
         applyCategoryChanges(category, request);
         Category savedCategory = categoryRepository.save(category);
+        auditLogService.record("CREATE_CATEGORY", "Category", savedCategory.getCategoryId(), null, request);
         return toCategoryResponse(savedCategory, List.of());
     }
 
@@ -185,9 +285,11 @@ public class CatalogServiceImpl implements CatalogService {
     @Transactional
     public CatalogResponse.CategoryResponse updateCategory(Long categoryId, CatalogRequest.UpsertCategoryRequest request) {
         Category category = getRequiredCategory(categoryId);
+        CatalogResponse.CategoryResponse oldValue = toCategoryResponse(category, List.of());
         validateUpsertRequest(request, category);
         applyCategoryChanges(category, request);
         Category savedCategory = categoryRepository.save(category);
+        auditLogService.record("UPDATE_CATEGORY", "Category", savedCategory.getCategoryId(), oldValue, request);
         return toCategoryResponse(savedCategory, List.of());
     }
 
@@ -203,7 +305,9 @@ public class CatalogServiceImpl implements CatalogService {
             throw new IllegalArgumentException("Không thể xóa danh mục đang được dùng cho lớp học.");
         }
 
+        CatalogResponse.CategoryResponse oldValue = toCategoryResponse(category, List.of());
         categoryRepository.delete(category);
+        auditLogService.record("DELETE_CATEGORY", "Category", categoryId, oldValue, null);
     }
 
     private List<CatalogResponse.CategoryResponse> buildTree(
