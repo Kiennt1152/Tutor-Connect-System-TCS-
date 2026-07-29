@@ -5,6 +5,7 @@ import type { ContractStatus } from '../types/contractTypes';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
+  PENDING: { label: 'Đang chờ', cls: 'status-pending' },
   DRAFT: { label: 'Chưa ký', cls: 'status-draft' },
   SIGNED: { label: 'Đã ký', cls: 'status-signed' },
   ACTIVE: { label: 'Đang hoạt động', cls: 'status-active' },
@@ -57,9 +58,8 @@ export default function ContractDetailPage() {
   if (!contract) return null;
 
   const st = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
-  const currentUserSigned = signatures?.signatures.some(s => s.isCurrentUser) ?? false;
-  const allSigned = signatures?.fullySigned ?? false;
-  const signRequired = contract.status === 'DRAFT';
+  const allSigned = signatures?.hasAllSignatures ?? false;
+  const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
 
   return (
     <div className="cdetail-page">
@@ -76,11 +76,8 @@ export default function ContractDetailPage() {
             <dt>Số hợp đồng</dt><dd className="contract-no">{contract.contractNo}</dd>
             <dt>Ngày tạo</dt><dd>{new Date(contract.createdAt).toLocaleDateString('vi-VN')}</dd>
             {contract.signedAt && <><dt>Ngày ký</dt><dd>{new Date(contract.signedAt).toLocaleDateString('vi-VN')}</dd></>}
-            <dt>Lớp học</dt><dd>{contract.classTitle ?? '—'}</dd>
-            <dt>Loại lớp</dt><dd>{contract.classType ?? '—'}</dd>
-            <dt>Hình thức</dt><dd>{contract.lessonMode ?? '—'}</dd>
-            <dt>Số buổi</dt><dd>{contract.numberOfSessions ?? '—'}</dd>
-            <dt>Học phí</dt><dd>{contract.tuitionFee != null ? `${Number(contract.tuitionFee).toLocaleString()} VNĐ` : '—'}</dd>
+            <dt>Học viên</dt><dd>{contract.clientName ?? '—'}</dd>
+            <dt>Gia sư</dt><dd>{contract.tutorName ?? '—'}</dd>
           </dl>
           {contract.termsSummary && (
             <>
@@ -94,25 +91,25 @@ export default function ContractDetailPage() {
         <section className="cdetail-card">
           <h2>Các bên ký</h2>
           <div className="cdetail-parties">
-            {contract.tutor && (
+            {contract.tutorId && (
               <div className="party-card">
                 <div className="party-role">Gia sư</div>
-                <div className="party-name">{contract.tutor.fullName}</div>
-                <div className="party-email">{contract.tutor.email}</div>
+                <div className="party-name">{contract.tutorName}</div>
+                <div className="party-email">{contract.tutorEmail}</div>
               </div>
             )}
-            {contract.center && (
+            {contract.centerId && (
               <div className="party-card">
                 <div className="party-role">Trung tâm</div>
-                <div className="party-name">{contract.center.fullName}</div>
-                <div className="party-email">{contract.center.email}</div>
+                <div className="party-name">{contract.centerName}</div>
+                <div className="party-email">{contract.centerEmail}</div>
               </div>
             )}
-            {contract.client && (
+            {contract.clientId && (
               <div className="party-card">
                 <div className="party-role">Phụ huynh / Học viên</div>
-                <div className="party-name">{contract.client.fullName}</div>
-                <div className="party-email">{contract.client.email}</div>
+                <div className="party-name">{contract.clientName}</div>
+                <div className="party-email">{contract.clientEmail}</div>
               </div>
             )}
           </div>
@@ -124,20 +121,19 @@ export default function ContractDetailPage() {
           {signatures ? (
             <div className="sig-list">
               {signatures.signatures.map(sig => (
-                <div key={sig.signatureId} className={`sig-item ${sig.isCurrentUser ? 'sig-me' : ''}`}>
-                  <div className="sig-check">{sig.isCurrentUser ? '✓' : '—'}</div>
+                <div key={sig.signatureId} className={`sig-item`}>
+                  <div className="sig-check">{'✓'}</div>
                   <div className="sig-info">
                     <div className="sig-name">
-                      {sig.signerName}
-                      {sig.isCurrentUser && <span className="sig-me-badge">Bạn</span>}
+                      {sig.signerName ?? 'Chưa rõ'}
                     </div>
-                    <div className="sig-role">{sig.signerRole}</div>
-                    <div className="sig-time">{new Date(sig.signedAt).toLocaleString('vi-VN')}</div>
+                    <div className="sig-role">{sig.partyLabel}</div>
+                    <div className="sig-time">{sig.signedAt ? new Date(sig.signedAt).toLocaleString('vi-VN') : ''}</div>
                   </div>
                 </div>
               ))}
 
-              {Array.from({ length: signatures.totalRequired - signatures.signatures.length }).map((_, i) => (
+              {Array.from({ length: Math.max(0, signatures.requiredSignatures - signatures.signatures.length) }).map((_, i) => (
                 <div key={`pending-${i}`} className="sig-item sig-pending">
                   <div className="sig-check sig-empty">—</div>
                   <div className="sig-info">
@@ -151,12 +147,12 @@ export default function ContractDetailPage() {
                 <div className="sig-progress-bar">
                   <div
                     className="sig-progress-fill"
-                    style={{ width: `${(signatures.signedCount / signatures.totalRequired) * 100}%` }}
+                    style={{ width: signatures.requiredSignatures > 0 ? `${(signatures.signedCount / signatures.requiredSignatures) * 100}%` : '0%' }}
                   />
                 </div>
                 <div className="sig-progress-text">
-                  {signatures.signedCount} / {signatures.totalRequired} đã ký
-                  {signatures.fullySigned && <span className="sig-done"> — Đủ chữ ký!</span>}
+                  {signatures.signedCount} / {signatures.requiredSignatures} đã ký
+                  {signatures.hasAllSignatures && <span className="sig-done"> — Đủ chữ ký!</span>}
                 </div>
               </div>
             </div>
@@ -164,7 +160,7 @@ export default function ContractDetailPage() {
         </section>
 
         {/* Sign Action */}
-        {signRequired && !currentUserSigned && (
+        {signRequired && (
           <section className="cdetail-card sign-card">
             <h2>Ký hợp đồng</h2>
 
@@ -184,7 +180,7 @@ export default function ContractDetailPage() {
             ) : (
               <div className="sign-step">
                 <p className="otp-sent-msg">
-                  Mã OTP đã được gửi tới <strong>{otpSent?.maskedEmail}</strong>
+                  {otpSent?.message ?? 'Mã OTP đã được gửi tới email của bạn'}
                 </p>
                 <p className="otp-hint">Nhập mã 6 chữ số đã nhận qua email để xác nhận ký.</p>
                 <div className="otp-input-group">
@@ -208,12 +204,6 @@ export default function ContractDetailPage() {
                 <button className="btn-link-resend" onClick={handleSendOtp} disabled={sendingOtp}>
                   Gửi lại mã OTP
                 </button>
-              </div>
-            )}
-
-            {currentUserSigned && (
-              <div className="sign-done-msg">
-                Bạn đã ký hợp đồng này. Đang chờ bên còn lại ký.
               </div>
             )}
           </section>

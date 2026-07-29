@@ -56,7 +56,7 @@ function AdminHeader() {
 export default function AdminHomePage() {
   const { user } = useAuth();
   const { status, data, reload } = usePlatformDashboard();
-  const { items: announcements } = usePublicAnnouncements();
+  const [loading, setLoading] = useState(true);
 
   const displayName = user?.displayName?.trim() || user?.email?.split('@')[0] || 'Admin';
   const copy = getAuthenticatedHeroCopy('PLATFORM_ADMIN');

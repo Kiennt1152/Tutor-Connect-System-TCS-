@@ -2,6 +2,7 @@ import { useContractList } from '../hooks/useContract';
 import type { ContractStatus } from '../types/contractTypes';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
+  PENDING: { label: 'Đang chờ', cls: 'status-pending' },
   DRAFT: { label: 'Chưa ký', cls: 'status-draft' },
   SIGNED: { label: 'Đã ký', cls: 'status-signed' },
   ACTIVE: { label: 'Đang hoạt động', cls: 'status-active' },
@@ -65,9 +66,9 @@ export default function ContractListPage() {
                 return (
                   <tr key={c.contractId}>
                     <td className="contract-no">{c.contractNo}</td>
-                    <td>{c.classTitle ?? '—'}</td>
-                    <td>{c.classType ?? '—'}</td>
-                    <td>{c.tuitionFee != null ? `${Number(c.tuitionFee).toLocaleString()} đ` : '—'}</td>
+                    <td>{c.clientName ?? '—'}</td>
+                    <td>{c.sourceType}</td>
+                    <td>—</td>
                     <td>
                       <span className={`status-badge ${st.cls}`}>{st.label}</span>
                     </td>

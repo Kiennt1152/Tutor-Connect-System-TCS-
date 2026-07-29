@@ -10,6 +10,10 @@ import type {
 const BASE = '/contract';
 
 export const contractApi = {
+  getMyContracts() {
+    return axiosClient.get<ContractApiResponse[]>(`${BASE}/my`);
+  },
+
   getContract(contractId: number) {
     return axiosClient.get<ContractApiResponse>(`${BASE}/${contractId}`);
   },

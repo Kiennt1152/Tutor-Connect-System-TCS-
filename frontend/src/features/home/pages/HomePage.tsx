@@ -381,7 +381,7 @@ function HomePage() {
     reload: reloadClasses,
   } = useOpenClasses();
   const { user, isAuthenticated } = useAuth();
-  const { items: announcements } = usePublicAnnouncements();
+  const navigate = useNavigate();
 
   const isEmpty = useMemo(
     () =>
