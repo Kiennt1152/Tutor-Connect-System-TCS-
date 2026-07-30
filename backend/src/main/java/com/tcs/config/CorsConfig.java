@@ -1,4 +1,4 @@
-﻿package com.tcs.config;
+package com.tcs.config;
 
 import java.util.Arrays;
 import java.util.List;

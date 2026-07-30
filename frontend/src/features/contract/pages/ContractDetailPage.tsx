@@ -5,11 +5,7 @@ import type { ContractStatus } from '../types/contractTypes';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
-<<<<<<< HEAD
-  PENDING: { label: 'Đang chờ', cls: 'status-pending' },
-=======
   PENDING: { label: 'Chờ ký', cls: 'status-draft' },
->>>>>>> origin/main
   DRAFT: { label: 'Chưa ký', cls: 'status-draft' },
   SIGNED: { label: 'Đã ký', cls: 'status-signed' },
   ACTIVE: { label: 'Đang hoạt động', cls: 'status-active' },
@@ -62,14 +58,8 @@ export default function ContractDetailPage() {
   if (!contract) return null;
 
   const st = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
-<<<<<<< HEAD
   const allSigned = signatures?.hasAllSignatures ?? false;
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
-=======
-  const currentUserSigned = signatures?.signatures.some(s => s.isCurrentUser) ?? false;
-  const allSigned = signatures?.fullySigned ?? false;
-  const signRequired = contract.status === 'PENDING' || contract.status === 'DRAFT';
->>>>>>> origin/main
 
   return (
     <div className="cdetail-page">
@@ -137,15 +127,8 @@ export default function ContractDetailPage() {
                     <div className="sig-name">
                       {sig.signerName ?? 'Chưa rõ'}
                     </div>
-<<<<<<< HEAD
                     <div className="sig-role">{sig.partyLabel}</div>
                     <div className="sig-time">{sig.signedAt ? new Date(sig.signedAt).toLocaleString('vi-VN') : ''}</div>
-=======
-                    <div className="sig-role">{sig.signerRole}</div>
-                    <div className="sig-time">
-                      {sig.signedAt ? new Date(sig.signedAt).toLocaleString('vi-VN') : '—'}
-                    </div>
->>>>>>> origin/main
                   </div>
                 </div>
               ))}

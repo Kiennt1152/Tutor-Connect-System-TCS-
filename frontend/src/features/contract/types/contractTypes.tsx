@@ -3,65 +3,7 @@ export type ContractSourceType = 'PRIVATE' | 'CENTER';
 export type ContractSignatureStatus = 'PENDING' | 'SIGNED' | 'EXPIRED';
 export type PartyRole = 'CLIENT' | 'TUTOR' | 'CENTER';
 
-<<<<<<< HEAD
 // ─── API Response Types ──────────────────────────────────────────────────────
-=======
-export interface ContractPartyInfo {
-  userId: number;
-  fullName: string;
-  email: string;
-  phone?: string | null;
-}
-
-export interface ContractResponse {
-  contractId: number;
-  contractNo: string;
-  status: ContractStatus;
-  termsSummary: string | null;
-  contractFileUrl: string | null;
-  signedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  classId: number | null;
-  classTitle: string | null;
-  classType: string | null;
-  tuitionFee: number | string | null;
-  lessonMode: string | null;
-  numberOfSessions: number | null;
-  tutor: ContractPartyInfo | null;
-  client: ContractPartyInfo | null;
-  center: ContractPartyInfo | null;
-}
-
-export interface SignatureInfo {
-  signatureId: number;
-  signerUserId: number | null;
-  signerName: string | null;
-  signerRole: string;
-  signedAt: string | null;
-  isCurrentUser: boolean;
-}
-
-export interface SignatureStatusResponse {
-  contractId: number;
-  contractNo: string;
-  fullySigned: boolean;
-  signedCount: number;
-  totalRequired: number;
-  signatures: SignatureInfo[];
-}
-
-export interface OtpSentResponse {
-  maskedEmail?: string;
-  message: string;
-  expiresInMinutes?: number;
-  maxAttempts?: number;
-}
-
-export interface SignContractRequest {
-  otpCode: string;
-}
->>>>>>> origin/main
 
 export interface ContractApiResponse {
   contractId: number;
