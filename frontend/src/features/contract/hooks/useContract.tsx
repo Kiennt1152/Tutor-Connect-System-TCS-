@@ -18,7 +18,7 @@ export function useContract(contractId: number) {
     setStatus('loading');
     setErrorMessage(null);
     try {
-      const response = await contractApi.getContract(contractId);
+      const response = await contractApi.getContractRaw(contractId);
       setData(mapContract(response.data));
       setStatus('success');
     } catch (error) {

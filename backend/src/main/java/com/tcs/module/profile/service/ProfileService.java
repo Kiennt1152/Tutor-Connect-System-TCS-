@@ -41,5 +41,5 @@ public interface ProfileService {
 
     VerificationResponse submitVerification(VerificationRequestDto request);
 
-    String uploadAvatar(org.springframework.web.multipart.MultipartFile file);
+    String uploadAvatar(MultipartFile file);
 }

@@ -12,6 +12,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ContractSignatureRepository extends JpaRepository<ContractSignature, Long> {
 
+    List<ContractSignature> findByContract_ContractId(Long contractId);
+
+    boolean existsByContract_ContractIdAndSigner_UserId(Long contractId, Long signerUserId);
+
     @Query("SELECT cs FROM ContractSignature cs WHERE cs.contract.contractId = :contractId")
     List<ContractSignature> findByContractId(@Param("contractId") Long contractId);
 

@@ -4,7 +4,9 @@ import com.tcs.module.contract.dto.request.CreateReviewRequest;
 import com.tcs.module.contract.dto.request.SignWithOtpRequest;
 import com.tcs.module.contract.dto.response.ContractResponse;
 import com.tcs.module.contract.dto.response.ContractSignatureListResponse;
+import com.tcs.module.contract.dto.response.OtpSentResponse;
 import com.tcs.module.contract.dto.response.ReviewResponse;
+import com.tcs.module.contract.dto.response.SignatureStatusResponse;
 import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.contract.service.ReviewService;
 import java.util.List;
@@ -57,6 +59,11 @@ public class ContractController {
         return contractService.getSignatures(id);
     }
 
+    @GetMapping("/{id}/signature-status")
+    public SignatureStatusResponse getSignatureStatus(@PathVariable Long id) {
+        return contractService.getSignatureStatus(id);
+    }
+
     @PostMapping("/{id}/send-otp")
     public Map<String, Object> sendOtp(@PathVariable Long id) {
         return contractService.sendOtp(id);
@@ -75,5 +82,17 @@ public class ContractController {
             throw new IllegalArgumentException("assignmentId là bắt buộc");
         }
         return contractService.generateContract(assignmentId);
+    }
+
+    @PostMapping("/generate/assignment/{assignmentId}")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ContractResponse generateForAssignment(@PathVariable Long assignmentId) {
+        return contractService.generateContract(assignmentId);
+    }
+
+    @PostMapping("/generate/enrollment/{classStudentId}")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ContractResponse generateForEnrollment(@PathVariable Long classStudentId) {
+        return contractService.generateForEnrollment(classStudentId);
     }
 }

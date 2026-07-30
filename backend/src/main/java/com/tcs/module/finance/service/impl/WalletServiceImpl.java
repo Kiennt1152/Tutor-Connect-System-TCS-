@@ -98,6 +98,67 @@ public class WalletServiceImpl implements WalletService {
 
     @Override
     @Transactional
+    public Wallet lockFunds(Long userId, BigDecimal amount, String ref) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("Số tiền khóa escrow phải lớn hơn 0");
+        }
+        Wallet wallet = walletRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new BusinessException(WALLET_NOT_FOUND));
+
+        validateWalletActive(wallet);
+        validateSufficientBalance(wallet, amount);
+
+        BigDecimal balanceBefore = wallet.getAvailableBalance();
+        BigDecimal frozenBefore = wallet.getFrozenBalance() != null ? wallet.getFrozenBalance() : BigDecimal.ZERO;
+        wallet.setAvailableBalance(balanceBefore.subtract(amount));
+        wallet.setFrozenBalance(frozenBefore.add(amount));
+        Wallet savedWallet = walletRepository.save(wallet);
+
+        writeJournal(savedWallet, ref, amount, balanceBefore, JournalEntryType.DEBIT);
+        return savedWallet;
+    }
+
+    @Override
+    @Transactional
+    public Wallet releaseLockedFunds(Long userId, BigDecimal amount, String ref) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("Số tiền giải ngân escrow phải lớn hơn 0");
+        }
+        Wallet wallet = walletRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new BusinessException(WALLET_NOT_FOUND));
+
+        validateWalletActive(wallet);
+        validateSufficientFrozenBalance(wallet, amount);
+
+        BigDecimal frozenBefore = frozenBalance(wallet);
+        wallet.setFrozenBalance(frozenBefore.subtract(amount));
+        return walletRepository.save(wallet);
+    }
+
+    @Override
+    @Transactional
+    public Wallet refundLockedFunds(Long userId, BigDecimal amount, String ref) {
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("Số tiền hoàn escrow phải lớn hơn 0");
+        }
+        Wallet wallet = walletRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new BusinessException(WALLET_NOT_FOUND));
+
+        validateWalletActive(wallet);
+        validateSufficientFrozenBalance(wallet, amount);
+
+        BigDecimal balanceBefore = wallet.getAvailableBalance();
+        BigDecimal frozenBefore = frozenBalance(wallet);
+        wallet.setFrozenBalance(frozenBefore.subtract(amount));
+        wallet.setAvailableBalance(balanceBefore.add(amount));
+        Wallet savedWallet = walletRepository.save(wallet);
+
+        writeJournal(savedWallet, ref, amount, balanceBefore, JournalEntryType.CREDIT);
+        return savedWallet;
+    }
+
+    @Override
+    @Transactional
     public TopupSession createTopup(Long userId, BigDecimal amount) {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("Số tiền nạp phải lớn hơn 0");
@@ -180,5 +241,15 @@ public class WalletServiceImpl implements WalletService {
         if (wallet.getAvailableBalance().compareTo(amount) < 0) {
             throw new BusinessException(INSUFFICIENT_BALANCE);
         }
+    }
+
+    private void validateSufficientFrozenBalance(Wallet wallet, BigDecimal amount) {
+        if (frozenBalance(wallet).compareTo(amount) < 0) {
+            throw new BusinessException("Số dư bị khóa không đủ");
+        }
+    }
+
+    private BigDecimal frozenBalance(Wallet wallet) {
+        return wallet.getFrozenBalance() != null ? wallet.getFrozenBalance() : BigDecimal.ZERO;
     }
 }

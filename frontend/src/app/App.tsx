@@ -24,7 +24,8 @@ import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
 import MarketplaceClassDetailPage from '../features/marketplace/pages/MarketplaceClassDetailPage';
-import ContractPage from '../features/contract/pages/ContractPage';
+import ContractListPage from '../features/contract/pages/ContractListPage';
+import ContractDetailPage from '../features/contract/pages/ContractDetailPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
 import HelpPage from '../features/help/pages/HelpPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
@@ -93,7 +94,15 @@ export default function App() {
             path={APP_ROUTES.contract}
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
-                <ContractPage />
+                <ContractListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={`${APP_ROUTES.contract}/:contractId`}
+            element={
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+                <ContractDetailPage />
               </ProtectedRoute>
             }
           />

@@ -6,6 +6,8 @@ import com.tcs.module.contract.dto.request.SignWithOtpRequest;
 import com.tcs.module.contract.dto.response.ContractResponse;
 import com.tcs.module.contract.dto.response.ContractSignatureListResponse;
 import com.tcs.module.contract.dto.response.ContractSignatureResponse;
+import com.tcs.module.contract.dto.response.OtpSentResponse;
+import com.tcs.module.contract.dto.response.SignatureStatusResponse;
 import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.entity.ContractSignature;
 import com.tcs.module.contract.entity.ContractTemplate;
@@ -469,5 +471,72 @@ public class ContractServiceImpl implements ContractService {
         }
 
         return builder.build();
+    }
+
+    // ─── ADDITIONAL METHODS FROM MAIN ────────────────────────────────────────
+
+    @Override
+    public Contract generateForAssignment(Long assignmentId) {
+        // Delegate to generateContract and return entity
+        generateContract(assignmentId);
+        return contractRepository.findByAssignment_AssignmentId(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contract not found for assignment " + assignmentId));
+    }
+
+    @Override
+    public Contract generateForEnrollment(Long classStudentId) {
+        throw new UnsupportedOperationException("generateForEnrollment not yet implemented");
+    }
+
+    @Override
+    public ContractResponse getMyContract(Long contractId) {
+        return getContract(contractId);
+    }
+
+    @Override
+    public SignatureStatusResponse getSignatureStatus(Long contractId) {
+        Contract contract = contractRepository.findById(contractId)
+                .orElseThrow(() -> new ResourceNotFoundException("Contract not found"));
+        
+        List<ContractSignature> signatures = contractSignatureRepository.findByContractId(contractId);
+        int signed = (int) signatures.stream().filter(s -> s.getSignatureStatus() == ContractSignatureStatus.SIGNED).count();
+        int required = signatures.size();
+        
+        return SignatureStatusResponse.builder()
+                .contractId(contractId)
+                .signedCount(signed)
+                .requiredSignatures(required)
+                .hasAllSignatures(signed >= required)
+                .build();
+    }
+
+    @Override
+    public OtpSentResponse sendSignOtp(Long contractId) {
+        Map<String, Object> result = sendOtp(contractId);
+        return OtpSentResponse.builder()
+                .message((String) result.get("message"))
+                .expiresAt((LocalDateTime) result.get("expiresAt"))
+                .build();
+    }
+
+    @Override
+    public ContractResponse signContract(Long contractId, com.tcs.module.contract.dto.request.SignContractRequest request) {
+        // Map to SignWithOtpRequest
+        SignWithOtpRequest otpRequest = new SignWithOtpRequest();
+        otpRequest.setOtpCode(request.getOtpCode());
+        return signWithOtp(contractId, otpRequest);
+    }
+
+    @Override
+    public void sign(Long contractId, String otp, Long signerUserId) {
+        SignWithOtpRequest request = new SignWithOtpRequest();
+        request.setOtpCode(otp);
+        signWithOtp(contractId, request);
+    }
+
+    @Override
+    public boolean isFullySigned(Long contractId) {
+        SignatureStatusResponse status = getSignatureStatus(contractId);
+        return status.isHasAllSignatures();
     }
 }
