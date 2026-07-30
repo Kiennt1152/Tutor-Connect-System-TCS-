@@ -24,6 +24,7 @@ const initialsOf = (name: string) =>
 export default function ProfilePage() {
   const { user } = useAuth();
   const isClient = user?.role === 'CLIENT';
+  const isTutor = user?.role === 'TUTOR';
   const displayName = user?.displayName?.trim() || user?.email || 'Người dùng';
 
   return (
@@ -52,6 +53,30 @@ export default function ProfilePage() {
               </p>
               <Link className="tcs-btn tcs-btn--market profile-cta" to={APP_ROUTES.marketplace}>
                 📋 Xem yêu cầu của tôi
+              </Link>
+            </div>
+          )}
+
+          {isClient && (
+            <div className="profile-section">
+              <h2 className="profile-section__title">Nhận xét gia sư</h2>
+              <p className="profile-section__desc">
+                Gửi đánh giá và phản hồi cho gia sư của các lớp học đã hoàn thành.
+              </p>
+              <Link className="tcs-btn tcs-btn--market profile-cta" to={APP_ROUTES.feedback}>
+                ⭐ Nhận xét gia sư
+              </Link>
+            </div>
+          )}
+
+          {isTutor && (
+            <div className="profile-section">
+              <h2 className="profile-section__title">Nhận xét về tôi</h2>
+              <p className="profile-section__desc">
+                Xem tổng hợp đánh giá và phản hồi mà khách hàng đã gửi cho bạn.
+              </p>
+              <Link className="tcs-btn tcs-btn--market profile-cta" to={APP_ROUTES.myReputation}>
+                ⭐ Xem nhận xét về tôi
               </Link>
             </div>
           )}

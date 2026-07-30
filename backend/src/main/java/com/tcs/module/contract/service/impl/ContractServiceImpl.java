@@ -1,12 +1,15 @@
 package com.tcs.module.contract.service.impl;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
+import com.tcs.module.contract.dto.request.ReplyReviewRequest;
 import com.tcs.module.contract.dto.request.ReviewCriterionDto;
 import com.tcs.module.contract.dto.response.ReviewResponse;
 import com.tcs.module.contract.dto.response.ReviewableAssignmentResponse;
+import com.tcs.module.contract.dto.response.TutorReputationResponse;
 import com.tcs.module.contract.entity.ReputationHistory;
 import com.tcs.module.contract.entity.Review;
 import com.tcs.module.contract.enums.ReviewStatus;
@@ -17,15 +20,20 @@ import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.entity.TutoringClass;
-import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
+import com.tcs.module.marketplace.repository.LessonRepository;
+import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
+import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -44,20 +52,25 @@ public class ContractServiceImpl implements ContractService {
     private final ClassAssignmentRepository classAssignmentRepository;
     private final UserRepository userRepository;
     private final TutorRepository tutorRepository;
+    private final ClientRepository clientRepository;
     private final ReputationHistoryRepository reputationHistoryRepository;
+    private final LessonRepository lessonRepository;
+
+    private static final String DEFAULT_ANONYMOUS_NAME = "Người dùng ẩn danh";
+
+    private static final int REVIEW_REQUIRED_WITHIN_MONTHS = 1;
 
     @Override
     @Transactional
     public ReviewResponse createReview(CreateReviewRequest request) {
-        // UC-65: chi khach hang (CLIENT) moi duoc gui danh gia gia su.
         Long reviewerId = authHelper.requireRole(UserRole.CLIENT).getUserId();
 
         if (request.getAssignmentId() == null) {
             throw new IllegalArgumentException("assignmentId là bắt buộc");
         }
-        // rating tong: uu tien tinh tu cac tieu chi, neu khong co thi dung rating gui len.
-        int overallRating = resolveOverallRating(request);
-        if (overallRating < 1 || overallRating > 5) {
+        BigDecimal overallRating = resolveOverallRating(request);
+        if (overallRating.compareTo(BigDecimal.ONE) < 0
+                || overallRating.compareTo(BigDecimal.valueOf(5)) > 0) {
             throw new IllegalArgumentException("Số sao phải từ 1 đến 5");
         }
 
@@ -67,25 +80,20 @@ public class ContractServiceImpl implements ContractService {
 
         TutoringClass tutoringClass = resolveClass(assignment);
 
-        // Chi duoc danh gia lop do chinh minh tao.
         if (!tutoringClass.getCreator().getUserId().equals(reviewerId)) {
             throw new BusinessException("Bạn chỉ có thể đánh giá lớp do chính mình tạo");
         }
-        // Chi duoc danh gia sau khi lop hoan thanh.
-        if (tutoringClass.getStatus() != TutoringClassStatus.COMPLETED) {
-            throw new BusinessException("Chỉ có thể đánh giá sau khi lớp học đã hoàn thành");
+
+        int eligible = occurredLessonCount(tutoringClass.getClassId());
+        long submitted = reviewRepository.countByAssignment_AssignmentIdAndReviewer_UserIdAndReviewType(
+                assignment.getAssignmentId(), reviewerId, ReviewType.CLIENT_TO_TUTOR);
+        if (submitted >= eligible) {
+            throw new BusinessException(
+                    "Chưa có buổi học mới để đánh giá. Sau mỗi buổi học bạn đánh giá thêm được một lần.");
         }
 
         Tutor tutor = assignment.getTutor();
         User tutorUser = tutor.getUser();
-
-        // Khong cho danh gia trung (mot khach - mot phan cong - mot lan).
-        reviewRepository
-                .findByAssignment_AssignmentIdAndReviewer_UserIdAndReviewType(
-                        assignment.getAssignmentId(), reviewerId, ReviewType.CLIENT_TO_TUTOR)
-                .ifPresent(existing -> {
-                    throw new BusinessException("Bạn đã đánh giá gia sư cho lớp này rồi");
-                });
 
         User reviewer = userRepository
                 .findById(reviewerId)
@@ -100,9 +108,11 @@ public class ContractServiceImpl implements ContractService {
         review.setRating(overallRating);
         review.setComment(trimToNull(request.getComment()));
         review.setCriteriaJson(serializeCriteria(request.getCriteria()));
+        boolean anonymous = Boolean.TRUE.equals(request.getAnonymous());
+        review.setAnonymous(anonymous);
+        review.setDisplayName(anonymous ? trimToNull(request.getDisplayName()) : null);
         Review saved = reviewRepository.save(review);
 
-        // Cap nhat diem uy tin (rating trung binh) cua gia su + ghi lich su.
         recomputeTutorReputation(tutor, tutorUser.getUserId());
 
         return toResponse(saved);
@@ -117,26 +127,192 @@ public class ContractServiceImpl implements ContractService {
     }
 
     @Override
+    @Transactional
+    public ReviewResponse replyToReview(Long reviewId, ReplyReviewRequest request) {
+        Long tutorUserId = authHelper.requireRole(UserRole.TUTOR).getUserId();
+
+        Review review = reviewRepository
+                .findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đánh giá"));
+
+        if (review.getReviewType() != ReviewType.CLIENT_TO_TUTOR
+                || !review.getReviewee().getUserId().equals(tutorUserId)) {
+            throw new BusinessException("Bạn chỉ có thể phản hồi đánh giá dành cho chính mình");
+        }
+
+        String reply = trimToNull(request.getReply());
+        if (reply == null) {
+            throw new IllegalArgumentException("Nội dung phản hồi không được để trống");
+        }
+
+        review.setTutorReply(reply);
+        review.setTutorReplyAt(java.time.LocalDateTime.now());
+        Review saved = reviewRepository.save(review);
+
+        return toResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public ReviewResponse updateReview(Long reviewId, CreateReviewRequest request) {
+        Long reviewerId = authHelper.requireRole(UserRole.CLIENT).getUserId();
+
+        Review review = reviewRepository
+                .findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đánh giá"));
+
+        if (review.getReviewType() != ReviewType.CLIENT_TO_TUTOR
+                || !review.getReviewer().getUserId().equals(reviewerId)) {
+            throw new BusinessException("Bạn chỉ có thể chỉnh sửa đánh giá do chính mình gửi");
+        }
+
+        BigDecimal overallRating = resolveOverallRating(request);
+        if (overallRating.compareTo(BigDecimal.ONE) < 0
+                || overallRating.compareTo(BigDecimal.valueOf(5)) > 0) {
+            throw new IllegalArgumentException("Số sao phải từ 1 đến 5");
+        }
+
+        review.setRating(overallRating);
+        review.setComment(trimToNull(request.getComment()));
+        review.setCriteriaJson(serializeCriteria(request.getCriteria()));
+        boolean anonymous = Boolean.TRUE.equals(request.getAnonymous());
+        review.setAnonymous(anonymous);
+        review.setDisplayName(anonymous ? trimToNull(request.getDisplayName()) : null);
+        Review saved = reviewRepository.save(review);
+
+        Tutor tutor = review.getAssignment().getTutor();
+        recomputeTutorReputation(tutor, review.getReviewee().getUserId());
+
+        return toResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TutorReputationResponse getTutorReputation(Long tutorId) {
+        Tutor tutor = tutorRepository
+                .findById(tutorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
+        return buildReputation(tutor);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public TutorReputationResponse getMyTutorReputation() {
+        Long userId = authHelper.requireRole(UserRole.TUTOR).getUserId();
+        Tutor tutor = tutorRepository
+                .findByUser_UserId(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ gia sư"));
+        return buildReputation(tutor);
+    }
+
+    private TutorReputationResponse buildReputation(Tutor tutor) {
+        Long tutorUserId = tutor.getUser().getUserId();
+
+        List<Review> visible = reviewRepository.findByReviewee_UserIdAndReviewTypeAndStatus(
+                tutorUserId, ReviewType.CLIENT_TO_TUTOR, ReviewStatus.VISIBLE);
+
+        Map<Integer, Integer> distribution = new LinkedHashMap<>();
+        for (int star = 5; star >= 1; star--) {
+            distribution.put(star, 0);
+        }
+        for (Review r : visible) {
+            int star = r.getRating().setScale(0, RoundingMode.HALF_UP).intValue();
+            star = Math.min(5, Math.max(1, star));
+            distribution.merge(star, 1, Integer::sum);
+        }
+
+        List<ReviewResponse> reviews = visible.stream()
+                .sorted((a, b) -> b.getCreatedAt().compareTo(a.getCreatedAt()))
+                .map(this::toResponse)
+                .toList();
+
+        return TutorReputationResponse.builder()
+                .tutorId(tutor.getTutorId())
+                .tutorUserId(tutorUserId)
+                .fullName(tutor.getFullName())
+                .avatar(tutor.getAvatar())
+                .bio(tutor.getBio())
+                .experienceYears(tutor.getExperienceYears())
+                .hourlyRate(tutor.getHourlyRate())
+                .verificationStatus(
+                        tutor.getVerificationStatus() != null
+                                ? tutor.getVerificationStatus().name()
+                                : null)
+                .ratingAvg(tutor.getRatingAvg() != null ? tutor.getRatingAvg() : BigDecimal.ZERO)
+                .totalReviews(visible.size())
+                .ratingDistribution(distribution)
+                .criteriaAverages(criteriaAverages(visible))
+                .reviews(reviews)
+                .build();
+    }
+
+    private List<TutorReputationResponse.CriterionAverage> criteriaAverages(List<Review> reviews) {
+        Map<String, int[]> sumCount = new LinkedHashMap<>();
+        Map<String, String> questions = new LinkedHashMap<>();
+        for (Review r : reviews) {
+            if (r.getCriteriaJson() == null || r.getCriteriaJson().isBlank()) {
+                continue;
+            }
+            List<ReviewCriterionDto> criteria;
+            try {
+                criteria = OBJECT_MAPPER.readValue(
+                        r.getCriteriaJson(), new TypeReference<List<ReviewCriterionDto>>() {});
+            } catch (Exception e) {
+                continue;
+            }
+            for (ReviewCriterionDto c : criteria) {
+                if (c.getCode() == null || c.getScore() == null) {
+                    continue;
+                }
+                int[] acc = sumCount.computeIfAbsent(c.getCode(), k -> new int[2]);
+                acc[0] += c.getScore();
+                acc[1] += 1;
+                questions.putIfAbsent(c.getCode(), c.getQuestion());
+            }
+        }
+        return sumCount.entrySet().stream()
+                .map(e -> TutorReputationResponse.CriterionAverage.builder()
+                        .code(e.getKey())
+                        .question(questions.get(e.getKey()))
+                        .average(BigDecimal.valueOf((double) e.getValue()[0] / e.getValue()[1])
+                                .setScale(1, RoundingMode.HALF_UP))
+                        .count(e.getValue()[1])
+                        .build())
+                .toList();
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public List<ReviewableAssignmentResponse> getMyReviewableAssignments() {
         Long clientId = authHelper.requireRole(UserRole.CLIENT).getUserId();
 
-        Map<Long, Review> reviewByAssignment =
+        Map<Long, List<Review>> reviewsByAssignment =
                 reviewRepository.findByReviewer_UserId(clientId).stream()
                         .filter(r -> r.getReviewType() == ReviewType.CLIENT_TO_TUTOR)
-                        .collect(Collectors.toMap(
-                                r -> r.getAssignment().getAssignmentId(), r -> r, (a, b) -> a));
+                        .collect(Collectors.groupingBy(r -> r.getAssignment().getAssignmentId()));
 
         return classAssignmentRepository
                 .findByApplication_TutoringClass_Creator_UserId(clientId).stream()
                 .filter(a -> a.getApplication() != null
                         && a.getApplication().getTutoringClass() != null)
-                .filter(a -> a.getApplication().getTutoringClass().getStatus()
-                        == TutoringClassStatus.COMPLETED)
                 .map(a -> {
                     TutoringClass c = a.getApplication().getTutoringClass();
+                    List<Review> reviews = reviewsByAssignment.getOrDefault(a.getAssignmentId(), List.of());
+                    int submitted = reviews.size();
+
+                    List<LocalDate> occurred = occurredLessonDates(c.getClassId());
+                    boolean reviewable = submitted < occurred.size();
+
+                    if (!reviewable && submitted == 0) {
+                        return null;
+                    }
+
+                    boolean reviewOverdue = reviewable && isReviewOverdue(reviews, occurred);
+
                     Tutor tutor = a.getTutor();
-                    Review r = reviewByAssignment.get(a.getAssignmentId());
+                    Review latest = reviews.stream()
+                            .max((x, y) -> x.getCreatedAt().compareTo(y.getCreatedAt()))
+                            .orElse(null);
                     return ReviewableAssignmentResponse.builder()
                             .assignmentId(a.getAssignmentId())
                             .classId(c.getClassId())
@@ -145,19 +321,51 @@ public class ContractServiceImpl implements ContractService {
                             .classStatus(c.getStatus().name())
                             .tutorUserId(tutor.getUser().getUserId())
                             .tutorName(tutor.getFullName())
-                            .reviewed(r != null)
-                            .reviewId(r != null ? r.getReviewId() : null)
-                            .rating(r != null ? r.getRating() : null)
-                            .comment(r != null ? r.getComment() : null)
-                            .criteriaJson(r != null ? r.getCriteriaJson() : null)
-                            .reviewedAt(r != null ? r.getCreatedAt() : null)
+                            .reviewed(submitted > 0)
+                            .reviewsSubmitted(submitted)
+                            .reviewable(reviewable)
+                            .reviewOverdue(reviewOverdue)
+                            .reviewId(latest != null ? latest.getReviewId() : null)
+                            .rating(latest != null ? latest.getRating() : null)
+                            .comment(latest != null ? latest.getComment() : null)
+                            .criteriaJson(latest != null ? latest.getCriteriaJson() : null)
+                            .anonymous(latest != null && latest.isAnonymous())
+                            .reviewerDisplayName(latest != null ? resolveReviewerDisplayName(latest) : null)
+                            .reviewedAt(latest != null ? latest.getCreatedAt() : null)
+                            .tutorReply(latest != null ? latest.getTutorReply() : null)
+                            .tutorReplyAt(latest != null ? latest.getTutorReplyAt() : null)
                             .build();
                 })
+                .filter(java.util.Objects::nonNull)
                 .toList();
     }
 
-    /** rating tong = trung binh lam tron cua cac tieu chi (neu co), nguoc lai lay tu request.rating. */
-    private int resolveOverallRating(CreateReviewRequest request) {
+    private List<LocalDate> occurredLessonDates(Long classId) {
+        LocalDate today = LocalDate.now();
+        return lessonRepository
+                .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(classId).stream()
+                .map(Lesson::getLessonDate)
+                .filter(d -> !d.isAfter(today))
+                .sorted()
+                .toList();
+    }
+
+    private int occurredLessonCount(Long classId) {
+        return occurredLessonDates(classId).size();
+    }
+
+    private boolean isReviewOverdue(List<Review> reviews, List<LocalDate> occurred) {
+        LocalDate ref = reviews.isEmpty()
+                ? (occurred.isEmpty() ? null : occurred.get(0))
+                : reviews.stream()
+                        .map(r -> r.getCreatedAt().toLocalDate())
+                        .max((x, y) -> x.compareTo(y))
+                        .orElse(null);
+        return ref != null
+                && !LocalDate.now().isBefore(ref.plusMonths(REVIEW_REQUIRED_WITHIN_MONTHS));
+    }
+
+    private BigDecimal resolveOverallRating(CreateReviewRequest request) {
         List<ReviewCriterionDto> criteria = request.getCriteria();
         if (criteria != null && !criteria.isEmpty()) {
             for (ReviewCriterionDto c : criteria) {
@@ -166,12 +374,12 @@ public class ContractServiceImpl implements ContractService {
                 }
             }
             double average = criteria.stream().mapToInt(ReviewCriterionDto::getScore).average().orElse(0d);
-            return (int) Math.round(average);
+            return BigDecimal.valueOf(average).setScale(1, RoundingMode.HALF_UP);
         }
         if (request.getRating() == null) {
             throw new IllegalArgumentException("Vui lòng chấm điểm đánh giá");
         }
-        return request.getRating();
+        return BigDecimal.valueOf(request.getRating()).setScale(1, RoundingMode.HALF_UP);
     }
 
     private String serializeCriteria(List<ReviewCriterionDto> criteria) {
@@ -192,14 +400,23 @@ public class ContractServiceImpl implements ContractService {
         return assignment.getApplication().getTutoringClass();
     }
 
-    /** Tinh lai rating trung binh cua gia su tu cac danh gia hien (VISIBLE) va ghi lich su thay doi. */
+    @Override
+    @Transactional
+    public void recomputeReputationByTutorUser(Long tutorUserId) {
+        tutorRepository
+                .findByUser_UserId(tutorUserId)
+                .ifPresent(tutor -> recomputeTutorReputation(tutor, tutorUserId));
+    }
+
     private void recomputeTutorReputation(Tutor tutor, Long tutorUserId) {
         List<Review> visible = reviewRepository.findByReviewee_UserIdAndReviewTypeAndStatus(
                 tutorUserId, ReviewType.CLIENT_TO_TUTOR, ReviewStatus.VISIBLE);
-        if (visible.isEmpty()) {
-            return;
-        }
-        double average = visible.stream().mapToInt(Review::getRating).average().orElse(0d);
+        double average = visible.isEmpty()
+                ? 0d
+                : visible.stream()
+                        .mapToDouble(r -> r.getRating().doubleValue())
+                        .average()
+                        .orElse(0d);
         BigDecimal newScore = BigDecimal.valueOf(average).setScale(2, RoundingMode.HALF_UP);
         BigDecimal oldScore = tutor.getRatingAvg() == null ? BigDecimal.ZERO : tutor.getRatingAvg();
         if (oldScore.compareTo(newScore) == 0) {
@@ -226,6 +443,7 @@ public class ContractServiceImpl implements ContractService {
     }
 
     private ReviewResponse toResponse(Review review) {
+        TutoringClass reviewClass = review.getTutoringClass();
         return ReviewResponse.builder()
                 .reviewId(review.getReviewId())
                 .assignmentId(review.getAssignment().getAssignmentId())
@@ -234,7 +452,28 @@ public class ContractServiceImpl implements ContractService {
                 .reviewType(review.getReviewType())
                 .rating(review.getRating())
                 .comment(review.getComment())
+                .tutorReply(review.getTutorReply())
+                .tutorReplyAt(review.getTutorReplyAt())
+                .criteriaJson(review.getCriteriaJson())
+                .classTitle(reviewClass != null ? reviewClass.getTitle() : null)
+                .subjectName(
+                        reviewClass != null && reviewClass.getSubject() != null
+                                ? reviewClass.getSubject().getSubjectName()
+                                : null)
+                .anonymous(review.isAnonymous())
+                .reviewerDisplayName(resolveReviewerDisplayName(review))
                 .createdAt(review.getCreatedAt())
                 .build();
+    }
+
+    private String resolveReviewerDisplayName(Review review) {
+        if (review.isAnonymous()) {
+            String custom = trimToNull(review.getDisplayName());
+            return custom != null ? custom : DEFAULT_ANONYMOUS_NAME;
+        }
+        return clientRepository
+                .findByUser_UserId(review.getReviewer().getUserId())
+                .map(Client::getFullName)
+                .orElse(DEFAULT_ANONYMOUS_NAME);
     }
 }

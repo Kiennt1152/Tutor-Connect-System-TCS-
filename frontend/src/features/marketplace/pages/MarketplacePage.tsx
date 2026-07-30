@@ -34,7 +34,6 @@ export default function MarketplacePage() {
     classes,
     subjects,
     grades,
-    provinces,
     reload,
     createClass,
     updateClass,
@@ -127,7 +126,6 @@ export default function MarketplacePage() {
                   initial={initialForm}
                   subjects={subjects}
                   grades={grades}
-                  provinces={provinces}
                   isEdit={mode.kind === 'edit'}
                   submitting={submitting}
                   error={error}
@@ -159,7 +157,6 @@ interface ClassDetailScreenProps {
   readonly onBack: () => void;
 }
 
-/** Màn chi tiết lớp (không popup): trái = danh sách gia sư ứng tuyển, phải = thông tin lớp. */
 function ClassDetailScreen({ target, subjects, grades, onChosen, onBack }: ClassDetailScreenProps) {
   return (
     <section className="mkt-detail">
@@ -173,7 +170,6 @@ function ClassDetailScreen({ target, subjects, grades, onChosen, onBack }: Class
       </div>
 
       <div className="mkt-detail__cols">
-        {/* Trái: thông tin lớp (chỉ đọc) */}
         <aside className="mkt-detail__col mkt-detail__col--info">
           <div className="mkt-card">
             <div className="mkt-card__head">
@@ -183,7 +179,6 @@ function ClassDetailScreen({ target, subjects, grades, onChosen, onBack }: Class
           </div>
         </aside>
 
-        {/* Phải: danh sách gia sư ứng tuyển */}
         <div className="mkt-detail__col">
           <div className="mkt-card">
             <div className="mkt-card__head">
@@ -201,13 +196,11 @@ function ClassDetailScreen({ target, subjects, grades, onChosen, onBack }: Class
         </div>
       </div>
 
-      {/* Gia sư đã nhận lớp → lịch học đã có, cho chủ lớp theo dõi ngay tại đây. */}
       {target.status === 'IN_PROGRESS' && <ClassTimetableCard classId={target.classId} />}
     </section>
   );
 }
 
-/** Thời khóa biểu của riêng lớp này (chỉ xem — điểm danh là việc của gia sư). */
 function ClassTimetableCard({ classId }: { readonly classId: number }) {
   const { status, lessons } = useClassLessons(classId);
 

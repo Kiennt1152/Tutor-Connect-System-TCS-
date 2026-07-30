@@ -30,7 +30,7 @@ export default function FindTutorPage() {
   const { status, data, reload } = useHome();
   const { user, isAuthenticated } = useAuth();
   const isClient = user?.role === 'CLIENT';
-  const { subjects, grades, provinces, createRequest } = useTutorRequestForm();
+  const { subjects, grades, createRequest } = useTutorRequestForm();
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,7 +119,6 @@ export default function FindTutorPage() {
                   initial={emptyForm()}
                   subjects={subjects}
                   grades={grades}
-                  provinces={provinces}
                   isEdit={false}
                   submitting={submitting}
                   error={error}

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ClipboardEvent, type FormEvent } from 'react';
+import { useMemo, useState, type ClipboardEvent, type FormEvent } from 'react';
 import {
   BILLING_CYCLE_OPTIONS,
   DAY_OF_WEEK_OPTIONS,
@@ -32,14 +32,13 @@ import {
   totalHoursPerRepeat,
   weeksForCycle,
 } from '../mappers/marketplaceMapper';
-import { marketplaceApi } from '../api/marketplaceApi';
+import { LocationPicker, type LocationValue } from '../../center/components/LocationPicker';
 import '../pages/MarketplacePage.css';
 
 interface ClassRequestFormProps {
   readonly initial: ClassFormValues;
   readonly subjects: CatalogOption[];
   readonly grades: CatalogOption[];
-  readonly provinces: CatalogOption[];
   readonly isEdit: boolean;
   readonly submitting: boolean;
   readonly error: string | null;
@@ -49,7 +48,6 @@ interface ClassRequestFormProps {
 
 const currency = new Intl.NumberFormat('vi-VN');
 
-/** Sinh các mốc giờ 24h (bước 30 phút) trong khoảng [min, max]. */
 function buildTimeSlots(min: string, max: string, stepMinutes = 30): string[] {
   const toMinutes = (t: string) => {
     const [h, m] = t.split(':').map(Number);
@@ -59,18 +57,22 @@ function buildTimeSlots(min: string, max: string, stepMinutes = 30): string[] {
   for (let x = toMinutes(min); x <= toMinutes(max); x += stepMinutes) {
     out.push(`${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`);
   }
+  if (out.length > 0 && out[out.length - 1] !== max) out.push(max);
   return out;
+}
+
+const MIDNIGHT_END = '23:59';
+function fmtTime(t: string): string {
+  return t === MIDNIGHT_END ? '00:00' : t;
 }
 
 function emptySlot(subjectId: string): ScheduleSlot {
   return { subjectId, day: '', date: '', session: '', start: '', end: '' };
 }
 
-// Giờ mặc định khi bật một thứ mới cho môn chưa có khung giờ chung.
 const WEEKLY_DEFAULT_START = '18:00';
 const WEEKLY_DEFAULT_END = '20:00';
 
-/** Suy ra buổi (Sáng/Chiều/Tối) từ giờ bắt đầu để giữ tương thích dữ liệu (payload, matching). */
 function sessionFromStart(start: string): string {
   if (!start) return '';
   if (start < '12:00') return 'Sáng';
@@ -83,23 +85,17 @@ function toMinutes(t: string): number {
   return h * 60 + m;
 }
 
-/** Ngược của toMinutes: 570 → "09:30". */
 function minutesToTime(mins: number): string {
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 }
 
-/** Ô <input type="number"> của Chrome vẫn HIỆN chữ đã gõ trên màn hình dù value trả về rỗng,
- *  nên lọc trong onChange là quá muộn — chữ đọng lại trong ô. Chặn ngay lúc nhập. */
 function blockNonDigits(e: FormEvent<HTMLInputElement>) {
   const data = (e.nativeEvent as InputEvent).data;
   if (data && /\D/.test(data)) e.preventDefault();
 }
 
-
-/** Mỗi buổi (thứ + Sáng/Chiều/Tối) chỉ dành cho MỘT môn.
- *  Trả về buổi → tên môn khác đã đặt trong thứ đó. */
 function busyRangesOf(
   slots: ScheduleSlot[],
   index: number,
@@ -112,7 +108,6 @@ function busyRangesOf(
     .map((o) => ({ start: o.start, end: o.end }));
 }
 
-/** Buổi (Sáng/Chiều/Tối) không còn mốc giờ trống nào trong ngày → khỏi cho chọn. */
 function sessionFullyBusy(
   session: (typeof SESSION_OPTIONS)[number],
   busy: { start: string; end: string }[],
@@ -121,10 +116,10 @@ function sessionFullyBusy(
   return pool.every((t) => busy.some((b) => b.start <= t && t < b.end));
 }
 
-/** Nhãn thời lượng gọn: "30 phút", "1 giờ", "1 giờ 30 phút". */
 function durationLabel(start: string, end: string): string {
   if (!start || !end || end <= start) return '';
-  const mins = toMinutes(end) - toMinutes(start);
+  const endMin = end === MIDNIGHT_END ? 24 * 60 : toMinutes(end);
+  const mins = endMin - toMinutes(start);
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   const parts = [];
@@ -133,7 +128,6 @@ function durationLabel(start: string, end: string): string {
   return parts.join(' ');
 }
 
-/** Mục tiêu theo LỚP (vd Lớp 1 không có "Luyện thi Đại học"). */
 function goalsByGrade(gradeName: string | undefined): readonly string[] {
   if (!gradeName) return LEARNING_GOAL_OPTIONS;
   const m = /^Lớp\s+(\d+)/.exec(gradeName);
@@ -158,8 +152,6 @@ function goalsByGrade(gradeName: string | undefined): readonly string[] {
   return LEARNING_GOAL_OPTIONS;
 }
 
-/** Mục tiêu phù hợp với cả LỚP và MÔN HỌC.
- *  Mục tiêu ngoại ngữ (IELTS/TOEIC, Giao tiếp) chỉ hiện khi có môn ngôn ngữ. */
 function allowedGoals(
   gradeName: string | undefined,
   subjectNames: string[],
@@ -178,7 +170,6 @@ export function ClassRequestForm({
   initial,
   subjects,
   grades,
-  provinces,
   isEdit,
   submitting,
   error,
@@ -187,15 +178,11 @@ export function ClassRequestForm({
 }: ClassRequestFormProps) {
   const [form, setForm] = useState<ClassFormValues>(initial);
   const [touched, setTouched] = useState(false);
-  const [districts, setDistricts] = useState<CatalogOption[]>([]);
-  const [wards, setWards] = useState<CatalogOption[]>([]);
 
   function set<K extends keyof ClassFormValues>(key: K, value: ClassFormValues[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
-  // Đổi kiểu lịch: buổi của kiểu cũ không mang sang được (WEEKLY gắn với Thứ, CUSTOM gắn với ngày
-  // cụ thể) → bỏ buổi không hợp lệ với kiểu mới, nếu không sẽ đọng lại dòng "ma" trống Thứ lẫn ngày.
   function setScheduleMode(mode: ScheduleMode) {
     setForm((prev) => {
       if (prev.scheduleMode === mode) return prev;
@@ -214,12 +201,10 @@ export function ClassRequestForm({
   const gradeName = grades.find((g) => String(g.id) === form.gradeId)?.name;
   const goalOptions = allowedGoals(gradeName, currentSubjectNames);
 
-  // Giữ mục tiêu nếu vẫn hợp (hoặc "Khác"), ngược lại xóa để chọn lại.
   function keepGoal(goal: string, allowed: readonly string[]): string {
     return goal === LEARNING_GOAL_OTHER || allowed.includes(goal) ? goal : '';
   }
 
-  // Đổi lớp → cập nhật mục tiêu nếu không còn hợp.
   function handleGradeChange(gradeId: string) {
     const gName = grades.find((g) => String(g.id) === gradeId)?.name;
     setForm((prev) => ({
@@ -229,68 +214,31 @@ export function ClassRequestForm({
     }));
   }
 
-  // Tải quận/huyện khi đổi tỉnh; tải phường/xã khi đổi quận/huyện.
-  useEffect(() => {
-    if (!form.provinceId) {
-      setDistricts([]);
-      return;
-    }
-    let alive = true;
-    marketplaceApi
-      .listDistricts(Number(form.provinceId))
-      .then((d) => alive && setDistricts(d))
-      .catch(() => alive && setDistricts([]));
-    return () => {
-      alive = false;
-    };
-  }, [form.provinceId]);
+  const locationValue: LocationValue = {
+    province: form.provinceName,
+    ward: form.wardName ?? '',
+    addressDetail: form.address,
+  };
 
-  useEffect(() => {
-    if (!form.districtId) {
-      setWards([]);
-      return;
-    }
-    let alive = true;
-    marketplaceApi
-      .listWards(Number(form.districtId))
-      .then((w) => alive && setWards(w))
-      .catch(() => alive && setWards([]));
-    return () => {
-      alive = false;
-    };
-  }, [form.districtId]);
-
-  function handleProvinceChange(value: string) {
-    const name = provinces.find((p) => String(p.id) === value)?.name ?? '';
+  function handleLocationChange(v: LocationValue) {
     setForm((prev) => ({
       ...prev,
-      provinceId: value,
-      provinceName: name,
+      provinceName: v.province,
+      wardName: v.ward,
+      address: v.addressDetail,
+      provinceId: '',
       districtId: '',
       districtName: '',
       wardId: '',
-      wardName: '',
     }));
   }
 
-  function handleDistrictChange(value: string) {
-    const name = districts.find((d) => String(d.id) === value)?.name ?? '';
-    setForm((prev) => ({ ...prev, districtId: value, districtName: name, wardId: '', wardName: '' }));
-  }
-
-  function handleWardChange(value: string) {
-    const name = wards.find((w) => String(w.id) === value)?.name ?? '';
-    setForm((prev) => ({ ...prev, wardId: value, wardName: name }));
-  }
-
-  // Chọn/bỏ môn học — bỏ môn thì xóa lịch của môn đó; thêm môn thì tạo sẵn 1 buổi.
   function toggleSubject(id: string) {
     setForm((prev) => {
       const removing = prev.subjectIds.includes(id);
       const subjectIds = removing
         ? prev.subjectIds.filter((s) => s !== id)
         : [...prev.subjectIds, id];
-      // WEEKLY chọn buổi bằng vòng tròn thứ (không tạo sẵn buổi rỗng); CUSTOM tạo sẵn 1 dòng ngày.
       const slots = removing
         ? prev.slots.filter((s) => s.subjectId !== id)
         : prev.scheduleMode === 'WEEKLY'
@@ -299,7 +247,6 @@ export function ClassRequestForm({
       const subjectFees = { ...prev.subjectFees };
       if (removing) delete subjectFees[id];
       else if (!(id in subjectFees)) subjectFees[id] = '';
-      // Mục tiêu có thể không còn hợp với môn mới → cập nhật.
       const gName = grades.find((g) => String(g.id) === prev.gradeId)?.name;
       const learningGoal = keepGoal(prev.learningGoal, allowedGoals(gName, subjectIds.map(subjName)));
       return { ...prev, subjectIds, slots, subjectFees, learningGoal };
@@ -307,7 +254,6 @@ export function ClassRequestForm({
   }
 
   function setSubjectFee(subjectId: string, value: string) {
-    // Ô number vẫn cho gõ '-' và 'e' → chỉ giữ chữ số, học phí không bao giờ âm.
     const digits = value.replace(/\D/g, '');
     setForm((prev) => ({
       ...prev,
@@ -319,7 +265,6 @@ export function ClassRequestForm({
     setForm((prev) => ({ ...prev, slots: [...prev.slots, emptySlot(subjectId)] }));
   }
 
-  // WEEKLY: bật/tắt một thứ cho môn — thêm/xóa buổi tương ứng, giờ mặc định lấy từ buổi trước đó.
   function toggleWeekday(subjectId: string, day: string) {
     setForm((prev) => {
       const has = prev.slots.some((s) => s.subjectId === subjectId && s.day === day);
@@ -330,7 +275,6 @@ export function ClassRequestForm({
         };
       }
       const busy = busyRangesOf(prev.slots, -1, 'day', day);
-      // Giữ khung giờ chung của môn nếu giờ đó còn trống; không thì đẩy sang khung trống gần nhất.
       const shared = prev.slots.find((s) => s.subjectId === subjectId);
       let start = shared?.start || WEEKLY_DEFAULT_START;
       let end = shared?.end || WEEKLY_DEFAULT_END;
@@ -340,7 +284,7 @@ export function ClassRequestForm({
         const free = buildTimeSlots('06:00', '23:30').find(
           (t) => toMinutes(t) + span <= toMinutes('23:30') && !overlaps(t, minutesToTime(toMinutes(t) + span)),
         );
-        if (!free) return prev; // cả ngày đã kín lịch của môn khác
+        if (!free) return prev;
         start = free;
         end = minutesToTime(toMinutes(free) + span);
       }
@@ -354,24 +298,19 @@ export function ClassRequestForm({
     });
   }
 
-  // WEEKLY: đổi giờ của riêng một buổi (một thứ) — các thứ khác giữ nguyên giờ.
   function setSlotTime(index: number, patch: { start?: string; end?: string }) {
     setForm((prev) => ({
       ...prev,
       slots: prev.slots.map((s, i) => {
         if (i !== index) return s;
         const start = patch.start ?? s.start;
-        // Đổi giờ bắt đầu mà giờ kết thúc không còn hợp lệ thì xóa giờ kết thúc để chọn lại.
         let end = patch.end ?? s.end;
         if (end && start && end <= start) end = '';
-        // Xóa giờ bắt đầu thì giữ nguyên buổi đang chọn: ô Buổi không có lựa chọn rỗng,
-        // để session rỗng sẽ khiến nó hiện sai buổi so với dữ liệu.
         return { ...s, start, end, session: start ? sessionFromStart(start) : s.session };
       }),
     }));
   }
 
-  // Bật/tắt một tuần trong chu kỳ (tuần học ↔ tuần nghỉ). Luôn giữ lại ít nhất một tuần học.
   function toggleStudyWeek(week: number) {
     setForm((prev) => {
       const cur = studyWeeksOf(prev);
@@ -392,8 +331,6 @@ export function ClassRequestForm({
     }));
   }
 
-  // Chọn buổi → điền sẵn khung giờ gợi ý (vẫn sửa được).
-  // Bỏ chọn buổi → xóa giờ luôn, tránh kẹt giờ của buổi cũ và báo lỗi khó hiểu.
   function setSlotSession(index: number, session: string) {
     const preset = SESSION_OPTIONS.find((s) => s.value === session);
     if (!preset) {
@@ -403,8 +340,6 @@ export function ClassRequestForm({
     setForm((prev) => {
       const cur = prev.slots[index];
       const weekly = prev.scheduleMode === 'WEEKLY';
-      // Khung giờ gợi ý chỉ được điền sẵn nếu không đè lên buổi khác cùng thứ/ngày
-      // và không nằm ở quá khứ — nếu không thì để trống cho người dùng chọn từ danh sách đã lọc.
       const blocked = prev.slots.some(
         (o, i) =>
           i !== index &&
@@ -430,12 +365,9 @@ export function ClassRequestForm({
     BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle) ?? BILLING_CYCLE_OPTIONS[0];
   const isMonth = form.billingCycle === 'MONTH';
   const repeats = patternRepeats(form);
-  const cycleName = cycleLabelOf(form); // "N tháng" hoặc nhãn cố định
-  // Dùng tên gọn để khỏi lồng ngoặc: "(quý)" thay vì "(quý (3 tháng))".
+  const cycleName = cycleLabelOf(form);
   const cycleLabelDisplay = isMonth ? cycleName : cycle.short;
   const cycleSuffix = `đ / ${isMonth ? cycleName : cycle.short}`;
-  // repeats = số TUẦN HỌC trong chu kỳ, nên số giờ/buổi bên dưới luôn tính cho một tuần học
-  // (có tuần nghỉ thì nói rõ "tuần học" để không hiểu nhầm là mọi tuần trong lịch).
   const perRepeatUnit = repeatWeeksOf(form) === 1 ? 'tuần' : 'tuần học';
   const studyWeeks = studyWeeksOf(form);
   const restWeeks = restWeeksOf(form);
@@ -445,10 +377,8 @@ export function ClassRequestForm({
 
   const isOffline = form.lessonMode !== 'ONLINE';
   const today = new Date().toLocaleDateString('en-CA');
-  // Giờ hiện tại "HH:MM" — dùng để chặn buổi học trong ngày hôm nay nhưng đã qua giờ.
   const nowHm = new Date().toTimeString().slice(0, 5);
 
-  // Kiểm tra từng buổi: đủ thông tin (Thứ hoặc Ngày) + ngày không quá khứ + giờ hợp lệ.
   const slotErrorSet = new Set<string>();
   form.slots.forEach((s) => {
     const nm = subjName(s.subjectId);
@@ -478,7 +408,6 @@ export function ClassRequestForm({
   }
   const slotErrors = [...slotErrorSet];
 
-  // Chống trùng giờ: 2 buổi cùng Thứ (WEEKLY) hoặc cùng Ngày (CUSTOM) và giờ giao nhau.
   const conflicts: string[] = [];
   for (let i = 0; i < form.slots.length; i++) {
     for (let j = i + 1; j < form.slots.length; j++) {
@@ -488,9 +417,9 @@ export function ClassRequestForm({
       if (sameWhen && a.start && a.end && b.start && b.end && a.start < b.end && b.start < a.end) {
         const when = isWeekly ? dayLabel(a.day) : `ngày ${a.date}`;
         conflicts.push(
-          `Trùng giờ ${when}: ${subjName(a.subjectId)} (${a.start}–${a.end}) & ${subjName(
+          `Trùng giờ ${when}: ${subjName(a.subjectId)} (${fmtTime(a.start)}–${fmtTime(a.end)}) & ${subjName(
             b.subjectId,
-          )} (${b.start}–${b.end})`,
+          )} (${fmtTime(b.start)}–${fmtTime(b.end)})`,
         );
       }
     }
@@ -502,13 +431,11 @@ export function ClassRequestForm({
     missing.push('Tên môn học khác');
   if (!form.gradeId) missing.push('Lớp');
   if (isOffline) {
-    if (!form.provinceId) missing.push('Tỉnh / Thành phố');
-    if (!form.districtId) missing.push('Quận / Huyện');
-    if (!form.wardId) missing.push('Phường / Xã');
-    if (!form.address.trim()) missing.push('Địa chỉ chi tiết');
+    if (!form.provinceName) missing.push('Tỉnh / Thành phố');
+    if (!form.wardName) missing.push('Phường / Xã');
+    if (!form.address.trim()) missing.push('Địa chỉ cụ thể');
   }
   if (form.slots.length === 0) missing.push('Lịch học');
-  // Yêu cầu bổ sung và Ghi chú là tùy chọn — để trống vẫn đăng được.
 
   function handleSubmit() {
     setTouched(true);
@@ -518,7 +445,6 @@ export function ClassRequestForm({
 
   return (
     <div className="mkt-form">
-      {/* Môn học — chọn nhiều môn */}
       <div className="mkt-field">
         <span className="mkt-field__label">
           Môn học <em>*</em>
@@ -566,7 +492,6 @@ export function ClassRequestForm({
         )}
       </div>
 
-      {/* Lớp */}
       <div className="mkt-form__grid">
         <label className="mkt-field">
           <span className="mkt-field__label">
@@ -583,7 +508,6 @@ export function ClassRequestForm({
         </label>
       </div>
 
-      {/* Mục tiêu học tập */}
       <div className="mkt-form__grid">
         <label className="mkt-field">
           <span className="mkt-field__label">Mục tiêu học tập</span>
@@ -598,7 +522,6 @@ export function ClassRequestForm({
         </label>
       </div>
 
-      {/* Hình thức học */}
       <div className="mkt-field">
         <span className="mkt-field__label">Hình thức học mong muốn</span>
         <div className="mkt-radios">
@@ -616,77 +539,24 @@ export function ClassRequestForm({
         </div>
       </div>
 
-      {/* Địa điểm (chỉ khi offline) — cascade Tỉnh → Quận/Huyện → Phường/Xã */}
       {isOffline && (
-        <>
-          <div className="mkt-form__grid mkt-form__grid--3">
-            <label className="mkt-field">
-              <span className="mkt-field__label">
-                Tỉnh / Thành phố <em>*</em>
-              </span>
-              <select value={form.provinceId} onChange={(e) => handleProvinceChange(e.target.value)}>
-                <option value="">-- Chọn tỉnh thành --</option>
-                {provinces.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="mkt-field">
-              <span className="mkt-field__label">
-                Quận / Huyện <em>*</em>
-              </span>
-              <select
-                value={form.districtId}
-                onChange={(e) => handleDistrictChange(e.target.value)}
-                disabled={!form.provinceId}
-              >
-                <option value="">
-                  {form.provinceId ? '-- Chọn quận/huyện --' : 'Chọn tỉnh thành trước'}
-                </option>
-                {districts.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="mkt-field">
-              <span className="mkt-field__label">
-                Phường / Xã <em>*</em>
-              </span>
-              <select
-                value={form.wardId}
-                onChange={(e) => handleWardChange(e.target.value)}
-                disabled={!form.districtId}
-              >
-                <option value="">
-                  {form.districtId ? '-- Chọn phường/xã --' : 'Chọn quận/huyện trước'}
-                </option>
-                {wards.map((w) => (
-                  <option key={w.id} value={w.id}>
-                    {w.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-          </div>
-          <label className="mkt-field">
-            <span className="mkt-field__label">
-              Địa chỉ chi tiết <em>*</em>
-            </span>
-            <input
-              type="text"
-              value={form.address}
-              placeholder="Số nhà, tên đường…"
-              onChange={(e) => set('address', e.target.value)}
-            />
-          </label>
-        </>
+        <div className="mkt-field">
+          <span className="mkt-field__label">
+            Địa điểm <em>*</em>
+          </span>
+          <LocationPicker
+            value={locationValue}
+            onChange={handleLocationChange}
+            showErrors={touched}
+            errors={{
+              province: !form.provinceName ? 'Chọn Tỉnh/Thành phố' : undefined,
+              ward: !form.wardName ? 'Chọn Phường/Xã' : undefined,
+              addressDetail: !form.address.trim() ? 'Nhập địa chỉ cụ thể' : undefined,
+            }}
+          />
+        </div>
       )}
 
-      {/* Yêu cầu đối với gia sư */}
       <div className="mkt-form__grid">
         <label className="mkt-field">
           <span className="mkt-field__label">Yêu cầu đối với gia sư</span>
@@ -712,7 +582,6 @@ export function ClassRequestForm({
         </label>
       </div>
 
-      {/* Học theo */}
       <div className="mkt-form__grid">
         <label className="mkt-field">
           <span className="mkt-field__label">Học theo</span>
@@ -741,7 +610,6 @@ export function ClassRequestForm({
         )}
       </div>
 
-      {/* Chế độ lịch: lặp hàng tuần hay chọn ngày cụ thể */}
       <div className="mkt-field">
         <span className="mkt-field__label">Kiểu lịch học</span>
         <div className="mkt-radios">
@@ -764,7 +632,6 @@ export function ClassRequestForm({
         </span>
       </div>
 
-      {/* Tần suất lặp — chỉ có nghĩa với lịch theo Thứ */}
       {isWeekly && (
         <div className="mkt-form__grid">
           <label className="mkt-field">
@@ -791,7 +658,6 @@ export function ClassRequestForm({
               <div className="mkt-wdays mkt-wdays--weeks">
                 {Array.from({ length: repeatWeeksOf(form) }, (_, i) => i + 1).map((w) => {
                   const on = studyWeeks.includes(w);
-                  // Phải còn ít nhất một tuần học → không cho tắt tuần cuối cùng.
                   const locked = on && studyWeeks.length === 1;
                   return (
                     <button
@@ -823,7 +689,6 @@ export function ClassRequestForm({
         </div>
       )}
 
-      {/* Lịch học theo từng môn — mỗi môn có nhiều buổi, không trùng giờ */}
       <div className="mkt-field">
         <span className="mkt-field__label">
           Lịch học theo môn <em>*</em>
@@ -847,7 +712,6 @@ export function ClassRequestForm({
                       aria-label={`Học phí/giờ môn ${subjName(sid)}`}
                       title={`Học phí/giờ tối thiểu ${currency.format(FEE_PER_HOUR_MIN)}đ`}
                       onBeforeInput={blockNonDigits}
-                      // Dán "150.000 đ" → lấy phần số (150000) thay vì chặn sạch cho người dùng hụt.
                       onPaste={(e: ClipboardEvent<HTMLInputElement>) => {
                         e.preventDefault();
                         const digits = e.clipboardData.getData('text').replace(/\D/g, '');
@@ -861,7 +725,6 @@ export function ClassRequestForm({
                 {isWeekly ? (
                   (() => {
                     const allTimes = buildTimeSlots('06:00', '23:30');
-                    // Mỗi thứ đã chọn là một buổi riêng, sắp theo thứ tự T2 → CN.
                     const rows = form.slots
                       .map((slot, idx) => ({ slot, idx }))
                       .filter((x) => x.slot.subjectId === sid)
@@ -879,7 +742,6 @@ export function ClassRequestForm({
                               const on = form.slots.some(
                                 (s) => s.subjectId === sid && s.day === d.value,
                               );
-                              // Cả ngày không còn khung giờ trống vì môn khác đã đặt hết → khóa thứ này.
                               const dayBusy = busyRangesOf(form.slots, -1, 'day', d.value);
                               const full = SESSION_OPTIONS.every((o) => sessionFullyBusy(o, dayBusy));
                               return (
@@ -904,17 +766,12 @@ export function ClassRequestForm({
                           </div>
                         </div>
                         {rows.map(({ slot, idx }) => {
-                          // Giờ bắt đầu VÀ giờ kết thúc đều nằm trong đúng khung của buổi đã chọn:
-                          // buổi Sáng (6h–12h) thì muộn nhất là kết thúc 12:00, không tràn sang chiều.
                           const sess = SESSION_OPTIONS.find((o) => o.value === slot.session);
                           const pool = sess ? buildTimeSlots(sess.min, sess.max) : allTimes;
-                          // Các buổi của môn khác trong cùng Thứ → chặn đúng khung giờ đó,
-                          // không chặn cả buổi (vẫn học chung buổi Sáng ở giờ khác được).
                           const busy = busyRangesOf(form.slots, idx, 'day', slot.day);
                           const startTimes = pool
-                            .slice(0, -1) // bỏ mốc cuối để còn chỗ cho giờ kết thúc
+                            .slice(0, -1)
                             .filter((t) => !busy.some((b) => b.start <= t && t < b.end));
-                          // Giờ kết thúc không được tràn qua buổi bận kế tiếp (chạm sát thì được).
                           const nextBusyStart = busy
                             .map((b) => b.start)
                             .filter((s) => s >= slot.start)
@@ -924,7 +781,6 @@ export function ClassRequestForm({
                               (!slot.start || t > slot.start) &&
                               (!nextBusyStart || t <= nextBusyStart),
                           );
-                          // Lớp cũ có giờ kết thúc vắt ra ngoài khung → vẫn liệt kê để không mất giờ đã lưu.
                           if (slot.end && !endTimes.includes(slot.end)) {
                             endTimes.push(slot.end);
                             endTimes.sort();
@@ -938,7 +794,6 @@ export function ClassRequestForm({
                                 value={slot.session}
                                 onChange={(e) => setSlotSession(idx, e.target.value)}
                               >
-                                {/* Không có lựa chọn rỗng: bật một thứ là luôn có buổi cụ thể. */}
                                 {SESSION_OPTIONS.map((s) => {
                                   const full = sessionFullyBusy(s, busy);
                                   return (
@@ -971,7 +826,7 @@ export function ClassRequestForm({
                                 <option value="">Đến…</option>
                                 {endTimes.map((t) => (
                                   <option key={t} value={t}>
-                                    {slot.start ? `${t} (${durationLabel(slot.start, t)})` : t}
+                                    {slot.start ? `${fmtTime(t)} (${durationLabel(slot.start, t)})` : fmtTime(t)}
                                   </option>
                                 ))}
                               </select>
@@ -985,7 +840,7 @@ export function ClassRequestForm({
                                 .map(
                                   ({ slot }) =>
                                     `${dayLabel(slot.day)}${
-                                      slot.start && slot.end ? ` ${slot.start}–${slot.end}` : ''
+                                      slot.start && slot.end ? ` ${fmtTime(slot.start)}–${fmtTime(slot.end)}` : ''
                                     }`,
                                 )
                                 .join(' · ')}`}
@@ -1001,16 +856,12 @@ export function ClassRequestForm({
                       .map(({ slot, idx }) => {
                         const sess = SESSION_OPTIONS.find((o) => o.value === slot.session);
                         const sessTimes = buildTimeSlots(sess?.min ?? '00:00', sess?.max ?? '23:30');
-                        // Ngày hôm nay: chỉ cho chọn các mốc giờ còn ở tương lai.
                         const dayTimes =
                           slot.date === today ? sessTimes.filter((t) => t > nowHm) : sessTimes;
-                        // Các buổi khác đã đặt trong cùng ngày → không cho chọn đè lên.
                         const busy = busyRangesOf(form.slots, idx, 'date', slot.date);
-                        // Giờ bắt đầu: không được rơi vào trong một khoảng đã bận.
                         const times = dayTimes.filter(
                           (t) => !busy.some((b) => b.start <= t && t < b.end),
                         );
-                        // Giờ kết thúc: không được vượt qua buổi bận kế tiếp (chạm sát thì vẫn được).
                         const nextBusyStart = busy
                           .map((b) => b.start)
                           .filter((s) => s >= slot.start)
@@ -1030,8 +881,6 @@ export function ClassRequestForm({
                               value={slot.date}
                               onChange={(e) => {
                                 const date = e.target.value;
-                                // Giờ cũ đã trôi qua, hoặc ngày mới đã có buổi khác chiếm giờ đó
-                                // → bỏ giờ để người dùng chọn lại từ danh sách đã lọc.
                                 const past = date === today && !!slot.start && slot.start <= nowHm;
                                 const clash =
                                   !!slot.start &&
@@ -1071,11 +920,13 @@ export function ClassRequestForm({
                               onChange={(e) => updateSlot(idx, { start: e.target.value })}
                             >
                               <option value="">Từ…</option>
-                              {times.map((t) => (
-                                <option key={t} value={t}>
-                                  {t}
-                                </option>
-                              ))}
+                              {times
+                                .filter((t) => t !== MIDNIGHT_END)
+                                .map((t) => (
+                                  <option key={t} value={t}>
+                                    {t}
+                                  </option>
+                                ))}
                             </select>
                             <span className="mkt-day-time__sep">–</span>
                             <select
@@ -1087,7 +938,7 @@ export function ClassRequestForm({
                               <option value="">Đến…</option>
                               {endTimes.map((t) => (
                                 <option key={t} value={t}>
-                                  {t}
+                                  {fmtTime(t)}
                                 </option>
                               ))}
                             </select>
@@ -1117,7 +968,6 @@ export function ClassRequestForm({
         )}
       </div>
 
-      {/* Tổng học phí (học phí/giờ nhập theo từng môn ở trên) */}
       <div className="mkt-field">
         <span className="mkt-field__label">Tổng học phí ước tính ({cycleLabelDisplay})</span>
         <div className="mkt-total">
@@ -1130,7 +980,6 @@ export function ClassRequestForm({
         </span>
       </div>
 
-      {/* Ghi chú bổ sung */}
       <label className="mkt-field">
         <span className="mkt-field__label">Ghi chú / yêu cầu khác</span>
         <textarea

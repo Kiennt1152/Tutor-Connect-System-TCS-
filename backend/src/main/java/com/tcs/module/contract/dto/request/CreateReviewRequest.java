@@ -15,6 +15,9 @@ public class CreateReviewRequest {
     private Integer rating;
     private String comment;
 
-    // Danh gia theo tung tieu chi. Neu co, rating tong duoc tinh = trung binh lam tron cua cac score.
+    private Boolean anonymous;
+
+    private String displayName;
+
     private List<ReviewCriterionDto> criteria;
 }

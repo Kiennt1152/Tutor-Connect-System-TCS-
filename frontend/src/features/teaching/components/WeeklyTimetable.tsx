@@ -6,17 +6,15 @@ import './WeeklyTimetable.css';
 
 const DAY_LABELS = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
 
-/** Thứ 2 của tuần chứa ngày d (tuần bắt đầu từ Thứ 2, giống lịch VN). */
 function mondayOf(d: Date): Date {
   const copy = new Date(d.getFullYear(), d.getMonth(), d.getDate());
-  const shift = (copy.getDay() + 6) % 7; // CN(0) → 6, T2(1) → 0
+  const shift = (copy.getDay() + 6) % 7;
   copy.setDate(copy.getDate() - shift);
   return copy;
 }
 
 const ddmm = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}`;
 
-/** Buổi (Sáng/Chiều/Tối) của một giờ bắt đầu — dùng lại mốc giờ của SESSION_OPTIONS. */
 function sessionOf(startTime: string): string {
   const hm = hhmm(startTime);
   const found = SESSION_OPTIONS.find((s) => hm < s.max);
@@ -25,22 +23,19 @@ function sessionOf(startTime: string): string {
 
 interface Props {
   readonly lessons: LessonResponse[];
-  /** Chỉ xem (phía Client) — điểm danh là việc của gia sư. */
   readonly readOnly?: boolean;
-  /** Gia sư điểm danh một buổi (chỉ bấm được trong đúng ngày buổi học). */
   readonly onAttend?: (lessonId: number) => void;
-  /** Xin đổi lịch buổi này — cả hai bên đều gửi được nên không phụ thuộc readOnly. */
   readonly onReschedule?: (lesson: LessonResponse) => void;
-  /** Buổi đang có yêu cầu chờ duyệt — không cho gửi thêm yêu cầu nữa. */
+  readonly onOpenDetail?: (lesson: LessonResponse) => void;
   readonly pendingLessonIds?: ReadonlySet<number>;
 }
 
-/** Thời khóa biểu theo tuần: cột = thứ, hàng = buổi (Sáng/Chiều/Tối). */
 export function WeeklyTimetable({
   lessons,
   readOnly = false,
   onAttend,
   onReschedule,
+  onOpenDetail,
   pendingLessonIds,
 }: Props) {
   const [weekOffset, setWeekOffset] = useState(0);
@@ -56,7 +51,6 @@ export function WeeklyTimetable({
     });
   }, [weekOffset]);
 
-  // Tra cứu nhanh theo ô (ngày + buổi); một ô có thể chứa nhiều buổi của các lớp khác nhau.
   const cells = useMemo(() => {
     const map = new Map<string, LessonResponse[]>();
     for (const lesson of lessons) {
@@ -74,7 +68,6 @@ export function WeeklyTimetable({
   const weekIsos = new Set(days.map((d) => d.iso));
   const countThisWeek = lessons.filter((l) => weekIsos.has(l.lessonDate)).length;
 
-  // Nhảy nhanh tới tuần có buổi gần nhất kể từ hôm nay — lịch trải nhiều tháng, dò tay rất mệt.
   const nextLessonOffset = useMemo(() => {
     const upcoming = lessons.filter((l) => l.lessonDate >= todayIso).map((l) => l.lessonDate).sort();
     if (upcoming.length === 0) return null;
@@ -150,6 +143,7 @@ export function WeeklyTimetable({
                             readOnly={readOnly}
                             onAttend={() => onAttend?.(lesson.lessonId)}
                             onReschedule={onReschedule}
+                            onOpenDetail={onOpenDetail}
                             hasPendingRequest={pendingLessonIds?.has(lesson.lessonId) ?? false}
                           />
                         ))
@@ -169,14 +163,13 @@ export function WeeklyTimetable({
 
       <div className="wtt__legend">
         <span>
-          <i className="wtt__dot wtt__dot--done" /> Đã hoàn thành
+          <i className="wtt__dot wtt__dot--done" /> Đã điểm danh
         </span>
         <span>
           <i className="wtt__dot wtt__dot--pending" /> Chưa điểm danh
         </span>
         <span>
           <i className="wtt__dot wtt__dot--today" /> Diễn ra hôm nay
-          {!readOnly && ' — điểm danh được'}
         </span>
         <span>
           <strong>-</strong> Không có buổi học
@@ -191,21 +184,22 @@ function LessonChip({
   readOnly,
   onAttend,
   onReschedule,
+  onOpenDetail,
   hasPendingRequest,
 }: {
   readonly lesson: LessonResponse;
   readonly readOnly: boolean;
   readonly onAttend: () => void;
   readonly onReschedule?: (lesson: LessonResponse) => void;
+  readonly onOpenDetail?: (lesson: LessonResponse) => void;
   readonly hasPendingRequest: boolean;
 }) {
   const done = lesson.attendanceStatus === 'COMPLETED';
   const tone = done ? 'done' : lesson.canCheckInToday ? 'today' : 'pending';
-  // Buổi đã điểm danh là dữ liệu lịch sử — chốt lại, không cho dời.
   const canReschedule = onReschedule && lesson.attendanceStatus === 'PENDING';
 
-  return (
-    <div className={`wtt-chip wtt-chip--${tone}`}>
+  const info = (
+    <>
       <div className="wtt-chip__subject" title={lesson.subjectName ?? ''}>
         {lesson.subjectName ?? '—'}
       </div>
@@ -218,8 +212,35 @@ function LessonChip({
       <div className={`wtt-chip__status wtt-chip__status--${tone}`}>
         {done ? '(đã dạy)' : `(${ATTENDANCE_STATUS_LABELS[lesson.attendanceStatus].toLowerCase()})`}
       </div>
-      {!readOnly && !done && lesson.canCheckInToday && (
-        <button className="tcs-btn tcs-btn--sm tcs-btn--primary" type="button" onClick={onAttend}>
+    </>
+  );
+
+  return (
+    <div className={`wtt-chip wtt-chip--${tone}`}>
+      {onOpenDetail ? (
+        <button
+          type="button"
+          className="wtt-chip__info"
+          title="Xem chi tiết lớp"
+          onClick={() => onOpenDetail(lesson)}
+        >
+          {info}
+        </button>
+      ) : (
+        info
+      )}
+      {!readOnly && !done && (
+        <button
+          className="tcs-btn tcs-btn--sm tcs-btn--primary"
+          type="button"
+          onClick={onAttend}
+          disabled={!lesson.canCheckInToday}
+          title={
+            lesson.canCheckInToday
+              ? undefined
+              : 'Chỉ điểm danh được trong đúng ngày diễn ra buổi học'
+          }
+        >
           Điểm danh
         </button>
       )}

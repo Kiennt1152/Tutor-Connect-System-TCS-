@@ -1,6 +1,7 @@
 package com.tcs.module.contract.dto.response;
 
 import com.tcs.module.contract.enums.ReviewType;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Getter;
@@ -14,7 +15,14 @@ public class ReviewResponse {
     private Long reviewerId;
     private Long revieweeId;
     private ReviewType reviewType;
-    private Integer rating;
+    private BigDecimal rating;
     private String comment;
+    private String tutorReply;
+    private LocalDateTime tutorReplyAt;
+    private String criteriaJson;
+    private String classTitle;
+    private String subjectName;
+    private boolean anonymous;
+    private String reviewerDisplayName;
     private LocalDateTime createdAt;
 }

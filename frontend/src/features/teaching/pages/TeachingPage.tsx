@@ -4,6 +4,7 @@ import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasRole } from '../../../shared/auth/rbac';
 import { WeeklyTimetable } from '../components/WeeklyTimetable';
 import { LessonRequestDialog } from '../components/LessonRequestDialog';
+import { ClassDetailModal } from '../components/ClassDetailModal';
 import { useTeaching } from '../hooks/useTeaching';
 import { hhmm } from '../../../shared/utils/format';
 import {
@@ -19,7 +20,6 @@ import './TeachingPage.css';
 
 const WEEKDAYS = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
-/** '2026-07-17' → 'Thứ 6, 17/07/2026'. Tự parse để khỏi lệch múi giờ. */
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   const date = new Date(y, m - 1, d);
@@ -28,7 +28,6 @@ function formatDate(iso: string): string {
 
 export default function TeachingPage() {
   const { user } = useAuth();
-  // Cùng một màn: gia sư nhận lớp + điểm danh, Client chỉ theo dõi lịch lớp của mình.
   const isClient = hasRole(user?.role, 'CLIENT');
   const {
     status,
@@ -47,10 +46,10 @@ export default function TeachingPage() {
     cancelRequest,
   } = useTeaching();
 
-  // null = đóng; {mode:'EXTRA'} = thêm buổi; {mode:'RESCHEDULE', lesson} = dời buổi đó.
   const [dialog, setDialog] = useState<
     { mode: 'EXTRA' } | { mode: 'RESCHEDULE'; lesson: LessonResponse } | null
   >(null);
+  const [detailClassId, setDetailClassId] = useState<number | null>(null);
 
   const invites = assignments.filter((a) => a.status === 'PENDING');
   const active = assignments.filter((a) => a.status === 'ACTIVE');
@@ -59,6 +58,13 @@ export default function TeachingPage() {
   const historyRequests = requests.filter((r) => r.status !== 'PENDING');
   const classOptions = useMemo(() => classOptionsFrom(lessons), [lessons]);
   const pendingLessonIds = new Set(openRequests.flatMap((r) => r.lessonId ?? []));
+
+  const detailAssignment =
+    detailClassId != null ? (assignments.find((a) => a.classId === detailClassId) ?? null) : null;
+  const detailLessons =
+    detailClassId != null ? lessons.filter((l) => l.classId === detailClassId) : [];
+  const detailTitle =
+    detailAssignment?.classTitle ?? detailLessons[0]?.classTitle ?? 'Chi tiết lớp';
 
   return (
     <div className="tch-page">
@@ -76,7 +82,6 @@ export default function TeachingPage() {
         {notice && <div className="tch-alert tch-alert--ok">{notice}</div>}
         {error && <div className="tch-alert tch-alert--err">{error}</div>}
 
-        {/* Thông báo lời mời — gia sư dễ bỏ sót nếu chỉ nằm lẫn trong danh sách bên dưới. */}
         {status === 'success' && !isClient && invites.length > 0 && (
           <div className="tch-notify" role="status">
             <span className="tch-notify__icon" aria-hidden="true">
@@ -108,7 +113,6 @@ export default function TeachingPage() {
 
         {status === 'success' && (
           <>
-            {/* --- Chờ gia sư nhận lớp --- */}
             {invites.length > 0 && (
               <section className="tch-card" id="tch-invites">
                 <h2>
@@ -141,7 +145,6 @@ export default function TeachingPage() {
               </section>
             )}
 
-            {/* --- Lớp đang chạy --- */}
             {active.length > 0 && (
               <section className="tch-card">
                 <h2>{isClient ? 'Lớp đang học' : 'Lớp đang dạy'}</h2>
@@ -194,11 +197,9 @@ export default function TeachingPage() {
               </section>
             )}
 
-            {/* --- Thời khóa biểu --- */}
             <section className="tch-card">
               <div className="tch-card__head">
                 <h2>Thời khóa biểu</h2>
-                {/* Cả hai bên đều xin thêm buổi được — lịch chỉ đổi khi bên kia duyệt. */}
                 {classOptions.length > 0 && (
                   <button
                     className="tch-btn tch-btn--primary"
@@ -221,6 +222,7 @@ export default function TeachingPage() {
                   readOnly={isClient}
                   onAttend={(id) => void attend(id)}
                   onReschedule={(lesson) => setDialog({ mode: 'RESCHEDULE', lesson })}
+                  onOpenDetail={(lesson) => setDetailClassId(lesson.classId)}
                   pendingLessonIds={pendingLessonIds}
                 />
               )}
@@ -244,12 +246,20 @@ export default function TeachingPage() {
             onSubmit={requestExtraLesson}
           />
         )}
+        {detailClassId != null && (
+          <ClassDetailModal
+            assignment={detailAssignment}
+            lessons={detailLessons}
+            classTitle={detailTitle}
+            isClient={isClient}
+            onClose={() => setDetailClassId(null)}
+          />
+        )}
       </main>
     </div>
   );
 }
 
-/** Một yêu cầu đổi lịch/thêm buổi. Nút duyệt/từ chối chỉ hiện với bên phải quyết định. */
 function RequestCard({
   request: r,
   onApprove,
@@ -350,7 +360,6 @@ function InviteCard({
           {isClient ? 'Chờ gia sư nhận lớp' : ASSIGNMENT_STATUS_LABELS[a.status]}
         </span>
       </div>
-      {/* Nhận/từ chối là quyền của gia sư — Client chỉ theo dõi. */}
       {!isClient && (
         <div className="tch-invite__actions">
           <button className="tch-btn tch-btn--primary" type="button" onClick={onAccept}>
@@ -364,4 +373,3 @@ function InviteCard({
     </li>
   );
 }
-

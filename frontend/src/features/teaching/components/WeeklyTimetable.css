@@ -4,7 +4,6 @@
   gap: 12px;
 }
 
-/* --- Thanh điều hướng tuần --- */
 .wtt__bar {
   display: flex;
   align-items: center;
@@ -37,7 +36,6 @@
   font-weight: 600;
 }
 
-/* --- Bảng --- */
 .wtt__scroll {
   overflow-x: auto;
 }
@@ -110,7 +108,6 @@
   font-size: 13px;
 }
 
-/* --- Ô buổi học --- */
 .wtt-chip {
   border-radius: 8px;
   padding: 6px 8px;
@@ -174,6 +171,25 @@
   margin-top: 5px;
   width: 100%;
 }
+.wtt-chip button.wtt-chip__info {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  display: block;
+  border-radius: 6px;
+}
+.wtt-chip button.wtt-chip__info:hover .wtt-chip__subject {
+  text-decoration: underline;
+}
+.wtt-chip button.wtt-chip__info:focus-visible {
+  outline: 2px solid var(--color-primary, #1565c0);
+  outline-offset: 2px;
+}
 
 .wtt__none {
   margin: 0;
@@ -182,7 +198,6 @@
   text-align: center;
 }
 
-/* --- Chú thích --- */
 .wtt__legend {
   display: flex;
   flex-wrap: wrap;

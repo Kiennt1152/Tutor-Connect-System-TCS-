@@ -2,19 +2,19 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import HomePage from '../features/home/pages/HomePage';
 import FindTutorPage from '../features/home/pages/FindTutorPage';
 import FindClassPage from '../features/home/pages/FindClassPage';
+import TutorPublicProfilePage from '../features/home/pages/TutorPublicProfilePage';
 import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
 import PlatformDashboardPage from '../features/platform/pages/PlatformDashboardPage';
 import PlatformProfilePage from '../features/platform/pages/PlatformProfilePage';
 import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage';
+import PlatformReviewsPage from '../features/platform/pages/PlatformReviewsPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import CenterPage from '../features/center/pages/CenterPage';
 import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
 import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
-import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
-import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
@@ -23,6 +23,7 @@ import CatalogPage from '../features/catalog/pages/CatalogPage';
 import ContractPage from '../features/contract/pages/ContractPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
 import MyReviewsPage from '../features/reviews/pages/MyReviewsPage';
+import MyReputationPage from '../features/reviews/pages/MyReputationPage';
 import TeachingPage from '../features/teaching/pages/TeachingPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
@@ -37,6 +38,7 @@ export default function App() {
           <Route path={APP_ROUTES.home} element={<HomePage />} />
           <Route path={APP_ROUTES.findTutor} element={<FindTutorPage />} />
           <Route path={APP_ROUTES.findClass} element={<FindClassPage />} />
+          <Route path={APP_ROUTES.tutorProfile} element={<TutorPublicProfilePage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />
@@ -116,6 +118,14 @@ export default function App() {
             }
           />
           <Route
+            path={APP_ROUTES.myReputation}
+            element={
+              <ProtectedRoute roles={['TUTOR']}>
+                <MyReputationPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={APP_ROUTES.center}
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
@@ -136,22 +146,6 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterReschedulesPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/tutor/schedule"
-            element={
-              <ProtectedRoute roles={['TUTOR']}>
-                <TutorSchedulePage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/tutor/classes/:classId/attendance"
-            element={
-              <ProtectedRoute roles={['TUTOR']}>
-                <TutorAttendancePage />
               </ProtectedRoute>
             }
           />
@@ -184,6 +178,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
                 <PlatformReportsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformReviews}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformReviewsPage />
               </ProtectedRoute>
             }
           />

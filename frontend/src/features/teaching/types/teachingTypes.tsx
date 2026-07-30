@@ -1,16 +1,13 @@
-// Phía gia sư: nhận lớp → lịch dạy → điểm danh từng buổi.
 
 export type AssignmentStatus = 'PENDING' | 'ACTIVE' | 'DECLINED' | 'TERMINATED';
 
 export type AttendanceStatus = 'PENDING' | 'COMPLETED' | 'ABSENT' | 'DISPUTED';
 
-/** Một lớp gia sư được Client chọn (AssignmentResponse). */
 export interface AssignmentResponse {
   assignmentId: number;
   classId: number;
   classTitle: string;
   clientName: string;
-  /** Gia sư được chọn — Client cần biết ai đang dạy lớp của mình. */
   tutorName: string | null;
   status: AssignmentStatus;
   assignedDate: string;
@@ -23,7 +20,6 @@ export interface AssignmentResponse {
   lessonCount: number;
 }
 
-/** Một buổi dạy cụ thể (LessonResponse). */
 export interface LessonResponse {
   lessonId: number;
   classId: number;
@@ -37,7 +33,6 @@ export interface LessonResponse {
   attendanceStatus: AttendanceStatus;
   tutorCheckInAt: string | null;
   tutorCheckOutAt: string | null;
-  /** Buổi diễn ra đúng hôm nay — chỉ khi đó mới điểm danh được (server cũng chặn). */
   canCheckInToday: boolean;
 }
 
@@ -52,7 +47,6 @@ export interface RescheduleRequestResponse {
   requestType: RescheduleRequestType;
   status: RescheduleRequestStatus;
 
-  /** Buổi bị dời — null với yêu cầu thêm buổi. */
   lessonId: number | null;
   oldDate: string | null;
   oldStartTime: string | null;
@@ -71,20 +65,16 @@ export interface RescheduleRequestResponse {
   decidedAt: string | null;
   decisionNote: string | null;
 
-  /** Mình là bên phải duyệt và yêu cầu còn chờ. */
   canDecide: boolean;
-  /** Mình là người gửi và yêu cầu còn chờ — thu hồi được. */
   canCancel: boolean;
 }
 
-/** Một lớp cùng danh sách môn — dựng từ chính các buổi đã có của lớp. */
 export interface ClassOption {
   classId: number;
   classTitle: string;
   subjects: { subjectId: number; subjectName: string }[];
 }
 
-/** Gom các buổi thành danh sách lớp + môn để form "thêm buổi" có gì mà chọn. */
 export function classOptionsFrom(lessons: LessonResponse[]): ClassOption[] {
   const byClass = new Map<number, ClassOption>();
   for (const lesson of lessons) {
@@ -142,7 +132,7 @@ export const ASSIGNMENT_STATUS_LABELS: Record<AssignmentStatus, string> = {
 
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   PENDING: 'Chưa điểm danh',
-  COMPLETED: 'Đã hoàn thành',
+  COMPLETED: 'Đã điểm danh',
   ABSENT: 'Vắng',
   DISPUTED: 'Đang tranh chấp',
 };

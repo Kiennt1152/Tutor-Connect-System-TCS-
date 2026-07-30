@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import './LocationPicker.css';
 
-// Nguồn dữ liệu hành chính công khai — API v2 theo mô hình 2 cấp (Tỉnh → Phường/Xã).
 const GEO_API = 'https://provinces.open-api.vn/api/v2';
 
 interface GeoItem {
@@ -46,7 +46,6 @@ export function LocationPicker({ value, onChange, errors, showErrors }: Props) {
   const [wards, setWards] = useState<GeoItem[]>([]);
   const [loadErr, setLoadErr] = useState('');
 
-  // Tải danh sách tỉnh một lần.
   useEffect(() => {
     let alive = true;
     getProvinces()
@@ -57,13 +56,11 @@ export function LocationPicker({ value, onChange, errors, showErrors }: Props) {
     };
   }, []);
 
-  // Suy ra mã tỉnh theo tên đang chọn (khớp dữ liệu tải về).
   const provinceCode = useMemo(
     () => provinces.find((p) => p.name === value.province)?.code ?? null,
     [provinces, value.province],
   );
 
-  // Tỉnh đổi -> tải Phường/Xã.
   useEffect(() => {
     if (provinceCode == null) {
       setWards([]);

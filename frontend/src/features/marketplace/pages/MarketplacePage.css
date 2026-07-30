@@ -8,7 +8,6 @@
   padding-bottom: 48px;
 }
 
-/* Header */
 .mkt-header {
   display: flex;
   align-items: flex-start;
@@ -37,7 +36,6 @@
   line-height: 1.5;
 }
 
-/* Card */
 .mkt-card {
   background: #fff;
   border: 1px solid #e3e9f2;
@@ -58,7 +56,6 @@
   padding: 24px;
 }
 
-/* Form */
 .mkt-form {
   display: flex;
   flex-direction: column;
@@ -127,7 +124,6 @@
   cursor: pointer;
 }
 
-/* Nhóm checkbox (thứ trong tuần, buổi học) */
 .mkt-checks {
   display: flex;
   flex-wrap: wrap;
@@ -169,7 +165,6 @@
   width: 100%;
 }
 
-/* Lịch học theo từng thứ (card) */
 .mkt-day-cards {
   display: flex;
   flex-direction: column;
@@ -178,28 +173,29 @@
 }
 .mkt-day-card {
   border: 1px solid #e3e9f2;
-  border-radius: 10px;
-  padding: 12px 14px;
+  border-radius: 12px;
+  padding: 16px;
   background: #fbfcfe;
 }
 .mkt-day-card__head {
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: #1565c0;
   margin-bottom: 8px;
 }
-/* Học phí đặt ngay cạnh tên môn (không đẩy sang mép phải) cho dễ liên hệ. */
 .mkt-day-card__head--fee {
   display: flex;
-  align-items: center;
-  justify-content: flex-start;
-  flex-wrap: wrap;
-  gap: 8px 14px;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #eef2f7;
 }
 .mkt-subj-fee {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   font-weight: 500;
   color: #33465e;
 }
@@ -243,7 +239,6 @@
   font-size: 13px;
 }
 
-/* Một buổi trong lịch theo môn */
 .mkt-slot-row {
   display: flex;
   align-items: center;
@@ -284,7 +279,6 @@
   margin-top: 10px;
 }
 
-/* Khung giờ học theo từng thứ */
 .mkt-day-times {
   display: flex;
   flex-direction: column;
@@ -337,17 +331,17 @@
   outline: none;
 }
 
-/* Chọn thứ kiểu vòng tròn (lịch lặp hàng tuần) */
 .mkt-wday-row {
   display: flex;
   align-items: center;
   gap: 10px;
   flex-wrap: wrap;
-  margin-top: 10px;
+  margin-top: 12px;
 }
 .mkt-wday-row__label {
-  min-width: 64px;
+  min-width: 68px;
   font-size: 13px;
+  font-weight: 600;
   color: #33465e;
 }
 .mkt-wdays {
@@ -382,7 +376,6 @@
   color: #fff;
   font-weight: 600;
 }
-/* Nút chọn tuần học trong chu kỳ: bo vuông để không lẫn với vòng tròn chọn Thứ. */
 .mkt-wdays--weeks {
   margin-top: 2px;
 }
@@ -390,7 +383,6 @@
   width: 44px;
   border-radius: 10px;
 }
-/* Tuần học duy nhất còn lại: vẫn hiện là đang chọn, chỉ chặn bấm tắt. */
 .mkt-wdays--weeks .mkt-wday--on:disabled {
   background: #1565c0;
   border-color: #1565c0;
@@ -436,7 +428,6 @@
   padding-top: 4px;
 }
 
-/* Buttons */
 .mkt-btn {
   padding: 10px 20px;
   border-radius: 9px;
@@ -466,7 +457,6 @@
   background: #f2f4f7;
 }
 
-/* Alerts / states */
 .mkt-alert {
   padding: 12px 16px;
   border-radius: 9px;
@@ -491,7 +481,6 @@
   border-radius: 14px;
 }
 
-/* Class list grid */
 .mkt-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -558,7 +547,6 @@
   text-align: center;
 }
 
-/* Status chips */
 .mkt-status {
   font-size: 12px;
   font-weight: 600;
@@ -595,7 +583,6 @@
   }
 }
 
-/* ===== Màn chi tiết lớp (2 cột, không popup) ===== */
 .mkt-detail {
   display: flex;
   flex-direction: column;
@@ -626,7 +613,6 @@
   margin-bottom: 2px;
 }
 
-/* Thời khóa biểu lớp: nằm dưới 2 cột, chiếm hết bề ngang cho dễ đọc. */
 .mkt-detail__timetable {
   margin-top: 20px;
 }
@@ -640,7 +626,6 @@
   .mkt-detail__cols {
     grid-template-columns: 1fr;
   }
-  /* Trên mobile: đưa thông tin lớp lên trước danh sách gia sư */
   .mkt-detail__col--info {
     order: -1;
   }

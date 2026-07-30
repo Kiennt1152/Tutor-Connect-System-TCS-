@@ -1,0 +1,2 @@
+ALTER TABLE reviews
+    MODIFY COLUMN rating DECIMAL(2, 1) NOT NULL;

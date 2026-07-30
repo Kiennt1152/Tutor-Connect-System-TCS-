@@ -6,11 +6,13 @@ import type { ReviewableAssignment } from '../types/reviewTypes';
 
 type ReviewFormModalProps = {
   assignment: ReviewableAssignment;
+  edit?: boolean;
   onClose: () => void;
   onSubmitted: () => void;
 };
 
 const MAX_COMMENT = 1000;
+const MAX_DISPLAY_NAME = 100;
 
 function extractError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
@@ -19,10 +21,31 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
-export function ReviewFormModal({ assignment, onClose, onSubmitted }: ReviewFormModalProps) {
-  // code tieu chi -> so sao da chon
-  const [scores, setScores] = useState<Record<string, number>>({});
-  const [comment, setComment] = useState('');
+function parseScores(criteriaJson: string | null): Record<string, number> {
+  if (!criteriaJson) return {};
+  try {
+    const parsed = JSON.parse(criteriaJson) as { code: string; score: number }[];
+    return parsed.reduce<Record<string, number>>((acc, c) => {
+      if (c && typeof c.code === 'string' && typeof c.score === 'number') {
+        acc[c.code] = c.score;
+      }
+      return acc;
+    }, {});
+  } catch {
+    return {};
+  }
+}
+
+export function ReviewFormModal({ assignment, edit, onClose, onSubmitted }: ReviewFormModalProps) {
+  const isEdit = Boolean(edit) && assignment.reviewed && assignment.reviewId != null;
+  const [scores, setScores] = useState<Record<string, number>>(() =>
+    isEdit ? parseScores(assignment.criteriaJson) : {},
+  );
+  const [comment, setComment] = useState(isEdit ? (assignment.comment ?? '') : '');
+  const [anonymous, setAnonymous] = useState(isEdit ? assignment.anonymous : false);
+  const [displayName, setDisplayName] = useState(
+    isEdit && assignment.anonymous ? (assignment.reviewerDisplayName ?? '') : '',
+  );
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -31,7 +54,7 @@ export function ReviewFormModal({ assignment, onClose, onSubmitted }: ReviewForm
   const overall = useMemo(() => {
     if (answered === 0) return 0;
     const sum = Object.values(scores).reduce((a, b) => a + b, 0);
-    return Math.round(sum / answered);
+    return Math.round((sum / answered) * 10) / 10;
   }, [scores, answered]);
 
   function pick(code: string, score: number) {
@@ -46,18 +69,31 @@ export function ReviewFormModal({ assignment, onClose, onSubmitted }: ReviewForm
     }
     setSubmitting(true);
     try {
-      await reviewApi.create({
-        assignmentId: assignment.assignmentId,
+      const payload = {
         comment: comment.trim() || undefined,
+        anonymous,
+        displayName: anonymous ? displayName.trim() || undefined : undefined,
         criteria: REVIEW_CRITERIA.map((c) => ({
           code: c.code,
           question: c.question,
           score: scores[c.code],
         })),
-      });
+      };
+      if (isEdit) {
+        await reviewApi.update(assignment.reviewId as number, payload);
+      } else {
+        await reviewApi.create({ assignmentId: assignment.assignmentId, ...payload });
+      }
       onSubmitted();
     } catch (err) {
-      setError(extractError(err, 'Gửi đánh giá thất bại. Vui lòng thử lại.'));
+      setError(
+        extractError(
+          err,
+          isEdit
+            ? 'Cập nhật đánh giá thất bại. Vui lòng thử lại.'
+            : 'Gửi đánh giá thất bại. Vui lòng thử lại.',
+        ),
+      );
     } finally {
       setSubmitting(false);
     }
@@ -66,8 +102,9 @@ export function ReviewFormModal({ assignment, onClose, onSubmitted }: ReviewForm
   return (
     <div className="rv-modal-overlay" role="dialog" aria-modal="true" onClick={onClose}>
       <div className="rv-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="rv-modal__scroll">
         <div className="rv-modal__head">
-          <h2 className="rv-modal__title">Đánh giá gia sư</h2>
+          <h2 className="rv-modal__title">{isEdit ? 'Chỉnh sửa đánh giá' : 'Đánh giá gia sư'}</h2>
           <button type="button" className="rv-modal__close" aria-label="Đóng" onClick={onClose}>
             ×
           </button>
@@ -79,6 +116,56 @@ export function ReviewFormModal({ assignment, onClose, onSubmitted }: ReviewForm
             {assignment.classTitle}
             {assignment.subjectName ? ` · ${assignment.subjectName}` : ''}
           </p>
+          <p className="rv-modal__periodic">
+            {isEdit
+              ? 'Đang chỉnh sửa đánh giá gần nhất của bạn'
+              : `Lượt đánh giá thứ ${assignment.reviewsSubmitted + 1}`}
+          </p>
+        </div>
+
+        <div className="rv-field">
+          <span className="rv-label">Cách hiển thị đánh giá</span>
+          <div className="rv-visibility" role="radiogroup" aria-label="Cách hiển thị đánh giá">
+            <button
+              type="button"
+              role="radio"
+              aria-checked={!anonymous}
+              className={`rv-visibility__opt${!anonymous ? ' rv-visibility__opt--on' : ''}`}
+              onClick={() => setAnonymous(false)}
+            >
+              <span className="rv-visibility__title">Công khai tên của tôi</span>
+              <span className="rv-visibility__desc">Hiển thị tên thật của bạn cùng đánh giá</span>
+            </button>
+            <button
+              type="button"
+              role="radio"
+              aria-checked={anonymous}
+              className={`rv-visibility__opt${anonymous ? ' rv-visibility__opt--on' : ''}`}
+              onClick={() => setAnonymous(true)}
+            >
+              <span className="rv-visibility__title">Ẩn danh</span>
+              <span className="rv-visibility__desc">Không hiển thị tên thật của bạn</span>
+            </button>
+          </div>
+          {anonymous ? (
+            <div className="rv-field rv-field--nested">
+              <label className="rv-label" htmlFor="rv-display-name">
+                Tên hiển thị ẩn danh (không bắt buộc)
+              </label>
+              <input
+                id="rv-display-name"
+                className="rv-input"
+                type="text"
+                maxLength={MAX_DISPLAY_NAME}
+                placeholder="Người dùng ẩn danh"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+              />
+              <span className="rv-hint">
+                Để trống sẽ hiển thị là “Người dùng ẩn danh”.
+              </span>
+            </div>
+          ) : null}
         </div>
 
         <div className="rv-modal__body">
@@ -128,7 +215,7 @@ export function ReviewFormModal({ assignment, onClose, onSubmitted }: ReviewForm
         {answered > 0 ? (
           <div className="rv-summary">
             <span className="rv-summary__score">
-              Điểm tổng: <strong>{overall}</strong>/5 ★
+              Điểm tổng: <strong>{overall.toFixed(1)}</strong>/5 ★
             </span>
           </div>
         ) : null}
@@ -145,8 +232,13 @@ export function ReviewFormModal({ assignment, onClose, onSubmitted }: ReviewForm
             onClick={handleSubmit}
             disabled={submitting || answered < total}
           >
-            {submitting ? 'Đang gửi...' : 'Gửi đánh giá'}
+            {submitting
+              ? 'Đang lưu...'
+              : isEdit
+                ? 'Lưu thay đổi'
+                : 'Gửi đánh giá'}
           </button>
+        </div>
         </div>
       </div>
     </div>

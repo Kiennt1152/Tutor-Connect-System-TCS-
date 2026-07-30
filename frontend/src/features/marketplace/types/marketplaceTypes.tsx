@@ -1,4 +1,3 @@
-// Kiểu dữ liệu cho tính năng Client tạo/sửa yêu cầu tìm gia sư (lớp PRIVATE).
 
 export type LessonMode = 'ONLINE' | 'OFFLINE' | 'HYBRID';
 export type RecurringType = 'ONCE' | 'WEEKLY';
@@ -12,14 +11,12 @@ export type ClassStatus =
   | 'CANCELLED'
   | 'DISPUTED';
 
-/** Mục catalog dùng chung (môn học, khối/lớp, tỉnh thành). */
 export interface CatalogOption {
   id: number;
   name: string;
   description?: string | null;
 }
 
-/** Địa điểm cấp quận/huyện trả về từ /catalog/locations. */
 export interface LocationOption {
   locationId: number;
   provinceId: number;
@@ -28,7 +25,6 @@ export interface LocationOption {
   wardName: string | null;
 }
 
-/** Lớp trả về từ backend (ClassResponse). */
 export interface ClassResponse {
   classId: number;
   title: string;
@@ -54,11 +50,9 @@ export interface ClassResponse {
   recurringType: RecurringType;
   status: ClassStatus;
   createdAt: string;
-  /** Số gia sư đã ứng tuyển vào lớp. */
   applicationCount: number | null;
 }
 
-/** Một gia sư ứng tuyển vào lớp, kèm điểm gợi ý của AI (ApplicantResponse). */
 export interface ApplicantResponse {
   applicationId: number;
   tutorId: number;
@@ -70,16 +64,12 @@ export interface ApplicantResponse {
   hourlyRate: number | null;
   ratingAvg: number | null;
   verificationStatus: 'UNDER_VERIFY' | 'VERIFIED' | 'REJECTED';
-  /** Mức cao nhất trong proposedRates — dùng cho đơn cũ chưa báo giá theo môn. */
   proposedRate: number | null;
-  /** Học phí đề xuất theo từng môn (key = subjectId, kể cả "other"). Null với đơn cũ. */
   proposedRates: Record<string, number> | null;
   coverLetter: string | null;
   status: 'SUBMITTED' | 'UNDER_REVIEW' | 'ACCEPTED' | 'REJECTED' | 'WITHDRAWN';
   appliedAt: string;
-  /** Điểm AI gợi ý 0–100. */
   matchScore: number;
-  /** Nằm trong Top 5 AI gợi ý. */
   recommended: boolean;
 }
 
@@ -101,7 +91,6 @@ export interface TutorCertificateItem {
   issueDate: string | null;
 }
 
-/** Hồ sơ gia sư hiện tại (GET /profile/me) — dùng cho form ứng tuyển. */
 export interface TutorProfileCard {
   userId: number;
   role: string;
@@ -120,7 +109,6 @@ export interface TutorProfileCard {
   certificates: TutorCertificateItem[] | null;
 }
 
-/** Payload gửi lên khi tạo/sửa lớp (CreateClassRequest). */
 export interface ClassRequestPayload {
   title?: string;
   description?: string;
@@ -140,10 +128,8 @@ export interface ClassRequestPayload {
   recurringType: RecurringType;
 }
 
-/** Giá trị của form (trạng thái nhập liệu). */
 export interface ClassFormValues {
   subjectIds: string[];
-  /** Tên môn học tự nhập khi chọn "Khác". */
   subjectOther: string;
   gradeId: string;
   learningGoal: string;
@@ -158,20 +144,12 @@ export interface ClassFormValues {
   wardId: string;
   wardName: string;
   address: string;
-  /** Học phí/giờ theo từng môn (key = subjectId, kể cả "other"). */
   subjectFees: Record<string, string>;
   billingCycle: BillingCycle;
-  /** Số tháng cụ thể khi chọn "Theo tháng". */
   months: string;
-  /** WEEKLY = lặp lại hàng tuần (theo Thứ); CUSTOM = chọn ngày cụ thể. */
   scheduleMode: ScheduleMode;
-  /** Độ dài chu kỳ lặp, tính bằng tuần ("1" = hàng tuần, "3" = chu kỳ 3 tuần). Chỉ dùng khi WEEKLY. */
   repeatEveryWeeks: string;
-  /** Những tuần HỌC trong mỗi chu kỳ, đánh số 1..N (N = repeatEveryWeeks); tuần không có
-   *  trong danh sách là tuần nghỉ. Chu kỳ 4 tuần + [1, 3] = học tuần 1 và 3, nghỉ tuần 2 và 4.
-   *  Mặc định [1]. Cho phép tuần học nằm rời rạc, không bắt buộc liền nhau. */
   studyWeeks: number[];
-  /** Lịch học theo từng môn: mỗi phần tử = 1 buổi của 1 môn (không trùng giờ nhau). */
   slots: ScheduleSlot[];
   note: string;
 }
@@ -183,13 +161,10 @@ export const SCHEDULE_MODE_OPTIONS: readonly { value: ScheduleMode; label: strin
   { value: 'CUSTOM', label: 'Chọn ngày cụ thể (lịch cá nhân)' },
 ];
 
-/** Bước tăng/giảm của ô học phí/giờ (đ) — bấm mũi tên là nhảy 50k. */
 export const FEE_PER_HOUR_STEP = 50000;
 
-/** Học phí/giờ thấp nhất chấp nhận được (đ) — gia sư là sinh viên cũng đã từ mức này trở lên. */
 export const FEE_PER_HOUR_MIN = 50000;
 
-/** Độ dài chu kỳ lặp của lịch WEEKLY: 1–4 tuần. */
 export const REPEAT_WEEKS_OPTIONS: readonly { value: string; label: string }[] = [
   { value: '1', label: 'Hàng tuần (học đều, không nghỉ)' },
   { value: '2', label: 'Chu kỳ 2 tuần' },
@@ -197,8 +172,6 @@ export const REPEAT_WEEKS_OPTIONS: readonly { value: string; label: string }[] =
   { value: '4', label: 'Chu kỳ 4 tuần' },
 ];
 
-
-/** Một buổi học: thuộc môn nào; theo Thứ (WEEKLY) hoặc ngày cụ thể (CUSTOM); buổi + khung giờ. */
 export interface ScheduleSlot {
   subjectId: string;
   day: string;
@@ -208,7 +181,6 @@ export interface ScheduleSlot {
   end: string;
 }
 
-// Buổi trong ngày: khung giờ cho phép (min–max) + gợi ý (chọn buổi tự điền).
 export const SESSION_OPTIONS: readonly {
   value: string;
   label: string;
@@ -219,12 +191,11 @@ export const SESSION_OPTIONS: readonly {
 }[] = [
   { value: 'Sáng', label: 'Sáng (6h–12h)', min: '06:00', max: '12:00', start: '08:00', end: '10:00' },
   { value: 'Chiều', label: 'Chiều (12h–18h)', min: '12:00', max: '18:00', start: '14:00', end: '16:00' },
-  { value: 'Tối', label: 'Tối (18h–23h30)', min: '18:00', max: '23:30', start: '18:00', end: '20:00' },
+  { value: 'Tối', label: 'Tối (18h–0h)', min: '18:00', max: '23:59', start: '18:00', end: '20:00' },
 ];
 
 export type BillingCycle = 'MONTH' | 'TERM' | 'QUARTER' | 'YEAR';
 
-// Gợi ý đáp án cho "Mục tiêu học tập".
 export const LEARNING_GOAL_OPTIONS: readonly string[] = [
   'Lấy lại gốc',
   'Ôn thi học kỳ',
@@ -235,10 +206,8 @@ export const LEARNING_GOAL_OPTIONS: readonly string[] = [
 
 export const LEARNING_GOAL_OTHER = 'Khác';
 
-/** Giá trị đại diện cho môn học "Khác" (tự nhập). */
 export const OTHER_SUBJECT = 'other';
 
-// Gợi ý đáp án cho "Yêu cầu đối với gia sư".
 export const TUTOR_REQUIREMENT_OPTIONS: readonly string[] = [
   'Không yêu cầu cụ thể',
   'Sinh viên',
@@ -256,16 +225,9 @@ export const RECURRING_OPTIONS: readonly { value: RecurringType; label: string }
   { value: 'ONCE', label: 'Học một đợt' },
 ];
 
-// Học theo tháng / quý / nửa năm / năm — dùng để ước tính tổng học phí.
-// CẢNH BÁO: tên khóa KHÔNG khớp nhãn và không được đổi — detailsJson của các lớp đã lưu
-// dùng đúng các khóa này, đổi khóa sẽ làm lớp cũ rơi về "Tháng" và sai tổng học phí.
-//   TERM    = quý (3 tháng)      — trước đây gọi nhầm là "kỳ"
-//   QUARTER = nửa năm (6 tháng)  — trước đây gọi nhầm là "quý" (quý đúng ra là 3 tháng)
 export const BILLING_CYCLE_OPTIONS: readonly {
   value: BillingCycle;
-  /** Nhãn đầy đủ trong ô chọn. */
   label: string;
-  /** Tên gọn để ghép câu: "9.600.000 đ / năm", "Tổng học phí ước tính (quý)". */
   short: string;
   weeks: number;
 }[] = [
@@ -275,7 +237,6 @@ export const BILLING_CYCLE_OPTIONS: readonly {
   { value: 'YEAR', label: 'Một năm (12 tháng)', short: 'năm', weeks: 48 },
 ];
 
-// Các thứ trong tuần.
 export const DAY_OF_WEEK_OPTIONS: readonly { value: string; label: string }[] = [
   { value: 'T2', label: 'Thứ 2' },
   { value: 'T3', label: 'Thứ 3' },

@@ -17,6 +17,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.persistence.UniqueConstraint;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -60,15 +61,26 @@ public class Review {
     @Column(name = "review_type", length = 30, nullable = false)
     private ReviewType reviewType;
 
-    @Column(name = "rating", nullable = false)
-    private Integer rating;
+    @Column(name = "rating", nullable = false, precision = 2, scale = 1)
+    private BigDecimal rating;
 
     @Column(name = "comment", columnDefinition = "TEXT")
     private String comment;
 
-    // JSON cac tieu chi da cham diem: [{"code","question","score"}]. rating tong = trung binh lam tron.
+    @Column(name = "tutor_reply", columnDefinition = "TEXT")
+    private String tutorReply;
+
+    @Column(name = "tutor_reply_at")
+    private LocalDateTime tutorReplyAt;
+
     @Column(name = "criteria_json", columnDefinition = "TEXT")
     private String criteriaJson;
+
+    @Column(name = "is_anonymous", nullable = false)
+    private boolean anonymous = false;
+
+    @Column(name = "display_name", length = 100)
+    private String displayName;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)

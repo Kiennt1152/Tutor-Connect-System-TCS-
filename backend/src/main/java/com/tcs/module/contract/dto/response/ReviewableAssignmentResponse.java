@@ -1,13 +1,10 @@
 package com.tcs.module.contract.dto.response;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Getter;
 
-/**
- * Mot lop da hoan thanh cua khach hang, kem thong tin gia su va trang thai da danh gia hay chua.
- * Dung cho man hinh "Danh gia cua toi" (UC-65).
- */
 @Getter
 @Builder
 public class ReviewableAssignmentResponse {
@@ -22,8 +19,16 @@ public class ReviewableAssignmentResponse {
 
     private boolean reviewed;
     private Long reviewId;
-    private Integer rating;
+    private BigDecimal rating;
     private String comment;
     private String criteriaJson;
+    private boolean anonymous;
+    private String reviewerDisplayName;
     private LocalDateTime reviewedAt;
+    private String tutorReply;
+    private LocalDateTime tutorReplyAt;
+
+    private boolean reviewable;
+    private int reviewsSubmitted;
+    private boolean reviewOverdue;
 }

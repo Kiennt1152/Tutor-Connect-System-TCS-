@@ -25,7 +25,7 @@ export default function MyReviewsPage() {
   const [items, setItems] = useState<ReviewableAssignment[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [loadError, setLoadError] = useState('');
-  const [active, setActive] = useState<ReviewableAssignment | null>(null);
+  const [active, setActive] = useState<{ item: ReviewableAssignment; edit: boolean } | null>(null);
   const [toast, setToast] = useState('');
 
   const load = useCallback(() => {
@@ -47,13 +47,14 @@ export default function MyReviewsPage() {
   }, [load]);
 
   function handleSubmitted() {
+    const wasEdit = active?.edit;
     setActive(null);
-    setToast('Đã gửi đánh giá. Cảm ơn phản hồi của bạn!');
+    setToast(wasEdit ? 'Đã cập nhật đánh giá của bạn.' : 'Đã gửi đánh giá. Cảm ơn phản hồi của bạn!');
     load();
     window.setTimeout(() => setToast(''), 4000);
   }
 
-  const pending = items.filter((i) => !i.reviewed);
+  const pending = items.filter((i) => i.reviewable);
   const done = items.filter((i) => i.reviewed);
 
   return (
@@ -63,7 +64,7 @@ export default function MyReviewsPage() {
         <header className="rv-page__head">
           <h1 className="rv-page__title">Đánh giá của tôi</h1>
           <p className="rv-page__subtitle">
-            Gửi đánh giá và phản hồi cho gia sư của các lớp học đã hoàn thành.
+            Sau mỗi buổi học bạn có thể đánh giá gia sư. Hãy đánh giá ít nhất một lần mỗi tháng.
           </p>
         </header>
 
@@ -72,9 +73,9 @@ export default function MyReviewsPage() {
 
         {status === 'success' && items.length === 0 ? (
           <div className="rv-empty">
-            <p>Bạn chưa có lớp học hoàn thành nào để đánh giá.</p>
+            <p>Bạn chưa có lớp học nào để đánh giá.</p>
             <p className="rv-muted">
-              Sau khi một lớp học kết thúc, lớp đó sẽ xuất hiện ở đây để bạn đánh giá gia sư.
+              Sau buổi học đầu tiên, lớp sẽ xuất hiện ở đây để bạn đánh giá gia sư.
             </p>
           </div>
         ) : null}
@@ -91,11 +92,16 @@ export default function MyReviewsPage() {
                       {item.classTitle}
                       {item.subjectName ? ` · ${item.subjectName}` : ''}
                     </p>
+                    {item.reviewOverdue ? (
+                      <span className="rv-badge rv-badge--overdue">
+                        Cần đánh giá trong tháng này
+                      </span>
+                    ) : null}
                   </div>
                   <button
                     type="button"
                     className="tcs-btn tcs-btn--market"
-                    onClick={() => setActive(item)}
+                    onClick={() => setActive({ item, edit: false })}
                   >
                     Đánh giá
                   </button>
@@ -110,22 +116,11 @@ export default function MyReviewsPage() {
             <h2 className="rv-section__title">Đã đánh giá ({done.length})</h2>
             <ul className="rv-list">
               {done.map((item) => (
-                <li key={item.assignmentId} className="rv-card rv-card--done">
-                  <div className="rv-card__info">
-                    <p className="rv-card__tutor">{item.tutorName}</p>
-                    <p className="rv-card__class">
-                      {item.classTitle}
-                      {item.subjectName ? ` · ${item.subjectName}` : ''}
-                    </p>
-                    <div className="rv-card__review">
-                      <StarRating value={item.rating ?? 0} readOnly size={18} />
-                      <span className="rv-card__overall">Điểm tổng {item.rating}/5</span>
-                      <span className="rv-card__date">{formatDate(item.reviewedAt)}</span>
-                    </div>
-                    <CriteriaBreakdown criteriaJson={item.criteriaJson} />
-                    {item.comment ? <p className="rv-card__comment">“{item.comment}”</p> : null}
-                  </div>
-                </li>
+                <DoneReviewCard
+                  key={item.assignmentId}
+                  item={item}
+                  onEdit={() => setActive({ item, edit: true })}
+                />
               ))}
             </ul>
           </section>
@@ -134,7 +129,8 @@ export default function MyReviewsPage() {
 
       {active ? (
         <ReviewFormModal
-          assignment={active}
+          assignment={active.item}
+          edit={active.edit}
           onClose={() => setActive(null)}
           onSubmitted={handleSubmitted}
         />
@@ -142,5 +138,75 @@ export default function MyReviewsPage() {
 
       {toast ? <div className="rv-toast">{toast}</div> : null}
     </div>
+  );
+}
+
+function DoneReviewCard({
+  item,
+  onEdit,
+}: {
+  readonly item: ReviewableAssignment;
+  readonly onEdit: () => void;
+}) {
+  const [showDetails, setShowDetails] = useState(false);
+
+  return (
+    <li className="rv-card rv-card--done">
+      <div className="rv-card__info">
+        <p className="rv-card__tutor">{item.tutorName}</p>
+        <p className="rv-card__class">
+          {item.classTitle}
+          {item.subjectName ? ` · ${item.subjectName}` : ''}
+        </p>
+        <div className="rv-card__review">
+          <StarRating value={item.rating ?? 0} readOnly size={18} />
+          <span className="rv-card__overall">Điểm tổng {(item.rating ?? 0).toFixed(1)}/5</span>
+          <span className="rv-card__date">{formatDate(item.reviewedAt)}</span>
+        </div>
+        {item.criteriaJson ? (
+          <>
+            <button
+              type="button"
+              className="rv-card__toggle"
+              aria-expanded={showDetails}
+              onClick={() => setShowDetails((v) => !v)}
+            >
+              {showDetails ? 'Ẩn chi tiết đánh giá' : 'Xem chi tiết đánh giá'}
+            </button>
+            {showDetails ? <CriteriaBreakdown criteriaJson={item.criteriaJson} /> : null}
+          </>
+        ) : null}
+        {item.comment ? <p className="rv-card__comment">“{item.comment}”</p> : null}
+        <p className="rv-card__visibility">
+          {item.anonymous
+            ? `Ẩn danh · hiển thị là “${item.reviewerDisplayName}”`
+            : `Công khai · hiển thị tên “${item.reviewerDisplayName}”`}
+        </p>
+        <p className="rv-card__periodic">
+          Đã đánh giá {item.reviewsSubmitted} lần
+          {item.reviewOverdue
+            ? ' · cần đánh giá trong tháng này'
+            : item.reviewable
+              ? ' · có thể đánh giá thêm sau buổi học mới'
+              : ''}
+        </p>
+        {item.tutorReply ? (
+          <div className="rv-reply">
+            <div className="rv-reply__head">
+              <span className="rv-reply__label">↩ Phản hồi của gia sư</span>
+              {item.tutorReplyAt ? (
+                <span className="rv-reply__date">{formatDate(item.tutorReplyAt)}</span>
+              ) : null}
+            </div>
+            <p className="rv-reply__text">{item.tutorReply}</p>
+          </div>
+        ) : null}
+        {item.reviewId != null ? (
+          <button type="button" className="tcs-btn tcs-btn--ghost rv-card__edit" onClick={onEdit}>
+            Chỉnh sửa đánh giá
+          </button>
+        ) : null}
+      </div>
+    </li>
   );
 }

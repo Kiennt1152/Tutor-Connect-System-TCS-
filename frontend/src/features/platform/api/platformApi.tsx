@@ -1,8 +1,10 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  AdminReviewApiResponse,
   DashboardApiResponse,
   PageUserListApiResponse,
   ReportApiResponse,
+  ReviewModerationStatus,
   ReviewVerificationApiRequest,
   UpdateUserStatusApiRequest,
   UserListItemApiResponse,
@@ -44,5 +46,18 @@ export const platformApi = {
 
   getReports() {
     return axiosClient.get<ReportApiResponse[]>(`${BASE}/reports`);
+  },
+
+  getReviews(status?: ReviewModerationStatus) {
+    const query = status ? `?status=${status}` : '';
+    return axiosClient.get<AdminReviewApiResponse[]>(`${BASE}/reviews${query}`);
+  },
+
+  moderateReview(reviewId: number, status: ReviewModerationStatus) {
+    return axiosClient.patch<AdminReviewApiResponse>(`${BASE}/reviews/${reviewId}`, { status });
+  },
+
+  deleteReview(reviewId: number) {
+    return axiosClient.delete<void>(`${BASE}/reviews/${reviewId}`);
   },
 };
