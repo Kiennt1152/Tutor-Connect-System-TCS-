@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
+import { RefundRequestModal } from '../../marketplace/components/RefundRequestModal';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useContractDetail, useSignContract } from '../hooks/useContract';
@@ -42,6 +43,7 @@ export default function ContractDetailPage() {
   const [otpSentSuccess, setOtpSentSuccess] = useState(false);
   const [signSuccess, setSignSuccess] = useState(false);
   const [issueModalOpen, setIssueModalOpen] = useState(false);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
 
   useEffect(() => {
     if (id) void reload(id);
@@ -141,6 +143,14 @@ export default function ContractDetailPage() {
               onClick={() => setIssueModalOpen(true)}
             >
               Báo cáo sự cố
+            </button>
+            <button
+              className="tcs-btn tcs-btn--ghost"
+              type="button"
+              disabled={!canCreateIssue}
+              onClick={() => setRefundModalOpen(true)}
+            >
+              Yêu cầu hoàn tiền
             </button>
             {classDetailUrl ? (
               <Link
@@ -339,8 +349,18 @@ export default function ContractDetailPage() {
           <ClassIssueModal
             open={issueModalOpen}
             classId={contract.classId}
+            assignmentId={contract.assignmentId}
+            classStudentId={contract.classStudentId}
             classTitle={contract.classTitle}
             onClose={() => setIssueModalOpen(false)}
+          />
+          <RefundRequestModal
+            open={refundModalOpen}
+            classTitle={contract.classTitle}
+            assignmentId={contract.assignmentId}
+            classStudentId={contract.classStudentId}
+            amountHint={contract.tuitionFee == null ? null : Number(contract.tuitionFee)}
+            onClose={() => setRefundModalOpen(false)}
           />
         </>
       ) : null}

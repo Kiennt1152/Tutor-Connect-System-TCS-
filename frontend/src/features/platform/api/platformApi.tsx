@@ -6,17 +6,22 @@ import type {
   DisputeStatus,
   ExecuteRefundApiRequest,
   RefundExecutionApiResponse,
+  RefundDecisionApiRequest,
+  RefundRequestApiResponse,
+  RefundRequestStatus,
   ExecuteSettlementApiRequest,
   PageAdminWithdrawalApiResponse,
   PageUserListApiResponse,
   ReportApiResponse,
   ReviewVerificationApiRequest,
+  ResolveClassIssueRequest,
   ResolveDisputeApiRequest,
   UpdateUserStatusApiRequest,
   UserListItemApiResponse,
   UserListFilters,
   VerificationDetailApiResponse,
   VerificationRequestApiResponse,
+  WithdrawalDecisionApiRequest,
   WithdrawalListFilters,
 } from '../types/platformTypes';
 import { buildUserListQuery, buildWithdrawalListQuery } from '../mappers/platformMapper';
@@ -42,6 +47,18 @@ export const platformApi = {
     return axiosClient.post(`/finance/withdrawals/${withdrawalId}/accept`);
   },
 
+  approveWithdrawal(withdrawalId: string) {
+    return axiosClient.post(`/finance/withdrawals/${withdrawalId}/approve`);
+  },
+
+  rejectWithdrawal(withdrawalId: string, payload: WithdrawalDecisionApiRequest) {
+    return axiosClient.post(`/finance/withdrawals/${withdrawalId}/reject`, payload);
+  },
+
+  markWithdrawalTransferFailed(withdrawalId: string, payload: WithdrawalDecisionApiRequest) {
+    return axiosClient.post(`/finance/withdrawals/${withdrawalId}/transfer-failed`, payload);
+  },
+
   updateUserStatus(userId: string, payload: UpdateUserStatusApiRequest) {
     return axiosClient.patch<UserListItemApiResponse>(`${BASE}/users/${userId}/status`, payload);
   },
@@ -63,6 +80,10 @@ export const platformApi = {
 
   getReports() {
     return axiosClient.get<ReportApiResponse[]>(`${BASE}/reports`);
+  },
+
+  resolveClassIssue(reportId: string, payload: ResolveClassIssueRequest) {
+    return axiosClient.patch<ReportApiResponse>(`${BASE}/reports/${reportId}/resolve`, payload);
   },
 
   getDisputes(status?: DisputeStatus) {
@@ -88,5 +109,18 @@ export const platformApi = {
 
   executeRefund(payload: ExecuteRefundApiRequest) {
     return axiosClient.post<RefundExecutionApiResponse>('/finance/refunds/execute', payload);
+  },
+
+  getRefundRequests(status?: RefundRequestStatus) {
+    const query = status ? `?status=${status}` : '';
+    return axiosClient.get<RefundRequestApiResponse[]>(`/finance/refund-requests${query}`);
+  },
+
+  approveRefundRequest(refundId: string, payload: RefundDecisionApiRequest) {
+    return axiosClient.post<RefundRequestApiResponse>(`/finance/refund-requests/${refundId}/approve`, payload);
+  },
+
+  rejectRefundRequest(refundId: string, payload: RefundDecisionApiRequest) {
+    return axiosClient.post<RefundRequestApiResponse>(`/finance/refund-requests/${refundId}/reject`, payload);
   },
 };

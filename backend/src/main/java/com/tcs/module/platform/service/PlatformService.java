@@ -2,6 +2,7 @@ package com.tcs.module.platform.service;
 
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
+import com.tcs.module.platform.dto.request.ResolveClassIssueRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
 import com.tcs.module.platform.dto.response.DashboardResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
@@ -28,4 +29,6 @@ public interface PlatformService {
     VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request);
 
     List<ReportResponse> listReports();
+
+    ReportResponse resolveClassIssue(Long reportId, ResolveClassIssueRequest request);
 }

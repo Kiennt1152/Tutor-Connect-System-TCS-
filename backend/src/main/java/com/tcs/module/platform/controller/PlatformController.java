@@ -2,6 +2,7 @@ package com.tcs.module.platform.controller;
 
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
+import com.tcs.module.platform.dto.request.ResolveClassIssueRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
 import com.tcs.module.platform.dto.response.DashboardResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
@@ -69,5 +70,12 @@ public class PlatformController {
     @GetMapping("/reports")
     public List<ReportResponse> listReports() {
         return platformService.listReports();
+    }
+
+    @PatchMapping("/reports/{reportId}/resolve")
+    public ReportResponse resolveClassIssue(
+            @PathVariable Long reportId,
+            @RequestBody ResolveClassIssueRequest request) {
+        return platformService.resolveClassIssue(reportId, request);
     }
 }

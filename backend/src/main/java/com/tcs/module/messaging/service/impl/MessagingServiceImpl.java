@@ -126,6 +126,8 @@ public class MessagingServiceImpl implements MessagingService {
                 .type(n.getType())
                 .title(n.getTitle())
                 .content(n.getContent())
+                .referenceType(n.getReferenceType())
+                .referenceId(n.getReferenceId())
                 .isRead(n.getIsRead())
                 .createdAt(n.getCreatedAt())
                 .build();

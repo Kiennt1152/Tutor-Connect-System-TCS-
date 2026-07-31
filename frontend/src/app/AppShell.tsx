@@ -13,7 +13,7 @@ const NAV_ITEMS = [
   { to: APP_ROUTES.center, label: 'Center' },
   { to: APP_ROUTES.finance, label: 'Finance' },
   { to: APP_ROUTES.contract, label: 'Contract' },
-  { to: APP_ROUTES.messaging, label: 'Messaging' },
+  { to: APP_ROUTES.messaging, label: 'Thông báo' },
   { to: APP_ROUTES.platform, label: 'Platform' },
 ];
 

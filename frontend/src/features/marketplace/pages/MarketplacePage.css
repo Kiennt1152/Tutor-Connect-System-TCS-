@@ -421,6 +421,16 @@
   background: var(--color-primary);
   color: #fff;
 }
+.mk-btn--secondary {
+  background: #fff;
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+.mk-btn--secondary:hover:not(:disabled) {
+  background: var(--color-surface-3);
+  border-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
 .mk-btn--block {
   width: 100%;
 }

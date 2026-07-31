@@ -4,6 +4,7 @@ import com.tcs.module.finance.dto.request.AppealDisputeRequest;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
+import com.tcs.module.finance.dto.request.SubmitDisputeEvidenceRequest;
 import com.tcs.module.finance.dto.response.AdminDisputeReviewResponse;
 import com.tcs.module.finance.dto.response.DisputeResponse;
 import com.tcs.module.finance.enums.DisputeStatus;
@@ -40,6 +41,13 @@ public class DisputeController {
             @PathVariable Long disputeId,
             @RequestBody ResolveDisputeRequest request) {
         return disputeService.resolveDispute(disputeId, request);
+    }
+
+    @PostMapping("/api/disputes/{disputeId}/evidence")
+    public DisputeResponse submitAdditionalEvidence(
+            @PathVariable Long disputeId,
+            @RequestBody SubmitDisputeEvidenceRequest request) {
+        return disputeService.submitAdditionalEvidence(disputeId, request);
     }
 
     @PostMapping("/api/disputes/{disputeId}/appeal")

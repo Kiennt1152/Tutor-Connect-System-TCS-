@@ -3,8 +3,10 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { ClassTerminationModal } from '../components/ClassTerminationModal';
+import { RefundRequestModal } from '../components/RefundRequestModal';
 import type { LessonMode, MarketplaceClass, RecurringType } from '../types/marketplaceTypes';
 import './MarketplacePage.css';
 
@@ -52,6 +54,8 @@ export default function MarketplaceClassDetailPage() {
   const [regStatus, setRegStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [regMessage, setRegMessage] = useState('');
   const [terminationModalOpen, setTerminationModalOpen] = useState(false);
+  const [issueModalOpen, setIssueModalOpen] = useState(false);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
 
   const load = useCallback(() => {
     if (!classId) return;
@@ -231,6 +235,20 @@ export default function MarketplaceClassDetailPage() {
                   >
                     Yêu cầu chấm dứt sớm
                   </button>
+                  <button
+                    className="mk-btn mk-btn--secondary mk-btn--block"
+                    type="button"
+                    onClick={() => setIssueModalOpen(true)}
+                  >
+                    Báo cáo sự cố
+                  </button>
+                  <button
+                    className="mk-btn mk-btn--secondary mk-btn--block"
+                    type="button"
+                    onClick={() => setRefundModalOpen(true)}
+                  >
+                    Yêu cầu hoàn tiền
+                  </button>
                 </div>
               ) : null}
             </aside>
@@ -245,6 +263,26 @@ export default function MarketplaceClassDetailPage() {
           classStudentId={data.terminationClassStudentId}
           classTitle={data.title}
           onClose={() => setTerminationModalOpen(false)}
+        />
+      ) : null}
+      {data ? (
+        <ClassIssueModal
+          open={issueModalOpen}
+          classId={data.classId}
+          assignmentId={data.terminationAssignmentId}
+          classStudentId={data.terminationClassStudentId}
+          classTitle={data.title}
+          onClose={() => setIssueModalOpen(false)}
+        />
+      ) : null}
+      {data ? (
+        <RefundRequestModal
+          open={refundModalOpen}
+          classTitle={data.title}
+          assignmentId={data.terminationAssignmentId}
+          classStudentId={data.terminationClassStudentId}
+          amountHint={data.tuitionFee}
+          onClose={() => setRefundModalOpen(false)}
         />
       ) : null}
     </>

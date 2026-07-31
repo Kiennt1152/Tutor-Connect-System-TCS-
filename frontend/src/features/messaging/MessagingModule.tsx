@@ -1,5 +1,5 @@
-import { MessagingPanel } from './components/MessagingPanel';
+import MessagingPage from './pages/MessagingPage';
 
 export default function MessagingModule() {
-  return <MessagingPanel />;
+  return <MessagingPage />;
 }

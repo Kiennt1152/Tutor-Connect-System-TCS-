@@ -1,5 +1,5 @@
-import type { MessagingResponse } from '../types/messagingTypes';
+import type { NotificationItem } from '../types/messagingTypes';
 
-export function mapMessagingResponse(response: MessagingResponse): MessagingResponse {
+export function mapMessagingResponse(response: NotificationItem): NotificationItem {
   return response;
 }

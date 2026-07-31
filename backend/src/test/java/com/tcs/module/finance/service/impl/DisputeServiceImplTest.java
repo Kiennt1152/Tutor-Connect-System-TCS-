@@ -1,7 +1,9 @@
 package com.tcs.module.finance.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -10,6 +12,7 @@ import static org.mockito.Mockito.when;
 
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
+import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
@@ -17,16 +20,22 @@ import com.tcs.module.finance.dto.request.AppealDisputeRequest;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
+import com.tcs.module.finance.dto.request.SubmitDisputeEvidenceRequest;
 import com.tcs.module.finance.dto.response.AdminDisputeReviewResponse;
 import com.tcs.module.finance.dto.response.DisputeResponse;
 import com.tcs.module.finance.entity.Dispute;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
+import com.tcs.module.finance.entity.RefundRequest;
 import com.tcs.module.finance.entity.Wallet;
+import com.tcs.module.finance.enums.ClassIssueRequestedAction;
+import com.tcs.module.finance.enums.ClassIssueType;
+import com.tcs.module.finance.enums.DisputeResolutionAction;
 import com.tcs.module.finance.enums.DisputeStatus;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
+import com.tcs.module.finance.enums.RefundRequestStatus;
 import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.RefundRequestRepository;
@@ -36,14 +45,21 @@ import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.ClassTerminationRequest;
+import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassTerminationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
+import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.marketplace.repository.ClassTerminationRequestRepository;
+import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
+import com.tcs.module.marketplace.repository.LessonRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.platform.repository.AuditLogRepository;
 import com.tcs.module.platform.entity.Report;
 import com.tcs.module.platform.enums.ReportCategory;
 import com.tcs.module.platform.enums.ReportStatus;
@@ -51,6 +67,7 @@ import com.tcs.module.platform.enums.ReportTargetType;
 import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.security.AuthHelper;
 import com.tcs.security.UserPrincipal;
 import java.math.BigDecimal;
@@ -58,6 +75,7 @@ import java.time.LocalDateTime;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
+import org.mockito.ArgumentCaptor;
 import org.springframework.data.domain.Sort;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -89,13 +107,31 @@ class DisputeServiceImplTest {
     private RefundRequestRepository refundRequestRepository;
 
     @Mock
+    private NotificationRepository notificationRepository;
+
+    @Mock
+    private PlatformAdminRepository platformAdminRepository;
+
+    @Mock
+    private AuditLogRepository auditLogRepository;
+
+    @Mock
     private TutoringClassRepository tutoringClassRepository;
 
     @Mock
     private ClassAssignmentRepository classAssignmentRepository;
 
     @Mock
+    private ClassStudentRepository classStudentRepository;
+
+    @Mock
     private ClassTerminationRequestRepository classTerminationRequestRepository;
+
+    @Mock
+    private LessonRepository lessonRepository;
+
+    @Mock
+    private LessonAttendanceRepository lessonAttendanceRepository;
 
     @Mock
     private ContractRepository contractRepository;
@@ -152,12 +188,62 @@ class DisputeServiceImplTest {
     }
 
     @Test
-    void createClassIssueResolvesEscrowByClassAndHoldsIt() {
+    void createClassIssueCreatesReportWithoutHoldingEscrow() {
         User reporter = new User();
         reporter.setUserId(USER_ID);
 
         TutoringClass tutoringClass = new TutoringClass();
         tutoringClass.setClassId(99L);
+        tutoringClass.setCreator(reporter);
+        tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
+
+        Report savedReport = report(
+                21L,
+                reporter,
+                ReportTargetType.CLASS,
+                99L,
+                ReportCategory.SPAM,
+                "[UC-29] Báo cáo sự cố lớp học");
+
+        CreateClassIssueRequest request = new CreateClassIssueRequest();
+        request.setClassId(99L);
+        request.setIssueType(ClassIssueType.TUTOR_ABSENT);
+        request.setRequestedAction(ClassIssueRequestedAction.RESCHEDULE);
+        request.setLessonRef("Buổi 3");
+        request.setOccurredAt(LocalDate.of(2026, 7, 18));
+        request.setDescription("Gia sư không tham gia buổi học theo lịch đã hẹn");
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(reporter));
+        when(tutoringClassRepository.findById(99L)).thenReturn(Optional.of(tutoringClass));
+        when(reportRepository.findByReporter_UserIdAndTargetTypeAndTargetIdAndStatusOrderByCreatedAtDesc(
+                USER_ID,
+                ReportTargetType.CLASS,
+                99L,
+                ReportStatus.PENDING))
+                .thenReturn(List.of());
+        when(reportRepository.save(any(Report.class))).thenReturn(savedReport);
+
+        DisputeResponse response = disputeService.createClassIssue(request);
+
+        assertFalse(response.getEscalatedToDispute());
+        assertNull(response.getDisputeId());
+        assertEquals(21L, response.getReportId());
+        assertNull(response.getEscrowId());
+        assertEquals(ReportTargetType.CLASS, response.getTargetType());
+        verify(escrowService, never()).holdForDispute(any(), any());
+        verify(disputeRepository, never()).save(any(Dispute.class));
+    }
+
+    @Test
+    void createClassIssueEscalatesRefundReviewToDisputeAndHoldsEscrow() {
+        User reporter = new User();
+        reporter.setUserId(USER_ID);
+
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setClassId(99L);
+        tutoringClass.setCreator(reporter);
+        tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
 
         ClassStudent classStudent = new ClassStudent();
         classStudent.setClassStudentId(12L);
@@ -167,32 +253,47 @@ class DisputeServiceImplTest {
         EscrowTransaction escrow = escrow(11L, EscrowStatus.FUNDED);
         escrow.setClassStudent(classStudent);
 
-        Report savedReport = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.ABUSE, "Lớp có vấn đề");
+        Report savedReport = report(
+                21L,
+                reporter,
+                ReportTargetType.CLASS,
+                99L,
+                ReportCategory.FRAUD,
+                "[UC-29] Báo cáo sự cố lớp học");
         Dispute savedDispute = dispute(savedReport, escrow, 31L, DisputeStatus.OPEN);
 
         CreateClassIssueRequest request = new CreateClassIssueRequest();
         request.setClassId(99L);
-        request.setCategory(ReportCategory.ABUSE);
-        request.setDescription("Lớp có vấn đề");
+        request.setIssueType(ClassIssueType.PAYMENT_OR_REFUND);
+        request.setRequestedAction(ClassIssueRequestedAction.REFUND_REVIEW);
+        request.setDescription("Cần xem xét hoàn tiền vì lớp không diễn ra theo cam kết");
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(reporter));
-        when(tutoringClassRepository.existsById(99L)).thenReturn(true);
+        when(tutoringClassRepository.findById(99L)).thenReturn(Optional.of(tutoringClass));
+        when(reportRepository.findByReporter_UserIdAndTargetTypeAndTargetIdAndStatusOrderByCreatedAtDesc(
+                USER_ID,
+                ReportTargetType.CLASS,
+                99L,
+                ReportStatus.PENDING))
+                .thenReturn(List.of());
         when(escrowTransactionRepository.findByAssignment_Application_TutoringClass_ClassId(99L))
-                .thenReturn(java.util.List.of());
+                .thenReturn(List.of());
         when(escrowTransactionRepository.findByClassStudent_TutoringClass_ClassId(99L))
-                .thenReturn(java.util.List.of(escrow));
+                .thenReturn(List.of(escrow));
         when(reportRepository.save(any(Report.class))).thenReturn(savedReport);
-        when(escrowService.holdForDispute(11L, "Lớp có vấn đề")).thenReturn(escrow);
+        when(escrowService.holdForDispute(11L, "Cần xem xét hoàn tiền vì lớp không diễn ra theo cam kết"))
+                .thenReturn(escrow);
         when(disputeRepository.save(any(Dispute.class))).thenReturn(savedDispute);
 
         DisputeResponse response = disputeService.createClassIssue(request);
 
+        assertEquals(Boolean.TRUE, response.getEscalatedToDispute());
         assertEquals(31L, response.getDisputeId());
         assertEquals(21L, response.getReportId());
         assertEquals(11L, response.getEscrowId());
         assertEquals(ReportTargetType.CLASS, response.getTargetType());
-        verify(escrowService).holdForDispute(11L, "Lớp có vấn đề");
+        verify(escrowService).holdForDispute(11L, "Cần xem xét hoàn tiền vì lớp không diễn ra theo cam kết");
         verify(disputeRepository).save(any(Dispute.class));
     }
 
@@ -393,6 +494,134 @@ class DisputeServiceImplTest {
     }
 
     @Test
+    void resolveDisputeContinueClassRestoresHeldEscrowAndClass() {
+        User reporter = user(USER_ID, "reporter@tcs.com");
+        User tutorUser = user(202L, "tutor@tcs.com");
+        User creator = user(303L, "creator@tcs.com");
+        TutoringClass tutoringClass = tutoringClass(99L, creator);
+        ClassAssignment assignment = assignment(7L, tutorUser, tutoringClass);
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.DISPUTED);
+        escrow.setAssignment(assignment);
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.ABUSE, "Lớp có vấn đề");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.UNDER_INVESTIGATION);
+
+        ResolveDisputeRequest request = new ResolveDisputeRequest();
+        request.setAction(DisputeResolutionAction.CONTINUE_CLASS);
+        request.setResolution("Sự cố đã được xử lý, lớp tiếp tục theo lịch học");
+
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(classTerminationRequestRepository.findFirstByAssignment_AssignmentIdOrderByCreatedAtDesc(7L))
+                .thenReturn(Optional.empty());
+        when(disputeRepository.save(dispute)).thenReturn(dispute);
+
+        AdminDisputeReviewResponse response = disputeService.resolveDispute(31L, request);
+
+        assertEquals(DisputeStatus.RESOLVED, response.getDisputeStatus());
+        assertEquals(ReportStatus.RESOLVED, report.getStatus());
+        assertEquals(EscrowStatus.FUNDED, escrow.getStatus());
+        assertEquals(TutoringClassStatus.IN_PROGRESS, tutoringClass.getStatus());
+        verify(escrowTransactionRepository).save(escrow);
+        verify(tutoringClassRepository).save(tutoringClass);
+        verify(escrowService, never()).apply(any());
+    }
+
+    @Test
+    void resolveDisputePartialRefundSettlesEscrowAndCompletesTermination() {
+        User admin = user(900L, "admin@tcs.com");
+        User reporter = user(USER_ID, "reporter@tcs.com");
+        User tutorUser = user(202L, "tutor@tcs.com");
+        User creator = user(303L, "creator@tcs.com");
+        TutoringClass tutoringClass = tutoringClass(99L, creator);
+        ClassAssignment assignment = assignment(7L, tutorUser, tutoringClass);
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.DISPUTED);
+        escrow.setAssignment(assignment);
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.UNDER_INVESTIGATION);
+        ClassTerminationRequest termination = terminationRequest(88L, assignment, reporter);
+        Contract contract = new Contract();
+        contract.setContractId(66L);
+        contract.setAssignment(assignment);
+        contract.setStatus(ContractStatus.ACTIVE);
+
+        ResolveDisputeRequest request = new ResolveDisputeRequest();
+        request.setAction(DisputeResolutionAction.APPROVE_PARTIAL_REFUND);
+        request.setReleaseToBeneficiary(new BigDecimal("70000.00"));
+        request.setRefundToPayer(new BigDecimal("30000.00"));
+        request.setResolution("Hoàn một phần theo số buổi chưa học và chấm dứt hợp đồng");
+
+        when(authHelper.currentUserId()).thenReturn(900L);
+        when(userRepository.findById(900L)).thenReturn(Optional.of(admin));
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(classTerminationRequestRepository.findFirstByAssignment_AssignmentIdOrderByCreatedAtDesc(7L))
+                .thenReturn(Optional.of(termination));
+        when(contractRepository.findByAssignment_AssignmentId(7L)).thenReturn(Optional.of(contract));
+        when(disputeRepository.save(dispute)).thenReturn(dispute);
+
+        disputeService.resolveDispute(31L, request);
+
+        ArgumentCaptor<ReleaseInstruction> instructionCaptor = ArgumentCaptor.forClass(ReleaseInstruction.class);
+        verify(escrowService).apply(instructionCaptor.capture());
+        ReleaseInstruction instruction = instructionCaptor.getValue();
+        assertEquals(11L, instruction.escrowId());
+        assertEquals(new BigDecimal("70000.00"), instruction.releaseToBeneficiary());
+        assertEquals(new BigDecimal("30000.00"), instruction.refundToPayer());
+        assertEquals(ClassTerminationStatus.COMPLETED, termination.getStatus());
+        assertEquals(ClassAssignmentStatus.TERMINATED, assignment.getStatus());
+        assertEquals(TutoringClassStatus.CANCELLED, tutoringClass.getStatus());
+        assertEquals(ContractStatus.TERMINATED, contract.getStatus());
+        verify(classTerminationRequestRepository).save(termination);
+        verify(classAssignmentRepository).save(assignment);
+        verify(tutoringClassRepository).save(tutoringClass);
+        verify(contractRepository).save(contract);
+    }
+
+    @Test
+    void resolveDisputeTerminateClassUsesProRataSettlementWhenAmountsAreBlank() {
+        User admin = user(900L, "admin@tcs.com");
+        User reporter = user(USER_ID, "reporter@tcs.com");
+        User tutorUser = user(202L, "tutor@tcs.com");
+        User creator = user(303L, "creator@tcs.com");
+        TutoringClass tutoringClass = tutoringClass(99L, creator);
+        tutoringClass.setNumberOfSessions(10);
+        ClassAssignment assignment = assignment(7L, tutorUser, tutoringClass);
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.DISPUTED);
+        escrow.setAssignment(assignment);
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.UNDER_INVESTIGATION);
+        ClassTerminationRequest termination = terminationRequest(88L, assignment, reporter);
+
+        ResolveDisputeRequest request = new ResolveDisputeRequest();
+        request.setAction(DisputeResolutionAction.TERMINATE_CLASS);
+        request.setResolution("Chấm dứt lớp và chia tiền theo số buổi đã hoàn thành");
+
+        when(authHelper.currentUserId()).thenReturn(900L);
+        when(userRepository.findById(900L)).thenReturn(Optional.of(admin));
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(lessonRepository.findByTutoringClass_ClassId(99L))
+                .thenReturn(List.of(
+                        lesson(1L, AttendanceStatus.COMPLETED),
+                        lesson(2L, AttendanceStatus.COMPLETED),
+                        lesson(3L, AttendanceStatus.COMPLETED),
+                        lesson(4L, AttendanceStatus.PENDING)));
+        when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(classTerminationRequestRepository.findFirstByAssignment_AssignmentIdOrderByCreatedAtDesc(7L))
+                .thenReturn(Optional.of(termination));
+        when(disputeRepository.save(dispute)).thenReturn(dispute);
+
+        disputeService.resolveDispute(31L, request);
+
+        ArgumentCaptor<ReleaseInstruction> instructionCaptor = ArgumentCaptor.forClass(ReleaseInstruction.class);
+        verify(escrowService).apply(instructionCaptor.capture());
+        ReleaseInstruction instruction = instructionCaptor.getValue();
+        assertEquals(new BigDecimal("30000.00"), instruction.releaseToBeneficiary());
+        assertEquals(new BigDecimal("70000.00"), instruction.refundToPayer());
+        assertEquals(ClassTerminationStatus.COMPLETED, termination.getStatus());
+        assertEquals(ClassAssignmentStatus.TERMINATED, assignment.getStatus());
+        assertEquals(TutoringClassStatus.CANCELLED, tutoringClass.getStatus());
+    }
+
+    @Test
     void resolveDisputeCanMoveToWaitingWithoutClosingReport() {
         User reporter = user(USER_ID, "reporter@tcs.com");
         EscrowTransaction escrow = escrow(11L, EscrowStatus.DISPUTED);
@@ -413,6 +642,44 @@ class DisputeServiceImplTest {
         assertEquals("Cần người báo cáo bổ sung bằng chứng buổi học", response.getResolution());
         verify(reportRepository, never()).save(any(Report.class));
         verify(disputeRepository).save(dispute);
+    }
+
+    @Test
+    void submitAdditionalEvidenceMovesWaitingDisputeBackToInvestigation() {
+        User reporter = user(USER_ID, "client@tcs.com");
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.DISPUTED);
+        escrow.setPayment(payment(55L, reporter));
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        report.setEvidenceUrls("https://cdn.tcs.test/old-proof.png");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.WAITING);
+        dispute.setResolution("Quyết định: Yêu cầu bổ sung bằng chứng");
+
+        SubmitDisputeEvidenceRequest request = new SubmitDisputeEvidenceRequest();
+        request.setEvidenceUrls("https://cdn.tcs.test/new-proof.png");
+        request.setNote("Đã gửi thêm biên bản buổi học");
+
+        when(authHelper.requireRole(
+                UserRole.CLIENT,
+                UserRole.TUTOR,
+                UserRole.TUTOR_CENTER,
+                UserRole.PLATFORM_ADMIN))
+                .thenReturn(principal(reporter, UserRole.CLIENT));
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.save(dispute)).thenReturn(dispute);
+
+        DisputeResponse response = disputeService.submitAdditionalEvidence(31L, request);
+
+        assertEquals(DisputeStatus.UNDER_INVESTIGATION, response.getDisputeStatus());
+        assertEquals(ReportStatus.PENDING, report.getStatus());
+        assertEquals(
+                "https://cdn.tcs.test/old-proof.png\nhttps://cdn.tcs.test/new-proof.png",
+                report.getEvidenceUrls());
+        assertEquals(
+                "Quyết định: Yêu cầu bổ sung bằng chứng\n\nNgười dùng đã bổ sung bằng chứng: Đã gửi thêm biên bản buổi học",
+                dispute.getResolution());
+        verify(reportRepository).save(report);
+        verify(disputeRepository).save(dispute);
+        verify(platformAdminRepository).findAll();
     }
 
     @Test
@@ -628,6 +895,13 @@ class DisputeServiceImplTest {
         escrow.setStatus(status);
         escrow.setAmount(new BigDecimal("100000.00"));
         return escrow;
+    }
+
+    private Lesson lesson(Long lessonId, AttendanceStatus status) {
+        Lesson lesson = new Lesson();
+        lesson.setLessonId(lessonId);
+        lesson.setAttendanceStatus(status);
+        return lesson;
     }
 
     private Dispute dispute(Report report, EscrowTransaction escrow, Long disputeId, DisputeStatus status) {

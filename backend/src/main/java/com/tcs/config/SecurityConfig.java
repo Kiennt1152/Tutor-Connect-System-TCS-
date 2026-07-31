@@ -74,6 +74,12 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.POST, "/api/finance/withdrawals/*/accept")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/finance/withdrawals/*/approve",
+                                "/api/finance/withdrawals/*/reject",
+                                "/api/finance/withdrawals/*/transfer-failed")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/finance/settlements/preview/*")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(
@@ -83,6 +89,15 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.POST, "/api/finance/refunds/execute")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.GET, "/api/finance/refund-requests")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/finance/refund-requests/*/approve",
+                                "/api/finance/refund-requests/*/reject")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.POST, "/api/finance/refund-requests")
+                        .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
                         // --- Profile (specific before general) ---
                         .requestMatchers("/api/profile/children/**")
@@ -132,6 +147,8 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.POST, "/api/disputes/*/resolve")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.POST, "/api/disputes/*/evidence")
+                        .hasAnyRole(RbacConstants.BUSINESS_ROLES)
                         .requestMatchers(HttpMethod.POST, "/api/disputes/*/appeal")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
                         .requestMatchers(HttpMethod.POST, "/api/disputes", "/api/class-issues")

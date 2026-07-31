@@ -13,6 +13,7 @@ import com.tcs.module.finance.enums.PaymentTransactionType;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
@@ -20,6 +21,7 @@ import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -41,6 +43,7 @@ public class EscrowServiceImpl implements EscrowService {
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
     private final ClassStudentRepository classStudentRepository;
+    private final PaymentNotificationService paymentNotificationService;
 
     @Override
     @Transactional
@@ -226,6 +229,12 @@ public class EscrowServiceImpl implements EscrowService {
         tx.setReferenceCode(reference);
         tx.setProcessedAt(LocalDateTime.now());
         paymentTransactionRepository.save(tx);
+        paymentNotificationService.notifyPayment(
+                beneficiaryUserId,
+                "Đã nhận tiền từ escrow",
+                "Ví của bạn đã được cộng " + formatAmount(amount) + " từ tất toán escrow #" + escrow.getEscrowId() + ".",
+                "ESCROW",
+                escrow.getEscrowId());
     }
 
     private void refundToPayer(
@@ -246,6 +255,12 @@ public class EscrowServiceImpl implements EscrowService {
         tx.setReferenceCode(reference);
         tx.setProcessedAt(LocalDateTime.now());
         paymentTransactionRepository.save(tx);
+        paymentNotificationService.notifyPayment(
+                payerUserId,
+                "Hoàn tiền escrow",
+                "Ví của bạn đã được hoàn " + formatAmount(amount) + " từ escrow #" + escrow.getEscrowId() + ".",
+                "ESCROW",
+                escrow.getEscrowId());
     }
 
     private Long payerUserId(EscrowTransaction escrow) {
@@ -298,6 +313,13 @@ public class EscrowServiceImpl implements EscrowService {
 
     private String buildLogReason(String reason) {
         return reason == null || reason.isBlank() ? "N/A" : reason.trim();
+    }
+
+    private String formatAmount(BigDecimal amount) {
+        if (amount == null) {
+            return "0 đ";
+        }
+        return amount.setScale(0, RoundingMode.DOWN).toPlainString() + " đ";
     }
 
     private void validateCommand(EscrowLockCommand command) {

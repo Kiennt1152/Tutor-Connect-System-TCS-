@@ -22,6 +22,7 @@ import com.tcs.module.finance.enums.WalletStatus;
 import com.tcs.module.finance.repository.PaymentMethodRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
+import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.security.AuthHelper;
@@ -40,6 +41,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -72,6 +74,9 @@ class FinanceServiceImplTest {
     @Mock
     private WithdrawalRequestRepository withdrawalRequestRepository;
 
+    @Mock
+    private PaymentNotificationService paymentNotificationService;
+
     @InjectMocks
     private FinanceServiceImpl financeService;
 
@@ -84,6 +89,8 @@ class FinanceServiceImplTest {
         wallet.setAvailableBalance(new BigDecimal("250000.00"));
         wallet.setFrozenBalance(new BigDecimal("50000.00"));
         wallet.setStatus(WalletStatus.ACTIVE);
+        ReflectionTestUtils.setField(financeService, "directDepositEnabled", true);
+        ReflectionTestUtils.setField(financeService, "simulateTopupEnabled", true);
     }
 
     @Test
@@ -540,19 +547,13 @@ class FinanceServiceImplTest {
     }
 
     @Test
-    @DisplayName("acceptWithdrawal completes a pending withdrawal and releases frozen funds")
-    void acceptWithdrawalCompletesPendingRequest() {
+    @DisplayName("acceptWithdrawal approves a pending withdrawal and waits for SePay")
+    void acceptWithdrawalApprovesPendingRequest() {
         BigDecimal amount = new BigDecimal("100000.00");
         LocalDateTime requestedAt = LocalDateTime.of(2026, 7, 13, 9, 0);
         PaymentMethod method = savedPaymentMethod();
         WithdrawalRequest withdrawal = pendingWithdrawal(15L, method, amount, requestedAt);
         PaymentTransaction tx = pendingWithdrawalTransaction(method, amount, "WITHDRAW-ABC", requestedAt);
-
-        Wallet releasedWallet = new Wallet();
-        releasedWallet.setWalletId(USER_ID);
-        releasedWallet.setAvailableBalance(new BigDecimal("150000.00"));
-        releasedWallet.setFrozenBalance(BigDecimal.ZERO);
-        releasedWallet.setStatus(WalletStatus.ACTIVE);
 
         when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(null);
         when(withdrawalRequestRepository.findById(15L)).thenReturn(Optional.of(withdrawal));
@@ -565,19 +566,18 @@ class FinanceServiceImplTest {
                         requestedAt.minusMinutes(5),
                         requestedAt.plusMinutes(5)))
                 .thenReturn(List.of(tx));
-        when(walletService.releaseLockedFunds(USER_ID, amount, "WITHDRAW-ABC")).thenReturn(releasedWallet);
         when(withdrawalRequestRepository.save(any(WithdrawalRequest.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
         WithdrawalResponse response = financeService.acceptWithdrawal(15L);
 
-        assertEquals(WithdrawalRequestStatus.COMPLETED, response.getStatus());
-        assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
-        assertEquals("Yêu cầu rút tiền đã được duyệt", tx.getDescription());
-        assertEquals(WithdrawalRequestStatus.COMPLETED, withdrawal.getStatus());
+        assertEquals(WithdrawalRequestStatus.APPROVED, response.getStatus());
+        assertEquals(PaymentTransactionStatus.PENDING, tx.getStatus());
+        assertEquals("Yêu cầu rút tiền đã được duyệt, chờ đối soát SePay", tx.getDescription());
+        assertEquals(WithdrawalRequestStatus.APPROVED, withdrawal.getStatus());
         assertEquals(USER_ID, response.getWallet().getWalletId());
-        assertEquals(BigDecimal.ZERO, response.getWallet().getFrozenBalance());
-        verify(walletService).releaseLockedFunds(USER_ID, amount, "WITHDRAW-ABC");
+        assertEquals(new BigDecimal("50000.00"), response.getWallet().getFrozenBalance());
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
         verify(paymentTransactionRepository).save(tx);
         verify(withdrawalRequestRepository).save(withdrawal);
     }

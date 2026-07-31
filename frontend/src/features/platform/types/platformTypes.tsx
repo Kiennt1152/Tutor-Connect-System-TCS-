@@ -118,8 +118,11 @@ export interface ReviewVerificationApiRequest {
 }
 
 export interface ResolveDisputeApiRequest {
-  status: Exclude<DisputeStatus, 'OPEN'>;
+  action?: DisputeResolutionAction;
+  status?: Exclude<DisputeStatus, 'OPEN'>;
   resolution: string;
+  releaseToBeneficiary?: number;
+  refundToPayer?: number;
 }
 
 export interface AppealDisputeApiRequest {
@@ -189,7 +192,23 @@ export interface VerificationDetailApiResponse {
 export type ReportStatus = 'PENDING' | 'RESOLVED';
 export type ReportCategory = 'FRAUD' | 'ABUSE' | 'SPAM';
 export type ReportTargetType = string;
+export type ClassIssueResolutionAction =
+  | 'REQUEST_MORE_INFORMATION'
+  | 'CONTINUE_CLASS'
+  | 'RESCHEDULE'
+  | 'REPLACE_TUTOR'
+  | 'TERMINATE_CLASS'
+  | 'ESCALATE_TO_DISPUTE'
+  | 'CLOSE_NO_ACTION';
 export type DisputeStatus = 'OPEN' | 'UNDER_INVESTIGATION' | 'RESOLVED' | 'WAITING';
+export type DisputeResolutionAction =
+  | 'CONTINUE_CLASS'
+  | 'TERMINATE_CLASS'
+  | 'APPROVE_FULL_REFUND'
+  | 'APPROVE_PARTIAL_REFUND'
+  | 'REJECT_REFUND'
+  | 'CLOSE_MUTUAL_AGREEMENT'
+  | 'REQUEST_MORE_EVIDENCE';
 export type EscrowStatus = 'PENDING' | 'FUNDED' | 'RELEASED' | 'REFUNDED' | 'ON_HOLD' | 'DISPUTED';
 export type PaymentTransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'REFUND' | 'ESCROW_DEPOSIT' | 'ESCROW_RELEASE';
 export type PaymentTransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
@@ -209,26 +228,59 @@ export type TutoringClassStatus =
 export interface ReportApiResponse {
   reportId: number;
   reporterId: number;
+  reporterEmail: string | null;
   targetType: ReportTargetType;
   targetId: number;
+  classTitle: string | null;
+  classStatus: string | null;
   category: ReportCategory;
   description: string;
+  evidenceUrls: string | null;
+  evidenceUrlList: string[];
   status: ReportStatus;
+  issueType: string | null;
+  issueTypeLabel: string | null;
+  lessonRef: string | null;
+  occurredAt: string | null;
+  requestedAction: string | null;
+  requestedActionLabel: string | null;
+  linkedDisputeId: number | null;
   createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface ResolveClassIssueRequest {
+  action: ClassIssueResolutionAction;
+  notes: string;
 }
 
 export interface ReportItem {
   id: string;
   reporterId: string;
+  reporterEmail: string;
   targetType: string;
   targetTypeLabel: string;
   targetId: string;
+  classTitle: string;
+  classStatus: string;
   category: ReportCategory;
   categoryLabel: string;
   description: string;
+  userDescription: string;
+  evidenceUrlList: string[];
+  evidenceCount: number;
   status: ReportStatus;
   statusLabel: string;
+  issueType: string;
+  issueTypeLabel: string;
+  lessonRef: string;
+  occurredAt: string;
+  requestedAction: string;
+  requestedActionLabel: string;
+  linkedDisputeId: number | null;
   createdAt: string;
+  updatedAt: string;
+  raw: ReportApiResponse;
 }
 
 export interface AdminWithdrawalApiResponse {
@@ -271,7 +323,9 @@ export interface AdminWithdrawalItem {
   transactionStatusLabel: string;
   requestedAt: string;
   processedAt: string;
-  canAccept: boolean;
+  canApprove: boolean;
+  canReject: boolean;
+  canMarkTransferFailed: boolean;
   raw: AdminWithdrawalApiResponse;
 }
 
@@ -287,6 +341,10 @@ export interface WithdrawalListFilters {
   page: number;
   size: number;
   status?: WithdrawalRequestStatus;
+}
+
+export interface WithdrawalDecisionApiRequest {
+  reason?: string;
 }
 
 export interface EscrowReviewApiResponse {
@@ -343,6 +401,66 @@ export interface RefundReviewApiResponse {
   processedAt: string | null;
 }
 
+export interface RefundRequestApiResponse {
+  refundId: number;
+  escrowId: number | null;
+  escrowStatus: EscrowStatus | null;
+  requesterId: number | null;
+  requesterEmail: string | null;
+  classId: number | null;
+  classTitle: string | null;
+  assignmentId: number | null;
+  classStudentId: number | null;
+  escrowAmount: number | null;
+  amount: number;
+  status: RefundRequestStatus;
+  reason: string | null;
+  requestedAt: string | null;
+  processedAt: string | null;
+}
+
+export interface RefundRequestItem {
+  id: string;
+  escrowId: string;
+  requester: string;
+  classTitle: string;
+  amount: string;
+  rawAmount: number;
+  escrowAmount: string;
+  status: RefundRequestStatus;
+  statusLabel: string;
+  escrowStatus: EscrowStatus | null;
+  escrowStatusLabel: string;
+  reason: string;
+  requestedAt: string;
+  processedAt: string;
+  canDecide: boolean;
+  raw: RefundRequestApiResponse;
+}
+
+export interface RefundDecisionApiRequest {
+  approvedAmount?: number;
+  reason?: string;
+}
+
+export interface SettlementSuggestionApiResponse {
+  totalSessions: number | null;
+  completedSessions: number | null;
+  releaseAmount: number | null;
+  refundAmount: number | null;
+  reason: string | null;
+}
+
+export interface AuditReviewApiResponse {
+  auditId: number | null;
+  actorId: number | null;
+  actorEmail: string | null;
+  action: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  createdAt: string | null;
+}
+
 export interface AdminDisputeReviewApiResponse {
   disputeId: number;
   disputeStatus: DisputeStatus;
@@ -365,6 +483,8 @@ export interface AdminDisputeReviewApiResponse {
   latestRefundRequest: RefundReviewApiResponse | null;
   tutoringClass: ClassReviewApiResponse | null;
   terminationRequest: TerminationReviewApiResponse | null;
+  settlementSuggestion: SettlementSuggestionApiResponse | null;
+  auditTrail: AuditReviewApiResponse[];
 }
 
 export interface DisputeReviewItem {

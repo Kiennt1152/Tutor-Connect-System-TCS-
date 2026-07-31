@@ -1,15 +1,19 @@
 package com.tcs.module.finance.controller;
 
 import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.dto.request.CreateRefundRequest;
 import com.tcs.module.finance.dto.request.DepositRequest;
 import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
 import com.tcs.module.finance.dto.request.ExecuteRefundRequest;
 import com.tcs.module.finance.dto.request.PaymentMethodRequest;
+import com.tcs.module.finance.dto.request.RefundDecisionRequest;
 import com.tcs.module.finance.dto.request.SepayWebhookRequest;
+import com.tcs.module.finance.dto.request.WithdrawalDecisionRequest;
 import com.tcs.module.finance.dto.response.AdminWithdrawalPageResponse;
 import com.tcs.module.finance.dto.response.PaymentWebhookResponse;
 import com.tcs.module.finance.dto.response.PaymentMethodResponse;
 import com.tcs.module.finance.dto.response.RefundExecutionResponse;
+import com.tcs.module.finance.dto.response.RefundRequestResponse;
 import com.tcs.module.finance.dto.response.TopupSessionResponse;
 import com.tcs.module.finance.dto.response.TopupStatusResponse;
 import com.tcs.module.finance.dto.response.WalletResponse;
@@ -116,6 +120,30 @@ public class FinanceController {
         return financeService.createWithdrawal(request);
     }
 
+    @PostMapping("/refund-requests")
+    public RefundRequestResponse createRefundRequest(@RequestBody CreateRefundRequest request) {
+        return financeService.createRefundRequest(request);
+    }
+
+    @GetMapping("/refund-requests")
+    public List<RefundRequestResponse> getAdminRefundRequests(@RequestParam(required = false) String status) {
+        return financeService.getAdminRefundRequests(status);
+    }
+
+    @PostMapping("/refund-requests/{refundId}/approve")
+    public RefundRequestResponse approveRefundRequest(
+            @PathVariable Long refundId,
+            @RequestBody(required = false) RefundDecisionRequest request) {
+        return financeService.approveRefundRequest(refundId, request);
+    }
+
+    @PostMapping("/refund-requests/{refundId}/reject")
+    public RefundRequestResponse rejectRefundRequest(
+            @PathVariable Long refundId,
+            @RequestBody(required = false) RefundDecisionRequest request) {
+        return financeService.rejectRefundRequest(refundId, request);
+    }
+
     @GetMapping("/withdrawals")
     public AdminWithdrawalPageResponse getAdminWithdrawals(
             @RequestParam(defaultValue = "0") int page,
@@ -127,6 +155,25 @@ public class FinanceController {
     @PostMapping("/withdrawals/{withdrawalId}/accept")
     public WithdrawalResponse acceptWithdrawal(@PathVariable Long withdrawalId) {
         return financeService.acceptWithdrawal(withdrawalId);
+    }
+
+    @PostMapping("/withdrawals/{withdrawalId}/approve")
+    public WithdrawalResponse approveWithdrawal(@PathVariable Long withdrawalId) {
+        return financeService.approveWithdrawal(withdrawalId);
+    }
+
+    @PostMapping("/withdrawals/{withdrawalId}/reject")
+    public WithdrawalResponse rejectWithdrawal(
+            @PathVariable Long withdrawalId,
+            @RequestBody(required = false) WithdrawalDecisionRequest request) {
+        return financeService.rejectWithdrawal(withdrawalId, request);
+    }
+
+    @PostMapping("/withdrawals/{withdrawalId}/transfer-failed")
+    public WithdrawalResponse markWithdrawalTransferFailed(
+            @PathVariable Long withdrawalId,
+            @RequestBody(required = false) WithdrawalDecisionRequest request) {
+        return financeService.markWithdrawalTransferFailed(withdrawalId, request);
     }
 
     @GetMapping("/settlements/preview/{classId}")

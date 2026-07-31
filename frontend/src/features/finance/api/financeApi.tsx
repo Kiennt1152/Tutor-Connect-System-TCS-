@@ -10,6 +10,8 @@ import type {
   PaymentMethodPayload,
   WithdrawalPayload,
   WithdrawalInfo,
+  RefundRequestPayload,
+  RefundRequestInfo,
 } from '../types/financeTypes';
 
 const BASE = '/finance';
@@ -70,5 +72,9 @@ export const financeApi = {
 
   createWithdrawal(payload: WithdrawalPayload): Promise<WithdrawalInfo> {
     return axiosClient.post(`${BASE}/withdrawals`, payload).then((r) => r.data);
+  },
+
+  createRefundRequest(payload: RefundRequestPayload): Promise<RefundRequestInfo> {
+    return axiosClient.post(`${BASE}/refund-requests`, payload).then((r) => r.data);
   },
 };

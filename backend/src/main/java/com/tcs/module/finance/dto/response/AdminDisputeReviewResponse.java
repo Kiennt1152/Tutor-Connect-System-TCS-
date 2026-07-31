@@ -44,6 +44,8 @@ public class AdminDisputeReviewResponse {
     private RefundReviewInfo latestRefundRequest;
     private ClassReviewInfo tutoringClass;
     private TerminationReviewInfo terminationRequest;
+    private SettlementSuggestionInfo settlementSuggestion;
+    private List<AuditReviewInfo> auditTrail;
 
     @Getter
     @Builder
@@ -109,5 +111,29 @@ public class AdminDisputeReviewResponse {
         private LocalDate effectiveDate;
         private LocalDateTime createdAt;
         private LocalDateTime processedAt;
+    }
+
+    @Getter
+    @Builder
+    public static class SettlementSuggestionInfo {
+
+        private Integer totalSessions;
+        private Integer completedSessions;
+        private BigDecimal releaseAmount;
+        private BigDecimal refundAmount;
+        private String reason;
+    }
+
+    @Getter
+    @Builder
+    public static class AuditReviewInfo {
+
+        private Long auditId;
+        private Long actorId;
+        private String actorEmail;
+        private String action;
+        private String oldValue;
+        private String newValue;
+        private LocalDateTime createdAt;
     }
 }

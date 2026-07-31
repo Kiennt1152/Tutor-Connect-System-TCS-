@@ -95,7 +95,7 @@ export function HomeNavbar() {
                       to={APP_ROUTES.messaging}
                       role="menuitem"
                     >
-                      Tin nhắn
+                      Thông báo
                     </Link>
                   ) : null}
                   {hasRole(user.role, 'PLATFORM_ADMIN') ? (

@@ -20,6 +20,7 @@ import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
+import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.marketplace.entity.ClassAssignment;
@@ -60,6 +61,9 @@ class EscrowServiceImplTest {
 
     @Mock
     private ClassStudentRepository classStudentRepository;
+
+    @Mock
+    private PaymentNotificationService paymentNotificationService;
 
     @InjectMocks
     private EscrowServiceImpl escrowService;

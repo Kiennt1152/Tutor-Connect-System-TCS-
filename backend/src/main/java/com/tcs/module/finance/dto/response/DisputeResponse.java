@@ -15,6 +15,7 @@ public class DisputeResponse {
 
     private Long disputeId;
     private DisputeStatus disputeStatus;
+    private Boolean escalatedToDispute;
     private Long reportId;
     private ReportStatus reportStatus;
     private ReportTargetType targetType;

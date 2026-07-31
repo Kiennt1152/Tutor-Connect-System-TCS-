@@ -88,6 +88,7 @@
 }
 
 .issue-field select,
+.issue-field input,
 .issue-field textarea {
   width: 100%;
   border: 1px solid #cbd5e1;
@@ -102,6 +103,11 @@
   padding: 0 12px;
 }
 
+.issue-field input {
+  height: 42px;
+  padding: 0 12px;
+}
+
 .issue-field textarea {
   min-height: 96px;
   padding: 11px 12px;
@@ -110,10 +116,17 @@
 }
 
 .issue-field select:focus,
+.issue-field input:focus,
 .issue-field textarea:focus {
   outline: none;
   border-color: #ea580c;
   box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.14);
+}
+
+.issue-field-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(180px, 0.55fr);
+  gap: 12px;
 }
 
 .issue-error {
@@ -174,5 +187,9 @@
 
   .issue-modal__footer .btn {
     width: 100%;
+  }
+
+  .issue-field-grid {
+    grid-template-columns: 1fr;
   }
 }

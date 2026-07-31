@@ -1,24 +1,62 @@
 import { useState } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { disputeApi } from '../api/disputeApi';
-import type { DisputeResponse, ReportCategory } from '../types/disputeTypes';
+import type {
+  ClassIssueRequestedAction,
+  ClassIssueType,
+  DisputeResponse,
+  ReportCategory,
+} from '../types/disputeTypes';
 import './ClassIssueModal.css';
 
 type ClassIssueModalProps = {
   open: boolean;
   classId: number;
   classTitle?: string | null;
+  assignmentId?: number | null;
+  classStudentId?: number | null;
   onClose: () => void;
 };
 
-const CATEGORY_LABELS: Record<ReportCategory, string> = {
-  FRAUD: 'Gian lận / sai lệch thông tin',
-  ABUSE: 'Hành vi không phù hợp',
-  SPAM: 'Nội dung rác hoặc vấn đề khác',
+const ISSUE_TYPE_LABELS: Record<ClassIssueType, string> = {
+  TUTOR_ABSENT: 'Gia sư vắng mặt',
+  CLIENT_ABSENT: 'Học viên/phụ huynh vắng mặt',
+  TECHNICAL_ISSUE: 'Sự cố kỹ thuật',
+  INAPPROPRIATE_BEHAVIOR: 'Hành vi không phù hợp',
+  SCHEDULE_CONFLICT: 'Xung đột lịch học',
+  QUALITY_ISSUE: 'Chất lượng buổi học',
+  PAYMENT_OR_REFUND: 'Thanh toán/hoàn tiền',
+  OTHER: 'Khác',
 };
 
-export function ClassIssueModal({ open, classId, classTitle, onClose }: ClassIssueModalProps) {
-  const [category, setCategory] = useState<ReportCategory>('ABUSE');
+const REQUESTED_ACTION_LABELS: Record<ClassIssueRequestedAction, string> = {
+  CONTINUE_CLASS: 'Tiếp tục lớp',
+  RESCHEDULE: 'Dời lịch/bù buổi',
+  REPLACE_TUTOR: 'Đổi gia sư',
+  REFUND_REVIEW: 'Xem xét hoàn tiền',
+  ESCALATE_DISPUTE: 'Chuyển thành tranh chấp',
+  TERMINATE_CLASS: 'Đề nghị chấm dứt lớp',
+  OTHER: 'Khác',
+};
+
+function categoryForIssueType(issueType: ClassIssueType): ReportCategory {
+  if (issueType === 'PAYMENT_OR_REFUND') return 'FRAUD';
+  if (issueType === 'INAPPROPRIATE_BEHAVIOR') return 'ABUSE';
+  return 'SPAM';
+}
+
+export function ClassIssueModal({
+  open,
+  classId,
+  classTitle,
+  assignmentId,
+  classStudentId,
+  onClose,
+}: ClassIssueModalProps) {
+  const [issueType, setIssueType] = useState<ClassIssueType>('TUTOR_ABSENT');
+  const [lessonRef, setLessonRef] = useState('');
+  const [occurredAt, setOccurredAt] = useState('');
+  const [requestedAction, setRequestedAction] = useState<ClassIssueRequestedAction>('RESCHEDULE');
   const [description, setDescription] = useState('');
   const [evidenceUrls, setEvidenceUrls] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -29,7 +67,10 @@ export function ClassIssueModal({ open, classId, classTitle, onClose }: ClassIss
 
   const resetAndClose = () => {
     if (submitting) return;
-    setCategory('ABUSE');
+    setIssueType('TUTOR_ABSENT');
+    setLessonRef('');
+    setOccurredAt('');
+    setRequestedAction('RESCHEDULE');
     setDescription('');
     setEvidenceUrls('');
     setError('');
@@ -39,8 +80,12 @@ export function ClassIssueModal({ open, classId, classTitle, onClose }: ClassIss
 
   const handleSubmit = async () => {
     setError('');
-    if (description.trim().length < 10) {
-      setError('Vui lòng mô tả vấn đề tối thiểu 10 ký tự.');
+    if (description.trim().length < 20) {
+      setError('Vui lòng mô tả sự cố tối thiểu 20 ký tự.');
+      return;
+    }
+    if (occurredAt && new Date(occurredAt) > new Date()) {
+      setError('Ngày xảy ra sự cố không được ở tương lai.');
       return;
     }
 
@@ -48,9 +93,15 @@ export function ClassIssueModal({ open, classId, classTitle, onClose }: ClassIss
     try {
       const result = await disputeApi.createClassIssue({
         classId,
-        category,
+        issueType,
+        category: categoryForIssueType(issueType),
+        lessonRef: lessonRef.trim() || undefined,
+        occurredAt: occurredAt || undefined,
+        requestedAction,
         description: description.trim(),
         evidenceUrls: evidenceUrls.trim() || undefined,
+        assignmentId: assignmentId ?? undefined,
+        classStudentId: classStudentId ?? undefined,
       });
       setSuccess(result);
     } catch (err) {
@@ -72,7 +123,7 @@ export function ClassIssueModal({ open, classId, classTitle, onClose }: ClassIss
         <div className="issue-modal__header">
           <div>
             <p className="issue-modal__eyebrow">Báo cáo sự cố lớp học</p>
-            <h2 id="issue-modal-title">Tạo tranh chấp</h2>
+            <h2 id="issue-modal-title">Gửi báo cáo sự cố</h2>
             <p className="issue-modal__subtitle">
               {classTitle?.trim() || `Lớp #${classId}`}
             </p>
@@ -86,20 +137,60 @@ export function ClassIssueModal({ open, classId, classTitle, onClose }: ClassIss
           {success ? (
             <div className="issue-success">
               <p className="issue-success__title">Đã gửi báo cáo</p>
-              <p>
-                Mã tranh chấp #{success.disputeId}, mã báo cáo #{success.reportId}. Escrow liên quan
-                đã được chuyển sang trạng thái {success.escrowStatus}.
-              </p>
+              {success.escalatedToDispute && success.disputeId ? (
+                <p>
+                  Mã báo cáo #{success.reportId}, mã tranh chấp #{success.disputeId}. Escrow liên quan
+                  đã được chuyển sang trạng thái {success.escrowStatus}.
+                </p>
+              ) : (
+                <p>
+                  Mã báo cáo #{success.reportId}. Admin đã nhận ticket và sẽ xử lý theo luồng báo cáo sự cố.
+                </p>
+              )}
             </div>
           ) : (
             <>
               <label className="issue-field">
-                <span>Loại vấn đề</span>
+                <span>Loại sự cố</span>
                 <select
-                  value={category}
-                  onChange={(event) => setCategory(event.target.value as ReportCategory)}
+                  value={issueType}
+                  onChange={(event) => setIssueType(event.target.value as ClassIssueType)}
                 >
-                  {Object.entries(CATEGORY_LABELS).map(([value, label]) => (
+                  {Object.entries(ISSUE_TYPE_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>
+                      {label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <div className="issue-field-grid">
+                <label className="issue-field">
+                  <span>Buổi/ngày liên quan</span>
+                  <input
+                    value={lessonRef}
+                    onChange={(event) => setLessonRef(event.target.value)}
+                    placeholder="Ví dụ: Buổi 3, tối thứ Hai"
+                  />
+                </label>
+
+                <label className="issue-field">
+                  <span>Ngày xảy ra</span>
+                  <input
+                    type="date"
+                    value={occurredAt}
+                    onChange={(event) => setOccurredAt(event.target.value)}
+                  />
+                </label>
+              </div>
+
+              <label className="issue-field">
+                <span>Hướng xử lý mong muốn</span>
+                <select
+                  value={requestedAction}
+                  onChange={(event) => setRequestedAction(event.target.value as ClassIssueRequestedAction)}
+                >
+                  {Object.entries(REQUESTED_ACTION_LABELS).map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -113,7 +204,7 @@ export function ClassIssueModal({ open, classId, classTitle, onClose }: ClassIss
                   rows={5}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Mô tả sự cố, thời điểm xảy ra và mong muốn xử lý..."
+                  placeholder="Mô tả diễn biến, ai liên quan, ảnh hưởng tới buổi học và mong muốn xử lý..."
                 />
               </label>
 

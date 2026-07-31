@@ -5,11 +5,12 @@ import { buildUpdateStatusPayload, buildReviewVerificationPayload } from '../map
 import type {
   AppealDisputeApiRequest,
   AdminDisputeReviewApiResponse,
-  DisputeStatus,
   ExecuteRefundApiRequest,
   RefundExecutionApiResponse,
   ExecuteSettlementApiRequest,
+  ResolveDisputeApiRequest,
   UserStatus,
+  WithdrawalDecisionApiRequest,
 } from '../types/platformTypes';
 
 export type MutationStatus = 'idle' | 'loading' | 'success' | 'error';
@@ -79,31 +80,67 @@ export function useReviewVerification() {
   return { status, errorMessage, review, reset };
 }
 
-export function useAcceptWithdrawal() {
+export function useWithdrawalDecision() {
   const [status, setStatus] = useState<MutationStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const acceptWithdrawal = useCallback(async (withdrawalId: string): Promise<boolean> => {
+  const approveWithdrawal = useCallback(async (withdrawalId: string): Promise<boolean> => {
     setStatus('loading');
     setErrorMessage(null);
     try {
-      await platformApi.acceptWithdrawal(withdrawalId);
+      await platformApi.approveWithdrawal(withdrawalId);
       setStatus('success');
       return true;
     } catch (error) {
-      console.error('Lỗi xác nhận yêu cầu rút tiền:', error);
-      setErrorMessage(getApiErrorMessage(error, 'Không thể xác nhận yêu cầu rút tiền.'));
+      console.error('Lỗi duyệt yêu cầu rút tiền:', error);
+      setErrorMessage(getApiErrorMessage(error, 'Không thể duyệt yêu cầu rút tiền.'));
       setStatus('error');
       return false;
     }
   }, []);
+
+  const rejectWithdrawal = useCallback(
+    async (withdrawalId: string, payload: WithdrawalDecisionApiRequest): Promise<boolean> => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        await platformApi.rejectWithdrawal(withdrawalId, payload);
+        setStatus('success');
+        return true;
+      } catch (error) {
+        console.error('Lỗi từ chối yêu cầu rút tiền:', error);
+        setErrorMessage(getApiErrorMessage(error, 'Không thể từ chối yêu cầu rút tiền.'));
+        setStatus('error');
+        return false;
+      }
+    },
+    [],
+  );
+
+  const markTransferFailed = useCallback(
+    async (withdrawalId: string, payload: WithdrawalDecisionApiRequest): Promise<boolean> => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        await platformApi.markWithdrawalTransferFailed(withdrawalId, payload);
+        setStatus('success');
+        return true;
+      } catch (error) {
+        console.error('Lỗi báo chuyển khoản thất bại:', error);
+        setErrorMessage(getApiErrorMessage(error, 'Không thể báo lỗi chuyển khoản.'));
+        setStatus('error');
+        return false;
+      }
+    },
+    [],
+  );
 
   const reset = useCallback(() => {
     setStatus('idle');
     setErrorMessage(null);
   }, []);
 
-  return { status, errorMessage, acceptWithdrawal, reset };
+  return { status, errorMessage, approveWithdrawal, rejectWithdrawal, markTransferFailed, reset };
 }
 
 export function useResolveDispute() {
@@ -113,15 +150,14 @@ export function useResolveDispute() {
   const resolveDispute = useCallback(
     async (
       disputeId: string,
-      nextStatus: Exclude<DisputeStatus, 'OPEN'>,
-      resolution: string,
+      payload: ResolveDisputeApiRequest,
     ): Promise<AdminDisputeReviewApiResponse | null> => {
       setStatus('loading');
       setErrorMessage(null);
       try {
         const response = await platformApi.resolveDispute(disputeId, {
-          status: nextStatus,
-          resolution: resolution.trim(),
+          ...payload,
+          resolution: payload.resolution.trim(),
         });
         setStatus('success');
         return response.data;

@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
+import { useWithdrawalDecision } from '../hooks/usePlatformMutations';
 import { useWithdrawalList } from '../hooks/useWithdrawalList';
 import type { WithdrawalRequestStatus } from '../types/platformTypes';
 import './PlatformWithdrawalsPage.css';
@@ -24,6 +25,20 @@ export default function PlatformWithdrawalsPage() {
     page: 0,
     size: 10,
   });
+  const {
+    status: decisionStatus,
+    errorMessage: decisionErrorMessage,
+    approveWithdrawal,
+    rejectWithdrawal,
+    markTransferFailed,
+    reset: resetDecision,
+  } = useWithdrawalDecision();
+  const [decisionDialog, setDecisionDialog] = useState<{
+    type: 'reject' | 'transferFailed';
+    withdrawalId: string;
+    title: string;
+  } | null>(null);
+  const [decisionReason, setDecisionReason] = useState('');
 
   const pagePendingCount = useMemo(
     () => data?.items.filter((item) => item.status === 'PENDING').length ?? 0,
@@ -36,6 +51,40 @@ export default function PlatformWithdrawalsPage() {
 
   const applyFilter = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch, page: 0 }));
+  };
+
+  const handleApprove = async (withdrawalId: string) => {
+    const ok = await approveWithdrawal(withdrawalId);
+    if (ok) reload();
+  };
+
+  const openDecisionDialog = (
+    type: 'reject' | 'transferFailed',
+    withdrawalId: string,
+    title: string,
+  ) => {
+    resetDecision();
+    setDecisionReason('');
+    setDecisionDialog({ type, withdrawalId, title });
+  };
+
+  const closeDecisionDialog = () => {
+    setDecisionDialog(null);
+    setDecisionReason('');
+    resetDecision();
+  };
+
+  const submitDecision = async () => {
+    if (!decisionDialog) return;
+    const reason = decisionReason.trim();
+    const payload = reason ? { reason } : {};
+    const ok = decisionDialog.type === 'reject'
+      ? await rejectWithdrawal(decisionDialog.withdrawalId, payload)
+      : await markTransferFailed(decisionDialog.withdrawalId, payload);
+    if (ok) {
+      closeDecisionDialog();
+      reload();
+    }
   };
 
   return (
@@ -120,12 +169,13 @@ export default function PlatformWithdrawalsPage() {
                     <th>Mã giao dịch</th>
                     <th>Trạng thái</th>
                     <th>Thời gian</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
                   {data.items.length === 0 ? (
                     <tr>
-                      <td colSpan={7}>Chưa có yêu cầu rút tiền nào.</td>
+                      <td colSpan={8}>Chưa có yêu cầu rút tiền nào.</td>
                     </tr>
                   ) : (
                     data.items.map((item) => (
@@ -157,6 +207,45 @@ export default function PlatformWithdrawalsPage() {
                           <div className="pw-time-cell">
                             <span>{item.requestedAt}</span>
                             <small>{item.processedAt !== '—' ? `Xử lý: ${item.processedAt}` : 'Chưa xử lý'}</small>
+                          </div>
+                        </td>
+                        <td>
+                          <div className="pw-actions">
+                            {item.canApprove && (
+                              <button
+                                className="tcs-btn tcs-btn--primary pw-action-btn"
+                                type="button"
+                                disabled={decisionStatus === 'loading'}
+                                onClick={() => handleApprove(item.id)}
+                              >
+                                Duyệt
+                              </button>
+                            )}
+                            {item.canReject && (
+                              <button
+                                className="tcs-btn tcs-btn--ghost pw-action-btn"
+                                type="button"
+                                disabled={decisionStatus === 'loading'}
+                                onClick={() => openDecisionDialog('reject', item.id, 'Từ chối yêu cầu rút tiền')}
+                              >
+                                Từ chối
+                              </button>
+                            )}
+                            {item.canMarkTransferFailed && (
+                              <button
+                                className="tcs-btn tcs-btn--ghost pw-action-btn pw-action-btn--danger"
+                                type="button"
+                                disabled={decisionStatus === 'loading'}
+                                onClick={() =>
+                                  openDecisionDialog('transferFailed', item.id, 'Báo lỗi chuyển khoản')
+                                }
+                              >
+                                Báo lỗi chuyển
+                              </button>
+                            )}
+                            {!item.canApprove && !item.canReject && !item.canMarkTransferFailed && (
+                              <span className="pw-actions__empty">—</span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -192,6 +281,48 @@ export default function PlatformWithdrawalsPage() {
           </>
         )}
       </div>
+
+      {decisionDialog && (
+        <div className="pw-dialog-backdrop" role="presentation" onMouseDown={closeDecisionDialog}>
+          <section
+            className="pw-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="pw-decision-title"
+            onMouseDown={(event) => event.stopPropagation()}
+          >
+            <header className="pw-dialog__header">
+              <h3 id="pw-decision-title">{decisionDialog.title}</h3>
+              <button className="pw-dialog__close" type="button" onClick={closeDecisionDialog} aria-label="Đóng">
+                ×
+              </button>
+            </header>
+            <label className="pw-dialog__field">
+              <span>Lý do xử lý</span>
+              <textarea
+                value={decisionReason}
+                onChange={(event) => setDecisionReason(event.target.value)}
+                placeholder="Nhập lý do để lưu vào lịch sử giao dịch"
+                rows={4}
+              />
+            </label>
+            {decisionErrorMessage && <p className="pw-dialog__error">{decisionErrorMessage}</p>}
+            <footer className="pw-dialog__actions">
+              <button className="tcs-btn tcs-btn--ghost" type="button" onClick={closeDecisionDialog}>
+                Hủy
+              </button>
+              <button
+                className="tcs-btn tcs-btn--primary"
+                type="button"
+                disabled={decisionStatus === 'loading'}
+                onClick={submitDecision}
+              >
+                {decisionStatus === 'loading' ? 'Đang xử lý...' : 'Xác nhận'}
+              </button>
+            </footer>
+          </section>
+        </div>
+      )}
     </AdminLayout>
   );
 }

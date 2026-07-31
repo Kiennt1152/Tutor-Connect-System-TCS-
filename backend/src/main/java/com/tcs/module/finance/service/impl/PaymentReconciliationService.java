@@ -1,12 +1,14 @@
 package com.tcs.module.finance.service.impl;
 
 import com.tcs.module.finance.entity.PaymentTransaction;
+import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.entity.WithdrawalRequest;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
 import com.tcs.module.finance.enums.WithdrawalRequestStatus;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
+import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -31,6 +33,7 @@ public class PaymentReconciliationService {
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final WithdrawalRequestRepository withdrawalRequestRepository;
     private final WalletService walletService;
+    private final PaymentNotificationService paymentNotificationService;
 
     @Scheduled(
             fixedDelayString = "${finance.reconciliation.fixed-delay-ms:300000}",
@@ -60,6 +63,12 @@ public class PaymentReconciliationService {
             tx.setStatus(PaymentTransactionStatus.CANCELLED);
             tx.setProcessedAt(now);
             tx.setFailureReason(TOPUP_EXPIRED_REASON);
+            notifyWalletOwner(
+                    tx.getWallet(),
+                    "Phiên nạp tiền đã hết hạn",
+                    TOPUP_EXPIRED_REASON,
+                    "PAYMENT_TRANSACTION",
+                    tx.getTransactionId());
         });
         paymentTransactionRepository.saveAll(expiredTopups);
         return expiredTopups.size();
@@ -67,10 +76,14 @@ public class PaymentReconciliationService {
 
     int refundStaleWithdrawals(LocalDateTime now) {
         LocalDateTime cutoff = now.minusHours(WITHDRAWAL_STALE_HOURS);
-        List<WithdrawalRequest> staleWithdrawals =
-                withdrawalRequestRepository.findByStatusAndRequestedAtBeforeOrderByRequestedAtAsc(
+        List<WithdrawalRequest> staleWithdrawals = List.of(
                         WithdrawalRequestStatus.PENDING,
-                        cutoff);
+                        WithdrawalRequestStatus.APPROVED)
+                .stream()
+                .flatMap(status -> withdrawalRequestRepository
+                        .findByStatusAndRequestedAtBeforeOrderByRequestedAtAsc(status, cutoff)
+                        .stream())
+                .toList();
 
         int refunded = 0;
         for (WithdrawalRequest withdrawal : staleWithdrawals) {
@@ -96,6 +109,12 @@ public class PaymentReconciliationService {
             withdrawal.setProcessedAt(now);
             withdrawal.setFailureReason(WITHDRAWAL_STALE_REASON);
             withdrawalRequestRepository.save(withdrawal);
+            notifyWalletOwner(
+                    withdrawal.getWallet(),
+                    "Yêu cầu rút tiền quá hạn",
+                    WITHDRAWAL_STALE_REASON,
+                    "WITHDRAWAL_REQUEST",
+                    withdrawal.getWithdrawalId());
             refunded++;
         }
         return refunded;
@@ -119,5 +138,18 @@ public class PaymentReconciliationService {
                                 to);
 
         return candidates.size() == 1 ? candidates.get(0) : null;
+    }
+
+    private void notifyWalletOwner(
+            Wallet wallet,
+            String title,
+            String content,
+            String referenceType,
+            Long referenceId) {
+
+        if (wallet == null || wallet.getWalletId() == null) {
+            return;
+        }
+        paymentNotificationService.notifyPayment(wallet.getWalletId(), title, content, referenceType, referenceId);
     }
 }

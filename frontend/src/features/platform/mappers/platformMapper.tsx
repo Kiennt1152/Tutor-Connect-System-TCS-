@@ -13,6 +13,9 @@ import type {
   PlatformDashboard,
   ReportApiResponse,
   ReportItem,
+  RefundRequestApiResponse,
+  RefundRequestItem,
+  RefundRequestStatus,
   ReviewVerificationApiRequest,
   UpdateUserStatusApiRequest,
   UserListFilters,
@@ -54,6 +57,17 @@ const formatDateTime = (value: string | null | undefined) => {
     year: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+  }).format(date);
+};
+
+const formatDate = (value: string | null | undefined) => {
+  if (!value) return '—';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '—';
+  return new Intl.DateTimeFormat('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
   }).format(date);
 };
 
@@ -139,11 +153,29 @@ const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   RESOLVED: 'Đã xử lý',
 };
 
+const CLASS_STATUS_LABELS: Record<string, string> = {
+  DRAFT: 'Nháp',
+  OPEN: 'Đang mở',
+  MATCHED: 'Đã ghép',
+  ENROLLMENT_CLOSED: 'Đã đóng ghi danh',
+  IN_PROGRESS: 'Đang diễn ra',
+  COMPLETED: 'Đã hoàn tất',
+  CANCELLED: 'Đã hủy',
+  DISPUTED: 'Đang tranh chấp',
+};
+
 const WITHDRAWAL_STATUS_LABELS: Record<WithdrawalRequestStatus, string> = {
   PENDING: 'Chờ xử lý',
   APPROVED: 'Đã duyệt',
   REJECTED: 'Từ chối',
   COMPLETED: 'Thành công',
+};
+
+const REFUND_STATUS_LABELS: Record<RefundRequestStatus, string> = {
+  PENDING: 'Chờ xử lý',
+  APPROVED: 'Đã duyệt',
+  REJECTED: 'Từ chối',
+  COMPLETED: 'Đã hoàn tiền',
 };
 
 const DISPUTE_STATUS_LABELS: Record<DisputeStatus, string> = {
@@ -169,6 +201,16 @@ const TARGET_TYPE_LABELS: Record<string, string> = {
   MESSAGE: 'Tin nhắn',
 };
 
+function extractClassIssueUserDescription(description: string | null | undefined) {
+  if (!description?.trim()) return '—';
+  const beforeHandling = description.split('[UC-30]')[0]?.trim() || description.trim();
+  const marker = 'Mô tả:';
+  const markerIndex = beforeHandling.indexOf(marker);
+  if (markerIndex < 0) return beforeHandling;
+  const body = beforeHandling.slice(markerIndex + marker.length).trim();
+  return body || beforeHandling;
+}
+
 export function mapVerificationItem(item: VerificationRequestApiResponse): VerificationRequestItem {
   const canReview = item.status === 'SUBMITTED' || item.status === 'UNDER_REVIEW';
   const isReviewed = item.status === 'VERIFIED' || item.status === 'REJECTED';
@@ -189,18 +231,34 @@ export function mapVerificationItem(item: VerificationRequestApiResponse): Verif
 }
 
 export function mapReportItem(item: ReportApiResponse): ReportItem {
+  const evidenceUrlList = item.evidenceUrlList ?? [];
   return {
     id: String(item.reportId),
     reporterId: String(item.reporterId),
+    reporterEmail: item.reporterEmail?.trim() || `Người dùng #${item.reporterId}`,
     targetType: item.targetType,
     targetTypeLabel: TARGET_TYPE_LABELS[item.targetType] ?? item.targetType,
     targetId: String(item.targetId),
+    classTitle: item.classTitle?.trim() || (item.targetType === 'CLASS' ? `Lớp #${item.targetId}` : '—'),
+    classStatus: item.classStatus ? (CLASS_STATUS_LABELS[item.classStatus] ?? item.classStatus) : '—',
     category: item.category,
     categoryLabel: REPORT_CATEGORY_LABELS[item.category] ?? item.category,
     description: item.description?.trim() || '—',
+    userDescription: extractClassIssueUserDescription(item.description),
+    evidenceUrlList,
+    evidenceCount: evidenceUrlList.length,
     status: item.status,
     statusLabel: REPORT_STATUS_LABELS[item.status] ?? item.status,
+    issueType: item.issueType?.trim() || '—',
+    issueTypeLabel: item.issueTypeLabel?.trim() || '—',
+    lessonRef: item.lessonRef?.trim() || '—',
+    occurredAt: formatDate(item.occurredAt),
+    requestedAction: item.requestedAction?.trim() || '—',
+    requestedActionLabel: item.requestedActionLabel?.trim() || '—',
+    linkedDisputeId: item.linkedDisputeId,
     createdAt: formatDateTime(item.createdAt),
+    updatedAt: formatDateTime(item.updatedAt),
+    raw: item,
   };
 }
 
@@ -225,7 +283,9 @@ export function mapAdminWithdrawalItem(item: AdminWithdrawalApiResponse): AdminW
       : '—',
     requestedAt: formatDateTime(item.requestedAt),
     processedAt: formatDateTime(item.processedAt),
-    canAccept: item.status === 'PENDING',
+    canApprove: item.status === 'PENDING',
+    canReject: item.status === 'PENDING' || item.status === 'APPROVED',
+    canMarkTransferFailed: item.status === 'APPROVED',
     raw: item,
   };
 }
@@ -273,6 +333,28 @@ export function mapDisputeReviewItem(item: AdminDisputeReviewApiResponse): Dispu
     amount: formatCurrency(item.escrow?.amount),
     classTitle: item.tutoringClass?.title?.trim() || '—',
     createdAt: formatDateTime(item.disputeCreatedAt),
+    raw: item,
+  };
+}
+
+export function mapRefundRequestItem(item: RefundRequestApiResponse): RefundRequestItem {
+  const escrowStatus = item.escrowStatus ?? null;
+  return {
+    id: String(item.refundId),
+    escrowId: item.escrowId ? String(item.escrowId) : '—',
+    requester: item.requesterEmail?.trim() || (item.requesterId ? `Người dùng #${item.requesterId}` : '—'),
+    classTitle: item.classTitle?.trim() || (item.classId ? `Lớp #${item.classId}` : '—'),
+    amount: formatCurrency(item.amount),
+    rawAmount: item.amount,
+    escrowAmount: formatCurrency(item.escrowAmount),
+    status: item.status,
+    statusLabel: REFUND_STATUS_LABELS[item.status] ?? item.status,
+    escrowStatus,
+    escrowStatusLabel: escrowStatus ? (ESCROW_STATUS_LABELS[escrowStatus] ?? escrowStatus) : '—',
+    reason: item.reason?.trim() || '—',
+    requestedAt: formatDateTime(item.requestedAt),
+    processedAt: formatDateTime(item.processedAt),
+    canDecide: item.status === 'PENDING',
     raw: item,
   };
 }

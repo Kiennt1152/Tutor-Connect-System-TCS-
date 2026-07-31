@@ -1,3 +1,3 @@
 export function MessagingPanel() {
-  return <section>Messaging module</section>;
+  return <section>Thông báo</section>;
 }
