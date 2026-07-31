@@ -88,7 +88,7 @@ export default function PlatformFaqPage() {
               onChange={(event) => applyFilter({ keyword: event.target.value || undefined })}
             />
             <input
-              className="adm-field"
+              className="adm-field adm-field--fixed"
               placeholder="Danh mục (ví dụ: TICKET, PAYMENT...)"
               value={filters.category ?? ''}
               onChange={(event) => applyFilter({ category: event.target.value || undefined })}
@@ -176,7 +176,7 @@ export default function PlatformFaqPage() {
               <label htmlFor="faq-question">Câu hỏi</label>
               <textarea
                 id="faq-question"
-                className="adm-field"
+                className="adm-field adm-field--short"
                 value={form.question}
                 onChange={(event) => setForm((current) => ({ ...current, question: event.target.value }))}
                 placeholder="Ví dụ: Làm sao để tạo yêu cầu hỗ trợ?"
@@ -188,7 +188,7 @@ export default function PlatformFaqPage() {
               <label htmlFor="faq-answer">Câu trả lời</label>
               <textarea
                 id="faq-answer"
-                className="adm-field"
+                className="adm-field adm-field--tall"
                 value={form.answer}
                 onChange={(event) => setForm((current) => ({ ...current, answer: event.target.value }))}
                 placeholder="Nội dung trả lời hiển thị cho người dùng"
@@ -196,28 +196,30 @@ export default function PlatformFaqPage() {
               />
             </div>
 
-            <div className="adm-field-group">
-              <label htmlFor="faq-category">Danh mục</label>
-              <input
-                id="faq-category"
-                className="adm-field"
-                value={form.category}
-                onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
-                placeholder="Ví dụ: TICKET, PAYMENT, ACCOUNT..."
-              />
-            </div>
+            <div className="adm-field-row">
+              <div className="adm-field-group">
+                <label htmlFor="faq-category">Danh mục</label>
+                <input
+                  id="faq-category"
+                  className="adm-field"
+                  value={form.category}
+                  onChange={(event) => setForm((current) => ({ ...current, category: event.target.value }))}
+                  placeholder="Ví dụ: TICKET, PAYMENT..."
+                />
+              </div>
 
-            <div className="adm-field-group">
-              <label htmlFor="faq-sort-order">Thứ tự hiển thị</label>
-              <input
-                id="faq-sort-order"
-                type="number"
-                className="adm-field"
-                value={form.sortOrder}
-                onChange={(event) =>
-                  setForm((current) => ({ ...current, sortOrder: Number(event.target.value) || 0 }))
-                }
-              />
+              <div className="adm-field-group">
+                <label htmlFor="faq-sort-order">Thứ tự hiển thị</label>
+                <input
+                  id="faq-sort-order"
+                  type="number"
+                  className="adm-field"
+                  value={form.sortOrder}
+                  onChange={(event) =>
+                    setForm((current) => ({ ...current, sortOrder: Number(event.target.value) || 0 }))
+                  }
+                />
+              </div>
             </div>
 
             <div className="adm-field-group adm-field-group--inline">

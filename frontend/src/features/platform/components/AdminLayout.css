@@ -468,11 +468,43 @@
   color: var(--color-text-secondary);
 }
 
+.adm-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-md);
+}
+
+.adm-field-row .adm-field {
+  min-width: 0;
+  width: 100%;
+  flex: none;
+}
+
 .adm-field-group textarea.adm-field {
   height: auto;
-  min-height: 88px;
-  padding: var(--space-sm) var(--space-md);
+  min-height: 90px;
+  padding: 12px var(--space-md);
   resize: vertical;
+  line-height: 1.5;
+}
+
+.adm-field-group textarea.adm-field--tall {
+  min-height: 160px;
+}
+
+.adm-field-group textarea.adm-field--short {
+  min-height: 80px;
+}
+
+.adm-field-group select.adm-field {
+  cursor: pointer;
+}
+
+.adm-field--inline,
+.adm-field--fixed {
+  width: 100%;
+  max-width: 320px;
+  flex: 0 0 auto;
 }
 
 .adm-field-group--inline label {

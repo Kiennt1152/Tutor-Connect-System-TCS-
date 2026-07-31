@@ -28,14 +28,14 @@ const EMPTY_FORM: FormState = {
 };
 
 const ROLE_LABELS: Record<AnnouncementTargetRole, string> = {
-  CLIENT: 'Hoc vien',
-  TUTOR: 'Gia su',
-  TUTOR_CENTER: 'Trung tam',
-  PLATFORM_ADMIN: 'Quan tri vien',
+  CLIENT: 'Học viên',
+  TUTOR: 'Gia sư',
+  TUTOR_CENTER: 'Trung tâm',
+  PLATFORM_ADMIN: 'Quản trị viên',
 };
 
 function formatDateTime(value: string | null) {
-  if (!value) return 'Tat ca';
+  if (!value) return '—';
   try {
     return new Date(value).toLocaleString('vi-VN');
   } catch {
@@ -112,24 +112,24 @@ export default function PlatformAnnouncementsPage() {
   }
 
   return (
-    <AdminLayout title="Thong bao he thong" subtitle="Tao va quan ly thong bao hien thi cho nguoi dung.">
+    <AdminLayout title="Thông báo hệ thống" subtitle="Tạo và quản lý thông báo hiển thị cho người dùng.">
       <div className="adm-layout-split">
         <div className="adm-card">
           <div className="adm-toolbar">
             <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reload}>
-              Lam moi
+              Làm mới
             </button>
             <button className="tcs-btn tcs-btn--primary" type="button" onClick={resetForm}>
-              Tao thong bao moi
+              Tạo thông báo mới
             </button>
           </div>
 
-          {status === 'loading' && <div className="adm-state">Dang tai thong bao...</div>}
+          {status === 'loading' && <div className="adm-state">Đang tải thông báo...</div>}
           {status === 'error' && (
             <div className="adm-state">
-              <p>{listErrorMessage ?? 'Khong tai duoc du lieu.'}</p>
+              <p>{listErrorMessage ?? 'Không tải được dữ liệu.'}</p>
               <button className="tcs-btn tcs-btn--primary" type="button" onClick={reload}>
-                Thu lai
+                Thử lại
               </button>
             </div>
           )}
@@ -140,37 +140,37 @@ export default function PlatformAnnouncementsPage() {
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Tieu de</th>
-                    <th>Doi tuong</th>
-                    <th>Trang thai</th>
-                    <th>Hieu luc</th>
-                    <th>Thao tac</th>
+                    <th>Tiêu đề</th>
+                    <th>Đối tượng</th>
+                    <th>Trạng thái</th>
+                    <th>Hiệu lực</th>
+                    <th>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
                   {items.length === 0 ? (
                     <tr>
-                      <td colSpan={6}>Chua co thong bao nao.</td>
+                      <td colSpan={6}>Chưa có thông báo nào.</td>
                     </tr>
                   ) : (
                     items.map((item) => (
                       <tr key={item.announcementId}>
                         <td>{item.announcementId}</td>
                         <td className="adm-table__notes">{item.title}</td>
-                        <td>{item.targetRole ? ROLE_LABELS[item.targetRole] : 'Tat ca'}</td>
+                        <td>{item.targetRole ? ROLE_LABELS[item.targetRole] : 'Tất cả'}</td>
                         <td className="adm-table__badge">
                           <span className={item.active ? 'tcs-badge tcs-badge--active' : 'tcs-badge tcs-badge--suspended'}>
-                            {item.active ? 'Dang bat' : 'Da tat'}
+                            {item.active ? 'Đang bật' : 'Đã tắt'}
                           </span>
                         </td>
-                        <td>{formatDateTime(item.startsAt)} - {formatDateTime(item.endsAt)}</td>
+                        <td>{formatDateTime(item.startsAt)} → {formatDateTime(item.endsAt)}</td>
                         <td className="adm-table__actions">
                           <div className="adm-row-actions">
                             <button className="tcs-btn tcs-btn--ghost tcs-btn--badge" type="button" onClick={() => selectAnnouncement(item)}>
-                              Sua
+                              Sửa
                             </button>
                             <button className="tcs-btn tcs-btn--danger tcs-btn--badge" type="button" onClick={() => setPendingDelete(item)}>
-                              Xoa
+                              Xóa
                             </button>
                           </div>
                         </td>
@@ -185,69 +185,72 @@ export default function PlatformAnnouncementsPage() {
 
         <article className="adm-card adm-card--sticky">
           <div className="adm-card__head">
-            <h2 className="adm-card__title">{selected ? `Chinh sua thong bao #${selected.announcementId}` : 'Tao thong bao moi'}</h2>
+            <h2 className="adm-card__title">{selected ? `Chỉnh sửa thông báo #${selected.announcementId}` : 'Tạo thông báo mới'}</h2>
           </div>
 
           <form className="adm-form" onSubmit={(event) => void handleSubmit(event)}>
             <div className="adm-field-group">
-              <label htmlFor="ann-title">Tieu de</label>
+              <label htmlFor="ann-title">Tiêu đề</label>
               <input
                 id="ann-title"
                 className="adm-field"
                 value={form.title}
                 onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))}
+                placeholder="Tiêu đề thông báo..."
                 maxLength={200}
                 required
               />
             </div>
 
             <div className="adm-field-group">
-              <label htmlFor="ann-content">Noi dung</label>
+              <label htmlFor="ann-content">Nội dung</label>
               <textarea
                 id="ann-content"
-                className="adm-field"
+                className="adm-field adm-field--tall"
                 value={form.content}
                 onChange={(event) => setForm((current) => ({ ...current, content: event.target.value }))}
+                placeholder="Nội dung thông báo hiển thị cho người dùng..."
                 required
               />
             </div>
 
             <div className="adm-field-group">
-              <label htmlFor="ann-role">Doi tuong hien thi</label>
+              <label htmlFor="ann-role">Đối tượng hiển thị</label>
               <select
                 id="ann-role"
-                className="adm-field"
+                className="adm-field adm-field--inline"
                 value={form.targetRole}
                 onChange={(event) => setForm((current) => ({ ...current, targetRole: event.target.value as FormState['targetRole'] }))}
               >
-                <option value="">Tat ca vai tro</option>
-                <option value="CLIENT">Hoc vien</option>
-                <option value="TUTOR">Gia su</option>
-                <option value="TUTOR_CENTER">Trung tam</option>
-                <option value="PLATFORM_ADMIN">Quan tri vien</option>
+                <option value="">Tất cả vai trò</option>
+                <option value="CLIENT">Học viên</option>
+                <option value="TUTOR">Gia sư</option>
+                <option value="TUTOR_CENTER">Trung tâm</option>
+                <option value="PLATFORM_ADMIN">Quản trị viên</option>
               </select>
             </div>
 
-            <div className="adm-field-group">
-              <label htmlFor="ann-starts">Bat dau hien thi</label>
-              <input
-                id="ann-starts"
-                type="datetime-local"
-                className="adm-field"
-                value={form.startsAt}
-                onChange={(event) => setForm((current) => ({ ...current, startsAt: event.target.value }))}
-              />
-            </div>
-
-            <div className="adm-field-group">
-              <label htmlFor="ann-ends">Ket thuc hien thi</label>
-              <input
-                id="ann-ends"
-                type="datetime-local"
-                className="adm-field"
-                value={form.endsAt}
-                onChange={(event) => setForm((current) => ({ ...current, endsAt: event.target.value }))}
-              />
+            <div className="adm-field-row">
+              <div className="adm-field-group">
+                <label htmlFor="ann-starts">Bắt đầu hiển thị</label>
+                <input
+                  id="ann-starts"
+                  type="datetime-local"
+                  className="adm-field"
+                  value={form.startsAt}
+                  onChange={(event) => setForm((current) => ({ ...current, startsAt: event.target.value }))}
+                />
+              </div>
+              <div className="adm-field-group">
+                <label htmlFor="ann-ends">Kết thúc hiển thị</label>
+                <input
+                  id="ann-ends"
+                  type="datetime-local"
+                  className="adm-field"
+                  value={form.endsAt}
+                  onChange={(event) => setForm((current) => ({ ...current, endsAt: event.target.value }))}
+                />
+              </div>
             </div>
 
             <div className="adm-field-group adm-field-group--inline">
@@ -258,7 +261,7 @@ export default function PlatformAnnouncementsPage() {
                   checked={form.active}
                   onChange={(event) => setForm((current) => ({ ...current, active: event.target.checked }))}
                 />
-                Kich hoat (hien thi cho nguoi dung)
+                Kích hoạt (hiển thị cho người dùng)
               </label>
             </div>
 
@@ -268,10 +271,10 @@ export default function PlatformAnnouncementsPage() {
 
             <div className="adm-form__footer">
               <button className="tcs-btn tcs-btn--primary" type="submit" disabled={mutationStatus === 'loading'}>
-                {mutationStatus === 'loading' ? 'Dang luu...' : selected ? 'Cap nhat' : 'Tao thong bao'}
+                {mutationStatus === 'loading' ? 'Đang lưu…' : selected ? 'Cập nhật' : 'Tạo thông báo'}
               </button>
               <button className="tcs-btn tcs-btn--ghost" type="button" onClick={resetForm}>
-                Xoa form
+                Xóa form
               </button>
             </div>
           </form>
@@ -281,9 +284,9 @@ export default function PlatformAnnouncementsPage() {
       {pendingDelete && (
         <ConfirmDialog
           open
-          title="Xoa thong bao"
-          message={`Xoa thong bao "${pendingDelete.title}"? Hanh dong nay khong the hoan tac.`}
-          confirmLabel="Xoa"
+          title="Xóa thông báo"
+          message={`Xóa thông báo "${pendingDelete.title}"? Hành động này không thể hoàn tác.`}
+          confirmLabel="Xóa"
           variant="danger"
           loading={mutationStatus === 'loading'}
           onConfirm={confirmDelete}

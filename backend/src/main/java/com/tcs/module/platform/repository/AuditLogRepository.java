@@ -17,12 +17,27 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
          + "(:actorId IS NULL OR a.actor.userId = :actorId) "
          + "AND (:action IS NULL OR a.action = :action) "
          + "AND (:entityType IS NULL OR a.entityType = :entityType) "
+         + "AND (:keyword IS NULL OR LOWER(a.actor.email) LIKE CONCAT('%', :keyword, '%')) "
          + "AND (CAST(:from AS timestamp) IS NULL OR a.createdAt >= :from) "
          + "AND (CAST(:to AS timestamp) IS NULL OR a.createdAt <= :to) "
+         // --- Loc theo vai tro cua actor (theo thu tu uu tien giong PlatformMapper.resolveRole) ---
+         + "AND (:actorRole IS NULL "
+         + "  OR (:actorRole = 'PLATFORM_ADMIN' AND EXISTS (SELECT 1 FROM PlatformAdmin pa WHERE pa.user.userId = a.actor.userId)) "
+         + "  OR (:actorRole = 'TUTOR' AND EXISTS (SELECT 1 FROM Tutor t WHERE t.user.userId = a.actor.userId) "
+         + "      AND NOT EXISTS (SELECT 1 FROM PlatformAdmin pa WHERE pa.user.userId = a.actor.userId)) "
+         + "  OR (:actorRole = 'TUTOR_CENTER' AND EXISTS (SELECT 1 FROM TutorCenter tc WHERE tc.user.userId = a.actor.userId) "
+         + "      AND NOT EXISTS (SELECT 1 FROM PlatformAdmin pa WHERE pa.user.userId = a.actor.userId) "
+         + "      AND NOT EXISTS (SELECT 1 FROM Tutor t WHERE t.user.userId = a.actor.userId)) "
+         + "  OR (:actorRole = 'CLIENT' AND EXISTS (SELECT 1 FROM Client c WHERE c.user.userId = a.actor.userId) "
+         + "      AND NOT EXISTS (SELECT 1 FROM PlatformAdmin pa WHERE pa.user.userId = a.actor.userId) "
+         + "      AND NOT EXISTS (SELECT 1 FROM Tutor t WHERE t.user.userId = a.actor.userId) "
+         + "      AND NOT EXISTS (SELECT 1 FROM TutorCenter tc WHERE tc.user.userId = a.actor.userId))) "
          + "ORDER BY a.createdAt DESC")
     Page<AuditLog> search(@Param("actorId") Long actorId,
                           @Param("action") String action,
                           @Param("entityType") String entityType,
+                          @Param("keyword") String keyword,
+                          @Param("actorRole") String actorRole,
                           @Param("from") LocalDateTime from,
                           @Param("to") LocalDateTime to,
                           Pageable pageable);

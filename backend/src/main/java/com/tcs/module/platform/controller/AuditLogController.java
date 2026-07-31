@@ -21,12 +21,14 @@ public class AuditLogController {
     @GetMapping
     public PageAuditLogResponse search(
             @RequestParam(required = false) Long actorId,
+            @RequestParam(required = false) String actorRole,
             @RequestParam(required = false) String action,
             @RequestParam(required = false) String entityType,
+            @RequestParam(required = false) String keyword,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime to,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return auditLogService.search(actorId, action, entityType, from, to, page, size);
+        return auditLogService.search(actorId, actorRole, action, entityType, keyword, from, to, page, size);
     }
 }

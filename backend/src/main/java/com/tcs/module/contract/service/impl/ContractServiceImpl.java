@@ -24,6 +24,7 @@ import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.notification.service.EmailService;
+import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
@@ -62,6 +63,7 @@ public class ContractServiceImpl implements ContractService {
     private final TutorCenterRepository tutorCenterRepository;
     private final EmailService emailService;
     private final AuthHelper authHelper;
+    private final AuditLogService auditLogService;
 
     // ─── VIEW CONTRACT (4.2) ──────────────────────────────────────────────────
 
@@ -150,6 +152,9 @@ public class ContractServiceImpl implements ContractService {
         contractSignatureRepository.save(signature);
 
         sendOtpEmail(recipientEmail, otp, contract.getContractNo());
+
+        auditLogService.record(authHelper.currentUserId(), "SEND_CONTRACT_OTP", "Contract", contractId,
+                null, Map.of("partyRole", role.name()));
 
         return Map.of(
                 "message", "Mã OTP đã được gửi đến email của bạn",
@@ -430,11 +435,11 @@ public class ContractServiceImpl implements ContractService {
                 ContractSignatureResponse.builder()
                         .signatureId(sig.getSignatureId())
                         .partyRole(sig.getPartyRole())
-                        .partyLabel(switch (sig.getPartyRole()) {
+                        .partyLabel(sig.getPartyRole() != null ? switch (sig.getPartyRole()) {
                             case CLIENT -> "Học viên / Phụ huynh";
                             case TUTOR -> "Gia sư";
                             case CENTER -> "Trung tâm";
-                        })
+                        } : "Người ký")
                         .signatureStatus(sig.getSignatureStatus())
                         .signedAt(sig.getSignedAt())
                         .otpExpiresAt(sig.getOtpExpiresAt())

@@ -58,6 +58,7 @@ import com.tcs.module.marketplace.dto.RescheduleEntry;
 import com.tcs.module.marketplace.dto.SubstitutionEntry;
 import com.tcs.module.marketplace.service.RescheduleService;
 import com.tcs.module.marketplace.service.SubstitutionService;
+import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
@@ -102,6 +103,7 @@ public class CenterServiceImpl implements CenterService {
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final RescheduleService rescheduleService;
     private final SubstitutionService substitutionService;
+    private final AuditLogService auditLogService;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -139,19 +141,25 @@ public class CenterServiceImpl implements CenterService {
             post.setLocation(location);
         }
         post.setStatus(RecruitmentPostStatus.DRAFT);
-        return toResponse(recruitmentPostRepository.save(post));
+        RecruitmentPost saved = recruitmentPostRepository.save(post);
+        auditLogService.record(center.getUser().getUserId(), "CREATE_RECRUITMENT_POST", "RecruitmentPost",
+                saved.getRecruitmentId(), null, request);
+        return toResponse(saved);
     }
 
     @Override
     @Transactional
     public RecruitmentPostResponse publishRecruitmentPost(Long recruitmentId) {
         RecruitmentPost post = findPost(recruitmentId);
-        if (!post.getCenter().getUser().getUserId().equals(authHelper.currentUserId())) {
+        Long userId = authHelper.currentUserId();
+        if (!post.getCenter().getUser().getUserId().equals(userId)) {
             throw new ForbiddenException("Không có quyền đăng tin tuyển dụng này");
         }
         post.setStatus(RecruitmentPostStatus.ACTIVE);
         post.setPublishedAt(LocalDateTime.now());
-        return toResponse(recruitmentPostRepository.save(post));
+        RecruitmentPost saved = recruitmentPostRepository.save(post);
+        auditLogService.record(userId, "PUBLISH_RECRUITMENT_POST", "RecruitmentPost", saved.getRecruitmentId(), null, null);
+        return toResponse(saved);
     }
 
     @Override
@@ -167,7 +175,9 @@ public class CenterServiceImpl implements CenterService {
         application.setTutor(tutor);
         application.setCoverLetter(request.getCoverLetter());
         application.setStatus(RecruitmentApplicationStatus.APPLIED);
-        recruitmentApplicationRepository.save(application);
+        RecruitmentApplication saved = recruitmentApplicationRepository.save(application);
+        auditLogService.record(tutor.getUser().getUserId(), "APPLY_RECRUITMENT", "RecruitmentApplication",
+                saved.getRecruitmentAppId(), null, request);
     }
 
     // ===================== UC-14-B: Manage Classes (Tutor Center) =====================
@@ -205,6 +215,8 @@ public class CenterServiceImpl implements CenterService {
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
 
         replaceScheduleSlots(saved, request);
+        auditLogService.record(center.getUser().getUserId(), "CREATE_CENTER_CLASS", "TutoringClass",
+                saved.getClassId(), null, request);
         return toClassResponse(saved);
     }
 
@@ -224,6 +236,8 @@ public class CenterServiceImpl implements CenterService {
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
 
         replaceScheduleSlots(saved, request);
+        auditLogService.record(authHelper.currentUserId(), "UPDATE_CENTER_CLASS", "TutoringClass",
+                saved.getClassId(), null, request);
         return toClassResponse(saved);
     }
 
@@ -247,7 +261,10 @@ public class CenterServiceImpl implements CenterService {
             throw new IllegalArgumentException("Cần gán gia sư phụ trước khi đăng tải lớp.");
         }
         tutoringClass.setStatus(TutoringClassStatus.OPEN);
-        return toClassResponse(tutoringClassRepository.save(tutoringClass));
+        TutoringClass saved = tutoringClassRepository.save(tutoringClass);
+        auditLogService.record(authHelper.currentUserId(), "PUBLISH_CENTER_CLASS", "TutoringClass",
+                saved.getClassId(), null, null);
+        return toClassResponse(saved);
     }
 
     @Override
@@ -332,6 +349,8 @@ public class CenterServiceImpl implements CenterService {
         assignment.setTutor(tutor);
         assignment.setStatus(ClassAssignmentStatus.ACTIVE);
         classAssignmentRepository.save(assignment);
+        auditLogService.record(authHelper.currentUserId(), "ASSIGN_TUTOR", "TutoringClass", classId,
+                null, java.util.Map.of("tutorId", tutorId));
         return toClassResponse(tutoringClass);
     }
 
@@ -347,6 +366,7 @@ public class CenterServiceImpl implements CenterService {
                     a.setStatus(ClassAssignmentStatus.TERMINATED);
                     classAssignmentRepository.save(a);
                 });
+        auditLogService.record(authHelper.currentUserId(), "UNASSIGN_TUTOR", "TutoringClass", classId, null, null);
         return toClassResponse(tutoringClass);
     }
 
@@ -373,6 +393,8 @@ public class CenterServiceImpl implements CenterService {
         }
 
         substitutionService.assignAssistant(classId, tutor.getTutorId());
+        auditLogService.record(authHelper.currentUserId(), "ASSIGN_ASSISTANT", "TutoringClass", classId,
+                null, java.util.Map.of("tutorId", tutorId));
         return toClassResponse(tutoringClass);
     }
 
@@ -383,6 +405,7 @@ public class CenterServiceImpl implements CenterService {
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass);
         substitutionService.removeAssistant(classId);
+        auditLogService.record(authHelper.currentUserId(), "UNASSIGN_ASSISTANT", "TutoringClass", classId, null, null);
         return toClassResponse(tutoringClass);
     }
 
@@ -469,6 +492,8 @@ public class CenterServiceImpl implements CenterService {
         requireOwner(c); // chỉ trung tâm sở hữu lớp mới được duyệt
         RescheduleEntry entry =
                 rescheduleService.decide(body.getClassId(), body.getOriginalDate(), body.isApprove());
+        auditLogService.record(authHelper.currentUserId(), "DECIDE_RESCHEDULE", "TutoringClass", body.getClassId(),
+                null, body);
         return toRescheduleResponse(entry, c);
     }
 
@@ -495,6 +520,8 @@ public class CenterServiceImpl implements CenterService {
         requireOwner(c); // chỉ trung tâm sở hữu lớp mới được duyệt
         SubstitutionEntry entry =
                 substitutionService.decide(body.getClassId(), body.getDate(), body.isApprove());
+        auditLogService.record(authHelper.currentUserId(), "DECIDE_SUBSTITUTION", "TutoringClass", body.getClassId(),
+                null, body);
         return toSubstitutionResponse(entry, c);
     }
 

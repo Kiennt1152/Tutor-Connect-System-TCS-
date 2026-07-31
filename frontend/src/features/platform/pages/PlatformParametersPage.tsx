@@ -76,7 +76,7 @@ export default function PlatformParametersPage() {
               onChange={(event) => applyFilter({ keyword: event.target.value || undefined })}
             />
             <input
-              className="adm-field"
+              className="adm-field adm-field--fixed"
               placeholder="Lọc theo tiền tố khóa (ví dụ: SUBSTITUTION_)"
               value={filters.prefix ?? ''}
               onChange={(event) => applyFilter({ prefix: event.target.value || undefined })}
@@ -171,7 +171,7 @@ export default function PlatformParametersPage() {
               <label htmlFor="param-value">Giá trị (param_value)</label>
               <textarea
                 id="param-value"
-                className="adm-field"
+                className="adm-field adm-field--short"
                 value={form.paramValue}
                 onChange={(event) => setForm((current) => ({ ...current, paramValue: event.target.value }))}
                 placeholder="Giá trị của tham số"
@@ -183,7 +183,7 @@ export default function PlatformParametersPage() {
               <label htmlFor="param-description">Mô tả</label>
               <textarea
                 id="param-description"
-                className="adm-field"
+                className="adm-field adm-field--short"
                 value={form.description}
                 onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))}
                 placeholder="Mô tả ý nghĩa của tham số (không bắt buộc)"

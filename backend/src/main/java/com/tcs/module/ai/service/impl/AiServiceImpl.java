@@ -329,20 +329,26 @@ public class AiServiceImpl implements AiService {
                 }
             }
             prompt.append("\nCÂU HỎI CỦA NGƯỜI DÙNG: ").append(userQuery).append("\n");
-            prompt.append("Yêu cầu: Hãy đóng vai trợ lý AI của Tutor Connect System. Trả lời bằng tiếng Việt lịch sự, chính xác tuyệt đối theo thông tin RAG trên. Hãy giới thiệu rõ gia sư hoặc lớp học có trong danh sách nếu phù hợp.");
+            prompt.append("YÊU CẦU TRẢ LỜI:\n" +
+                          "1. Bạn là Trợ lý AI kiêm Gia sư của Tutor Connect System.\n" +
+                          "2. Nếu người dùng hỏi tìm gia sư/lớp/hướng dẫn, hãy dựa tuyệt đối vào DỮ LIỆU RAG bên trên để tư vấn, không tự bịa data.\n" +
+                          "3. Nếu người dùng hỏi bài tập: KHÔNG giải ngay từ A-Z. Hãy hướng dẫn từng bước nhỏ (Scaffolding), giải thích phương pháp, và khuyến khích họ suy nghĩ. Dùng định dạng LaTeX (bọc trong dấu $$) cho công thức toán học.\n" +
+                          "4. Trả lời bằng tiếng Việt thân thiện, lịch sự và truyền cảm hứng.");
 
             HttpClient client = HttpClient.newBuilder()
                     .connectTimeout(Duration.ofSeconds(6))
                     .build();
 
+            String systemPrompt = "Bạn là Trợ lý AI thông minh kiêm Gia sư tận tâm của hệ thống Tutor Connect System (TCS). Nhiệm vụ của bạn là tư vấn chính xác dựa trên RAG Context và hướng dẫn học sinh giải bài tập từng bước.";
+
             if ("groq".equalsIgnoreCase(provider) && groqApiKey != null && !groqApiKey.isBlank()) {
                 String payload = objectMapper.writeValueAsString(Map.of(
                         "model", groqModel,
                         "messages", List.of(
-                                Map.of("role", "system", "content", "Bạn là Trợ lý AI thông minh của sàn gia sư Tutor Connect System (TCS)."),
+                                Map.of("role", "system", "content", systemPrompt),
                                 Map.of("role", "user", "content", prompt.toString())
                         ),
-                        "temperature", 0.7
+                        "temperature", 0.3
                 ));
                 HttpRequest req = HttpRequest.newBuilder()
                         .uri(URI.create("https://api.groq.com/openai/v1/chat/completions"))

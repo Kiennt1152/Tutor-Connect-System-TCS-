@@ -47,6 +47,17 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Override
     public void record(String action, String entityType, Long entityId, Object oldValue, Object newValue) {
+        Long userId = null;
+        try {
+            userId = authHelper.currentUserId();
+        } catch (Exception e) {
+            log.warn("Could not retrieve current user for audit log", e);
+        }
+        record(userId, action, entityType, entityId, oldValue, newValue);
+    }
+
+    @Override
+    public void record(Long actorUserId, String action, String entityType, Long entityId, Object oldValue, Object newValue) {
         AuditLog auditLog = new AuditLog();
         auditLog.setAction(action);
         auditLog.setEntityType(entityType);
@@ -54,12 +65,11 @@ public class AuditLogServiceImpl implements AuditLogService {
         auditLog.setCreatedAt(LocalDateTime.now());
 
         try {
-            Long userId = authHelper.currentUserId();
-            if (userId != null) {
-                userRepository.findById(userId).ifPresent(auditLog::setActor);
+            if (actorUserId != null) {
+                userRepository.findById(actorUserId).ifPresent(auditLog::setActor);
             }
         } catch (Exception e) {
-            log.warn("Could not retrieve current user for audit log", e);
+            log.warn("Could not retrieve actor for audit log", e);
         }
 
         try {
@@ -88,9 +98,13 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    public PageAuditLogResponse search(Long actorId, String action, String entityType, LocalDateTime from, LocalDateTime to, int page, int size) {
+    public PageAuditLogResponse search(Long actorId, String actorRole, String action, String entityType,
+            String keyword, LocalDateTime from, LocalDateTime to, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<AuditLog> auditLogs = auditLogRepository.search(actorId, action, entityType, from, to, pageable);
+        String normalizedKeyword = (keyword == null || keyword.isBlank()) ? null : keyword.trim().toLowerCase();
+        String normalizedRole = (actorRole == null || actorRole.isBlank()) ? null : actorRole.trim().toUpperCase();
+        Page<AuditLog> auditLogs = auditLogRepository.search(
+                actorId, action, entityType, normalizedKeyword, normalizedRole, from, to, pageable);
 
         List<AuditLogResponse> content = auditLogs.getContent().stream()
                 .map(this::toResponse)
