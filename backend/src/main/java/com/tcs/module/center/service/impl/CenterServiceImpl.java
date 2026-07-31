@@ -133,9 +133,28 @@ public class CenterServiceImpl implements CenterService {
 
     // ===================== Tin tuyển gia sư — phía gia sư / công khai =====================
 
+    /** Tin tuyển dụng đăng quá số ngày này sẽ tự động gỡ về nháp. */
+    private static final int RECRUIT_MAX_ACTIVE_DAYS = 30;
+
+    /** Gỡ các tin đang mở đã đăng quá {@value #RECRUIT_MAX_ACTIVE_DAYS} ngày về trạng thái nháp. */
+    private void autoRevertStalePosts() {
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(RECRUIT_MAX_ACTIVE_DAYS);
+        List<RecruitmentPost> stale = recruitmentPostRepository
+                .findByStatusAndPublishedAtBefore(RecruitmentPostStatus.ACTIVE, cutoff);
+        if (stale.isEmpty()) {
+            return;
+        }
+        for (RecruitmentPost post : stale) {
+            post.setStatus(RecruitmentPostStatus.DRAFT);
+            post.setPublishedAt(null);
+        }
+        recruitmentPostRepository.saveAll(stale);
+    }
+
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<RecruitmentPostResponse> listOpenRecruitmentPosts() {
+        autoRevertStalePosts();
         return recruitmentPostRepository
                 .findByStatusOrderByPublishedAtDesc(RecruitmentPostStatus.ACTIVE)
                 .stream()
@@ -185,9 +204,10 @@ public class CenterServiceImpl implements CenterService {
     // ===================== Phía trung tâm =====================
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<RecruitmentPostResponse> listMyRecruitmentPosts() {
         TutorCenter center = requireCenter();
+        autoRevertStalePosts();
         return recruitmentPostRepository
                 .findByCenter_CenterIdOrderByCreatedAtDesc(center.getCenterId())
                 .stream()
@@ -199,7 +219,11 @@ public class CenterServiceImpl implements CenterService {
     @Transactional
     public RecruitmentPostResponse createRecruitmentPost(SaveRecruitmentPostRequest request) {
         TutorCenter center = requireCenter();
+        requireVerifiedCenter(center);
         validate(request);
+        if (request.getClassId() != null) {
+            validateClassRecruitable(request.getClassId());
+        }
         RecruitmentPost post = new RecruitmentPost();
         post.setCenter(center);
         post.setStatus(RecruitmentPostStatus.DRAFT); // tin mới luôn là nháp
@@ -229,7 +253,8 @@ public class CenterServiceImpl implements CenterService {
     @Override
     @Transactional
     public RecruitmentPostResponse publishRecruitmentPost(Long recruitmentId) {
-        requireCenter();
+        TutorCenter center = requireCenter();
+        requireVerifiedCenter(center);
         RecruitmentPost post = findPost(recruitmentId);
         requireOwner(post);
         if (post.getStatus() != RecruitmentPostStatus.DRAFT) {
@@ -408,14 +433,22 @@ public class CenterServiceImpl implements CenterService {
                 StringUtils.hasText(request.getSubjectName())
                         ? resolveOrCreateSubject(request.getSubjectName())
                         : null);
-        post.setLocation(
-                StringUtils.hasText(request.getProvinceName())
-                                && StringUtils.hasText(request.getAddressDetail())
-                        ? resolveOrCreateLocation(
-                                request.getProvinceName(),
-                                request.getWardName(),
-                                request.getAddressDetail())
-                        : null);
+        // Tin gắn với một lớp -> địa điểm làm việc lấy cố định theo địa điểm của lớp,
+        // bỏ qua địa điểm client gửi lên. Tin tuyển chung -> lấy theo dữ liệu nhập.
+        if (request.getClassId() != null) {
+            TutoringClass linked = findClass(request.getClassId());
+            requireOwner(linked);
+            post.setLocation(linked.getLocation());
+        } else {
+            post.setLocation(
+                    StringUtils.hasText(request.getProvinceName())
+                                    && StringUtils.hasText(request.getAddressDetail())
+                            ? resolveOrCreateLocation(
+                                    request.getProvinceName(),
+                                    request.getWardName(),
+                                    request.getAddressDetail())
+                            : null);
+        }
     }
 
     // ===================== UC-14-B: Manage Classes (Tutor Center) =====================
@@ -487,53 +520,56 @@ public class CenterServiceImpl implements CenterService {
         if (tutoringClass.getStatus() != TutoringClassStatus.DRAFT) {
             throw new IllegalArgumentException("Chỉ lớp ở trạng thái nháp mới có thể đăng tải");
         }
-        // Bắt buộc đủ 2 gia sư (chính + phụ) trước khi đăng tải.
-        boolean hasMain = classAssignmentRepository
-                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
-                .isPresent();
-        if (!hasMain) {
-            throw new IllegalArgumentException("Cần gán gia sư chính trước khi đăng tải lớp.");
+        boolean external = ORIGIN_EXTERNAL.equals(findClassOrigin(classId));
+        if (external) {
+            // Lớp "theo yêu cầu" đã có sẵn học sinh -> không mở ghi danh, đăng tải để bố trí gia sư.
+            tutoringClass.setStatus(TutoringClassStatus.ENROLLMENT_CLOSED);
+        } else {
+            // Lớp "tự tạo": gán gia sư TRƯỚC, rồi mới mở ghi danh (đăng tải).
+            boolean hasMain = classAssignmentRepository
+                    .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                            classId, ClassAssignmentStatus.ACTIVE)
+                    .isPresent();
+            if (!hasMain) {
+                throw new IllegalArgumentException(
+                        "Cần gán gia sư cho lớp trước khi mở ghi danh (đăng tải).");
+            }
+            tutoringClass.setStatus(TutoringClassStatus.OPEN);
         }
-        if (substitutionService.findAssistant(classId).isEmpty()) {
-            throw new IllegalArgumentException("Cần gán gia sư phụ trước khi đăng tải lớp.");
-        }
-        tutoringClass.setStatus(TutoringClassStatus.OPEN);
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
 
     @Override
     @Transactional
-    public CenterClassResponse activateClass(Long classId) {
+    public CenterClassResponse closeEnrollment(Long classId) {
         requireCenter();
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass);
-        // Chỉ kích hoạt lớp đang mở ghi danh.
+        // Chỉ đóng ghi danh lớp đang mở.
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
-            throw new IllegalArgumentException("Chỉ lớp đang mở (đã đăng tải) mới có thể kích hoạt.");
+            throw new IllegalArgumentException("Chỉ lớp đang mở tuyển sinh mới có thể đóng ghi danh.");
         }
-        // Cổng gia sư: vẫn phải đủ gia sư chính + phụ.
-        boolean hasMain = classAssignmentRepository
-                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
-                .isPresent();
-        if (!hasMain || substitutionService.findAssistant(classId).isEmpty()) {
-            throw new IllegalArgumentException("Cần đủ gia sư chính và gia sư phụ trước khi kích hoạt.");
-        }
-        // Cổng học sinh: đủ số học sinh tối thiểu (min_students; trống thì cần ≥ 1).
+        // Điều kiện đóng tay: đủ số học sinh tối thiểu (min_students; trống thì cần ≥ 1).
         long enrolled = classStudentRepository
                 .countByTutoringClass_ClassIdAndStatus(classId, ClassStudentStatus.ENROLLED);
         int required = tutoringClass.getMinStudents() != null ? tutoringClass.getMinStudents() : 1;
         if (enrolled < required) {
             throw new IllegalArgumentException(
-                    "Chưa đủ học sinh để kích hoạt (" + enrolled + "/" + required + ").");
+                    "Chưa đủ học sinh tối thiểu để đóng lớp (" + enrolled + "/" + required + ").");
         }
-        tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
+        // Đã gán gia sư trước (lớp tự tạo) + đủ học sinh -> đã ghép (MATCHED). Chưa có gia sư -> chỉ đóng ghi danh.
+        boolean hasMain = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .isPresent();
+        tutoringClass.setStatus(
+                hasMain ? TutoringClassStatus.MATCHED : TutoringClassStatus.ENROLLMENT_CLOSED);
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<TutorOptionResponse> listTutors(Long classId) {
-        requireCenter();
+        TutorCenter center = requireCenter();
         // Nếu có classId: nạp lớp (đảm bảo quyền sở hữu) để đánh dấu gia sư trùng lịch.
         TutoringClass target = null;
         if (classId != null) {
@@ -541,7 +577,11 @@ public class CenterServiceImpl implements CenterService {
             requireOwner(target);
         }
         final TutoringClass targetClass = target;
-        return tutorRepository.findAll().stream()
+        // Chỉ gán được gia sư trong danh sách gia sư (thành viên ACTIVE) của chính trung tâm.
+        return membershipRepository
+                .findByCenter_CenterIdOrderByJoinedAtDesc(center.getCenterId()).stream()
+                .filter(m -> m.getStatus() == CenterTutorMembershipStatus.ACTIVE)
+                .map(CenterTutorMembership::getTutor)
                 .map(t -> {
                     TutoringClass conflict =
                             targetClass != null ? findScheduleConflict(targetClass, t.getTutorId()) : null;
@@ -568,6 +608,7 @@ public class CenterServiceImpl implements CenterService {
         requireCenter();
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass);
+        requireStaffable(tutoringClass);
         if (tutorId == null) {
             throw new IllegalArgumentException("Vui lòng chọn gia sư");
         }
@@ -584,7 +625,25 @@ public class CenterServiceImpl implements CenterService {
         }
 
         assignMainTutorInternal(tutoringClass, tutor);
+        // Đã đóng ghi danh (đủ học sinh) mà gán gia sư -> đã ghép (MATCHED).
+        // Còn đang tuyển học sinh (DRAFT/OPEN) -> giữ nguyên, MATCHED khi đóng ghi danh.
+        if (tutoringClass.getStatus() == TutoringClassStatus.ENROLLMENT_CLOSED) {
+            tutoringClass.setStatus(TutoringClassStatus.MATCHED);
+        }
+        tutoringClassRepository.save(tutoringClass);
+        // Đã có gia sư -> tự đóng tin tuyển gia sư đang mở của lớp (không cần tuyển nữa).
+        closeRecruitmentPostsForClass(classId);
         return toClassResponse(tutoringClass);
+    }
+
+    /** Cho gán gia sư khi lớp chưa kết thúc (nháp / đang tuyển / đã đóng ghi danh / đã ghép). */
+    private void requireStaffable(TutoringClass tutoringClass) {
+        switch (tutoringClass.getStatus()) {
+            case DRAFT, OPEN, ENROLLMENT_CLOSED, MATCHED -> {
+                // ok
+            }
+            default -> throw new IllegalArgumentException("Lớp này không thể gán gia sư nữa.");
+        }
     }
 
     /**
@@ -632,6 +691,15 @@ public class CenterServiceImpl implements CenterService {
         if (tutoringClass == null) {
             return;
         }
+        // Chỉ tự gán khi lớp chưa kết thúc (cùng quy tắc với gán tay).
+        switch (tutoringClass.getStatus()) {
+            case DRAFT, OPEN, ENROLLMENT_CLOSED, MATCHED -> {
+                // ok
+            }
+            default -> {
+                return;
+            }
+        }
         Long classId = tutoringClass.getClassId();
         ClassAssignment main = classAssignmentRepository
                 .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
@@ -641,6 +709,12 @@ public class CenterServiceImpl implements CenterService {
                 return; // trùng lịch -> để trung tâm gán tay
             }
             assignMainTutorInternal(tutoringClass, tutor);
+            // Đã đóng ghi danh mà mới có gia sư -> đã ghép; còn đang tuyển học sinh thì giữ nguyên.
+            if (tutoringClass.getStatus() == TutoringClassStatus.ENROLLMENT_CLOSED) {
+                tutoringClass.setStatus(TutoringClassStatus.MATCHED);
+            }
+            tutoringClassRepository.save(tutoringClass);
+            closeRecruitmentPostsForClass(classId);
             return;
         }
         // Đã có gia sư chính -> thử gán làm gia sư phụ (phải khác chính, chưa có phụ).
@@ -664,6 +738,11 @@ public class CenterServiceImpl implements CenterService {
                     a.setStatus(ClassAssignmentStatus.TERMINATED);
                     classAssignmentRepository.save(a);
                 });
+        // Gỡ gia sư chính -> lớp quay lại "đã đóng ghi danh" (chưa ghép).
+        if (tutoringClass.getStatus() == TutoringClassStatus.MATCHED) {
+            tutoringClass.setStatus(TutoringClassStatus.ENROLLMENT_CLOSED);
+            tutoringClassRepository.save(tutoringClass);
+        }
         return toClassResponse(tutoringClass);
     }
 
@@ -673,6 +752,7 @@ public class CenterServiceImpl implements CenterService {
         requireCenter();
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass);
+        requireStaffable(tutoringClass);
         if (tutorId == null) {
             throw new IllegalArgumentException("Vui lòng chọn gia sư phụ");
         }
@@ -986,6 +1066,16 @@ public class CenterServiceImpl implements CenterService {
         // Số học sinh tối đa: số nguyên dương.
         if (request.getMaxStudents() == null || request.getMaxStudents() <= 0) {
             throw new IllegalArgumentException("Số học sinh tối đa phải là số nguyên dương");
+        }
+        // Số học sinh tối thiểu (nếu có): số nguyên dương và không lớn hơn tối đa.
+        if (request.getMinStudents() != null) {
+            if (request.getMinStudents() <= 0) {
+                throw new IllegalArgumentException("Số học sinh tối thiểu phải là số nguyên dương");
+            }
+            if (request.getMinStudents() > request.getMaxStudents()) {
+                throw new IllegalArgumentException(
+                        "Số học sinh tối thiểu không được lớn hơn số học sinh tối đa");
+            }
         }
         // Ngày bắt đầu/kết thúc bắt buộc + BR-02.
         if (request.getStartDate() == null || request.getEndDate() == null) {
@@ -1362,7 +1452,7 @@ public class CenterServiceImpl implements CenterService {
     private void requireVerifiedCenter(TutorCenter center) {
         if (center.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
             throw new VerificationRequiredException(
-                    "Trung tâm của bạn cần được xác minh trước khi tạo lớp học.");
+                    "Trung tâm của bạn cần được xác minh trước khi thực hiện thao tác này.");
         }
     }
 
@@ -1420,6 +1510,56 @@ public class CenterServiceImpl implements CenterService {
                         return null;
                     }
                 });
+    }
+
+    /**
+     * Chỉ lớp "theo yêu cầu" mới được đăng tin tuyển gia sư, và chỉ khi lớp chưa có gia sư chính.
+     * Lớp "tự tạo" chỉ gán gia sư từ danh sách trung tâm.
+     */
+    private void validateClassRecruitable(Long classId) {
+        TutoringClass cls = findClass(classId);
+        requireOwner(cls);
+        if (ORIGIN_EXTERNAL.equals(findClassOrigin(classId))) {
+            // ok - lớp theo yêu cầu được đăng tin
+        } else {
+            throw new IllegalArgumentException(
+                    "Lớp tự tạo chỉ gán gia sư từ danh sách trung tâm, không đăng tin tuyển.");
+        }
+        boolean hasMain = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .isPresent();
+        if (hasMain) {
+            throw new IllegalArgumentException("Lớp đã có gia sư — không cần đăng tin tuyển.");
+        }
+    }
+
+    /** Đã gán được gia sư cho lớp -> tự đóng các tin tuyển gia sư đang mở gắn với lớp đó. */
+    private void closeRecruitmentPostsForClass(Long classId) {
+        for (SystemParameter p :
+                systemParameterRepository.findByParamKeyStartingWith(RECRUIT_CLASS_PREFIX)) {
+            Long linked;
+            try {
+                linked = Long.valueOf(p.getParamValue().trim());
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            if (!classId.equals(linked)) {
+                continue;
+            }
+            Long recruitmentId;
+            try {
+                recruitmentId = Long.valueOf(p.getParamKey().substring(RECRUIT_CLASS_PREFIX.length()));
+            } catch (NumberFormatException e) {
+                continue;
+            }
+            recruitmentPostRepository.findById(recruitmentId).ifPresent(post -> {
+                if (post.getStatus() == RecruitmentPostStatus.ACTIVE) {
+                    post.setStatus(RecruitmentPostStatus.CLOSED);
+                    post.setClosedAt(LocalDateTime.now());
+                    recruitmentPostRepository.save(post);
+                }
+            });
+        }
     }
 
     // ---- Loại lớp (EXTERNAL/SELF) qua system_parameters (không dùng cột/migration) ----

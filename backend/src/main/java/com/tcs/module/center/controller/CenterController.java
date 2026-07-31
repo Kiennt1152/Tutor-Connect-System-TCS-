@@ -146,9 +146,9 @@ public class CenterController {
         return centerService.publishClass(classId);
     }
 
-    @PostMapping("/classes/{classId}/activate")
-    public CenterClassResponse activateClass(@PathVariable Long classId) {
-        return centerService.activateClass(classId);
+    @PostMapping("/classes/{classId}/close-enrollment")
+    public CenterClassResponse closeEnrollment(@PathVariable Long classId) {
+        return centerService.closeEnrollment(classId);
     }
 
     @GetMapping("/tutors")

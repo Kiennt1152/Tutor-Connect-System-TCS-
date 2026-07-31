@@ -94,8 +94,10 @@ export const centerApi = {
   publishClass(classId: number) {
     return axiosClient.post<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/publish`);
   },
-  activateClass(classId: number) {
-    return axiosClient.post<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/activate`);
+  closeEnrollment(classId: number) {
+    return axiosClient.post<ClassResponse>(
+      `${CENTER_API_BASE}/classes/${classId}/close-enrollment`,
+    );
   },
   getTutors(classId?: number) {
     const q = classId != null ? `?classId=${classId}` : '';

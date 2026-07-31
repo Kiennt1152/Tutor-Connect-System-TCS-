@@ -77,7 +77,7 @@ public interface CenterService {
     /** Đăng tải lớp (DRAFT -> OPEN) để hiển thị ở "Tìm lớp". */
     CenterClassResponse publishClass(Long classId);
 
-    CenterClassResponse activateClass(Long classId);
+    CenterClassResponse closeEnrollment(Long classId);
 
     /**
      * Danh sách gia sư để trung tâm chọn gán (tạm thời lấy tất cả).

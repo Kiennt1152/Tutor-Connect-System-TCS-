@@ -235,7 +235,8 @@ function buildPayload(form: FormState): SaveClassRequest {
     numberOfSessions: countSessions(form),
     tuitionFee: num(form.tuitionFee),
     maxStudents: num(form.maxStudents),
-    minStudents: num(form.minStudents),
+    // Lớp theo yêu cầu không dùng tối thiểu (không mở ghi danh).
+    minStudents: form.originType === 'EXTERNAL' ? null : num(form.minStudents),
     originType: form.originType,
     startDate: form.startDate || null,
     endDate: form.endDate || null,
@@ -257,6 +258,7 @@ type FieldKey =
   | 'addressDetail'
   | 'tuitionFee'
   | 'maxStudents'
+  | 'minStudents'
   | 'startDate'
   | 'endDate';
 
@@ -286,6 +288,15 @@ function validateForm(form: FormState, isCreate: boolean): FormErrors {
   const maxSt = Number(form.maxStudents);
   if (!form.maxStudents.trim() || !Number.isInteger(maxSt) || maxSt <= 0)
     fields.maxStudents = 'Số học sinh tối đa phải là số nguyên dương';
+
+  // Lớp tự tạo: nếu nhập tối thiểu thì phải là số dương và không lớn hơn tối đa.
+  if (form.originType !== 'EXTERNAL' && form.minStudents.trim()) {
+    const minSt = Number(form.minStudents);
+    if (!Number.isInteger(minSt) || minSt <= 0)
+      fields.minStudents = 'Số học sinh tối thiểu phải là số nguyên dương';
+    else if (Number.isInteger(maxSt) && maxSt > 0 && minSt > maxSt)
+      fields.minStudents = 'Tối thiểu không được lớn hơn tối đa';
+  }
 
   if (!form.startDate) fields.startDate = 'Ngày bắt đầu là bắt buộc';
   else if (isCreate && form.startDate < TODAY)
@@ -432,15 +443,15 @@ export default function CenterPage() {
     }
   };
 
-  const activate = async (classId: number) => {
+  const closeEnrollment = async (classId: number) => {
     setListError('');
     setDetailError('');
     try {
-      await centerApi.activateClass(classId);
+      await centerApi.closeEnrollment(classId);
       reloadList();
       if (detailData?.classId === classId) refreshDetail(classId);
     } catch (err) {
-      const msg = extractError(err, 'Không kích hoạt được lớp học.');
+      const msg = extractError(err, 'Không đóng ghi danh được lớp học.');
       setDetailError(msg);
       setListError(msg);
     }
@@ -828,42 +839,63 @@ export default function CenterPage() {
             </label>
 
             <label className="cc-field">
-              <span className="cc-label">Số học sinh tối đa *</span>
-              <input
-                className={errClass('maxStudents')}
-                type="number"
-                min={1}
-                value={form.maxStudents}
-                onChange={(e) => patch({ maxStudents: e.target.value })}
-                placeholder="VD: 20"
-              />
-              {errText('maxStudents')}
-            </label>
-
-            <label className="cc-field">
               <span className="cc-label">Loại lớp *</span>
               <select
                 className="cc-input"
                 value={form.originType}
                 onChange={(e) => patch({ originType: e.target.value as FormState['originType'] })}
               >
-                <option value="SELF">Trung tâm tự tạo (chưa có học sinh)</option>
+                <option value="SELF">Trung tâm tự tạo (tuyển học sinh)</option>
                 <option value="EXTERNAL">Theo yêu cầu ngoài (đã có học sinh)</option>
               </select>
             </label>
 
-            <label className="cc-field">
-              <span className="cc-label">Số học sinh tối thiểu để kích hoạt</span>
-              <input
-                className="cc-input"
-                type="number"
-                min={1}
-                value={form.minStudents}
-                onChange={(e) => patch({ minStudents: e.target.value })}
-                placeholder="Để trống = cần ≥ 1"
-              />
-              <span className="cc-hint">Lớp chỉ kích hoạt khi đủ số học sinh này.</span>
-            </label>
+            {form.originType === 'EXTERNAL' ? (
+              <label className="cc-field">
+                <span className="cc-label">Số lượng học sinh *</span>
+                <input
+                  className={errClass('maxStudents')}
+                  type="number"
+                  min={1}
+                  value={form.maxStudents}
+                  onChange={(e) => patch({ maxStudents: e.target.value })}
+                  placeholder="Số học sinh có sẵn"
+                />
+                {errText('maxStudents')}
+                <span className="cc-hint">
+                  Lớp theo yêu cầu đã có sẵn học sinh — không mở ghi danh.
+                </span>
+              </label>
+            ) : (
+              <>
+                <label className="cc-field">
+                  <span className="cc-label">Số học sinh tối đa *</span>
+                  <input
+                    className={errClass('maxStudents')}
+                    type="number"
+                    min={1}
+                    value={form.maxStudents}
+                    onChange={(e) => patch({ maxStudents: e.target.value })}
+                    placeholder="VD: 20"
+                  />
+                  {errText('maxStudents')}
+                </label>
+
+                <label className="cc-field">
+                  <span className="cc-label">Số học sinh tối thiểu để đóng ghi danh</span>
+                  <input
+                    className={errClass('minStudents')}
+                    type="number"
+                    min={1}
+                    value={form.minStudents}
+                    onChange={(e) => patch({ minStudents: e.target.value })}
+                    placeholder="Để trống = cần ≥ 1"
+                  />
+                  {errText('minStudents')}
+                  <span className="cc-hint">Đủ số học sinh này mới đóng được ghi danh.</span>
+                </label>
+              </>
+            )}
           </div>
 
           <div className="cc-grid cc-grid--after-schedule">
@@ -1066,10 +1098,6 @@ export default function CenterPage() {
                       <dd>{detailData.numberOfSessions}</dd>
                     </div>
                     <div className="cc-detail__item">
-                      <dt>Sĩ số tối đa</dt>
-                      <dd>{detailData.maxStudents ?? '—'}</dd>
-                    </div>
-                    <div className="cc-detail__item">
                       <dt>Loại lớp</dt>
                       <dd>
                         {detailData.originType === 'EXTERNAL'
@@ -1077,13 +1105,28 @@ export default function CenterPage() {
                           : 'Trung tâm tự tạo'}
                       </dd>
                     </div>
-                    <div className="cc-detail__item">
-                      <dt>Học sinh đã ghi danh</dt>
-                      <dd>
-                        {detailData.enrolledCount}
-                        {detailData.minStudents != null ? ` / tối thiểu ${detailData.minStudents}` : ''}
-                      </dd>
-                    </div>
+                    {detailData.originType === 'EXTERNAL' ? (
+                      <div className="cc-detail__item">
+                        <dt>Số lượng học sinh</dt>
+                        <dd>{detailData.maxStudents ?? '—'}</dd>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="cc-detail__item">
+                          <dt>Sĩ số tối đa</dt>
+                          <dd>{detailData.maxStudents ?? '—'}</dd>
+                        </div>
+                        <div className="cc-detail__item">
+                          <dt>Học sinh đã ghi danh</dt>
+                          <dd>
+                            {detailData.enrolledCount}
+                            {detailData.minStudents != null
+                              ? ` / tối thiểu ${detailData.minStudents}`
+                              : ''}
+                          </dd>
+                        </div>
+                      </>
+                    )}
                     <div className="cc-detail__item">
                       <dt>Học phí</dt>
                       <dd className="cc-fee">{formatCurrency(detailData.tuitionFee)}</dd>
@@ -1112,6 +1155,11 @@ export default function CenterPage() {
                     )}
                   </div>
 
+                  {detailData.status === 'DRAFT' ||
+                  detailData.status === 'OPEN' ||
+                  detailData.status === 'ENROLLMENT_CLOSED' ||
+                  detailData.status === 'MATCHED' ? (
+                    <>
                   <div className="cc-detail__section">
                     <span className="cc-detail__label">Gia sư dạy</span>
                     {detailData.assignedTutorName ? (
@@ -1189,6 +1237,13 @@ export default function CenterPage() {
                       </button>
                     )}
                   </div>
+                    </>
+                  ) : (
+                    <div className="cc-detail__section">
+                      <span className="cc-detail__label">Gia sư</span>
+                      <p className="cc-muted">Lớp đã kết thúc — không thể thay đổi gia sư.</p>
+                    </div>
+                  )}
 
                   {detailData.students && detailData.students.length > 0 && (
                     <div className="cc-detail__section">
@@ -1229,46 +1284,53 @@ export default function CenterPage() {
                         Sửa lớp học
                       </button>
                     )}
-                    <button
-                      className="cc-btn cc-btn--ghost"
-                      type="button"
-                      onClick={() =>
-                        navigate('/center/recruitment', {
-                          state: {
-                            createForClass: {
-                              id: detailData.classId,
-                              title: detailData.title,
+                    {/* Chỉ lớp "theo yêu cầu" mới đăng tin tuyển; và ẩn khi đã có gia sư. */}
+                    {detailData.originType === 'EXTERNAL' && !detailData.assignedTutorId && (
+                      <button
+                        className="cc-btn cc-btn--ghost"
+                        type="button"
+                        onClick={() =>
+                          navigate('/center/recruitment', {
+                            state: {
+                              createForClass: {
+                                id: detailData.classId,
+                                title: detailData.title,
+                              },
                             },
-                          },
-                        })
-                      }
-                    >
-                      Tạo tin tuyển dụng cho lớp này
-                    </button>
+                          })
+                        }
+                      >
+                        Tạo tin tuyển dụng cho lớp này
+                      </button>
+                    )}
                     {detailData.status === 'DRAFT' &&
                       (() => {
-                        const canPublish =
-                          !!detailData.assignedTutorId && !!detailData.assistantTutorId;
+                        // Lớp tự tạo: phải gán gia sư trước rồi mới mở ghi danh (đăng tải).
+                        const needTutorFirst =
+                          detailData.originType !== 'EXTERNAL' && !detailData.assignedTutorId;
                         return (
                           <div className="cc-publish">
-                            {!canPublish && (
-                              <p className="cc-publish__hint">
-                                ⚠ Cần gán đủ <b>gia sư chính</b> và <b>gia sư phụ</b> trước khi
-                                đăng tải.
-                              </p>
-                            )}
+                            <p className="cc-publish__hint">
+                              {detailData.originType === 'EXTERNAL'
+                                ? 'Lớp đã có sẵn học sinh. Đăng tải để bố trí gia sư (gán sẵn hoặc đăng tin tìm gia sư).'
+                                : needTutorFirst
+                                  ? '⚠ Cần gán gia sư cho lớp trước, rồi mới đăng tải để mở tuyển học sinh.'
+                                  : 'Đăng tải để mở tuyển học sinh.'}
+                            </p>
                             <button
                               className="cc-btn cc-btn--primary"
                               type="button"
-                              disabled={!canPublish}
+                              disabled={needTutorFirst}
                               title={
-                                canPublish
-                                  ? undefined
-                                  : 'Cần gán đủ gia sư chính và gia sư phụ trước khi đăng tải'
+                                needTutorFirst
+                                  ? 'Cần gán gia sư cho lớp trước khi mở ghi danh'
+                                  : undefined
                               }
                               onClick={() => publish(detailData.classId)}
                             >
-                              Đăng tải
+                              {detailData.originType === 'EXTERNAL'
+                                ? 'Đăng tải (bố trí gia sư)'
+                                : 'Đăng tải (mở tuyển sinh)'}
                             </button>
                           </div>
                         );
@@ -1276,33 +1338,29 @@ export default function CenterPage() {
                     {detailData.status === 'OPEN' &&
                       (() => {
                         const required = detailData.minStudents ?? 1;
-                        const enoughStudents = detailData.enrolledCount >= required;
-                        const enoughTutors =
-                          !!detailData.assignedTutorId && !!detailData.assistantTutorId;
-                        const canActivate = enoughStudents && enoughTutors;
+                        const canClose = detailData.enrolledCount >= required;
                         return (
                           <div className="cc-publish">
-                            {!canActivate && (
-                              <p className="cc-publish__hint">
-                                ⚠ Cần đủ <b>gia sư (chính + phụ)</b> và{' '}
-                                <b>
-                                  học sinh ({detailData.enrolledCount}/{required})
-                                </b>{' '}
-                                trước khi kích hoạt.
-                              </p>
-                            )}
+                            <p className="cc-publish__hint">
+                              Học sinh: <b>{detailData.enrolledCount}</b>
+                              {` / tối thiểu ${required}`}
+                              {detailData.maxStudents != null
+                                ? ` · tối đa ${detailData.maxStudents} (đủ tối đa sẽ tự đóng)`
+                                : ''}
+                              {!canClose && ' — chưa đủ để đóng ghi danh.'}
+                            </p>
                             <button
                               className="cc-btn cc-btn--primary"
                               type="button"
-                              disabled={!canActivate}
+                              disabled={!canClose}
                               title={
-                                canActivate
+                                canClose
                                   ? undefined
-                                  : 'Cần đủ gia sư và đủ học sinh tối thiểu trước khi kích hoạt'
+                                  : 'Cần đủ số học sinh tối thiểu mới đóng được ghi danh'
                               }
-                              onClick={() => activate(detailData.classId)}
+                              onClick={() => closeEnrollment(detailData.classId)}
                             >
-                              Kích hoạt lớp
+                              Đóng ghi danh
                             </button>
                           </div>
                         );

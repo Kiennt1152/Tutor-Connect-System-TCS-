@@ -5,6 +5,8 @@ import { centerApi } from '../api/centerApi';
 import { LocationPicker } from '../components/LocationPicker';
 import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { APP_ROUTES } from '../../../shared/constants/routes';
+import { profileApi } from '../../profile/api/profileApi';
 import type {
   RecruitmentApplication,
   RecruitmentApplicationStatus,
@@ -63,6 +65,14 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Mã lỗi backend trả về (VD: "VERIFICATION_REQUIRED") để frontend điều hướng. */
+function errorCode(error: unknown): string | undefined {
+  if (axios.isAxiosError(error) && typeof error.response?.data?.code === 'string') {
+    return error.response.data.code;
+  }
+  return undefined;
+}
+
 function fmtDate(value: string | null): string {
   if (!value) return '—';
   const d = new Date(value);
@@ -88,6 +98,8 @@ export default function CenterRecruitmentPage() {
 
   // Lớp mà tin đang tạo/sửa gắn tới (nếu có). Null = tin tuyển chung.
   const [linkedClass, setLinkedClass] = useState<{ id: number; title: string } | null>(null);
+  // Địa điểm của lớp gắn kèm (hiển thị cố định, không cho nhập tay).
+  const [linkedClassLocation, setLinkedClassLocation] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setStatus('loading');
@@ -108,6 +120,28 @@ export default function CenterRecruitmentPage() {
     load();
   }, [load]);
 
+  // Trạng thái xác minh trung tâm: null = đang tải. Chưa xác minh thì không cho đăng tin.
+  const [verified, setVerified] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    profileApi.http
+      .get<{ verificationStatus?: string }>('/profile/me')
+      .then((res) => {
+        if (alive) setVerified(res.data.verificationStatus === 'VERIFIED');
+      })
+      .catch(() => {
+        if (alive) setVerified(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const goVerify = () =>
+    navigate(APP_ROUTES.verification, {
+      state: { notice: 'Trung tâm của bạn cần được xác minh trước khi đăng tin tuyển gia sư.' },
+    });
+
   // ----- Tạo / sửa tin -----
   const [formOpen, setFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -118,6 +152,11 @@ export default function CenterRecruitmentPage() {
   const patch = (partial: Partial<FormState>) => setForm((prev) => ({ ...prev, ...partial }));
 
   const openCreate = (forClass?: { id: number; title: string } | null) => {
+    // Chưa xác minh -> không cho tạo tin, chuyển sang trang Xác minh.
+    if (verified === false) {
+      goVerify();
+      return;
+    }
     setEditingId(null);
     setForm(EMPTY_FORM);
     setLinkedClass(forClass ?? null);
@@ -135,6 +174,28 @@ export default function CenterRecruitmentPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state]);
+
+  // Lấy địa điểm của lớp gắn kèm để hiển thị cố định (địa điểm làm việc = địa điểm lớp).
+  useEffect(() => {
+    if (!linkedClass) {
+      setLinkedClassLocation(null);
+      return;
+    }
+    let alive = true;
+    centerApi
+      .getClass(linkedClass.id)
+      .then((res) => {
+        if (alive) {
+          setLinkedClassLocation(res.data.locationLabel ?? res.data.addressDetail ?? null);
+        }
+      })
+      .catch(() => {
+        if (alive) setLinkedClassLocation(null);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [linkedClass]);
 
   const openEdit = (post: RecruitmentPost) => {
     setEditingId(post.recruitmentId);
@@ -200,6 +261,13 @@ export default function CenterRecruitmentPage() {
       setFormOpen(false);
       load();
     } catch (err) {
+      // Chưa xác minh -> điều hướng sang trang Xác minh.
+      if (errorCode(err) === 'VERIFICATION_REQUIRED') {
+        setVerified(false);
+        setFormOpen(false);
+        goVerify();
+        return;
+      }
       setFormError(extractError(err, 'Không lưu được tin tuyển dụng.'));
     } finally {
       setSaving(false);
@@ -216,6 +284,11 @@ export default function CenterRecruitmentPage() {
       await centerApi.publishPost(post.recruitmentId);
       load();
     } catch (err) {
+      if (errorCode(err) === 'VERIFICATION_REQUIRED') {
+        setVerified(false);
+        goVerify();
+        return;
+      }
       setListError(extractError(err, 'Không đăng được tin.'));
     } finally {
       setBusyId(null);
@@ -310,6 +383,17 @@ export default function CenterRecruitmentPage() {
           </button>
         </header>
 
+        {verified === false && (
+          <div className="rc-alert rc-alert--warn rc-verify-banner">
+            <span>
+              ⚠ Trung tâm của bạn <b>chưa được xác minh</b>. Cần hoàn tất xác minh trước khi đăng
+              tin tuyển gia sư.
+            </span>
+            <button className="rc-btn rc-btn--primary rc-btn--sm" type="button" onClick={goVerify}>
+              Đi xác minh →
+            </button>
+          </div>
+        )}
         {listError && <div className="rc-alert rc-alert--error">{listError}</div>}
         {status === 'loading' && <div className="rc-state">Đang tải…</div>}
         {status === 'success' && posts.length === 0 && (
@@ -512,23 +596,35 @@ export default function CenterRecruitmentPage() {
                 />
               </label>
 
-              <div className="rc-loc">
-                <span className="rc-loc__label">Địa điểm làm việc (tuỳ chọn)</span>
-                <LocationPicker
-                  value={{
-                    province: form.provinceName,
-                    ward: form.wardName,
-                    addressDetail: form.addressDetail,
-                  }}
-                  onChange={(v) =>
-                    patch({
-                      provinceName: v.province,
-                      wardName: v.ward,
-                      addressDetail: v.addressDetail,
-                    })
-                  }
-                />
-              </div>
+              {linkedClass ? (
+                <div className="rc-loc">
+                  <span className="rc-loc__label">Địa điểm làm việc</span>
+                  <div className="rc-loc__value">
+                    {linkedClassLocation ?? 'Lấy theo địa điểm của lớp'}
+                  </div>
+                  <span className="rc-loc__hint">
+                    Tin gắn với lớp — địa điểm làm việc lấy cố định theo địa điểm của lớp.
+                  </span>
+                </div>
+              ) : (
+                <div className="rc-loc">
+                  <span className="rc-loc__label">Địa điểm làm việc (tuỳ chọn)</span>
+                  <LocationPicker
+                    value={{
+                      province: form.provinceName,
+                      ward: form.wardName,
+                      addressDetail: form.addressDetail,
+                    }}
+                    onChange={(v) =>
+                      patch({
+                        provinceName: v.province,
+                        wardName: v.ward,
+                        addressDetail: v.addressDetail,
+                      })
+                    }
+                  />
+                </div>
+              )}
             </div>
             <div className="rc-modal__actions">
               <button className="rc-btn rc-btn--ghost" type="button" onClick={closeForm}>
