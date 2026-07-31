@@ -1,12 +1,7 @@
 package com.tcs.config;
 
-import com.tcs.module.finance.dto.EscrowLockCommand;
-import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.TopupSession;
-import com.tcs.module.finance.entity.EscrowTransaction;
-import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.PaymentGateway;
-import com.tcs.module.finance.service.SettlementService;
 import com.tcs.module.marketplace.service.RecommendationService;
 import java.math.BigDecimal;
 import java.util.List;
@@ -44,32 +39,5 @@ public class PhaseOneStubConfig {
                 return true;
             }
         };
-    }
-
-    /** 0.2: seam escrow (M3) chua co ban that -> stub de context khoi dong. */
-    @Bean
-    @ConditionalOnMissingBean(EscrowService.class)
-    public EscrowService escrowServiceStub() {
-        return new EscrowService() {
-            @Override
-            public EscrowTransaction lock(EscrowLockCommand command) {
-                EscrowTransaction tx = new EscrowTransaction();
-                tx.setAmount(command.amount());
-                return tx;
-            }
-
-            @Override
-            public void apply(ReleaseInstruction instruction) {
-                // no-op: pha 1 chua thuc thi giai ngan.
-            }
-        };
-    }
-
-    /** 0.5: seam settlement (M4) chua co ban that -> tra chi dan gia tri 0. */
-    @Bean
-    @ConditionalOnMissingBean(SettlementService.class)
-    public SettlementService settlementServiceStub() {
-        return classId -> new ReleaseInstruction(
-                null, BigDecimal.ZERO, BigDecimal.ZERO, "STUB pha 1: settlement chua trien khai");
     }
 }

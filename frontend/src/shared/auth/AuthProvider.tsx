@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { identityApi, persistAuth } from '../../features/identity/api/identityApi';
 import type {
   AuthResponse,
@@ -12,6 +12,7 @@ import { authStorage, type StoredUser } from '../auth/authStorage';
 type AuthContextValue = {
   user: StoredUser | null;
   isAuthenticated: boolean;
+  authLoading: boolean;
   login: (body: LoginRequest) => Promise<AuthResponse>;
   /** newUser=true nghia la chua co tai khoan; goi completeGoogleSignup de hoan tat. */
   loginWithGoogle: (body: GoogleLoginRequest) => Promise<GoogleLoginResponse>;
@@ -23,6 +24,44 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<StoredUser | null>(() => authStorage.getUser());
+  const [authLoading, setAuthLoading] = useState(() => !!authStorage.getToken());
+
+  useEffect(() => {
+    const token = authStorage.getToken();
+    if (!token) {
+      setAuthLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    identityApi
+      .getMe()
+      .then((me) => {
+        if (cancelled) return;
+        const refreshedUser: StoredUser = {
+          userId: me.userId,
+          email: me.email,
+          role: me.role,
+          displayName: me.displayName,
+        };
+        authStorage.setUser(refreshedUser);
+        setUser(refreshedUser);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        authStorage.clearAll();
+        setUser(null);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setAuthLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const login = useCallback(async (body: LoginRequest) => {
     const response = await identityApi.login(body);
@@ -56,12 +95,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     () => ({
       user,
       isAuthenticated: !!user && !!authStorage.getToken(),
+      authLoading,
       login,
       loginWithGoogle,
       completeGoogleSignup,
       logout,
     }),
-    [user, login, loginWithGoogle, completeGoogleSignup, logout],
+    [user, authLoading, login, loginWithGoogle, completeGoogleSignup, logout],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

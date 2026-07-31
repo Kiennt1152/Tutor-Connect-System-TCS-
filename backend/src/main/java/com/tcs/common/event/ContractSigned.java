@@ -12,5 +12,16 @@ public record ContractSigned(
         Long classId,
         Long payerUserId,
         Long beneficiaryUserId,
-        BigDecimal amount) {
+        BigDecimal amount,
+        Long assignmentId,
+        Long classStudentId) {
+
+    public ContractSigned(
+            Long contractId,
+            Long classId,
+            Long payerUserId,
+            Long beneficiaryUserId,
+            BigDecimal amount) {
+        this(contractId, classId, payerUserId, beneficiaryUserId, amount, null, null);
+    }
 }

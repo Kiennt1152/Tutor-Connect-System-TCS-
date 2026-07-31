@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface LessonAttendanceRepository extends JpaRepository<LessonAttendance, Long> {
 
+    List<LessonAttendance> findByLesson_LessonIdIn(List<Long> lessonIds);
+
     List<LessonAttendance> findByLesson_LessonId(Long lessonId);
 
     Optional<LessonAttendance> findFirstByLesson_LessonIdAndClassStudent_ClassStudentId(
