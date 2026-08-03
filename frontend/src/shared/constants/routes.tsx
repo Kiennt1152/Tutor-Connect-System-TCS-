@@ -8,6 +8,9 @@ export const APP_ROUTES = {
   catalog: '/catalog',
   verification: '/identity/verification',
   center: '/center',
+  /** Trang công khai giới thiệu trung tâm + tin tuyển gia sư (khác /center là trang quản lý). */
+  centers: '/centers',
+  recruitment: '/recruitment',
   marketplace: '/marketplace',
   contract: '/contract',
   messaging: '/messaging',

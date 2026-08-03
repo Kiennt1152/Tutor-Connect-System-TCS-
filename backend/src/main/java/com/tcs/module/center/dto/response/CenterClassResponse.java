@@ -40,6 +40,11 @@ public class CenterClassResponse {
     private LocalDate endDate;
     private BigDecimal tuitionFee;
     private Integer maxStudents;
+    private Integer minStudents;
+    /** Số học sinh đã ghi danh (ENROLLED) — để hiển thị tiến độ & điều kiện kích hoạt. */
+    private long enrolledCount;
+    /** Loại lớp: EXTERNAL (yêu cầu ngoài) / SELF (tự tạo). */
+    private String originType;
     private TutoringClassStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

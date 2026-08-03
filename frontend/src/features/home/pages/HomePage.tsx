@@ -11,13 +11,7 @@ import { TutorListingCard } from '../components/TutorListingCard';
 import { ClassListingCard } from '../components/ClassListingCard';
 import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
 import { useOpenClasses } from '../hooks/useOpenClasses';
-import {
-  FOOTER_LINKS,
-  HOME_CENTERS,
-  HOME_NEWS,
-  HOME_PROMO,
-  HOME_TESTIMONIALS,
-} from '../config/homeContent';
+import { FOOTER_LINKS, HOME_NEWS, HOME_TESTIMONIALS } from '../config/homeContent';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import type { OpenClassItem } from '../types/openClassTypes';
 import type { OpenClassesStatus } from '../hooks/useOpenClasses';
@@ -225,44 +219,6 @@ function ClassesSection({
   );
 }
 
-function CentersSection() {
-  return (
-    <section id="centers" className="tcs-section tcs-section--centers">
-      <div className="tcs-container">
-        <div className="tcs-section-bar">
-          <div>
-            <h2 className="tcs-section-bar__title">Trung tâm</h2>
-            <p className="tcs-section-bar__subtitle">
-              Các trung tâm gia sư đối tác — quy trình tuyển chọn và hỗ trợ chuyên nghiệp.
-            </p>
-          </div>
-        </div>
-
-        <div className="tcs-promo tcs-promo--inline">
-          <div className="tcs-promo__content">
-            <span className="tcs-promo__eyebrow">Đối tác nền tảng</span>
-            <h3 className="tcs-promo__title">{HOME_PROMO.title}</h3>
-            <p className="tcs-promo__desc">{HOME_PROMO.description}</p>
-          </div>
-          <a className="tcs-btn tcs-btn--market tcs-promo__cta" href={HOME_PROMO.ctaHref}>
-            {HOME_PROMO.cta}
-          </a>
-        </div>
-
-        <div className="tcs-center-grid">
-          {HOME_CENTERS.map((center) => (
-            <article key={center.id} className="tcs-center-card">
-              <h3 className="tcs-center-card__name">{center.name}</h3>
-              <p className="tcs-center-card__desc">{center.description}</p>
-              <span className="tcs-center-card__meta">{currency(center.tutors)} gia sư</span>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function NewsSection() {
   return (
     <section id="news" className="tcs-section tcs-section--news">
@@ -434,7 +390,6 @@ function HomePage() {
           isAuthenticated={isAuthenticated}
           onRetry={reloadClasses}
         />
-        <CentersSection />
         <NewsSection />
         <ReviewsSection />
       </main>

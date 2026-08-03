@@ -66,8 +66,19 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/tutors/**")
                         .permitAll()
+                        // Recruitment: các GET cần đăng nhập phải đứng TRƯỚC GET công khai bên dưới.
+                        .requestMatchers(HttpMethod.GET, "/api/center/recruitment/my-posts")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.GET, "/api/center/recruitment/*/applications")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.GET, "/api/center/recruitment/applications/mine")
+                        .hasRole(RbacConstants.TUTOR)
+                        // Tin đang mở: ai cũng xem được.
                         .requestMatchers(HttpMethod.GET, "/api/center/recruitment/**")
                         .permitAll()
+                        // Quản lý danh sách gia sư của trung tâm.
+                        .requestMatchers("/api/center/members", "/api/center/members/**")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
                         .requestMatchers(HttpMethod.GET, "/api/contract/reviews/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payments/webhook")
@@ -127,6 +138,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/*/apply")
                         .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/**")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.PUT, "/api/center/recruitment/**")
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
                         // --- Finance ---

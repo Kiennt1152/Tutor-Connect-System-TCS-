@@ -2,6 +2,8 @@ package com.tcs.module.marketplace.service.impl;
 
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.exception.VerificationRequiredException;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.catalog.entity.Category;
 import com.tcs.module.catalog.entity.Grade;
 import com.tcs.module.catalog.entity.Location;
@@ -125,6 +127,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Transactional
     public void applyToClass(Long classId, ApplyClassRequest request) {
         Tutor tutor = requireTutor();
+        // Chặn cứng: chỉ gia sư đã được xác minh mới được ứng tuyển vào lớp.
+        if (tutor.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
+            throw new VerificationRequiredException(
+                    "Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển vào lớp.");
+        }
         TutoringClass tutoringClass = findClass(classId);
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Lớp không mở đơn ứng tuyển");
@@ -153,6 +160,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         // Gia sư -> nộp đơn dạy.
         Tutor tutor = tutorRepository.findByUser_UserId(userId).orElse(null);
         if (tutor != null) {
+            // Chặn cứng: chỉ gia sư đã được xác minh mới được ứng tuyển vào lớp.
+            if (tutor.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
+                throw new VerificationRequiredException(
+                        "Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển vào lớp.");
+            }
             if (tutorApplicationRepository
                     .existsByTutoringClass_ClassIdAndTutor_TutorId(classId, tutor.getTutorId())) {
                 throw new IllegalArgumentException("Bạn đã đăng ký lớp này rồi");
@@ -185,7 +197,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             auditLogService.record(userId, "REGISTER_CLASS", "ClassStudent", savedStudent.getClassStudentId(),
                     null, java.util.Map.of("classId", classId));
 
-            // Đủ sĩ số tối đa -> tự động đóng lớp thành MATCHED (không nhận thêm ghi danh).
+            // Đủ sĩ số tối đa -> tự đóng ghi danh. Lớp tự tạo đã gán gia sư trước khi mở ghi danh
+            // nên đủ học sinh là đã ghép (MATCHED).
             Integer max = tutoringClass.getMaxStudents();
             if (max != null && max > 0) {
                 long enrolled = classStudentRepository

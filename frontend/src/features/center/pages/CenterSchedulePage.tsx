@@ -154,7 +154,7 @@ export default function CenterSchedulePage() {
                     aria-expanded={isOpen}
                   >
                     <span>
-                      👥 Danh sách học sinh & điểm danh
+                      Danh sách học sinh & điểm danh
                       {c.attendanceTaken && c.students.length > 0 && (
                         <span className="cs-toggle__count">
                           {presentCount}/{c.students.length} có mặt
