@@ -1413,3 +1413,44 @@
     flex-wrap: wrap;
   }
 }
+
+/* Hộp thư yêu cầu mở lớp từ phụ huynh */
+.cc-request-inbox {
+  margin-bottom: 16px;
+  border-left: 4px solid #2563eb;
+}
+.cc-request-inbox__title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.cc-request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cc-request {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.cc-request__main {
+  flex: 1;
+  min-width: 220px;
+}
+.cc-request__note {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+.cc-request__meta {
+  font-size: 12px;
+  color: #94a3b8;
+}
+.cc-request__actions {
+  display: flex;
+  gap: 8px;
+}

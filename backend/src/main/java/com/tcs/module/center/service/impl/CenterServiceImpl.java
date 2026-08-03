@@ -89,6 +89,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
+import com.tcs.common.classrequest.ClassRequestStore;
+import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -121,6 +123,7 @@ public class CenterServiceImpl implements CenterService {
     private final RescheduleService rescheduleService;
     private final SubstitutionService substitutionService;
     private final SystemParameterRepository systemParameterRepository;
+    private final ClassRequestStore classRequestStore;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -283,6 +286,57 @@ public class CenterServiceImpl implements CenterService {
         post.setStatus(RecruitmentPostStatus.CLOSED);
         post.setClosedAt(LocalDateTime.now());
         return toResponse(recruitmentPostRepository.save(post));
+    }
+
+    // ===================== Yêu cầu mở lớp do phụ huynh gửi =====================
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassRequestResponse> listIncomingClassRequests() {
+        TutorCenter center = requireCenter();
+        return classRequestStore.findByCenter(center.getCenterId()).stream()
+                .map(classRequestStore::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public CenterClassResponse acceptClassRequest(String requestId, SaveClassRequest body) {
+        TutorCenter center = requireCenter();
+        requireVerifiedCenter(center);
+        ClassRequestStore.ClassRequestData data = requirePendingRequestForCenter(requestId, center);
+        // Yêu cầu của phụ huynh -> luôn tạo lớp "theo yêu cầu" (EXTERNAL).
+        body.setOriginType(ORIGIN_EXTERNAL);
+        CenterClassResponse created = createClass(body);
+        classRequestStore.save(new ClassRequestStore.ClassRequestData(
+                data.requestId(), data.clientUserId(), data.centerId(), data.categoryId(),
+                data.note(), data.desiredBudget(), ClassRequestStore.STATUS_ACCEPTED, null, data.createdAt()));
+        return created;
+    }
+
+    @Override
+    @Transactional
+    public void rejectClassRequest(String requestId, String reason) {
+        TutorCenter center = requireCenter();
+        ClassRequestStore.ClassRequestData data = requirePendingRequestForCenter(requestId, center);
+        classRequestStore.save(new ClassRequestStore.ClassRequestData(
+                data.requestId(), data.clientUserId(), data.centerId(), data.categoryId(),
+                data.note(), data.desiredBudget(), ClassRequestStore.STATUS_REJECTED,
+                StringUtils.hasText(reason) ? reason.trim() : null, data.createdAt()));
+    }
+
+    private ClassRequestStore.ClassRequestData requirePendingRequestForCenter(
+            String requestId, TutorCenter center) {
+        ClassRequestStore.ClassRequestData data = classRequestStore
+                .find(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
+        if (!center.getCenterId().equals(data.centerId())) {
+            throw new ForbiddenException("Yêu cầu này không gửi tới trung tâm của bạn");
+        }
+        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
+        }
+        return data;
     }
 
     @Override

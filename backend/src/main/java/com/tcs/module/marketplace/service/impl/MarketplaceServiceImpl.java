@@ -1,5 +1,6 @@
 package com.tcs.module.marketplace.service.impl;
 
+import com.tcs.common.classrequest.ClassRequestStore;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.exception.VerificationRequiredException;
@@ -15,7 +16,10 @@ import com.tcs.module.catalog.repository.SubjectRepository;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
+import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
+import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
+import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.entity.ClassStudent;
@@ -34,8 +38,10 @@ import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.MarketplaceService;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
+import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
+import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
@@ -63,6 +69,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final SubjectRepository subjectRepository;
     private final GradeRepository gradeRepository;
     private final LocationRepository locationRepository;
+    private final TutorCenterRepository tutorCenterRepository;
+    private final ClassRequestStore classRequestStore;
 
     @Override
     @Transactional(readOnly = true)
@@ -252,6 +260,83 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return tutoringClassRepository
                 .findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
+    }
+
+    // ===== Yêu cầu mở lớp gửi tới một trung tâm cụ thể (phía phụ huynh) =====
+
+    private static final int MAX_PENDING_CLASS_REQUESTS = 10;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CenterSummaryResponse> listCenters() {
+        return tutorCenterRepository.findAll().stream()
+                .filter(c -> c.getVerificationStatus() == ProfileVerificationStatus.VERIFIED)
+                .map(c -> CenterSummaryResponse.builder()
+                        .centerId(c.getCenterId())
+                        .companyName(c.getCompanyName())
+                        .description(c.getDescription())
+                        .address(c.getAddress())
+                        .phone(c.getPhone())
+                        .avatar(c.getAvatar())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ClassRequestResponse createClassRequest(Long centerId, ClassRequestCreateRequest request) {
+        User creator = requireUser();
+        requireClient(creator.getUserId());
+        TutorCenter center = tutorCenterRepository
+                .findById(centerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trung tâm"));
+        if (center.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
+            throw new IllegalArgumentException("Chỉ có thể gửi yêu cầu tới trung tâm đã được xác minh.");
+        }
+        if (!StringUtils.hasText(request.getNote())) {
+            throw new IllegalArgumentException("Vui lòng nhập nội dung nguyện vọng");
+        }
+        // Môn học không bắt buộc: phụ huynh chỉ gửi nguyện vọng ngắn gọn, môn nằm trong nội dung.
+        // Nếu có gửi categoryId thì kiểm tra tồn tại.
+        Category category = resolveCategory(request.getCategoryId());
+        long pending = classRequestStore.findByClient(creator.getUserId()).stream()
+                .filter(d -> ClassRequestStore.STATUS_PENDING.equals(d.status()))
+                .count();
+        if (pending >= MAX_PENDING_CLASS_REQUESTS) {
+            throw new IllegalArgumentException("Bạn đang có quá nhiều yêu cầu chờ xử lý.");
+        }
+        ClassRequestStore.ClassRequestData data = classRequestStore.create(
+                creator.getUserId(),
+                center.getCenterId(),
+                category != null ? category.getCategoryId() : null,
+                request.getNote().trim(),
+                request.getDesiredBudget());
+        return classRequestStore.toResponse(data);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassRequestResponse> listMyClassRequests() {
+        Long userId = requireUser().getUserId();
+        return classRequestStore.findByClient(userId).stream()
+                .map(classRequestStore::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void cancelClassRequest(String requestId) {
+        Long userId = requireUser().getUserId();
+        ClassRequestStore.ClassRequestData data = classRequestStore
+                .find(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
+        if (!userId.equals(data.clientUserId())) {
+            throw new ForbiddenException("Bạn không có quyền hủy yêu cầu này");
+        }
+        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
+            throw new IllegalArgumentException("Chỉ hủy được yêu cầu đang chờ xử lý");
+        }
+        classRequestStore.delete(requestId);
     }
 
     private User requireUser() {

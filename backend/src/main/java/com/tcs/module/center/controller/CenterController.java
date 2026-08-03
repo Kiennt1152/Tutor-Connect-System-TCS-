@@ -3,6 +3,7 @@ package com.tcs.module.center.controller;
 import com.tcs.module.center.dto.request.ApplicationDecisionBody;
 import com.tcs.module.center.dto.request.ApplyRecruitmentRequest;
 import com.tcs.module.center.dto.request.AssignTutorRequest;
+import com.tcs.module.center.dto.request.RejectClassRequestBody;
 import com.tcs.module.center.dto.request.RescheduleDecisionBody;
 import com.tcs.module.center.dto.request.SaveClassRequest;
 import com.tcs.module.center.dto.request.SaveRecruitmentPostRequest;
@@ -17,6 +18,7 @@ import com.tcs.module.center.dto.response.RescheduleResponse;
 import com.tcs.module.center.dto.response.SubstitutionResponse;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
 import com.tcs.module.center.service.CenterService;
+import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import java.time.LocalDate;
 import java.util.List;
 import java.util.Map;
@@ -133,6 +135,26 @@ public class CenterController {
     @ResponseStatus(HttpStatus.CREATED)
     public CenterClassResponse createClass(@RequestBody SaveClassRequest request) {
         return centerService.createClass(request);
+    }
+
+    // ===== Yêu cầu mở lớp do phụ huynh gửi tới trung tâm =====
+
+    @GetMapping("/class-requests")
+    public List<ClassRequestResponse> incomingClassRequests() {
+        return centerService.listIncomingClassRequests();
+    }
+
+    @PostMapping("/class-requests/{requestId}/accept")
+    public CenterClassResponse acceptClassRequest(
+            @PathVariable String requestId, @RequestBody SaveClassRequest body) {
+        return centerService.acceptClassRequest(requestId, body);
+    }
+
+    @PostMapping("/class-requests/{requestId}/reject")
+    public Map<String, String> rejectClassRequest(
+            @PathVariable String requestId, @RequestBody RejectClassRequestBody body) {
+        centerService.rejectClassRequest(requestId, body.getReason());
+        return Map.of("message", "Đã từ chối yêu cầu mở lớp");
     }
 
     @PutMapping("/classes/{classId}")

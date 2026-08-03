@@ -1,0 +1,206 @@
+/* Yêu cầu mở lớp — phía phụ huynh (trang Trung tâm) */
+
+.cr-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.cr-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.cr-card__name {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cr-card__desc {
+  margin: 0;
+  font-size: 13px;
+  color: #64748b;
+  flex: 1;
+}
+
+.cr-card__meta {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.cr-card__actions {
+  margin-top: 8px;
+}
+
+/* Danh sách yêu cầu của tôi */
+.cr-req-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.cr-req {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 14px 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.cr-req__main {
+  flex: 1;
+  min-width: 220px;
+}
+
+.cr-req__note {
+  margin: 0 0 4px;
+  color: #0f172a;
+  font-size: 14px;
+}
+
+.cr-req__meta {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.cr-badge {
+  display: inline-block;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+}
+.cr-badge--pending {
+  background: #fef3c7;
+  color: #92400e;
+}
+.cr-badge--accepted {
+  background: #dcfce7;
+  color: #166534;
+}
+.cr-badge--rejected {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
+/* Modal */
+.cr-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 1000;
+}
+
+.cr-modal {
+  width: 100%;
+  max-width: 480px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25);
+}
+
+.cr-modal__title {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.cr-modal__subtitle {
+  margin: 0 0 16px;
+  font-size: 13px;
+  color: #64748b;
+}
+
+.cr-field {
+  margin-bottom: 14px;
+}
+
+.cr-field__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #334155;
+}
+
+.cr-input,
+.cr-textarea {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.cr-textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.cr-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+}
+
+.cr-modal__error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 13px;
+}
+
+.cr-modal__ok {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #dcfce7;
+  color: #166534;
+  font-size: 13px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .cr-card,
+  .cr-req,
+  .cr-modal {
+    background: #1e293b;
+    border-color: #334155;
+  }
+  .cr-card__name,
+  .cr-req__note,
+  .cr-modal__title {
+    color: #f1f5f9;
+  }
+  .cr-card__desc {
+    color: #cbd5e1;
+  }
+  .cr-input,
+  .cr-textarea {
+    background: #0f172a;
+    border-color: #475569;
+    color: #f1f5f9;
+  }
+}
