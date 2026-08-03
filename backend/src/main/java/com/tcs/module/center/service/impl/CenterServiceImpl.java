@@ -244,6 +244,9 @@ public class CenterServiceImpl implements CenterService {
             throw new IllegalArgumentException("Chỉ tin ở trạng thái nháp mới có thể chỉnh sửa");
         }
         validate(request);
+        if (request.getClassId() != null) {
+            validateClassRecruitable(request.getClassId());
+        }
         applyFields(post, request);
         RecruitmentPost saved = recruitmentPostRepository.save(post);
         savePostClassLink(saved.getRecruitmentId(), request.getClassId());
@@ -260,6 +263,9 @@ public class CenterServiceImpl implements CenterService {
         if (post.getStatus() != RecruitmentPostStatus.DRAFT) {
             throw new IllegalArgumentException("Chỉ tin ở trạng thái nháp mới có thể đăng tải");
         }
+        // Kiểm tra lại tại thời điểm đăng: lớp gắn kèm vẫn phải là lớp "theo yêu cầu" và chưa có
+        // gia sư chính (lớp có thể đã được gán gia sư sau khi tạo/sửa nháp).
+        findPostClassId(recruitmentId).ifPresent(this::validateClassRecruitable);
         post.setStatus(RecruitmentPostStatus.ACTIVE);
         post.setPublishedAt(LocalDateTime.now());
         return toResponse(recruitmentPostRepository.save(post));
@@ -605,13 +611,14 @@ public class CenterServiceImpl implements CenterService {
     @Override
     @Transactional
     public CenterClassResponse assignTutor(Long classId, Long tutorId) {
-        requireCenter();
+        TutorCenter center = requireCenter();
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass);
         requireStaffable(tutoringClass);
         if (tutorId == null) {
             throw new IllegalArgumentException("Vui lòng chọn gia sư");
         }
+        requireActiveCenterTutor(center.getCenterId(), tutorId);
         Tutor tutor = tutorRepository
                 .findById(tutorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
@@ -643,6 +650,21 @@ public class CenterServiceImpl implements CenterService {
                 // ok
             }
             default -> throw new IllegalArgumentException("Lớp này không thể gán gia sư nữa.");
+        }
+    }
+
+    /**
+     * Chỉ được gán gia sư là thành viên ĐANG HOẠT ĐỘNG (ACTIVE) trong danh sách gia sư của
+     * chính trung tâm. Chặn việc gọi API thủ công với tutorId bất kỳ (gia sư ngoài / đã rời trung tâm).
+     */
+    private void requireActiveCenterTutor(Long centerId, Long tutorId) {
+        CenterTutorMembership membership = membershipRepository
+                .findFirstByCenter_CenterIdAndTutor_TutorId(centerId, tutorId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Gia sư này không thuộc danh sách gia sư của trung tâm."));
+        if (membership.getStatus() != CenterTutorMembershipStatus.ACTIVE) {
+            throw new IllegalArgumentException(
+                    "Gia sư này không còn là thành viên đang hoạt động của trung tâm.");
         }
     }
 
@@ -749,13 +771,14 @@ public class CenterServiceImpl implements CenterService {
     @Override
     @Transactional
     public CenterClassResponse assignAssistant(Long classId, Long tutorId) {
-        requireCenter();
+        TutorCenter center = requireCenter();
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass);
         requireStaffable(tutoringClass);
         if (tutorId == null) {
             throw new IllegalArgumentException("Vui lòng chọn gia sư phụ");
         }
+        requireActiveCenterTutor(center.getCenterId(), tutorId);
         Tutor tutor = tutorRepository
                 .findById(tutorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
