@@ -27,16 +27,9 @@ import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.messaging.dto.response.TicketMessageResponse;
-import com.tcs.module.messaging.entity.Conversation;
-import com.tcs.module.messaging.entity.ConversationParticipant;
-import com.tcs.module.messaging.entity.Message;
 import com.tcs.module.messaging.entity.Notification;
-import com.tcs.module.messaging.enums.MessageType;
 import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
-import com.tcs.module.messaging.repository.ConversationParticipantRepository;
-import com.tcs.module.messaging.repository.ConversationRepository;
-import com.tcs.module.messaging.repository.MessageRepository;
 import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.platform.dto.request.CloseTicketRequest;
 import com.tcs.module.platform.dto.request.RespondTicketRequest;
@@ -51,11 +44,14 @@ import com.tcs.module.platform.dto.response.VerificationDocumentResponse;
 import com.tcs.module.platform.dto.response.VerificationRequestResponse;
 import com.tcs.module.platform.entity.Report;
 import com.tcs.module.platform.entity.SupportTicket;
+import com.tcs.module.platform.entity.TicketMessage;
+import com.tcs.module.platform.enums.ReportStatus;
 import com.tcs.module.platform.enums.SupportTicketCategory;
 import com.tcs.module.platform.enums.SupportTicketPriority;
 import com.tcs.module.platform.enums.SupportTicketStatus;
 import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.platform.repository.SupportTicketRepository;
+import com.tcs.module.platform.repository.TicketMessageRepository;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
@@ -102,9 +98,7 @@ public class PlatformServiceImpl implements PlatformService {
     private final TutoringClassRepository tutoringClassRepository;
     private final AuthHelper authHelper;
     private final SupportTicketRepository supportTicketRepository;
-    private final ConversationRepository conversationRepository;
-    private final ConversationParticipantRepository conversationParticipantRepository;
-    private final MessageRepository messageRepository;
+    private final TicketMessageRepository ticketMessageRepository;
     private final AuditLogService auditLogService;
     private final com.tcs.module.platform.service.PlatformTaskQueueService taskQueueService;
     private final com.tcs.module.platform.service.PlatformAnalyticsService analyticsService;
@@ -539,22 +533,22 @@ public class PlatformServiceImpl implements PlatformService {
             ticket.setAssignedAdmin(admin);
         }
 
-        Conversation conversation = getOrCreateTicketConversation(ticket, ticket.getUser());
-        ensureParticipant(conversation, admin.getUser());
-
-        Message message = new Message();
-        message.setConversation(conversation);
+        TicketMessage message = new TicketMessage();
+        message.setTicket(ticket);
         message.setSender(admin.getUser());
-        message.setMessageType(MessageType.TEXT);
+        message.setIsFromAdmin(true);
         message.setContent(request.getContent());
-        message.setSentAt(LocalDateTime.now());
-        messageRepository.save(message);
-
-        conversation.setLastMessageAt(message.getSentAt());
-        conversationRepository.save(conversation);
+        ticketMessageRepository.save(message);
 
         if (ticket.getStatus() != SupportTicketStatus.RESOLVED && ticket.getStatus() != SupportTicketStatus.CLOSED) {
             ticket.setStatus(SupportTicketStatus.IN_REVIEW);
+        }
+        LocalDateTime now = LocalDateTime.now();
+        if (ticket.getResponseSlaMs() == null && ticket.getCreatedAt() != null) {
+            ticket.setResponseSlaMs(java.time.Duration.between(ticket.getCreatedAt(), now).toMillis());
+        }
+        if (ticket.getDueAt() != null && now.isAfter(ticket.getDueAt())) {
+            ticket.setSlaBreached(true);
         }
         SupportTicket saved = supportTicketRepository.save(ticket);
 
@@ -605,33 +599,6 @@ public class PlatformServiceImpl implements PlatformService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ quản trị viên"));
     }
 
-    private Conversation getOrCreateTicketConversation(SupportTicket ticket, User creator) {
-        return conversationRepository
-                .findByContextTypeAndContextId(TICKET_CONTEXT_TYPE, ticket.getTicketId())
-                .orElseGet(() -> {
-                    Conversation conversation = new Conversation();
-                    conversation.setContextType(TICKET_CONTEXT_TYPE);
-                    conversation.setContextId(ticket.getTicketId());
-                    conversation.setType(TICKET_CONTEXT_TYPE);
-                    conversation.setLastMessageAt(LocalDateTime.now());
-                    Conversation saved = conversationRepository.save(conversation);
-                    ensureParticipant(saved, creator);
-                    return saved;
-                });
-    }
-
-    private void ensureParticipant(Conversation conversation, User user) {
-        boolean alreadyParticipant = conversationParticipantRepository.findAll().stream()
-                .anyMatch(p -> p.getConversation().getConversationId().equals(conversation.getConversationId())
-                        && p.getUser().getUserId().equals(user.getUserId()));
-        if (alreadyParticipant) {
-            return;
-        }
-        ConversationParticipant participant = new ConversationParticipant();
-        participant.setConversation(conversation);
-        participant.setUser(user);
-        conversationParticipantRepository.save(participant);
-    }
 
     private void notifyUserOfTicketResponse(SupportTicket ticket, String content) {
         Notification notification = new Notification();
@@ -658,20 +625,20 @@ public class PlatformServiceImpl implements PlatformService {
                 .subject(ticket.getSubject())
                 .priority(ticket.getPriority())
                 .status(ticket.getStatus())
+                .dueAt(ticket.getDueAt())
+                .slaBreached(ticket.getSlaBreached())
+                .responseSlaMs(ticket.getResponseSlaMs())
                 .createdAt(ticket.getCreatedAt())
                 .updatedAt(ticket.getUpdatedAt())
                 .build();
     }
 
     private SupportTicketDetailResponse toTicketDetail(SupportTicket ticket) {
-        List<TicketMessageResponse> messages = conversationRepository
-                .findByContextTypeAndContextId(TICKET_CONTEXT_TYPE, ticket.getTicketId())
-                .map(conversation -> messageRepository
-                        .findByConversation_ConversationIdOrderBySentAtAsc(conversation.getConversationId())
-                        .stream()
-                        .map(msg -> toTicketMessage(msg, ticket))
-                        .toList())
-                .orElse(List.of());
+        List<TicketMessageResponse> messages = ticketMessageRepository
+                .findByTicket_TicketIdOrderByCreatedAtAsc(ticket.getTicketId())
+                .stream()
+                .map(msg -> toTicketMessage(msg, ticket))
+                .toList();
 
         return SupportTicketDetailResponse.builder()
                 .ticketId(ticket.getTicketId())
@@ -692,22 +659,20 @@ public class PlatformServiceImpl implements PlatformService {
                 .build();
     }
 
-    private TicketMessageResponse toTicketMessage(Message message, SupportTicket ticket) {
-        boolean fromAdmin = ticket.getAssignedAdmin() != null
-                && ticket.getAssignedAdmin().getUser().getUserId().equals(message.getSender().getUserId());
+    private TicketMessageResponse toTicketMessage(TicketMessage message, SupportTicket ticket) {
         return TicketMessageResponse.builder()
                 .messageId(message.getMessageId())
                 .senderId(message.getSender().getUserId())
-                .senderName(resolveSenderName(message))
-                .fromAdmin(fromAdmin)
+                .senderName(resolveSenderName(message.getSender()))
+                .fromAdmin(message.getIsFromAdmin())
                 .content(message.getContent())
-                .sentAt(message.getSentAt())
+                .sentAt(message.getCreatedAt())
                 .build();
     }
 
-    private String resolveSenderName(Message message) {
-        String email = message.getSender().getEmail();
-        return StringUtils.hasText(email) ? email : "Người dùng #" + message.getSender().getUserId();
+    private String resolveSenderName(User sender) {
+        String email = sender.getEmail();
+        return StringUtils.hasText(email) ? email : "Người dùng #" + sender.getUserId();
     }
 
     private VerificationRequestResponse toVerificationResponse(VerificationRequest v) {

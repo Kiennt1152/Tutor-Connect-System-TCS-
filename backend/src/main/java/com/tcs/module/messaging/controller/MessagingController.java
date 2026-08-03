@@ -6,6 +6,7 @@ import com.tcs.module.messaging.dto.response.NotificationResponse;
 import com.tcs.module.messaging.dto.response.ReportResponse;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.messaging.dto.response.SupportTicketResponse;
+import com.tcs.module.messaging.dto.response.TicketMessageResponse;
 import com.tcs.module.messaging.service.MessagingService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -53,6 +54,19 @@ public class MessagingController {
     @ResponseStatus(HttpStatus.CREATED)
     public SupportTicketResponse createSupportTicket(@Valid @RequestBody CreateSupportTicketRequest request) {
         return messagingService.createSupportTicket(request);
+    }
+
+    @PostMapping("/support-tickets/{ticketId}/messages")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TicketMessageResponse replySupportTicket(
+            @PathVariable Long ticketId,
+            @Valid @RequestBody com.tcs.module.messaging.dto.request.ReplyTicketRequest request) {
+        return messagingService.replySupportTicket(ticketId, request);
+    }
+
+    @PostMapping("/support-tickets/{ticketId}/reopen")
+    public SupportTicketDetailResponse reopenSupportTicket(@PathVariable Long ticketId) {
+        return messagingService.reopenSupportTicket(ticketId);
     }
 
     @PostMapping("/reports")

@@ -93,3 +93,42 @@ export function useCreateTicket(onSuccess: () => void) {
 
   return { status, errorMessage, submit, reset };
 }
+
+export function useTicketMutations(onSuccess: () => void) {
+  const [status, setStatus] = useState<MutationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const reply = useCallback(
+    async (ticketId: string, content: string) => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        await messagingApi.replySupportTicket(ticketId, content);
+        setStatus('success');
+        onSuccess();
+      } catch (err: unknown) {
+        setErrorMessage(getApiErrorMessage(err, 'Không thể gửi phản hồi.'));
+        setStatus('error');
+      }
+    },
+    [onSuccess],
+  );
+
+  const reopen = useCallback(
+    async (ticketId: string, content: string) => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        await messagingApi.reopenSupportTicket(ticketId, content);
+        setStatus('success');
+        onSuccess();
+      } catch (err: unknown) {
+        setErrorMessage(getApiErrorMessage(err, 'Không thể mở lại yêu cầu.'));
+        setStatus('error');
+      }
+    },
+    [onSuccess],
+  );
+
+  return { status, errorMessage, reply, reopen };
+}

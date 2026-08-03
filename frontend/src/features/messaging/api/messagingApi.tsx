@@ -32,4 +32,20 @@ export const messagingApi = {
     );
     return response.data;
   },
+
+  async replySupportTicket(ticketId: string, content: string) {
+    const response = await axiosClient.post(
+      `${MESSAGING_API_BASE}/support-tickets/${ticketId}/messages`,
+      { content },
+    );
+    return response.data;
+  },
+
+  async reopenSupportTicket(ticketId: string, content: string) {
+    const response = await axiosClient.post(
+      `${MESSAGING_API_BASE}/support-tickets/${ticketId}/reopen`,
+      { content },
+    );
+    return response.data;
+  },
 };

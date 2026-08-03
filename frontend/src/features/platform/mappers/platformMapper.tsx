@@ -254,6 +254,9 @@ export function mapAdminTicketListItem(item: AdminTicketListItemApiResponse): Ad
     status: item.status,
     statusLabel: TICKET_STATUS_LABELS[item.status] ?? item.status,
     statusTone: TICKET_STATUS_TONES[item.status] ?? 'open',
+    dueAt: formatDateTime(item.dueAt),
+    slaBreached: item.slaBreached,
+    responseSlaMs: item.responseSlaMs,
     createdAt: formatDateTime(item.createdAt),
     updatedAt: formatDateTime(item.updatedAt),
   };
@@ -286,6 +289,9 @@ export function mapAdminTicketDetail(item: AdminTicketDetailApiResponse): AdminT
     status: item.status,
     statusLabel: TICKET_STATUS_LABELS[item.status] ?? item.status,
     statusTone: TICKET_STATUS_TONES[item.status] ?? 'open',
+    dueAt: formatDateTime(item.dueAt),
+    slaBreached: item.slaBreached,
+    responseSlaMs: item.responseSlaMs,
     createdAt: formatDateTime(item.createdAt),
     updatedAt: formatDateTime(item.updatedAt),
   };

@@ -23,6 +23,9 @@ public class SupportTicketResponse {
     private SupportTicketStatus status;
     private LocalDateTime resolvedAt;
     private LocalDateTime closedAt;
+    private LocalDateTime dueAt;
+    private Boolean slaBreached;
+    private Long responseSlaMs;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

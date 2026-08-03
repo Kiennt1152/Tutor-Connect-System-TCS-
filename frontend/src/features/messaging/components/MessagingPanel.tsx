@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import type { SupportTicketCategory, SupportTicketPriority } from '../types/messagingTypes';
-import { useCreateTicket, useTicketDetail, useTicketList } from '../hooks/useMessaging';
+import { useCreateTicket, useTicketDetail, useTicketList, useTicketMutations } from '../hooks/useMessaging';
 import './MessagingPanel.css';
 
 /* ── Icons ── */
@@ -208,7 +208,25 @@ type TicketDetailProps = {
 };
 
 function TicketDetailPanel({ ticketId, onBack }: TicketDetailProps) {
+  const [replyText, setReplyText] = useState('');
   const { status, detail, errorMessage, reload } = useTicketDetail(ticketId);
+
+  const handleSuccess = () => {
+    setReplyText('');
+    reload();
+  };
+
+  const mutations = useTicketMutations(handleSuccess);
+
+  const handleReply = () => {
+    if (!replyText.trim()) return;
+    void mutations.reply(ticketId, replyText.trim());
+  };
+
+  const handleReopen = () => {
+    if (!replyText.trim()) return;
+    void mutations.reopen(ticketId, replyText.trim());
+  };
 
   if (status === 'loading') {
     return <p style={{ color: '#718096', fontSize: '0.9rem' }}>Đang tải chi tiết yêu cầu…</p>;
@@ -275,6 +293,53 @@ function TicketDetailPanel({ ticketId, onBack }: TicketDetailProps) {
           </div>
         )}
       </div>
+
+      {detail.status !== 'CLOSED' && detail.status !== 'RESOLVED' && (
+        <div className="ticket-conv" style={{ marginTop: '1rem' }}>
+          <p className="ticket-conv__title">Gửi phản hồi</p>
+          <textarea
+            className="create-ticket__textarea"
+            placeholder="Nhập nội dung phản hồi..."
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            rows={3}
+          />
+          {mutations.errorMessage && <p className="create-ticket__error">{mutations.errorMessage}</p>}
+          <button
+            type="button"
+            className="tcs-btn tcs-btn--primary"
+            style={{ marginTop: '0.5rem' }}
+            onClick={handleReply}
+            disabled={mutations.status === 'loading' || !replyText.trim()}
+          >
+            {mutations.status === 'loading' ? 'Đang gửi...' : 'Gửi'}
+          </button>
+        </div>
+      )}
+
+      {(detail.status === 'CLOSED' || detail.status === 'RESOLVED') && (
+        <div className="ticket-conv" style={{ marginTop: '1rem', padding: '1rem', background: '#fff5f5', borderRadius: '8px' }}>
+          <p className="ticket-conv__title" style={{ color: '#c53030' }}>Yêu cầu này đã được đóng</p>
+          <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>Bạn có thể mở lại yêu cầu nếu vấn đề chưa được giải quyết.</p>
+          <textarea
+            className="create-ticket__textarea"
+            placeholder="Lý do mở lại..."
+            value={replyText}
+            onChange={(e) => setReplyText(e.target.value)}
+            rows={2}
+          />
+          {mutations.errorMessage && <p className="create-ticket__error">{mutations.errorMessage}</p>}
+          <button
+            type="button"
+            className="tcs-btn tcs-btn--primary"
+            style={{ marginTop: '0.5rem', background: '#e53e3e' }}
+            onClick={handleReopen}
+            disabled={mutations.status === 'loading' || !replyText.trim()}
+          >
+            {mutations.status === 'loading' ? 'Đang xử lý...' : 'Mở lại yêu cầu'}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

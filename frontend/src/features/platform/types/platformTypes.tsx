@@ -233,6 +233,9 @@ export interface AdminTicketListItemApiResponse {
   subject: string;
   priority: AdminTicketPriority;
   status: AdminTicketStatus;
+  dueAt?: string;
+  slaBreached?: boolean;
+  responseSlaMs?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -259,6 +262,9 @@ export interface AdminTicketDetailApiResponse {
   status: AdminTicketStatus;
   resolvedAt: string | null;
   closedAt: string | null;
+  dueAt?: string;
+  slaBreached?: boolean;
+  responseSlaMs?: number;
   createdAt: string;
   updatedAt: string;
   messages: AdminTicketMessageApiResponse[];
@@ -312,6 +318,9 @@ export interface AdminTicketListItem {
   status: AdminTicketStatus;
   statusLabel: string;
   statusTone: 'open' | 'active' | 'review' | 'done';
+  dueAt?: string;
+  slaBreached?: boolean;
+  responseSlaMs?: number;
   createdAt: string;
   updatedAt: string;
 }

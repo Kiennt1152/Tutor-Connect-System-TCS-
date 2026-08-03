@@ -144,6 +144,11 @@ function TicketDetailContent({
             <span className="tcs-badge" style={{ background: '#f0f4f8', color: '#4a5568' }}>
               {detail.categoryLabel}
             </span>
+            {detail.slaBreached && (
+              <span className="tcs-badge" style={{ background: '#fee2e2', color: '#dc2626', fontWeight: 600 }}>
+                🚨 Quá hạn SLA
+              </span>
+            )}
           </div>
         </div>
         <button type="button" className="adm-ticket-modal__close" onClick={onClose} aria-label="Dong">
@@ -152,8 +157,9 @@ function TicketDetailContent({
       </div>
 
       <div className="adm-ticket-modal__info">
-        User #{detail.userId} - Tao luc {detail.createdAt} - Cap nhat {detail.updatedAt}
+        User #{detail.userId} - Tạo lúc {detail.createdAt} - Hạn SLA: {detail.dueAt || 'Chưa đặt'}
         {detail.assignedAdminId ? ` - Admin #${detail.assignedAdminId}` : ''}
+        {detail.responseSlaMs != null ? ` - Phản hồi trong ${Math.round(detail.responseSlaMs / 1000 / 60)} phút` : ''}
       </div>
 
       <div className="adm-ticket-modal__body">
@@ -436,16 +442,17 @@ export default function PlatformTicketsPage() {
                     <th>Danh muc</th>
                     <th>Do uu tien</th>
                     <th>Trang thai</th>
+                    <th>SLA</th>
                     <th>Admin xu ly</th>
                     <th>Thoi gian</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  {!data || data.items.length === 0 ? (
-                    <tr>
-                      <td colSpan={9}>Chua co yeu cau ho tro nao.</td>
-                    </tr>
+                    {!data || data.items.length === 0 ? (
+                      <tr>
+                        <td colSpan={10}>Chua co yeu cau ho tro nao.</td>
+                      </tr>
                   ) : (
                     data.items.map((ticket) => (
                       <tr key={ticket.id}>
@@ -460,6 +467,17 @@ export default function PlatformTicketsPage() {
                         </td>
                         <td className="adm-table__badge">
                           <TicketStatusBadge tone={ticket.statusTone} label={ticket.statusLabel} />
+                        </td>
+                        <td>
+                          {ticket.slaBreached ? (
+                            <span className="tcs-badge" style={{ background: '#fee2e2', color: '#dc2626', fontWeight: 600, fontSize: '0.75rem' }}>
+                              🚨 Quá hạn
+                            </span>
+                          ) : ticket.dueAt ? (
+                            <span style={{ fontSize: '0.78rem', color: '#4a5568' }}>{ticket.dueAt}</span>
+                          ) : (
+                            '—'
+                          )}
                         </td>
                         <td>{ticket.assignedAdminName}</td>
                         <td>{ticket.createdAt}</td>

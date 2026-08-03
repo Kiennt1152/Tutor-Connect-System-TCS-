@@ -9,4 +9,6 @@ import org.springframework.stereotype.Repository;
 public interface MessageRepository extends JpaRepository<Message, Long> {
 
     List<Message> findByConversation_ConversationIdOrderBySentAtAsc(Long conversationId);
+    org.springframework.data.domain.Page<Message> findByConversation_ConversationIdOrderBySentAtDesc(Long conversationId, org.springframework.data.domain.Pageable pageable);
+    long countByConversation_ConversationIdAndSentAtAfterAndSender_UserIdNot(Long conversationId, java.time.LocalDateTime date, Long senderId);
 }

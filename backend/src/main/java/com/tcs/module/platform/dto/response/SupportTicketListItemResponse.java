@@ -20,6 +20,9 @@ public class SupportTicketListItemResponse {
     private String subject;
     private SupportTicketPriority priority;
     private SupportTicketStatus status;
+    private LocalDateTime dueAt;
+    private Boolean slaBreached;
+    private Long responseSlaMs;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

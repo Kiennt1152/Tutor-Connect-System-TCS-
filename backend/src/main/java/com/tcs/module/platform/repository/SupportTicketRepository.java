@@ -37,4 +37,15 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, Lo
 
     long countByStatusIn(List<SupportTicketStatus> statuses);
     List<SupportTicket> findByStatusInOrderByCreatedAtAsc(List<SupportTicketStatus> statuses);
+
+    @Query("""
+            SELECT t FROM SupportTicket t
+            WHERE t.status NOT IN (:excludedStatuses)
+            AND t.dueAt IS NOT NULL
+            AND t.dueAt < :now
+            AND (t.slaBreached IS NULL OR t.slaBreached = false)
+            """)
+    List<SupportTicket> findBreachedCandidateTickets(
+            @Param("excludedStatuses") List<SupportTicketStatus> excludedStatuses,
+            @Param("now") java.time.LocalDateTime now);
 }

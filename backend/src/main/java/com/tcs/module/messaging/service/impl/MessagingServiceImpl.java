@@ -8,15 +8,9 @@ import com.tcs.module.messaging.dto.response.NotificationResponse;
 import com.tcs.module.messaging.dto.response.ReportResponse;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.messaging.dto.response.SupportTicketResponse;
+import com.tcs.module.messaging.dto.request.ReplyTicketRequest;
 import com.tcs.module.messaging.dto.response.TicketMessageResponse;
-import com.tcs.module.messaging.entity.Conversation;
-import com.tcs.module.messaging.entity.ConversationParticipant;
-import com.tcs.module.messaging.entity.Message;
 import com.tcs.module.messaging.entity.Notification;
-import com.tcs.module.messaging.enums.MessageType;
-import com.tcs.module.messaging.repository.ConversationParticipantRepository;
-import com.tcs.module.messaging.repository.ConversationRepository;
-import com.tcs.module.messaging.repository.MessageRepository;
 import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.messaging.service.MessagingService;
 import com.tcs.module.identity.entity.User;
@@ -25,10 +19,13 @@ import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.platform.entity.Report;
 import com.tcs.module.platform.entity.SupportTicket;
+import com.tcs.module.platform.entity.TicketMessage;
 import com.tcs.module.platform.enums.SupportTicketCategory;
 import com.tcs.module.platform.enums.SupportTicketPriority;
+import com.tcs.module.platform.enums.SupportTicketStatus;
 import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.platform.repository.SupportTicketRepository;
+import com.tcs.module.platform.repository.TicketMessageRepository;
 import com.tcs.security.AuthHelper;
 import java.time.LocalDateTime;
 import java.util.EnumMap;
@@ -63,9 +60,7 @@ public class MessagingServiceImpl implements MessagingService {
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final TutoringClassRepository tutoringClassRepository;
-    private final ConversationRepository conversationRepository;
-    private final ConversationParticipantRepository conversationParticipantRepository;
-    private final MessageRepository messageRepository;
+    private final TicketMessageRepository ticketMessageRepository;
 
     @Override
     @Transactional(readOnly = true)
@@ -104,7 +99,10 @@ public class MessagingServiceImpl implements MessagingService {
         ticket.setSubject(request.getSubject());
         ticket.setDescription(request.getDescription() != null ? request.getDescription() : "");
         ticket.setEvidenceUrls(request.getEvidenceUrls());
-        ticket.setPriority(escalatePriority(request.getCategory(), request.getPriority()));
+        SupportTicketPriority priority = escalatePriority(request.getCategory(), request.getPriority());
+        ticket.setPriority(priority);
+        ticket.setDueAt(java.time.LocalDateTime.now().plusHours(calculateSlaHours(priority)));
+        ticket.setSlaBreached(false);
         if (request.getTargetClassId() != null) {
             TutoringClass tutoringClass = tutoringClassRepository
                     .findById(request.getTargetClassId())
@@ -146,26 +144,26 @@ public class MessagingServiceImpl implements MessagingService {
         return requestedPriority.ordinal() > floor.ordinal() ? requestedPriority : floor;
     }
 
+    private int calculateSlaHours(SupportTicketPriority priority) {
+        if (priority == null) {
+            return 48;
+        }
+        return switch (priority) {
+            case URGENT -> 4;
+            case HIGH -> 12;
+            case MEDIUM -> 24;
+            case LOW -> 48;
+        };
+    }
+
     private void createTicketConversation(SupportTicket ticket, User creator) {
-        Conversation conversation = new Conversation();
-        conversation.setContextType(TICKET_CONTEXT_TYPE);
-        conversation.setContextId(ticket.getTicketId());
-        conversation.setType(TICKET_CONTEXT_TYPE);
-        conversation.setLastMessageAt(LocalDateTime.now());
-        Conversation savedConversation = conversationRepository.save(conversation);
-
-        ConversationParticipant participant = new ConversationParticipant();
-        participant.setConversation(savedConversation);
-        participant.setUser(creator);
-        conversationParticipantRepository.save(participant);
-
-        Message message = new Message();
-        message.setConversation(savedConversation);
+        TicketMessage message = new TicketMessage();
+        message.setTicket(ticket);
         message.setSender(creator);
-        message.setMessageType(MessageType.TEXT);
+        message.setIsFromAdmin(false);
         message.setContent(ticket.getDescription());
-        message.setSentAt(LocalDateTime.now());
-        messageRepository.save(message);
+        message.setEvidenceUrls(ticket.getEvidenceUrls());
+        ticketMessageRepository.save(message);
     }
 
     private SupportTicketResponse toResponse(SupportTicket ticket) {
@@ -182,20 +180,20 @@ public class MessagingServiceImpl implements MessagingService {
                 .status(ticket.getStatus())
                 .resolvedAt(ticket.getResolvedAt())
                 .closedAt(ticket.getClosedAt())
+                .dueAt(ticket.getDueAt())
+                .slaBreached(ticket.getSlaBreached())
+                .responseSlaMs(ticket.getResponseSlaMs())
                 .createdAt(ticket.getCreatedAt())
                 .updatedAt(ticket.getUpdatedAt())
                 .build();
     }
 
     private SupportTicketDetailResponse toDetailResponse(SupportTicket ticket) {
-        List<TicketMessageResponse> messages = conversationRepository
-                .findByContextTypeAndContextId(TICKET_CONTEXT_TYPE, ticket.getTicketId())
-                .map(conversation -> messageRepository
-                        .findByConversation_ConversationIdOrderBySentAtAsc(conversation.getConversationId())
-                        .stream()
-                        .map(msg -> toTicketMessage(msg, ticket))
-                        .toList())
-                .orElse(List.of());
+        List<TicketMessageResponse> messages = ticketMessageRepository
+                .findByTicket_TicketIdOrderByCreatedAtAsc(ticket.getTicketId())
+                .stream()
+                .map(msg -> toTicketMessage(msg, ticket))
+                .toList();
 
         return SupportTicketDetailResponse.builder()
                 .ticketId(ticket.getTicketId())
@@ -210,28 +208,91 @@ public class MessagingServiceImpl implements MessagingService {
                 .status(ticket.getStatus())
                 .resolvedAt(ticket.getResolvedAt())
                 .closedAt(ticket.getClosedAt())
+                .dueAt(ticket.getDueAt())
+                .slaBreached(ticket.getSlaBreached())
+                .responseSlaMs(ticket.getResponseSlaMs())
                 .createdAt(ticket.getCreatedAt())
                 .updatedAt(ticket.getUpdatedAt())
                 .messages(messages)
                 .build();
     }
 
-    private TicketMessageResponse toTicketMessage(Message message, SupportTicket ticket) {
-        boolean fromAdmin = ticket.getAssignedAdmin() != null
-                && ticket.getAssignedAdmin().getUser().getUserId().equals(message.getSender().getUserId());
+    private TicketMessageResponse toTicketMessage(TicketMessage message, SupportTicket ticket) {
         return TicketMessageResponse.builder()
                 .messageId(message.getMessageId())
                 .senderId(message.getSender().getUserId())
-                .senderName(resolveSenderName(message))
-                .fromAdmin(fromAdmin)
+                .senderName(resolveSenderName(message.getSender()))
+                .fromAdmin(message.getIsFromAdmin())
                 .content(message.getContent())
-                .sentAt(message.getSentAt())
+                .sentAt(message.getCreatedAt())
                 .build();
     }
 
-    private String resolveSenderName(Message message) {
-        String email = message.getSender().getEmail();
-        return StringUtils.hasText(email) ? email : "Người dùng #" + message.getSender().getUserId();
+    private String resolveSenderName(User sender) {
+        String email = sender.getEmail();
+        return StringUtils.hasText(email) ? email : "Người dùng #" + sender.getUserId();
+    }
+
+    @Override
+    @Transactional
+    public TicketMessageResponse replySupportTicket(Long ticketId, ReplyTicketRequest request) {
+        SupportTicket ticket = supportTicketRepository
+                .findById(ticketId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu hỗ trợ"));
+
+        if (!ticket.getUser().getUserId().equals(authHelper.currentUserId())) {
+            throw new ForbiddenException("Không có quyền phản hồi yêu cầu hỗ trợ này");
+        }
+
+        if (ticket.getStatus() == SupportTicketStatus.CLOSED || ticket.getStatus() == SupportTicketStatus.RESOLVED) {
+            throw new IllegalArgumentException("Không thể phản hồi yêu cầu hỗ trợ đã đóng hoặc đã giải quyết");
+        }
+
+        User sender = userRepository
+                .findById(authHelper.currentUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+
+        TicketMessage message = new TicketMessage();
+        message.setTicket(ticket);
+        message.setSender(sender);
+        message.setIsFromAdmin(false);
+        message.setContent(request.getContent());
+        message.setEvidenceUrls(request.getEvidenceUrls());
+
+        TicketMessage saved = ticketMessageRepository.save(message);
+
+        // Update ticket status to open if it was in review
+        if (ticket.getStatus() == SupportTicketStatus.IN_REVIEW) {
+            ticket.setStatus(SupportTicketStatus.OPEN);
+            supportTicketRepository.save(ticket);
+        }
+
+        return toTicketMessage(saved, ticket);
+    }
+
+    @Override
+    @Transactional
+    public SupportTicketDetailResponse reopenSupportTicket(Long ticketId) {
+        SupportTicket ticket = supportTicketRepository
+                .findById(ticketId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu hỗ trợ"));
+
+        if (!ticket.getUser().getUserId().equals(authHelper.currentUserId())) {
+            throw new ForbiddenException("Không có quyền mở lại yêu cầu hỗ trợ này");
+        }
+
+        if (ticket.getStatus() != SupportTicketStatus.CLOSED && ticket.getStatus() != SupportTicketStatus.RESOLVED) {
+            throw new IllegalArgumentException("Yêu cầu hỗ trợ đang mở, không thể mở lại");
+        }
+
+        ticket.setStatus(SupportTicketStatus.OPEN);
+        ticket.setResolvedAt(null);
+        ticket.setClosedAt(null);
+        ticket.setDueAt(java.time.LocalDateTime.now().plusHours(calculateSlaHours(ticket.getPriority())));
+        ticket.setSlaBreached(false);
+        supportTicketRepository.save(ticket);
+
+        return toDetailResponse(ticket);
     }
 
     @Override
