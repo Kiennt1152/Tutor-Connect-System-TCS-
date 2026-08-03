@@ -345,6 +345,7 @@ class DisputeServiceImplTest {
 
     @Test
     void listDisputesForAdminReturnsReviewConsoleItems() {
+        stubAdminReviewer();
         User reporter = user(USER_ID, "reporter@tcs.com");
         User payer = user(101L, "payer@tcs.com");
         User tutorUser = user(202L, "tutor@tcs.com");
@@ -375,7 +376,7 @@ class DisputeServiceImplTest {
         assertEquals("reporter@tcs.com", response.getReporterEmail());
         assertEquals(List.of("https://example.com/a", "https://example.com/b"), response.getEvidenceUrlList());
         assertNotNull(response.getEscrow());
-        assertEquals(101L, response.getEscrow().getPayerUserId());
+        assertEquals(303L, response.getEscrow().getPayerUserId());
         assertEquals("ESCROW_LOCK-A7", response.getEscrow().getPaymentReferenceCode());
         assertNotNull(response.getTutoringClass());
         assertEquals(99L, response.getTutoringClass().getClassId());
@@ -383,11 +384,12 @@ class DisputeServiceImplTest {
         assertNotNull(response.getTerminationRequest());
         assertEquals(88L, response.getTerminationRequest().getTerminationId());
         assertEquals(ClassTerminationStatus.PENDING, response.getTerminationRequest().getStatus());
-        verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN);
+        verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
     }
 
     @Test
     void getDisputeForAdminReturnsDetailById() {
+        stubAdminReviewer();
         User reporter = user(USER_ID, "reporter@tcs.com");
         User payer = user(101L, "payer@tcs.com");
 
@@ -418,7 +420,7 @@ class DisputeServiceImplTest {
         assertEquals(12L, response.getEscrow().getClassStudentId());
         assertEquals("Học viên A", response.getTutoringClass().getStudentName());
         assertEquals(101L, response.getTutoringClass().getEnrolledByUserId());
-        verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN);
+        verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
     }
 
     @Test
@@ -429,6 +431,7 @@ class DisputeServiceImplTest {
 
     @Test
     void resolveDisputeMarksDisputeAndReportResolved() {
+        stubAdminReviewer();
         User reporter = user(USER_ID, "reporter@tcs.com");
         EscrowTransaction escrow = escrow(11L, EscrowStatus.DISPUTED);
         Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
@@ -448,7 +451,7 @@ class DisputeServiceImplTest {
         assertEquals("Chấp nhận khiếu nại và chuyển sang bước giải ngân", response.getResolution());
         assertEquals(DisputeStatus.RESOLVED, dispute.getStatus());
         assertEquals(ReportStatus.RESOLVED, report.getStatus());
-        verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN);
+        verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
         verify(reportRepository).save(report);
         verify(escrowService, never()).apply(any());
         verify(disputeRepository).save(dispute);
@@ -456,6 +459,7 @@ class DisputeServiceImplTest {
 
     @Test
     void resolveDisputeWithTerminationRequestApprovesTerminationAndTerminatesContract() {
+        stubAdminReviewer();
         User reporter = user(USER_ID, "reporter@tcs.com");
         User tutorUser = user(202L, "tutor@tcs.com");
         User creator = user(303L, "creator@tcs.com");
@@ -495,6 +499,7 @@ class DisputeServiceImplTest {
 
     @Test
     void resolveDisputeContinueClassRestoresHeldEscrowAndClass() {
+        stubAdminReviewer();
         User reporter = user(USER_ID, "reporter@tcs.com");
         User tutorUser = user(202L, "tutor@tcs.com");
         User creator = user(303L, "creator@tcs.com");
@@ -527,6 +532,7 @@ class DisputeServiceImplTest {
 
     @Test
     void resolveDisputePartialRefundSettlesEscrowAndCompletesTermination() {
+        stubAdminReviewer();
         User admin = user(900L, "admin@tcs.com");
         User reporter = user(USER_ID, "reporter@tcs.com");
         User tutorUser = user(202L, "tutor@tcs.com");
@@ -578,6 +584,7 @@ class DisputeServiceImplTest {
 
     @Test
     void resolveDisputeTerminateClassUsesProRataSettlementWhenAmountsAreBlank() {
+        stubAdminReviewer();
         User admin = user(900L, "admin@tcs.com");
         User reporter = user(USER_ID, "reporter@tcs.com");
         User tutorUser = user(202L, "tutor@tcs.com");
@@ -623,6 +630,7 @@ class DisputeServiceImplTest {
 
     @Test
     void resolveDisputeCanMoveToWaitingWithoutClosingReport() {
+        stubAdminReviewer();
         User reporter = user(USER_ID, "reporter@tcs.com");
         EscrowTransaction escrow = escrow(11L, EscrowStatus.DISPUTED);
         Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
@@ -684,6 +692,7 @@ class DisputeServiceImplTest {
 
     @Test
     void resolveDisputeRejectsAlreadyResolvedDispute() {
+        stubAdminReviewer();
         User reporter = user(USER_ID, "reporter@tcs.com");
         EscrowTransaction escrow = escrow(11L, EscrowStatus.RELEASED);
         Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
@@ -833,6 +842,11 @@ class DisputeServiceImplTest {
 
     private UserPrincipal principal(User user, UserRole role) {
         return new UserPrincipal(user, role);
+    }
+
+    private void stubAdminReviewer() {
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER))
+                .thenReturn(principal(user(900L, "admin@tcs.com"), UserRole.PLATFORM_ADMIN));
     }
 
     private TutoringClass tutoringClass(Long classId, User creator) {

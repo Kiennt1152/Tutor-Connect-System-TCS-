@@ -73,11 +73,16 @@ public class AdminDisputeReviewResponse {
         private Long refundId;
         private RefundRequestStatus status;
         private BigDecimal amount;
+        private String bankName;
+        private String accountNoMasked;
+        private String refundReferenceCode;
+        private String transferStatus;
         private String reason;
         private Long requestedByUserId;
         private String requestedByEmail;
         private LocalDateTime requestedAt;
         private LocalDateTime processedAt;
+        private LocalDateTime transferProcessedAt;
     }
 
     @Getter

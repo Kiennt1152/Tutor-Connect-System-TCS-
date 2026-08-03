@@ -29,14 +29,17 @@ export function useFinance() {
 
   // ── Wallet ──────────────────────────────────────────────────────────────
 
-  const fetchWallet = useCallback(async () => {
+  const fetchWallet = useCallback(async (): Promise<WalletInfo | null> => {
     setWalletLoading(true);
     setWalletError(null);
     try {
       const data = await financeApi.getWallet();
       setWallet(data);
+      return data;
     } catch (err: unknown) {
+      setWallet(null);
       setWalletError(getApiErrorMessage(err, 'Không thể tải thông tin ví'));
+      return null;
     } finally {
       setWalletLoading(false);
     }
@@ -129,10 +132,29 @@ export function useFinance() {
     try {
       const data = await financeApi.getPaymentMethods();
       setPaymentMethods(data);
+    } catch {
+      setPaymentMethods([]);
     } finally {
       setPaymentMethodsLoading(false);
     }
   }, []);
+
+  const createWallet = useCallback(async (): Promise<WalletInfo> => {
+    setWalletLoading(true);
+    setWalletError(null);
+    try {
+      const data = await financeApi.createWallet();
+      setWallet(data);
+      await fetchTransactions({ page: 0, size: DEFAULT_TX_SIZE });
+      await fetchPaymentMethods();
+      return data;
+    } catch (err: unknown) {
+      setWalletError(getApiErrorMessage(err, 'Không thể tạo ví.'));
+      throw err;
+    } finally {
+      setWalletLoading(false);
+    }
+  }, [fetchPaymentMethods, fetchTransactions]);
 
   const createPaymentMethod = useCallback(async (
     payload: PaymentMethodPayload
@@ -174,6 +196,7 @@ export function useFinance() {
     walletLoading,
     walletError,
     fetchWallet,
+    createWallet,
     // transactions
     transactions,
     txLoading,

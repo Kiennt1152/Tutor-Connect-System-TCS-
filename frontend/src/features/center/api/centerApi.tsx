@@ -7,6 +7,10 @@ import type {
   Substitution,
   TutorOption,
 } from '../types/centerTypes';
+import type {
+  ReportApiResponse,
+  ResolveClassIssueRequest,
+} from '../../platform/types/platformTypes';
 
 export const CENTER_API_BASE = '/center';
 
@@ -73,5 +77,14 @@ export const centerApi = {
       date,
       approve,
     });
+  },
+  getReports() {
+    return axiosClient.get<ReportApiResponse[]>(`${CENTER_API_BASE}/reports`);
+  },
+  resolveReport(reportId: string, payload: ResolveClassIssueRequest) {
+    return axiosClient.patch<ReportApiResponse>(
+      `${CENTER_API_BASE}/reports/${reportId}/resolve`,
+      payload,
+    );
   },
 };

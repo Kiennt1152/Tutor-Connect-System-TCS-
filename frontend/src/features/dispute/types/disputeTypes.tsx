@@ -56,3 +56,11 @@ export interface DisputeResponse {
   escrowStatus: EscrowStatus | null;
   createdAt: string;
 }
+
+export interface EvidenceUploadResponse {
+  fileId: number;
+  fileName: string;
+  fileUrl: string;
+  mimeType: string;
+  fileSize: number;
+}

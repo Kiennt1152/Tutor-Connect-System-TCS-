@@ -31,4 +31,8 @@ public interface PlatformService {
     List<ReportResponse> listReports();
 
     ReportResponse resolveClassIssue(Long reportId, ResolveClassIssueRequest request);
+
+    List<ReportResponse> listCenterReports();
+
+    ReportResponse resolveCenterClassIssue(Long reportId, ResolveClassIssueRequest request);
 }

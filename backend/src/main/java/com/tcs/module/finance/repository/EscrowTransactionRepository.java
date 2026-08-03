@@ -13,6 +13,8 @@ public interface EscrowTransactionRepository extends JpaRepository<EscrowTransac
 
     Optional<EscrowTransaction> findByClassStudent_ClassStudentId(Long classStudentId);
 
+    Optional<EscrowTransaction> findByPayment_TransactionId(Long transactionId);
+
     List<EscrowTransaction> findByAssignment_Application_TutoringClass_ClassId(Long classId);
 
     List<EscrowTransaction> findByClassStudent_TutoringClass_ClassId(Long classId);

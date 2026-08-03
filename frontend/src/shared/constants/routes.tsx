@@ -8,6 +8,7 @@ export const APP_ROUTES = {
   catalog: '/catalog',
   verification: '/identity/verification',
   center: '/center',
+  centerReports: '/center/reports',
   marketplace: '/marketplace',
   contract: '/contract',
   messaging: '/messaging',

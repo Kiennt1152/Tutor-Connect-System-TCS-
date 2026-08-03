@@ -1,6 +1,8 @@
 package com.tcs.module.marketplace.service.impl;
 
 import com.tcs.common.event.ContractSigned;
+import com.tcs.common.event.EscrowFunded;
+import java.math.BigDecimal;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
@@ -24,6 +26,20 @@ public class ClassActivationServiceImpl implements ClassActivationService {
     public void onContractSigned(ContractSigned event) {
         log.info("[ClassActivation] Nhan ContractSigned cho contract={}, class={}",
                 event.contractId(), event.classId());
+        if (event.amount() != null
+                && event.amount().compareTo(BigDecimal.ZERO) > 0
+                && (event.assignmentId() != null || event.classStudentId() != null)) {
+            log.info("[ClassActivation] Cho SePay xac nhan escrow truoc khi kich hoat class={}", event.classId());
+            return;
+        }
+        activate(event.classId());
+    }
+
+    @Transactional
+    @EventListener
+    public void onEscrowFunded(EscrowFunded event) {
+        log.info("[ClassActivation] Nhan EscrowFunded cho escrow={}, class={}",
+                event.escrowId(), event.classId());
         activate(event.classId());
     }
 

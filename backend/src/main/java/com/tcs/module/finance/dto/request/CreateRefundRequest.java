@@ -13,4 +13,6 @@ public class CreateRefundRequest {
     private Long classStudentId;
     private BigDecimal amount;
     private String reason;
+    private String bankName;
+    private String accountNo;
 }

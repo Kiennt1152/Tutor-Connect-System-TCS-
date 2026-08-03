@@ -12,6 +12,8 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
 
     Optional<RefundRequest> findFirstByEscrowTransaction_EscrowIdOrderByRequestedAtDesc(Long escrowId);
 
+    Optional<RefundRequest> findByRefundReferenceCode(String refundReferenceCode);
+
     boolean existsByEscrowTransaction_EscrowIdAndRequestedBy_UserIdAndStatus(
             Long escrowId,
             Long requestedByUserId,

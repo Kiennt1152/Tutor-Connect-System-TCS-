@@ -394,11 +394,16 @@ export interface RefundReviewApiResponse {
   refundId: number | null;
   status: RefundRequestStatus | null;
   amount: number | null;
+  bankName?: string | null;
+  accountNoMasked?: string | null;
+  refundReferenceCode?: string | null;
+  transferStatus?: string | null;
   reason: string | null;
   requestedByUserId: number | null;
   requestedByEmail: string | null;
   requestedAt: string | null;
   processedAt: string | null;
+  transferProcessedAt?: string | null;
 }
 
 export interface RefundRequestApiResponse {
@@ -413,10 +418,15 @@ export interface RefundRequestApiResponse {
   classStudentId: number | null;
   escrowAmount: number | null;
   amount: number;
+  bankName?: string | null;
+  accountNoMasked?: string | null;
+  refundReferenceCode?: string | null;
+  transferStatus?: string | null;
   status: RefundRequestStatus;
   reason: string | null;
   requestedAt: string | null;
   processedAt: string | null;
+  transferProcessedAt?: string | null;
 }
 
 export interface RefundRequestItem {
@@ -427,6 +437,10 @@ export interface RefundRequestItem {
   amount: string;
   rawAmount: number;
   escrowAmount: string;
+  bankName: string;
+  accountNoMasked: string;
+  refundReferenceCode: string;
+  transferStatus: string;
   status: RefundRequestStatus;
   statusLabel: string;
   escrowStatus: EscrowStatus | null;

@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { financeApi } from '../../finance/api/financeApi';
+import {
+  BANK_OPTIONS,
+  BankPickerDialog,
+  BankSelectField,
+  type BankOption,
+} from '../../finance/components/BankPicker';
 import type { RefundRequestInfo } from '../../finance/types/financeTypes';
 import './ClassTerminationModal.css';
 
@@ -33,27 +39,48 @@ export function RefundRequestModal({
   onClose,
 }: RefundRequestModalProps) {
   const [amount, setAmount] = useState(amountHint ? String(Math.trunc(amountHint)) : '');
+  const [selectedBankCode, setSelectedBankCode] = useState('');
+  const [bankPickerOpen, setBankPickerOpen] = useState(false);
+  const [accountNo, setAccountNo] = useState('');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<RefundRequestInfo | null>(null);
+  const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
 
   if (!open) return null;
 
   const resetAndClose = () => {
     if (submitting) return;
     setAmount(amountHint ? String(Math.trunc(amountHint)) : '');
+    setSelectedBankCode('');
+    setBankPickerOpen(false);
+    setAccountNo('');
     setReason('');
     setError('');
     setSuccess(null);
     onClose();
   };
 
+  const handleSelectBank = (bank: BankOption) => {
+    setSelectedBankCode(bank.code);
+    setBankPickerOpen(false);
+  };
+
   const handleSubmit = async () => {
     setError('');
     const parsedAmount = Number(amount);
+    const normalizedAccountNo = accountNo.trim().replace(/\s+/g, '');
     if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
       setError('Số tiền hoàn phải lớn hơn 0.');
+      return;
+    }
+    if (!selectedBank) {
+      setError('Vui lòng chọn ngân hàng nhận hoàn tiền.');
+      return;
+    }
+    if (!/^[A-Za-z0-9]{4,50}$/.test(normalizedAccountNo)) {
+      setError('Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự.');
       return;
     }
     if (reason.trim().length < 10) {
@@ -73,6 +100,8 @@ export function RefundRequestModal({
         classStudentId: classStudentId ?? undefined,
         amount: parsedAmount,
         reason: reason.trim(),
+        bankName: selectedBank.name,
+        accountNo: normalizedAccountNo,
       });
       setSuccess(result);
     } catch (err) {
@@ -134,6 +163,26 @@ export function RefundRequestModal({
                 </p>
               ) : null}
 
+              <div className="termination-field">
+                <span>Ngân hàng nhận hoàn tiền</span>
+                <BankSelectField
+                  id="refund-bank-field"
+                  selectedBank={selectedBank}
+                  onOpen={() => setBankPickerOpen(true)}
+                />
+              </div>
+
+              <label className="termination-field">
+                <span>Số tài khoản nhận hoàn tiền</span>
+                <input
+                  type="text"
+                  inputMode="text"
+                  value={accountNo}
+                  onChange={(event) => setAccountNo(event.target.value)}
+                  placeholder="Nhập số tài khoản"
+                />
+              </label>
+
               <label className="termination-field">
                 <span>Lý do hoàn tiền</span>
                 <textarea
@@ -169,6 +218,13 @@ export function RefundRequestModal({
             </button>
           )}
         </div>
+
+        <BankPickerDialog
+          open={bankPickerOpen}
+          selectedBankCode={selectedBankCode}
+          onSelect={handleSelectBank}
+          onClose={() => setBankPickerOpen(false)}
+        />
       </div>
     </div>
   );

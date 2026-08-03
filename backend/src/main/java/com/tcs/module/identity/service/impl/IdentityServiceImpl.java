@@ -2,8 +2,6 @@ package com.tcs.module.identity.service.impl;
 
 import com.tcs.exception.DuplicateEmailException;
 import com.tcs.exception.ResourceNotFoundException;
-import com.tcs.module.finance.entity.Wallet;
-import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
 import com.tcs.module.identity.dto.request.ForgotPasswordRequest;
 import com.tcs.module.identity.dto.request.GoogleCompleteRequest;
@@ -79,7 +77,6 @@ public class IdentityServiceImpl implements IdentityService {
     private final ClientRepository clientRepository;
     private final TutorRepository tutorRepository;
     private final TutorCenterRepository tutorCenterRepository;
-    private final WalletRepository walletRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailOtpRepository emailOtpRepository;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
@@ -276,10 +273,6 @@ public class IdentityServiceImpl implements IdentityService {
 
         createBaselineProfile(savedUser, request.getRole(), request.getDisplayName().trim(), phone);
 
-        Wallet wallet = new Wallet();
-        wallet.setUser(savedUser);
-        walletRepository.save(wallet);
-
         // Tieu thu token (dung mot lan - BR-UC01-05).
         token.setConsumedAt(LocalDateTime.now());
         emailVerificationTokenRepository.save(token);
@@ -372,10 +365,6 @@ public class IdentityServiceImpl implements IdentityService {
         User savedUser = userRepository.save(user);
 
         createBaselineProfile(savedUser, request.getRole(), suggestDisplayName(email, payload.getName()), phone);
-
-        Wallet wallet = new Wallet();
-        wallet.setUser(savedUser);
-        walletRepository.save(wallet);
 
         UserProfileBundle profiles = loadProfiles(savedUser.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);

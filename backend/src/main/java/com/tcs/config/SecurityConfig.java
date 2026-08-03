@@ -90,12 +90,12 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/finance/refunds/execute")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/finance/refund-requests")
-                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .hasAnyRole(RbacConstants.PLATFORM_ADMIN, RbacConstants.TUTOR_CENTER)
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/finance/refund-requests/*/approve",
                                 "/api/finance/refund-requests/*/reject")
-                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .hasAnyRole(RbacConstants.PLATFORM_ADMIN, RbacConstants.TUTOR_CENTER)
                         .requestMatchers(HttpMethod.POST, "/api/finance/refund-requests")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
@@ -129,7 +129,9 @@ public class SecurityConfig {
                                 "/api/center/reschedules",
                                 "/api/center/reschedules/**",
                                 "/api/center/substitutions",
-                                "/api/center/substitutions/**")
+                                "/api/center/substitutions/**",
+                                "/api/center/reports",
+                                "/api/center/reports/**")
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
                         // --- Tutor: teaching schedule + attendance ---
@@ -144,9 +146,9 @@ public class SecurityConfig {
 
                         // --- Issue, dispute & refund ---
                         .requestMatchers(HttpMethod.GET, "/api/disputes", "/api/disputes/**")
-                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .hasAnyRole(RbacConstants.PLATFORM_ADMIN, RbacConstants.TUTOR_CENTER)
                         .requestMatchers(HttpMethod.POST, "/api/disputes/*/resolve")
-                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .hasAnyRole(RbacConstants.PLATFORM_ADMIN, RbacConstants.TUTOR_CENTER)
                         .requestMatchers(HttpMethod.POST, "/api/disputes/*/evidence")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
                         .requestMatchers(HttpMethod.POST, "/api/disputes/*/appeal")
@@ -158,7 +160,7 @@ public class SecurityConfig {
 
                         // --- Finance ---
                         .requestMatchers("/api/finance/**")
-                        .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
+                        .hasAnyRole(RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
 
                         // --- Contract ---
                         .requestMatchers(HttpMethod.POST, "/api/contract/reviews")

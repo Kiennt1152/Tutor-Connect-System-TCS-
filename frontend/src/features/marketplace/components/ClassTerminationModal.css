@@ -109,6 +109,220 @@
   padding: 0 12px;
 }
 
+.termination-field .bank-select-field {
+  width: 100%;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.termination-field .bank-select-field:hover,
+.termination-field .bank-select-field:focus-visible {
+  outline: none;
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.14);
+}
+
+.bank-select-field__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bank-select-field__text strong,
+.bank-option__text strong {
+  color: #0f172a;
+  font-size: 13px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-select-field__text small,
+.bank-option__text small {
+  color: #64748b;
+  font-size: 12px;
+  line-height: 1.25;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bank-select-field__placeholder {
+  color: #94a3b8;
+  font-size: 14px;
+}
+
+.bank-select-field__arrow {
+  margin-left: auto;
+  color: #64748b;
+  font-size: 18px;
+}
+
+.bank-dialog-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.bank-dialog {
+  width: min(580px, 100%);
+  max-height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.24);
+}
+
+.bank-dialog__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.bank-dialog__header h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 18px;
+}
+
+.bank-dialog__header .modal__close {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #475569;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bank-dialog__body {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  overflow-y: auto;
+}
+
+.bank-dialog .form-input {
+  width: 100%;
+  height: 42px;
+  padding: 0 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.bank-dialog .form-input:focus {
+  outline: none;
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.14);
+}
+
+.bank-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(172px, 1fr));
+  gap: 10px;
+  max-height: min(52vh, 360px);
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.bank-option {
+  min-width: 0;
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+}
+
+.bank-option:hover,
+.bank-option--active {
+  border-color: #ea580c;
+  background: #fff7ed;
+}
+
+.bank-logo {
+  position: relative;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--bank-color, #ea580c) 28%, #e2e8f0);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--bank-color, #ea580c) 12%, #fff);
+}
+
+.bank-logo span {
+  color: var(--bank-color, #ea580c);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.bank-logo img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  padding: 5px;
+  background: #fff;
+}
+
+.bank-option__text {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.bank-list__empty {
+  grid-column: 1 / -1;
+  padding: 14px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  color: #64748b;
+  font-size: 14px;
+  text-align: center;
+}
+
 .termination-field textarea:focus,
 .termination-field input:focus {
   outline: none;

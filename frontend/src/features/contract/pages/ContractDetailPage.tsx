@@ -5,7 +5,7 @@ import { RefundRequestModal } from '../../marketplace/components/RefundRequestMo
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useContractDetail, useSignContract } from '../hooks/useContract';
-import type { ContractStatus } from '../types/contractTypes';
+import type { ContractStatus, EscrowStatus, PaymentTransactionStatus } from '../types/contractTypes';
 import './ContractPage.css';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
@@ -15,6 +15,22 @@ const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
   ACTIVE: { label: 'Đang hoạt động', cls: 'contract-status--active' },
   COMPLETED: { label: 'Hoàn thành', cls: 'contract-status--completed' },
   TERMINATED: { label: 'Đã chấm dứt', cls: 'contract-status--terminated' },
+};
+
+const ESCROW_STATUS_LABEL: Record<EscrowStatus, { label: string; cls: string }> = {
+  PENDING: { label: 'Chờ thanh toán', cls: 'contract-status--pending' },
+  FUNDED: { label: 'Đã nạp escrow', cls: 'contract-status--active' },
+  RELEASED: { label: 'Đã giải ngân', cls: 'contract-status--completed' },
+  REFUNDED: { label: 'Đã hoàn tiền', cls: 'contract-status--completed' },
+  ON_HOLD: { label: 'Đang tạm giữ', cls: 'contract-status--signed' },
+  DISPUTED: { label: 'Đang tranh chấp', cls: 'contract-status--terminated' },
+};
+
+const PAYMENT_STATUS_LABEL: Record<PaymentTransactionStatus, string> = {
+  PENDING: 'Chờ SePay xác nhận',
+  SUCCESS: 'Đã xác nhận',
+  FAILED: 'Thất bại',
+  CANCELLED: 'Đã hủy',
 };
 
 const formatCurrency = (value: number | string | null) => {
@@ -30,6 +46,11 @@ const formatDate = (value: string | null) => {
 const formatDateTime = (value: string | null) => {
   if (!value) return '—';
   return new Date(value).toLocaleString('vi-VN');
+};
+
+const copyText = (value: string | null | undefined) => {
+  if (!value) return;
+  void navigator.clipboard?.writeText(value);
 };
 
 export default function ContractDetailPage() {
@@ -97,6 +118,11 @@ export default function ContractDetailPage() {
   if (!contract) return null;
 
   const status = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
+  const escrowPayment = contract.escrowPayment ?? null;
+  const escrowStatus = escrowPayment
+    ? ESCROW_STATUS_LABEL[escrowPayment.escrowStatus] ?? { label: escrowPayment.escrowStatus, cls: '' }
+    : null;
+  const escrowPending = escrowPayment?.escrowStatus === 'PENDING' || escrowPayment?.paymentStatus === 'PENDING';
   const currentUserSigned = signatures?.signatures.some((signature) => signature.isCurrentUser) ?? false;
   const allSigned = signatures?.fullySigned ?? false;
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
@@ -226,6 +252,61 @@ export default function ContractDetailPage() {
               ) : null}
             </div>
           </section>
+
+          {escrowPayment ? (
+            <section className="contract-card contract-escrow-card">
+              <div className="contract-card__head">
+                <h2>Thanh toán escrow</h2>
+                {escrowStatus ? <span className={`contract-status ${escrowStatus.cls}`}>{escrowStatus.label}</span> : null}
+              </div>
+              <div className="contract-escrow">
+                {escrowPayment.qrUrl ? (
+                  <div className="contract-escrow__qr">
+                    <img src={escrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
+                  </div>
+                ) : null}
+                <div className="contract-escrow__details">
+                  <div className="contract-escrow__row">
+                    <span>Số tiền</span>
+                    <strong>{formatCurrency(escrowPayment.amount)}</strong>
+                  </div>
+                  <div className="contract-escrow__row">
+                    <span>Ngân hàng</span>
+                    <strong>{escrowPayment.bankName ?? '—'}</strong>
+                  </div>
+                  <div className="contract-escrow__row">
+                    <span>Số tài khoản</span>
+                    <strong>{escrowPayment.accountNumber ?? '—'}</strong>
+                  </div>
+                  <div className="contract-escrow__row">
+                    <span>Chủ tài khoản</span>
+                    <strong>{escrowPayment.accountName ?? '—'}</strong>
+                  </div>
+                  <div className="contract-escrow__code">
+                    <span>Nội dung chuyển khoản</span>
+                    <div>
+                      <code>{escrowPayment.transferContent ?? escrowPayment.referenceCode ?? '—'}</code>
+                      <button
+                        type="button"
+                        onClick={() => copyText(escrowPayment.transferContent ?? escrowPayment.referenceCode)}
+                      >
+                        Sao chép
+                      </button>
+                    </div>
+                  </div>
+                  <p className={`contract-escrow__note${escrowPending ? ' contract-escrow__note--pending' : ''}`}>
+                    {escrowPending
+                      ? 'Sau khi SePay xác nhận giao dịch, escrow sẽ chuyển sang đã nạp và lớp mới được kích hoạt.'
+                      : `Trạng thái giao dịch: ${
+                          escrowPayment.paymentStatus
+                            ? PAYMENT_STATUS_LABEL[escrowPayment.paymentStatus] ?? escrowPayment.paymentStatus
+                            : '—'
+                        }.`}
+                  </p>
+                </div>
+              </div>
+            </section>
+          ) : null}
 
           <section className="contract-card">
             <div className="contract-card__head">

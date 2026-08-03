@@ -23,6 +23,10 @@ export const financeApi = {
     return axiosClient.get(`${BASE}/wallet`).then((r) => r.data);
   },
 
+  createWallet(): Promise<WalletInfo> {
+    return axiosClient.post(`${BASE}/wallet`).then((r) => r.data);
+  },
+
   getTransactions(params: TransactionFilter): Promise<TransactionPage> {
     return axiosClient
       .get(`${BASE}/wallet/transactions`, { params })

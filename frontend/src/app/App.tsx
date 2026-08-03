@@ -12,6 +12,7 @@ import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import PlatformWithdrawalsPage from '../features/platform/pages/PlatformWithdrawalsPage';
 import CenterPage from '../features/center/pages/CenterPage';
+import CenterReportsPage from '../features/center/pages/CenterReportsPage';
 import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
 import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
 import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
@@ -58,7 +59,7 @@ export default function App() {
           <Route
             path={APP_ROUTES.finance}
             element={
-              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+              <ProtectedRoute roles={['TUTOR', 'TUTOR_CENTER']}>
                 <FinancePage />
               </ProtectedRoute>
             }
@@ -108,6 +109,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.centerReports}
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterReportsPage />
               </ProtectedRoute>
             }
           />

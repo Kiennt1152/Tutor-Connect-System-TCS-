@@ -1,5 +1,8 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
+import { FileThumbnail } from '../../../shared/components/FileThumbnail';
+import { disputeApi } from '../../dispute/api/disputeApi';
+import type { EvidenceUploadResponse } from '../../dispute/types/disputeTypes';
 import { AdminLayout } from '../components/AdminLayout';
 import { platformApi } from '../api/platformApi';
 import { useDisputeReviewList } from '../hooks/useDisputeReviewList';
@@ -42,6 +45,10 @@ const CLASS_ISSUE_ACTION_OPTIONS: { value: ClassIssueResolutionAction; label: st
   { value: 'TERMINATE_CLASS', label: 'Chuyển xử lý chấm dứt lớp' },
   { value: 'CLOSE_NO_ACTION', label: 'Đóng báo cáo' },
 ];
+
+const MAX_EVIDENCE_FILES = 5;
+const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
+const EVIDENCE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 type SettlementPolicyPreset =
   | 'CUSTOM'
@@ -425,6 +432,65 @@ function InfoRow({ label, value }: { label: string; value: ReactNode }) {
       <span className="pd-info-row__value">{value ?? '—'}</span>
     </div>
   );
+}
+
+function EvidencePreviewList({
+  urls,
+  emptyText,
+}: {
+  urls: string[];
+  emptyText: string;
+}) {
+  if (urls.length === 0) {
+    return <p className="pd-muted">{emptyText}</p>;
+  }
+
+  return (
+    <div className="pd-evidence-list">
+      {urls.map((url, index) => {
+        const mimeType = evidenceMimeType(url);
+        if (!mimeType) {
+          return (
+            <a key={url} className="pd-evidence-link" href={url} target="_blank" rel="noreferrer">
+              {url}
+            </a>
+          );
+        }
+        return (
+          <FileThumbnail
+            key={url}
+            src={url}
+            fileName={evidenceFileName(url, index)}
+            mimeType={mimeType}
+            fileSize={null}
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function buildUploadedEvidenceUrls(files: EvidenceUploadResponse[]) {
+  return files.map((file) => file.fileUrl).join('\n');
+}
+
+function evidenceMimeType(url: string) {
+  const normalized = url.split(/[?#]/)[0].toLowerCase();
+  if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg')) return 'image/jpeg';
+  if (normalized.endsWith('.png')) return 'image/png';
+  if (normalized.endsWith('.webp')) return 'image/webp';
+  return null;
+}
+
+function evidenceFileName(url: string, index: number) {
+  const path = url.split(/[?#]/)[0];
+  const rawFileName = path.split('/').filter(Boolean).pop();
+  if (!rawFileName) return `Bằng chứng ${index + 1}`;
+  try {
+    return decodeURIComponent(rawFileName);
+  } catch {
+    return rawFileName;
+  }
 }
 
 function AutomationState({ detail }: { detail: AdminDisputeReviewApiResponse }) {
@@ -905,18 +971,61 @@ function DisputeDetail({
     reset: resetAppeal,
   } = useAppealDispute();
   const [appealReason, setAppealReason] = useState('');
-  const [appealEvidenceUrls, setAppealEvidenceUrls] = useState('');
+  const [appealEvidenceFiles, setAppealEvidenceFiles] = useState<EvidenceUploadResponse[]>([]);
+  const [appealUploadingEvidence, setAppealUploadingEvidence] = useState(false);
   const [appealFormError, setAppealFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   useEffect(() => {
     if (!detail) return;
     setAppealReason('');
-    setAppealEvidenceUrls('');
+    setAppealEvidenceFiles([]);
+    setAppealUploadingEvidence(false);
     setAppealFormError('');
     setSuccessMessage('');
     resetAppeal();
   }, [detail?.disputeId, detail?.disputeStatus, detail?.resolution, resetAppeal]);
+
+  const handleAppealEvidenceFilesChange = async (event: ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.currentTarget.value = '';
+    if (files.length === 0) return;
+
+    setAppealFormError('');
+    setSuccessMessage('');
+
+    if (appealEvidenceFiles.length + files.length > MAX_EVIDENCE_FILES) {
+      setAppealFormError(`Mỗi lần mở lại chỉ nên đính kèm tối đa ${MAX_EVIDENCE_FILES} ảnh.`);
+      return;
+    }
+
+    const invalidFile = files.find((file) => !EVIDENCE_IMAGE_TYPES.has(file.type));
+    if (invalidFile) {
+      setAppealFormError(`"${invalidFile.name}" không đúng định dạng. Vui lòng chọn ảnh JPG, PNG hoặc WEBP.`);
+      return;
+    }
+
+    const oversizedFile = files.find((file) => file.size > MAX_EVIDENCE_SIZE);
+    if (oversizedFile) {
+      setAppealFormError(`"${oversizedFile.name}" vượt quá 10MB.`);
+      return;
+    }
+
+    setAppealUploadingEvidence(true);
+    try {
+      const uploadedFiles = await Promise.all(files.map((file) => disputeApi.uploadEvidenceImage(file)));
+      setAppealEvidenceFiles((current) => [...current, ...uploadedFiles]);
+    } catch (error) {
+      console.error('Lỗi tải ảnh bằng chứng:', error);
+      setAppealFormError('Không thể tải ảnh bằng chứng. Vui lòng thử lại.');
+    } finally {
+      setAppealUploadingEvidence(false);
+    }
+  };
+
+  const removeAppealEvidenceFile = (fileId: number) => {
+    setAppealEvidenceFiles((current) => current.filter((file) => file.fileId !== fileId));
+  };
 
   const handleAppeal = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -927,14 +1036,19 @@ function DisputeDetail({
       setAppealFormError('Vui lòng nhập nội dung mở lại ít nhất 10 ký tự.');
       return;
     }
+    if (appealUploadingEvidence) {
+      setAppealFormError('Vui lòng chờ tải ảnh bằng chứng xong trước khi mở lại tranh chấp.');
+      return;
+    }
 
     setAppealFormError('');
     setSuccessMessage('');
     const updated = await appealDispute(String(detail.disputeId), {
       reason: trimmedReason,
-      evidenceUrls: appealEvidenceUrls,
+      evidenceUrls: buildUploadedEvidenceUrls(appealEvidenceFiles) || undefined,
     });
     if (updated) {
+      setAppealEvidenceFiles([]);
       setSuccessMessage('Đã mở lại tranh chấp để tiếp tục xem xét.');
       onChanged();
     }
@@ -1021,17 +1135,10 @@ function DisputeDetail({
 
       <section className="pd-section">
         <h3 className="pd-section__title">Bằng chứng</h3>
-        {detail.evidenceUrlList.length === 0 ? (
-          <p className="adm-muted">Không có bằng chứng đính kèm.</p>
-        ) : (
-          <div className="pd-evidence-list">
-            {detail.evidenceUrlList.map((url) => (
-              <a key={url} className="pd-evidence-link" href={url} target="_blank" rel="noreferrer">
-                {url}
-              </a>
-            ))}
-          </div>
-        )}
+        <EvidencePreviewList
+          urls={detail.evidenceUrlList}
+          emptyText="Không có bằng chứng đính kèm."
+        />
       </section>
 
       {detail.disputeStatus === 'RESOLVED' ? (
@@ -1064,16 +1171,42 @@ function DisputeDetail({
 
                 <label className="pd-field">
                   <span>Bằng chứng bổ sung</span>
-                  <textarea
-                    className="pd-textarea pd-textarea--compact"
-                    rows={3}
-                    maxLength={1000}
-                    placeholder="URL bằng chứng, mỗi dòng một mục"
-                    value={appealEvidenceUrls}
-                    disabled={appealStatus === 'loading'}
-                    onChange={(event) => setAppealEvidenceUrls(event.target.value)}
-                  />
+                  <span className="pd-upload">
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      multiple
+                      disabled={appealStatus === 'loading' || appealUploadingEvidence}
+                      onChange={handleAppealEvidenceFilesChange}
+                    />
+                    <strong>{appealUploadingEvidence ? 'Đang tải ảnh...' : 'Chọn ảnh bằng chứng'}</strong>
+                    <small>JPG, PNG hoặc WEBP, tối đa 10MB/ảnh.</small>
+                  </span>
                 </label>
+
+                {appealEvidenceFiles.length > 0 && (
+                  <div className="pd-evidence-list" aria-label="Ảnh bằng chứng mở lại">
+                    {appealEvidenceFiles.map((file) => (
+                      <FileThumbnail
+                        key={file.fileId}
+                        src={file.fileUrl}
+                        fileName={file.fileName}
+                        mimeType={file.mimeType}
+                        fileSize={file.fileSize}
+                        actions={
+                          <button
+                            className="pd-upload-remove"
+                            type="button"
+                            disabled={appealStatus === 'loading' || appealUploadingEvidence}
+                            onClick={() => removeAppealEvidenceFile(file.fileId)}
+                          >
+                            Xóa
+                          </button>
+                        }
+                      />
+                    ))}
+                  </div>
+                )}
 
                 {appealFormError && <div className="adm-alert adm-alert--error">{appealFormError}</div>}
                 {appealStatus === 'error' && appealErrorMessage && (
@@ -1085,7 +1218,7 @@ function DisputeDetail({
                   <button
                     className="tcs-btn tcs-btn--primary"
                     type="submit"
-                    disabled={appealStatus === 'loading'}
+                    disabled={appealStatus === 'loading' || appealUploadingEvidence}
                   >
                     {appealStatus === 'loading' ? 'Đang mở lại...' : 'Mở lại tranh chấp'}
                   </button>
@@ -1125,9 +1258,14 @@ function DisputeDetail({
                 </span>
               </div>
               <InfoRow label="Số tiền hoàn" value={formatCurrency(detail.latestRefundRequest.amount)} />
+              <InfoRow label="Ngân hàng nhận" value={detail.latestRefundRequest.bankName ?? '—'} />
+              <InfoRow label="Tài khoản nhận" value={detail.latestRefundRequest.accountNoMasked ?? '—'} />
+              <InfoRow label="Mã chuyển khoản" value={detail.latestRefundRequest.refundReferenceCode ?? '—'} />
+              <InfoRow label="Trạng thái chuyển khoản" value={detail.latestRefundRequest.transferStatus ?? '—'} />
               <InfoRow label="Người xử lý" value={detail.latestRefundRequest.requestedByEmail ?? detail.latestRefundRequest.requestedByUserId} />
               <InfoRow label="Yêu cầu lúc" value={formatDateTime(detail.latestRefundRequest.requestedAt)} />
               <InfoRow label="Xử lý lúc" value={formatDateTime(detail.latestRefundRequest.processedAt)} />
+              <InfoRow label="SePay xác nhận lúc" value={formatDateTime(detail.latestRefundRequest.transferProcessedAt)} />
             </div>
             <p className="pd-description">{detail.latestRefundRequest.reason ?? '—'}</p>
           </>
@@ -1251,17 +1389,10 @@ function ClassIssueReportDetail({
 
       <section className="pd-section">
         <h3 className="pd-section__title">Bằng chứng</h3>
-        {detail.evidenceUrlList.length === 0 ? (
-          <p className="pd-muted">Chưa có bằng chứng.</p>
-        ) : (
-          <div className="pd-evidence-list">
-            {detail.evidenceUrlList.map((url) => (
-              <a key={url} className="pd-evidence-link" href={url} target="_blank" rel="noreferrer">
-                {url}
-              </a>
-            ))}
-          </div>
-        )}
+        <EvidencePreviewList
+          urls={detail.evidenceUrlList}
+          emptyText="Chưa có bằng chứng."
+        />
       </section>
 
       <section className="pd-section">
@@ -1349,7 +1480,7 @@ function RefundRequestDetail({
         approvedAmount: parsedAmount,
         reason: reason.trim() || undefined,
       });
-      setSuccessMessage('Đã duyệt và thực thi hoàn tiền escrow.');
+      setSuccessMessage('Đã duyệt hoàn tiền. Nếu hoàn qua ngân hàng, hệ thống sẽ chờ SePay xác nhận tiền ra.');
       onChanged();
     } catch (error) {
       setErrorMessage(getApiErrorMessage(error, 'Không thể duyệt yêu cầu hoàn tiền.'));
@@ -1398,8 +1529,13 @@ function RefundRequestDetail({
           <InfoRow label="Trạng thái escrow" value={<span className={escrowBadgeClass(item.escrowStatus)}>{item.escrowStatusLabel}</span>} />
           <InfoRow label="Tổng escrow" value={item.escrowAmount} />
           <InfoRow label="Số tiền yêu cầu" value={item.amount} />
+          <InfoRow label="Ngân hàng nhận" value={item.bankName} />
+          <InfoRow label="Tài khoản nhận" value={item.accountNoMasked} />
+          <InfoRow label="Mã chuyển khoản" value={item.refundReferenceCode} />
+          <InfoRow label="Trạng thái chuyển khoản" value={item.transferStatus} />
           <InfoRow label="Tạo lúc" value={item.requestedAt} />
           <InfoRow label="Xử lý lúc" value={item.processedAt} />
+          <InfoRow label="SePay xác nhận lúc" value={formatDateTime(item.raw.transferProcessedAt)} />
         </div>
         <p className="pd-description">{item.reason}</p>
       </section>
@@ -1467,7 +1603,10 @@ export default function PlatformReportsPage() {
 
   const openReportCount = reports.items.filter((item) => item.status === 'PENDING').length;
   const openDisputeCount = disputes.items.filter((item) => item.status !== 'RESOLVED').length;
-  const pendingRefundCount = refunds.items.filter((item) => item.status === 'PENDING').length;
+  const pendingRefundCount = refunds.items.filter((item) =>
+    item.status === 'PENDING'
+      || (item.status === 'APPROVED' && item.raw.transferStatus === 'PENDING')
+  ).length;
   const heldEscrowCount = disputes.items.filter((item) => isEscrowHeldForDispute(item.escrowStatus)).length;
   const classIssueReports = reports.items.filter((item) => item.targetType === 'CLASS');
   const selectedReport = classIssueReports.find((item) => item.id === selectedReportId) ?? null;
@@ -1502,6 +1641,16 @@ export default function PlatformReportsPage() {
     disputes.reload();
   };
 
+  useEffect(() => {
+    const handleFocus = () => {
+      reports.reload();
+      disputes.reload();
+      refunds.reload();
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [disputes.reload, refunds.reload, reports.reload]);
+
   return (
     <AdminLayout
       title="Báo cáo & tranh chấp"
@@ -1521,7 +1670,7 @@ export default function PlatformReportsPage() {
           <p className="adm-summary-card__value">{openReportCount}</p>
         </article>
         <article className="adm-summary-card">
-          <p className="adm-summary-card__label">Hoàn tiền chờ xử lý</p>
+          <p className="adm-summary-card__label">Hoàn tiền chờ xử lý/chuyển</p>
           <p className="adm-summary-card__value">{pendingRefundCount}</p>
         </article>
       </div>

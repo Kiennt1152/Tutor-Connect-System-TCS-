@@ -1,5 +1,8 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react';
+import { type ChangeEvent, type FormEvent, useEffect, useMemo, useState } from 'react';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { FileThumbnail } from '../../../shared/components/FileThumbnail';
+import type { EvidenceUploadResponse } from '../../dispute/types/disputeTypes';
+import { messagingApi } from '../api/messagingApi';
 import { useMessaging } from '../hooks/useMessaging';
 import type { NotificationItem, SubmitDisputeEvidenceRequest } from '../types/messagingTypes';
 import './MessagingPage.css';
@@ -12,6 +15,10 @@ const NOTIFICATION_TYPE_LABELS: Record<NotificationItem['type'], string> = {
   VERIFICATION: 'Xác minh',
   CHAT: 'Trao đổi',
 };
+
+const MAX_EVIDENCE_FILES = 5;
+const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
+const EVIDENCE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
 
 function formatDateTime(value: string | null) {
   if (!value) {
@@ -29,6 +36,10 @@ function formatDateTime(value: string | null) {
 function isEvidenceRequest(notification: NotificationItem) {
   const source = `${notification.title ?? ''} ${notification.content}`.toLowerCase();
   return notification.referenceType === 'DISPUTE' && source.includes('bằng chứng');
+}
+
+function buildEvidenceUrls(files: EvidenceUploadResponse[]) {
+  return files.map((file) => file.fileUrl).join('\n');
 }
 
 interface NotificationCardProps {
@@ -57,7 +68,8 @@ function NotificationCard({
   onMarkAsRead,
   onSubmitEvidence,
 }: Readonly<NotificationCardProps>) {
-  const [evidenceUrls, setEvidenceUrls] = useState('');
+  const [evidenceFiles, setEvidenceFiles] = useState<EvidenceUploadResponse[]>([]);
+  const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [note, setNote] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
@@ -66,14 +78,59 @@ function NotificationCard({
 
   const referenceText = referenceLabel(notification);
 
+  async function handleEvidenceFilesChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files ?? []);
+    event.currentTarget.value = '';
+    if (files.length === 0) return;
+
+    setFormError(null);
+    setFormSuccess(null);
+
+    if (evidenceFiles.length + files.length > MAX_EVIDENCE_FILES) {
+      setFormError(`Mỗi lần bổ sung chỉ nên đính kèm tối đa ${MAX_EVIDENCE_FILES} ảnh.`);
+      return;
+    }
+
+    const invalidFile = files.find((file) => !EVIDENCE_IMAGE_TYPES.has(file.type));
+    if (invalidFile) {
+      setFormError(`"${invalidFile.name}" không đúng định dạng. Vui lòng chọn ảnh JPG, PNG hoặc WEBP.`);
+      return;
+    }
+
+    const oversizedFile = files.find((file) => file.size > MAX_EVIDENCE_SIZE);
+    if (oversizedFile) {
+      setFormError(`"${oversizedFile.name}" vượt quá 10MB.`);
+      return;
+    }
+
+    setUploadingEvidence(true);
+    try {
+      const uploadedFiles = await Promise.all(files.map((file) => messagingApi.uploadEvidenceImage(file)));
+      setEvidenceFiles((current) => [...current, ...uploadedFiles]);
+    } catch (error) {
+      console.error('Lỗi tải ảnh bằng chứng:', error);
+      setFormError('Không thể tải ảnh bằng chứng. Vui lòng thử lại.');
+    } finally {
+      setUploadingEvidence(false);
+    }
+  }
+
+  function removeEvidenceFile(fileId: number) {
+    setEvidenceFiles((current) => current.filter((file) => file.fileId !== fileId));
+  }
+
   async function handleSubmitEvidence(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFormError(null);
     setFormSuccess(null);
 
-    const trimmedEvidence = evidenceUrls.trim();
+    const trimmedEvidence = buildEvidenceUrls(evidenceFiles);
     if (!trimmedEvidence) {
-      setFormError('Vui lòng nhập ít nhất một đường dẫn bằng chứng.');
+      setFormError('Vui lòng tải lên ít nhất một ảnh bằng chứng.');
+      return;
+    }
+    if (uploadingEvidence) {
+      setFormError('Vui lòng chờ tải ảnh bằng chứng xong trước khi gửi.');
       return;
     }
     if (notification.referenceId == null) {
@@ -86,7 +143,7 @@ function NotificationCard({
       note: note.trim() || undefined,
     });
     if (success) {
-      setEvidenceUrls('');
+      setEvidenceFiles([]);
       setNote('');
       setFormSuccess('Đã gửi bằng chứng bổ sung.');
       if (!notification.isRead) {
@@ -133,14 +190,19 @@ function NotificationCard({
 
       {canSubmitEvidence ? (
         <form className="messaging-evidence" onSubmit={handleSubmitEvidence}>
-          <label>
+          <label className="messaging-evidence__upload">
             <span>Bằng chứng bổ sung</span>
-            <textarea
-              value={evidenceUrls}
-              onChange={(event) => setEvidenceUrls(event.target.value)}
-              placeholder="https://..."
-              rows={3}
-            />
+            <span className="messaging-upload">
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                disabled={submitting || uploadingEvidence}
+                onChange={handleEvidenceFilesChange}
+              />
+              <strong>{uploadingEvidence ? 'Đang tải ảnh...' : 'Chọn ảnh bằng chứng'}</strong>
+              <small>JPG, PNG hoặc WEBP, tối đa 10MB/ảnh.</small>
+            </span>
           </label>
           <label>
             <span>Ghi chú</span>
@@ -151,11 +213,38 @@ function NotificationCard({
               rows={2}
             />
           </label>
+          {evidenceFiles.length > 0 ? (
+            <div className="messaging-evidence__files" aria-label="Ảnh bằng chứng đã tải lên">
+              {evidenceFiles.map((file) => (
+                <FileThumbnail
+                  key={file.fileId}
+                  src={file.fileUrl}
+                  fileName={file.fileName}
+                  mimeType={file.mimeType}
+                  fileSize={file.fileSize}
+                  actions={
+                    <button
+                      className="messaging-evidence__remove"
+                      type="button"
+                      disabled={submitting || uploadingEvidence}
+                      onClick={() => removeEvidenceFile(file.fileId)}
+                    >
+                      Xóa
+                    </button>
+                  }
+                />
+              ))}
+            </div>
+          ) : null}
           {formError ? <div className="messaging-alert messaging-alert--error">{formError}</div> : null}
           {formSuccess ? (
             <div className="messaging-alert messaging-alert--success">{formSuccess}</div>
           ) : null}
-          <button type="submit" className="messaging-btn messaging-btn--primary" disabled={submitting}>
+          <button
+            type="submit"
+            className="messaging-btn messaging-btn--primary"
+            disabled={submitting || uploadingEvidence}
+          >
             {submitting ? 'Đang gửi...' : 'Gửi bằng chứng'}
           </button>
         </form>

@@ -16,9 +16,12 @@ import com.tcs.module.finance.service.PaymentGateway;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
+import com.tcs.module.profile.entity.PlatformAdmin;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import java.math.BigDecimal;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,6 +38,7 @@ public class WalletServiceImpl implements WalletService {
 
     private final WalletRepository walletRepository;
     private final UserRepository userRepository;
+    private final PlatformAdminRepository platformAdminRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final FinancialJournalRepository financialJournalRepository;
     private final PaymentGateway paymentGateway;
@@ -42,13 +46,37 @@ public class WalletServiceImpl implements WalletService {
     private static final String WALLET_NOT_FOUND = "Không tìm thấy ví cho người dùng này";
     private static final String INSUFFICIENT_BALANCE = "Số dư khả dụng không đủ";
     private static final String WALLET_NOT_ACTIVE = "Ví không ở trạng thái hoạt động";
-    private static final String WALLET_ALREADY_EXISTS = "Ví đã tồn tại cho người dùng này";
 
     @Override
     @Transactional
     public Wallet getOrCreate(Long userId) {
         return walletRepository.findByUser_UserId(userId)
                 .orElseGet(() -> createWallet(userId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Wallet getRequired(Long userId) {
+        return walletRepository.findByUser_UserId(userId)
+                .orElseThrow(() -> new BusinessException(
+                        "Bạn chưa có ví. Vui lòng tạo ví trước khi sử dụng chức năng này."));
+    }
+
+    @Override
+    @Transactional
+    public Wallet create(Long userId) {
+        return walletRepository.findByUser_UserId(userId)
+                .orElseGet(() -> createWallet(userId));
+    }
+
+    @Override
+    @Transactional
+    public Wallet getSystemEscrowWallet() {
+        PlatformAdmin admin = platformAdminRepository.findAll().stream()
+                .filter(item -> item.getUser() != null && item.getUser().getUserId() != null)
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("Chưa cấu hình tài khoản quản trị để làm ví ký quỹ TCS"));
+        return getOrCreate(admin.getUser().getUserId());
     }
 
     @Override
@@ -176,8 +204,9 @@ public class WalletServiceImpl implements WalletService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new BusinessException("Không tìm thấy người dùng: " + userId));
 
-        if (walletRepository.findByUser_UserId(userId).isPresent()) {
-            throw new BusinessException(WALLET_ALREADY_EXISTS);
+        var existingWallet = walletRepository.findByUser_UserId(userId);
+        if (existingWallet.isPresent()) {
+            return existingWallet.get();
         }
 
         Wallet wallet = new Wallet();
@@ -186,7 +215,11 @@ public class WalletServiceImpl implements WalletService {
         wallet.setAvailableBalance(BigDecimal.ZERO);
         wallet.setFrozenBalance(BigDecimal.ZERO);
         wallet.setStatus(WalletStatus.ACTIVE);
-        return walletRepository.save(wallet);
+        try {
+            return walletRepository.save(wallet);
+        } catch (DataIntegrityViolationException ex) {
+            return walletRepository.findByUser_UserId(userId).orElseThrow(() -> ex);
+        }
     }
 
     private void writeJournal(

@@ -1,6 +1,7 @@
 package com.tcs.module.platform.service.impl;
 
 import com.tcs.exception.BusinessException;
+import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.finance.entity.Dispute;
 import com.tcs.module.finance.entity.EscrowTransaction;
@@ -32,6 +33,8 @@ import com.tcs.module.identity.repository.VerificationDocumentRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.messaging.entity.Notification;
 import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
@@ -406,6 +409,17 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public List<ReportResponse> listCenterReports() {
+        Long centerUserId = authHelper.requireRole(UserRole.TUTOR_CENTER).getUserId();
+        return reportRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
+                .stream()
+                .filter(report -> isOwnedCenterClassReport(report, centerUserId))
+                .map(this::toReportResponse)
+                .toList();
+    }
+
+    @Override
     @Transactional
     public ReportResponse resolveClassIssue(Long reportId, ResolveClassIssueRequest request) {
         authHelper.requireRole(UserRole.PLATFORM_ADMIN);
@@ -415,7 +429,6 @@ public class PlatformServiceImpl implements PlatformService {
         if (request == null || request.getAction() == null) {
             throw new IllegalArgumentException("Hành động xử lý là bắt buộc");
         }
-        String notes = normalizeClassIssueNotes(request.getNotes());
 
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy báo cáo"));
@@ -425,6 +438,40 @@ public class PlatformServiceImpl implements PlatformService {
         if (report.getStatus() == ReportStatus.RESOLVED) {
             throw new BusinessException("Báo cáo đã được xử lý");
         }
+
+        return resolveClassIssueReport(report, request);
+    }
+
+    @Override
+    @Transactional
+    public ReportResponse resolveCenterClassIssue(Long reportId, ResolveClassIssueRequest request) {
+        Long centerUserId = authHelper.requireRole(UserRole.TUTOR_CENTER).getUserId();
+        if (reportId == null) {
+            throw new IllegalArgumentException("reportId là bắt buộc");
+        }
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy báo cáo"));
+        if (!isOwnedCenterClassReport(report, centerUserId)) {
+            throw new ForbiddenException("Bạn chỉ có quyền xử lý báo cáo của lớp trung tâm do mình quản lý");
+        }
+        if (request == null || request.getAction() == null) {
+            throw new IllegalArgumentException("Hành động xử lý là bắt buộc");
+        }
+        if (report.getStatus() == ReportStatus.RESOLVED) {
+            throw new BusinessException("Báo cáo đã được xử lý");
+        }
+
+        return resolveClassIssueReport(report, request);
+    }
+
+    private ReportResponse resolveClassIssueReport(Report report, ResolveClassIssueRequest request) {
+        if (request == null || request.getAction() == null) {
+            throw new IllegalArgumentException("Hành động xử lý là bắt buộc");
+        }
+        if (report.getTargetType() != ReportTargetType.CLASS) {
+            throw new BusinessException("Chỉ hỗ trợ xử lý báo cáo sự cố lớp học trong luồng này");
+        }
+        String notes = normalizeClassIssueNotes(request.getNotes());
 
         String oldDescription = report.getDescription();
         ReportStatus oldStatus = report.getStatus();
@@ -803,6 +850,31 @@ public class PlatformServiceImpl implements PlatformService {
                         tutoringClass.getTitle(),
                         tutoringClass.getStatus() != null ? tutoringClass.getStatus().name() : null))
                 .orElse(new ClassReportContext(null, null));
+    }
+
+    private boolean isOwnedCenterClassReport(Report report, Long centerUserId) {
+        if (report == null
+                || report.getTargetType() != ReportTargetType.CLASS
+                || report.getTargetId() == null
+                || centerUserId == null) {
+            return false;
+        }
+        return tutoringClassRepository.findById(report.getTargetId())
+                .filter(tutoringClass -> tutoringClass.getClassType() == ClassType.CENTER)
+                .filter(tutoringClass -> isOwnedByCenter(tutoringClass, centerUserId))
+                .isPresent();
+    }
+
+    private boolean isOwnedByCenter(TutoringClass tutoringClass, Long centerUserId) {
+        if (tutoringClass == null || centerUserId == null) {
+            return false;
+        }
+        boolean ownsByCenterProfile = tutoringClass.getCenter() != null
+                && tutoringClass.getCenter().getUser() != null
+                && Objects.equals(tutoringClass.getCenter().getUser().getUserId(), centerUserId);
+        boolean ownsByCreator = tutoringClass.getCreator() != null
+                && Objects.equals(tutoringClass.getCreator().getUserId(), centerUserId);
+        return ownsByCenterProfile || ownsByCreator;
     }
 
     private Page<User> queryUsers(UserStatus status, UserRole role, String keyword, PageRequest pageable) {

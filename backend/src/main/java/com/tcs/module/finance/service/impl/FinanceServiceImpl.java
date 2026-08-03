@@ -3,6 +3,7 @@ package com.tcs.module.finance.service.impl;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.common.event.EscrowFunded;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.request.CreateRefundRequest;
 import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
@@ -49,10 +50,12 @@ import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.security.AuthHelper;
+import com.tcs.security.UserPrincipal;
 import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.math.BigDecimal;
@@ -71,6 +74,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -104,6 +108,7 @@ public class FinanceServiceImpl implements FinanceService {
     private final PlatformAdminRepository platformAdminRepository;
     private final EscrowService escrowService;
     private final PaymentNotificationService paymentNotificationService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Value("${finance.withdrawal.auto-approval-threshold:0}")
     private BigDecimal withdrawalAutoApprovalThreshold;
@@ -122,15 +127,22 @@ public class FinanceServiceImpl implements FinanceService {
 
     @Override
     @Transactional
+    public WalletResponse createMyWallet() {
+        Long userId = requireEarningWalletUserId();
+        return toWalletResponse(walletService.create(userId));
+    }
+
+    @Override
+    @Transactional
     public WalletResponse deposit(DepositRequest request) {
-        if (!directDepositEnabled) {
-            throw new BusinessException("Nạp tiền trực tiếp đã tắt. Vui lòng nạp tiền qua cổng thanh toán.");
-        }
         if (request.getAmount() == null || request.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Số tiền nạp phải lớn hơn 0");
         }
-        Long userId = authHelper.currentUserId();
-        Wallet wallet = walletService.getOrCreate(userId);
+        if (!directDepositEnabled) {
+            throw new BusinessException("Nạp tiền trực tiếp đã tắt. Vui lòng nạp tiền qua cổng thanh toán.");
+        }
+        Long userId = requireCenterWalletUserId();
+        Wallet wallet = walletService.getRequired(userId);
         String referenceCode = "TOPUP-" + UUID.randomUUID();
 
         PaymentTransaction tx = new PaymentTransaction();
@@ -138,22 +150,21 @@ public class FinanceServiceImpl implements FinanceService {
         tx.setType(PaymentTransactionType.DEPOSIT);
         tx.setStatus(PaymentTransactionStatus.SUCCESS);
         tx.setAmount(request.getAmount());
-        tx.setDescription(request.getDescription() != null ? request.getDescription() : "Nạp tiền ví");
+        tx.setDescription(request.getDescription() != null ? request.getDescription() : "Nạp tiền ví trung tâm");
         tx.setReferenceCode(referenceCode);
         tx.setProcessedAt(LocalDateTime.now());
         paymentTransactionRepository.save(tx);
 
         walletService.credit(userId, request.getAmount(), referenceCode);
-        return toWalletResponse(walletService.getOrCreate(userId));
+        return toWalletResponse(walletService.getRequired(userId));
     }
 
     @Override
     @Transactional
     public TopupSessionResponse createTopup(DepositRequest request) {
         validateTopupAmount(request);
-
-        Long userId = authHelper.currentUserId();
-        Wallet wallet = walletService.getOrCreate(userId);
+        Long userId = requireCenterWalletUserId();
+        Wallet wallet = walletService.getRequired(userId);
         String reference = createTopupReference();
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(TOPUP_TTL_MINUTES);
 
@@ -164,7 +175,7 @@ public class FinanceServiceImpl implements FinanceService {
         tx.setAmount(request.getAmount());
         tx.setDescription(request.getDescription() != null && !request.getDescription().isBlank()
                 ? request.getDescription()
-                : "Nạp tiền ví qua VietQR");
+                : "Nạp tiền ví trung tâm qua VietQR");
         tx.setReferenceCode(reference);
         paymentTransactionRepository.save(tx);
 
@@ -174,6 +185,7 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public TopupStatusResponse getTopupStatus(String reference) {
+        requireCenterWalletUserId();
         PaymentTransaction tx = requireOwnedTopup(reference);
         return toTopupStatusResponse(tx);
     }
@@ -181,6 +193,7 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public TopupStatusResponse simulateTopupSuccess(String reference) {
+        requireCenterWalletUserId();
         if (!simulateTopupEnabled) {
             throw new BusinessException("Xác nhận nạp tiền demo đã tắt.");
         }
@@ -229,11 +242,21 @@ public class FinanceServiceImpl implements FinanceService {
                     .build();
         }
 
+        PaymentTransaction matchedEscrow = findMatchingEscrowPayment(request);
+        if (matchedEscrow != null) {
+            completeEscrowPayment(matchedEscrow, externalTransactionId, "Đã ghi nhận học phí SePay vào escrow.");
+            return PaymentWebhookResponse.builder()
+                    .status("success")
+                    .message("Đã ghi nhận học phí SePay vào escrow")
+                    .reference(matchedEscrow.getReferenceCode())
+                    .build();
+        }
+
         PaymentTransaction matched = findMatchingTopup(request);
         if (matched == null) {
             return PaymentWebhookResponse.builder()
                     .status("ignored")
-                    .message("Không tìm thấy giao dịch khớp số tiền, nội dung và tài khoản")
+                    .message("Không tìm thấy giao dịch nạp tiền/escrow khớp số tiền, nội dung và tài khoản")
                     .build();
         }
 
@@ -278,9 +301,21 @@ public class FinanceServiceImpl implements FinanceService {
         PaymentTransaction tx = match != null ? match.tx() : null;
         WithdrawalRequest withdrawal = match != null ? match.withdrawal() : null;
         if (withdrawal == null) {
+            PaymentTransaction refundTx = findMatchingOutgoingRefund(request);
+            if (refundTx != null) {
+                completeOutgoingRefund(
+                        refundTx,
+                        externalTransactionId,
+                        "Hoàn tiền escrow đã được xác nhận qua SePay");
+                return PaymentWebhookResponse.builder()
+                        .status("success")
+                        .message("Đã xác nhận giao dịch hoàn tiền từ SePay")
+                        .reference(refundTx.getReferenceCode())
+                        .build();
+            }
             return PaymentWebhookResponse.builder()
                     .status("ignored")
-                    .message("Không tìm thấy yêu cầu rút tiền khớp số tiền, nội dung và tài khoản")
+                    .message("Không tìm thấy yêu cầu rút/hoàn tiền khớp số tiền, nội dung và tài khoản")
                     .reference(tx != null ? tx.getReferenceCode() : null)
                     .build();
         }
@@ -374,8 +409,8 @@ public class FinanceServiceImpl implements FinanceService {
     public WithdrawalResponse createWithdrawal(CreateWithdrawalRequest request) {
         validateWithdrawalRequest(request);
 
-        Long userId = authHelper.currentUserId();
-        Wallet wallet = walletService.getOrCreate(userId);
+        Long userId = requireEarningWalletUserId();
+        Wallet wallet = walletService.getRequired(userId);
         PaymentMethod paymentMethod = resolveWithdrawalMethod(wallet, request);
         String referenceCode = "WITHDRAW-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
 
@@ -567,10 +602,15 @@ public class FinanceServiceImpl implements FinanceService {
             throw new BusinessException("Escrow này đã có yêu cầu hoàn tiền đang chờ xử lý");
         }
 
+        PaymentMethodData refundDestination =
+                validatePaymentMethodRequest(request.getBankName(), request.getAccountNo());
         RefundRequest refundRequest = new RefundRequest();
         refundRequest.setEscrowTransaction(escrow);
         refundRequest.setRequestedBy(requester);
         refundRequest.setAmount(requestedAmount);
+        refundRequest.setBankName(refundDestination.bankName());
+        refundRequest.setAccountNo(refundDestination.accountNo());
+        refundRequest.setTransferStatus("PENDING");
         refundRequest.setReason(request.getReason().trim());
         refundRequest.setStatus(RefundRequestStatus.PENDING);
         refundRequest.setRequestedAt(LocalDateTime.now());
@@ -594,19 +634,23 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional(readOnly = true)
     public List<RefundRequestResponse> getAdminRefundRequests(String status) {
-        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+        UserPrincipal reviewer = authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
         RefundRequestStatus statusFilter = parseRefundStatus(status);
         List<RefundRequest> requests = statusFilter != null
                 ? refundRequestRepository.findByStatusOrderByRequestedAtDesc(statusFilter)
                 : refundRequestRepository.findAllByOrderByRequestedAtDesc();
-        return requests.stream().map(this::toRefundRequestResponse).toList();
+        return requests.stream()
+                .filter(refundRequest -> canReviewRefundRequest(reviewer, refundRequest))
+                .map(this::toRefundRequestResponse)
+                .toList();
     }
 
     @Override
     @Transactional
     public RefundRequestResponse approveRefundRequest(Long refundId, RefundDecisionRequest request) {
-        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+        UserPrincipal reviewer = authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
         RefundRequest refundRequest = requirePendingRefund(refundId);
+        requireCanReviewRefundRequest(reviewer, refundRequest);
         EscrowTransaction escrow = refundRequest.getEscrowTransaction();
         ensureRefundEscrowOpen(escrow);
 
@@ -631,15 +675,24 @@ public class FinanceServiceImpl implements FinanceService {
                 reason));
 
         EscrowTransaction settledEscrow = escrowTransactionRepository.findById(escrow.getEscrowId()).orElse(escrow);
+        boolean refundedToPayerWallet = escrowPaymentUsesPayerWallet(escrow);
         refundRequest.setEscrowTransaction(settledEscrow);
-        refundRequest.setStatus(RefundRequestStatus.COMPLETED);
+        refundRequest.setRefundReferenceCode(refundReferenceCode(escrow.getEscrowId()));
+        refundRequest.setTransferStatus(refundedToPayerWallet ? "SUCCESS" : "PENDING");
+        if (refundedToPayerWallet) {
+            refundRequest.setTransferProcessedAt(LocalDateTime.now());
+        }
+        refundRequest.setStatus(refundedToPayerWallet ? RefundRequestStatus.COMPLETED : RefundRequestStatus.APPROVED);
         refundRequest.setProcessedAt(LocalDateTime.now());
         refundRequest = refundRequestRepository.save(refundRequest);
 
         paymentNotificationService.notifyPayment(
                 refundRequest.getRequestedBy(),
                 "Yêu cầu hoàn tiền đã được duyệt",
-                "Yêu cầu hoàn " + formatAmount(approvedAmount) + " đã được xử lý.",
+                refundedToPayerWallet
+                        ? "Yêu cầu hoàn " + formatAmount(approvedAmount) + " đã được xử lý."
+                        : "Yêu cầu hoàn " + formatAmount(approvedAmount)
+                                + " đã được duyệt và đang chờ chuyển khoản qua SePay.",
                 "REFUND_REQUEST",
                 refundRequest.getRefundId());
         return toRefundRequestResponse(refundRequest);
@@ -648,8 +701,9 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public RefundRequestResponse rejectRefundRequest(Long refundId, RefundDecisionRequest request) {
-        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+        UserPrincipal reviewer = authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
         RefundRequest refundRequest = requirePendingRefund(refundId);
+        requireCanReviewRefundRequest(reviewer, refundRequest);
         String reason = decisionReason(request, "Từ chối yêu cầu hoàn tiền");
 
         refundRequest.setReason(appendDecisionNote(refundRequest.getReason(), "Từ chối hoàn tiền", reason));
@@ -710,7 +764,17 @@ public class FinanceServiceImpl implements FinanceService {
     }
 
     private Wallet currentWallet() {
-        return walletService.getOrCreate(authHelper.currentUserId());
+        return walletService.getRequired(requireEarningWalletUserId());
+    }
+
+    private Long requireEarningWalletUserId() {
+        authHelper.requireRole(UserRole.TUTOR, UserRole.TUTOR_CENTER);
+        return authHelper.currentUserId();
+    }
+
+    private Long requireCenterWalletUserId() {
+        authHelper.requireRole(UserRole.TUTOR_CENTER);
+        return authHelper.currentUserId();
     }
 
     private void validateTopupAmount(DepositRequest request) {
@@ -775,7 +839,7 @@ public class FinanceServiceImpl implements FinanceService {
     }
 
     private PaymentTransaction findMatchingTopup(SepayWebhookRequest request) {
-        List<PaymentTransaction> candidates = paymentTransactionRepository.findByTypeAndStatusAndAmount(
+        List<PaymentTransaction> candidates = findTransactionsByTypeStatusAmount(
                 PaymentTransactionType.DEPOSIT,
                 PaymentTransactionStatus.PENDING,
                 request.getTransferAmount());
@@ -786,6 +850,40 @@ public class FinanceServiceImpl implements FinanceService {
         return candidates.stream()
                 .filter(tx -> !isTopupExpired(tx))
                 .filter(tx -> accountMatches(accountNumber))
+                .filter(tx -> transferContentMatches(tx, payload))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private PaymentTransaction findMatchingEscrowPayment(SepayWebhookRequest request) {
+        String accountNumber = compact(request.getAccountNumber());
+        if (!accountMatches(accountNumber)) {
+            return null;
+        }
+
+        String payload = compactWebhookPayload(request);
+        return findTransactionsByTypeStatusAmount(
+                        PaymentTransactionType.ESCROW_DEPOSIT,
+                        PaymentTransactionStatus.PENDING,
+                        request.getTransferAmount())
+                .stream()
+                .filter(tx -> transferContentMatches(tx, payload))
+                .findFirst()
+                .orElse(null);
+    }
+
+    private PaymentTransaction findMatchingOutgoingRefund(SepayWebhookRequest request) {
+        String accountNumber = compact(request.getAccountNumber());
+        if (!accountMatches(accountNumber)) {
+            return null;
+        }
+
+        String payload = compactWebhookPayload(request);
+        return findTransactionsByTypeStatusAmount(
+                        PaymentTransactionType.REFUND,
+                        PaymentTransactionStatus.PENDING,
+                        request.getTransferAmount())
+                .stream()
                 .filter(tx -> transferContentMatches(tx, payload))
                 .findFirst()
                 .orElse(null);
@@ -840,13 +938,22 @@ public class FinanceServiceImpl implements FinanceService {
         }
 
         String payload = compactWebhookPayload(request);
-        return paymentTransactionRepository.findByTypeAndStatusAndAmount(
+        return findTransactionsByTypeStatusAmount(
                         PaymentTransactionType.WITHDRAWAL,
                         PaymentTransactionStatus.PENDING,
                         request.getTransferAmount())
                 .stream()
                 .filter(tx -> transferContentMatches(tx, payload))
                 .toList();
+    }
+
+    private List<PaymentTransaction> findTransactionsByTypeStatusAmount(
+            PaymentTransactionType type,
+            PaymentTransactionStatus status,
+            BigDecimal amount) {
+        List<PaymentTransaction> transactions =
+                paymentTransactionRepository.findByTypeAndStatusAndAmount(type, status, amount);
+        return transactions != null ? transactions : List.of();
     }
 
     private boolean accountMatches(String incomingAccountNumber) {
@@ -975,6 +1082,93 @@ public class FinanceServiceImpl implements FinanceService {
                 withdrawal.getWithdrawalId());
 
         return toWithdrawalResponse(savedWithdrawal, tx, wallet);
+    }
+
+    private EscrowTransaction completeEscrowPayment(
+            PaymentTransaction tx,
+            String externalTransactionId,
+            String message) {
+
+        EscrowTransaction escrow = escrowTransactionRepository.findByPayment_TransactionId(tx.getTransactionId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy escrow của giao dịch thanh toán"));
+        if (tx.getStatus() == PaymentTransactionStatus.SUCCESS && escrow.getStatus() == EscrowStatus.FUNDED) {
+            return escrow;
+        }
+        if (tx.getStatus() != PaymentTransactionStatus.PENDING || escrow.getStatus() != EscrowStatus.PENDING) {
+            throw new BusinessException("Giao dịch escrow không còn ở trạng thái chờ thanh toán");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        tx.setStatus(PaymentTransactionStatus.SUCCESS);
+        tx.setExternalTransactionId(externalTransactionId);
+        tx.setProcessedAt(now);
+        tx.setDescription(message);
+        paymentTransactionRepository.save(tx);
+
+        escrow.setStatus(EscrowStatus.FUNDED);
+        escrow.setDepositedAt(now);
+        EscrowTransaction savedEscrow = escrowTransactionRepository.save(escrow);
+
+        Long payerUserId = escrowPayerUserId(savedEscrow);
+        Long beneficiaryUserId = escrowBeneficiaryUserId(savedEscrow);
+        TutoringClass tutoringClass = resolveTutoringClass(savedEscrow);
+        paymentNotificationService.notifyPayment(
+                payerUserId,
+                "Thanh toán escrow thành công",
+                "Học phí " + formatAmount(savedEscrow.getAmount()) + " đã được ghi nhận vào escrow.",
+                "ESCROW",
+                savedEscrow.getEscrowId());
+        paymentNotificationService.notifyPayment(
+                beneficiaryUserId,
+                "Escrow đã được nạp",
+                "Escrow #" + savedEscrow.getEscrowId() + " đã nhận "
+                        + formatAmount(savedEscrow.getAmount()) + ".",
+                "ESCROW",
+                savedEscrow.getEscrowId());
+        eventPublisher.publishEvent(new EscrowFunded(
+                savedEscrow.getEscrowId(),
+                tutoringClass != null ? tutoringClass.getClassId() : null,
+                payerUserId,
+                beneficiaryUserId,
+                savedEscrow.getAmount(),
+                savedEscrow.getAssignment() != null ? savedEscrow.getAssignment().getAssignmentId() : null,
+                savedEscrow.getClassStudent() != null ? savedEscrow.getClassStudent().getClassStudentId() : null));
+
+        return savedEscrow;
+    }
+
+    private void completeOutgoingRefund(
+            PaymentTransaction tx,
+            String externalTransactionId,
+            String description) {
+
+        if (tx.getStatus() == PaymentTransactionStatus.SUCCESS) {
+            return;
+        }
+        if (tx.getStatus() != PaymentTransactionStatus.PENDING) {
+            throw new BusinessException("Giao dịch hoàn tiền không còn ở trạng thái chờ");
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        tx.setStatus(PaymentTransactionStatus.SUCCESS);
+        tx.setExternalTransactionId(externalTransactionId);
+        tx.setProcessedAt(now);
+        tx.setDescription(description);
+        tx.setFailureReason(null);
+        paymentTransactionRepository.save(tx);
+
+        refundRequestRepository.findByRefundReferenceCode(tx.getReferenceCode()).ifPresent(refundRequest -> {
+            refundRequest.setStatus(RefundRequestStatus.COMPLETED);
+            refundRequest.setTransferStatus("SUCCESS");
+            refundRequest.setTransferProcessedAt(now);
+            refundRequestRepository.save(refundRequest);
+            paymentNotificationService.notifyPayment(
+                    refundRequest.getRequestedBy(),
+                    "Hoàn tiền đã chuyển khoản",
+                    "Khoản hoàn " + formatAmount(tx.getAmount()) + " đã được xác nhận qua SePay.",
+                    "REFUND_REQUEST",
+                    refundRequest.getRefundId());
+        });
     }
 
     private TopupStatusResponse completeTopup(
@@ -1225,6 +1419,7 @@ public class FinanceServiceImpl implements FinanceService {
         if (isBlank(request.getReason())) {
             throw new IllegalArgumentException("Vui lòng nhập lý do yêu cầu hoàn tiền");
         }
+        validatePaymentMethodRequest(request.getBankName(), request.getAccountNo());
         int selectorCount = countPresent(request.getEscrowId(), request.getAssignmentId(), request.getClassStudentId());
         if (selectorCount == 0) {
             throw new IllegalArgumentException("Cần cung cấp escrowId, assignmentId hoặc classStudentId");
@@ -1258,49 +1453,31 @@ public class FinanceServiceImpl implements FinanceService {
     }
 
     private void requireRefundEscrowParticipant(EscrowTransaction escrow, Long userId) {
-        if (!isRefundEscrowParticipant(escrow, userId)) {
-            throw new ForbiddenException("Bạn không có quyền tạo yêu cầu hoàn tiền cho escrow này");
+        if (!isPayer(escrow, userId)) {
+            throw new ForbiddenException("Chỉ người thanh toán escrow mới có quyền gửi yêu cầu hoàn tiền");
         }
-    }
-
-    private boolean isRefundEscrowParticipant(EscrowTransaction escrow, Long userId) {
-        if (escrow == null || userId == null) {
-            return false;
-        }
-        if (isPayer(escrow, userId)) {
-            return true;
-        }
-
-        ClassAssignment assignment = escrow.getAssignment();
-        if (assignment != null) {
-            if (assignment.getTutor() != null
-                    && assignment.getTutor().getUser() != null
-                    && Objects.equals(assignment.getTutor().getUser().getUserId(), userId)) {
-                return true;
-            }
-            if (assignment.getApplication() != null
-                    && isClassParticipant(assignment.getApplication().getTutoringClass(), userId)) {
-                return true;
-            }
-        }
-
-        ClassStudent classStudent = escrow.getClassStudent();
-        if (classStudent != null) {
-            if (classStudent.getEnrolledByUser() != null
-                    && Objects.equals(classStudent.getEnrolledByUser().getUserId(), userId)) {
-                return true;
-            }
-            return isClassParticipant(classStudent.getTutoringClass(), userId);
-        }
-
-        return false;
     }
 
     private boolean isPayer(EscrowTransaction escrow, Long userId) {
-        if (escrow.getPayment() == null || escrow.getPayment().getWallet() == null) {
+        if (escrow == null || userId == null) {
             return false;
         }
-        Wallet payerWallet = escrow.getPayment().getWallet();
+        ClassStudent classStudent = escrow.getClassStudent();
+        if (classStudent != null && classStudent.getEnrolledByUser() != null) {
+            return Objects.equals(classStudent.getEnrolledByUser().getUserId(), userId);
+        }
+
+        TutoringClass tutoringClass = resolveTutoringClass(escrow);
+        if (tutoringClass != null && tutoringClass.getCreator() != null
+                && Objects.equals(tutoringClass.getCreator().getUserId(), userId)) {
+            return true;
+        }
+
+        PaymentTransaction payment = escrow.getPayment();
+        Wallet payerWallet = payment != null ? payment.getWallet() : null;
+        if (payerWallet == null) {
+            return false;
+        }
         if (payerWallet.getUser() != null) {
             return Objects.equals(payerWallet.getUser().getUserId(), userId);
         }
@@ -1354,6 +1531,38 @@ public class FinanceServiceImpl implements FinanceService {
             throw new BusinessException("Chỉ yêu cầu hoàn tiền đang chờ xử lý mới có thể duyệt/từ chối");
         }
         return refundRequest;
+    }
+
+    private boolean canReviewRefundRequest(UserPrincipal reviewer, RefundRequest refundRequest) {
+        if (reviewer == null || refundRequest == null) {
+            return false;
+        }
+        if (reviewer.getRole() == UserRole.PLATFORM_ADMIN) {
+            return true;
+        }
+        if (reviewer.getRole() != UserRole.TUTOR_CENTER) {
+            return false;
+        }
+        return isOwnedCenterEscrow(refundRequest.getEscrowTransaction(), reviewer.getUserId());
+    }
+
+    private void requireCanReviewRefundRequest(UserPrincipal reviewer, RefundRequest refundRequest) {
+        if (!canReviewRefundRequest(reviewer, refundRequest)) {
+            throw new ForbiddenException("Bạn chỉ có quyền xử lý yêu cầu hoàn tiền của lớp trung tâm do mình quản lý");
+        }
+    }
+
+    private boolean isOwnedCenterEscrow(EscrowTransaction escrow, Long centerUserId) {
+        TutoringClass tutoringClass = resolveTutoringClass(escrow);
+        if (tutoringClass == null || centerUserId == null || tutoringClass.getClassType() != ClassType.CENTER) {
+            return false;
+        }
+        boolean ownsByCenterProfile = tutoringClass.getCenter() != null
+                && tutoringClass.getCenter().getUser() != null
+                && Objects.equals(tutoringClass.getCenter().getUser().getUserId(), centerUserId);
+        boolean ownsByCreator = tutoringClass.getCreator() != null
+                && Objects.equals(tutoringClass.getCreator().getUserId(), centerUserId);
+        return ownsByCenterProfile || ownsByCreator;
     }
 
     private BigDecimal decisionAmount(RefundDecisionRequest request, BigDecimal fallback) {
@@ -1441,10 +1650,15 @@ public class FinanceServiceImpl implements FinanceService {
                         : null)
                 .escrowAmount(escrow != null ? escrow.getAmount() : null)
                 .amount(request.getAmount())
+                .bankName(request.getBankName())
+                .accountNoMasked(maskAccountNo(request.getAccountNo()))
+                .refundReferenceCode(request.getRefundReferenceCode())
+                .transferStatus(request.getTransferStatus())
                 .status(request.getStatus())
                 .reason(request.getReason())
                 .requestedAt(request.getRequestedAt())
                 .processedAt(request.getProcessedAt())
+                .transferProcessedAt(request.getTransferProcessedAt())
                 .build();
     }
 
@@ -1465,6 +1679,62 @@ public class FinanceServiceImpl implements FinanceService {
     private String classTitle(EscrowTransaction escrow) {
         TutoringClass tutoringClass = resolveTutoringClass(escrow);
         return tutoringClass != null ? tutoringClass.getTitle() : null;
+    }
+
+    private String refundReferenceCode(Long escrowId) {
+        return "REFUND-ESCROW-" + escrowId;
+    }
+
+    private boolean escrowPaymentUsesPayerWallet(EscrowTransaction escrow) {
+        if (escrow == null || escrow.getPayment() == null || escrow.getPayment().getWallet() == null) {
+            return false;
+        }
+        Long payerUserId = escrowPayerUserId(escrow);
+        Wallet wallet = escrow.getPayment().getWallet();
+        return (wallet.getUser() != null && Objects.equals(wallet.getUser().getUserId(), payerUserId))
+                || Objects.equals(wallet.getWalletId(), payerUserId);
+    }
+
+    private Long escrowPayerUserId(EscrowTransaction escrow) {
+        ClassStudent classStudent = escrow != null ? escrow.getClassStudent() : null;
+        if (classStudent != null && classStudent.getEnrolledByUser() != null) {
+            return classStudent.getEnrolledByUser().getUserId();
+        }
+
+        TutoringClass tutoringClass = resolveTutoringClass(escrow);
+        if (tutoringClass != null && tutoringClass.getCreator() != null) {
+            return tutoringClass.getCreator().getUserId();
+        }
+
+        PaymentTransaction payment = escrow != null ? escrow.getPayment() : null;
+        Wallet wallet = payment != null ? payment.getWallet() : null;
+        if (wallet != null && wallet.getUser() != null) {
+            return wallet.getUser().getUserId();
+        }
+        if (wallet != null) {
+            return wallet.getWalletId();
+        }
+        throw new BusinessException("Không xác định được người thanh toán escrow");
+    }
+
+    private Long escrowBeneficiaryUserId(EscrowTransaction escrow) {
+        if (escrow != null
+                && escrow.getAssignment() != null
+                && escrow.getAssignment().getTutor() != null
+                && escrow.getAssignment().getTutor().getUser() != null) {
+            return escrow.getAssignment().getTutor().getUser().getUserId();
+        }
+
+        TutoringClass tutoringClass = resolveTutoringClass(escrow);
+        if (tutoringClass != null
+                && tutoringClass.getCenter() != null
+                && tutoringClass.getCenter().getUser() != null) {
+            return tutoringClass.getCenter().getUser().getUserId();
+        }
+        if (tutoringClass != null && tutoringClass.getCreator() != null) {
+            return tutoringClass.getCreator().getUserId();
+        }
+        throw new BusinessException("Không xác định được người nhận escrow");
     }
 
     private BigDecimal amountOrZero(BigDecimal amount) {

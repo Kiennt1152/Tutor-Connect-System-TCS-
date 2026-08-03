@@ -44,6 +44,7 @@ import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassStudentStatus;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.ClassTerminationStatus;
 import com.tcs.module.marketplace.enums.LessonAttendanceStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
@@ -199,30 +200,34 @@ public class DisputeServiceImpl implements DisputeService {
     @Override
     @Transactional(readOnly = true)
     public List<AdminDisputeReviewResponse> listDisputesForAdmin(DisputeStatus status) {
-        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+        UserPrincipal reviewer = authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
         Sort newestFirst = Sort.by(Sort.Direction.DESC, "createdAt");
         List<Dispute> disputes = status != null
                 ? disputeRepository.findByStatus(status, newestFirst)
                 : disputeRepository.findAll(newestFirst);
-        return disputes.stream().map(this::toAdminReviewResponse).toList();
+        return disputes.stream()
+                .filter(dispute -> canReviewDispute(reviewer, dispute))
+                .map(this::toAdminReviewResponse)
+                .toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public AdminDisputeReviewResponse getDisputeForAdmin(Long disputeId) {
-        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+        UserPrincipal reviewer = authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
         if (disputeId == null) {
             throw new IllegalArgumentException("disputeId là bắt buộc");
         }
         Dispute dispute = disputeRepository.findById(disputeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tranh chấp"));
+        requireCanReviewDispute(reviewer, dispute);
         return toAdminReviewResponse(dispute);
     }
 
     @Override
     @Transactional
     public AdminDisputeReviewResponse resolveDispute(Long disputeId, ResolveDisputeRequest request) {
-        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+        UserPrincipal reviewer = authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
         if (disputeId == null) {
             throw new IllegalArgumentException("disputeId là bắt buộc");
         }
@@ -233,6 +238,7 @@ public class DisputeServiceImpl implements DisputeService {
         String resolution = normalizeResolution(request.getResolution());
         Dispute dispute = disputeRepository.findById(disputeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tranh chấp"));
+        requireCanReviewDispute(reviewer, dispute);
         if (dispute.getStatus() == DisputeStatus.RESOLVED) {
             throw new BusinessException("Tranh chấp đã được xử lý, vui lòng dùng luồng khiếu nại/mở lại nếu cần");
         }
@@ -1247,16 +1253,20 @@ public class DisputeServiceImpl implements DisputeService {
     }
 
     private boolean isPayer(EscrowTransaction escrow, Long userId) {
-        PaymentTransaction payment = escrow.getPayment();
-        Wallet payerWallet = payment != null ? payment.getWallet() : null;
-        if (payerWallet == null) {
+        if (escrow == null || userId == null) {
             return false;
         }
-        if (payerWallet.getUser() != null
-                && Objects.equals(payerWallet.getUser().getUserId(), userId)) {
+
+        User payer = resolveEscrowPayerUser(escrow);
+        if (payer != null && Objects.equals(payer.getUserId(), userId)) {
             return true;
         }
-        return payerWallet.getUser() == null && Objects.equals(payerWallet.getWalletId(), userId);
+
+        PaymentTransaction payment = escrow.getPayment();
+        Wallet payerWallet = payment != null ? payment.getWallet() : null;
+        return payerWallet != null
+                && payerWallet.getUser() == null
+                && Objects.equals(payerWallet.getWalletId(), userId);
     }
 
     private boolean isClassParticipant(TutoringClass tutoringClass, Long userId) {
@@ -1270,6 +1280,36 @@ public class DisputeServiceImpl implements DisputeService {
         return tutoringClass.getCenter() != null
                 && tutoringClass.getCenter().getUser() != null
                 && Objects.equals(tutoringClass.getCenter().getUser().getUserId(), userId);
+    }
+
+    private User resolveEscrowPayerUser(EscrowTransaction escrow) {
+        if (escrow == null) {
+            return null;
+        }
+
+        ClassStudent classStudent = escrow.getClassStudent();
+        if (classStudent != null && classStudent.getEnrolledByUser() != null) {
+            return classStudent.getEnrolledByUser();
+        }
+
+        ClassAssignment assignment = escrow.getAssignment();
+        TutoringClass tutoringClass = assignment != null
+                && assignment.getApplication() != null
+                ? assignment.getApplication().getTutoringClass()
+                : null;
+        if (tutoringClass != null && tutoringClass.getCreator() != null) {
+            return tutoringClass.getCreator();
+        }
+
+        PaymentTransaction payment = escrow.getPayment();
+        Wallet payerWallet = payment != null ? payment.getWallet() : null;
+        return payerWallet != null ? payerWallet.getUser() : null;
+    }
+
+    private Long fallbackPayerWalletId(EscrowTransaction escrow) {
+        PaymentTransaction payment = escrow != null ? escrow.getPayment() : null;
+        Wallet payerWallet = payment != null ? payment.getWallet() : null;
+        return payerWallet != null && payerWallet.getUser() == null ? payerWallet.getWalletId() : null;
     }
 
     private DisputeResponse createAndHoldDispute(Report report, EscrowTransaction escrow, String reason) {
@@ -1376,8 +1416,7 @@ public class DisputeServiceImpl implements DisputeService {
         }
 
         PaymentTransaction payment = escrow.getPayment();
-        Wallet payerWallet = payment != null ? payment.getWallet() : null;
-        User payer = payerWallet != null ? payerWallet.getUser() : null;
+        User payer = resolveEscrowPayerUser(escrow);
         return AdminDisputeReviewResponse.EscrowReviewInfo.builder()
                 .escrowId(escrow.getEscrowId())
                 .status(escrow.getStatus())
@@ -1390,7 +1429,7 @@ public class DisputeServiceImpl implements DisputeService {
                 .paymentType(payment != null ? payment.getType() : null)
                 .paymentStatus(payment != null ? payment.getStatus() : null)
                 .paymentReferenceCode(payment != null ? payment.getReferenceCode() : null)
-                .payerUserId(payer != null ? payer.getUserId() : null)
+                .payerUserId(payer != null ? payer.getUserId() : fallbackPayerWalletId(escrow))
                 .payerEmail(payer != null ? payer.getEmail() : null)
                 .build();
     }
@@ -1452,12 +1491,28 @@ public class DisputeServiceImpl implements DisputeService {
                 .refundId(request.getRefundId())
                 .status(request.getStatus())
                 .amount(request.getAmount())
+                .bankName(request.getBankName())
+                .accountNoMasked(maskAccountNo(request.getAccountNo()))
+                .refundReferenceCode(request.getRefundReferenceCode())
+                .transferStatus(request.getTransferStatus())
                 .reason(request.getReason())
                 .requestedByUserId(requestedBy != null ? requestedBy.getUserId() : null)
                 .requestedByEmail(requestedBy != null ? requestedBy.getEmail() : null)
                 .requestedAt(request.getRequestedAt())
                 .processedAt(request.getProcessedAt())
+                .transferProcessedAt(request.getTransferProcessedAt())
                 .build();
+    }
+
+    private String maskAccountNo(String accountNo) {
+        if (accountNo == null || accountNo.isBlank()) {
+            return null;
+        }
+        String normalized = accountNo.trim();
+        if (normalized.length() <= 4) {
+            return "****" + normalized;
+        }
+        return "****" + normalized.substring(normalized.length() - 4);
     }
 
     private AdminDisputeReviewResponse.SettlementSuggestionInfo toSettlementSuggestionInfo(
@@ -1546,6 +1601,43 @@ public class DisputeServiceImpl implements DisputeService {
             return tutoringClassRepository.findById(report.getTargetId()).orElse(null);
         }
         return null;
+    }
+
+    private boolean canReviewDispute(UserPrincipal reviewer, Dispute dispute) {
+        if (reviewer == null || dispute == null) {
+            return false;
+        }
+        if (reviewer.getRole() == UserRole.PLATFORM_ADMIN) {
+            return true;
+        }
+        if (reviewer.getRole() != UserRole.TUTOR_CENTER) {
+            return false;
+        }
+        EscrowTransaction escrow = dispute.getEscrowTransaction();
+        Report report = dispute.getReport();
+        TutoringClass tutoringClass = resolveTutoringClass(
+                report,
+                escrow != null ? escrow.getAssignment() : null,
+                escrow != null ? escrow.getClassStudent() : null);
+        return isOwnedCenterClass(tutoringClass, reviewer.getUserId());
+    }
+
+    private void requireCanReviewDispute(UserPrincipal reviewer, Dispute dispute) {
+        if (!canReviewDispute(reviewer, dispute)) {
+            throw new ForbiddenException("Bạn chỉ có quyền xử lý tranh chấp của lớp trung tâm do mình quản lý");
+        }
+    }
+
+    private boolean isOwnedCenterClass(TutoringClass tutoringClass, Long centerUserId) {
+        if (tutoringClass == null || centerUserId == null || tutoringClass.getClassType() != ClassType.CENTER) {
+            return false;
+        }
+        boolean ownsByCenterProfile = tutoringClass.getCenter() != null
+                && tutoringClass.getCenter().getUser() != null
+                && Objects.equals(tutoringClass.getCenter().getUser().getUserId(), centerUserId);
+        boolean ownsByCreator = tutoringClass.getCreator() != null
+                && Objects.equals(tutoringClass.getCreator().getUserId(), centerUserId);
+        return ownsByCenterProfile || ownsByCreator;
     }
 
     private ClassTerminationRequest latestTerminationRequest(ClassAssignment assignment, ClassStudent classStudent) {
@@ -1786,9 +1878,7 @@ public class DisputeServiceImpl implements DisputeService {
             return users;
         }
 
-        PaymentTransaction payment = escrow.getPayment();
-        Wallet payerWallet = payment != null ? payment.getWallet() : null;
-        addUser(users, seenUserIds, payerWallet != null ? payerWallet.getUser() : null);
+        addUser(users, seenUserIds, resolveEscrowPayerUser(escrow));
 
         ClassAssignment assignment = escrow.getAssignment();
         if (assignment != null) {

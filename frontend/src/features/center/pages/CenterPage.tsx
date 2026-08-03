@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { LocationPicker } from '../components/LocationPicker';
 import { centerApi } from '../api/centerApi';
 import type {
@@ -560,6 +561,9 @@ export default function CenterPage() {
             </Link>
             <Link className="cc-btn cc-btn--ghost" to="/center/reschedules">
               🔄 Yêu cầu đổi lịch
+            </Link>
+            <Link className="cc-btn cc-btn--ghost" to={APP_ROUTES.centerReports}>
+              Báo cáo & tranh chấp
             </Link>
             <button className="cc-btn cc-btn--primary" type="button" onClick={openCreate}>
               + Tạo lớp mới

@@ -48,6 +48,11 @@ public class FinanceController {
         return financeService.getMyWallet();
     }
 
+    @PostMapping("/wallet")
+    public WalletResponse createMyWallet() {
+        return financeService.createMyWallet();
+    }
+
     @GetMapping("/wallet/transactions")
     public WalletTransactionsResponse getMyTransactions(
             @RequestParam(defaultValue = "0") int page,

@@ -22,8 +22,13 @@ public class RefundRequestResponse {
     private Long classStudentId;
     private BigDecimal escrowAmount;
     private BigDecimal amount;
+    private String bankName;
+    private String accountNoMasked;
+    private String refundReferenceCode;
+    private String transferStatus;
     private RefundRequestStatus status;
     private String reason;
     private LocalDateTime requestedAt;
     private LocalDateTime processedAt;
+    private LocalDateTime transferProcessedAt;
 }

@@ -1,5 +1,7 @@
 package com.tcs.module.finance.service.impl;
 
+import com.tcs.exception.ForbiddenException;
+import com.tcs.common.event.EscrowFunded;
 import com.tcs.module.finance.dto.request.DepositRequest;
 import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
 import com.tcs.module.finance.dto.request.PaymentMethodRequest;
@@ -11,19 +13,27 @@ import com.tcs.module.finance.dto.response.TopupStatusResponse;
 import com.tcs.module.finance.dto.response.WalletResponse;
 import com.tcs.module.finance.dto.response.WalletTransactionsResponse;
 import com.tcs.module.finance.dto.response.WithdrawalResponse;
+import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentMethod;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.entity.WithdrawalRequest;
+import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
 import com.tcs.module.finance.enums.WithdrawalRequestStatus;
 import com.tcs.module.finance.enums.WalletStatus;
+import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.PaymentMethodRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
 import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
+import com.tcs.module.identity.entity.User;
+import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.TutorApplication;
+import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
@@ -39,6 +49,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -75,7 +86,13 @@ class FinanceServiceImplTest {
     private WithdrawalRequestRepository withdrawalRequestRepository;
 
     @Mock
+    private EscrowTransactionRepository escrowTransactionRepository;
+
+    @Mock
     private PaymentNotificationService paymentNotificationService;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private FinanceServiceImpl financeService;
@@ -94,10 +111,10 @@ class FinanceServiceImplTest {
     }
 
     @Test
-    @DisplayName("getMyWallet returns an existing or newly created wallet")
+    @DisplayName("getMyWallet returns an existing wallet")
     void getMyWalletReturnsCurrentWallet() {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
-        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
 
         WalletResponse response = financeService.getMyWallet();
 
@@ -106,14 +123,38 @@ class FinanceServiceImplTest {
         assertEquals(new BigDecimal("250000.00"), response.getAvailableBalance());
         assertEquals(new BigDecimal("50000.00"), response.getFrozenBalance());
         assertEquals(WalletStatus.ACTIVE, response.getStatus());
-        verify(walletService).getOrCreate(USER_ID);
+        verify(walletService).getRequired(USER_ID);
     }
 
     @Test
-    @DisplayName("createTopup creates a pending wallet deposit QR session")
-    void createTopupCreatesPendingSession() {
+    @DisplayName("createMyWallet creates the current payout wallet")
+    void createMyWalletCreatesCurrentWallet() {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
-        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.create(USER_ID)).thenReturn(wallet);
+
+        WalletResponse response = financeService.createMyWallet();
+
+        assertEquals(USER_ID, response.getWalletId());
+        assertEquals(new BigDecimal("250000.00"), response.getAvailableBalance());
+        verify(authHelper).requireRole(UserRole.TUTOR, UserRole.TUTOR_CENTER);
+        verify(walletService).create(USER_ID);
+    }
+
+    @Test
+    @DisplayName("createMyWallet rejects client wallets")
+    void createMyWalletRejectsClientWallets() {
+        when(authHelper.requireRole(UserRole.TUTOR, UserRole.TUTOR_CENTER))
+                .thenThrow(new ForbiddenException("Không có quyền truy cập"));
+
+        assertThrows(ForbiddenException.class, () -> financeService.createMyWallet());
+        verifyNoInteractions(walletService);
+    }
+
+    @Test
+    @DisplayName("createTopup creates a pending center wallet deposit QR session")
+    void createTopupCreatesPendingCenterSession() {
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
         when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -137,6 +178,20 @@ class FinanceServiceImplTest {
         assertEquals(PaymentTransactionType.DEPOSIT, saved.getType());
         assertEquals(PaymentTransactionStatus.PENDING, saved.getStatus());
         assertEquals(new BigDecimal("100000"), saved.getAmount());
+    }
+
+    @Test
+    @DisplayName("createTopup rejects non-center wallet deposits")
+    void createTopupRejectsNonCenterWalletDeposits() {
+        when(authHelper.requireRole(UserRole.TUTOR_CENTER))
+                .thenThrow(new ForbiddenException("Không có quyền truy cập"));
+
+        DepositRequest request = new DepositRequest();
+        request.setAmount(new BigDecimal("100000"));
+
+        assertThrows(ForbiddenException.class, () -> financeService.createTopup(request));
+        verify(walletService, never()).getRequired(any());
+        verify(paymentTransactionRepository, never()).save(any());
     }
 
     @Test
@@ -169,6 +224,11 @@ class FinanceServiceImplTest {
 
         when(paymentTransactionRepository.findByExternalTransactionId("123")).thenReturn(Optional.empty());
         when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                PaymentTransactionType.ESCROW_DEPOSIT,
+                PaymentTransactionStatus.PENDING,
+                new BigDecimal("100000")))
+                .thenReturn(List.of());
+        when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
                 PaymentTransactionType.DEPOSIT,
                 PaymentTransactionStatus.PENDING,
                 new BigDecimal("100000")))
@@ -182,6 +242,41 @@ class FinanceServiceImplTest {
         assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
         assertEquals("123", tx.getExternalTransactionId());
         verify(walletService).credit(USER_ID, new BigDecimal("100000"), "TOPUP-ABC");
+    }
+
+    @Test
+    @DisplayName("handleSepayWebhook marks direct escrow payment funded")
+    void handleSepayWebhookMarksEscrowPaymentFunded() {
+        BigDecimal amount = new BigDecimal("500000");
+        PaymentTransaction tx = pendingEscrowPayment("ESCROW-A7", amount);
+        EscrowTransaction escrow = privateEscrow(5L, tx, amount);
+        SepayWebhookRequest request = new SepayWebhookRequest();
+        request.setId(456L);
+        request.setTransferType("in");
+        request.setTransferAmount(amount);
+        request.setContent("Thanh toan hoc phi ESCROW-A7");
+        request.setAccountNumber("02660559201");
+
+        when(paymentTransactionRepository.findByExternalTransactionId("456")).thenReturn(Optional.empty());
+        when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                PaymentTransactionType.ESCROW_DEPOSIT,
+                PaymentTransactionStatus.PENDING,
+                amount))
+                .thenReturn(List.of(tx));
+        when(escrowTransactionRepository.findByPayment_TransactionId(88L)).thenReturn(Optional.of(escrow));
+        when(escrowTransactionRepository.save(any(EscrowTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentWebhookResponse response = financeService.handleSepayWebhook(request);
+
+        assertEquals("success", response.getStatus());
+        assertEquals("ESCROW-A7", response.getReference());
+        assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
+        assertEquals("456", tx.getExternalTransactionId());
+        assertEquals(EscrowStatus.FUNDED, escrow.getStatus());
+        verify(paymentTransactionRepository).save(tx);
+        verify(escrowTransactionRepository).save(escrow);
+        verify(eventPublisher).publishEvent(any(EscrowFunded.class));
     }
 
     @Test
@@ -343,7 +438,7 @@ class FinanceServiceImplTest {
         method.setStatus("ACTIVE");
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
-        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
         when(paymentMethodRepository.findByWallet_WalletIdAndStatusOrderByPaymentMethodIdAsc(USER_ID, "ACTIVE"))
                 .thenReturn(List.of(method));
 
@@ -365,7 +460,7 @@ class FinanceServiceImplTest {
         request.setAccountNo(" 1234 5678 90 ");
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
-        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
         when(paymentMethodRepository.findByWallet_WalletIdAndStatusOrderByPaymentMethodIdAsc(USER_ID, "ACTIVE"))
                 .thenReturn(List.of());
         when(paymentMethodRepository.findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
@@ -415,7 +510,7 @@ class FinanceServiceImplTest {
         duplicate.setStatus("ACTIVE");
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
-        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
         when(paymentMethodRepository.findByPaymentMethodIdAndWallet_WalletIdAndStatus(3L, USER_ID, "ACTIVE"))
                 .thenReturn(Optional.of(current));
         when(paymentMethodRepository.findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
@@ -438,7 +533,7 @@ class FinanceServiceImplTest {
         method.setStatus("ACTIVE");
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
-        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
         when(paymentMethodRepository.findByPaymentMethodIdAndWallet_WalletIdAndStatus(3L, USER_ID, "ACTIVE"))
                 .thenReturn(Optional.of(method));
 
@@ -465,7 +560,7 @@ class FinanceServiceImplTest {
         savedMethod.setStatus("ACTIVE");
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
-        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
         when(walletService.lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), any())).thenReturn(wallet);
         when(paymentMethodRepository.findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
                 USER_ID, "TPBank", "1234567890", "ACTIVE"))
@@ -520,7 +615,7 @@ class FinanceServiceImplTest {
         paymentMethod.setStatus("ACTIVE");
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
-        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
         when(walletService.lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), any())).thenReturn(wallet);
         when(paymentMethodRepository.findByPaymentMethodIdAndWallet_WalletIdAndStatus(3L, USER_ID, "ACTIVE"))
                 .thenReturn(Optional.of(paymentMethod));
@@ -605,7 +700,7 @@ class FinanceServiceImplTest {
     @DisplayName("getMyTransactions applies type and date filters")
     void getMyTransactionsAppliesFilters() {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
-        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
 
         PaymentTransaction tx = new PaymentTransaction();
         tx.setTransactionId(99L);
@@ -636,7 +731,7 @@ class FinanceServiceImplTest {
     @DisplayName("getMyTransactions clamps invalid paging input")
     void getMyTransactionsClampsPaging() {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
-        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
         when(paymentTransactionRepository.findByWalletIdWithFilters(
                 eq(USER_ID), isNull(), isNull(), isNull(), any(Pageable.class)))
                 .thenReturn(new PageImpl<>(List.of()));
@@ -654,7 +749,7 @@ class FinanceServiceImplTest {
     @DisplayName("getMyTransactions rejects unknown transaction types")
     void getMyTransactionsRejectsInvalidType() {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
-        when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
 
         assertThrows(IllegalArgumentException.class,
                 () -> financeService.getMyTransactions(0, 20, "UNKNOWN", null, null));
@@ -671,6 +766,46 @@ class FinanceServiceImplTest {
         tx.setReferenceCode(reference);
         tx.setCreatedAt(LocalDateTime.now());
         return tx;
+    }
+
+    private PaymentTransaction pendingEscrowPayment(String reference, BigDecimal amount) {
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setTransactionId(88L);
+        tx.setWallet(wallet);
+        tx.setType(PaymentTransactionType.ESCROW_DEPOSIT);
+        tx.setStatus(PaymentTransactionStatus.PENDING);
+        tx.setAmount(amount);
+        tx.setReferenceCode(reference);
+        tx.setCreatedAt(LocalDateTime.now());
+        return tx;
+    }
+
+    private EscrowTransaction privateEscrow(Long escrowId, PaymentTransaction payment, BigDecimal amount) {
+        User payer = new User();
+        payer.setUserId(USER_ID);
+        payer.setEmail("client@tcs.com");
+        User tutorUser = new User();
+        tutorUser.setUserId(22L);
+        tutorUser.setEmail("tutor@tcs.com");
+        Tutor tutor = new Tutor();
+        tutor.setUser(tutorUser);
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setClassId(3L);
+        tutoringClass.setCreator(payer);
+        TutorApplication application = new TutorApplication();
+        application.setTutoringClass(tutoringClass);
+        ClassAssignment assignment = new ClassAssignment();
+        assignment.setAssignmentId(7L);
+        assignment.setTutor(tutor);
+        assignment.setApplication(application);
+
+        EscrowTransaction escrow = new EscrowTransaction();
+        escrow.setEscrowId(escrowId);
+        escrow.setPayment(payment);
+        escrow.setAssignment(assignment);
+        escrow.setAmount(amount);
+        escrow.setStatus(EscrowStatus.PENDING);
+        return escrow;
     }
 
     private PaymentMethod savedPaymentMethod() {

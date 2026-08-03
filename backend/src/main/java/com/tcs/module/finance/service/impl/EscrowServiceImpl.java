@@ -6,18 +6,24 @@ import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
+import com.tcs.module.finance.entity.RefundRequest;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
+import com.tcs.module.finance.enums.RefundRequestStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
+import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
+import com.tcs.module.identity.entity.User;
+import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import java.math.BigDecimal;
@@ -33,14 +39,16 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class EscrowServiceImpl implements EscrowService {
 
-    private static final String PRIVATE_REF_PREFIX = "ESCROW_LOCK-A";
-    private static final String CENTER_REF_PREFIX = "ESCROW_LOCK-CS";
+    private static final String PRIVATE_REF_PREFIX = "ESCROW-A";
+    private static final String CENTER_REF_PREFIX = "ESCROW-CS";
     private static final String RELEASE_REF_PREFIX = "ESCROW_RELEASE-";
     private static final String REFUND_REF_PREFIX = "REFUND-ESCROW-";
 
     private final WalletService walletService;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
+    private final RefundRequestRepository refundRequestRepository;
+    private final UserRepository userRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
     private final ClassStudentRepository classStudentRepository;
     private final PaymentNotificationService paymentNotificationService;
@@ -163,10 +171,9 @@ public class EscrowServiceImpl implements EscrowService {
                     escrow.setPayment(payment);
                     escrow.setAssignment(assignment);
                     escrow.setAmount(command.amount());
-                    escrow.setStatus(EscrowStatus.FUNDED);
-                    escrow.setDepositedAt(LocalDateTime.now());
+                    escrow.setStatus(EscrowStatus.PENDING);
                     EscrowTransaction saved = escrowTransactionRepository.save(escrow);
-                    log.info("[Escrow] Đã khóa escrow cho assignment={} amount={}",
+                    log.info("[Escrow] Đã tạo lệnh thanh toán escrow cho assignment={} amount={}",
                             command.assignmentId(), command.amount());
                     return saved;
                 });
@@ -184,26 +191,22 @@ public class EscrowServiceImpl implements EscrowService {
                     escrow.setPayment(payment);
                     escrow.setClassStudent(classStudent);
                     escrow.setAmount(command.amount());
-                    escrow.setStatus(EscrowStatus.FUNDED);
-                    escrow.setDepositedAt(LocalDateTime.now());
+                    escrow.setStatus(EscrowStatus.PENDING);
                     EscrowTransaction saved = escrowTransactionRepository.save(escrow);
-                    log.info("[Escrow] Đã khóa escrow cho ghi danh={} amount={}",
+                    log.info("[Escrow] Đã tạo lệnh thanh toán escrow cho ghi danh={} amount={}",
                             command.classStudentId(), command.amount());
                     return saved;
                 });
     }
 
     private PaymentTransaction createEscrowPayment(EscrowLockCommand command, String reference) {
-        Wallet payerWallet = walletService.lockFunds(command.payerUserId(), command.amount(), reference);
-
         PaymentTransaction tx = new PaymentTransaction();
-        tx.setWallet(payerWallet);
+        tx.setWallet(walletService.getSystemEscrowWallet());
         tx.setType(PaymentTransactionType.ESCROW_DEPOSIT);
-        tx.setStatus(PaymentTransactionStatus.SUCCESS);
+        tx.setStatus(PaymentTransactionStatus.PENDING);
         tx.setAmount(command.amount());
-        tx.setDescription("Khóa học phí vào escrow");
+        tx.setDescription("Chờ client chuyển khoản học phí vào escrow");
         tx.setReferenceCode(reference);
-        tx.setProcessedAt(LocalDateTime.now());
         return paymentTransactionRepository.save(tx);
     }
 
@@ -214,7 +217,9 @@ public class EscrowServiceImpl implements EscrowService {
             String reason) {
 
         String reference = RELEASE_REF_PREFIX + escrow.getEscrowId();
-        walletService.releaseLockedFunds(payerUserId, amount, reference);
+        if (paymentUsesPayerWallet(escrow, payerUserId)) {
+            walletService.releaseLockedFunds(payerUserId, amount, reference);
+        }
 
         Long beneficiaryUserId = beneficiaryUserId(escrow);
         walletService.credit(beneficiaryUserId, amount, reference);
@@ -244,37 +249,156 @@ public class EscrowServiceImpl implements EscrowService {
             String reason) {
 
         String reference = REFUND_REF_PREFIX + escrow.getEscrowId();
-        Wallet payerWallet = walletService.refundLockedFunds(payerUserId, amount, reference);
+        if (paymentUsesPayerWallet(escrow, payerUserId)) {
+            Wallet payerWallet = walletService.refundLockedFunds(payerUserId, amount, reference);
 
-        PaymentTransaction tx = new PaymentTransaction();
-        tx.setWallet(payerWallet);
-        tx.setType(PaymentTransactionType.REFUND);
-        tx.setStatus(PaymentTransactionStatus.SUCCESS);
-        tx.setAmount(amount);
-        tx.setDescription(buildSettlementDescription("Hoàn tiền escrow", reason));
-        tx.setReferenceCode(reference);
-        tx.setProcessedAt(LocalDateTime.now());
-        paymentTransactionRepository.save(tx);
+            PaymentTransaction tx = new PaymentTransaction();
+            tx.setWallet(payerWallet);
+            tx.setType(PaymentTransactionType.REFUND);
+            tx.setStatus(PaymentTransactionStatus.SUCCESS);
+            tx.setAmount(amount);
+            tx.setDescription(buildSettlementDescription("Hoàn tiền escrow", reason));
+            tx.setReferenceCode(reference);
+            tx.setProcessedAt(LocalDateTime.now());
+            paymentTransactionRepository.save(tx);
+        } else {
+            PaymentTransaction tx = new PaymentTransaction();
+            tx.setWallet(walletService.getSystemEscrowWallet());
+            tx.setType(PaymentTransactionType.REFUND);
+            tx.setStatus(PaymentTransactionStatus.PENDING);
+            tx.setAmount(amount);
+            tx.setDescription(buildSettlementDescription(
+                    "Chờ chuyển khoản hoàn tiền escrow cho người thanh toán",
+                    reason));
+            tx.setReferenceCode(reference);
+            paymentTransactionRepository.save(tx);
+            ensureRefundTransferRequest(escrow, payerUserId, amount, reason, reference);
+        }
         paymentNotificationService.notifyPayment(
                 payerUserId,
-                "Hoàn tiền escrow",
-                "Ví của bạn đã được hoàn " + formatAmount(amount) + " từ escrow #" + escrow.getEscrowId() + ".",
+                "Hoàn tiền escrow đang xử lý",
+                "Yêu cầu hoàn " + formatAmount(amount) + " từ escrow #" + escrow.getEscrowId()
+                        + " đã được ghi nhận. TCS sẽ chuyển khoản về tài khoản nhận tiền của bạn.",
                 "ESCROW",
                 escrow.getEscrowId());
     }
 
+    private void ensureRefundTransferRequest(
+            EscrowTransaction escrow,
+            Long payerUserId,
+            BigDecimal amount,
+            String reason,
+            String reference) {
+
+        refundRequestRepository
+                .findFirstByEscrowTransaction_EscrowIdOrderByRequestedAtDesc(escrow.getEscrowId())
+                .filter(request -> request.getStatus() != RefundRequestStatus.REJECTED)
+                .ifPresentOrElse(
+                        request -> syncApprovedRefundTransferRequest(request, amount, reference),
+                        () -> createApprovedRefundTransferRequest(escrow, payerUserId, amount, reason, reference));
+    }
+
+    private void syncApprovedRefundTransferRequest(
+            RefundRequest request,
+            BigDecimal amount,
+            String reference) {
+        if (request.getAmount() == null) {
+            request.setAmount(amount);
+        }
+        if (isBlank(request.getRefundReferenceCode())) {
+            request.setRefundReferenceCode(reference);
+        }
+        if (isBlank(request.getTransferStatus()) || !"SUCCESS".equalsIgnoreCase(request.getTransferStatus())) {
+            request.setTransferStatus("PENDING");
+        }
+        if (request.getStatus() == RefundRequestStatus.PENDING) {
+            request.setStatus(RefundRequestStatus.APPROVED);
+        }
+        if (request.getProcessedAt() == null) {
+            request.setProcessedAt(LocalDateTime.now());
+        }
+        refundRequestRepository.save(request);
+    }
+
+    private void createApprovedRefundTransferRequest(
+            EscrowTransaction escrow,
+            Long payerUserId,
+            BigDecimal amount,
+            String reason,
+            String reference) {
+
+        LocalDateTime now = LocalDateTime.now();
+        RefundRequest refundRequest = new RefundRequest();
+        refundRequest.setEscrowTransaction(escrow);
+        refundRequest.setRequestedBy(resolvePayerUser(escrow, payerUserId));
+        refundRequest.setAmount(amount);
+        refundRequest.setReason(buildSettlementDescription("Hoàn tiền tự động từ tất toán escrow", reason));
+        refundRequest.setRefundReferenceCode(reference);
+        refundRequest.setTransferStatus("PENDING");
+        refundRequest.setStatus(RefundRequestStatus.APPROVED);
+        refundRequest.setRequestedAt(now);
+        refundRequest.setProcessedAt(now);
+        refundRequestRepository.save(refundRequest);
+    }
+
+    private User resolvePayerUser(EscrowTransaction escrow, Long payerUserId) {
+        ClassStudent classStudent = escrow.getClassStudent();
+        if (classStudent != null && classStudent.getEnrolledByUser() != null) {
+            return classStudent.getEnrolledByUser();
+        }
+
+        ClassAssignment assignment = escrow.getAssignment();
+        TutorApplication application = assignment != null ? assignment.getApplication() : null;
+        TutoringClass tutoringClass = application != null ? application.getTutoringClass() : null;
+        if (tutoringClass != null && tutoringClass.getCreator() != null) {
+            return tutoringClass.getCreator();
+        }
+
+        if (escrow.getPayment() != null
+                && escrow.getPayment().getWallet() != null
+                && escrow.getPayment().getWallet().getUser() != null) {
+            return escrow.getPayment().getWallet().getUser();
+        }
+
+        return userRepository.findById(payerUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người thanh toán escrow"));
+    }
+
     private Long payerUserId(EscrowTransaction escrow) {
-        if (escrow.getPayment() == null || escrow.getPayment().getWallet() == null) {
-            throw new BusinessException("Escrow không có ví người thanh toán");
+        ClassStudent classStudent = escrow.getClassStudent();
+        if (classStudent != null && classStudent.getEnrolledByUser() != null) {
+            return classStudent.getEnrolledByUser().getUserId();
         }
-        Wallet wallet = escrow.getPayment().getWallet();
-        if (wallet.getUser() != null && wallet.getUser().getUserId() != null) {
-            return wallet.getUser().getUserId();
+
+        ClassAssignment assignment = escrow.getAssignment();
+        TutoringClass tutoringClass = assignment != null
+                && assignment.getApplication() != null
+                ? assignment.getApplication().getTutoringClass()
+                : null;
+        if (tutoringClass != null && tutoringClass.getCreator() != null) {
+            return tutoringClass.getCreator().getUserId();
         }
-        if (wallet.getWalletId() != null) {
-            return wallet.getWalletId();
+
+        if (escrow.getPayment() != null && escrow.getPayment().getWallet() != null) {
+            Wallet wallet = escrow.getPayment().getWallet();
+            if (wallet.getUser() != null && wallet.getUser().getUserId() != null) {
+                return wallet.getUser().getUserId();
+            }
+            if (wallet.getWalletId() != null) {
+                return wallet.getWalletId();
+            }
         }
         throw new BusinessException("Escrow không xác định được người thanh toán");
+    }
+
+    private boolean paymentUsesPayerWallet(EscrowTransaction escrow, Long payerUserId) {
+        if (escrow == null || escrow.getPayment() == null || escrow.getPayment().getWallet() == null
+                || payerUserId == null) {
+            return false;
+        }
+        Wallet wallet = escrow.getPayment().getWallet();
+        return (wallet.getUser() != null && payerUserId.equals(wallet.getUser().getUserId()))
+                || payerUserId.equals(wallet.getWalletId());
     }
 
     private boolean isSettleable(EscrowStatus status) {
@@ -313,6 +437,10 @@ public class EscrowServiceImpl implements EscrowService {
 
     private String buildLogReason(String reason) {
         return reason == null || reason.isBlank() ? "N/A" : reason.trim();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private String formatAmount(BigDecimal amount) {

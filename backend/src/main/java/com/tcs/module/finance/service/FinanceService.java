@@ -22,6 +22,8 @@ public interface FinanceService {
 
     WalletResponse getMyWallet();
 
+    WalletResponse createMyWallet();
+
     WalletResponse deposit(DepositRequest request);
 
     TopupSessionResponse createTopup(DepositRequest request);

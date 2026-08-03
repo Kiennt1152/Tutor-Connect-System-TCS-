@@ -42,13 +42,13 @@ export function FilePreviewModal({
           className="fpm-dialog fpm-dialog--pdf"
           role="dialog"
           aria-modal="true"
-          aria-label={`Previewing ${fileName}`}
+          aria-label={`Đang xem trước ${fileName}`}
         >
           <header className="fpm-header">
             <span className="fpm-filename" title={fileName}>
               {fileName}
             </span>
-            <button className="fpm-close" onClick={onClose} aria-label="Close">
+            <button className="fpm-close" onClick={onClose} aria-label="Đóng">
               ×
             </button>
           </header>
@@ -60,7 +60,7 @@ export function FilePreviewModal({
               target="_blank"
               rel="noopener noreferrer"
             >
-              Open in new tab ↗
+              Mở trong tab mới
             </a>
           </div>
         </div>
@@ -74,13 +74,13 @@ export function FilePreviewModal({
         className="fpm-dialog"
         role="dialog"
         aria-modal="true"
-        aria-label={`Previewing ${fileName}`}
+        aria-label={`Đang xem trước ${fileName}`}
       >
         <header className="fpm-header">
           <span className="fpm-filename" title={fileName}>
             {fileName}
           </span>
-          <button className="fpm-close" onClick={onClose} aria-label="Close">
+          <button className="fpm-close" onClick={onClose} aria-label="Đóng">
             ×
           </button>
         </header>
@@ -150,8 +150,8 @@ function ImageZoom({
         }}
       />
       <div className="fpm-zoom-controls">
-        <button onClick={reset} title="Reset zoom">
-          Reset
+        <button onClick={reset} title="Đặt lại thu phóng">
+          Đặt lại
         </button>
         <span className="fpm-zoom-badge">{(scale * 100).toFixed(0)}%</span>
       </div>

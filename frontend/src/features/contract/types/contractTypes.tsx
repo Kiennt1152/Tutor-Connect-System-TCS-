@@ -2,12 +2,31 @@ export type ContractStatus = 'PENDING' | 'DRAFT' | 'SIGNED' | 'ACTIVE' | 'COMPLE
 export type ContractSourceType = 'PRIVATE' | 'CENTER';
 export type ContractSignatureStatus = 'PENDING' | 'SIGNED' | 'EXPIRED';
 export type PartyRole = 'CLIENT' | 'TUTOR' | 'CENTER';
+export type EscrowStatus = 'PENDING' | 'FUNDED' | 'RELEASED' | 'REFUNDED' | 'ON_HOLD' | 'DISPUTED';
+export type PaymentTransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
 
 export interface ContractPartyInfo {
   userId: number;
   fullName: string;
   email: string;
   phone?: string | null;
+}
+
+export interface EscrowPaymentInfo {
+  escrowId: number;
+  escrowStatus: EscrowStatus;
+  paymentTransactionId: number | null;
+  paymentStatus: PaymentTransactionStatus | null;
+  amount: number | string | null;
+  referenceCode: string | null;
+  bankName: string | null;
+  bankBin: string | null;
+  accountNumber: string | null;
+  accountName: string | null;
+  transferContent: string | null;
+  qrUrl: string | null;
+  depositedAt: string | null;
+  processedAt: string | null;
 }
 
 export interface ContractResponse {
@@ -47,6 +66,7 @@ export interface ContractResponse {
   tutor: ContractPartyInfo | null;
   client: ContractPartyInfo | null;
   center: ContractPartyInfo | null;
+  escrowPayment?: EscrowPaymentInfo | null;
 }
 
 export type ContractApiResponse = ContractResponse;

@@ -80,7 +80,9 @@ public class DevDataSeeder implements CommandLineRunner {
                 System.out.println(">>> [DevDataSeeder] Da cap nhat password cho: " + acc[0] + " / " + acc[1]);
             }
 
-            ensureWallet(user, new BigDecimal("5000000"));
+            if (!"CLIENT".equals(acc[3])) {
+                ensureWallet(user, BigDecimal.ZERO);
+            }
             ensureProfile(user, acc[2], acc[3], acc[4]);
         }
 

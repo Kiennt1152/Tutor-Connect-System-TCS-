@@ -112,6 +112,8 @@ export interface RefundRequestPayload {
   classStudentId?: number;
   amount: number;
   reason: string;
+  bankName: string;
+  accountNo: string;
 }
 
 export interface RefundRequestInfo {
@@ -126,8 +128,13 @@ export interface RefundRequestInfo {
   classStudentId: number | null;
   escrowAmount: number | null;
   amount: number;
+  bankName?: string | null;
+  accountNoMasked?: string | null;
+  refundReferenceCode?: string | null;
+  transferStatus?: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED' | string;
   reason: string | null;
   requestedAt: string | null;
   processedAt: string | null;
+  transferProcessedAt?: string | null;
 }
