@@ -1004,10 +1004,6 @@ public class ContractServiceImpl implements ContractService {
                 .toList();
     }
 
-    private int occurredLessonCount(Long classId) {
-        return occurredLessonDates(classId).size();
-    }
-
     private boolean isReviewOverdue(List<Review> reviews, List<LocalDate> occurred) {
         LocalDate ref = reviews.isEmpty()
                 ? (occurred.isEmpty() ? null : occurred.get(0))
@@ -1045,13 +1041,6 @@ public class ContractServiceImpl implements ContractService {
         } catch (Exception e) {
             throw new IllegalStateException("Không ghi được dữ liệu tiêu chí đánh giá", e);
         }
-    }
-
-    private TutoringClass resolveClass(ClassAssignment assignment) {
-        if (assignment.getApplication() == null || assignment.getApplication().getTutoringClass() == null) {
-            throw new BusinessException("Lớp này chưa hỗ trợ đánh giá");
-        }
-        return assignment.getApplication().getTutoringClass();
     }
 
     @Override
