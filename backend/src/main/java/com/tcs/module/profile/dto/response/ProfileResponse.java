@@ -29,6 +29,7 @@ public class ProfileResponse {
     private String licenseNo;
     private String description;
     private ProfileVerificationStatus verificationStatus;
+    private boolean firstLogin;
 
     private List<TutorEducationResponse> educations;
     private List<TutorCertificateResponse> certificates;

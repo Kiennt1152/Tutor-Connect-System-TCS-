@@ -2,9 +2,13 @@ import axiosClient from '../../../shared/api/axiosClient';
 import type {
   ApplicantResponse,
   CatalogOption,
+  CenterSummary,
+  ClassRequest,
   ClassRequestPayload,
   ClassResponse,
+  CreateClassRequestPayload,
   LocationOption,
+  MarketplaceClass,
   TutorProfileCard,
 } from '../types/marketplaceTypes';
 
@@ -30,9 +34,6 @@ export const marketplaceApi = {
 
   listMyClasses: () =>
     axiosClient.get<ClassResponse[]>('/marketplace/classes/mine').then((r) => r.data),
-
-  getClass: (classId: number) =>
-    axiosClient.get<ClassResponse>(`/marketplace/classes/${classId}`).then((r) => r.data),
 
   listOpenClasses: () =>
     axiosClient
@@ -118,6 +119,38 @@ export const marketplaceApi = {
     axiosClient
       .get<LocationDto[]>('/catalog/locations', { params: { provinceId } })
       .then((r) => r.data as LocationOption[]),
+
+  // ----- Đăng ký lớp trực tiếp (main) -----
+  getOpenClasses() {
+    return axiosClient.get<MarketplaceClass[]>(`${MARKETPLACE_API_BASE}/classes?status=OPEN`);
+  },
+  getClass(classId: number) {
+    return axiosClient.get<MarketplaceClass>(`${MARKETPLACE_API_BASE}/classes/${classId}`);
+  },
+  register(classId: number) {
+    return axiosClient.post<{ message: string }>(
+      `${MARKETPLACE_API_BASE}/classes/${classId}/register`,
+    );
+  },
+
+  // ----- Yêu cầu mở lớp gửi tới một trung tâm (phía phụ huynh) -----
+  listCenters() {
+    return axiosClient.get<CenterSummary[]>(`${MARKETPLACE_API_BASE}/centers`);
+  },
+  createClassRequest(centerId: number, payload: CreateClassRequestPayload) {
+    return axiosClient.post<ClassRequest>(
+      `${MARKETPLACE_API_BASE}/centers/${centerId}/class-requests`,
+      payload,
+    );
+  },
+  getMyClassRequests() {
+    return axiosClient.get<ClassRequest[]>(`${MARKETPLACE_API_BASE}/class-requests/mine`);
+  },
+  cancelClassRequest(requestId: string) {
+    return axiosClient.delete<{ message: string }>(
+      `${MARKETPLACE_API_BASE}/class-requests/${requestId}`,
+    );
+  },
 };
 
 function toOption(dto: CatalogItemDto): CatalogOption {

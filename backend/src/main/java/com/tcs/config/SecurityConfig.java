@@ -28,10 +28,13 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.cors(Customizer.withDefaults())
-                .csrf(AbstractHttpConfigurer::disable)
+        http.csrf(AbstractHttpConfigurer::disable)
+                .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**")
+                        .permitAll()
+                        // --- Public ---
                         .requestMatchers(
                                 "/error",
                                 "/uploads/**",
@@ -55,12 +58,26 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/tutors/**")
                         .permitAll()
+                        // Danh sách trung tâm đã xác minh: ai cũng xem được (để phụ huynh chọn).
+                        .requestMatchers(HttpMethod.GET, "/api/marketplace/centers")
+                        .permitAll()
+                        // Recruitment: các GET cần đăng nhập phải đứng TRƯỚC GET công khai bên dưới.
+                        .requestMatchers(HttpMethod.GET, "/api/center/recruitment/my-posts")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.GET, "/api/center/recruitment/*/applications")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.GET, "/api/center/recruitment/applications/mine")
+                        .hasRole(RbacConstants.TUTOR)
+                        // Tin đang mở: ai cũng xem được.
                         .requestMatchers(HttpMethod.GET, "/api/center/recruitment/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/contract/reviews/reviewable")
                         .hasRole(RbacConstants.CLIENT)
                         .requestMatchers(HttpMethod.GET, "/api/contract/reviews/my-reputation")
                         .hasRole(RbacConstants.TUTOR)
+                        // Quản lý danh sách gia sư của trung tâm.
+                        .requestMatchers("/api/center/members", "/api/center/members/**")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
                         .requestMatchers(HttpMethod.GET, "/api/contract/reviews/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payments/webhook")
@@ -69,6 +86,15 @@ public class SecurityConfig {
                         .permitAll()
 
                         .requestMatchers("/api/platform/**")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.POST, "/api/finance/withdrawals/*/accept")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.GET, "/api/finance/settlements/preview/*")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/finance/settlements/*/apply",
+                                "/api/finance/settlements/execute")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
 
                         .requestMatchers("/api/profile/children/**")
@@ -103,10 +129,17 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.CLIENT)
                         .requestMatchers("/api/marketplace/favorites/**")
                         .hasRole(RbacConstants.CLIENT)
+                        // Phụ huynh gửi/quản lý yêu cầu mở lớp tới trung tâm.
+                        .requestMatchers("/api/marketplace/centers/*/class-requests")
+                        .hasRole(RbacConstants.CLIENT)
+                        .requestMatchers("/api/marketplace/class-requests/**")
+                        .hasRole(RbacConstants.CLIENT)
 
                         .requestMatchers(
                                 "/api/center/classes/**",
                                 "/api/center/tutors",
+                                "/api/center/class-requests",
+                                "/api/center/class-requests/**",
                                 "/api/center/schedule",
                                 "/api/center/reschedules",
                                 "/api/center/reschedules/**",
@@ -120,6 +153,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/*/apply")
                         .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/**")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.PUT, "/api/center/recruitment/**")
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
                         .requestMatchers("/api/finance/**")

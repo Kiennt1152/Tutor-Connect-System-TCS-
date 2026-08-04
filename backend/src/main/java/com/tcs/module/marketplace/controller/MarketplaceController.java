@@ -1,12 +1,15 @@
 package com.tcs.module.marketplace.controller;
 
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
+import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
 import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
+import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
+import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
 import com.tcs.module.marketplace.dto.response.LessonResponse;
 import com.tcs.module.marketplace.dto.response.RescheduleRequestResponse;
@@ -59,6 +62,31 @@ public class MarketplaceController {
     @PutMapping("/classes/{classId}")
     public ClassResponse updateClass(@PathVariable Long classId, @RequestBody CreateClassRequest request) {
         return marketplaceService.updateClass(classId, request);
+    }
+
+    // ===== Yêu cầu mở lớp gửi tới một trung tâm cụ thể (phụ huynh) =====
+
+    @GetMapping("/centers")
+    public List<CenterSummaryResponse> listCenters() {
+        return marketplaceService.listCenters();
+    }
+
+    @PostMapping("/centers/{centerId}/class-requests")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ClassRequestResponse createClassRequest(
+            @PathVariable Long centerId, @RequestBody ClassRequestCreateRequest request) {
+        return marketplaceService.createClassRequest(centerId, request);
+    }
+
+    @GetMapping("/class-requests/mine")
+    public List<ClassRequestResponse> myClassRequests() {
+        return marketplaceService.listMyClassRequests();
+    }
+
+    @DeleteMapping("/class-requests/{requestId}")
+    public Map<String, String> cancelClassRequest(@PathVariable String requestId) {
+        marketplaceService.cancelClassRequest(requestId);
+        return Map.of("message", "Đã hủy yêu cầu mở lớp");
     }
 
     @PostMapping("/classes/{classId}/publish")

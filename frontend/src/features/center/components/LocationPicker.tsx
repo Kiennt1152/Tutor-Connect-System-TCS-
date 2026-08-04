@@ -35,12 +35,18 @@ async function getProvinces(): Promise<GeoItem[]> {
   const res = await fetch(`${GEO_API}/p/`);
   return res.json();
 }
+
 async function getWards(provinceCode: number): Promise<GeoItem[]> {
   const res = await fetch(`${GEO_API}/p/${provinceCode}?depth=2`);
   const data = await res.json();
   return data.wards ?? [];
 }
 
+/**
+ * Chọn Tỉnh/Thành phố → Phường/Xã → nhập địa chỉ cụ thể.
+ * Có thể truyền {@code errors}/{@code showErrors} để hiển thị lỗi (lớp học); nếu không truyền
+ * thì dùng như ô nhập bình thường (tin tuyển dụng — địa điểm tuỳ chọn).
+ */
 export function LocationPicker({ value, onChange, errors, showErrors }: Props) {
   const [provinces, setProvinces] = useState<GeoItem[]>([]);
   const [wards, setWards] = useState<GeoItem[]>([]);
@@ -50,7 +56,9 @@ export function LocationPicker({ value, onChange, errors, showErrors }: Props) {
     let alive = true;
     getProvinces()
       .then((list) => alive && setProvinces(sortByName(list)))
-      .catch(() => alive && setLoadErr('Không tải được danh sách địa phương. Kiểm tra kết nối mạng.'));
+      .catch(
+        () => alive && setLoadErr('Không tải được danh sách địa phương. Kiểm tra kết nối mạng.'),
+      );
     return () => {
       alive = false;
     };
@@ -85,11 +93,13 @@ export function LocationPicker({ value, onChange, errors, showErrors }: Props) {
       {loadErr && <div className="cc-alert cc-alert--error">{loadErr}</div>}
       <div className="cc-loc__grid">
         <label className="cc-field">
-          <span className="cc-label">Tỉnh/Thành phố *</span>
+          <span className="cc-label">Tỉnh/Thành phố</span>
           <select
             className={cls('province')}
             value={value.province}
-            onChange={(e) => onChange({ province: e.target.value, ward: '', addressDetail: value.addressDetail })}
+            onChange={(e) =>
+              onChange({ province: e.target.value, ward: '', addressDetail: value.addressDetail })
+            }
           >
             <option value="">— Chọn Tỉnh/Thành phố —</option>
             {provinces.map((p) => (
@@ -102,7 +112,7 @@ export function LocationPicker({ value, onChange, errors, showErrors }: Props) {
         </label>
 
         <label className="cc-field">
-          <span className="cc-label">Phường/Xã *</span>
+          <span className="cc-label">Phường/Xã</span>
           <select
             className={cls('ward')}
             value={value.ward}
@@ -122,7 +132,7 @@ export function LocationPicker({ value, onChange, errors, showErrors }: Props) {
         </label>
 
         <label className="cc-field">
-          <span className="cc-label">Địa chỉ cụ thể *</span>
+          <span className="cc-label">Địa chỉ cụ thể</span>
           <input
             className={cls('addressDetail')}
             value={value.addressDetail}

@@ -9,6 +9,8 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
+    List<Lesson> findByTutoringClass_ClassId(Long classId);
+
     Optional<Lesson> findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
             Long classId, Long slotId, int sequenceNo);
 

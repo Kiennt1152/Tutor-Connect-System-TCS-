@@ -1,5 +1,6 @@
 package com.tcs.module.identity.enums;
 
 public enum OtpPurpose {
-    REGISTRATION
+    REGISTRATION,
+    CONTRACT_SIGNING
 }
