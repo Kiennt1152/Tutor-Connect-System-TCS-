@@ -7,7 +7,6 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 
-/** Một gia sư đã ứng tuyển vào lớp, kèm điểm gợi ý của AI cho Client. */
 @Getter
 @Setter
 @Builder
@@ -24,16 +23,12 @@ public class ApplicantResponse {
     private BigDecimal ratingAvg;
     private String verificationStatus;
 
-    /** Mức cao nhất trong {@link #proposedRates} — giữ cho đơn cũ chưa báo giá theo môn. */
     private BigDecimal proposedRate;
-    /** Học phí đề xuất theo từng môn: key = subjectId (hoặc "other"), value = đ/giờ. */
     private Map<String, BigDecimal> proposedRates;
     private String coverLetter;
     private String status;
     private LocalDateTime appliedAt;
 
-    /** Điểm AI gợi ý 0–100 (càng cao càng phù hợp với lớp). */
     private Integer matchScore;
-    /** true nếu nằm trong Top 5 AI gợi ý cho Client. */
     private boolean recommended;
 }

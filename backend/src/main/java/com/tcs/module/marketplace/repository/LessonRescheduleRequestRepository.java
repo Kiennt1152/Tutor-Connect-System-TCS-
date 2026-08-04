@@ -10,9 +10,7 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface LessonRescheduleRequestRepository extends JpaRepository<LessonRescheduleRequest, Long> {
 
-    /** Mọi yêu cầu thuộc các lớp mà người đang đăng nhập tham gia (mới nhất trước). */
     List<LessonRescheduleRequest> findByTutoringClass_ClassIdInOrderByCreatedAtDesc(Collection<Long> classIds);
 
-    /** Chặn gửi trùng: một buổi chỉ có tối đa một yêu cầu đang chờ duyệt. */
     boolean existsByLesson_LessonIdAndStatus(Long lessonId, RescheduleRequestStatus status);
 }

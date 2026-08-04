@@ -6,7 +6,6 @@ interface Props {
   readonly raw: ClassResponse;
   readonly subjects: CatalogOption[];
   readonly grades: CatalogOption[];
-  /** Ứng tuyển (phía gia sư). Bỏ trống → chế độ chỉ xem (phía chủ lớp). */
   readonly applied?: boolean;
   readonly applying?: boolean;
   readonly onApply?: () => void;

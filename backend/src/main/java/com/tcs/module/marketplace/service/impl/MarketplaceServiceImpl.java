@@ -101,26 +101,18 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final ClassAssignmentRepository classAssignmentRepository;
     private final LessonRepository lessonRepository;
     private final LessonRescheduleRequestRepository rescheduleRequestRepository;
-    // Khởi tạo trực tiếp (không có bean ObjectMapper trong context) — giống GoogleTokenVerifier.
+    private final com.tcs.module.messaging.repository.NotificationRepository notificationRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
-    /**
-     * Mã thứ của form ({@code detailsJson.slots[].day}) → ISO day-of-week (Thứ 2 = 1 … CN = 7),
-     * khớp {@link DayOfWeek#getValue()}. Lưu ý KHÔNG phải quy ước DAYOFWEEK() của MySQL (CN = 1).
-     */
     private static final Map<String, Integer> DAY_CODE_TO_ISO = Map.of(
             "T2", 1, "T3", 2, "T4", 3, "T5", 4, "T6", 5, "T7", 6, "CN", 7);
 
-    /** Học phí/giờ thấp nhất chấp nhận được (đ) — khớp FEE_PER_HOUR_MIN của form phía client. */
     private static final BigDecimal MIN_RATE_PER_HOUR = BigDecimal.valueOf(50_000);
 
-    /** Khóa của môn "Khác" (tự nhập) trong detailsJson.subjectIds. */
     private static final String OTHER_SUBJECT_KEY = "other";
 
-    /** Giới hạn cột tutoring_classes.title. */
     private static final int TITLE_MAX_LENGTH = 150;
 
-    /** Khối phổ thông dạng "Lớp 12" — bắt lấy phần số để ghép " lớp 12". */
     private static final Pattern GRADE_NUMBER_PATTERN =
             Pattern.compile("^Lớp\\s+(\\d+)$", Pattern.CASE_INSENSITIVE);
 
@@ -169,8 +161,14 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (!tutoringClass.getCreator().getUserId().equals(authHelper.currentUserId())) {
             throw new ForbiddenException("Không có quyền sửa lớp này");
         }
-        if (tutoringClass.getStatus() != TutoringClassStatus.DRAFT) {
-            throw new IllegalArgumentException("Lớp đã đăng thì không thể sửa nữa");
+        boolean isDraft = tutoringClass.getStatus() == TutoringClassStatus.DRAFT;
+        boolean isOpen = tutoringClass.getStatus() == TutoringClassStatus.OPEN;
+        long applicationCount = tutorApplicationRepository.countByTutoringClass_ClassId(classId);
+        if (!isDraft && !(isOpen && applicationCount == 0)) {
+            throw new IllegalArgumentException(
+                    applicationCount > 0
+                            ? "Lớp đã có gia sư ứng tuyển nên không thể sửa nữa"
+                            : "Lớp ở trạng thái này không thể sửa");
         }
         if (request.getSubjectId() == null && !StringUtils.hasText(request.getDetailsJson())) {
             throw new IllegalArgumentException("Vui lòng chọn môn học");
@@ -180,7 +178,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
 
-    /** Áp các trường từ request vào entity; tự sinh tiêu đề/mô tả khi bỏ trống. */
     private void applyRequest(TutoringClass tutoringClass, CreateClassRequest request) {
         Subject subject = resolveSubject(request.getSubjectId());
         Grade grade = resolveGrade(request.getGradeId());
@@ -202,10 +199,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (request.getRecurringType() != null) tutoringClass.setRecurringType(request.getRecurringType());
     }
 
-    /**
-     * Tiêu đề tự sinh nêu ĐỦ các môn của lớp (lấy từ detailsJson), không chỉ môn chính —
-     * lớp Toán + Lý + Hóa phải hiện cả 3 để gia sư biết mình có dạy đủ hay không.
-     */
     private String resolveTitle(CreateClassRequest request, Subject subject, Grade grade) {
         if (StringUtils.hasText(request.getTitle())) {
             return request.getTitle().trim();
@@ -213,7 +206,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return autoTitle(request.getDetailsJson(), subject, grade);
     }
 
-    /** Tiêu đề tự sinh, bỏ qua tiêu đề người dùng nhập (dùng cả cho mô tả mặc định). */
     private String autoTitle(String detailsJson, Subject subject, Grade grade) {
         List<String> names = subjectNamesFromJson(detailsJson);
         if (names.isEmpty() && subject != null) {
@@ -267,18 +259,40 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
     @Override
     @Transactional
+    public ClassResponse unpublishClass(Long classId) {
+        TutoringClass tutoringClass = findClass(classId);
+        if (!tutoringClass.getCreator().getUserId().equals(authHelper.currentUserId())) {
+            throw new ForbiddenException("Không có quyền gỡ đăng lớp này");
+        }
+        if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
+            throw new IllegalArgumentException("Chỉ có thể gỡ đăng lớp đang mở");
+        }
+        long applicationCount = tutorApplicationRepository.countByTutoringClass_ClassId(classId);
+        if (applicationCount > 0) {
+            throw new IllegalArgumentException("Lớp đã có gia sư ứng tuyển nên không thể gỡ đăng");
+        }
+        tutoringClass.setStatus(TutoringClassStatus.DRAFT);
+        return toClassResponse(tutoringClassRepository.save(tutoringClass));
+    }
+
+    @Override
+    @Transactional
     public void applyToClass(Long classId, ApplyClassRequest request) {
         Tutor tutor = requireTutor();
         TutoringClass tutoringClass = findClass(classId);
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Lớp không mở đơn ứng tuyển");
         }
-        // Bắt trùng ở đây để báo rõ lý do, thay vì để uq_tutor_applications ném lỗi chung chung.
-        if (tutorApplicationRepository.existsByTutoringClass_ClassIdAndTutor_TutorId(
-                classId, tutor.getTutorId())) {
-            throw new IllegalArgumentException(
-                    "Bạn đã ứng tuyển lớp này rồi. Mỗi lớp chỉ nộp được một đơn.");
-        }
+        tutorApplicationRepository
+                .findFirstByTutoringClass_ClassIdAndTutor_TutorId(classId, tutor.getTutorId())
+                .ifPresent(existing -> {
+                    if (existing.getStatus() != TutorApplicationStatus.REJECTED) {
+                        throw new IllegalArgumentException(
+                                "Bạn đã ứng tuyển lớp này rồi. Mỗi lớp chỉ nộp được một đơn.");
+                    }
+                    tutorApplicationRepository.delete(existing);
+                    tutorApplicationRepository.flush();
+                });
         Map<String, BigDecimal> rates = resolveProposedRates(request, tutoringClass);
 
         TutorApplication application = new TutorApplication();
@@ -289,12 +303,31 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         application.setCoverLetter(request.getCoverLetter());
         application.setStatus(TutorApplicationStatus.SUBMITTED);
         tutorApplicationRepository.save(application);
+        notifyClientNewApplication(tutoringClass, tutor);
     }
 
-    /**
-     * Gia sư phải báo giá cho MỌI môn của lớp. Đơn gửi từ client cũ (chỉ có một mức chung)
-     * được quy về mức đó cho từng môn để dữ liệu đồng nhất.
-     */
+    private void notifyClientNewApplication(TutoringClass tutoringClass, Tutor tutor) {
+        if (tutoringClass.getCreator() == null) {
+            return;
+        }
+        String tutorName = tutor != null && StringUtils.hasText(tutor.getFullName())
+                ? tutor.getFullName()
+                : "Một gia sư";
+        com.tcs.module.messaging.entity.Notification notification =
+                new com.tcs.module.messaging.entity.Notification();
+        notification.setUser(tutoringClass.getCreator());
+        notification.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
+        notification.setTitle("Có gia sư ứng tuyển");
+        notification.setContent(
+                tutorName + " vừa ứng tuyển vào lớp \"" + tutoringClass.getTitle()
+                        + "\". Xem chi tiết để chọn gia sư.");
+        notification.setReferenceType("TUTORING_CLASS");
+        notification.setReferenceId(tutoringClass.getClassId());
+        notification.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
+        notification.setIsRead(false);
+        notificationRepository.save(notification);
+    }
+
     private Map<String, BigDecimal> resolveProposedRates(
             ApplyClassRequest request, TutoringClass tutoringClass) {
         List<String> subjectKeys = classSubjectKeys(tutoringClass);
@@ -316,10 +349,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         for (String key : subjectKeys) {
             BigDecimal rate = requested.get(key);
             if (rate == null) {
-                throw new IllegalArgumentException("Vui lòng nhập học phí đề xuất cho tất cả các môn của lớp");
+                continue;
             }
             requireValidRate(rate, key);
             resolved.put(key, rate);
+        }
+        if (resolved.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng chọn ít nhất một môn và nhập học phí đề xuất");
         }
         return resolved;
     }
@@ -337,7 +373,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
     }
 
-    /** Khóa các môn trong detailsJson.subjectIds ("other" = môn tự nhập); rỗng nếu JSON thiếu/hỏng. */
     private List<String> subjectKeysFromJson(String detailsJson) {
         if (!StringUtils.hasText(detailsJson)) {
             return List.of();
@@ -357,7 +392,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
     }
 
-    /** Các môn của lớp theo khóa dùng trong detailsJson.subjectIds; lớp cũ → suy từ cột phẳng. */
     private List<String> classSubjectKeys(TutoringClass tutoringClass) {
         List<String> keys = subjectKeysFromJson(tutoringClass.getDetailsJson());
         if (!keys.isEmpty()) {
@@ -368,17 +402,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 : List.of();
     }
 
-    /**
-     * Phần khối lớp trong tiêu đề: "Lớp 12" → " lớp 12" (tránh lặp thành "lớp Lớp 12");
-     * khối không phải lớp phổ thông ("Luyện thi Đại học") thì nối bằng dấu gạch.
-     */
     private String gradeSuffix(String gradeName) {
         String name = gradeName.trim();
         Matcher m = GRADE_NUMBER_PATTERN.matcher(name);
         return m.matches() ? " lớp " + m.group(1) : " - " + name;
     }
 
-    /** Tên đầy đủ các môn của lớp (kể cả môn "Khác" tự nhập) để nêu trong tiêu đề. */
     private List<String> subjectNamesFromJson(String detailsJson) {
         List<String> keys = subjectKeysFromJson(detailsJson);
         if (keys.isEmpty()) {
@@ -388,7 +417,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         try {
             otherName = objectMapper.readTree(detailsJson).path("subjectOther").asText("").trim();
         } catch (JsonProcessingException ignored) {
-            // Đã parse được subjectIds ở trên nên nhánh này gần như không xảy ra.
         }
         List<String> names = new ArrayList<>();
         for (String key : keys) {
@@ -401,13 +429,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                         .map(Subject::getSubjectName)
                         .ifPresent(names::add);
             } catch (NumberFormatException ignored) {
-                // Khóa môn lạ → bỏ qua, tiêu đề vẫn nêu các môn còn lại.
             }
         }
         return names;
     }
 
-    /** Mức cao nhất trong các môn — dùng cho cột proposed_rate cũ và chấm điểm AI. */
     private BigDecimal highestRate(Map<String, BigDecimal> rates, BigDecimal fallback) {
         return rates.values().stream().max(BigDecimal::compareTo).orElse(fallback);
     }
@@ -425,6 +451,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     public List<Long> listMyAppliedClassIds() {
         Tutor tutor = requireTutor();
         return tutorApplicationRepository.findByTutor_TutorId(tutor.getTutorId()).stream()
+                .filter(app -> app.getStatus() != TutorApplicationStatus.REJECTED)
                 .map(app -> app.getTutoringClass().getClassId())
                 .toList();
     }
@@ -435,7 +462,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         TutoringClass tutoringClass = requireOwnedClass(classId);
         List<TutorApplication> applications =
                 tutorApplicationRepository.findByTutoringClass_ClassId(tutoringClass.getClassId());
-        // Chấm điểm AI rồi xếp hạng giảm dần; Top 5 điểm cao nhất được đánh dấu "gợi ý".
         List<ApplicantResponse> ranked = applications.stream()
                 .map(app -> toApplicant(app, tutoringClass))
                 .sorted(Comparator.comparingInt(ApplicantResponse::getMatchScore).reversed())
@@ -468,8 +494,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         tutoringClass.setStatus(TutoringClassStatus.MATCHED);
         tutoringClassRepository.save(tutoringClass);
 
-        // Chọn xong mới là lời mời — gia sư phải bấm nhận thì lớp mới chạy.
-        // Dùng lại phân công cũ nếu gia sư này từng bị từ chối trước đó (uq theo application_id).
         ClassAssignment assignment = classAssignmentRepository
                 .findByApplication_ApplicationId(applicationId)
                 .orElseGet(ClassAssignment::new);
@@ -477,19 +501,80 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         assignment.setApplication(chosen);
         assignment.setStatus(ClassAssignmentStatus.PENDING);
         classAssignmentRepository.save(assignment);
+        notifyTutorInvited(tutoringClass, chosen);
+    }
+
+    private void notifyTutorInvited(TutoringClass tutoringClass, TutorApplication chosen) {
+        if (chosen.getTutor() == null || chosen.getTutor().getUser() == null) {
+            return;
+        }
+        com.tcs.module.messaging.entity.Notification notification =
+                new com.tcs.module.messaging.entity.Notification();
+        notification.setUser(chosen.getTutor().getUser());
+        notification.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
+        notification.setTitle("Bạn được mời nhận lớp");
+        notification.setContent(
+                "Bạn được chọn cho lớp \"" + tutoringClass.getTitle()
+                        + "\". Vào mục Lịch dạy để bấm nhận lớp và bắt đầu lịch học.");
+        notification.setReferenceType("TUTORING_CLASS");
+        notification.setReferenceId(tutoringClass.getClassId());
+        notification.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
+        notification.setIsRead(false);
+        notificationRepository.save(notification);
+    }
+
+    @Override
+    @Transactional
+    public void rejectApplicant(Long classId, Long applicationId, String reason) {
+        TutoringClass tutoringClass = requireOwnedClass(classId);
+        TutorApplication application = tutorApplicationRepository
+                .findById(applicationId)
+                .filter(a -> a.getTutoringClass().getClassId().equals(tutoringClass.getClassId()))
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn ứng tuyển"));
+        if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
+            throw new IllegalArgumentException("Lớp không còn ở trạng thái đang mở để bỏ chọn gia sư");
+        }
+        if (application.getStatus() == TutorApplicationStatus.ACCEPTED) {
+            throw new IllegalArgumentException("Không thể bỏ chọn gia sư đã được chọn");
+        }
+        String trimmedReason = reason == null ? "" : reason.trim();
+        if (trimmedReason.isEmpty()) {
+            throw new IllegalArgumentException("Vui lòng nhập lý do bỏ chọn gia sư");
+        }
+        notifyApplicantRejected(tutoringClass, application, trimmedReason);
+        tutorApplicationRepository.delete(application);
+    }
+
+    private void notifyApplicantRejected(
+            TutoringClass tutoringClass, TutorApplication application, String reason) {
+        if (application.getTutor() == null || application.getTutor().getUser() == null) {
+            return;
+        }
+        com.tcs.module.messaging.entity.Notification notification =
+                new com.tcs.module.messaging.entity.Notification();
+        notification.setUser(application.getTutor().getUser());
+        notification.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
+        notification.setTitle("Đơn ứng tuyển không được chọn");
+        notification.setContent(
+                "Lớp \"" + tutoringClass.getTitle() + "\" đã bỏ chọn đơn ứng tuyển của bạn. Lý do: \""
+                        + reason + "\". Bạn có thể điều chỉnh điều kiện lại để ứng tuyển lại.");
+        notification.setReferenceType("TUTORING_CLASS");
+        notification.setReferenceId(tutoringClass.getClassId());
+        notification.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
+        notification.setIsRead(false);
+        notificationRepository.save(notification);
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<AssignmentResponse> listMyAssignments() {
-        // Gia sư xem lớp mình được mời/đang dạy; Client xem ai đang dạy lớp của mình.
         List<ClassAssignment> assignments = isClient()
                 ? classAssignmentRepository.findByApplication_TutoringClass_Creator_UserIdOrderByAssignedDateDesc(
                         authHelper.currentUserId())
                 : classAssignmentRepository.findByTutor_TutorIdOrderByAssignedDateDesc(
                         requireTutor().getTutorId());
         return assignments.stream()
-                .filter(a -> a.getApplication() != null) // lớp gán nội bộ (CENTER) không có đơn
+                .filter(a -> a.getApplication() != null)
                 .map(this::toAssignment)
                 .toList();
     }
@@ -522,8 +607,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         assignment.setStatus(ClassAssignmentStatus.DECLINED);
         classAssignmentRepository.save(assignment);
 
-        // Mở lại lớp: đơn của gia sư từ chối giữ REJECTED, các đơn còn lại quay về SUBMITTED
-        // để Client có người mà chọn lại.
         Long declinedId = assignment.getApplication().getApplicationId();
         for (TutorApplication app :
                 tutorApplicationRepository.findByTutoringClass_ClassId(tutoringClass.getClassId())) {
@@ -578,29 +661,61 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
     @Override
     @Transactional
-    public void markAttendance(Long lessonId) {
+    public void markAttendance(Long lessonId, boolean present) {
         Lesson lesson = requireMyLesson(lessonId);
         if (lesson.getAttendanceStatus() == AttendanceStatus.COMPLETED) {
             throw new IllegalArgumentException("Buổi học này đã điểm danh xong");
         }
         requireLessonIsToday(lesson);
-        // Một cú bấm: ghi giờ vào/ra (nếu chưa có) rồi đánh dấu hoàn thành.
-        LocalDateTime now = LocalDateTime.now();
-        if (lesson.getTutorCheckInAt() == null) {
-            lesson.setTutorCheckInAt(now);
+        if (present) {
+            LocalDateTime now = LocalDateTime.now();
+            if (lesson.getTutorCheckInAt() == null) {
+                lesson.setTutorCheckInAt(now);
+            }
+            lesson.setTutorCheckOutAt(now);
+            lesson.setAttendanceStatus(AttendanceStatus.COMPLETED);
+        } else {
+            lesson.setAttendanceStatus(AttendanceStatus.ABSENT);
         }
-        lesson.setTutorCheckOutAt(now);
-        lesson.setAttendanceStatus(AttendanceStatus.COMPLETED);
         lessonRepository.save(lesson);
     }
 
-    /** Điểm danh chỉ trong đúng ngày buổi học diễn ra (chốt theo quyết định nghiệp vụ). */
     private void requireLessonIsToday(Lesson lesson) {
         LocalDate today = LocalDate.now();
         if (!today.equals(lesson.getLessonDate())) {
             throw new IllegalArgumentException(
                     "Chỉ điểm danh được trong ngày diễn ra buổi học ("
                             + lesson.getLessonDate() + "). Hôm nay là " + today + ".");
+        }
+    }
+
+    private void sendClassNotification(User user, String title, String content, Long classId) {
+        if (user == null) {
+            return;
+        }
+        com.tcs.module.messaging.entity.Notification n =
+                new com.tcs.module.messaging.entity.Notification();
+        n.setUser(user);
+        n.setType(com.tcs.module.messaging.enums.NotificationType.CLASS);
+        n.setTitle(title);
+        n.setContent(content);
+        n.setReferenceType("TUTORING_CLASS");
+        n.setReferenceId(classId);
+        n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
+        n.setIsRead(false);
+        notificationRepository.save(n);
+    }
+
+    private User classCounterpart(TutoringClass tc, User me) {
+        User client = tc.getCreator();
+        if (client != null && !client.getUserId().equals(me.getUserId())) {
+            return client;
+        }
+        try {
+            Tutor tutor = activeTutorOf(tc);
+            return tutor != null ? tutor.getUser() : null;
+        } catch (RuntimeException e) {
+            return null;
         }
     }
 
@@ -626,7 +741,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         LocalTime start = request.getNewStartTime();
         LocalTime end = request.getNewEndTime();
         requireTimeRange(start, end);
-        // Báo trùng lịch ngay lúc gửi cho đỡ mất công chờ duyệt; lúc duyệt sẽ kiểm lại.
+        requireNotPastTimeToday(date, start);
         requireSlotFree(lesson.getTutoringClass(), lesson.getTutor(), date, start, end, lessonId);
 
         LessonRescheduleRequest row = new LessonRescheduleRequest();
@@ -638,7 +753,14 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         row.setNewEndTime(end);
         row.setReason(trimToNull(request.getReason()));
         row.setRequestedBy(me);
-        return toRescheduleResponse(rescheduleRequestRepository.save(row), me);
+        LessonRescheduleRequest saved = rescheduleRequestRepository.save(row);
+        sendClassNotification(
+                classCounterpart(lesson.getTutoringClass(), me),
+                "Yêu cầu đổi lịch buổi học",
+                "Có yêu cầu đổi lịch buổi học ở lớp \"" + lesson.getTutoringClass().getTitle()
+                        + "\". Vào mục Lịch dạy để duyệt.",
+                lesson.getTutoringClass().getClassId());
+        return toRescheduleResponse(saved, me);
     }
 
     @Override
@@ -653,13 +775,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
         requireClassParticipant(tutoringClass, me);
 
-        // Buổi thêm phải gắn với gia sư đang dạy — lấy từ chính lịch đã sinh của lớp.
         Tutor tutor = activeTutorOf(tutoringClass);
 
         LocalDate date = requireUpcomingDate(request.getLessonDate());
         LocalTime start = request.getStartTime();
         LocalTime end = request.getEndTime();
         requireTimeRange(start, end);
+        requireNotPastTimeToday(date, start);
         requireSlotFree(tutoringClass, tutor, date, start, end, null);
 
         LessonRescheduleRequest row = new LessonRescheduleRequest();
@@ -668,10 +790,21 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         row.setNewDate(date);
         row.setNewStartTime(start);
         row.setNewEndTime(end);
+        String reason = trimToNull(request.getReason());
+        if (reason == null) {
+            throw new IllegalArgumentException("Vui lòng nhập lý do thêm buổi");
+        }
         row.setSubject(resolveSubject(request.getSubjectId()));
-        row.setReason(trimToNull(request.getReason()));
+        row.setReason(reason);
         row.setRequestedBy(me);
-        return toRescheduleResponse(rescheduleRequestRepository.save(row), me);
+        LessonRescheduleRequest saved = rescheduleRequestRepository.save(row);
+        sendClassNotification(
+                classCounterpart(tutoringClass, me),
+                "Yêu cầu thêm buổi học",
+                "Có yêu cầu thêm buổi học ở lớp \"" + tutoringClass.getTitle()
+                        + "\". Vào mục Lịch dạy để duyệt.",
+                tutoringClass.getClassId());
+        return toRescheduleResponse(saved, me);
     }
 
     @Override
@@ -699,7 +832,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (row.getStatus() != RescheduleRequestStatus.PENDING) {
             throw new IllegalArgumentException("Yêu cầu này đã được xử lý trước đó");
         }
-        // Người gửi không tự duyệt được — phải là bên còn lại.
         if (row.getRequestedBy().getUserId().equals(me.getUserId())) {
             throw new ForbiddenException("Bên còn lại mới là người duyệt yêu cầu này");
         }
@@ -717,6 +849,15 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         row.setDecidedAt(LocalDateTime.now());
         row.setDecisionNote(trimToNull(decision.getNote()));
         rescheduleRequestRepository.save(row);
+        String kind = row.getRequestType() == RescheduleRequestType.EXTRA ? "thêm buổi" : "đổi lịch";
+        String verb = decision.getApprove() ? "được duyệt" : "bị từ chối";
+        String note = trimToNull(decision.getNote());
+        sendClassNotification(
+                row.getRequestedBy(),
+                "Yêu cầu " + kind + " " + verb,
+                "Yêu cầu " + kind + " ở lớp \"" + row.getTutoringClass().getTitle() + "\" đã " + verb
+                        + (note != null ? ". Ghi chú: " + note : "") + ".",
+                row.getTutoringClass().getClassId());
     }
 
     @Override
@@ -736,7 +877,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         rescheduleRequestRepository.save(row);
     }
 
-    /** Áp lịch mới vào bảng {@code lessons}. Chỉ chạy khi yêu cầu được duyệt. */
     private void applyRescheduleRequest(LessonRescheduleRequest row) {
         TutoringClass tutoringClass = row.getTutoringClass();
         LocalDate date = row.getNewDate();
@@ -748,7 +888,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             if (lesson == null) {
                 throw new IllegalArgumentException("Yêu cầu đổi lịch không gắn với buổi nào");
             }
-            // Trạng thái có thể đã đổi trong lúc chờ duyệt — kiểm lại trước khi áp.
             if (lesson.getAttendanceStatus() != AttendanceStatus.PENDING) {
                 throw new IllegalArgumentException(
                         "Buổi này đã điểm danh trong lúc chờ duyệt nên không đổi lịch được nữa");
@@ -766,16 +905,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             lesson.setLessonDate(date);
             lesson.setSlot(resolveSlot(tutoringClass, date, start, end, row.getSubject()));
             lesson.setAttendanceStatus(AttendanceStatus.PENDING);
-            lesson.setSequenceNo(0); // sẽ được đánh lại ngay bên dưới
+            lesson.setSequenceNo(0);
             lessonRepository.save(lesson);
         }
         resequenceLessons(tutoringClass.getClassId());
     }
 
-    /**
-     * Dùng lại schedule_slot có sẵn nếu khớp (thứ, giờ, môn); không thì tạo mới.
-     * Tránh sinh slot rác mỗi lần đổi lịch sang khung đã tồn tại.
-     */
     private ScheduleSlot resolveSlot(
             TutoringClass tutoringClass, LocalDate date, LocalTime start, LocalTime end, Subject subject) {
         int dayOfWeek = date.getDayOfWeek().getValue();
@@ -798,7 +933,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return scheduleSlotRepository.save(slot);
     }
 
-    /** Sau khi dời/thêm buổi, sequence_no phải chạy lại theo đúng thứ tự học. */
     private void resequenceLessons(Long classId) {
         List<Lesson> lessons =
                 new ArrayList<>(lessonRepository.findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(classId));
@@ -806,7 +940,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         lessonRepository.saveAll(lessons);
     }
 
-    /** sequence_no đánh theo đúng thứ tự học: ngày rồi tới giờ bắt đầu. Sửa tại chỗ. */
     private void assignSequenceNumbers(List<Lesson> lessons) {
         lessons.sort(Comparator.comparing(Lesson::getLessonDate)
                 .thenComparing(l -> l.getSlot().getStartTime()));
@@ -816,10 +949,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
     }
 
-    /**
-     * Một buổi mới không được đè lên buổi nào khác của phụ huynh hoặc của gia sư.
-     * Bỏ qua chính buổi đang dời — nên vẫn bắt được va chạm với buổi khác trong cùng lớp.
-     */
     private void requireSlotFree(
             TutoringClass tutoringClass,
             Tutor tutor,
@@ -841,10 +970,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
     }
 
-    /**
-     * Mọi buổi đã chiếm chỗ của hai bên: một người không thể ở hai lớp cùng lúc, nên xét cả
-     * lịch của phụ huynh (các lớp họ tạo) lẫn lịch của gia sư (các lớp họ dạy).
-     */
     private Collection<Lesson> busyLessonsOf(TutoringClass tutoringClass, Tutor tutor) {
         Map<Long, Lesson> existing = new LinkedHashMap<>();
         for (Lesson lesson : lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(
@@ -858,12 +983,10 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return existing.values();
     }
 
-    /** Hai khoảng [start, end) giao nhau khi start < otherEnd và otherStart < end. */
     private boolean overlaps(LocalTime start, LocalTime end, LocalTime otherStart, LocalTime otherEnd) {
         return start.isBefore(otherEnd) && otherStart.isBefore(end);
     }
 
-    /** Gia sư đang dạy lớp — suy từ lịch đã sinh, nên chỉ có sau khi gia sư nhận lớp. */
     private Tutor activeTutorOf(TutoringClass tutoringClass) {
         return lessonRepository
                 .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(tutoringClass.getClassId())
@@ -874,7 +997,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                         "Lớp chưa có lịch dạy — cần gia sư nhận lớp trước khi thêm buổi"));
     }
 
-    /** Chỉ phụ huynh tạo lớp và gia sư đang dạy lớp mới được đụng vào lịch của lớp đó. */
     private void requireClassParticipant(TutoringClass tutoringClass, User me) {
         if (tutoringClass.getCreator().getUserId().equals(me.getUserId())) {
             return;
@@ -888,9 +1010,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
     }
 
-    /**
-     * Cùng một thời khóa biểu: gia sư nhìn theo lớp mình dạy, Client theo lớp mình tạo.
-     */
     private List<Lesson> myLessons() {
         return isClient()
                 ? lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(
@@ -899,7 +1018,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                         requireTutor().getTutorId());
     }
 
-    /** Các lớp mà người đang đăng nhập tham gia. */
     private Set<Long> myClassIds() {
         Set<Long> ids = new LinkedHashSet<>();
         for (Lesson lesson : myLessons()) {
@@ -918,7 +1036,14 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return date;
     }
 
-    /** Kiểm tra cả hai đầu giờ trong một lần — luôn đi cùng nhau ở mọi chỗ gọi. */
+    private void requireNotPastTimeToday(LocalDate date, LocalTime start) {
+        if (date != null && start != null
+                && date.isEqual(LocalDate.now())
+                && start.isBefore(LocalTime.now())) {
+            throw new IllegalArgumentException("Giờ học hôm nay đã qua — chọn giờ muộn hơn");
+        }
+    }
+
     private void requireTimeRange(LocalTime start, LocalTime end) {
         if (start == null || end == null) {
             throw new IllegalArgumentException("Thiếu giờ bắt đầu hoặc giờ kết thúc");
@@ -957,7 +1082,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .build();
     }
 
-    /** Gia sư có tên hồ sơ; phụ huynh thì chỉ có email (giống chỗ dựng AssignmentResponse). */
     private String displayNameOf(User user) {
         return tutorRepository
                 .findByUser_UserId(user.getUserId())
@@ -1004,28 +1128,19 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return lesson;
     }
 
-    // --- Sinh lịch dạy ---------------------------------------------------------------
-
-    /**
-     * Bung lịch trong detailsJson thành từng buổi CÓ NGÀY CỤ THỂ.
-     * schedule_slots chưa bao giờ được ghi nên phải sinh cả slot lẫn lesson tại đây.
-     */
     private void generateSchedule(TutoringClass tutoringClass, Tutor tutor) {
         if (lessonRepository.countByTutoringClass_ClassId(tutoringClass.getClassId()) > 0) {
-            return; // đã sinh rồi (nhận lại lớp) — không nhân đôi lịch
+            return;
         }
         JsonNode form = readTree(tutoringClass.getDetailsJson());
         List<SlotSpec> specs = slotSpecs(form);
         if (specs.isEmpty() || tutoringClass.getStartDate() == null || tutoringClass.getEndDate() == null) {
-            return; // lớp cũ không có lịch trong JSON → không sinh buổi nào
+            return;
         }
 
         List<Map.Entry<LocalDate, SlotSpec>> occurrences = expandOccurrences(form, specs, tutoringClass);
-        // Không cho nhận lớp nếu bất kỳ buổi nào trùng giờ với buổi đã có (lớp khác của
-        // cùng phụ huynh hoặc của cùng gia sư) — @Transactional nên throw sẽ rollback sạch.
         requireNoScheduleConflict(tutoringClass, tutor, occurrences);
 
-        // Mỗi (thứ, giờ, môn) khác nhau = 1 schedule_slot dùng lại cho mọi tuần.
         Map<SlotSpec, ScheduleSlot> slotRows = new LinkedHashMap<>();
         for (SlotSpec spec : specs) {
             slotRows.computeIfAbsent(spec, s -> {
@@ -1053,10 +1168,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         lessonRepository.saveAll(lessons);
     }
 
-    /**
-     * Chặn nhận lớp khi buổi mới trùng giờ với buổi đã có. Một người không thể ở hai lớp cùng lúc,
-     * nên xét cả lịch của phụ huynh (các lớp họ tạo) lẫn lịch của gia sư (các lớp họ dạy).
-     */
     private void requireNoScheduleConflict(
             TutoringClass tutoringClass, Tutor tutor, List<Map.Entry<LocalDate, SlotSpec>> occurrences) {
         Long classId = tutoringClass.getClassId();
@@ -1066,7 +1177,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             LocalDate date = occurrence.getKey();
             SlotSpec spec = occurrence.getValue();
             for (Lesson lesson : existing) {
-                // Loại buổi của chính lớp đang xét (thường chưa có).
                 if (lesson.getTutoringClass().getClassId().equals(classId)
                         || !date.equals(lesson.getLessonDate())) {
                     continue;
@@ -1083,7 +1193,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
     }
 
-    /** Một khung học lặp lại: thứ + giờ + môn. */
     private record SlotSpec(Integer dayOfWeek, LocalTime start, LocalTime end, Long subjectId) {}
 
     private List<SlotSpec> slotSpecs(JsonNode form) {
@@ -1110,10 +1219,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return specs;
     }
 
-    /**
-     * WEEKLY: lặp theo tuần, bỏ tuần nghỉ (studyWeeks trong chu kỳ repeatEveryWeeks).
-     * CUSTOM: mỗi slot đã có ngày sẵn.
-     */
     private List<Map.Entry<LocalDate, SlotSpec>> expandOccurrences(
             JsonNode form, List<SlotSpec> specs, TutoringClass tutoringClass) {
         LocalDate startDate = tutoringClass.getStartDate();
@@ -1133,7 +1238,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
         int cycleWeeks = Math.min(4, Math.max(1, form.path("repeatEveryWeeks").asInt(1)));
         Set<Integer> studyWeeks = studyWeeksOf(form, cycleWeeks);
-        // Neo vào thứ Hai của tuần chứa startDate để tính ngày theo thứ cho gọn.
         LocalDate anchorMonday = startDate.with(java.time.temporal.TemporalAdjusters.previousOrSame(DayOfWeek.MONDAY));
 
         for (int weekIndex = 0; ; weekIndex++) {
@@ -1142,7 +1246,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 break;
             }
             if (!studyWeeks.contains((weekIndex % cycleWeeks) + 1)) {
-                continue; // tuần nghỉ
+                continue;
             }
             for (SlotSpec spec : specs) {
                 LocalDate date = weekStart.plusDays(spec.dayOfWeek() - 1L);
@@ -1163,7 +1267,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             }
         }
         if (weeks.isEmpty()) {
-            weeks.add(1); // lớp cũ chưa có studyWeeks → học tuần đầu mỗi chu kỳ
+            weeks.add(1);
         }
         return weeks;
     }
@@ -1249,7 +1353,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .build();
     }
 
-    /** Lấy lớp và đảm bảo người gọi là Client đã tạo lớp đó. */
     private TutoringClass requireOwnedClass(Long classId) {
         TutoringClass tutoringClass = findClass(classId);
         if (!tutoringClass.getCreator().getUserId().equals(authHelper.currentUserId())) {
@@ -1282,7 +1385,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .build();
     }
 
-    /** Đơn cũ (trước khi có báo giá theo môn) không có JSON → trả null, client hiện mức chung. */
     private Map<String, BigDecimal> readRates(String json) {
         if (!StringUtils.hasText(json)) {
             return null;
@@ -1294,10 +1396,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
     }
 
-    /**
-     * Điểm gợi ý AI 0–100 cho một ứng viên, tổng hợp có trọng số:
-     * đánh giá (40%), kinh nghiệm (25%), mức phí phù hợp ngân sách (20%), đã xác minh hồ sơ (15%).
-     */
     private int aiMatchScore(TutorApplication app, Tutor tutor, TutoringClass tutoringClass) {
         double rating = tutor.getRatingAvg() != null ? tutor.getRatingAvg().doubleValue() / 5.0 : 0;
         double experience = Math.min((tutor.getExperienceYears() != null ? tutor.getExperienceYears() : 0) / 10.0, 1.0);
@@ -1312,12 +1410,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return (int) Math.round(clamp01(total) * 100);
     }
 
-    /** Mức phí gia sư đề xuất so với học phí Client mong muốn: đạt/thấp hơn = 1; cao hơn giảm dần. */
     private double priceFit(TutorApplication app, Tutor tutor, TutoringClass tutoringClass) {
         BigDecimal expected = tutoringClass.getTuitionFee();
         BigDecimal rate = app.getProposedRate() != null ? app.getProposedRate() : tutor.getHourlyRate();
         if (expected == null || expected.signum() <= 0 || rate == null || rate.signum() <= 0) {
-            return 0.7; // thiếu dữ liệu giá → trung tính
+            return 0.7;
         }
         if (rate.compareTo(expected) <= 0) {
             return 1.0;
@@ -1329,8 +1426,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return Math.max(0.0, Math.min(1.0, v));
     }
 
-    // Luong dang ky cu (gia su nop don / phu huynh ghi danh) — khong con trong interface sau merge,
-    // giu lai lam tham khao. Khong con endpoint controller goi den.
     @Transactional
     public void registerToClass(Long classId) {
         User user = requireUser();
@@ -1340,7 +1435,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
         Long userId = user.getUserId();
 
-        // Gia sư -> nộp đơn dạy.
         Tutor tutor = tutorRepository.findByUser_UserId(userId).orElse(null);
         if (tutor != null) {
             if (tutorApplicationRepository
@@ -1355,7 +1449,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return;
         }
 
-        // Phụ huynh/học viên -> ghi danh.
         Client client = clientRepository.findByUser_UserId(userId).orElse(null);
         if (client != null) {
             if (classStudentRepository
@@ -1371,7 +1464,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             student.setStatus(ClassStudentStatus.ENROLLED);
             classStudentRepository.save(student);
 
-            // Đủ sĩ số tối đa -> tự động đóng lớp thành MATCHED (không nhận thêm ghi danh).
             Integer max = tutoringClass.getMaxStudents();
             if (max != null && max > 0) {
                 long enrolled = classStudentRepository
@@ -1532,7 +1624,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                                 .build())
                         .toList())
                 .createdAt(c.getCreatedAt())
-                .applicationCount(tutorApplicationRepository.countByTutoringClass_ClassId(c.getClassId()))
+                .applicationCount(tutorApplicationRepository.countByTutoringClass_ClassIdAndStatusNot(
+                        c.getClassId(), TutorApplicationStatus.REJECTED))
                 .build();
     }
 

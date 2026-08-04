@@ -5,10 +5,13 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
-/** '18:00:00' → '18:00'. Chịu được null vì nhiều chỗ dùng giờ của buổi cũ (có thể trống). */
 export const hhmm = (time: string | null | undefined): string => (time ?? '').slice(0, 5);
 
-/** 'YYYY-MM-DD' theo giờ máy — KHÔNG dùng toISOString vì nó quy về UTC, lệch ngày. */
+export const hhmmDisplay = (time: string | null | undefined): string => {
+  const t = hhmm(time);
+  return t === '23:59' ? '00:00' : t;
+};
+
 export function toIsoDate(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;

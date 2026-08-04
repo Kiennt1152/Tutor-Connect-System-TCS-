@@ -41,6 +41,5 @@ public class ClassResponse {
     private long enrolledCount;
     private List<ScheduleSlotResponse> schedule;
     private LocalDateTime createdAt;
-    /** Số gia sư đã ứng tuyển vào lớp (để Client biết có đơn để xem). */
     private Long applicationCount;
 }

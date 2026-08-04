@@ -9,9 +9,6 @@ export type ReviewCriterionConfig = {
   levels: CriterionLevel[];
 };
 
-/**
- * Bo tieu chi danh gia gia su. Moi tieu chi cham 1..5, kem nhan mo ta tung muc de client de chon.
- */
 export const REVIEW_CRITERIA: ReviewCriterionConfig[] = [
   {
     code: 'punctuality',

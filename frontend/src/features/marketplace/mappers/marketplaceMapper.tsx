@@ -4,6 +4,7 @@ import {
   LEARNING_GOAL_OPTIONS,
   LEARNING_GOAL_OTHER,
   OTHER_SUBJECT,
+  isOtherSubject,
   TUTOR_REQUIREMENT_OPTIONS,
   type CatalogOption,
   type ClassFormValues,
@@ -14,7 +15,7 @@ import {
 export function emptyForm(): ClassFormValues {
   return {
     subjectIds: [],
-    subjectOther: '',
+    subjectOthers: {},
     gradeId: '',
     learningGoal: '',
     learningGoalOther: '',
@@ -31,6 +32,7 @@ export function emptyForm(): ClassFormValues {
     subjectFees: {},
     billingCycle: 'MONTH',
     months: '1',
+    durationUnit: 'MONTH',
     scheduleMode: 'WEEKLY',
     repeatEveryWeeks: '1',
     studyWeeks: [1],
@@ -39,7 +41,18 @@ export function emptyForm(): ClassFormValues {
   };
 }
 
-type LegacyForm = Partial<ClassFormValues> & { weeksOnPerCycle?: string };
+type LegacyForm = Partial<ClassFormValues> & {
+  weeksOnPerCycle?: string;
+  subjectOther?: string;
+};
+
+function migrateOtherSubjects(parsed: LegacyForm): Record<string, string> {
+  if (parsed.subjectOthers && typeof parsed.subjectOthers === 'object') return parsed.subjectOthers;
+  if (parsed.subjectOther && (parsed.subjectIds ?? []).includes(OTHER_SUBJECT)) {
+    return { [OTHER_SUBJECT]: parsed.subjectOther };
+  }
+  return {};
+}
 
 function migrateStudyWeeks(parsed: LegacyForm): number[] {
   if (Array.isArray(parsed.studyWeeks) && parsed.studyWeeks.length > 0) return parsed.studyWeeks;
@@ -48,11 +61,32 @@ function migrateStudyWeeks(parsed: LegacyForm): number[] {
   return [1];
 }
 
+function migrateDuration(parsed: LegacyForm): Pick<ClassFormValues, 'billingCycle' | 'months' | 'durationUnit'> {
+  const cycle = parsed.billingCycle;
+  if (cycle === 'YEAR') {
+    return { billingCycle: 'MONTH', months: '1', durationUnit: 'YEAR' };
+  }
+  if (cycle === 'TERM' || cycle === 'QUARTER') {
+    return { billingCycle: cycle, months: parsed.months ?? '1', durationUnit: 'MONTH' };
+  }
+  return {
+    billingCycle: 'MONTH',
+    months: parsed.months ?? '1',
+    durationUnit: parsed.durationUnit ?? 'MONTH',
+  };
+}
+
 export function classToForm(c: ClassResponse): ClassFormValues {
   if (c.detailsJson) {
     try {
       const parsed = JSON.parse(c.detailsJson) as LegacyForm;
-      return { ...emptyForm(), ...parsed, studyWeeks: migrateStudyWeeks(parsed) };
+      return {
+        ...emptyForm(),
+        ...parsed,
+        subjectOthers: migrateOtherSubjects(parsed),
+        studyWeeks: migrateStudyWeeks(parsed),
+        ...migrateDuration(parsed),
+      };
     } catch {
     }
   }
@@ -64,7 +98,7 @@ export function classToForm(c: ClassResponse): ClassFormValues {
   const subjIds = c.subjectId != null ? [String(c.subjectId)] : [];
   return {
     subjectIds: subjIds,
-    subjectOther: '',
+    subjectOthers: {},
     gradeId: c.gradeId != null ? String(c.gradeId) : '',
     learningGoal: c.learningGoal ? (goalMatched ? c.learningGoal : LEARNING_GOAL_OTHER) : '',
     learningGoalOther: c.learningGoal && !goalMatched ? c.learningGoal : '',
@@ -81,6 +115,7 @@ export function classToForm(c: ClassResponse): ClassFormValues {
     subjectFees: subjIds[0] ? { [subjIds[0]]: fee } : {},
     billingCycle: 'MONTH',
     months: '1',
+    durationUnit: 'MONTH',
     scheduleMode: 'WEEKLY',
     repeatEveryWeeks: '1',
     studyWeeks: [1],
@@ -113,16 +148,26 @@ export function resolveTutorRequirement(form: ClassFormValues): string {
   return form.tutorRequirement;
 }
 
+export function durationCountOf(form: ClassFormValues): number {
+  return Math.max(1, Number(form.months) || 1);
+}
+
+export function totalMonthsOf(form: ClassFormValues): number {
+  const n = durationCountOf(form);
+  return form.durationUnit === 'YEAR' ? n * 12 : n;
+}
+
 export function weeksForCycle(form: ClassFormValues): number {
   if (form.billingCycle === 'MONTH') {
-    return Math.max(1, Number(form.months) || 1) * 4;
+    return totalMonthsOf(form) * 4;
   }
   return BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle)?.weeks ?? 4;
 }
 
 export function cycleLabelOf(form: ClassFormValues): string {
   if (form.billingCycle === 'MONTH') {
-    return `${Math.max(1, Number(form.months) || 1)} tháng`;
+    const n = durationCountOf(form);
+    return form.durationUnit === 'YEAR' ? `${n} năm` : `${n} tháng`;
   }
   return BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle)?.label ?? '1 tháng';
 }
@@ -205,8 +250,8 @@ export function buildScheduleSummary(form: ClassFormValues, subjects: CatalogOpt
   ];
   const money = new Intl.NumberFormat('vi-VN');
   const nameOf = (id: string) =>
-    id === OTHER_SUBJECT
-      ? form.subjectOther.trim() || 'Môn học khác'
+    isOtherSubject(id)
+      ? form.subjectOthers[id]?.trim() || 'Môn học khác'
       : (subjects.find((s) => String(s.id) === id)?.name ?? '');
   const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
   const whenOf = (s: ClassFormValues['slots'][number]) =>
@@ -251,13 +296,13 @@ export function formToPayload(
   }
   const subjectNames = form.subjectIds
     .map((id) =>
-      id === OTHER_SUBJECT
-        ? form.subjectOther.trim() || 'Môn học khác'
+      isOtherSubject(id)
+        ? form.subjectOthers[id]?.trim() || 'Môn học khác'
         : subjects.find((s) => String(s.id) === id)?.name,
     )
     .filter((n): n is string => !!n);
   const subjectLine = subjectNames.length > 0 ? `Môn học: ${subjectNames.join(', ')}` : '';
-  const primarySubjectId = form.subjectIds.find((id) => id !== OTHER_SUBJECT);
+  const primarySubjectId = form.subjectIds.find((id) => !isOtherSubject(id));
   const description = [subjectLine, buildScheduleSummary(form, subjects), form.note.trim()]
     .filter(Boolean)
     .join('\n');

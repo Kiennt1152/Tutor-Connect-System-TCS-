@@ -23,10 +23,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
-/**
- * Yêu cầu đổi lịch một buổi hoặc thêm buổi mới (UC-36). Cả phụ huynh lẫn gia sư đều gửi được;
- * bên còn lại duyệt. Lịch thật (bảng {@code lessons}) chỉ thay đổi khi yêu cầu được duyệt.
- */
 @Entity
 @Table(name = "lesson_reschedule_requests")
 @Getter
@@ -43,7 +39,6 @@ public class LessonRescheduleRequest {
     @JoinColumn(name = "class_id", nullable = false)
     private TutoringClass tutoringClass;
 
-    /** Buổi cần dời. Null với yêu cầu thêm buổi. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "lesson_id")
     private Lesson lesson;
@@ -61,7 +56,6 @@ public class LessonRescheduleRequest {
     @Column(name = "new_end_time", nullable = false)
     private LocalTime newEndTime;
 
-    /** Chỉ dùng khi thêm buổi — đổi lịch giữ nguyên môn của buổi cũ. */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subject_id")
     private Subject subject;

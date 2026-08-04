@@ -8,7 +8,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** Phường / Xã (id = mã hành chính GSO). */
 @Entity
 @Table(name = "wards")
 @Getter

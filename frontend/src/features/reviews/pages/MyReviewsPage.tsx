@@ -4,6 +4,8 @@ import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { reviewApi } from '../api/reviewApi';
 import type { ReviewableAssignment } from '../types/reviewTypes';
 import { ReviewFormModal } from '../components/ReviewFormModal';
+import { ReportReviewModal } from '../components/ReportReviewModal';
+import { REPLY_REPORT_CATEGORY_OPTIONS } from '../api/reportApi';
 import { StarRating } from '../components/StarRating';
 import { CriteriaBreakdown } from '../components/CriteriaBreakdown';
 import './MyReviewsPage.css';
@@ -149,6 +151,8 @@ function DoneReviewCard({
   readonly onEdit: () => void;
 }) {
   const [showDetails, setShowDetails] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reported, setReported] = useState(false);
 
   return (
     <li className="rv-card rv-card--done">
@@ -201,12 +205,42 @@ function DoneReviewCard({
             <p className="rv-reply__text">{item.tutorReply}</p>
           </div>
         ) : null}
-        {item.reviewId != null ? (
-          <button type="button" className="tcs-btn tcs-btn--ghost rv-card__edit" onClick={onEdit}>
-            Chỉnh sửa đánh giá
-          </button>
-        ) : null}
+        <div className="rv-card__actions">
+          {item.reviewId != null ? (
+            <button type="button" className="tcs-btn tcs-btn--ghost rv-card__edit" onClick={onEdit}>
+              Chỉnh sửa đánh giá
+            </button>
+          ) : null}
+          {item.reviewId != null &&
+            item.tutorReply &&
+            (reported ? (
+              <span className="rv-card__reported">✓ Đã gửi báo cáo — chờ kiểm duyệt</span>
+            ) : (
+              <button
+                type="button"
+                className="rv-card__report"
+                onClick={() => setReporting(true)}
+              >
+                🚩 Báo cáo phản hồi của gia sư
+              </button>
+            ))}
+        </div>
       </div>
+
+      {reporting && item.reviewId != null ? (
+        <ReportReviewModal
+          reviewId={item.reviewId}
+          title="Báo cáo phản hồi của gia sư"
+          intro="Báo cáo sẽ được gửi tới quản trị viên để kiểm duyệt nội dung phản hồi của gia sư đối với đánh giá này."
+          options={REPLY_REPORT_CATEGORY_OPTIONS}
+          subtitle={`${item.tutorName}${item.classTitle ? ` · ${item.classTitle}` : ''}`}
+          onClose={() => setReporting(false)}
+          onReported={() => {
+            setReporting(false);
+            setReported(true);
+          }}
+        />
+      ) : null}
     </li>
   );
 }

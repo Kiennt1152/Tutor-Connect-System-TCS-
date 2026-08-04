@@ -19,10 +19,6 @@ function extractError(err: unknown, fallback: string): string {
   return fallback;
 }
 
-/**
- * Lịch của MỘT lớp. `/lessons/mine` đã giới hạn theo người đang đăng nhập
- * (gia sư → lớp mình dạy, Client → lớp mình tạo) nên chỉ cần lọc theo classId.
- */
 export function useClassLessons(classId: number) {
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [lessons, setLessons] = useState<LessonResponse[]>([]);
@@ -46,10 +42,6 @@ export function useClassLessons(classId: number) {
   return { status, lessons };
 }
 
-/**
- * Số lời mời nhận lớp đang chờ — để badge trên header, gia sư thấy được từ mọi trang.
- * Cố tình nuốt lỗi: đây là thông báo phụ, hỏng thì ẩn đi chứ không được làm vỡ header.
- */
 export function usePendingInviteCount(enabled: boolean) {
   const [count, setCount] = useState(0);
 
@@ -69,11 +61,9 @@ export function usePendingInviteCount(enabled: boolean) {
     };
   }, [enabled]);
 
-  // Lọc ở đây thay vì setCount(0) trong effect: tránh một vòng render thừa khi đổi role.
   return enabled ? count : 0;
 }
 
-/** Lời mời nhận lớp + lịch dạy + điểm danh của gia sư đang đăng nhập. */
 export function useTeaching() {
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [assignments, setAssignments] = useState<AssignmentResponse[]>([]);
@@ -82,11 +72,6 @@ export function useTeaching() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  /**
-   * Lời mời nhận lớp là thứ quan trọng nhất của màn này, nên CHỈ nó được phép làm hỏng trang.
-   * Thời khoá biểu và danh sách yêu cầu tải lỗi thì bỏ qua — trước đây gộp cả ba vào một
-   * Promise.all khiến một endpoint 404 là mất luôn nút "Nhận lớp".
-   */
   const reload = useCallback(async () => {
     setStatus('loading');
     try {
@@ -108,7 +93,6 @@ export function useTeaching() {
     void reload();
   }, [reload]);
 
-  /** Bọc mọi thao tác: xoá thông báo cũ, gọi API, nạp lại dữ liệu. */
   const run = useCallback(
     async (action: () => Promise<{ message: string }>, fallbackError: string) => {
       setNotice(null);
@@ -136,9 +120,9 @@ export function useTeaching() {
     reload,
     accept: (id: number) => run(() => teachingApi.acceptAssignment(id), 'Nhận lớp thất bại.'),
     decline: (id: number) => run(() => teachingApi.declineAssignment(id), 'Từ chối lớp thất bại.'),
-    attend: (id: number) => run(() => teachingApi.markAttendance(id), 'Điểm danh thất bại.'),
+    attend: (id: number, present: boolean) =>
+      run(() => teachingApi.markAttendance(id, present), 'Điểm danh thất bại.'),
 
-    // UC-36 — gửi yêu cầu trả về entity nên bọc lại thành {message} cho hợp với `run`.
     requestReschedule: (lessonId: number, payload: RescheduleLessonPayload) =>
       run(
         () =>

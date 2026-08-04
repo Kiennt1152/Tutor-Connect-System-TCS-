@@ -2,7 +2,6 @@ import { AppLogo } from '../../../shared/components/AppLogo';
 import { FOOTER_LINKS } from '../config/homeContent';
 import '../pages/HomePage.css';
 
-/** Footer chính, dùng chung cho trang chủ và các màn hình con. */
 export function SiteFooter() {
   return (
     <footer className="tcs-footer">

@@ -7,7 +7,6 @@ type StarRatingProps = {
   size?: number;
 };
 
-/** Bo chon so sao 1..5. Khi readOnly chi hien thi, khong tuong tac. */
 export function StarRating({ value, onChange, readOnly = false, size = 28 }: StarRatingProps) {
   const [hover, setHover] = useState(0);
   const active = hover || value;

@@ -130,7 +130,7 @@ export interface ClassRequestPayload {
 
 export interface ClassFormValues {
   subjectIds: string[];
-  subjectOther: string;
+  subjectOthers: Record<string, string>;
   gradeId: string;
   learningGoal: string;
   learningGoalOther: string;
@@ -147,6 +147,7 @@ export interface ClassFormValues {
   subjectFees: Record<string, string>;
   billingCycle: BillingCycle;
   months: string;
+  durationUnit: DurationUnit;
   scheduleMode: ScheduleMode;
   repeatEveryWeeks: string;
   studyWeeks: number[];
@@ -196,6 +197,17 @@ export const SESSION_OPTIONS: readonly {
 
 export type BillingCycle = 'MONTH' | 'TERM' | 'QUARTER' | 'YEAR';
 
+export type DurationUnit = 'MONTH' | 'YEAR';
+
+export type DurationChoice = 'MONTH_FREE' | 'TERM' | 'QUARTER' | 'YEAR_FREE';
+
+export const DURATION_CHOICE_OPTIONS: readonly { value: DurationChoice; label: string }[] = [
+  { value: 'MONTH_FREE', label: 'Tháng' },
+  { value: 'TERM', label: 'Quý (3 tháng)' },
+  { value: 'QUARTER', label: 'Nửa năm (6 tháng)' },
+  { value: 'YEAR_FREE', label: 'Năm' },
+];
+
 export const LEARNING_GOAL_OPTIONS: readonly string[] = [
   'Lấy lại gốc',
   'Ôn thi học kỳ',
@@ -207,6 +219,11 @@ export const LEARNING_GOAL_OPTIONS: readonly string[] = [
 export const LEARNING_GOAL_OTHER = 'Khác';
 
 export const OTHER_SUBJECT = 'other';
+export const OTHER_PREFIX = 'other:';
+export const isOtherSubject = (id: string): boolean =>
+  id === OTHER_SUBJECT || id.startsWith(OTHER_PREFIX);
+export const newOtherSubjectId = (): string =>
+  `${OTHER_PREFIX}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 export const TUTOR_REQUIREMENT_OPTIONS: readonly string[] = [
   'Không yêu cầu cụ thể',

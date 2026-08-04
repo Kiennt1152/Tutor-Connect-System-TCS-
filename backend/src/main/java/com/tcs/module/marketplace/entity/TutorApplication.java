@@ -40,11 +40,9 @@ public class TutorApplication {
     @JoinColumn(name = "tutor_id", nullable = false)
     private Tutor tutor;
 
-    /** Mức cao nhất trong {@link #proposedRatesJson} — giữ cho đơn cũ và chấm điểm AI. */
     @Column(name = "proposed_rate", precision = 12, scale = 2)
     private BigDecimal proposedRate;
 
-    /** Học phí đề xuất theo từng môn, JSON {subjectId -> rate}. Null với đơn cũ. */
     @Column(name = "proposed_rates_json", columnDefinition = "TEXT")
     private String proposedRatesJson;
 

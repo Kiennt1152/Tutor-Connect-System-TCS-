@@ -9,7 +9,6 @@ import type {
 
 export type LoadStatus = 'loading' | 'success' | 'error';
 
-/** Quản lý danh sách lớp của Client + catalog cho form + các thao tác tạo/sửa/đăng. */
 export function useMarketplace() {
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [classes, setClasses] = useState<ClassResponse[]>([]);
@@ -36,7 +35,6 @@ export function useMarketplace() {
     reload();
   }, [reload]);
 
-  // Catalog cho form (tải một lần).
   useEffect(() => {
     marketplaceApi.listSubjects().then(setSubjects).catch(() => setSubjects([]));
     marketplaceApi.listGrades().then(setGrades).catch(() => setGrades([]));
@@ -81,6 +79,15 @@ export function useMarketplace() {
     [reload],
   );
 
+  const unpublishClass = useCallback(
+    async (classId: number) => {
+      const updated = await marketplaceApi.unpublishClass(classId);
+      reload();
+      return updated;
+    },
+    [reload],
+  );
+
   return {
     status,
     classes,
@@ -93,5 +100,6 @@ export function useMarketplace() {
     createClass,
     updateClass,
     publishClass,
+    unpublishClass,
   };
 }

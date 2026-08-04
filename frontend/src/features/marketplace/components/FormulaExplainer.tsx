@@ -1,7 +1,6 @@
 import type { MatchWeights } from '../matching/tutorMatching';
 import './formulaExplainer.css';
 
-/** Chú thích ngắn cho 5 mã tiêu chí trong công thức. */
 const LEGEND: { short: string; label: string }[] = [
   { short: 'S', label: 'Môn & lớp' },
   { short: 'L', label: 'Địa điểm' },
@@ -13,14 +12,9 @@ const LEGEND: { short: string; label: string }[] = [
 interface Props {
   readonly weights: MatchWeights;
   readonly defaultOpen?: boolean;
-  /** true = chỉ render phần nội dung, bỏ vỏ <details> — dùng khi đặt trong popup. */
   readonly bare?: boolean;
 }
 
-/**
- * Thẻ giải thích ngắn gọn công thức chấm độ phù hợp.
- * Trọng số Wx chính là mức đã kéo ở các thanh trượt "Mức độ ưu tiên".
- */
 export function FormulaExplainer({ weights, defaultOpen = true, bare = false }: Props) {
   const wSum =
     weights.subject + weights.location + weights.salary + weights.schedule + weights.experience;

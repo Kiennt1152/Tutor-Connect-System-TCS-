@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import {
   DAY_OF_WEEK_OPTIONS,
   LESSON_MODE_OPTIONS,
-  OTHER_SUBJECT,
+  isOtherSubject,
   type CatalogOption,
   type ClassFormValues,
   type ClassResponse,
@@ -29,26 +29,38 @@ interface Props {
   readonly grades: CatalogOption[];
 }
 
-/** Nội dung chỉ-đọc của một lớp (dùng lại trong modal gia sư & màn chi tiết chủ lớp). */
 export function ClassDetailPanel({ raw, subjects, grades }: Props) {
-  // Bóc dữ liệu đầy đủ từ detailsJson (fallback cột phẳng nếu lớp cũ không có JSON).
   const form: ClassFormValues = useMemo(() => classToForm(raw), [raw]);
   const hasDetails = !!raw.detailsJson;
 
   const subjectName = useMemo(() => {
     const m = new Map(subjects.map((s) => [String(s.id), s.name]));
     return (id: string) =>
-      id === OTHER_SUBJECT ? form.subjectOther.trim() || 'Môn khác' : (m.get(id) ?? `#${id}`);
-  }, [subjects, form.subjectOther]);
+      isOtherSubject(id) ? form.subjectOthers[id]?.trim() || 'Môn khác' : (m.get(id) ?? `#${id}`);
+  }, [subjects, form.subjectOthers]);
   const gradeName = useMemo(() => {
     const m = new Map(grades.map((g) => [String(g.id), g.name]));
     return m.get(form.gradeId) ?? raw.gradeName ?? '—';
   }, [grades, form.gradeId, raw.gradeName]);
 
   const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
-  // Nhịp lặp nêu một lần ở tiêu đề mục Lịch học, không lặp lại ở từng buổi.
+  const hm = (t: string) => (t === '23:59' ? '00:00' : t);
   const whenOf = (s: ClassFormValues['slots'][number]) =>
     form.scheduleMode === 'WEEKLY' ? dayLabel(s.day) : `${weekdayVi(s.date)} ${s.date}`;
+  const dayIndex = (v: string) => {
+    const i = DAY_OF_WEEK_OPTIONS.findIndex((d) => d.value === v);
+    return i === -1 ? 99 : i;
+  };
+  const sortSlots = (
+    a: ClassFormValues['slots'][number],
+    b: ClassFormValues['slots'][number],
+  ) => {
+    const primary =
+      form.scheduleMode === 'WEEKLY'
+        ? dayIndex(a.day) - dayIndex(b.day)
+        : a.date.localeCompare(b.date);
+    return primary !== 0 ? primary : a.start.localeCompare(b.start);
+  };
 
   const learningGoal = resolveLearningGoal(form);
   const tutorRequirement = resolveTutorRequirement(form);
@@ -131,7 +143,7 @@ export function ClassDetailPanel({ raw, subjects, grades }: Props) {
           </h3>
           <div className="cdm-schedule">
             {form.subjectIds.map((sid) => {
-              const rows = form.slots.filter((s) => s.subjectId === sid);
+              const rows = form.slots.filter((s) => s.subjectId === sid).sort(sortSlots);
               if (rows.length === 0) return null;
               return (
                 <div key={sid} className="cdm-schedule__group">
@@ -139,7 +151,7 @@ export function ClassDetailPanel({ raw, subjects, grades }: Props) {
                   <ul>
                     {rows.map((s, i) => (
                       <li key={i}>
-                        🗓️ {whenOf(s)} — <strong>{s.session}</strong> ({s.start}–{s.end})
+                        🗓️ {whenOf(s)} — <strong>{s.session}</strong> ({hm(s.start)}–{hm(s.end)})
                       </li>
                     ))}
                   </ul>

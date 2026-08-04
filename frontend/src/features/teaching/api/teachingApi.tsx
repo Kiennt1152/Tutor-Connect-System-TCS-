@@ -13,7 +13,6 @@ export const teachingApi = {
   http: axiosClient,
   basePath: TEACHING_API_BASE,
 
-  /** Lời mời nhận lớp + lớp đang dạy. */
   listMyAssignments: () =>
     axiosClient.get<AssignmentResponse[]>('/marketplace/assignments/mine').then((r) => r.data),
 
@@ -27,7 +26,6 @@ export const teachingApi = {
       .post<{ message: string }>(`/marketplace/assignments/${assignmentId}/decline`)
       .then((r) => r.data),
 
-  /** Lịch dạy — mọi buổi của các lớp đã nhận, xếp theo ngày. */
   listMyLessons: () =>
     axiosClient.get<LessonResponse[]>('/marketplace/lessons/mine').then((r) => r.data),
 
@@ -41,10 +39,11 @@ export const teachingApi = {
       .post<{ message: string }>(`/marketplace/lessons/${lessonId}/checkout`)
       .then((r) => r.data),
 
-  /** Điểm danh một buổi bằng một cú bấm (chỉ trong đúng ngày buổi học). */
-  markAttendance: (lessonId: number) =>
+  markAttendance: (lessonId: number, present: boolean) =>
     axiosClient
-      .post<{ message: string }>(`/marketplace/lessons/${lessonId}/attend`)
+      .post<{ message: string }>(
+        `/marketplace/lessons/${lessonId}/attend?present=${present}`,
+      )
       .then((r) => r.data),
 
   requestReschedule: (lessonId: number, payload: RescheduleLessonPayload) =>

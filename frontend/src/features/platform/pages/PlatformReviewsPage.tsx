@@ -50,7 +50,7 @@ export default function PlatformReviewsPage() {
 
   return (
     <AdminLayout
-      title="Kiểm duyệt đánh giá"
+      title="Nhận xét gia sư"
       subtitle="Xem, ẩn/hiện, đánh dấu vi phạm hoặc xóa đánh giá của khách hàng."
     >
       <div className="adm-summary-row">

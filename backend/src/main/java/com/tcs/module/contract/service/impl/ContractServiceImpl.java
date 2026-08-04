@@ -21,9 +21,14 @@ import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.Lesson;
+import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.LessonRepository;
+import com.tcs.module.messaging.entity.Notification;
+import com.tcs.module.messaging.enums.NotificationStatus;
+import com.tcs.module.messaging.enums.NotificationType;
+import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
@@ -55,6 +60,7 @@ public class ContractServiceImpl implements ContractService {
     private final ClientRepository clientRepository;
     private final ReputationHistoryRepository reputationHistoryRepository;
     private final LessonRepository lessonRepository;
+    private final NotificationRepository notificationRepository;
 
     private static final String DEFAULT_ANONYMOUS_NAME = "Người dùng ẩn danh";
 
@@ -115,7 +121,30 @@ public class ContractServiceImpl implements ContractService {
 
         recomputeTutorReputation(tutor, tutorUser.getUserId());
 
+        notifyTutorNewReview(tutorUser, tutoringClass, overallRating, saved);
+
         return toResponse(saved);
+    }
+
+    private void notifyTutorNewReview(
+            User tutorUser, TutoringClass tutoringClass, BigDecimal rating, Review review) {
+        if (tutorUser == null) {
+            return;
+        }
+        String reviewerName = resolveReviewerDisplayName(review);
+        String className = tutoringClass.getTitle();
+        Notification n = new Notification();
+        n.setUser(tutorUser);
+        n.setType(NotificationType.REVIEW);
+        n.setTitle("Bạn có đánh giá mới");
+        n.setContent(String.format(
+                "%s vừa đánh giá bạn %s sao ở lớp \"%s\".",
+                reviewerName, rating.stripTrailingZeros().toPlainString(), className));
+        n.setReferenceType("REVIEW");
+        n.setReferenceId(review.getReviewId());
+        n.setStatus(NotificationStatus.SENT);
+        n.setIsRead(false);
+        notificationRepository.save(n);
     }
 
     @Override
@@ -344,8 +373,9 @@ public class ContractServiceImpl implements ContractService {
         LocalDate today = LocalDate.now();
         return lessonRepository
                 .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(classId).stream()
+                .filter(l -> !l.getLessonDate().isAfter(today))
+                .filter(l -> l.getAttendanceStatus() != AttendanceStatus.ABSENT)
                 .map(Lesson::getLessonDate)
-                .filter(d -> !d.isAfter(today))
                 .sorted()
                 .toList();
     }

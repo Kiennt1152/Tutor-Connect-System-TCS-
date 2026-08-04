@@ -37,7 +37,6 @@ public class Lesson {
     @JoinColumn(name = "class_id", nullable = false)
     private TutoringClass tutoringClass;
 
-    /** Ngày buổi học diễn ra — điểm danh chỉ được thực hiện đúng ngày này. */
     @Column(name = "lesson_date", nullable = false)
     private LocalDate lessonDate;
 

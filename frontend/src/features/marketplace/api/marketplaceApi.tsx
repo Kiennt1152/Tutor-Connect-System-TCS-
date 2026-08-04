@@ -28,14 +28,12 @@ export const marketplaceApi = {
   http: axiosClient,
   basePath: MARKETPLACE_API_BASE,
 
-  // --- Lớp của Client hiện tại ---
   listMyClasses: () =>
     axiosClient.get<ClassResponse[]>('/marketplace/classes/mine').then((r) => r.data),
 
   getClass: (classId: number) =>
     axiosClient.get<ClassResponse>(`/marketplace/classes/${classId}`).then((r) => r.data),
 
-  // --- Gia sư tìm lớp: danh sách lớp đang mở đơn ứng tuyển ---
   listOpenClasses: () =>
     axiosClient
       .get<ClassResponse[]>('/marketplace/classes', { params: { status: 'OPEN' } })
@@ -49,11 +47,9 @@ export const marketplaceApi = {
       .post<{ message: string }>(`/marketplace/classes/${classId}/apply`, payload)
       .then((r) => r.data),
 
-  /** Id các lớp gia sư đã nộp đơn — để nút hiện "Đã ứng tuyển" kể cả sau khi tải lại trang. */
   listMyAppliedClassIds: () =>
     axiosClient.get<number[]>('/marketplace/applications/mine').then((r) => r.data),
 
-  // --- Hồ sơ gia sư hiện tại (dùng cho form ứng tuyển) ---
   getMyTutorProfile: () =>
     axiosClient.get<TutorProfileCard>('/profile/me').then((r) => r.data),
 
@@ -68,7 +64,11 @@ export const marketplaceApi = {
       .post<ClassResponse>(`/marketplace/classes/${classId}/publish`)
       .then((r) => r.data),
 
-  // --- Ứng viên của lớp (Client xem + AI gợi ý top 5) ---
+  unpublishClass: (classId: number) =>
+    axiosClient
+      .post<ClassResponse>(`/marketplace/classes/${classId}/unpublish`)
+      .then((r) => r.data),
+
   listApplicants: (classId: number) =>
     axiosClient
       .get<ApplicantResponse[]>(`/marketplace/classes/${classId}/applications`)
@@ -81,7 +81,14 @@ export const marketplaceApi = {
       )
       .then((r) => r.data),
 
-  // --- Catalog cho dropdown của form ---
+  rejectApplicant: (classId: number, applicationId: number, reason: string) =>
+    axiosClient
+      .post<{ message: string }>(
+        `/marketplace/classes/${classId}/applications/${applicationId}/reject`,
+        { reason },
+      )
+      .then((r) => r.data),
+
   listSubjects: () =>
     axiosClient
       .get<CatalogItemDto[]>('/catalog/subjects')
@@ -117,13 +124,11 @@ function toOption(dto: CatalogItemDto): CatalogOption {
   return { id: dto.id, name: dto.name, description: dto.description ?? null };
 }
 
-/** Số của "Lớp N" (null nếu không phải khối lớp phổ thông). */
 function gradeNumber(name: string): number | null {
   const match = /^Lớp\s+(\d+)/.exec(name.trim());
   return match ? Number(match[1]) : null;
 }
 
-/** Sắp xếp: Lớp 1 → Lớp 12 (theo số), các mục khác (Luyện thi…) xếp sau. */
 function compareGrade(a: CatalogOption, b: CatalogOption): number {
   const na = gradeNumber(a.name);
   const nb = gradeNumber(b.name);

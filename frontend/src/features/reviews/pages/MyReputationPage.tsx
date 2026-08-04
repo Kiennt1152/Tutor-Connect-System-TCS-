@@ -3,6 +3,7 @@ import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { StarRating } from '../components/StarRating';
 import { CriteriaBreakdown } from '../components/CriteriaBreakdown';
+import { ReportReviewModal } from '../components/ReportReviewModal';
 import { reviewApi } from '../api/reviewApi';
 import type { ReviewResponse, TutorReputation } from '../types/reviewTypes';
 import '../../home/pages/TutorPublicProfilePage.css';
@@ -157,6 +158,8 @@ function ReviewCard({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [showDetails, setShowDetails] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [reported, setReported] = useState(false);
 
   function startEdit() {
     setText(r.tutorReply ?? '');
@@ -266,6 +269,28 @@ function ReviewCard({
         <button type="button" className="tp-reply__add" onClick={startEdit}>
           ↩ Phản hồi đánh giá này
         </button>
+      ) : null}
+
+      <div className="tp-review__report">
+        {reported ? (
+          <span className="tp-review__reported">✓ Đã gửi báo cáo — chờ quản trị viên kiểm duyệt</span>
+        ) : (
+          <button type="button" className="tp-review__report-btn" onClick={() => setReporting(true)}>
+            🚩 Báo cáo đánh giá này
+          </button>
+        )}
+      </div>
+
+      {reporting ? (
+        <ReportReviewModal
+          reviewId={r.reviewId}
+          subtitle={`${r.reviewerDisplayName}${r.classTitle ? ` · ${r.classTitle}` : ''}`}
+          onClose={() => setReporting(false)}
+          onReported={() => {
+            setReporting(false);
+            setReported(true);
+          }}
+        />
       ) : null}
     </li>
   );

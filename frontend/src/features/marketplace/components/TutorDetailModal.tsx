@@ -5,12 +5,10 @@ const currency = new Intl.NumberFormat('vi-VN');
 
 interface Props {
   readonly applicant: ApplicantResponse;
-  /** Đổi subjectId → tên môn. Panel truyền xuống vì chỉ nó biết môn "khác" của lớp. */
   readonly subjectName?: (id: string) => string;
   readonly onClose: () => void;
 }
 
-/** Xem chi tiết hồ sơ một gia sư đã ứng tuyển (dữ liệu từ ApplicantResponse). */
 export function TutorDetailModal({ applicant: a, subjectName, onClose }: Props) {
   const fullName = a.fullName?.trim() || 'Gia sư';
   const initials = fullName
@@ -20,7 +18,6 @@ export function TutorDetailModal({ applicant: a, subjectName, onClose }: Props) 
     .join('')
     .toUpperCase();
   const rate = a.proposedRate ?? a.hourlyRate ?? 0;
-  // Đơn cũ (trước V13) không có báo giá theo môn → rơi về mức gộp như cũ.
   const perSubject = Object.entries(a.proposedRates ?? {});
 
   return (

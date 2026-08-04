@@ -5,7 +5,6 @@ import java.time.LocalTime;
 import lombok.Getter;
 import lombok.Setter;
 
-/** Xin thêm một buổi ngoài lịch đã sinh — học bù hoặc học thêm (UC-36). */
 @Getter
 @Setter
 public class ExtraLessonRequest {
@@ -18,7 +17,6 @@ public class ExtraLessonRequest {
 
     private LocalTime endTime;
 
-    /** Môn của buổi thêm. Bỏ trống nếu lớp không phân môn. */
     private Long subjectId;
 
     private String reason;

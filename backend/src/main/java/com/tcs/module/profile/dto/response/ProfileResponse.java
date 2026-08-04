@@ -30,7 +30,6 @@ public class ProfileResponse {
     private String description;
     private ProfileVerificationStatus verificationStatus;
 
-    /** Học vấn & chứng chỉ của gia sư (rỗng với vai trò khác). */
     private List<TutorEducationResponse> educations;
     private List<TutorCertificateResponse> certificates;
 }

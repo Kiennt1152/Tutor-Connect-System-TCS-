@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { SESSION_OPTIONS } from '../../marketplace/types/marketplaceTypes';
-import { hhmm, toIsoDate } from '../../../shared/utils/format';
+import { hhmm, hhmmDisplay, toIsoDate } from '../../../shared/utils/format';
 import { ATTENDANCE_STATUS_LABELS, type LessonResponse } from '../types/teachingTypes';
 import './WeeklyTimetable.css';
 
@@ -24,9 +24,10 @@ function sessionOf(startTime: string): string {
 interface Props {
   readonly lessons: LessonResponse[];
   readonly readOnly?: boolean;
-  readonly onAttend?: (lessonId: number) => void;
+  readonly onAttend?: (lessonId: number, present: boolean) => void;
   readonly onReschedule?: (lesson: LessonResponse) => void;
   readonly onOpenDetail?: (lesson: LessonResponse) => void;
+  readonly onReview?: (lesson: LessonResponse) => void;
   readonly pendingLessonIds?: ReadonlySet<number>;
 }
 
@@ -36,6 +37,7 @@ export function WeeklyTimetable({
   onAttend,
   onReschedule,
   onOpenDetail,
+  onReview,
   pendingLessonIds,
 }: Props) {
   const [weekOffset, setWeekOffset] = useState(0);
@@ -141,9 +143,10 @@ export function WeeklyTimetable({
                             key={lesson.lessonId}
                             lesson={lesson}
                             readOnly={readOnly}
-                            onAttend={() => onAttend?.(lesson.lessonId)}
+                            onAttend={(present) => onAttend?.(lesson.lessonId, present)}
                             onReschedule={onReschedule}
                             onOpenDetail={onOpenDetail}
+                            onReview={onReview}
                             hasPendingRequest={pendingLessonIds?.has(lesson.lessonId) ?? false}
                           />
                         ))
@@ -172,6 +175,9 @@ export function WeeklyTimetable({
           <i className="wtt__dot wtt__dot--today" /> Diễn ra hôm nay
         </span>
         <span>
+          <i className="wtt__dot wtt__dot--absent" /> Vắng mặt
+        </span>
+        <span>
           <strong>-</strong> Không có buổi học
         </span>
       </div>
@@ -185,18 +191,22 @@ function LessonChip({
   onAttend,
   onReschedule,
   onOpenDetail,
+  onReview,
   hasPendingRequest,
 }: {
   readonly lesson: LessonResponse;
   readonly readOnly: boolean;
-  readonly onAttend: () => void;
+  readonly onAttend: (present: boolean) => void;
   readonly onReschedule?: (lesson: LessonResponse) => void;
   readonly onOpenDetail?: (lesson: LessonResponse) => void;
+  readonly onReview?: (lesson: LessonResponse) => void;
   readonly hasPendingRequest: boolean;
 }) {
   const done = lesson.attendanceStatus === 'COMPLETED';
-  const tone = done ? 'done' : lesson.canCheckInToday ? 'today' : 'pending';
+  const absent = lesson.attendanceStatus === 'ABSENT';
+  const tone = done ? 'done' : absent ? 'absent' : lesson.canCheckInToday ? 'today' : 'pending';
   const canReschedule = onReschedule && lesson.attendanceStatus === 'PENDING';
+  const [attendOpen, setAttendOpen] = useState(false);
 
   const info = (
     <>
@@ -207,7 +217,7 @@ function LessonChip({
         {lesson.classTitle}
       </div>
       <div className="wtt-chip__time">
-        ({hhmm(lesson.startTime)}–{hhmm(lesson.endTime)})
+        ({hhmmDisplay(lesson.startTime)}–{hhmmDisplay(lesson.endTime)})
       </div>
       <div className={`wtt-chip__status wtt-chip__status--${tone}`}>
         {done ? '(đã dạy)' : `(${ATTENDANCE_STATUS_LABELS[lesson.attendanceStatus].toLowerCase()})`}
@@ -230,19 +240,49 @@ function LessonChip({
         info
       )}
       {!readOnly && !done && (
-        <button
-          className="tcs-btn tcs-btn--sm tcs-btn--primary"
-          type="button"
-          onClick={onAttend}
-          disabled={!lesson.canCheckInToday}
-          title={
-            lesson.canCheckInToday
-              ? undefined
-              : 'Chỉ điểm danh được trong đúng ngày diễn ra buổi học'
-          }
-        >
-          Điểm danh
-        </button>
+        <div className="wtt-chip__attend">
+          <button
+            className="tcs-btn tcs-btn--sm tcs-btn--primary"
+            type="button"
+            onClick={() => setAttendOpen((v) => !v)}
+            disabled={!lesson.canCheckInToday}
+            aria-haspopup="menu"
+            aria-expanded={attendOpen}
+            title={
+              lesson.canCheckInToday
+                ? undefined
+                : 'Chỉ điểm danh được trong đúng ngày diễn ra buổi học'
+            }
+          >
+            Điểm danh
+          </button>
+          {attendOpen && lesson.canCheckInToday ? (
+            <div className="wtt-attend-menu" role="menu">
+              <button
+                type="button"
+                role="menuitem"
+                className="wtt-attend-menu__item wtt-attend-menu__item--present"
+                onClick={() => {
+                  setAttendOpen(false);
+                  onAttend(true);
+                }}
+              >
+                ✓ Có mặt
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                className="wtt-attend-menu__item wtt-attend-menu__item--absent"
+                onClick={() => {
+                  setAttendOpen(false);
+                  onAttend(false);
+                }}
+              >
+                ✕ Vắng mặt
+              </button>
+            </div>
+          ) : null}
+        </div>
       )}
       {hasPendingRequest ? (
         <span className="wtt-chip__pendingreq" title="Đang chờ bên còn lại duyệt">
@@ -258,6 +298,15 @@ function LessonChip({
             Đổi lịch
           </button>
         )
+      )}
+      {onReview && done && (
+        <button
+          className="tcs-btn tcs-btn--sm tcs-btn--primary"
+          type="button"
+          onClick={() => onReview(lesson)}
+        >
+          Đánh giá gia sư
+        </button>
       )}
     </div>
   );

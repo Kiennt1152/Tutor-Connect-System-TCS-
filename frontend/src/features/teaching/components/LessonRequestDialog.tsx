@@ -1,20 +1,45 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type {
   ClassOption,
   ExtraLessonPayload,
   LessonResponse,
   RescheduleLessonPayload,
 } from '../types/teachingTypes';
-import { hhmm, toIsoDate } from '../../../shared/utils/format';
+import { hhmm, hhmmDisplay, toIsoDate } from '../../../shared/utils/format';
+import { SESSION_OPTIONS } from '../../marketplace/types/marketplaceTypes';
 import './LessonRequestDialog.css';
 
-/** Tham chiếu cố định cho chế độ RESCHEDULE — xem ghi chú ở chỗ dùng. */
 const NO_CLASSES: ClassOption[] = [];
 
-/**
- * Hai chế độ loại trừ nhau: dời buổi thì buộc phải có `lesson`, thêm buổi thì buộc phải có
- * `classes`. Dùng union để TypeScript tự chặn, khỏi phải guard bằng tay ở khắp thân hàm.
- */
+const toMinutes = (t: string) => {
+  const [h, m] = t.split(':').map(Number);
+  return h * 60 + m;
+};
+
+function buildTimeSlots(min: string, max: string, step = 30): string[] {
+  const out: string[] = [];
+  for (let x = toMinutes(min); x <= toMinutes(max); x += step) {
+    out.push(`${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`);
+  }
+  if (out.length > 0 && out[out.length - 1] !== max) out.push(max);
+  return out;
+}
+
+function durationLabel(start: string, end: string): string {
+  const endMin = end === '23:59' ? 24 * 60 : toMinutes(end);
+  const diff = endMin - toMinutes(start);
+  if (diff <= 0) return '';
+  const h = Math.floor(diff / 60);
+  const m = diff % 60;
+  return [h ? `${h} giờ` : '', m ? `${m} phút` : ''].filter(Boolean).join(' ');
+}
+
+function sessionOf(start: string): string {
+  if (start && start >= '18:00') return 'Tối';
+  if (start && start >= '12:00') return 'Chiều';
+  return 'Sáng';
+}
+
 type Props = { readonly onClose: () => void } & (
   | {
       readonly mode: 'RESCHEDULE';
@@ -28,22 +53,17 @@ type Props = { readonly onClose: () => void } & (
     }
 );
 
-/**
- * Dialog gửi yêu cầu đổi lịch hoặc thêm buổi (UC-36).
- * Chỉ GỬI yêu cầu — lịch thật chỉ đổi khi bên còn lại duyệt.
- */
 export function LessonRequestDialog(props: Props) {
   const { mode, onClose } = props;
   const isReschedule = mode === 'RESCHEDULE';
   const lesson = props.mode === 'RESCHEDULE' ? props.lesson : null;
-  // Hằng số ở ngoài component: nếu viết [] tại đây thì mỗi render là một mảng mới,
-  // dep của useMemo bên dưới đổi liên tục và memo thành vô nghĩa.
   const classes = props.mode === 'EXTRA' ? props.classes : NO_CLASSES;
 
   const [classId, setClassId] = useState<number | ''>(classes[0]?.classId ?? '');
   const [date, setDate] = useState(lesson ? lesson.lessonDate : '');
-  const [startTime, setStartTime] = useState(lesson ? hhmm(lesson.startTime) : '');
-  const [endTime, setEndTime] = useState(lesson ? hhmm(lesson.endTime) : '');
+  const [startTime, setStartTime] = useState(lesson ? hhmm(lesson.startTime) : '08:00');
+  const [endTime, setEndTime] = useState(lesson ? hhmm(lesson.endTime) : '10:00');
+  const [session, setSession] = useState(lesson ? sessionOf(hhmm(lesson.startTime)) : 'Sáng');
   const [subjectId, setSubjectId] = useState<number | ''>('');
   const [reason, setReason] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
@@ -54,13 +74,53 @@ export function LessonRequestDialog(props: Props) {
     [classes, classId],
   );
 
-  /** Chặn tại chỗ những lỗi rõ ràng; phần còn lại để server quyết (trùng lịch, quyền…). */
+  const todayIso = useMemo(() => toIsoDate(new Date()), []);
+  const nowHm = useMemo(() => new Date().toTimeString().slice(0, 5), []);
+  const isToday = date === todayIso;
+
+  const sess = SESSION_OPTIONS.find((o) => o.value === session) ?? SESSION_OPTIONS[0];
+  const allSlots = useMemo(() => buildTimeSlots(sess.min, sess.max), [sess.min, sess.max]);
+  const startOptions = useMemo(
+    () => (isToday ? allSlots.filter((t) => t > nowHm) : allSlots),
+    [allSlots, isToday, nowHm],
+  );
+  const endOptions = allSlots.filter((t) => t > startTime);
+
+  useEffect(() => {
+    if (startOptions.length > 0 && !startOptions.includes(startTime)) {
+      const ns = startOptions[0];
+      setStartTime(ns);
+      setEndTime(allSlots.find((t) => t > ns) ?? ns);
+    }
+  }, [startOptions, startTime, allSlots]);
+
+  function changeSession(value: string) {
+    const preset = SESSION_OPTIONS.find((o) => o.value === value) ?? SESSION_OPTIONS[0];
+    setSession(value);
+    setStartTime(preset.start);
+    setEndTime(preset.end);
+    setLocalError(null);
+  }
+
+  function changeStart(value: string) {
+    setStartTime(value);
+    if (endTime <= value) {
+      const next = buildTimeSlots(sess.min, sess.max).find((t) => t > value);
+      setEndTime(next ?? value);
+    }
+    setLocalError(null);
+  }
+
   function validate(): string | null {
     if (!isReschedule && classId === '') return 'Chọn lớp cần thêm buổi.';
+    if (!reason.trim())
+      return isReschedule ? 'Vui lòng nhập lý do đổi lịch.' : 'Vui lòng nhập lý do thêm buổi.';
     if (!date) return 'Chọn ngày học.';
     if (!startTime || !endTime) return 'Nhập giờ bắt đầu và giờ kết thúc.';
     if (startTime >= endTime) return 'Giờ kết thúc phải sau giờ bắt đầu.';
-    if (date < toIsoDate(new Date())) return 'Không thể xếp buổi học vào ngày đã qua.';
+    if (date < todayIso) return 'Không thể xếp buổi học vào ngày đã qua.';
+    if (date === todayIso && startTime <= nowHm)
+      return 'Giờ học hôm nay đã qua — chọn giờ muộn hơn.';
     if (
       lesson &&
       date === lesson.lessonDate &&
@@ -98,7 +158,6 @@ export function LessonRequestDialog(props: Props) {
             reason: reason.trim() || undefined,
           });
     setBusy(false);
-    // Lỗi từ server đã hiện ở banner của trang — chỉ đóng dialog khi thành công.
     if (ok) onClose();
   }
 
@@ -122,8 +181,8 @@ export function LessonRequestDialog(props: Props) {
           <p className="lrd__current">
             Buổi {lesson.sequenceNo} · {lesson.classTitle}
             <br />
-            Hiện tại: <strong>{lesson.lessonDate}</strong> ({hhmm(lesson.startTime)}–
-            {hhmm(lesson.endTime)})
+            Hiện tại: <strong>{lesson.lessonDate}</strong> ({hhmmDisplay(lesson.startTime)}–
+            {hhmmDisplay(lesson.endTime)})
           </p>
         )}
 
@@ -178,19 +237,63 @@ export function LessonRequestDialog(props: Props) {
             />
           </label>
 
-          <div className="lrd__row">
-            <label className="tcs-field">
-              <span className="tcs-field__label">Từ</span>
-              <input className="tcs-input" type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} />
-            </label>
-            <label className="tcs-field">
-              <span className="tcs-field__label">Đến</span>
-              <input className="tcs-input" type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} />
-            </label>
-          </div>
+          <label className="tcs-field">
+            <span className="tcs-field__label">Buổi</span>
+            <select
+              className="tcs-input"
+              value={session}
+              onChange={(e) => changeSession(e.target.value)}
+            >
+              {SESSION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          {startOptions.length === 0 ? (
+            <p className="lrd__err">
+              Buổi {sess.label} hôm nay đã hết giờ — chọn buổi khác hoặc ngày khác.
+            </p>
+          ) : (
+            <div className="lrd__row">
+              <label className="tcs-field">
+                <span className="tcs-field__label">Từ</span>
+                <select
+                  className="tcs-input"
+                  value={startTime}
+                  onChange={(e) => changeStart(e.target.value)}
+                >
+                  {startOptions.map((t) => (
+                    <option key={t} value={t}>
+                      {hhmmDisplay(t)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="tcs-field">
+                <span className="tcs-field__label">Đến</span>
+                <select
+                  className="tcs-input"
+                  value={endTime}
+                  onChange={(e) => setEndTime(e.target.value)}
+                >
+                  {endOptions.map((t) => (
+                    <option key={t} value={t}>
+                      {hhmmDisplay(t)}
+                      {durationLabel(startTime, t) ? ` (${durationLabel(startTime, t)})` : ''}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
 
           <label className="tcs-field">
-            <span className="tcs-field__label">Lý do {isReschedule ? '' : '(không bắt buộc)'}</span>
+            <span className="tcs-field__label">
+              Lý do <em>*</em>
+            </span>
             <textarea
               className="lrd__textarea"
               rows={3}

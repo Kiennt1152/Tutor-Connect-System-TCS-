@@ -1,15 +1,14 @@
 import { Link } from 'react-router-dom';
 import { AppLogo } from '../../../shared/components/AppLogo';
 import { LogoutButton } from '../../../shared/components/LogoutButton';
+import { NotificationBell } from '../../../shared/components/NotificationBell';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { hasAnyRole, hasRole } from '../../../shared/auth/rbac';
-import { usePendingInviteCount } from '../../teaching/hooks/useTeaching';
 import type { UserRole } from '../../../shared/types/userRole';
 import '../pages/HomePage.css';
 
 const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
-/** Gia sư xem lịch dạy, Client theo dõi lịch học của lớp mình — cùng một màn. */
 const TEACHING_ROLES: UserRole[] = ['TUTOR', 'CLIENT'];
 
 const userInitials = (displayName: string | undefined, email: string) => {
@@ -22,15 +21,9 @@ const userInitials = (displayName: string | undefined, email: string) => {
 };
 
 type SiteHeaderProps = {
-  /** Đánh dấu mục nav đang active (vd: 'find-tutor'). */
   active?: 'find-tutor';
 };
 
-/**
- * Header chính có thương hiệu, dùng chung cho trang chủ và các màn hình con
- * (vd: Tìm gia sư). Các mục section trỏ về trang chủ kèm anchor; "Tìm gia sư"
- * là một màn hình riêng nên dùng router Link.
- */
 export function SiteHeader({ active }: SiteHeaderProps) {
   const { user } = useAuth();
 
@@ -38,7 +31,6 @@ export function SiteHeader({ active }: SiteHeaderProps) {
     user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
   const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
   const showTeaching = hasAnyRole(user?.role, TEACHING_ROLES);
-  const pendingInvites = usePendingInviteCount(hasRole(user?.role, 'TUTOR'));
 
   return (
     <header className="tcs-header">
@@ -72,17 +64,10 @@ export function SiteHeader({ active }: SiteHeaderProps) {
               {showTeaching ? (
                 <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.teaching}>
                   {hasRole(user.role, 'CLIENT') ? 'Lịch học' : 'Lịch dạy'}
-                  {/* Lời mời chỉ gia sư mới xử lý được nên chỉ báo cho gia sư. */}
-                  {pendingInvites > 0 && (
-                    <span
-                      className="tcs-header__badge"
-                      title={`${pendingInvites} lời mời nhận lớp đang chờ bạn`}
-                    >
-                      {pendingInvites}
-                    </span>
-                  )}
+                  {/* Lời mời nhận lớp giờ báo ở chuông thông báo, không còn badge ở đây. */}
                 </Link>
               ) : null}
+              <NotificationBell enabled={!!user} />
               <Link to={profilePath} className="tcs-home-profile-btn">
                 <span className="tcs-home-profile-btn__avatar">
                   {userInitials(user.displayName, user.email)}

@@ -3,32 +3,35 @@ import axios from 'axios';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { classToForm } from '../mappers/marketplaceMapper';
 import {
-  OTHER_SUBJECT,
+  isOtherSubject,
   type ApplicantResponse,
   type CatalogOption,
   type ClassResponse,
 } from '../types/marketplaceTypes';
 import { TutorDetailModal } from './TutorDetailModal';
+import { ConfirmDialog } from './ConfirmDialog';
 import './applicantsModal.css';
 
 const currency = new Intl.NumberFormat('vi-VN');
 
 interface Props {
   readonly classId: number;
-  /** Lớp đang xem — dùng để đặt tên môn cho học phí gia sư báo giá. */
   readonly target: ClassResponse;
   readonly subjects: CatalogOption[];
-  /** Gọi lại sau khi Client chọn gia sư (để trang cha tải lại danh sách lớp). */
   readonly onChosen?: () => void;
 }
 
-/** Danh sách gia sư ứng tuyển vào một lớp (dạng panel, không phải popup). */
 export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) {
   const [applicants, setApplicants] = useState<ApplicantResponse[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [choosingId, setChoosingId] = useState<number | null>(null);
+  const [rejectingId, setRejectingId] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [detailApplicant, setDetailApplicant] = useState<ApplicantResponse | null>(null);
+  const [confirmAction, setConfirmAction] = useState<
+    { kind: 'choose' | 'reject'; applicationId: number } | null
+  >(null);
+  const [rejectReason, setRejectReason] = useState('');
 
   useEffect(() => {
     setStatus('loading');
@@ -41,25 +44,25 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
       .catch(() => setStatus('error'));
   }, [classId]);
 
-  const alreadyChosen = applicants.some((a) => a.status === 'ACCEPTED');
-  const recommended = applicants.filter((a) => a.recommended);
-  // Chọn xong lớp mới ở MATCHED; gia sư bấm nhận thì lớp mới chạy (IN_PROGRESS).
+  const visibleApplicants =
+    target.status === 'OPEN' ? applicants.filter((a) => a.status !== 'REJECTED') : applicants;
+  const alreadyChosen = visibleApplicants.some((a) => a.status === 'ACCEPTED');
+  const recommended = visibleApplicants.filter((a) => a.recommended);
   const tutorAccepted = target.status === 'IN_PROGRESS';
 
   const subjectName = useMemo(() => {
     const form = classToForm(target);
     const m = new Map(subjects.map((s) => [String(s.id), s.name]));
     return (id: string) =>
-      id === OTHER_SUBJECT ? form.subjectOther.trim() || 'Môn khác' : (m.get(id) ?? `#${id}`);
+      isOtherSubject(id) ? form.subjectOthers[id]?.trim() || 'Môn khác' : (m.get(id) ?? `#${id}`);
   }, [target, subjects]);
+  const classSubjectIds = useMemo(() => classToForm(target).subjectIds, [target]);
 
   async function handleChoose(applicationId: number) {
-    if (!window.confirm('Chọn gia sư này cho lớp? Các ứng viên còn lại sẽ bị từ chối.')) return;
     setChoosingId(applicationId);
     setNotice(null);
     try {
       await marketplaceApi.chooseApplicant(classId, applicationId);
-      // Cập nhật tại chỗ: đơn được chọn = ACCEPTED, còn lại REJECTED.
       setApplicants((list) =>
         list.map((a) => ({
           ...a,
@@ -75,6 +78,21 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
     }
   }
 
+  async function handleReject(applicationId: number, reason: string) {
+    setRejectingId(applicationId);
+    setNotice(null);
+    try {
+      await marketplaceApi.rejectApplicant(classId, applicationId, reason);
+      setApplicants((list) => list.filter((a) => a.applicationId !== applicationId));
+      setNotice('Đã bỏ chọn gia sư và gửi thông báo kèm lý do. Lớp mở lại cho gia sư ứng tuyển.');
+      onChosen?.();
+    } catch (err) {
+      setNotice(extractError(err));
+    } finally {
+      setRejectingId(null);
+    }
+  }
+
   return (
     <div className="apm-panel">
       {notice && <div className="apm-notice">{notice}</div>}
@@ -83,17 +101,17 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
       {status === 'error' && (
         <div className="apm-state apm-state--error">Không tải được danh sách ứng viên.</div>
       )}
-      {status === 'success' && applicants.length === 0 && (
+      {status === 'success' && visibleApplicants.length === 0 && (
         <div className="apm-state">Chưa có gia sư nào ứng tuyển vào lớp này.</div>
       )}
 
-      {status === 'success' && applicants.length > 0 && (
+      {status === 'success' && visibleApplicants.length > 0 && (
         <>
           {/* Giải thích AI + Top 5 gợi ý */}
           <div className="apm-ai">
             <div className="apm-ai__badge">AI</div>
             <p className="apm-ai__text">
-              Trợ lý AI đã xếp hạng {applicants.length} ứng viên theo{' '}
+              Trợ lý AI đã xếp hạng {visibleApplicants.length} ứng viên theo{' '}
               <strong>đánh giá, kinh nghiệm, mức phí và trạng thái xác minh</strong>.
               {recommended.length > 0 && (
                 <>
@@ -106,16 +124,22 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
           </div>
 
           <div className="apm-list">
-            {applicants.map((a, idx) => (
+            {visibleApplicants.map((a, idx) => (
               <ApplicantCard
                 key={a.applicationId}
                 applicant={a}
                 subjectName={subjectName}
+                classSubjectIds={classSubjectIds}
                 tutorAccepted={tutorAccepted}
                 rank={a.recommended ? idx + 1 : null}
                 choosing={choosingId === a.applicationId}
-                disabled={alreadyChosen || choosingId != null}
-                onChoose={() => handleChoose(a.applicationId)}
+                rejecting={rejectingId === a.applicationId}
+                disabled={alreadyChosen || choosingId != null || rejectingId != null}
+                onChoose={() => setConfirmAction({ kind: 'choose', applicationId: a.applicationId })}
+                onReject={() => {
+                  setRejectReason('');
+                  setConfirmAction({ kind: 'reject', applicationId: a.applicationId });
+                }}
                 onDetail={() => setDetailApplicant(a)}
               />
             ))}
@@ -130,6 +154,71 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
           onClose={() => setDetailApplicant(null)}
         />
       )}
+
+      {confirmAction?.kind === 'choose' && (
+        <ConfirmDialog
+          title="Chọn gia sư"
+          message="Chọn gia sư này cho lớp? Các ứng viên còn lại sẽ bị từ chối."
+          confirmLabel="Chọn gia sư này"
+          cancelLabel="Hủy"
+          onConfirm={() => {
+            const id = confirmAction.applicationId;
+            setConfirmAction(null);
+            void handleChoose(id);
+          }}
+          onClose={() => setConfirmAction(null)}
+        />
+      )}
+
+      {confirmAction?.kind === 'reject' && (
+        <div
+          className="mkt-modal-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Bỏ chọn gia sư"
+          onMouseDown={(e) => {
+            if (e.target === e.currentTarget) setConfirmAction(null);
+          }}
+        >
+          <div className="mkt-modal">
+            <h3 className="mkt-modal__title">Bỏ chọn gia sư</h3>
+            <p className="mkt-modal__msg">
+              Gia sư sẽ nhận được thông báo kèm lý do. Vui lòng cho biết lý do bỏ chọn:
+            </p>
+            <textarea
+              className="apm-reason"
+              rows={3}
+              autoFocus
+              value={rejectReason}
+              placeholder="VD: Lịch dạy không phù hợp, học phí cao hơn mong muốn…"
+              onChange={(e) => setRejectReason(e.target.value)}
+            />
+            <div className="mkt-modal__actions">
+              <button
+                type="button"
+                className="mkt-btn mkt-btn--ghost"
+                onClick={() => setConfirmAction(null)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="mkt-btn mkt-btn--primary"
+                disabled={!rejectReason.trim()}
+                title={!rejectReason.trim() ? 'Vui lòng nhập lý do' : undefined}
+                onClick={() => {
+                  const id = confirmAction.applicationId;
+                  const reason = rejectReason.trim();
+                  setConfirmAction(null);
+                  void handleReject(id, reason);
+                }}
+              >
+                Gửi & bỏ chọn
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -137,23 +226,28 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
 interface CardProps {
   readonly applicant: ApplicantResponse;
   readonly subjectName: (id: string) => string;
-  /** Gia sư đã bấm nhận lớp chưa (lớp đã chuyển sang Đang học). */
+  readonly classSubjectIds: string[];
   readonly tutorAccepted: boolean;
   readonly rank: number | null;
   readonly choosing: boolean;
+  readonly rejecting: boolean;
   readonly disabled: boolean;
   readonly onChoose: () => void;
+  readonly onReject: () => void;
   readonly onDetail: () => void;
 }
 
 function ApplicantCard({
   applicant: a,
   subjectName,
+  classSubjectIds,
   tutorAccepted,
   rank,
   choosing,
+  rejecting,
   disabled,
   onChoose,
+  onReject,
   onDetail,
 }: CardProps) {
   const initials = a.fullName
@@ -162,7 +256,6 @@ function ApplicantCard({
     .map((w) => w[0])
     .join('')
     .toUpperCase();
-  // Đơn cũ chưa báo giá theo môn → vẫn hiện mức chung như trước.
   const perSubject = Object.entries(a.proposedRates ?? {});
   const rate = a.proposedRate ?? a.hourlyRate ?? 0;
   const tone = a.matchScore >= 75 ? 'high' : a.matchScore >= 45 ? 'mid' : 'low';
@@ -200,12 +293,25 @@ function ApplicantCard({
 
         {perSubject.length > 0 && (
           <ul className="apm-card__rates">
-            {perSubject.map(([id, fee]) => (
-              <li key={id} className="apm-rate">
-                <span className="apm-rate__subject">{subjectName(id)}</span>
-                <span className="apm-rate__fee">{currency.format(fee)}đ/giờ</span>
-              </li>
-            ))}
+            {(classSubjectIds.length > 0 ? classSubjectIds : perSubject.map(([id]) => id)).map(
+              (id) => {
+                const fee = a.proposedRates?.[id];
+                const teaching = fee != null;
+                return (
+                  <li key={id} className={`apm-rate ${teaching ? '' : 'apm-rate--off'}`}>
+                    <span className="apm-rate__subject">
+                      <span className={`apm-rate__mark apm-rate__mark--${teaching ? 'yes' : 'no'}`}>
+                        {teaching ? '✓' : '✕'}
+                      </span>
+                      {subjectName(id)}
+                    </span>
+                    <span className="apm-rate__fee">
+                      {teaching ? `${currency.format(fee)}đ/giờ` : 'Không dạy'}
+                    </span>
+                  </li>
+                );
+              },
+            )}
           </ul>
         )}
 
@@ -228,16 +334,26 @@ function ApplicantCard({
               </span>
             )
           ) : rejected ? (
-            <span className="apm-chip apm-chip--rejected">Không được chọn</span>
+            <span className="apm-chip apm-chip--rejected">Đã bỏ chọn</span>
           ) : (
-            <button
-              type="button"
-              className="mkt-btn mkt-btn--primary"
-              disabled={disabled}
-              onClick={onChoose}
-            >
-              {choosing ? 'Đang chọn…' : 'Chọn gia sư này'}
-            </button>
+            <>
+              <button
+                type="button"
+                className="mkt-btn mkt-btn--ghost"
+                disabled={disabled}
+                onClick={onReject}
+              >
+                {rejecting ? 'Đang bỏ chọn…' : 'Bỏ chọn'}
+              </button>
+              <button
+                type="button"
+                className="mkt-btn mkt-btn--primary"
+                disabled={disabled}
+                onClick={onChoose}
+              >
+                {choosing ? 'Đang chọn…' : 'Chọn gia sư này'}
+              </button>
+            </>
           )}
         </div>
       </div>

@@ -1,8 +1,5 @@
 import type { CatalogOption } from '../types/marketplaceTypes';
 
-// Danh sách môn học & khối lớp dự phòng — dùng khi backend /catalog tạm thời
-// không phản hồi. ID khớp đúng dữ liệu seed trong DB nên việc chấm điểm khớp
-// môn/lớp vẫn chính xác. Cập nhật nếu seed thay đổi.
 export const FALLBACK_SUBJECTS: readonly CatalogOption[] = [
   { id: 1, name: 'Toán' },
   { id: 2, name: 'Vật lý' },

@@ -66,6 +66,11 @@ public class MarketplaceController {
         return marketplaceService.publishClass(classId);
     }
 
+    @PostMapping("/classes/{classId}/unpublish")
+    public ClassResponse unpublishClass(@PathVariable Long classId) {
+        return marketplaceService.unpublishClass(classId);
+    }
+
     @PostMapping("/classes/{classId}/apply")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, String> applyToClass(@PathVariable Long classId, @RequestBody ApplyClassRequest request) {
@@ -73,7 +78,6 @@ public class MarketplaceController {
         return Map.of("message", "Đã gửi đơn ứng tuyển");
     }
 
-    /** Lớp mà gia sư đang đăng nhập đã nộp đơn — UI dùng để hiện "Đã ứng tuyển". */
     @GetMapping("/applications/mine")
     public List<Long> listMyAppliedClassIds() {
         return marketplaceService.listMyAppliedClassIds();
@@ -91,7 +95,15 @@ public class MarketplaceController {
         return Map.of("message", "Đã chọn gia sư — đang chờ gia sư nhận lớp");
     }
 
-    // --- Phía gia sư: nhận lớp → lịch dạy → điểm danh ---
+    @PostMapping("/classes/{classId}/applications/{applicationId}/reject")
+    public Map<String, String> rejectApplicant(
+            @PathVariable Long classId,
+            @PathVariable Long applicationId,
+            @RequestBody(required = false) Map<String, String> body) {
+        String reason = body == null ? null : body.get("reason");
+        marketplaceService.rejectApplicant(classId, applicationId, reason);
+        return Map.of("message", "Đã bỏ chọn gia sư");
+    }
 
     @GetMapping("/assignments/mine")
     public List<AssignmentResponse> listMyAssignments() {
@@ -127,7 +139,6 @@ public class MarketplaceController {
         return Map.of("message", "Đã kết thúc buổi học");
     }
 
-    /** Xin dời một buổi sang ngày/giờ khác. Bên còn lại phải duyệt thì lịch mới đổi. */
     @PostMapping("/lessons/{lessonId}/reschedule")
     @ResponseStatus(HttpStatus.CREATED)
     public RescheduleRequestResponse requestReschedule(
@@ -135,7 +146,6 @@ public class MarketplaceController {
         return marketplaceService.requestReschedule(lessonId, request);
     }
 
-    /** Xin thêm một buổi ngoài lịch — học bù hoặc học thêm. */
     @PostMapping("/lessons/extra")
     @ResponseStatus(HttpStatus.CREATED)
     public RescheduleRequestResponse requestExtraLesson(@RequestBody ExtraLessonRequest request) {
@@ -164,11 +174,12 @@ public class MarketplaceController {
         return Map.of("message", "Đã thu hồi yêu cầu");
     }
 
-    /** Điểm danh một buổi bằng một cú bấm — chỉ trong đúng ngày buổi học. */
     @PostMapping("/lessons/{lessonId}/attend")
-    public Map<String, String> markAttendance(@PathVariable Long lessonId) {
-        marketplaceService.markAttendance(lessonId);
-        return Map.of("message", "Đã điểm danh buổi học");
+    public Map<String, String> markAttendance(
+            @PathVariable Long lessonId,
+            @RequestParam(defaultValue = "true") boolean present) {
+        marketplaceService.markAttendance(lessonId, present);
+        return Map.of("message", present ? "Đã điểm danh có mặt" : "Đã đánh dấu vắng mặt");
     }
 
     @GetMapping("/tutors/search")

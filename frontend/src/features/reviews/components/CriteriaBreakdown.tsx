@@ -1,7 +1,6 @@
 import { REVIEW_CRITERIA } from '../config/reviewCriteria';
 import type { ReviewCriterionScore } from '../types/reviewTypes';
 
-/** Tim nhan mo ta cho mot muc diem cua tieu chi (vd 5 -> "Luôn luôn đúng giờ"). */
 function levelLabel(code: string, score: number): string {
   const config = REVIEW_CRITERIA.find((c) => c.code === code);
   return config?.levels.find((l) => l.score === score)?.label ?? `${score}/5`;

@@ -121,6 +121,43 @@
 .wtt-chip:last-child {
   margin-bottom: 0;
 }
+
+.wtt-chip__attend {
+  margin-top: 4px;
+}
+.wtt-attend-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 4px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.12);
+}
+.wtt-attend-menu__item {
+  border: 1px solid transparent;
+  border-radius: 6px;
+  padding: 5px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+  background: #f8fafc;
+}
+.wtt-attend-menu__item--present {
+  color: #2e7d32;
+}
+.wtt-attend-menu__item--present:hover {
+  background: #e8f5e9;
+}
+.wtt-attend-menu__item--absent {
+  color: #c62828;
+}
+.wtt-attend-menu__item--absent:hover {
+  background: #fdecea;
+}
 .wtt-chip--pending {
   border-left-color: #ef6c00;
   background: #fff8f0;
@@ -133,6 +170,10 @@
   border-left-color: #1565c0;
   background: #eaf2fd;
   box-shadow: 0 0 0 1px rgba(21, 101, 192, 0.18);
+}
+.wtt-chip--absent {
+  border-left-color: #c62828;
+  background: #fdecea;
 }
 .wtt-chip__subject {
   font-weight: 700;
@@ -166,6 +207,9 @@
 }
 .wtt-chip__status--today {
   color: #1565c0;
+}
+.wtt-chip__status--absent {
+  color: #c62828;
 }
 .wtt-chip button {
   margin-top: 5px;
@@ -226,6 +270,9 @@
 }
 .wtt__dot--today {
   background: #1565c0;
+}
+.wtt__dot--absent {
+  background: #c62828;
 }
 
 .wtt-chip__pendingreq {

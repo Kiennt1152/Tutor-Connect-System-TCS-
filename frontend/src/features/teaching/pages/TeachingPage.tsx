@@ -1,12 +1,16 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SiteHeader } from '../../home/components/SiteHeader';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasRole } from '../../../shared/auth/rbac';
 import { WeeklyTimetable } from '../components/WeeklyTimetable';
 import { LessonRequestDialog } from '../components/LessonRequestDialog';
 import { ClassDetailModal } from '../components/ClassDetailModal';
+import { ConfirmDialog } from '../../marketplace/components/ConfirmDialog';
+import { ReviewFormModal } from '../../reviews/components/ReviewFormModal';
+import { reviewApi } from '../../reviews/api/reviewApi';
+import type { ReviewableAssignment } from '../../reviews/types/reviewTypes';
 import { useTeaching } from '../hooks/useTeaching';
-import { hhmm } from '../../../shared/utils/format';
+import { hhmmDisplay } from '../../../shared/utils/format';
 import {
   ASSIGNMENT_STATUS_LABELS,
   REQUEST_STATUS_LABELS,
@@ -50,6 +54,36 @@ export default function TeachingPage() {
     { mode: 'EXTRA' } | { mode: 'RESCHEDULE'; lesson: LessonResponse } | null
   >(null);
   const [detailClassId, setDetailClassId] = useState<number | null>(null);
+  const [reviewables, setReviewables] = useState<ReviewableAssignment[]>([]);
+  const [activeReview, setActiveReview] = useState<ReviewableAssignment | null>(null);
+  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  const loadReviewables = () => {
+    if (!isClient) return;
+    reviewApi
+      .getReviewable()
+      .then((r) => setReviewables(r.data))
+      .catch(() => setReviewables([]));
+  };
+  useEffect(() => {
+    loadReviewables();
+  }, [isClient]);
+
+  function openReview(lesson: LessonResponse) {
+    const match = reviewables.find((a) => a.classId === lesson.classId);
+    if (!match) {
+      setReviewNotice('Chưa có buổi học nào diễn ra để đánh giá gia sư.');
+      return;
+    }
+    if (!match.reviewable) {
+      setReviewNotice('Bạn đã đánh giá đủ số buổi đã diễn ra của lớp này.');
+      return;
+    }
+    setActiveReview(match);
+  }
+
+  const [confirmAction, setConfirmAction] = useState<
+    { kind: 'decline'; assignmentId: number } | { kind: 'cancelReq'; requestId: number } | null
+  >(null);
 
   const invites = assignments.filter((a) => a.status === 'PENDING');
   const active = assignments.filter((a) => a.status === 'ACTIVE');
@@ -126,11 +160,9 @@ export default function TeachingPage() {
                       assignment={a}
                       isClient={isClient}
                       onAccept={() => void accept(a.assignmentId)}
-                      onDecline={() => {
-                        if (window.confirm('Từ chối lớp này? Lớp sẽ được mở lại cho gia sư khác.')) {
-                          void decline(a.assignmentId);
-                        }
-                      }}
+                      onDecline={() =>
+                        setConfirmAction({ kind: 'decline', assignmentId: a.assignmentId })
+                      }
                     />
                   ))}
                 </ul>
@@ -178,9 +210,9 @@ export default function TeachingPage() {
                         const note = window.prompt('Lý do từ chối (không bắt buộc):') ?? undefined;
                         void decideRequest(r.requestId, false, note);
                       }}
-                      onCancel={() => {
-                        if (window.confirm('Thu hồi yêu cầu này?')) void cancelRequest(r.requestId);
-                      }}
+                      onCancel={() =>
+                        setConfirmAction({ kind: 'cancelReq', requestId: r.requestId })
+                      }
                     />
                   ))}
                 </ul>
@@ -220,9 +252,10 @@ export default function TeachingPage() {
                 <WeeklyTimetable
                   lessons={lessons}
                   readOnly={isClient}
-                  onAttend={(id) => void attend(id)}
+                  onAttend={(id, present) => void attend(id, present)}
                   onReschedule={(lesson) => setDialog({ mode: 'RESCHEDULE', lesson })}
                   onOpenDetail={(lesson) => setDetailClassId(lesson.classId)}
+                  onReview={isClient ? openReview : undefined}
                   pendingLessonIds={pendingLessonIds}
                 />
               )}
@@ -253,6 +286,55 @@ export default function TeachingPage() {
             classTitle={detailTitle}
             isClient={isClient}
             onClose={() => setDetailClassId(null)}
+          />
+        )}
+
+        {activeReview && (
+          <ReviewFormModal
+            assignment={activeReview}
+            onClose={() => setActiveReview(null)}
+            onSubmitted={() => {
+              setActiveReview(null);
+              loadReviewables();
+            }}
+          />
+        )}
+
+        {reviewNotice && (
+          <ConfirmDialog
+            title="Đánh giá gia sư"
+            message={reviewNotice}
+            onClose={() => setReviewNotice(null)}
+          />
+        )}
+
+        {confirmAction?.kind === 'decline' && (
+          <ConfirmDialog
+            title="Từ chối lớp"
+            message="Từ chối lớp này? Lớp sẽ được mở lại cho gia sư khác."
+            confirmLabel="Từ chối"
+            cancelLabel="Hủy"
+            onConfirm={() => {
+              const id = confirmAction.assignmentId;
+              setConfirmAction(null);
+              void decline(id);
+            }}
+            onClose={() => setConfirmAction(null)}
+          />
+        )}
+
+        {confirmAction?.kind === 'cancelReq' && (
+          <ConfirmDialog
+            title="Thu hồi yêu cầu"
+            message="Thu hồi yêu cầu này?"
+            confirmLabel="Thu hồi"
+            cancelLabel="Hủy"
+            onConfirm={() => {
+              const id = confirmAction.requestId;
+              setConfirmAction(null);
+              void cancelRequest(id);
+            }}
+            onClose={() => setConfirmAction(null)}
           />
         )}
       </main>
@@ -286,13 +368,13 @@ function RequestCard({
           {isReschedule && r.oldDate ? (
             <>
               <s>
-                {formatDate(r.oldDate)} ({hhmm(r.oldStartTime)}–{hhmm(r.oldEndTime)})
+                {formatDate(r.oldDate)} ({hhmmDisplay(r.oldStartTime)}–{hhmmDisplay(r.oldEndTime)})
               </s>{' '}
               →{' '}
             </>
           ) : null}
           <strong>
-            {formatDate(r.newDate)} ({hhmm(r.newStartTime)}–{hhmm(r.newEndTime)})
+            {formatDate(r.newDate)} ({hhmmDisplay(r.newStartTime)}–{hhmmDisplay(r.newEndTime)})
           </strong>
           {r.subjectName ? ` · ${r.subjectName}` : ''}
         </p>

@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { hhmm } from '../../../shared/utils/format';
+import { hhmmDisplay } from '../../../shared/utils/format';
 import {
   ASSIGNMENT_STATUS_LABELS,
   ATTENDANCE_STATUS_LABELS,
@@ -124,7 +124,7 @@ export function ClassDetailModal({ assignment, lessons, classTitle, isClient, on
                     <span className="cdm__when">
                       {formatDate(l.lessonDate)}
                       <small>
-                        {hhmm(l.startTime)}–{hhmm(l.endTime)}
+                        {hhmmDisplay(l.startTime)}–{hhmmDisplay(l.endTime)}
                         {l.subjectName ? ` · ${l.subjectName}` : ''}
                       </small>
                     </span>

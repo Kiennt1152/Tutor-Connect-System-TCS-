@@ -2,19 +2,20 @@ import { useMemo, useState, type ClipboardEvent, type FormEvent } from 'react';
 import {
   BILLING_CYCLE_OPTIONS,
   DAY_OF_WEEK_OPTIONS,
+  DURATION_CHOICE_OPTIONS,
   FEE_PER_HOUR_MIN,
   FEE_PER_HOUR_STEP,
-  LEARNING_GOAL_OPTIONS,
   LEARNING_GOAL_OTHER,
   LESSON_MODE_OPTIONS,
-  OTHER_SUBJECT,
+  isOtherSubject,
+  newOtherSubjectId,
   REPEAT_WEEKS_OPTIONS,
   SCHEDULE_MODE_OPTIONS,
   SESSION_OPTIONS,
   TUTOR_REQUIREMENT_OPTIONS,
-  type BillingCycle,
   type CatalogOption,
   type ClassFormValues,
+  type DurationChoice,
   type ClassRequestPayload,
   type LessonMode,
   type ScheduleMode,
@@ -128,42 +129,26 @@ function durationLabel(start: string, end: string): string {
   return parts.join(' ');
 }
 
-function goalsByGrade(gradeName: string | undefined): readonly string[] {
-  if (!gradeName) return LEARNING_GOAL_OPTIONS;
-  const m = /^Lớp\s+(\d+)/.exec(gradeName);
-  if (m) {
-    const n = Number(m[1]);
-    return LEARNING_GOAL_OPTIONS.filter((g) => {
-      if (g === 'Luyện thi chuyển cấp (vào 10)') return n === 9;
-      if (g === 'Luyện thi Đại học') return n === 12;
-      return true;
-    });
-  }
-  if (gradeName.includes('Đại học')) {
-    return LEARNING_GOAL_OPTIONS.filter((g) =>
-      ['Lấy lại gốc', 'Luyện thi Đại học', 'Luyện thi chứng chỉ (IELTS, TOEIC...)'].includes(g),
-    );
-  }
-  if (gradeName.toLowerCase().includes('chứng chỉ')) {
-    return LEARNING_GOAL_OPTIONS.filter((g) =>
-      ['Lấy lại gốc', 'Luyện thi chứng chỉ (IELTS, TOEIC...)'].includes(g),
-    );
-  }
-  return LEARNING_GOAL_OPTIONS;
-}
+const UNIVERSITY_ENTRANCE_SUBJECTS = [
+  'Toán',
+  'Vật lý',
+  'Hóa học',
+  'Sinh học',
+  'Ngữ văn',
+  'Tiếng Anh',
+  'Lịch sử',
+  'Địa lý',
+];
 
-function allowedGoals(
-  gradeName: string | undefined,
-  subjectNames: string[],
-): readonly string[] {
-  const byGrade = goalsByGrade(gradeName);
-  if (subjectNames.length === 0) return byGrade;
-  const hasEnglish = subjectNames.includes('Tiếng Anh');
-  const hasCert = subjectNames.some((n) => n.toLowerCase().includes('chứng chỉ'));
-  return byGrade.filter((g) => {
-    if (g === 'Luyện thi chứng chỉ (IELTS, TOEIC...)') return hasEnglish || hasCert;
-    return true;
-  });
+function gradeMatchesSubjects(gradeName: string, subjectNames: string[]): boolean {
+  const isCert = gradeName.toLowerCase().includes('chứng chỉ');
+  const isUniversity = gradeName.includes('Đại học');
+  if (!isCert && !isUniversity) return true;
+  if (subjectNames.length === 0) return true;
+  if (isCert) {
+    return subjectNames.some((s) => s === 'Tiếng Anh' || s.toLowerCase().includes('chứng chỉ'));
+  }
+  return subjectNames.some((s) => UNIVERSITY_ENTRANCE_SUBJECTS.includes(s));
 }
 
 export function ClassRequestForm({
@@ -183,6 +168,21 @@ export function ClassRequestForm({
     setForm((prev) => ({ ...prev, [key]: value }));
   }
 
+  function setDurationChoice(choice: DurationChoice) {
+    setForm((prev) => {
+      switch (choice) {
+        case 'YEAR_FREE':
+          return { ...prev, billingCycle: 'MONTH', durationUnit: 'YEAR' };
+        case 'TERM':
+          return { ...prev, billingCycle: 'TERM', durationUnit: 'MONTH' };
+        case 'QUARTER':
+          return { ...prev, billingCycle: 'QUARTER', durationUnit: 'MONTH' };
+        default:
+          return { ...prev, billingCycle: 'MONTH', durationUnit: 'MONTH' };
+      }
+    });
+  }
+
   function setScheduleMode(mode: ScheduleMode) {
     setForm((prev) => {
       if (prev.scheduleMode === mode) return prev;
@@ -192,26 +192,19 @@ export function ClassRequestForm({
   }
 
   const subjName = (id: string) =>
-    id === OTHER_SUBJECT
-      ? form.subjectOther.trim() || 'Môn học khác'
+    isOtherSubject(id)
+      ? form.subjectOthers[id]?.trim() || 'Môn học khác'
       : (subjects.find((s) => String(s.id) === id)?.name ?? id);
+  const otherIds = form.subjectIds.filter(isOtherSubject);
   const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
   const isWeekly = form.scheduleMode === 'WEEKLY';
-  const currentSubjectNames = form.subjectIds.map(subjName);
-  const gradeName = grades.find((g) => String(g.id) === form.gradeId)?.name;
-  const goalOptions = allowedGoals(gradeName, currentSubjectNames);
-
-  function keepGoal(goal: string, allowed: readonly string[]): string {
-    return goal === LEARNING_GOAL_OTHER || allowed.includes(goal) ? goal : '';
-  }
-
+  const knownSubjectNames = form.subjectIds.filter((id) => !isOtherSubject(id)).map(subjName);
+  const hasUnknownSubject = form.subjectIds.some(isOtherSubject);
+  const visibleGrades = hasUnknownSubject
+    ? grades
+    : grades.filter((g) => gradeMatchesSubjects(g.name, knownSubjectNames));
   function handleGradeChange(gradeId: string) {
-    const gName = grades.find((g) => String(g.id) === gradeId)?.name;
-    setForm((prev) => ({
-      ...prev,
-      gradeId,
-      learningGoal: keepGoal(prev.learningGoal, allowedGoals(gName, prev.subjectIds.map(subjName))),
-    }));
+    setForm((prev) => ({ ...prev, gradeId }));
   }
 
   const locationValue: LocationValue = {
@@ -247,9 +240,72 @@ export function ClassRequestForm({
       const subjectFees = { ...prev.subjectFees };
       if (removing) delete subjectFees[id];
       else if (!(id in subjectFees)) subjectFees[id] = '';
+      const knownNames = subjectIds.filter((s) => !isOtherSubject(s)).map(subjName);
+      const hasUnknown = subjectIds.some(isOtherSubject);
       const gName = grades.find((g) => String(g.id) === prev.gradeId)?.name;
-      const learningGoal = keepGoal(prev.learningGoal, allowedGoals(gName, subjectIds.map(subjName)));
-      return { ...prev, subjectIds, slots, subjectFees, learningGoal };
+      const gradeId =
+        prev.gradeId && !hasUnknown && gName && !gradeMatchesSubjects(gName, knownNames)
+          ? ''
+          : prev.gradeId;
+      return { ...prev, subjectIds, slots, subjectFees, gradeId };
+    });
+  }
+
+  function addOtherSubject() {
+    setForm((prev) => {
+      const id = newOtherSubjectId();
+      const slots =
+        prev.scheduleMode === 'WEEKLY' ? prev.slots : [...prev.slots, emptySlot(id)];
+      return {
+        ...prev,
+        subjectIds: [...prev.subjectIds, id],
+        subjectOthers: { ...prev.subjectOthers, [id]: '' },
+        subjectFees: { ...prev.subjectFees, [id]: '' },
+        slots,
+      };
+    });
+  }
+
+  function removeOtherSubject(id: string) {
+    setForm((prev) => {
+      const subjectOthers = { ...prev.subjectOthers };
+      const subjectFees = { ...prev.subjectFees };
+      delete subjectOthers[id];
+      delete subjectFees[id];
+      return {
+        ...prev,
+        subjectIds: prev.subjectIds.filter((s) => s !== id),
+        subjectOthers,
+        subjectFees,
+        slots: prev.slots.filter((s) => s.subjectId !== id),
+      };
+    });
+  }
+
+  function setOtherName(id: string, name: string) {
+    setForm((prev) => ({ ...prev, subjectOthers: { ...prev.subjectOthers, [id]: name } }));
+  }
+
+  function toggleOtherSection() {
+    const otherSet = new Set(form.subjectIds.filter(isOtherSubject));
+    if (otherSet.size === 0) {
+      addOtherSubject();
+      return;
+    }
+    setForm((prev) => {
+      const subjectOthers = { ...prev.subjectOthers };
+      const subjectFees = { ...prev.subjectFees };
+      otherSet.forEach((id) => {
+        delete subjectOthers[id];
+        delete subjectFees[id];
+      });
+      return {
+        ...prev,
+        subjectIds: prev.subjectIds.filter((s) => !isOtherSubject(s)),
+        subjectOthers,
+        subjectFees,
+        slots: prev.slots.filter((s) => !otherSet.has(s.subjectId)),
+      };
     });
   }
 
@@ -364,6 +420,15 @@ export function ClassRequestForm({
   const cycle =
     BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle) ?? BILLING_CYCLE_OPTIONS[0];
   const isMonth = form.billingCycle === 'MONTH';
+  const isYearUnit = isMonth && form.durationUnit === 'YEAR';
+  const durationMax = isYearUnit ? 10 : 11;
+  const durationChoice: DurationChoice = isMonth
+    ? isYearUnit
+      ? 'YEAR_FREE'
+      : 'MONTH_FREE'
+    : form.billingCycle === 'QUARTER'
+      ? 'QUARTER'
+      : 'TERM';
   const repeats = patternRepeats(form);
   const cycleName = cycleLabelOf(form);
   const cycleLabelDisplay = isMonth ? cycleName : cycle.short;
@@ -378,6 +443,7 @@ export function ClassRequestForm({
   const isOffline = form.lessonMode !== 'ONLINE';
   const today = new Date().toLocaleDateString('en-CA');
   const nowHm = new Date().toTimeString().slice(0, 5);
+  const todayDow = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][new Date().getDay()];
 
   const slotErrorSet = new Set<string>();
   form.slots.forEach((s) => {
@@ -389,6 +455,10 @@ export function ClassRequestForm({
       slotErrorSet.add(`${nm}: ngày học không được ở quá khứ`);
     } else if (!isWeekly && s.date === today && s.start <= nowHm) {
       slotErrorSet.add(`${nm}: giờ học hôm nay đã qua (phải sau ${nowHm})`);
+    } else if (isWeekly && s.day === todayDow && s.start <= nowHm) {
+      slotErrorSet.add(
+        `${nm}: buổi ${dayLabel(s.day)} ${s.start} đã qua giờ hôm nay — chọn thứ hoặc giờ khác`,
+      );
     } else if (s.end <= s.start) {
       slotErrorSet.add(`${nm}: giờ kết thúc phải sau giờ bắt đầu`);
     }
@@ -427,7 +497,7 @@ export function ClassRequestForm({
 
   const missing: string[] = [];
   if (form.subjectIds.length === 0) missing.push('Môn học');
-  if (form.subjectIds.includes(OTHER_SUBJECT) && !form.subjectOther.trim())
+  if (otherIds.some((id) => !form.subjectOthers[id]?.trim()))
     missing.push('Tên môn học khác');
   if (!form.gradeId) missing.push('Lớp');
   if (isOffline) {
@@ -468,27 +538,38 @@ export function ClassRequestForm({
               );
             })}
             <label className="mkt-check">
-              <input
-                type="checkbox"
-                checked={form.subjectIds.includes(OTHER_SUBJECT)}
-                onChange={() => toggleSubject(OTHER_SUBJECT)}
-              />
+              <input type="checkbox" checked={otherIds.length > 0} onChange={toggleOtherSection} />
               <span>Khác</span>
             </label>
           </div>
         )}
-        {form.subjectIds.includes(OTHER_SUBJECT) && (
-          <label className="mkt-field mkt-subject-other">
+        {otherIds.length > 0 && (
+          <div className="mkt-field mkt-subject-other">
             <span className="mkt-field__label">
-              Tên môn học khác <em>*</em>
+              Tên môn học khác <em>*</em> <span className="mkt-hint">(mỗi ô 1 môn)</span>
             </span>
-            <input
-              type="text"
-              value={form.subjectOther}
-              placeholder="Nhập tên môn học khác…"
-              onChange={(e) => set('subjectOther', e.target.value)}
-            />
-          </label>
+            {otherIds.map((id, i) => (
+              <div key={id} className="mkt-other-row">
+                <input
+                  type="text"
+                  value={form.subjectOthers[id] ?? ''}
+                  placeholder={`Tên môn khác ${i + 1}…`}
+                  onChange={(e) => setOtherName(id, e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="mkt-other-remove"
+                  aria-label="Xóa môn này"
+                  onClick={() => removeOtherSubject(id)}
+                >
+                  ✕
+                </button>
+              </div>
+            ))}
+            <button type="button" className="mkt-btn mkt-btn--ghost mkt-other-add" onClick={addOtherSubject}>
+              + Thêm môn khác
+            </button>
+          </div>
         )}
       </div>
 
@@ -499,26 +580,24 @@ export function ClassRequestForm({
           </span>
           <select value={form.gradeId} onChange={(e) => handleGradeChange(e.target.value)}>
             <option value="">-- Chọn lớp --</option>
-            {grades.map((g) => (
+            {visibleGrades.map((g) => (
               <option key={g.id} value={g.id}>
                 {g.name}
               </option>
             ))}
           </select>
         </label>
-      </div>
 
-      <div className="mkt-form__grid">
         <label className="mkt-field">
           <span className="mkt-field__label">Mục tiêu học tập</span>
-          <select value={form.learningGoal} onChange={(e) => set('learningGoal', e.target.value)}>
-            <option value="">-- Chọn mục tiêu --</option>
-            {goalOptions.map((goal) => (
-              <option key={goal} value={goal}>
-                {goal}
-              </option>
-            ))}
-          </select>
+          <input
+            type="text"
+            value={form.learningGoal === LEARNING_GOAL_OTHER ? form.learningGoalOther : form.learningGoal}
+            onChange={(e) =>
+              setForm((prev) => ({ ...prev, learningGoal: e.target.value, learningGoalOther: '' }))
+            }
+            placeholder="VD: Lấy lại gốc, ôn thi vào 10, luyện IELTS…"
+          />
         </label>
       </div>
 
@@ -584,12 +663,12 @@ export function ClassRequestForm({
 
       <div className="mkt-form__grid">
         <label className="mkt-field">
-          <span className="mkt-field__label">Học theo</span>
+          <span className="mkt-field__label">Chọn thời gian học</span>
           <select
-            value={form.billingCycle}
-            onChange={(e) => set('billingCycle', e.target.value as BillingCycle)}
+            value={durationChoice}
+            onChange={(e) => setDurationChoice(e.target.value as DurationChoice)}
           >
-            {BILLING_CYCLE_OPTIONS.map((opt) => (
+            {DURATION_CHOICE_OPTIONS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
               </option>
@@ -598,14 +677,25 @@ export function ClassRequestForm({
         </label>
         {isMonth && (
           <label className="mkt-field">
-            <span className="mkt-field__label">Số tháng</span>
-            <select value={form.months} onChange={(e) => set('months', e.target.value)}>
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <option key={m} value={String(m)}>
-                  {m} tháng
-                </option>
-              ))}
-            </select>
+            <span className="mkt-field__label">{isYearUnit ? 'Số năm học' : 'Số tháng học'}</span>
+            <div className="mkt-input-suffix">
+              <input
+                type="number"
+                min={1}
+                max={durationMax}
+                step={1}
+                value={form.months}
+                placeholder={isYearUnit ? 'VD: 1' : 'VD: 3'}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === '') return set('months', '');
+                  const n = Math.trunc(Number(raw));
+                  if (!Number.isFinite(n)) return;
+                  set('months', String(Math.min(durationMax, Math.max(1, n))));
+                }}
+              />
+              <span className="mkt-input-suffix__unit">{isYearUnit ? 'năm' : 'tháng'}</span>
+            </div>
           </label>
         )}
       </div>

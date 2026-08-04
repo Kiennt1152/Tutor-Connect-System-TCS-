@@ -8,7 +8,6 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** Quận / Huyện (id = mã hành chính GSO, gán về tỉnh mới sau sáp nhập 2025). */
 @Entity
 @Table(name = "districts")
 @Getter

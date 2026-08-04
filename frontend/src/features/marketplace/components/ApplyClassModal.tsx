@@ -4,7 +4,7 @@ import { marketplaceApi } from '../api/marketplaceApi';
 import { classToForm } from '../mappers/marketplaceMapper';
 import {
   FEE_PER_HOUR_MIN,
-  OTHER_SUBJECT,
+  isOtherSubject,
   type CatalogOption,
   type ClassResponse,
   type Gender,
@@ -23,17 +23,11 @@ const GENDER_LABEL: Record<Gender, string> = {
 interface Props {
   readonly target: ClassResponse;
   readonly subjects: CatalogOption[];
-  /** Học phí đề xuất mặc định (từ tiêu chí gia sư đã nhập), dùng khi lớp không nêu giá môn. */
   readonly defaultRate?: number;
   readonly onClose: () => void;
   readonly onSubmitted: (classId: number) => void;
 }
 
-/**
- * Form ứng tuyển: hiển thị hồ sơ gia sư (lấy từ profile) rồi mới xác nhận gửi đơn.
- * Phần dữ liệu profile (GET /profile/me) là NON-BLOCKING — nếu chưa có/không tải được
- * thì form vẫn hiện đầy đủ bố cục, các mục hồ sơ để trống. (Phần profile do người khác ráp.)
- */
 export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubmitted }: Props) {
   const [profile, setProfile] = useState<TutorProfileCard | null>(null);
   const [loading, setLoading] = useState(true);
@@ -41,21 +35,18 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Môn của lớp + học phí Client đề xuất cho từng môn (bóc từ detailsJson).
   const form = useMemo(() => classToForm(target), [target]);
   const subjectIds = form.subjectIds;
   const subjectName = useMemo(() => {
     const m = new Map(subjects.map((s) => [String(s.id), s.name]));
     return (id: string) =>
-      id === OTHER_SUBJECT ? form.subjectOther.trim() || 'Môn khác' : (m.get(id) ?? `#${id}`);
-  }, [subjects, form.subjectOther]);
+      isOtherSubject(id) ? form.subjectOthers[id]?.trim() || 'Môn khác' : (m.get(id) ?? `#${id}`);
+  }, [subjects, form.subjectOthers]);
   const askingFee = (id: string) => Number(form.subjectFees[id]) || 0;
 
-  // Giá gia sư đề xuất theo từng môn — mặc định lấy đúng mức Client đề xuất cho môn đó.
   const [rates, setRates] = useState<Record<string, string>>({});
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
 
-  // Đặt lại ô nhập theo môn của lớp đang mở: modal có thể được dùng lại cho lớp khác
-  // mà không unmount, khi đó state cũ còn key của lớp trước.
   useEffect(() => {
     setRates(
       Object.fromEntries(
@@ -65,10 +56,9 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
         }),
       ),
     );
+    setSelected(Object.fromEntries(form.subjectIds.map((id) => [id, true])));
   }, [form]);
 
-  // Môn lớp không nêu giá: gợi ý theo tiêu chí gia sư đã nhập, rồi tới mức trong hồ sơ.
-  // Chỉ điền vào ô còn trống nên không đè lên giá gia sư đã tự gõ.
   useEffect(() => {
     const fallback = defaultRate || (profile?.hourlyRate ? Math.round(Number(profile.hourlyRate)) : 0);
     if (!fallback) return;
@@ -83,7 +73,6 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
       .getMyTutorProfile()
       .then((p) => alive && setProfile(p))
       .catch(() => {
-        /* Bỏ qua: form vẫn hiển thị, mục hồ sơ để trống. */
       })
       .finally(() => alive && setLoading(false));
     return () => {
@@ -96,8 +85,9 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
     [profile?.dateOfBirth],
   );
 
-  // Phải báo giá đủ mọi môn của lớp, mỗi môn không dưới mức tối thiểu.
-  const rateErrors = subjectIds
+  const chosenIds = subjectIds.filter((id) => selected[id]);
+
+  const rateErrors = chosenIds
     .map((id) => {
       const fee = Number(rates[id]);
       if (!(fee > 0)) return `${subjectName(id)}: chưa nhập học phí/giờ`;
@@ -106,20 +96,25 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
       return null;
     })
     .filter((e): e is string => e !== null);
+  const noSubjectChosen = chosenIds.length === 0;
 
   function setRate(subjectId: string, value: string) {
     setRates((prev) => ({ ...prev, [subjectId]: value.replace(/\D/g, '') }));
-    // Lỗi của lần gửi trước không còn đúng khi đã sửa form — bỏ đi cho khỏi gây hiểu nhầm.
+    setError(null);
+  }
+
+  function toggleSubject(subjectId: string) {
+    setSelected((prev) => ({ ...prev, [subjectId]: !prev[subjectId] }));
     setError(null);
   }
 
   async function handleSubmit() {
-    if (rateErrors.length > 0) return;
+    if (noSubjectChosen || rateErrors.length > 0) return;
     setSubmitting(true);
     setError(null);
     try {
       await marketplaceApi.applyToClass(target.classId, {
-        proposedRates: Object.fromEntries(subjectIds.map((id) => [id, Number(rates[id])])),
+        proposedRates: Object.fromEntries(chosenIds.map((id) => [id, Number(rates[id])])),
         coverLetter: coverLetter.trim() || undefined,
       });
       onSubmitted(target.classId);
@@ -145,7 +140,6 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
       role="dialog"
       aria-modal="true"
       onMouseDown={(e) => {
-        // Chỉ đóng khi bấm trực tiếp trên nền — tránh đóng nhầm khi bôi đen text rồi thả ra ngoài.
         if (e.target === e.currentTarget) onClose();
       }}
     >
@@ -248,35 +242,46 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
           <section className="cdm-section">
             <h3>Học phí đề xuất theo môn</h3>
             <p className="apl-rates__intro">
-              Lớp này gồm {subjectIds.length} môn — hãy báo giá cho <strong>từng môn</strong> bạn sẽ
-              dạy.
+              Lớp này gồm {subjectIds.length} môn — <strong>tích chọn môn bạn muốn dạy</strong> và báo
+              giá cho môn đó.
             </p>
             <ul className="apl-rates">
               {subjectIds.map((id) => {
                 const asking = askingFee(id);
                 const mine = Number(rates[id]) || 0;
+                const isOn = !!selected[id];
                 return (
-                  <li key={id} className="apl-rate">
+                  <li key={id} className={`apl-rate ${isOn ? '' : 'is-off'}`}>
                     <div className="apl-rate__head">
-                      <span className="apl-rate__subject">📘 {subjectName(id)}</span>
+                      <label className="apl-rate__subject apl-rate__check">
+                        <input
+                          type="checkbox"
+                          checked={isOn}
+                          onChange={() => toggleSubject(id)}
+                          aria-label={`Dạy môn ${subjectName(id)}`}
+                        />
+                        <span>📘 {subjectName(id)}</span>
+                      </label>
                       <span className="apl-rate__asking">
                         {asking > 0
                           ? `Phụ huynh đề xuất: ${currency.format(asking)}đ/giờ`
                           : 'Phụ huynh chưa nêu mức học phí'}
                       </span>
                     </div>
-                    <div className="apl-rate__input">
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={rates[id] ?? ''}
-                        placeholder={`VD: ${asking || 200000}`}
-                        aria-label={`Học phí đề xuất môn ${subjectName(id)} (đ/giờ)`}
-                        onChange={(e) => setRate(id, e.target.value)}
-                      />
-                      <span className="apl-rate__unit">đ/giờ</span>
-                    </div>
-                    {mine > 0 && (
+                    {isOn && (
+                      <div className="apl-rate__input">
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={rates[id] ?? ''}
+                          placeholder={`VD: ${asking || 200000}`}
+                          aria-label={`Học phí đề xuất môn ${subjectName(id)} (đ/giờ)`}
+                          onChange={(e) => setRate(id, e.target.value)}
+                        />
+                        <span className="apl-rate__unit">đ/giờ</span>
+                      </div>
+                    )}
+                    {isOn && mine > 0 && (
                       <small className="tfc-hint">
                         {currency.format(mine)}đ/giờ
                         {asking > 0 && mine > asking && (
@@ -291,6 +296,11 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
                 );
               })}
             </ul>
+            {noSubjectChosen && (
+              <ul className="apl-rate-errors">
+                <li>Hãy chọn ít nhất một môn bạn muốn dạy.</li>
+              </ul>
+            )}
             {rateErrors.length > 0 && (
               <ul className="apl-rate-errors">
                 {rateErrors.map((e) => (
@@ -326,8 +336,14 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
           <button
             type="button"
             className="tfc-btn tfc-btn--primary"
-            disabled={submitting || rateErrors.length > 0}
-            title={rateErrors.length > 0 ? 'Hãy nhập học phí cho tất cả các môn' : undefined}
+            disabled={submitting || noSubjectChosen || rateErrors.length > 0}
+            title={
+              noSubjectChosen
+                ? 'Hãy chọn ít nhất một môn'
+                : rateErrors.length > 0
+                  ? 'Hãy nhập học phí cho các môn đã chọn'
+                  : undefined
+            }
             onClick={handleSubmit}
           >
             {submitting ? 'Đang gửi…' : 'Gửi đơn ứng tuyển'}

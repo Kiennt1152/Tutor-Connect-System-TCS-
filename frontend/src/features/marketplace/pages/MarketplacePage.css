@@ -163,6 +163,37 @@
 .mkt-subject-other {
   margin-top: 10px;
   width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.mkt-other-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mkt-other-row input {
+  flex: 1;
+  min-width: 0;
+}
+.mkt-other-remove {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: 1px solid #e3e9f2;
+  border-radius: 8px;
+  background: #fff;
+  color: #b3261e;
+  font-size: 14px;
+  cursor: pointer;
+}
+.mkt-other-remove:hover {
+  background: #fdecea;
+  border-color: #f3c2bd;
+}
+.mkt-other-add {
+  align-self: flex-start;
+  padding: 6px 12px;
 }
 
 .mkt-day-cards {
@@ -535,6 +566,41 @@
   font-size: 13px;
   color: #5b6b7f;
 }
+.mkt-class-card__subjects {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.mkt-class-card__subjects-label {
+  font-size: 11px;
+  color: #94a3b5;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+.mkt-subj-fees {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mkt-subj-fees li {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.mkt-subj-fees__name {
+  color: #33465e;
+  font-weight: 600;
+}
+.mkt-subj-fees__fee {
+  color: #1f7a54;
+  font-weight: 700;
+  white-space: nowrap;
+}
 .mkt-class-card__actions {
   display: flex;
   gap: 10px;
@@ -594,6 +660,11 @@
   justify-content: space-between;
   gap: 12px;
 }
+.mkt-detail__bar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 .mkt-detail__cols {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
@@ -628,5 +699,76 @@
   }
   .mkt-detail__col--info {
     order: -1;
+  }
+}
+
+/* Ô nhập số + đơn vị (tháng/năm) — gọn, đơn vị nằm sát ngay cạnh ô số */
+.mkt-input-suffix {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.mkt-input-suffix input {
+  flex: 0 0 130px;
+  width: 130px;
+  min-width: 0;
+}
+.mkt-input-suffix__unit {
+  color: #6b7a8d;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* Hộp thoại xác nhận / thông báo trong ứng dụng (thay window.confirm/alert) */
+.mkt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(18, 35, 59, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: mkt-modal-fade 0.15s ease-out;
+}
+.mkt-modal {
+  background: #fff;
+  border-radius: 16px;
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(18, 35, 59, 0.25);
+  animation: mkt-modal-pop 0.15s ease-out;
+}
+.mkt-modal__title {
+  margin: 0 0 8px;
+  font-size: 18px;
+  color: #12233b;
+}
+.mkt-modal__msg {
+  margin: 0 0 20px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #5b6b7f;
+}
+.mkt-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.mkt-modal__actions .mkt-btn {
+  min-width: 96px;
+  padding: 9px 16px;
+  text-align: center;
+}
+@keyframes mkt-modal-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes mkt-modal-pop {
+  from {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
   }
 }

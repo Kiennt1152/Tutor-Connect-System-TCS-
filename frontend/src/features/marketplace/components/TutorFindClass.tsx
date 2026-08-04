@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { ClassDetailModal } from './ClassDetailModal';
 import { ApplyClassModal } from './ApplyClassModal';
 import { FormulaExplainer } from './FormulaExplainer';
 import { FALLBACK_SUBJECTS, FALLBACK_GRADES } from '../constants/catalogFallback';
 import {
-  OTHER_SUBJECT,
+  isOtherSubject,
   type CatalogOption,
   type ClassResponse,
 } from '../types/marketplaceTypes';
@@ -26,49 +26,80 @@ const WEIGHT_LABELS: { key: keyof MatchWeights; label: string; hint: string }[] 
   { key: 'experience', label: 'Trình độ (E)', hint: 'Phù hợp yêu cầu bằng cấp' },
 ];
 
-// Nhãn chữ cho từng mức trọng số 0–5 để người dùng dễ hiểu.
 const WEIGHT_SCALE = ['Bỏ qua', 'Rất thấp', 'Thấp', 'Vừa', 'Cao', 'Rất cao'];
 const weightLabel = (v: number) => WEIGHT_SCALE[v] ?? '';
 
-// Bỏ dấu tiếng Việt + lowercase để so khớp tên môn không phân biệt dấu/hoa-thường.
 const normalize = (s: string) =>
   s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/đ/g, 'd').trim();
+
+const SUBJECT_ALIASES: Record<string, string[]> = {
+  toan: ['toan'],
+  'vat ly': ['vat ly', 'vat', 'ly'],
+  'hoa hoc': ['hoa hoc', 'hoa'],
+  'sinh hoc': ['sinh hoc', 'sinh'],
+  'ngu van': ['ngu van', 'van'],
+  'tieng viet': ['tieng viet'],
+  'tieng anh': ['tieng anh', 'anh', 'english'],
+  'lich su': ['lich su', 'su'],
+  'dia ly': ['dia ly', 'dia'],
+  'tin hoc': ['tin hoc', 'tin'],
+};
+
+const GOAL_KEYWORDS: { kw: string; label: string }[] = [
+  { kw: 'lay lai goc', label: 'Lấy lại gốc' },
+  { kw: 'on thi hoc ky', label: 'Ôn thi học kỳ' },
+  { kw: 'chuyen cap', label: 'Luyện thi chuyển cấp' },
+  { kw: 'vao 10', label: 'Luyện thi chuyển cấp' },
+  { kw: 'luyen thi dai hoc', label: 'Luyện thi Đại học' },
+  { kw: 'luyen thi chung chi', label: 'Luyện thi chứng chỉ' },
+];
+const REQ_KEYWORDS: { kw: string; label: string }[] = [
+  { kw: 'giao vien', label: 'Giáo viên' },
+  { kw: 'sinh vien', label: 'Sinh viên' },
+  { kw: 'bang cap', label: 'Có bằng cấp/chứng chỉ' },
+];
 
 interface QueryFilters {
   subjectIds: string[];
   gradeIds: string[];
   provinceId: string;
-  /** Học phí/giờ mong muốn tách từ câu ("200k", "150.000đ"). Rỗng = không nêu. */
   expectedFee: string;
-  /** Hình thức dạy gia sư nêu trong câu. Rỗng = không nêu, nhận cả hai. */
   lessonMode: '' | 'ONLINE' | 'OFFLINE';
+  goalKeywords: string[];
+  reqKeywords: string[];
+  otherSubjectText: string;
 }
 
-// "Đọc hiểu" câu tìm kiếm tiếng Việt tự do → tách MÔN HỌC + KHỐI LỚP + TỈNH/THÀNH
-// + HỌC PHÍ + HÌNH THỨC. Parser theo luật (không phải LLM), đủ cho các câu như:
-//   "tìm gia sư tiếng anh lớp 12 ở hà nội" · "dạy toán lớp 9 online 200k/giờ"
 function parseSmartQuery(
   text: string,
   subjects: readonly CatalogOption[],
   grades: readonly CatalogOption[],
   provinces: readonly CatalogOption[],
 ): QueryFilters {
-  // Dấu phẩy/gạch chéo giữa các môn cũng là ranh giới từ, không thì " toan, ly " sẽ không khớp.
   const q = ` ${normalize(text).replace(/[,;/|]+/g, ' ')} `;
   const isCert = /ielts|toeic|chung chi/.test(q);
 
-  // --- Môn học: tên môn xuất hiện trong câu (khớp theo ranh giới từ) ---
   const subjectIds = new Set<string>();
+  const aliasPairs: { id: string; kw: string }[] = [];
   for (const s of subjects) {
     const name = normalize(s.name);
-    if (name && q.includes(` ${name} `)) subjectIds.add(String(s.id));
+    for (const kw of SUBJECT_ALIASES[name] ?? [name]) {
+      if (kw) aliasPairs.push({ id: String(s.id), kw });
+    }
+  }
+  aliasPairs.sort((a, b) => b.kw.length - a.kw.length);
+  let scan = q;
+  for (const { id, kw } of aliasPairs) {
+    if (scan.includes(` ${kw} `)) {
+      subjectIds.add(id);
+      scan = scan.split(` ${kw} `).join('  ');
+    }
   }
   if (isCert) {
     const cert = subjects.find((s) => /chung chi/.test(normalize(s.name)));
     if (cert) subjectIds.add(String(cert.id));
   }
 
-  // --- Khối lớp: "lớp N" / "khối N" / "đại học" / chứng chỉ ---
   const gradeIds = new Set<string>();
   for (const m of q.matchAll(/(?:lop|khoi)\s*(\d{1,2})/g)) {
     const g = grades.find((x) => normalize(x.name) === `lop ${Number(m[1])}`);
@@ -83,7 +114,6 @@ function parseSmartQuery(
     if (g) gradeIds.add(String(g.id));
   }
 
-  // --- Tỉnh/thành: bỏ tiền tố "tp/thành phố/tỉnh", ưu tiên tên dài nhất khớp ---
   let provinceId = '';
   const cands = provinces
     .map((p) => ({ id: String(p.id), core: normalize(p.name).replace(/^(tp|thanh pho|tinh)\s+/, '') }))
@@ -96,7 +126,6 @@ function parseSmartQuery(
     }
   }
 
-  // --- Học phí/giờ: "200k" · "200 k" · "150000" · "150.000đ" (chỉ nhận mức ≥ 10.000đ) ---
   let expectedFee = '';
   const kMatch = /(\d{2,4})\s*k(?![a-z])/.exec(q);
   if (kMatch) {
@@ -107,18 +136,43 @@ function parseSmartQuery(
     if (n >= 10000) expectedFee = String(n);
   }
 
-  // --- Hình thức: offline phải xét TRƯỚC vì "offline"/"truc tiep" cũng là từ dạy tại chỗ ---
   const lessonMode: QueryFilters['lessonMode'] = /offline|truc tiep|tai nha|tai nguoi hoc/.test(q)
     ? 'OFFLINE'
     : /\bonline\b|truc tuyen/.test(q)
       ? 'ONLINE'
       : '';
 
-  return { subjectIds: [...subjectIds], gradeIds: [...gradeIds], provinceId, expectedFee, lessonMode };
-}
+  const goalKeywords = GOAL_KEYWORDS.filter((g) => q.includes(g.kw)).map((g) => g.kw);
+  const reqKeywords = REQ_KEYWORDS.filter((g) => q.includes(g.kw)).map((g) => g.kw);
 
-// Câu hỏi gợi ý dưới thanh search — bấm để ghép dần thành câu tìm kiếm.
-const FEE_SUGGESTIONS = ['100k', '150k', '200k', '300k'];
+  let otherSubjectText = '';
+  if (subjectIds.size === 0) {
+    let s = q;
+    const pc = cands.find((c) => c.id === provinceId)?.core;
+    if (pc) s = s.split(pc).join(' ');
+    for (const kw of [...goalKeywords, ...reqKeywords]) s = s.split(kw).join(' ');
+    s = s
+      .replace(/(?:lop|khoi)\s*\d{1,2}/g, ' ')
+      .replace(/\d{2,4}\s*k(?![a-z])/g, ' ')
+      .replace(/\d[\d.,]{4,}/g, ' ')
+      .replace(/\b(online|offline|truc tiep|truc tuyen|tai nha|tai nguoi hoc|dai hoc|vao 10)\b/g, ' ')
+      .replace(/\b(mon|tim|gia su|giasu|day|hoc phi|hoc|gio|vnd|dong|luyen thi|thi|o|tai|can|lop|khoi)\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (s.length >= 2) otherSubjectText = s;
+  }
+
+  return {
+    subjectIds: [...subjectIds],
+    gradeIds: [...gradeIds],
+    provinceId,
+    expectedFee,
+    lessonMode,
+    goalKeywords,
+    reqKeywords,
+    otherSubjectText,
+  };
+}
 
 interface Props {
   readonly subjects: CatalogOption[];
@@ -134,48 +188,53 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [detailTarget, setDetailTarget] = useState<ClassResponse | null>(null);
   const [applyTarget, setApplyTarget] = useState<ClassResponse | null>(null);
-  // Thanh tìm: query = câu đang gõ. Bộ lọc tách từ câu (hoặc từ chip):
-  // selectedIds = môn (lọc lớp) · gradeIds/provinceId = khối lớp + tỉnh (ảnh hưởng % xếp hạng).
   const [query, setQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [gradeIds, setGradeIds] = useState<string[]>([]);
   const [provinceId, setProvinceId] = useState('');
   const [queryFee, setQueryFee] = useState('');
   const [queryMode, setQueryMode] = useState<QueryFilters['lessonMode']>('');
-  // Chưa tìm lần nào thì chỉ hiện thanh search + câu hỏi gợi ý; tìm xong mới hiện
-  // thanh trượt ưu tiên và danh sách lớp đã chấm điểm.
+  const [goalKeys, setGoalKeys] = useState<string[]>([]);
+  const [reqKeys, setReqKeys] = useState<string[]>([]);
+  const [otherText, setOtherText] = useState('');
   const [searched, setSearched] = useState(false);
   const [showFormula, setShowFormula] = useState(false);
 
-  useEffect(() => {
-    setStatus('loading');
+  const loadClasses = useCallback((silent = false) => {
+    if (!silent) setStatus('loading');
     marketplaceApi
       .listOpenClasses()
       .then((data) => {
         setClasses(data);
         setStatus('success');
       })
-      .catch(() => setStatus('error'));
+      .catch(() => {
+        if (!silent) setStatus('error');
+      });
   }, []);
 
-  // Đơn đã nộp nằm ở server: phải nạp lại, không thì F5 xong nút lại mời ứng tuyển
-  // lớp đã nộp rồi và server báo trùng.
+  useEffect(() => {
+    loadClasses();
+  }, [loadClasses]);
+
+  useEffect(() => {
+    const onFocus = () => loadClasses(true);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, [loadClasses]);
+
   useEffect(() => {
     let alive = true;
     marketplaceApi
       .listMyAppliedClassIds()
       .then((ids) => alive && setApplied(new Set(ids)))
       .catch(() => {
-        /* Không chặn màn tìm lớp; cùng lắm nút vẫn mời ứng tuyển như trước. */
       });
     return () => {
       alive = false;
     };
   }, []);
 
-  // Tiêu chí lấy TỰ ĐỘNG từ hồ sơ gia sư (không còn form khai báo). Hiện hồ sơ chỉ
-  // expose học phí/giờ → dùng làm mức mong muốn (P). Các tiêu chí khác (môn, khu vực,
-  // lịch) chưa có trong hồ sơ nên để linh hoạt; gia sư điều chỉnh bằng trọng số ưu tiên.
   useEffect(() => {
     let alive = true;
     marketplaceApi
@@ -185,15 +244,12 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
         setCriteria((c) => ({ ...c, expectedFee: String(Math.round(Number(p.hourlyRate))) }));
       })
       .catch(() => {
-        /* Không có hồ sơ / lỗi tải → bỏ qua, vẫn xếp hạng theo trọng số. */
       });
     return () => {
       alive = false;
     };
   }, []);
 
-  // Nếu backend không trả được catalog (lỗi/404) thì dùng danh sách dự phòng
-  // (ID khớp seed DB nên hiển thị tên môn/lớp vẫn đúng trên thẻ kết quả).
   const effSubjects = useMemo(
     () => (subjects.length > 0 ? subjects : [...FALLBACK_SUBJECTS]),
     [subjects],
@@ -205,7 +261,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
 
   const subjectName = useMemo(() => {
     const m = new Map(effSubjects.map((s) => [String(s.id), s.name]));
-    return (id: string) => (id === OTHER_SUBJECT ? 'Môn khác' : (m.get(id) ?? `#${id}`));
+    return (id: string) => (isOtherSubject(id) ? 'Môn khác' : (m.get(id) ?? `#${id}`));
   }, [effSubjects]);
   const gradeName = useMemo(() => {
     const m = new Map(effGrades.map((g) => [String(g.id), g.name]));
@@ -216,8 +272,6 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     return (id: string) => m.get(id) ?? '';
   }, [provinces]);
 
-  // Bộ lọc từ câu tìm kiếm → đưa vào tiêu chí: môn (S), khối lớp (S), tỉnh (L).
-  // Học phí nêu trong câu tìm được ưu tiên hơn mức lấy từ hồ sơ gia sư.
   const activeCriteria = useMemo(
     () => ({
       ...criteria,
@@ -230,36 +284,66 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     [criteria, selectedIds, gradeIds, provinceId, queryFee, queryMode],
   );
 
-  // Xếp hạng lớp theo % của công thức trọng số (rankClasses đã sắp % giảm dần) — cập
-  // nhật TRỰC TIẾP khi kéo trọng số. Những gì gia sư NÊU RÕ trong câu hỏi thì lọc CỨNG
-  // (hỏi offline mà trả về lớp online là sai ý), phần không nêu vẫn để trọng số xếp hạng.
   const results = useMemo(() => {
     let out = rankClasses(classes, activeCriteria);
-    // Môn: giữ lớp có ÍT NHẤT một môn đã nêu (loại lớp chỉ "Khác").
     if (selectedIds.length > 0) {
       const wanted = new Set(selectedIds);
       out = out.filter((r) => r.parsed.subjectIds.some((id) => wanted.has(id)));
+    } else if (otherText) {
+      out = out.filter((r) => r.parsed.hasOtherSubject);
     }
-    // Khối lớp.
     if (gradeIds.length > 0) {
       const wanted = new Set(gradeIds);
       out = out.filter((r) => wanted.has(r.parsed.gradeId));
     }
-    // Hình thức: hỏi online → chỉ lớp online; hỏi offline → loại lớp online.
     if (queryMode === 'ONLINE') out = out.filter((r) => r.parsed.lessonMode === 'ONLINE');
     if (queryMode === 'OFFLINE') out = out.filter((r) => r.parsed.lessonMode !== 'ONLINE');
-    // Tỉnh: chỉ áp cho lớp offline — lớp online học ở đâu cũng được nên không loại.
     if (provinceId) {
       out = out.filter(
         (r) => r.parsed.lessonMode === 'ONLINE' || r.parsed.provinceId === provinceId,
       );
     }
+    if (goalKeys.length > 0) {
+      out = out.filter((r) => {
+        const g = normalize(r.parsed.learningGoal ?? '');
+        return goalKeys.some((k) => g.includes(k));
+      });
+    }
+    if (reqKeys.length > 0) {
+      out = out.filter((r) => {
+        const req = normalize(r.parsed.tutorRequirement ?? '');
+        return reqKeys.some((k) => req.includes(k));
+      });
+    }
     return out;
-  }, [classes, activeCriteria, selectedIds, gradeIds, provinceId, queryMode]);
+  }, [classes, activeCriteria, selectedIds, gradeIds, provinceId, queryMode, goalKeys, reqKeys, otherText]);
+
+  useEffect(() => {
+    if (!query.trim()) {
+      setSelectedIds([]);
+      setGradeIds([]);
+      setProvinceId('');
+      setQueryFee('');
+      setQueryMode('');
+      setGoalKeys([]);
+      setReqKeys([]);
+      setOtherText('');
+      return;
+    }
+    const f = parseSmartQuery(query, effSubjects, effGrades, provinces);
+    setSelectedIds(f.subjectIds);
+    setGradeIds(f.gradeIds);
+    setProvinceId(f.provinceId);
+    setQueryFee(f.expectedFee);
+    setQueryMode(f.lessonMode);
+    setGoalKeys(f.goalKeywords);
+    setReqKeys(f.reqKeywords);
+    setOtherText(f.otherSubjectText);
+    setSearched(true);
+  }, [query, effSubjects, effGrades, provinces]);
 
   const selectedNames = selectedIds.map((id) => subjectName(id)).join(', ');
 
-  // Các thẻ "hệ thống đã hiểu" từ câu tìm kiếm (môn · khối lớp · tỉnh) để phản hồi cho gia sư.
   const understoodTags = [
     ...selectedIds.map((id) => ({ kind: 'Môn', label: subjectName(id) })),
     ...gradeIds.map((id) => ({ kind: 'Khối', label: gradeName(id) })),
@@ -270,53 +354,33 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     ...(queryFee
       ? [{ kind: 'Học phí', label: `${Number(queryFee).toLocaleString('vi-VN')}đ/giờ` }]
       : []),
+    ...[...new Set(goalKeys.map((k) => GOAL_KEYWORDS.find((g) => g.kw === k)?.label))].map(
+      (label) => ({ kind: 'Mục tiêu', label: label ?? '' }),
+    ),
+    ...[...new Set(reqKeys.map((k) => REQ_KEYWORDS.find((g) => g.kw === k)?.label))].map(
+      (label) => ({ kind: 'Yêu cầu GS', label: label ?? '' }),
+    ),
+    ...(otherText ? [{ kind: 'Môn', label: 'Môn khác' }] : []),
   ].filter((t) => t.label);
   const hasFilter =
     selectedIds.length > 0 ||
     gradeIds.length > 0 ||
     provinceId !== '' ||
     queryFee !== '' ||
-    queryMode !== '';
+    queryMode !== '' ||
+    goalKeys.length > 0 ||
+    reqKeys.length > 0 ||
+    otherText !== '';
 
   const setWeight = (key: keyof MatchWeights, value: number) =>
     setCriteria((c) => ({ ...c, weights: { ...c.weights, [key]: value } }));
 
-  // Bấm "Tìm lớp"/Enter → "đọc hiểu" cả câu, tách môn + khối lớp + tỉnh rồi áp bộ lọc.
   function handleSearch(e: FormEvent) {
     e.preventDefault();
     setSearched(true);
-    if (!query.trim()) {
-      setSelectedIds([]);
-      setGradeIds([]);
-      setProvinceId('');
-      setQueryFee('');
-      setQueryMode('');
-      return;
-    }
-    const f = parseSmartQuery(query, effSubjects, effGrades, provinces);
-    setSelectedIds(f.subjectIds);
-    setGradeIds(f.gradeIds);
-    setProvinceId(f.provinceId);
-    setQueryFee(f.expectedFee);
-    setQueryMode(f.lessonMode);
+    loadClasses(true);
   }
 
-  // Một cụm từ đã có trong câu đang gõ chưa (để tô đậm chip tương ứng).
-  const inQuery = (term: string) =>
-    ` ${normalize(query).replace(/[,;/|]+/g, ' ')} `.includes(` ${normalize(term)} `);
-
-  // Bấm chip gợi ý = thêm/bớt cụm từ đó trong câu tìm, giữ nguyên phần còn lại mà gia sư
-  // đã gõ. Bộ lọc thật vẫn do parser tách ra khi bấm "Tìm lớp".
-  function toggleQueryTerm(term: string) {
-    setQuery((q) => {
-      // Không cắt ở dấu phẩy nằm trong ngoặc — "Thi chứng chỉ (IELTS, TOEIC...)" là MỘT cụm.
-      const parts = q.split(/\s*,\s*(?![^(]*\))/).map((p) => p.trim()).filter(Boolean);
-      const at = parts.findIndex((p) => normalize(p) === normalize(term));
-      if (at >= 0) parts.splice(at, 1);
-      else parts.push(term);
-      return parts.join(', ');
-    });
-  }
   function clearSearch() {
     setQuery('');
     setSelectedIds([]);
@@ -324,16 +388,17 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     setProvinceId('');
     setQueryFee('');
     setQueryMode('');
+    setGoalKeys([]);
+    setReqKeys([]);
+    setOtherText('');
   }
 
-  // Mở form ứng tuyển (hiển thị hồ sơ gia sư trước khi gửi).
   function openApply(target: ClassResponse) {
     setNotice(null);
     setApplyTarget(target);
     setDetailTarget(null);
   }
 
-  // Sau khi form gửi đơn thành công.
   function handleApplied(classId: number) {
     setApplied((s) => new Set(s).add(classId));
     setNotice('Đã gửi đơn ứng tuyển thành công.');
@@ -349,7 +414,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
             <input
               className="tfc-search__input"
               type="text"
-              placeholder="Hỏi tự nhiên, VD: tìm lớp Tiếng Anh lớp 12 ở Hà Nội"
+              placeholder="Hãy điền tên (môn học, lớp, địa điểm, mục tiêu học hoặc yêu cầu là gia sư nào)"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               aria-label="Tìm lớp bằng câu hỏi tự nhiên"
@@ -380,85 +445,8 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
             ))}
           </div>
         )}
-        <div className="tfc-search__chips">
-          <span className="tfc-search__chips-label">Bạn muốn dạy môn gì?</span>
-          {effSubjects.map((s) => {
-            // Trạng thái chip bám theo câu đang gõ, không đợi bấm "Tìm lớp".
-            const on = inQuery(s.name);
-            return (
-              <button
-                key={s.id}
-                type="button"
-                className={`tfc-chip ${on ? 'is-on' : ''}`}
-                aria-pressed={on}
-                onClick={() => toggleQueryTerm(s.name)}
-              >
-                {on ? '✓ ' : ''}
-                {s.name}
-              </button>
-            );
-          })}
-        </div>
 
-        <div className="tfc-search__chips">
-          <span className="tfc-search__chips-label">Bạn muốn dạy lớp mấy?</span>
-          {effGrades.map((g) => {
-            const on = inQuery(g.name);
-            return (
-              <button
-                key={g.id}
-                type="button"
-                className={`tfc-chip ${on ? 'is-on' : ''}`}
-                aria-pressed={on}
-                onClick={() => toggleQueryTerm(g.name)}
-              >
-                {on ? '✓ ' : ''}
-                {g.name}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="tfc-search__chips">
-          <span className="tfc-search__chips-label">Bạn muốn dạy ở đâu?</span>
-          {['Online', ...provinces.slice(0, 8).map((p) => p.name)].map((name) => {
-            const on = inQuery(name);
-            return (
-              <button
-                key={name}
-                type="button"
-                className={`tfc-chip ${on ? 'is-on' : ''}`}
-                aria-pressed={on}
-                onClick={() => toggleQueryTerm(name)}
-              >
-                {on ? '✓ ' : ''}
-                {name}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="tfc-search__chips">
-          <span className="tfc-search__chips-label">Học phí/giờ bạn mong muốn?</span>
-          {FEE_SUGGESTIONS.map((f) => {
-            const on = inQuery(f);
-            return (
-              <button
-                key={f}
-                type="button"
-                className={`tfc-chip ${on ? 'is-on' : ''}`}
-                aria-pressed={on}
-                onClick={() => toggleQueryTerm(f)}
-              >
-                {on ? '✓ ' : ''}
-                {f}
-              </button>
-            );
-          })}
-        </div>
-      </form>
-
-      <aside className={`tfc-panel${searched ? '' : ' is-locked'}`}>
+        <aside className={`tfc-panel${searched ? '' : ' is-locked'}`}>
         <div className="tfc-panel__head">
           <h2 className="tfc-panel__title">Mức độ ưu tiên khi tìm lớp</h2>
           <button
@@ -507,7 +495,8 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
             );
           })}
         </div>
-      </aside>
+        </aside>
+      </form>
 
       {!searched && (
         <div className="tfc-state">
@@ -625,19 +614,21 @@ function ClassCard({
   const c = parsed.raw;
   const pct = Math.round(breakdown.score);
   const tone = pct >= 75 ? 'high' : pct >= 45 ? 'mid' : 'low';
+  const otherNames = parsed.subjectOther
+    ? parsed.subjectOther.split(',').map((s) => s.trim()).filter(Boolean)
+    : parsed.hasOtherSubject
+      ? ['Môn khác']
+      : [];
   const subjectLabel =
-    parsed.subjectIds.map(subjectName).concat(parsed.hasOtherSubject ? ['Môn khác'] : []).join(', ') ||
-    (c.subjectName ?? '—');
+    parsed.subjectIds.map(subjectName).concat(otherNames).join(', ') || (c.subjectName ?? '—');
   const gradeLabel = gradeName(parsed.gradeId) || c.gradeName || '—';
   const location =
     parsed.lessonMode === 'ONLINE'
       ? 'Online'
       : parsed.provinceName || c.address || c.locationName || 'Offline';
-  // Thông tin chung của lớp (thay cho bảng chấm điểm từng tiêu chí).
   const learningGoal = c.learningGoal?.trim() ?? '';
   const tutorRequirement = parsed.tutorRequirement?.trim() ?? '';
   const sessionCount = parsed.slots.length;
-  // Nhịp lặp: hàng tuần / mỗi N tuần / học những tuần cụ thể trong chu kỳ N tuần.
   const cycleWeeks = parsed.repeatEveryWeeks;
   const onWeeks = [...new Set(parsed.studyWeeks)]
     .filter((w) => Number.isInteger(w) && w >= 1 && w <= cycleWeeks)

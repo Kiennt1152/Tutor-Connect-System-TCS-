@@ -196,8 +196,30 @@
   border-radius: 999px;
   font-size: 12px;
 }
-.apm-rate__subject { color: #5b6b7f; }
+.apm-rate__subject { color: #5b6b7f; display: inline-flex; align-items: center; gap: 5px; }
 .apm-rate__fee { font-weight: 700; color: #12233b; }
+.apm-rate--off { background: #f1f3f7; border-color: #e3e9f2; }
+.apm-rate--off .apm-rate__fee { font-weight: 600; color: #94a3b5; }
+.apm-rate__mark { font-weight: 800; }
+.apm-rate__mark--yes { color: #1f7a54; }
+.apm-rate__mark--no { color: #b3261e; }
+
+.apm-reason {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border: 1px solid #d5dced;
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+}
+.apm-reason:focus {
+  outline: none;
+  border-color: #2f5bea;
+  box-shadow: 0 0 0 3px rgba(47, 91, 234, 0.15);
+}
 
 .apm-card__bio { margin: 6px 0 0; font-size: 13px; color: #5b6b7f; line-height: 1.5; }
 .apm-card__cover {
