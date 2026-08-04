@@ -8,5 +8,6 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ProvinceRepository extends JpaRepository<Province, Long> {
 
+    /** Tìm theo tên người dùng tự nhập (province_name là UNIQUE). */
     Optional<Province> findFirstByProvinceNameIgnoreCase(String provinceName);
 }

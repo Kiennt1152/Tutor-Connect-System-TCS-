@@ -10,10 +10,14 @@ import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage'
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import CenterPage from '../features/center/pages/CenterPage';
+import CenterRecruitmentPage from '../features/center/pages/CenterRecruitmentPage';
 import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
 import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
 import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
 import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
+import CenterTutorsPage from '../features/center/pages/CenterTutorsPage';
+import CentersPage from '../features/home/pages/CentersPage';
+import RecruitmentPage from '../features/recruitment/pages/RecruitmentPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
@@ -25,17 +29,21 @@ import ForbiddenPage from '../shared/pages/ForbiddenPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 import { APP_ROUTES } from '../shared/constants/routes';
+import { ScrollToHash } from './ScrollToHash';
 
 export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
+        <ScrollToHash />
         <Routes>
           <Route path={APP_ROUTES.home} element={<HomePage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />
           <Route path={APP_ROUTES.catalog} element={<CatalogPage />} />
+          {/* Trang "Trung tâm" cong khai: ai cung xem duoc; gia su thay them tin tuyen dung. */}
+          <Route path={APP_ROUTES.centers} element={<CentersPage />} />
           <Route
             path={APP_ROUTES.verification}
             element={
@@ -138,6 +146,30 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR']}>
                 <TutorAttendancePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/recruitment"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterRecruitmentPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/tutors"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterTutorsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.recruitment}
+            element={
+              <ProtectedRoute roles={['TUTOR']}>
+                <RecruitmentPage />
               </ProtectedRoute>
             }
           />

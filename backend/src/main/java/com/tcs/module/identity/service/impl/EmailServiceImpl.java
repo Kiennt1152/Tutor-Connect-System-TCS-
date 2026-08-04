@@ -8,6 +8,7 @@ import java.nio.charset.StandardCharsets;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.mail.MailAuthenticationException;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -40,6 +41,13 @@ public class EmailServiceImpl implements EmailService {
 
             mailSender.send(message);
             log.info("Da gui OTP dang ky toi email {}", toEmail);
+        } catch (MailAuthenticationException ex) {
+            // Gmail tu choi dang nhap SMTP: App Password thuong da bi Google thu hoi/xoa
+            // (vd. bi lo cong khai, doi mat khau tai khoan, hoac tat 2FA).
+            log.error("Xac thuc SMTP that bai khi gui OTP toi {} (App Password co the da bi thu hoi): {}",
+                    toEmail, ex.getMessage());
+            throw new IllegalArgumentException(
+                    "Không gửi được mã OTP do App Password Gmail đã bị thu hồi hoặc không còn hợp lệ.");
         } catch (MessagingException | UnsupportedEncodingException | MailException ex) {
             log.error("Khong gui duoc email OTP toi {}: {}", toEmail, ex.getMessage());
             throw new IllegalArgumentException("Không gửi được email xác thực. Vui lòng thử lại sau.");

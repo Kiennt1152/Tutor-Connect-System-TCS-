@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
@@ -95,6 +96,12 @@ function getPalette(variant: string): StatusPalette {
 
 export default function VerificationPage() {
   const { user } = useAuth();
+  // Thông báo khi bị điều hướng tới đây (VD: bấm ứng tuyển nhưng chưa xác minh).
+  const location = useLocation();
+  const redirectNotice =
+    typeof (location.state as { notice?: string } | null)?.notice === 'string'
+      ? (location.state as { notice: string }).notice
+      : null;
   const userId = user?.userId ?? 0;
   const role = user?.role ?? 'CLIENT';
   const isCenter = role === 'TUTOR_CENTER';
@@ -263,6 +270,9 @@ export default function VerificationPage() {
             </p>
           </header>
 
+          {redirectNotice && (
+            <div className="verification-alert verification-alert--info">{redirectNotice}</div>
+          )}
           {error && (
             <div className="verification-alert verification-alert--error">{error}</div>
           )}
