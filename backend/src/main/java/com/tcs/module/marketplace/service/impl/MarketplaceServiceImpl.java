@@ -43,6 +43,13 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.Locale;
 import lombok.RequiredArgsConstructor;
+import com.tcs.common.classrequest.ClassRequestStore;
+import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
+import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
+import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
+import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
+import com.tcs.module.profile.repository.TutorCenterRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -65,6 +72,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final GradeRepository gradeRepository;
     private final LocationRepository locationRepository;
     private final AuditLogService auditLogService;
+    private final TutorCenterRepository tutorCenterRepository;
+    private final ClassRequestStore classRequestStore;
 
     @Override
     @Transactional(readOnly = true)
@@ -355,5 +364,61 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .ratingAvg(tutor.getRatingAvg())
                 .verificationStatus(tutor.getVerificationStatus().name())
                 .build();
+    }
+
+    // ===== Yêu cầu mở lớp gửi tới một trung tâm cụ thể (phía phụ huynh) =====
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CenterSummaryResponse> listCenters() {
+        return tutorCenterRepository.findAll().stream()
+                .filter(c -> c.getVerificationStatus() == ProfileVerificationStatus.VERIFIED)
+                .map(c -> CenterSummaryResponse.builder()
+                        .centerId(c.getCenterId())
+                        .companyName(c.getCompanyName())
+                        .description(c.getDescription())
+                        .address(c.getAddress())
+                        .phone(c.getPhone())
+                        .avatar(c.getAvatar())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ClassRequestResponse createClassRequest(Long centerId, ClassRequestCreateRequest request) {
+        User user = requireUser();
+        TutorCenter center = tutorCenterRepository.findById(centerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trung tâm"));
+        if (center.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
+            throw new IllegalArgumentException("Trung tâm chưa được xác minh");
+        }
+        ClassRequestStore.ClassRequestData data = classRequestStore.create(
+                user.getUserId(), centerId, request.getCategoryId(), request.getNote(), request.getDesiredBudget());
+        return classRequestStore.toResponse(data);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassRequestResponse> listMyClassRequests() {
+        User user = requireUser();
+        return classRequestStore.findByClient(user.getUserId()).stream()
+                .map(classRequestStore::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void cancelClassRequest(String requestId) {
+        User user = requireUser();
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
+        if (!user.getUserId().equals(data.clientUserId())) {
+            throw new ForbiddenException("Không có quyền hủy yêu cầu này");
+        }
+        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
+            throw new IllegalArgumentException("Chỉ có thể hủy yêu cầu đang chờ xử lý");
+        }
+        classRequestStore.delete(requestId);
     }
 }
