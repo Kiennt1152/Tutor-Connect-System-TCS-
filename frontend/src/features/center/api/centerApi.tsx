@@ -1,4 +1,5 @@
 import axiosClient from '../../../shared/api/axiosClient';
+import type { ClassRequest } from '../../marketplace/types/marketplaceTypes';
 import type {
   CenterMember,
   ClassResponse,
@@ -138,6 +139,23 @@ export const centerApi = {
   },
   getSubstitutions() {
     return axiosClient.get<Substitution[]>(`${CENTER_API_BASE}/substitutions`);
+  },
+
+  // ----- Yêu cầu mở lớp do phụ huynh gửi tới trung tâm -----
+  getClassRequests() {
+    return axiosClient.get<ClassRequest[]>(`${CENTER_API_BASE}/class-requests`);
+  },
+  acceptClassRequest(requestId: string, payload: SaveClassRequest) {
+    return axiosClient.post<ClassResponse>(
+      `${CENTER_API_BASE}/class-requests/${requestId}/accept`,
+      payload,
+    );
+  },
+  rejectClassRequest(requestId: string, reason: string) {
+    return axiosClient.post<{ message: string }>(
+      `${CENTER_API_BASE}/class-requests/${requestId}/reject`,
+      { reason },
+    );
   },
   decideSubstitution(classId: number, date: string, approve: boolean) {
     return axiosClient.post<Substitution>(`${CENTER_API_BASE}/substitutions/decision`, {

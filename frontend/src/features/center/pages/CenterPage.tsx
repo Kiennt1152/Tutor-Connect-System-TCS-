@@ -6,6 +6,7 @@ import { APP_ROUTES } from '../../../shared/constants/routes';
 import { LocationPicker } from '../components/LocationPicker';
 import { profileApi } from '../../profile/api/profileApi';
 import { centerApi } from '../api/centerApi';
+import type { ClassRequest } from '../../marketplace/types/marketplaceTypes';
 import type {
   ClassResponse,
   ClassStatus,
@@ -359,6 +360,11 @@ export default function CenterPage() {
   const [formError, setFormError] = useState('');
   const [submitted, setSubmitted] = useState(false);
 
+  // Yêu cầu mở lớp do phụ huynh gửi. Khi chấp nhận, tái dùng form tạo lớp bên dưới:
+  // acceptingRequestId != null -> submit form sẽ gọi acceptClassRequest thay vì createClass.
+  const [requests, setRequests] = useState<ClassRequest[]>([]);
+  const [acceptingRequestId, setAcceptingRequestId] = useState<string | null>(null);
+
   const errors = useMemo(() => validateForm(form, editingId == null), [form, editingId]);
   const sessionCount = useMemo(() => countSessions(form), [form]);
   const allowedDays = useMemo(
@@ -377,8 +383,16 @@ export default function CenterPage() {
       .finally(() => setListLoading(false));
   };
 
+  const reloadRequests = () => {
+    centerApi
+      .getClassRequests()
+      .then((res) => setRequests(res.data))
+      .catch(() => setRequests([]));
+  };
+
   useEffect(() => {
     reloadList();
+    reloadRequests();
   }, []);
 
   // Tải trạng thái xác minh trung tâm để chặn tạo lớp khi chưa xác minh.
@@ -408,11 +422,48 @@ export default function CenterPage() {
       goVerify();
       return;
     }
+    setAcceptingRequestId(null);
     setEditingId(null);
     setForm(EMPTY_FORM);
     setFormError('');
     setSubmitted(false);
     setMode('form');
+  };
+
+  // Quay về danh sách, đồng thời huỷ trạng thái "đang chấp nhận yêu cầu".
+  const backToList = () => {
+    setAcceptingRequestId(null);
+    setMode('list');
+  };
+
+  // Chấp nhận yêu cầu của phụ huynh: mở form tạo lớp (EXTERNAL), điền sẵn nguyện vọng.
+  const acceptRequest = (req: ClassRequest) => {
+    if (verified === false) {
+      goVerify();
+      return;
+    }
+    setAcceptingRequestId(req.requestId);
+    setEditingId(null);
+    setForm({
+      ...EMPTY_FORM,
+      originType: 'EXTERNAL',
+      description: req.note,
+      tuitionFee: req.desiredBudget != null ? String(req.desiredBudget) : '',
+    });
+    setFormError('');
+    setSubmitted(false);
+    setMode('form');
+  };
+
+  const rejectRequest = async (req: ClassRequest) => {
+    const reason = window.prompt('Lý do từ chối yêu cầu (tuỳ chọn):', '');
+    if (reason === null) return; // người dùng bấm Cancel
+    try {
+      await centerApi.rejectClassRequest(req.requestId, reason.trim());
+      reloadRequests();
+    } catch (err) {
+      setListError(extractError(err, 'Không từ chối được yêu cầu.'));
+    }
   };
 
   const openEdit = async (classId: number) => {
@@ -586,7 +637,12 @@ export default function CenterPage() {
     setSaving(true);
     try {
       const payload = buildPayload(form);
-      if (editingId != null) {
+      if (acceptingRequestId != null) {
+        // Chấp nhận yêu cầu của phụ huynh -> tạo lớp EXTERNAL từ yêu cầu đó.
+        await centerApi.acceptClassRequest(acceptingRequestId, payload);
+        setAcceptingRequestId(null);
+        reloadRequests();
+      } else if (editingId != null) {
         await centerApi.updateClass(editingId, payload);
       } else {
         await centerApi.createClass(payload);
@@ -620,9 +676,11 @@ export default function CenterPage() {
       mode === 'form'
         ? editingId != null
           ? 'Chỉnh sửa lớp học'
-          : 'Tạo lớp học mới'
+          : acceptingRequestId != null
+            ? 'Tạo lớp từ yêu cầu phụ huynh'
+            : 'Tạo lớp học mới'
         : 'Lớp học của tôi',
-    [mode, editingId],
+    [mode, editingId, acceptingRequestId],
   );
 
   return (
@@ -651,7 +709,7 @@ export default function CenterPage() {
             </button>
           </div>
         ) : (
-          <button className="cc-btn cc-btn--ghost" type="button" onClick={() => setMode('list')}>
+          <button className="cc-btn cc-btn--ghost" type="button" onClick={backToList}>
             ← Quay lại danh sách
           </button>
         )}
@@ -668,6 +726,47 @@ export default function CenterPage() {
               <button className="cc-btn cc-btn--primary cc-btn--sm" type="button" onClick={goVerify}>
                 Đi xác minh →
               </button>
+            </div>
+          )}
+          {requests.filter((r) => r.status === 'PENDING').length > 0 && (
+            <div className="cc-card cc-request-inbox">
+              <h2 className="cc-request-inbox__title">
+                📥 Yêu cầu mở lớp từ phụ huynh (
+                {requests.filter((r) => r.status === 'PENDING').length})
+              </h2>
+              <div className="cc-request-list">
+                {requests
+                  .filter((r) => r.status === 'PENDING')
+                  .map((r) => (
+                    <div className="cc-request" key={r.requestId}>
+                      <div className="cc-request__main">
+                        <p className="cc-request__note">{r.note}</p>
+                        <span className="cc-request__meta">
+                          Phụ huynh: {r.clientName ?? '—'}
+                          {r.categoryName && ` · Môn: ${r.categoryName}`}
+                          {r.desiredBudget != null &&
+                            ` · Ngân sách: ${formatCurrency(r.desiredBudget)}đ`}
+                        </span>
+                      </div>
+                      <div className="cc-request__actions">
+                        <button
+                          className="cc-btn cc-btn--primary cc-btn--sm"
+                          type="button"
+                          onClick={() => acceptRequest(r)}
+                        >
+                          Tạo lớp từ yêu cầu
+                        </button>
+                        <button
+                          className="cc-btn cc-btn--ghost cc-btn--sm"
+                          type="button"
+                          onClick={() => rejectRequest(r)}
+                        >
+                          Từ chối
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
             </div>
           )}
           {listError && <div className="cc-alert cc-alert--error">{listError}</div>}

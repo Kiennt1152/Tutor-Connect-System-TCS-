@@ -14,6 +14,7 @@ import com.tcs.module.center.dto.response.RescheduleResponse;
 import com.tcs.module.center.dto.response.SubstitutionResponse;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
 import com.tcs.module.center.enums.CenterTutorMembershipStatus;
+import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -117,4 +118,15 @@ public interface CenterService {
 
     /** Trung tâm duyệt/từ chối một yêu cầu dạy thay. */
     SubstitutionResponse decideSubstitution(SubstitutionDecisionBody body);
+
+    // ===== Yêu cầu mở lớp do phụ huynh gửi tới trung tâm =====
+
+    /** Danh sách yêu cầu mở lớp gửi tới trung tâm này (mọi trạng thái). */
+    List<ClassRequestResponse> listIncomingClassRequests();
+
+    /** Trung tâm chấp nhận yêu cầu: bổ sung chi tiết và tạo lớp EXTERNAL từ yêu cầu đó. */
+    CenterClassResponse acceptClassRequest(String requestId, SaveClassRequest body);
+
+    /** Trung tâm từ chối yêu cầu, kèm lý do. */
+    void rejectClassRequest(String requestId, String reason);
 }
