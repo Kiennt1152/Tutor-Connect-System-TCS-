@@ -82,6 +82,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    @ExceptionHandler(VerificationRequiredException.class)
+    public ResponseEntity<Map<String, String>> handleVerificationRequired(
+            VerificationRequiredException exception) {
+        Map<String, String> body = new HashMap<>();
+        body.put("message", exception.getMessage());
+        body.put("code", VerificationRequiredException.CODE); // frontend dựa vào code để điều hướng
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
         Map<String, String> body = new HashMap<>();

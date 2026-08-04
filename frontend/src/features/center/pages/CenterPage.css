@@ -61,6 +61,18 @@
   color: #b91c1c;
   border: 1px solid #fecaca;
 }
+.cc-alert--warn {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+.cc-verify-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
 
 /* Table */
 .cc-table-wrap {
@@ -203,40 +215,57 @@
 
 /* Buttons */
 .cc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   padding: 9px 16px;
   border-radius: 8px;
-  border: 1px solid transparent;
+  border: 1px solid #d7dce3;
   font-size: 14px;
   font-weight: 600;
+  line-height: 1.2;
   cursor: pointer;
-  background: var(--color-primary-light);
-  color: var(--color-primary-dark);
-  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+  background: #fff;
+  color: #3a4658;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
 }
-.cc-btn:hover:not(:disabled) { background: #fed7aa; }
-.cc-btn:disabled { opacity: 0.55; cursor: not-allowed; }
-.cc-btn--sm { padding: 5px 12px; font-size: 13px; }
+.cc-btn:hover:not(:disabled) {
+  background: #f6f8fb;
+  border-color: #c3cad4;
+}
+.cc-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.cc-btn--sm { padding: 6px 12px; font-size: 13px; }
 .cc-btn--primary {
   background: var(--color-primary);
   color: #fff;
   border-color: var(--color-primary);
+  box-shadow: 0 1px 2px rgba(234, 88, 12, 0.2);
 }
 .cc-btn--primary:hover:not(:disabled) {
   background: var(--color-primary-dark);
   border-color: var(--color-primary-dark);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.28);
 }
 .cc-btn--ghost {
-  background: transparent;
-  color: var(--color-text-primary);
-  border-color: var(--color-border-strong);
+  background: #fff;
+  color: #3a4658;
+  border-color: #d7dce3;
 }
-.cc-btn--ghost:hover:not(:disabled) { background: var(--color-surface-3); }
+.cc-btn--ghost:hover:not(:disabled) {
+  background: #f6f8fb;
+  border-color: #c3cad4;
+}
 .cc-btn--danger {
-  background: var(--color-error-light);
-  color: #991b1b;
-  border-color: #fca5a5;
+  background: #fff;
+  color: #dc2626;
+  border-color: #efc0c0;
 }
-.cc-btn--danger:hover:not(:disabled) { background: #fecaca; }
+.cc-btn--danger:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #e79a9a;
+}
 
 /* ===== Class cards (Lớp học của tôi) ===== */
 .cc-class-grid {
@@ -558,12 +587,12 @@
 }
 
 .cc-btn--soft {
-  background: transparent;
+  background: var(--color-primary-light);
   color: var(--color-primary-dark);
-  border: 1px dashed var(--color-accent-border-hover);
+  border: 1px solid transparent;
 }
 .cc-btn--soft:hover:not(:disabled) {
-  background: var(--color-primary-xlight);
+  background: #fed7aa;
 }
 
 /* Assign modal */
@@ -732,4 +761,696 @@
 
 @media (max-width: 640px) {
   .cc-grid { grid-template-columns: 1fr; }
+}
+
+/* ===================== Tin tuyển gia sư (rc-*) ===================== */
+
+/* Tin tuyển gia sư (FT-33) — dùng chung cho trang trung tâm và trang gia sư. */
+
+.rc-bg {
+  min-height: 100vh;
+  /* Cùng "màu chuyển" như hero trang chủ: dịu dần từ xanh nhạt xuống nền sáng. */
+  background: linear-gradient(180deg, var(--color-primary-xlight) 0%, var(--color-surface-1) 340px);
+  background-repeat: no-repeat;
+  background-color: var(--color-surface-1);
+}
+.rc-page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: 20px 16px 56px;
+}
+.rc-topbar {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.rc-topbar .rc-btn {
+  text-decoration: none;
+}
+.rc-back {
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+}
+.rc-back:hover {
+  color: var(--color-primary-dark);
+}
+
+.rc-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.rc-title {
+  margin: 0 0 4px;
+  font-size: 24px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+.rc-subtitle {
+  margin: 0;
+  max-width: 640px;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+/* Tabs (trang gia sư) */
+.rc-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  border-bottom: 1px solid var(--color-border);
+}
+.rc-tab {
+  padding: 9px 14px;
+  border: none;
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+.rc-tab:hover {
+  color: var(--color-primary-dark);
+}
+.rc-tab.is-active {
+  color: var(--color-primary-dark);
+  border-bottom-color: var(--color-primary);
+}
+
+/* Khối phụ trong thẻ tin (Yêu cầu / Quyền lợi) */
+.rc-section {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.rc-section__label {
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--color-text-primary);
+}
+
+/* Trạng thái chung */
+.rc-state {
+  padding: 16px;
+  text-align: center;
+  color: var(--color-text-secondary);
+}
+.rc-alert {
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  font-size: 14px;
+  margin-bottom: 12px;
+}
+.rc-alert--error {
+  background: var(--color-error-light);
+  color: #991b1b;
+}
+.rc-alert--ok {
+  background: var(--color-success-light);
+  color: #166534;
+}
+.rc-alert--warn {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+.rc-verify-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.rc-empty {
+  text-align: center;
+  padding: 40px 16px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-2);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+}
+.rc-empty__emoji {
+  font-size: 34px;
+  margin-bottom: 8px;
+}
+
+/* Thẻ tin */
+.rc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.rc-card {
+  background: var(--color-white, #fff);
+  border: 1px solid var(--color-border);
+  border-left: 3px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rc-card__head {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.rc-card__title {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+.rc-card__meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+.rc-card__desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+}
+.rc-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+.rc-count {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+.rc-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Chip & trạng thái */
+.rc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rc-chip {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+}
+.rc-chip--class {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+/* Chip "Tuyển cho lớp" trong form tạo/sửa tin */
+.rc-linked-class {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #ede9fe;
+  border: 1px solid #ddd6fe;
+}
+.rc-linked-class__badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6d28d9;
+}
+.rc-linked-class__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4c1d95;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rc-linked-class__clear {
+  border: none;
+  background: transparent;
+  color: #7c3aed;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 4px;
+}
+.rc-linked-class__clear:hover {
+  color: #4c1d95;
+}
+.rc-status {
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 9px;
+  border-radius: var(--radius-pill);
+}
+.rc-status--draft {
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+}
+.rc-status--active {
+  background: var(--color-success-light);
+  color: #166534;
+}
+.rc-status--closed {
+  background: var(--color-error-light);
+  color: #991b1b;
+}
+.rc-status--pending {
+  background: var(--color-warning-light);
+  color: #92400e;
+}
+.rc-status--ok {
+  background: var(--color-success-light);
+  color: #166534;
+}
+.rc-status--no {
+  background: var(--color-error-light);
+  color: #991b1b;
+}
+
+/* Nút */
+.rc-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: 8px;
+  border: 1px solid #d7dce3;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.2;
+  cursor: pointer;
+  background: #fff;
+  color: #3a4658;
+  transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.rc-btn:hover:not(:disabled) {
+  background: #f6f8fb;
+  border-color: #c3cad4;
+}
+.rc-btn--sm {
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.rc-btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+  border-color: var(--color-primary);
+  box-shadow: 0 1px 2px rgba(234, 88, 12, 0.2);
+}
+.rc-btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+  border-color: var(--color-primary-dark);
+  box-shadow: 0 2px 8px rgba(234, 88, 12, 0.28);
+}
+.rc-btn--ghost {
+  background: #fff;
+  color: #3a4658;
+  border-color: #d7dce3;
+}
+.rc-btn--ghost:hover:not(:disabled) {
+  background: #f6f8fb;
+  border-color: #c3cad4;
+}
+.rc-btn--danger {
+  background: #fff;
+  border-color: #efc0c0;
+  color: #dc2626;
+}
+.rc-btn--danger:hover:not(:disabled) {
+  background: #fef2f2;
+  border-color: #e79a9a;
+}
+.rc-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Modal */
+.rc-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+.rc-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+}
+.rc-modal__card {
+  position: relative;
+  background: #fff;
+  border-radius: var(--radius-lg);
+  width: min(680px, 100%);
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.rc-modal__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 18px 10px;
+  border-bottom: 1px solid var(--color-border);
+}
+.rc-modal__title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+.rc-modal__sub {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.rc-modal__close {
+  border: none;
+  background: transparent;
+  font-size: 24px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+.rc-modal__body {
+  padding: 14px 18px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.rc-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding: 12px 18px 16px;
+  border-top: 1px solid var(--color-border);
+}
+
+/* Form */
+.rc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.rc-field > span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.rc-field input,
+.rc-field textarea,
+.rc-field select {
+  padding: 9px 11px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-strong);
+  font-size: 14px;
+  font-family: inherit;
+  color: var(--color-text-primary);
+  background: #fff;
+}
+.rc-field input:focus,
+.rc-field textarea:focus,
+.rc-field select:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}
+.rc-field select:disabled {
+  background: var(--color-surface-3);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+.rc-field2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Khối chọn địa điểm (Tỉnh → Phường/Xã → địa chỉ) */
+.rc-loc {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+.rc-loc__label {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+.rc-loc__value {
+  padding: 9px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+.rc-loc__hint {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* Ứng viên */
+.rc-applicants {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.rc-applicant {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+.rc-applicant__avatar {
+  flex: 0 0 auto;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--color-primary-xlight);
+  color: var(--color-primary-dark);
+  font-weight: 800;
+  font-size: 13px;
+}
+.rc-applicant__info {
+  flex: 1;
+  min-width: 0;
+}
+.rc-applicant__name {
+  font-weight: 800;
+  font-size: 14px;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.rc-verified {
+  font-size: 11px;
+  font-weight: 700;
+  color: #166534;
+  background: var(--color-success-light);
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
+}
+.rc-applicant__meta {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  margin-top: 2px;
+}
+.rc-applicant__letter {
+  margin: 6px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  white-space: pre-wrap;
+}
+
+/* Bằng cấp / chứng chỉ đã xác minh của ứng viên */
+.rc-certs {
+  margin-top: 8px;
+  padding: 8px 10px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+.rc-certs__label {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+.rc-certs__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.rc-certs__link {
+  font-size: 13px;
+  color: var(--color-primary-dark);
+  text-decoration: none;
+  word-break: break-all;
+  /* Là <button> nhưng trông như link: bỏ mọi style mặc định của button. */
+  display: inline;
+  padding: 0;
+  border: none;
+  background: none;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.rc-certs__link:hover {
+  text-decoration: underline;
+}
+/* "Đã ứng tuyển" trong trang quản lý gia sư */
+.rc-applied {
+  margin-top: 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.rc-applied__label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+.rc-applied__list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rc-applied__item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--color-text-primary);
+  background: var(--color-surface-3);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+
+.rc-applicant__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: stretch;
+  flex: 0 0 auto;
+}
+.rc-applicant__decide {
+  display: flex;
+  gap: 6px;
+}
+.rc-certs__toggle {
+  white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+  .rc-field2 {
+    grid-template-columns: 1fr;
+  }
+  .rc-card__meta {
+    align-items: flex-start;
+  }
+  .rc-applicant {
+    flex-wrap: wrap;
+  }
+}
+
+/* Hộp thư yêu cầu mở lớp từ phụ huynh */
+.cc-request-inbox {
+  margin-bottom: 16px;
+  border-left: 4px solid #2563eb;
+}
+.cc-request-inbox__title {
+  margin: 0 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.cc-request-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.cc-request {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 12px 14px;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+}
+.cc-request__main {
+  flex: 1;
+  min-width: 220px;
+}
+.cc-request__note {
+  margin: 0 0 4px;
+  font-size: 14px;
+}
+.cc-request__meta {
+  font-size: 12px;
+  color: #94a3b8;
+}
+.cc-request__actions {
+  display: flex;
+  gap: 8px;
 }

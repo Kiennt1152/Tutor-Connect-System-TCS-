@@ -2,7 +2,10 @@ package com.tcs.module.marketplace.controller;
 
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
+import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
+import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
+import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
 import com.tcs.module.marketplace.dto.response.ClassTerminationResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
@@ -46,6 +49,31 @@ public class MarketplaceController {
     @ResponseStatus(HttpStatus.CREATED)
     public ClassResponse createClass(@RequestBody CreateClassRequest request) {
         return marketplaceService.createClass(request);
+    }
+
+    // ===== Yêu cầu mở lớp gửi tới một trung tâm cụ thể (phụ huynh) =====
+
+    @GetMapping("/centers")
+    public List<CenterSummaryResponse> listCenters() {
+        return marketplaceService.listCenters();
+    }
+
+    @PostMapping("/centers/{centerId}/class-requests")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ClassRequestResponse createClassRequest(
+            @PathVariable Long centerId, @RequestBody ClassRequestCreateRequest request) {
+        return marketplaceService.createClassRequest(centerId, request);
+    }
+
+    @GetMapping("/class-requests/mine")
+    public List<ClassRequestResponse> myClassRequests() {
+        return marketplaceService.listMyClassRequests();
+    }
+
+    @DeleteMapping("/class-requests/{requestId}")
+    public Map<String, String> cancelClassRequest(@PathVariable String requestId) {
+        marketplaceService.cancelClassRequest(requestId);
+        return Map.of("message", "Đã hủy yêu cầu mở lớp");
     }
 
     @PostMapping("/classes/{classId}/publish")

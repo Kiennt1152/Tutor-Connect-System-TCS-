@@ -4,3 +4,6 @@
 # Postman (API testing artifacts)
 .postman/
 postman/
+
+# Cấu hình mail bí mật (App Password) — KHÔNG commit
+secret-mail.properties
