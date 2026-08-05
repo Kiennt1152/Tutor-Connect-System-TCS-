@@ -1,12 +1,15 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import HomePage from '../features/home/pages/HomePage';
-import CatalogPage from '../features/catalog/pages/CatalogPage';
+import FindTutorPage from '../features/home/pages/FindTutorPage';
+import FindClassPage from '../features/home/pages/FindClassPage';
+import TutorPublicProfilePage from '../features/home/pages/TutorPublicProfilePage';
 import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
 import PlatformDashboardPage from '../features/platform/pages/PlatformDashboardPage';
 import PlatformProfilePage from '../features/platform/pages/PlatformProfilePage';
 import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage';
+import PlatformReviewsPage from '../features/platform/pages/PlatformReviewsPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import PlatformTicketsPage from '../features/platform/pages/PlatformTicketsPage';
@@ -28,9 +31,13 @@ import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
 import MarketplaceClassDetailPage from '../features/marketplace/pages/MarketplaceClassDetailPage';
+import CatalogPage from '../features/catalog/pages/CatalogPage';
 import ContractListPage from '../features/contract/pages/ContractListPage';
 import ContractDetailPage from '../features/contract/pages/ContractDetailPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
+import MyReviewsPage from '../features/reviews/pages/MyReviewsPage';
+import MyReputationPage from '../features/reviews/pages/MyReputationPage';
+import TeachingPage from '../features/teaching/pages/TeachingPage';
 import HelpPage from '../features/help/pages/HelpPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
@@ -51,6 +58,9 @@ export default function App() {
         <ScrollToHash />
         <Routes>
           <Route path={APP_ROUTES.home} element={<HomePage />} />
+          <Route path={APP_ROUTES.findTutor} element={<FindTutorPage />} />
+          <Route path={APP_ROUTES.findClass} element={<FindClassPage />} />
+          <Route path={APP_ROUTES.tutorProfile} element={<TutorPublicProfilePage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />
@@ -62,6 +72,15 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR', 'TUTOR_CENTER']}>
                 <VerificationPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path={APP_ROUTES.teaching}
+            element={
+              <ProtectedRoute roles={['TUTOR', 'CLIENT']}>
+                <TeachingPage />
               </ProtectedRoute>
             }
           />
@@ -119,6 +138,22 @@ export default function App() {
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN']}>
                 <MessagingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.feedback}
+            element={
+              <ProtectedRoute roles={['CLIENT']}>
+                <MyReviewsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.myReputation}
+            element={
+              <ProtectedRoute roles={['TUTOR']}>
+                <MyReputationPage />
               </ProtectedRoute>
             }
           />
@@ -235,6 +270,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
                 <PlatformReportsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformReviews}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformReviewsPage />
               </ProtectedRoute>
             }
           />

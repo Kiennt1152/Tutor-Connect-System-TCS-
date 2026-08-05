@@ -22,6 +22,7 @@ public class FlywayConfig {
                 .baselineOnMigrate(false)
                 .outOfOrder(true)
                 .validateOnMigrate(validateOnMigrate)
+                .ignoreMigrationPatterns("*:missing")
                 .load();
     }
 

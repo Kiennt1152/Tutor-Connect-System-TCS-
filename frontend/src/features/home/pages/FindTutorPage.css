@@ -1,0 +1,165 @@
+/* Màn hình "Tìm gia sư" riêng — form đăng yêu cầu tìm gia sư. */
+.tcs-find-hero {
+  padding-bottom: 40px;
+}
+
+.tcs-find-hero__intro {
+  max-width: 780px;
+  margin: 0 auto 28px;
+  text-align: center;
+}
+
+/* Tiêu đề + icon nón */
+.tcs-find-title {
+  margin: 0 0 14px;
+  font-size: clamp(28px, 4.4vw, 42px);
+  font-weight: 800;
+  line-height: 1.15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+/* Icon giữ màu emoji bình thường (không bị gradient làm trong suốt) */
+.tcs-find-title__icon {
+  font-size: 0.95em;
+  line-height: 1;
+}
+/* Chỉ phần chữ đổ gradient */
+.tcs-find-title__text {
+  color: #12233b;
+  background: linear-gradient(92deg, #ea5a1c 0%, #f08f34 45%, #1565c0 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.tcs-find-subtitle {
+  margin: 0 auto;
+  max-width: 620px;
+  font-size: 16px;
+  line-height: 1.6;
+  color: #5b6b7f;
+}
+
+/* Chip điểm nổi bật */
+.tcs-find-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 20px;
+}
+.tcs-find-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 15px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid #e7ecf3;
+  box-shadow: 0 2px 8px rgba(18, 35, 59, 0.05);
+  font-size: 13px;
+  font-weight: 600;
+  color: #33465e;
+}
+
+/* Thẻ chứa form — căn giữa màn hình */
+.tcs-find-form-card {
+  background: #fff;
+  border: 1px solid #e3e9f2;
+  border-radius: 16px;
+  padding: 24px;
+  box-shadow: 0 12px 32px rgba(18, 35, 59, 0.08);
+  max-width: 920px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Banner nhắc đăng nhập / quyền */
+.tcs-find-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 18px;
+  border-radius: 10px;
+  background: #e8f2ff;
+  color: #1565c0;
+  font-size: 14px;
+}
+.tcs-find-banner--warn {
+  background: #fff4e5;
+  color: #b8630a;
+}
+
+/* Trạng thái thành công */
+.tcs-find-success {
+  text-align: center;
+  padding: 24px 12px;
+}
+.tcs-find-success__icon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  border-radius: 50%;
+  background: #e7f6ec;
+  color: #1e9e57;
+  font-size: 30px;
+  line-height: 56px;
+  font-weight: 700;
+}
+.tcs-find-success h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  color: #12233b;
+}
+.tcs-find-success p {
+  margin: 0 auto 18px;
+  max-width: 520px;
+  color: #5b6b7f;
+  font-size: 14px;
+  line-height: 1.55;
+}
+.tcs-find-success__actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+/* Nút "Xem yêu cầu của tôi" trong hero */
+.tcs-find-actions {
+  margin-top: 20px;
+  display: flex;
+  justify-content: center;
+}
+.tcs-find-myreq {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 24px;
+  border-radius: 999px;
+  border: none;
+  background: linear-gradient(92deg, #ea5a1c 0%, #f08f34 100%);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+  box-shadow: 0 6px 16px rgba(234, 90, 28, 0.26);
+  transition: transform 0.12s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+.tcs-find-myreq:hover {
+  filter: brightness(1.04);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(234, 90, 28, 0.32);
+}
+
+/* Active state cho mục nav "Tìm gia sư" */
+.tcs-header__nav-link--active {
+  color: var(--tcs-brand, #ea5a1c);
+  font-weight: 700;
+}

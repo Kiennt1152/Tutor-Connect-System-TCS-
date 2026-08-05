@@ -1,3 +1,5 @@
+import { Link } from 'react-router-dom';
+import { tutorProfilePath } from '../../../shared/constants/routes';
 import type { FeaturedTutor } from '../types/homeTypes';
 
 type TutorListingCardProps = {
@@ -23,11 +25,7 @@ const bioSnippet = (bio: string | null) => {
   return text.length > 120 ? `${text.slice(0, 120)}…` : text;
 };
 
-export function TutorListingCard({
-  tutor,
-  isAuthenticated,
-  variant = 'grid',
-}: TutorListingCardProps) {
+export function TutorListingCard({ tutor, variant = 'grid' }: TutorListingCardProps) {
   return (
     <article className={`tcs-listing-card${variant === 'search' ? ' tcs-listing-card--compact' : ''}`}>
       <div className="tcs-listing-card__top">
@@ -67,15 +65,9 @@ export function TutorListingCard({
 
       <div className="tcs-listing-card__foot">
         <span className="tcs-listing-card__status">Sẵn sàng nhận lớp</span>
-        {isAuthenticated ? (
-          <button type="button" className="tcs-btn tcs-btn--market" disabled title="Sắp có">
-            Xem hồ sơ
-          </button>
-        ) : (
-          <a className="tcs-btn tcs-btn--market" href="/login">
-            Xem hồ sơ
-          </a>
-        )}
+        <Link className="tcs-btn tcs-btn--market" to={tutorProfilePath(tutor.id)}>
+          Xem hồ sơ
+        </Link>
       </div>
     </article>
   );
