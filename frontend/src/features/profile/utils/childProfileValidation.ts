@@ -7,6 +7,24 @@ export const CHILD_PROFILE_LIMITS = {
   notesMax: 2000,
 } as const;
 
+/** Số lớp (1..12) trích từ tên, hoặc null nếu không phải lớp phổ thông. */
+function gradeNumber(name: string): number | null {
+  const match = name.match(/(\d{1,2})/);
+  if (!match) return null;
+  const n = Number(match[1]);
+  return n >= 1 && n <= 12 ? n : null;
+}
+
+/**
+ * Chỉ giữ các mục "Lớp 1".."Lớp 12" và sắp theo số lớp tăng dần,
+ * loại bỏ mục không phải lớp phổ thông (ví dụ: Luyện thi chứng chỉ / Đại học).
+ */
+export function schoolGradeOptions<T extends { name: string }>(grades: T[]): T[] {
+  return grades
+    .filter((grade) => gradeNumber(grade.name) !== null)
+    .sort((a, b) => (gradeNumber(a.name) ?? 0) - (gradeNumber(b.name) ?? 0));
+}
+
 function ageYears(dateOfBirth: string, onDate = new Date()): number {
   const dob = new Date(dateOfBirth);
   if (Number.isNaN(dob.getTime())) return -1;

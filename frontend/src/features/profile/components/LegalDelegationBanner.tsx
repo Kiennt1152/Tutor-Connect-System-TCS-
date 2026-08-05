@@ -1,5 +1,11 @@
 import type { DependentLinkStatus } from '../types/profileTypes';
-import type { WalletResponse } from '../../finance/types/financeTypes';
+
+/** Các trường ví liên quan tới uỷ quyền pháp lý cho phụ huynh (tách khỏi finance để độc lập type). */
+type WalletResponse = {
+  delegatedToParent?: boolean;
+  legalOwnerName?: string;
+  beneficiaryMinorName?: string;
+};
 
 type LegalDelegationBannerProps = {
   linkStatus?: DependentLinkStatus | null;

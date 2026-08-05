@@ -38,7 +38,7 @@
 
 /* ─── Status Badges ────────────────────────────────────────────────────── */
 
-.tcs-badge {
+.cnt-page .tcs-badge {
   display: inline-block;
   padding: 3px 10px;
   border-radius: 999px;

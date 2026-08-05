@@ -3,11 +3,13 @@ import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { profileApi } from '../api/profileApi';
-import { ClientLayout } from '../components/ClientLayout';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { SiteFooter } from '../../home/components/SiteFooter';
 import { extractApiErrorMessage } from '../hooks/useDependentProfile';
 import {
   CHILD_PROFILE_LIMITS,
   buildChildUpdateRequest,
+  schoolGradeOptions,
   validateUpdateChildForm,
 } from '../utils/childProfileValidation';
 import type { CatalogItem, ChildProfile, Gender } from '../types/profileTypes';
@@ -133,14 +135,19 @@ export default function ChildProfileDetailPage() {
   }
 
   return (
-    <ClientLayout
-      title="Quản lý hồ sơ con"
-      subtitle={
-        isLinkedAccount
-          ? 'Hồ sơ liên kết tài khoản đăng ký — thông tin cá nhân do học sinh quản lý.'
-          : 'Hồ sơ con thủ công — phụ huynh có thể cập nhật toàn bộ thông tin.'
-      }
-    >
+    <div className="tcs-page">
+      <HomeNavbar />
+      <main className="dpl-main">
+        <div className="tcs-container">
+          <header className="dpl-page-header">
+            <h1>Quản lý hồ sơ con</h1>
+            <p>
+              {isLinkedAccount
+                ? 'Hồ sơ liên kết tài khoản đăng ký — thông tin cá nhân do học sinh quản lý.'
+                : 'Hồ sơ con thủ công — phụ huynh có thể cập nhật toàn bộ thông tin.'}
+            </p>
+          </header>
+          <div className="dpl-content">
       {status === 'loading' && <div className="dpl-state">Đang tải hồ sơ con…</div>}
 
       {status === 'error' && (
@@ -234,7 +241,7 @@ export default function ChildProfileDetailPage() {
                   onChange={(e) => setGradeId(e.target.value)}
                 >
                   <option value="">— Chọn —</option>
-                  {grades.map((grade) => (
+                  {schoolGradeOptions(grades).map((grade) => (
                     <option key={grade.id} value={grade.id}>
                       {grade.name}
                     </option>
@@ -306,6 +313,10 @@ export default function ChildProfileDetailPage() {
           </form>
         </section>
       )}
-    </ClientLayout>
+          </div>
+        </div>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }

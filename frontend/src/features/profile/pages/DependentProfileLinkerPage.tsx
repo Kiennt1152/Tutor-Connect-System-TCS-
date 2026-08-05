@@ -2,10 +2,12 @@ import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';
-import { ClientLayout } from '../components/ClientLayout';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { SiteFooter } from '../../home/components/SiteFooter';
 import { useDependentProfile } from '../hooks/useDependentProfile';
 import {
   CHILD_PROFILE_LIMITS,
+  schoolGradeOptions,
   validateCreateChildForm,
 } from '../utils/childProfileValidation';
 import type { ChildProfile, Gender } from '../types/profileTypes';
@@ -119,10 +121,17 @@ export default function DependentProfileLinkerPage() {
     linkStatus?.profileLinkComplete ?? linkStatus?.canProceedToPayment ?? false;
 
   return (
-    <ClientLayout
-      title="Liên kết hồ sơ phụ thuộc"
-      subtitle="Liên kết tài khoản phụ huynh – con để quản lý hồ sơ học tập trên TutorConnect."
-    >
+    <div className="tcs-page">
+      <HomeNavbar />
+      <main className="dpl-main">
+        <div className="tcs-container">
+          <header className="dpl-page-header">
+            <h1>Liên kết hồ sơ phụ thuộc</h1>
+            <p>
+              Liên kết tài khoản phụ huynh – con để quản lý hồ sơ học tập trên TutorConnect.
+            </p>
+          </header>
+          <div className="dpl-content">
       {status === 'loading' && <div className="dpl-state">Đang tải thông tin…</div>}
 
       {status === 'error' && (
@@ -420,7 +429,7 @@ export default function DependentProfileLinkerPage() {
                       onChange={(e) => setChildGradeId(e.target.value)}
                     >
                       <option value="">— Chọn —</option>
-                      {grades.map((grade) => (
+                      {schoolGradeOptions(grades).map((grade) => (
                         <option key={grade.id} value={grade.id}>
                           {grade.name}
                         </option>
@@ -451,12 +460,16 @@ export default function DependentProfileLinkerPage() {
           )}
 
           <section className="dpl-actions">
-            <Link className="tcs-btn tcs-btn--ghost" to={APP_ROUTES.home}>
-              Về trang chủ
+            <Link className="tcs-btn tcs-btn--ghost" to={APP_ROUTES.profile}>
+              Về hồ sơ
             </Link>
           </section>
         </>
       )}
-    </ClientLayout>
+          </div>
+        </div>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }

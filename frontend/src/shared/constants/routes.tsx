@@ -9,7 +9,7 @@ export const APP_ROUTES = {
   identity: '/identity',
   profile: '/profile',
   profileDependents: '/profile/dependents',
-  childProfile: (childProfileId: number) => `/profile/children/${childProfileId}`,
+  childProfile: (childProfileId: number | string) => `/profile/children/${childProfileId}`,
   finance: '/finance',
   catalog: '/catalog',
   verification: '/identity/verification',
