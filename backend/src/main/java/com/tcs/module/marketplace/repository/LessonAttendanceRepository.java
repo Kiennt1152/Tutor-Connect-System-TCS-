@@ -13,4 +13,6 @@ public interface LessonAttendanceRepository extends JpaRepository<LessonAttendan
 
     Optional<LessonAttendance> findFirstByLesson_LessonIdAndClassStudent_ClassStudentId(
             Long lessonId, Long classStudentId);
+
+    List<LessonAttendance> findByLesson_LessonIdIn(List<Long> lessonIds);
 }

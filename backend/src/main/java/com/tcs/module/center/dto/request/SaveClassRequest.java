@@ -32,5 +32,9 @@ public class SaveClassRequest {
     private LocalDate endDate;
     private BigDecimal tuitionFee;
     private Integer maxStudents;
+    /** Số học sinh tối thiểu để kích hoạt lớp (tuỳ chọn; trống = cần ≥ 1). */
+    private Integer minStudents;
+    /** Loại lớp: EXTERNAL (yêu cầu ngoài, đã có học sinh) / SELF (trung tâm tự tạo). Mặc định SELF. */
+    private String originType;
     private List<ScheduleSlotRequest> schedule;
 }

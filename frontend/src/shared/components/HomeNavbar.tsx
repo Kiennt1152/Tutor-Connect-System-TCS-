@@ -4,6 +4,7 @@ import { LogoutButton } from './LogoutButton';
 import { useAuth } from '../auth/AuthProvider';
 import { hasAnyRole, hasRole } from '../auth/rbac';
 import { APP_ROUTES } from '../constants/routes';
+import { NotificationBell } from './NotificationBell';
 import type { UserRole } from '../types/userRole';
 
 const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
@@ -26,6 +27,9 @@ export function HomeNavbar() {
   const profilePath =
     user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
   const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
+  // Gia su: "Trung tam" di thang toi trang ung tuyen (/recruitment chi cho TUTOR).
+  // Vai tro khac: ve trang gioi thieu trung tam, tranh bi da sang /forbidden.
+  const centersHref = hasRole(user?.role, 'TUTOR') ? APP_ROUTES.recruitment : APP_ROUTES.centers;
   const showTutorSchedule = hasRole(user?.role, 'TUTOR');
   const showWallet = hasAnyRole(user?.role, WALLET_ROLES);
   const showContract = hasAnyRole(user?.role, CONTRACT_ROLES);
@@ -37,12 +41,13 @@ export function HomeNavbar() {
         <AppLogo href="/" />
         <nav className="tcs-header__nav">
           <Link to="/#find-tutor">Tìm gia sư</Link>
-          <Link to="/#classes">Tìm lớp</Link>
-          <Link to="/#centers">Trung tâm</Link>
+          <Link to={APP_ROUTES.marketplace}>Tìm lớp</Link>
+          <Link to={centersHref}>Trung tâm</Link>
           <Link to="/#news">Tin tức</Link>
           <Link to="/#reviews">Đánh giá</Link>
         </nav>
         <div className="tcs-header__actions">
+          <NotificationBell />
           {user ? (
             <>
               {hasRole(user.role, 'PLATFORM_ADMIN') ? (

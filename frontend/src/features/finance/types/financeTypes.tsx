@@ -71,3 +71,37 @@ export interface TopupStatusInfo {
   message: string;
   wallet?: WalletInfo;
 }
+
+export interface PaymentMethodInfo {
+  paymentMethodId: number;
+  type: string;
+  provider: string | null;
+  bankName?: string | null;
+  lastFour: string | null;
+  accountNoMasked?: string | null;
+  isDefault: boolean;
+}
+
+export interface PaymentMethodPayload {
+  bankName: string;
+  accountNo: string;
+}
+
+export interface WithdrawalPayload {
+  amount: number;
+  paymentMethodId?: number;
+  bankName?: string;
+  accountNo?: string;
+}
+
+export interface WithdrawalInfo {
+  withdrawalId: number;
+  amount: number;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED' | string;
+  paymentMethodId: number;
+  bankName: string | null;
+  accountNoMasked: string;
+  referenceCode: string;
+  requestedAt: string;
+  wallet: WalletInfo;
+}

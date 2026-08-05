@@ -9,6 +9,7 @@ import com.tcs.module.identity.service.VerificationService;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.mapper.UserProfileBundle;
+import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.dto.request.ChildProfileRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
@@ -37,15 +38,38 @@ import com.tcs.module.profile.repository.TutorExperienceRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.service.ProfileService;
 import com.tcs.security.AuthHelper;
+import com.tcs.util.FileMagicDetector;
+import java.io.BufferedInputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ProfileServiceImpl implements ProfileService {
+
+    private static final Set<String> ALLOWED_AVATAR_TYPES = Set.of(
+            FileMagicDetector.MIME_JPEG,
+            FileMagicDetector.MIME_PNG,
+            FileMagicDetector.MIME_WEBP,
+            FileMagicDetector.MIME_GIF
+    );
+
+    @Value("${tcs.file.storage.path:uploads}")
+    private String storagePath;
 
     private final AuthHelper authHelper;
     private final UserRepository userRepository;
@@ -60,6 +84,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final TutorAvailabilityRepository tutorAvailabilityRepository;
     private final VerificationService verificationService;
     private final PlatformMapper platformMapper;
+    private final AuditLogService auditLogService;
 
     @Override
     @Transactional(readOnly = true)
@@ -77,6 +102,13 @@ public class ProfileServiceImpl implements ProfileService {
             case TUTOR_CENTER -> updateCenter(ctx.center(), request);
             default -> throw new ForbiddenException("Không thể cập nhật hồ sơ cho vai trò này");
         }
+        // UC-08 BR-UC08-01: lan dau luu ho so thanh cong -> danh dau da hoan tat, an banner onboarding.
+        if (ctx.user().getProfileCompletedAt() == null) {
+            ctx.user().setProfileCompletedAt(LocalDateTime.now());
+            userRepository.save(ctx.user());
+        }
+        auditLogService.record(ctx.user().getUserId(), "UPDATE_PROFILE", ctx.role().name(),
+                ctx.user().getUserId(), null, request);
         return toProfileResponse(ctx);
     }
 
@@ -104,6 +136,8 @@ public class ProfileServiceImpl implements ProfileService {
         link.setChildProfile(saved);
         link.setStatus(ParentChildLinkStatus.ACTIVE);
         parentChildLinkRepository.save(link);
+        auditLogService.record(ctx.user().getUserId(), "CREATE_CHILD_PROFILE", "ChildProfile",
+                saved.getChildProfileId(), null, request);
         return toChildResponse(saved);
     }
 
@@ -120,6 +154,8 @@ public class ProfileServiceImpl implements ProfileService {
         link.setChildProfile(child);
         link.setStatus(ParentChildLinkStatus.ACTIVE);
         parentChildLinkRepository.save(link);
+        auditLogService.record(ctx.user().getUserId(), "LINK_CHILD_PROFILE", "ChildProfile",
+                child.getChildProfileId(), null, request);
         return toChildResponse(child);
     }
 
@@ -146,7 +182,10 @@ public class ProfileServiceImpl implements ProfileService {
         exp.setStartDate(request.getStartDate());
         exp.setEndDate(request.getEndDate());
         exp.setDescription(request.getDescription());
-        return toExperienceResponse(tutorExperienceRepository.save(exp));
+        TutorExperience saved = tutorExperienceRepository.save(exp);
+        auditLogService.record(tutor.getUser().getUserId(), "ADD_EXPERIENCE", "TutorExperience",
+                saved.getExperienceId(), null, request);
+        return toExperienceResponse(saved);
     }
 
     @Override
@@ -160,6 +199,8 @@ public class ProfileServiceImpl implements ProfileService {
             throw new ForbiddenException("Không có quyền xóa kinh nghiệm này");
         }
         tutorExperienceRepository.delete(exp);
+        auditLogService.record(tutor.getUser().getUserId(), "DELETE_EXPERIENCE", "TutorExperience",
+                experienceId, null, null);
     }
 
     @Override
@@ -185,7 +226,10 @@ public class ProfileServiceImpl implements ProfileService {
         availability.setEndTime(request.getEndTime());
         availability.setRecurring(request.getRecurring() != null ? request.getRecurring() : true);
         availability.setSpecificDate(request.getSpecificDate());
-        return toAvailabilityResponse(tutorAvailabilityRepository.save(availability));
+        TutorAvailability saved = tutorAvailabilityRepository.save(availability);
+        auditLogService.record(tutor.getUser().getUserId(), "ADD_AVAILABILITY", "TutorAvailability",
+                saved.getAvailabilityId(), null, request);
+        return toAvailabilityResponse(saved);
     }
 
     @Override
@@ -199,6 +243,8 @@ public class ProfileServiceImpl implements ProfileService {
             throw new ForbiddenException("Không có quyền xóa lịch này");
         }
         tutorAvailabilityRepository.delete(availability);
+        auditLogService.record(tutor.getUser().getUserId(), "DELETE_AVAILABILITY", "TutorAvailability",
+                availabilityId, null, null);
     }
 
     @Override
@@ -216,6 +262,66 @@ public class ProfileServiceImpl implements ProfileService {
                     : com.tcs.module.identity.enums.VerificationType.TUTOR_CENTER_LICENSE);
         }
         return verificationService.submitVerification(request);
+    }
+
+    @Override
+    @Transactional
+    public String uploadAvatar(MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File ảnh không được để trống");
+        }
+        if (file.getSize() > 5 * 1024 * 1024) {
+            throw new IllegalArgumentException("Kích thước ảnh không được vượt quá 5MB");
+        }
+
+        String detectedMime = detectAvatarMime(file);
+        if (!ALLOWED_AVATAR_TYPES.contains(detectedMime)) {
+            throw new IllegalArgumentException("Chỉ chấp nhận file ảnh (JPEG, PNG, WEBP, GIF)");
+        }
+        String extension = FileMagicDetector.extensionFor(detectedMime);
+
+        ProfileContext ctx = loadContext();
+        String fileName = "avatars/user-" + ctx.user().getUserId() + extension;
+        Path avatarPath = Paths.get(storagePath).toAbsolutePath().normalize().resolve(fileName);
+
+        try {
+            Files.createDirectories(avatarPath.getParent());
+            Files.copy(file.getInputStream(), avatarPath, StandardCopyOption.REPLACE_EXISTING);
+        } catch (IOException e) {
+            throw new RuntimeException("Không thể lưu ảnh đại diện", e);
+        }
+
+        String avatarUrl = "/uploads/" + fileName;
+        switch (ctx.role()) {
+            case CLIENT -> {
+                ctx.client().setAvatarUrl(avatarUrl);
+                clientRepository.save(ctx.client());
+            }
+            case TUTOR -> {
+                ctx.tutor().setAvatar(avatarUrl);
+                tutorRepository.save(ctx.tutor());
+            }
+            case TUTOR_CENTER -> {
+                ctx.center().setAvatar(avatarUrl);
+                tutorCenterRepository.save(ctx.center());
+            }
+            default -> log.warn("uploadAvatar called with unsupported role: {}", ctx.role());
+        }
+        auditLogService.record(ctx.user().getUserId(), "UPLOAD_AVATAR", ctx.role().name(),
+                ctx.user().getUserId(), null, java.util.Map.of("avatarUrl", avatarUrl));
+        return avatarUrl;
+    }
+
+    private String detectAvatarMime(MultipartFile file) {
+        try (BufferedInputStream bis = new BufferedInputStream(file.getInputStream())) {
+            String detected = FileMagicDetector.detect(bis);
+            if (detected == null) {
+                throw new IllegalArgumentException("Chỉ chấp nhận file ảnh (JPEG, PNG, WEBP, GIF)");
+            }
+            return detected;
+        } catch (IOException e) {
+            throw new RuntimeException("Không thể đọc file ảnh", e);
+        }
     }
 
     private ProfileContext loadContext() {
@@ -300,7 +406,9 @@ public class ProfileServiceImpl implements ProfileService {
                 .userId(ctx.user().getUserId())
                 .role(ctx.role())
                 .email(ctx.user().getEmail())
-                .phone(ctx.user().getPhone());
+                .phone(ctx.user().getPhone())
+                // UC-08 BR-UC08-01: re-evaluate tren /api/profile/me de banner onboarding tu an sau khi luu.
+                .firstLogin(ctx.user().getProfileCompletedAt() == null);
         if (ctx.client() != null) {
             builder.fullName(ctx.client().getFullName())
                     .phone(ctx.client().getPhone())

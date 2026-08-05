@@ -28,15 +28,18 @@ public class SecurityConfig {
 
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.cors(Customizer.withDefaults())
-                .csrf(AbstractHttpConfigurer::disable)
+        http.csrf(AbstractHttpConfigurer::disable)
+                .cors(Customizer.withDefaults())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(HttpMethod.OPTIONS, "/**")
+                        .permitAll()
                         // --- Public ---
                         .requestMatchers(
                                 "/error",
                                 "/uploads/**",
                                 "/api/home",
+                                "/api/home/announcements",
                                 "/api/identity/login",
                                 "/api/identity/google",
                                 "/api/identity/google/complete",
@@ -45,10 +48,17 @@ public class SecurityConfig {
                                 "/api/identity/verify-otp",
                                 "/api/identity/password/forgot",
                                 "/api/identity/password/reset",
+                                "/uploads/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/catalog/faq/admin")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.GET, "/api/catalog/parameters/**")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**")
+                        .permitAll()
+                        .requestMatchers("/api/ai/**")
                         .permitAll()
                         .requestMatchers("/api/catalog/**")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
@@ -56,8 +66,19 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/tutors/**")
                         .permitAll()
+                        // Recruitment: các GET cần đăng nhập phải đứng TRƯỚC GET công khai bên dưới.
+                        .requestMatchers(HttpMethod.GET, "/api/center/recruitment/my-posts")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.GET, "/api/center/recruitment/*/applications")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.GET, "/api/center/recruitment/applications/mine")
+                        .hasRole(RbacConstants.TUTOR)
+                        // Tin đang mở: ai cũng xem được.
                         .requestMatchers(HttpMethod.GET, "/api/center/recruitment/**")
                         .permitAll()
+                        // Quản lý danh sách gia sư của trung tâm.
+                        .requestMatchers("/api/center/members", "/api/center/members/**")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
                         .requestMatchers(HttpMethod.GET, "/api/contract/reviews/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payments/webhook")
@@ -67,6 +88,15 @@ public class SecurityConfig {
 
                         // --- Platform admin ---
                         .requestMatchers("/api/platform/**")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.POST, "/api/finance/withdrawals/*/accept")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.GET, "/api/finance/settlements/preview/*")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/finance/settlements/*/apply",
+                                "/api/finance/settlements/execute")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
 
                         // --- Profile (specific before general) ---
@@ -108,6 +138,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/*/apply")
                         .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/**")
+                        .hasRole(RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.PUT, "/api/center/recruitment/**")
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
                         // --- Finance ---

@@ -1,5 +1,3 @@
-import { ContractPanel } from './components/ContractPanel';
-
 export default function ContractModule() {
-  return <ContractPanel />;
+  return null; // routed directly via App.tsx — see /contract and /contract/:id routes
 }

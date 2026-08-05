@@ -6,4 +6,6 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface DisputeRepository extends JpaRepository<Dispute, Long> {
+    long countByStatusIn(java.util.List<com.tcs.module.finance.enums.DisputeStatus> statuses);
+    java.util.List<com.tcs.module.finance.entity.Dispute> findByStatusInOrderByCreatedAtAsc(java.util.List<com.tcs.module.finance.enums.DisputeStatus> statuses);
 }

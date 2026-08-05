@@ -8,6 +8,10 @@ import type {
   DepositPayload,
   TopupSessionInfo,
   TopupStatusInfo,
+  PaymentMethodInfo,
+  PaymentMethodPayload,
+  WithdrawalPayload,
+  WithdrawalInfo,
 } from '../types/financeTypes';
 
 export function useFinance() {
@@ -18,6 +22,9 @@ export function useFinance() {
   const [transactions, setTransactions] = useState<TransactionPage | null>(null);
   const [txLoading, setTxLoading] = useState(false);
   const [txError, setTxError] = useState<string | null>(null);
+
+  const [paymentMethods, setPaymentMethods] = useState<PaymentMethodInfo[]>([]);
+  const [paymentMethodsLoading, setPaymentMethodsLoading] = useState(false);
 
   // ── Wallet ──────────────────────────────────────────────────────────────
 
@@ -114,6 +121,52 @@ export function useFinance() {
     return data;
   }, [fetchTransactions]);
 
+  // ── Payment methods & withdrawals ───────────────────────────────────────
+
+  const fetchPaymentMethods = useCallback(async () => {
+    setPaymentMethodsLoading(true);
+    try {
+      const data = await financeApi.getPaymentMethods();
+      setPaymentMethods(data);
+    } finally {
+      setPaymentMethodsLoading(false);
+    }
+  }, []);
+
+  const createPaymentMethod = useCallback(async (
+    payload: PaymentMethodPayload
+  ): Promise<PaymentMethodInfo> => {
+    const data = await financeApi.createPaymentMethod(payload);
+    await fetchPaymentMethods();
+    return data;
+  }, [fetchPaymentMethods]);
+
+  const updatePaymentMethod = useCallback(async (
+    paymentMethodId: number,
+    payload: PaymentMethodPayload
+  ): Promise<PaymentMethodInfo> => {
+    const data = await financeApi.updatePaymentMethod(paymentMethodId, payload);
+    await fetchPaymentMethods();
+    return data;
+  }, [fetchPaymentMethods]);
+
+  const deletePaymentMethod = useCallback(async (
+    paymentMethodId: number
+  ): Promise<void> => {
+    await financeApi.deletePaymentMethod(paymentMethodId);
+    await fetchPaymentMethods();
+  }, [fetchPaymentMethods]);
+
+  const createWithdrawal = useCallback(async (
+    payload: WithdrawalPayload
+  ): Promise<WithdrawalInfo> => {
+    const data = await financeApi.createWithdrawal(payload);
+    setWallet(data.wallet);
+    await fetchTransactions({ page: 0, size: 20 });
+    await fetchPaymentMethods();
+    return data;
+  }, [fetchPaymentMethods, fetchTransactions]);
+
   return {
     // wallet
     wallet,
@@ -131,5 +184,13 @@ export function useFinance() {
     createTopup,
     checkTopupStatus,
     simulateTopupSuccess,
+    // withdrawals
+    paymentMethods,
+    paymentMethodsLoading,
+    fetchPaymentMethods,
+    createPaymentMethod,
+    updatePaymentMethod,
+    deletePaymentMethod,
+    createWithdrawal,
   };
 }

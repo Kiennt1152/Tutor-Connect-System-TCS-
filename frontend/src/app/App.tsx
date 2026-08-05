@@ -9,32 +9,54 @@ import PlatformProfilePage from '../features/platform/pages/PlatformProfilePage'
 import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
+import PlatformTicketsPage from '../features/platform/pages/PlatformTicketsPage';
+import PlatformFaqPage from '../features/platform/pages/PlatformFaqPage';
+import PlatformParametersPage from '../features/platform/pages/PlatformParametersPage';
+import PlatformPenaltiesPage from '../features/platform/pages/PlatformPenaltiesPage';
+import PlatformAuditLogsPage from '../features/platform/pages/PlatformAuditLogsPage';
+import PlatformAnnouncementsPage from '../features/platform/pages/PlatformAnnouncementsPage';
 import CenterPage from '../features/center/pages/CenterPage';
+import CenterRecruitmentPage from '../features/center/pages/CenterRecruitmentPage';
 import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
 import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
 import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
 import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
+import CenterTutorsPage from '../features/center/pages/CenterTutorsPage';
+import CentersPage from '../features/home/pages/CentersPage';
+import RecruitmentPage from '../features/recruitment/pages/RecruitmentPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
 import MarketplaceClassDetailPage from '../features/marketplace/pages/MarketplaceClassDetailPage';
-import ContractPage from '../features/contract/pages/ContractPage';
+import ContractListPage from '../features/contract/pages/ContractListPage';
+import ContractDetailPage from '../features/contract/pages/ContractDetailPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
+import HelpPage from '../features/help/pages/HelpPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
 import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 import { APP_ROUTES } from '../shared/constants/routes';
+import { lazy, Suspense } from 'react';
+import { ScrollToHash } from './ScrollToHash';
+
+const PlatformTasksPage = lazy(() => import('../features/platform/pages/PlatformTasksPage'));
+const PlatformAnalyticsPage = lazy(() => import('../features/platform/pages/PlatformAnalyticsPage'));
+const AiAssistantPage = lazy(() => import('../features/ai/pages/AiAssistantPage'));
+import AiFloatingWidget from '../features/ai/components/AiFloatingWidget';
 
 export default function App() {
   return (
     <ErrorBoundary>
       <BrowserRouter>
+        <ScrollToHash />
         <Routes>
           <Route path={APP_ROUTES.home} element={<HomePage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />
           <Route path={APP_ROUTES.catalog} element={<CatalogPage />} />
+          {/* Trang "Trung tâm" cong khai: ai cung xem duoc; gia su thay them tin tuyen dung. */}
+          <Route path={APP_ROUTES.centers} element={<CentersPage />} />
           <Route
             path={APP_ROUTES.verification}
             element={
@@ -80,7 +102,15 @@ export default function App() {
             path={APP_ROUTES.contract}
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
-                <ContractPage />
+                <ContractListPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={`${APP_ROUTES.contract}/:contractId`}
+            element={
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+                <ContractDetailPage />
               </ProtectedRoute>
             }
           />
@@ -133,10 +163,54 @@ export default function App() {
             }
           />
           <Route
+            path="/center/recruitment"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterRecruitmentPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/tutors"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterTutorsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.recruitment}
+            element={
+              <ProtectedRoute roles={['TUTOR']}>
+                <RecruitmentPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={APP_ROUTES.platform}
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
                 <PlatformDashboardPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformTasks}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <Suspense fallback={<div>Loading...</div>}>
+                  <PlatformTasksPage />
+                </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformAnalytics}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <Suspense fallback={<div>Loading...</div>}>
+                  <PlatformAnalyticsPage />
+                </Suspense>
               </ProtectedRoute>
             }
           />
@@ -165,6 +239,54 @@ export default function App() {
             }
           />
           <Route
+            path={APP_ROUTES.platformTickets}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformTicketsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformFaq}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformFaqPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformParameters}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformParametersPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformAnnouncements}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformAnnouncementsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformPenalties}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformPenaltiesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformAuditLogs}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformAuditLogsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={APP_ROUTES.platformProfile}
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
@@ -172,7 +294,18 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path={APP_ROUTES.help} element={<HelpPage />} />
+          <Route path={APP_ROUTES.aiAssistant} element={<Suspense fallback={<div style={{ padding: '2rem', textAlign: 'center', color: '#8b949e' }}>⏳ Đang tải trợ lý AI...</div>}><AiAssistantPage /></Suspense>} />
+          <Route
+            path={APP_ROUTES.messagingTickets}
+            element={
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+                <MessagingPage initialTab="tickets" />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
+        <AiFloatingWidget />
       </BrowserRouter>
     </ErrorBoundary>
   );

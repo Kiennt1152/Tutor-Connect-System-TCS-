@@ -7,7 +7,9 @@ import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.identity.service.FileStorageService;
 import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.profile.repository.MediaFileRepository;
+import com.tcs.util.FileMagicDetector;
 import jakarta.annotation.PostConstruct;
+import java.io.BufferedInputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -57,11 +59,19 @@ public class FileStorageServiceImpl implements FileStorageService {
     @Override
     @Transactional
     public FileUploadResponse uploadFile(MultipartFile file, Long uploadedBy) {
-        validateFile(file);
+        if (file == null || file.isEmpty()) {
+            throw new IllegalArgumentException("File is empty");
+        }
+        if (file.getSize() > MAX_FILE_SIZE) {
+            throw new IllegalArgumentException("File size exceeds 10MB limit");
+        }
 
-        String originalName = file.getOriginalFilename();
-        String extension = getExtension(originalName);
-        String storedName = UUID.randomUUID() + extension;
+        String detectedMime = detectMime(file);
+        if (!ALLOWED_TYPES.contains(detectedMime)) {
+            throw new IllegalArgumentException("File type not allowed. Allowed: PDF, JPEG, PNG, WEBP");
+        }
+
+        String storedName = UUID.randomUUID() + FileMagicDetector.extensionFor(detectedMime);
 
         try {
             Path targetLocation = storageLocation.resolve(storedName);
@@ -74,9 +84,9 @@ public class FileStorageServiceImpl implements FileStorageService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + uploadedBy));
 
         MediaFile mediaFile = new MediaFile();
-        mediaFile.setFileName(originalName);
+        mediaFile.setFileName(file.getOriginalFilename());
         mediaFile.setFileUrl("/uploads/" + storedName);
-        mediaFile.setMimeType(file.getContentType());
+        mediaFile.setMimeType(detectedMime);
         mediaFile.setFileSize(file.getSize());
         mediaFile.setUploadedBy(user);
 
@@ -96,23 +106,15 @@ public class FileStorageServiceImpl implements FileStorageService {
         return "/uploads/" + fileName;
     }
 
-    private void validateFile(MultipartFile file) {
-        if (file.isEmpty()) {
-            throw new IllegalArgumentException("File is empty");
+    private String detectMime(MultipartFile file) {
+        try (BufferedInputStream bis = new BufferedInputStream(file.getInputStream())) {
+            String detected = FileMagicDetector.detect(bis);
+            if (detected == null) {
+                throw new IllegalArgumentException("File type not allowed. Allowed: PDF, JPEG, PNG, WEBP");
+            }
+            return detected;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to read file for type detection", e);
         }
-        if (file.getSize() > MAX_FILE_SIZE) {
-            throw new IllegalArgumentException("File size exceeds 10MB limit");
-        }
-        String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_TYPES.contains(contentType)) {
-            throw new IllegalArgumentException("File type not allowed. Allowed: PDF, JPEG, PNG, WEBP");
-        }
-    }
-
-    private String getExtension(String fileName) {
-        if (fileName == null || !fileName.contains(".")) {
-            return "";
-        }
-        return fileName.substring(fileName.lastIndexOf("."));
     }
 }
