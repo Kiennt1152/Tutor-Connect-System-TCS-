@@ -5,57 +5,6 @@
   flex-direction: column;
 }
 
-.msg-page__topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.9rem 1.5rem;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-  gap: 1rem;
-}
-
-.msg-page__brand {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #1a56db;
-  text-decoration: none;
-}
-
-.msg-page__tabs {
-  display: flex;
-  gap: 0.25rem;
-}
-
-.msg-page__tab {
-  padding: 0.45rem 1rem;
-  border: none;
-  background: none;
-  border-radius: 6px;
-  font-size: 0.9rem;
-  cursor: pointer;
-  color: #4a5568;
-  font-weight: 500;
-  transition: background 0.15s, color 0.15s;
-}
-
-.msg-page__tab:hover {
-  background: #f0f4ff;
-  color: #1a56db;
-}
-
-.msg-page__tab--active {
-  background: #e8f0fe;
-  color: #1a56db;
-  font-weight: 600;
-}
-
-.msg-page__topbar-right {
-  display: flex;
-  gap: 0.5rem;
-  align-items: center;
-}
-
 .msg-page__body {
   flex: 1;
   max-width: 860px;

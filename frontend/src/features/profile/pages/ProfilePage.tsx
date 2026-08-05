@@ -10,6 +10,7 @@ import type {
   UpdateProfileRequest,
   UserRole,
 } from '../types/profileTypes';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import './ProfilePage.css';
 
 const VIETNAM_PHONE = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
@@ -213,23 +214,25 @@ export default function ProfilePage() {
   const errs = fieldError;
 
   return (
-    <div className="profile-page">
-      <header className="profile-header">
-        <h1>Hồ sơ cá nhân</h1>
-        {profile && (
-          <p className="profile-role">
-            Vai trò: <strong>{ROLE_LABEL[profile.role] ?? profile.role}</strong>
-            {profile.verificationStatus && !isClient && (
-              <>
-                {' · '}
-                <span className={`verification-badge verification-${profile.verificationStatus.toLowerCase()}`}>
-                  {VERIFICATION_LABEL[profile.verificationStatus]}
-                </span>
-              </>
-            )}
-          </p>
-        )}
-      </header>
+    <div className="tcs-page">
+      <HomeNavbar />
+      <div className="profile-page">
+        <div className="profile-role-bar">
+          <h1>Hồ sơ cá nhân</h1>
+          {profile && (
+            <p className="profile-role">
+              Vai trò: <strong>{ROLE_LABEL[profile.role] ?? profile.role}</strong>
+              {profile.verificationStatus && !isClient && (
+                <>
+                  {' · '}
+                  <span className={`verification-badge verification-${profile.verificationStatus.toLowerCase()}`}>
+                    {VERIFICATION_LABEL[profile.verificationStatus]}
+                  </span>
+                </>
+              )}
+            </p>
+          )}
+        </div>
 
       {error && <div className="profile-alert error">{error}</div>}
       {success && <div className="profile-alert success">{success}</div>}
@@ -456,6 +459,7 @@ export default function ProfilePage() {
           </p>
         </section>
       )}
+      </div>
     </div>
   );
 }
