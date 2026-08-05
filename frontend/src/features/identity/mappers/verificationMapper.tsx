@@ -15,9 +15,9 @@ export function mapVerificationStatus(status: Verification['status']) {
 
 export function mapDocumentType(type: VerificationDocumentType): string {
   const map: Record<VerificationDocumentType, string> = {
-    ID_CARD: 'CCCD/CMND',
-    DEGREE: 'Bằng cấp',
-    CERTIFICATE: 'Chứng chỉ',
+    ID_CARD: 'CCCD/CMND mặt trước',
+    DEGREE: 'CCCD/CMND mặt sau',
+    CERTIFICATE: 'Bằng cấp / chứng chỉ',
     LICENSE: 'Giấy phép',
   };
   return map[type] ?? type;

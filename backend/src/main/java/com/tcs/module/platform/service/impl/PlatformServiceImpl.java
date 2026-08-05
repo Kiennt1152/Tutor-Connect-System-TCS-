@@ -371,12 +371,14 @@ public class PlatformServiceImpl implements PlatformService {
 
     private VerificationDetailResponse buildDetail(VerificationRequest v) {
         Long userId = v.getUser().getUserId();
+        UserProfileBundle profiles = loadProfiles(userId);
+        UserRole userRole = platformMapper.resolveRole(profiles);
         Map<String, String> details = new LinkedHashMap<>();
         String submitterName = null;
         String submitterPhone = v.getUser().getPhone();
 
-        if (v.getVerificationType() == VerificationType.TUTOR_PROFILE) {
-            Tutor tutor = tutorRepository.findByUser_UserId(userId).orElse(null);
+        if (v.getVerificationType() == VerificationType.TUTOR_PROFILE && profiles.tutor() != null) {
+            Tutor tutor = profiles.tutor();
             if (tutor != null) {
                 submitterName = tutor.getFullName();
                 if (StringUtils.hasText(tutor.getPhone())) {
@@ -388,8 +390,18 @@ public class PlatformServiceImpl implements PlatformService {
                 details.put("Giới thiệu", orDash(tutor.getBio()));
                 details.put("Trạng thái xác minh", tutor.getVerificationStatus().name());
             }
+        } else if (v.getVerificationType() == VerificationType.TUTOR_PROFILE && profiles.client() != null) {
+            Client client = profiles.client();
+            submitterName = client.getFullName();
+            if (StringUtils.hasText(client.getPhone())) {
+                submitterPhone = client.getPhone();
+            }
+            details.put("Vai trò", "Phụ huynh / học viên");
+            details.put("Giới tính", client.getGender() == null ? "—" : client.getGender().name());
+            details.put("Ngày sinh", client.getDateOfBirth() == null ? "—" : client.getDateOfBirth().toString());
+            details.put("Địa chỉ", orDash(client.getAddress()));
         } else {
-            TutorCenter center = tutorCenterRepository.findByUser_UserId(userId).orElse(null);
+            TutorCenter center = profiles.tutorCenter();
             if (center != null) {
                 submitterName = center.getCompanyName();
                 if (StringUtils.hasText(center.getPhone())) {
@@ -403,7 +415,7 @@ public class PlatformServiceImpl implements PlatformService {
         }
 
         List<VerificationDocumentResponse> documents = verificationDocumentRepository
-                .findByVerificationRequest_VerificationId(v.getVerificationId())
+                .findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(v.getVerificationId())
                 .stream()
                 .map(this::toDocumentResponse)
                 .toList();
@@ -413,6 +425,7 @@ public class PlatformServiceImpl implements PlatformService {
                 .verificationId(v.getVerificationId())
                 .userId(userId)
                 .userEmail(v.getUser().getEmail())
+                .userRole(userRole)
                 .verificationType(v.getVerificationType())
                 .status(v.getStatus())
                 .adminNotes(v.getAdminNotes())
@@ -764,10 +777,12 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     private VerificationRequestResponse toVerificationResponse(VerificationRequest v) {
+        UserRole userRole = platformMapper.resolveRole(loadProfiles(v.getUser().getUserId()));
         return VerificationRequestResponse.builder()
                 .verificationId(v.getVerificationId())
                 .userId(v.getUser().getUserId())
                 .userEmail(v.getUser().getEmail())
+                .userRole(userRole)
                 .verificationType(v.getVerificationType())
                 .status(v.getStatus())
                 .adminNotes(v.getAdminNotes())

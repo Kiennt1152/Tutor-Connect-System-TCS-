@@ -459,6 +459,18 @@ export default function ProfilePage() {
 
       {isClient && (
         <section className="profile-section">
+          <h2>Xác minh danh tính</h2>
+          <p>
+            Tải lên hai mặt CCCD/CMND để TCS xác minh người thanh toán và người ký hợp đồng.
+          </p>
+          <Link to={APP_ROUTES.verification} className="btn-primary-link">
+            Nộp xác minh danh tính
+          </Link>
+        </section>
+      )}
+
+      {isClient && (
+        <section className="profile-section">
           <h2>Yêu cầu tìm gia sư</h2>
           <p>Quản lý các yêu cầu tìm gia sư bạn đã đăng — xem, chỉnh sửa và đăng công khai.</p>
           <Link to="/marketplace" className="btn-primary-link">

@@ -116,6 +116,7 @@ export interface VerificationRequestApiResponse {
   verificationId: number;
   userId: number;
   userEmail: string;
+  userRole: UserRole | null;
   verificationType: VerificationType;
   status: VerificationStatus;
   adminNotes: string | null;
@@ -127,6 +128,7 @@ export interface VerificationRequestItem {
   id: string;
   userId: string;
   userEmail: string;
+  userRole: UserRole | null;
   verificationType: VerificationType;
   typeLabel: string;
   status: VerificationStatus;
@@ -161,6 +163,7 @@ export interface VerificationDetailApiResponse {
   verificationId: number;
   userId: number;
   userEmail: string;
+  userRole: UserRole | null;
   verificationType: VerificationType;
   status: VerificationStatus;
   adminNotes: string | null;

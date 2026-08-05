@@ -73,6 +73,7 @@ interface DoneViewProps {
 interface HistoryProps {
   readonly verifications: Verification[];
   readonly status: LoadStatus;
+  readonly currentRole: string;
   readonly onCancel: (verificationId: number) => void;
 }
 
@@ -94,6 +95,19 @@ function getPalette(variant: string): StatusPalette {
   return STATUS_PALETTE[variant] ?? DEFAULT_PALETTE;
 }
 
+function verificationTypeLabel(
+  type: Verification['verificationType'],
+  currentRole: string,
+): string {
+  if (type === 'TUTOR_CENTER_LICENSE') {
+    return 'Trung tâm gia sư';
+  }
+  if (currentRole === 'CLIENT') {
+    return 'Danh tính người dùng';
+  }
+  return 'Gia sư';
+}
+
 export default function VerificationPage() {
   const { user } = useAuth();
   // Thông báo khi bị điều hướng tới đây (VD: bấm ứng tuyển nhưng chưa xác minh).
@@ -105,6 +119,7 @@ export default function VerificationPage() {
   const userId = user?.userId ?? 0;
   const role = user?.role ?? 'CLIENT';
   const isCenter = role === 'TUTOR_CENTER';
+  const isClient = role === 'CLIENT';
   const slots = useMemo(() => getSlotsForRole(role), [role]);
   const verificationType = getVerificationTypeForRole(role);
   const {
@@ -261,12 +276,18 @@ export default function VerificationPage() {
           <header className="verification-page__header">
             <span className="verification-page__eyebrow">Hồ sơ / Xác minh</span>
             <h1 className="verification-page__title">
-              {isCenter ? 'Xác minh trung tâm gia sư' : 'Xác minh gia sư'}
+              {isCenter
+                ? 'Xác minh trung tâm gia sư'
+                : isClient
+                  ? 'Xác minh danh tính'
+                  : 'Xác minh gia sư'}
             </h1>
             <p className="verification-page__subtitle">
               {isCenter
                 ? 'Nộp các chứng từ pháp lý bắt buộc để xác minh trung tâm và nhận huy hiệu đã xác minh theo quy định Việt Nam.'
-                : 'Nộp các giấy tờ tùy thân và bằng cấp của bạn để nhận huy hiệu đã xác minh và tạo niềm tin với phụ huynh, học sinh.'}
+                : isClient
+                  ? 'Tải lên hai mặt căn cước công dân hoặc chứng minh nhân dân để TCS xác minh danh tính người thanh toán và người ký hợp đồng.'
+                  : 'Nộp các giấy tờ tùy thân và bằng cấp của bạn để nhận huy hiệu đã xác minh và tạo niềm tin với phụ huynh, học sinh.'}
             </p>
           </header>
 
@@ -339,6 +360,7 @@ export default function VerificationPage() {
                 <VerificationHistory
                   verifications={verifications}
                   status={status}
+                  currentRole={role}
                   onCancel={async (id) => {
                     await cancelVerification(id);
                     setHasInteracted(true);
@@ -615,7 +637,12 @@ function UploadButton({
   );
 }
 
-function VerificationHistory({ verifications, status, onCancel }: HistoryProps) {
+function VerificationHistory({
+  verifications,
+  status,
+  currentRole,
+  onCancel,
+}: HistoryProps) {
   if (status === 'loading') {
     return <div className="verification-state">Đang tải lịch sử…</div>;
   }
@@ -637,10 +664,7 @@ function VerificationHistory({ verifications, status, onCancel }: HistoryProps) 
           ? new Date(v.submittedAt).toLocaleString()
           : 'N/A';
         const canCancel = v.status === 'SUBMITTED';
-        const typeLabel =
-          v.verificationType === 'TUTOR_CENTER_LICENSE'
-            ? 'Trung tâm gia sư'
-            : 'Gia sư';
+        const typeLabel = verificationTypeLabel(v.verificationType, currentRole);
 
         return (
           <li key={v.verificationId} className="verification-history-item">

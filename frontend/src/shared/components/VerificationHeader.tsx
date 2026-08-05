@@ -7,6 +7,7 @@ import { hasAnyRole, hasRole } from '../auth/rbac';
 import type { UserRole } from '../types/userRole';
 
 const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
+const VERIFICATION_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER'];
 
 function userInitials(displayName: string | undefined, email: string): string {
   const source = displayName?.trim() || email;
@@ -23,7 +24,8 @@ export function VerificationHeader() {
   const profilePath =
     user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
   const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
-  const showVerification = hasRole(user?.role, 'TUTOR');
+  const showVerification = hasAnyRole(user?.role, VERIFICATION_ROLES);
+  const showTeaching = hasRole(user?.role, 'TUTOR');
 
   return (
     <header className="tcs-header">
@@ -33,7 +35,7 @@ export function VerificationHeader() {
           <Link to={APP_ROUTES.catalog}>Tìm gia sư</Link>
           <Link to={APP_ROUTES.marketplace}>Tìm lớp</Link>
           {showCenterManage ? <Link to={APP_ROUTES.center}>Trung tâm</Link> : null}
-          {showVerification ? <Link to={APP_ROUTES.teaching}>Lịch dạy</Link> : null}
+          {showTeaching ? <Link to={APP_ROUTES.teaching}>Lịch dạy</Link> : null}
           {showVerification ? <Link to={APP_ROUTES.verification}>Xác minh</Link> : null}
         </nav>
         <div className="tcs-header__actions">

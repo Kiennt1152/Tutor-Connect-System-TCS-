@@ -14,6 +14,8 @@ public interface VerificationDocumentRepository extends JpaRepository<Verificati
 
     List<VerificationDocument> findByVerificationRequest_VerificationId(Long verificationId);
 
+    List<VerificationDocument> findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(Long verificationId);
+
     boolean existsByVerificationRequest_VerificationIdAndDocumentType(Long verificationId, VerificationDocumentType documentType);
 
     long deleteByVerificationRequest_VerificationId(Long verificationId);

@@ -1677,7 +1677,7 @@ public class CenterServiceImpl implements CenterService {
                         tutor.getUser().getUserId(), VerificationType.TUTOR_PROFILE)
                 .filter(req -> req.getStatus() == VerificationStatus.VERIFIED)
                 .map(req -> verificationDocumentRepository
-                        .findByVerificationRequest_VerificationId(req.getVerificationId()).stream()
+                        .findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(req.getVerificationId()).stream()
                         .filter(doc -> doc.getDocumentType() == VerificationDocumentType.CERTIFICATE)
                         .map(doc -> RecruitmentApplicationResponse.CertificateInfo.builder()
                                 .documentType(doc.getDocumentType() == null

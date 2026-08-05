@@ -70,7 +70,7 @@ export default function App() {
           <Route
             path={APP_ROUTES.verification}
             element={
-              <ProtectedRoute roles={['TUTOR', 'TUTOR_CENTER']}>
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
                 <VerificationPage />
               </ProtectedRoute>
             }

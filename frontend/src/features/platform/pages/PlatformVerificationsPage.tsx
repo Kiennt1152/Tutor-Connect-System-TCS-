@@ -7,6 +7,7 @@ import { useReviewVerification } from '../hooks/usePlatformMutations';
 import { useVerificationList } from '../hooks/useVerificationList';
 import type {
   VerificationDetailApiResponse,
+  VerificationDocumentApiResponse,
   VerificationDocumentType,
   VerificationRequestItem,
   VerificationStatus,
@@ -14,11 +15,44 @@ import type {
 import './PlatformVerificationsPage.css';
 
 const DOC_LABEL: Record<VerificationDocumentType, string> = {
-  ID_CARD: 'CMND/CCCD',
-  DEGREE: 'Bằng cấp',
-  CERTIFICATE: 'Chứng chỉ',
+  ID_CARD: 'CCCD/CMND mặt trước',
+  DEGREE: 'CCCD/CMND mặt sau',
+  CERTIFICATE: 'Bằng cấp / chứng chỉ',
   LICENSE: 'Giấy phép',
 };
+
+function documentLabel(
+  doc: VerificationDocumentApiResponse,
+  detail: VerificationDetailApiResponse,
+  index: number,
+): string {
+  if (detail.verificationType === 'TUTOR_CENTER_LICENSE') {
+    if (doc.documentType === 'LICENSE') {
+      const licenseOrder = detail.documents
+        .slice(0, index + 1)
+        .filter((item) => item.documentType === 'LICENSE').length;
+      return licenseOrder === 1
+        ? 'Giấy chứng nhận đăng ký doanh nghiệp'
+        : 'Giấy phép hoạt động giáo dục';
+    }
+    if (doc.documentType === 'CERTIFICATE') {
+      return 'Mã số thuế / Giấy đăng ký thuế';
+    }
+    if (doc.documentType === 'ID_CARD') {
+      return 'CCCD/CMND mặt trước người đại diện';
+    }
+    if (doc.documentType === 'DEGREE') {
+      return 'CCCD/CMND mặt sau người đại diện';
+    }
+  }
+
+  if (detail.userRole === 'CLIENT') {
+    if (doc.documentType === 'ID_CARD') return 'CCCD/CMND mặt trước';
+    if (doc.documentType === 'DEGREE') return 'CCCD/CMND mặt sau';
+  }
+
+  return DOC_LABEL[doc.documentType] ?? doc.documentType;
+}
 
 function verificationBadgeClass(status: VerificationStatus) {
   if (status === 'VERIFIED') return 'tcs-badge tcs-badge--active';
@@ -244,9 +278,9 @@ export default function PlatformVerificationsPage() {
                       <p className="adm-muted">Không có tài liệu đính kèm.</p>
                     ) : (
                       <ul className="pv-docs">
-                        {detail.documents.map((doc) => (
+                        {detail.documents.map((doc, index) => (
                           <li className="pv-docs__item" key={doc.documentId}>
-                            <span className="pv-docs__type">{DOC_LABEL[doc.documentType]}</span>
+                            <span className="pv-docs__type">{documentLabel(doc, detail, index)}</span>
                             {doc.available && doc.fileUrl ? (
                               <FileThumbnail
                                 src={doc.fileUrl}
