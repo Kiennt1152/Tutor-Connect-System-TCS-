@@ -11,10 +11,16 @@ import com.tcs.module.messaging.dto.response.SupportTicketResponse;
 import com.tcs.module.messaging.dto.request.ReplyTicketRequest;
 import com.tcs.module.messaging.dto.response.TicketMessageResponse;
 import com.tcs.module.messaging.entity.Notification;
+import com.tcs.module.messaging.enums.NotificationStatus;
+import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.messaging.service.MessagingService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
+import com.tcs.module.platform.enums.ReportCategory;
+import com.tcs.module.platform.enums.ReportTargetType;
+import com.tcs.module.profile.entity.PlatformAdmin;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.platform.entity.Report;
@@ -60,6 +66,7 @@ public class MessagingServiceImpl implements MessagingService {
     private final ReportRepository reportRepository;
     private final UserRepository userRepository;
     private final TutoringClassRepository tutoringClassRepository;
+    private final PlatformAdminRepository platformAdminRepository;
     private final TicketMessageRepository ticketMessageRepository;
 
     @Override
@@ -312,6 +319,9 @@ public class MessagingServiceImpl implements MessagingService {
         report.setDescription(request.getDescription() != null ? request.getDescription() : "");
         report.setEvidenceUrls(request.getEvidenceUrls());
         Report saved = reportRepository.save(report);
+
+        notifyAdminsNewReport(saved);
+
         return ReportResponse.builder()
                 .reportId(saved.getReportId())
                 .targetType(saved.getTargetType())
@@ -321,6 +331,51 @@ public class MessagingServiceImpl implements MessagingService {
                 .status(saved.getStatus())
                 .createdAt(saved.getCreatedAt())
                 .build();
+    }
+
+    private void notifyAdminsNewReport(Report report) {
+        List<PlatformAdmin> admins = platformAdminRepository.findAll();
+        if (admins.isEmpty()) {
+            return;
+        }
+        String content = String.format(
+                "Có báo cáo mới về %s (lý do: %s). Vào mục \"Nhận xét gia sư\" để kiểm tra.",
+                reportTargetLabel(report.getTargetType()), reportCategoryLabel(report.getCategory()));
+        for (PlatformAdmin admin : admins) {
+            Notification n = new Notification();
+            n.setUser(admin.getUser());
+            n.setType(NotificationType.REPORT);
+            n.setTitle("Báo cáo mới cần kiểm duyệt");
+            n.setContent(content);
+            n.setReferenceType("REPORT");
+            n.setReferenceId(report.getReportId());
+            n.setStatus(NotificationStatus.SENT);
+            n.setIsRead(false);
+            notificationRepository.save(n);
+        }
+    }
+
+    private String reportTargetLabel(ReportTargetType type) {
+        if (type == null) {
+            return "một nội dung";
+        }
+        return switch (type) {
+            case REVIEW -> "một nhận xét gia sư";
+            case USER -> "một người dùng";
+            case CLASS -> "một lớp học";
+        };
+    }
+
+    private String reportCategoryLabel(ReportCategory category) {
+        if (category == null) {
+            return "khác";
+        }
+        return switch (category) {
+            case FRAUD -> "sai sự thật / gian lận";
+            case ABUSE -> "lăng mạ / xúc phạm";
+            case INAPPROPRIATE -> "nội dung không phù hợp";
+            case OTHER -> "lý do khác";
+        };
     }
 
     private NotificationResponse toResponse(Notification n) {
@@ -333,6 +388,8 @@ public class MessagingServiceImpl implements MessagingService {
                 .referenceId(n.getReferenceId())
                 .isRead(n.getIsRead())
                 .createdAt(n.getCreatedAt())
+                .referenceType(n.getReferenceType())
+                .referenceId(n.getReferenceId())
                 .build();
     }
 }

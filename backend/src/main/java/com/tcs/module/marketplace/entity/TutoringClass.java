@@ -66,15 +66,27 @@ public class TutoringClass {
     @JoinColumn(name = "grade_id")
     private Grade grade;
 
+    @Column(name = "learning_goal", length = 100)
+    private String learningGoal;
+
+    @Column(name = "tutor_requirement", length = 255)
+    private String tutorRequirement;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id")
     private Location location;
+
+    @Column(name = "address", length = 255)
+    private String address;
 
     @Column(name = "title", length = 150, nullable = false)
     private String title;
 
     @Column(name = "description", columnDefinition = "TEXT", nullable = false)
     private String description;
+
+    @Column(name = "details_json", columnDefinition = "TEXT")
+    private String detailsJson;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "lesson_mode", length = 20, nullable = false)

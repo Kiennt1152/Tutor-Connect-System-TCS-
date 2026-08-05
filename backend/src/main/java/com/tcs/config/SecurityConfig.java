@@ -76,6 +76,10 @@ public class SecurityConfig {
                         // Tin đang mở: ai cũng xem được.
                         .requestMatchers(HttpMethod.GET, "/api/center/recruitment/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/contract/reviews/reviewable")
+                        .hasRole(RbacConstants.CLIENT)
+                        .requestMatchers(HttpMethod.GET, "/api/contract/reviews/my-reputation")
+                        .hasRole(RbacConstants.TUTOR)
                         // Quản lý danh sách gia sư của trung tâm.
                         .requestMatchers("/api/center/members", "/api/center/members/**")
                         .hasRole(RbacConstants.TUTOR_CENTER)
@@ -86,7 +90,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/finance/webhooks/**")
                         .permitAll()
 
-                        // --- Platform admin ---
                         .requestMatchers("/api/platform/**")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/finance/withdrawals")
@@ -118,7 +121,6 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/finance/refund-requests")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
-                        // --- Profile (specific before general) ---
                         .requestMatchers("/api/profile/children/**")
                         .hasRole(RbacConstants.CLIENT)
                         .requestMatchers("/api/profile/experiences/**", "/api/profile/availability/**")
@@ -128,7 +130,21 @@ public class SecurityConfig {
                         .requestMatchers("/api/profile/**")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
-                        // --- Marketplace mutations ---
+                        .requestMatchers(HttpMethod.GET, "/api/marketplace/lessons/mine", "/api/marketplace/assignments/mine")
+                        .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR)
+                        .requestMatchers(
+                                HttpMethod.GET, "/api/marketplace/lessons/requests")
+                        .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR)
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/marketplace/lessons/*/reschedule",
+                                "/api/marketplace/lessons/extra",
+                                "/api/marketplace/lessons/requests/*/decision",
+                                "/api/marketplace/lessons/requests/*/cancel")
+                        .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR)
+                        .requestMatchers("/api/marketplace/assignments/**", "/api/marketplace/lessons/**")
+                        .hasRole(RbacConstants.TUTOR)
+
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/register")
                         .hasAnyRole(RbacConstants.TUTOR, RbacConstants.CLIENT)
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/apply")
@@ -140,7 +156,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/marketplace/favorites/**")
                         .hasRole(RbacConstants.CLIENT)
 
-                        // --- Center: class management (UC-14-B) ---
                         .requestMatchers(
                                 "/api/center/classes/**",
                                 "/api/center/tutors",
@@ -153,11 +168,9 @@ public class SecurityConfig {
                                 "/api/center/reports/**")
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
-                        // --- Tutor: teaching schedule + attendance ---
                         .requestMatchers("/api/tutor/**")
                         .hasRole(RbacConstants.TUTOR)
 
-                        // --- Center mutations ---
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/*/apply")
                         .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/**")
@@ -183,21 +196,21 @@ public class SecurityConfig {
                         .requestMatchers("/api/finance/**")
                         .hasAnyRole(RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
 
-                        // --- Contract ---
+                        .requestMatchers(HttpMethod.POST, "/api/contract/reviews/*/reply")
+                        .hasRole(RbacConstants.TUTOR)
+                        .requestMatchers(HttpMethod.PUT, "/api/contract/reviews/*")
+                        .hasRole(RbacConstants.CLIENT)
                         .requestMatchers(HttpMethod.POST, "/api/contract/reviews")
                         .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
                         .requestMatchers("/api/contract/**")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
-                        // --- Messaging ---
                         .requestMatchers("/api/messaging/**")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
-                        // --- Identity (authenticated account) ---
                         .requestMatchers("/api/identity/me", "/api/identity/password")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
-                        // --- Default ---
                         .anyRequest()
                         .authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);

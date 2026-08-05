@@ -34,6 +34,8 @@ export function HomeNavbar() {
   const showWallet = hasAnyRole(user?.role, WALLET_ROLES);
   const showContract = hasAnyRole(user?.role, CONTRACT_ROLES);
   const showMessaging = hasAnyRole(user?.role, MESSAGING_ROLES);
+  const showFeedback = hasRole(user?.role, 'CLIENT');
+  const showMyReputation = hasRole(user?.role, 'TUTOR');
 
   return (
     <header className="tcs-header">
@@ -47,7 +49,7 @@ export function HomeNavbar() {
           <Link to="/#reviews">Đánh giá</Link>
         </nav>
         <div className="tcs-header__actions">
-          <NotificationBell />
+          <NotificationBell enabled={!!user} />
           {user ? (
             <>
               {hasRole(user.role, 'PLATFORM_ADMIN') ? (
@@ -61,7 +63,7 @@ export function HomeNavbar() {
                 </Link>
               ) : null}
               {showTutorSchedule ? (
-                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to="/tutor/schedule">
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.teaching}>
                   Lịch dạy
                 </Link>
               ) : null}
@@ -101,6 +103,24 @@ export function HomeNavbar() {
                       role="menuitem"
                     >
                       Thông báo
+                    </Link>
+                  ) : null}
+                  {showFeedback ? (
+                    <Link
+                      className="tcs-profile-menu__item"
+                      to={APP_ROUTES.feedback}
+                      role="menuitem"
+                    >
+                      Đánh giá của tôi
+                    </Link>
+                  ) : null}
+                  {showMyReputation ? (
+                    <Link
+                      className="tcs-profile-menu__item"
+                      to={APP_ROUTES.myReputation}
+                      role="menuitem"
+                    >
+                      Nhận xét về tôi
                     </Link>
                   ) : null}
                   {hasRole(user.role, 'PLATFORM_ADMIN') ? (

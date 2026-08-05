@@ -1,0 +1,81 @@
+/* ============ Giải thích công thức chấm độ phù hợp (trong cột trái) ============ */
+.fx {
+  background: #f7f9fc;
+  border: 1px solid #e3e9f2;
+  border-radius: 12px;
+  overflow: hidden;
+}
+.fx[open] { border-color: #f6d9c2; }
+/* Trong popup: bỏ vỏ thẻ, nội dung tự dùng nền trắng của modal. */
+.fx--bare { background: none; border: none; border-radius: 0; }
+.fx--bare .fx__body { padding: 0; }
+.fx__summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 14px;
+  cursor: pointer;
+  list-style: none;
+  user-select: none;
+}
+.fx__summary::-webkit-details-marker { display: none; }
+.fx__summary::before {
+  content: '▸';
+  color: #ea5a1c;
+  font-size: 11px;
+  margin-right: 6px;
+  transition: transform 0.15s;
+}
+.fx[open] .fx__summary::before { transform: rotate(90deg); }
+.fx__summary-title { flex: 1; font-size: 14px; font-weight: 700; color: #12233b; }
+.fx__summary-hint { font-size: 12px; color: #8592a3; white-space: nowrap; }
+
+.fx__body { padding: 4px 18px 18px; }
+.fx__lead { margin: 0 0 16px; font-size: 13.5px; line-height: 1.6; color: #5b6b7f; }
+.fx__lead strong { color: #12233b; }
+
+/* Công thức phân số */
+.fx__formula {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 20px 16px;
+  background: #fff3ea;
+  border: 1px solid #f6d9c2;
+  border-radius: 10px;
+  margin-bottom: 18px;
+  font-size: 15px;
+  color: #c2410c;
+}
+.fx__eq { font-weight: 700; white-space: nowrap; }
+.fx__frac { display: inline-flex; flex-direction: column; align-items: center; text-align: center; }
+.fx__num, .fx__den { padding: 2px 6px; white-space: nowrap; }
+.fx__bar { display: block; width: 100%; height: 2px; background: #c2410c; margin: 4px 0; }
+.fx__frac sub { font-size: 0.7em; }
+
+/* Chú thích mã tiêu chí */
+.fx__legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 16px; }
+.fx__legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #43546a; }
+.fx__badge {
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5px;
+  background: #ea5a1c;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.fx__foot {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #8592a3;
+}
+.fx__foot strong { color: #c2410c; }

@@ -1,6 +1,7 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
   AdminDisputeReviewApiResponse,
+  AdminReviewApiResponse,
   AdminTicketDetailApiResponse,
   AdminTicketFilters,
   AnnouncementApiResponse,
@@ -25,6 +26,7 @@ import type {
   RefundRequestApiResponse,
   RefundRequestStatus,
   ReportApiResponse,
+  ReviewModerationStatus,
   RespondTicketApiRequest,
   ReviewVerificationApiRequest,
   ResolveClassIssueRequest,
@@ -150,6 +152,19 @@ export const platformApi = {
 
   rejectRefundRequest(refundId: string, payload: RefundDecisionApiRequest) {
     return axiosClient.post<RefundRequestApiResponse>(`/finance/refund-requests/${refundId}/reject`, payload);
+  },
+
+  getReviews(status?: ReviewModerationStatus) {
+    const query = status ? `?status=${status}` : '';
+    return axiosClient.get<AdminReviewApiResponse[]>(`${BASE}/reviews${query}`);
+  },
+
+  moderateReview(reviewId: number, status: ReviewModerationStatus) {
+    return axiosClient.patch<AdminReviewApiResponse>(`${BASE}/reviews/${reviewId}`, { status });
+  },
+
+  deleteReview(reviewId: number) {
+    return axiosClient.delete<void>(`${BASE}/reviews/${reviewId}`);
   },
 
   getTickets(filters: AdminTicketFilters) {

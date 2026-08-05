@@ -13,10 +13,19 @@ public interface ClassAssignmentRepository extends JpaRepository<ClassAssignment
     List<ClassAssignment> findByApplication_TutoringClass_ClassIdAndStatus(
             Long classId, ClassAssignmentStatus status);
 
+    List<ClassAssignment> findByTutor_TutorIdOrderByAssignedDateDesc(Long tutorId);
+
+    List<ClassAssignment> findByApplication_TutoringClass_Creator_UserIdOrderByAssignedDateDesc(
+            Long creatorUserId);
+
+    Optional<ClassAssignment> findByApplication_ApplicationId(Long applicationId);
+
     Optional<ClassAssignment> findFirstByApplication_TutoringClass_ClassIdAndStatus(
             Long classId, ClassAssignmentStatus status);
 
     List<ClassAssignment> findByTutor_TutorIdAndStatus(Long tutorId, ClassAssignmentStatus status);
 
     Optional<ClassAssignment> findFirstByApplication_ApplicationId(Long applicationId);
+
+    List<ClassAssignment> findByApplication_TutoringClass_Creator_UserId(Long creatorUserId);
 }

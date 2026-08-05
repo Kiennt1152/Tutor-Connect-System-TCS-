@@ -141,7 +141,6 @@ export interface VerificationRequestItem {
 export interface ReviewVerificationApiRequest {
   status: 'VERIFIED' | 'REJECTED';
   adminNotes?: string;
-  /** updatedAt của hồ sơ lúc admin mở xem — để server chống ghi đè khi có người sửa song song. */
   expectedUpdatedAt?: string;
 }
 
@@ -545,6 +544,28 @@ export interface DisputeReviewItem {
   classTitle: string;
   createdAt: string;
   raw: AdminDisputeReviewApiResponse;
+}
+
+export type ReviewModerationStatus = 'VISIBLE' | 'HIDDEN' | 'MODERATED';
+
+export interface AdminReviewApiResponse {
+  reviewId: number;
+  rating: number | null;
+  comment: string | null;
+  criteriaJson: string | null;
+  status: ReviewModerationStatus;
+  reviewerId: number;
+  reviewerName: string | null;
+  reviewerEmail: string | null;
+  anonymous: boolean;
+  publicDisplayName: string | null;
+  tutorUserId: number;
+  tutorName: string | null;
+  classId: number | null;
+  classTitle: string | null;
+  subjectName: string | null;
+  tutorReply: string | null;
+  createdAt: string;
 }
 
 /* ── Support Tickets (admin) ── */

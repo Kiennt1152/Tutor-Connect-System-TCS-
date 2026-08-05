@@ -17,12 +17,18 @@ public class ClassResponse {
     private Long classId;
     private String title;
     private String description;
+    private String detailsJson;
     private Long creatorId;
     private String creatorName;
     private Long subjectId;
     private String subjectName;
     private Long gradeId;
     private String gradeName;
+    private String learningGoal;
+    private String tutorRequirement;
+    private Long locationId;
+    private String locationName;
+    private String address;
     private LessonMode lessonMode;
     private Integer numberOfSessions;
     private LocalDate startDate;
@@ -38,4 +44,5 @@ public class ClassResponse {
     private Long terminationClassStudentId;
     private List<ScheduleSlotResponse> schedule;
     private LocalDateTime createdAt;
+    private Long applicationCount;
 }

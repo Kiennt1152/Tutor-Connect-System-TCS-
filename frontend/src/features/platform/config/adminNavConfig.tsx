@@ -52,6 +52,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: APP_ROUTES.platformVerifications, label: 'Xác minh', icon: 'shield' },
       { to: APP_ROUTES.platformReports, label: 'Báo cáo & tranh chấp', icon: 'flag' },
       { to: APP_ROUTES.platformWithdrawals, label: 'Rút tiền', icon: 'wallet' },
+      { to: APP_ROUTES.platformReviews, label: 'Nhận xét gia sư', icon: 'star' },
       { to: APP_ROUTES.platformTickets, label: 'Yêu cầu hỗ trợ', icon: 'message' },
       { to: APP_ROUTES.platformFaq, label: 'Quản lý FAQ', icon: 'help' },
       { to: APP_ROUTES.platformAnnouncements, label: 'Thông báo hệ thống', icon: 'message' },
@@ -68,6 +69,7 @@ export const ADMIN_HOME_NAV: Pick<AdminNavItem, 'label' | 'to'>[] = [
   { label: 'Danh mục', to: APP_ROUTES.catalog },
   { label: 'Xác minh', to: APP_ROUTES.platformVerifications },
   { label: 'Báo cáo & tranh chấp', to: APP_ROUTES.platformReports },
+  { label: 'Nhận xét gia sư', to: APP_ROUTES.platformReviews },
 ];
 
 export const ADMIN_QUICK_ACTIONS: AdminModule[] = [
@@ -94,6 +96,12 @@ export const ADMIN_QUICK_ACTIONS: AdminModule[] = [
     title: 'Duyệt xác minh',
     description: 'Phê duyệt hồ sơ gia sư và trung tâm.',
     to: APP_ROUTES.platformVerifications,
+  },
+  {
+    icon: 'star',
+    title: 'Nhận xét gia sư',
+    description: 'Ẩn/hiện, đánh dấu vi phạm hoặc xóa đánh giá của khách hàng.',
+    to: APP_ROUTES.platformReviews,
   },
   {
     icon: 'flag',
