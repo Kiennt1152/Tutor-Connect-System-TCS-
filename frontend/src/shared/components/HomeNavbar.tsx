@@ -4,6 +4,7 @@ import { LogoutButton } from './LogoutButton';
 import { useAuth } from '../auth/AuthProvider';
 import { hasAnyRole, hasRole } from '../auth/rbac';
 import { APP_ROUTES } from '../constants/routes';
+import { NotificationBell } from './NotificationBell';
 import type { UserRole } from '../types/userRole';
 
 const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
@@ -48,6 +49,7 @@ export function HomeNavbar() {
           <Link to="/#reviews">Đánh giá</Link>
         </nav>
         <div className="tcs-header__actions">
+          <NotificationBell enabled={!!user} />
           {user ? (
             <>
               {hasRole(user.role, 'PLATFORM_ADMIN') ? (

@@ -10,6 +10,5 @@ import org.springframework.stereotype.Repository;
 public interface SystemParameterRepository extends JpaRepository<SystemParameter, Long> {
 
     Optional<SystemParameter> findByParamKey(String paramKey);
-
     List<SystemParameter> findByParamKeyStartingWith(String prefix);
 }

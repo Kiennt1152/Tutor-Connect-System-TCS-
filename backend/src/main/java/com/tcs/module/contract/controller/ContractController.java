@@ -2,17 +2,16 @@ package com.tcs.module.contract.controller;
 
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
 import com.tcs.module.contract.dto.request.ReplyReviewRequest;
-import com.tcs.module.contract.dto.request.SignContractRequest;
+import com.tcs.module.contract.dto.request.SignWithOtpRequest;
 import com.tcs.module.contract.dto.response.ContractResponse;
 import com.tcs.module.contract.dto.response.ContractSignatureListResponse;
-import com.tcs.module.contract.dto.response.OtpSentResponse;
 import com.tcs.module.contract.dto.response.ReviewResponse;
 import com.tcs.module.contract.dto.response.ReviewableAssignmentResponse;
-import com.tcs.module.contract.dto.response.SignatureStatusResponse;
 import com.tcs.module.contract.dto.response.TutorReputationResponse;
 import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.contract.service.ReviewService;
 import java.util.List;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -32,6 +31,8 @@ public class ContractController {
     private final ContractService contractService;
     private final ReviewService reviewService;
 
+    // ─── REVIEW (existing endpoints, delegate to ReviewService) ──────────────
+
     @PostMapping("/reviews")
     @ResponseStatus(HttpStatus.CREATED)
     public ReviewResponse createReview(@RequestBody CreateReviewRequest request) {
@@ -43,36 +44,33 @@ public class ContractController {
         return reviewService.getReviewsForTutor(tutorUserId);
     }
 
-    @GetMapping
+    // ─── CONTRACT ENDPOINTS (UC-44 M4 - DucHM) ──────────────────────────────
+
+    @GetMapping("/my")
     public List<ContractResponse> getMyContracts() {
         return contractService.getMyContracts();
     }
 
-    @GetMapping("/{contractId}")
-    public ContractResponse getContract(@PathVariable Long contractId) {
-        return contractService.getMyContract(contractId);
+    @GetMapping("/{id}")
+    public ContractResponse getContract(@PathVariable Long id) {
+        return contractService.getContract(id);
     }
 
-    @GetMapping("/{contractId}/signatures")
-    public SignatureStatusResponse getSignatureStatus(@PathVariable Long contractId) {
-        return contractService.getSignatureStatus(contractId);
+    @GetMapping("/{id}/signatures")
+    public ContractSignatureListResponse getSignatures(@PathVariable Long id) {
+        return contractService.getSignatures(id);
     }
 
-    @GetMapping("/{contractId}/signature-details")
-    public ContractSignatureListResponse getSignatureDetails(@PathVariable Long contractId) {
-        return contractService.getSignatures(contractId);
+
+
+    @PostMapping("/{id}/send-otp")
+    public Map<String, Object> sendOtp(@PathVariable Long id) {
+        return contractService.sendOtp(id);
     }
 
-    @PostMapping("/{contractId}/send-otp")
-    public OtpSentResponse sendSignOtp(@PathVariable Long contractId) {
-        return contractService.sendSignOtp(contractId);
-    }
-
-    @PostMapping("/{contractId}/sign")
-    public ContractResponse signContract(
-            @PathVariable Long contractId,
-            @RequestBody SignContractRequest request) {
-        return contractService.signContract(contractId, request);
+    @PostMapping("/{id}/sign")
+    public ContractResponse signWithOtp(@PathVariable Long id, @RequestBody SignWithOtpRequest request) {
+        return contractService.signWithOtp(id, request);
     }
 
     @PostMapping("/generate")
@@ -85,17 +83,6 @@ public class ContractController {
         return contractService.generateContract(assignmentId);
     }
 
-    @PostMapping("/generate/assignment/{assignmentId}")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ContractResponse generateForAssignment(@PathVariable Long assignmentId) {
-        return contractService.getMyContract(contractService.generateForAssignment(assignmentId).getContractId());
-    }
-
-    @PostMapping("/generate/enrollment/{classStudentId}")
-    @ResponseStatus(HttpStatus.CREATED)
-    public ContractResponse generateForEnrollment(@PathVariable Long classStudentId) {
-        return contractService.getMyContract(contractService.generateForEnrollment(classStudentId).getContractId());
-    }
 
     @PostMapping("/reviews/{reviewId}/reply")
     public ReviewResponse replyToReview(

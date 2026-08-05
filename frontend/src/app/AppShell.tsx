@@ -14,6 +14,7 @@ const NAV_ITEMS = [
   { to: APP_ROUTES.finance, label: 'Finance' },
   { to: APP_ROUTES.contract, label: 'Contract' },
   { to: APP_ROUTES.messaging, label: 'Messaging' },
+  { to: APP_ROUTES.aiAssistant, label: 'AI Assistant' },
   { to: APP_ROUTES.platform, label: 'Platform' },
 ];
 

@@ -3,7 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { useNotifications } from '../../features/messaging/hooks/useNotifications';
 import { notificationLink } from '../../features/messaging/notificationLink';
 import { useAuth } from '../auth/AuthProvider';
+import { platformApi } from '../../features/platform/api/platformApi';
 import type { NotificationItem } from '../../features/messaging/api/notificationsApi';
+import type { AnnouncementApiResponse } from '../../features/platform/types/platformTypes';
 import './NotificationBell.css';
 
 function timeAgo(iso: string): string {
@@ -17,14 +19,22 @@ function timeAgo(iso: string): string {
   return `${Math.floor(hours / 24)} ngày trước`;
 }
 
-export function NotificationBell({ enabled }: { readonly enabled: boolean }) {
+export function NotificationBell({ enabled = false }: { readonly enabled?: boolean }) {
   const { items, unread, markRead } = useNotifications(enabled);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [showRead, setShowRead] = useState(false);
   const [openedIds, setOpenedIds] = useState<number[]>([]);
+  const [announcements, setAnnouncements] = useState<AnnouncementApiResponse[]>([]);
   const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    platformApi
+      .getPublicAnnouncements()
+      .then((res) => setAnnouncements(res.data))
+      .catch((err) => console.error('Failed to load announcements:', err));
+  }, []);
 
   const historyReadCount = items.filter(
     (n) => n.isRead && !openedIds.includes(n.notificationId),
@@ -59,7 +69,7 @@ export function NotificationBell({ enabled }: { readonly enabled: boolean }) {
     return () => document.removeEventListener('mousedown', onDown);
   }, [open]);
 
-  if (!enabled) return null;
+  const hasDot = unread === 0 && announcements.length > 0;
 
   return (
     <div className="ntf" ref={ref}>
@@ -71,41 +81,62 @@ export function NotificationBell({ enabled }: { readonly enabled: boolean }) {
       >
         🔔
         {unread > 0 && <span className="ntf__badge">{unread > 9 ? '9+' : unread}</span>}
+        {hasDot && <span className="ntf__dot" />}
       </button>
 
       {open && (
         <div className="ntf__panel" role="menu">
-          <div className="ntf__head">Thông báo</div>
-          {visible.length === 0 ? (
-            <div className="ntf__empty">
-              {showRead ? 'Chưa có thông báo nào.' : 'Không có thông báo mới.'}
-            </div>
+          {enabled && (
+            <>
+              <div className="ntf__head">Thông báo</div>
+              {visible.length === 0 ? (
+                <div className="ntf__empty">
+                  {showRead ? 'Chưa có thông báo nào.' : 'Không có thông báo mới.'}
+                </div>
+              ) : (
+                <ul className="ntf__list">
+                  {visible.map((n) => {
+                    const link = notificationLink(n, user?.role);
+                    return (
+                      <li key={n.notificationId} className="ntf__item-row">
+                        <button
+                          type="button"
+                          className={`ntf__item ${n.isRead ? '' : 'ntf__item--unread'} ${
+                            link ? 'ntf__item--link' : ''
+                          }`}
+                          onClick={() => handleItemClick(n)}
+                        >
+                          <div className="ntf__item-title">{n.title}</div>
+                          <div className="ntf__item-content">{n.content}</div>
+                          <div className="ntf__item-time">{timeAgo(n.createdAt)}</div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {historyReadCount > 0 && (
+                <button type="button" className="ntf__toggle" onClick={() => setShowRead((v) => !v)}>
+                  {showRead ? 'Ẩn thông báo đã đọc' : `Xem thông báo đã đọc (${historyReadCount})`}
+                </button>
+              )}
+            </>
+          )}
+
+          <div className="ntf__head ntf__head--system">Thông báo hệ thống</div>
+          {announcements.length === 0 ? (
+            <div className="ntf__empty">Không có thông báo nào.</div>
           ) : (
             <ul className="ntf__list">
-              {visible.map((n) => {
-                const link = notificationLink(n, user?.role);
-                return (
-                  <li key={n.notificationId} className="ntf__item-row">
-                    <button
-                      type="button"
-                      className={`ntf__item ${n.isRead ? '' : 'ntf__item--unread'} ${
-                        link ? 'ntf__item--link' : ''
-                      }`}
-                      onClick={() => handleItemClick(n)}
-                    >
-                      <div className="ntf__item-title">{n.title}</div>
-                      <div className="ntf__item-content">{n.content}</div>
-                      <div className="ntf__item-time">{timeAgo(n.createdAt)}</div>
-                    </button>
-                  </li>
-                );
-              })}
+              {announcements.map((ann) => (
+                <li key={ann.announcementId} className="ntf__item-row">
+                  <div className="ntf__item">
+                    <div className="ntf__item-title">{ann.title}</div>
+                    <div className="ntf__item-content">{ann.content}</div>
+                  </div>
+                </li>
+              ))}
             </ul>
-          )}
-          {historyReadCount > 0 && (
-            <button type="button" className="ntf__toggle" onClick={() => setShowRead((v) => !v)}>
-              {showRead ? 'Ẩn thông báo đã đọc' : `Xem thông báo đã đọc (${historyReadCount})`}
-            </button>
           )}
         </div>
       )}

@@ -66,9 +66,9 @@ export default function ContractListPage() {
                 return (
                   <tr key={c.contractId}>
                     <td className="contract-no">{c.contractNo}</td>
-                    <td>{c.classTitle ?? '—'}</td>
-                    <td>{c.classType ?? '—'}</td>
-                    <td>{c.tuitionFee != null ? `${Number(c.tuitionFee).toLocaleString()} đ` : '—'}</td>
+                    <td>{c.clientName ?? '—'}</td>
+                    <td>{c.sourceType}</td>
+                    <td>—</td>
                     <td>
                       <span className={`status-badge ${st.cls}`}>{st.label}</span>
                     </td>

@@ -2,16 +2,24 @@ package com.tcs.module.platform.controller;
 
 import com.tcs.module.contract.enums.ReviewStatus;
 import com.tcs.module.identity.enums.UserStatus;
+import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
+import com.tcs.module.platform.dto.request.CloseTicketRequest;
 import com.tcs.module.platform.dto.request.ModerateReviewRequest;
+import com.tcs.module.platform.dto.request.RespondTicketRequest;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
+import com.tcs.module.platform.dto.request.UpdateTicketRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
 import com.tcs.module.platform.dto.response.AdminReviewResponse;
 import com.tcs.module.platform.dto.response.DashboardResponse;
+import com.tcs.module.platform.dto.response.PageSupportTicketResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
 import com.tcs.module.platform.dto.response.ReportResponse;
 import com.tcs.module.platform.dto.response.UserListItemResponse;
 import com.tcs.module.platform.dto.response.VerificationDetailResponse;
 import com.tcs.module.platform.dto.response.VerificationRequestResponse;
+import com.tcs.module.platform.enums.SupportTicketCategory;
+import com.tcs.module.platform.enums.SupportTicketPriority;
+import com.tcs.module.platform.enums.SupportTicketStatus;
 import com.tcs.module.platform.service.PlatformService;
 import com.tcs.module.profile.enums.UserRole;
 import jakarta.validation.Valid;
@@ -21,6 +29,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -90,5 +99,45 @@ public class PlatformController {
     @DeleteMapping("/reviews/{reviewId}")
     public void deleteReview(@PathVariable Long reviewId) {
         platformService.deleteReview(reviewId);
+    }
+
+    @PatchMapping("/reports/{reportId}/resolve")
+    public ReportResponse resolveReport(
+            @PathVariable Long reportId, @Valid @RequestBody com.tcs.module.platform.dto.request.ResolveReportRequest request) {
+        return platformService.resolveReport(reportId, request);
+    }
+
+    @GetMapping("/tickets")
+    public PageSupportTicketResponse getTickets(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) SupportTicketStatus status,
+            @RequestParam(required = false) SupportTicketCategory category,
+            @RequestParam(required = false) SupportTicketPriority priority,
+            @RequestParam(required = false) String keyword) {
+        return platformService.getTickets(page, size, status, category, priority, keyword);
+    }
+
+    @GetMapping("/tickets/{ticketId}")
+    public SupportTicketDetailResponse getTicketDetail(@PathVariable Long ticketId) {
+        return platformService.getTicketDetail(ticketId);
+    }
+
+    @PatchMapping("/tickets/{ticketId}")
+    public SupportTicketDetailResponse updateTicket(
+            @PathVariable Long ticketId, @RequestBody UpdateTicketRequest request) {
+        return platformService.updateTicket(ticketId, request);
+    }
+
+    @PostMapping("/tickets/{ticketId}/messages")
+    public SupportTicketDetailResponse respondToTicket(
+            @PathVariable Long ticketId, @Valid @RequestBody RespondTicketRequest request) {
+        return platformService.respondToTicket(ticketId, request);
+    }
+
+    @PatchMapping("/tickets/{ticketId}/status")
+    public SupportTicketDetailResponse closeTicket(
+            @PathVariable Long ticketId, @Valid @RequestBody CloseTicketRequest request) {
+        return platformService.closeTicket(ticketId, request);
     }
 }

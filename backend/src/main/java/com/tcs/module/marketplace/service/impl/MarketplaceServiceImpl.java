@@ -20,7 +20,6 @@ import com.tcs.module.catalog.repository.SubjectRepository;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
-import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
 import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
@@ -58,12 +57,11 @@ import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.MarketplaceService;
+import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
-import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
-import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
@@ -85,6 +83,13 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
+import com.tcs.common.classrequest.ClassRequestStore;
+import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
+import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
+import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
+import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
+import com.tcs.module.profile.repository.TutorCenterRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -110,6 +115,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final LessonRepository lessonRepository;
     private final LessonRescheduleRequestRepository rescheduleRequestRepository;
     private final com.tcs.module.messaging.repository.NotificationRepository notificationRepository;
+    private final AuditLogService auditLogService;
     private final TutorCenterRepository tutorCenterRepository;
     private final ClassRequestStore classRequestStore;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -161,7 +167,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         applyRequest(tutoringClass, request);
         tutoringClass.setBudget(request.getBudget() != null ? request.getBudget() : BigDecimal.ZERO);
         tutoringClass.setStatus(TutoringClassStatus.DRAFT);
-        return toClassResponse(tutoringClassRepository.save(tutoringClass));
+        TutoringClass saved = tutoringClassRepository.save(tutoringClass);
+        auditLogService.record(creator.getUserId(), "CREATE_CLASS", "TutoringClass", saved.getClassId(), null, request);
+        return toClassResponse(saved);
     }
 
     @Override
@@ -260,11 +268,14 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Transactional
     public ClassResponse publishClass(Long classId) {
         TutoringClass tutoringClass = findClass(classId);
-        if (!tutoringClass.getCreator().getUserId().equals(authHelper.currentUserId())) {
+        Long userId = authHelper.currentUserId();
+        if (!tutoringClass.getCreator().getUserId().equals(userId)) {
             throw new ForbiddenException("Không có quyền đăng lớp này");
         }
         tutoringClass.setStatus(TutoringClassStatus.OPEN);
-        return toClassResponse(tutoringClassRepository.save(tutoringClass));
+        TutoringClass saved = tutoringClassRepository.save(tutoringClass);
+        auditLogService.record(userId, "PUBLISH_CLASS", "TutoringClass", saved.getClassId(), null, null);
+        return toClassResponse(saved);
     }
 
     @Override
@@ -317,7 +328,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         application.setProposedRate(highestRate(rates, request.getProposedRate()));
         application.setCoverLetter(request.getCoverLetter());
         application.setStatus(TutorApplicationStatus.SUBMITTED);
-        tutorApplicationRepository.save(application);
+        TutorApplication saved = tutorApplicationRepository.save(application);
+        auditLogService.record(tutor.getUser().getUserId(), "APPLY_CLASS", "TutorApplication",
+                saved.getApplicationId(), null, request);
         notifyClientNewApplication(tutoringClass, tutor);
     }
 
@@ -1465,7 +1478,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             application.setTutoringClass(tutoringClass);
             application.setTutor(tutor);
             application.setStatus(TutorApplicationStatus.SUBMITTED);
-            tutorApplicationRepository.save(application);
+            TutorApplication saved = tutorApplicationRepository.save(application);
+            auditLogService.record(userId, "APPLY_CLASS", "TutorApplication", saved.getApplicationId(), null,
+                    java.util.Map.of("classId", classId));
             return;
         }
 
@@ -1482,7 +1497,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             student.setStudentPhone(client.getPhone());
             student.setStudentEmail(user.getEmail());
             student.setStatus(ClassStudentStatus.ENROLLED);
-            classStudentRepository.save(student);
+            ClassStudent savedStudent = classStudentRepository.save(student);
+            auditLogService.record(userId, "REGISTER_CLASS", "ClassStudent", savedStudent.getClassStudentId(),
+                    null, java.util.Map.of("classId", classId));
 
             // Đủ sĩ số tối đa -> tự đóng ghi danh. Lớp tự tạo đã gán gia sư trước khi mở ghi danh
             // nên đủ học sinh là đã ghép (MATCHED).
@@ -1528,15 +1545,18 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         favorite.setUser(user);
         favorite.setTutor(tutor);
         favoriteTutorRepository.save(favorite);
+        auditLogService.record(user.getUserId(), "ADD_FAVORITE_TUTOR", "Tutor", tutorId, null, null);
     }
 
     @Override
     @Transactional
     public void removeFavorite(Long tutorId) {
         authHelper.requireRole(UserRole.CLIENT);
+        Long userId = authHelper.currentUserId();
         favoriteTutorRepository
-                .findByUser_UserIdAndTutor_TutorId(authHelper.currentUserId(), tutorId)
+                .findByUser_UserIdAndTutor_TutorId(userId, tutorId)
                 .ifPresent(favoriteTutorRepository::delete);
+        auditLogService.record(userId, "REMOVE_FAVORITE_TUTOR", "Tutor", tutorId, null, null);
     }
 
     @Override
@@ -1552,83 +1572,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return tutoringClassRepository
                 .findById(classId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
-    }
-
-    // ===== Yêu cầu mở lớp gửi tới một trung tâm cụ thể (phía phụ huynh) =====
-
-    private static final int MAX_PENDING_CLASS_REQUESTS = 10;
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<CenterSummaryResponse> listCenters() {
-        return tutorCenterRepository.findAll().stream()
-                .filter(c -> c.getVerificationStatus() == ProfileVerificationStatus.VERIFIED)
-                .map(c -> CenterSummaryResponse.builder()
-                        .centerId(c.getCenterId())
-                        .companyName(c.getCompanyName())
-                        .description(c.getDescription())
-                        .address(c.getAddress())
-                        .phone(c.getPhone())
-                        .avatar(c.getAvatar())
-                        .build())
-                .toList();
-    }
-
-    @Override
-    @Transactional
-    public ClassRequestResponse createClassRequest(Long centerId, ClassRequestCreateRequest request) {
-        User creator = requireUser();
-        requireClient(creator.getUserId());
-        TutorCenter center = tutorCenterRepository
-                .findById(centerId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trung tâm"));
-        if (center.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
-            throw new IllegalArgumentException("Chỉ có thể gửi yêu cầu tới trung tâm đã được xác minh.");
-        }
-        if (!StringUtils.hasText(request.getNote())) {
-            throw new IllegalArgumentException("Vui lòng nhập nội dung nguyện vọng");
-        }
-        // Môn học không bắt buộc: phụ huynh chỉ gửi nguyện vọng ngắn gọn, môn nằm trong nội dung.
-        // Nếu có gửi categoryId thì kiểm tra tồn tại.
-        Category category = resolveCategory(request.getCategoryId());
-        long pending = classRequestStore.findByClient(creator.getUserId()).stream()
-                .filter(d -> ClassRequestStore.STATUS_PENDING.equals(d.status()))
-                .count();
-        if (pending >= MAX_PENDING_CLASS_REQUESTS) {
-            throw new IllegalArgumentException("Bạn đang có quá nhiều yêu cầu chờ xử lý.");
-        }
-        ClassRequestStore.ClassRequestData data = classRequestStore.create(
-                creator.getUserId(),
-                center.getCenterId(),
-                category != null ? category.getCategoryId() : null,
-                request.getNote().trim(),
-                request.getDesiredBudget());
-        return classRequestStore.toResponse(data);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ClassRequestResponse> listMyClassRequests() {
-        Long userId = requireUser().getUserId();
-        return classRequestStore.findByClient(userId).stream()
-                .map(classRequestStore::toResponse)
-                .toList();
-    }
-
-    @Override
-    @Transactional
-    public void cancelClassRequest(String requestId) {
-        Long userId = requireUser().getUserId();
-        ClassRequestStore.ClassRequestData data = classRequestStore
-                .find(requestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
-        if (!userId.equals(data.clientUserId())) {
-            throw new ForbiddenException("Bạn không có quyền hủy yêu cầu này");
-        }
-        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
-            throw new IllegalArgumentException("Chỉ hủy được yêu cầu đang chờ xử lý");
-        }
-        classRequestStore.delete(requestId);
     }
 
     private User requireUser() {
@@ -1739,5 +1682,61 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .ratingAvg(tutor.getRatingAvg())
                 .verificationStatus(tutor.getVerificationStatus().name())
                 .build();
+    }
+
+    // ===== Yêu cầu mở lớp gửi tới một trung tâm cụ thể (phía phụ huynh) =====
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CenterSummaryResponse> listCenters() {
+        return tutorCenterRepository.findAll().stream()
+                .filter(c -> c.getVerificationStatus() == ProfileVerificationStatus.VERIFIED)
+                .map(c -> CenterSummaryResponse.builder()
+                        .centerId(c.getCenterId())
+                        .companyName(c.getCompanyName())
+                        .description(c.getDescription())
+                        .address(c.getAddress())
+                        .phone(c.getPhone())
+                        .avatar(c.getAvatar())
+                        .build())
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ClassRequestResponse createClassRequest(Long centerId, ClassRequestCreateRequest request) {
+        User user = requireUser();
+        TutorCenter center = tutorCenterRepository.findById(centerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trung tâm"));
+        if (center.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
+            throw new IllegalArgumentException("Trung tâm chưa được xác minh");
+        }
+        ClassRequestStore.ClassRequestData data = classRequestStore.create(
+                user.getUserId(), centerId, request.getCategoryId(), request.getNote(), request.getDesiredBudget());
+        return classRequestStore.toResponse(data);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassRequestResponse> listMyClassRequests() {
+        User user = requireUser();
+        return classRequestStore.findByClient(user.getUserId()).stream()
+                .map(classRequestStore::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public void cancelClassRequest(String requestId) {
+        User user = requireUser();
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
+        if (!user.getUserId().equals(data.clientUserId())) {
+            throw new ForbiddenException("Không có quyền hủy yêu cầu này");
+        }
+        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
+            throw new IllegalArgumentException("Chỉ có thể hủy yêu cầu đang chờ xử lý");
+        }
+        classRequestStore.delete(requestId);
     }
 }

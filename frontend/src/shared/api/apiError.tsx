@@ -11,7 +11,7 @@ export const OFFLINE_ERROR_MESSAGE =
  * - Có `response.data.message` dạng chuỗi -> dùng thông báo đó
  * - Các trường hợp còn lại -> `fallback`
  */
-export function getApiErrorMessage(error: unknown, fallback: string): string {
+export function getApiErrorMessage(error: unknown, fallback: string = 'Đã xảy ra lỗi hệ thống. Vui lòng thử lại.'): string {
   if (axios.isAxiosError(error)) {
     if (!error.response) {
       return OFFLINE_ERROR_MESSAGE;
