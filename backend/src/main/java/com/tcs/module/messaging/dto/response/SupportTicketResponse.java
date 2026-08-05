@@ -12,9 +12,20 @@ import lombok.Getter;
 public class SupportTicketResponse {
 
     private Long ticketId;
+    private Long userId;
+    private Long targetClassId;
+    private Long assignedAdminId;
     private SupportTicketCategory category;
     private String subject;
+    private String description;
+    private String evidenceUrls;
     private SupportTicketPriority priority;
     private SupportTicketStatus status;
+    private LocalDateTime resolvedAt;
+    private LocalDateTime closedAt;
+    private LocalDateTime dueAt;
+    private Boolean slaBreached;
+    private Long responseSlaMs;
     private LocalDateTime createdAt;
+    private LocalDateTime updatedAt;
 }

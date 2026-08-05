@@ -1,6 +1,7 @@
 import type { FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useProfile } from '../hooks/useProfile';
 import type {
   Gender,
@@ -445,13 +446,13 @@ export default function ProfilePage() {
               {profile.verificationStatus === 'REJECTED' && (
                 <p>Hồ sơ bị từ chối. Vui lòng cập nhật thông tin rồi nộp lại.</p>
               )}
-              <Link to="/profile/verification" className="btn-primary-link">
+              <Link to={APP_ROUTES.verification} className="btn-primary-link">
                 Nộp hồ sơ xác minh
               </Link>
             </>
           )}
           <p className="profile-hint">
-            <Link to="/profile/verification">Xem chi tiết hồ sơ xác minh</Link>
+            <Link to={APP_ROUTES.verification}>Xem chi tiết hồ sơ xác minh</Link>
           </p>
         </section>
       )}

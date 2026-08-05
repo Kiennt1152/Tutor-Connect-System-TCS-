@@ -336,7 +336,6 @@ function HomePage() {
     reload: reloadClasses,
   } = useOpenClasses();
   const { user, isAuthenticated } = useAuth();
-
   const isEmpty = useMemo(
     () =>
       status === 'success' &&

@@ -45,10 +45,18 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     label: 'Vận hành',
     items: [
+      { to: APP_ROUTES.platformTasks, label: 'Hàng đợi công việc', icon: 'check-square' as any },
+      { to: APP_ROUTES.platformAnalytics, label: 'Báo cáo & Phân tích', icon: 'bar-chart' },
       { to: APP_ROUTES.platformUsers, label: 'Người dùng', icon: 'users' },
       { to: APP_ROUTES.catalog, label: 'Danh mục', icon: 'folder' },
       { to: APP_ROUTES.platformVerifications, label: 'Xác minh', icon: 'shield' },
       { to: APP_ROUTES.platformReports, label: 'Báo cáo', icon: 'flag' },
+      { to: APP_ROUTES.platformTickets, label: 'Yêu cầu hỗ trợ', icon: 'message' },
+      { to: APP_ROUTES.platformFaq, label: 'Quản lý FAQ', icon: 'help' },
+      { to: APP_ROUTES.platformAnnouncements, label: 'Thông báo hệ thống', icon: 'message' },
+      { to: APP_ROUTES.platformPenalties, label: 'Xử phạt', icon: 'flag' },
+      { to: APP_ROUTES.platformAuditLogs, label: 'Nhật ký hoạt động', icon: 'shield' },
+      { to: APP_ROUTES.platformParameters, label: 'Cấu hình hệ thống', icon: 'folder' },
     ],
   },
 ];
@@ -120,6 +128,12 @@ export const ADMIN_STATS: AdminStatConfig[] = [
     icon: 'book',
   },
   {
+    key: 'activeClasses',
+    label: 'Lớp đang diễn ra',
+    tone: 'primary',
+    icon: 'book',
+  },
+  {
     key: 'pendingVerifications',
     label: 'Xác minh chờ duyệt',
     tone: 'warn',
@@ -133,9 +147,35 @@ export const ADMIN_STATS: AdminStatConfig[] = [
     icon: 'flag',
     to: APP_ROUTES.platformReports,
   },
+  {
+    key: 'openTickets',
+    label: 'Khiếu nại & Hỗ trợ',
+    tone: 'warn',
+    icon: 'message',
+    to: APP_ROUTES.platformTickets,
+  },
+  {
+    key: 'openDisputes',
+    label: 'Tranh chấp giao dịch',
+    tone: 'warn',
+    icon: 'flag',
+    to: APP_ROUTES.platformTasks,
+  },
 ];
 
 export const ADMIN_PRIORITY_ITEMS = [
+  {
+    key: 'openDisputes' as const,
+    label: 'Tranh chấp giao dịch',
+    icon: 'flag' as const,
+    to: APP_ROUTES.platformTasks,
+  },
+  {
+    key: 'pendingWithdrawals' as const,
+    label: 'Rút tiền chờ duyệt',
+    icon: 'check-square' as const,
+    to: APP_ROUTES.platformTasks,
+  },
   {
     key: 'pendingVerifications' as const,
     label: 'Xác minh chờ duyệt',
@@ -147,5 +187,11 @@ export const ADMIN_PRIORITY_ITEMS = [
     label: 'Báo cáo đang mở',
     icon: 'flag' as const,
     to: APP_ROUTES.platformReports,
+  },
+  {
+    key: 'openTickets' as const,
+    label: 'Khiếu nại & Hỗ trợ',
+    icon: 'message' as const,
+    to: APP_ROUTES.platformTickets,
   },
 ];

@@ -27,6 +27,11 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
     @Query("SELECT COUNT(c) FROM Contract c WHERE FUNCTION('DATE', c.createdAt) = FUNCTION('DATE', CURRENT_DATE)")
     long countTodayContracts();
 
+    long countByStatus(ContractStatus status);
+
+    @Query("SELECT c FROM Contract c LEFT JOIN c.assignment a LEFT JOIN a.application app LEFT JOIN app.tutoringClass tc WHERE (app.tutor.user.userId = :userId) OR (tc.creator.userId = :userId)")
+    List<Contract> findContractsByUserId(@Param("userId") Long userId);
+
     @Query("SELECT DISTINCT c FROM Contract c WHERE "
             + "c.assignment IS NOT NULL AND c.assignment.tutor.user.userId = :userId")
     List<Contract> findByAssignment_Tutor_UserId(@Param("userId") Long userId);

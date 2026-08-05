@@ -72,6 +72,7 @@ import com.tcs.module.marketplace.dto.RescheduleEntry;
 import com.tcs.module.marketplace.dto.SubstitutionEntry;
 import com.tcs.module.marketplace.service.RescheduleService;
 import com.tcs.module.marketplace.service.SubstitutionService;
+import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
@@ -89,12 +90,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
-import com.tcs.common.classrequest.ClassRequestStore;
-import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
+
+import com.tcs.common.classrequest.ClassRequestStore;
+import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 
 @Service
 @RequiredArgsConstructor
@@ -122,6 +124,7 @@ public class CenterServiceImpl implements CenterService {
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final RescheduleService rescheduleService;
     private final SubstitutionService substitutionService;
+    private final AuditLogService auditLogService;
     private final SystemParameterRepository systemParameterRepository;
     private final ClassRequestStore classRequestStore;
 
@@ -247,9 +250,6 @@ public class CenterServiceImpl implements CenterService {
             throw new IllegalArgumentException("Chỉ tin ở trạng thái nháp mới có thể chỉnh sửa");
         }
         validate(request);
-        if (request.getClassId() != null) {
-            validateClassRecruitable(request.getClassId());
-        }
         applyFields(post, request);
         RecruitmentPost saved = recruitmentPostRepository.save(post);
         savePostClassLink(saved.getRecruitmentId(), request.getClassId());
@@ -266,12 +266,11 @@ public class CenterServiceImpl implements CenterService {
         if (post.getStatus() != RecruitmentPostStatus.DRAFT) {
             throw new IllegalArgumentException("Chỉ tin ở trạng thái nháp mới có thể đăng tải");
         }
-        // Kiểm tra lại tại thời điểm đăng: lớp gắn kèm vẫn phải là lớp "theo yêu cầu" và chưa có
-        // gia sư chính (lớp có thể đã được gán gia sư sau khi tạo/sửa nháp).
-        findPostClassId(recruitmentId).ifPresent(this::validateClassRecruitable);
         post.setStatus(RecruitmentPostStatus.ACTIVE);
         post.setPublishedAt(LocalDateTime.now());
-        return toResponse(recruitmentPostRepository.save(post));
+        RecruitmentPost saved = recruitmentPostRepository.save(post);
+        auditLogService.record(center.getUser().getUserId(), "PUBLISH_RECRUITMENT_POST", "RecruitmentPost", saved.getRecruitmentId(), null, null);
+        return toResponse(saved);
     }
 
     @Override
@@ -286,57 +285,6 @@ public class CenterServiceImpl implements CenterService {
         post.setStatus(RecruitmentPostStatus.CLOSED);
         post.setClosedAt(LocalDateTime.now());
         return toResponse(recruitmentPostRepository.save(post));
-    }
-
-    // ===================== Yêu cầu mở lớp do phụ huynh gửi =====================
-
-    @Override
-    @Transactional(readOnly = true)
-    public List<ClassRequestResponse> listIncomingClassRequests() {
-        TutorCenter center = requireCenter();
-        return classRequestStore.findByCenter(center.getCenterId()).stream()
-                .map(classRequestStore::toResponse)
-                .toList();
-    }
-
-    @Override
-    @Transactional
-    public CenterClassResponse acceptClassRequest(String requestId, SaveClassRequest body) {
-        TutorCenter center = requireCenter();
-        requireVerifiedCenter(center);
-        ClassRequestStore.ClassRequestData data = requirePendingRequestForCenter(requestId, center);
-        // Yêu cầu của phụ huynh -> luôn tạo lớp "theo yêu cầu" (EXTERNAL).
-        body.setOriginType(ORIGIN_EXTERNAL);
-        CenterClassResponse created = createClass(body);
-        classRequestStore.save(new ClassRequestStore.ClassRequestData(
-                data.requestId(), data.clientUserId(), data.centerId(), data.categoryId(),
-                data.note(), data.desiredBudget(), ClassRequestStore.STATUS_ACCEPTED, null, data.createdAt()));
-        return created;
-    }
-
-    @Override
-    @Transactional
-    public void rejectClassRequest(String requestId, String reason) {
-        TutorCenter center = requireCenter();
-        ClassRequestStore.ClassRequestData data = requirePendingRequestForCenter(requestId, center);
-        classRequestStore.save(new ClassRequestStore.ClassRequestData(
-                data.requestId(), data.clientUserId(), data.centerId(), data.categoryId(),
-                data.note(), data.desiredBudget(), ClassRequestStore.STATUS_REJECTED,
-                StringUtils.hasText(reason) ? reason.trim() : null, data.createdAt()));
-    }
-
-    private ClassRequestStore.ClassRequestData requirePendingRequestForCenter(
-            String requestId, TutorCenter center) {
-        ClassRequestStore.ClassRequestData data = classRequestStore
-                .find(requestId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
-        if (!center.getCenterId().equals(data.centerId())) {
-            throw new ForbiddenException("Yêu cầu này không gửi tới trung tâm của bạn");
-        }
-        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
-            throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
-        }
-        return data;
     }
 
     @Override
@@ -509,6 +457,7 @@ public class CenterServiceImpl implements CenterService {
                                     request.getAddressDetail())
                             : null);
         }
+
     }
 
     // ===================== UC-14-B: Manage Classes (Tutor Center) =====================
@@ -548,6 +497,8 @@ public class CenterServiceImpl implements CenterService {
         saveClassOrigin(saved.getClassId(), request.getOriginType());
 
         replaceScheduleSlots(saved, request);
+        auditLogService.record(center.getUser().getUserId(), "CREATE_CENTER_CLASS", "TutoringClass",
+                saved.getClassId(), null, request);
         return toClassResponse(saved);
     }
 
@@ -568,6 +519,8 @@ public class CenterServiceImpl implements CenterService {
         saveClassOrigin(saved.getClassId(), request.getOriginType());
 
         replaceScheduleSlots(saved, request);
+        auditLogService.record(authHelper.currentUserId(), "UPDATE_CENTER_CLASS", "TutoringClass",
+                saved.getClassId(), null, request);
         return toClassResponse(saved);
     }
 
@@ -665,14 +618,13 @@ public class CenterServiceImpl implements CenterService {
     @Override
     @Transactional
     public CenterClassResponse assignTutor(Long classId, Long tutorId) {
-        TutorCenter center = requireCenter();
+        requireCenter();
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass);
         requireStaffable(tutoringClass);
         if (tutorId == null) {
             throw new IllegalArgumentException("Vui lòng chọn gia sư");
         }
-        requireActiveCenterTutor(center.getCenterId(), tutorId);
         Tutor tutor = tutorRepository
                 .findById(tutorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
@@ -704,21 +656,6 @@ public class CenterServiceImpl implements CenterService {
                 // ok
             }
             default -> throw new IllegalArgumentException("Lớp này không thể gán gia sư nữa.");
-        }
-    }
-
-    /**
-     * Chỉ được gán gia sư là thành viên ĐANG HOẠT ĐỘNG (ACTIVE) trong danh sách gia sư của
-     * chính trung tâm. Chặn việc gọi API thủ công với tutorId bất kỳ (gia sư ngoài / đã rời trung tâm).
-     */
-    private void requireActiveCenterTutor(Long centerId, Long tutorId) {
-        CenterTutorMembership membership = membershipRepository
-                .findFirstByCenter_CenterIdAndTutor_TutorId(centerId, tutorId)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Gia sư này không thuộc danh sách gia sư của trung tâm."));
-        if (membership.getStatus() != CenterTutorMembershipStatus.ACTIVE) {
-            throw new IllegalArgumentException(
-                    "Gia sư này không còn là thành viên đang hoạt động của trung tâm.");
         }
     }
 
@@ -819,20 +756,20 @@ public class CenterServiceImpl implements CenterService {
             tutoringClass.setStatus(TutoringClassStatus.ENROLLMENT_CLOSED);
             tutoringClassRepository.save(tutoringClass);
         }
+        auditLogService.record(authHelper.currentUserId(), "UNASSIGN_TUTOR", "TutoringClass", classId, null, null);
         return toClassResponse(tutoringClass);
     }
 
     @Override
     @Transactional
     public CenterClassResponse assignAssistant(Long classId, Long tutorId) {
-        TutorCenter center = requireCenter();
+        requireCenter();
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass);
         requireStaffable(tutoringClass);
         if (tutorId == null) {
             throw new IllegalArgumentException("Vui lòng chọn gia sư phụ");
         }
-        requireActiveCenterTutor(center.getCenterId(), tutorId);
         Tutor tutor = tutorRepository
                 .findById(tutorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
@@ -847,6 +784,8 @@ public class CenterServiceImpl implements CenterService {
         }
 
         substitutionService.assignAssistant(classId, tutor.getTutorId());
+        auditLogService.record(authHelper.currentUserId(), "ASSIGN_ASSISTANT", "TutoringClass", classId,
+                null, java.util.Map.of("tutorId", tutorId));
         return toClassResponse(tutoringClass);
     }
 
@@ -857,6 +796,7 @@ public class CenterServiceImpl implements CenterService {
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass);
         substitutionService.removeAssistant(classId);
+        auditLogService.record(authHelper.currentUserId(), "UNASSIGN_ASSISTANT", "TutoringClass", classId, null, null);
         return toClassResponse(tutoringClass);
     }
 
@@ -943,6 +883,8 @@ public class CenterServiceImpl implements CenterService {
         requireOwner(c); // chỉ trung tâm sở hữu lớp mới được duyệt
         RescheduleEntry entry =
                 rescheduleService.decide(body.getClassId(), body.getOriginalDate(), body.isApprove());
+        auditLogService.record(authHelper.currentUserId(), "DECIDE_RESCHEDULE", "TutoringClass", body.getClassId(),
+                null, body);
         return toRescheduleResponse(entry, c);
     }
 
@@ -969,6 +911,8 @@ public class CenterServiceImpl implements CenterService {
         requireOwner(c); // chỉ trung tâm sở hữu lớp mới được duyệt
         SubstitutionEntry entry =
                 substitutionService.decide(body.getClassId(), body.getDate(), body.isApprove());
+        auditLogService.record(authHelper.currentUserId(), "DECIDE_SUBSTITUTION", "TutoringClass", body.getClassId(),
+                null, body);
         return toSubstitutionResponse(entry, c);
     }
 
@@ -1745,5 +1689,58 @@ public class CenterServiceImpl implements CenterService {
                                 .build())
                         .toList())
                 .orElseGet(List::of);
+    }
+
+    // ===== Yêu cầu mở lớp do phụ huynh gửi tới trung tâm =====
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassRequestResponse> listIncomingClassRequests() {
+        TutorCenter center = requireCenter();
+        return classRequestStore.findByCenter(center.getCenterId()).stream()
+                .map(classRequestStore::toResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public CenterClassResponse acceptClassRequest(String requestId, SaveClassRequest body) {
+        TutorCenter center = requireCenter();
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
+        if (!center.getCenterId().equals(data.centerId())) {
+            throw new ForbiddenException("Không có quyền xử lý yêu cầu này");
+        }
+        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
+        }
+
+        CenterClassResponse classResponse = createClass(body);
+
+        ClassRequestStore.ClassRequestData updated = new ClassRequestStore.ClassRequestData(
+                data.requestId(), data.clientUserId(), data.centerId(), data.categoryId(),
+                data.note(), data.desiredBudget(), ClassRequestStore.STATUS_ACCEPTED, null, data.createdAt());
+        classRequestStore.save(updated);
+
+        return classResponse;
+    }
+
+    @Override
+    @Transactional
+    public void rejectClassRequest(String requestId, String reason) {
+        TutorCenter center = requireCenter();
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
+        if (!center.getCenterId().equals(data.centerId())) {
+            throw new ForbiddenException("Không có quyền xử lý yêu cầu này");
+        }
+        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
+        }
+
+        ClassRequestStore.ClassRequestData updated = new ClassRequestStore.ClassRequestData(
+                data.requestId(), data.clientUserId(), data.centerId(), data.categoryId(),
+                data.note(), data.desiredBudget(), ClassRequestStore.STATUS_REJECTED, reason, data.createdAt());
+        classRequestStore.save(updated);
     }
 }

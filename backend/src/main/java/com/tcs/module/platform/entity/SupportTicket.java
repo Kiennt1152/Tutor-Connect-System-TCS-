@@ -69,6 +69,15 @@ public class SupportTicket {
     @Column(name = "status", length = 20, nullable = false)
     private SupportTicketStatus status = SupportTicketStatus.OPEN;
 
+    @Column(name = "due_at")
+    private LocalDateTime dueAt;
+
+    @Column(name = "sla_breached")
+    private Boolean slaBreached;
+
+    @Column(name = "response_sla_ms")
+    private Long responseSlaMs;
+
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
 

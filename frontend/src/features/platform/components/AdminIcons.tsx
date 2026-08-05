@@ -10,7 +10,11 @@ export type AdminIconKey =
   | 'flag'
   | 'book'
   | 'graduation'
-  | 'folder';
+  | 'folder'
+  | 'message'
+  | 'help'
+  | 'bar-chart'
+  | 'check-square';
 
 export type AdminIconSize = 'sm' | 'md' | 'lg';
 
@@ -80,6 +84,24 @@ export function IconFolder({ className }: IconProps) {
   );
 }
 
+export function IconMessage({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+export function IconHelp({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4" />
+      <line x1="12" y1="17" x2="12" y2="17" />
+    </svg>
+  );
+}
+
 export function IconUser({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -105,6 +127,10 @@ const ADMIN_ICONS: Record<AdminIconKey, ComponentType<IconProps>> = {
   book: IconBook,
   graduation: IconGraduationCap,
   folder: IconFolder,
+  message: IconMessage,
+  help: IconHelp,
+  'bar-chart': IconDashboard,
+  'check-square': IconBook,
 };
 
 type AdminIconProps = {
