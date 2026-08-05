@@ -15,6 +15,10 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalRequest, Long> {
 
+    long countByStatus(WithdrawalRequestStatus status);
+
+    List<WithdrawalRequest> findByStatusOrderByRequestedAtAsc(WithdrawalRequestStatus status);
+
     List<WithdrawalRequest> findByStatusAndRequestedAtBeforeOrderByRequestedAtAsc(
             WithdrawalRequestStatus status,
             LocalDateTime requestedAt);

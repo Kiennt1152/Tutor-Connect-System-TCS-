@@ -9,6 +9,7 @@ import com.tcs.module.identity.service.VerificationService;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.mapper.UserProfileBundle;
+import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.dto.request.ChildProfileRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
@@ -83,6 +84,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final TutorAvailabilityRepository tutorAvailabilityRepository;
     private final VerificationService verificationService;
     private final PlatformMapper platformMapper;
+    private final AuditLogService auditLogService;
 
     @Override
     @Transactional(readOnly = true)
@@ -105,6 +107,8 @@ public class ProfileServiceImpl implements ProfileService {
             ctx.user().setProfileCompletedAt(LocalDateTime.now());
             userRepository.save(ctx.user());
         }
+        auditLogService.record(ctx.user().getUserId(), "UPDATE_PROFILE", ctx.role().name(),
+                ctx.user().getUserId(), null, request);
         return toProfileResponse(ctx);
     }
 
@@ -132,6 +136,8 @@ public class ProfileServiceImpl implements ProfileService {
         link.setChildProfile(saved);
         link.setStatus(ParentChildLinkStatus.ACTIVE);
         parentChildLinkRepository.save(link);
+        auditLogService.record(ctx.user().getUserId(), "CREATE_CHILD_PROFILE", "ChildProfile",
+                saved.getChildProfileId(), null, request);
         return toChildResponse(saved);
     }
 
@@ -148,6 +154,8 @@ public class ProfileServiceImpl implements ProfileService {
         link.setChildProfile(child);
         link.setStatus(ParentChildLinkStatus.ACTIVE);
         parentChildLinkRepository.save(link);
+        auditLogService.record(ctx.user().getUserId(), "LINK_CHILD_PROFILE", "ChildProfile",
+                child.getChildProfileId(), null, request);
         return toChildResponse(child);
     }
 
@@ -174,7 +182,10 @@ public class ProfileServiceImpl implements ProfileService {
         exp.setStartDate(request.getStartDate());
         exp.setEndDate(request.getEndDate());
         exp.setDescription(request.getDescription());
-        return toExperienceResponse(tutorExperienceRepository.save(exp));
+        TutorExperience saved = tutorExperienceRepository.save(exp);
+        auditLogService.record(tutor.getUser().getUserId(), "ADD_EXPERIENCE", "TutorExperience",
+                saved.getExperienceId(), null, request);
+        return toExperienceResponse(saved);
     }
 
     @Override
@@ -188,6 +199,8 @@ public class ProfileServiceImpl implements ProfileService {
             throw new ForbiddenException("Không có quyền xóa kinh nghiệm này");
         }
         tutorExperienceRepository.delete(exp);
+        auditLogService.record(tutor.getUser().getUserId(), "DELETE_EXPERIENCE", "TutorExperience",
+                experienceId, null, null);
     }
 
     @Override
@@ -213,7 +226,10 @@ public class ProfileServiceImpl implements ProfileService {
         availability.setEndTime(request.getEndTime());
         availability.setRecurring(request.getRecurring() != null ? request.getRecurring() : true);
         availability.setSpecificDate(request.getSpecificDate());
-        return toAvailabilityResponse(tutorAvailabilityRepository.save(availability));
+        TutorAvailability saved = tutorAvailabilityRepository.save(availability);
+        auditLogService.record(tutor.getUser().getUserId(), "ADD_AVAILABILITY", "TutorAvailability",
+                saved.getAvailabilityId(), null, request);
+        return toAvailabilityResponse(saved);
     }
 
     @Override
@@ -227,6 +243,8 @@ public class ProfileServiceImpl implements ProfileService {
             throw new ForbiddenException("Không có quyền xóa lịch này");
         }
         tutorAvailabilityRepository.delete(availability);
+        auditLogService.record(tutor.getUser().getUserId(), "DELETE_AVAILABILITY", "TutorAvailability",
+                availabilityId, null, null);
     }
 
     @Override
@@ -289,6 +307,8 @@ public class ProfileServiceImpl implements ProfileService {
             }
             default -> log.warn("uploadAvatar called with unsupported role: {}", ctx.role());
         }
+        auditLogService.record(ctx.user().getUserId(), "UPLOAD_AVATAR", ctx.role().name(),
+                ctx.user().getUserId(), null, java.util.Map.of("avatarUrl", avatarUrl));
         return avatarUrl;
     }
 

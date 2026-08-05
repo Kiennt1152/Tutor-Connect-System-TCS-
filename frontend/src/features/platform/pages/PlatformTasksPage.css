@@ -1,0 +1,88 @@
+.adm-task-kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.adm-task-kpis .adm-summary-card {
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.adm-task-kpis .adm-summary-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.adm-task-kpi--active {
+  border: 2px solid var(--tcs-primary, #3b82f6) !important;
+  background-color: #f0f7ff;
+}
+
+.adm-task-kpi--active .adm-summary-card__label {
+  color: var(--tcs-primary, #3b82f6);
+  font-weight: 600;
+}
+
+.task-priority-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.task-priority-badge--urgent {
+  background-color: #fee2e2;
+  color: #ef4444;
+}
+
+.task-priority-badge--high {
+  background-color: #ffedd5;
+  color: #f97316;
+}
+
+.task-priority-badge--medium {
+  background-color: #dbeafe;
+  color: #3b82f6;
+}
+
+.task-priority-badge--low {
+  background-color: #f1f5f9;
+  color: #64748b;
+}
+
+.task-type-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.task-type-badge--verification {
+  background-color: #f3e8ff;
+  color: #9333ea;
+}
+
+.task-type-badge--report {
+  background-color: #fee2e2;
+  color: #ef4444;
+}
+
+.task-type-badge--support_ticket {
+  background-color: #e0f2fe;
+  color: #0284c7;
+}
+
+.task-type-badge--withdrawal {
+  background-color: #dcfce7;
+  color: #22c55e;
+}
+
+.task-type-badge--dispute {
+  background-color: #fecdd3;
+  color: #e11d48;
+}

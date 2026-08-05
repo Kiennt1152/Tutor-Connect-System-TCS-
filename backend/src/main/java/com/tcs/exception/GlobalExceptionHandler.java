@@ -82,6 +82,13 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    @ExceptionHandler(IllegalStateException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalState(IllegalStateException exception) {
+        Map<String, String> body = new HashMap<>();
+        body.put("message", exception.getMessage());
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
     @ExceptionHandler(VerificationRequiredException.class)
     public ResponseEntity<Map<String, String>> handleVerificationRequired(
             VerificationRequiredException exception) {

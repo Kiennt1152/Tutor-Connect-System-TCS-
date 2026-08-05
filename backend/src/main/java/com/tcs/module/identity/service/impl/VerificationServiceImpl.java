@@ -23,6 +23,7 @@ import com.tcs.module.messaging.entity.Notification;
 import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.MediaFileRepository;
@@ -60,6 +61,7 @@ public class VerificationServiceImpl implements VerificationService {
     private final TutorCenterRepository tutorCenterRepository;
     private final VerificationMapper verificationMapper;
     private final AuthHelper authHelper;
+    private final AuditLogService auditLogService;
 
     @Override
     @Transactional
@@ -131,6 +133,9 @@ public class VerificationServiceImpl implements VerificationService {
         }
 
         recordHistory(saved, null, VerificationStatus.SUBMITTED, user);
+
+        auditLogService.record(userId, "SUBMIT_VERIFICATION", "VerificationRequest", saved.getVerificationId(),
+                null, Map.of("verificationType", request.getVerificationType().name()));
 
         log.info("Verification submitted: userId={}, type={}, verificationId={}",
                 userId, request.getVerificationType(), saved.getVerificationId());
@@ -290,6 +295,8 @@ public class VerificationServiceImpl implements VerificationService {
         verificationDocumentRepository.deleteAllByVerificationId(verificationId);
         verificationHistoryRepository.deleteAllByVerificationId(verificationId);
         verificationRequestRepository.delete(verification);
+
+        auditLogService.record(userId, "CANCEL_VERIFICATION", "VerificationRequest", verificationId, null, null);
 
         log.info("Verification cancelled: verificationId={}, userId={}", verificationId, userId);
     }

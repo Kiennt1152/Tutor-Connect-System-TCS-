@@ -59,20 +59,48 @@ export interface UserListFilters {
   keyword?: string;
 }
 
+export interface DashboardAlertApiResponse {
+  type: 'WARNING' | 'CRITICAL' | 'INFO';
+  title: string;
+  message: string;
+  actionUrl: string;
+}
+
 export interface DashboardApiResponse {
   totalUsers: number;
   totalTutors: number;
   totalClasses: number;
+  activeClasses: number;
   pendingVerifications: number;
   openReports: number;
+  openTickets: number;
+  pendingWithdrawals: number;
+  openDisputes: number;
+  totalRevenue: number;
+  platformFeeRevenue: number;
+  alerts: DashboardAlertApiResponse[];
+}
+
+export interface DashboardAlert {
+  type: 'WARNING' | 'CRITICAL' | 'INFO';
+  title: string;
+  message: string;
+  actionUrl: string;
 }
 
 export interface PlatformDashboard {
   totalUsers: number;
   totalTutors: number;
   totalClasses: number;
+  activeClasses: number;
   pendingVerifications: number;
   openReports: number;
+  openTickets: number;
+  pendingWithdrawals: number;
+  openDisputes: number;
+  totalRevenue: number;
+  platformFeeRevenue: number;
+  alerts: DashboardAlert[];
 }
 
 export type VerificationStatus =
@@ -517,4 +545,343 @@ export interface DisputeReviewItem {
   classTitle: string;
   createdAt: string;
   raw: AdminDisputeReviewApiResponse;
+}
+
+/* ── Support Tickets (admin) ── */
+
+export type AdminTicketCategory =
+  | 'DISPUTE'
+  | 'SYSTEM_ERROR'
+  | 'REPORT_USER'
+  | 'BUG_REPORT'
+  | 'INQUIRY';
+
+export type AdminTicketPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+export type AdminTicketStatus =
+  | 'OPEN'
+  | 'IN_PROGRESS'
+  | 'IN_REVIEW'
+  | 'RESOLVED'
+  | 'CLOSED';
+
+export interface AdminTicketListItemApiResponse {
+  ticketId: number;
+  userId: number;
+  userEmail: string;
+  assignedAdminId: number | null;
+  assignedAdminName: string | null;
+  category: AdminTicketCategory;
+  subject: string;
+  priority: AdminTicketPriority;
+  status: AdminTicketStatus;
+  dueAt?: string;
+  slaBreached?: boolean;
+  responseSlaMs?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminTicketMessageApiResponse {
+  messageId: number;
+  senderId: number;
+  senderName: string;
+  fromAdmin: boolean;
+  content: string;
+  sentAt: string;
+}
+
+export interface AdminTicketDetailApiResponse {
+  ticketId: number;
+  userId: number;
+  targetClassId: number | null;
+  assignedAdminId: number | null;
+  category: AdminTicketCategory;
+  subject: string;
+  description: string;
+  evidenceUrls: string | null;
+  priority: AdminTicketPriority;
+  status: AdminTicketStatus;
+  resolvedAt: string | null;
+  closedAt: string | null;
+  dueAt?: string;
+  slaBreached?: boolean;
+  responseSlaMs?: number;
+  createdAt: string;
+  updatedAt: string;
+  messages: AdminTicketMessageApiResponse[];
+}
+
+export interface PageAdminTicketApiResponse {
+  content: AdminTicketListItemApiResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface UpdateTicketApiRequest {
+  category?: AdminTicketCategory;
+  priority?: AdminTicketPriority;
+}
+
+export interface RespondTicketApiRequest {
+  content: string;
+}
+
+export interface CloseTicketApiRequest {
+  status: 'RESOLVED' | 'CLOSED';
+  adminNotes?: string;
+}
+
+export interface AdminTicketFilters {
+  page: number;
+  size: number;
+  status?: AdminTicketStatus;
+  category?: AdminTicketCategory;
+  priority?: AdminTicketPriority;
+  keyword?: string;
+}
+
+/* view-models */
+
+export interface AdminTicketListItem {
+  id: string;
+  userId: string;
+  userEmail: string;
+  assignedAdminId: string | null;
+  assignedAdminName: string;
+  category: AdminTicketCategory;
+  categoryLabel: string;
+  subject: string;
+  priority: AdminTicketPriority;
+  priorityLabel: string;
+  priorityTone: 'low' | 'medium' | 'high' | 'urgent';
+  status: AdminTicketStatus;
+  statusLabel: string;
+  statusTone: 'open' | 'active' | 'review' | 'done';
+  dueAt?: string;
+  slaBreached?: boolean;
+  responseSlaMs?: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AdminTicketMessage {
+  id: string;
+  senderId: string;
+  senderName: string;
+  fromAdmin: boolean;
+  content: string;
+  sentAt: string;
+}
+
+export interface AdminTicketDetail extends AdminTicketListItem {
+  description: string;
+  evidenceUrls: string | null;
+  targetClassId: string | null;
+  messages: AdminTicketMessage[];
+}
+
+export interface PageAdminTicketList {
+  items: AdminTicketListItem[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export type AnnouncementTargetRole = 'CLIENT' | 'TUTOR' | 'TUTOR_CENTER' | 'PLATFORM_ADMIN';
+
+export interface AnnouncementApiResponse {
+  announcementId: number;
+  title: string;
+  content: string;
+  targetRole: AnnouncementTargetRole | null;
+  active: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdByName: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+export interface UpsertAnnouncementApiRequest {
+  title: string;
+  content: string;
+  targetRole: AnnouncementTargetRole | null;
+  active: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+}
+
+export interface AnnouncementItem {
+  announcementId: number;
+  title: string;
+  content: string;
+  targetRole: AnnouncementTargetRole | null;
+  active: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdByName: string | null;
+  createdAt: string | null;
+  updatedAt: string | null;
+}
+
+/* ── User Penalties ── */
+
+export type PenaltyType = 'WARNING' | 'FEATURE_RESTRICTION' | 'TEMPORARY_BAN' | 'PERMANENT_BAN';
+export type PenaltyStatus = 'ACTIVE' | 'EXPIRED' | 'REVOKED';
+
+export interface PenaltyApiResponse {
+  penaltyId: number;
+  userId: number;
+  userEmail: string;
+  userName: string | null;
+  penaltyType: PenaltyType;
+  reason: string;
+  evidenceUrls: string | null;
+  restrictionDetails: string | null;
+  startsAt: string;
+  expiresAt: string | null;
+  status: PenaltyStatus;
+  revokedAt: string | null;
+  revokedReason: string | null;
+  createdAt: string;
+  issuedByName: string | null;
+}
+
+export interface PagePenaltyApiResponse {
+  content: PenaltyApiResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface IssuePenaltyApiRequest {
+  userId: number;
+  penaltyType: PenaltyType;
+  reason: string;
+  evidenceUrls?: string;
+  restrictionDetails?: string;
+  expiresAt?: string;
+}
+
+export interface RevokePenaltyApiRequest {
+  revokedReason: string;
+}
+
+export interface PenaltyFilters {
+  page: number;
+  size: number;
+  status?: PenaltyStatus;
+  type?: PenaltyType;
+  userId?: number;
+}
+
+/* ── Audit Logs ── */
+
+export interface AuditLogApiResponse {
+  auditId: number;
+  actorId: number | null;
+  actorEmail: string | null;
+  actorRole?: string;
+  action: string;
+  entityType: string;
+  entityId: number;
+  oldValue: string | null;
+  newValue: string | null;
+  ipAddress: string | null;
+  createdAt: string;
+}
+
+export interface PageAuditLogApiResponse {
+  content: AuditLogApiResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface AuditLogFilters {
+  page: number;
+  size: number;
+  actorId?: number;
+  action?: string;
+  entityType?: string;
+  from?: string;
+  to?: string;
+}
+
+/* ── Operational Task Queue ── */
+
+export interface TaskQueueSummaryApiResponse {
+  pendingVerifications: number;
+  openReports: number;
+  openTickets: number;
+  pendingWithdrawals: number;
+  pendingRefunds: number;
+  openDisputes: number;
+  totalPendingTasks: number;
+}
+
+export type TaskQueueItemType = 'VERIFICATION' | 'REPORT' | 'SUPPORT_TICKET' | 'WITHDRAWAL' | 'REFUND_REQUEST' | 'DISPUTE';
+export type TaskPriority = 'URGENT' | 'HIGH' | 'MEDIUM' | 'LOW';
+
+export interface TaskItemApiResponse {
+  taskId: string;
+  taskType: TaskQueueItemType;
+  title: string;
+  description: string;
+  entityId: number;
+  targetRoute: string;
+  status: string;
+  priority: TaskPriority;
+  createdAt: string;
+}
+
+export interface PageTaskItemApiResponse {
+  content: TaskItemApiResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface TaskFilters {
+  type?: string;
+  page: number;
+  size: number;
+}
+
+export interface ResolveReportApiRequest {
+  status: 'RESOLVED';
+  adminNotes?: string;
+}
+
+/* ── Reports & Analytics (UC-56) ── */
+
+export interface MonthlyMetricApiResponse {
+  month: string;
+  newUsers: number;
+  newClasses: number;
+  revenue: number;
+}
+
+export interface AnalyticsSummaryApiResponse {
+  totalUsers: number;
+  totalTutors: number;
+  totalParents: number;
+  totalCenters: number;
+  totalStudents: number;
+  totalClasses: number;
+  activeClasses: number;
+  completedClasses: number;
+  totalRevenue: number;
+  platformFeeRevenue: number;
+  verificationConversionRate: number;
+  disputeRate: number;
+  contractCompletionRate: number;
+  monthlyMetrics: MonthlyMetricApiResponse[];
 }

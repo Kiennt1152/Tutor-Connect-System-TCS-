@@ -4,7 +4,8 @@ import { AppLogo } from '../../../shared/components/AppLogo';
 import { LogoutButton } from '../../../shared/components/LogoutButton';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
-import { ADMIN_NAV_GROUPS } from '../config/adminNavConfig';
+import { ADMIN_NAV_GROUPS } from '../config/adminNavConfig';
+import { NotificationBell } from '../../../shared/components/NotificationBell';
 import { AdminIcon, IconUser } from './AdminIcons';
 import './AdminLayout.css';
 
@@ -31,7 +32,8 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
       <header className="adm-topbar">
         <div className="adm-topbar__inner">
           <AppLogo href={APP_ROUTES.platform} className="adm-topbar__logo" />
-          <div className="adm-topbar__actions">
+          <div className="adm-topbar__actions">
+            <NotificationBell />
             <NavLink
               to={APP_ROUTES.platformProfile}
               className={({ isActive }) =>

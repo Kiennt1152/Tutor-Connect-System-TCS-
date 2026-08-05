@@ -75,6 +75,7 @@ export interface ContractSignatureApiResponse {
   signatureId: number;
   partyRole: PartyRole;
   partyLabel: string;
+  signerRole: string;
   signerId: number | null;
   signerName: string | null;
   signerEmail: string | null;
@@ -83,14 +84,17 @@ export interface ContractSignatureApiResponse {
   otpExpiresAt: string | null;
   remainingOtpAttempts: number;
   isOtpExpired: boolean;
+  isCurrentUser: boolean;
 }
 
 export interface ContractSignatureListApiResponse {
   contractId: number;
   contractNo: string;
   hasAllSignatures: boolean;
+  fullySigned: boolean;
   signedCount: number;
   requiredSignatures: number;
+  totalRequired: number;
   signatures: ContractSignatureApiResponse[];
 }
 

@@ -39,6 +39,7 @@ public class SecurityConfig {
                                 "/error",
                                 "/uploads/**",
                                 "/api/home",
+                                "/api/home/announcements",
                                 "/api/identity/login",
                                 "/api/identity/google",
                                 "/api/identity/google/complete",
@@ -47,19 +48,23 @@ public class SecurityConfig {
                                 "/api/identity/verify-otp",
                                 "/api/identity/password/forgot",
                                 "/api/identity/password/reset",
+                                "/uploads/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/catalog/faq/admin")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.GET, "/api/catalog/parameters/**")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**")
+                        .permitAll()
+                        .requestMatchers("/api/ai/**")
                         .permitAll()
                         .requestMatchers("/api/catalog/**")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/classes/**")
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/tutors/**")
-                        .permitAll()
-                        // Danh sách trung tâm đã xác minh: ai cũng xem được (để phụ huynh chọn).
-                        .requestMatchers(HttpMethod.GET, "/api/marketplace/centers")
                         .permitAll()
                         // Recruitment: các GET cần đăng nhập phải đứng TRƯỚC GET công khai bên dưới.
                         .requestMatchers(HttpMethod.GET, "/api/center/recruitment/my-posts")
@@ -134,18 +139,11 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.CLIENT)
                         .requestMatchers("/api/marketplace/favorites/**")
                         .hasRole(RbacConstants.CLIENT)
-                        // Phụ huynh gửi/quản lý yêu cầu mở lớp tới trung tâm.
-                        .requestMatchers("/api/marketplace/centers/*/class-requests")
-                        .hasRole(RbacConstants.CLIENT)
-                        .requestMatchers("/api/marketplace/class-requests/**")
-                        .hasRole(RbacConstants.CLIENT)
 
                         // --- Center: class management (UC-14-B) ---
                         .requestMatchers(
                                 "/api/center/classes/**",
                                 "/api/center/tutors",
-                                "/api/center/class-requests",
-                                "/api/center/class-requests/**",
                                 "/api/center/schedule",
                                 "/api/center/reschedules",
                                 "/api/center/reschedules/**",

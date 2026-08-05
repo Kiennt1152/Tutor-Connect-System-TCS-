@@ -17,8 +17,30 @@ const BASE = CONTRACT_API_BASE;
 
 type DataWrapped<T> = T & { data: T };
 
-function withData<T extends object>(payload: T): DataWrapped<T> {
-  return Object.assign(payload, { data: payload });
+function withData<T>(payload: T): DataWrapped<T> {
+  return Object.assign(payload as object, { data: payload }) as DataWrapped<T>;
+}
+
+function normalizeSignatureList(
+  response: ContractSignatureListApiResponse,
+): ContractSignatureListApiResponse {
+  const currentUserId = authStorage.getUser()?.userId ?? null;
+  const totalRequired = response.totalRequired ?? response.requiredSignatures ?? 0;
+  const fullySigned = response.fullySigned ?? response.hasAllSignatures ?? false;
+
+  return {
+    ...response,
+    totalRequired,
+    requiredSignatures: response.requiredSignatures ?? totalRequired,
+    fullySigned,
+    hasAllSignatures: response.hasAllSignatures ?? fullySigned,
+    signatures: response.signatures.map((signature) => ({
+      ...signature,
+      signerRole: signature.signerRole ?? signature.partyLabel,
+      isCurrentUser:
+        signature.isCurrentUser ?? (currentUserId != null && signature.signerId === currentUserId),
+    })),
+  };
 }
 
 function toSignatureStatus(response: ContractSignatureListApiResponse): SignatureStatusResponse {
@@ -46,9 +68,13 @@ export const contractApi = {
   http: axiosClient,
   basePath: BASE,
 
-  async getMyContracts(): Promise<ContractResponse[]> {
+  async getMyContracts(): Promise<DataWrapped<ContractResponse[]>> {
     const res = await axiosClient.get<ContractResponse[]>(BASE);
-    return res.data;
+    return withData(res.data);
+  },
+
+  async getContractRaw(contractId: number) {
+    return axiosClient.get<ContractApiResponse>(`${BASE}/${contractId}`);
   },
 
   async getContract(contractId: number): Promise<DataWrapped<ContractApiResponse>> {
@@ -60,7 +86,7 @@ export const contractApi = {
     const res = await axiosClient.get<ContractSignatureListApiResponse>(
       `${BASE}/${contractId}/signatures`,
     );
-    return withData(res.data);
+    return withData(normalizeSignatureList(res.data));
   },
 
   async generateForAssignment(assignmentId: number): Promise<ContractResponse> {

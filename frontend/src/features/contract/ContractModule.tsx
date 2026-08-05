@@ -1,5 +1,3 @@
-import ContractListPage from './pages/ContractListPage';
-
 export default function ContractModule() {
-  return <ContractListPage />;
+  return null; // routed directly via App.tsx — see /contract and /contract/:id routes
 }

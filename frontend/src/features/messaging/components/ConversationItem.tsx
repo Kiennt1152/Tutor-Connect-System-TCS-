@@ -1,0 +1,65 @@
+import type { ConversationResponse } from '../types/messagingTypes';
+import { getAvatarColor, getInitials } from '../utils/avatarUtils';
+
+type ConversationItemProps = {
+  conversation: ConversationResponse;
+  active: boolean;
+  onClick: () => void;
+};
+
+function formatTime(value: string | null): string {
+  if (!value) return '';
+  const date = new Date(value);
+  const now = new Date();
+  const isSameDay =
+    date.getFullYear() === now.getFullYear() &&
+    date.getMonth() === now.getMonth() &&
+    date.getDate() === now.getDate();
+  if (isSameDay) {
+    return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  }
+  return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+}
+
+export function ConversationItem({ conversation, active, onClick }: ConversationItemProps) {
+  const other = conversation.otherParticipant;
+  const name = other?.displayName ?? 'Người dùng';
+  const hasUnread = conversation.unreadCount > 0;
+
+  return (
+    <button
+      type="button"
+      className={`msg-conversation-item${active ? ' msg-conversation-item--active' : ''}`}
+      onClick={onClick}
+    >
+      <div className="msg-avatar" style={{ backgroundColor: getAvatarColor(other?.userId ?? 0) }}>
+        {other?.avatarUrl ? (
+          <img src={other.avatarUrl} alt={name} className="msg-avatar__img" />
+        ) : (
+          <span>{getInitials(name)}</span>
+        )}
+      </div>
+
+      <div className="msg-conversation-item__body">
+        <div className="msg-conversation-item__row">
+          <span className="msg-conversation-item__name">{name}</span>
+          <span className="msg-conversation-item__time">
+            {formatTime(conversation.lastMessageAt)}
+          </span>
+        </div>
+        <div className="msg-conversation-item__row">
+          <span
+            className={`msg-conversation-item__preview${hasUnread ? ' msg-conversation-item__preview--unread' : ''}`}
+          >
+            {conversation.lastMessagePreview ?? 'Bắt đầu trò chuyện'}
+          </span>
+          {hasUnread ? (
+            <span className="msg-unread-badge">
+              {conversation.unreadCount > 9 ? '9+' : conversation.unreadCount}
+            </span>
+          ) : null}
+        </div>
+      </div>
+    </button>
+  );
+}

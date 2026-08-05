@@ -7,10 +7,11 @@ import { usePlatformDashboard } from '../../platform/hooks/usePlatformDashboard'
 import { ADMIN_HOME_NAV, ADMIN_PRIORITY_ITEMS, ADMIN_QUICK_ACTIONS, ADMIN_STATS } from '../../platform/config/adminNavConfig';
 import { AdminIcon } from '../../platform/components/AdminIcons';
 import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
+import './HomePage.css';
 import './AdminHomePage.css';
 
-const formatCount = (value: number) =>
-  new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(value);
+const formatCount = (value: any) =>
+  new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(typeof value === 'number' ? value : 0);
 
 const userInitials = (displayName: string | undefined, email: string) => {
   const source = displayName?.trim() || email;
@@ -54,7 +55,6 @@ function AdminHeader() {
 export default function AdminHomePage() {
   const { user } = useAuth();
   const { status, data, reload } = usePlatformDashboard();
-
   const displayName = user?.displayName?.trim() || user?.email?.split('@')[0] || 'Admin';
   const copy = getAuthenticatedHeroCopy('PLATFORM_ADMIN');
   const quickActions = ADMIN_QUICK_ACTIONS;

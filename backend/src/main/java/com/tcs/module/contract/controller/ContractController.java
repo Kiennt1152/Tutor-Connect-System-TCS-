@@ -71,6 +71,11 @@ public class ContractController {
         return contractService.getMyContracts();
     }
 
+    @GetMapping("/my")
+    public List<ContractResponse> getMyContractsAlias() {
+        return contractService.getMyContracts();
+    }
+
     @GetMapping("/{contractId}")
     public ContractResponse getContract(@PathVariable Long contractId) {
         return contractService.getMyContract(contractId);

@@ -16,4 +16,8 @@ public interface DisputeRepository extends JpaRepository<Dispute, Long> {
     List<Dispute> findByStatus(DisputeStatus status, Sort sort);
 
     boolean existsByEscrowTransaction_EscrowIdAndStatusNot(Long escrowId, DisputeStatus status);
+
+    long countByStatusIn(List<DisputeStatus> statuses);
+
+    List<Dispute> findByStatusInOrderByCreatedAtAsc(List<DisputeStatus> statuses);
 }

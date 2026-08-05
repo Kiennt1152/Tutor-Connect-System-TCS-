@@ -1,0 +1,70 @@
+.adm-audit-filters {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 24px;
+}
+.adm-audit-filters select,
+.adm-audit-filters input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  font-size: 14px;
+}
+.adm-audit-json {
+  background: #f3f4f6;
+  padding: 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  max-height: 200px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+  margin-top: 4px;
+}
+.adm-audit-json-toggle {
+  background: none;
+  border: none;
+  color: #2563eb;
+  font-size: 12px;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: underline;
+  margin-top: 4px;
+}
+.adm-audit-json-toggle:hover {
+  color: #1d4ed8;
+}
+
+.adm-badge {
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 9999px;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.adm-badge-update {
+  background: #eff6ff;
+  color: #2563eb;
+}
+.adm-badge-review {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+.adm-badge-danger {
+  background: #fef2f2;
+  color: #dc2626;
+}
+.adm-badge-warning {
+  background: #fffbeb;
+  color: #d97706;
+}
+.adm-badge-create {
+  background: #f0fdfa;
+  color: #0d9488;
+}
+.adm-badge-default {
+  background: #f3f4f6;
+  color: #4b5563;
+}

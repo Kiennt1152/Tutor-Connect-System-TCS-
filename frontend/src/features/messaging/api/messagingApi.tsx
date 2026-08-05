@@ -1,36 +1,99 @@
 import axiosClient from '../../../shared/api/axiosClient';
-import type { EvidenceUploadResponse } from '../../dispute/types/disputeTypes';
-import type { NotificationItem, SubmitDisputeEvidenceRequest } from '../types/messagingTypes';
+import type {
+  ConversationResponse,
+  CreateSupportTicketApiRequest,
+  MessagePageResponse,
+  MessageResponse,
+  SupportTicketApiResponse,
+  SupportTicketDetailApiResponse,
+  UserSummaryResponse,
+} from '../types/messagingTypes';
 
 export const MESSAGING_API_BASE = '/messaging';
 
 export const messagingApi = {
-  async getNotifications() {
-    const response = await axiosClient.get<NotificationItem[]>(
-      `${MESSAGING_API_BASE}/notifications`,
+  http: axiosClient,
+  basePath: MESSAGING_API_BASE,
+
+  async listUsers(keyword?: string) {
+    const response = await axiosClient.get<UserSummaryResponse[]>(`${MESSAGING_API_BASE}/users`, {
+      params: keyword?.trim() ? { keyword: keyword.trim() } : undefined,
+    });
+    return response.data;
+  },
+
+  async getConversations() {
+    const response = await axiosClient.get<ConversationResponse[]>(
+      `${MESSAGING_API_BASE}/conversations`,
     );
     return response.data;
   },
 
-  async markNotificationRead(notificationId: number) {
-    await axiosClient.patch(`${MESSAGING_API_BASE}/notifications/${notificationId}/read`);
+  async startConversation(targetUserId: number) {
+    const response = await axiosClient.post<ConversationResponse>(
+      `${MESSAGING_API_BASE}/conversations`,
+      { targetUserId },
+    );
+    return response.data;
   },
 
-  async submitDisputeEvidence(disputeId: number, payload: SubmitDisputeEvidenceRequest) {
-    await axiosClient.post(`/disputes/${disputeId}/evidence`, payload);
+  async getMessages(conversationId: number, page = 0, size = 30) {
+    const response = await axiosClient.get<MessagePageResponse>(
+      `${MESSAGING_API_BASE}/conversations/${conversationId}/messages`,
+      { params: { page, size } },
+    );
+    return response.data;
   },
 
-  async uploadEvidenceImage(file: File): Promise<EvidenceUploadResponse> {
-    const formData = new FormData();
-    formData.append('file', file);
-    const response = await axiosClient.post<EvidenceUploadResponse>(
-      '/disputes/evidence/upload',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      },
+  async sendMessage(conversationId: number, content: string) {
+    const response = await axiosClient.post<MessageResponse>(
+      `${MESSAGING_API_BASE}/conversations/${conversationId}/messages`,
+      { content },
+    );
+    return response.data;
+  },
+
+  async markConversationRead(conversationId: number) {
+    const response = await axiosClient.post<{ message: string }>(
+      `${MESSAGING_API_BASE}/conversations/${conversationId}/read`,
+    );
+    return response.data;
+  },
+
+  async getMySupportTickets() {
+    const response = await axiosClient.get<SupportTicketApiResponse[]>(
+      `${MESSAGING_API_BASE}/support-tickets`,
+    );
+    return response.data;
+  },
+
+  async getMySupportTicketDetail(ticketId: string) {
+    const response = await axiosClient.get<SupportTicketDetailApiResponse>(
+      `${MESSAGING_API_BASE}/support-tickets/${ticketId}`,
+    );
+    return response.data;
+  },
+
+  async createSupportTicket(payload: CreateSupportTicketApiRequest) {
+    const response = await axiosClient.post<SupportTicketApiResponse>(
+      `${MESSAGING_API_BASE}/support-tickets`,
+      payload,
+    );
+    return response.data;
+  },
+
+  async replySupportTicket(ticketId: string, content: string) {
+    const response = await axiosClient.post(
+      `${MESSAGING_API_BASE}/support-tickets/${ticketId}/messages`,
+      { content },
+    );
+    return response.data;
+  },
+
+  async reopenSupportTicket(ticketId: string, content: string) {
+    const response = await axiosClient.post(
+      `${MESSAGING_API_BASE}/support-tickets/${ticketId}/reopen`,
+      { content },
     );
     return response.data;
   },

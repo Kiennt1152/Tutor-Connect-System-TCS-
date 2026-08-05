@@ -1,86 +1,134 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { messagingApi } from '../api/messagingApi';
-import type { NotificationItem, SubmitDisputeEvidenceRequest } from '../types/messagingTypes';
+import { mapTicketDetail, mapTicketItem } from '../mappers/messagingMapper';
+import type {
+  CreateSupportTicketApiRequest,
+  SupportTicketDetail,
+  SupportTicketItem,
+} from '../types/messagingTypes';
 
-export type MessagingMutationStatus = 'idle' | 'loading' | 'success' | 'error';
+export type ListStatus = 'loading' | 'success' | 'error';
+export type MutationStatus = 'idle' | 'loading' | 'success' | 'error';
 
-export function useMessaging() {
-  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
-  const [loading, setLoading] = useState(false);
+export function useTicketList() {
+  const [status, setStatus] = useState<ListStatus>('loading');
+  const [items, setItems] = useState<SupportTicketItem[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [mutationStatus, setMutationStatus] = useState<MessagingMutationStatus>('idle');
-  const [mutationError, setMutationError] = useState<string | null>(null);
 
-  const fetchNotifications = useCallback(async () => {
-    setLoading(true);
+  const reload = useCallback(() => {
+    setStatus('loading');
     setErrorMessage(null);
-    try {
-      const data = await messagingApi.getNotifications();
-      setNotifications(data ?? []);
-      return data ?? [];
-    } catch (error) {
-      console.error('Lỗi tải thông báo:', error);
-      setErrorMessage(getApiErrorMessage(error, 'Không thể tải danh sách thông báo.'));
-      return [];
-    } finally {
-      setLoading(false);
-    }
+    messagingApi
+      .getMySupportTickets()
+      .then((data) => {
+        setItems(data.map(mapTicketItem));
+        setStatus('success');
+      })
+      .catch((err: unknown) => {
+        setErrorMessage(getApiErrorMessage(err, 'Không tải được danh sách yêu cầu hỗ trợ.'));
+        setStatus('error');
+      });
   }, []);
 
-  const markAsRead = useCallback(async (notificationId: number) => {
-    setMutationStatus('loading');
-    setMutationError(null);
-    try {
-      await messagingApi.markNotificationRead(notificationId);
-      setNotifications((current) =>
-        current.map((item) =>
-          item.notificationId === notificationId ? { ...item, isRead: true } : item,
-        ),
-      );
-      setMutationStatus('success');
-      return true;
-    } catch (error) {
-      console.error('Lỗi đánh dấu thông báo:', error);
-      setMutationError(getApiErrorMessage(error, 'Không thể đánh dấu thông báo đã đọc.'));
-      setMutationStatus('error');
-      return false;
-    }
-  }, []);
+  useEffect(() => {
+    reload();
+  }, [reload]);
 
-  const submitDisputeEvidence = useCallback(
-    async (disputeId: number, payload: SubmitDisputeEvidenceRequest) => {
-      setMutationStatus('loading');
-      setMutationError(null);
+  return { status, items, errorMessage, reload };
+}
+
+export function useTicketDetail(ticketId: string | null) {
+  const [status, setStatus] = useState<ListStatus>('loading');
+  const [detail, setDetail] = useState<SupportTicketDetail | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const reload = useCallback(() => {
+    if (!ticketId) return;
+    setStatus('loading');
+    setErrorMessage(null);
+    messagingApi
+      .getMySupportTicketDetail(ticketId)
+      .then((data) => {
+        setDetail(mapTicketDetail(data));
+        setStatus('success');
+      })
+      .catch((err: unknown) => {
+        setErrorMessage(getApiErrorMessage(err, 'Không tải được chi tiết yêu cầu.'));
+        setStatus('error');
+      });
+  }, [ticketId]);
+
+  useEffect(() => {
+    reload();
+  }, [reload]);
+
+  return { status, detail, errorMessage, reload };
+}
+
+export function useCreateTicket(onSuccess: () => void) {
+  const [status, setStatus] = useState<MutationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const submit = useCallback(
+    async (payload: CreateSupportTicketApiRequest) => {
+      setStatus('loading');
+      setErrorMessage(null);
       try {
-        await messagingApi.submitDisputeEvidence(disputeId, payload);
-        setMutationStatus('success');
-        await fetchNotifications();
-        return true;
-      } catch (error) {
-        console.error('Lỗi gửi bằng chứng bổ sung:', error);
-        setMutationError(getApiErrorMessage(error, 'Không thể gửi bằng chứng bổ sung.'));
-        setMutationStatus('error');
-        return false;
+        await messagingApi.createSupportTicket(payload);
+        setStatus('success');
+        onSuccess();
+      } catch (err: unknown) {
+        setErrorMessage(getApiErrorMessage(err, 'Không thể gửi yêu cầu hỗ trợ.'));
+        setStatus('error');
       }
     },
-    [fetchNotifications],
+    [onSuccess],
   );
 
-  const resetMutation = useCallback(() => {
-    setMutationStatus('idle');
-    setMutationError(null);
+  const reset = useCallback(() => {
+    setStatus('idle');
+    setErrorMessage(null);
   }, []);
 
-  return {
-    notifications,
-    loading,
-    errorMessage,
-    mutationStatus,
-    mutationError,
-    fetchNotifications,
-    markAsRead,
-    submitDisputeEvidence,
-    resetMutation,
-  };
+  return { status, errorMessage, submit, reset };
+}
+
+export function useTicketMutations(onSuccess: () => void) {
+  const [status, setStatus] = useState<MutationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const reply = useCallback(
+    async (ticketId: string, content: string) => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        await messagingApi.replySupportTicket(ticketId, content);
+        setStatus('success');
+        onSuccess();
+      } catch (err: unknown) {
+        setErrorMessage(getApiErrorMessage(err, 'Không thể gửi phản hồi.'));
+        setStatus('error');
+      }
+    },
+    [onSuccess],
+  );
+
+  const reopen = useCallback(
+    async (ticketId: string, content: string) => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        await messagingApi.reopenSupportTicket(ticketId, content);
+        setStatus('success');
+        onSuccess();
+      } catch (err: unknown) {
+        setErrorMessage(getApiErrorMessage(err, 'Không thể mở lại yêu cầu.'));
+        setStatus('error');
+      }
+    },
+    [onSuccess],
+  );
+
+  return { status, errorMessage, reply, reopen };
 }

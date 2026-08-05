@@ -1,0 +1,185 @@
+.adm-penalty-filters {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.adm-penalty-filters select,
+.adm-penalty-filters input {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 6px;
+  background-color: white;
+  font-size: 14px;
+}
+
+.adm-penalty-filters select:focus,
+.adm-penalty-filters input:focus {
+  outline: none;
+  border-color: var(--primary-color, #2563eb);
+}
+
+.adm-penalty-filters button {
+  padding: 8px 16px;
+  background-color: var(--primary-color, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+  transition: background-color 0.2s;
+}
+
+.adm-penalty-filters button:hover {
+  background-color: var(--primary-hover, #1d4ed8);
+}
+
+.adm-penalty-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+}
+
+.adm-penalty-modal {
+  background-color: white;
+  padding: 24px;
+  border-radius: 8px;
+  width: 100%;
+  max-width: 500px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.adm-penalty-modal h2 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 1.25rem;
+  color: var(--text-color, #111827);
+}
+
+.adm-penalty-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.adm-penalty-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.adm-penalty-form label {
+  font-weight: 500;
+  font-size: 14px;
+  color: var(--text-color, #374151);
+}
+
+.adm-penalty-form input,
+.adm-penalty-form select,
+.adm-penalty-form textarea {
+  padding: 8px 12px;
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 6px;
+  font-size: 14px;
+}
+
+.adm-penalty-form textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+.adm-penalty-form .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.adm-penalty-form .btn-cancel {
+  padding: 8px 16px;
+  background-color: white;
+  color: var(--text-color, #374151);
+  border: 1px solid var(--border-color, #d1d5db);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.adm-penalty-form .btn-cancel:hover {
+  background-color: #f3f4f6;
+}
+
+.adm-penalty-form .btn-submit {
+  padding: 8px 16px;
+  background-color: var(--primary-color, #2563eb);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.adm-penalty-form .btn-submit:hover {
+  background-color: var(--primary-hover, #1d4ed8);
+}
+
+.adm-penalty-form .btn-submit:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.tcs-badge--status-warning {
+  background-color: #fef3c7;
+  color: #92400e;
+}
+
+.tcs-badge--status-restriction {
+  background-color: #ffedd5;
+  color: #9a3412;
+}
+
+.tcs-badge--status-temp-ban {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.tcs-badge--status-perm-ban {
+  background-color: #991b1b;
+  color: white;
+}
+
+.tcs-badge--status-active {
+  background-color: #fee2e2;
+  color: #b91c1c;
+}
+
+.tcs-badge--status-expired {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+.tcs-badge--status-revoked {
+  background-color: #dbeafe;
+  color: #1e40af;
+}
+
+.adm-action-btn {
+  padding: 4px 8px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: white;
+  cursor: pointer;
+  color: #374151;
+}
+.adm-action-btn:hover {
+  background: #f3f4f6;
+}

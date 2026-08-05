@@ -24,4 +24,8 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
     List<RefundRequest> findAllByOrderByRequestedAtDesc();
 
     List<RefundRequest> findByStatusOrderByRequestedAtDesc(RefundRequestStatus status);
+
+    long countByStatus(RefundRequestStatus status);
+
+    List<RefundRequest> findByStatusOrderByRequestedAtAsc(RefundRequestStatus status);
 }
