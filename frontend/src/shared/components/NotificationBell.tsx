@@ -1,65 +1,143 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useNotifications } from '../../features/messaging/hooks/useNotifications';
+import { notificationLink } from '../../features/messaging/notificationLink';
+import { useAuth } from '../auth/AuthProvider';
 import { platformApi } from '../../features/platform/api/platformApi';
-import type { AnnouncementItem } from '../../features/platform/types/platformTypes';
+import type { NotificationItem } from '../../features/messaging/api/notificationsApi';
+import type { AnnouncementApiResponse } from '../../features/platform/types/platformTypes';
 import './NotificationBell.css';
 
-export function NotificationBell() {
-  const [announcements, setAnnouncements] = useState<AnnouncementItem[]>([]);
-  const [isOpen, setIsOpen] = useState(false);
-  const wrapperRef = useRef<HTMLDivElement>(null);
+function timeAgo(iso: string): string {
+  const then = new Date(iso).getTime();
+  if (Number.isNaN(then)) return '';
+  const mins = Math.floor((Date.now() - then) / 60000);
+  if (mins < 1) return 'vừa xong';
+  if (mins < 60) return `${mins} phút trước`;
+  const hours = Math.floor(mins / 60);
+  if (hours < 24) return `${hours} giờ trước`;
+  return `${Math.floor(hours / 24)} ngày trước`;
+}
+
+export function NotificationBell({ enabled = false }: { readonly enabled?: boolean }) {
+  const { items, unread, markRead } = useNotifications(enabled);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [showRead, setShowRead] = useState(false);
+  const [openedIds, setOpenedIds] = useState<number[]>([]);
+  const [announcements, setAnnouncements] = useState<AnnouncementApiResponse[]>([]);
+  const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    platformApi.getPublicAnnouncements()
-      .then((res) => {
-        setAnnouncements(res.data);
-      })
+    platformApi
+      .getPublicAnnouncements()
+      .then((res) => setAnnouncements(res.data))
       .catch((err) => console.error('Failed to load announcements:', err));
   }, []);
 
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (wrapperRef.current && !wrapperRef.current.contains(event.target as Node)) {
-        setIsOpen(false);
-      }
-    }
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
+  const historyReadCount = items.filter(
+    (n) => n.isRead && !openedIds.includes(n.notificationId),
+  ).length;
+  const visible = showRead
+    ? items
+    : items.filter((n) => !n.isRead || openedIds.includes(n.notificationId));
 
-  const hasUnread = announcements.length > 0;
+  function togglePanel() {
+    if (!open) {
+      const unreadIds = items.filter((n) => !n.isRead).map((n) => n.notificationId);
+      setOpenedIds(unreadIds);
+      setShowRead(false);
+      unreadIds.forEach((id) => void markRead(id));
+    }
+    setOpen((v) => !v);
+  }
+
+  function handleItemClick(n: NotificationItem) {
+    if (!n.isRead) void markRead(n.notificationId);
+    const link = notificationLink(n, user?.role);
+    setOpen(false);
+    if (link) navigate(link);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [open]);
+
+  const hasDot = unread === 0 && announcements.length > 0;
 
   return (
-    <div className="tcs-notification-wrapper" ref={wrapperRef}>
-      <button 
-        className="tcs-notification-btn" 
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Thông báo"
+    <div className="ntf" ref={ref}>
+      <button
+        type="button"
+        className="ntf__btn"
+        aria-label={`Thông báo${unread > 0 ? ` (${unread} chưa đọc)` : ''}`}
+        onClick={togglePanel}
       >
-        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
-        {hasUnread && <span className="tcs-notification-dot"></span>}
+        🔔
+        {unread > 0 && <span className="ntf__badge">{unread > 9 ? '9+' : unread}</span>}
+        {hasDot && <span className="ntf__dot" />}
       </button>
 
-      {isOpen && (
-        <div className="tcs-notification-dropdown">
-          <div className="tcs-notification-header">
-            Thông báo hệ thống
-          </div>
-          <div className="tcs-notification-list">
-            {announcements.length === 0 ? (
-              <div className="tcs-notification-empty">
-                Không có thông báo nào.
-              </div>
-            ) : (
-              announcements.map((ann) => (
-                <div key={ann.announcementId} className="tcs-notification-item">
-                  <div className="tcs-notification-item-title">{ann.title}</div>
-                  <div className="tcs-notification-item-content">{ann.content}</div>
+      {open && (
+        <div className="ntf__panel" role="menu">
+          {enabled && (
+            <>
+              <div className="ntf__head">Thông báo</div>
+              {visible.length === 0 ? (
+                <div className="ntf__empty">
+                  {showRead ? 'Chưa có thông báo nào.' : 'Không có thông báo mới.'}
                 </div>
-              ))
-            )}
-          </div>
+              ) : (
+                <ul className="ntf__list">
+                  {visible.map((n) => {
+                    const link = notificationLink(n, user?.role);
+                    return (
+                      <li key={n.notificationId} className="ntf__item-row">
+                        <button
+                          type="button"
+                          className={`ntf__item ${n.isRead ? '' : 'ntf__item--unread'} ${
+                            link ? 'ntf__item--link' : ''
+                          }`}
+                          onClick={() => handleItemClick(n)}
+                        >
+                          <div className="ntf__item-title">{n.title}</div>
+                          <div className="ntf__item-content">{n.content}</div>
+                          <div className="ntf__item-time">{timeAgo(n.createdAt)}</div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+              {historyReadCount > 0 && (
+                <button type="button" className="ntf__toggle" onClick={() => setShowRead((v) => !v)}>
+                  {showRead ? 'Ẩn thông báo đã đọc' : `Xem thông báo đã đọc (${historyReadCount})`}
+                </button>
+              )}
+            </>
+          )}
+
+          <div className="ntf__head ntf__head--system">Thông báo hệ thống</div>
+          {announcements.length === 0 ? (
+            <div className="ntf__empty">Không có thông báo nào.</div>
+          ) : (
+            <ul className="ntf__list">
+              {announcements.map((ann) => (
+                <li key={ann.announcementId} className="ntf__item-row">
+                  <div className="ntf__item">
+                    <div className="ntf__item-title">{ann.title}</div>
+                    <div className="ntf__item-content">{ann.content}</div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       )}
     </div>

@@ -1,17 +1,22 @@
 import { useMemo } from 'react';
-import { AppLogo } from '../../../shared/components/AppLogo';
-import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { useHome } from '../hooks/useHome';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasAnyRole, hasRole } from '../../../shared/auth/rbac';
 import type { UserRole } from '../../../shared/types/userRole';
+import { SiteHeader } from '../components/SiteHeader';
+import { SiteFooter } from '../components/SiteFooter';
 import { TutorSearchBlock } from '../components/TutorSearchBlock';
 import { ClassSearchBlock } from '../components/ClassSearchBlock';
 import { TutorListingCard } from '../components/TutorListingCard';
 import { ClassListingCard } from '../components/ClassListingCard';
 import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
 import { useOpenClasses } from '../hooks/useOpenClasses';
-import { FOOTER_LINKS, HOME_NEWS, HOME_TESTIMONIALS } from '../config/homeContent';
+import {
+  HOME_CENTERS,
+  HOME_NEWS,
+  HOME_PROMO,
+  HOME_TESTIMONIALS,
+} from '../config/homeContent';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import type { OpenClassItem } from '../types/openClassTypes';
 import type { OpenClassesStatus } from '../hooks/useOpenClasses';
@@ -44,7 +49,7 @@ function HomeHeroSection({
   const firstName = displayName?.trim().split(/\s+/)[0] || displayName;
   const showSearch = !isAuthenticated || hasAnyRole(role, MARKETPLACE_HOME_ROLES);
   const isTutor = hasRole(role, 'TUTOR');
-  const subjectLinkTarget = isTutor ? '#classes' : '#find-tutor';
+  const subjectLinkTarget = isTutor ? '/tim-lop' : '#find-tutor';
 
   return (
     <section className="tcs-home-hero">
@@ -157,7 +162,7 @@ function HeroStats({ data }: { data: HomeData | null }) {
   );
 }
 
-function ClassesSection({
+export function ClassesSection({
   classes,
   status,
   isAuthenticated,
@@ -219,6 +224,44 @@ function ClassesSection({
   );
 }
 
+function CentersSection() {
+  return (
+    <section id="centers" className="tcs-section tcs-section--centers">
+      <div className="tcs-container">
+        <div className="tcs-section-bar">
+          <div>
+            <h2 className="tcs-section-bar__title">Trung tâm</h2>
+            <p className="tcs-section-bar__subtitle">
+              Các trung tâm gia sư đối tác — quy trình tuyển chọn và hỗ trợ chuyên nghiệp.
+            </p>
+          </div>
+        </div>
+
+        <div className="tcs-promo tcs-promo--inline">
+          <div className="tcs-promo__content">
+            <span className="tcs-promo__eyebrow">Đối tác nền tảng</span>
+            <h3 className="tcs-promo__title">{HOME_PROMO.title}</h3>
+            <p className="tcs-promo__desc">{HOME_PROMO.description}</p>
+          </div>
+          <a className="tcs-btn tcs-btn--market tcs-promo__cta" href={HOME_PROMO.ctaHref}>
+            {HOME_PROMO.cta}
+          </a>
+        </div>
+
+        <div className="tcs-center-grid">
+          {HOME_CENTERS.map((center) => (
+            <article key={center.id} className="tcs-center-card">
+              <h3 className="tcs-center-card__name">{center.name}</h3>
+              <p className="tcs-center-card__desc">{center.description}</p>
+              <span className="tcs-center-card__meta">{currency(center.tutors)} gia sư</span>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 function NewsSection() {
   return (
     <section id="news" className="tcs-section tcs-section--news">
@@ -273,40 +316,6 @@ function ReviewsSection() {
   );
 }
 
-function Footer() {
-  return (
-    <footer className="tcs-footer">
-      <div className="tcs-container">
-        <div className="tcs-footer__grid">
-          <div className="tcs-footer__brand">
-            <AppLogo href="/" variant="compact" />
-            <p className="tcs-footer__tagline">
-              Nền tảng kết nối gia sư — học viên — trung tâm với quy trình minh bạch và thanh toán an
-              toàn.
-            </p>
-          </div>
-          {FOOTER_LINKS.map((group) => (
-            <div key={group.title} className="tcs-footer__col">
-              <h3 className="tcs-footer__heading">{group.title}</h3>
-              <ul className="tcs-footer__links">
-                {group.links.map((link) => (
-                  <li key={link.label}>
-                    <a href={link.href}>{link.label}</a>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
-        <div className="tcs-footer__bottom">
-          <span>© {new Date().getFullYear()} Tutor Connect System</span>
-          <span className="tcs-footer__muted">SEP490 · TCS</span>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 function LoadingState() {
   return (
     <div className="tcs-state">
@@ -330,11 +339,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 function HomePage() {
   const { status, data, reload } = useHome();
-  const {
-    status: classesStatus,
-    classes: openClasses,
-    reload: reloadClasses,
-  } = useOpenClasses();
+  const { status: classesStatus, classes: openClasses } = useOpenClasses();
   const { user, isAuthenticated } = useAuth();
   const isEmpty = useMemo(
     () =>
@@ -354,7 +359,7 @@ function HomePage() {
 
   return (
     <div className="tcs-page">
-      <HomeNavbar />
+      <SiteHeader />
       <main>
         <HomeHeroSection
           data={data}
@@ -384,16 +389,11 @@ function HomePage() {
           </div>
         )}
 
-        <ClassesSection
-          classes={openClasses}
-          status={classesStatus}
-          isAuthenticated={isAuthenticated}
-          onRetry={reloadClasses}
-        />
+        <CentersSection />
         <NewsSection />
         <ReviewsSection />
       </main>
-      <Footer />
+      <SiteFooter />
     </div>
   );
 }

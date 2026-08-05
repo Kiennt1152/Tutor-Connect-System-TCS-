@@ -1,12 +1,15 @@
 package com.tcs.module.platform.service;
 
 import com.tcs.module.identity.enums.UserStatus;
+import com.tcs.module.contract.enums.ReviewStatus;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.platform.dto.request.CloseTicketRequest;
+import com.tcs.module.platform.dto.request.ModerateReviewRequest;
 import com.tcs.module.platform.dto.request.RespondTicketRequest;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
 import com.tcs.module.platform.dto.request.UpdateTicketRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
+import com.tcs.module.platform.dto.response.AdminReviewResponse;
 import com.tcs.module.platform.dto.response.DashboardResponse;
 import com.tcs.module.platform.dto.response.PageSupportTicketResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
@@ -30,12 +33,17 @@ public interface PlatformService {
 
     List<VerificationRequestResponse> listVerificationRequests();
 
-    /** Chi tiet yeu cau xac minh: ho so nguoi nop + tai lieu (chi doc). */
     VerificationDetailResponse getVerificationDetail(Long verificationId);
 
     VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request);
 
     List<ReportResponse> listReports();
+
+    List<AdminReviewResponse> listReviews(ReviewStatus status);
+
+    AdminReviewResponse moderateReview(Long reviewId, ModerateReviewRequest request);
+
+    void deleteReview(Long reviewId);
 
     ReportResponse resolveReport(Long reportId, com.tcs.module.platform.dto.request.ResolveReportRequest request);
 

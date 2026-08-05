@@ -17,10 +17,6 @@ function userInitials(displayName: string | undefined, email: string): string {
     .join('');
 }
 
-/**
- * Header cho trang Tutor Verification.
- * Style đồng bộ với homepage (orange theme), dùng `tcs-header` tokens.
- */
 export function VerificationHeader() {
   const { user } = useAuth();
 
@@ -37,7 +33,7 @@ export function VerificationHeader() {
           <Link to={APP_ROUTES.catalog}>Tìm gia sư</Link>
           <Link to={APP_ROUTES.marketplace}>Tìm lớp</Link>
           {showCenterManage ? <Link to={APP_ROUTES.center}>Trung tâm</Link> : null}
-          {showVerification ? <Link to="/tutor/schedule">Lịch dạy</Link> : null}
+          {showVerification ? <Link to={APP_ROUTES.teaching}>Lịch dạy</Link> : null}
           {showVerification ? <Link to={APP_ROUTES.verification}>Xác minh</Link> : null}
         </nav>
         <div className="tcs-header__actions">

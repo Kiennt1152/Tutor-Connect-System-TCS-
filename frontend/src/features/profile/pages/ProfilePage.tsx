@@ -456,6 +456,36 @@ export default function ProfilePage() {
           </p>
         </section>
       )}
+
+      {isClient && (
+        <section className="profile-section">
+          <h2>Yêu cầu tìm gia sư</h2>
+          <p>Quản lý các yêu cầu tìm gia sư bạn đã đăng — xem, chỉnh sửa và đăng công khai.</p>
+          <Link to="/marketplace" className="btn-primary-link">
+            Xem yêu cầu của tôi
+          </Link>
+        </section>
+      )}
+
+      {isClient && (
+        <section className="profile-section">
+          <h2>Nhận xét gia sư</h2>
+          <p>Gửi đánh giá và phản hồi cho gia sư của các lớp học đã hoàn thành.</p>
+          <Link to="/nhan-xet-gia-su" className="btn-primary-link">
+            Nhận xét gia sư
+          </Link>
+        </section>
+      )}
+
+      {isTutor && (
+        <section className="profile-section">
+          <h2>Nhận xét về tôi</h2>
+          <p>Xem tổng hợp đánh giá và phản hồi mà khách hàng đã gửi cho bạn.</p>
+          <Link to="/nhan-xet-ve-toi" className="btn-primary-link">
+            Xem nhận xét về tôi
+          </Link>
+        </section>
+      )}
     </div>
   );
 }

@@ -18,6 +18,8 @@ import com.tcs.module.profile.dto.request.UpdateProfileRequest;
 import com.tcs.module.profile.dto.response.ChildProfileResponse;
 import com.tcs.module.profile.dto.response.ProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
+import com.tcs.module.profile.dto.response.TutorCertificateResponse;
+import com.tcs.module.profile.dto.response.TutorEducationResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
 import com.tcs.module.profile.entity.ChildProfile;
 import com.tcs.module.profile.entity.Client;
@@ -34,6 +36,8 @@ import com.tcs.module.profile.repository.ParentChildLinkRepository;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorAvailabilityRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
+import com.tcs.module.profile.repository.TutorCertificateRepository;
+import com.tcs.module.profile.repository.TutorEducationRepository;
 import com.tcs.module.profile.repository.TutorExperienceRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.service.ProfileService;
@@ -82,6 +86,8 @@ public class ProfileServiceImpl implements ProfileService {
     private final GradeRepository gradeRepository;
     private final TutorExperienceRepository tutorExperienceRepository;
     private final TutorAvailabilityRepository tutorAvailabilityRepository;
+    private final TutorEducationRepository tutorEducationRepository;
+    private final TutorCertificateRepository tutorCertificateRepository;
     private final VerificationService verificationService;
     private final PlatformMapper platformMapper;
     private final AuditLogService auditLogService;
@@ -427,7 +433,15 @@ public class ProfileServiceImpl implements ProfileService {
                     .bio(ctx.tutor().getBio())
                     .experienceYears(ctx.tutor().getExperienceYears())
                     .hourlyRate(ctx.tutor().getHourlyRate())
-                    .verificationStatus(ctx.tutor().getVerificationStatus());
+                    .verificationStatus(ctx.tutor().getVerificationStatus())
+                    .educations(tutorEducationRepository
+                            .findByTutor_TutorId(ctx.tutor().getTutorId()).stream()
+                            .map(this::toEducationResponse)
+                            .toList())
+                    .certificates(tutorCertificateRepository
+                            .findByTutor_TutorId(ctx.tutor().getTutorId()).stream()
+                            .map(this::toCertificateResponse)
+                            .toList());
         }
         if (ctx.center() != null) {
             builder.fullName(ctx.center().getCompanyName())
@@ -464,6 +478,28 @@ public class ProfileServiceImpl implements ProfileService {
                 .startDate(exp.getStartDate())
                 .endDate(exp.getEndDate())
                 .description(exp.getDescription())
+                .build();
+    }
+
+    private TutorEducationResponse toEducationResponse(
+            com.tcs.module.profile.entity.TutorEducation e) {
+        return TutorEducationResponse.builder()
+                .educationId(e.getEducationId())
+                .institution(e.getInstitution())
+                .degree(e.getDegree())
+                .fieldOfStudy(e.getFieldOfStudy())
+                .startYear(e.getStartYear())
+                .endYear(e.getEndYear())
+                .build();
+    }
+
+    private TutorCertificateResponse toCertificateResponse(
+            com.tcs.module.profile.entity.TutorCertificate c) {
+        return TutorCertificateResponse.builder()
+                .certificateId(c.getCertificateId())
+                .name(c.getName())
+                .issuer(c.getIssuer())
+                .issueDate(c.getIssueDate())
                 .build();
     }
 

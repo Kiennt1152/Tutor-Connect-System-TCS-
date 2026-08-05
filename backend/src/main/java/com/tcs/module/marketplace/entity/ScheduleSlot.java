@@ -1,5 +1,6 @@
 package com.tcs.module.marketplace.entity;
 
+import com.tcs.module.catalog.entity.Subject;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -29,6 +30,10 @@ public class ScheduleSlot {
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "class_id", nullable = false)
     private TutoringClass tutoringClass;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "subject_id")
+    private Subject subject;
 
     @Column(name = "day_of_week", nullable = false)
     private Integer dayOfWeek;

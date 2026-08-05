@@ -102,7 +102,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
         Map<String, String> body = new HashMap<>();
-        body.put("message", "Tên danh mục đã tồn tại hoặc dữ liệu không hợp lệ.");
+        body.put("message", "Dữ liệu không hợp lệ hoặc bị trùng. Vui lòng kiểm tra lại.");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 }

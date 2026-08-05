@@ -3,9 +3,11 @@ package com.tcs.module.catalog.controller;
 import com.tcs.module.catalog.dto.request.CatalogRequest;
 import com.tcs.module.catalog.dto.request.ChatbotAskRequest;
 import com.tcs.module.catalog.dto.request.UpsertFaqRequest;
+import com.tcs.module.catalog.dto.response.CatalogItemResponse;
 import com.tcs.module.catalog.dto.response.CatalogResponse;
 import com.tcs.module.catalog.dto.response.ChatbotAskResponse;
 import com.tcs.module.catalog.dto.response.FaqResponse;
+import com.tcs.module.catalog.dto.response.LocationResponse;
 import com.tcs.module.catalog.service.CatalogService;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -27,6 +29,21 @@ import org.springframework.web.bind.annotation.RestController;
 public class CatalogController {
 
     private final CatalogService catalogService;
+
+    @GetMapping("/subjects")
+    public List<CatalogItemResponse> getSubjects() {
+        return catalogService.getSubjects();
+    }
+
+    @GetMapping("/grades")
+    public List<CatalogItemResponse> getGrades() {
+        return catalogService.getGrades();
+    }
+
+    @GetMapping("/provinces")
+    public List<CatalogItemResponse> getProvinces() {
+        return catalogService.getProvinces();
+    }
 
     @GetMapping("/faq")
     public List<FaqResponse> getFaqEntries(
@@ -83,12 +100,19 @@ public class CatalogController {
         return catalogService.createCategory(request);
     }
 
-    @PutMapping("/categories/{categoryId}")
-    public CatalogResponse.CategoryResponse updateCategory(
-            @PathVariable Long categoryId,
-            @RequestBody CatalogRequest.UpsertCategoryRequest request
-    ) {
-        return catalogService.updateCategory(categoryId, request);
+    @GetMapping("/districts")
+    public List<CatalogItemResponse> getDistricts(@RequestParam Long provinceId) {
+        return catalogService.getDistricts(provinceId);
+    }
+
+    @GetMapping("/wards")
+    public List<CatalogItemResponse> getWards(@RequestParam Long districtId) {
+        return catalogService.getWards(districtId);
+    }
+
+    @GetMapping("/locations")
+    public List<LocationResponse> getLocations(@RequestParam(required = false) Long provinceId) {
+        return catalogService.getLocations(provinceId);
     }
 
     @DeleteMapping("/categories/{categoryId}")

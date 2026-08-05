@@ -1,12 +1,19 @@
 package com.tcs.module.platform.service.impl;
 
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.module.contract.entity.Review;
+import com.tcs.module.contract.enums.ReviewStatus;
+import com.tcs.module.contract.enums.ReviewType;
+import com.tcs.module.contract.repository.ReviewRepository;
+import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.entity.VerificationHistory;
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.identity.repository.VerificationHistoryRepository;
 import com.tcs.module.identity.repository.UserRepository;
+import com.tcs.module.platform.dto.request.ModerateReviewRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
+import com.tcs.module.platform.dto.response.AdminReviewResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
 import com.tcs.module.platform.dto.response.UserListItemResponse;
 import com.tcs.module.platform.mapper.PlatformMapper;
@@ -24,6 +31,7 @@ import com.tcs.module.identity.enums.VerificationType;
 import com.tcs.module.identity.repository.VerificationDocumentRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.profile.entity.MediaFile;
+import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.messaging.dto.response.TicketMessageResponse;
@@ -81,7 +89,6 @@ import org.springframework.util.StringUtils;
 public class PlatformServiceImpl implements PlatformService {
 
     private static final int MAX_PAGE_SIZE = 50;
-    /** BR-03: lý do từ chối tối thiểu 10 ký tự. */
     private static final int MIN_REJECT_NOTES_LENGTH = 10;
 
     private final UserRepository userRepository;
@@ -96,6 +103,8 @@ public class PlatformServiceImpl implements PlatformService {
     private final NotificationRepository notificationRepository;
     private final ReportRepository reportRepository;
     private final TutoringClassRepository tutoringClassRepository;
+    private final ReviewRepository reviewRepository;
+    private final ContractService contractService;
     private final AuthHelper authHelper;
     private final SupportTicketRepository supportTicketRepository;
     private final TicketMessageRepository ticketMessageRepository;
@@ -104,6 +113,8 @@ public class PlatformServiceImpl implements PlatformService {
     private final com.tcs.module.platform.service.PlatformAnalyticsService analyticsService;
 
     private static final String TICKET_CONTEXT_TYPE = "SUPPORT_TICKET";
+
+    private static final String DEFAULT_ANONYMOUS_NAME = "Người dùng ẩn danh";
 
     @Override
     @Transactional(readOnly = true)
@@ -238,7 +249,6 @@ public class PlatformServiceImpl implements PlatformService {
                 .findById(verificationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
 
-        // BR-01: mở hồ sơ đang SUBMITTED sẽ tự động chuyển sang UNDER_REVIEW và ghi lịch sử.
         if (verification.getStatus() == VerificationStatus.SUBMITTED) {
             Long adminId = authHelper.requireRole(UserRole.PLATFORM_ADMIN).getUserId();
             VerificationStatus oldStatus = verification.getStatus();
@@ -262,13 +272,10 @@ public class PlatformServiceImpl implements PlatformService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu xác minh"));
 
         VerificationStatus decision = request.getStatus();
-        // Decision chỉ được là VERIFIED (Duyệt) hoặc REJECTED (Từ chối).
         if (decision != VerificationStatus.VERIFIED && decision != VerificationStatus.REJECTED) {
             throw new IllegalArgumentException("Quyết định không hợp lệ. Chỉ chấp nhận Duyệt hoặc Từ chối.");
         }
 
-        // Optimistic locking: nếu hồ sơ đã bị người khác cập nhật kể từ lúc admin mở xem,
-        // chặn để tránh ghi đè quyết định của người kia (so khớp theo giây để tránh lệch nano/DB).
         LocalDateTime expectedUpdatedAt = request.getExpectedUpdatedAt();
         if (expectedUpdatedAt != null && verification.getUpdatedAt() != null
                 && !verification.getUpdatedAt().truncatedTo(ChronoUnit.SECONDS)
@@ -276,9 +283,6 @@ public class PlatformServiceImpl implements PlatformService {
             throw new IllegalArgumentException(
                     "Hồ sơ vừa được cập nhật bởi người khác, vui lòng tải lại trước khi sửa.");
         }
-        // Cho phép Duyệt/Từ chối khi hồ sơ đang xem xét (UNDER_REVIEW),
-        // hoặc SỬA LẠI quyết định đã có (VERIFIED/REJECTED). Chỉ chặn DRAFT/SUBMITTED
-        // vì phải mở hồ sơ để xem xét trước (BR-01 chuyển SUBMITTED -> UNDER_REVIEW).
         VerificationStatus current = verification.getStatus();
         if (current != VerificationStatus.UNDER_REVIEW
                 && current != VerificationStatus.VERIFIED
@@ -286,7 +290,6 @@ public class PlatformServiceImpl implements PlatformService {
             throw new IllegalArgumentException(
                     "Hồ sơ chưa sẵn sàng để duyệt. Vui lòng mở hồ sơ để xem xét trước.");
         }
-        // BR-03 / AF-01: khi Từ chối bắt buộc nhập lý do (>= 10 ký tự).
         if (decision == VerificationStatus.REJECTED) {
             String notes = request.getAdminNotes() == null ? "" : request.getAdminNotes().trim();
             if (notes.length() < MIN_REJECT_NOTES_LENGTH) {
@@ -448,6 +451,91 @@ public class PlatformServiceImpl implements PlatformService {
     @Transactional(readOnly = true)
     public List<ReportResponse> listReports() {
         return reportRepository.findAll().stream().map(this::toReportResponse).toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AdminReviewResponse> listReviews(ReviewStatus status) {
+        List<Review> reviews = status == null
+                ? reviewRepository.findByReviewTypeOrderByCreatedAtDesc(ReviewType.CLIENT_TO_TUTOR)
+                : reviewRepository.findByReviewTypeAndStatusOrderByCreatedAtDesc(
+                        ReviewType.CLIENT_TO_TUTOR, status);
+        return reviews.stream().map(this::toAdminReviewResponse).toList();
+    }
+
+    @Override
+    @Transactional
+    public AdminReviewResponse moderateReview(Long reviewId, ModerateReviewRequest request) {
+        Review review = reviewRepository
+                .findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đánh giá"));
+
+        review.setStatus(request.getStatus());
+        Review saved = reviewRepository.save(review);
+
+        contractService.recomputeReputationByTutorUser(review.getReviewee().getUserId());
+
+        return toAdminReviewResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteReview(Long reviewId) {
+        Review review = reviewRepository
+                .findById(reviewId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đánh giá"));
+
+        Long tutorUserId = review.getReviewee().getUserId();
+        reviewRepository.delete(review);
+
+        contractService.recomputeReputationByTutorUser(tutorUserId);
+    }
+
+    private AdminReviewResponse toAdminReviewResponse(Review review) {
+        Long reviewerId = review.getReviewer().getUserId();
+        String reviewerName = clientRepository
+                .findByUser_UserId(reviewerId)
+                .map(Client::getFullName)
+                .orElse(null);
+
+        String publicDisplayName;
+        if (review.isAnonymous()) {
+            String custom = review.getDisplayName() == null ? null : review.getDisplayName().trim();
+            publicDisplayName = (custom == null || custom.isEmpty()) ? DEFAULT_ANONYMOUS_NAME : custom;
+        } else {
+            publicDisplayName = reviewerName;
+        }
+
+        Long tutorUserId = review.getReviewee().getUserId();
+        String tutorName = tutorRepository
+                .findByUser_UserId(tutorUserId)
+                .map(Tutor::getFullName)
+                .orElse(null);
+
+        TutoringClass reviewClass = review.getTutoringClass();
+
+        return AdminReviewResponse.builder()
+                .reviewId(review.getReviewId())
+                .rating(review.getRating())
+                .comment(review.getComment())
+                .criteriaJson(review.getCriteriaJson())
+                .status(review.getStatus())
+                .reviewerId(reviewerId)
+                .reviewerName(reviewerName)
+                .reviewerEmail(review.getReviewer().getEmail())
+                .anonymous(review.isAnonymous())
+                .publicDisplayName(publicDisplayName)
+                .tutorUserId(tutorUserId)
+                .tutorName(tutorName)
+                .classId(reviewClass != null ? reviewClass.getClassId() : null)
+                .classTitle(reviewClass != null ? reviewClass.getTitle() : null)
+                .subjectName(
+                        reviewClass != null && reviewClass.getSubject() != null
+                                ? reviewClass.getSubject().getSubjectName()
+                                : null)
+                .tutorReply(review.getTutorReply())
+                .createdAt(review.getCreatedAt())
+                .build();
     }
 
     @Override

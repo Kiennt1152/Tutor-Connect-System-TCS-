@@ -1,5 +1,9 @@
 export const APP_ROUTES = {
   home: '/',
+  findTutor: '/tim-gia-su',
+  findClass: '/tim-lop',
+  tutorProfile: '/gia-su/:tutorId',
+  teaching: '/lich-day',
   login: '/login',
   register: '/register',
   identity: '/identity',
@@ -14,6 +18,8 @@ export const APP_ROUTES = {
   marketplace: '/marketplace',
   contract: '/contract',
   messaging: '/messaging',
+  feedback: '/nhan-xet-gia-su',
+  myReputation: '/nhan-xet-ve-toi',
   messagingTickets: '/messaging/tickets',
   help: '/help',
   aiAssistant: '/ai-assistant',
@@ -23,6 +29,7 @@ export const APP_ROUTES = {
   platformUsers: '/platform/users',
   platformVerifications: '/platform/verifications',
   platformReports: '/platform/reports',
+  platformReviews: '/platform/reviews',
   platformTickets: '/platform/tickets',
   platformFaq: '/platform/faq',
   platformParameters: '/platform/parameters',
@@ -32,3 +39,5 @@ export const APP_ROUTES = {
   platformProfile: '/platform/profile',
   forbidden: '/forbidden',
 } as const;
+
+export const tutorProfilePath = (tutorId: number | string) => `/gia-su/${tutorId}`;

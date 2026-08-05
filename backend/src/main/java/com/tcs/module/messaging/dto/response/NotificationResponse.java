@@ -15,4 +15,6 @@ public class NotificationResponse {
     private String content;
     private Boolean isRead;
     private LocalDateTime createdAt;
+    private String referenceType;
+    private Long referenceId;
 }
