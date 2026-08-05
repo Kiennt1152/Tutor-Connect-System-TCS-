@@ -7,6 +7,5 @@ import lombok.Setter;
 @Setter
 public class SignContractRequest {
 
-    private String tutorName;
-    private String subjectName;
+    private String otpCode;
 }

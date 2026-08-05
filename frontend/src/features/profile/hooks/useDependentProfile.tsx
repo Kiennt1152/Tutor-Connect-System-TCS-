@@ -53,7 +53,7 @@ export function useDependentProfile() {
         profileApi.getDependentLinkStatus(),
         profileApi.getGrades(),
       ]);
-      setProfile(profileRes.data);
+      setProfile(profileRes);
       setLinkStatus(statusRes.data);
       setGrades(gradesRes.data);
 

@@ -1,5 +1,7 @@
 package com.tcs.module.profile.controller;
 
+import com.tcs.module.identity.dto.request.VerificationRequestDto;
+import com.tcs.module.identity.dto.response.VerificationResponse;
 import com.tcs.module.profile.dto.request.ChildProfileRequest;
 import com.tcs.module.profile.dto.request.LinkChildAccountRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
@@ -15,6 +17,7 @@ import com.tcs.module.profile.dto.response.ProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
 import com.tcs.module.profile.service.ProfileService;
+import jakarta.validation.Valid;
 import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -26,8 +29,12 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/profile")
@@ -42,7 +49,7 @@ public class ProfileController {
     }
 
     @PutMapping("/me")
-    public ProfileResponse updateMyProfile(@RequestBody UpdateProfileRequest request) {
+    public ProfileResponse updateMyProfile(@Valid @RequestBody UpdateProfileRequest request) {
         return profileService.updateMyProfile(request);
     }
 
@@ -134,8 +141,13 @@ public class ProfileController {
     }
 
     @PostMapping("/verification/submit")
-    public Map<String, String> submitVerification() {
-        profileService.submitVerification();
-        return Map.of("message", "Đã nộp hồ sơ xác minh");
+    public VerificationResponse submitVerification(@Valid @RequestBody VerificationRequestDto request) {
+        return profileService.submitVerification(request);
+    }
+
+    @PostMapping(value = "/me/avatar", consumes = "multipart/form-data")
+    public Map<String, String> uploadAvatar(@RequestParam("file") MultipartFile file) {
+        String url = profileService.uploadAvatar(file);
+        return Map.of("avatarUrl", url);
     }
 }

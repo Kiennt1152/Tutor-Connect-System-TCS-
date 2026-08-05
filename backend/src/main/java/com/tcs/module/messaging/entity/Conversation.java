@@ -43,6 +43,12 @@ public class Conversation {
     @Column(name = "last_message_at")
     private LocalDateTime lastMessageAt;
 
+    @Column(name = "last_message_preview", length = 200)
+    private String lastMessagePreview;
+
+    @Column(name = "last_message_sender_id")
+    private Long lastMessageSenderId;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

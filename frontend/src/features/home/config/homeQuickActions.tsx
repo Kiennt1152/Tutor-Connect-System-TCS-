@@ -1,5 +1,6 @@
 import { ADMIN_QUICK_ACTIONS } from '../../platform/config/adminNavConfig';
 import type { AdminIconKey } from '../../platform/components/AdminIcons';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 
 export type HomeQuickAction = {
   title: string;
@@ -63,7 +64,7 @@ export function getHomeQuickActions(role: string): HomeQuickAction[] {
           title: 'Lịch dạy',
           description: 'Xem và sắp xếp lịch dạy trong tuần.',
           icon: '📅',
-          disabled: true,
+          to: APP_ROUTES.teaching,
         },
         {
           title: 'Hồ sơ gia sư',

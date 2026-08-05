@@ -43,6 +43,9 @@ public class TutorApplication {
     @Column(name = "proposed_rate", precision = 12, scale = 2)
     private BigDecimal proposedRate;
 
+    @Column(name = "proposed_rates_json", columnDefinition = "TEXT")
+    private String proposedRatesJson;
+
     @Column(name = "cover_letter", columnDefinition = "TEXT")
     private String coverLetter;
 

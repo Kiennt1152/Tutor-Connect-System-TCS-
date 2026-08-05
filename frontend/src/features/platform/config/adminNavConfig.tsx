@@ -45,9 +45,19 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
   {
     label: 'Vận hành',
     items: [
+      { to: APP_ROUTES.platformTasks, label: 'Hàng đợi công việc', icon: 'check-square' as any },
+      { to: APP_ROUTES.platformAnalytics, label: 'Báo cáo & Phân tích', icon: 'bar-chart' },
       { to: APP_ROUTES.platformUsers, label: 'Người dùng', icon: 'users' },
+      { to: APP_ROUTES.catalog, label: 'Danh mục', icon: 'folder' },
       { to: APP_ROUTES.platformVerifications, label: 'Xác minh', icon: 'shield' },
+      { to: APP_ROUTES.platformReviews, label: 'Nhận xét gia sư', icon: 'star' },
       { to: APP_ROUTES.platformReports, label: 'Báo cáo', icon: 'flag' },
+      { to: APP_ROUTES.platformTickets, label: 'Yêu cầu hỗ trợ', icon: 'message' },
+      { to: APP_ROUTES.platformFaq, label: 'Quản lý FAQ', icon: 'help' },
+      { to: APP_ROUTES.platformAnnouncements, label: 'Thông báo hệ thống', icon: 'message' },
+      { to: APP_ROUTES.platformPenalties, label: 'Xử phạt', icon: 'flag' },
+      { to: APP_ROUTES.platformAuditLogs, label: 'Nhật ký hoạt động', icon: 'shield' },
+      { to: APP_ROUTES.platformParameters, label: 'Cấu hình hệ thống', icon: 'folder' },
     ],
   },
 ];
@@ -55,7 +65,9 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
 export const ADMIN_HOME_NAV: Pick<AdminNavItem, 'label' | 'to'>[] = [
   { label: 'Bảng điều khiển', to: APP_ROUTES.platform },
   { label: 'Người dùng', to: APP_ROUTES.platformUsers },
+  { label: 'Danh mục', to: APP_ROUTES.catalog },
   { label: 'Xác minh', to: APP_ROUTES.platformVerifications },
+  { label: 'Nhận xét gia sư', to: APP_ROUTES.platformReviews },
   { label: 'Báo cáo', to: APP_ROUTES.platformReports },
 ];
 
@@ -73,10 +85,22 @@ export const ADMIN_QUICK_ACTIONS: AdminModule[] = [
     to: APP_ROUTES.platformUsers,
   },
   {
+    icon: 'folder',
+    title: 'Quản lý danh mục',
+    description: 'Cấu hình danh mục môn học, khu vực, cấp học và tùy chọn hệ thống.',
+    to: APP_ROUTES.catalog,
+  },
+  {
     icon: 'shield',
     title: 'Duyệt xác minh',
     description: 'Phê duyệt hồ sơ gia sư và trung tâm.',
     to: APP_ROUTES.platformVerifications,
+  },
+  {
+    icon: 'star',
+    title: 'Nhận xét gia sư',
+    description: 'Ẩn/hiện, đánh dấu vi phạm hoặc xóa đánh giá của khách hàng.',
+    to: APP_ROUTES.platformReviews,
   },
   {
     icon: 'flag',
@@ -112,6 +136,12 @@ export const ADMIN_STATS: AdminStatConfig[] = [
     icon: 'book',
   },
   {
+    key: 'activeClasses',
+    label: 'Lớp đang diễn ra',
+    tone: 'primary',
+    icon: 'book',
+  },
+  {
     key: 'pendingVerifications',
     label: 'Xác minh chờ duyệt',
     tone: 'warn',
@@ -125,9 +155,35 @@ export const ADMIN_STATS: AdminStatConfig[] = [
     icon: 'flag',
     to: APP_ROUTES.platformReports,
   },
+  {
+    key: 'openTickets',
+    label: 'Khiếu nại & Hỗ trợ',
+    tone: 'warn',
+    icon: 'message',
+    to: APP_ROUTES.platformTickets,
+  },
+  {
+    key: 'openDisputes',
+    label: 'Tranh chấp giao dịch',
+    tone: 'warn',
+    icon: 'flag',
+    to: APP_ROUTES.platformTasks,
+  },
 ];
 
 export const ADMIN_PRIORITY_ITEMS = [
+  {
+    key: 'openDisputes' as const,
+    label: 'Tranh chấp giao dịch',
+    icon: 'flag' as const,
+    to: APP_ROUTES.platformTasks,
+  },
+  {
+    key: 'pendingWithdrawals' as const,
+    label: 'Rút tiền chờ duyệt',
+    icon: 'check-square' as const,
+    to: APP_ROUTES.platformTasks,
+  },
   {
     key: 'pendingVerifications' as const,
     label: 'Xác minh chờ duyệt',
@@ -139,5 +195,11 @@ export const ADMIN_PRIORITY_ITEMS = [
     label: 'Báo cáo đang mở',
     icon: 'flag' as const,
     to: APP_ROUTES.platformReports,
+  },
+  {
+    key: 'openTickets' as const,
+    label: 'Khiếu nại & Hỗ trợ',
+    icon: 'message' as const,
+    to: APP_ROUTES.platformTickets,
   },
 ];

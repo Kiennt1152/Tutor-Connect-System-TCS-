@@ -1,5 +1,6 @@
 package com.tcs.module.marketplace.entity;
 
+import com.tcs.module.identity.entity.User;
 import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.profile.entity.ChildProfile;
 import jakarta.persistence.Column;
@@ -38,6 +39,11 @@ public class ClassStudent {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "child_profile_id")
     private ChildProfile childProfile;
+
+    // Nguoi ghi danh & tra hoc phi (client). Dung cho lop CENTER; NULL khi center import.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "enrolled_by_user_id")
+    private User enrolledByUser;
 
     @Column(name = "student_name", length = 100, nullable = false)
     private String studentName;

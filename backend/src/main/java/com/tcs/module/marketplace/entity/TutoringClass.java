@@ -5,9 +5,11 @@ import com.tcs.module.catalog.entity.Grade;
 import com.tcs.module.catalog.entity.Location;
 import com.tcs.module.catalog.entity.Subject;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.LessonMode;
 import com.tcs.module.marketplace.enums.RecurringType;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
+import com.tcs.module.profile.entity.TutorCenter;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -44,6 +46,14 @@ public class TutoringClass {
     @JoinColumn(name = "creator_id", nullable = false)
     private User creator;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "class_type", length = 20, nullable = false)
+    private ClassType classType = ClassType.PRIVATE;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "center_id")
+    private TutorCenter center;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
@@ -56,15 +66,27 @@ public class TutoringClass {
     @JoinColumn(name = "grade_id")
     private Grade grade;
 
+    @Column(name = "learning_goal", length = 100)
+    private String learningGoal;
+
+    @Column(name = "tutor_requirement", length = 255)
+    private String tutorRequirement;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "location_id")
     private Location location;
+
+    @Column(name = "address", length = 255)
+    private String address;
 
     @Column(name = "title", length = 150, nullable = false)
     private String title;
 
     @Column(name = "description", columnDefinition = "TEXT", nullable = false)
     private String description;
+
+    @Column(name = "details_json", columnDefinition = "TEXT")
+    private String detailsJson;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "lesson_mode", length = 20, nullable = false)
@@ -82,8 +104,17 @@ public class TutoringClass {
     @Column(name = "tuition_fee", precision = 12, scale = 2, nullable = false)
     private BigDecimal tuitionFee = BigDecimal.ZERO;
 
-    @Column(name = "budget", precision = 12, scale = 2, nullable = false)
+    @Column(name = "budget", precision = 12, scale = 2)
     private BigDecimal budget;
+
+    @Column(name = "max_students")
+    private Integer maxStudents;
+
+    @Column(name = "min_students")
+    private Integer minStudents;
+
+    @Column(name = "enrollment_deadline")
+    private LocalDate enrollmentDeadline;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "recurring_type", length = 20, nullable = false)

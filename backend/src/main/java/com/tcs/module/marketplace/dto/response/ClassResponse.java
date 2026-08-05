@@ -6,6 +6,7 @@ import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -16,12 +17,18 @@ public class ClassResponse {
     private Long classId;
     private String title;
     private String description;
+    private String detailsJson;
     private Long creatorId;
     private String creatorName;
     private Long subjectId;
     private String subjectName;
     private Long gradeId;
     private String gradeName;
+    private String learningGoal;
+    private String tutorRequirement;
+    private Long locationId;
+    private String locationName;
+    private String address;
     private LessonMode lessonMode;
     private Integer numberOfSessions;
     private LocalDate startDate;
@@ -30,5 +37,9 @@ public class ClassResponse {
     private BigDecimal budget;
     private RecurringType recurringType;
     private TutoringClassStatus status;
+    private Integer maxStudents;
+    private long enrolledCount;
+    private List<ScheduleSlotResponse> schedule;
     private LocalDateTime createdAt;
+    private Long applicationCount;
 }

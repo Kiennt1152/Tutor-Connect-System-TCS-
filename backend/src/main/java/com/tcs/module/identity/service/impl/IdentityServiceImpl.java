@@ -33,6 +33,7 @@ import com.tcs.module.identity.service.EmailService;
 import com.tcs.module.identity.service.IdentityService;
 import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.mapper.UserProfileBundle;
+import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
@@ -89,6 +90,7 @@ public class IdentityServiceImpl implements IdentityService {
     private final PlatformMapper platformMapper;
     private final AuthHelper authHelper;
     private final GoogleTokenVerifier googleTokenVerifier;
+    private final AuditLogService auditLogService;
 
     @Value("${app.otp.length:6}")
     private int otpLength;
@@ -284,6 +286,9 @@ public class IdentityServiceImpl implements IdentityService {
         token.setConsumedAt(LocalDateTime.now());
         emailVerificationTokenRepository.save(token);
 
+        auditLogService.record(savedUser.getUserId(), "REGISTER", "User", savedUser.getUserId(), null,
+                Map.of("email", email, "role", request.getRole().name()));
+
         return RegisterResponse.builder()
                 .email(email)
                 .message("Đăng ký thành công! Tài khoản của bạn đã được kích hoạt. Vui lòng đăng nhập.")
@@ -314,6 +319,8 @@ public class IdentityServiceImpl implements IdentityService {
         UserProfileBundle profiles = loadProfiles(user.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);
         String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role);
+        auditLogService.record(user.getUserId(), "LOGIN", "User", user.getUserId(), null,
+                Map.of("email", user.getEmail(), "method", "PASSWORD"));
         return buildAuthResponse(user, profiles, token);
     }
 
@@ -345,6 +352,8 @@ public class IdentityServiceImpl implements IdentityService {
         UserProfileBundle profiles = loadProfiles(user.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);
         String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role);
+        auditLogService.record(user.getUserId(), "LOGIN", "User", user.getUserId(), null,
+                Map.of("email", user.getEmail(), "method", "GOOGLE"));
         return buildGoogleLoginResponse(user, profiles, token);
     }
 
@@ -380,6 +389,8 @@ public class IdentityServiceImpl implements IdentityService {
         UserProfileBundle profiles = loadProfiles(savedUser.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);
         String token = jwtService.generateToken(savedUser.getUserId(), savedUser.getEmail(), role);
+        auditLogService.record(savedUser.getUserId(), "REGISTER", "User", savedUser.getUserId(), null,
+                Map.of("email", email, "role", request.getRole().name(), "method", "GOOGLE"));
         return buildGoogleLoginResponse(savedUser, profiles, token);
     }
 
@@ -429,6 +440,7 @@ public class IdentityServiceImpl implements IdentityService {
         }
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
+        auditLogService.record(user.getUserId(), "CHANGE_PASSWORD", "User", user.getUserId(), null, null);
     }
 
     @Override
@@ -457,6 +469,7 @@ public class IdentityServiceImpl implements IdentityService {
         userRepository.save(user);
         token.setUsedAt(LocalDateTime.now());
         passwordResetTokenRepository.save(token);
+        auditLogService.record(user.getUserId(), "RESET_PASSWORD", "User", user.getUserId(), null, null);
     }
 
     // ============================================================== helpers

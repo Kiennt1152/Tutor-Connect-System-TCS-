@@ -1,124 +1,132 @@
-import type { FormEvent } from 'react';
-import { useState } from 'react';
-import { SubmittedApprovalsSection } from '../../profile/pages/GuardianApprovalPage';
-import { ClientLayout } from '../../profile/components/ClientLayout';
-import { LegalDelegationBanner } from '../../profile/components/LegalDelegationBanner';
-import { useDependentLinkStatus } from '../../profile/hooks/useDependentProfile';
-import { formatCurrency, useFinance } from '../hooks/useFinance';
-import '../../profile/pages/DependentProfileLinkerPage.css';
+import { useEffect, useState } from 'react';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import '../FinancePage.css';
+import { useFinance } from '../hooks/useFinance';
+import { WalletBalanceCard } from '../components/WalletBalanceCard';
+import { TransactionList } from '../components/TransactionList';
+import { DepositModal } from '../components/DepositModal';
+import { WithdrawalModal } from '../components/WithdrawalModal';
+import { PaymentMethodsPanel } from '../components/PaymentMethodsPanel';
+import type { TransactionFilter, WalletInfo } from '../types/financeTypes';
+
+const DEFAULT_FILTERS: TransactionFilter = { page: 0, size: 20 };
+const EMPTY_WALLET: WalletInfo = {
+  walletId: 0,
+  balance: 0,
+  availableBalance: 0,
+  frozenBalance: 0,
+  status: 'ACTIVE',
+  updatedAt: '',
+};
 
 export default function FinancePage() {
-  const { linkStatus } = useDependentLinkStatus();
-  const { status, errorMessage, wallet, paymentMethods, mutationStatus, mutationError, reload, deposit } =
-    useFinance();
-  const [amount, setAmount] = useState('');
-  const [lastMessage, setLastMessage] = useState<string | null>(null);
+  const {
+    wallet,
+    walletLoading,
+    walletError,
+    fetchWallet,
+    transactions,
+    txLoading,
+    txError,
+    fetchTransactions,
+    fetchTransactionsPage,
+    createTopup,
+    checkTopupStatus,
+    simulateTopupSuccess,
+    paymentMethods,
+    paymentMethodsLoading,
+    fetchPaymentMethods,
+    createPaymentMethod,
+    updatePaymentMethod,
+    deletePaymentMethod,
+    createWithdrawal,
+  } = useFinance();
 
-  async function handleDeposit(e: FormEvent) {
-    e.preventDefault();
-    const parsed = Number(amount);
-    if (!parsed || parsed <= 0) return;
-    const result = await deposit({ amount: parsed });
-    if (result?.message) {
-      setLastMessage(result.message);
-    }
-    if (result?.pendingGuardianApproval) {
-      setAmount('');
-    } else if (result) {
-      setAmount('');
-    }
+  const [filters, setFilters] = useState<TransactionFilter>(DEFAULT_FILTERS);
+
+  useEffect(() => {
+    fetchWallet();
+    fetchTransactions(DEFAULT_FILTERS);
+    fetchPaymentMethods();
+  }, [fetchWallet, fetchTransactions, fetchPaymentMethods]);
+
+  function handleFilterChange(newFilters: TransactionFilter) {
+    setFilters(newFilters);
+    fetchTransactionsPage(newFilters);
   }
 
   return (
-    <ClientLayout title="Thanh toán" subtitle="Quản lý ví và phương thức thanh toán.">
-      <LegalDelegationBanner linkStatus={linkStatus} wallet={wallet} />
-
-      {linkStatus?.parentApprovalRequired && (
-        <div className="dpl-alert dpl-alert--info">
-          Học sinh có thể gửi yêu cầu nạp tiền ngay. Phụ huynh sẽ nhận thông báo qua hệ thống và email để
-          xác nhận trước khi giao dịch có hiệu lực.
+    <div className="tcs-page">
+      <HomeNavbar />
+      <main className="finance-page">
+        <div className="finance-page__header">
+          <h1>Ví của tôi</h1>
         </div>
-      )}
 
-      {status === 'loading' && <div className="dpl-state">Đang tải ví…</div>}
+        {walletError && (
+          <div className="alert alert--error">
+            {walletError}
+            <button onClick={fetchWallet}>Thử lại</button>
+          </div>
+        )}
 
-      {status === 'error' && (
-        <div className="dpl-card">
-          <div className="dpl-alert dpl-alert--error">{errorMessage}</div>
-          <button className="tcs-btn tcs-btn--primary" type="button" onClick={reload}>
-            Thử lại
-          </button>
+        <div className="finance-page__balance-row">
+          {wallet ? (
+            <WalletBalanceCard wallet={wallet} loading={walletLoading} />
+          ) : (
+            !walletError && <WalletBalanceCard loading wallet={EMPTY_WALLET} />
+          )}
+          <div className="finance-page__actions">
+            <DepositModal
+              onCreateTopup={createTopup}
+              onCheckTopupStatus={checkTopupStatus}
+              onSimulateTopupSuccess={simulateTopupSuccess}
+            />
+            <WithdrawalModal
+              wallet={wallet}
+              paymentMethods={paymentMethods}
+              paymentMethodsLoading={paymentMethodsLoading}
+              onLoadPaymentMethods={fetchPaymentMethods}
+              onWithdraw={createWithdrawal}
+            />
+          </div>
         </div>
-      )}
 
-      {status === 'success' && wallet && (
-        <>
-          <div className="dpl-card">
-            <h2 className="dpl-section-title">
-              {wallet.delegatedToParent ? 'Ví phụ huynh (ủy quyền)' : 'Ví của bạn'}
-            </h2>
-            <p className="dpl-wallet-balance">{formatCurrency(wallet.availableBalance)}</p>
-            <p className="dpl-muted">
-              Số dư khả dụng · Trạng thái: {wallet.status}
-              {wallet.delegatedToParent && wallet.legalOwnerName
-                ? ` · Chủ sở hữu pháp lý: ${wallet.legalOwnerName}`
-                : ''}
-            </p>
-          </div>
+        <PaymentMethodsPanel
+          paymentMethods={paymentMethods}
+          loading={paymentMethodsLoading}
+          onLoad={fetchPaymentMethods}
+          onCreate={createPaymentMethod}
+          onUpdate={updatePaymentMethod}
+          onDelete={deletePaymentMethod}
+        />
 
-          <div className="dpl-card">
-            <h2 className="dpl-section-title">Nạp tiền</h2>
-            {(lastMessage || wallet.message) && (
-              <div className="dpl-alert dpl-alert--info">{lastMessage ?? wallet.message}</div>
-            )}
-            {mutationError && <div className="dpl-alert dpl-alert--error">{mutationError}</div>}
-            <form className="dpl-form" onSubmit={handleDeposit}>
-              <label>
-                Số tiền (VND) *
-                <input
-                  className="dpl-field"
-                  type="number"
-                  min="1000"
-                  step="1000"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  required
-                />
-              </label>
-              <button
-                className="tcs-btn tcs-btn--primary"
-                type="submit"
-                disabled={mutationStatus === 'loading'}
-              >
-                {mutationStatus === 'loading' ? 'Đang gửi…' : 'Gửi yêu cầu nạp tiền'}
-              </button>
-            </form>
-          </div>
+        <section className="finance-page__transactions">
+          <h2>Lịch sử giao dịch</h2>
 
-          {linkStatus?.parentApprovalRequired && <SubmittedApprovalsSection />}
+          {txError && (
+            <div className="alert alert--error">
+              {txError}
+              <button onClick={() => fetchTransactionsPage(filters)}>Thử lại</button>
+            </div>
+          )}
 
-          <div className="dpl-card">
-            <h2 className="dpl-section-title">Phương thức thanh toán</h2>
-            {paymentMethods.length === 0 ? (
-              <p className="dpl-muted">Chưa có phương thức thanh toán nào.</p>
-            ) : (
-              <ul className="dpl-child-list">
-                {paymentMethods.map((method) => (
-                  <li key={method.paymentMethodId} className="dpl-child-item">
-                    <div>
-                      <strong>{method.type}</strong>
-                      {method.provider && (
-                        <span className="dpl-child-item__meta"> · {method.provider}</span>
-                      )}
-                    </div>
-                    {method.lastFour && <span className="dpl-muted">****{method.lastFour}</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </>
-      )}
-    </ClientLayout>
+          {transactions ? (
+            <TransactionList
+              page={transactions}
+              loading={txLoading}
+              filters={filters}
+              onFilterChange={handleFilterChange}
+            />
+          ) : (
+            !txError && (
+              <div className="tx-list__loading">
+                <div className="spinner" />
+              </div>
+            )
+          )}
+        </section>
+      </main>
+    </div>
   );
 }

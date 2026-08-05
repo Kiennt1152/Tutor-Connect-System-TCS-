@@ -1,5 +1,6 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  AvatarUploadResponse,
   CatalogItem,
   ChildProfile,
   ChildProfileRequest,
@@ -16,10 +17,27 @@ import type { GuardianApproval } from '../types/guardianApprovalTypes';
 export const PROFILE_API_BASE = '/profile';
 
 export const profileApi = {
-  getMyProfile: () => axiosClient.get<ProfileResponse>(`${PROFILE_API_BASE}/me`),
+  http: axiosClient,
+  basePath: PROFILE_API_BASE,
 
-  updateMyProfile: (body: UpdateProfileRequest) =>
-    axiosClient.put<ProfileResponse>(`${PROFILE_API_BASE}/me`, body),
+  async getMyProfile(): Promise<ProfileResponse> {
+    const res = await axiosClient.get<ProfileResponse>(`${PROFILE_API_BASE}/me`);
+    return res.data;
+  },
+
+  async updateMyProfile(payload: UpdateProfileRequest): Promise<ProfileResponse> {
+    const res = await axiosClient.put<ProfileResponse>(`${PROFILE_API_BASE}/me`, payload);
+    return res.data;
+  },
+
+  async uploadAvatar(file: File): Promise<string> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await axiosClient.post<AvatarUploadResponse>(`${PROFILE_API_BASE}/me/avatar`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data.avatarUrl;
+  },
 
   getDependentLinkStatus: () =>
     axiosClient.get<DependentLinkStatus>(`${PROFILE_API_BASE}/dependent-status`),

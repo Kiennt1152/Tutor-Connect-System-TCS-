@@ -60,10 +60,6 @@ export function ClassListingCard({ classItem, isAuthenticated }: ClassListingCar
 
       <div className="tcs-class-card__meta">
         <div className="tcs-class-card__row">
-          <span className="tcs-class-card__label">Mã lớp</span>
-          <span className="tcs-class-card__value">#{classItem.id}</span>
-        </div>
-        <div className="tcs-class-card__row">
           <span className="tcs-class-card__label">Số buổi</span>
           <span className="tcs-class-card__value">{classItem.numberOfSessions} buổi</span>
         </div>

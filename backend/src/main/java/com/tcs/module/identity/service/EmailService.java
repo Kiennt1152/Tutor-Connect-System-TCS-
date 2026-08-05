@@ -10,4 +10,14 @@ public interface EmailService {
      * @param expireMinutes thoi gian hieu luc (phut)
      */
     void sendRegistrationOtp(String toEmail, String code, long expireMinutes);
+
+    /**
+     * Gui email chua ma OTP xac thuc ky hop dong (UC-44).
+     *
+     * @param toEmail       dia chi nguoi nhan
+     * @param otpCode       ma OTP
+     * @param contractNo    so hop dong
+     * @param expireMinutes thoi gian hieu luc (phut)
+     */
+    void sendContractOtp(String toEmail, String otpCode, String contractNo, int expireMinutes);
 }

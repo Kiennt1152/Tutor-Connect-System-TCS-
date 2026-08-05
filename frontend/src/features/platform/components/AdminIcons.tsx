@@ -9,7 +9,13 @@ export type AdminIconKey =
   | 'shield'
   | 'flag'
   | 'book'
-  | 'graduation';
+  | 'graduation'
+  | 'folder'
+  | 'star'
+  | 'message'
+  | 'help'
+  | 'bar-chart'
+  | 'check-square';
 
 export type AdminIconSize = 'sm' | 'md' | 'lg';
 
@@ -70,6 +76,33 @@ export function IconGraduationCap({ className }: IconProps) {
   );
 }
 
+export function IconFolder({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />
+      <path d="M3 10h18" />
+    </svg>
+  );
+}
+
+export function IconMessage({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+    </svg>
+  );
+}
+
+export function IconHelp({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 2-3 4" />
+      <line x1="12" y1="17" x2="12" y2="17" />
+    </svg>
+  );
+}
+
 export function IconUser({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -87,6 +120,14 @@ export function IconChevronRight({ className }: IconProps) {
   );
 }
 
+export function IconStar({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
 const ADMIN_ICONS: Record<AdminIconKey, ComponentType<IconProps>> = {
   dashboard: IconDashboard,
   users: IconUsers,
@@ -94,6 +135,12 @@ const ADMIN_ICONS: Record<AdminIconKey, ComponentType<IconProps>> = {
   flag: IconFlag,
   book: IconBook,
   graduation: IconGraduationCap,
+  folder: IconFolder,
+  star: IconStar,
+  message: IconMessage,
+  help: IconHelp,
+  'bar-chart': IconDashboard,
+  'check-square': IconBook,
 };
 
 type AdminIconProps = {

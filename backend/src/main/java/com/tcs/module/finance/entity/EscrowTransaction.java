@@ -2,6 +2,7 @@ package com.tcs.module.finance.entity;
 
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.ClassStudent;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -38,9 +39,15 @@ public class EscrowTransaction {
     @JoinColumn(name = "payment_id", nullable = false, unique = true)
     private PaymentTransaction payment;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "assignment_id", nullable = false)
+    // Dung cho lop PRIVATE (giai ngan ve tutor). Loai tru voi classStudent.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignment_id")
     private ClassAssignment assignment;
+
+    // Dung cho lop CENTER: escrow theo tung ghi danh (giai ngan ve center).
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_student_id")
+    private ClassStudent classStudent;
 
     @Column(name = "amount", precision = 15, scale = 2, nullable = false)
     private BigDecimal amount;

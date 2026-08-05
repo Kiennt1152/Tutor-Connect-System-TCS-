@@ -1,7 +1,9 @@
 package com.tcs.module.contract.entity;
 
+import com.tcs.module.contract.enums.ContractSourceType;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.ClassStudent;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -36,9 +38,14 @@ public class Contract {
     @Column(name = "contract_no", length = 50, nullable = false, unique = true)
     private String contractNo;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "assignment_id", nullable = false, unique = true)
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "assignment_id")
     private ClassAssignment assignment;
+
+    // Hop dong CENTER theo tung ghi danh (client <-> center).
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "class_student_id", unique = true)
+    private ClassStudent classStudent;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "template_id")
@@ -51,11 +58,21 @@ public class Contract {
     private String termsSummary;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", length = 30, nullable = false)
-    private ContractStatus status = ContractStatus.DRAFT;
+    @Column(name = "status", length = 20, nullable = false)
+    private ContractStatus status = ContractStatus.PENDING;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "source_type", length = 20, nullable = false)
+    private ContractSourceType sourceType = ContractSourceType.PRIVATE;
 
     @Column(name = "signed_at")
     private LocalDateTime signedAt;
+
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
+
+    @Column(name = "confirmed_at")
+    private LocalDateTime confirmedAt;
 
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)

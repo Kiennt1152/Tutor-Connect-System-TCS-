@@ -8,7 +8,7 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
-@Service
+@Service("messagingEmailService")
 @Slf4j
 public class EmailServiceImpl implements EmailService {
 

@@ -1,6 +1,9 @@
 import { AdminLayout } from '../components/AdminLayout';
 import { useReportList } from '../hooks/useReportList';
 import type { ReportStatus } from '../types/platformTypes';
+import { useState } from 'react';
+import { platformApi } from '../api/platformApi';
+import { getApiErrorMessage } from '../../../shared/api/apiError';
 
 function reportBadgeClass(status: ReportStatus) {
   return status === 'PENDING' ? 'tcs-badge tcs-badge--suspended' : 'tcs-badge tcs-badge--active';
@@ -8,6 +11,19 @@ function reportBadgeClass(status: ReportStatus) {
 
 export default function PlatformReportsPage() {
   const { status, items, errorMessage, reload } = useReportList();
+  const [resolvingId, setResolvingId] = useState<number | null>(null);
+
+  const handleResolve = async (id: number) => {
+    try {
+      setResolvingId(id);
+      await platformApi.resolveReport(id, { status: 'RESOLVED' });
+      reload();
+    } catch (err) {
+      alert(getApiErrorMessage(err));
+    } finally {
+      setResolvingId(null);
+    }
+  };
 
   const openCount = items.filter((item) => item.status === 'PENDING').length;
 
@@ -28,10 +44,6 @@ export default function PlatformReportsPage() {
       </div>
 
       <div className="adm-card">
-        <div className="adm-alert adm-alert--info">
-          Chức năng đánh dấu &quot;Đã xử lý&quot; sẽ được bổ sung khi API cập nhật trạng thái báo cáo
-          sẵn sàng.
-        </div>
 
         <div className="adm-toolbar">
           <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reload}>
@@ -68,6 +80,7 @@ export default function PlatformReportsPage() {
                   <th>Mô tả</th>
                   <th>Trạng thái</th>
                   <th>Thời gian</th>
+                  <th>Hành động</th>
                 </tr>
               </thead>
               <tbody>
@@ -88,6 +101,18 @@ export default function PlatformReportsPage() {
                         <span className={reportBadgeClass(item.status)}>{item.statusLabel}</span>
                       </td>
                       <td>{item.createdAt}</td>
+                      <td className="adm-table__actions">
+                        {item.status === 'PENDING' && (
+                          <button
+                            className="tcs-btn tcs-btn--sm tcs-btn--primary"
+                            type="button"
+                            onClick={() => handleResolve(Number(item.id))}
+                            disabled={resolvingId === Number(item.id)}
+                          >
+                            {resolvingId === Number(item.id) ? 'Đang xử lý...' : 'Đã xử lý'}
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))
                 )}
