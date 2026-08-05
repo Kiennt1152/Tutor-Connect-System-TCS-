@@ -2,20 +2,15 @@ import type { FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';
-import { HomeNavbar } from '../../../shared/components/HomeNavbar';
-import { SiteFooter } from '../../home/components/SiteFooter';
 import { useProfile } from '../hooks/useProfile';
-import { profileApi } from '../api/profileApi';
-import { CccdSection } from '../components/CccdSection';
-import { CccdVerifiedView } from '../components/CccdVerifiedView';
 import type {
-  ChildProfile,
   Gender,
   ProfileResponse,
   ProfileVerificationStatus,
   UpdateProfileRequest,
   UserRole,
 } from '../types/profileTypes';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import './ProfilePage.css';
 
 const VIETNAM_PHONE = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
@@ -81,20 +76,6 @@ function fromProfile(profile: ProfileResponse | null): FormState {
   };
 }
 
-/** Tính tuổi (năm tròn) từ ngày sinh ISO; trả null nếu không có/không hợp lệ. */
-function calcAge(dateOfBirth?: string | null): number | null {
-  if (!dateOfBirth) return null;
-  const dob = new Date(dateOfBirth);
-  if (Number.isNaN(dob.getTime())) return null;
-  const now = new Date();
-  let age = now.getFullYear() - dob.getFullYear();
-  const monthDiff = now.getMonth() - dob.getMonth();
-  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dob.getDate())) {
-    age -= 1;
-  }
-  return age;
-}
-
 export default function ProfilePage() {
   const {
     profile,
@@ -112,7 +93,6 @@ export default function ProfilePage() {
   const [fieldError, setFieldError] = useState<Partial<Record<keyof FormState, string>>>({});
   const [success, setSuccess] = useState<string | null>(null);
   const [verificationWarning, setVerificationWarning] = useState<string | null>(null);
-  const [children, setChildren] = useState<ChildProfile[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -127,37 +107,6 @@ export default function ProfilePage() {
   const isClient = role === 'CLIENT';
   const isTutor = role === 'TUTOR';
   const isCenter = role === 'TUTOR_CENTER';
-  const age = calcAge(profile?.dateOfBirth);
-  const isAdultClient = isClient && age != null && age >= 18;
-
-  // Cách A: đã có CCCD -> ngày sinh khóa theo CCCD (không cho sửa tay).
-  const [dobLockedByCccd, setDobLockedByCccd] = useState(false);
-  useEffect(() => {
-    if (!isClient && !isTutor) return;
-    profileApi
-      .getMyCccd()
-      .then((res) => setDobLockedByCccd(Boolean(res.data.cccdNumber)))
-      .catch(() => setDobLockedByCccd(false));
-  }, [isClient, isTutor]);
-
-  useEffect(() => {
-    if (!isAdultClient) {
-      setChildren([]);
-      return;
-    }
-    let active = true;
-    profileApi
-      .getMyChildren()
-      .then((res) => {
-        if (active) setChildren(res.data);
-      })
-      .catch(() => {
-        if (active) setChildren([]);
-      });
-    return () => {
-      active = false;
-    };
-  }, [isAdultClient]);
 
   const verificationLinkedField = useMemo(() => {
     if (isTutor) return { key: 'fullName' as const, label: 'Họ và tên (tên pháp lý)' };
@@ -267,24 +216,23 @@ export default function ProfilePage() {
   return (
     <div className="tcs-page">
       <HomeNavbar />
-      <main className="profile-main">
-        <div className="tcs-container profile-page">
-      <header className="profile-header">
-        <h1>Hồ sơ cá nhân</h1>
-        {profile && (
-          <p className="profile-role">
-            Vai trò: <strong>{ROLE_LABEL[profile.role] ?? profile.role}</strong>
-            {profile.verificationStatus && !isClient && (
-              <>
-                {' · '}
-                <span className={`verification-badge verification-${profile.verificationStatus.toLowerCase()}`}>
-                  {VERIFICATION_LABEL[profile.verificationStatus]}
-                </span>
-              </>
-            )}
-          </p>
-        )}
-      </header>
+      <div className="profile-page">
+        <div className="profile-role-bar">
+          <h1>Hồ sơ cá nhân</h1>
+          {profile && (
+            <p className="profile-role">
+              Vai trò: <strong>{ROLE_LABEL[profile.role] ?? profile.role}</strong>
+              {profile.verificationStatus && !isClient && (
+                <>
+                  {' · '}
+                  <span className={`verification-badge verification-${profile.verificationStatus.toLowerCase()}`}>
+                    {VERIFICATION_LABEL[profile.verificationStatus]}
+                  </span>
+                </>
+              )}
+            </p>
+          )}
+        </div>
 
       {error && <div className="profile-alert error">{error}</div>}
       {success && <div className="profile-alert success">{success}</div>}
@@ -373,14 +321,7 @@ export default function ProfilePage() {
                   type="date"
                   value={form.dateOfBirth}
                   onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
-                  disabled={dobLockedByCccd}
                 />
-                {dobLockedByCccd && (
-                  <small className="profile-hint">
-                    Ngày sinh được lấy từ CCCD đã xác minh — không thể sửa tay. Cập nhật bằng cách đọc
-                    lại ảnh CCCD ở mục dưới.
-                  </small>
-                )}
                 {errs.dateOfBirth && <span className="profile-field-error">{errs.dateOfBirth}</span>}
               </label>
               <label>
@@ -388,18 +329,12 @@ export default function ProfilePage() {
                 <select
                   value={form.gender}
                   onChange={(e) => setForm({ ...form, gender: e.target.value as Gender | '' })}
-                  disabled={dobLockedByCccd}
                 >
                   <option value="">-- Chọn --</option>
                   <option value="MALE">Nam</option>
                   <option value="FEMALE">Nữ</option>
                   <option value="OTHER">Khác</option>
                 </select>
-                {dobLockedByCccd && (
-                  <small className="profile-hint">
-                    Giới tính lấy từ CCCD đã xác minh — không thể sửa tay.
-                  </small>
-                )}
               </label>
             </section>
           )}
@@ -524,68 +459,7 @@ export default function ProfilePage() {
           </p>
         </section>
       )}
-
-      {/* Phụ huynh: tự quét/sửa CCCD ở profile. Gia sư/Trung tâm: nộp khi xác minh -> chỉ xem. */}
-      {isClient && <CccdSection />}
-      {(isTutor || isCenter) && (
-        <CccdVerifiedView
-          verified={profile?.verificationStatus === 'VERIFIED'}
-          isCenter={isCenter}
-        />
-      )}
-
-      {isAdultClient && (
-        <section className="profile-section">
-          <h2>Quản lý hồ sơ con</h2>
-          <p>Chọn một hồ sơ con để cập nhật thông tin học tập, hoặc thêm hồ sơ con mới.</p>
-          {children.length > 0 ? (
-            <ul className="profile-child-list">
-              {children.map((child) => (
-                <li key={child.childProfileId} className="profile-child-item">
-                  <span className="profile-child-item__name">{child.fullName}</span>
-                  <Link
-                    to={APP_ROUTES.childProfile(child.childProfileId)}
-                    className="btn-link"
-                  >
-                    Quản lý
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <p className="profile-hint">Chưa có hồ sơ con nào.</p>
-          )}
-          <div className="profile-link-actions">
-            <Link to={APP_ROUTES.profileDependents} className="btn-primary-link">
-              Thêm / liên kết hồ sơ con
-            </Link>
-          </div>
-        </section>
-      )}
-
-      {isClient && (
-        <section className="profile-link-card">
-          <div className="profile-link-card__icon" aria-hidden="true">🔗</div>
-          <div className="profile-link-card__body">
-            <h2>Liên kết hồ sơ</h2>
-            <p>
-              Liên kết hồ sơ phụ huynh và quản lý hồ sơ con cho tài khoản học sinh vị thành niên.
-              Cần hoàn tất liên kết trước khi thanh toán hoặc tạo hợp đồng với gia sư.
-            </p>
-            <div className="profile-link-actions">
-              <Link to={APP_ROUTES.profileDependents} className="btn-primary-link">
-                Liên kết hồ sơ
-              </Link>
-              <Link to={APP_ROUTES.guardianApprovals} className="btn-link">
-                Xác nhận phụ huynh
-              </Link>
-            </div>
-          </div>
-        </section>
-      )}
-        </div>
-      </main>
-      <SiteFooter />
+      </div>
     </div>
   );
 }

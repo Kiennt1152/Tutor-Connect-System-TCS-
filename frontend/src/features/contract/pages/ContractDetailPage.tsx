@@ -1,56 +1,18 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
-import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
-import { RefundRequestModal } from '../../marketplace/components/RefundRequestModal';
-import { HomeNavbar } from '../../../shared/components/HomeNavbar';
-import { APP_ROUTES } from '../../../shared/constants/routes';
+import { useParams, Link } from 'react-router-dom';
 import { useContractDetail, useSignContract } from '../hooks/useContract';
-import type { ContractStatus, EscrowStatus, PaymentTransactionStatus } from '../types/contractTypes';
+import type { ContractStatus } from '../types/contractTypes';
+import { APP_ROUTES } from '../../../shared/constants/routes';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import './ContractPage.css';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
-  PENDING: { label: 'Chờ ký', cls: 'contract-status--pending' },
-  DRAFT: { label: 'Chưa ký', cls: 'contract-status--draft' },
-  SIGNED: { label: 'Đã ký', cls: 'contract-status--signed' },
-  ACTIVE: { label: 'Đang hoạt động', cls: 'contract-status--active' },
-  COMPLETED: { label: 'Hoàn thành', cls: 'contract-status--completed' },
-  TERMINATED: { label: 'Đã chấm dứt', cls: 'contract-status--terminated' },
-};
-
-const ESCROW_STATUS_LABEL: Record<EscrowStatus, { label: string; cls: string }> = {
-  PENDING: { label: 'Chờ thanh toán', cls: 'contract-status--pending' },
-  FUNDED: { label: 'Đã nạp escrow', cls: 'contract-status--active' },
-  RELEASED: { label: 'Đã giải ngân', cls: 'contract-status--completed' },
-  REFUNDED: { label: 'Đã hoàn tiền', cls: 'contract-status--completed' },
-  ON_HOLD: { label: 'Đang tạm giữ', cls: 'contract-status--signed' },
-  DISPUTED: { label: 'Đang tranh chấp', cls: 'contract-status--terminated' },
-};
-
-const PAYMENT_STATUS_LABEL: Record<PaymentTransactionStatus, string> = {
-  PENDING: 'Chờ SePay xác nhận',
-  SUCCESS: 'Đã xác nhận',
-  FAILED: 'Thất bại',
-  CANCELLED: 'Đã hủy',
-};
-
-const formatCurrency = (value: number | string | null) => {
-  if (value == null) return '—';
-  return `${Number(value).toLocaleString('vi-VN')} đ`;
-};
-
-const formatDate = (value: string | null) => {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('vi-VN');
-};
-
-const formatDateTime = (value: string | null) => {
-  if (!value) return '—';
-  return new Date(value).toLocaleString('vi-VN');
-};
-
-const copyText = (value: string | null | undefined) => {
-  if (!value) return;
-  void navigator.clipboard?.writeText(value);
+  PENDING: { label: 'Chờ ký', cls: 'status-draft' },
+  DRAFT: { label: 'Chưa ký', cls: 'status-draft' },
+  SIGNED: { label: 'Đã ký', cls: 'status-signed' },
+  ACTIVE: { label: 'Đang hoạt động', cls: 'status-active' },
+  COMPLETED: { label: 'Hoàn thành', cls: 'status-completed' },
+  TERMINATED: { label: 'Đã chấm dứt', cls: 'status-terminated' },
 };
 
 export default function ContractDetailPage() {
@@ -63,16 +25,15 @@ export default function ContractDetailPage() {
   const [otpInput, setOtpInput] = useState('');
   const [otpSentSuccess, setOtpSentSuccess] = useState(false);
   const [signSuccess, setSignSuccess] = useState(false);
-  const [issueModalOpen, setIssueModalOpen] = useState(false);
-  const [refundModalOpen, setRefundModalOpen] = useState(false);
 
   useEffect(() => {
-    if (id) void reload(id);
+    if (id) reload(id);
   }, [id, reload]);
 
+  // Reload detail after sign
   useEffect(() => {
     if (signSuccess && id) {
-      void reload(id);
+      reload(id);
       setSignSuccess(false);
     }
   }, [signSuccess, id, reload]);
@@ -93,290 +54,138 @@ export default function ContractDetailPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="contract-shell">
-        <HomeNavbar />
-        <main className="contract-page tcs-container">
-          <div className="contract-state">Đang tải hợp đồng...</div>
-        </main>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div className="tcs-page">
+      <HomeNavbar />
+      <div className="cdetail-loading">Đang tải hợp đồng...</div>
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div className="contract-shell">
-        <HomeNavbar />
-        <main className="contract-page tcs-container">
-          <div className="contract-state contract-state--error">{error}</div>
-        </main>
-      </div>
-    );
-  }
+  if (error) return (
+    <div className="tcs-page">
+      <HomeNavbar />
+      <div className="cdetail-error">{error}</div>
+    </div>
+  );
 
   if (!contract) return null;
 
-  const status = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
-  const escrowPayment = contract.escrowPayment ?? null;
-  const escrowStatus = escrowPayment
-    ? ESCROW_STATUS_LABEL[escrowPayment.escrowStatus] ?? { label: escrowPayment.escrowStatus, cls: '' }
-    : null;
-  const escrowPending = escrowPayment?.escrowStatus === 'PENDING' || escrowPayment?.paymentStatus === 'PENDING';
-  // Người xem còn ô ký CHỜ KÝ của chính mình -> mới hiện phần ký OTP.
-  // (Trung tâm đã ký sẵn nên không còn ô chờ ký -> không hiện; admin/không phải bên cũng không hiện.)
-  const myPendingSlot =
-    signatures?.signatures.some((s) => s.isCurrentUser && s.signatureStatus !== 'SIGNED') ?? false;
-  // Người xem đã ký (đang chờ bên còn lại) -> hiện thông báo đã ghi nhận chữ ký.
-  const mySignedSlot =
-    signatures?.signatures.some((s) => s.isCurrentUser && s.signatureStatus === 'SIGNED') ?? false;
-  const allSigned = signatures?.fullySigned ?? false;
+  const st = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
+  const allSigned = signatures?.hasAllSignatures ?? false;
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
-  const canCreateIssue = contract.classId != null;
-  const classDetailUrl = contract.classId
-    ? `/marketplace/classes/${contract.classId}${
-        contract.classStudentId
-          ? `?classStudentId=${contract.classStudentId}`
-          : contract.assignmentId
-            ? `?assignmentId=${contract.assignmentId}`
-            : ''
-      }`
-    : null;
-  const signedPercent = signatures?.totalRequired
-    ? Math.round((signatures.signedCount / signatures.totalRequired) * 100)
-    : 0;
 
   return (
-    <div className="contract-shell">
+    <div className="tcs-page">
       <HomeNavbar />
-      <main className="contract-page contract-page--detail tcs-container">
-        <div className="contract-detail-nav">
-          <Link to={APP_ROUTES.contract} className="contract-back-link">
-            Quay lại danh sách
-          </Link>
-          <span className={`contract-status ${status.cls}`}>{status.label}</span>
+      <div className="cdetail-page">
+        <div className="cdetail-topbar">
+          <Link to={APP_ROUTES.contract} className="cdetail-back">← Quay lại danh sách</Link>
+          <span className={`status-badge ${st.cls}`}>{st.label}</span>
         </div>
 
-        <section className="contract-detail-head">
-          <div>
-            <p className="contract-eyebrow">Chi tiết hợp đồng</p>
-            <h1>{contract.classTitle ?? contract.contractNo}</h1>
-            <p>
-              <span className="contract-no">{contract.contractNo}</span>
-              <span className="contract-dot" />
-              Tạo ngày {formatDate(contract.createdAt)}
-            </p>
-          </div>
-          <div className="contract-detail-head__actions">
-            <button
-              className="tcs-btn tcs-btn--ghost"
-              type="button"
-              disabled={!canCreateIssue}
-              onClick={() => setIssueModalOpen(true)}
-            >
-              Báo cáo sự cố
-            </button>
-            <button
-              className="tcs-btn tcs-btn--ghost"
-              type="button"
-              disabled={!canCreateIssue}
-              onClick={() => setRefundModalOpen(true)}
-            >
-              Yêu cầu hoàn tiền
-            </button>
-            {classDetailUrl ? (
-              <Link
-                className="tcs-btn tcs-btn--primary"
-                to={classDetailUrl}
-              >
-                Xem lớp liên quan
-              </Link>
-            ) : null}
-          </div>
-        </section>
-
-        <div className="contract-detail-grid">
-          <section className="contract-card contract-card--wide">
-            <div className="contract-card__head">
-              <h2>Thông tin hợp đồng</h2>
-            </div>
-            <dl className="contract-info-list">
-              <div>
-                <dt>Ngày ký</dt>
-                <dd>{formatDate(contract.signedAt)}</dd>
-              </div>
-              {/* HĐ tuyển dụng/hợp tác gia sư: không có lớp -> ẩn các trường Loại lớp/Số buổi/Học phí. */}
-              {contract.recruitmentApplicationId == null && (
-                <>
-                  <div>
-                    <dt>Loại lớp</dt>
-                    <dd>{contract.classType ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>Hình thức</dt>
-                    <dd>{contract.lessonMode ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>Số buổi</dt>
-                    <dd>{contract.numberOfSessions ?? '—'}</dd>
-                  </div>
-                  <div>
-                    <dt>Học phí</dt>
-                    <dd>{formatCurrency(contract.tuitionFee)}</dd>
-                  </div>
-                </>
-              )}
+        <div className="cdetail-grid">
+          {/* Contract Info */}
+          <section className="cdetail-card">
+            <h2>Thông tin hợp đồng</h2>
+            <dl className="cdetail-dl">
+              <dt>Số hợp đồng</dt><dd className="contract-no">{contract.contractNo}</dd>
+              <dt>Ngày tạo</dt><dd>{new Date(contract.createdAt).toLocaleDateString('vi-VN')}</dd>
+              {contract.signedAt && <><dt>Ngày ký</dt><dd>{new Date(contract.signedAt).toLocaleDateString('vi-VN')}</dd></>}
+              <dt>Học viên</dt><dd>{contract.clientName ?? '—'}</dd>
+              <dt>Gia sư</dt><dd>{contract.tutorName ?? '—'}</dd>
             </dl>
-            {contract.documentText || contract.termsSummary ? (
-              <div className="contract-terms">
+            {contract.termsSummary && (
+              <>
                 <h3>Nội dung hợp đồng</h3>
-                {/* Văn bản hợp đồng đầy đủ (quốc hiệu, BÊN A, BÊN B, điều khoản) -> giữ xuống dòng. */}
-                <p style={{ whiteSpace: 'pre-wrap' }}>
-                  {contract.documentText ?? contract.termsSummary}
-                </p>
-              </div>
-            ) : null}
-          </section>
-
-          <section className="contract-card">
-            <div className="contract-card__head">
-              <h2>Các bên ký</h2>
-            </div>
-            <div className="contract-party-list">
-              {contract.tutor ? (
-                <div className="contract-party">
-                  <span>Gia sư</span>
-                  <strong>{contract.tutor.fullName}</strong>
-                  <small>{contract.tutor.email}</small>
-                </div>
-              ) : null}
-              {contract.center ? (
-                <div className="contract-party">
-                  <span>Trung tâm</span>
-                  <strong>{contract.center.fullName}</strong>
-                  <small>{contract.center.email}</small>
-                </div>
-              ) : null}
-              {contract.client ? (
-                <div className="contract-party">
-                  <span>Phụ huynh / Học viên</span>
-                  <strong>{contract.client.fullName}</strong>
-                  <small>{contract.client.email}</small>
-                </div>
-              ) : null}
-            </div>
-          </section>
-
-          {escrowPayment ? (
-            <section className="contract-card contract-escrow-card">
-              <div className="contract-card__head">
-                <h2>Thanh toán escrow</h2>
-                {escrowStatus ? <span className={`contract-status ${escrowStatus.cls}`}>{escrowStatus.label}</span> : null}
-              </div>
-              <div className="contract-escrow">
-                {escrowPayment.qrUrl ? (
-                  <div className="contract-escrow__qr">
-                    <img src={escrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
-                  </div>
-                ) : null}
-                <div className="contract-escrow__details">
-                  <div className="contract-escrow__row">
-                    <span>Số tiền</span>
-                    <strong>{formatCurrency(escrowPayment.amount)}</strong>
-                  </div>
-                  <div className="contract-escrow__row">
-                    <span>Ngân hàng</span>
-                    <strong>{escrowPayment.bankName ?? '—'}</strong>
-                  </div>
-                  <div className="contract-escrow__row">
-                    <span>Số tài khoản</span>
-                    <strong>{escrowPayment.accountNumber ?? '—'}</strong>
-                  </div>
-                  <div className="contract-escrow__row">
-                    <span>Chủ tài khoản</span>
-                    <strong>{escrowPayment.accountName ?? '—'}</strong>
-                  </div>
-                  <div className="contract-escrow__code">
-                    <span>Nội dung chuyển khoản</span>
-                    <div>
-                      <code>{escrowPayment.transferContent ?? escrowPayment.referenceCode ?? '—'}</code>
-                      <button
-                        type="button"
-                        onClick={() => copyText(escrowPayment.transferContent ?? escrowPayment.referenceCode)}
-                      >
-                        Sao chép
-                      </button>
-                    </div>
-                  </div>
-                  <p className={`contract-escrow__note${escrowPending ? ' contract-escrow__note--pending' : ''}`}>
-                    {escrowPending
-                      ? 'Sau khi SePay xác nhận giao dịch, escrow sẽ chuyển sang đã nạp và lớp mới được kích hoạt.'
-                      : `Trạng thái giao dịch: ${
-                          escrowPayment.paymentStatus
-                            ? PAYMENT_STATUS_LABEL[escrowPayment.paymentStatus] ?? escrowPayment.paymentStatus
-                            : '—'
-                        }.`}
-                  </p>
-                </div>
-              </div>
-            </section>
-          ) : null}
-
-          <section className="contract-card">
-            <div className="contract-card__head">
-              <h2>Trạng thái ký</h2>
-              {signatures ? <span>{signatures.signedCount}/{signatures.totalRequired}</span> : null}
-            </div>
-            {signatures ? (
-              <div className="contract-signature">
-                <div className="contract-progress">
-                  <span style={{ width: `${signedPercent}%` }} />
-                </div>
-                <div className="contract-signature-list">
-                  {signatures.signatures.map((signature) => {
-                    const isSigned = signature.signatureStatus === 'SIGNED';
-                    return (
-                      <div
-                        key={signature.signatureId}
-                        className={`contract-signature-row${
-                          signature.isCurrentUser ? ' contract-signature-row--me' : ''
-                        }${isSigned ? '' : ' contract-signature-row--pending'}`}
-                      >
-                        <span className="contract-signature-check">{isSigned ? '✓' : '—'}</span>
-                        <div>
-                          <strong>
-                            {signature.signerName ?? signature.partyLabel}
-                            {signature.isCurrentUser ? <em>Bạn</em> : null}
-                          </strong>
-                          <small>
-                            {signature.partyLabel} ·{' '}
-                            {isSigned ? `Đã ký ${formatDateTime(signature.signedAt)}` : 'Chờ ký'}
-                          </small>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                {allSigned ? <p className="contract-success-note">Đủ chữ ký.</p> : null}
-              </div>
-            ) : (
-              <div className="contract-muted">Đang tải trạng thái ký...</div>
+                <p className="cdetail-terms">{contract.termsSummary}</p>
+              </>
             )}
           </section>
 
-          {signRequired && myPendingSlot ? (
-            <section className="contract-card contract-card--accent">
-              <div className="contract-card__head">
-                <h2>Ký hợp đồng</h2>
+          {/* Parties */}
+          <section className="cdetail-card">
+            <h2>Các bên ký</h2>
+            <div className="cdetail-parties">
+              {contract.tutorId && (
+                <div className="party-card">
+                  <div className="party-role">Gia sư</div>
+                  <div className="party-name">{contract.tutorName}</div>
+                  <div className="party-email">{contract.tutorEmail}</div>
+                </div>
+              )}
+              {contract.centerId && (
+                <div className="party-card">
+                  <div className="party-role">Trung tâm</div>
+                  <div className="party-name">{contract.centerName}</div>
+                  <div className="party-email">{contract.centerEmail}</div>
+                </div>
+              )}
+              {contract.clientId && (
+                <div className="party-card">
+                  <div className="party-role">Phụ huynh / Học viên</div>
+                  <div className="party-name">{contract.clientName}</div>
+                  <div className="party-email">{contract.clientEmail}</div>
+                </div>
+              )}
+            </div>
+          </section>
+
+          {/* Signature Status */}
+          <section className="cdetail-card signature-card">
+            <h2>Trạng thái ký</h2>
+            {signatures ? (
+              <div className="sig-list">
+                {signatures.signatures.map(sig => (
+                  <div key={sig.signatureId} className={`sig-item`}>
+                    <div className="sig-check">{'✓'}</div>
+                    <div className="sig-info">
+                      <div className="sig-name">
+                        {sig.signerName ?? 'Chưa rõ'}
+                      </div>
+                      <div className="sig-role">{sig.partyLabel}</div>
+                      <div className="sig-time">{sig.signedAt ? new Date(sig.signedAt).toLocaleString('vi-VN') : ''}</div>
+                    </div>
+                  </div>
+                ))}
+
+                {Array.from({ length: Math.max(0, signatures.requiredSignatures - signatures.signatures.length) }).map((_, i) => (
+                  <div key={`pending-${i}`} className="sig-item sig-pending">
+                    <div className="sig-check sig-empty">—</div>
+                    <div className="sig-info">
+                      <div className="sig-name sig-name-pending">Chưa ký</div>
+                      <div className="sig-role">Đang chờ</div>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="sig-progress">
+                  <div className="sig-progress-bar">
+                    <div
+                      className="sig-progress-fill"
+                      style={{ width: signatures.requiredSignatures > 0 ? `${(signatures.signedCount / signatures.requiredSignatures) * 100}%` : '0%' }}
+                    />
+                  </div>
+                  <div className="sig-progress-text">
+                    {signatures.signedCount} / {signatures.requiredSignatures} đã ký
+                    {signatures.hasAllSignatures && <span className="sig-done"> — Đủ chữ ký!</span>}
+                  </div>
+                </div>
               </div>
-              {signError ? <div className="contract-alert contract-alert--error">{signError}</div> : null}
+            ) : <div className="sig-loading">Đang tải trạng thái ký...</div>}
+          </section>
+
+          {/* Sign Action */}
+          {signRequired && (
+            <section className="cdetail-card sign-card">
+              <h2>Ký hợp đồng</h2>
+
+              {signError && <div className="sign-error">{signError}</div>}
 
               {!otpSentSuccess ? (
-                <div className="contract-sign-form">
-                  <p>Hệ thống sẽ gửi mã OTP về email của bạn.</p>
+                <div className="sign-step">
+                  <p>Để ký hợp đồng, hệ thống sẽ gửi mã OTP về email của bạn.</p>
                   <button
-                    className="tcs-btn tcs-btn--primary"
-                    type="button"
+                    className="btn btn-primary"
                     onClick={handleSendOtp}
                     disabled={sendingOtp}
                   >
@@ -384,79 +193,45 @@ export default function ContractDetailPage() {
                   </button>
                 </div>
               ) : (
-                <div className="contract-sign-form">
-                  <p>
-                    Mã OTP đã được gửi tới <strong>{otpSent?.maskedEmail}</strong>
+                <div className="sign-step">
+                  <p className="otp-sent-msg">
+                    {otpSent?.message ?? 'Mã OTP đã được gửi tới email của bạn'}
                   </p>
-                  <div className="contract-otp-row">
+                  <p className="otp-hint">Nhập mã 6 chữ số đã nhận qua email để xác nhận ký.</p>
+                  <div className="otp-input-group">
                     <input
                       type="text"
-                      inputMode="numeric"
-                      className="contract-otp-input"
-                      placeholder="Nhập mã OTP"
+                      className="otp-input"
+                      placeholder="Nhập mã OTP (6 chữ số)"
                       value={otpInput}
-                      onChange={(event) => setOtpInput(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      onChange={e => setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       maxLength={6}
                       autoFocus
                     />
                     <button
-                      className="tcs-btn tcs-btn--primary"
-                      type="button"
+                      className="btn btn-primary"
                       onClick={handleSign}
                       disabled={signing || otpInput.trim().length < 6}
                     >
                       {signing ? 'Đang ký...' : 'Xác nhận ký'}
                     </button>
                   </div>
-                  <button
-                    className="contract-link-button"
-                    type="button"
-                    onClick={handleSendOtp}
-                    disabled={sendingOtp}
-                  >
+                  <button className="btn-link-resend" onClick={handleSendOtp} disabled={sendingOtp}>
                     Gửi lại mã OTP
                   </button>
                 </div>
               )}
             </section>
-          ) : null}
+          )}
 
-          {mySignedSlot && !allSigned ? (
-            <section className="contract-card contract-card--success">
-              <h2>Đã ghi nhận chữ ký của bạn</h2>
-              <p>Hợp đồng đang chờ bên còn lại ký.</p>
-            </section>
-          ) : null}
-
-          {allSigned && contract.status !== 'SIGNED' && contract.status !== 'ACTIVE' ? (
-            <section className="contract-card contract-card--success">
+          {allSigned && contract.status !== 'SIGNED' && contract.status !== 'ACTIVE' && (
+            <section className="cdetail-card">
               <h2>Hoàn tất ký</h2>
-              <p>Hợp đồng đã đủ chữ ký và có hiệu lực.</p>
+              <p className="sign-complete-msg">Tất cả các bên đã ký. Hợp đồng đã có hiệu lực.</p>
             </section>
-          ) : null}
+          )}
         </div>
-      </main>
-
-      {contract.classId ? (
-        <>
-          <ClassIssueModal
-            open={issueModalOpen}
-            classId={contract.classId}
-            assignmentId={contract.assignmentId}
-            classStudentId={contract.classStudentId}
-            classTitle={contract.classTitle}
-            onClose={() => setIssueModalOpen(false)}
-          />
-          <RefundRequestModal
-            open={refundModalOpen}
-            classTitle={contract.classTitle}
-            assignmentId={contract.assignmentId}
-            classStudentId={contract.classStudentId}
-            amountHint={contract.tuitionFee == null ? null : Number(contract.tuitionFee)}
-            onClose={() => setRefundModalOpen(false)}
-          />
-        </>
-      ) : null}
+      </div>
     </div>
   );
 }

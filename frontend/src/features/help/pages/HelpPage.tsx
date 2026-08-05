@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useChatbot, useFaqSearch } from '../hooks/useHelp';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import './HelpPage.css';
 
 function ChevronDown({ className }: { className?: string }) {
@@ -31,25 +32,9 @@ export default function HelpPage() {
   };
 
   return (
-    <div className="help-page">
-      {/* Top nav */}
-      <nav className="help-page__topbar">
-        <Link to={APP_ROUTES.home} className="help-page__brand">
-          Tutor Connect
-        </Link>
-        <div className="help-page__nav-links">
-          <Link to={APP_ROUTES.home} className="help-page__nav-link">Trang chủ</Link>
-          {user ? (
-            <Link to={APP_ROUTES.messagingTickets} className="help-page__nav-link help-page__nav-link--cta">
-              Yêu cầu của tôi
-            </Link>
-          ) : (
-            <Link to={APP_ROUTES.login} className="help-page__nav-link help-page__nav-link--cta">
-              Đăng nhập
-            </Link>
-          )}
-        </div>
-      </nav>
+    <div className="tcs-page">
+      <HomeNavbar />
+      <div className="help-page">
 
       {/* Hero + search */}
       <div className="help-page__hero">
@@ -192,6 +177,7 @@ export default function HelpPage() {
           )}
         </aside>
       </div>
+    </div>
     </div>
   );
 }

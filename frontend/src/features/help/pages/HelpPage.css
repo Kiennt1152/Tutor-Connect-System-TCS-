@@ -4,7 +4,7 @@
 }
 
 .help-page__hero {
-  background: linear-gradient(135deg, #1a56db 0%, #0f3987 100%);
+  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
   color: #fff;
   padding: 3rem 1.5rem 2.5rem;
   text-align: center;
@@ -45,7 +45,7 @@
 .help-page__search-btn {
   padding: 0.7rem 1.25rem;
   background: #fff;
-  color: #1a56db;
+  color: var(--color-primary);
   border: none;
   border-radius: 8px;
   font-weight: 600;
@@ -55,7 +55,7 @@
 }
 
 .help-page__search-btn:hover {
-  background: #e8f0fe;
+  background: #fff7ed;
 }
 
 .help-page__body {
@@ -87,8 +87,8 @@
 
 .help-faq__count {
   font-size: 0.8rem;
-  background: #e8f0fe;
-  color: #1a56db;
+  background: #fff7ed;
+  color: var(--color-primary);
   border-radius: 99px;
   padding: 0.1rem 0.6rem;
   font-weight: 600;
@@ -131,7 +131,7 @@
 }
 
 .help-faq__question-btn:hover {
-  color: #1a56db;
+  color: var(--color-primary);
 }
 
 .help-faq__chevron {
@@ -198,12 +198,12 @@
 }
 
 .help-chatbot__textarea:focus {
-  border-color: #1a56db;
-  box-shadow: 0 0 0 3px rgba(26,86,219,0.1);
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(234,88,12,0.1);
 }
 
 .help-chatbot__ask-btn {
-  background: #1a56db;
+  background: var(--color-primary);
   color: #fff;
   border: none;
   border-radius: 8px;
@@ -215,7 +215,7 @@
 }
 
 .help-chatbot__ask-btn:hover:not(:disabled) {
-  background: #1447c0;
+  background: var(--color-primary-dark);
 }
 
 .help-chatbot__ask-btn:disabled {
@@ -279,7 +279,7 @@
 .help-chatbot__ticket-link {
   display: inline-block;
   margin-top: 0.6rem;
-  background: #f59e0b;
+  background: var(--color-primary);
   color: #fff;
   border-radius: 6px;
   padding: 0.4rem 0.8rem;
@@ -290,7 +290,7 @@
 }
 
 .help-chatbot__ticket-link:hover {
-  background: #d97706;
+  background: var(--color-primary-dark);
 }
 
 .help-chatbot__reset-btn {
@@ -302,51 +302,4 @@
   margin-top: 0.5rem;
   padding: 0;
   text-decoration: underline;
-}
-
-/* Help page top nav */
-.help-page__topbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0.9rem 1.5rem;
-  background: #fff;
-  border-bottom: 1px solid #e2e8f0;
-}
-
-.help-page__brand {
-  font-size: 1rem;
-  font-weight: 700;
-  color: #1a56db;
-  text-decoration: none;
-}
-
-.help-page__nav-links {
-  display: flex;
-  gap: 0.75rem;
-  align-items: center;
-}
-
-.help-page__nav-link {
-  font-size: 0.88rem;
-  color: #4a5568;
-  text-decoration: none;
-  padding: 0.35rem 0.7rem;
-  border-radius: 6px;
-  transition: background 0.15s;
-}
-
-.help-page__nav-link:hover {
-  background: #f7f8fa;
-  color: #1a56db;
-}
-
-.help-page__nav-link--cta {
-  background: #1a56db;
-  color: #fff !important;
-  font-weight: 600;
-}
-
-.help-page__nav-link--cta:hover {
-  background: #1447c0 !important;
 }
