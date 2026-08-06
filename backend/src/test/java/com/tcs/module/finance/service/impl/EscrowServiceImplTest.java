@@ -10,27 +10,31 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.tcs.exception.BusinessException;
-import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
+import com.tcs.module.finance.entity.RefundRequest;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
+import com.tcs.module.finance.enums.RefundRequestStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
+import com.tcs.module.finance.repository.RefundRequestRepository;
+import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
+import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
-import com.tcs.module.profile.repository.PlatformAdminRepository;
 import java.math.BigDecimal;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -40,7 +44,6 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class EscrowServiceImplTest {
@@ -59,19 +62,19 @@ class EscrowServiceImplTest {
     private EscrowTransactionRepository escrowTransactionRepository;
 
     @Mock
+    private RefundRequestRepository refundRequestRepository;
+
+    @Mock
+    private UserRepository userRepository;
+
+    @Mock
     private ClassAssignmentRepository classAssignmentRepository;
 
     @Mock
     private ClassStudentRepository classStudentRepository;
 
     @Mock
-    private ContractRepository contractRepository;
-
-    @Mock
-    private PlatformAdminRepository platformAdminRepository;
-
-    @Mock
-    private ApplicationEventPublisher eventPublisher;
+    private PaymentNotificationService paymentNotificationService;
 
     @InjectMocks
     private EscrowServiceImpl escrowService;
@@ -82,16 +85,19 @@ class EscrowServiceImplTest {
     @Captor
     private ArgumentCaptor<EscrowTransaction> escrowCaptor;
 
+    @Captor
+    private ArgumentCaptor<RefundRequest> refundRequestCaptor;
+
     @Test
-    void lockPrivateAssignmentCreatesFundedEscrow() {
+    void lockPrivateAssignmentCreatesPendingEscrowPayment() {
         BigDecimal amount = new BigDecimal("500000.00");
-        Wallet wallet = payerWallet();
+        Wallet wallet = wallet(999L);
         ClassAssignment assignment = new ClassAssignment();
         assignment.setAssignmentId(7L);
 
         when(escrowTransactionRepository.findByAssignment_AssignmentId(7L)).thenReturn(Optional.empty());
         when(classAssignmentRepository.findById(7L)).thenReturn(Optional.of(assignment));
-        when(walletService.lockFunds(PAYER_ID, amount, "ESCROW_LOCK-A7")).thenReturn(wallet);
+        when(walletService.getSystemEscrowWallet()).thenReturn(wallet);
         when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
         when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -101,40 +107,43 @@ class EscrowServiceImplTest {
         PaymentTransaction payment = paymentCaptor.getValue();
         assertSame(wallet, payment.getWallet());
         assertEquals(PaymentTransactionType.ESCROW_DEPOSIT, payment.getType());
-        assertEquals(PaymentTransactionStatus.SUCCESS, payment.getStatus());
-        assertEquals("ESCROW_LOCK-A7", payment.getReferenceCode());
+        assertEquals(PaymentTransactionStatus.PENDING, payment.getStatus());
+        assertEquals("ESCROW-A7", payment.getReferenceCode());
 
         verify(escrowTransactionRepository).save(escrowCaptor.capture());
         EscrowTransaction escrow = escrowCaptor.getValue();
         assertSame(assignment, escrow.getAssignment());
-        assertEquals(EscrowStatus.FUNDED, escrow.getStatus());
+        assertEquals(EscrowStatus.PENDING, escrow.getStatus());
         assertEquals(amount, escrow.getAmount());
         assertSame(escrow, result);
+        verify(walletService, never()).lockFunds(any(), any(), any());
     }
 
     @Test
-    void lockCenterEnrollmentCreatesFundedEscrow() {
+    void lockCenterEnrollmentCreatesPendingEscrowPayment() {
         BigDecimal amount = new BigDecimal("300000.00");
-        Wallet wallet = payerWallet();
+        Wallet wallet = wallet(999L);
         ClassStudent classStudent = new ClassStudent();
         classStudent.setClassStudentId(9L);
 
         when(escrowTransactionRepository.findByClassStudent_ClassStudentId(9L)).thenReturn(Optional.empty());
         when(classStudentRepository.findById(9L)).thenReturn(Optional.of(classStudent));
-        when(walletService.lockFunds(PAYER_ID, amount, "ESCROW_LOCK-CS9")).thenReturn(wallet);
+        when(walletService.getSystemEscrowWallet()).thenReturn(wallet);
         when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
         when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
         EscrowTransaction result = escrowService.lock(new EscrowLockCommand(PAYER_ID, amount, null, 9L));
 
         verify(paymentTransactionRepository).save(paymentCaptor.capture());
-        assertEquals("ESCROW_LOCK-CS9", paymentCaptor.getValue().getReferenceCode());
+        assertEquals("ESCROW-CS9", paymentCaptor.getValue().getReferenceCode());
+        assertEquals(PaymentTransactionStatus.PENDING, paymentCaptor.getValue().getStatus());
 
         verify(escrowTransactionRepository).save(escrowCaptor.capture());
         EscrowTransaction escrow = escrowCaptor.getValue();
         assertSame(classStudent, escrow.getClassStudent());
-        assertEquals(EscrowStatus.FUNDED, escrow.getStatus());
+        assertEquals(EscrowStatus.PENDING, escrow.getStatus());
         assertSame(escrow, result);
+        verify(walletService, never()).lockFunds(any(), any(), any());
     }
 
     @Test
@@ -181,6 +190,25 @@ class EscrowServiceImplTest {
         assertEquals(PaymentTransactionType.ESCROW_RELEASE, releaseTx.getType());
         assertEquals(PaymentTransactionStatus.SUCCESS, releaseTx.getStatus());
         assertEquals("ESCROW_RELEASE-5", releaseTx.getReferenceCode());
+        assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
+    }
+
+    @Test
+    void applyReleasesDisputedEscrowToTutor() {
+        BigDecimal amount = new BigDecimal("500000.00");
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, amount);
+        escrow.setStatus(EscrowStatus.DISPUTED);
+        Wallet tutorWallet = wallet(TUTOR_USER_ID);
+
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+        when(walletService.getOrCreate(TUTOR_USER_ID)).thenReturn(tutorWallet);
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        escrowService.apply(new ReleaseInstruction(5L, amount, BigDecimal.ZERO, "Admin giải ngân sau tranh chấp"));
+
+        verify(walletService).releaseLockedFunds(PAYER_ID, amount, "ESCROW_RELEASE-5");
+        verify(walletService).credit(TUTOR_USER_ID, amount, "ESCROW_RELEASE-5");
         assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
     }
 
@@ -256,6 +284,48 @@ class EscrowServiceImplTest {
     }
 
     @Test
+    void applyCreatesApprovedRefundTransferRequestWhenPayerDidNotUseWallet() {
+        BigDecimal releaseAmount = new BigDecimal("300000.00");
+        BigDecimal refundAmount = new BigDecimal("600000.00");
+        EscrowTransaction escrow = fundedPrivateEscrowPaidThroughSystem(21L, new BigDecimal("900000.00"));
+        Wallet systemWallet = wallet(999L);
+        Wallet tutorWallet = wallet(TUTOR_USER_ID);
+
+        when(escrowTransactionRepository.findById(21L)).thenReturn(Optional.of(escrow));
+        when(walletService.getOrCreate(TUTOR_USER_ID)).thenReturn(tutorWallet);
+        when(walletService.getSystemEscrowWallet()).thenReturn(systemWallet);
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(refundRequestRepository.findFirstByEscrowTransaction_EscrowIdOrderByRequestedAtDesc(21L))
+                .thenReturn(Optional.empty());
+        when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        escrowService.apply(new ReleaseInstruction(21L, releaseAmount, refundAmount, "Auto tất toán sớm"));
+
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
+        verify(walletService).credit(TUTOR_USER_ID, releaseAmount, "ESCROW_RELEASE-21");
+
+        verify(paymentTransactionRepository, times(2)).save(paymentCaptor.capture());
+        PaymentTransaction refundTx = paymentCaptor.getAllValues().get(1);
+        assertSame(systemWallet, refundTx.getWallet());
+        assertEquals(PaymentTransactionType.REFUND, refundTx.getType());
+        assertEquals(PaymentTransactionStatus.PENDING, refundTx.getStatus());
+        assertEquals(refundAmount, refundTx.getAmount());
+        assertEquals("REFUND-ESCROW-21", refundTx.getReferenceCode());
+
+        verify(refundRequestRepository).save(refundRequestCaptor.capture());
+        RefundRequest refundRequest = refundRequestCaptor.getValue();
+        assertSame(escrow, refundRequest.getEscrowTransaction());
+        assertEquals(PAYER_ID, refundRequest.getRequestedBy().getUserId());
+        assertEquals(refundAmount, refundRequest.getAmount());
+        assertEquals(RefundRequestStatus.APPROVED, refundRequest.getStatus());
+        assertEquals("PENDING", refundRequest.getTransferStatus());
+        assertEquals("REFUND-ESCROW-21", refundRequest.getRefundReferenceCode());
+        assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
+    }
+
+    @Test
     void applyRejectsSettlementTotalMismatch() {
         EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
         when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
@@ -279,6 +349,49 @@ class EscrowServiceImplTest {
         verify(walletService, never()).releaseLockedFunds(any(), any(), any());
         verify(paymentTransactionRepository, never()).save(any());
         verify(escrowTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void holdForDisputeMarksEscrowAsDisputed() {
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
+
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+        when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        EscrowTransaction result = escrowService.holdForDispute(5L, "Có tranh chấp từ report");
+
+        assertSame(escrow, result);
+        assertEquals(EscrowStatus.DISPUTED, escrow.getStatus());
+        verify(escrowTransactionRepository).save(escrow);
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
+    }
+
+    @Test
+    void holdForDisputeReturnsAlreadyDisputedEscrowWithoutSavingAgain() {
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
+        escrow.setStatus(EscrowStatus.DISPUTED);
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+
+        EscrowTransaction result = escrowService.holdForDispute(5L, "Retry");
+
+        assertSame(escrow, result);
+        verify(escrowTransactionRepository, never()).save(any());
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
+    }
+
+    @Test
+    void holdForDisputeRejectsReleasedEscrow() {
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
+        escrow.setStatus(EscrowStatus.RELEASED);
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+
+        assertThrows(BusinessException.class, () -> escrowService.holdForDispute(5L, "Too late"));
+
+        verify(escrowTransactionRepository, never()).save(any());
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
     }
 
     @Test
@@ -373,6 +486,38 @@ class EscrowServiceImplTest {
 
         EscrowTransaction escrow = fundedEscrow(escrowId, amount);
         escrow.setAssignment(assignment);
+        return escrow;
+    }
+
+    private EscrowTransaction fundedPrivateEscrowPaidThroughSystem(Long escrowId, BigDecimal amount) {
+        User payer = new User();
+        payer.setUserId(PAYER_ID);
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setCreator(payer);
+        TutorApplication application = new TutorApplication();
+        application.setTutoringClass(tutoringClass);
+
+        User tutorUser = new User();
+        tutorUser.setUserId(TUTOR_USER_ID);
+        Tutor tutor = new Tutor();
+        tutor.setUser(tutorUser);
+        ClassAssignment assignment = new ClassAssignment();
+        assignment.setAssignmentId(7L);
+        assignment.setTutor(tutor);
+        assignment.setApplication(application);
+
+        PaymentTransaction payment = new PaymentTransaction();
+        payment.setWallet(wallet(999L));
+        payment.setAmount(amount);
+        payment.setType(PaymentTransactionType.ESCROW_DEPOSIT);
+        payment.setStatus(PaymentTransactionStatus.SUCCESS);
+
+        EscrowTransaction escrow = new EscrowTransaction();
+        escrow.setEscrowId(escrowId);
+        escrow.setPayment(payment);
+        escrow.setAssignment(assignment);
+        escrow.setAmount(amount);
+        escrow.setStatus(EscrowStatus.FUNDED);
         return escrow;
     }
 

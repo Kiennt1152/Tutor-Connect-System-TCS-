@@ -8,6 +8,7 @@ import com.tcs.module.finance.enums.PaymentTransactionType;
 import com.tcs.module.finance.enums.WithdrawalRequestStatus;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
+import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -39,6 +40,9 @@ class PaymentReconciliationServiceTest {
 
     @Mock
     private WalletService walletService;
+
+    @Mock
+    private PaymentNotificationService paymentNotificationService;
 
     @InjectMocks
     private PaymentReconciliationService service;

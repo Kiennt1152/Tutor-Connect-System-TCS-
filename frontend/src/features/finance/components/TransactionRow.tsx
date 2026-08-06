@@ -10,6 +10,14 @@ export function TransactionRow({ transaction }: Props) {
     transaction.type === 'DEPOSIT' ||
     transaction.type === 'REFUND' ||
     transaction.type === 'ESCROW_RELEASE';
+  const typeTone = isCredit ? 'credit' : 'debit';
+  const typeInitial = {
+    DEPOSIT: 'N',
+    WITHDRAWAL: 'R',
+    REFUND: 'H',
+    ESCROW_DEPOSIT: 'E',
+    ESCROW_RELEASE: 'G',
+  }[transaction.type] ?? 'T';
 
   const statusClass = {
     SUCCESS: 'tx-row__status--success',
@@ -22,7 +30,8 @@ export function TransactionRow({ transaction }: Props) {
     <tr className="tx-row">
       <td className="tx-row__time">{formatDate(transaction.createdAt)}</td>
       <td className="tx-row__type">
-        <span className={`tx-badge tx-badge--${isCredit ? 'credit' : 'debit'}`}>
+        <span className={`tx-badge tx-badge--${typeTone}`}>
+          <span className="tx-badge__mark">{typeInitial}</span>
           {statusLabel(transaction.type)}
         </span>
       </td>

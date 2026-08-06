@@ -7,11 +7,13 @@ import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
 import PlatformDashboardPage from '../features/platform/pages/PlatformDashboardPage';
+import PlatformEscrowPage from '../features/platform/pages/PlatformEscrowPage';
 import PlatformProfilePage from '../features/platform/pages/PlatformProfilePage';
 import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage';
 import PlatformReviewsPage from '../features/platform/pages/PlatformReviewsPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
+import PlatformWithdrawalsPage from '../features/platform/pages/PlatformWithdrawalsPage';
 import PlatformTicketsPage from '../features/platform/pages/PlatformTicketsPage';
 import PlatformFaqPage from '../features/platform/pages/PlatformFaqPage';
 import PlatformParametersPage from '../features/platform/pages/PlatformParametersPage';
@@ -19,6 +21,7 @@ import PlatformPenaltiesPage from '../features/platform/pages/PlatformPenaltiesP
 import PlatformAuditLogsPage from '../features/platform/pages/PlatformAuditLogsPage';
 import PlatformAnnouncementsPage from '../features/platform/pages/PlatformAnnouncementsPage';
 import CenterPage from '../features/center/pages/CenterPage';
+import CenterReportsPage from '../features/center/pages/CenterReportsPage';
 import CenterRecruitmentPage from '../features/center/pages/CenterRecruitmentPage';
 import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
 import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
@@ -96,7 +99,7 @@ export default function App() {
           <Route
             path={APP_ROUTES.finance}
             element={
-              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+              <ProtectedRoute roles={['TUTOR', 'TUTOR_CENTER']}>
                 <FinancePage />
               </ProtectedRoute>
             }
@@ -162,6 +165,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.centerReports}
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterReportsPage />
               </ProtectedRoute>
             }
           />
@@ -270,6 +281,22 @@ export default function App() {
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
                 <PlatformReportsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformEscrows}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformEscrowPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformWithdrawals}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformWithdrawalsPage />
               </ProtectedRoute>
             }
           />

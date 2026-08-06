@@ -46,23 +46,16 @@ export interface SupportTicketDetailApiResponse extends SupportTicketApiResponse
   messages: TicketMessageApiResponse[];
 }
 
-export type MessagingUserRole =
-  | 'CLIENT'
-  | 'TUTOR'
-  | 'TUTOR_CENTER'
-  | 'PLATFORM_ADMIN'
-  | 'UNKNOWN';
-
 export interface UserSummaryResponse {
   userId: number;
   displayName: string;
   avatarUrl: string | null;
-  role: MessagingUserRole;
+  role: string;
 }
 
 export interface ConversationResponse {
   conversationId: number;
-  type: string | null;
+  type: string;
   otherParticipant: UserSummaryResponse | null;
   lastMessagePreview: string | null;
   lastMessageAt: string | null;
@@ -76,11 +69,11 @@ export interface MessageResponse {
   senderName: string;
   content: string;
   sentAt: string;
-  isEdited: boolean | null;
+  isEdited: boolean;
 }
 
-export interface PageApiResponse<T> {
-  content: T[];
+export interface MessagePageResponse {
+  content: MessageResponse[];
   last: boolean;
   number: number;
   size: number;

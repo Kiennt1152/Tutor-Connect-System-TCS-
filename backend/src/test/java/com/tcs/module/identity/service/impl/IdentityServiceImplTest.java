@@ -6,8 +6,6 @@ import static org.mockito.Mockito.*;
 
 import com.tcs.exception.DuplicateEmailException;
 import com.tcs.exception.ResourceNotFoundException;
-import com.tcs.module.finance.entity.Wallet;
-import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
 import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
@@ -64,8 +62,6 @@ class IdentityServiceImplTest {
     private TutorRepository tutorRepository;
     @Mock
     private TutorCenterRepository tutorCenterRepository;
-    @Mock
-    private WalletRepository walletRepository;
     @Mock
     private PasswordResetTokenRepository passwordResetTokenRepository;
     @Mock
@@ -138,7 +134,6 @@ class IdentityServiceImplTest {
         assertNotNull(token.getConsumedAt());
         verify(userRepository).save(any(User.class));
         verify(clientRepository).save(any(Client.class));
-        verify(walletRepository).save(any(Wallet.class));
     }
 
     @Test

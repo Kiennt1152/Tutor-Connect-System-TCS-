@@ -2,52 +2,80 @@ export type ContractStatus = 'PENDING' | 'DRAFT' | 'SIGNED' | 'ACTIVE' | 'COMPLE
 export type ContractSourceType = 'PRIVATE' | 'CENTER';
 export type ContractSignatureStatus = 'PENDING' | 'SIGNED' | 'EXPIRED';
 export type PartyRole = 'CLIENT' | 'TUTOR' | 'CENTER';
+export type EscrowStatus = 'PENDING' | 'FUNDED' | 'RELEASED' | 'REFUNDED' | 'ON_HOLD' | 'DISPUTED';
+export type PaymentTransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
 
-// ─── API Response Types ──────────────────────────────────────────────────────
+export interface ContractPartyInfo {
+  userId: number;
+  fullName: string;
+  email: string;
+  phone?: string | null;
+}
 
-export interface ContractApiResponse {
+export interface EscrowPaymentInfo {
+  escrowId: number;
+  escrowStatus: EscrowStatus;
+  paymentTransactionId: number | null;
+  paymentStatus: PaymentTransactionStatus | null;
+  amount: number | string | null;
+  referenceCode: string | null;
+  bankName: string | null;
+  bankBin: string | null;
+  accountNumber: string | null;
+  accountName: string | null;
+  transferContent: string | null;
+  qrUrl: string | null;
+  depositedAt: string | null;
+  processedAt: string | null;
+}
+
+export interface ContractResponse {
   contractId: number;
   contractNo: string;
   status: ContractStatus;
-  sourceType: ContractSourceType;
-  assignmentId: number | null;
+  sourceType?: ContractSourceType | null;
+  assignmentId?: number | null;
   classId: number | null;
-  classStudentId: number | null;
-  clientId: number | null;
-  clientName: string | null;
-  clientEmail: string | null;
-  tutorId: number | null;
-  tutorName: string | null;
-  tutorEmail: string | null;
-  centerId: number | null;
-  centerName: string | null;
-  centerEmail: string | null;
-  templateId: number | null;
-  templateName: string | null;
+  classStudentId?: number | null;
+  clientId?: number | null;
+  clientName?: string | null;
+  clientEmail?: string | null;
+  tutorId?: number | null;
+  tutorName?: string | null;
+  tutorEmail?: string | null;
+  centerId?: number | null;
+  centerName?: string | null;
+  centerEmail?: string | null;
+  templateId?: number | null;
+  templateName?: string | null;
   termsSummary: string | null;
   contractFileUrl: string | null;
-  hasAllSignatures: boolean;
-  signedCount: number;
-  requiredSignatures: number;
+  hasAllSignatures?: boolean;
+  signedCount?: number;
+  requiredSignatures?: number;
   signedAt: string | null;
-  expiresAt: string | null;
-  confirmedAt: string | null;
+  expiresAt?: string | null;
+  confirmedAt?: string | null;
   createdAt: string;
   updatedAt: string;
-  escrowPaymentReference: string | null;
-  escrowPaymentAmount: number | null;
-  escrowPaymentStatus: string | null;
-  escrowPaymentQrUrl: string | null;
-  escrowPaymentBankName: string | null;
-  escrowPaymentAccountNumber: string | null;
-  escrowPaymentAccountName: string | null;
-  escrowPaymentTransferContent: string | null;
+  classTitle: string | null;
+  classType: string | null;
+  tuitionFee: number | string | null;
+  lessonMode: string | null;
+  numberOfSessions: number | null;
+  tutor: ContractPartyInfo | null;
+  client: ContractPartyInfo | null;
+  center: ContractPartyInfo | null;
+  escrowPayment?: EscrowPaymentInfo | null;
 }
+
+export type ContractApiResponse = ContractResponse;
 
 export interface ContractSignatureApiResponse {
   signatureId: number;
   partyRole: PartyRole;
   partyLabel: string;
+  signerRole: string;
   signerId: number | null;
   signerName: string | null;
   signerEmail: string | null;
@@ -56,21 +84,52 @@ export interface ContractSignatureApiResponse {
   otpExpiresAt: string | null;
   remainingOtpAttempts: number;
   isOtpExpired: boolean;
+  isCurrentUser: boolean;
 }
 
 export interface ContractSignatureListApiResponse {
   contractId: number;
   contractNo: string;
   hasAllSignatures: boolean;
+  fullySigned: boolean;
   signedCount: number;
   requiredSignatures: number;
+  totalRequired: number;
   signatures: ContractSignatureApiResponse[];
+}
+
+export interface SignatureInfo {
+  signatureId: number;
+  signerUserId: number | null;
+  signerName: string;
+  signerRole: string;
+  signedAt: string | null;
+  isCurrentUser: boolean;
+}
+
+export interface SignatureStatusResponse {
+  contractId: number;
+  contractNo: string;
+  fullySigned: boolean;
+  signedCount: number;
+  totalRequired: number;
+  signatures: SignatureInfo[];
 }
 
 export interface SendOtpApiResponse {
   message: string;
+  maskedEmail?: string;
   expiresInMinutes: number;
   maxAttempts: number;
+}
+
+export interface OtpSentResponse {
+  maskedEmail: string;
+  message: string;
+}
+
+export interface SignContractRequest {
+  otpCode: string;
 }
 
 export interface SignWithOtpApiRequest {
@@ -78,7 +137,9 @@ export interface SignWithOtpApiRequest {
 }
 
 export interface GenerateContractApiRequest {
-  assignmentId: number;
+  assignmentId?: number;
+  classStudentId?: number;
+  templateId?: number;
 }
 
 export interface Contract {
@@ -112,14 +173,15 @@ export interface Contract {
   confirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
-  escrowPaymentReference: string | null;
-  escrowPaymentAmount: number | null;
-  escrowPaymentStatus: string | null;
-  escrowPaymentQrUrl: string | null;
-  escrowPaymentBankName: string | null;
-  escrowPaymentAccountNumber: string | null;
-  escrowPaymentAccountName: string | null;
-  escrowPaymentTransferContent: string | null;
+  classTitle: string | null;
+  classType: string | null;
+  tuitionFee: number | string | null;
+  lessonMode: string | null;
+  numberOfSessions: number | null;
+  tutor: ContractPartyInfo | null;
+  client: ContractPartyInfo | null;
+  center: ContractPartyInfo | null;
+  escrowPayment: EscrowPaymentInfo | null;
 }
 
 export interface ContractSignature {

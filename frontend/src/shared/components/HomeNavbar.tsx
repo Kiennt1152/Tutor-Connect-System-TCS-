@@ -8,7 +8,7 @@ import { NotificationBell } from './NotificationBell';
 import type { UserRole } from '../types/userRole';
 
 const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
-const WALLET_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER'];
+const WALLET_ROLES: UserRole[] = ['TUTOR', 'TUTOR_CENTER'];
 const CONTRACT_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER'];
 const MESSAGING_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN'];
 const VERIFICATION_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER'];
@@ -113,7 +113,7 @@ export function HomeNavbar() {
                       to={APP_ROUTES.messaging}
                       role="menuitem"
                     >
-                      Tin nhắn
+                      Thông báo
                     </Link>
                   ) : null}
                   {showFeedback ? (

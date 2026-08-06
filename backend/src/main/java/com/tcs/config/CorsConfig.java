@@ -25,7 +25,7 @@ public class CorsConfig {
         String extra = System.getenv("CORS_ALLOWED_ORIGINS");
         List<String> origins = (extra == null || extra.isBlank())
                 ? ALLOWED_ORIGINS
-                : Arrays.stream(extra.split(",")).map(String::trim).filter(origin -> !origin.isBlank()).toList();
+                : Arrays.stream(extra.split(",")).map(String::trim).filter(s -> !s.isBlank()).toList();
 
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(origins);

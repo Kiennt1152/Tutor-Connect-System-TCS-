@@ -1,16 +1,56 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { useContractDetail, useSignContract } from '../hooks/useContract';
-import type { ContractStatus } from '../types/contractTypes';
+import { Link, useParams } from 'react-router-dom';
+import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
+import { RefundRequestModal } from '../../marketplace/components/RefundRequestModal';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { APP_ROUTES } from '../../../shared/constants/routes';
+import { useContractDetail, useSignContract } from '../hooks/useContract';
+import type { ContractStatus, EscrowStatus, PaymentTransactionStatus } from '../types/contractTypes';
+import './ContractPage.css';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
-  PENDING: { label: 'Chờ ký', cls: 'status-draft' },
-  DRAFT: { label: 'Chưa ký', cls: 'status-draft' },
-  SIGNED: { label: 'Đã ký', cls: 'status-signed' },
-  ACTIVE: { label: 'Đang hoạt động', cls: 'status-active' },
-  COMPLETED: { label: 'Hoàn thành', cls: 'status-completed' },
-  TERMINATED: { label: 'Đã chấm dứt', cls: 'status-terminated' },
+  PENDING: { label: 'Chờ ký', cls: 'contract-status--pending' },
+  DRAFT: { label: 'Chưa ký', cls: 'contract-status--draft' },
+  SIGNED: { label: 'Đã ký', cls: 'contract-status--signed' },
+  ACTIVE: { label: 'Đang hoạt động', cls: 'contract-status--active' },
+  COMPLETED: { label: 'Hoàn thành', cls: 'contract-status--completed' },
+  TERMINATED: { label: 'Đã chấm dứt', cls: 'contract-status--terminated' },
+};
+
+const ESCROW_STATUS_LABEL: Record<EscrowStatus, { label: string; cls: string }> = {
+  PENDING: { label: 'Chờ thanh toán', cls: 'contract-status--pending' },
+  FUNDED: { label: 'Đã nạp escrow', cls: 'contract-status--active' },
+  RELEASED: { label: 'Đã giải ngân', cls: 'contract-status--completed' },
+  REFUNDED: { label: 'Đã hoàn tiền', cls: 'contract-status--completed' },
+  ON_HOLD: { label: 'Đang tạm giữ', cls: 'contract-status--signed' },
+  DISPUTED: { label: 'Đang tranh chấp', cls: 'contract-status--terminated' },
+};
+
+const PAYMENT_STATUS_LABEL: Record<PaymentTransactionStatus, string> = {
+  PENDING: 'Chờ SePay xác nhận',
+  SUCCESS: 'Đã xác nhận',
+  FAILED: 'Thất bại',
+  CANCELLED: 'Đã hủy',
+};
+
+const formatCurrency = (value: number | string | null) => {
+  if (value == null) return '—';
+  return `${Number(value).toLocaleString('vi-VN')} đ`;
+};
+
+const formatDate = (value: string | null) => {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString('vi-VN');
+};
+
+const formatDateTime = (value: string | null) => {
+  if (!value) return '—';
+  return new Date(value).toLocaleString('vi-VN');
+};
+
+const copyText = (value: string | null | undefined) => {
+  if (!value) return;
+  void navigator.clipboard?.writeText(value);
 };
 
 export default function ContractDetailPage() {
@@ -23,15 +63,16 @@ export default function ContractDetailPage() {
   const [otpInput, setOtpInput] = useState('');
   const [otpSentSuccess, setOtpSentSuccess] = useState(false);
   const [signSuccess, setSignSuccess] = useState(false);
+  const [issueModalOpen, setIssueModalOpen] = useState(false);
+  const [refundModalOpen, setRefundModalOpen] = useState(false);
 
   useEffect(() => {
-    if (id) reload(id);
+    if (id) void reload(id);
   }, [id, reload]);
 
-  // Reload detail after sign
   useEffect(() => {
     if (signSuccess && id) {
-      reload(id);
+      void reload(id);
       setSignSuccess(false);
     }
   }, [signSuccess, id, reload]);
@@ -52,285 +93,358 @@ export default function ContractDetailPage() {
     }
   };
 
-  if (loading) return <div className="cdetail-loading">Đang tải hợp đồng...</div>;
-  if (error) return <div className="cdetail-error">{error}</div>;
+  if (loading) {
+    return (
+      <div className="contract-shell">
+        <HomeNavbar />
+        <main className="contract-page tcs-container">
+          <div className="contract-state">Đang tải hợp đồng...</div>
+        </main>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="contract-shell">
+        <HomeNavbar />
+        <main className="contract-page tcs-container">
+          <div className="contract-state contract-state--error">{error}</div>
+        </main>
+      </div>
+    );
+  }
 
   if (!contract) return null;
 
-  const st = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
-  const allSigned = signatures?.hasAllSignatures ?? false;
+  const status = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
+  const escrowPayment = contract.escrowPayment ?? null;
+  const escrowStatus = escrowPayment
+    ? ESCROW_STATUS_LABEL[escrowPayment.escrowStatus] ?? { label: escrowPayment.escrowStatus, cls: '' }
+    : null;
+  const escrowPending = escrowPayment?.escrowStatus === 'PENDING' || escrowPayment?.paymentStatus === 'PENDING';
+  const currentUserSigned = signatures?.signatures.some((signature) => signature.isCurrentUser) ?? false;
+  const allSigned = signatures?.fullySigned ?? false;
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
-  const hasEscrowPayment = allSigned && Boolean(contract.escrowPaymentReference);
-  const escrowAmount = contract.escrowPaymentAmount != null
-    ? new Intl.NumberFormat('vi-VN').format(contract.escrowPaymentAmount)
-    : '—';
-  const escrowPaid = contract.escrowPaymentStatus === 'SUCCESS';
+  const canCreateIssue = contract.classId != null;
+  const classDetailUrl = contract.classId
+    ? `/marketplace/classes/${contract.classId}${
+        contract.classStudentId
+          ? `?classStudentId=${contract.classStudentId}`
+          : contract.assignmentId
+            ? `?assignmentId=${contract.assignmentId}`
+            : ''
+      }`
+    : null;
+  const signedPercent = signatures?.totalRequired
+    ? Math.round((signatures.signedCount / signatures.totalRequired) * 100)
+    : 0;
 
   return (
-    <div className="cdetail-page">
-      <div className="cdetail-topbar">
-        <Link to={APP_ROUTES.contract} className="cdetail-back">← Quay lại danh sách</Link>
-        <span className={`status-badge ${st.cls}`}>{st.label}</span>
-      </div>
+    <div className="contract-shell">
+      <HomeNavbar />
+      <main className="contract-page contract-page--detail tcs-container">
+        <div className="contract-detail-nav">
+          <Link to={APP_ROUTES.contract} className="contract-back-link">
+            Quay lại danh sách
+          </Link>
+          <span className={`contract-status ${status.cls}`}>{status.label}</span>
+        </div>
 
-      <div className="cdetail-grid">
-        {/* Contract Info */}
-        <section className="cdetail-card">
-          <h2>Thông tin hợp đồng</h2>
-          <dl className="cdetail-dl">
-            <dt>Số hợp đồng</dt><dd className="contract-no">{contract.contractNo}</dd>
-            <dt>Ngày tạo</dt><dd>{new Date(contract.createdAt).toLocaleDateString('vi-VN')}</dd>
-            {contract.signedAt && <><dt>Ngày ký</dt><dd>{new Date(contract.signedAt).toLocaleDateString('vi-VN')}</dd></>}
-            <dt>Học viên</dt><dd>{contract.clientName ?? '—'}</dd>
-            <dt>Gia sư</dt><dd>{contract.tutorName ?? '—'}</dd>
-          </dl>
-          {contract.termsSummary && (
-            <>
-              <h3>Nội dung hợp đồng</h3>
-              <p className="cdetail-terms">{contract.termsSummary}</p>
-            </>
-          )}
-        </section>
-
-        {/* Parties */}
-        <section className="cdetail-card">
-          <h2>Các bên ký</h2>
-          <div className="cdetail-parties">
-            {contract.tutorId && (
-              <div className="party-card">
-                <div className="party-role">Gia sư</div>
-                <div className="party-name">{contract.tutorName}</div>
-                <div className="party-email">{contract.tutorEmail}</div>
-              </div>
-            )}
-            {contract.centerId && (
-              <div className="party-card">
-                <div className="party-role">Trung tâm</div>
-                <div className="party-name">{contract.centerName}</div>
-                <div className="party-email">{contract.centerEmail}</div>
-              </div>
-            )}
-            {contract.clientId && (
-              <div className="party-card">
-                <div className="party-role">Phụ huynh / Học viên</div>
-                <div className="party-name">{contract.clientName}</div>
-                <div className="party-email">{contract.clientEmail}</div>
-              </div>
-            )}
+        <section className="contract-detail-head">
+          <div>
+            <p className="contract-eyebrow">Chi tiết hợp đồng</p>
+            <h1>{contract.classTitle ?? contract.contractNo}</h1>
+            <p>
+              <span className="contract-no">{contract.contractNo}</span>
+              <span className="contract-dot" />
+              Tạo ngày {formatDate(contract.createdAt)}
+            </p>
+          </div>
+          <div className="contract-detail-head__actions">
+            <button
+              className="tcs-btn tcs-btn--ghost"
+              type="button"
+              disabled={!canCreateIssue}
+              onClick={() => setIssueModalOpen(true)}
+            >
+              Báo cáo sự cố
+            </button>
+            <button
+              className="tcs-btn tcs-btn--ghost"
+              type="button"
+              disabled={!canCreateIssue}
+              onClick={() => setRefundModalOpen(true)}
+            >
+              Yêu cầu hoàn tiền
+            </button>
+            {classDetailUrl ? (
+              <Link
+                className="tcs-btn tcs-btn--primary"
+                to={classDetailUrl}
+              >
+                Xem lớp liên quan
+              </Link>
+            ) : null}
           </div>
         </section>
 
-        {/* Signature Status */}
-        <section className="cdetail-card signature-card">
-          <h2>Trạng thái ký</h2>
-          {signatures ? (
-            <div className="sig-list">
-              {signatures.signatures.map(sig => (
-                <div key={sig.signatureId} className={`sig-item`}>
-                  <div className="sig-check">{'✓'}</div>
-                  <div className="sig-info">
-                    <div className="sig-name">
-                      {sig.signerName ?? 'Chưa rõ'}
+        <div className="contract-detail-grid">
+          <section className="contract-card contract-card--wide">
+            <div className="contract-card__head">
+              <h2>Thông tin hợp đồng</h2>
+            </div>
+            <dl className="contract-info-list">
+              <div>
+                <dt>Ngày ký</dt>
+                <dd>{formatDate(contract.signedAt)}</dd>
+              </div>
+              <div>
+                <dt>Loại lớp</dt>
+                <dd>{contract.classType ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>Hình thức</dt>
+                <dd>{contract.lessonMode ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>Số buổi</dt>
+                <dd>{contract.numberOfSessions ?? '—'}</dd>
+              </div>
+              <div>
+                <dt>Học phí</dt>
+                <dd>{formatCurrency(contract.tuitionFee)}</dd>
+              </div>
+            </dl>
+            {contract.termsSummary ? (
+              <div className="contract-terms">
+                <h3>Nội dung hợp đồng</h3>
+                <p>{contract.termsSummary}</p>
+              </div>
+            ) : null}
+          </section>
+
+          <section className="contract-card">
+            <div className="contract-card__head">
+              <h2>Các bên ký</h2>
+            </div>
+            <div className="contract-party-list">
+              {contract.tutor ? (
+                <div className="contract-party">
+                  <span>Gia sư</span>
+                  <strong>{contract.tutor.fullName}</strong>
+                  <small>{contract.tutor.email}</small>
+                </div>
+              ) : null}
+              {contract.center ? (
+                <div className="contract-party">
+                  <span>Trung tâm</span>
+                  <strong>{contract.center.fullName}</strong>
+                  <small>{contract.center.email}</small>
+                </div>
+              ) : null}
+              {contract.client ? (
+                <div className="contract-party">
+                  <span>Phụ huynh / Học viên</span>
+                  <strong>{contract.client.fullName}</strong>
+                  <small>{contract.client.email}</small>
+                </div>
+              ) : null}
+            </div>
+          </section>
+
+          {escrowPayment ? (
+            <section className="contract-card contract-escrow-card">
+              <div className="contract-card__head">
+                <h2>Thanh toán escrow</h2>
+                {escrowStatus ? <span className={`contract-status ${escrowStatus.cls}`}>{escrowStatus.label}</span> : null}
+              </div>
+              <div className="contract-escrow">
+                {escrowPayment.qrUrl ? (
+                  <div className="contract-escrow__qr">
+                    <img src={escrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
+                  </div>
+                ) : null}
+                <div className="contract-escrow__details">
+                  <div className="contract-escrow__row">
+                    <span>Số tiền</span>
+                    <strong>{formatCurrency(escrowPayment.amount)}</strong>
+                  </div>
+                  <div className="contract-escrow__row">
+                    <span>Ngân hàng</span>
+                    <strong>{escrowPayment.bankName ?? '—'}</strong>
+                  </div>
+                  <div className="contract-escrow__row">
+                    <span>Số tài khoản</span>
+                    <strong>{escrowPayment.accountNumber ?? '—'}</strong>
+                  </div>
+                  <div className="contract-escrow__row">
+                    <span>Chủ tài khoản</span>
+                    <strong>{escrowPayment.accountName ?? '—'}</strong>
+                  </div>
+                  <div className="contract-escrow__code">
+                    <span>Nội dung chuyển khoản</span>
+                    <div>
+                      <code>{escrowPayment.transferContent ?? escrowPayment.referenceCode ?? '—'}</code>
+                      <button
+                        type="button"
+                        onClick={() => copyText(escrowPayment.transferContent ?? escrowPayment.referenceCode)}
+                      >
+                        Sao chép
+                      </button>
                     </div>
-                    <div className="sig-role">{sig.partyLabel}</div>
-                    <div className="sig-time">{sig.signedAt ? new Date(sig.signedAt).toLocaleString('vi-VN') : ''}</div>
                   </div>
-                </div>
-              ))}
-
-              {Array.from({ length: Math.max(0, signatures.requiredSignatures - signatures.signatures.length) }).map((_, i) => (
-                <div key={`pending-${i}`} className="sig-item sig-pending">
-                  <div className="sig-check sig-empty">—</div>
-                  <div className="sig-info">
-                    <div className="sig-name sig-name-pending">Chưa ký</div>
-                    <div className="sig-role">Đang chờ</div>
-                  </div>
-                </div>
-              ))}
-
-              <div className="sig-progress">
-                <div className="sig-progress-bar">
-                  <div
-                    className="sig-progress-fill"
-                    style={{ width: signatures.requiredSignatures > 0 ? `${(signatures.signedCount / signatures.requiredSignatures) * 100}%` : '0%' }}
-                  />
-                </div>
-                <div className="sig-progress-text">
-                  {signatures.signedCount} / {signatures.requiredSignatures} đã ký
-                  {signatures.hasAllSignatures && <span className="sig-done"> — Đủ chữ ký!</span>}
+                  <p className={`contract-escrow__note${escrowPending ? ' contract-escrow__note--pending' : ''}`}>
+                    {escrowPending
+                      ? 'Sau khi SePay xác nhận giao dịch, escrow sẽ chuyển sang đã nạp và lớp mới được kích hoạt.'
+                      : `Trạng thái giao dịch: ${
+                          escrowPayment.paymentStatus
+                            ? PAYMENT_STATUS_LABEL[escrowPayment.paymentStatus] ?? escrowPayment.paymentStatus
+                            : '—'
+                        }.`}
+                  </p>
                 </div>
               </div>
+            </section>
+          ) : null}
+
+          <section className="contract-card">
+            <div className="contract-card__head">
+              <h2>Trạng thái ký</h2>
+              {signatures ? <span>{signatures.signedCount}/{signatures.totalRequired}</span> : null}
             </div>
-          ) : <div className="sig-loading">Đang tải trạng thái ký...</div>}
-        </section>
+            {signatures ? (
+              <div className="contract-signature">
+                <div className="contract-progress">
+                  <span style={{ width: `${signedPercent}%` }} />
+                </div>
+                <div className="contract-signature-list">
+                  {signatures.signatures.map((signature) => (
+                    <div
+                      key={signature.signatureId}
+                      className={`contract-signature-row${signature.isCurrentUser ? ' contract-signature-row--me' : ''}`}
+                    >
+                      <span className="contract-signature-check">✓</span>
+                      <div>
+                        <strong>
+                          {signature.signerName}
+                          {signature.isCurrentUser ? <em>Bạn</em> : null}
+                        </strong>
+                        <small>{signature.signerRole} · {formatDateTime(signature.signedAt)}</small>
+                      </div>
+                    </div>
+                  ))}
 
-        {/* Sign Action */}
-        {signRequired && (
-          <section className="cdetail-card sign-card">
-            <h2>Ký hợp đồng</h2>
-
-            {signError && <div className="sign-error">{signError}</div>}
-
-            {!otpSentSuccess ? (
-              <div className="sign-step">
-                <p>Để ký hợp đồng, hệ thống sẽ gửi mã OTP về email của bạn.</p>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleSendOtp}
-                  disabled={sendingOtp}
-                >
-                  {sendingOtp ? 'Đang gửi...' : 'Gửi mã OTP'}
-                </button>
+                  {Array.from({ length: signatures.totalRequired - signatures.signatures.length }).map((_, index) => (
+                    <div key={`pending-${index}`} className="contract-signature-row contract-signature-row--pending">
+                      <span className="contract-signature-check">—</span>
+                      <div>
+                        <strong>Chưa ký</strong>
+                        <small>Đang chờ</small>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {allSigned ? <p className="contract-success-note">Đủ chữ ký.</p> : null}
               </div>
             ) : (
-              <div className="sign-step">
-                <p className="otp-sent-msg">
-                  {otpSent?.message ?? 'Mã OTP đã được gửi tới email của bạn'}
-                </p>
-                <p className="otp-hint">Nhập mã 6 chữ số đã nhận qua email để xác nhận ký.</p>
-                <div className="otp-input-group">
-                  <input
-                    type="text"
-                    className="otp-input"
-                    placeholder="Nhập mã OTP (6 chữ số)"
-                    value={otpInput}
-                    onChange={e => setOtpInput(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                    maxLength={6}
-                    autoFocus
-                  />
-                  <button
-                    className="btn btn-primary"
-                    onClick={handleSign}
-                    disabled={signing || otpInput.trim().length < 6}
-                  >
-                    {signing ? 'Đang ký...' : 'Xác nhận ký'}
-                  </button>
-                </div>
-                <button className="btn-link-resend" onClick={handleSendOtp} disabled={sendingOtp}>
-                  Gửi lại mã OTP
-                </button>
-              </div>
+              <div className="contract-muted">Đang tải trạng thái ký...</div>
             )}
           </section>
-        )}
 
-        {hasEscrowPayment && (
-          <section className={`cdetail-card escrow-card ${escrowPaid ? 'escrow-card--paid' : ''}`}>
-            <div className="escrow-header">
-              <h2>Ký quỹ tháng đầu</h2>
-              <span className={`escrow-status ${escrowPaid ? 'escrow-status--paid' : 'escrow-status--pending'}`}>
-                {escrowPaid ? 'Đã thanh toán' : 'Chờ chuyển khoản'}
-              </span>
-            </div>
+          {signRequired && !currentUserSigned ? (
+            <section className="contract-card contract-card--accent">
+              <div className="contract-card__head">
+                <h2>Ký hợp đồng</h2>
+              </div>
+              {signError ? <div className="contract-alert contract-alert--error">{signError}</div> : null}
 
-            <div className="escrow-payment">
-              {contract.escrowPaymentQrUrl && (
-                <img
-                  className="escrow-qr"
-                  src={contract.escrowPaymentQrUrl}
-                  alt={`QR ký quỹ ${contract.escrowPaymentReference}`}
-                />
+              {!otpSentSuccess ? (
+                <div className="contract-sign-form">
+                  <p>Hệ thống sẽ gửi mã OTP về email của bạn.</p>
+                  <button
+                    className="tcs-btn tcs-btn--primary"
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={sendingOtp}
+                  >
+                    {sendingOtp ? 'Đang gửi...' : 'Gửi mã OTP'}
+                  </button>
+                </div>
+              ) : (
+                <div className="contract-sign-form">
+                  <p>
+                    Mã OTP đã được gửi tới <strong>{otpSent?.maskedEmail}</strong>
+                  </p>
+                  <div className="contract-otp-row">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      className="contract-otp-input"
+                      placeholder="Nhập mã OTP"
+                      value={otpInput}
+                      onChange={(event) => setOtpInput(event.target.value.replace(/\D/g, '').slice(0, 6))}
+                      maxLength={6}
+                      autoFocus
+                    />
+                    <button
+                      className="tcs-btn tcs-btn--primary"
+                      type="button"
+                      onClick={handleSign}
+                      disabled={signing || otpInput.trim().length < 6}
+                    >
+                      {signing ? 'Đang ký...' : 'Xác nhận ký'}
+                    </button>
+                  </div>
+                  <button
+                    className="contract-link-button"
+                    type="button"
+                    onClick={handleSendOtp}
+                    disabled={sendingOtp}
+                  >
+                    Gửi lại mã OTP
+                  </button>
+                </div>
               )}
-              <dl className="escrow-dl">
-                <dt>Số tiền</dt><dd>{escrowAmount} đ</dd>
-                <dt>Ngân hàng</dt><dd>{contract.escrowPaymentBankName ?? '—'}</dd>
-                <dt>Số tài khoản</dt><dd>{contract.escrowPaymentAccountNumber ?? '—'}</dd>
-                <dt>Chủ tài khoản</dt><dd>{contract.escrowPaymentAccountName ?? '—'}</dd>
-                <dt>Nội dung</dt>
-                <dd className="escrow-reference">{contract.escrowPaymentTransferContent ?? contract.escrowPaymentReference}</dd>
-              </dl>
-            </div>
-          </section>
-        )}
+            </section>
+          ) : null}
 
-        {allSigned && contract.status !== 'SIGNED' && contract.status !== 'ACTIVE' && (
-          <section className="cdetail-card">
-            <h2>Hoàn tất ký</h2>
-            <p className="sign-complete-msg">Tất cả các bên đã ký. Hợp đồng đã có hiệu lực.</p>
-          </section>
-        )}
-      </div>
+          {currentUserSigned && signRequired ? (
+            <section className="contract-card contract-card--success">
+              <h2>Đã ghi nhận chữ ký của bạn</h2>
+              <p>Hợp đồng đang chờ bên còn lại ký.</p>
+            </section>
+          ) : null}
 
-      <style>{`
-        .cdetail-page { max-width: 900px; margin: 0 auto; padding: 24px 16px; font-family: 'Segoe UI', Arial, sans-serif; }
-        .cdetail-topbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
-        .cdetail-back { color: #2563eb; text-decoration: none; font-weight: 600; }
-        .cdetail-back:hover { text-decoration: underline; }
-        .cdetail-loading, .cdetail-error { text-align: center; padding: 48px; color: #64748b; }
-        .cdetail-error { color: #dc2626; }
-        .cdetail-grid { display: flex; flex-direction: column; gap: 16px; }
-        .cdetail-card { background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 1px 4px rgba(0,0,0,0.08); }
-        .cdetail-card h2 { margin: 0 0 16px; font-size: 16px; color: #1a1a2e; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; }
-        .cdetail-card h3 { margin: 16px 0 8px; font-size: 14px; color: #475569; }
-        .cdetail-dl { display: grid; grid-template-columns: 130px 1fr; gap: 8px 16px; }
-        .cdetail-dl dt { color: #64748b; font-size: 13px; font-weight: 500; }
-        .cdetail-dl dd { margin: 0; font-size: 14px; color: #1e293b; }
-        .contract-no { font-family: monospace; font-weight: 700; color: #2563eb; }
-        .cdetail-terms { font-size: 14px; color: #475569; line-height: 1.6; background: #f8fafc; padding: 12px; border-radius: 8px; }
-        .cdetail-parties { display: flex; flex-direction: column; gap: 12px; }
-        .party-card { padding: 12px; background: #f8fafc; border-radius: 8px; }
-        .party-role { font-size: 11px; font-weight: 700; text-transform: uppercase; color: #94a3b8; letter-spacing: 0.5px; }
-        .party-name { font-size: 15px; font-weight: 600; color: #1e293b; margin-top: 4px; }
-        .party-email { font-size: 13px; color: #64748b; margin-top: 2px; }
-        .sig-loading { color: #94a3b8; font-size: 14px; }
-        .sig-list { display: flex; flex-direction: column; gap: 10px; }
-        .sig-item { display: flex; align-items: center; gap: 12px; padding: 10px; background: #f8fafc; border-radius: 8px; }
-        .sig-me { background: #eff6ff; border: 1px solid #bfdbfe; }
-        .sig-pending { opacity: 0.6; }
-        .sig-check { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700; background: #d1fae5; color: #065f46; flex-shrink: 0; }
-        .sig-empty { background: #f1f5f9; color: #94a3b8; }
-        .sig-name { font-size: 14px; font-weight: 600; color: #1e293b; }
-        .sig-name-pending { color: #94a3b8; }
-        .sig-role { font-size: 12px; color: #64748b; }
-        .sig-time { font-size: 12px; color: #94a3b8; }
-        .sig-me-badge { margin-left: 8px; background: #2563eb; color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 10px; }
-        .sig-progress { margin-top: 12px; }
-        .sig-progress-bar { height: 6px; background: #e2e8f0; border-radius: 3px; overflow: hidden; }
-        .sig-progress-fill { height: 100%; background: #2563eb; border-radius: 3px; transition: width 0.3s; }
-        .sig-progress-text { font-size: 12px; color: #64748b; margin-top: 6px; }
-        .sig-done { color: #059669; font-weight: 600; }
-        .sign-card { border: 2px solid #bfdbfe; }
-        .sign-error { background: #fee2e2; color: #991b1b; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 12px; }
-        .sign-step p { font-size: 14px; color: #475569; line-height: 1.5; margin: 0 0 12px; }
-        .otp-sent-msg { color: #065f46; }
-        .otp-hint { font-size: 13px !important; color: #64748b !important; }
-        .otp-input-group { display: flex; gap: 8px; }
-        .otp-input { flex: 1; padding: 10px 14px; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 18px; letter-spacing: 8px; text-align: center; outline: none; }
-        .otp-input:focus { border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,0.1); }
-        .btn-link-resend { background: none; border: none; color: #2563eb; cursor: pointer; font-size: 13px; margin-top: 8px; padding: 0; }
-        .btn-link-resend:hover { text-decoration: underline; }
-        .btn-link-resend:disabled { color: #94a3b8; cursor: not-allowed; }
-        .sign-done-msg { background: #d1fae5; color: #065f46; padding: 12px 16px; border-radius: 8px; font-size: 14px; }
-        .sign-complete-msg { background: #d1fae5; color: #065f46; padding: 12px 16px; border-radius: 8px; font-size: 14px; }
-        .escrow-card { border: 1px solid #fed7aa; background: #fff7ed; }
-        .escrow-card--paid { border-color: #bbf7d0; background: #f0fdf4; }
-        .escrow-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-        .escrow-header h2 { margin: 0; border-bottom: none; padding-bottom: 0; }
-        .escrow-status { display: inline-flex; align-items: center; min-height: 26px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
-        .escrow-status--pending { background: #ffedd5; color: #c2410c; }
-        .escrow-status--paid { background: #dcfce7; color: #15803d; }
-        .escrow-payment { display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: start; }
-        .escrow-qr { width: 180px; aspect-ratio: 1; border-radius: 8px; border: 1px solid #fed7aa; background: #fff; object-fit: cover; }
-        .escrow-dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px 14px; margin: 0; }
-        .escrow-dl dt { color: #9a3412; font-size: 13px; font-weight: 600; }
-        .escrow-dl dd { margin: 0; color: #1e293b; font-size: 14px; font-weight: 600; }
-        .escrow-reference { display: inline-flex; width: fit-content; max-width: 100%; padding: 6px 8px; border-radius: 6px; background: #fff; color: #c2410c !important; font-family: monospace; overflow-wrap: anywhere; }
-        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
-        .status-draft { background: #fef3c7; color: #92400e; }
-        .status-signed { background: #d1fae5; color: #065f46; }
-        .status-active { background: #dbeafe; color: #1e40af; }
-        .status-completed { background: #f1f5f9; color: #475569; }
-        .status-terminated { background: #fee2e2; color: #991b1b; }
-        .btn { padding: 10px 20px; border-radius: 8px; font-size: 14px; cursor: pointer; border: none; font-weight: 600; }
-        .btn-primary { background: #2563eb; color: #fff; }
-        .btn-primary:hover { background: #1d4ed8; }
-        .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
-        @media (max-width: 640px) {
-          .escrow-payment { grid-template-columns: 1fr; }
-          .escrow-qr { width: 100%; max-width: 220px; }
-          .escrow-dl { grid-template-columns: 1fr; }
-        }
-      `}</style>
+          {allSigned && contract.status !== 'SIGNED' && contract.status !== 'ACTIVE' ? (
+            <section className="contract-card contract-card--success">
+              <h2>Hoàn tất ký</h2>
+              <p>Hợp đồng đã đủ chữ ký và có hiệu lực.</p>
+            </section>
+          ) : null}
+        </div>
+      </main>
+
+      {contract.classId ? (
+        <>
+          <ClassIssueModal
+            open={issueModalOpen}
+            classId={contract.classId}
+            assignmentId={contract.assignmentId}
+            classStudentId={contract.classStudentId}
+            classTitle={contract.classTitle}
+            onClose={() => setIssueModalOpen(false)}
+          />
+          <RefundRequestModal
+            open={refundModalOpen}
+            classTitle={contract.classTitle}
+            assignmentId={contract.assignmentId}
+            classStudentId={contract.classStudentId}
+            amountHint={contract.tuitionFee == null ? null : Number(contract.tuitionFee)}
+            onClose={() => setRefundModalOpen(false)}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

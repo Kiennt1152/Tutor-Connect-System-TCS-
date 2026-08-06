@@ -12,6 +12,7 @@ export const APP_ROUTES = {
   catalog: '/catalog',
   verification: '/identity/verification',
   center: '/center',
+  centerReports: '/center/reports',
   /** Trang công khai giới thiệu trung tâm + tin tuyển gia sư (khác /center là trang quản lý). */
   centers: '/centers',
   recruitment: '/recruitment',
@@ -29,6 +30,8 @@ export const APP_ROUTES = {
   platformUsers: '/platform/users',
   platformVerifications: '/platform/verifications',
   platformReports: '/platform/reports',
+  platformEscrows: '/platform/escrows',
+  platformWithdrawals: '/platform/withdrawals',
   platformReviews: '/platform/reviews',
   platformTickets: '/platform/tickets',
   platformFaq: '/platform/faq',
