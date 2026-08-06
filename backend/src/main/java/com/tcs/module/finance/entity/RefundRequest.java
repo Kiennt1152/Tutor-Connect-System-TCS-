@@ -45,6 +45,21 @@ public class RefundRequest {
     @Column(name = "amount", precision = 15, scale = 2, nullable = false)
     private BigDecimal amount;
 
+    @Column(name = "bank_name", length = 100)
+    private String bankName;
+
+    @Column(name = "account_no", length = 50)
+    private String accountNo;
+
+    @Column(name = "refund_reference_code", length = 100)
+    private String refundReferenceCode;
+
+    @Column(name = "transfer_status", length = 20)
+    private String transferStatus;
+
+    @Column(name = "transfer_processed_at")
+    private LocalDateTime transferProcessedAt;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     private RefundRequestStatus status = RefundRequestStatus.PENDING;

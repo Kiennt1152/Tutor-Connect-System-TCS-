@@ -2,15 +2,17 @@ package com.tcs.module.marketplace.service;
 
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
+import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
+import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
+import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
+import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
 import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
-import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
-import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
-import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
+import com.tcs.module.marketplace.dto.response.ClassTerminationResponse;
 import com.tcs.module.marketplace.dto.response.LessonResponse;
 import com.tcs.module.marketplace.dto.response.RescheduleRequestResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
@@ -21,7 +23,7 @@ public interface MarketplaceService {
 
     List<ClassResponse> listClasses(TutoringClassStatus status);
 
-    ClassResponse getClass(Long classId);
+    ClassResponse getClass(Long classId, Long assignmentId, Long classStudentId);
 
     List<ClassResponse> listMyClasses();
 
@@ -34,6 +36,11 @@ public interface MarketplaceService {
     ClassResponse unpublishClass(Long classId);
 
     void applyToClass(Long classId, ApplyClassRequest request);
+
+    ClassTerminationResponse requestClassTermination(Long classId, CreateClassTerminationRequest request);
+
+    /** Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh. */
+    void registerToClass(Long classId);
 
     List<Long> listMyAppliedClassIds();
 

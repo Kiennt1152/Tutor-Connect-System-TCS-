@@ -1,7 +1,9 @@
 package com.tcs.module.contract.service.impl;
 
+import com.tcs.common.event.ContractSigned;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.module.contract.dto.request.SignContractRequest;
 import com.tcs.module.contract.dto.request.SignWithOtpRequest;
 import com.tcs.module.contract.dto.response.ContractResponse;
 import com.tcs.module.contract.dto.response.ContractSignatureListResponse;
@@ -14,6 +16,7 @@ import com.tcs.module.contract.entity.ContractTemplate;
 import com.tcs.module.contract.enums.ContractSignatureStatus;
 import com.tcs.module.contract.enums.ContractSourceType;
 import com.tcs.module.contract.enums.ContractStatus;
+import com.tcs.module.contract.enums.ContractTemplateStatus;
 import com.tcs.module.contract.enums.PartyRole;
 import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.contract.repository.ContractSignatureRepository;
@@ -34,26 +37,26 @@ import com.tcs.module.contract.enums.ReviewStatus;
 import com.tcs.module.contract.enums.ReviewType;
 import com.tcs.module.contract.repository.ReputationHistoryRepository;
 import com.tcs.module.contract.repository.ReviewRepository;
+import com.tcs.module.finance.dto.EscrowLockCommand;
+import com.tcs.module.finance.entity.EscrowTransaction;
+import com.tcs.module.finance.entity.PaymentTransaction;
+import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.identity.entity.User;
+import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.repository.LessonRepository;
 import com.tcs.module.profile.enums.UserRole;
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
-import com.tcs.module.finance.dto.EscrowLockCommand;
-import com.tcs.module.finance.service.EscrowService;
-import com.tcs.module.identity.entity.User;
-import com.tcs.module.identity.repository.UserRepository;
-import org.springframework.context.ApplicationEventPublisher;
 import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
+import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.notification.service.EmailService;
-import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
@@ -61,14 +64,21 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -82,31 +92,43 @@ public class ContractServiceImpl implements ContractService {
     private static final int OTP_MAX_ATTEMPTS = 5;
     private static final int CONTRACT_EXPIRY_DAYS = 7;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+    private static final String ESCROW_BANK_NAME = "TPBank";
+    private static final String ESCROW_BANK_BIN = "970423";
+    private static final String ESCROW_ACCOUNT_NUMBER = "02660559201";
+    private static final String ESCROW_ACCOUNT_NAME = "TUTOR CONNECT SYSTEM";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String DEFAULT_ANONYMOUS_NAME = "Người dùng ẩn danh";
     private static final int REVIEW_REQUIRED_WITHIN_MONTHS = 1;
 
+    private final AuthHelper authHelper;
     private final ContractRepository contractRepository;
     private final ContractSignatureRepository contractSignatureRepository;
     private final ContractTemplateRepository contractTemplateRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
+    private final ClassStudentRepository classStudentRepository;
+    private final UserRepository userRepository;
     private final TutorRepository tutorRepository;
     private final ClientRepository clientRepository;
     private final TutorCenterRepository tutorCenterRepository;
     private final EmailService emailService;
     private final EscrowService escrowService;
+    private final EscrowTransactionRepository escrowTransactionRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ReviewRepository reviewRepository;
     private final ReputationHistoryRepository reputationHistoryRepository;
     private final LessonRepository lessonRepository;
-    private final AuthHelper authHelper;
-    private final AuditLogService auditLogService;
 
     // ─── VIEW CONTRACT (4.2) ──────────────────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
     public ContractResponse getContract(Long contractId) {
+        return getMyContract(contractId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ContractResponse getMyContract(Long contractId) {
         Contract contract = findContract(contractId);
         validateViewPermission(contract);
         return toContractResponse(contract);
@@ -116,11 +138,12 @@ public class ContractServiceImpl implements ContractService {
     @Transactional(readOnly = true)
     public List<ContractResponse> getMyContracts() {
         Long userId = authHelper.currentUserId();
-        List<Contract> contracts = contractRepository.findContractsByUserId(userId);
+        LinkedHashSet<Contract> contracts = new LinkedHashSet<>();
+        contracts.addAll(contractRepository.findByAssignment_Tutor_UserId(userId));
+        contracts.addAll(contractRepository.findByAssignment_ClassCreator_UserId(userId));
+        contracts.addAll(contractRepository.findByClassStudent_UserId(userId));
         return contracts.stream().map(this::toContractResponse).toList();
     }
-
-    // ─── SIGNATURES (4.4) ────────────────────────────────────────────────────
 
     @Override
     @Transactional(readOnly = true)
@@ -129,10 +152,6 @@ public class ContractServiceImpl implements ContractService {
         validateViewPermission(contract);
 
         List<ContractSignature> signatures = contractSignatureRepository.findByContractId(contractId);
-        List<ContractSignatureResponse> sigResponses = signatures.stream()
-                .map(this::toSignatureResponse)
-                .toList();
-
         int required = getRequiredSignatureCount(contract);
         int signed = (int) signatures.stream()
                 .filter(s -> s.getSignatureStatus() == ContractSignatureStatus.SIGNED)
@@ -144,11 +163,9 @@ public class ContractServiceImpl implements ContractService {
                 .hasAllSignatures(signed >= required)
                 .signedCount(signed)
                 .requiredSignatures(required)
-                .signatures(sigResponses)
+                .signatures(signatures.stream().map(this::toSignatureResponse).toList())
                 .build();
     }
-
-    // ─── SEND OTP (4.3 - step 1) ──────────────────────────────────────────────
 
     @Override
     @Transactional
@@ -156,51 +173,47 @@ public class ContractServiceImpl implements ContractService {
         Contract contract = findContract(contractId);
         PartyRole role = resolvePartyRole(contract);
 
-        if (contract.getStatus() != ContractStatus.PENDING) {
+        if (contract.getStatus() != ContractStatus.PENDING && contract.getStatus() != ContractStatus.DRAFT) {
             throw new IllegalStateException("Hợp đồng không ở trạng thái chờ ký");
         }
 
-        Optional<ContractSignature> existingOpt = contractSignatureRepository
-                .findByContractIdAndPartyRole(contractId, role);
+        ContractSignature signature = contractSignatureRepository
+                .findByContractIdAndPartyRole(contractId, role)
+                .orElseGet(() -> createSignatureSlot(contract, role, authHelper.requireAuthenticated().getEmail()));
 
-        if (existingOpt.isPresent()) {
-            ContractSignature existing = existingOpt.get();
-            if (existing.getSignatureStatus() == ContractSignatureStatus.SIGNED) {
-                throw new IllegalStateException("Bạn đã ký hợp đồng này rồi");
-            }
+        if (signature.getSignatureStatus() == ContractSignatureStatus.SIGNED) {
+            throw new IllegalStateException("Bạn đã ký hợp đồng này rồi");
         }
 
         String otp = generateOtp();
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
         String recipientEmail = authHelper.requireAuthenticated().getEmail();
 
-        ContractSignature signature = existingOpt.orElseGet(() -> {
-            ContractSignature s = new ContractSignature();
-            s.setContract(contract);
-            s.setPartyRole(role);
-            s.setSignatureStatus(ContractSignatureStatus.PENDING);
-            s.setOtpAttempts(0);
-            return s;
-        });
-
         signature.setOtpCode(otp);
         signature.setOtpExpiresAt(expiresAt);
+        signature.setOtpAttempts(0);
         signature.setEmail(recipientEmail);
         contractSignatureRepository.save(signature);
 
-        sendOtpEmail(recipientEmail, otp, contract.getContractNo());
+        emailService.sendContractOtp(recipientEmail, otp, contract.getContractNo());
 
-        auditLogService.record(authHelper.currentUserId(), "SEND_CONTRACT_OTP", "Contract", contractId,
-                null, Map.of("partyRole", role.name()));
-
-        return Map.of(
-                "message", "Mã OTP đã được gửi đến email của bạn",
-                "expiresInMinutes", OTP_EXPIRY_MINUTES,
-                "maxAttempts", OTP_MAX_ATTEMPTS
-        );
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("message", "Mã OTP đã được gửi đến email của bạn");
+        body.put("maskedEmail", maskEmail(recipientEmail));
+        body.put("expiresInMinutes", OTP_EXPIRY_MINUTES);
+        body.put("maxAttempts", OTP_MAX_ATTEMPTS);
+        return body;
     }
 
-    // ─── SIGN WITH OTP (4.3 - step 2) ───────────────────────────────────────
+    @Override
+    @Transactional
+    public OtpSentResponse sendSignOtp(Long contractId) {
+        Map<String, Object> result = sendOtp(contractId);
+        return OtpSentResponse.builder()
+                .maskedEmail(String.valueOf(result.get("maskedEmail")))
+                .message(String.valueOf(result.get("message")))
+                .build();
+    }
 
     @Override
     @Transactional
@@ -212,7 +225,7 @@ public class ContractServiceImpl implements ContractService {
         Contract contract = findContract(contractId);
         PartyRole role = resolvePartyRole(contract);
 
-        if (contract.getStatus() != ContractStatus.PENDING) {
+        if (contract.getStatus() != ContractStatus.PENDING && contract.getStatus() != ContractStatus.DRAFT) {
             throw new IllegalStateException("Hợp đồng không ở trạng thái chờ ký");
         }
 
@@ -230,8 +243,8 @@ public class ContractServiceImpl implements ContractService {
             throw new IllegalStateException("Đã vượt quá số lần thử. Vui lòng yêu cầu mã mới.");
         }
 
-        if (signature.getOtpExpiresAt() != null
-                && signature.getOtpExpiresAt().isBefore(LocalDateTime.now())) {
+        if (signature.getOtpExpiresAt() == null
+                || signature.getOtpExpiresAt().isBefore(LocalDateTime.now())) {
             signature.setSignatureStatus(ContractSignatureStatus.EXPIRED);
             contractSignatureRepository.save(signature);
             throw new IllegalStateException("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.");
@@ -240,69 +253,150 @@ public class ContractServiceImpl implements ContractService {
         if (!signature.getOtpCode().equals(request.getOtpCode().trim())) {
             signature.setOtpAttempts(signature.getOtpAttempts() + 1);
             contractSignatureRepository.save(signature);
-            int remaining = OTP_MAX_ATTEMPTS - signature.getOtpAttempts();
-            throw new IllegalArgumentException(
-                    "Mã OTP không đúng. Còn " + remaining + " lần thử.");
+            int remaining = Math.max(0, OTP_MAX_ATTEMPTS - signature.getOtpAttempts());
+            throw new IllegalArgumentException("Mã OTP không đúng. Còn " + remaining + " lần thử.");
         }
 
-        Long userId = authHelper.currentUserId();
+        User signer = userRepository.findById(authHelper.currentUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+        signature.setSigner(signer);
         signature.setSignatureStatus(ContractSignatureStatus.SIGNED);
         signature.setSignedAt(LocalDateTime.now());
-        signature.setSignatureData("OTP_VERIFIED:" + request.getOtpCode().trim());
+        signature.setSignatureData("OTP_VERIFIED:" + signer.getEmail() + ":"
+                + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         signature.setOtpCode(null);
         signature.setOtpExpiresAt(null);
         contractSignatureRepository.save(signature);
 
-        int required = getRequiredSignatureCount(contract);
-        int signed = contractSignatureRepository.countSignedByContractId(contractId);
-
-        if (signed >= required) {
+        if (isFullySigned(contractId)) {
             contract.setStatus(ContractStatus.SIGNED);
             contract.setSignedAt(LocalDateTime.now());
+            contract.setConfirmedAt(LocalDateTime.now());
             contractRepository.save(contract);
+            publishContractSigned(contract);
         }
 
         return toContractResponse(contract);
     }
 
-    // ─── GENERATE CONTRACT (4.1) ────────────────────────────────────────────
+    @Override
+    @Transactional
+    public ContractResponse signContract(Long contractId, SignContractRequest request) {
+        SignWithOtpRequest otpRequest = new SignWithOtpRequest();
+        otpRequest.setOtpCode(request.getOtpCode());
+        return signWithOtp(contractId, otpRequest);
+    }
+
+    @Override
+    @Transactional
+    public void sign(Long contractId, String otp, Long signerUserId) {
+        if (!authHelper.currentUserId().equals(signerUserId)) {
+            throw new ForbiddenException("Không thể ký thay người dùng khác");
+        }
+        SignWithOtpRequest request = new SignWithOtpRequest();
+        request.setOtpCode(otp);
+        signWithOtp(contractId, request);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean isFullySigned(Long contractId) {
+        Contract contract = findContract(contractId);
+        return contractSignatureRepository.countSignedByContractId(contractId) >= getRequiredSignatureCount(contract);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public SignatureStatusResponse getSignatureStatus(Long contractId) {
+        Contract contract = findContract(contractId);
+        validateViewPermission(contract);
+        Long currentUserId = authHelper.currentUserId();
+
+        List<SignatureStatusResponse.SignatureInfo> signedSignatures =
+                contractSignatureRepository.findByContractId(contractId).stream()
+                        .filter(s -> s.getSignatureStatus() == ContractSignatureStatus.SIGNED)
+                        .map(s -> SignatureStatusResponse.SignatureInfo.builder()
+                                .signatureId(s.getSignatureId())
+                                .signerUserId(s.getSigner() != null ? s.getSigner().getUserId() : null)
+                                .signerName(resolveSignatureName(s))
+                                .signerRole(partyLabel(s.getPartyRole()))
+                                .signedAt(s.getSignedAt())
+                                .isCurrentUser(s.getSigner() != null
+                                        && s.getSigner().getUserId().equals(currentUserId))
+                                .build())
+                        .toList();
+
+        int required = getRequiredSignatureCount(contract);
+        int signed = contractSignatureRepository.countSignedByContractId(contractId);
+        return SignatureStatusResponse.builder()
+                .contractId(contractId)
+                .contractNo(contract.getContractNo())
+                .fullySigned(signed >= required)
+                .signedCount(signed)
+                .totalRequired(required)
+                .signatures(signedSignatures)
+                .build();
+    }
 
     @Override
     @Transactional
     public ContractResponse generateContract(Long assignmentId) {
+        return getMyContract(generateForAssignment(assignmentId).getContractId());
+    }
+
+    @Override
+    @Transactional
+    public Contract generateForAssignment(Long assignmentId) {
         ClassAssignment assignment = classAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công lớp"));
 
-        if (contractRepository.findByAssignmentId(assignmentId).isPresent()) {
+        if (contractRepository.findByAssignment_AssignmentId(assignmentId).isPresent()) {
             throw new IllegalStateException("Hợp đồng đã tồn tại cho phân công này");
         }
 
-        ContractTemplate template = contractTemplateRepository.findAll().stream()
-                .filter(t -> t.getStatus().name().equals("ACTIVE"))
-                .findFirst()
-                .orElse(null);
+        validateGenerateAssignmentPermission(assignment);
 
-        String contractNo = generateContractNo();
-        LocalDateTime expiresAt = LocalDateTime.now().plusDays(CONTRACT_EXPIRY_DAYS);
-
+        ContractTemplate template = findActiveTemplate();
         Contract contract = new Contract();
-        contract.setContractNo(contractNo);
+        contract.setContractNo(generateContractNo());
         contract.setAssignment(assignment);
-        contract.setTemplate(template);
         contract.setStatus(ContractStatus.PENDING);
         contract.setSourceType(ContractSourceType.PRIVATE);
-        contract.setExpiresAt(expiresAt);
-        if (template != null) {
-            contract.setTermsSummary(template.getContent());
-        }
+        contract.setTemplate(template);
+        contract.setExpiresAt(LocalDateTime.now().plusDays(CONTRACT_EXPIRY_DAYS));
+        contract.setTermsSummary(template != null ? template.getContent() : buildTermsSummary(assignment));
         contract = contractRepository.save(contract);
 
-        initializeSignatureSlots(contract, assignment);
-
-        return toContractResponse(contract);
+        initializeSignatureSlots(contract);
+        return contract;
     }
 
-    // ─── PRIVATE HELPERS ─────────────────────────────────────────────────────
+    @Override
+    @Transactional
+    public Contract generateForEnrollment(Long classStudentId) {
+        ClassStudent classStudent = classStudentRepository.findById(classStudentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ghi danh"));
+
+        if (contractRepository.findByClassStudent_ClassStudentId(classStudentId).isPresent()) {
+            throw new IllegalStateException("Hợp đồng đã tồn tại cho ghi danh này");
+        }
+
+        validateGenerateEnrollmentPermission(classStudent);
+
+        ContractTemplate template = findActiveTemplate();
+        Contract contract = new Contract();
+        contract.setContractNo(generateContractNo());
+        contract.setClassStudent(classStudent);
+        contract.setStatus(ContractStatus.PENDING);
+        contract.setSourceType(ContractSourceType.CENTER);
+        contract.setTemplate(template);
+        contract.setExpiresAt(LocalDateTime.now().plusDays(CONTRACT_EXPIRY_DAYS));
+        contract.setTermsSummary(template != null ? template.getContent() : buildCenterTermsSummary(classStudent));
+        contract = contractRepository.save(contract);
+
+        initializeSignatureSlots(contract);
+        return contract;
+    }
 
     private Contract findContract(Long contractId) {
         return contractRepository.findById(contractId)
@@ -310,89 +404,194 @@ public class ContractServiceImpl implements ContractService {
     }
 
     private void validateViewPermission(Contract contract) {
-        Long currentUserId = authHelper.currentUserId();
-        boolean isParty = isPartyOfContract(contract, currentUserId);
-        if (!isParty) {
+        if (!isPartyOfContract(contract, authHelper.currentUserId())) {
             throw new ForbiddenException("Bạn không có quyền xem hợp đồng này");
         }
     }
 
+    private void validateGenerateAssignmentPermission(ClassAssignment assignment) {
+        Long currentUserId = authHelper.currentUserId();
+        boolean isTutor = assignment.getTutor() != null
+                && assignment.getTutor().getUser() != null
+                && assignment.getTutor().getUser().getUserId().equals(currentUserId);
+        boolean isClassCreator = assignment.getApplication() != null
+                && assignment.getApplication().getTutoringClass() != null
+                && assignment.getApplication().getTutoringClass().getCreator() != null
+                && assignment.getApplication().getTutoringClass().getCreator().getUserId().equals(currentUserId);
+        if (!isTutor && !isClassCreator) {
+            throw new ForbiddenException("Bạn không có quyền tạo hợp đồng cho phân công này");
+        }
+    }
+
+    private void validateGenerateEnrollmentPermission(ClassStudent classStudent) {
+        Long currentUserId = authHelper.currentUserId();
+        TutoringClass tutoringClass = classStudent.getTutoringClass();
+        boolean isCenter = tutoringClass != null
+                && tutoringClass.getCreator() != null
+                && tutoringClass.getCreator().getUserId().equals(currentUserId);
+        boolean isEnroller = classStudent.getEnrolledByUser() != null
+                && classStudent.getEnrolledByUser().getUserId().equals(currentUserId);
+        if (!isCenter && !isEnroller) {
+            throw new ForbiddenException("Bạn không có quyền tạo hợp đồng cho ghi danh này");
+        }
+    }
+
     private boolean isPartyOfContract(Contract contract, Long userId) {
-        if (contract.getAssignment() == null) {
-            return false;
+        if (contract.getAssignment() != null) {
+            ClassAssignment assignment = contract.getAssignment();
+            if (assignment.getTutor() != null
+                    && assignment.getTutor().getUser() != null
+                    && assignment.getTutor().getUser().getUserId().equals(userId)) {
+                return true;
+            }
+            TutorApplication application = assignment.getApplication();
+            return application != null
+                    && application.getTutoringClass() != null
+                    && application.getTutoringClass().getCreator() != null
+                    && application.getTutoringClass().getCreator().getUserId().equals(userId);
         }
-        TutorApplication application = contract.getAssignment().getApplication();
-        if (application == null) {
-            return false;
+
+        if (contract.getClassStudent() != null) {
+            ClassStudent classStudent = contract.getClassStudent();
+            TutoringClass tutoringClass = classStudent.getTutoringClass();
+            boolean isCreator = tutoringClass != null
+                    && tutoringClass.getCreator() != null
+                    && tutoringClass.getCreator().getUserId().equals(userId);
+            boolean isEnroller = classStudent.getEnrolledByUser() != null
+                    && classStudent.getEnrolledByUser().getUserId().equals(userId);
+            return isCreator || isEnroller;
         }
-        TutoringClass tutoringClass = application.getTutoringClass();
-        if (tutoringClass == null || tutoringClass.getCreator() == null) {
-            return false;
-        }
-        Long creatorUserId = tutoringClass.getCreator().getUserId();
-        Long tutorUserId = application.getTutor().getUser().getUserId();
-        return userId.equals(creatorUserId) || userId.equals(tutorUserId);
+
+        return false;
     }
 
     private PartyRole resolvePartyRole(Contract contract) {
         Long currentUserId = authHelper.currentUserId();
-        TutorApplication application = contract.getAssignment().getApplication();
-        TutoringClass tutoringClass = application.getTutoringClass();
 
-        Long tutorUserId = application.getTutor().getUser().getUserId();
-        if (currentUserId.equals(tutorUserId)) {
-            return PartyRole.TUTOR;
+        if (contract.getAssignment() != null) {
+            ClassAssignment assignment = contract.getAssignment();
+            if (assignment.getTutor() != null
+                    && assignment.getTutor().getUser() != null
+                    && assignment.getTutor().getUser().getUserId().equals(currentUserId)) {
+                return PartyRole.TUTOR;
+            }
+            TutorApplication application = assignment.getApplication();
+            if (application != null
+                    && application.getTutoringClass() != null
+                    && application.getTutoringClass().getCreator() != null
+                    && application.getTutoringClass().getCreator().getUserId().equals(currentUserId)) {
+                return tutorCenterRepository.findByUser_UserId(currentUserId).isPresent()
+                        ? PartyRole.CENTER
+                        : PartyRole.CLIENT;
+            }
         }
 
-        if (tutoringClass.getCreator().getUserId().equals(currentUserId)) {
-            return tutorCenterRepository.findByUser_UserId(currentUserId).isPresent()
-                    ? PartyRole.CENTER : PartyRole.CLIENT;
+        if (contract.getClassStudent() != null) {
+            ClassStudent classStudent = contract.getClassStudent();
+            TutoringClass tutoringClass = classStudent.getTutoringClass();
+            if (classStudent.getEnrolledByUser() != null
+                    && classStudent.getEnrolledByUser().getUserId().equals(currentUserId)) {
+                return PartyRole.CLIENT;
+            }
+            if (tutoringClass != null
+                    && tutoringClass.getCreator() != null
+                    && tutoringClass.getCreator().getUserId().equals(currentUserId)) {
+                return tutorCenterRepository.findByUser_UserId(currentUserId).isPresent()
+                        ? PartyRole.CENTER
+                        : PartyRole.CLIENT;
+            }
         }
 
         throw new ForbiddenException("Bạn không phải là bên liên quan đến hợp đồng này");
+    }
+
+    private ContractSignature createSignatureSlot(Contract contract, PartyRole role, String email) {
+        ContractSignature signature = new ContractSignature();
+        signature.setContract(contract);
+        signature.setPartyRole(role);
+        signature.setEmail(email);
+        signature.setSignatureStatus(ContractSignatureStatus.PENDING);
+        signature.setOtpAttempts(0);
+        return signature;
+    }
+
+    private void initializeSignatureSlots(Contract contract) {
+        if (contract.getAssignment() != null) {
+            ClassAssignment assignment = contract.getAssignment();
+            Tutor tutor = assignment.getTutor();
+            if (tutor != null && tutor.getUser() != null) {
+                contractSignatureRepository.save(createSignatureSlot(
+                        contract, PartyRole.TUTOR, tutor.getUser().getEmail()));
+            }
+
+            TutoringClass tutoringClass = assignment.getApplication() != null
+                    ? assignment.getApplication().getTutoringClass()
+                    : null;
+            if (tutoringClass != null && tutoringClass.getCreator() != null) {
+                User creator = tutoringClass.getCreator();
+                PartyRole creatorRole = tutorCenterRepository.findByUser_UserId(creator.getUserId()).isPresent()
+                        ? PartyRole.CENTER
+                        : PartyRole.CLIENT;
+                contractSignatureRepository.save(createSignatureSlot(contract, creatorRole, creator.getEmail()));
+            }
+            return;
+        }
+
+        if (contract.getClassStudent() != null) {
+            ClassStudent classStudent = contract.getClassStudent();
+            TutoringClass tutoringClass = classStudent.getTutoringClass();
+            if (tutoringClass != null && tutoringClass.getCreator() != null) {
+                User creator = tutoringClass.getCreator();
+                PartyRole creatorRole = tutorCenterRepository.findByUser_UserId(creator.getUserId()).isPresent()
+                        ? PartyRole.CENTER
+                        : PartyRole.CLIENT;
+                contractSignatureRepository.save(createSignatureSlot(contract, creatorRole, creator.getEmail()));
+            }
+            if (classStudent.getEnrolledByUser() != null) {
+                contractSignatureRepository.save(createSignatureSlot(
+                        contract, PartyRole.CLIENT, classStudent.getEnrolledByUser().getEmail()));
+            } else if (classStudent.getStudentEmail() != null) {
+                contractSignatureRepository.save(createSignatureSlot(
+                        contract, PartyRole.CLIENT, classStudent.getStudentEmail()));
+            }
+        }
     }
 
     private int getRequiredSignatureCount(Contract contract) {
         return 2;
     }
 
-    private void initializeSignatureSlots(Contract contract, ClassAssignment assignment) {
+    private ContractTemplate findActiveTemplate() {
+        return contractTemplateRepository.findAll().stream()
+                .filter(t -> t.getStatus() == ContractTemplateStatus.ACTIVE)
+                .findFirst()
+                .orElse(null);
+    }
+
+    private String buildTermsSummary(ClassAssignment assignment) {
         TutorApplication application = assignment.getApplication();
-        TutoringClass tutoringClass = application.getTutoringClass();
-        Long creatorUserId = tutoringClass.getCreator().getUserId();
-
-        Tutor tutor = application.getTutor();
-        ContractSignature tutorSig = new ContractSignature();
-        tutorSig.setContract(contract);
-        tutorSig.setPartyRole(PartyRole.TUTOR);
-        tutorSig.setEmail(tutor.getUser().getEmail());
-        tutorSig.setSignatureStatus(ContractSignatureStatus.PENDING);
-        tutorSig.setOtpAttempts(0);
-        contractSignatureRepository.save(tutorSig);
-
-        PartyRole creatorRole = tutorCenterRepository.findByUser_UserId(creatorUserId).isPresent()
-                ? PartyRole.CENTER : PartyRole.CLIENT;
-
-        String creatorEmail;
-        if (creatorRole == PartyRole.CENTER) {
-            TutorCenter center = tutorCenterRepository.findByUser_UserId(creatorUserId).orElseThrow();
-            creatorEmail = center.getUser().getEmail();
-        } else {
-            Client client = clientRepository.findByUser_UserId(creatorUserId).orElseThrow();
-            creatorEmail = client.getUser().getEmail();
+        if (application == null || application.getTutoringClass() == null) {
+            return "Hợp đồng gia sư - Phân công #" + assignment.getAssignmentId();
         }
+        TutoringClass tutoringClass = application.getTutoringClass();
+        return String.format("Hợp đồng gia sư: %s - %d buổi, học phí %s VNĐ",
+                tutoringClass.getTitle(),
+                tutoringClass.getNumberOfSessions(),
+                tutoringClass.getTuitionFee());
+    }
 
-        ContractSignature creatorSig = new ContractSignature();
-        creatorSig.setContract(contract);
-        creatorSig.setPartyRole(creatorRole);
-        creatorSig.setEmail(creatorEmail);
-        creatorSig.setSignatureStatus(ContractSignatureStatus.PENDING);
-        creatorSig.setOtpAttempts(0);
-        contractSignatureRepository.save(creatorSig);
+    private String buildCenterTermsSummary(ClassStudent classStudent) {
+        TutoringClass tutoringClass = classStudent.getTutoringClass();
+        return String.format("Hợp đồng trung tâm: %s - học viên %s, %d buổi, học phí %s VNĐ",
+                tutoringClass.getTitle(),
+                classStudent.getStudentName(),
+                tutoringClass.getNumberOfSessions(),
+                tutoringClass.getTuitionFee());
     }
 
     private String generateOtp() {
-        int otp = SECURE_RANDOM.nextInt(900000) + 100000;
+        int otp = SECURE_RANDOM.nextInt((int) Math.pow(10, OTP_LENGTH - 1) * 9)
+                + (int) Math.pow(10, OTP_LENGTH - 1);
         return String.valueOf(otp);
     }
 
@@ -402,8 +601,58 @@ public class ContractServiceImpl implements ContractService {
         return String.format("TCS-%s-%04d", datePart, todayCount);
     }
 
-    private void sendOtpEmail(String email, String otp, String contractNo) {
-        emailService.sendContractOtp(email, otp, contractNo);
+    private void publishContractSigned(Contract contract) {
+        Long classId = null;
+        Long payerUserId = null;
+        Long beneficiaryUserId = null;
+        BigDecimal amount = BigDecimal.ZERO;
+        Long assignmentId = null;
+        Long classStudentId = null;
+
+        if (contract.getAssignment() != null) {
+            assignmentId = contract.getAssignment().getAssignmentId();
+            TutorApplication application = contract.getAssignment().getApplication();
+            if (application != null && application.getTutoringClass() != null) {
+                TutoringClass tutoringClass = application.getTutoringClass();
+                classId = tutoringClass.getClassId();
+                amount = tutoringClass.getTuitionFee() != null ? tutoringClass.getTuitionFee() : BigDecimal.ZERO;
+                payerUserId = tutoringClass.getCreator() != null ? tutoringClass.getCreator().getUserId() : null;
+            }
+            beneficiaryUserId = contract.getAssignment().getTutor() != null
+                    && contract.getAssignment().getTutor().getUser() != null
+                    ? contract.getAssignment().getTutor().getUser().getUserId()
+                    : null;
+        } else if (contract.getClassStudent() != null) {
+            classStudentId = contract.getClassStudent().getClassStudentId();
+            TutoringClass tutoringClass = contract.getClassStudent().getTutoringClass();
+            if (tutoringClass != null) {
+                classId = tutoringClass.getClassId();
+                amount = tutoringClass.getTuitionFee() != null ? tutoringClass.getTuitionFee() : BigDecimal.ZERO;
+                payerUserId = contract.getClassStudent().getEnrolledByUser() != null
+                        ? contract.getClassStudent().getEnrolledByUser().getUserId()
+                        : null;
+                beneficiaryUserId = tutoringClass.getCreator() != null
+                        ? tutoringClass.getCreator().getUserId()
+                        : null;
+            }
+        }
+
+        if (payerUserId != null && amount.compareTo(BigDecimal.ZERO) > 0
+                && (assignmentId != null || classStudentId != null)) {
+            escrowService.lock(new EscrowLockCommand(payerUserId, amount, assignmentId, classStudentId));
+        } else {
+            log.warn("[Contract] Bỏ qua khóa escrow: payer={}, amount={}, assignmentId={}, classStudentId={}",
+                    payerUserId, amount, assignmentId, classStudentId);
+        }
+
+        eventPublisher.publishEvent(new ContractSigned(
+                contract.getContractId(),
+                classId,
+                payerUserId,
+                beneficiaryUserId,
+                amount,
+                assignmentId,
+                classStudentId));
     }
 
     private ContractResponse toContractResponse(Contract contract) {
@@ -412,6 +661,10 @@ public class ContractServiceImpl implements ContractService {
                 .contractNo(contract.getContractNo())
                 .status(contract.getStatus())
                 .sourceType(contract.getSourceType())
+                .assignmentId(contract.getAssignment() != null ? contract.getAssignment().getAssignmentId() : null)
+                .classStudentId(contract.getClassStudent() != null
+                        ? contract.getClassStudent().getClassStudentId()
+                        : null)
                 .templateId(contract.getTemplate() != null ? contract.getTemplate().getTemplateId() : null)
                 .templateName(contract.getTemplate() != null ? contract.getTemplate().getName() : null)
                 .termsSummary(contract.getTermsSummary())
@@ -422,99 +675,221 @@ public class ContractServiceImpl implements ContractService {
                 .createdAt(contract.getCreatedAt())
                 .updatedAt(contract.getUpdatedAt());
 
-        if (contract.getAssignment() != null) {
-            builder.assignmentId(contract.getAssignment().getAssignmentId());
-            TutorApplication application = contract.getAssignment().getApplication();
-            if (application != null) {
-                TutoringClass tutoringClass = application.getTutoringClass();
-                if (tutoringClass != null) {
-                    builder.classId(tutoringClass.getClassId());
-
-                    Tutor tutor = application.getTutor();
-                    if (tutor != null) {
-                        builder.tutorId(tutor.getUser().getUserId());
-                        builder.tutorName(tutor.getFullName());
-                        builder.tutorEmail(tutor.getUser().getEmail());
-                    }
-
-                    if (tutoringClass.getCreator() != null) {
-                        Long creatorUserId = tutoringClass.getCreator().getUserId();
-                        Optional<Client> clientOpt = clientRepository.findByUser_UserId(creatorUserId);
-                        Optional<TutorCenter> centerOpt = tutorCenterRepository.findByUser_UserId(creatorUserId);
-
-                        if (centerOpt.isPresent()) {
-                            TutorCenter center = centerOpt.get();
-                            builder.centerId(center.getCenterId());
-                            builder.centerName(center.getCompanyName());
-                            builder.centerEmail(center.getUser().getEmail());
-                        } else if (clientOpt.isPresent()) {
-                            Client client = clientOpt.get();
-                            builder.clientId(client.getClientId());
-                            builder.clientName(client.getFullName());
-                            builder.clientEmail(client.getUser().getEmail());
-                        }
-                    }
-                }
-            }
-        }
+        fillContractPartiesAndClass(builder, contract);
 
         int required = getRequiredSignatureCount(contract);
         int signed = contractSignatureRepository.countSignedByContractId(contract.getContractId());
         builder.requiredSignatures(required)
                 .signedCount(signed)
                 .hasAllSignatures(signed >= required);
+        builder.escrowPayment(toEscrowPaymentInfo(resolveContractEscrow(contract)));
 
         return builder.build();
     }
 
-    private ContractSignatureResponse toSignatureResponse(ContractSignature sig) {
-        ContractSignatureResponse.ContractSignatureResponseBuilder builder =
-                ContractSignatureResponse.builder()
-                        .signatureId(sig.getSignatureId())
-                        .partyRole(sig.getPartyRole())
-                        .partyLabel(sig.getPartyRole() != null ? switch (sig.getPartyRole()) {
-                            case CLIENT -> "Học viên / Phụ huynh";
-                            case TUTOR -> "Gia sư";
-                            case CENTER -> "Trung tâm";
-                        } : "Người ký")
-                        .signatureStatus(sig.getSignatureStatus())
-                        .signedAt(sig.getSignedAt())
-                        .otpExpiresAt(sig.getOtpExpiresAt())
-                        .remainingOtpAttempts(OTP_MAX_ATTEMPTS - sig.getOtpAttempts());
+    private EscrowTransaction resolveContractEscrow(Contract contract) {
+        if (contract == null) {
+            return null;
+        }
+        if (contract.getAssignment() != null && contract.getAssignment().getAssignmentId() != null) {
+            return escrowTransactionRepository
+                    .findByAssignment_AssignmentId(contract.getAssignment().getAssignmentId())
+                    .orElse(null);
+        }
+        if (contract.getClassStudent() != null && contract.getClassStudent().getClassStudentId() != null) {
+            return escrowTransactionRepository
+                    .findByClassStudent_ClassStudentId(contract.getClassStudent().getClassStudentId())
+                    .orElse(null);
+        }
+        return null;
+    }
 
-        if (sig.getSigner() != null) {
-            builder.signerId(sig.getSigner().getUserId())
-                    .signerEmail(sig.getSigner().getEmail());
-        } else if (sig.getEmail() != null) {
-            builder.signerEmail(sig.getEmail());
+    private ContractResponse.EscrowPaymentInfo toEscrowPaymentInfo(EscrowTransaction escrow) {
+        if (escrow == null) {
+            return null;
         }
 
-        // Resolve signer name
-        String signerName = null;
-        if (sig.getContract() != null && sig.getContract().getAssignment() != null) {
-            TutorApplication application = sig.getContract().getAssignment().getApplication();
-            if (application != null) {
-                if (sig.getPartyRole() == PartyRole.TUTOR && application.getTutor() != null) {
-                    signerName = application.getTutor().getFullName();
-                } else if (application.getTutoringClass() != null && application.getTutoringClass().getCreator() != null) {
-                    Long creatorUserId = application.getTutoringClass().getCreator().getUserId();
-                    if (sig.getPartyRole() == PartyRole.CENTER) {
-                        signerName = tutorCenterRepository.findByUser_UserId(creatorUserId).map(TutorCenter::getCompanyName).orElse(null);
-                    } else if (sig.getPartyRole() == PartyRole.CLIENT) {
-                        signerName = clientRepository.findByUser_UserId(creatorUserId).map(Client::getFullName).orElse(null);
-                    }
-                }
+        PaymentTransaction payment = escrow.getPayment();
+        BigDecimal amount = payment != null && payment.getAmount() != null
+                ? payment.getAmount()
+                : escrow.getAmount();
+        String reference = payment != null ? payment.getReferenceCode() : null;
+        return ContractResponse.EscrowPaymentInfo.builder()
+                .escrowId(escrow.getEscrowId())
+                .escrowStatus(escrow.getStatus())
+                .paymentTransactionId(payment != null ? payment.getTransactionId() : null)
+                .paymentStatus(payment != null ? payment.getStatus() : null)
+                .amount(amount)
+                .referenceCode(reference)
+                .bankName(ESCROW_BANK_NAME)
+                .bankBin(ESCROW_BANK_BIN)
+                .accountNumber(ESCROW_ACCOUNT_NUMBER)
+                .accountName(ESCROW_ACCOUNT_NAME)
+                .transferContent(reference)
+                .qrUrl(buildEscrowQrUrl(amount, reference))
+                .depositedAt(escrow.getDepositedAt())
+                .processedAt(payment != null ? payment.getProcessedAt() : null)
+                .build();
+    }
+
+    private String buildEscrowQrUrl(BigDecimal amount, String transferContent) {
+        if (amount == null || transferContent == null || transferContent.isBlank()) {
+            return null;
+        }
+        return "https://img.vietqr.io/image/"
+                + ESCROW_BANK_BIN
+                + "-"
+                + ESCROW_ACCOUNT_NUMBER
+                + "-compact2.png"
+                + "?amount="
+                + amount.setScale(0, RoundingMode.DOWN).toPlainString()
+                + "&addInfo="
+                + urlEncode(transferContent)
+                + "&accountName="
+                + urlEncode(ESCROW_ACCOUNT_NAME);
+    }
+
+    private String urlEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
+    private void fillContractPartiesAndClass(
+            ContractResponse.ContractResponseBuilder builder,
+            Contract contract) {
+        if (contract.getAssignment() != null) {
+            ClassAssignment assignment = contract.getAssignment();
+            Tutor tutor = assignment.getTutor();
+            if (tutor != null && tutor.getUser() != null) {
+                builder.tutorId(tutor.getUser().getUserId())
+                        .tutorName(tutor.getFullName())
+                        .tutorEmail(tutor.getUser().getEmail())
+                        .tutor(ContractResponse.PartyInfo.builder()
+                                .userId(tutor.getUser().getUserId())
+                                .fullName(tutor.getFullName())
+                                .email(tutor.getUser().getEmail())
+                                .phone(tutor.getPhone())
+                                .build());
+            }
+
+            TutoringClass tutoringClass = assignment.getApplication() != null
+                    ? assignment.getApplication().getTutoringClass()
+                    : null;
+            if (tutoringClass != null) {
+                fillClassFields(builder, tutoringClass);
+                fillCreatorParty(builder, tutoringClass.getCreator());
+            }
+            return;
+        }
+
+        if (contract.getClassStudent() != null) {
+            ClassStudent classStudent = contract.getClassStudent();
+            TutoringClass tutoringClass = classStudent.getTutoringClass();
+            if (tutoringClass != null) {
+                fillClassFields(builder, tutoringClass);
+                fillCreatorParty(builder, tutoringClass.getCreator());
+            }
+            if (classStudent.getEnrolledByUser() != null) {
+                fillClientParty(builder, classStudent.getEnrolledByUser());
             }
         }
-        builder.signerName(signerName);
+    }
 
-        if (sig.getOtpExpiresAt() != null) {
-            builder.isOtpExpired(sig.getOtpExpiresAt().isBefore(LocalDateTime.now()));
+    private void fillClassFields(ContractResponse.ContractResponseBuilder builder, TutoringClass tutoringClass) {
+        builder.classId(tutoringClass.getClassId())
+                .classTitle(tutoringClass.getTitle())
+                .classType(tutoringClass.getClassType() != null ? tutoringClass.getClassType().name() : null)
+                .tuitionFee(tutoringClass.getTuitionFee())
+                .lessonMode(tutoringClass.getLessonMode() != null ? tutoringClass.getLessonMode().name() : null)
+                .numberOfSessions(tutoringClass.getNumberOfSessions());
+    }
+
+    private void fillCreatorParty(ContractResponse.ContractResponseBuilder builder, User creator) {
+        if (creator == null) {
+            return;
         }
+        Optional<TutorCenter> centerOpt = tutorCenterRepository.findByUser_UserId(creator.getUserId());
+        if (centerOpt.isPresent()) {
+            TutorCenter center = centerOpt.get();
+            builder.centerId(center.getCenterId())
+                    .centerName(center.getCompanyName())
+                    .centerEmail(center.getUser().getEmail())
+                    .center(ContractResponse.PartyInfo.builder()
+                            .userId(center.getUser().getUserId())
+                            .fullName(center.getCompanyName())
+                            .email(center.getUser().getEmail())
+                            .phone(center.getPhone())
+                            .build());
+            return;
+        }
+        fillClientParty(builder, creator);
+    }
 
+    private void fillClientParty(ContractResponse.ContractResponseBuilder builder, User user) {
+        Client client = clientRepository.findByUser_UserId(user.getUserId()).orElse(null);
+        String name = client != null ? client.getFullName() : user.getEmail();
+        String phone = client != null ? client.getPhone() : user.getPhone();
+        Long clientId = client != null ? client.getClientId() : user.getUserId();
+        builder.clientId(clientId)
+                .clientName(name)
+                .clientEmail(user.getEmail())
+                .client(ContractResponse.PartyInfo.builder()
+                        .userId(user.getUserId())
+                        .fullName(name)
+                        .email(user.getEmail())
+                        .phone(phone)
+                        .build());
+    }
+
+    private ContractSignatureResponse toSignatureResponse(ContractSignature signature) {
+        Integer attempts = signature.getOtpAttempts() != null ? signature.getOtpAttempts() : 0;
+        ContractSignatureResponse.ContractSignatureResponseBuilder builder = ContractSignatureResponse.builder()
+                .signatureId(signature.getSignatureId())
+                .partyRole(signature.getPartyRole())
+                .partyLabel(partyLabel(signature.getPartyRole()))
+                .signatureStatus(signature.getSignatureStatus())
+                .signedAt(signature.getSignedAt())
+                .otpExpiresAt(signature.getOtpExpiresAt())
+                .remainingOtpAttempts(Math.max(0, OTP_MAX_ATTEMPTS - attempts))
+                .isOtpExpired(signature.getOtpExpiresAt() != null
+                        && signature.getOtpExpiresAt().isBefore(LocalDateTime.now()))
+                .signerName(resolveSignatureName(signature))
+                .signerEmail(signature.getSigner() != null
+                        ? signature.getSigner().getEmail()
+                        : signature.getEmail());
+
+        if (signature.getSigner() != null) {
+            builder.signerId(signature.getSigner().getUserId());
+        }
         return builder.build();
     }
 
+    private String resolveSignatureName(ContractSignature signature) {
+        if (signature.getSigner() != null) {
+            return getUserDisplayName(signature.getSigner());
+        }
+        return partyLabel(signature.getPartyRole());
+    }
+
+    private String getUserDisplayName(User user) {
+        return tutorRepository.findByUser_UserId(user.getUserId())
+                .map(Tutor::getFullName)
+                .orElseGet(() -> clientRepository.findByUser_UserId(user.getUserId())
+                        .map(Client::getFullName)
+                        .orElseGet(() -> tutorCenterRepository.findByUser_UserId(user.getUserId())
+                                .map(TutorCenter::getCompanyName)
+                                .orElse(user.getEmail())));
+    }
+
+    private String partyLabel(PartyRole role) {
+        if (role == null) {
+            return "Bên ký";
+        }
+        return switch (role) {
+            case CLIENT -> "Học viên / Phụ huynh";
+            case TUTOR -> "Gia sư";
+            case CENTER -> "Trung tâm";
+        };
+    }
 
     private String maskEmail(String email) {
         if (email == null || !email.contains("@")) {

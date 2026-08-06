@@ -8,12 +8,10 @@ import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.enums.Gender;
-import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
-import com.tcs.module.finance.repository.WalletRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -42,17 +40,16 @@ public class DevSeed {
             UserRepository userRepository,
             ClientRepository clientRepository,
             TutorRepository tutorRepository,
-            TutorCenterRepository tutorCenterRepository,
-            WalletRepository walletRepository) {
+            TutorCenterRepository tutorCenterRepository) {
         return args -> {
             String rawPassword = "Test@1234";
             String hash = encoder.encode(rawPassword);
 
-            seedClient(encoder, userRepository, clientRepository, walletRepository, hash,
+            seedClient(encoder, userRepository, clientRepository, hash,
                     "onboarding.client@example.com", "Client Onboarding", "0901234001");
-            seedTutor(encoder, userRepository, tutorRepository, walletRepository, hash,
+            seedTutor(encoder, userRepository, tutorRepository, hash,
                     "onboarding.tutor@example.com", "Tutor Onboarding", "0901234002");
-            seedCenter(encoder, userRepository, tutorCenterRepository, walletRepository, hash,
+            seedCenter(encoder, userRepository, tutorCenterRepository, hash,
                     "onboarding.center@example.com", "Center Onboarding", "0901234003");
 
             System.out.println("=========================================================");
@@ -67,7 +64,7 @@ public class DevSeed {
     }
 
     private void seedClient(PasswordEncoder enc, UserRepository users,
-                            ClientRepository clients, WalletRepository wallets,
+                            ClientRepository clients,
                             String hash, String email, String name, String phone) {
         User u = upsertUser(users, email, phone, hash);
         clients.findByUser_UserId(u.getUserId()).ifPresentOrElse(c -> {}, () -> {
@@ -77,11 +74,10 @@ public class DevSeed {
             c.setPhone(phone);
             clients.save(c);
         });
-        wallets.findById(u.getUserId()).orElseGet(() -> wallets.save(makeWallet(u)));
     }
 
     private void seedTutor(PasswordEncoder enc, UserRepository users,
-                           TutorRepository tutors, WalletRepository wallets,
+                           TutorRepository tutors,
                            String hash, String email, String name, String phone) {
         User u = upsertUser(users, email, phone, hash);
         tutors.findByUser_UserId(u.getUserId()).ifPresentOrElse(t -> {}, () -> {
@@ -92,11 +88,10 @@ public class DevSeed {
             t.setPhone(phone);
             tutors.save(t);
         });
-        wallets.findById(u.getUserId()).orElseGet(() -> wallets.save(makeWallet(u)));
     }
 
     private void seedCenter(PasswordEncoder enc, UserRepository users,
-                            TutorCenterRepository centers, WalletRepository wallets,
+                            TutorCenterRepository centers,
                             String hash, String email, String name, String phone) {
         User u = upsertUser(users, email, phone, hash);
         centers.findByUser_UserId(u.getUserId()).ifPresentOrElse(c -> {}, () -> {
@@ -108,7 +103,6 @@ public class DevSeed {
             c.setAddress("N/A");
             centers.save(c);
         });
-        wallets.findById(u.getUserId()).orElseGet(() -> wallets.save(makeWallet(u)));
     }
 
     /** Insert neu chua co; neu co roi reset profile_completed_at = NULL de dam bao firstLogin=true. */
@@ -125,9 +119,4 @@ public class DevSeed {
         });
     }
 
-    private Wallet makeWallet(User u) {
-        Wallet w = new Wallet();
-        w.setUser(u);
-        return w;
-    }
 }

@@ -13,8 +13,8 @@ public class NotificationResponse {
     private NotificationType type;
     private String title;
     private String content;
-    private Boolean isRead;
-    private LocalDateTime createdAt;
     private String referenceType;
     private Long referenceId;
+    private Boolean isRead;
+    private LocalDateTime createdAt;
 }

@@ -12,6 +12,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.MapsId;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.Transient;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Getter;
@@ -19,13 +20,14 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import org.springframework.data.domain.Persistable;
 
 @Entity
 @Table(name = "wallets")
 @Getter
 @Setter
 @NoArgsConstructor
-public class Wallet {
+public class Wallet implements Persistable<Long> {
 
     @Id
     @Column(name = "wallet_id")
@@ -53,4 +55,16 @@ public class Wallet {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Override
+    @Transient
+    public Long getId() {
+        return walletId;
+    }
+
+    @Override
+    @Transient
+    public boolean isNew() {
+        return createdAt == null;
+    }
 }

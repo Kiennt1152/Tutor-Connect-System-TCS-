@@ -7,6 +7,8 @@ import com.tcs.module.platform.dto.request.CloseTicketRequest;
 import com.tcs.module.platform.dto.request.ModerateReviewRequest;
 import com.tcs.module.platform.dto.request.RespondTicketRequest;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
+import com.tcs.module.platform.dto.request.ResolveClassIssueRequest;
+import com.tcs.module.platform.dto.request.ResolveReportRequest;
 import com.tcs.module.platform.dto.request.UpdateTicketRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
 import com.tcs.module.platform.dto.response.AdminReviewResponse;
@@ -39,13 +41,19 @@ public interface PlatformService {
 
     List<ReportResponse> listReports();
 
+    ReportResponse resolveClassIssue(Long reportId, ResolveClassIssueRequest request);
+
+    List<ReportResponse> listCenterReports();
+
+    ReportResponse resolveCenterClassIssue(Long reportId, ResolveClassIssueRequest request);
+
+    ReportResponse resolveReport(Long reportId, ResolveReportRequest request);
+
     List<AdminReviewResponse> listReviews(ReviewStatus status);
 
     AdminReviewResponse moderateReview(Long reviewId, ModerateReviewRequest request);
 
     void deleteReview(Long reviewId);
-
-    ReportResponse resolveReport(Long reportId, com.tcs.module.platform.dto.request.ResolveReportRequest request);
 
     /** Danh sách ticket hỗ trợ, có filter theo status/category/priority/keyword và phân trang. */
     PageSupportTicketResponse getTickets(
