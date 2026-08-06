@@ -12,10 +12,12 @@ import com.tcs.exception.VerificationRequiredException;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.catalog.entity.Category;
 import com.tcs.module.catalog.entity.Grade;
@@ -1504,12 +1506,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
 
         EscrowTransaction escrow = resolveEscrowForTermination(target);
+        RefundPayoutInfo payoutInfo = validateTerminationRefundPayoutInfo(request);
 
         ClassTerminationRequest termination = new ClassTerminationRequest();
         termination.setAssignment(target.assignment());
         termination.setClassStudent(target.classStudent());
         termination.setRequestedBy(requester);
-        termination.setReason(request.getReason().trim());
+        termination.setReason(RefundPayoutInfoCodec.appendToReason(request.getReason().trim(), payoutInfo));
         termination.setEffectiveDate(request.getEffectiveDate());
 
         if (requiresAdminTerminationReview(tutoringClass, escrow)) {
@@ -1527,7 +1530,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 settlement.escrow().getEscrowId(),
                 settlement.releaseAmount(),
                 settlement.refundAmount(),
-                buildEarlyTerminationSettlementReason(request.getReason(), settlement)));
+                buildEarlyTerminationSettlementReason(request.getReason(), settlement),
+                payoutInfo));
 
         completeTerminationTarget(target);
 
@@ -1535,6 +1539,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         tutoringClassRepository.save(tutoringClass);
 
         return toTerminationResponse(classTerminationRequestRepository.save(termination), tutoringClass);
+    }
+
+    private RefundPayoutInfo validateTerminationRefundPayoutInfo(CreateClassTerminationRequest request) {
+        RefundPayoutInfo payoutInfo = new RefundPayoutInfo(
+                RefundPayoutInfoCodec.normalize(request.getBankName()),
+                RefundPayoutInfoCodec.normalizeAccountNo(request.getAccountNo()),
+                RefundPayoutInfoCodec.normalize(request.getAccountHolderName()));
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            throw new IllegalArgumentException("Vui lòng nhập đầy đủ thông tin tài khoản nhận hoàn tiền");
+        }
+        return payoutInfo;
     }
 
     @Override
@@ -2164,6 +2179,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private ClassTerminationResponse toTerminationResponse(
             ClassTerminationRequest request,
             TutoringClass tutoringClass) {
+        RefundPayoutInfo payoutInfo = RefundPayoutInfoCodec.parseFromReason(request.getReason());
         return ClassTerminationResponse.builder()
                 .terminationId(request.getTerminationId())
                 .classId(tutoringClass.getClassId())
@@ -2172,8 +2188,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                         ? request.getClassStudent().getClassStudentId()
                         : null)
                 .requestedByUserId(request.getRequestedBy().getUserId())
-                .reason(request.getReason())
+                .reason(RefundPayoutInfoCodec.stripFromReason(request.getReason()))
                 .effectiveDate(request.getEffectiveDate())
+                .bankName(payoutInfo != null ? payoutInfo.bankName() : null)
+                .accountNoMasked(payoutInfo != null ? RefundPayoutInfoCodec.maskAccountNo(payoutInfo.accountNo()) : null)
+                .accountHolderName(payoutInfo != null ? payoutInfo.accountHolderName() : null)
                 .status(request.getStatus())
                 .createdAt(request.getCreatedAt())
                 .processedAt(request.getProcessedAt())

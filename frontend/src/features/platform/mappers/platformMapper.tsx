@@ -381,6 +381,7 @@ export function mapRefundRequestItem(item: RefundRequestApiResponse): RefundRequ
     escrowAmount: formatCurrency(item.escrowAmount),
     bankName: item.bankName?.trim() || '—',
     accountNoMasked: item.accountNoMasked?.trim() || '—',
+    accountHolderName: item.accountHolderName?.trim() || '—',
     refundReferenceCode: item.refundReferenceCode?.trim() || '—',
     transferStatus: item.transferStatus?.trim() || '—',
     status: item.status,

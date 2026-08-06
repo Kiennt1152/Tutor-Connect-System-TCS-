@@ -119,10 +119,17 @@ export default function ContractDetailPage() {
 
   const status = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
   const escrowPayment = contract.escrowPayment ?? null;
-  const escrowStatus = escrowPayment
-    ? ESCROW_STATUS_LABEL[escrowPayment.escrowStatus] ?? { label: escrowPayment.escrowStatus, cls: '' }
+  const visibleEscrowPayment =
+    escrowPayment && escrowPayment.paymentStatus !== 'SUCCESS' ? escrowPayment : null;
+  const escrowStatus = visibleEscrowPayment
+    ? ESCROW_STATUS_LABEL[visibleEscrowPayment.escrowStatus] ?? {
+        label: visibleEscrowPayment.escrowStatus,
+        cls: '',
+      }
     : null;
-  const escrowPending = escrowPayment?.escrowStatus === 'PENDING' || escrowPayment?.paymentStatus === 'PENDING';
+  const escrowPending = visibleEscrowPayment?.paymentStatus === 'PENDING';
+  const escrowRetryable =
+    visibleEscrowPayment?.paymentStatus === 'FAILED' || visibleEscrowPayment?.paymentStatus === 'CANCELLED';
   const currentUserSigned = signatures?.signatures.some((signature) => signature.isCurrentUser) ?? false;
   const allSigned = signatures?.fullySigned ?? false;
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
@@ -253,42 +260,48 @@ export default function ContractDetailPage() {
             </div>
           </section>
 
-          {escrowPayment ? (
+          {visibleEscrowPayment ? (
             <section className="contract-card contract-escrow-card">
               <div className="contract-card__head">
-                <h2>Thanh toán escrow</h2>
+                <h2>Quét mã để thanh toán</h2>
                 {escrowStatus ? <span className={`contract-status ${escrowStatus.cls}`}>{escrowStatus.label}</span> : null}
               </div>
               <div className="contract-escrow">
-                {escrowPayment.qrUrl ? (
+                {visibleEscrowPayment.qrUrl ? (
                   <div className="contract-escrow__qr">
-                    <img src={escrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
+                    <img src={visibleEscrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
                   </div>
                 ) : null}
                 <div className="contract-escrow__details">
                   <div className="contract-escrow__row">
                     <span>Số tiền</span>
-                    <strong>{formatCurrency(escrowPayment.amount)}</strong>
+                    <strong>{formatCurrency(visibleEscrowPayment.amount)}</strong>
                   </div>
                   <div className="contract-escrow__row">
                     <span>Ngân hàng</span>
-                    <strong>{escrowPayment.bankName ?? '—'}</strong>
+                    <strong>{visibleEscrowPayment.bankName ?? '—'}</strong>
                   </div>
                   <div className="contract-escrow__row">
                     <span>Số tài khoản</span>
-                    <strong>{escrowPayment.accountNumber ?? '—'}</strong>
+                    <strong>{visibleEscrowPayment.accountNumber ?? '—'}</strong>
                   </div>
                   <div className="contract-escrow__row">
                     <span>Chủ tài khoản</span>
-                    <strong>{escrowPayment.accountName ?? '—'}</strong>
+                    <strong>{visibleEscrowPayment.accountName ?? '—'}</strong>
                   </div>
                   <div className="contract-escrow__code">
                     <span>Nội dung chuyển khoản</span>
                     <div>
-                      <code>{escrowPayment.transferContent ?? escrowPayment.referenceCode ?? '—'}</code>
+                      <code>
+                        {visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode ?? '—'}
+                      </code>
                       <button
                         type="button"
-                        onClick={() => copyText(escrowPayment.transferContent ?? escrowPayment.referenceCode)}
+                        onClick={() =>
+                          copyText(
+                            visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode,
+                          )
+                        }
                       >
                         Sao chép
                       </button>
@@ -296,10 +309,12 @@ export default function ContractDetailPage() {
                   </div>
                   <p className={`contract-escrow__note${escrowPending ? ' contract-escrow__note--pending' : ''}`}>
                     {escrowPending
-                      ? 'Sau khi SePay xác nhận giao dịch, escrow sẽ chuyển sang đã nạp và lớp mới được kích hoạt.'
-                      : `Trạng thái giao dịch: ${
-                          escrowPayment.paymentStatus
-                            ? PAYMENT_STATUS_LABEL[escrowPayment.paymentStatus] ?? escrowPayment.paymentStatus
+                        ? 'Sau khi SePay xác nhận giao dịch, escrow sẽ chuyển sang đã nạp và lớp mới được kích hoạt.'
+                        : escrowRetryable
+                          ? 'Giao dịch chưa thành công. Vui lòng quét mã và chuyển khoản lại đúng nội dung.'
+                          : `Trạng thái giao dịch: ${
+                          visibleEscrowPayment.paymentStatus
+                            ? PAYMENT_STATUS_LABEL[visibleEscrowPayment.paymentStatus] ?? visibleEscrowPayment.paymentStatus
                             : '—'
                         }.`}
                   </p>

@@ -7,6 +7,7 @@ import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.dto.request.AppealDisputeRequest;
 import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
@@ -66,6 +67,7 @@ import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.security.AuthHelper;
+import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.security.UserPrincipal;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -133,7 +135,9 @@ public class DisputeServiceImpl implements DisputeService {
                 request.getTargetType(),
                 request.getTargetId(),
                 request.getCategory(),
-                request.getDescription(),
+                RefundPayoutInfoCodec.appendToReason(
+                        request.getDescription(),
+                        normalizeRefundPayoutInfo(request.getRefundPayoutInfo())),
                 request.getEvidenceUrls());
         return createAndHoldDispute(report, escrow, request.getDescription());
     }
@@ -314,13 +318,14 @@ public class DisputeServiceImpl implements DisputeService {
                         request.getReleaseToBeneficiary(),
                         request.getRefundToPayer(),
                         resolution,
+                        request.getRefundPayoutInfo(),
                         true);
                 closeDispute(dispute);
                 completeRelatedTermination(dispute);
             }
             case APPROVE_FULL_REFUND -> {
                 EscrowTransaction escrow = requireEscrow(dispute);
-                settleEscrow(dispute, BigDecimal.ZERO, amountOrZero(escrow.getAmount()), resolution);
+                settleEscrow(dispute, BigDecimal.ZERO, amountOrZero(escrow.getAmount()), resolution, request.getRefundPayoutInfo());
                 closeDispute(dispute);
                 completeRelatedTermination(dispute);
             }
@@ -329,7 +334,7 @@ public class DisputeServiceImpl implements DisputeService {
                 if (refundAmount.compareTo(BigDecimal.ZERO) <= 0) {
                     throw new BusinessException("Số tiền hoàn một phần phải lớn hơn 0");
                 }
-                settleEscrow(dispute, request.getReleaseToBeneficiary(), request.getRefundToPayer(), resolution);
+                settleEscrow(dispute, request.getReleaseToBeneficiary(), request.getRefundToPayer(), resolution, request.getRefundPayoutInfo());
                 closeDispute(dispute);
                 completeRelatedTermination(dispute);
             }
@@ -550,6 +555,27 @@ public class DisputeServiceImpl implements DisputeService {
             BigDecimal releaseToBeneficiary,
             BigDecimal refundToPayer,
             String resolution,
+            RefundPayoutInfo payoutInfo) {
+
+        settleEscrow(dispute, releaseToBeneficiary, refundToPayer, resolution, payoutInfo, false);
+    }
+
+    private void settleEscrow(
+            Dispute dispute,
+            BigDecimal releaseToBeneficiary,
+            BigDecimal refundToPayer,
+            String resolution,
+            boolean defaultToProRata) {
+
+        settleEscrow(dispute, releaseToBeneficiary, refundToPayer, resolution, null, defaultToProRata);
+    }
+
+    private void settleEscrow(
+            Dispute dispute,
+            BigDecimal releaseToBeneficiary,
+            BigDecimal refundToPayer,
+            String resolution,
+            RefundPayoutInfo submittedPayoutInfo,
             boolean defaultToProRata) {
 
         EscrowTransaction escrow = requireEscrow(dispute);
@@ -569,16 +595,18 @@ public class DisputeServiceImpl implements DisputeService {
             throw new BusinessException("Tổng tiền giải ngân và hoàn tiền phải bằng số tiền escrow");
         }
 
+        RefundPayoutInfo payoutInfo = resolveRefundPayoutInfo(dispute, escrow, submittedPayoutInfo);
         RefundRequest refundRequest = null;
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-            refundRequest = createApprovedRefundRequest(escrow, refundAmount, resolution);
+            refundRequest = createApprovedRefundRequest(escrow, refundAmount, resolution, payoutInfo);
         }
 
         escrowService.apply(new ReleaseInstruction(
                 escrow.getEscrowId(),
                 releaseAmount,
                 refundAmount,
-                resolution));
+                resolution,
+                payoutInfo));
 
         if (refundRequest != null) {
             refundRequest.setStatus(RefundRequestStatus.COMPLETED);
@@ -625,11 +653,20 @@ public class DisputeServiceImpl implements DisputeService {
         return new SettlementAmounts(amountOrZero(releaseAmount), amountOrZero(refundAmount), false);
     }
 
-    private RefundRequest createApprovedRefundRequest(EscrowTransaction escrow, BigDecimal refundAmount, String reason) {
+    private RefundRequest createApprovedRefundRequest(
+            EscrowTransaction escrow,
+            BigDecimal refundAmount,
+            String reason,
+            RefundPayoutInfo payoutInfo) {
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            throw new BusinessException("Thiếu thông tin tài khoản nhận hoàn tiền");
+        }
         RefundRequest refundRequest = new RefundRequest();
         refundRequest.setEscrowTransaction(escrow);
         refundRequest.setRequestedBy(requireCurrentAdmin());
-        refundRequest.setReason(reason);
+        refundRequest.setBankName(RefundPayoutInfoCodec.normalize(payoutInfo.bankName()));
+        refundRequest.setAccountNo(RefundPayoutInfoCodec.normalizeAccountNo(payoutInfo.accountNo()));
+        refundRequest.setReason(RefundPayoutInfoCodec.appendToReason(reason, payoutInfo));
         refundRequest.setAmount(refundAmount);
         refundRequest.setStatus(RefundRequestStatus.APPROVED);
         refundRequest.setRequestedAt(LocalDateTime.now());
@@ -856,6 +893,9 @@ public class DisputeServiceImpl implements DisputeService {
         if (request.getOccurredAt() != null && request.getOccurredAt().isAfter(LocalDate.now())) {
             throw new IllegalArgumentException("Ngày xảy ra sự cố không được ở tương lai");
         }
+        if (requiresRefundPayoutInfo(request) && !RefundPayoutInfoCodec.hasCompletePayout(request.getRefundPayoutInfo())) {
+            throw new IllegalArgumentException("Vui lòng nhập đầy đủ thông tin tài khoản nhận hoàn tiền");
+        }
         validateEscrowSelector(
                 request.getEscrowId(),
                 request.getAssignmentId(),
@@ -984,14 +1024,21 @@ public class DisputeServiceImpl implements DisputeService {
     private boolean shouldEscalateClassIssue(CreateClassIssueRequest request) {
         return request.getRequestedAction() == ClassIssueRequestedAction.ESCALATE_DISPUTE
                 || request.getRequestedAction() == ClassIssueRequestedAction.REFUND_REVIEW
+                || request.getRequestedAction() == ClassIssueRequestedAction.TERMINATE_CLASS
                 || request.getIssueType() == ClassIssueType.PAYMENT_OR_REFUND
                 || request.getCategory() == ReportCategory.FRAUD;
+    }
+
+    private boolean requiresRefundPayoutInfo(CreateClassIssueRequest request) {
+        return request.getRequestedAction() == ClassIssueRequestedAction.REFUND_REVIEW
+                || request.getRequestedAction() == ClassIssueRequestedAction.TERMINATE_CLASS
+                || request.getIssueType() == ClassIssueType.PAYMENT_OR_REFUND;
     }
 
     private String buildClassIssueDescription(CreateClassIssueRequest request) {
         String lessonRef = StringUtils.hasText(request.getLessonRef()) ? request.getLessonRef().trim() : "Không xác định";
         String occurredAt = request.getOccurredAt() != null ? request.getOccurredAt().toString() : "Không xác định";
-        return "[UC-29] Báo cáo sự cố lớp học\n"
+        String description = "[UC-29] Báo cáo sự cố lớp học\n"
                 + "Mã loại sự cố: " + request.getIssueType().name() + "\n"
                 + "Loại sự cố: " + classIssueTypeLabel(request.getIssueType()) + "\n"
                 + "Buổi/ngày liên quan: " + lessonRef + "\n"
@@ -1000,6 +1047,7 @@ public class DisputeServiceImpl implements DisputeService {
                 + "Hướng xử lý mong muốn: " + classIssueActionLabel(request.getRequestedAction()) + "\n\n"
                 + "Mô tả:\n"
                 + request.getDescription().trim();
+        return RefundPayoutInfoCodec.appendToReason(description, normalizeRefundPayoutInfo(request.getRefundPayoutInfo()));
     }
 
     private String classIssueTypeLabel(ClassIssueType issueType) {
@@ -1470,12 +1518,16 @@ public class DisputeServiceImpl implements DisputeService {
             return null;
         }
         User requestedBy = request.getRequestedBy();
+        RefundPayoutInfo payoutInfo = RefundPayoutInfoCodec.parseFromReason(request.getReason());
         return AdminDisputeReviewResponse.TerminationReviewInfo.builder()
                 .terminationId(request.getTerminationId())
                 .status(request.getStatus())
                 .requestedByUserId(requestedBy != null ? requestedBy.getUserId() : null)
                 .requestedByEmail(requestedBy != null ? requestedBy.getEmail() : null)
-                .reason(request.getReason())
+                .reason(RefundPayoutInfoCodec.stripFromReason(request.getReason()))
+                .bankName(payoutInfo != null ? payoutInfo.bankName() : null)
+                .accountNoMasked(payoutInfo != null ? RefundPayoutInfoCodec.maskAccountNo(payoutInfo.accountNo()) : null)
+                .accountHolderName(payoutInfo != null ? payoutInfo.accountHolderName() : null)
                 .effectiveDate(request.getEffectiveDate())
                 .createdAt(request.getCreatedAt())
                 .processedAt(request.getProcessedAt())
@@ -1487,15 +1539,17 @@ public class DisputeServiceImpl implements DisputeService {
             return null;
         }
         User requestedBy = request.getRequestedBy();
+        RefundPayoutInfo payoutInfo = RefundPayoutInfoCodec.parseFromReason(request.getReason());
         return AdminDisputeReviewResponse.RefundReviewInfo.builder()
                 .refundId(request.getRefundId())
                 .status(request.getStatus())
                 .amount(request.getAmount())
                 .bankName(request.getBankName())
                 .accountNoMasked(maskAccountNo(request.getAccountNo()))
+                .accountHolderName(payoutInfo != null ? payoutInfo.accountHolderName() : null)
                 .refundReferenceCode(request.getRefundReferenceCode())
                 .transferStatus(request.getTransferStatus())
-                .reason(request.getReason())
+                .reason(RefundPayoutInfoCodec.stripFromReason(request.getReason()))
                 .requestedByUserId(requestedBy != null ? requestedBy.getUserId() : null)
                 .requestedByEmail(requestedBy != null ? requestedBy.getEmail() : null)
                 .requestedAt(request.getRequestedAt())
@@ -1661,6 +1715,80 @@ public class DisputeServiceImpl implements DisputeService {
         return refundRequestRepository
                 .findFirstByEscrowTransaction_EscrowIdOrderByRequestedAtDesc(escrow.getEscrowId())
                 .orElse(null);
+    }
+
+    private RefundPayoutInfo resolveRefundPayoutInfo(
+            Dispute dispute,
+            EscrowTransaction escrow,
+            RefundPayoutInfo submittedPayoutInfo) {
+        RefundPayoutInfo normalizedSubmitted = normalizeRefundPayoutInfo(submittedPayoutInfo);
+        if (RefundPayoutInfoCodec.hasCompletePayout(normalizedSubmitted)) {
+            return normalizedSubmitted;
+        }
+
+        RefundPayoutInfo fromRefund = toRefundPayoutInfo(latestRefundRequest(escrow));
+        if (RefundPayoutInfoCodec.hasCompletePayout(fromRefund)) {
+            return fromRefund;
+        }
+
+        ClassAssignment assignment = escrow != null ? escrow.getAssignment() : null;
+        ClassStudent classStudent = escrow != null ? escrow.getClassStudent() : null;
+        RefundPayoutInfo fromTermination = toRefundPayoutInfo(latestTerminationRequest(assignment, classStudent));
+        if (RefundPayoutInfoCodec.hasCompletePayout(fromTermination)) {
+            return fromTermination;
+        }
+
+        RefundPayoutInfo fromReport = toRefundPayoutInfo(dispute != null ? dispute.getReport() : null);
+        if (RefundPayoutInfoCodec.hasCompletePayout(fromReport)) {
+            return fromReport;
+        }
+
+        return RefundPayoutInfoCodec.hasCompletePayout(fromRefund) ? fromRefund : fromTermination;
+    }
+
+    private RefundPayoutInfo normalizeRefundPayoutInfo(RefundPayoutInfo payoutInfo) {
+        if (payoutInfo == null) {
+            return null;
+        }
+        return new RefundPayoutInfo(
+                RefundPayoutInfoCodec.normalize(payoutInfo.bankName()),
+                RefundPayoutInfoCodec.normalizeAccountNo(payoutInfo.accountNo()),
+                RefundPayoutInfoCodec.normalize(payoutInfo.accountHolderName()));
+    }
+
+    private RefundPayoutInfo toRefundPayoutInfo(RefundRequest request) {
+        if (request == null) {
+            return null;
+        }
+        RefundPayoutInfo parsed = RefundPayoutInfoCodec.parseFromReason(request.getReason());
+        if (RefundPayoutInfoCodec.hasCompletePayout(parsed)) {
+            return parsed;
+        }
+        if (!isBlank(request.getBankName()) && !isBlank(request.getAccountNo())) {
+            return new RefundPayoutInfo(
+                    RefundPayoutInfoCodec.normalize(request.getBankName()),
+                    RefundPayoutInfoCodec.normalizeAccountNo(request.getAccountNo()),
+                    parsed != null ? RefundPayoutInfoCodec.normalize(parsed.accountHolderName()) : null);
+        }
+        return parsed;
+    }
+
+    private RefundPayoutInfo toRefundPayoutInfo(ClassTerminationRequest request) {
+        if (request == null) {
+            return null;
+        }
+        return RefundPayoutInfoCodec.parseFromReason(request.getReason());
+    }
+
+    private RefundPayoutInfo toRefundPayoutInfo(Report report) {
+        if (report == null) {
+            return null;
+        }
+        return RefundPayoutInfoCodec.parseFromReason(report.getDescription());
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private void auditDispute(Dispute dispute, String action, String oldValue, String newValue) {

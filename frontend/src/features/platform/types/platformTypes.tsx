@@ -152,6 +152,7 @@ export interface ResolveDisputeApiRequest {
   resolution: string;
   releaseToBeneficiary?: number;
   refundToPayer?: number;
+  refundPayoutInfo?: RefundPayoutInfoApiRequest;
 }
 
 export interface AppealDisputeApiRequest {
@@ -164,6 +165,7 @@ export interface ExecuteSettlementApiRequest {
   releaseToBeneficiary: number;
   refundToPayer: number;
   reason: string;
+  refundPayoutInfo?: RefundPayoutInfoApiRequest;
 }
 
 export interface ExecuteRefundApiRequest {
@@ -171,6 +173,13 @@ export interface ExecuteRefundApiRequest {
   releaseToBeneficiary: number;
   refundToPayer: number;
   reason: string;
+  refundPayoutInfo?: RefundPayoutInfoApiRequest;
+}
+
+export interface RefundPayoutInfoApiRequest {
+  bankName: string;
+  accountNo: string;
+  accountHolderName: string;
 }
 
 export interface RefundExecutionApiResponse {
@@ -415,6 +424,9 @@ export interface TerminationReviewApiResponse {
   requestedByUserId: number | null;
   requestedByEmail: string | null;
   reason: string | null;
+  bankName?: string | null;
+  accountNoMasked?: string | null;
+  accountHolderName?: string | null;
   effectiveDate: string | null;
   createdAt: string | null;
   processedAt: string | null;
@@ -426,6 +438,7 @@ export interface RefundReviewApiResponse {
   amount: number | null;
   bankName?: string | null;
   accountNoMasked?: string | null;
+  accountHolderName?: string | null;
   refundReferenceCode?: string | null;
   transferStatus?: string | null;
   reason: string | null;
@@ -450,6 +463,7 @@ export interface RefundRequestApiResponse {
   amount: number;
   bankName?: string | null;
   accountNoMasked?: string | null;
+  accountHolderName?: string | null;
   refundReferenceCode?: string | null;
   transferStatus?: string | null;
   status: RefundRequestStatus;
@@ -469,6 +483,7 @@ export interface RefundRequestItem {
   escrowAmount: string;
   bankName: string;
   accountNoMasked: string;
+  accountHolderName: string;
   refundReferenceCode: string;
   transferStatus: string;
   status: RefundRequestStatus;

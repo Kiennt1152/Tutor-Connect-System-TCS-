@@ -4,6 +4,7 @@ import com.tcs.exception.BusinessException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.entity.RefundRequest;
@@ -18,6 +19,7 @@ import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
+import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.ClassAssignment;
@@ -91,7 +93,7 @@ public class EscrowServiceImpl implements EscrowService {
             releaseToBeneficiary(escrow, payerUserId, releaseAmount, instruction.reason());
         }
         if (refundAmount.compareTo(BigDecimal.ZERO) > 0) {
-            refundToPayer(escrow, payerUserId, refundAmount, instruction.reason());
+            refundToPayer(escrow, payerUserId, refundAmount, instruction.reason(), instruction.refundPayoutInfo());
         }
 
         escrow.setStatus(releaseAmount.compareTo(BigDecimal.ZERO) > 0
@@ -126,7 +128,7 @@ public class EscrowServiceImpl implements EscrowService {
             throw new BusinessException("Số tiền escrow không hợp lệ");
         }
 
-        refundToPayer(escrow, payerUserId(escrow), escrow.getAmount(), reason);
+        refundToPayer(escrow, payerUserId(escrow), escrow.getAmount(), reason, null);
         escrow.setStatus(EscrowStatus.REFUNDED);
         escrow.setReleasedAt(LocalDateTime.now());
         return escrowTransactionRepository.save(escrow);
@@ -246,7 +248,8 @@ public class EscrowServiceImpl implements EscrowService {
             EscrowTransaction escrow,
             Long payerUserId,
             BigDecimal amount,
-            String reason) {
+            String reason,
+            RefundPayoutInfo payoutInfo) {
 
         String reference = REFUND_REF_PREFIX + escrow.getEscrowId();
         if (paymentUsesPayerWallet(escrow, payerUserId)) {
@@ -272,7 +275,7 @@ public class EscrowServiceImpl implements EscrowService {
                     reason));
             tx.setReferenceCode(reference);
             paymentTransactionRepository.save(tx);
-            ensureRefundTransferRequest(escrow, payerUserId, amount, reason, reference);
+            ensureRefundTransferRequest(escrow, payerUserId, amount, reason, reference, payoutInfo);
         }
         paymentNotificationService.notifyPayment(
                 payerUserId,
@@ -288,29 +291,38 @@ public class EscrowServiceImpl implements EscrowService {
             Long payerUserId,
             BigDecimal amount,
             String reason,
-            String reference) {
+            String reference,
+            RefundPayoutInfo payoutInfo) {
 
         refundRequestRepository
                 .findFirstByEscrowTransaction_EscrowIdOrderByRequestedAtDesc(escrow.getEscrowId())
                 .filter(request -> request.getStatus() != RefundRequestStatus.REJECTED)
                 .ifPresentOrElse(
-                        request -> syncApprovedRefundTransferRequest(request, amount, reference),
-                        () -> createApprovedRefundTransferRequest(escrow, payerUserId, amount, reason, reference));
+                        request -> syncApprovedRefundTransferRequest(request, amount, reference, payoutInfo),
+                        () -> createApprovedRefundTransferRequest(escrow, payerUserId, amount, reason, reference, payoutInfo));
     }
 
     private void syncApprovedRefundTransferRequest(
             RefundRequest request,
             BigDecimal amount,
-            String reference) {
+            String reference,
+            RefundPayoutInfo payoutInfo) {
+        RefundPayoutInfo resolvedPayoutInfo = resolveRefundPayoutInfo(request, payoutInfo);
+        if (!RefundPayoutInfoCodec.hasCompletePayout(resolvedPayoutInfo)) {
+            throw new BusinessException("Thiếu thông tin tài khoản nhận hoàn tiền");
+        }
         if (request.getAmount() == null) {
             request.setAmount(amount);
         }
+        request.setBankName(RefundPayoutInfoCodec.normalize(resolvedPayoutInfo.bankName()));
+        request.setAccountNo(RefundPayoutInfoCodec.normalizeAccountNo(resolvedPayoutInfo.accountNo()));
         if (isBlank(request.getRefundReferenceCode())) {
             request.setRefundReferenceCode(reference);
         }
         if (isBlank(request.getTransferStatus()) || !"SUCCESS".equalsIgnoreCase(request.getTransferStatus())) {
             request.setTransferStatus("PENDING");
         }
+        request.setReason(RefundPayoutInfoCodec.appendToReason(request.getReason(), resolvedPayoutInfo));
         if (request.getStatus() == RefundRequestStatus.PENDING) {
             request.setStatus(RefundRequestStatus.APPROVED);
         }
@@ -325,20 +337,54 @@ public class EscrowServiceImpl implements EscrowService {
             Long payerUserId,
             BigDecimal amount,
             String reason,
-            String reference) {
+            String reference,
+            RefundPayoutInfo payoutInfo) {
 
         LocalDateTime now = LocalDateTime.now();
+        RefundPayoutInfo resolvedPayoutInfo = resolveRefundPayoutInfo(null, payoutInfo);
+        if (!RefundPayoutInfoCodec.hasCompletePayout(resolvedPayoutInfo)) {
+            throw new BusinessException("Thiếu thông tin tài khoản nhận hoàn tiền");
+        }
         RefundRequest refundRequest = new RefundRequest();
         refundRequest.setEscrowTransaction(escrow);
         refundRequest.setRequestedBy(resolvePayerUser(escrow, payerUserId));
         refundRequest.setAmount(amount);
-        refundRequest.setReason(buildSettlementDescription("Hoàn tiền tự động từ tất toán escrow", reason));
+        refundRequest.setBankName(RefundPayoutInfoCodec.normalize(resolvedPayoutInfo.bankName()));
+        refundRequest.setAccountNo(RefundPayoutInfoCodec.normalizeAccountNo(resolvedPayoutInfo.accountNo()));
+        refundRequest.setReason(RefundPayoutInfoCodec.appendToReason(
+                buildSettlementDescription("Hoàn tiền tự động từ tất toán escrow", reason),
+                resolvedPayoutInfo));
         refundRequest.setRefundReferenceCode(reference);
         refundRequest.setTransferStatus("PENDING");
         refundRequest.setStatus(RefundRequestStatus.APPROVED);
         refundRequest.setRequestedAt(now);
         refundRequest.setProcessedAt(now);
         refundRequestRepository.save(refundRequest);
+    }
+
+    private RefundPayoutInfo resolveRefundPayoutInfo(RefundRequest request, RefundPayoutInfo payoutInfo) {
+        RefundPayoutInfo resolved = payoutInfo != null && RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)
+                ? new RefundPayoutInfo(
+                        RefundPayoutInfoCodec.normalize(payoutInfo.bankName()),
+                        RefundPayoutInfoCodec.normalizeAccountNo(payoutInfo.accountNo()),
+                        RefundPayoutInfoCodec.normalize(payoutInfo.accountHolderName()))
+                : null;
+        if (RefundPayoutInfoCodec.hasCompletePayout(resolved)) {
+            return resolved;
+        }
+        if (request != null) {
+            RefundPayoutInfo parsed = RefundPayoutInfoCodec.parseFromReason(request.getReason());
+            if (RefundPayoutInfoCodec.hasCompletePayout(parsed)) {
+                return parsed;
+            }
+            if (!isBlank(request.getBankName()) && !isBlank(request.getAccountNo())) {
+                return new RefundPayoutInfo(
+                        RefundPayoutInfoCodec.normalize(request.getBankName()),
+                        RefundPayoutInfoCodec.normalizeAccountNo(request.getAccountNo()),
+                        parsed != null ? RefundPayoutInfoCodec.normalize(parsed.accountHolderName()) : null);
+            }
+        }
+        return resolved;
     }
 
     private User resolvePayerUser(EscrowTransaction escrow, Long payerUserId) {

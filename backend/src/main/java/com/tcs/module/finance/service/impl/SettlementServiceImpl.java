@@ -6,6 +6,7 @@ import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.dto.request.ExecuteRefundRequest;
 import com.tcs.module.finance.dto.response.RefundExecutionResponse;
 import com.tcs.module.finance.entity.EscrowTransaction;
@@ -28,6 +29,7 @@ import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.marketplace.repository.ClassTerminationRequestRepository;
 import com.tcs.module.profile.enums.UserRole;
+import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -70,6 +72,7 @@ public class SettlementServiceImpl implements SettlementService {
     public RefundExecutionResponse executeRefund(ExecuteRefundRequest request) {
         authHelper.requireRole(UserRole.PLATFORM_ADMIN);
         validateRefundRequest(request);
+        RefundPayoutInfo payoutInfo = validateRefundPayoutInfo(request.getRefundPayoutInfo());
 
         EscrowTransaction escrow = escrowTransactionRepository.findById(request.getEscrowId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy escrow"));
@@ -92,7 +95,9 @@ public class SettlementServiceImpl implements SettlementService {
         RefundRequest refundRequest = new RefundRequest();
         refundRequest.setEscrowTransaction(escrow);
         refundRequest.setRequestedBy(admin);
-        refundRequest.setReason(reason);
+        refundRequest.setBankName(payoutInfo.bankName());
+        refundRequest.setAccountNo(payoutInfo.accountNo());
+        refundRequest.setReason(RefundPayoutInfoCodec.appendToReason(reason, payoutInfo));
         refundRequest.setAmount(refundAmount);
         refundRequest.setStatus(RefundRequestStatus.APPROVED);
         refundRequest.setRequestedAt(now);
@@ -145,6 +150,16 @@ public class SettlementServiceImpl implements SettlementService {
         if (!StringUtils.hasText(request.getReason()) || request.getReason().trim().length() < 10) {
             throw new BusinessException("Lý do hoàn tiền phải có ít nhất 10 ký tự");
         }
+    }
+
+    private RefundPayoutInfo validateRefundPayoutInfo(RefundPayoutInfo payoutInfo) {
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            throw new BusinessException("Vui lòng nhập đầy đủ thông tin tài khoản nhận hoàn tiền");
+        }
+        return new RefundPayoutInfo(
+                RefundPayoutInfoCodec.normalize(payoutInfo.bankName()),
+                RefundPayoutInfoCodec.normalizeAccountNo(payoutInfo.accountNo()),
+                RefundPayoutInfoCodec.normalize(payoutInfo.accountHolderName()));
     }
 
     private void completeRelatedTermination(EscrowTransaction escrow) {
