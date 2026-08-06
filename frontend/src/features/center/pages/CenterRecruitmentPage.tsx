@@ -26,8 +26,8 @@ const APP_STATUS_LABELS: Record<RecruitmentApplicationStatus, { label: string; c
   APPLIED: { label: 'Chờ duyệt', cls: 'pending' },
   SCREENING: { label: 'Đang lọc hồ sơ', cls: 'pending' },
   INTERVIEW: { label: 'Phỏng vấn', cls: 'pending' },
-  PASSED: { label: 'Đạt', cls: 'ok' },
-  HIRED: { label: 'Đã duyệt', cls: 'ok' },
+  PASSED: { label: 'Chờ ký hợp đồng', cls: 'pending' },
+  HIRED: { label: 'Đã được nhận', cls: 'ok' },
   REJECTED: { label: 'Từ chối', cls: 'no' },
   WITHDRAWN: { label: 'Đã rút', cls: 'no' },
 };
@@ -344,6 +344,12 @@ export default function CenterRecruitmentPage() {
     setAppsError('');
     try {
       await centerApi.decideApplication(app.recruitmentAppId, approve);
+      if (approve) {
+        // BF-03 bước 7: duyệt -> hệ thống đã tạo thỏa thuận hợp tác (e-contract).
+        // Chuyển sang trang Hợp đồng để trung tâm theo dõi; gia sư sẽ ký qua OTP (bước 8).
+        navigate(APP_ROUTES.contract);
+        return;
+      }
       if (appsFor) {
         const res = await centerApi.getApplications(appsFor.recruitmentId);
         setApps(res.data);

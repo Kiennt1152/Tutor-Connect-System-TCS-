@@ -57,6 +57,16 @@ import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.common.event.CooperationContractSigned;
+import com.tcs.common.event.StudentContractSigned;
+import com.tcs.module.catalog.entity.SystemParameter;
+import com.tcs.module.catalog.repository.SystemParameterRepository;
+import com.tcs.module.center.entity.RecruitmentApplication;
+import com.tcs.module.center.entity.RecruitmentPost;
+import com.tcs.module.center.repository.RecruitmentApplicationRepository;
+import com.tcs.module.contract.enums.ContractTemplateStatus;
+import com.tcs.module.marketplace.entity.ClassStudent;
+import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
@@ -97,6 +107,9 @@ public class ContractServiceImpl implements ContractService {
     private final EscrowService escrowService;
     private final ApplicationEventPublisher eventPublisher;
     private final ReviewRepository reviewRepository;
+    private final RecruitmentApplicationRepository recruitmentApplicationRepository;
+    private final ClassStudentRepository classStudentRepository;
+    private final SystemParameterRepository systemParameterRepository;
     private final ReputationHistoryRepository reputationHistoryRepository;
     private final LessonRepository lessonRepository;
     private final AuthHelper authHelper;
@@ -188,7 +201,14 @@ public class ContractServiceImpl implements ContractService {
         signature.setEmail(recipientEmail);
         contractSignatureRepository.save(signature);
 
-        sendOtpEmail(recipientEmail, otp, contract.getContractNo());
+        // Gửi email OTP; nếu email lỗi (chưa cấu hình SMTP / App Password...) thì KHÔNG chặn quy trình
+        // — OTP vẫn được lưu để ký. OTP luôn được ghi ra log để có thể lấy khi email không tới.
+        try {
+            sendOtpEmail(recipientEmail, otp, contract.getContractNo());
+        } catch (RuntimeException ex) {
+            log.warn("Gui email OTP hop dong that bai (van tiep tuc, lay OTP tu log): {}", ex.getMessage());
+        }
+        log.info("[OTP HOP DONG] {} -> {} : {}", contract.getContractNo(), recipientEmail, otp);
 
         auditLogService.record(authHelper.currentUserId(), "SEND_CONTRACT_OTP", "Contract", contractId,
                 null, Map.of("partyRole", role.name()));
@@ -260,6 +280,18 @@ public class ContractServiceImpl implements ContractService {
             contract.setStatus(ContractStatus.SIGNED);
             contract.setSignedAt(LocalDateTime.now());
             contractRepository.save(contract);
+            // BF-03 bước 9-10: gia sư ký xong -> báo cho module center kích hoạt thành viên + đóng tin.
+            if (contract.getRecruitmentApplication() != null) {
+                eventPublisher.publishEvent(new CooperationContractSigned(
+                        contract.getRecruitmentApplication().getRecruitmentAppId(),
+                        contract.getContractId()));
+            }
+            // BF-04: học viên ký xong -> marketplace chuyển ENROLLED + đóng ghi danh khi đủ.
+            if (contract.getClassStudent() != null) {
+                eventPublisher.publishEvent(new StudentContractSigned(
+                        contract.getClassStudent().getClassStudentId(),
+                        contract.getContractId()));
+            }
         }
 
         return toContractResponse(contract);
@@ -302,6 +334,97 @@ public class ContractServiceImpl implements ContractService {
         return toContractResponse(contract);
     }
 
+    // ─── GENERATE COOPERATION CONTRACT (BF-03 bước 7) ───────────────────────
+    @Override
+    @Transactional
+    public ContractResponse generateCooperationContract(Long recruitmentApplicationId) {
+        RecruitmentApplication app = recruitmentApplicationRepository.findById(recruitmentApplicationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn ứng tuyển"));
+
+        if (contractRepository
+                .findByRecruitmentApplication_RecruitmentAppId(recruitmentApplicationId)
+                .isPresent()) {
+            throw new IllegalStateException("Thỏa thuận hợp tác đã tồn tại cho đơn này");
+        }
+
+        Contract contract = new Contract();
+        contract.setContractNo(generateContractNo());
+        contract.setRecruitmentApplication(app);
+        contract.setStatus(ContractStatus.PENDING);
+        contract.setSourceType(ContractSourceType.CENTER);
+        contract.setExpiresAt(LocalDateTime.now().plusDays(CONTRACT_EXPIRY_DAYS));
+        contract.setTermsSummary("Thỏa thuận hợp tác gia nhập đội ngũ gia sư của trung tâm.");
+        contract = contractRepository.save(contract);
+
+        // BF-03 bước 8: chỉ gia sư ký (trung tâm là bên duyệt/tạo).
+        Tutor tutor = app.getTutor();
+        ContractSignature tutorSig = new ContractSignature();
+        tutorSig.setContract(contract);
+        tutorSig.setPartyRole(PartyRole.TUTOR);
+        tutorSig.setEmail(tutor.getUser().getEmail());
+        tutorSig.setSignatureStatus(ContractSignatureStatus.PENDING);
+        tutorSig.setOtpAttempts(0);
+        contractSignatureRepository.save(tutorSig);
+
+        return toContractResponse(contract);
+    }
+
+    // ─── GENERATE STUDENT CONTRACT (BF-04 bước 7) ───────────────────────────
+    @Override
+    @Transactional
+    public ContractResponse generateStudentContract(Long classStudentId) {
+        ClassStudent cs = classStudentRepository.findById(classStudentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học viên trong lớp"));
+
+        Optional<Contract> existing =
+                contractRepository.findByClassStudent_ClassStudentId(classStudentId);
+        if (existing.isPresent()) {
+            return toContractResponse(existing.get());
+        }
+
+        Contract contract = new Contract();
+        contract.setContractNo(generateContractNo());
+        contract.setClassStudent(cs);
+        contract.setStatus(ContractStatus.PENDING);
+        contract.setSourceType(ContractSourceType.CENTER);
+        contract.setExpiresAt(LocalDateTime.now().plusDays(CONTRACT_EXPIRY_DAYS));
+        ContractTemplate template = resolveClassTemplate(cs.getTutoringClass().getClassId());
+        contract.setTemplate(template);
+        contract.setTermsSummary(template != null ? template.getContent()
+                : "Hợp đồng ghi danh học viên vào lớp của trung tâm.");
+        contract = contractRepository.save(contract);
+
+        // BF-04 bước 7: người ghi danh (phụ huynh/học viên) ký.
+        ContractSignature clientSig = new ContractSignature();
+        clientSig.setContract(contract);
+        clientSig.setPartyRole(PartyRole.CLIENT);
+        if (cs.getEnrolledByUser() != null) {
+            clientSig.setEmail(cs.getEnrolledByUser().getEmail());
+        }
+        clientSig.setSignatureStatus(ContractSignatureStatus.PENDING);
+        clientSig.setOtpAttempts(0);
+        contractSignatureRepository.save(clientSig);
+
+        return toContractResponse(contract);
+    }
+
+    private ContractTemplate resolveClassTemplate(Long classId) {
+        Long templateId = systemParameterRepository.findByParamKey("classtpl:" + classId)
+                .map(p -> {
+                    try {
+                        return Long.valueOf(p.getParamValue().trim());
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                })
+                .orElse(null);
+        if (templateId != null) {
+            return contractTemplateRepository.findById(templateId).orElse(null);
+        }
+        return contractTemplateRepository.findByStatus(ContractTemplateStatus.ACTIVE)
+                .stream().findFirst().orElse(null);
+    }
+
     // ─── PRIVATE HELPERS ─────────────────────────────────────────────────────
 
     private Contract findContract(Long contractId) {
@@ -318,6 +441,18 @@ public class ContractServiceImpl implements ContractService {
     }
 
     private boolean isPartyOfContract(Contract contract, Long userId) {
+        if (contract.getRecruitmentApplication() != null) {
+            RecruitmentApplication app = contract.getRecruitmentApplication();
+            return app.getTutor().getUser().getUserId().equals(userId)
+                    || app.getRecruitmentPost().getCenter().getUser().getUserId().equals(userId);
+        }
+        if (contract.getClassStudent() != null) {
+            ClassStudent cs = contract.getClassStudent();
+            boolean enroller = cs.getEnrolledByUser() != null
+                    && cs.getEnrolledByUser().getUserId().equals(userId);
+            boolean creator = cs.getTutoringClass().getCreator().getUserId().equals(userId);
+            return enroller || creator;
+        }
         if (contract.getAssignment() == null) {
             return false;
         }
@@ -336,6 +471,32 @@ public class ContractServiceImpl implements ContractService {
 
     private PartyRole resolvePartyRole(Contract contract) {
         Long currentUserId = authHelper.currentUserId();
+        // BF-03: thỏa thuận hợp tác center–gia sư (không gắn lớp).
+        if (contract.getRecruitmentApplication() != null) {
+            RecruitmentApplication app = contract.getRecruitmentApplication();
+            if (app.getTutor().getUser().getUserId().equals(currentUserId)) {
+                return PartyRole.TUTOR;
+            }
+            if (app.getRecruitmentPost().getCenter().getUser().getUserId().equals(currentUserId)) {
+                return PartyRole.CENTER;
+            }
+            throw new ForbiddenException("Bạn không phải là bên liên quan đến hợp đồng này");
+        }
+        // BF-04: hợp đồng theo học viên (ghi danh).
+        if (contract.getClassStudent() != null) {
+            ClassStudent cs = contract.getClassStudent();
+            Long enrollerId = cs.getEnrolledByUser() != null
+                    ? cs.getEnrolledByUser().getUserId() : null;
+            if (currentUserId.equals(enrollerId)) {
+                return PartyRole.CLIENT;
+            }
+            Long creatorId = cs.getTutoringClass().getCreator().getUserId();
+            if (currentUserId.equals(creatorId)) {
+                return tutorCenterRepository.findByUser_UserId(currentUserId).isPresent()
+                        ? PartyRole.CENTER : PartyRole.CLIENT;
+            }
+            throw new ForbiddenException("Bạn không phải là bên liên quan đến hợp đồng này");
+        }
         TutorApplication application = contract.getAssignment().getApplication();
         TutoringClass tutoringClass = application.getTutoringClass();
 
@@ -353,6 +514,11 @@ public class ContractServiceImpl implements ContractService {
     }
 
     private int getRequiredSignatureCount(Contract contract) {
+        // Thỏa thuận hợp tác BF-03 (gia sư ký) và hợp đồng học viên BF-04 (người ghi danh ký):
+        // chỉ cần 1 chữ ký.
+        if (contract.getRecruitmentApplication() != null || contract.getClassStudent() != null) {
+            return 1;
+        }
         return 2;
     }
 
@@ -455,6 +621,49 @@ public class ContractServiceImpl implements ContractService {
                         }
                     }
                 }
+            }
+        }
+
+        // BF-03: hợp đồng hợp tác -> lấy thông tin gia sư + trung tâm từ đơn tuyển dụng.
+        if (contract.getRecruitmentApplication() != null) {
+            RecruitmentApplication app = contract.getRecruitmentApplication();
+            Tutor tutor = app.getTutor();
+            if (tutor != null) {
+                builder.tutorId(tutor.getUser().getUserId());
+                builder.tutorName(tutor.getFullName());
+                builder.tutorEmail(tutor.getUser().getEmail());
+            }
+            RecruitmentPost post = app.getRecruitmentPost();
+            if (post != null && post.getCenter() != null) {
+                TutorCenter center = post.getCenter();
+                builder.centerId(center.getCenterId());
+                builder.centerName(center.getCompanyName());
+                builder.centerEmail(center.getUser().getEmail());
+            }
+        }
+
+        // BF-04: hợp đồng học viên -> lấy thông tin lớp + người ghi danh + trung tâm.
+        if (contract.getClassStudent() != null) {
+            ClassStudent cs = contract.getClassStudent();
+            TutoringClass cls = cs.getTutoringClass();
+            if (cls != null) {
+                builder.classId(cls.getClassId());
+                if (cls.getCreator() != null) {
+                    tutorCenterRepository.findByUser_UserId(cls.getCreator().getUserId())
+                            .ifPresent(center -> {
+                                builder.centerId(center.getCenterId());
+                                builder.centerName(center.getCompanyName());
+                                builder.centerEmail(center.getUser().getEmail());
+                            });
+                }
+            }
+            if (cs.getEnrolledByUser() != null) {
+                clientRepository.findByUser_UserId(cs.getEnrolledByUser().getUserId())
+                        .ifPresent(client -> {
+                            builder.clientId(client.getClientId());
+                            builder.clientName(client.getFullName());
+                            builder.clientEmail(client.getUser().getEmail());
+                        });
             }
         }
 

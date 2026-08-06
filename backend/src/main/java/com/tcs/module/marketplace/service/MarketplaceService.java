@@ -35,6 +35,9 @@ public interface MarketplaceService {
 
     void applyToClass(Long classId, ApplyClassRequest request);
 
+    /** Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh. */
+    void registerToClass(Long classId);
+
     List<Long> listMyAppliedClassIds();
 
     List<ApplicantResponse> listApplicants(Long classId);

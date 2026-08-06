@@ -11,6 +11,9 @@ public interface ClassStudentRepository extends JpaRepository<ClassStudent, Long
 
     boolean existsByTutoringClass_ClassIdAndEnrolledByUser_UserId(Long classId, Long userId);
 
+    /** Đã có bất kỳ học viên nào đăng ký lớp (mọi trạng thái, kể cả chờ ký hợp đồng). */
+    boolean existsByTutoringClass_ClassId(Long classId);
+
     long countByTutoringClass_ClassIdAndStatus(Long classId, ClassStudentStatus status);
 
     List<ClassStudent> findByTutoringClass_ClassIdAndStatus(Long classId, ClassStudentStatus status);

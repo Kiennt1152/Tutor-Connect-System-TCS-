@@ -265,5 +265,18 @@ export interface SaveClassRequest {
   minStudents?: number | null;
   /** EXTERNAL (yêu cầu ngoài) / SELF (tự tạo). Mặc định SELF. */
   originType?: string;
+  /** Mẫu hợp đồng đã chọn cho lớp (tuỳ chọn). */
+  contractTemplateId?: number | null;
   schedule: ScheduleSlot[];
+}
+
+/** Mẫu hợp đồng trung tâm dùng/quản lý. */
+export interface ContractTemplate {
+  templateId: number;
+  name: string;
+  content: string;
+  defaultTemplate: boolean;
+  status: string;
+  /** true = mẫu hệ thống (không sửa được). */
+  system: boolean;
 }

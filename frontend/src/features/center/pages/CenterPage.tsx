@@ -10,6 +10,7 @@ import type { ClassRequest } from '../../marketplace/types/marketplaceTypes';
 import type {
   ClassResponse,
   ClassStatus,
+  ContractTemplate,
   LessonMode,
   RecurringType,
   SaveClassRequest,
@@ -85,6 +86,7 @@ interface FormState {
   maxStudents: string;
   minStudents: string;
   originType: 'SELF' | 'EXTERNAL';
+  contractTemplateId: string;
   startDate: string;
   endDate: string;
   schedule: SlotForm[];
@@ -106,6 +108,7 @@ const EMPTY_FORM: FormState = {
   maxStudents: '',
   minStudents: '',
   originType: 'SELF',
+  contractTemplateId: '',
   startDate: '',
   endDate: '',
   schedule: [{ dayOfWeek: 1, startTime: '18:00', endTime: '20:00' }],
@@ -162,6 +165,7 @@ function toFormState(c: ClassResponse): FormState {
     maxStudents: c.maxStudents != null ? String(c.maxStudents) : '',
     minStudents: c.minStudents != null ? String(c.minStudents) : '',
     originType: c.originType === 'EXTERNAL' ? 'EXTERNAL' : 'SELF',
+    contractTemplateId: '',
     startDate: c.startDate,
     endDate: c.endDate,
     schedule,
@@ -239,6 +243,7 @@ function buildPayload(form: FormState): SaveClassRequest {
     // Lớp theo yêu cầu không dùng tối thiểu (không mở ghi danh).
     minStudents: form.originType === 'EXTERNAL' ? null : num(form.minStudents),
     originType: form.originType,
+    contractTemplateId: form.contractTemplateId ? Number(form.contractTemplateId) : null,
     startDate: form.startDate || null,
     endDate: form.endDate || null,
     schedule: form.schedule.map((s) => ({
@@ -365,6 +370,9 @@ export default function CenterPage() {
   const [requests, setRequests] = useState<ClassRequest[]>([]);
   const [acceptingRequestId, setAcceptingRequestId] = useState<string | null>(null);
 
+  // Mẫu hợp đồng (để chọn khi tạo lớp).
+  const [templates, setTemplates] = useState<ContractTemplate[]>([]);
+
   const errors = useMemo(() => validateForm(form, editingId == null), [form, editingId]);
   const sessionCount = useMemo(() => countSessions(form), [form]);
   const allowedDays = useMemo(
@@ -393,6 +401,10 @@ export default function CenterPage() {
   useEffect(() => {
     reloadList();
     reloadRequests();
+    centerApi
+      .getContractTemplates()
+      .then((res) => setTemplates(res.data))
+      .catch(() => setTemplates([]));
   }, []);
 
   // Tải trạng thái xác minh trung tâm để chặn tạo lớp khi chưa xác minh.
@@ -503,6 +515,20 @@ export default function CenterPage() {
       if (detailData?.classId === classId) refreshDetail(classId);
     } catch (err) {
       const msg = extractError(err, 'Không đóng ghi danh được lớp học.');
+      setDetailError(msg);
+      setListError(msg);
+    }
+  };
+
+  const activateClass = async (classId: number) => {
+    setListError('');
+    setDetailError('');
+    try {
+      await centerApi.activateClass(classId);
+      reloadList();
+      if (detailData?.classId === classId) refreshDetail(classId);
+    } catch (err) {
+      const msg = extractError(err, 'Không kích hoạt được lớp học.');
       setDetailError(msg);
       setListError(msg);
     }
@@ -697,6 +723,9 @@ export default function CenterPage() {
             </Link>
             <Link className="cc-btn cc-btn--ghost" to="/center/tutors">
               Gia sư của trung tâm
+            </Link>
+            <Link className="cc-btn cc-btn--ghost" to="/center/contract-templates">
+              Mẫu hợp đồng
             </Link>
             <Link className="cc-btn cc-btn--ghost" to="/center/schedule">
               Lịch hôm nay
@@ -946,6 +975,23 @@ export default function CenterPage() {
               >
                 <option value="SELF">Trung tâm tự tạo (tuyển học sinh)</option>
                 <option value="EXTERNAL">Theo yêu cầu ngoài (đã có học sinh)</option>
+              </select>
+            </label>
+
+            <label className="cc-field">
+              <span className="cc-label">Mẫu hợp đồng</span>
+              <select
+                className="cc-input"
+                value={form.contractTemplateId}
+                onChange={(e) => patch({ contractTemplateId: e.target.value })}
+              >
+                <option value="">— Dùng mẫu mặc định —</option>
+                {templates.map((t) => (
+                  <option key={t.templateId} value={String(t.templateId)}>
+                    {t.name}
+                    {t.system ? ' (hệ thống)' : ''}
+                  </option>
+                ))}
               </select>
             </label>
 
@@ -1460,6 +1506,32 @@ export default function CenterPage() {
                               onClick={() => closeEnrollment(detailData.classId)}
                             >
                               Đóng ghi danh
+                            </button>
+                          </div>
+                        );
+                      })()}
+                    {(detailData.status === 'MATCHED' ||
+                      detailData.status === 'ENROLLMENT_CLOSED') &&
+                      (() => {
+                        const required = detailData.minStudents ?? 1;
+                        const canActivate = detailData.enrolledCount >= required;
+                        return (
+                          <div className="cc-publish">
+                            <p className="cc-publish__hint">
+                              Học sinh: <b>{detailData.enrolledCount}</b>
+                              {` / tối thiểu ${required}`}
+                              {!canActivate && ' — chưa đủ để kích hoạt.'}
+                            </p>
+                            <button
+                              className="cc-btn cc-btn--primary"
+                              type="button"
+                              disabled={!canActivate}
+                              title={
+                                canActivate ? undefined : 'Cần đủ sĩ số tối thiểu để kích hoạt lớp'
+                              }
+                              onClick={() => activateClass(detailData.classId)}
+                            >
+                              Kích hoạt lớp (bắt đầu học)
                             </button>
                           </div>
                         );

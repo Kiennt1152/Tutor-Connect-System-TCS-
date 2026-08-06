@@ -15,6 +15,12 @@ public interface ContractService {
 
     ContractResponse generateContract(Long assignmentId);
 
+    /** BF-03: tạo thỏa thuận hợp tác center–gia sư từ một đơn ứng tuyển tuyển dụng đã duyệt. */
+    ContractResponse generateCooperationContract(Long recruitmentApplicationId);
+
+    /** BF-04: tạo hợp đồng theo học viên khi ghi danh (dùng mẫu hợp đồng của lớp nếu có). */
+    ContractResponse generateStudentContract(Long classStudentId);
+
     ContractResponse getContract(Long contractId);
 
     List<ContractResponse> getMyContracts();

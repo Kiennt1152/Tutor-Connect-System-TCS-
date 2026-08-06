@@ -15,7 +15,7 @@ const APP_STATUS_LABELS: Record<RecruitmentApplicationStatus, { label: string; c
   APPLIED: { label: 'Chờ trung tâm duyệt', cls: 'pending' },
   SCREENING: { label: 'Đang lọc hồ sơ', cls: 'pending' },
   INTERVIEW: { label: 'Phỏng vấn', cls: 'pending' },
-  PASSED: { label: 'Đạt', cls: 'ok' },
+  PASSED: { label: 'Chờ ký hợp đồng', cls: 'pending' },
   HIRED: { label: 'Đã được nhận', cls: 'ok' },
   REJECTED: { label: 'Bị từ chối', cls: 'no' },
   WITHDRAWN: { label: 'Đã rút đơn', cls: 'no' },

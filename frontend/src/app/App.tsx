@@ -25,11 +25,13 @@ import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPag
 import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
 import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
 import CenterTutorsPage from '../features/center/pages/CenterTutorsPage';
+import CenterContractTemplatesPage from '../features/center/pages/CenterContractTemplatesPage';
 import CentersPage from '../features/home/pages/CentersPage';
 import RecruitmentPage from '../features/recruitment/pages/RecruitmentPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
+import ClassFinderPage from '../features/marketplace/pages/ClassFinderPage';
 import MarketplaceClassDetailPage from '../features/marketplace/pages/MarketplaceClassDetailPage';
 import CatalogPage from '../features/catalog/pages/CatalogPage';
 import ContractListPage from '../features/contract/pages/ContractListPage';
@@ -60,6 +62,7 @@ export default function App() {
           <Route path={APP_ROUTES.home} element={<HomePage />} />
           <Route path={APP_ROUTES.findTutor} element={<FindTutorPage />} />
           <Route path={APP_ROUTES.findClass} element={<FindClassPage />} />
+          <Route path={APP_ROUTES.classFinder} element={<ClassFinderPage />} />
           <Route path={APP_ROUTES.tutorProfile} element={<TutorPublicProfilePage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
@@ -210,6 +213,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterTutorsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/contract-templates"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterContractTemplatesPage />
               </ProtectedRoute>
             }
           />

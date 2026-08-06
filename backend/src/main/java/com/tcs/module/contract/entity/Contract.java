@@ -1,5 +1,6 @@
 package com.tcs.module.contract.entity;
 
+import com.tcs.module.center.entity.RecruitmentApplication;
 import com.tcs.module.contract.enums.ContractSourceType;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.marketplace.entity.ClassAssignment;
@@ -46,6 +47,11 @@ public class Contract {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "class_student_id", unique = true)
     private ClassStudent classStudent;
+
+    // BF-03: thoa thuan hop tac center <-> gia su, gan voi don ung tuyen tuyen dung.
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "recruitment_application_id")
+    private RecruitmentApplication recruitmentApplication;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "template_id")

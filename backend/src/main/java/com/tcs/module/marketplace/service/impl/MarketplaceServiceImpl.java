@@ -44,6 +44,7 @@ import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassStudentStatus;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.RescheduleRequestStatus;
 import com.tcs.module.marketplace.enums.RescheduleRequestType;
 import com.tcs.module.marketplace.enums.TutorApplicationStatus;
@@ -84,6 +85,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import com.tcs.common.classrequest.ClassRequestStore;
+import com.tcs.common.event.StudentContractSigned;
+import com.tcs.module.contract.service.ContractService;
+import org.springframework.context.event.EventListener;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
@@ -118,6 +122,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final AuditLogService auditLogService;
     private final TutorCenterRepository tutorCenterRepository;
     private final ClassRequestStore classRequestStore;
+    private final ContractService contractService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final Map<String, Integer> DAY_CODE_TO_ISO = Map.of(
@@ -1454,6 +1459,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return Math.max(0.0, Math.min(1.0, v));
     }
 
+    @Override
     @Transactional
     public void registerToClass(Long classId) {
         User user = requireUser();
@@ -1465,6 +1471,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
         Tutor tutor = tutorRepository.findByUser_UserId(userId).orElse(null);
         if (tutor != null) {
+            // Lớp của trung tâm do chính trung tâm tự bố trí gia sư (nội bộ / tin tuyển BF-03),
+            // không nhận gia sư tự đăng ký qua marketplace.
+            if (tutoringClass.getClassType() == ClassType.CENTER) {
+                throw new ForbiddenException(
+                        "Lớp của trung tâm do trung tâm tự bố trí gia sư — gia sư không thể tự đăng ký.");
+            }
             // Chặn cứng: chỉ gia sư đã được xác minh mới được ứng tuyển vào lớp.
             if (tutor.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
                 throw new VerificationRequiredException(
@@ -1496,26 +1508,43 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             student.setStudentName(client.getFullName());
             student.setStudentPhone(client.getPhone());
             student.setStudentEmail(user.getEmail());
-            student.setStatus(ClassStudentStatus.ENROLLED);
+            // BF-04: CHỜ KÝ hợp đồng -> chưa chính thức vào lớp, chưa tính sĩ số.
+            student.setStatus(ClassStudentStatus.PENDING_SIGNATURE);
             ClassStudent savedStudent = classStudentRepository.save(student);
+            // BF-04 bước 7: sinh hợp đồng theo học viên để phụ huynh/học viên ký (OTP).
+            // Ký xong -> onStudentContractSigned mới chuyển ENROLLED + đóng ghi danh khi đủ.
+            contractService.generateStudentContract(savedStudent.getClassStudentId());
             auditLogService.record(userId, "REGISTER_CLASS", "ClassStudent", savedStudent.getClassStudentId(),
                     null, java.util.Map.of("classId", classId));
-
-            // Đủ sĩ số tối đa -> tự đóng ghi danh. Lớp tự tạo đã gán gia sư trước khi mở ghi danh
-            // nên đủ học sinh là đã ghép (MATCHED).
-            Integer max = tutoringClass.getMaxStudents();
-            if (max != null && max > 0) {
-                long enrolled = classStudentRepository
-                        .countByTutoringClass_ClassIdAndStatus(classId, ClassStudentStatus.ENROLLED);
-                if (enrolled >= max) {
-                    tutoringClass.setStatus(TutoringClassStatus.MATCHED);
-                    tutoringClassRepository.save(tutoringClass);
-                }
-            }
             return;
         }
 
         throw new ForbiddenException("Chỉ gia sư hoặc phụ huynh/học viên mới đăng ký lớp");
+    }
+
+    /**
+     * BF-04: học viên ký xong hợp đồng -> chính thức vào lớp (ENROLLED) và đóng ghi danh khi đủ sĩ số.
+     */
+    @EventListener
+    @Transactional
+    public void onStudentContractSigned(StudentContractSigned event) {
+        ClassStudent cs = classStudentRepository.findById(event.classStudentId()).orElse(null);
+        if (cs == null || cs.getStatus() != ClassStudentStatus.PENDING_SIGNATURE) {
+            return;
+        }
+        cs.setStatus(ClassStudentStatus.ENROLLED);
+        classStudentRepository.save(cs);
+
+        TutoringClass cls = cs.getTutoringClass();
+        Integer max = cls.getMaxStudents();
+        if (max != null && max > 0) {
+            long enrolled = classStudentRepository
+                    .countByTutoringClass_ClassIdAndStatus(cls.getClassId(), ClassStudentStatus.ENROLLED);
+            if (enrolled >= max) {
+                cls.setStatus(TutoringClassStatus.MATCHED);
+                tutoringClassRepository.save(cls);
+            }
+        }
     }
 
     @Override
@@ -1654,6 +1683,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .budget(c.getBudget())
                 .recurringType(c.getRecurringType())
                 .status(c.getStatus())
+                .classType(c.getClassType())
                 .maxStudents(c.getMaxStudents())
                 .enrolledCount(classStudentRepository
                         .countByTutoringClass_ClassIdAndStatus(c.getClassId(), ClassStudentStatus.ENROLLED))
@@ -1689,6 +1719,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Override
     @Transactional(readOnly = true)
     public List<CenterSummaryResponse> listCenters() {
+        // Chỉ hiện trung tâm đã xác minh để phụ huynh gửi yêu cầu.
         return tutorCenterRepository.findAll().stream()
                 .filter(c -> c.getVerificationStatus() == ProfileVerificationStatus.VERIFIED)
                 .map(c -> CenterSummaryResponse.builder()

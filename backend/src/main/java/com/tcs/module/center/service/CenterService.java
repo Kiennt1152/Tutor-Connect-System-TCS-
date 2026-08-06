@@ -80,6 +80,9 @@ public interface CenterService {
 
     CenterClassResponse closeEnrollment(Long classId);
 
+    /** BF-04 bước 10: kích hoạt lớp (bắt đầu học) khi đủ sĩ số tối thiểu -> IN_PROGRESS. */
+    CenterClassResponse activateClass(Long classId);
+
     /**
      * Danh sách gia sư để trung tâm chọn gán (tạm thời lấy tất cả).
      * Nếu truyền {@code classId}, mỗi gia sư sẽ được đánh dấu có trùng lịch với lớp đó hay không.
@@ -129,4 +132,17 @@ public interface CenterService {
 
     /** Trung tâm từ chối yêu cầu, kèm lý do. */
     void rejectClassRequest(String requestId, String reason);
+
+    // ===== Quản lý mẫu hợp đồng =====
+
+    /** Danh sách mẫu hợp đồng trung tâm dùng được (mẫu hệ thống + của chính trung tâm). */
+    List<com.tcs.module.center.dto.response.ContractTemplateResponse> listContractTemplates();
+
+    /** Tạo mẫu hợp đồng của trung tâm. */
+    com.tcs.module.center.dto.response.ContractTemplateResponse createContractTemplate(
+            com.tcs.module.center.dto.request.SaveContractTemplateRequest request);
+
+    /** Sửa mẫu hợp đồng của chính trung tâm (không sửa mẫu hệ thống). */
+    com.tcs.module.center.dto.response.ContractTemplateResponse updateContractTemplate(
+            Long templateId, com.tcs.module.center.dto.request.SaveContractTemplateRequest request);
 }

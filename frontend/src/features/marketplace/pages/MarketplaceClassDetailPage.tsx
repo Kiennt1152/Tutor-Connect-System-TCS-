@@ -28,8 +28,25 @@ const DAY_LABELS: Record<number, string> = {
 };
 
 function extractError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
-    return error.response.data.message;
+  if (axios.isAxiosError(error)) {
+    // Log đầy đủ để debug (mở DevTools -> Console để xem chi tiết).
+    console.error('[register] lỗi:', error.response?.status, error.response?.data);
+    const data = error.response?.data as { message?: unknown } | string | undefined;
+    if (data && typeof data === 'object' && typeof data.message === 'string' && data.message.trim()) {
+      return data.message;
+    }
+    if (typeof data === 'string' && data.trim()) {
+      return data;
+    }
+    if (error.response?.status) {
+      return `${fallback} (mã lỗi ${error.response.status})`;
+    }
+    if (error.message) {
+      return error.message;
+    }
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
   }
   return fallback;
 }
@@ -87,6 +104,9 @@ export default function MarketplaceClassDetailPage() {
   const role = user?.role;
   const isClient = role === 'CLIENT';
   const isTutor = role === 'TUTOR';
+  // Lớp của trung tâm do trung tâm tự bố trí gia sư -> gia sư không có phần đăng ký.
+  const isCenterClass = data?.classType === 'CENTER';
+  const tutorCanRegister = isTutor && !isCenterClass;
 
   const isOpen = data?.status === 'OPEN';
   const sortedSchedule = data
@@ -186,7 +206,7 @@ export default function MarketplaceClassDetailPage() {
                     {regStatus === 'error' && (
                       <div className="mk-alert mk-alert--error">{regMessage}</div>
                     )}
-                    {isClient || isTutor ? (
+                    {isClient || tutorCanRegister ? (
                       <button
                         className="mk-btn mk-btn--primary mk-btn--block"
                         type="button"
@@ -201,6 +221,10 @@ export default function MarketplaceClassDetailPage() {
                               ? 'Ứng tuyển dạy lớp'
                               : 'Đăng ký học'}
                       </button>
+                    ) : isTutor && isCenterClass ? (
+                      <p className="mk-note">
+                        Lớp của trung tâm do trung tâm tự bố trí gia sư — gia sư không thể tự đăng ký.
+                      </p>
                     ) : (
                       <p className="mk-note">
                         Đăng nhập bằng tài khoản gia sư hoặc phụ huynh/học viên để đăng ký.
