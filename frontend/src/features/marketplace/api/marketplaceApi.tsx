@@ -2,6 +2,8 @@ import axiosClient from '../../../shared/api/axiosClient';
 import type {
   ApplicantResponse,
   CatalogOption,
+  ClassTerminationResponse,
+  CreateClassTerminationRequest,
   CenterSummary,
   ClassRequest,
   ClassRequestPayload,
@@ -124,13 +126,34 @@ export const marketplaceApi = {
   getOpenClasses() {
     return axiosClient.get<MarketplaceClass[]>(`${MARKETPLACE_API_BASE}/classes?status=OPEN`);
   },
-  getClass(classId: number) {
-    return axiosClient.get<MarketplaceClass>(`${MARKETPLACE_API_BASE}/classes/${classId}`);
+
+  getClass(
+    classId: number,
+    target?: { assignmentId?: number; classStudentId?: number },
+  ) {
+    return axiosClient.get<MarketplaceClass>(`${MARKETPLACE_API_BASE}/classes/${classId}`, {
+      params: {
+        assignmentId: target?.assignmentId,
+        classStudentId: target?.classStudentId,
+      },
+    });
   },
+
   register(classId: number) {
     return axiosClient.post<{ message: string }>(
       `${MARKETPLACE_API_BASE}/classes/${classId}/register`,
     );
+  },
+
+  async requestClassTermination(
+    classId: number,
+    payload: CreateClassTerminationRequest,
+  ): Promise<ClassTerminationResponse> {
+    const response = await axiosClient.post<ClassTerminationResponse>(
+      `${MARKETPLACE_API_BASE}/classes/${classId}/termination`,
+      payload,
+    );
+    return response.data;
   },
 
   // ----- Yêu cầu mở lớp gửi tới một trung tâm (phía phụ huynh) -----

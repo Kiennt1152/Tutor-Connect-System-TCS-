@@ -2,7 +2,16 @@ import { useCallback, useState } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { platformApi } from '../api/platformApi';
 import { buildUpdateStatusPayload, buildReviewVerificationPayload } from '../mappers/platformMapper';
-import type { UserStatus } from '../types/platformTypes';
+import type {
+  AppealDisputeApiRequest,
+  AdminDisputeReviewApiResponse,
+  ExecuteRefundApiRequest,
+  RefundExecutionApiResponse,
+  ExecuteSettlementApiRequest,
+  ResolveDisputeApiRequest,
+  UserStatus,
+  WithdrawalDecisionApiRequest,
+} from '../types/platformTypes';
 
 export type MutationStatus = 'idle' | 'loading' | 'success' | 'error';
 
@@ -69,4 +78,195 @@ export function useReviewVerification() {
   }, []);
 
   return { status, errorMessage, review, reset };
+}
+
+export function useWithdrawalDecision() {
+  const [status, setStatus] = useState<MutationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const approveWithdrawal = useCallback(async (withdrawalId: string): Promise<boolean> => {
+    setStatus('loading');
+    setErrorMessage(null);
+    try {
+      await platformApi.approveWithdrawal(withdrawalId);
+      setStatus('success');
+      return true;
+    } catch (error) {
+      console.error('Lỗi duyệt yêu cầu rút tiền:', error);
+      setErrorMessage(getApiErrorMessage(error, 'Không thể duyệt yêu cầu rút tiền.'));
+      setStatus('error');
+      return false;
+    }
+  }, []);
+
+  const rejectWithdrawal = useCallback(
+    async (withdrawalId: string, payload: WithdrawalDecisionApiRequest): Promise<boolean> => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        await platformApi.rejectWithdrawal(withdrawalId, payload);
+        setStatus('success');
+        return true;
+      } catch (error) {
+        console.error('Lỗi từ chối yêu cầu rút tiền:', error);
+        setErrorMessage(getApiErrorMessage(error, 'Không thể từ chối yêu cầu rút tiền.'));
+        setStatus('error');
+        return false;
+      }
+    },
+    [],
+  );
+
+  const markTransferFailed = useCallback(
+    async (withdrawalId: string, payload: WithdrawalDecisionApiRequest): Promise<boolean> => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        await platformApi.markWithdrawalTransferFailed(withdrawalId, payload);
+        setStatus('success');
+        return true;
+      } catch (error) {
+        console.error('Lỗi báo chuyển khoản thất bại:', error);
+        setErrorMessage(getApiErrorMessage(error, 'Không thể báo lỗi chuyển khoản.'));
+        setStatus('error');
+        return false;
+      }
+    },
+    [],
+  );
+
+  const reset = useCallback(() => {
+    setStatus('idle');
+    setErrorMessage(null);
+  }, []);
+
+  return { status, errorMessage, approveWithdrawal, rejectWithdrawal, markTransferFailed, reset };
+}
+
+export function useResolveDispute() {
+  const [status, setStatus] = useState<MutationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const resolveDispute = useCallback(
+    async (
+      disputeId: string,
+      payload: ResolveDisputeApiRequest,
+    ): Promise<AdminDisputeReviewApiResponse | null> => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        const response = await platformApi.resolveDispute(disputeId, {
+          ...payload,
+          resolution: payload.resolution.trim(),
+        });
+        setStatus('success');
+        return response.data;
+      } catch (error) {
+        console.error('Lỗi xử lý tranh chấp:', error);
+        setErrorMessage(getApiErrorMessage(error, 'Không thể lưu quyết định xử lý tranh chấp.'));
+        setStatus('error');
+        return null;
+      }
+    },
+    [],
+  );
+
+  const reset = useCallback(() => {
+    setStatus('idle');
+    setErrorMessage(null);
+  }, []);
+
+  return { status, errorMessage, resolveDispute, reset };
+}
+
+export function useAppealDispute() {
+  const [status, setStatus] = useState<MutationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const appealDispute = useCallback(
+    async (
+      disputeId: string,
+      payload: AppealDisputeApiRequest,
+    ): Promise<AdminDisputeReviewApiResponse | null> => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        const response = await platformApi.appealDispute(disputeId, {
+          reason: payload.reason.trim(),
+          evidenceUrls: payload.evidenceUrls?.trim() || undefined,
+        });
+        setStatus('success');
+        return response.data;
+      } catch (error) {
+        console.error('Lỗi mở lại tranh chấp:', error);
+        setErrorMessage(getApiErrorMessage(error, 'Không thể mở lại tranh chấp.'));
+        setStatus('error');
+        return null;
+      }
+    },
+    [],
+  );
+
+  const reset = useCallback(() => {
+    setStatus('idle');
+    setErrorMessage(null);
+  }, []);
+
+  return { status, errorMessage, appealDispute, reset };
+}
+
+export function useExecuteSettlement() {
+  const [status, setStatus] = useState<MutationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const executeSettlement = useCallback(async (payload: ExecuteSettlementApiRequest) => {
+    setStatus('loading');
+    setErrorMessage(null);
+    try {
+      const response = await platformApi.executeSettlement(payload);
+      setStatus('success');
+      return response.data;
+    } catch (error) {
+      console.error('Lỗi giải ngân escrow:', error);
+      setErrorMessage(getApiErrorMessage(error, 'Không thể giải ngân escrow.'));
+      setStatus('error');
+      return null;
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setStatus('idle');
+    setErrorMessage(null);
+  }, []);
+
+  return { status, errorMessage, executeSettlement, reset };
+}
+
+export function useExecuteRefund() {
+  const [status, setStatus] = useState<MutationStatus>('idle');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const executeRefund = useCallback(async (
+    payload: ExecuteRefundApiRequest,
+  ): Promise<RefundExecutionApiResponse | null> => {
+    setStatus('loading');
+    setErrorMessage(null);
+    try {
+      const response = await platformApi.executeRefund(payload);
+      setStatus('success');
+      return response.data;
+    } catch (error) {
+      console.error('Lỗi hoàn tiền escrow:', error);
+      setErrorMessage(getApiErrorMessage(error, 'Không thể hoàn tiền escrow.'));
+      setStatus('error');
+      return null;
+    }
+  }, []);
+
+  const reset = useCallback(() => {
+    setStatus('idle');
+    setErrorMessage(null);
+  }, []);
+
+  return { status, errorMessage, executeRefund, reset };
 }

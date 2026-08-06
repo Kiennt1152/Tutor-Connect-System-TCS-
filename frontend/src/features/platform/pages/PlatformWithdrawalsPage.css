@@ -1,0 +1,218 @@
+.pw-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-sm);
+  margin-bottom: var(--space-md);
+}
+
+.pw-summary-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  box-shadow: var(--shadow-sm);
+}
+
+.pw-summary-card--warn {
+  background: linear-gradient(135deg, var(--color-warning-light), var(--color-surface-2));
+  border-color: #f3c66b;
+}
+
+.pw-summary-card__label {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+}
+
+.pw-summary-card__value {
+  color: var(--color-text-primary);
+  font-size: var(--fs-h3);
+  font-weight: 700;
+}
+
+.pw-toolbar .adm-field {
+  min-width: 180px;
+}
+
+.pw-table th:nth-child(1),
+.pw-table td:nth-child(1) {
+  width: 82px;
+}
+
+.pw-table th:nth-child(3),
+.pw-table td:nth-child(3) {
+  width: 170px;
+}
+
+.pw-table th:nth-child(6),
+.pw-table td:nth-child(6) {
+  width: 120px;
+}
+
+.pw-table th:nth-child(8),
+.pw-table td:nth-child(8) {
+  width: 190px;
+}
+
+.pw-table__id,
+.pw-table__amount {
+  white-space: nowrap;
+}
+
+.pw-table__amount {
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
+.pw-user-cell,
+.pw-bank-cell,
+.pw-ref-cell,
+.pw-time-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+}
+
+.pw-user-cell strong,
+.pw-bank-cell strong {
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-md);
+}
+
+.pw-user-cell span,
+.pw-bank-cell span,
+.pw-ref-cell span,
+.pw-time-cell small {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+}
+
+.pw-ref-cell code {
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-3);
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.pw-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 160px;
+}
+
+.pw-action-btn {
+  min-height: 36px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-body-sm);
+  white-space: nowrap;
+}
+
+.pw-action-btn--danger {
+  color: var(--color-error);
+  border-color: rgba(220, 38, 38, 0.3);
+  background: rgba(254, 226, 226, 0.45);
+}
+
+.pw-actions__empty {
+  color: var(--color-text-disabled);
+}
+
+.pw-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: var(--space-md);
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.pw-dialog {
+  width: min(460px, 100%);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+  box-shadow: var(--shadow-lg);
+}
+
+.pw-dialog__header,
+.pw-dialog__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+  padding: var(--space-md);
+}
+
+.pw-dialog__header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.pw-dialog__header h3 {
+  margin: 0;
+  color: var(--color-text-primary);
+  font-size: var(--fs-h4);
+}
+
+.pw-dialog__close {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: 20px;
+}
+
+.pw-dialog__field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: var(--space-md);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  font-weight: 700;
+}
+
+.pw-dialog__field textarea {
+  width: 100%;
+  resize: vertical;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  padding: 12px;
+  color: var(--color-text-primary);
+  font: inherit;
+  font-weight: 500;
+}
+
+.pw-dialog__error {
+  margin: 0 var(--space-md);
+  color: var(--color-error);
+  font-size: var(--fs-body-sm);
+  font-weight: 700;
+}
+
+.pw-dialog__actions {
+  justify-content: flex-end;
+  border-top: 1px solid var(--color-border);
+}
+
+@media (max-width: 1020px) {
+  .pw-summary {
+    grid-template-columns: 1fr;
+  }
+}

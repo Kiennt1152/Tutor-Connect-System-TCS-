@@ -29,6 +29,10 @@ public interface ContractSignatureRepository extends JpaRepository<ContractSigna
             @Param("contractId") Long contractId,
             @Param("userId") Long userId);
 
-    @Query("SELECT COUNT(cs) FROM ContractSignature cs WHERE cs.contract.contractId = :contractId AND cs.signatureStatus = 'SIGNED'")
+    @Query("""
+            SELECT COUNT(cs) FROM ContractSignature cs
+            WHERE cs.contract.contractId = :contractId
+              AND cs.signatureStatus = 'SIGNED'
+            """)
     int countSignedByContractId(@Param("contractId") Long contractId);
 }

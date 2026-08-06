@@ -1,10 +1,13 @@
 package com.tcs.module.marketplace.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.tcs.common.event.ContractSigned;
+import com.tcs.common.event.EscrowFunded;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
@@ -26,14 +29,33 @@ class ClassActivationServiceImplTest {
     private ClassActivationServiceImpl classActivationService;
 
     @Test
-    void onContractSignedActivatesClassAfterEscrowWasLocked() {
+    void onContractSignedWaitsForEscrowFundedWhenTuitionIsRequired() {
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setClassId(3L);
+        tutoringClass.setStatus(TutoringClassStatus.MATCHED);
+
+        classActivationService.onContractSigned(new ContractSigned(
+                2L,
+                3L,
+                11L,
+                21L,
+                new BigDecimal("500000.00"),
+                7L,
+                null));
+
+        assertEquals(TutoringClassStatus.MATCHED, tutoringClass.getStatus());
+        verify(tutoringClassRepository, never()).save(any());
+    }
+
+    @Test
+    void onEscrowFundedActivatesClass() {
         TutoringClass tutoringClass = new TutoringClass();
         tutoringClass.setClassId(3L);
         tutoringClass.setStatus(TutoringClassStatus.MATCHED);
         when(tutoringClassRepository.findById(3L)).thenReturn(Optional.of(tutoringClass));
 
-        classActivationService.onContractSigned(new ContractSigned(
-                2L,
+        classActivationService.onEscrowFunded(new EscrowFunded(
+                5L,
                 3L,
                 11L,
                 21L,
