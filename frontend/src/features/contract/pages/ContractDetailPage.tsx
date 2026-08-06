@@ -199,22 +199,27 @@ export default function ContractDetailPage() {
                 <dt>Ngày ký</dt>
                 <dd>{formatDate(contract.signedAt)}</dd>
               </div>
-              <div>
-                <dt>Loại lớp</dt>
-                <dd>{contract.classType ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>Hình thức</dt>
-                <dd>{contract.lessonMode ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>Số buổi</dt>
-                <dd>{contract.numberOfSessions ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>Học phí</dt>
-                <dd>{formatCurrency(contract.tuitionFee)}</dd>
-              </div>
+              {/* HĐ tuyển dụng/hợp tác gia sư: không có lớp -> ẩn các trường Loại lớp/Số buổi/Học phí. */}
+              {contract.recruitmentApplicationId == null && (
+                <>
+                  <div>
+                    <dt>Loại lớp</dt>
+                    <dd>{contract.classType ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Hình thức</dt>
+                    <dd>{contract.lessonMode ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Số buổi</dt>
+                    <dd>{contract.numberOfSessions ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Học phí</dt>
+                    <dd>{formatCurrency(contract.tuitionFee)}</dd>
+                  </div>
+                </>
+              )}
             </dl>
             {contract.termsSummary ? (
               <div className="contract-terms">

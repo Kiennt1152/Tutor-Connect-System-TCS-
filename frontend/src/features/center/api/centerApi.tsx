@@ -50,10 +50,10 @@ export const centerApi = {
       `${CENTER_API_BASE}/recruitment/${recruitmentId}/applications`,
     );
   },
-  decideApplication(recruitmentAppId: number, approve: boolean) {
+  decideApplication(recruitmentAppId: number, approve: boolean, contractTemplateId?: number) {
     return axiosClient.post<RecruitmentApplication>(
       `${CENTER_API_BASE}/recruitment/applications/${recruitmentAppId}/decision`,
-      { approve },
+      { approve, contractTemplateId },
     );
   },
 
@@ -153,10 +153,13 @@ export const centerApi = {
   getContractTemplates() {
     return axiosClient.get<ContractTemplate[]>(`${CENTER_API_BASE}/contract-templates`);
   },
-  createContractTemplate(payload: { name: string; content: string }) {
+  createContractTemplate(payload: { name: string; content: string; contractType?: string }) {
     return axiosClient.post<ContractTemplate>(`${CENTER_API_BASE}/contract-templates`, payload);
   },
-  updateContractTemplate(templateId: number, payload: { name: string; content: string }) {
+  updateContractTemplate(
+    templateId: number,
+    payload: { name: string; content: string; contractType?: string },
+  ) {
     return axiosClient.put<ContractTemplate>(
       `${CENTER_API_BASE}/contract-templates/${templateId}`,
       payload,

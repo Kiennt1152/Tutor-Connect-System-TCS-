@@ -9,4 +9,6 @@ import lombok.Setter;
 public class ApplicationDecisionBody {
 
     private boolean approve;
+    /** BF-03: mẫu hợp đồng (loại tuyển dụng) center chọn khi duyệt để gửi gia sư ký. Tuỳ chọn. */
+    private Long contractTemplateId;
 }

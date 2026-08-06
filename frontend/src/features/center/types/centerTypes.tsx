@@ -275,6 +275,8 @@ export interface ContractTemplate {
   templateId: number;
   name: string;
   content: string;
+  /** RECRUITMENT (tuyển dụng/hợp tác gia sư) hoặc CLASS (học viên/dạy lớp). */
+  contractType?: 'RECRUITMENT' | 'CLASS';
   defaultTemplate: boolean;
   status: string;
   /** true = mẫu hệ thống (không sửa được). */

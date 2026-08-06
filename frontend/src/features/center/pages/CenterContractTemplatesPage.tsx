@@ -12,7 +12,13 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
-const EMPTY = { name: '', content: '' };
+type TemplateForm = { name: string; content: string; contractType: 'CLASS' | 'RECRUITMENT' };
+const EMPTY: TemplateForm = { name: '', content: '', contractType: 'CLASS' };
+
+const TYPE_LABEL: Record<'CLASS' | 'RECRUITMENT', string> = {
+  CLASS: 'Hợp đồng học viên / dạy lớp',
+  RECRUITMENT: 'Hợp đồng tuyển dụng gia sư',
+};
 
 /** Quản lý mẫu hợp đồng của trung tâm (tạo/sửa; mẫu hệ thống chỉ xem). */
 export default function CenterContractTemplatesPage() {
@@ -47,7 +53,7 @@ export default function CenterContractTemplatesPage() {
 
   const startEdit = (t: ContractTemplate) => {
     setEditingId(t.templateId);
-    setForm({ name: t.name, content: t.content });
+    setForm({ name: t.name, content: t.content, contractType: t.contractType ?? 'CLASS' });
     setFormError('');
   };
 
@@ -110,6 +116,24 @@ export default function CenterContractTemplatesPage() {
           </div>
           <div style={{ marginBottom: 10 }}>
             <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
+              Loại hợp đồng
+            </label>
+            <select
+              style={{ width: '100%', padding: 10, border: '1px solid #cbd5e1', borderRadius: 8 }}
+              value={form.contractType}
+              onChange={(e) =>
+                setForm({ ...form, contractType: e.target.value as 'CLASS' | 'RECRUITMENT' })
+              }
+            >
+              <option value="CLASS">{TYPE_LABEL.CLASS}</option>
+              <option value="RECRUITMENT">{TYPE_LABEL.RECRUITMENT}</option>
+            </select>
+            <p style={{ color: '#94a3b8', fontSize: 12, margin: '4px 0 0' }}>
+              Hợp đồng tuyển dụng gửi cho gia sư khi duyệt — không có Loại lớp / Số buổi / Học phí.
+            </p>
+          </div>
+          <div style={{ marginBottom: 10 }}>
+            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
               Nội dung điều khoản
             </label>
             <textarea
@@ -156,6 +180,10 @@ export default function CenterContractTemplatesPage() {
               <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                 <strong>
                   {t.name}
+                  <span style={{ color: '#0d9488', fontWeight: 400 }}>
+                    {' · '}
+                    {TYPE_LABEL[t.contractType ?? 'CLASS']}
+                  </span>
                   {t.system && (
                     <span style={{ color: '#94a3b8', fontWeight: 400 }}> · mẫu hệ thống</span>
                   )}

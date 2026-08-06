@@ -105,7 +105,8 @@ public class CenterController {
     @PostMapping("/recruitment/applications/{recruitmentAppId}/decision")
     public RecruitmentApplicationResponse decideApplication(
             @PathVariable Long recruitmentAppId, @RequestBody ApplicationDecisionBody request) {
-        return centerService.decideApplication(recruitmentAppId, request.isApprove());
+        return centerService.decideApplication(
+                recruitmentAppId, request.isApprove(), request.getContractTemplateId());
     }
 
     // ===== Quản lý danh sách gia sư của trung tâm =====

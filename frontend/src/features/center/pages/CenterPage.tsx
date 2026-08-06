@@ -989,12 +989,14 @@ export default function CenterPage() {
                 onChange={(e) => patch({ contractTemplateId: e.target.value })}
               >
                 <option value="">— Dùng mẫu mặc định —</option>
-                {templates.map((t) => (
-                  <option key={t.templateId} value={String(t.templateId)}>
-                    {t.name}
-                    {t.system ? ' (hệ thống)' : ''}
-                  </option>
-                ))}
+                {templates
+                  .filter((t) => t.contractType !== 'RECRUITMENT')
+                  .map((t) => (
+                    <option key={t.templateId} value={String(t.templateId)}>
+                      {t.name}
+                      {t.system ? ' (hệ thống)' : ''}
+                    </option>
+                  ))}
               </select>
             </label>
 

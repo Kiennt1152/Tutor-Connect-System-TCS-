@@ -8,6 +8,7 @@ import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { profileApi } from '../../profile/api/profileApi';
 import type {
+  ContractTemplate,
   RecruitmentApplication,
   RecruitmentApplicationStatus,
   RecruitmentPost,
@@ -321,6 +322,21 @@ export default function CenterRecruitmentPage() {
   // Xem trước file chứng chỉ ngay trong trang (không nhảy sang tab khác).
   const [preview, setPreview] = useState<{ src: string; fileName: string } | null>(null);
 
+  // BF-03: duyệt -> chọn mẫu hợp đồng (loại tuyển dụng) để gửi gia sư ký.
+  const [recruitTemplates, setRecruitTemplates] = useState<ContractTemplate[]>([]);
+  const [approving, setApproving] = useState<
+    { app: RecruitmentApplication; templateId: number | '' } | null
+  >(null);
+
+  useEffect(() => {
+    centerApi
+      .getContractTemplates()
+      .then((res) =>
+        setRecruitTemplates(res.data.filter((t) => t.contractType === 'RECRUITMENT')),
+      )
+      .catch(() => setRecruitTemplates([]));
+  }, []);
+
   const openApps = async (post: RecruitmentPost) => {
     setAppsFor(post);
     setApps([]);
@@ -339,17 +355,19 @@ export default function CenterRecruitmentPage() {
 
   const closeApps = () => setAppsFor(null);
 
-  const decide = async (app: RecruitmentApplication, approve: boolean) => {
+  const decide = async (
+    app: RecruitmentApplication,
+    approve: boolean,
+    contractTemplateId?: number,
+  ) => {
     setDecidingId(app.recruitmentAppId);
     setAppsError('');
     try {
-      await centerApi.decideApplication(app.recruitmentAppId, approve);
-      if (approve) {
-        // BF-03 bước 7: duyệt -> hệ thống đã tạo thỏa thuận hợp tác (e-contract).
-        // Chuyển sang trang Hợp đồng để trung tâm theo dõi; gia sư sẽ ký qua OTP (bước 8).
-        navigate(APP_ROUTES.contract);
-        return;
-      }
+      await centerApi.decideApplication(app.recruitmentAppId, approve, contractTemplateId);
+      // BF-03 bước 7: duyệt -> hệ thống tạo thỏa thuận hợp tác, đơn chuyển "Chờ ký hợp đồng".
+      // Gia sư mới là bên ký (OTP) nên KHÔNG chuyển trung tâm sang trang Hợp đồng — ở lại đây,
+      // chỉ làm mới danh sách để thấy trạng thái đơn cập nhật.
+      setApproving(null);
       if (appsFor) {
         const res = await centerApi.getApplications(appsFor.recruitmentId);
         setApps(res.data);
@@ -739,7 +757,7 @@ export default function CenterRecruitmentPage() {
                                 className="rc-btn rc-btn--primary rc-btn--sm"
                                 type="button"
                                 disabled={busy}
-                                onClick={() => decide(a, true)}
+                                onClick={() => setApproving({ app: a, templateId: '' })}
                               >
                                 Duyệt
                               </button>
@@ -764,6 +782,76 @@ export default function CenterRecruitmentPage() {
                   })}
                 </ul>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duyệt -> chọn mẫu hợp đồng tuyển dụng gửi gia sư ký */}
+      {approving && (
+        <div className="rc-modal__overlay" onClick={() => setApproving(null)}>
+          <div
+            className="rc-modal"
+            style={{ maxWidth: 460 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="rc-modal__head">
+              <h3 className="rc-modal__title">Duyệt & gửi hợp đồng</h3>
+              <p className="rc-modal__sub">
+                Gia sư: {approving.app.tutorName ?? '—'}
+              </p>
+            </div>
+            <div style={{ padding: '4px 20px 16px' }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6 }}>
+                Mẫu hợp đồng (loại tuyển dụng)
+              </label>
+              {recruitTemplates.length === 0 ? (
+                <p style={{ color: '#64748b', fontSize: 13 }}>
+                  Chưa có mẫu hợp đồng tuyển dụng. Hệ thống sẽ dùng nội dung mặc định. Bạn có thể tạo
+                  mẫu ở trang <strong>Mẫu hợp đồng</strong>.
+                </p>
+              ) : (
+                <select
+                  style={{ width: '100%', padding: 10, border: '1px solid #cbd5e1', borderRadius: 8 }}
+                  value={approving.templateId}
+                  onChange={(e) =>
+                    setApproving({
+                      ...approving,
+                      templateId: e.target.value ? Number(e.target.value) : '',
+                    })
+                  }
+                >
+                  <option value="">— Nội dung mặc định —</option>
+                  {recruitTemplates.map((t) => (
+                    <option key={t.templateId} value={t.templateId}>
+                      {t.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+                <button
+                  type="button"
+                  className="rc-btn rc-btn--ghost rc-btn--sm"
+                  onClick={() => setApproving(null)}
+                >
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  className="rc-btn rc-btn--primary rc-btn--sm"
+                  disabled={decidingId === approving.app.recruitmentAppId}
+                  onClick={() =>
+                    decide(
+                      approving.app,
+                      true,
+                      approving.templateId === '' ? undefined : approving.templateId,
+                    )
+                  }
+                >
+                  Duyệt & gửi cho gia sư ký
+                </button>
+              </div>
             </div>
           </div>
         </div>

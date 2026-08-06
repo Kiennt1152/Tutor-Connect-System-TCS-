@@ -148,6 +148,10 @@ public class CenterServiceImpl implements CenterService {
     private static final String ORIGIN_SELF = "SELF";
     /** Mẫu hợp đồng đã chọn cho lớp: classtpl:{classId} -> templateId. */
     private static final String CLASS_TEMPLATE_PREFIX = "classtpl:";
+    /** Loại của mẫu hợp đồng: tpltype:{templateId} -> RECRUITMENT|CLASS. */
+    private static final String TEMPLATE_TYPE_PREFIX = "tpltype:";
+    private static final String TEMPLATE_TYPE_RECRUITMENT = "RECRUITMENT";
+    private static final String TEMPLATE_TYPE_CLASS = "CLASS";
 
     // ===================== Tin tuyển gia sư — phía gia sư / công khai =====================
 
@@ -327,7 +331,8 @@ public class CenterServiceImpl implements CenterService {
 
     @Override
     @Transactional
-    public RecruitmentApplicationResponse decideApplication(Long recruitmentAppId, boolean approve) {
+    public RecruitmentApplicationResponse decideApplication(
+            Long recruitmentAppId, boolean approve, Long contractTemplateId) {
         requireCenter();
         RecruitmentApplication application = recruitmentApplicationRepository
                 .findById(recruitmentAppId)
@@ -342,11 +347,11 @@ public class CenterServiceImpl implements CenterService {
         application.setReviewedAt(LocalDateTime.now());
         RecruitmentApplication saved = recruitmentApplicationRepository.save(application);
         if (approve) {
-            // BF-03 bước 7: duyệt -> tạo thỏa thuận hợp tác (e-contract); thành viên ở trạng thái
-            // CHỜ KÝ (INACTIVE). Chỉ khi gia sư ký OTP xong (bước 8) mới HIRED + kích hoạt ACTIVE
-            // + gán lớp + đóng tin (bước 9-10) — xử lý trong onCooperationContractSigned.
-            addOrReactivateMembership(saved, CenterTutorMembershipStatus.INACTIVE);
-            contractService.generateCooperationContract(saved.getRecruitmentAppId());
+            // BF-03 bước 7: duyệt -> CHỈ tạo thỏa thuận hợp tác (e-contract) để gia sư ký.
+            // CHƯA tạo thành viên: gia sư chưa ký thì CHƯA phải gia sư của trung tâm.
+            // Khi ký OTP xong (bước 8) mới HIRED + tạo/kích hoạt thành viên ACTIVE + gán lớp
+            // + đóng tin (bước 9-10) — xử lý trong onCooperationContractSigned.
+            contractService.generateCooperationContract(saved.getRecruitmentAppId(), contractTemplateId);
         }
         return toApplicationResponse(saved);
     }
@@ -417,18 +422,8 @@ public class CenterServiceImpl implements CenterService {
         // BF-03 bước 9: ký xong -> đơn chính thức HIRED ("Đã được nhận").
         app.setStatus(RecruitmentApplicationStatus.HIRED);
         recruitmentApplicationRepository.save(app);
-        TutorCenter center = app.getRecruitmentPost().getCenter();
-        // Kích hoạt thành viên.
-        membershipRepository
-                .findFirstByCenter_CenterIdAndTutor_TutorId(
-                        center.getCenterId(), app.getTutor().getTutorId())
-                .ifPresent(m -> {
-                    m.setStatus(CenterTutorMembershipStatus.ACTIVE);
-                    if (m.getJoinedAt() == null) {
-                        m.setJoinedAt(LocalDateTime.now());
-                    }
-                    membershipRepository.save(m);
-                });
+        // Ký xong mới CHÍNH THỨC là gia sư của trung tâm: tạo/kích hoạt thành viên ACTIVE.
+        addOrReactivateMembership(app, CenterTutorMembershipStatus.ACTIVE);
         // Nếu tin gắn với lớp -> tự gán gia sư vào lớp đó.
         findPostClassId(app.getRecruitmentPost().getRecruitmentId())
                 .flatMap(tutoringClassRepository::findById)
@@ -1962,7 +1957,9 @@ public class CenterServiceImpl implements CenterService {
         t.setCenter(center);
         t.setDefaultTemplate(false);
         t.setStatus(ContractTemplateStatus.ACTIVE);
-        return toTemplateResponse(contractTemplateRepository.save(t));
+        ContractTemplate saved = contractTemplateRepository.save(t);
+        saveTemplateType(saved.getTemplateId(), request.getContractType());
+        return toTemplateResponse(saved);
     }
 
     @Override
@@ -1981,7 +1978,11 @@ public class CenterServiceImpl implements CenterService {
         if (StringUtils.hasText(request.getContent())) {
             t.setContent(request.getContent().trim());
         }
-        return toTemplateResponse(contractTemplateRepository.save(t));
+        ContractTemplate saved = contractTemplateRepository.save(t);
+        if (StringUtils.hasText(request.getContractType())) {
+            saveTemplateType(saved.getTemplateId(), request.getContractType());
+        }
+        return toTemplateResponse(saved);
     }
 
     private ContractTemplateResponse toTemplateResponse(ContractTemplate t) {
@@ -1989,9 +1990,29 @@ public class CenterServiceImpl implements CenterService {
                 .templateId(t.getTemplateId())
                 .name(t.getName())
                 .content(t.getContent())
+                .contractType(findTemplateType(t.getTemplateId()))
                 .defaultTemplate(Boolean.TRUE.equals(t.getDefaultTemplate()))
                 .status(t.getStatus() != null ? t.getStatus().name() : null)
                 .system(t.getCenter() == null)
                 .build();
+    }
+
+    /** Lưu loại mẫu hợp đồng (RECRUITMENT/CLASS) qua system_parameters (không cần cột/migration). */
+    private void saveTemplateType(Long templateId, String contractType) {
+        String value = TEMPLATE_TYPE_RECRUITMENT.equalsIgnoreCase(contractType)
+                ? TEMPLATE_TYPE_RECRUITMENT : TEMPLATE_TYPE_CLASS;
+        String key = TEMPLATE_TYPE_PREFIX + templateId;
+        SystemParameter param = systemParameterRepository.findByParamKey(key)
+                .orElseGet(SystemParameter::new);
+        param.setParamKey(key);
+        param.setParamValue(value);
+        param.setDescription("Loại mẫu hợp đồng: RECRUITMENT / CLASS");
+        systemParameterRepository.save(param);
+    }
+
+    private String findTemplateType(Long templateId) {
+        return systemParameterRepository.findByParamKey(TEMPLATE_TYPE_PREFIX + templateId)
+                .map(SystemParameter::getParamValue)
+                .orElse(TEMPLATE_TYPE_CLASS);
     }
 }

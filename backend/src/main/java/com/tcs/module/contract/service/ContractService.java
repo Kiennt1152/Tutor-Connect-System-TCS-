@@ -17,8 +17,12 @@ import java.util.Map;
 
 public interface ContractService {
 
-    /** BF-03: tạo thỏa thuận hợp tác center–gia sư từ một đơn ứng tuyển tuyển dụng đã duyệt. */
-    ContractResponse generateCooperationContract(Long recruitmentApplicationId);
+    /**
+     * BF-03: tạo thỏa thuận hợp tác center–gia sư từ một đơn ứng tuyển tuyển dụng đã duyệt.
+     * {@code templateId} (tuỳ chọn): mẫu hợp đồng center chọn khi duyệt — nội dung mẫu thành nội
+     * dung hợp đồng. Null -> dùng nội dung mặc định.
+     */
+    ContractResponse generateCooperationContract(Long recruitmentApplicationId, Long templateId);
 
     /** BF-04: tạo hợp đồng theo học viên khi ghi danh (dùng mẫu hợp đồng của lớp nếu có). */
     ContractResponse generateStudentContract(Long classStudentId);

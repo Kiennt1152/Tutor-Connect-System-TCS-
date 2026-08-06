@@ -77,4 +77,20 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
                   )
             """)
     List<Contract> findByClassStudent_UserId(@Param("userId") Long userId);
+
+    /** BF-03: thỏa thuận hợp tác — phía GIA SƯ (người ký) nhìn thấy để ký. */
+    @Query("""
+            SELECT DISTINCT c FROM Contract c
+            WHERE c.recruitmentApplication IS NOT NULL
+              AND c.recruitmentApplication.tutor.user.userId = :userId
+            """)
+    List<Contract> findByRecruitmentApplication_Tutor_UserId(@Param("userId") Long userId);
+
+    /** BF-03: thỏa thuận hợp tác — phía TRUNG TÂM (bên tạo/duyệt) theo dõi. */
+    @Query("""
+            SELECT DISTINCT c FROM Contract c
+            WHERE c.recruitmentApplication IS NOT NULL
+              AND c.recruitmentApplication.recruitmentPost.center.user.userId = :userId
+            """)
+    List<Contract> findByRecruitmentApplication_CenterUser_UserId(@Param("userId") Long userId);
 }

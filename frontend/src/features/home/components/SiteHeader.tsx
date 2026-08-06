@@ -10,6 +10,9 @@ import '../pages/HomePage.css';
 
 const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
 const TEACHING_ROLES: UserRole[] = ['TUTOR', 'CLIENT'];
+const WALLET_ROLES: UserRole[] = ['TUTOR', 'TUTOR_CENTER'];
+const CONTRACT_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER'];
+const MESSAGING_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN'];
 
 const userInitials = (displayName: string | undefined, email: string) => {
   const source = displayName?.trim() || email;
@@ -31,6 +34,11 @@ export function SiteHeader({ active }: SiteHeaderProps) {
     user?.role === 'PLATFORM_ADMIN' ? APP_ROUTES.platformProfile : APP_ROUTES.profile;
   const showCenterManage = hasAnyRole(user?.role, CENTER_MANAGE_ROLES);
   const showTeaching = hasAnyRole(user?.role, TEACHING_ROLES);
+  const showWallet = hasAnyRole(user?.role, WALLET_ROLES);
+  const showContract = hasAnyRole(user?.role, CONTRACT_ROLES);
+  const showMessaging = hasAnyRole(user?.role, MESSAGING_ROLES);
+  const showFeedback = hasRole(user?.role, 'CLIENT');
+  const showMyReputation = hasRole(user?.role, 'TUTOR');
 
   return (
     <header className="tcs-header">
@@ -70,12 +78,53 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                 </Link>
               ) : null}
               <NotificationBell enabled={!!user} />
-              <Link to={profilePath} className="tcs-home-profile-btn">
-                <span className="tcs-home-profile-btn__avatar">
-                  {userInitials(user.displayName, user.email)}
-                </span>
-                <span className="tcs-home-profile-btn__label">Hồ sơ</span>
-              </Link>
+              <div className="tcs-profile-menu">
+                <Link to={profilePath} className="tcs-home-profile-btn" aria-haspopup="menu">
+                  <span className="tcs-home-profile-btn__avatar">
+                    {userInitials(user.displayName, user.email)}
+                  </span>
+                  <span className="tcs-home-profile-btn__label">Hồ sơ</span>
+                </Link>
+                <div className="tcs-profile-menu__dropdown" role="menu">
+                  <Link className="tcs-profile-menu__item" to={profilePath} role="menuitem">
+                    Hồ sơ của tôi
+                  </Link>
+                  {showWallet ? (
+                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.finance} role="menuitem">
+                      Ví của tôi
+                    </Link>
+                  ) : null}
+                  {showContract ? (
+                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.contract} role="menuitem">
+                      Hợp đồng
+                    </Link>
+                  ) : null}
+                  {showMessaging ? (
+                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.messaging} role="menuitem">
+                      Thông báo
+                    </Link>
+                  ) : null}
+                  {showFeedback ? (
+                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.feedback} role="menuitem">
+                      Đánh giá của tôi
+                    </Link>
+                  ) : null}
+                  {showMyReputation ? (
+                    <Link
+                      className="tcs-profile-menu__item"
+                      to={APP_ROUTES.myReputation}
+                      role="menuitem"
+                    >
+                      Nhận xét về tôi
+                    </Link>
+                  ) : null}
+                  {hasRole(user.role, 'PLATFORM_ADMIN') ? (
+                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.platform} role="menuitem">
+                      Bảng quản trị
+                    </Link>
+                  ) : null}
+                </div>
+              </div>
               <LogoutButton />
             </>
           ) : (

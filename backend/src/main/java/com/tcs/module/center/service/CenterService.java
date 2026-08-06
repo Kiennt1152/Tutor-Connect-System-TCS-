@@ -54,8 +54,12 @@ public interface CenterService {
     /** Danh sách đơn ứng tuyển của một tin (chỉ tin của trung tâm mình). */
     List<RecruitmentApplicationResponse> listApplications(Long recruitmentId);
 
-    /** Duyệt (HIRED) hoặc từ chối (REJECTED) một đơn ứng tuyển. */
-    RecruitmentApplicationResponse decideApplication(Long recruitmentAppId, boolean approve);
+    /**
+     * Duyệt (PASSED, chờ ký) hoặc từ chối (REJECTED) một đơn ứng tuyển.
+     * {@code contractTemplateId} (tuỳ chọn): mẫu hợp đồng center chọn khi duyệt để gửi gia sư ký.
+     */
+    RecruitmentApplicationResponse decideApplication(
+            Long recruitmentAppId, boolean approve, Long contractTemplateId);
 
     // ===================== Quản lý danh sách gia sư của trung tâm =====================
 

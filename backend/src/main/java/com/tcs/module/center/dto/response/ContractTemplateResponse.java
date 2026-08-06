@@ -11,6 +11,8 @@ public class ContractTemplateResponse {
     private Long templateId;
     private String name;
     private String content;
+    /** RECRUITMENT (tuyển dụng/hợp tác) hoặc CLASS (học viên/dạy lớp). Mặc định CLASS. */
+    private String contractType;
     private Boolean defaultTemplate;
     private String status;
     /** true = mẫu hệ thống dùng chung (không sửa được); false = mẫu của trung tâm. */

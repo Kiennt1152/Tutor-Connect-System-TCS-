@@ -154,6 +154,9 @@ public class ContractServiceImpl implements ContractService {
         contracts.addAll(contractRepository.findByAssignment_Tutor_UserId(userId));
         contracts.addAll(contractRepository.findByAssignment_ClassCreator_UserId(userId));
         contracts.addAll(contractRepository.findByClassStudent_UserId(userId));
+        // BF-03: thỏa thuận hợp tác center–gia sư (gia sư ký, trung tâm theo dõi).
+        contracts.addAll(contractRepository.findByRecruitmentApplication_Tutor_UserId(userId));
+        contracts.addAll(contractRepository.findByRecruitmentApplication_CenterUser_UserId(userId));
         return contracts.stream().map(this::toContractResponse).toList();
     }
 
@@ -406,7 +409,7 @@ public class ContractServiceImpl implements ContractService {
     // ─── GENERATE COOPERATION CONTRACT (BF-03 bước 7) ───────────────────────
     @Override
     @Transactional
-    public ContractResponse generateCooperationContract(Long recruitmentApplicationId) {
+    public ContractResponse generateCooperationContract(Long recruitmentApplicationId, Long templateId) {
         RecruitmentApplication app = recruitmentApplicationRepository.findById(recruitmentApplicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn ứng tuyển"));
 
@@ -416,13 +419,22 @@ public class ContractServiceImpl implements ContractService {
             throw new IllegalStateException("Thỏa thuận hợp tác đã tồn tại cho đơn này");
         }
 
+        // Nội dung hợp đồng: lấy từ mẫu center chọn khi duyệt (nếu có), ngược lại dùng mặc định.
+        ContractTemplate template = templateId != null
+                ? contractTemplateRepository.findById(templateId).orElse(null)
+                : null;
+
         Contract contract = new Contract();
         contract.setContractNo(generateContractNo());
         contract.setRecruitmentApplication(app);
         contract.setStatus(ContractStatus.PENDING);
         contract.setSourceType(ContractSourceType.CENTER);
         contract.setExpiresAt(LocalDateTime.now().plusDays(CONTRACT_EXPIRY_DAYS));
-        contract.setTermsSummary("Thỏa thuận hợp tác gia nhập đội ngũ gia sư của trung tâm.");
+        contract.setTemplate(template);
+        contract.setTermsSummary(template != null && template.getContent() != null
+                        && !template.getContent().isBlank()
+                ? template.getContent()
+                : "Thỏa thuận hợp tác gia nhập đội ngũ gia sư của trung tâm.");
         contract = contractRepository.save(contract);
 
         // BF-03 bước 8: chỉ gia sư ký (trung tâm là bên duyệt/tạo).
@@ -490,8 +502,19 @@ public class ContractServiceImpl implements ContractService {
         if (templateId != null) {
             return contractTemplateRepository.findById(templateId).orElse(null);
         }
+        // Fallback: mẫu ACTIVE đầu tiên KHÔNG phải loại tuyển dụng (tránh nhét nội dung tuyển dụng
+        // gia sư vào hợp đồng học viên).
         return contractTemplateRepository.findByStatus(ContractTemplateStatus.ACTIVE)
-                .stream().findFirst().orElse(null);
+                .stream()
+                .filter(t -> !isRecruitmentTemplate(t.getTemplateId()))
+                .findFirst().orElse(null);
+    }
+
+    /** Loại mẫu hợp đồng lưu ở system_parameters (tpltype:{id} -> RECRUITMENT|CLASS). */
+    private boolean isRecruitmentTemplate(Long templateId) {
+        return systemParameterRepository.findByParamKey("tpltype:" + templateId)
+                .map(p -> "RECRUITMENT".equalsIgnoreCase(p.getParamValue()))
+                .orElse(false);
     }
 
     // ─── PRIVATE HELPERS ─────────────────────────────────────────────────────
@@ -710,6 +733,7 @@ public class ContractServiceImpl implements ContractService {
     private ContractTemplate findActiveTemplate() {
         return contractTemplateRepository.findAll().stream()
                 .filter(t -> t.getStatus() == ContractTemplateStatus.ACTIVE)
+                .filter(t -> !isRecruitmentTemplate(t.getTemplateId()))
                 .findFirst()
                 .orElse(null);
     }
@@ -810,6 +834,9 @@ public class ContractServiceImpl implements ContractService {
                 .assignmentId(contract.getAssignment() != null ? contract.getAssignment().getAssignmentId() : null)
                 .classStudentId(contract.getClassStudent() != null
                         ? contract.getClassStudent().getClassStudentId()
+                        : null)
+                .recruitmentApplicationId(contract.getRecruitmentApplication() != null
+                        ? contract.getRecruitmentApplication().getRecruitmentAppId()
                         : null)
                 .templateId(contract.getTemplate() != null ? contract.getTemplate().getTemplateId() : null)
                 .templateName(contract.getTemplate() != null ? contract.getTemplate().getName() : null)
