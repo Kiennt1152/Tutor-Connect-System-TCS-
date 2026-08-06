@@ -47,6 +47,15 @@ public class ContractResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    private String escrowPaymentReference;
+    private BigDecimal escrowPaymentAmount;
+    private String escrowPaymentStatus;
+    private String escrowPaymentQrUrl;
+    private String escrowPaymentBankName;
+    private String escrowPaymentAccountNumber;
+    private String escrowPaymentAccountName;
+    private String escrowPaymentTransferContent;
+
     private String classTitle;
     private String classType;
     private BigDecimal tuitionFee;

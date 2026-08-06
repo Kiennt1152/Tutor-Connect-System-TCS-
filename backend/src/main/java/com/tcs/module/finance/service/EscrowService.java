@@ -3,6 +3,8 @@ package com.tcs.module.finance.service;
 import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.entity.EscrowTransaction;
+import com.tcs.module.finance.entity.PaymentTransaction;
+import java.math.BigDecimal;
 
 /**
  * Seam 0.2 (chu: M3). Diem vao tai chinh cho M1/M2 va M4.
@@ -13,6 +15,10 @@ import com.tcs.module.finance.entity.EscrowTransaction;
 public interface EscrowService {
 
     EscrowTransaction lock(EscrowLockCommand command);
+
+    PaymentTransaction preparePrivateContractPayment(Long payerUserId, BigDecimal amount, Long assignmentId);
+
+    EscrowTransaction fundPendingPayment(PaymentTransaction payment, String externalTransactionId);
 
     void apply(ReleaseInstruction instruction);
 

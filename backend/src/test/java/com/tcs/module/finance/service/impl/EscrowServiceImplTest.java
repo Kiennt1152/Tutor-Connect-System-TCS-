@@ -10,6 +10,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.tcs.exception.BusinessException;
+import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.entity.EscrowTransaction;
@@ -29,6 +30,7 @@ import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import java.math.BigDecimal;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -38,6 +40,7 @@ import org.mockito.Captor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 
 @ExtendWith(MockitoExtension.class)
 class EscrowServiceImplTest {
@@ -60,6 +63,15 @@ class EscrowServiceImplTest {
 
     @Mock
     private ClassStudentRepository classStudentRepository;
+
+    @Mock
+    private ContractRepository contractRepository;
+
+    @Mock
+    private PlatformAdminRepository platformAdminRepository;
+
+    @Mock
+    private ApplicationEventPublisher eventPublisher;
 
     @InjectMocks
     private EscrowServiceImpl escrowService;

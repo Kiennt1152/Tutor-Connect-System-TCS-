@@ -122,6 +122,14 @@ export function mapContract(response: ContractApiResponse): Contract {
     confirmedAt: response.confirmedAt ? formatDateTime(response.confirmedAt) : null,
     createdAt: formatDateTime(response.createdAt),
     updatedAt: formatDateTime(response.updatedAt),
+    escrowPaymentReference: response.escrowPaymentReference,
+    escrowPaymentAmount: response.escrowPaymentAmount,
+    escrowPaymentStatus: response.escrowPaymentStatus,
+    escrowPaymentQrUrl: response.escrowPaymentQrUrl,
+    escrowPaymentBankName: response.escrowPaymentBankName,
+    escrowPaymentAccountNumber: response.escrowPaymentAccountNumber,
+    escrowPaymentAccountName: response.escrowPaymentAccountName,
+    escrowPaymentTransferContent: response.escrowPaymentTransferContent,
   };
 }
 

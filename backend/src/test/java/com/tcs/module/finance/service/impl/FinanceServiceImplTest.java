@@ -22,6 +22,7 @@ import com.tcs.module.finance.enums.WalletStatus;
 import com.tcs.module.finance.repository.PaymentMethodRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
+import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.security.AuthHelper;
@@ -62,6 +63,9 @@ class FinanceServiceImplTest {
 
     @Mock
     private WalletService walletService;
+
+    @Mock
+    private EscrowService escrowService;
 
     @Mock
     private PaymentTransactionRepository paymentTransactionRepository;
@@ -175,6 +179,37 @@ class FinanceServiceImplTest {
         assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
         assertEquals("123", tx.getExternalTransactionId());
         verify(walletService).credit(USER_ID, new BigDecimal("100000"), "TOPUP-ABC");
+    }
+
+    @Test
+    @DisplayName("handleSepayWebhook funds pending private escrow payment without crediting client wallet")
+    void handleSepayWebhookFundsPendingEscrowPayment() {
+        PaymentTransaction tx = pendingEscrowPayment("ESCROW_LOCK-A7", new BigDecimal("300000"));
+        SepayWebhookRequest request = new SepayWebhookRequest();
+        request.setId(124L);
+        request.setTransferType("in");
+        request.setTransferAmount(new BigDecimal("300000"));
+        request.setContent("Thanh toan ky quy ESCROW_LOCK-A7");
+        request.setAccountNumber("02660559201");
+
+        when(paymentTransactionRepository.findByExternalTransactionId("124")).thenReturn(Optional.empty());
+        when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                PaymentTransactionType.DEPOSIT,
+                PaymentTransactionStatus.PENDING,
+                new BigDecimal("300000")))
+                .thenReturn(List.of());
+        when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                PaymentTransactionType.ESCROW_DEPOSIT,
+                PaymentTransactionStatus.PENDING,
+                new BigDecimal("300000")))
+                .thenReturn(List.of(tx));
+
+        PaymentWebhookResponse response = financeService.handleSepayWebhook(request);
+
+        assertEquals("success", response.getStatus());
+        assertEquals("ESCROW_LOCK-A7", response.getReference());
+        verify(escrowService).fundPendingPayment(tx, "124");
+        verify(walletService, never()).credit(any(), any(), any());
     }
 
     @Test
@@ -668,6 +703,18 @@ class FinanceServiceImplTest {
         tx.setStatus(PaymentTransactionStatus.PENDING);
         tx.setAmount(amount);
         tx.setDescription("Nạp tiền ví qua VietQR");
+        tx.setReferenceCode(reference);
+        tx.setCreatedAt(LocalDateTime.now());
+        return tx;
+    }
+
+    private PaymentTransaction pendingEscrowPayment(String reference, BigDecimal amount) {
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setWallet(wallet);
+        tx.setType(PaymentTransactionType.ESCROW_DEPOSIT);
+        tx.setStatus(PaymentTransactionStatus.PENDING);
+        tx.setAmount(amount);
+        tx.setDescription("Chờ học viên chuyển khoản ký quỹ tháng đầu");
         tx.setReferenceCode(reference);
         tx.setCreatedAt(LocalDateTime.now());
         return tx;

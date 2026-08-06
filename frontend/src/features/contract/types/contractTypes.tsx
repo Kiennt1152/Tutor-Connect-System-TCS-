@@ -34,6 +34,14 @@ export interface ContractApiResponse {
   confirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  escrowPaymentReference: string | null;
+  escrowPaymentAmount: number | null;
+  escrowPaymentStatus: string | null;
+  escrowPaymentQrUrl: string | null;
+  escrowPaymentBankName: string | null;
+  escrowPaymentAccountNumber: string | null;
+  escrowPaymentAccountName: string | null;
+  escrowPaymentTransferContent: string | null;
 }
 
 export interface ContractSignatureApiResponse {
@@ -104,6 +112,14 @@ export interface Contract {
   confirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  escrowPaymentReference: string | null;
+  escrowPaymentAmount: number | null;
+  escrowPaymentStatus: string | null;
+  escrowPaymentQrUrl: string | null;
+  escrowPaymentBankName: string | null;
+  escrowPaymentAccountNumber: string | null;
+  escrowPaymentAccountName: string | null;
+  escrowPaymentTransferContent: string | null;
 }
 
 export interface ContractSignature {

@@ -60,6 +60,11 @@ export default function ContractDetailPage() {
   const st = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
   const allSigned = signatures?.hasAllSignatures ?? false;
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
+  const hasEscrowPayment = allSigned && Boolean(contract.escrowPaymentReference);
+  const escrowAmount = contract.escrowPaymentAmount != null
+    ? new Intl.NumberFormat('vi-VN').format(contract.escrowPaymentAmount)
+    : '—';
+  const escrowPaid = contract.escrowPaymentStatus === 'SUCCESS';
 
   return (
     <div className="cdetail-page">
@@ -209,6 +214,35 @@ export default function ContractDetailPage() {
           </section>
         )}
 
+        {hasEscrowPayment && (
+          <section className={`cdetail-card escrow-card ${escrowPaid ? 'escrow-card--paid' : ''}`}>
+            <div className="escrow-header">
+              <h2>Ký quỹ tháng đầu</h2>
+              <span className={`escrow-status ${escrowPaid ? 'escrow-status--paid' : 'escrow-status--pending'}`}>
+                {escrowPaid ? 'Đã thanh toán' : 'Chờ chuyển khoản'}
+              </span>
+            </div>
+
+            <div className="escrow-payment">
+              {contract.escrowPaymentQrUrl && (
+                <img
+                  className="escrow-qr"
+                  src={contract.escrowPaymentQrUrl}
+                  alt={`QR ký quỹ ${contract.escrowPaymentReference}`}
+                />
+              )}
+              <dl className="escrow-dl">
+                <dt>Số tiền</dt><dd>{escrowAmount} đ</dd>
+                <dt>Ngân hàng</dt><dd>{contract.escrowPaymentBankName ?? '—'}</dd>
+                <dt>Số tài khoản</dt><dd>{contract.escrowPaymentAccountNumber ?? '—'}</dd>
+                <dt>Chủ tài khoản</dt><dd>{contract.escrowPaymentAccountName ?? '—'}</dd>
+                <dt>Nội dung</dt>
+                <dd className="escrow-reference">{contract.escrowPaymentTransferContent ?? contract.escrowPaymentReference}</dd>
+              </dl>
+            </div>
+          </section>
+        )}
+
         {allSigned && contract.status !== 'SIGNED' && contract.status !== 'ACTIVE' && (
           <section className="cdetail-card">
             <h2>Hoàn tất ký</h2>
@@ -268,6 +302,19 @@ export default function ContractDetailPage() {
         .btn-link-resend:disabled { color: #94a3b8; cursor: not-allowed; }
         .sign-done-msg { background: #d1fae5; color: #065f46; padding: 12px 16px; border-radius: 8px; font-size: 14px; }
         .sign-complete-msg { background: #d1fae5; color: #065f46; padding: 12px 16px; border-radius: 8px; font-size: 14px; }
+        .escrow-card { border: 1px solid #fed7aa; background: #fff7ed; }
+        .escrow-card--paid { border-color: #bbf7d0; background: #f0fdf4; }
+        .escrow-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+        .escrow-header h2 { margin: 0; border-bottom: none; padding-bottom: 0; }
+        .escrow-status { display: inline-flex; align-items: center; min-height: 26px; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+        .escrow-status--pending { background: #ffedd5; color: #c2410c; }
+        .escrow-status--paid { background: #dcfce7; color: #15803d; }
+        .escrow-payment { display: grid; grid-template-columns: 180px 1fr; gap: 16px; align-items: start; }
+        .escrow-qr { width: 180px; aspect-ratio: 1; border-radius: 8px; border: 1px solid #fed7aa; background: #fff; object-fit: cover; }
+        .escrow-dl { display: grid; grid-template-columns: 120px 1fr; gap: 8px 14px; margin: 0; }
+        .escrow-dl dt { color: #9a3412; font-size: 13px; font-weight: 600; }
+        .escrow-dl dd { margin: 0; color: #1e293b; font-size: 14px; font-weight: 600; }
+        .escrow-reference { display: inline-flex; width: fit-content; max-width: 100%; padding: 6px 8px; border-radius: 6px; background: #fff; color: #c2410c !important; font-family: monospace; overflow-wrap: anywhere; }
         .status-badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; }
         .status-draft { background: #fef3c7; color: #92400e; }
         .status-signed { background: #d1fae5; color: #065f46; }
@@ -278,6 +325,11 @@ export default function ContractDetailPage() {
         .btn-primary { background: #2563eb; color: #fff; }
         .btn-primary:hover { background: #1d4ed8; }
         .btn-primary:disabled { background: #93c5fd; cursor: not-allowed; }
+        @media (max-width: 640px) {
+          .escrow-payment { grid-template-columns: 1fr; }
+          .escrow-qr { width: 100%; max-width: 220px; }
+          .escrow-dl { grid-template-columns: 1fr; }
+        }
       `}</style>
     </div>
   );

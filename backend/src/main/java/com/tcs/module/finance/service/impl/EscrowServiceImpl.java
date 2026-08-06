@@ -1,7 +1,11 @@
 package com.tcs.module.finance.service.impl;
 
+import com.tcs.common.event.ContractSigned;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.module.contract.entity.Contract;
+import com.tcs.module.contract.enums.ContractStatus;
+import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.entity.EscrowTransaction;
@@ -16,13 +20,17 @@ import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
+import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
+import com.tcs.module.profile.entity.PlatformAdmin;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -41,6 +49,9 @@ public class EscrowServiceImpl implements EscrowService {
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
     private final ClassStudentRepository classStudentRepository;
+    private final ContractRepository contractRepository;
+    private final PlatformAdminRepository platformAdminRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     @Transactional
@@ -50,6 +61,84 @@ public class EscrowServiceImpl implements EscrowService {
             return lockPrivateAssignment(command);
         }
         return lockCenterEnrollment(command);
+    }
+
+    @Override
+    @Transactional
+    public PaymentTransaction preparePrivateContractPayment(Long payerUserId, BigDecimal amount, Long assignmentId) {
+        if (payerUserId == null) {
+            throw new BusinessException("Thiếu người thanh toán escrow");
+        }
+        if (assignmentId == null) {
+            throw new BusinessException("Thiếu phân công lớp cần ký quỹ");
+        }
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("Số tiền escrow phải lớn hơn 0");
+        }
+
+        escrowTransactionRepository.findByAssignment_AssignmentId(assignmentId)
+                .ifPresent(existing -> {
+                    throw new BusinessException("Escrow của hợp đồng này đã được khóa");
+                });
+
+        String reference = privateReference(assignmentId);
+        PaymentTransaction existing = paymentTransactionRepository.findByReferenceCode(reference).orElse(null);
+        if (existing != null) {
+            return existing;
+        }
+
+        ClassAssignment assignment = classAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công lớp"));
+
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setWallet(platformEscrowWallet());
+        tx.setType(PaymentTransactionType.ESCROW_DEPOSIT);
+        tx.setStatus(PaymentTransactionStatus.PENDING);
+        tx.setAmount(amount);
+        tx.setDescription("Chờ học viên chuyển khoản ký quỹ tháng đầu cho assignment #" + assignment.getAssignmentId());
+        tx.setReferenceCode(reference);
+        return paymentTransactionRepository.save(tx);
+    }
+
+    @Override
+    @Transactional
+    public EscrowTransaction fundPendingPayment(PaymentTransaction payment, String externalTransactionId) {
+        validatePendingEscrowPayment(payment);
+
+        Long assignmentId = parsePrivateAssignmentId(payment.getReferenceCode());
+        ClassAssignment assignment = classAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công lớp"));
+
+        EscrowTransaction existing = escrowTransactionRepository
+                .findByAssignment_AssignmentId(assignmentId)
+                .orElse(null);
+        if (existing != null) {
+            return existing;
+        }
+
+        Long platformUserId = payment.getWallet().getWalletId();
+        walletService.credit(platformUserId, payment.getAmount(), payment.getReferenceCode());
+        walletService.lockFunds(platformUserId, payment.getAmount(), payment.getReferenceCode());
+
+        payment.setStatus(PaymentTransactionStatus.SUCCESS);
+        payment.setExternalTransactionId(externalTransactionId);
+        payment.setProcessedAt(LocalDateTime.now());
+        payment.setFailureReason(null);
+        paymentTransactionRepository.save(payment);
+
+        EscrowTransaction escrow = new EscrowTransaction();
+        escrow.setPayment(payment);
+        escrow.setAssignment(assignment);
+        escrow.setAmount(payment.getAmount());
+        escrow.setStatus(EscrowStatus.FUNDED);
+        escrow.setDepositedAt(LocalDateTime.now());
+        EscrowTransaction saved = escrowTransactionRepository.save(escrow);
+
+        Contract contract = activateContract(assignmentId);
+        publishContractSigned(saved, assignment, contract);
+        log.info("[Escrow] Đã khóa escrow từ SePay cho assignment={} amount={}",
+                assignmentId, payment.getAmount());
+        return saved;
     }
 
     @Override
@@ -126,7 +215,7 @@ public class EscrowServiceImpl implements EscrowService {
                 .orElseGet(() -> {
                     ClassAssignment assignment = classAssignmentRepository.findById(command.assignmentId())
                             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công lớp"));
-                    String reference = PRIVATE_REF_PREFIX + command.assignmentId();
+                    String reference = privateReference(command.assignmentId());
                     PaymentTransaction payment = createEscrowPayment(command, reference);
 
                     EscrowTransaction escrow = new EscrowTransaction();
@@ -175,6 +264,77 @@ public class EscrowServiceImpl implements EscrowService {
         tx.setReferenceCode(reference);
         tx.setProcessedAt(LocalDateTime.now());
         return paymentTransactionRepository.save(tx);
+    }
+
+    private Wallet platformEscrowWallet() {
+        PlatformAdmin admin = platformAdminRepository.findAll().stream()
+                .findFirst()
+                .orElseThrow(() -> new BusinessException("Chưa có tài khoản admin để làm ví ký quỹ hệ thống"));
+        if (admin.getUser() == null || admin.getUser().getUserId() == null) {
+            throw new BusinessException("Tài khoản admin không hợp lệ để làm ví ký quỹ hệ thống");
+        }
+        return walletService.getOrCreate(admin.getUser().getUserId());
+    }
+
+    private void validatePendingEscrowPayment(PaymentTransaction payment) {
+        if (payment == null) {
+            throw new BusinessException("Thiếu giao dịch ký quỹ cần xử lý");
+        }
+        if (payment.getType() != PaymentTransactionType.ESCROW_DEPOSIT) {
+            throw new BusinessException("Giao dịch không phải ký quỹ escrow");
+        }
+        if (payment.getStatus() != PaymentTransactionStatus.PENDING) {
+            throw new BusinessException("Giao dịch ký quỹ không ở trạng thái chờ thanh toán");
+        }
+        if (payment.getWallet() == null || payment.getWallet().getWalletId() == null) {
+            throw new BusinessException("Giao dịch ký quỹ thiếu ví hệ thống");
+        }
+        if (payment.getAmount() == null || payment.getAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("Số tiền ký quỹ không hợp lệ");
+        }
+        parsePrivateAssignmentId(payment.getReferenceCode());
+    }
+
+    private Long parsePrivateAssignmentId(String reference) {
+        if (reference == null || !reference.startsWith(PRIVATE_REF_PREFIX)) {
+            throw new BusinessException("Mã ký quỹ không hợp lệ");
+        }
+        try {
+            return Long.valueOf(reference.substring(PRIVATE_REF_PREFIX.length()));
+        } catch (NumberFormatException e) {
+            throw new BusinessException("Mã ký quỹ không xác định được phân công lớp");
+        }
+    }
+
+    private String privateReference(Long assignmentId) {
+        return PRIVATE_REF_PREFIX + assignmentId;
+    }
+
+    private Contract activateContract(Long assignmentId) {
+        Contract contract = contractRepository.findByAssignmentId(assignmentId).orElse(null);
+        if (contract != null && contract.getStatus() == ContractStatus.SIGNED) {
+            contract.setStatus(ContractStatus.ACTIVE);
+            contract.setConfirmedAt(LocalDateTime.now());
+            return contractRepository.save(contract);
+        }
+        return contract;
+    }
+
+    private void publishContractSigned(EscrowTransaction escrow, ClassAssignment assignment, Contract contract) {
+        TutorApplication application = assignment.getApplication();
+        TutoringClass tutoringClass = application != null ? application.getTutoringClass() : null;
+        if (tutoringClass == null || tutoringClass.getCreator() == null
+                || assignment.getTutor() == null || assignment.getTutor().getUser() == null) {
+            return;
+        }
+        eventPublisher.publishEvent(new ContractSigned(
+                contract != null ? contract.getContractId() : null,
+                tutoringClass.getClassId(),
+                tutoringClass.getCreator().getUserId(),
+                assignment.getTutor().getUser().getUserId(),
+                escrow.getAmount(),
+                assignment.getAssignmentId(),
+                null));
     }
 
     private void releaseToBeneficiary(

@@ -23,6 +23,7 @@ import com.tcs.module.finance.enums.WithdrawalRequestStatus;
 import com.tcs.module.finance.repository.PaymentMethodRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
+import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.FinanceService;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.profile.enums.UserRole;
@@ -67,6 +68,7 @@ public class FinanceServiceImpl implements FinanceService {
 
     private final AuthHelper authHelper;
     private final WalletService walletService;
+    private final EscrowService escrowService;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final PaymentMethodRepository paymentMethodRepository;
     private final WithdrawalRequestRepository withdrawalRequestRepository;
@@ -180,11 +182,20 @@ public class FinanceServiceImpl implements FinanceService {
                     .build();
         }
 
-        PaymentTransaction matched = findMatchingTopup(request);
+        PaymentTransaction matched = findMatchingIncomingPayment(request);
         if (matched == null) {
             return PaymentWebhookResponse.builder()
                     .status("ignored")
                     .message("Không tìm thấy giao dịch khớp số tiền, nội dung và tài khoản")
+                    .build();
+        }
+
+        if (matched.getType() == PaymentTransactionType.ESCROW_DEPOSIT) {
+            escrowService.fundPendingPayment(matched, externalTransactionId);
+            return PaymentWebhookResponse.builder()
+                    .status("success")
+                    .message("Đã ghi nhận thanh toán ký quỹ và kích hoạt lớp")
+                    .reference(matched.getReferenceCode())
                     .build();
         }
 
@@ -479,21 +490,28 @@ public class FinanceServiceImpl implements FinanceService {
         return tx;
     }
 
-    private PaymentTransaction findMatchingTopup(SepayWebhookRequest request) {
-        List<PaymentTransaction> candidates = paymentTransactionRepository.findByTypeAndStatusAndAmount(
-                PaymentTransactionType.DEPOSIT,
-                PaymentTransactionStatus.PENDING,
-                request.getTransferAmount());
+    private PaymentTransaction findMatchingIncomingPayment(SepayWebhookRequest request) {
+        List<PaymentTransaction> candidates = new java.util.ArrayList<>();
+        candidates.addAll(pendingTransactions(PaymentTransactionType.DEPOSIT, request.getTransferAmount()));
+        candidates.addAll(pendingTransactions(PaymentTransactionType.ESCROW_DEPOSIT, request.getTransferAmount()));
 
         String payload = compactWebhookPayload(request);
         String accountNumber = compact(request.getAccountNumber());
 
         return candidates.stream()
-                .filter(tx -> !isTopupExpired(tx))
+                .filter(tx -> tx.getType() != PaymentTransactionType.DEPOSIT || !isTopupExpired(tx))
                 .filter(tx -> accountMatches(accountNumber))
                 .filter(tx -> transferContentMatches(tx, payload))
                 .findFirst()
                 .orElse(null);
+    }
+
+    private List<PaymentTransaction> pendingTransactions(PaymentTransactionType type, BigDecimal amount) {
+        List<PaymentTransaction> rows = paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                type,
+                PaymentTransactionStatus.PENDING,
+                amount);
+        return rows != null ? rows : List.of();
     }
 
     private WithdrawalMatch findMatchingWithdrawal(SepayWebhookRequest request) {

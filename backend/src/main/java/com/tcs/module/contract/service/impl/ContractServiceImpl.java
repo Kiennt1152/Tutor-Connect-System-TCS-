@@ -1,7 +1,6 @@
 package com.tcs.module.contract.service.impl;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.tcs.common.event.ContractSigned;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.contract.dto.request.SignWithOtpRequest;
@@ -45,11 +44,10 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
-import com.tcs.module.finance.dto.EscrowLockCommand;
+import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
-import org.springframework.context.ApplicationEventPublisher;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
@@ -64,6 +62,8 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -89,6 +89,11 @@ public class ContractServiceImpl implements ContractService {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String DEFAULT_ANONYMOUS_NAME = "Người dùng ẩn danh";
     private static final int REVIEW_REQUIRED_WITHIN_MONTHS = 1;
+    private static final String ESCROW_PRIVATE_REFERENCE_PREFIX = "ESCROW_LOCK-A";
+    private static final String TOPUP_BANK_NAME = "TPBank";
+    private static final String TOPUP_BANK_BIN = "970423";
+    private static final String TOPUP_ACCOUNT_NUMBER = "02660559201";
+    private static final String TOPUP_ACCOUNT_NAME = "TUTOR CONNECT SYSTEM";
 
     private final ContractRepository contractRepository;
     private final ContractSignatureRepository contractSignatureRepository;
@@ -99,7 +104,7 @@ public class ContractServiceImpl implements ContractService {
     private final TutorCenterRepository tutorCenterRepository;
     private final EmailService emailService;
     private final EscrowService escrowService;
-    private final ApplicationEventPublisher eventPublisher;
+    private final PaymentTransactionRepository paymentTransactionRepository;
     private final ReviewRepository reviewRepository;
     private final ReputationHistoryRepository reputationHistoryRepository;
     private final LessonRepository lessonRepository;
@@ -389,20 +394,10 @@ public class ContractServiceImpl implements ContractService {
         }
 
         BigDecimal managedEscrowAmount = firstManagedEscrowAmount(tutoringClass);
-        escrowService.lock(new EscrowLockCommand(
+        escrowService.preparePrivateContractPayment(
                 payerUserId,
                 managedEscrowAmount,
-                assignment.getAssignmentId(),
-                null));
-
-        eventPublisher.publishEvent(new ContractSigned(
-                contract.getContractId(),
-                tutoringClass.getClassId(),
-                payerUserId,
-                tutor.getUser().getUserId(),
-                managedEscrowAmount,
-                assignment.getAssignmentId(),
-                null));
+                assignment.getAssignmentId());
     }
 
     private BigDecimal firstManagedEscrowAmount(TutoringClass tutoringClass) {
@@ -473,6 +468,28 @@ public class ContractServiceImpl implements ContractService {
         return amount.setScale(2, RoundingMode.HALF_UP);
     }
 
+    private String privateEscrowReference(Long assignmentId) {
+        return ESCROW_PRIVATE_REFERENCE_PREFIX + assignmentId;
+    }
+
+    private String buildEscrowQrUrl(BigDecimal amount, String transferContent) {
+        return "https://img.vietqr.io/image/"
+                + TOPUP_BANK_BIN
+                + "-"
+                + TOPUP_ACCOUNT_NUMBER
+                + "-compact2.png"
+                + "?amount="
+                + amount.setScale(0, RoundingMode.DOWN).toPlainString()
+                + "&addInfo="
+                + urlEncode(transferContent)
+                + "&accountName="
+                + urlEncode(TOPUP_ACCOUNT_NAME);
+    }
+
+    private String urlEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
+    }
+
     private void initializeSignatureSlots(Contract contract, ClassAssignment assignment) {
         TutorApplication application = assignment.getApplication();
         TutoringClass tutoringClass = application.getTutoringClass();
@@ -541,6 +558,7 @@ public class ContractServiceImpl implements ContractService {
 
         if (contract.getAssignment() != null) {
             builder.assignmentId(contract.getAssignment().getAssignmentId());
+            applyEscrowPaymentInstruction(builder, contract.getAssignment().getAssignmentId());
             TutorApplication application = contract.getAssignment().getApplication();
             if (application != null) {
                 TutoringClass tutoringClass = application.getTutoringClass();
@@ -582,6 +600,27 @@ public class ContractServiceImpl implements ContractService {
                 .hasAllSignatures(signed >= required);
 
         return builder.build();
+    }
+
+    private void applyEscrowPaymentInstruction(
+            ContractResponse.ContractResponseBuilder builder,
+            Long assignmentId) {
+        if (assignmentId == null) {
+            return;
+        }
+        paymentTransactionRepository.findByReferenceCode(privateEscrowReference(assignmentId))
+                .ifPresent(tx -> {
+                    builder.escrowPaymentReference(tx.getReferenceCode())
+                            .escrowPaymentAmount(tx.getAmount())
+                            .escrowPaymentStatus(tx.getStatus().name())
+                            .escrowPaymentBankName(TOPUP_BANK_NAME)
+                            .escrowPaymentAccountNumber(TOPUP_ACCOUNT_NUMBER)
+                            .escrowPaymentAccountName(TOPUP_ACCOUNT_NAME)
+                            .escrowPaymentTransferContent(tx.getReferenceCode());
+                    if (tx.getAmount() != null && tx.getReferenceCode() != null) {
+                        builder.escrowPaymentQrUrl(buildEscrowQrUrl(tx.getAmount(), tx.getReferenceCode()));
+                    }
+                });
     }
 
     private ContractSignatureResponse toSignatureResponse(ContractSignature sig) {
