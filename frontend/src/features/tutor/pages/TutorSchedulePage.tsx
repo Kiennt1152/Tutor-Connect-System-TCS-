@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { tutorApi } from '../api/tutorApi';
+import { ChatButton } from '../../messaging/components/ChatButton';
 import type { LessonMode, ScheduleClass } from '../../center/types/centerTypes';
 import '../../center/pages/CenterSchedulePage.css';
 import './TutorSchedulePage.css';
@@ -265,6 +266,12 @@ export default function TutorSchedulePage() {
                             <div className="tw-card__handed">🔁 {c.substituteNote}</div>
                           ) : (
                             <div className="tw-card__actions">
+                              <ChatButton
+                                contextType="CLASS_ACTIVE"
+                                contextId={c.classId}
+                                label="Chat"
+                                size="sm"
+                              />
                               <button
                                 className={`tw-btn${c.attendanceTaken ? ' tw-btn--done' : ''}`}
                                 type="button"

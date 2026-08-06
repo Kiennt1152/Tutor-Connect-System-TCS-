@@ -5,6 +5,7 @@ import { centerApi } from '../api/centerApi';
 import { LocationPicker } from '../components/LocationPicker';
 import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { ChatButton } from '../../messaging/components/ChatButton';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { profileApi } from '../../profile/api/profileApi';
 import type {
@@ -749,6 +750,12 @@ export default function CenterRecruitmentPage() {
                             )}
                         </div>
                         <div className="rc-applicant__actions">
+                          <ChatButton
+                            contextType="RECRUITMENT"
+                            contextId={a.recruitmentAppId}
+                            recipientName={a.tutorName}
+                            size="sm"
+                          />
                           {a.status === 'APPLIED' ? (
                             <div className="rc-applicant__decide">
                               <button

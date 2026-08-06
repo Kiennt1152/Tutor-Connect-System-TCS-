@@ -13,6 +13,8 @@ public interface ChatService {
 
     ConversationResponse startOrGetConversation(Long targetUserId);
 
+    ConversationResponse getOrCreateContextConversation(String contextType, String contextId);
+
     Page<MessageResponse> getMessages(Long conversationId, int page, int size);
 
     MessageResponse sendMessage(SendMessageRequest request);

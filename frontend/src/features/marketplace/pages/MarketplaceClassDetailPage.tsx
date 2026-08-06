@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { useAuth } from '../../../shared/auth/AuthProvider';
-import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
 import { marketplaceApi } from '../api/marketplaceApi';
-import { ClassTerminationModal } from '../components/ClassTerminationModal';
-import { RefundRequestModal } from '../components/RefundRequestModal';
+import { ChatButton } from '../../messaging/components/ChatButton';
 import type { LessonMode, MarketplaceClass, RecurringType } from '../types/marketplaceTypes';
 import './MarketplacePage.css';
 
@@ -31,25 +29,8 @@ const DAY_LABELS: Record<number, string> = {
 };
 
 function extractError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    // Log đầy đủ để debug (mở DevTools -> Console để xem chi tiết).
-    console.error('[register] lỗi:', error.response?.status, error.response?.data);
-    const data = error.response?.data as { message?: unknown } | string | undefined;
-    if (data && typeof data === 'object' && typeof data.message === 'string' && data.message.trim()) {
-      return data.message;
-    }
-    if (typeof data === 'string' && data.trim()) {
-      return data;
-    }
-    if (error.response?.status) {
-      return `${fallback} (mã lỗi ${error.response.status})`;
-    }
-    if (error.message) {
-      return error.message;
-    }
-  }
-  if (error instanceof Error && error.message) {
-    return error.message;
+  if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
+    return error.response.data.message;
   }
   return fallback;
 }
@@ -61,7 +42,6 @@ function formatCurrency(value: number): string {
 export default function MarketplaceClassDetailPage() {
   const { classId } = useParams<{ classId: string }>();
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
   const { user } = useAuth();
 
   const [data, setData] = useState<MarketplaceClass | null>(null);
@@ -70,20 +50,12 @@ export default function MarketplaceClassDetailPage() {
 
   const [regStatus, setRegStatus] = useState<'idle' | 'loading' | 'done' | 'error'>('idle');
   const [regMessage, setRegMessage] = useState('');
-  const [terminationModalOpen, setTerminationModalOpen] = useState(false);
-  const [issueModalOpen, setIssueModalOpen] = useState(false);
-  const [refundModalOpen, setRefundModalOpen] = useState(false);
 
   const load = useCallback(() => {
     if (!classId) return;
-    const assignmentId = Number(searchParams.get('assignmentId'));
-    const classStudentId = Number(searchParams.get('classStudentId'));
     setStatus('loading');
     marketplaceApi
-      .getClass(Number(classId), {
-        assignmentId: Number.isFinite(assignmentId) && assignmentId > 0 ? assignmentId : undefined,
-        classStudentId: Number.isFinite(classStudentId) && classStudentId > 0 ? classStudentId : undefined,
-      })
+      .getClass(Number(classId))
       .then((res) => {
         setData(res.data);
         setStatus('success');
@@ -92,7 +64,7 @@ export default function MarketplaceClassDetailPage() {
         setLoadError(extractError(err, 'Không tải được chi tiết lớp.'));
         setStatus('error');
       });
-  }, [classId, searchParams]);
+  }, [classId]);
 
   useEffect(() => {
     load();
@@ -116,10 +88,6 @@ export default function MarketplaceClassDetailPage() {
   const role = user?.role;
   const isClient = role === 'CLIENT';
   const isTutor = role === 'TUTOR';
-  // Lớp của trung tâm do trung tâm tự bố trí gia sư -> gia sư không có phần đăng ký.
-  const isCenterClass = data?.classType === 'CENTER';
-  const tutorCanRegister = isTutor && !isCenterClass;
-  const canRequestTermination = Boolean(data?.canRequestTermination);
 
   const isOpen = data?.status === 'OPEN';
   const sortedSchedule = data
@@ -219,25 +187,30 @@ export default function MarketplaceClassDetailPage() {
                     {regStatus === 'error' && (
                       <div className="mk-alert mk-alert--error">{regMessage}</div>
                     )}
-                    {isClient || tutorCanRegister ? (
-                      <button
-                        className="mk-btn mk-btn--primary mk-btn--block"
-                        type="button"
-                        disabled={regStatus === 'loading' || !isOpen}
-                        onClick={register}
-                      >
-                        {regStatus === 'loading'
-                          ? 'Đang xử lý…'
-                          : !isOpen
-                            ? 'Lớp đã đóng đăng ký'
-                            : isTutor
-                              ? 'Ứng tuyển dạy lớp'
-                              : 'Đăng ký học'}
-                      </button>
-                    ) : isTutor && isCenterClass ? (
-                      <p className="mk-note">
-                        Lớp của trung tâm do trung tâm tự bố trí gia sư — gia sư không thể tự đăng ký.
-                      </p>
+                    {isClient || isTutor ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <button
+                          className="mk-btn mk-btn--primary mk-btn--block"
+                          type="button"
+                          disabled={regStatus === 'loading' || !isOpen}
+                          onClick={register}
+                        >
+                          {regStatus === 'loading'
+                            ? 'Đang xử lý…'
+                            : !isOpen
+                              ? 'Lớp đã đóng đăng ký'
+                              : isTutor
+                                ? 'Ứng tuyển dạy lớp'
+                                : 'Đăng ký học'}
+                        </button>
+                        {data.status === 'IN_PROGRESS' && (
+                          <ChatButton
+                            contextType="CLASS_ACTIVE"
+                            contextId={data.classId}
+                            label="Chat với bên liên quan"
+                          />
+                        )}
+                      </div>
                     ) : (
                       <p className="mk-note">
                         Đăng nhập bằng tài khoản gia sư hoặc phụ huynh/học viên để đăng ký.
@@ -246,69 +219,10 @@ export default function MarketplaceClassDetailPage() {
                   </>
                 )}
               </div>
-
-              {canRequestTermination ? (
-                <div className="mk-class-actions">
-                  <div className="mk-enroll__head">
-                    <span className="mk-enroll__title">Quản lý lớp</span>
-                  </div>
-                  <button
-                    className="mk-btn mk-btn--danger mk-btn--block"
-                    type="button"
-                    onClick={() => setTerminationModalOpen(true)}
-                  >
-                    Yêu cầu chấm dứt sớm
-                  </button>
-                  <button
-                    className="mk-btn mk-btn--secondary mk-btn--block"
-                    type="button"
-                    onClick={() => setIssueModalOpen(true)}
-                  >
-                    Báo cáo sự cố
-                  </button>
-                  <button
-                    className="mk-btn mk-btn--secondary mk-btn--block"
-                    type="button"
-                    onClick={() => setRefundModalOpen(true)}
-                  >
-                    Yêu cầu hoàn tiền
-                  </button>
-                </div>
-              ) : null}
             </aside>
           </div>
         )}
       </div>
-      {data ? (
-        <ClassTerminationModal
-          open={terminationModalOpen}
-          classId={data.classId}
-          assignmentId={data.terminationAssignmentId}
-          classStudentId={data.terminationClassStudentId}
-          classTitle={data.title}
-          onClose={() => setTerminationModalOpen(false)}
-        />
-      ) : null}
-      {data ? (
-        <ClassIssueModal
-          open={issueModalOpen}
-          classId={data.classId}
-          assignmentId={data.terminationAssignmentId}
-          classStudentId={data.terminationClassStudentId}
-          classTitle={data.title}
-          onClose={() => setIssueModalOpen(false)}
-        />
-      ) : null}
-      {data ? (
-        <RefundRequestModal
-          open={refundModalOpen}
-          classTitle={data.title}
-          assignmentId={data.terminationAssignmentId}
-          classStudentId={data.terminationClassStudentId}
-          amountHint={data.tuitionFee}
-          onClose={() => setRefundModalOpen(false)}
-        />
-      ) : null}
     </>
   );
 }

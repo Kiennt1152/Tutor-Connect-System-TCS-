@@ -97,4 +97,60 @@ export const messagingApi = {
     );
     return response.data;
   },
+
+  /* ── Direct Chat / Context Conversations ── */
+
+  async getConversations() {
+    const response = await axiosClient.get<import('../types/messagingTypes').ConversationResponse[]>(
+      `${MESSAGING_API_BASE}/conversations`,
+    );
+    return response.data;
+  },
+
+  async startOrGetConversation(targetUserId: number) {
+    const response = await axiosClient.post<import('../types/messagingTypes').ConversationResponse>(
+      `${MESSAGING_API_BASE}/conversations`,
+      { targetUserId },
+    );
+    return response.data;
+  },
+
+  async getOrCreateContextConversation(contextType: string, contextId: string | number) {
+    const response = await axiosClient.get<import('../types/messagingTypes').ConversationResponse>(
+      `${MESSAGING_API_BASE}/context/${contextType}/${contextId}`,
+    );
+    return response.data;
+  },
+
+  async getMessages(conversationId: number, page = 0, size = 30) {
+    const response = await axiosClient.get<import('../types/messagingTypes').PageResponse<import('../types/messagingTypes').MessageResponse>>(
+      `${MESSAGING_API_BASE}/conversations/${conversationId}/messages`,
+      { params: { page, size } },
+    );
+    return response.data;
+  },
+
+  async sendMessage(conversationId: number, content: string) {
+    const response = await axiosClient.post<import('../types/messagingTypes').MessageResponse>(
+      `${MESSAGING_API_BASE}/conversations/${conversationId}/messages`,
+      { content },
+    );
+    return response.data;
+  },
+
+  async markAsRead(conversationId: number) {
+    const response = await axiosClient.post(
+      `${MESSAGING_API_BASE}/conversations/${conversationId}/read`,
+    );
+    return response.data;
+  },
+
+  async listUsers(keyword?: string) {
+    const response = await axiosClient.get<import('../types/messagingTypes').UserSummaryResponse[]>(
+      `${MESSAGING_API_BASE}/users`,
+      { params: { keyword } },
+    );
+    return response.data;
+  },
 };
+
