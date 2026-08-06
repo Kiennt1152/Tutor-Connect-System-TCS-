@@ -1,5 +1,7 @@
 package com.tcs.module.contract.service.impl;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.tcs.common.event.ContractSigned;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.contract.dto.request.SignWithOtpRequest;
@@ -51,6 +53,7 @@ import org.springframework.context.ApplicationEventPublisher;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.notification.service.EmailService;
 import com.tcs.module.platform.service.AuditLogService;
@@ -64,6 +67,7 @@ import com.tcs.security.AuthHelper;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -259,7 +263,8 @@ public class ContractServiceImpl implements ContractService {
         if (signed >= required) {
             contract.setStatus(ContractStatus.SIGNED);
             contract.setSignedAt(LocalDateTime.now());
-            contractRepository.save(contract);
+            contract = contractRepository.save(contract);
+            handleFullySignedContract(contract);
         }
 
         return toContractResponse(contract);
@@ -354,6 +359,118 @@ public class ContractServiceImpl implements ContractService {
 
     private int getRequiredSignatureCount(Contract contract) {
         return 2;
+    }
+
+    private void handleFullySignedContract(Contract contract) {
+        if (contract.getSourceType() != ContractSourceType.PRIVATE || contract.getAssignment() == null) {
+            return;
+        }
+
+        ClassAssignment assignment = contract.getAssignment();
+        TutorApplication application = assignment.getApplication();
+        if (application == null || application.getTutoringClass() == null || application.getTutor() == null) {
+            return;
+        }
+
+        TutoringClass tutoringClass = application.getTutoringClass();
+        if (tutoringClass.getClassType() != ClassType.PRIVATE) {
+            return;
+        }
+
+        User payer = tutoringClass.getCreator();
+        Tutor tutor = application.getTutor();
+        if (payer == null || payer.getUserId() == null || tutor.getUser() == null) {
+            throw new BusinessException("Không xác định được bên thanh toán hoặc bên nhận tiền của hợp đồng");
+        }
+
+        Long payerUserId = payer.getUserId();
+        if (clientRepository.findByUser_UserId(payerUserId).isEmpty()) {
+            return;
+        }
+
+        BigDecimal managedEscrowAmount = firstManagedEscrowAmount(tutoringClass);
+        escrowService.lock(new EscrowLockCommand(
+                payerUserId,
+                managedEscrowAmount,
+                assignment.getAssignmentId(),
+                null));
+
+        eventPublisher.publishEvent(new ContractSigned(
+                contract.getContractId(),
+                tutoringClass.getClassId(),
+                payerUserId,
+                tutor.getUser().getUserId(),
+                managedEscrowAmount,
+                assignment.getAssignmentId(),
+                null));
+    }
+
+    private BigDecimal firstManagedEscrowAmount(TutoringClass tutoringClass) {
+        BigDecimal totalAmount = positiveAmount(tutoringClass.getBudget());
+        if (totalAmount == null && tutoringClass.getTuitionFee() != null
+                && tutoringClass.getNumberOfSessions() != null) {
+            totalAmount = tutoringClass.getTuitionFee()
+                    .multiply(BigDecimal.valueOf(tutoringClass.getNumberOfSessions()));
+        }
+        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new BusinessException("Không xác định được học phí để khóa escrow");
+        }
+
+        int plannedMonths = plannedPrivateClassMonths(tutoringClass);
+        if (plannedMonths <= 1) {
+            return normalizeMoney(totalAmount);
+        }
+        return normalizeMoney(totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP));
+    }
+
+    private int plannedPrivateClassMonths(TutoringClass tutoringClass) {
+        JsonNode details = readClassDetails(tutoringClass.getDetailsJson());
+        String scheduleMode = details.path("scheduleMode").asText("");
+        if (!"CUSTOM".equalsIgnoreCase(scheduleMode)) {
+            String billingCycle = details.path("billingCycle").asText("");
+            if ("MONTH".equalsIgnoreCase(billingCycle)) {
+                int months = Math.max(1, details.path("months").asInt(1));
+                String durationUnit = details.path("durationUnit").asText("");
+                return "YEAR".equalsIgnoreCase(durationUnit) ? months * 12 : months;
+            }
+            if ("TERM".equalsIgnoreCase(billingCycle)) {
+                return 3;
+            }
+            if ("QUARTER".equalsIgnoreCase(billingCycle)) {
+                return 6;
+            }
+            if ("YEAR".equalsIgnoreCase(billingCycle)) {
+                return 12;
+            }
+        }
+        return monthsBetween(tutoringClass.getStartDate(), tutoringClass.getEndDate());
+    }
+
+    private JsonNode readClassDetails(String detailsJson) {
+        if (detailsJson == null || detailsJson.isBlank()) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+        try {
+            return OBJECT_MAPPER.readTree(detailsJson);
+        } catch (Exception e) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+    }
+
+    private int monthsBetween(LocalDate startDate, LocalDate endDate) {
+        if (startDate == null || endDate == null || endDate.isBefore(startDate)) {
+            return 1;
+        }
+        long inclusiveDays = ChronoUnit.DAYS.between(startDate, endDate.plusDays(1));
+        return Math.max(1, (int) ((inclusiveDays + 30) / 31));
+    }
+
+    private BigDecimal positiveAmount(BigDecimal amount) {
+        return amount != null && amount.compareTo(BigDecimal.ZERO) > 0 ? amount : null;
+    }
+
+    private BigDecimal normalizeMoney(BigDecimal amount) {
+        return amount.setScale(2, RoundingMode.HALF_UP);
     }
 
     private void initializeSignatureSlots(Contract contract, ClassAssignment assignment) {
