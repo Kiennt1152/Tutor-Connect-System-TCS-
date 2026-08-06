@@ -10,7 +10,7 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
 
     Optional<Conversation> findByContextTypeAndContextId(String contextType, Long contextId);
 
-    @org.springframework.data.jpa.repository.Query("SELECT c FROM Conversation c JOIN ConversationParticipant cp ON c = cp.conversation WHERE cp.user.userId = :userId ORDER BY c.lastMessageAt DESC")
+    @org.springframework.data.jpa.repository.Query("SELECT c FROM Conversation c JOIN ConversationParticipant cp ON c = cp.conversation WHERE cp.user.userId = :userId ORDER BY COALESCE(c.lastMessageAt, c.createdAt) DESC")
     java.util.List<Conversation> findConversationsByParticipantUserId(@org.springframework.data.repository.query.Param("userId") Long userId);
 
     @org.springframework.data.jpa.repository.Query("SELECT c FROM Conversation c " +

@@ -37,6 +37,13 @@ public class ChatController {
         return chatService.startOrGetConversation(request.getTargetUserId());
     }
 
+    @GetMapping("/context/{contextType}/{contextId}")
+    public ConversationResponse getOrCreateContextConversation(
+            @PathVariable("contextType") String contextType,
+            @PathVariable("contextId") String contextId) {
+        return chatService.getOrCreateContextConversation(contextType, contextId);
+    }
+
     @GetMapping("/conversations/{id}/messages")
     public Page<MessageResponse> getMessages(
             @PathVariable("id") Long conversationId,

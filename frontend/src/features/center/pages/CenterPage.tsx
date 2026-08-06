@@ -6,6 +6,7 @@ import { APP_ROUTES } from '../../../shared/constants/routes';
 import { LocationPicker } from '../components/LocationPicker';
 import { profileApi } from '../../profile/api/profileApi';
 import { centerApi } from '../api/centerApi';
+import { ChatButton } from '../../messaging/components/ChatButton';
 import type { ClassRequest } from '../../marketplace/types/marketplaceTypes';
 import type {
   ClassResponse,
@@ -749,6 +750,12 @@ export default function CenterPage() {
                         </span>
                       </div>
                       <div className="cc-request__actions">
+                        <ChatButton
+                          contextType="CLASS_REQUEST"
+                          contextId={r.requestId}
+                          recipientName={r.clientName ?? undefined}
+                          size="sm"
+                        />
                         <button
                           className="cc-btn cc-btn--primary cc-btn--sm"
                           type="button"

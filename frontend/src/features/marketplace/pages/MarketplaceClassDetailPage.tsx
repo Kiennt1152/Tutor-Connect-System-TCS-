@@ -4,6 +4,7 @@ import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { marketplaceApi } from '../api/marketplaceApi';
+import { ChatButton } from '../../messaging/components/ChatButton';
 import type { LessonMode, MarketplaceClass, RecurringType } from '../types/marketplaceTypes';
 import './MarketplacePage.css';
 
@@ -187,20 +188,29 @@ export default function MarketplaceClassDetailPage() {
                       <div className="mk-alert mk-alert--error">{regMessage}</div>
                     )}
                     {isClient || isTutor ? (
-                      <button
-                        className="mk-btn mk-btn--primary mk-btn--block"
-                        type="button"
-                        disabled={regStatus === 'loading' || !isOpen}
-                        onClick={register}
-                      >
-                        {regStatus === 'loading'
-                          ? 'Đang xử lý…'
-                          : !isOpen
-                            ? 'Lớp đã đóng đăng ký'
-                            : isTutor
-                              ? 'Ứng tuyển dạy lớp'
-                              : 'Đăng ký học'}
-                      </button>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <button
+                          className="mk-btn mk-btn--primary mk-btn--block"
+                          type="button"
+                          disabled={regStatus === 'loading' || !isOpen}
+                          onClick={register}
+                        >
+                          {regStatus === 'loading'
+                            ? 'Đang xử lý…'
+                            : !isOpen
+                              ? 'Lớp đã đóng đăng ký'
+                              : isTutor
+                                ? 'Ứng tuyển dạy lớp'
+                                : 'Đăng ký học'}
+                        </button>
+                        {data.status === 'IN_PROGRESS' && (
+                          <ChatButton
+                            contextType="CLASS_ACTIVE"
+                            contextId={data.classId}
+                            label="Chat với bên liên quan"
+                          />
+                        )}
+                      </div>
                     ) : (
                       <p className="mk-note">
                         Đăng nhập bằng tài khoản gia sư hoặc phụ huynh/học viên để đăng ký.

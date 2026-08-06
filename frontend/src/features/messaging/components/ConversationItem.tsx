@@ -18,13 +18,29 @@ function formatTime(value: string | null): string {
   if (isSameDay) {
     return date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
   }
+  const diffDays = Math.floor((now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays >= 1 && diffDays < 7) {
+    return `${diffDays} ngày trước`;
+  }
   return date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+}
+
+function getContextLabel(type: string): string | null {
+  const labels: Record<string, string> = {
+    APPLICATION: '📝 Đơn ứng tuyển',
+    RECRUITMENT: '💼 Tuyển dụng',
+    RECRUITMENT_APPLICATION: '💼 Tuyển dụng',
+    CLASS_REQUEST: '📋 Yêu cầu lớp',
+    CLASS_ACTIVE: '📚 Lớp đang học',
+  };
+  return labels[type] || null;
 }
 
 export function ConversationItem({ conversation, active, onClick }: ConversationItemProps) {
   const other = conversation.otherParticipant;
   const name = other?.displayName ?? 'Người dùng';
   const hasUnread = conversation.unreadCount > 0;
+  const contextLabel = getContextLabel(conversation.type);
 
   return (
     <button
@@ -59,6 +75,11 @@ export function ConversationItem({ conversation, active, onClick }: Conversation
             </span>
           ) : null}
         </div>
+        {contextLabel && (
+          <div className="msg-conversation-item__context">
+            <span>{contextLabel}</span>
+          </div>
+        )}
       </div>
     </button>
   );

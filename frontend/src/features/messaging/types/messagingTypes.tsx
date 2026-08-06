@@ -98,3 +98,49 @@ export interface NotificationApiResponse {
   isRead: boolean;
   createdAt: string;
 }
+
+/* ── Direct Chat / Context Conversation Types ── */
+
+export type ContextType =
+  | 'APPLICATION'
+  | 'RECRUITMENT'
+  | 'RECRUITMENT_APPLICATION'
+  | 'CLASS_REQUEST'
+  | 'CLASS_ACTIVE'
+  | 'DIRECT';
+
+export interface UserSummaryResponse {
+  userId: number;
+  displayName: string;
+  avatarUrl: string | null;
+  role: string;
+}
+
+export interface ConversationResponse {
+  conversationId: number;
+  type: string;
+  otherParticipant: UserSummaryResponse | null;
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+}
+
+export interface MessageResponse {
+  messageId: number;
+  conversationId: number;
+  senderId: number;
+  senderName: string;
+  content: string;
+  sentAt: string;
+  isEdited: boolean;
+}
+
+export interface PageResponse<T> {
+  content: T[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+  last: boolean;
+}
+
