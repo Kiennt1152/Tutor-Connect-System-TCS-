@@ -1,56 +1,147 @@
 import axiosClient from '../../../shared/api/axiosClient';
+import { authStorage } from '../../../shared/auth/authStorage';
 import type {
   ContractApiResponse,
+  ContractResponse,
   ContractSignatureListApiResponse,
   GenerateContractApiRequest,
+  OtpSentResponse,
   SendOtpApiResponse,
+  SignatureStatusResponse,
+  SignContractRequest,
   SignWithOtpApiRequest,
 } from '../types/contractTypes';
 
-const BASE = '/contract';
+export const CONTRACT_API_BASE = '/contract';
+const BASE = CONTRACT_API_BASE;
 
-export const CONTRACT_API_BASE = BASE;
+type DataWrapped<T> = T & { data: T };
+
+function withData<T>(payload: T): DataWrapped<T> {
+  return Object.assign(payload as object, { data: payload }) as DataWrapped<T>;
+}
+
+function normalizeSignatureList(
+  response: ContractSignatureListApiResponse,
+): ContractSignatureListApiResponse {
+  const currentUserId = authStorage.getUser()?.userId ?? null;
+  const totalRequired = response.totalRequired ?? response.requiredSignatures ?? 0;
+  const fullySigned = response.fullySigned ?? response.hasAllSignatures ?? false;
+
+  return {
+    ...response,
+    totalRequired,
+    requiredSignatures: response.requiredSignatures ?? totalRequired,
+    fullySigned,
+    hasAllSignatures: response.hasAllSignatures ?? fullySigned,
+    signatures: response.signatures.map((signature) => ({
+      ...signature,
+      signerRole: signature.signerRole ?? signature.partyLabel,
+      isCurrentUser:
+        signature.isCurrentUser ?? (currentUserId != null && signature.signerId === currentUserId),
+    })),
+  };
+}
+
+function toSignatureStatus(response: ContractSignatureListApiResponse): SignatureStatusResponse {
+  const currentUserId = authStorage.getUser()?.userId ?? null;
+  return {
+    contractId: response.contractId,
+    contractNo: response.contractNo,
+    fullySigned: response.hasAllSignatures,
+    signedCount: response.signedCount,
+    totalRequired: response.requiredSignatures,
+    signatures: response.signatures
+      .filter((signature) => signature.signatureStatus === 'SIGNED')
+      .map((signature) => ({
+        signatureId: signature.signatureId,
+        signerUserId: signature.signerId,
+        signerName: signature.signerName ?? signature.signerEmail ?? signature.partyLabel,
+        signerRole: signature.partyLabel,
+        signedAt: signature.signedAt,
+        isCurrentUser: currentUserId != null && signature.signerId === currentUserId,
+      })),
+  };
+}
 
 export const contractApi = {
   http: axiosClient,
   basePath: BASE,
 
-  getMyContracts() {
-    return axiosClient.get<ContractApiResponse[]>(`${BASE}/my`);
+  async getMyContracts(): Promise<DataWrapped<ContractResponse[]>> {
+    const res = await axiosClient.get<ContractResponse[]>(BASE);
+    return withData(res.data);
   },
 
-  getContract(contractId: number) {
+  async getContractRaw(contractId: number) {
     return axiosClient.get<ContractApiResponse>(`${BASE}/${contractId}`);
   },
 
-  getContractRaw(contractId: number) {
-    return axiosClient.get<ContractApiResponse>(`${BASE}/${contractId}`);
+  async getContract(contractId: number): Promise<DataWrapped<ContractApiResponse>> {
+    const res = await axiosClient.get<ContractApiResponse>(`${BASE}/${contractId}`);
+    return withData(res.data);
   },
 
-  generateContract(payload: GenerateContractApiRequest) {
-    return axiosClient.post<ContractApiResponse>(`${BASE}/generate`, payload);
-  },
-
-  getSignatures(contractId: number) {
-    return axiosClient.get<ContractSignatureListApiResponse>(
+  async getSignatures(contractId: number): Promise<DataWrapped<ContractSignatureListApiResponse>> {
+    const res = await axiosClient.get<ContractSignatureListApiResponse>(
       `${BASE}/${contractId}/signatures`,
     );
+    return withData(normalizeSignatureList(res.data));
   },
 
-  getSignatureDetails(contractId: number) {
-    return axiosClient.get<ContractSignatureListApiResponse>(
-      `${BASE}/${contractId}/signature-details`,
+  async generateForAssignment(assignmentId: number): Promise<ContractResponse> {
+    const res = await axiosClient.post<ContractResponse>(
+      `${BASE}/generate/assignment/${assignmentId}`,
     );
+    return res.data;
   },
 
-  sendOtp(contractId: number) {
-    return axiosClient.post<SendOtpApiResponse>(`${BASE}/${contractId}/send-otp`);
+  async generateForEnrollment(classStudentId: number): Promise<ContractResponse> {
+    const res = await axiosClient.post<ContractResponse>(
+      `${BASE}/generate/enrollment/${classStudentId}`,
+    );
+    return res.data;
   },
 
-  signWithOtp(contractId: number, payload: SignWithOtpApiRequest) {
-    return axiosClient.post<ContractApiResponse>(
+  async generateContract(payload: GenerateContractApiRequest): Promise<DataWrapped<ContractApiResponse>> {
+    const res = await axiosClient.post<ContractApiResponse>(`${BASE}/generate`, payload);
+    return withData(res.data);
+  },
+
+  async sendOtp(contractId: number): Promise<DataWrapped<SendOtpApiResponse>> {
+    const res = await axiosClient.post<SendOtpApiResponse>(`${BASE}/${contractId}/send-otp`);
+    return withData(res.data);
+  },
+
+  async sendSignOtp(contractId: number): Promise<OtpSentResponse> {
+    const response = await this.sendOtp(contractId);
+    return {
+      maskedEmail: response.maskedEmail ?? '',
+      message: response.message,
+    };
+  },
+
+  async signWithOtp(
+    contractId: number,
+    payload: SignWithOtpApiRequest,
+  ): Promise<DataWrapped<ContractApiResponse>> {
+    const res = await axiosClient.post<ContractApiResponse>(
       `${BASE}/${contractId}/sign`,
       payload,
     );
+    return withData(res.data);
+  },
+
+  async signContract(
+    contractId: number,
+    payload: SignContractRequest,
+  ): Promise<ContractResponse> {
+    const response = await this.signWithOtp(contractId, payload);
+    return response.data;
+  },
+
+  async getSignatureStatus(contractId: number): Promise<SignatureStatusResponse> {
+    const response = await this.getSignatures(contractId);
+    return toSignatureStatus(response.data);
   },
 };

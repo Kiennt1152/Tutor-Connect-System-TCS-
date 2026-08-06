@@ -1,4 +1,4 @@
--- V10: E-Contract signatures + OTP + PENDING status + expiry
+-- V11: E-Contract signatures + OTP + PENDING status + expiry
 -- Required for UC-44 (M4 - DucHM)
 -- Prerequisite: V9__user_profile_completed_at.sql and V8__center_class_support.sql must have run
 --

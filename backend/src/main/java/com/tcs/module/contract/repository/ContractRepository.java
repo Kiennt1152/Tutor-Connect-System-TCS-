@@ -53,17 +53,28 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
             + "OR csEnroller.userId = :userId OR csCreator.userId = :userId")
     List<Contract> findContractsByUserId(@Param("userId") Long userId);
 
-    @Query("SELECT DISTINCT c FROM Contract c WHERE "
-            + "c.assignment IS NOT NULL AND c.assignment.tutor.user.userId = :userId")
+    @Query("""
+            SELECT DISTINCT c FROM Contract c
+            WHERE c.assignment IS NOT NULL
+              AND c.assignment.tutor.user.userId = :userId
+            """)
     List<Contract> findByAssignment_Tutor_UserId(@Param("userId") Long userId);
 
-    @Query("SELECT DISTINCT c FROM Contract c WHERE "
-            + "c.assignment IS NOT NULL AND c.assignment.application.tutoringClass.creator.userId = :userId")
+    @Query("""
+            SELECT DISTINCT c FROM Contract c
+            WHERE c.assignment IS NOT NULL
+              AND c.assignment.application IS NOT NULL
+              AND c.assignment.application.tutoringClass.creator.userId = :userId
+            """)
     List<Contract> findByAssignment_ClassCreator_UserId(@Param("userId") Long userId);
 
-    @Query("SELECT DISTINCT c FROM Contract c WHERE "
-            + "c.classStudent IS NOT NULL AND "
-            + "(c.classStudent.tutoringClass.creator.userId = :userId "
-            + "OR c.classStudent.enrolledByUser.userId = :userId)")
+    @Query("""
+            SELECT DISTINCT c FROM Contract c
+            WHERE c.classStudent IS NOT NULL
+              AND (
+                    c.classStudent.tutoringClass.creator.userId = :userId
+                    OR c.classStudent.enrolledByUser.userId = :userId
+                  )
+            """)
     List<Contract> findByClassStudent_UserId(@Param("userId") Long userId);
 }

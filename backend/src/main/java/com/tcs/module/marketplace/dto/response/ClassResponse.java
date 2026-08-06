@@ -42,6 +42,9 @@ public class ClassResponse {
     private ClassType classType;
     private Integer maxStudents;
     private long enrolledCount;
+    private boolean canRequestTermination;
+    private Long terminationAssignmentId;
+    private Long terminationClassStudentId;
     private List<ScheduleSlotResponse> schedule;
     private LocalDateTime createdAt;
     private Long applicationCount;

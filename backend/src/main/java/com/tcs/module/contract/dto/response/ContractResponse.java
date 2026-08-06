@@ -2,6 +2,8 @@ package com.tcs.module.contract.dto.response;
 
 import com.tcs.module.contract.enums.ContractSourceType;
 import com.tcs.module.contract.enums.ContractStatus;
+import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Builder;
@@ -47,14 +49,17 @@ public class ContractResponse {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
+    // Legacy contract pages still read these denormalized class fields.
     private String classTitle;
     private String classType;
     private BigDecimal tuitionFee;
     private String lessonMode;
     private Integer numberOfSessions;
+
     private PartyInfo tutor;
     private PartyInfo client;
     private PartyInfo center;
+    private EscrowPaymentInfo escrowPayment;
 
     @Getter
     @Builder
@@ -63,5 +68,24 @@ public class ContractResponse {
         private String fullName;
         private String email;
         private String phone;
+    }
+
+    @Getter
+    @Builder
+    public static class EscrowPaymentInfo {
+        private Long escrowId;
+        private EscrowStatus escrowStatus;
+        private Long paymentTransactionId;
+        private PaymentTransactionStatus paymentStatus;
+        private BigDecimal amount;
+        private String referenceCode;
+        private String bankName;
+        private String bankBin;
+        private String accountNumber;
+        private String accountName;
+        private String transferContent;
+        private String qrUrl;
+        private LocalDateTime depositedAt;
+        private LocalDateTime processedAt;
     }
 }

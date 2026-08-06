@@ -1,6 +1,7 @@
 package com.tcs.module.marketplace.controller;
 
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
+import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
 import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
@@ -11,6 +12,7 @@ import com.tcs.module.marketplace.dto.response.AssignmentResponse;
 import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
+import com.tcs.module.marketplace.dto.response.ClassTerminationResponse;
 import com.tcs.module.marketplace.dto.response.LessonResponse;
 import com.tcs.module.marketplace.dto.response.RescheduleRequestResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
@@ -49,8 +51,11 @@ public class MarketplaceController {
     }
 
     @GetMapping("/classes/{classId}")
-    public ClassResponse getClass(@PathVariable Long classId) {
-        return marketplaceService.getClass(classId);
+    public ClassResponse getClass(
+            @PathVariable Long classId,
+            @RequestParam(required = false) Long assignmentId,
+            @RequestParam(required = false) Long classStudentId) {
+        return marketplaceService.getClass(classId, assignmentId, classStudentId);
     }
 
     @PostMapping("/classes")
@@ -104,6 +109,13 @@ public class MarketplaceController {
     public Map<String, String> applyToClass(@PathVariable Long classId, @RequestBody ApplyClassRequest request) {
         marketplaceService.applyToClass(classId, request);
         return Map.of("message", "Đã gửi đơn ứng tuyển");
+    }
+
+    @PostMapping("/classes/{classId}/termination")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ClassTerminationResponse requestClassTermination(
+            @PathVariable Long classId, @RequestBody CreateClassTerminationRequest request) {
+        return marketplaceService.requestClassTermination(classId, request);
     }
 
     /** Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh. */

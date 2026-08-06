@@ -687,10 +687,95 @@
 .mkt-detail__timetable {
   margin-top: 20px;
 }
+
+.mk-enroll {
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mk-class-actions {
+  margin-top: 14px;
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.mk-enroll__head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.mk-enroll__title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.mk-enroll__cap {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.mk-note,
 .mkt-muted {
   margin: 0;
   color: #8592a3;
   font-size: 13px;
+}
+
+.mk-btn {
+  padding: 12px 16px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.mk-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+.mk-btn--primary {
+  background: var(--color-primary);
+  color: #fff;
+}
+.mk-btn--primary:hover:not(:disabled) {
+  background: var(--color-primary-dark);
+}
+.mk-btn--danger {
+  background: #fff7ed;
+  color: var(--color-primary-dark);
+  border-color: var(--color-primary-light);
+}
+.mk-btn--danger:hover:not(:disabled) {
+  background: var(--color-primary);
+  color: #fff;
+}
+.mk-btn--secondary {
+  background: #fff;
+  color: var(--color-text-primary);
+  border-color: var(--color-border);
+}
+.mk-btn--secondary:hover:not(:disabled) {
+  background: var(--color-surface-3);
+  border-color: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+.mk-btn--block {
+  width: 100%;
+}
+
+@media (max-width: 780px) {
+  .mk-detail {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 900px) {

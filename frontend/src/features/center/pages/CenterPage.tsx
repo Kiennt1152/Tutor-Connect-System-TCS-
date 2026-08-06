@@ -733,6 +733,9 @@ export default function CenterPage() {
             <Link className="cc-btn cc-btn--ghost" to="/center/reschedules">
               Yêu cầu đổi lịch
             </Link>
+            <Link className="cc-btn cc-btn--ghost" to={APP_ROUTES.centerReports}>
+              Báo cáo & tranh chấp
+            </Link>
             <button className="cc-btn cc-btn--primary" type="button" onClick={openCreate}>
               Tạo lớp mới
             </button>

@@ -10,8 +10,17 @@ import java.math.BigDecimal;
  */
 public interface WalletService {
 
-    /** Dam bao user co vi (tao neu chua co) - 0.9. */
+    /** Dam bao user co vi (tao neu chua co) - dung cho cac luong noi bo nhu giai ngan. */
     Wallet getOrCreate(Long userId);
+
+    /** Lay vi hien co, khong tu dong tao. */
+    Wallet getRequired(Long userId);
+
+    /** Tao vi cho user neu chua co. */
+    Wallet create(Long userId);
+
+    /** Vi ky thuat cua TCS de ghi nhan tien client chuyen thang vao escrow. */
+    Wallet getSystemEscrowWallet();
 
     BigDecimal balance(Long userId);
 

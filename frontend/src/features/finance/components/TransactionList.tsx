@@ -1,6 +1,7 @@
 import type { TransactionPage } from '../types/financeTypes';
 import { TransactionRow } from './TransactionRow';
 import type { TransactionFilter } from '../types/financeTypes';
+import { formatCurrency } from '../mappers/financeMapper';
 
 interface Props {
   page: TransactionPage;
@@ -20,9 +21,46 @@ const TX_TYPES = [
 
 export function TransactionList({ page, loading, filters, onFilterChange }: Props) {
   const totalPages = page.totalPages;
+  const pageSize = filters.size ?? 10;
+  const firstItem = page.totalElements === 0 ? 0 : page.page * pageSize + 1;
+  const lastItem = Math.min((page.page + 1) * pageSize, page.totalElements);
+  const pageCredit = page.transactions
+    .filter((tx) => tx.type === 'DEPOSIT' || tx.type === 'REFUND' || tx.type === 'ESCROW_RELEASE')
+    .reduce((sum, tx) => sum + tx.amount, 0);
+  const pageDebit = page.transactions
+    .filter((tx) => tx.type === 'WITHDRAWAL' || tx.type === 'ESCROW_DEPOSIT')
+    .reduce((sum, tx) => sum + tx.amount, 0);
 
   return (
     <div className="tx-list">
+      <div className="tx-list__summary">
+        <div className="tx-list__summary-item">
+          <span>Tổng giao dịch</span>
+          <strong>{page.totalElements}</strong>
+        </div>
+        <div className="tx-list__summary-item tx-list__summary-item--credit">
+          <span>Tiền vào trang này</span>
+          <strong>{formatCurrency(pageCredit)}</strong>
+        </div>
+        <div className="tx-list__summary-item tx-list__summary-item--debit">
+          <span>Tiền ra trang này</span>
+          <strong>{formatCurrency(pageDebit)}</strong>
+        </div>
+        <label className="tx-list__page-size">
+          <span>Số dòng</span>
+          <select
+            value={pageSize}
+            onChange={(event) =>
+              onFilterChange({ ...filters, page: 0, size: Number(event.target.value) })
+            }
+          >
+            <option value={10}>10</option>
+            <option value={20}>20</option>
+            <option value={50}>50</option>
+          </select>
+        </label>
+      </div>
+
       {/* Filter bar */}
       <div className="tx-list__filters">
         <select
@@ -97,10 +135,10 @@ export function TransactionList({ page, loading, filters, onFilterChange }: Prop
               onFilterChange({ ...filters, page: (page.page - 1) })
             }
           >
-            ← Trước
+            Trước
           </button>
           <span className="tx-list__page-info">
-            Trang {page.page + 1} / {totalPages} — {page.totalElements} giao dịch
+            {firstItem}-{lastItem} / {page.totalElements} giao dịch · Trang {page.page + 1}/{totalPages}
           </span>
           <button
             className="tx-list__page-btn"
@@ -109,7 +147,7 @@ export function TransactionList({ page, loading, filters, onFilterChange }: Prop
               onFilterChange({ ...filters, page: (page.page + 1) })
             }
           >
-            Sau →
+            Sau
           </button>
         </div>
       )}
