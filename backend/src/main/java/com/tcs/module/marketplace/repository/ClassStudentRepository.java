@@ -11,6 +11,9 @@ public interface ClassStudentRepository extends JpaRepository<ClassStudent, Long
 
     boolean existsByTutoringClass_ClassIdAndEnrolledByUser_UserId(Long classId, Long userId);
 
+    /** Check trùng theo CHÍNH học sinh (email tài khoản đăng ký) — 2 con cùng phụ huynh vẫn đăng ký được. */
+    boolean existsByTutoringClass_ClassIdAndStudentEmail(Long classId, String studentEmail);
+
     /** Đã có bất kỳ học viên nào đăng ký lớp (mọi trạng thái, kể cả chờ ký hợp đồng). */
     boolean existsByTutoringClass_ClassId(Long classId);
 

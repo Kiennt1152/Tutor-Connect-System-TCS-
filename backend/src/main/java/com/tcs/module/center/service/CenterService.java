@@ -56,10 +56,11 @@ public interface CenterService {
 
     /**
      * Duyệt (PASSED, chờ ký) hoặc từ chối (REJECTED) một đơn ứng tuyển.
-     * {@code contractTemplateId} (tuỳ chọn): mẫu hợp đồng center chọn khi duyệt để gửi gia sư ký.
+     * {@code contractTemplateId} (tuỳ chọn): mẫu hợp đồng center chọn khi duyệt.
+     * {@code contractContent} (tuỳ chọn): nội dung điều khoản center tự nhập/sửa khi duyệt.
      */
     RecruitmentApplicationResponse decideApplication(
-            Long recruitmentAppId, boolean approve, Long contractTemplateId);
+            Long recruitmentAppId, boolean approve, Long contractTemplateId, String contractContent);
 
     // ===================== Quản lý danh sách gia sư của trung tâm =====================
 
@@ -149,4 +150,11 @@ public interface CenterService {
     /** Sửa mẫu hợp đồng của chính trung tâm (không sửa mẫu hệ thống). */
     com.tcs.module.center.dto.response.ContractTemplateResponse updateContractTemplate(
             Long templateId, com.tcs.module.center.dto.request.SaveContractTemplateRequest request);
+
+    /** Thông tin trung tâm cho khối BÊN A của hợp đồng (hồ sơ + phần bổ sung). */
+    com.tcs.module.center.dto.response.CenterContractInfoResponse getContractInfo();
+
+    /** Lưu thông tin bổ sung BÊN A (website, đại diện, chức vụ). */
+    com.tcs.module.center.dto.response.CenterContractInfoResponse saveContractInfo(
+            com.tcs.module.center.dto.request.SaveCenterContractInfoRequest request);
 }

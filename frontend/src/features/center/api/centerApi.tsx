@@ -1,6 +1,7 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type { ClassRequest } from '../../marketplace/types/marketplaceTypes';
 import type {
+  CenterContractInfo,
   CenterMember,
   ClassResponse,
   ContractTemplate,
@@ -50,10 +51,15 @@ export const centerApi = {
       `${CENTER_API_BASE}/recruitment/${recruitmentId}/applications`,
     );
   },
-  decideApplication(recruitmentAppId: number, approve: boolean, contractTemplateId?: number) {
+  decideApplication(
+    recruitmentAppId: number,
+    approve: boolean,
+    contractTemplateId?: number,
+    contractContent?: string,
+  ) {
     return axiosClient.post<RecruitmentApplication>(
       `${CENTER_API_BASE}/recruitment/applications/${recruitmentAppId}/decision`,
-      { approve, contractTemplateId },
+      { approve, contractTemplateId, contractContent },
     );
   },
 
@@ -164,6 +170,18 @@ export const centerApi = {
       `${CENTER_API_BASE}/contract-templates/${templateId}`,
       payload,
     );
+  },
+
+  // ----- Thông tin trung tâm trên hợp đồng (BÊN A) -----
+  getContractInfo() {
+    return axiosClient.get<CenterContractInfo>(`${CENTER_API_BASE}/contract-info`);
+  },
+  saveContractInfo(payload: {
+    website?: string;
+    representativeName?: string;
+    representativePosition?: string;
+  }) {
+    return axiosClient.put<CenterContractInfo>(`${CENTER_API_BASE}/contract-info`, payload);
   },
 
   // ----- Yêu cầu mở lớp do phụ huynh gửi tới trung tâm -----

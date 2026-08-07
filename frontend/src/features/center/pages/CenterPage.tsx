@@ -87,6 +87,7 @@ interface FormState {
   minStudents: string;
   originType: 'SELF' | 'EXTERNAL';
   contractTemplateId: string;
+  contractContent: string;
   startDate: string;
   endDate: string;
   schedule: SlotForm[];
@@ -109,6 +110,7 @@ const EMPTY_FORM: FormState = {
   minStudents: '',
   originType: 'SELF',
   contractTemplateId: '',
+  contractContent: '',
   startDate: '',
   endDate: '',
   schedule: [{ dayOfWeek: 1, startTime: '18:00', endTime: '20:00' }],
@@ -165,7 +167,8 @@ function toFormState(c: ClassResponse): FormState {
     maxStudents: c.maxStudents != null ? String(c.maxStudents) : '',
     minStudents: c.minStudents != null ? String(c.minStudents) : '',
     originType: c.originType === 'EXTERNAL' ? 'EXTERNAL' : 'SELF',
-    contractTemplateId: '',
+    contractTemplateId: c.contractTemplateId != null ? String(c.contractTemplateId) : '',
+    contractContent: c.contractContent ?? '',
     startDate: c.startDate,
     endDate: c.endDate,
     schedule,
@@ -244,6 +247,7 @@ function buildPayload(form: FormState): SaveClassRequest {
     minStudents: form.originType === 'EXTERNAL' ? null : num(form.minStudents),
     originType: form.originType,
     contractTemplateId: form.contractTemplateId ? Number(form.contractTemplateId) : null,
+    contractContent: form.contractContent,
     startDate: form.startDate || null,
     endDate: form.endDate || null,
     schedule: form.schedule.map((s) => ({
@@ -982,13 +986,18 @@ export default function CenterPage() {
             </label>
 
             <label className="cc-field">
-              <span className="cc-label">Mẫu hợp đồng</span>
+              <span className="cc-label">Mẫu hợp đồng (học viên)</span>
               <select
                 className="cc-input"
                 value={form.contractTemplateId}
-                onChange={(e) => patch({ contractTemplateId: e.target.value })}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  const tpl = templates.find((t) => String(t.templateId) === id);
+                  // Chọn mẫu -> nạp sẵn nội dung điều khoản để trung tâm sửa tiếp.
+                  patch(tpl ? { contractTemplateId: id, contractContent: tpl.content } : { contractTemplateId: id });
+                }}
               >
-                <option value="">— Dùng mẫu mặc định —</option>
+                <option value="">— Dùng mẫu mặc định / tự nhập —</option>
                 {templates
                   .filter((t) => t.contractType !== 'RECRUITMENT')
                   .map((t) => (
@@ -998,6 +1007,20 @@ export default function CenterPage() {
                     </option>
                   ))}
               </select>
+            </label>
+
+            <label className="cc-field cc-field--full">
+              <span className="cc-label">Nội dung điều khoản & nghĩa vụ (HĐ học viên)</span>
+              <textarea
+                className="cc-input"
+                rows={6}
+                value={form.contractContent}
+                onChange={(e) => patch({ contractContent: e.target.value })}
+                placeholder="Điều 1. ...  (Biến tự điền khi tạo hợp đồng: {{tenHocVien}}, {{tenLop}}, {{monHoc}}, {{hocPhi}}, {{soBuoi}}, {{ngayBatDau}}, {{ngayKetThuc}}, {{tenTrungTam}})"
+              />
+              <small className="cc-hint">
+                Quốc hiệu, tiêu đề, thông tin các bên sẽ được hệ thống tự thêm. Để trống = dùng nội dung mẫu.
+              </small>
             </label>
 
             {form.originType === 'EXTERNAL' ? (

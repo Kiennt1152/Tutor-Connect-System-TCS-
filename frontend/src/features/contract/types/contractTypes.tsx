@@ -50,6 +50,8 @@ export interface ContractResponse {
   templateId?: number | null;
   templateName?: string | null;
   termsSummary: string | null;
+  /** Văn bản hợp đồng đầy đủ (Quốc hiệu + BÊN A + BÊN B + điều khoản). */
+  documentText?: string | null;
   contractFileUrl: string | null;
   hasAllSignatures?: boolean;
   signedCount?: number;

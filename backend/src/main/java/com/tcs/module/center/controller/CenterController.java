@@ -106,7 +106,8 @@ public class CenterController {
     public RecruitmentApplicationResponse decideApplication(
             @PathVariable Long recruitmentAppId, @RequestBody ApplicationDecisionBody request) {
         return centerService.decideApplication(
-                recruitmentAppId, request.isApprove(), request.getContractTemplateId());
+                recruitmentAppId, request.isApprove(),
+                request.getContractTemplateId(), request.getContractContent());
     }
 
     // ===== Quản lý danh sách gia sư của trung tâm =====
@@ -178,6 +179,19 @@ public class CenterController {
     public ContractTemplateResponse updateContractTemplate(
             @PathVariable Long templateId, @RequestBody SaveContractTemplateRequest request) {
         return centerService.updateContractTemplate(templateId, request);
+    }
+
+    // ===== Thông tin trung tâm trên hợp đồng (BÊN A) =====
+
+    @GetMapping("/contract-info")
+    public com.tcs.module.center.dto.response.CenterContractInfoResponse getContractInfo() {
+        return centerService.getContractInfo();
+    }
+
+    @PutMapping("/contract-info")
+    public com.tcs.module.center.dto.response.CenterContractInfoResponse saveContractInfo(
+            @RequestBody com.tcs.module.center.dto.request.SaveCenterContractInfoRequest request) {
+        return centerService.saveContractInfo(request);
     }
 
     @PutMapping("/classes/{classId}")

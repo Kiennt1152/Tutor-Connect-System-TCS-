@@ -109,6 +109,7 @@ public class ContractServiceImpl implements ContractService {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final String DEFAULT_ANONYMOUS_NAME = "Người dùng ẩn danh";
     private static final int REVIEW_REQUIRED_WITHIN_MONTHS = 1;
+    private static final DateTimeFormatter DOC_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     private final AuthHelper authHelper;
     private final ContractRepository contractRepository;
@@ -129,6 +130,7 @@ public class ContractServiceImpl implements ContractService {
     private final SystemParameterRepository systemParameterRepository;
     private final ReputationHistoryRepository reputationHistoryRepository;
     private final LessonRepository lessonRepository;
+    private final com.tcs.module.profile.service.CccdService cccdService;
 
     // ─── VIEW CONTRACT (4.2) ──────────────────────────────────────────────────
 
@@ -172,19 +174,71 @@ public class ContractServiceImpl implements ContractService {
                 .filter(s -> s.getSignatureStatus() == ContractSignatureStatus.SIGNED)
                 .count();
 
+        Long viewerId = authHelper.currentUserId();
+        PartyRole viewerRole = partyRoleOf(contract, viewerId);
+
         return ContractSignatureListResponse.builder()
                 .contractId(contractId)
                 .contractNo(contract.getContractNo())
                 .hasAllSignatures(signed >= required)
+                .fullySigned(signed >= required)
                 .signedCount(signed)
                 .requiredSignatures(required)
-                .signatures(signatures.stream().map(this::toSignatureResponse).toList())
+                .totalRequired(required)
+                .signatures(signatures.stream()
+                        .map(s -> toSignatureResponse(s, viewerId, viewerRole))
+                        .toList())
                 .build();
+    }
+
+    /** Vai trò của {@code userId} trong hợp đồng (không ném lỗi nếu không phải bên nào -> null). */
+    private PartyRole partyRoleOf(Contract contract, Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        if (contract.getRecruitmentApplication() != null) {
+            RecruitmentApplication app = contract.getRecruitmentApplication();
+            if (app.getTutor().getUser().getUserId().equals(userId)) {
+                return PartyRole.TUTOR;
+            }
+            if (app.getRecruitmentPost().getCenter().getUser().getUserId().equals(userId)) {
+                return PartyRole.CENTER;
+            }
+            return null;
+        }
+        if (contract.getClassStudent() != null) {
+            ClassStudent cs = contract.getClassStudent();
+            if (cs.getEnrolledByUser() != null && cs.getEnrolledByUser().getUserId().equals(userId)) {
+                return PartyRole.CLIENT;
+            }
+            TutoringClass cls = cs.getTutoringClass();
+            if (cls != null && cls.getCreator() != null && cls.getCreator().getUserId().equals(userId)) {
+                return tutorCenterRepository.findByUser_UserId(userId).isPresent()
+                        ? PartyRole.CENTER : PartyRole.CLIENT;
+            }
+            return null;
+        }
+        if (contract.getAssignment() != null) {
+            ClassAssignment a = contract.getAssignment();
+            if (a.getTutor() != null && a.getTutor().getUser() != null
+                    && a.getTutor().getUser().getUserId().equals(userId)) {
+                return PartyRole.TUTOR;
+            }
+            TutorApplication app = a.getApplication();
+            if (app != null && app.getTutoringClass() != null && app.getTutoringClass().getCreator() != null
+                    && app.getTutoringClass().getCreator().getUserId().equals(userId)) {
+                return tutorCenterRepository.findByUser_UserId(userId).isPresent()
+                        ? PartyRole.CENTER : PartyRole.CLIENT;
+            }
+        }
+        return null;
     }
 
     @Override
     @Transactional
     public Map<String, Object> sendOtp(Long contractId) {
+        assertSignerNotMinor();
+        assertSignerCccdComplete();
         Contract contract = findContract(contractId);
         PartyRole role = resolvePartyRole(contract);
 
@@ -243,6 +297,8 @@ public class ContractServiceImpl implements ContractService {
         if (request.getOtpCode() == null || request.getOtpCode().isBlank()) {
             throw new IllegalArgumentException("Mã OTP là bắt buộc");
         }
+        assertSignerNotMinor();
+        assertSignerCccdComplete();
 
         Contract contract = findContract(contractId);
         PartyRole role = resolvePartyRole(contract);
@@ -409,7 +465,8 @@ public class ContractServiceImpl implements ContractService {
     // ─── GENERATE COOPERATION CONTRACT (BF-03 bước 7) ───────────────────────
     @Override
     @Transactional
-    public ContractResponse generateCooperationContract(Long recruitmentApplicationId, Long templateId) {
+    public ContractResponse generateCooperationContract(
+            Long recruitmentApplicationId, Long templateId, String editedTerms) {
         RecruitmentApplication app = recruitmentApplicationRepository.findById(recruitmentApplicationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn ứng tuyển"));
 
@@ -419,10 +476,22 @@ public class ContractServiceImpl implements ContractService {
             throw new IllegalStateException("Thỏa thuận hợp tác đã tồn tại cho đơn này");
         }
 
-        // Nội dung hợp đồng: lấy từ mẫu center chọn khi duyệt (nếu có), ngược lại dùng mặc định.
         ContractTemplate template = templateId != null
                 ? contractTemplateRepository.findById(templateId).orElse(null)
                 : null;
+        // Nội dung điều khoản thô: ưu tiên nội dung center tự nhập khi duyệt -> mẫu -> mặc định.
+        String rawTerms = firstNonBlank(editedTerms,
+                template != null ? template.getContent() : null,
+                "Điều 1. Gia sư đồng ý gia nhập đội ngũ gia sư của trung tâm và tuân thủ quy định của trung tâm.\n"
+                        + "Điều 2. Hai bên hợp tác trên tinh thần thiện chí, trung thực.");
+
+        Tutor tutor = app.getTutor();
+        TutorCenter center = app.getRecruitmentPost().getCenter();
+
+        Map<String, String> vars = new java.util.HashMap<>();
+        vars.put("tenGiaSu", tutor.getFullName());
+        vars.put("tenTrungTam", center.getCompanyName());
+        vars.put("ngayKy", LocalDate.now().format(DOC_DATE));
 
         Contract contract = new Contract();
         contract.setContractNo(generateContractNo());
@@ -431,21 +500,13 @@ public class ContractServiceImpl implements ContractService {
         contract.setSourceType(ContractSourceType.CENTER);
         contract.setExpiresAt(LocalDateTime.now().plusDays(CONTRACT_EXPIRY_DAYS));
         contract.setTemplate(template);
-        contract.setTermsSummary(template != null && template.getContent() != null
-                        && !template.getContent().isBlank()
-                ? template.getContent()
-                : "Thỏa thuận hợp tác gia nhập đội ngũ gia sư của trung tâm.");
+        // Lưu ĐIỀU KHOẢN đã render placeholder (đóng băng); BÊN A/BÊN B dựng động khi hiển thị.
+        contract.setTermsSummary(renderPlaceholders(rawTerms, vars).trim());
         contract = contractRepository.save(contract);
 
-        // BF-03 bước 8: chỉ gia sư ký (trung tâm là bên duyệt/tạo).
-        Tutor tutor = app.getTutor();
-        ContractSignature tutorSig = new ContractSignature();
-        tutorSig.setContract(contract);
-        tutorSig.setPartyRole(PartyRole.TUTOR);
-        tutorSig.setEmail(tutor.getUser().getEmail());
-        tutorSig.setSignatureStatus(ContractSignatureStatus.PENDING);
-        tutorSig.setOtpAttempts(0);
-        contractSignatureRepository.save(tutorSig);
+        // BF-03 bước 8: trung tâm KÝ SẴN, gia sư ký bằng OTP.
+        createSignedCenterSignature(contract, center.getUser());
+        createPendingSignature(contract, PartyRole.TUTOR, tutor.getUser().getEmail());
 
         return toContractResponse(contract);
     }
@@ -463,28 +524,50 @@ public class ContractServiceImpl implements ContractService {
             return toContractResponse(existing.get());
         }
 
+        TutoringClass cls = cs.getTutoringClass();
+        Long classId = cls.getClassId();
+        ContractTemplate template = resolveClassTemplate(classId);
+        // Nội dung điều khoản thô: ưu tiên nội dung center nhập khi tạo lớp (classterms:{id}) -> mẫu -> mặc định.
+        String rawTerms = firstNonBlank(
+                findClassTerms(classId),
+                template != null ? template.getContent() : null,
+                "Điều 1. Học viên ghi danh và cam kết tham gia đầy đủ các buổi học của lớp.\n"
+                        + "Điều 2. Trung tâm bảo đảm tổ chức lớp học theo đúng lịch và nội dung đã công bố.");
+
+        String centerName = tutorCenterRepository
+                .findByUser_UserId(cls.getCreator().getUserId())
+                .map(TutorCenter::getCompanyName)
+                .orElse(null);
+        String studentName = cs.getStudentName();
+
+        Map<String, String> vars = new java.util.HashMap<>();
+        vars.put("tenHocVien", studentName);
+        vars.put("tenTrungTam", centerName);
+        vars.put("tenLop", cls.getTitle());
+        vars.put("monHoc", cls.getSubject() != null ? cls.getSubject().getSubjectName() : "");
+        vars.put("hocPhi", formatMoney(cls.getTuitionFee()));
+        vars.put("soBuoi", cls.getNumberOfSessions() != null ? String.valueOf(cls.getNumberOfSessions()) : "");
+        vars.put("ngayBatDau", cls.getStartDate() != null ? cls.getStartDate().format(DOC_DATE) : "");
+        vars.put("ngayKetThuc", cls.getEndDate() != null ? cls.getEndDate().format(DOC_DATE) : "");
+        vars.put("ngayKy", LocalDate.now().format(DOC_DATE));
+
         Contract contract = new Contract();
         contract.setContractNo(generateContractNo());
         contract.setClassStudent(cs);
         contract.setStatus(ContractStatus.PENDING);
         contract.setSourceType(ContractSourceType.CENTER);
         contract.setExpiresAt(LocalDateTime.now().plusDays(CONTRACT_EXPIRY_DAYS));
-        ContractTemplate template = resolveClassTemplate(cs.getTutoringClass().getClassId());
         contract.setTemplate(template);
-        contract.setTermsSummary(template != null ? template.getContent()
-                : "Hợp đồng ghi danh học viên vào lớp của trung tâm.");
+        // Lưu ĐIỀU KHOẢN đã render placeholder (đóng băng); BÊN A/BÊN B dựng động khi hiển thị.
+        contract.setTermsSummary(renderPlaceholders(rawTerms, vars).trim());
         contract = contractRepository.save(contract);
 
-        // BF-04 bước 7: người ghi danh (phụ huynh/học viên) ký.
-        ContractSignature clientSig = new ContractSignature();
-        clientSig.setContract(contract);
-        clientSig.setPartyRole(PartyRole.CLIENT);
-        if (cs.getEnrolledByUser() != null) {
-            clientSig.setEmail(cs.getEnrolledByUser().getEmail());
+        // BF-04 bước 7: trung tâm KÝ SẴN, người ghi danh (phụ huynh/học viên) ký bằng OTP.
+        if (cls.getCreator() != null) {
+            createSignedCenterSignature(contract, cls.getCreator());
         }
-        clientSig.setSignatureStatus(ContractSignatureStatus.PENDING);
-        clientSig.setOtpAttempts(0);
-        contractSignatureRepository.save(clientSig);
+        createPendingSignature(contract, PartyRole.CLIENT,
+                cs.getEnrolledByUser() != null ? cs.getEnrolledByUser().getEmail() : null);
 
         return toContractResponse(contract);
     }
@@ -515,6 +598,190 @@ public class ContractServiceImpl implements ContractService {
         return systemParameterRepository.findByParamKey("tpltype:" + templateId)
                 .map(p -> "RECRUITMENT".equalsIgnoreCase(p.getParamValue()))
                 .orElse(false);
+    }
+
+    /** Nội dung điều khoản center nhập khi tạo lớp (classterms:{classId}), nếu có. */
+    private String findClassTerms(Long classId) {
+        return systemParameterRepository.findByParamKey("classterms:" + classId)
+                .map(SystemParameter::getParamValue)
+                .orElse(null);
+    }
+
+    // ─── Dựng văn bản hợp đồng: khung chuẩn + tự điền dữ liệu (placeholder) + đóng băng ─────
+
+    private String firstNonBlank(String... values) {
+        for (String v : values) {
+            if (v != null && !v.isBlank()) {
+                return v;
+            }
+        }
+        return "";
+    }
+
+    /** Thay {{key}} bằng giá trị; token không có trong map được giữ nguyên để center biết mà bổ sung. */
+    private String renderPlaceholders(String raw, Map<String, String> vars) {
+        if (raw == null) {
+            return "";
+        }
+        String out = raw;
+        for (Map.Entry<String, String> e : vars.entrySet()) {
+            out = out.replace("{{" + e.getKey() + "}}", e.getValue() == null ? "" : e.getValue());
+        }
+        return out;
+    }
+
+    private String nz(String s) {
+        return s == null ? "" : s;
+    }
+
+    /**
+     * Dựng văn bản hợp đồng hoàn chỉnh để hiển thị: Quốc hiệu + tiêu ngữ + tiêu đề + khối BÊN A
+     * (thông tin trung tâm) + khối BÊN B (thông tin CCCD người ký) + điều khoản đã đóng băng.
+     * BÊN A/BÊN B lấy động từ dữ liệu mới nhất để luôn khớp thông tin đã xác minh.
+     */
+    private String assembleDocument(Contract c) {
+        String clauses = c.getTermsSummary() == null ? "" : c.getTermsSummary().trim();
+        String title;
+        String partyBLabel;
+        TutorCenter center = null;
+        Long signerUserId = null;
+        String hocVien = null;
+
+        if (c.getRecruitmentApplication() != null) {
+            title = "HỢP ĐỒNG HỢP TÁC GIA SƯ";
+            partyBLabel = "GIA SƯ (BÊN THỰC HIỆN)";
+            RecruitmentApplication app = c.getRecruitmentApplication();
+            center = app.getRecruitmentPost().getCenter();
+            signerUserId = app.getTutor().getUser().getUserId();
+        } else if (c.getClassStudent() != null) {
+            title = "HỢP ĐỒNG GHI DANH HỌC VIÊN";
+            partyBLabel = "NGƯỜI ĐẠI DIỆN KÝ (BÊN THỰC HIỆN)";
+            ClassStudent cs = c.getClassStudent();
+            hocVien = cs.getStudentName();
+            if (cs.getTutoringClass() != null && cs.getTutoringClass().getCreator() != null) {
+                center = tutorCenterRepository
+                        .findByUser_UserId(cs.getTutoringClass().getCreator().getUserId())
+                        .orElse(null);
+            }
+            signerUserId = cs.getEnrolledByUser() != null ? cs.getEnrolledByUser().getUserId() : null;
+        } else {
+            title = "HỢP ĐỒNG GIA SƯ";
+            partyBLabel = "GIA SƯ (BÊN THỰC HIỆN)";
+            ClassAssignment a = c.getAssignment();
+            signerUserId = a != null && a.getTutor() != null && a.getTutor().getUser() != null
+                    ? a.getTutor().getUser().getUserId() : null;
+        }
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM\n");
+        sb.append("Độc lập - Tự do - Hạnh phúc\n");
+        sb.append("---------------o0o---------------\n\n");
+        sb.append(title).append("\n");
+        sb.append("Số: ").append(nz(c.getContractNo())).append("\n\n");
+        if (center != null) {
+            sb.append(centerBlock(center)).append("\n");
+        }
+        sb.append(partyBBlock(partyBLabel, signerUserId, hocVien)).append("\n");
+        sb.append("Sau khi bàn bạc, hai bên thống nhất các điều khoản sau:\n\n");
+        sb.append("ĐIỀU KHOẢN & NGHĨA VỤ:\n");
+        sb.append(clauses.isBlank() ? "(Chưa có nội dung điều khoản)" : clauses);
+        return sb.toString();
+    }
+
+    /** Khối BÊN A: thông tin trung tâm (hồ sơ + thông tin ký hợp đồng bổ sung). */
+    private String centerBlock(TutorCenter center) {
+        Map<String, String> extra = readCenterContractExtra(center.getCenterId());
+        String email = center.getUser() != null ? center.getUser().getEmail() : null;
+        StringBuilder sb = new StringBuilder();
+        sb.append("BÊN A: ").append(nz(center.getCompanyName())).append("\n");
+        sb.append("Trụ sở: ").append(nz(center.getAddress())).append("\n");
+        sb.append("Điện thoại: ").append(nz(center.getPhone()));
+        if (email != null && !email.isBlank()) {
+            sb.append("   Mail: ").append(email);
+        }
+        String website = extra.get("website");
+        if (website != null && !website.isBlank()) {
+            sb.append("   Website: ").append(website);
+        }
+        sb.append("\n");
+        String rep = extra.get("representativeName");
+        String pos = extra.get("representativePosition");
+        if ((rep != null && !rep.isBlank()) || (pos != null && !pos.isBlank())) {
+            sb.append("Đại diện: ").append(nz(rep));
+            if (pos != null && !pos.isBlank()) {
+                sb.append("   Chức vụ: ").append(pos);
+            }
+            sb.append("\n");
+        }
+        return sb.toString();
+    }
+
+    /** Khối BÊN B: thông tin CCCD của người ký (lấy từ hồ sơ đã xác minh). */
+    private String partyBBlock(String label, Long signerUserId, String hocVien) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("BÊN B: (").append(label).append(")\n");
+        if (hocVien != null && !hocVien.isBlank()) {
+            sb.append("Học viên: ").append(hocVien).append("\n");
+        }
+        com.tcs.module.profile.dto.CccdInfoDto cccd =
+                signerUserId != null ? cccdService.getByUserId(signerUserId) : null;
+        if (cccd != null) {
+            sb.append("Họ tên: ").append(nz(cccd.getFullName()))
+                    .append("   Sinh ngày: ").append(nz(cccd.getDateOfBirth())).append("\n");
+            sb.append("CCCD số: ").append(nz(cccd.getCccdNumber()))
+                    .append("   Cấp ngày: ").append(nz(cccd.getIssueDate()))
+                    .append("   Tại: ").append(nz(cccd.getIssuePlace())).append("\n");
+            sb.append("Thường trú: ").append(nz(cccd.getPermanentAddress())).append("\n");
+        }
+        return sb.toString();
+    }
+
+    /** Thông tin ký hợp đồng bổ sung của trung tâm (centercontract:{centerId}). */
+    private Map<String, String> readCenterContractExtra(Long centerId) {
+        return systemParameterRepository.findByParamKey("centercontract:" + centerId)
+                .map(p -> {
+                    try {
+                        return OBJECT_MAPPER.readValue(p.getParamValue(),
+                                new com.fasterxml.jackson.core.type.TypeReference<Map<String, String>>() {});
+                    } catch (Exception e) {
+                        return new java.util.HashMap<String, String>();
+                    }
+                })
+                .orElseGet(java.util.HashMap::new);
+    }
+
+    private String formatMoney(java.math.BigDecimal amount) {
+        if (amount == null) {
+            return "";
+        }
+        return java.text.NumberFormat.getInstance(new java.util.Locale("vi", "VN")).format(amount) + " đ";
+    }
+
+    /** Ô ký của bên còn lại (gia sư / phụ huynh) — trạng thái CHỜ KÝ, ký bằng OTP. */
+    private void createPendingSignature(Contract contract, PartyRole role, String email) {
+        ContractSignature sig = new ContractSignature();
+        sig.setContract(contract);
+        sig.setPartyRole(role);
+        sig.setEmail(email);
+        sig.setSignatureStatus(ContractSignatureStatus.PENDING);
+        sig.setOtpAttempts(0);
+        contractSignatureRepository.save(sig);
+    }
+
+    /** Trung tâm KÝ SẴN khi tạo hợp đồng (đại diện trung tâm là người tạo/duyệt). */
+    private void createSignedCenterSignature(Contract contract, User centerUser) {
+        ContractSignature sig = new ContractSignature();
+        sig.setContract(contract);
+        sig.setPartyRole(PartyRole.CENTER);
+        sig.setSigner(centerUser);
+        sig.setEmail(centerUser != null ? centerUser.getEmail() : null);
+        sig.setSignatureStatus(ContractSignatureStatus.SIGNED);
+        sig.setSignedAt(LocalDateTime.now());
+        sig.setSignatureData("CENTER_PRESIGNED:"
+                + (centerUser != null ? centerUser.getEmail() : "")
+                + ":" + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+        sig.setOtpAttempts(0);
+        contractSignatureRepository.save(sig);
     }
 
     // ─── PRIVATE HELPERS ─────────────────────────────────────────────────────
@@ -548,6 +815,25 @@ public class ContractServiceImpl implements ContractService {
     private Contract findContract(Long contractId) {
         return contractRepository.findById(contractId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hợp đồng"));
+    }
+
+    /** #2: Tài khoản dưới 18 tuổi không được tự ký — phụ huynh (tài khoản đã liên kết) ký thay. */
+    private void assertSignerNotMinor() {
+        clientRepository.findByUser_UserId(authHelper.currentUserId()).ifPresent(c -> {
+            if (com.tcs.module.profile.util.AgeUtils.isMinor(c.getDateOfBirth())) {
+                throw new IllegalStateException(
+                        "Tài khoản dưới 18 tuổi không được ký hợp đồng. "
+                                + "Phụ huynh (tài khoản đã liên kết) sẽ ký thay.");
+            }
+        });
+    }
+
+    /** Người ký phải hoàn thành thông tin CCCD (BÊN B) trong Hồ sơ trước khi ký. */
+    private void assertSignerCccdComplete() {
+        if (!cccdService.isComplete(authHelper.currentUserId())) {
+            throw new IllegalStateException(
+                    "Vui lòng hoàn thành thông tin CCCD trong Hồ sơ (đọc QR CCCD) trước khi ký hợp đồng.");
+        }
     }
 
     private void validateViewPermission(Contract contract) {
@@ -722,12 +1008,10 @@ public class ContractServiceImpl implements ContractService {
     }
 
     private int getRequiredSignatureCount(Contract contract) {
-        // Thỏa thuận hợp tác BF-03 (gia sư ký) và hợp đồng học viên BF-04 (người ghi danh ký):
-        // chỉ cần 1 chữ ký.
-        if (contract.getRecruitmentApplication() != null || contract.getClassStudent() != null) {
-            return 1;
-        }
-        return 2;
+        // Số chữ ký cần = số ô ký đã tạo cho hợp đồng (center ký sẵn + bên còn lại ký OTP).
+        // Đếm theo ô ký thực tế -> đúng cho cả dữ liệu cũ (1 ô) lẫn mới (2 ô).
+        int slots = contractSignatureRepository.findByContractId(contract.getContractId()).size();
+        return slots > 0 ? slots : 2;
     }
 
     private ContractTemplate findActiveTemplate() {
@@ -841,6 +1125,7 @@ public class ContractServiceImpl implements ContractService {
                 .templateId(contract.getTemplate() != null ? contract.getTemplate().getTemplateId() : null)
                 .templateName(contract.getTemplate() != null ? contract.getTemplate().getName() : null)
                 .termsSummary(contract.getTermsSummary())
+                .documentText(assembleDocument(contract))
                 .contractFileUrl(contract.getContractFileUrl())
                 .signedAt(contract.getSignedAt())
                 .expiresAt(contract.getExpiresAt())
@@ -1056,8 +1341,15 @@ public class ContractServiceImpl implements ContractService {
                         .build());
     }
 
-    private ContractSignatureResponse toSignatureResponse(ContractSignature signature) {
+    private ContractSignatureResponse toSignatureResponse(
+            ContractSignature signature, Long viewerId, PartyRole viewerRole) {
         Integer attempts = signature.getOtpAttempts() != null ? signature.getOtpAttempts() : 0;
+        // "Của tôi" = ô ký do chính người xem đã ký (khớp signer) HOẶC ô còn chờ ký thuộc đúng
+        // vai trò của người xem (signer chưa có nhưng party trùng vai trò).
+        boolean mine = (signature.getSigner() != null && viewerId != null
+                        && signature.getSigner().getUserId().equals(viewerId))
+                || (signature.getSigner() == null && viewerRole != null
+                        && signature.getPartyRole() == viewerRole);
         ContractSignatureResponse.ContractSignatureResponseBuilder builder = ContractSignatureResponse.builder()
                 .signatureId(signature.getSignatureId())
                 .partyRole(signature.getPartyRole())
@@ -1068,6 +1360,7 @@ public class ContractServiceImpl implements ContractService {
                 .remainingOtpAttempts(Math.max(0, OTP_MAX_ATTEMPTS - attempts))
                 .isOtpExpired(signature.getOtpExpiresAt() != null
                         && signature.getOtpExpiresAt().isBefore(LocalDateTime.now()))
+                .isCurrentUser(mine)
                 .signerName(resolveSignatureName(signature))
                 .signerEmail(signature.getSigner() != null
                         ? signature.getSigner().getEmail()

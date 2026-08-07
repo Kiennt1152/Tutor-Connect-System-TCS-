@@ -13,6 +13,7 @@ import type {
   UpdateChildProfileRequest,
 } from '../types/profileTypes';
 import type { GuardianApproval } from '../types/guardianApprovalTypes';
+import type { CccdInfo } from '../types/profileTypes';
 
 export const PROFILE_API_BASE = '/profile';
 
@@ -77,4 +78,18 @@ export const profileApi = {
     axiosClient.post<GuardianApproval>(`${PROFILE_API_BASE}/guardian/approvals/${approvalId}/reject`),
 
   getGrades: () => axiosClient.get<CatalogItem[]>('/catalog/grades'),
+
+  // ----- Thông tin CCCD (đọc QR tự điền + xác nhận) -----
+  getMyCccd: () => axiosClient.get<CccdInfo>(`${PROFILE_API_BASE}/cccd`),
+
+  saveMyCccd: (body: CccdInfo) => axiosClient.put<CccdInfo>(`${PROFILE_API_BASE}/cccd`, body),
+
+  async scanCccd(file: File): Promise<CccdInfo> {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await axiosClient.post<CccdInfo>(`${PROFILE_API_BASE}/cccd/scan`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    return res.data;
+  },
 };

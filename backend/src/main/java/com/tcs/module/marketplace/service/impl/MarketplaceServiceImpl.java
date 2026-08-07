@@ -82,6 +82,7 @@ import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
+import com.tcs.module.profile.service.ClientLegalAccountService;
 import com.tcs.security.AuthHelper;
 import com.tcs.security.UserPrincipal;
 import java.math.BigDecimal;
@@ -125,6 +126,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final AuthHelper authHelper;
     private final UserRepository userRepository;
     private final ClientRepository clientRepository;
+    private final ClientLegalAccountService clientLegalAccountService;
     private final TutorRepository tutorRepository;
     private final ContractRepository contractRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
@@ -1550,7 +1552,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
     @Override
     @Transactional
-    public void registerToClass(Long classId) {
+    public String registerToClass(Long classId) {
         User user = requireUser();
         TutoringClass tutoringClass = findClass(classId);
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
@@ -1582,19 +1584,34 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             TutorApplication saved = tutorApplicationRepository.save(application);
             auditLogService.record(userId, "APPLY_CLASS", "TutorApplication", saved.getApplicationId(), null,
                     java.util.Map.of("classId", classId));
-            return;
+            return "Đã gửi đơn ứng tuyển dạy lớp. Vui lòng chờ trung tâm/phụ huynh duyệt.";
         }
 
         Client client = clientRepository.findByUser_UserId(userId).orElse(null);
         if (client != null) {
+            // #3: bắt buộc có ngày sinh để xác minh tuổi (thiếu -> không xác định được <18).
+            if (client.getDateOfBirth() == null) {
+                throw new IllegalArgumentException(
+                        "Vui lòng cập nhật ngày sinh trong hồ sơ trước khi đăng ký lớp.");
+            }
+            // #1: check trùng theo CHÍNH học sinh (email tài khoản đăng ký), không theo phụ huynh
+            // -> 2 con của cùng một phụ huynh vẫn đăng ký được cùng lớp.
             if (classStudentRepository
-                    .existsByTutoringClass_ClassIdAndEnrolledByUser_UserId(classId, userId)) {
+                    .existsByTutoringClass_ClassIdAndStudentEmail(classId, user.getEmail())) {
                 throw new IllegalArgumentException("Bạn đã đăng ký lớp này rồi");
             }
+            // #2 & #3: học sinh dưới 18 phải liên kết phụ huynh; và PHỤ HUYNH (người pháp lý) là
+            // bên ký hợp đồng, không phải học sinh. resolveForClient() ném lỗi nếu minor chưa liên kết.
+            ClientLegalAccountService.LegalAccountContext legal =
+                    clientLegalAccountService.resolveForClient(client);
+            User payer = legal.getLegalUserId().equals(userId)
+                    ? user
+                    : userRepository.findById(legal.getLegalUserId()).orElse(user);
             ClassStudent student = new ClassStudent();
             student.setTutoringClass(tutoringClass);
-            student.setEnrolledByUser(user);
-            student.setStudentName(client.getFullName());
+            // Người ký/chịu trách nhiệm hợp đồng: phụ huynh nếu là minor, ngược lại chính client.
+            student.setEnrolledByUser(payer);
+            student.setStudentName(client.getFullName()); // tên học viên thực (kể cả minor)
             student.setStudentPhone(client.getPhone());
             student.setStudentEmail(user.getEmail());
             // BF-04: CHỜ KÝ hợp đồng -> chưa chính thức vào lớp, chưa tính sĩ số.
@@ -1605,7 +1622,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             contractService.generateStudentContract(savedStudent.getClassStudentId());
             auditLogService.record(userId, "REGISTER_CLASS", "ClassStudent", savedStudent.getClassStudentId(),
                     null, java.util.Map.of("classId", classId));
-            return;
+            // #2: thông báo đúng ngữ cảnh — minor thì phụ huynh ký thay.
+            if (legal.isDelegatedToParent()) {
+                return "Đã ghi nhận đăng ký. Vì bạn dưới 18 tuổi, hợp đồng đã được gửi cho phụ huynh"
+                        + (legal.getLegalHolderName() != null ? " (" + legal.getLegalHolderName() + ")" : "")
+                        + " ký. Ký xong bạn mới chính thức vào lớp.";
+            }
+            return "Đã ghi nhận đăng ký. Vui lòng vào mục Hợp đồng để ký — ký xong mới chính thức vào lớp.";
         }
 
         throw new ForbiddenException("Chỉ gia sư hoặc phụ huynh/học viên mới đăng ký lớp");

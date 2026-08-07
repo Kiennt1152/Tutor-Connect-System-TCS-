@@ -332,7 +332,7 @@ public class CenterServiceImpl implements CenterService {
     @Override
     @Transactional
     public RecruitmentApplicationResponse decideApplication(
-            Long recruitmentAppId, boolean approve, Long contractTemplateId) {
+            Long recruitmentAppId, boolean approve, Long contractTemplateId, String contractContent) {
         requireCenter();
         RecruitmentApplication application = recruitmentApplicationRepository
                 .findById(recruitmentAppId)
@@ -351,7 +351,8 @@ public class CenterServiceImpl implements CenterService {
             // CHƯA tạo thành viên: gia sư chưa ký thì CHƯA phải gia sư của trung tâm.
             // Khi ký OTP xong (bước 8) mới HIRED + tạo/kích hoạt thành viên ACTIVE + gán lớp
             // + đóng tin (bước 9-10) — xử lý trong onCooperationContractSigned.
-            contractService.generateCooperationContract(saved.getRecruitmentAppId(), contractTemplateId);
+            contractService.generateCooperationContract(
+                    saved.getRecruitmentAppId(), contractTemplateId, contractContent);
         }
         return toApplicationResponse(saved);
     }
@@ -601,6 +602,7 @@ public class CenterServiceImpl implements CenterService {
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
         saveClassOrigin(saved.getClassId(), request.getOriginType());
         saveClassTemplate(saved.getClassId(), request.getContractTemplateId());
+        saveClassTerms(saved.getClassId(), request.getContractContent());
 
         replaceScheduleSlots(saved, request);
         auditLogService.record(center.getUser().getUserId(), "CREATE_CENTER_CLASS", "TutoringClass",
@@ -629,6 +631,7 @@ public class CenterServiceImpl implements CenterService {
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
         saveClassOrigin(saved.getClassId(), request.getOriginType());
         saveClassTemplate(saved.getClassId(), request.getContractTemplateId());
+        saveClassTerms(saved.getClassId(), request.getContractContent());
 
         replaceScheduleSlots(saved, request);
         auditLogService.record(authHelper.currentUserId(), "UPDATE_CENTER_CLASS", "TutoringClass",
@@ -1598,6 +1601,8 @@ public class CenterServiceImpl implements CenterService {
                 .minStudents(c.getMinStudents())
                 .enrolledCount(students.size())
                 .originType(findClassOrigin(c.getClassId()))
+                .contractTemplateId(findClassTemplateId(c.getClassId()))
+                .contractContent(findClassTerms(c.getClassId()))
                 .status(c.getStatus())
                 .createdAt(c.getCreatedAt())
                 .updatedAt(c.getUpdatedAt())
@@ -1784,6 +1789,46 @@ public class CenterServiceImpl implements CenterService {
         systemParameterRepository.save(param);
     }
 
+    /** Mẫu hợp đồng đã chọn cho lớp (classtpl:{classId}), để đổ lại form khi sửa. */
+    private Long findClassTemplateId(Long classId) {
+        return systemParameterRepository.findByParamKey(CLASS_TEMPLATE_PREFIX + classId)
+                .map(p -> {
+                    try {
+                        return Long.valueOf(p.getParamValue().trim());
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                })
+                .orElse(null);
+    }
+
+    /** Nội dung điều khoản HĐ học viên đã lưu cho lớp (classterms:{classId}). */
+    private String findClassTerms(Long classId) {
+        return systemParameterRepository.findByParamKey("classterms:" + classId)
+                .map(SystemParameter::getParamValue)
+                .orElse(null);
+    }
+
+    /** Lưu nội dung điều khoản HĐ học viên center nhập khi tạo/sửa lớp (classterms:{classId}). */
+    private void saveClassTerms(Long classId, String content) {
+        if (content == null) {
+            // null = không thay đổi (form không gửi lại thì giữ nội dung cũ).
+            return;
+        }
+        String key = "classterms:" + classId;
+        if (content.isBlank()) {
+            // chuỗi rỗng = xoá nội dung đã lưu -> quay về dùng mẫu.
+            systemParameterRepository.findByParamKey(key).ifPresent(systemParameterRepository::delete);
+            return;
+        }
+        SystemParameter param = systemParameterRepository.findByParamKey(key)
+                .orElseGet(SystemParameter::new);
+        param.setParamKey(key);
+        param.setParamValue(content);
+        param.setDescription("Nội dung điều khoản HĐ học viên đã nhập cho lớp");
+        systemParameterRepository.save(param);
+    }
+
     private RecruitmentPostResponse toResponse(RecruitmentPost post) {
         Location location = post.getLocation();
         Subject subject = post.getSubject();
@@ -1855,9 +1900,9 @@ public class CenterServiceImpl implements CenterService {
             return List.of();
         }
         return verificationRequestRepository
-                .findByUser_UserIdAndVerificationType(
-                        tutor.getUser().getUserId(), VerificationType.TUTOR_PROFILE)
-                .filter(req -> req.getStatus() == VerificationStatus.VERIFIED)
+                .findFirstByUser_UserIdAndVerificationTypeAndStatusOrderByVerificationIdDesc(
+                        tutor.getUser().getUserId(), VerificationType.TUTOR_PROFILE,
+                        VerificationStatus.VERIFIED)
                 .map(req -> verificationDocumentRepository
                         .findByVerificationRequest_VerificationId(req.getVerificationId()).stream()
                         .filter(doc -> doc.getDocumentType() == VerificationDocumentType.CERTIFICATE)
@@ -1995,6 +2040,65 @@ public class CenterServiceImpl implements CenterService {
                 .status(t.getStatus() != null ? t.getStatus().name() : null)
                 .system(t.getCenter() == null)
                 .build();
+    }
+
+    // ===================== Thông tin BÊN A của hợp đồng (thông tin trung tâm) =====================
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper CONTRACT_INFO_MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
+    @Override
+    @Transactional(readOnly = true)
+    public com.tcs.module.center.dto.response.CenterContractInfoResponse getContractInfo() {
+        TutorCenter center = requireCenter();
+        Map<String, String> extra = readCenterContractExtra(center.getCenterId());
+        return com.tcs.module.center.dto.response.CenterContractInfoResponse.builder()
+                .companyName(center.getCompanyName())
+                .address(center.getAddress())
+                .phone(center.getPhone())
+                .email(center.getUser() != null ? center.getUser().getEmail() : null)
+                .website(extra.get("website"))
+                .representativeName(extra.get("representativeName"))
+                .representativePosition(extra.get("representativePosition"))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public com.tcs.module.center.dto.response.CenterContractInfoResponse saveContractInfo(
+            com.tcs.module.center.dto.request.SaveCenterContractInfoRequest request) {
+        TutorCenter center = requireCenter();
+        Map<String, String> map = new HashMap<>();
+        map.put("website", request.getWebsite() != null ? request.getWebsite().trim() : null);
+        map.put("representativeName",
+                request.getRepresentativeName() != null ? request.getRepresentativeName().trim() : null);
+        map.put("representativePosition",
+                request.getRepresentativePosition() != null ? request.getRepresentativePosition().trim() : null);
+        String key = "centercontract:" + center.getCenterId();
+        try {
+            SystemParameter param = systemParameterRepository.findByParamKey(key)
+                    .orElseGet(SystemParameter::new);
+            param.setParamKey(key);
+            param.setParamValue(CONTRACT_INFO_MAPPER.writeValueAsString(map));
+            param.setDescription("Thông tin BÊN A của trung tâm cho hợp đồng");
+            systemParameterRepository.save(param);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Không lưu được thông tin hợp đồng của trung tâm.");
+        }
+        return getContractInfo();
+    }
+
+    private Map<String, String> readCenterContractExtra(Long centerId) {
+        return systemParameterRepository.findByParamKey("centercontract:" + centerId)
+                .map(p -> {
+                    try {
+                        return CONTRACT_INFO_MAPPER.readValue(p.getParamValue(),
+                                new com.fasterxml.jackson.core.type.TypeReference<Map<String, String>>() {});
+                    } catch (Exception e) {
+                        return new HashMap<String, String>();
+                    }
+                })
+                .orElseGet(HashMap::new);
     }
 
     /** Lưu loại mẫu hợp đồng (RECRUITMENT/CLASS) qua system_parameters (không cần cột/migration). */

@@ -38,5 +38,7 @@ public class SaveClassRequest {
     private String originType;
     /** Mẫu hợp đồng trung tâm chọn cho lớp (dùng khi sinh hợp đồng học viên). Tuỳ chọn. */
     private Long contractTemplateId;
+    /** Nội dung điều khoản HĐ học viên center tự nhập/sửa khi tạo lớp (nạp sẵn từ mẫu). Tuỳ chọn. */
+    private String contractContent;
     private List<ScheduleSlotRequest> schedule;
 }

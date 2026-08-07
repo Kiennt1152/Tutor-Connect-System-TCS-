@@ -46,6 +46,7 @@ import com.tcs.module.profile.repository.TutorCertificateRepository;
 import com.tcs.module.profile.repository.TutorEducationRepository;
 import com.tcs.module.profile.repository.TutorExperienceRepository;
 import com.tcs.module.profile.repository.TutorRepository;
+import com.tcs.module.profile.service.CccdService;
 import com.tcs.module.profile.service.ClientLegalAccountService;
 import com.tcs.module.profile.service.ClientLegalAccountService.LegalAccountContext;
 import com.tcs.module.profile.service.ProfileService;
@@ -107,6 +108,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final ClientLegalAccountService clientLegalAccountService;
     private final ClassStudentRepository classStudentRepository;
     private final AuditLogService auditLogService;
+    private final CccdService cccdService;
 
     @Override
     @Transactional(readOnly = true)
@@ -663,13 +665,24 @@ public class ProfileServiceImpl implements ProfileService {
         return ctx.tutor();
     }
 
+    /** Đã có CCCD xác minh -> không cho tự sửa ngày sinh/giới tính trong hồ sơ (Cách A). */
+    private boolean hasVerifiedCccd(Long userId) {
+        return StringUtils.hasText(cccdService.getByUserId(userId).getCccdNumber());
+    }
+
     private void updateClient(Client client, UpdateProfileRequest request) {
         if (StringUtils.hasText(request.getFullName())) client.setFullName(request.getFullName());
         if (StringUtils.hasText(request.getPhone())) client.setPhone(request.getPhone());
         if (request.getAddress() != null) client.setAddress(request.getAddress());
         if (request.getAvatarUrl() != null) client.setAvatarUrl(request.getAvatarUrl());
-        if (request.getDateOfBirth() != null) client.setDateOfBirth(request.getDateOfBirth());
-        if (request.getGender() != null) client.setGender(request.getGender());
+        // Cách A: đã có CCCD -> ngày sinh + giới tính khóa theo CCCD, bỏ qua thay đổi tự nhập.
+        boolean cccdLockedClient = hasVerifiedCccd(client.getUser().getUserId());
+        if (request.getDateOfBirth() != null && !cccdLockedClient) {
+            client.setDateOfBirth(request.getDateOfBirth());
+        }
+        if (request.getGender() != null && !cccdLockedClient) {
+            client.setGender(request.getGender());
+        }
         clientRepository.save(client);
     }
 
@@ -678,8 +691,14 @@ public class ProfileServiceImpl implements ProfileService {
         if (StringUtils.hasText(request.getPhone())) tutor.setPhone(request.getPhone());
         if (request.getAddress() != null) tutor.setAddress(request.getAddress());
         if (request.getAvatarUrl() != null) tutor.setAvatar(request.getAvatarUrl());
-        if (request.getDateOfBirth() != null) tutor.setDateOfBirth(request.getDateOfBirth());
-        if (request.getGender() != null) tutor.setGender(request.getGender());
+        // Cách A: đã có CCCD -> ngày sinh + giới tính khóa theo CCCD, bỏ qua thay đổi tự nhập.
+        boolean cccdLockedTutor = hasVerifiedCccd(tutor.getUser().getUserId());
+        if (request.getDateOfBirth() != null && !cccdLockedTutor) {
+            tutor.setDateOfBirth(request.getDateOfBirth());
+        }
+        if (request.getGender() != null && !cccdLockedTutor) {
+            tutor.setGender(request.getGender());
+        }
         if (request.getBio() != null) tutor.setBio(request.getBio());
         if (request.getExperienceYears() != null) tutor.setExperienceYears(request.getExperienceYears());
         if (request.getHourlyRate() != null) tutor.setHourlyRate(request.getHourlyRate());

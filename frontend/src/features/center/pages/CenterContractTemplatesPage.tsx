@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { centerApi } from '../api/centerApi';
+import { CenterContractInfoSection } from '../components/CenterContractInfoSection';
 import type { ContractTemplate } from '../types/centerTypes';
 
 function extractError(error: unknown, fallback: string): string {
@@ -93,6 +94,9 @@ export default function CenterContractTemplatesPage() {
           Mẫu hệ thống dùng chung (chỉ xem). Bạn có thể tạo mẫu riêng của trung tâm để chọn khi tạo lớp.
         </p>
 
+        {/* Thông tin BÊN A của trung tâm trên hợp đồng */}
+        <CenterContractInfoSection />
+
         {/* Form tạo/sửa */}
         <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, marginBottom: 20 }}>
           <h2 style={{ marginTop: 0, fontSize: 16 }}>
@@ -147,8 +151,19 @@ export default function CenterContractTemplatesPage() {
               }}
               value={form.content}
               onChange={(e) => setForm({ ...form, content: e.target.value })}
-              placeholder="Nhập các điều khoản hợp đồng..."
+              placeholder="Nhập các điều khoản & nghĩa vụ..."
             />
+            <p style={{ color: '#94a3b8', fontSize: 12, margin: '6px 0 0' }}>
+              Chỉ nhập <strong>điều khoản & nghĩa vụ</strong>. Quốc hiệu, tiêu ngữ, tiêu đề và thông
+              tin các bên sẽ được hệ thống tự thêm khi tạo hợp đồng. Có thể dùng biến tự điền:
+              {form.contractType === 'RECRUITMENT' ? (
+                <> <code>{'{{tenGiaSu}}'}</code>, <code>{'{{tenTrungTam}}'}</code>, <code>{'{{ngayKy}}'}</code>.</>
+              ) : (
+                <> <code>{'{{tenHocVien}}'}</code>, <code>{'{{tenTrungTam}}'}</code>, <code>{'{{tenLop}}'}</code>,{' '}
+                  <code>{'{{monHoc}}'}</code>, <code>{'{{hocPhi}}'}</code>, <code>{'{{soBuoi}}'}</code>,{' '}
+                  <code>{'{{ngayBatDau}}'}</code>, <code>{'{{ngayKetThuc}}'}</code>, <code>{'{{ngayKy}}'}</code>.</>
+              )}
+            </p>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
             <button

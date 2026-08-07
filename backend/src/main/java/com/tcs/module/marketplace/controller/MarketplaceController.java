@@ -122,9 +122,7 @@ public class MarketplaceController {
     @PostMapping("/classes/{classId}/register")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, String> registerToClass(@PathVariable Long classId) {
-        marketplaceService.registerToClass(classId);
-        return Map.of("message",
-                "Đã ghi nhận đăng ký. Vui lòng vào mục Hợp đồng để ký hợp đồng — ký xong mới chính thức vào lớp.");
+        return Map.of("message", marketplaceService.registerToClass(classId));
     }
 
     @GetMapping("/applications/mine")

@@ -39,6 +39,8 @@ public class ContractResponse {
     private Long templateId;
     private String templateName;
     private String termsSummary;
+    /** Văn bản hợp đồng đầy đủ (Quốc hiệu + BÊN A + BÊN B + điều khoản) để hiển thị/ký. */
+    private String documentText;
     private String contractFileUrl;
 
     private boolean hasAllSignatures;
