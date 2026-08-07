@@ -55,6 +55,24 @@ public class EmailServiceImpl implements EmailService {
     }
 
     @Override
+    public void sendPasswordResetOtp(String toEmail, String code, long expireMinutes) {
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(
+                    message, MimeMessageHelper.MULTIPART_MODE_MIXED_RELATED, StandardCharsets.UTF_8.name());
+            helper.setFrom(fromAddress, fromName);
+            helper.setTo(toEmail);
+            helper.setSubject("Mã OTP đặt lại mật khẩu Tutor Connect");
+            helper.setText(buildPasswordResetHtml(code, expireMinutes), true);
+            mailSender.send(message);
+            log.info("Da gui OTP dat lai mat khau toi email {}", toEmail);
+        } catch (MessagingException | UnsupportedEncodingException | MailException ex) {
+            log.error("Khong gui duoc email OTP dat lai mat khau toi {}: {}", toEmail, ex.getMessage());
+            throw new IllegalArgumentException("Không gửi được email OTP. Vui lòng thử lại sau.");
+        }
+    }
+
+    @Override
     public void sendContractOtp(String toEmail, String otpCode, String contractNo, int expireMinutes) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -72,6 +90,19 @@ public class EmailServiceImpl implements EmailService {
             log.error("Khong gui duoc email OTP hop dong toi {}: {}", toEmail, ex.getMessage());
             throw new IllegalArgumentException("Không gửi được email OTP. Vui lòng thử lại sau.");
         }
+    }
+
+    private String buildPasswordResetHtml(String code, long expireMinutes) {
+        return """
+                <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;border:1px solid #e2e8f0;border-radius:16px;overflow:hidden">
+                  <div style="background:#7c3aed;padding:24px;text-align:center"><h1 style="color:#fff;margin:0;font-size:20px">Tutor Connect System</h1></div>
+                  <div style="padding:28px 24px;color:#0f172a">
+                    <p>Đây là mã OTP để đặt lại mật khẩu tài khoản của bạn:</p>
+                    <div style="text-align:center;margin:24px 0"><span style="display:inline-block;font-size:32px;font-weight:700;letter-spacing:8px;color:#7c3aed;background:#f5f3ff;padding:14px 24px;border-radius:12px">%s</span></div>
+                    <p style="color:#64748b">Mã có hiệu lực trong <strong>%d phút</strong>. Nếu bạn không yêu cầu, hãy bỏ qua email này.</p>
+                  </div>
+                </div>
+                """.formatted(code, expireMinutes);
     }
 
     private String buildContractOtpHtml(String code, String contractNo, int expireMinutes) {

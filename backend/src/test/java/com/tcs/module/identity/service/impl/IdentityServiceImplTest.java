@@ -14,6 +14,8 @@ import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.request.ResetPasswordRequest;
 import com.tcs.module.identity.dto.request.SendOtpRequest;
 import com.tcs.module.identity.dto.request.VerifyOtpRequest;
+import com.tcs.module.identity.dto.request.VerifyPasswordResetOtpRequest;
+import com.tcs.module.identity.dto.request.RequestPasswordResetOtpRequest;
 import com.tcs.module.identity.dto.response.AuthResponse;
 import com.tcs.module.identity.dto.response.RegisterResponse;
 import com.tcs.module.identity.entity.EmailOtp;
@@ -83,6 +85,8 @@ class IdentityServiceImplTest {
     private AuthHelper authHelper;
     @Mock
     private GoogleTokenVerifier googleTokenVerifier;
+    @Mock
+    private com.tcs.module.platform.service.AuditLogService auditLogService;
 
     @InjectMocks
     private IdentityServiceImpl identityService;
@@ -566,5 +570,96 @@ class IdentityServiceImplTest {
         Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.sendOtp(req, "127.0.0.1"));
         assertEquals("Quá nhiều yêu cầu, vui lòng thử lại sau.", ex.getMessage());
         verify(emailService, never()).sendRegistrationOtp(anyString(), anyString(), anyLong());
+    }
+    // =========================================================================================
+    // FORGOT PASSWORD TESTS
+    // =========================================================================================
+
+    @Test
+    void TC_UNIT_IdentityService_026_requestPasswordResetOtp_userNotFound() {
+        RequestPasswordResetOtpRequest req = new RequestPasswordResetOtpRequest();
+        req.setEmail("notfound@gmail.com");
+
+        when(userRepository.findByEmail("notfound@gmail.com")).thenReturn(Optional.empty());
+
+        var res = identityService.requestPasswordResetOtp(req, "127.0.0.1");
+        assertEquals("notfound@gmail.com", res.getEmail());
+        assertEquals("Nếu email tồn tại, mã OTP đặt lại mật khẩu đã được gửi", res.getMessage());
+
+        verify(emailOtpRepository, never()).save(any());
+        verify(emailService, never()).sendPasswordResetOtp(anyString(), anyString(), anyLong());
+    }
+
+    @Test
+    void TC_UNIT_IdentityService_027_requestPasswordResetOtp_happyPath() {
+        RequestPasswordResetOtpRequest req = new RequestPasswordResetOtpRequest();
+        req.setEmail("found@gmail.com");
+
+        when(userRepository.findByEmail("found@gmail.com")).thenReturn(Optional.of(new User()));
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(anyString(), any())).thenReturn(Optional.empty());
+        when(emailOtpRepository.countByEmailAndPurposeAndCreatedAtAfter(anyString(), any(), any())).thenReturn(0L);
+
+        var res = identityService.requestPasswordResetOtp(req, "127.0.0.1");
+        assertEquals("found@gmail.com", res.getEmail());
+
+        verify(emailOtpRepository).save(any(EmailOtp.class));
+        verify(emailService).sendPasswordResetOtp(eq("found@gmail.com"), anyString(), anyLong());
+    }
+
+    @Test
+    void TC_UNIT_IdentityService_028_verifyPasswordResetOtp_happyPath() {
+        VerifyPasswordResetOtpRequest req = new VerifyPasswordResetOtpRequest();
+        req.setEmail("test@gmail.com");
+        req.setCode("123456");
+
+        EmailOtp otp = new EmailOtp();
+        otp.setEmail("test@gmail.com");
+        otp.setCode("123456");
+        otp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        otp.setAttempts(0);
+
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.PASSWORD_RESET)).thenReturn(Optional.of(otp));
+        when(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.of(new User()));
+
+        var res = identityService.verifyPasswordResetOtp(req, "127.0.0.1");
+        assertEquals("test@gmail.com", res.getEmail());
+        assertNotNull(otp.getConsumedAt());
+        assertNotNull(res.getResetToken());
+        verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
+    }
+    @Test
+    void TC_UNIT_IdentityService_029_requestPasswordResetOtp_cooldown() {
+        RequestPasswordResetOtpRequest req = new RequestPasswordResetOtpRequest();
+        req.setEmail("test@gmail.com");
+
+        when(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.of(new User()));
+
+        EmailOtp lastOtp = new EmailOtp();
+        lastOtp.setLastSentAt(LocalDateTime.now().minusSeconds(30)); // 30s < 60s cooldown
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.PASSWORD_RESET)).thenReturn(Optional.of(lastOtp));
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.requestPasswordResetOtp(req, "127.0.0.1"));
+        assertEquals("Quá nhiều yêu cầu, vui lòng thử lại sau.", ex.getMessage());
+    }
+
+    @Test
+    void TC_UNIT_IdentityService_030_verifyPasswordResetOtp_wrongTooManyTimes() {
+        VerifyPasswordResetOtpRequest req = new VerifyPasswordResetOtpRequest();
+        req.setEmail("test@gmail.com");
+        req.setCode("wrong");
+
+        EmailOtp otp = new EmailOtp();
+        otp.setEmail("test@gmail.com");
+        otp.setCode("123456");
+        otp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        otp.setAttempts(5);
+
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.PASSWORD_RESET)).thenReturn(Optional.of(otp));
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.verifyPasswordResetOtp(req, "127.0.0.1"));
+        assertEquals("Bạn đã nhập sai quá số lần cho phép. Vui lòng yêu cầu mã mới", ex.getMessage());
     }
 }

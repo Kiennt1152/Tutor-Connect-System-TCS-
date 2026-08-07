@@ -363,6 +363,10 @@ export default function LoginPage() {
               </div>
             </label>
 
+            <p className="reg-foot reg-foot--forgot">
+              <Link to="/forgot-password" className="reg-link">Quên mật khẩu?</Link>
+            </p>
+
             {error && <div className="reg-alert reg-alert--error">{error}</div>}
 
             <button type="submit" className="reg-btn reg-btn--block" disabled={loading}>

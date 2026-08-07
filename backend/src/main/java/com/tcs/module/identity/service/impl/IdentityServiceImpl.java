@@ -5,13 +5,15 @@ import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
-import com.tcs.module.identity.dto.request.ForgotPasswordRequest;
 import com.tcs.module.identity.dto.request.GoogleCompleteRequest;
 import com.tcs.module.identity.dto.request.GoogleLoginRequest;
 import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.request.ResetPasswordRequest;
+import com.tcs.module.identity.dto.request.RequestPasswordResetOtpRequest;
 import com.tcs.module.identity.dto.request.SendOtpRequest;
+import com.tcs.module.identity.dto.request.VerifyPasswordResetOtpRequest;
+import com.tcs.module.identity.dto.response.PasswordResetOtpResponse;
 import com.tcs.module.identity.dto.request.VerifyOtpRequest;
 import com.tcs.module.identity.dto.response.AuthResponse;
 import com.tcs.module.identity.dto.response.GoogleLoginResponse;
@@ -438,26 +440,117 @@ public class IdentityServiceImpl implements IdentityService {
         if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Mật khẩu hiện tại không đúng");
         }
+        validatePassword(request.getNewPassword());
+        if (passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())) {
+            throw new IllegalArgumentException("Mật khẩu mới phải khác mật khẩu hiện tại");
+        }
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
         auditLogService.record(user.getUserId(), "CHANGE_PASSWORD", "User", user.getUserId(), null, null);
     }
 
     @Override
-    @Transactional
-    public void forgotPassword(ForgotPasswordRequest request) {
-        userRepository.findByEmail(request.getEmail().trim().toLowerCase()).ifPresent(user -> {
-            PasswordResetToken token = new PasswordResetToken();
-            token.setUser(user);
-            token.setToken(UUID.randomUUID().toString());
-            token.setExpiresAt(LocalDateTime.now().plusHours(24));
-            passwordResetTokenRepository.save(token);
-        });
+    @Transactional(noRollbackFor = IllegalArgumentException.class)
+    public PasswordResetOtpResponse requestPasswordResetOtp(
+            RequestPasswordResetOtpRequest request, String clientIp) {
+        String email = normalizeEmail(request.getEmail());
+
+        if (userRepository.findByEmail(email).isEmpty()) {
+            return PasswordResetOtpResponse.builder()
+                    .email(email)
+                    .message("Nếu email tồn tại, mã OTP đặt lại mật khẩu đã được gửi")
+                    .otpExpiresInSeconds(otpExpirationMinutes * 60)
+                    .resendCooldownSeconds(resendCooldownSeconds)
+                    .build();
+        }
+
+        emailOtpRepository
+                .findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(email, OtpPurpose.PASSWORD_RESET)
+                .ifPresent(previous -> {
+                    long elapsed = Duration.between(previous.getLastSentAt(), LocalDateTime.now()).getSeconds();
+                    if (elapsed < resendCooldownSeconds) {
+                        throw new IllegalArgumentException(RATE_LIMIT_MESSAGE);
+                    }
+                    previous.setConsumedAt(LocalDateTime.now());
+                    emailOtpRepository.save(previous);
+                });
+
+        long sentInWindow = emailOtpRepository.countByEmailAndPurposeAndCreatedAtAfter(
+                email, OtpPurpose.PASSWORD_RESET, LocalDateTime.now().minusMinutes(emailWindowMinutes));
+        if (sentInWindow >= maxPerEmailPerWindow) {
+            throw new IllegalArgumentException(RATE_LIMIT_MESSAGE);
+        }
+
+        if (!acquireIpSlot(clientIp)) {
+            throw new IllegalArgumentException(RATE_LIMIT_MESSAGE);
+        }
+
+        EmailOtp otp = new EmailOtp();
+        otp.setEmail(email);
+        otp.setCode(generateOtpCode());
+        otp.setPurpose(OtpPurpose.PASSWORD_RESET);
+        otp.setExpiresAt(LocalDateTime.now().plusMinutes(otpExpirationMinutes));
+        otp.setAttempts(0);
+        otp.setLastSentAt(LocalDateTime.now());
+
+        emailOtpRepository.save(otp);
+        emailService.sendPasswordResetOtp(email, otp.getCode(), otpExpirationMinutes);
+
+        return PasswordResetOtpResponse.builder()
+                .email(email)
+                .message("Nếu email tồn tại, mã OTP đặt lại mật khẩu đã được gửi")
+                .otpExpiresInSeconds(otpExpirationMinutes * 60)
+                .resendCooldownSeconds(resendCooldownSeconds)
+                .build();
+    }
+
+    @Override
+    @Transactional(noRollbackFor = IllegalArgumentException.class)
+    public PasswordResetOtpResponse verifyPasswordResetOtp(VerifyPasswordResetOtpRequest request, String clientIp) {
+        String email = normalizeEmail(request.getEmail());
+
+        if (!acquireIpSlot(clientIp)) {
+            throw new IllegalArgumentException(RATE_LIMIT_MESSAGE);
+        }
+
+        EmailOtp otp = emailOtpRepository
+                .findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(email, OtpPurpose.PASSWORD_RESET)
+                .orElseThrow(() -> new IllegalArgumentException("Mã OTP không tồn tại hoặc đã hết hạn"));
+        if (otp.isExpired()) {
+            throw new IllegalArgumentException("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới");
+        }
+        if (otp.getAttempts() >= maxAttempts) {
+            throw new IllegalArgumentException("Bạn đã nhập sai quá số lần cho phép. Vui lòng yêu cầu mã mới");
+        }
+        if (!otp.getCode().equals(request.getCode().trim())) {
+            otp.setAttempts(otp.getAttempts() + 1);
+            emailOtpRepository.save(otp);
+            throw new IllegalArgumentException("Mã OTP không đúng");
+        }
+
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new IllegalArgumentException("Mã OTP không hợp lệ"));
+        otp.setConsumedAt(LocalDateTime.now());
+        emailOtpRepository.save(otp);
+
+        PasswordResetToken token = new PasswordResetToken();
+        token.setUser(user);
+        token.setToken(generateOpaqueToken());
+        token.setExpiresAt(LocalDateTime.now().plusMinutes(tokenExpirationMinutes));
+        passwordResetTokenRepository.save(token);
+
+        return PasswordResetOtpResponse.builder()
+                .email(email)
+                .message("Xác thực OTP thành công")
+                .resetToken(token.getToken())
+                .resetTokenExpiresInSeconds(tokenExpirationMinutes * 60)
+                .build();
     }
 
     @Override
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
+        validatePassword(request.getNewPassword());
         PasswordResetToken token = passwordResetTokenRepository
                 .findByToken(request.getToken())
                 .orElseThrow(() -> new IllegalArgumentException("Token không hợp lệ"));

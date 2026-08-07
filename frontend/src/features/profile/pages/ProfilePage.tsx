@@ -11,6 +11,7 @@ import type {
   UserRole,
 } from '../types/profileTypes';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { ChangePasswordPanel } from '../../identity/components/ChangePasswordPanel';
 import './ProfilePage.css';
 
 const VIETNAM_PHONE = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
@@ -431,6 +432,8 @@ export default function ProfilePage() {
           </div>
         </form>
       )}
+
+      {profile && <ChangePasswordPanel />}
 
       {(isTutor || isCenter) && profile?.verificationStatus && (
         <section className="profile-section">

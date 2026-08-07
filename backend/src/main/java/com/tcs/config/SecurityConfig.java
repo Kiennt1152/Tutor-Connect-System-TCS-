@@ -47,6 +47,7 @@ public class SecurityConfig {
                                 "/api/identity/send-otp",
                                 "/api/identity/verify-otp",
                                 "/api/identity/password/forgot",
+                                "/api/identity/password/forgot/verify-otp",
                                 "/api/identity/password/reset",
                                 "/uploads/**",
                                 "/swagger-ui/**",

@@ -1,12 +1,14 @@
 package com.tcs.module.identity.controller;
 
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
-import com.tcs.module.identity.dto.request.ForgotPasswordRequest;
 import com.tcs.module.identity.dto.request.GoogleCompleteRequest;
 import com.tcs.module.identity.dto.request.GoogleLoginRequest;
 import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.request.ResetPasswordRequest;
+import com.tcs.module.identity.dto.request.RequestPasswordResetOtpRequest;
+import com.tcs.module.identity.dto.request.VerifyPasswordResetOtpRequest;
+import com.tcs.module.identity.dto.response.PasswordResetOtpResponse;
 import com.tcs.module.identity.dto.request.SendOtpRequest;
 import com.tcs.module.identity.dto.request.VerifyOtpRequest;
 import com.tcs.module.identity.dto.response.AuthResponse;
@@ -54,10 +56,6 @@ public class IdentityController {
     }
 
     private String resolveClientIp(HttpServletRequest request) {
-        String forwarded = request.getHeader("X-Forwarded-For");
-        if (forwarded != null && !forwarded.isBlank()) {
-            return forwarded.split(",")[0].trim();
-        }
         return request.getRemoteAddr();
     }
 
@@ -88,9 +86,15 @@ public class IdentityController {
     }
 
     @PostMapping("/password/forgot")
-    public Map<String, String> forgotPassword(@Valid @RequestBody ForgotPasswordRequest request) {
-        identityService.forgotPassword(request);
-        return Map.of("message", "Nếu email tồn tại, liên kết đặt lại mật khẩu đã được gửi");
+    public PasswordResetOtpResponse requestPasswordResetOtp(
+            @Valid @RequestBody RequestPasswordResetOtpRequest request, HttpServletRequest servletRequest) {
+        return identityService.requestPasswordResetOtp(request, resolveClientIp(servletRequest));
+    }
+
+    @PostMapping("/password/forgot/verify-otp")
+    public PasswordResetOtpResponse verifyPasswordResetOtp(
+            @Valid @RequestBody VerifyPasswordResetOtpRequest request, HttpServletRequest servletRequest) {
+        return identityService.verifyPasswordResetOtp(request, resolveClientIp(servletRequest));
     }
 
     @PostMapping("/password/reset")
