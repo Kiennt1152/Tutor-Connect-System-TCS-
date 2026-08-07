@@ -326,6 +326,8 @@ export interface MarketplaceClass {
   budget: number | null;
   recurringType: RecurringType;
   status: ClassStatus;
+  /** PRIVATE (lớp cá nhân) / CENTER (lớp của trung tâm — gia sư không tự đăng ký). */
+  classType?: 'PRIVATE' | 'CENTER';
   maxStudents: number | null;
   enrolledCount: number;
   canRequestTermination: boolean;

@@ -21,6 +21,8 @@ public class ContractResponse {
     private Long assignmentId;
     private Long classId;
     private Long classStudentId;
+    /** BF-03: != null nghĩa là hợp đồng tuyển dụng/hợp tác (không có lớp/số buổi/học phí). */
+    private Long recruitmentApplicationId;
 
     private Long clientId;
     private String clientName;
@@ -37,6 +39,8 @@ public class ContractResponse {
     private Long templateId;
     private String templateName;
     private String termsSummary;
+    /** Văn bản hợp đồng đầy đủ (Quốc hiệu + BÊN A + BÊN B + điều khoản) để hiển thị/ký. */
+    private String documentText;
     private String contractFileUrl;
 
     private boolean hasAllSignatures;

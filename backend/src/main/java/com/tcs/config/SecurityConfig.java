@@ -66,6 +66,9 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/tutors/**")
                         .permitAll()
+                        // Danh sách trung tâm đã xác minh: ai cũng xem được (để phụ huynh chọn).
+                        .requestMatchers(HttpMethod.GET, "/api/marketplace/centers")
+                        .permitAll()
                         // Recruitment: các GET cần đăng nhập phải đứng TRƯỚC GET công khai bên dưới.
                         .requestMatchers(HttpMethod.GET, "/api/center/recruitment/my-posts")
                         .hasRole(RbacConstants.TUTOR_CENTER)
@@ -155,10 +158,19 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.CLIENT)
                         .requestMatchers("/api/marketplace/favorites/**")
                         .hasRole(RbacConstants.CLIENT)
+                        // Phụ huynh gửi/quản lý yêu cầu mở lớp tới trung tâm.
+                        .requestMatchers("/api/marketplace/centers/*/class-requests")
+                        .hasRole(RbacConstants.CLIENT)
+                        .requestMatchers("/api/marketplace/class-requests/**")
+                        .hasRole(RbacConstants.CLIENT)
 
                         .requestMatchers(
                                 "/api/center/classes/**",
                                 "/api/center/tutors",
+                                "/api/center/class-requests",
+                                "/api/center/class-requests/**",
+                                "/api/center/contract-templates",
+                                "/api/center/contract-templates/**",
                                 "/api/center/schedule",
                                 "/api/center/reschedules",
                                 "/api/center/reschedules/**",

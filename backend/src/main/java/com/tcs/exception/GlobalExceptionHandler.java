@@ -16,6 +16,9 @@ import org.springframework.web.multipart.MaxUploadSizeExceededException;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private static final org.slf4j.Logger log =
+            org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class);
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleBadRequest(IllegalArgumentException exception) {
         Map<String, String> body = new HashMap<>();
@@ -100,8 +103,24 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
+        // Log nguyên nhân gốc (tên cột/constraint) để dễ chẩn đoán.
+        log.error("DataIntegrityViolation:", exception);
+        String root = exception.getMostSpecificCause() != null
+                ? exception.getMostSpecificCause().getMessage() : exception.getMessage();
         Map<String, String> body = new HashMap<>();
-        body.put("message", "Dữ liệu không hợp lệ hoặc bị trùng. Vui lòng kiểm tra lại.");
+        body.put("message", "Dữ liệu không hợp lệ hoặc bị trùng: "
+                + (root != null ? root : "Vui lòng kiểm tra lại."));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /** Bắt mọi lỗi ngoài dự kiến (500) -> trả message rõ ràng + ghi log để dễ chẩn đoán. */
+    @ExceptionHandler(Exception.class)
+    public ResponseEntity<Map<String, String>> handleUnexpected(Exception exception) {
+        log.error("Loi khong xac dinh:", exception);
+        String msg = exception.getMessage();
+        Map<String, String> body = new HashMap<>();
+        body.put("message", "Có lỗi hệ thống: "
+                + (msg != null && !msg.isBlank() ? msg : exception.getClass().getSimpleName()));
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(body);
     }
 }

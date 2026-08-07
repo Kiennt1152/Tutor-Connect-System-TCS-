@@ -69,8 +69,15 @@ SET @stmt := IF(
 );
 PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
 
+-- Giữ ràng buộc 3 nguồn (đồng bộ với V12__center_cooperation_contract): hợp đồng phải gắn
+-- ĐÚNG 1 trong lớp / học sinh trong lớp / đơn tuyển dụng. Cột recruitment_application_id do
+-- V12 tạo (V12 < V14 nên luôn tồn tại khi script này chạy).
 ALTER TABLE contracts ADD CONSTRAINT chk_contracts_target
-    CHECK ((assignment_id IS NULL) <> (class_student_id IS NULL));
+    CHECK (
+        (assignment_id IS NOT NULL)
+      + (class_student_id IS NOT NULL)
+      + (recruitment_application_id IS NOT NULL) = 1
+    );
 
 -- ---------------------------------------------------------------------
 -- 2. contract_signatures: party_role + OTP fields + email + status

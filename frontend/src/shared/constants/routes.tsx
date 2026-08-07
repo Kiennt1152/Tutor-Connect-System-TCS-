@@ -2,6 +2,8 @@ export const APP_ROUTES = {
   home: '/',
   findTutor: '/tim-gia-su',
   findClass: '/tim-lop',
+  /** Trang "Tìm lớp phù hợp với bạn" — duyệt lớp đang mở để đăng ký (bản của center/class). */
+  classFinder: '/lop-hoc',
   tutorProfile: '/gia-su/:tutorId',
   teaching: '/lich-day',
   login: '/login',

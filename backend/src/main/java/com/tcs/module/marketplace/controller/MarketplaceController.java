@@ -118,11 +118,11 @@ public class MarketplaceController {
         return marketplaceService.requestClassTermination(classId, request);
     }
 
+    /** Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh. */
     @PostMapping("/classes/{classId}/register")
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, String> registerToClass(@PathVariable Long classId) {
-        marketplaceService.registerToClass(classId);
-        return Map.of("message", "Đã gửi yêu cầu đăng ký lớp");
+        return Map.of("message", marketplaceService.registerToClass(classId));
     }
 
     @GetMapping("/applications/mine")

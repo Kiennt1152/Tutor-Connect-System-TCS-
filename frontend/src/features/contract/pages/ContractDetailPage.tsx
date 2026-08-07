@@ -123,7 +123,13 @@ export default function ContractDetailPage() {
     ? ESCROW_STATUS_LABEL[escrowPayment.escrowStatus] ?? { label: escrowPayment.escrowStatus, cls: '' }
     : null;
   const escrowPending = escrowPayment?.escrowStatus === 'PENDING' || escrowPayment?.paymentStatus === 'PENDING';
-  const currentUserSigned = signatures?.signatures.some((signature) => signature.isCurrentUser) ?? false;
+  // Người xem còn ô ký CHỜ KÝ của chính mình -> mới hiện phần ký OTP.
+  // (Trung tâm đã ký sẵn nên không còn ô chờ ký -> không hiện; admin/không phải bên cũng không hiện.)
+  const myPendingSlot =
+    signatures?.signatures.some((s) => s.isCurrentUser && s.signatureStatus !== 'SIGNED') ?? false;
+  // Người xem đã ký (đang chờ bên còn lại) -> hiện thông báo đã ghi nhận chữ ký.
+  const mySignedSlot =
+    signatures?.signatures.some((s) => s.isCurrentUser && s.signatureStatus === 'SIGNED') ?? false;
   const allSigned = signatures?.fullySigned ?? false;
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
   const canCreateIssue = contract.classId != null;
@@ -199,27 +205,35 @@ export default function ContractDetailPage() {
                 <dt>Ngày ký</dt>
                 <dd>{formatDate(contract.signedAt)}</dd>
               </div>
-              <div>
-                <dt>Loại lớp</dt>
-                <dd>{contract.classType ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>Hình thức</dt>
-                <dd>{contract.lessonMode ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>Số buổi</dt>
-                <dd>{contract.numberOfSessions ?? '—'}</dd>
-              </div>
-              <div>
-                <dt>Học phí</dt>
-                <dd>{formatCurrency(contract.tuitionFee)}</dd>
-              </div>
+              {/* HĐ tuyển dụng/hợp tác gia sư: không có lớp -> ẩn các trường Loại lớp/Số buổi/Học phí. */}
+              {contract.recruitmentApplicationId == null && (
+                <>
+                  <div>
+                    <dt>Loại lớp</dt>
+                    <dd>{contract.classType ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Hình thức</dt>
+                    <dd>{contract.lessonMode ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Số buổi</dt>
+                    <dd>{contract.numberOfSessions ?? '—'}</dd>
+                  </div>
+                  <div>
+                    <dt>Học phí</dt>
+                    <dd>{formatCurrency(contract.tuitionFee)}</dd>
+                  </div>
+                </>
+              )}
             </dl>
-            {contract.termsSummary ? (
+            {contract.documentText || contract.termsSummary ? (
               <div className="contract-terms">
                 <h3>Nội dung hợp đồng</h3>
-                <p>{contract.termsSummary}</p>
+                {/* Văn bản hợp đồng đầy đủ (quốc hiệu, BÊN A, BÊN B, điều khoản) -> giữ xuống dòng. */}
+                <p style={{ whiteSpace: 'pre-wrap' }}>
+                  {contract.documentText ?? contract.termsSummary}
+                </p>
               </div>
             ) : null}
           </section>
@@ -319,31 +333,29 @@ export default function ContractDetailPage() {
                   <span style={{ width: `${signedPercent}%` }} />
                 </div>
                 <div className="contract-signature-list">
-                  {signatures.signatures.map((signature) => (
-                    <div
-                      key={signature.signatureId}
-                      className={`contract-signature-row${signature.isCurrentUser ? ' contract-signature-row--me' : ''}`}
-                    >
-                      <span className="contract-signature-check">✓</span>
-                      <div>
-                        <strong>
-                          {signature.signerName}
-                          {signature.isCurrentUser ? <em>Bạn</em> : null}
-                        </strong>
-                        <small>{signature.signerRole} · {formatDateTime(signature.signedAt)}</small>
+                  {signatures.signatures.map((signature) => {
+                    const isSigned = signature.signatureStatus === 'SIGNED';
+                    return (
+                      <div
+                        key={signature.signatureId}
+                        className={`contract-signature-row${
+                          signature.isCurrentUser ? ' contract-signature-row--me' : ''
+                        }${isSigned ? '' : ' contract-signature-row--pending'}`}
+                      >
+                        <span className="contract-signature-check">{isSigned ? '✓' : '—'}</span>
+                        <div>
+                          <strong>
+                            {signature.signerName ?? signature.partyLabel}
+                            {signature.isCurrentUser ? <em>Bạn</em> : null}
+                          </strong>
+                          <small>
+                            {signature.partyLabel} ·{' '}
+                            {isSigned ? `Đã ký ${formatDateTime(signature.signedAt)}` : 'Chờ ký'}
+                          </small>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-
-                  {Array.from({ length: signatures.totalRequired - signatures.signatures.length }).map((_, index) => (
-                    <div key={`pending-${index}`} className="contract-signature-row contract-signature-row--pending">
-                      <span className="contract-signature-check">—</span>
-                      <div>
-                        <strong>Chưa ký</strong>
-                        <small>Đang chờ</small>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 {allSigned ? <p className="contract-success-note">Đủ chữ ký.</p> : null}
               </div>
@@ -352,7 +364,7 @@ export default function ContractDetailPage() {
             )}
           </section>
 
-          {signRequired && !currentUserSigned ? (
+          {signRequired && myPendingSlot ? (
             <section className="contract-card contract-card--accent">
               <div className="contract-card__head">
                 <h2>Ký hợp đồng</h2>
@@ -409,7 +421,7 @@ export default function ContractDetailPage() {
             </section>
           ) : null}
 
-          {currentUserSigned && signRequired ? (
+          {mySignedSlot && !allSigned ? (
             <section className="contract-card contract-card--success">
               <h2>Đã ghi nhận chữ ký của bạn</h2>
               <p>Hợp đồng đang chờ bên còn lại ký.</p>

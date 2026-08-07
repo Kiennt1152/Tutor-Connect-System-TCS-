@@ -102,6 +102,7 @@ export function mapContract(response: ContractApiResponse): Contract {
     assignmentId: response.assignmentId ?? null,
     classId: response.classId,
     classStudentId: response.classStudentId ?? null,
+    recruitmentApplicationId: response.recruitmentApplicationId ?? null,
     clientId: response.clientId ?? null,
     clientName: response.clientName ?? null,
     clientEmail: response.clientEmail ?? null,

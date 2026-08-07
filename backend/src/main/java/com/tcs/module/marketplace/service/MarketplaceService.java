@@ -39,8 +39,11 @@ public interface MarketplaceService {
 
     ClassTerminationResponse requestClassTermination(Long classId, CreateClassTerminationRequest request);
 
-    /** Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh. */
-    void registerToClass(Long classId);
+    /**
+     * Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh.
+     * Trả về thông báo phù hợp ngữ cảnh (tự ký / phụ huynh ký thay).
+     */
+    String registerToClass(Long classId);
 
     List<Long> listMyAppliedClassIds();
 

@@ -45,6 +45,10 @@ public class CenterClassResponse {
     private long enrolledCount;
     /** Loại lớp: EXTERNAL (yêu cầu ngoài) / SELF (tự tạo). */
     private String originType;
+    /** Mẫu hợp đồng học viên đã chọn cho lớp (để đổ lại form khi sửa). */
+    private Long contractTemplateId;
+    /** Nội dung điều khoản HĐ học viên đã lưu cho lớp (để đổ lại form khi sửa). */
+    private String contractContent;
     private TutoringClassStatus status;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

@@ -54,8 +54,13 @@ public interface CenterService {
     /** Danh sách đơn ứng tuyển của một tin (chỉ tin của trung tâm mình). */
     List<RecruitmentApplicationResponse> listApplications(Long recruitmentId);
 
-    /** Duyệt (HIRED) hoặc từ chối (REJECTED) một đơn ứng tuyển. */
-    RecruitmentApplicationResponse decideApplication(Long recruitmentAppId, boolean approve);
+    /**
+     * Duyệt (PASSED, chờ ký) hoặc từ chối (REJECTED) một đơn ứng tuyển.
+     * {@code contractTemplateId} (tuỳ chọn): mẫu hợp đồng center chọn khi duyệt.
+     * {@code contractContent} (tuỳ chọn): nội dung điều khoản center tự nhập/sửa khi duyệt.
+     */
+    RecruitmentApplicationResponse decideApplication(
+            Long recruitmentAppId, boolean approve, Long contractTemplateId, String contractContent);
 
     // ===================== Quản lý danh sách gia sư của trung tâm =====================
 
@@ -79,6 +84,9 @@ public interface CenterService {
     CenterClassResponse publishClass(Long classId);
 
     CenterClassResponse closeEnrollment(Long classId);
+
+    /** BF-04 bước 10: kích hoạt lớp (bắt đầu học) khi đủ sĩ số tối thiểu -> IN_PROGRESS. */
+    CenterClassResponse activateClass(Long classId);
 
     /**
      * Danh sách gia sư để trung tâm chọn gán (tạm thời lấy tất cả).
@@ -129,4 +137,24 @@ public interface CenterService {
 
     /** Trung tâm từ chối yêu cầu, kèm lý do. */
     void rejectClassRequest(String requestId, String reason);
+
+    // ===== Quản lý mẫu hợp đồng =====
+
+    /** Danh sách mẫu hợp đồng trung tâm dùng được (mẫu hệ thống + của chính trung tâm). */
+    List<com.tcs.module.center.dto.response.ContractTemplateResponse> listContractTemplates();
+
+    /** Tạo mẫu hợp đồng của trung tâm. */
+    com.tcs.module.center.dto.response.ContractTemplateResponse createContractTemplate(
+            com.tcs.module.center.dto.request.SaveContractTemplateRequest request);
+
+    /** Sửa mẫu hợp đồng của chính trung tâm (không sửa mẫu hệ thống). */
+    com.tcs.module.center.dto.response.ContractTemplateResponse updateContractTemplate(
+            Long templateId, com.tcs.module.center.dto.request.SaveContractTemplateRequest request);
+
+    /** Thông tin trung tâm cho khối BÊN A của hợp đồng (hồ sơ + phần bổ sung). */
+    com.tcs.module.center.dto.response.CenterContractInfoResponse getContractInfo();
+
+    /** Lưu thông tin bổ sung BÊN A (website, đại diện, chức vụ). */
+    com.tcs.module.center.dto.response.CenterContractInfoResponse saveContractInfo(
+            com.tcs.module.center.dto.request.SaveCenterContractInfoRequest request);
 }
