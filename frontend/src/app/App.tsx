@@ -5,6 +5,8 @@ import FindClassPage from '../features/home/pages/FindClassPage';
 import TutorPublicProfilePage from '../features/home/pages/TutorPublicProfilePage';
 import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
+import ForgotPasswordPage from '../features/identity/pages/ForgotPasswordPage';
+import ResetPasswordPage from '../features/identity/pages/ResetPasswordPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
 import PlatformDashboardPage from '../features/platform/pages/PlatformDashboardPage';
 import PlatformEscrowPage from '../features/platform/pages/PlatformEscrowPage';
@@ -72,6 +74,8 @@ export default function App() {
           <Route path={APP_ROUTES.tutorProfile} element={<TutorPublicProfilePage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
+          <Route path={APP_ROUTES.forgotPassword} element={<ForgotPasswordPage />} />
+          <Route path={APP_ROUTES.resetPassword} element={<ResetPasswordPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />
           <Route path={APP_ROUTES.catalog} element={<CatalogPage />} />
           {/* Trang "Trung tâm" cong khai: ai cung xem duoc; gia su thay them tin tuyen dung. */}

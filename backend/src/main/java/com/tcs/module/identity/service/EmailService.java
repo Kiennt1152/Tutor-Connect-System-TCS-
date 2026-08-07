@@ -11,6 +11,8 @@ public interface EmailService {
      */
     void sendRegistrationOtp(String toEmail, String code, long expireMinutes);
 
+    void sendPasswordResetOtp(String toEmail, String code, long expireMinutes);
+
     /**
      * Gui email chua ma OTP xac thuc ky hop dong (UC-44).
      *

@@ -1,12 +1,14 @@
 package com.tcs.module.identity.service;
 
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
-import com.tcs.module.identity.dto.request.ForgotPasswordRequest;
 import com.tcs.module.identity.dto.request.GoogleCompleteRequest;
 import com.tcs.module.identity.dto.request.GoogleLoginRequest;
 import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.request.ResetPasswordRequest;
+import com.tcs.module.identity.dto.request.RequestPasswordResetOtpRequest;
+import com.tcs.module.identity.dto.request.VerifyPasswordResetOtpRequest;
+import com.tcs.module.identity.dto.response.PasswordResetOtpResponse;
 import com.tcs.module.identity.dto.request.SendOtpRequest;
 import com.tcs.module.identity.dto.request.VerifyOtpRequest;
 import com.tcs.module.identity.dto.response.AuthResponse;
@@ -43,7 +45,9 @@ public interface IdentityService {
 
     void changePassword(ChangePasswordRequest request);
 
-    void forgotPassword(ForgotPasswordRequest request);
+    PasswordResetOtpResponse requestPasswordResetOtp(RequestPasswordResetOtpRequest request, String clientIp);
+
+    PasswordResetOtpResponse verifyPasswordResetOtp(VerifyPasswordResetOtpRequest request, String clientIp);
 
     void resetPassword(ResetPasswordRequest request);
 }

@@ -12,6 +12,11 @@ import type {
   SendOtpResponse,
   VerifyOtpRequest,
   VerifyOtpResponse,
+  PasswordResetOtpResponse,
+  RequestPasswordResetOtpRequest,
+  VerifyPasswordResetOtpRequest,
+  ResetPasswordRequest,
+  ChangePasswordRequest,
 } from '../types/identityTypes';
 
 const BASE = '/identity';
@@ -49,6 +54,26 @@ export const identityApi = {
 
   async getMe() {
     const { data } = await axiosClient.get(`${BASE}/me`);
+    return data;
+  },
+
+  async requestPasswordResetOtp(body: RequestPasswordResetOtpRequest): Promise<PasswordResetOtpResponse> {
+    const { data } = await axiosClient.post<PasswordResetOtpResponse>(`${BASE}/password/forgot`, body);
+    return data;
+  },
+
+  async verifyPasswordResetOtp(body: VerifyPasswordResetOtpRequest): Promise<PasswordResetOtpResponse> {
+    const { data } = await axiosClient.post<PasswordResetOtpResponse>(`${BASE}/password/forgot/verify-otp`, body);
+    return data;
+  },
+
+  async resetPassword(body: ResetPasswordRequest): Promise<{ message: string }> {
+    const { data } = await axiosClient.post<{ message: string }>(`${BASE}/password/reset`, body);
+    return data;
+  },
+
+  async changePassword(body: ChangePasswordRequest): Promise<{ message: string }> {
+    const { data } = await axiosClient.put<{ message: string }>(`${BASE}/password`, body);
     return data;
   },
 };

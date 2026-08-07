@@ -8,6 +8,8 @@ export const APP_ROUTES = {
   teaching: '/lich-day',
   login: '/login',
   register: '/register',
+  forgotPassword: '/forgot-password',
+  resetPassword: '/reset-password',
   identity: '/identity',
   profile: '/profile',
   profileDependents: '/profile/dependents',
