@@ -1,12 +1,16 @@
 package com.tcs.module.platform.controller;
 
+import com.tcs.module.contract.enums.ReviewStatus;
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.platform.dto.request.CloseTicketRequest;
+import com.tcs.module.platform.dto.request.ModerateReviewRequest;
 import com.tcs.module.platform.dto.request.RespondTicketRequest;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
+import com.tcs.module.platform.dto.request.ResolveClassIssueRequest;
 import com.tcs.module.platform.dto.request.UpdateTicketRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
+import com.tcs.module.platform.dto.response.AdminReviewResponse;
 import com.tcs.module.platform.dto.response.DashboardResponse;
 import com.tcs.module.platform.dto.response.PageSupportTicketResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
@@ -22,6 +26,7 @@ import com.tcs.module.profile.enums.UserRole;
 import jakarta.validation.Valid;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -80,10 +85,28 @@ public class PlatformController {
         return platformService.listReports();
     }
 
+    @GetMapping("/reviews")
+    public List<AdminReviewResponse> listReviews(
+            @RequestParam(required = false) ReviewStatus status) {
+        return platformService.listReviews(status);
+    }
+
+    @PatchMapping("/reviews/{reviewId}")
+    public AdminReviewResponse moderateReview(
+            @PathVariable Long reviewId, @Valid @RequestBody ModerateReviewRequest request) {
+        return platformService.moderateReview(reviewId, request);
+    }
+
+    @DeleteMapping("/reviews/{reviewId}")
+    public void deleteReview(@PathVariable Long reviewId) {
+        platformService.deleteReview(reviewId);
+    }
+
     @PatchMapping("/reports/{reportId}/resolve")
-    public ReportResponse resolveReport(
-            @PathVariable Long reportId, @Valid @RequestBody com.tcs.module.platform.dto.request.ResolveReportRequest request) {
-        return platformService.resolveReport(reportId, request);
+    public ReportResponse resolveClassIssue(
+            @PathVariable Long reportId,
+            @RequestBody ResolveClassIssueRequest request) {
+        return platformService.resolveClassIssue(reportId, request);
     }
 
     @GetMapping("/tickets")

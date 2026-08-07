@@ -1,0 +1,89 @@
+
+.adm-table--reviews {
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.adm-table--reviews th {
+  font-size: 0.72rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.adm-table--reviews th,
+.adm-table--reviews td {
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+}
+
+.adm-table--reviews td {
+  vertical-align: top;
+}
+
+.adm-table--reviews th:first-child,
+.adm-table--reviews td:first-child {
+  min-width: 220px;
+}
+
+.adm-table--reviews {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.adm-table--reviews th:first-child,
+.adm-table--reviews td:first-child {
+  border-left: none;
+}
+.adm-table--reviews th:last-child,
+.adm-table--reviews td:last-child {
+  border-right: none;
+}
+.adm-table--reviews thead th {
+  border-top: none;
+}
+
+.adm-review__name {
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.adm-review__email {
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.adm-review__anon {
+  margin-top: 6px;
+  font-size: 0.72rem;
+}
+
+.adm-review__tutor {
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.adm-table--reviews td:nth-child(4) {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  color: var(--color-primary-dark, #c2410c);
+}
+
+.adm-table--reviews .adm-table__notes {
+  max-width: 260px;
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--color-text-primary);
+}
+
+.adm-table--reviews .adm-table__notes .adm-table__sub {
+  font-style: normal;
+  font-size: 0.78rem;
+}
+
+.adm-table--reviews td:nth-child(7) {
+  font-size: 0.82rem;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}

@@ -1,12 +1,17 @@
 package com.tcs.module.platform.service;
 
 import com.tcs.module.identity.enums.UserStatus;
+import com.tcs.module.contract.enums.ReviewStatus;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.platform.dto.request.CloseTicketRequest;
+import com.tcs.module.platform.dto.request.ModerateReviewRequest;
 import com.tcs.module.platform.dto.request.RespondTicketRequest;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
+import com.tcs.module.platform.dto.request.ResolveClassIssueRequest;
+import com.tcs.module.platform.dto.request.ResolveReportRequest;
 import com.tcs.module.platform.dto.request.UpdateTicketRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
+import com.tcs.module.platform.dto.response.AdminReviewResponse;
 import com.tcs.module.platform.dto.response.DashboardResponse;
 import com.tcs.module.platform.dto.response.PageSupportTicketResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
@@ -30,14 +35,25 @@ public interface PlatformService {
 
     List<VerificationRequestResponse> listVerificationRequests();
 
-    /** Chi tiet yeu cau xac minh: ho so nguoi nop + tai lieu (chi doc). */
     VerificationDetailResponse getVerificationDetail(Long verificationId);
 
     VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request);
 
     List<ReportResponse> listReports();
 
-    ReportResponse resolveReport(Long reportId, com.tcs.module.platform.dto.request.ResolveReportRequest request);
+    ReportResponse resolveClassIssue(Long reportId, ResolveClassIssueRequest request);
+
+    List<ReportResponse> listCenterReports();
+
+    ReportResponse resolveCenterClassIssue(Long reportId, ResolveClassIssueRequest request);
+
+    ReportResponse resolveReport(Long reportId, ResolveReportRequest request);
+
+    List<AdminReviewResponse> listReviews(ReviewStatus status);
+
+    AdminReviewResponse moderateReview(Long reviewId, ModerateReviewRequest request);
+
+    void deleteReview(Long reviewId);
 
     /** Danh sách ticket hỗ trợ, có filter theo status/category/priority/keyword và phân trang. */
     PageSupportTicketResponse getTickets(

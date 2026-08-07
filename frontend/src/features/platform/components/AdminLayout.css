@@ -356,6 +356,13 @@
   font-size: var(--fs-body-sm);
 }
 
+.adm-table__sub {
+  margin-top: 2px;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  word-break: break-word;
+}
+
 .adm-summary-row {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

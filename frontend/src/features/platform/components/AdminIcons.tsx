@@ -11,6 +11,8 @@ export type AdminIconKey =
   | 'book'
   | 'graduation'
   | 'folder'
+  | 'wallet'
+  | 'star'
   | 'message'
   | 'help'
   | 'bar-chart'
@@ -84,6 +86,16 @@ export function IconFolder({ className }: IconProps) {
   );
 }
 
+export function IconWallet({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <path d="M4 7h15a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h12" />
+      <path d="M16 13h5" />
+      <circle cx="16" cy="13" r="1" />
+    </svg>
+  );
+}
+
 export function IconMessage({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
@@ -119,6 +131,14 @@ export function IconChevronRight({ className }: IconProps) {
   );
 }
 
+export function IconStar({ className }: IconProps) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+      <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
+    </svg>
+  );
+}
+
 const ADMIN_ICONS: Record<AdminIconKey, ComponentType<IconProps>> = {
   dashboard: IconDashboard,
   users: IconUsers,
@@ -127,6 +147,8 @@ const ADMIN_ICONS: Record<AdminIconKey, ComponentType<IconProps>> = {
   book: IconBook,
   graduation: IconGraduationCap,
   folder: IconFolder,
+  wallet: IconWallet,
+  star: IconStar,
   message: IconMessage,
   help: IconHelp,
   'bar-chart': IconDashboard,

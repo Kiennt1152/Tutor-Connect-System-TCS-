@@ -97,7 +97,7 @@
 }
 
 /* Badges */
-.tcs-badge {
+.msg-page .tcs-badge {
   display: inline-block;
   padding: 0.15rem 0.6rem;
   border-radius: 99px;
@@ -348,8 +348,8 @@
   text-align: left;
 }
 
-/* Buttons */
-.tcs-btn {
+/* Buttons — scoped to .msg-page so they don't override the global theme buttons. */
+.msg-page .tcs-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -364,20 +364,20 @@
   text-decoration: none;
 }
 
-.tcs-btn--primary {
+.msg-page .tcs-btn--primary {
   background: #1a56db;
   color: #fff;
 }
-.tcs-btn--primary:hover:not(:disabled) { background: #1447c0; }
+.msg-page .tcs-btn--primary:hover:not(:disabled) { background: #1447c0; }
 
-.tcs-btn--ghost {
+.msg-page .tcs-btn--ghost {
   background: transparent;
   border-color: #e2e8f0;
   color: #4a5568;
 }
-.tcs-btn--ghost:hover:not(:disabled) { background: #f7f8fa; }
+.msg-page .tcs-btn--ghost:hover:not(:disabled) { background: #f7f8fa; }
 
-.tcs-btn:disabled {
+.msg-page .tcs-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }

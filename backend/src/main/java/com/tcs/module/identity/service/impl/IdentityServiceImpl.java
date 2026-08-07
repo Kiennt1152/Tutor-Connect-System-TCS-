@@ -2,8 +2,6 @@ package com.tcs.module.identity.service.impl;
 
 import com.tcs.exception.DuplicateEmailException;
 import com.tcs.exception.ResourceNotFoundException;
-import com.tcs.module.finance.entity.Wallet;
-import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.identity.dto.request.ChangePasswordRequest;
 import com.tcs.module.identity.dto.request.GoogleCompleteRequest;
 import com.tcs.module.identity.dto.request.GoogleLoginRequest;
@@ -82,7 +80,6 @@ public class IdentityServiceImpl implements IdentityService {
     private final ClientRepository clientRepository;
     private final TutorRepository tutorRepository;
     private final TutorCenterRepository tutorCenterRepository;
-    private final WalletRepository walletRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailOtpRepository emailOtpRepository;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
@@ -280,15 +277,11 @@ public class IdentityServiceImpl implements IdentityService {
 
         createBaselineProfile(savedUser, request.getRole(), request.getDisplayName().trim(), phone);
 
-        Wallet wallet = new Wallet();
-        wallet.setUser(savedUser);
-        walletRepository.save(wallet);
-
         // Tieu thu token (dung mot lan - BR-UC01-05).
         token.setConsumedAt(LocalDateTime.now());
         emailVerificationTokenRepository.save(token);
 
-        auditLogService.record(savedUser.getUserId(), "REGISTER", "User", savedUser.getUserId(), null,
+        recordAudit(savedUser.getUserId(), "REGISTER", "User", savedUser.getUserId(), null,
                 Map.of("email", email, "role", request.getRole().name()));
 
         return RegisterResponse.builder()
@@ -321,7 +314,7 @@ public class IdentityServiceImpl implements IdentityService {
         UserProfileBundle profiles = loadProfiles(user.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);
         String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role);
-        auditLogService.record(user.getUserId(), "LOGIN", "User", user.getUserId(), null,
+        recordAudit(user.getUserId(), "LOGIN", "User", user.getUserId(), null,
                 Map.of("email", user.getEmail(), "method", "PASSWORD"));
         return buildAuthResponse(user, profiles, token);
     }
@@ -354,7 +347,7 @@ public class IdentityServiceImpl implements IdentityService {
         UserProfileBundle profiles = loadProfiles(user.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);
         String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role);
-        auditLogService.record(user.getUserId(), "LOGIN", "User", user.getUserId(), null,
+        recordAudit(user.getUserId(), "LOGIN", "User", user.getUserId(), null,
                 Map.of("email", user.getEmail(), "method", "GOOGLE"));
         return buildGoogleLoginResponse(user, profiles, token);
     }
@@ -384,14 +377,10 @@ public class IdentityServiceImpl implements IdentityService {
 
         createBaselineProfile(savedUser, request.getRole(), suggestDisplayName(email, payload.getName()), phone);
 
-        Wallet wallet = new Wallet();
-        wallet.setUser(savedUser);
-        walletRepository.save(wallet);
-
         UserProfileBundle profiles = loadProfiles(savedUser.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);
         String token = jwtService.generateToken(savedUser.getUserId(), savedUser.getEmail(), role);
-        auditLogService.record(savedUser.getUserId(), "REGISTER", "User", savedUser.getUserId(), null,
+        recordAudit(savedUser.getUserId(), "REGISTER", "User", savedUser.getUserId(), null,
                 Map.of("email", email, "role", request.getRole().name(), "method", "GOOGLE"));
         return buildGoogleLoginResponse(savedUser, profiles, token);
     }
@@ -446,7 +435,7 @@ public class IdentityServiceImpl implements IdentityService {
         }
         user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
-        auditLogService.record(user.getUserId(), "CHANGE_PASSWORD", "User", user.getUserId(), null, null);
+        recordAudit(user.getUserId(), "CHANGE_PASSWORD", "User", user.getUserId(), null, null);
     }
 
     @Override
@@ -562,7 +551,7 @@ public class IdentityServiceImpl implements IdentityService {
         userRepository.save(user);
         token.setUsedAt(LocalDateTime.now());
         passwordResetTokenRepository.save(token);
-        auditLogService.record(user.getUserId(), "RESET_PASSWORD", "User", user.getUserId(), null, null);
+        recordAudit(user.getUserId(), "RESET_PASSWORD", "User", user.getUserId(), null, null);
     }
 
     // ============================================================== helpers
@@ -669,6 +658,14 @@ public class IdentityServiceImpl implements IdentityService {
         return userRepository
                 .findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+    }
+
+    private void recordAudit(
+            Long actorUserId, String action, String entityType, Long entityId, Object oldValue, Object newValue) {
+        if (auditLogService == null) {
+            return;
+        }
+        auditLogService.record(actorUserId, action, entityType, entityId, oldValue, newValue);
     }
 
     private AuthResponse buildAuthResponse(User user, UserProfileBundle profiles, String token) {

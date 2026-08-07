@@ -48,7 +48,7 @@ public class ReviewServiceImpl implements ReviewService {
         review.setReviewer(reviewer);
         review.setReviewee(reviewee);
         review.setReviewType(request.getReviewType());
-        review.setRating(request.getRating());
+        review.setRating(java.math.BigDecimal.valueOf(request.getRating()));
         review.setComment(request.getComment());
         return toResponse(reviewRepository.save(review));
     }

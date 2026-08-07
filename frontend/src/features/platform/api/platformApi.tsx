@@ -1,15 +1,40 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  AdminDisputeReviewApiResponse,
+  AdminReviewApiResponse,
   AdminTicketDetailApiResponse,
   AdminTicketFilters,
   AnnouncementApiResponse,
+  AppealDisputeApiRequest,
+  AuditLogFilters,
   CloseTicketApiRequest,
   DashboardApiResponse,
+  DisputeStatus,
+  ExecuteRefundApiRequest,
+  ExecuteSettlementApiRequest,
+  IssuePenaltyApiRequest,
   PageAdminTicketApiResponse,
+  PageAdminWithdrawalApiResponse,
+  PageAuditLogApiResponse,
+  PagePenaltyApiResponse,
+  PageTaskItemApiResponse,
   PageUserListApiResponse,
+  PenaltyApiResponse,
+  PenaltyFilters,
+  RefundDecisionApiRequest,
+  RefundExecutionApiResponse,
+  RefundRequestApiResponse,
+  RefundRequestStatus,
   ReportApiResponse,
+  ReviewModerationStatus,
   RespondTicketApiRequest,
   ReviewVerificationApiRequest,
+  ResolveClassIssueRequest,
+  ResolveDisputeApiRequest,
+  ResolveReportApiRequest,
+  RevokePenaltyApiRequest,
+  TaskFilters,
+  TaskQueueSummaryApiResponse,
   UpdateTicketApiRequest,
   UpdateUserStatusApiRequest,
   UpsertAnnouncementApiRequest,
@@ -17,20 +42,15 @@ import type {
   UserListFilters,
   VerificationDetailApiResponse,
   VerificationRequestApiResponse,
-  IssuePenaltyApiRequest,
-  PagePenaltyApiResponse,
-  PenaltyApiResponse,
-  PenaltyFilters,
-  RevokePenaltyApiRequest,
-  AuditLogFilters,
-  PageAuditLogApiResponse,
-  TaskFilters,
-  PageTaskItemApiResponse,
-  TaskQueueSummaryApiResponse,
-  ResolveReportApiRequest,
+  WithdrawalDecisionApiRequest,
+  WithdrawalListFilters,
   AnalyticsSummaryApiResponse,
 } from '../types/platformTypes';
-import { buildUserListQuery, buildTicketListQuery } from '../mappers/platformMapper';
+import {
+  buildTicketListQuery,
+  buildUserListQuery,
+  buildWithdrawalListQuery,
+} from '../mappers/platformMapper';
 
 const BASE = '/platform';
 
@@ -41,6 +61,28 @@ export const platformApi = {
 
   getUsers(filters: UserListFilters) {
     return axiosClient.get<PageUserListApiResponse>(`${BASE}/users?${buildUserListQuery(filters)}`);
+  },
+
+  getWithdrawals(filters: WithdrawalListFilters) {
+    return axiosClient.get<PageAdminWithdrawalApiResponse>(
+      `/finance/withdrawals?${buildWithdrawalListQuery(filters)}`,
+    );
+  },
+
+  acceptWithdrawal(withdrawalId: string) {
+    return axiosClient.post(`/finance/withdrawals/${withdrawalId}/accept`);
+  },
+
+  approveWithdrawal(withdrawalId: string) {
+    return axiosClient.post(`/finance/withdrawals/${withdrawalId}/approve`);
+  },
+
+  rejectWithdrawal(withdrawalId: string, payload: WithdrawalDecisionApiRequest) {
+    return axiosClient.post(`/finance/withdrawals/${withdrawalId}/reject`, payload);
+  },
+
+  markWithdrawalTransferFailed(withdrawalId: string, payload: WithdrawalDecisionApiRequest) {
+    return axiosClient.post(`/finance/withdrawals/${withdrawalId}/transfer-failed`, payload);
   },
 
   updateUserStatus(userId: string, payload: UpdateUserStatusApiRequest) {
@@ -64,6 +106,65 @@ export const platformApi = {
 
   getReports() {
     return axiosClient.get<ReportApiResponse[]>(`${BASE}/reports`);
+  },
+
+  resolveClassIssue(reportId: string, payload: ResolveClassIssueRequest) {
+    return axiosClient.patch<ReportApiResponse>(`${BASE}/reports/${reportId}/resolve`, payload);
+  },
+
+  resolveReport(reportId: number, payload: ResolveReportApiRequest) {
+    return axiosClient.patch(`${BASE}/reports/${reportId}/resolve`, payload);
+  },
+
+  getDisputes(status?: DisputeStatus) {
+    const query = status ? `?status=${status}` : '';
+    return axiosClient.get<AdminDisputeReviewApiResponse[]>(`/disputes${query}`);
+  },
+
+  getDispute(disputeId: string) {
+    return axiosClient.get<AdminDisputeReviewApiResponse>(`/disputes/${disputeId}`);
+  },
+
+  resolveDispute(disputeId: string, payload: ResolveDisputeApiRequest) {
+    return axiosClient.post<AdminDisputeReviewApiResponse>(`/disputes/${disputeId}/resolve`, payload);
+  },
+
+  appealDispute(disputeId: string, payload: AppealDisputeApiRequest) {
+    return axiosClient.post<AdminDisputeReviewApiResponse>(`/disputes/${disputeId}/appeal`, payload);
+  },
+
+  executeSettlement(payload: ExecuteSettlementApiRequest) {
+    return axiosClient.post<string>('/finance/settlements/execute', payload);
+  },
+
+  executeRefund(payload: ExecuteRefundApiRequest) {
+    return axiosClient.post<RefundExecutionApiResponse>('/finance/refunds/execute', payload);
+  },
+
+  getRefundRequests(status?: RefundRequestStatus) {
+    const query = status ? `?status=${status}` : '';
+    return axiosClient.get<RefundRequestApiResponse[]>(`/finance/refund-requests${query}`);
+  },
+
+  approveRefundRequest(refundId: string, payload: RefundDecisionApiRequest) {
+    return axiosClient.post<RefundRequestApiResponse>(`/finance/refund-requests/${refundId}/approve`, payload);
+  },
+
+  rejectRefundRequest(refundId: string, payload: RefundDecisionApiRequest) {
+    return axiosClient.post<RefundRequestApiResponse>(`/finance/refund-requests/${refundId}/reject`, payload);
+  },
+
+  getReviews(status?: ReviewModerationStatus) {
+    const query = status ? `?status=${status}` : '';
+    return axiosClient.get<AdminReviewApiResponse[]>(`${BASE}/reviews${query}`);
+  },
+
+  moderateReview(reviewId: number, status: ReviewModerationStatus) {
+    return axiosClient.patch<AdminReviewApiResponse>(`${BASE}/reviews/${reviewId}`, { status });
+  },
+
+  deleteReview(reviewId: number) {
+    return axiosClient.delete<void>(`${BASE}/reviews/${reviewId}`);
   },
 
   getTickets(filters: AdminTicketFilters) {
@@ -103,7 +204,7 @@ export const platformApi = {
   },
 
   getPublicAnnouncements() {
-    return axiosClient.get<AnnouncementApiResponse[]>(`/home/announcements`);
+    return axiosClient.get<AnnouncementApiResponse[]>('/home/announcements');
   },
 
   getPenalties(filters: PenaltyFilters) {
@@ -148,15 +249,13 @@ export const platformApi = {
     return axiosClient.get<PageTaskItemApiResponse>(`${BASE}/tasks?${params}`);
   },
 
-  resolveReport(reportId: number, payload: ResolveReportApiRequest) {
-    return axiosClient.patch(`${BASE}/reports/${reportId}/resolve`, payload);
-  },
-
   getAnalyticsSummary() {
     return axiosClient.get<AnalyticsSummaryApiResponse>(`${BASE}/analytics/summary`);
   },
 
   exportAnalyticsCsv(type: 'users' | 'classes' | 'revenue') {
-    return axiosClient.get<Blob>(`${BASE}/analytics/export?type=${type}&format=csv`, { responseType: 'blob' });
+    return axiosClient.get<Blob>(`${BASE}/analytics/export?type=${type}&format=csv`, {
+      responseType: 'blob',
+    });
   },
 };

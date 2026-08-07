@@ -6,5 +6,7 @@ public enum NotificationType {
     SYSTEM,
     CLASS,
     VERIFICATION,
-    CHAT
+    CHAT,
+    REVIEW,
+    REPORT
 }

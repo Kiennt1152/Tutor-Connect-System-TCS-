@@ -4,11 +4,10 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
-
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -44,7 +43,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<Map<String, String>> handleUploadTooLarge(MaxUploadSizeExceededException exception) {
         Map<String, String> body = new HashMap<>();
-        body.put("message", "Kích thước ảnh tối đa là 5 MB");
+        body.put("message", "Kích thước tệp vượt quá giới hạn cho phép");
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(body);
     }
 
@@ -102,7 +101,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(DataIntegrityViolationException.class)
     public ResponseEntity<Map<String, String>> handleDataIntegrityViolation(DataIntegrityViolationException exception) {
         Map<String, String> body = new HashMap<>();
-        body.put("message", "Tên danh mục đã tồn tại hoặc dữ liệu không hợp lệ.");
+        body.put("message", "Dữ liệu không hợp lệ hoặc bị trùng. Vui lòng kiểm tra lại.");
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 }

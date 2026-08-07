@@ -105,3 +105,36 @@ export interface WithdrawalInfo {
   requestedAt: string;
   wallet: WalletInfo;
 }
+
+export interface RefundRequestPayload {
+  escrowId?: number;
+  assignmentId?: number;
+  classStudentId?: number;
+  amount: number;
+  reason: string;
+  bankName: string;
+  accountNo: string;
+}
+
+export interface RefundRequestInfo {
+  refundId: number;
+  escrowId: number | null;
+  escrowStatus: 'PENDING' | 'FUNDED' | 'RELEASED' | 'REFUNDED' | 'ON_HOLD' | 'DISPUTED' | null;
+  requesterId: number | null;
+  requesterEmail: string | null;
+  classId: number | null;
+  classTitle: string | null;
+  assignmentId: number | null;
+  classStudentId: number | null;
+  escrowAmount: number | null;
+  amount: number;
+  bankName?: string | null;
+  accountNoMasked?: string | null;
+  refundReferenceCode?: string | null;
+  transferStatus?: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED' | string;
+  reason: string | null;
+  requestedAt: string | null;
+  processedAt: string | null;
+  transferProcessedAt?: string | null;
+}

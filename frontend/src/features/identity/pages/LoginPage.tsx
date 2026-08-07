@@ -157,8 +157,8 @@ export default function LoginPage() {
           } else {
             navigate(resolvePostLoginPath(from, result.role), { replace: true });
           }
-        } catch {
-          setError('Đăng nhập Google thất bại. Vui lòng thử lại.');
+        } catch (err) {
+          setError(getApiErrorMessage(err, 'Tài khoản của bạn đã bị khóa và không thể đăng nhập. Vui lòng liên hệ quản trị viên.'));
         } finally {
           setLoading(false);
         }
@@ -282,9 +282,11 @@ export default function LoginPage() {
                 <input
                   className="reg-input"
                   value={completePhone}
-                  onChange={(e) => setCompletePhone(e.target.value)}
+                  onChange={(e) => setCompletePhone(e.target.value.replace(/\D/g, ''))}
                   placeholder="0901234567"
+                  inputMode="numeric"
                   autoComplete="tel"
+                  maxLength={11}
                   required
                 />
               </label>
