@@ -6,6 +6,8 @@ import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { SiteFooter } from '../../home/components/SiteFooter';
 import { useProfile } from '../hooks/useProfile';
 import { profileApi } from '../api/profileApi';
+import { CccdSection } from '../components/CccdSection';
+import { CccdVerifiedView } from '../components/CccdVerifiedView';
 import type {
   ChildProfile,
   Gender,
@@ -127,6 +129,16 @@ export default function ProfilePage() {
   const isCenter = role === 'TUTOR_CENTER';
   const age = calcAge(profile?.dateOfBirth);
   const isAdultClient = isClient && age != null && age >= 18;
+
+  // Cách A: đã có CCCD -> ngày sinh khóa theo CCCD (không cho sửa tay).
+  const [dobLockedByCccd, setDobLockedByCccd] = useState(false);
+  useEffect(() => {
+    if (!isClient && !isTutor) return;
+    profileApi
+      .getMyCccd()
+      .then((res) => setDobLockedByCccd(Boolean(res.data.cccdNumber)))
+      .catch(() => setDobLockedByCccd(false));
+  }, [isClient, isTutor]);
 
   useEffect(() => {
     if (!isAdultClient) {
@@ -361,7 +373,14 @@ export default function ProfilePage() {
                   type="date"
                   value={form.dateOfBirth}
                   onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
+                  disabled={dobLockedByCccd}
                 />
+                {dobLockedByCccd && (
+                  <small className="profile-hint">
+                    Ngày sinh được lấy từ CCCD đã xác minh — không thể sửa tay. Cập nhật bằng cách đọc
+                    lại ảnh CCCD ở mục dưới.
+                  </small>
+                )}
                 {errs.dateOfBirth && <span className="profile-field-error">{errs.dateOfBirth}</span>}
               </label>
               <label>
@@ -369,12 +388,18 @@ export default function ProfilePage() {
                 <select
                   value={form.gender}
                   onChange={(e) => setForm({ ...form, gender: e.target.value as Gender | '' })}
+                  disabled={dobLockedByCccd}
                 >
                   <option value="">-- Chọn --</option>
                   <option value="MALE">Nam</option>
                   <option value="FEMALE">Nữ</option>
                   <option value="OTHER">Khác</option>
                 </select>
+                {dobLockedByCccd && (
+                  <small className="profile-hint">
+                    Giới tính lấy từ CCCD đã xác minh — không thể sửa tay.
+                  </small>
+                )}
               </label>
             </section>
           )}
@@ -500,15 +525,22 @@ export default function ProfilePage() {
         </section>
       )}
 
+      {/* Phụ huynh: tự quét/sửa CCCD ở profile. Gia sư/Trung tâm: nộp khi xác minh -> chỉ xem. */}
+      {isClient && <CccdSection />}
+      {(isTutor || isCenter) && (
+        <CccdVerifiedView
+          verified={profile?.verificationStatus === 'VERIFIED'}
+          isCenter={isCenter}
+        />
+      )}
+
       {isAdultClient && (
         <section className="profile-section">
           <h2>Xác minh danh tính</h2>
           <p>
-            Tải lên hai mặt CCCD/CMND để TCS xác minh người thanh toán và người ký hợp đồng.
+            Xác minh danh tính của client hiện được hệ thống xử lý tự động, bạn không cần mở màn
+            riêng tại đây.
           </p>
-          <Link to={APP_ROUTES.verification} className="btn-primary-link">
-            Nộp xác minh danh tính
-          </Link>
         </section>
       )}
 

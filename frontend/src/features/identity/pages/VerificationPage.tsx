@@ -4,6 +4,8 @@ import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { CccdSection } from '../../profile/components/CccdSection';
+import { profileApi } from '../../profile/api/profileApi';
 import { useVerification } from '../hooks/useVerification';
 import { verificationApi } from '../api/verificationApi';
 import { mapDocumentType, mapVerificationStatus } from '../mappers/verificationMapper';
@@ -140,6 +142,8 @@ export default function VerificationPage() {
   const [dragSlot, setDragSlot] = useState<DocumentSlotConfig['key'] | null>(
     null,
   );
+  // Bắt buộc tự xác nhận thông tin CCCD quét được là đúng trước khi gửi xác minh.
+  const [cccdConfirmed, setCccdConfirmed] = useState(false);
 
   const latest = verifications[0] ?? null;
 
@@ -228,6 +232,24 @@ export default function VerificationPage() {
       setSubmitError(
         `Vui lòng tải lên: ${missingRequired.map((s) => s.label).join(', ')}.`,
       );
+      return;
+    }
+
+    // Bắt buộc đã quét + lưu thông tin CCCD (đọc QR) trước khi gửi xác minh.
+    let cccdComplete = false;
+    try {
+      cccdComplete = Boolean((await profileApi.getMyCccd()).data.complete);
+    } catch {
+      cccdComplete = false;
+    }
+    if (!cccdComplete) {
+      setSubmitError(
+        'Vui lòng quét mã QR CCCD và bấm "Lưu thông tin CCCD" ở mục CCCD phía trên trước khi gửi xác minh.',
+      );
+      return;
+    }
+    if (!cccdConfirmed) {
+      setSubmitError('Vui lòng tích xác nhận thông tin CCCD quét được là chính xác trước khi gửi.');
       return;
     }
 
@@ -323,7 +345,30 @@ export default function VerificationPage() {
                     onStartNew={startResubmit}
                   />
                 ) : (
-                  <UploadView
+                  <>
+                    {/* Quét CCCD (đọc QR tự điền) — bắt buộc trước khi gửi xác minh. */}
+                    <CccdSection />
+                    <label
+                      style={{
+                        display: 'flex',
+                        gap: 8,
+                        alignItems: 'flex-start',
+                        margin: '4px 0 16px',
+                        fontSize: 14,
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={cccdConfirmed}
+                        onChange={(e) => setCccdConfirmed(e.target.checked)}
+                        style={{ marginTop: 3 }}
+                      />
+                      <span>
+                        Tôi đã kiểm tra và <strong>xác nhận thông tin CCCD</strong> quét được ở trên là
+                        chính xác.
+                      </span>
+                    </label>
+                    <UploadView
                     slots={slots}
                     uploadedFiles={uploadedFiles}
                     uploadingSlot={uploadingSlot}
@@ -337,6 +382,7 @@ export default function VerificationPage() {
                     onDragEnter={(slot) => setDragSlot(slot)}
                     onDragLeave={() => setDragSlot(null)}
                   />
+                  </>
                 )}
 
                 {step === 'done' && latest?.status === 'REJECTED' && !hasActiveRequest && (

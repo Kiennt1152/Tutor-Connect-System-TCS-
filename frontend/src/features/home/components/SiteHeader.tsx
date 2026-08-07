@@ -12,7 +12,6 @@ const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
 const WALLET_ROLES: UserRole[] = ['TUTOR', 'TUTOR_CENTER'];
 const CONTRACT_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER'];
 const MESSAGING_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN'];
-const VERIFICATION_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER'];
 const TEACHING_ROLES: UserRole[] = ['TUTOR', 'CLIENT'];
 const FEEDBACK_ROLES: UserRole[] = ['CLIENT'];
 const REPUTATION_ROLES: UserRole[] = ['TUTOR'];
@@ -39,7 +38,6 @@ export function SiteHeader({ active }: SiteHeaderProps) {
   const showWallet = hasAnyRole(user?.role, WALLET_ROLES);
   const showContract = hasAnyRole(user?.role, CONTRACT_ROLES);
   const showMessaging = hasAnyRole(user?.role, MESSAGING_ROLES);
-  const showVerification = hasAnyRole(user?.role, VERIFICATION_ROLES);
   const showTeaching = hasAnyRole(user?.role, TEACHING_ROLES);
   const showFeedback = hasAnyRole(user?.role, FEEDBACK_ROLES);
   const showMyReputation = hasAnyRole(user?.role, REPUTATION_ROLES);
@@ -55,8 +53,10 @@ export function SiteHeader({ active }: SiteHeaderProps) {
           >
             Tìm gia sư
           </Link>
-          <Link to={APP_ROUTES.findClass}>Tìm lớp</Link>
-          <a href="/#centers">Trung tâm</a>
+          <Link to={APP_ROUTES.classFinder}>Tìm lớp</Link>
+          <Link to={APP_ROUTES.findClass}>Tìm lớp (gia sư)</Link>
+          <Link to={APP_ROUTES.marketplace}>Marketplace</Link>
+          <Link to={APP_ROUTES.centers}>Trung tâm</Link>
           <a href="/#news">Tin tức</a>
           <a href="/#reviews">Đánh giá</a>
         </nav>
@@ -91,11 +91,6 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                   <Link className="tcs-profile-menu__item" to={profilePath} role="menuitem">
                     Hồ sơ của tôi
                   </Link>
-                  {showVerification ? (
-                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.verification} role="menuitem">
-                      {hasRole(user.role, 'CLIENT') ? 'Xác minh danh tính' : 'Xác minh hồ sơ'}
-                    </Link>
-                  ) : null}
                   {showWallet ? (
                     <Link className="tcs-profile-menu__item" to={APP_ROUTES.finance} role="menuitem">
                       Ví của tôi
@@ -116,16 +111,6 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                       Quản lý trung tâm
                     </Link>
                   ) : null}
-                  {showTeaching ? (
-                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.teaching} role="menuitem">
-                      {hasRole(user.role, 'CLIENT') ? 'Lịch học' : 'Lịch dạy'}
-                    </Link>
-                  ) : null}
-                  {hasRole(user.role, 'PLATFORM_ADMIN') ? (
-                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.platform} role="menuitem">
-                      Bảng quản trị
-                    </Link>
-                  ) : null}
                   {showFeedback ? (
                     <Link className="tcs-profile-menu__item" to={APP_ROUTES.feedback} role="menuitem">
                       Đánh giá của tôi
@@ -134,6 +119,16 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                   {showMyReputation ? (
                     <Link className="tcs-profile-menu__item" to={APP_ROUTES.myReputation} role="menuitem">
                       Nhận xét về tôi
+                    </Link>
+                  ) : null}
+                  {showTeaching ? (
+                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.teaching} role="menuitem">
+                      {hasRole(user.role, 'CLIENT') ? 'Lịch học' : 'Lịch dạy'}
+                    </Link>
+                  ) : null}
+                  {hasRole(user.role, 'PLATFORM_ADMIN') ? (
+                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.platform} role="menuitem">
+                      Bảng quản trị
                     </Link>
                   ) : null}
                 </div>

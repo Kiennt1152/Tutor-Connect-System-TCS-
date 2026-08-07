@@ -59,6 +59,7 @@ import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.ClassTerminationStatus;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.LessonAttendanceStatus;
 import com.tcs.module.marketplace.enums.RescheduleRequestStatus;
 import com.tcs.module.marketplace.enums.RescheduleRequestType;
@@ -83,6 +84,7 @@ import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
+import com.tcs.module.profile.service.ClientLegalAccountService;
 import com.tcs.security.AuthHelper;
 import com.tcs.security.UserPrincipal;
 import java.math.BigDecimal;
@@ -105,6 +107,14 @@ import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
+import com.tcs.common.classrequest.ClassRequestStore;
+import com.tcs.common.event.StudentContractSigned;
+import com.tcs.module.contract.service.ContractService;
+import org.springframework.context.event.EventListener;
+import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
+import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
+import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -118,6 +128,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final AuthHelper authHelper;
     private final UserRepository userRepository;
     private final ClientRepository clientRepository;
+    private final ClientLegalAccountService clientLegalAccountService;
     private final TutorRepository tutorRepository;
     private final ContractRepository contractRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
@@ -140,6 +151,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final AuditLogService auditLogService;
     private final TutorCenterRepository tutorCenterRepository;
     private final ClassRequestStore classRequestStore;
+    private final ContractService contractService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final Map<String, Integer> DAY_CODE_TO_ISO = Map.of(
@@ -1476,6 +1488,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return Math.max(0.0, Math.min(1.0, v));
     }
 
+    @Override
     @Transactional
     public ClassTerminationResponse requestClassTermination(Long classId, CreateClassTerminationRequest request) {
         if (request == null) {
@@ -1554,7 +1567,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
     @Override
     @Transactional
-    public void registerToClass(Long classId) {
+    public String registerToClass(Long classId) {
         User user = requireUser();
         TutoringClass tutoringClass = findClass(classId);
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
@@ -1564,6 +1577,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
         Tutor tutor = tutorRepository.findByUser_UserId(userId).orElse(null);
         if (tutor != null) {
+            // Lớp của trung tâm do chính trung tâm tự bố trí gia sư (nội bộ / tin tuyển BF-03),
+            // không nhận gia sư tự đăng ký qua marketplace.
+            if (tutoringClass.getClassType() == ClassType.CENTER) {
+                throw new ForbiddenException(
+                        "Lớp của trung tâm do trung tâm tự bố trí gia sư — gia sư không thể tự đăng ký.");
+            }
             // Chặn cứng: chỉ gia sư đã được xác minh mới được ứng tuyển vào lớp.
             if (tutor.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
                 throw new VerificationRequiredException(
@@ -1580,41 +1599,79 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             TutorApplication saved = tutorApplicationRepository.save(application);
             auditLogService.record(userId, "APPLY_CLASS", "TutorApplication", saved.getApplicationId(), null,
                     java.util.Map.of("classId", classId));
-            return;
+            return "Đã gửi đơn ứng tuyển dạy lớp. Vui lòng chờ trung tâm/phụ huynh duyệt.";
         }
 
         Client client = clientRepository.findByUser_UserId(userId).orElse(null);
         if (client != null) {
+            // #3: bắt buộc có ngày sinh để xác minh tuổi (thiếu -> không xác định được <18).
+            if (client.getDateOfBirth() == null) {
+                throw new IllegalArgumentException(
+                        "Vui lòng cập nhật ngày sinh trong hồ sơ trước khi đăng ký lớp.");
+            }
+            // #1: check trùng theo CHÍNH học sinh (email tài khoản đăng ký), không theo phụ huynh
+            // -> 2 con của cùng một phụ huynh vẫn đăng ký được cùng lớp.
             if (classStudentRepository
-                    .existsByTutoringClass_ClassIdAndEnrolledByUser_UserId(classId, userId)) {
+                    .existsByTutoringClass_ClassIdAndStudentEmail(classId, user.getEmail())) {
                 throw new IllegalArgumentException("Bạn đã đăng ký lớp này rồi");
             }
+            // #2 & #3: học sinh dưới 18 phải liên kết phụ huynh; và PHỤ HUYNH (người pháp lý) là
+            // bên ký hợp đồng, không phải học sinh. resolveForClient() ném lỗi nếu minor chưa liên kết.
+            ClientLegalAccountService.LegalAccountContext legal =
+                    clientLegalAccountService.resolveForClient(client);
+            User payer = legal.getLegalUserId().equals(userId)
+                    ? user
+                    : userRepository.findById(legal.getLegalUserId()).orElse(user);
             ClassStudent student = new ClassStudent();
             student.setTutoringClass(tutoringClass);
-            student.setEnrolledByUser(user);
-            student.setStudentName(client.getFullName());
+            // Người ký/chịu trách nhiệm hợp đồng: phụ huynh nếu là minor, ngược lại chính client.
+            student.setEnrolledByUser(payer);
+            student.setStudentName(client.getFullName()); // tên học viên thực (kể cả minor)
             student.setStudentPhone(client.getPhone());
             student.setStudentEmail(user.getEmail());
-            student.setStatus(ClassStudentStatus.ENROLLED);
+            // BF-04: CHỜ KÝ hợp đồng -> chưa chính thức vào lớp, chưa tính sĩ số.
+            student.setStatus(ClassStudentStatus.PENDING_SIGNATURE);
             ClassStudent savedStudent = classStudentRepository.save(student);
+            // BF-04 bước 7: sinh hợp đồng theo học viên để phụ huynh/học viên ký (OTP).
+            // Ký xong -> onStudentContractSigned mới chuyển ENROLLED + đóng ghi danh khi đủ.
+            contractService.generateStudentContract(savedStudent.getClassStudentId());
             auditLogService.record(userId, "REGISTER_CLASS", "ClassStudent", savedStudent.getClassStudentId(),
                     null, java.util.Map.of("classId", classId));
-
-            // Đủ sĩ số tối đa -> tự đóng ghi danh. Lớp tự tạo đã gán gia sư trước khi mở ghi danh
-            // nên đủ học sinh là đã ghép (MATCHED).
-            Integer max = tutoringClass.getMaxStudents();
-            if (max != null && max > 0) {
-                long enrolled = classStudentRepository
-                        .countByTutoringClass_ClassIdAndStatus(classId, ClassStudentStatus.ENROLLED);
-                if (enrolled >= max) {
-                    tutoringClass.setStatus(TutoringClassStatus.MATCHED);
-                    tutoringClassRepository.save(tutoringClass);
-                }
+            // #2: thông báo đúng ngữ cảnh — minor thì phụ huynh ký thay.
+            if (legal.isDelegatedToParent()) {
+                return "Đã ghi nhận đăng ký. Vì bạn dưới 18 tuổi, hợp đồng đã được gửi cho phụ huynh"
+                        + (legal.getLegalHolderName() != null ? " (" + legal.getLegalHolderName() + ")" : "")
+                        + " ký. Ký xong bạn mới chính thức vào lớp.";
             }
-            return;
+            return "Đã ghi nhận đăng ký. Vui lòng vào mục Hợp đồng để ký — ký xong mới chính thức vào lớp.";
         }
 
         throw new ForbiddenException("Chỉ gia sư hoặc phụ huynh/học viên mới đăng ký lớp");
+    }
+
+    /**
+     * BF-04: học viên ký xong hợp đồng -> chính thức vào lớp (ENROLLED) và đóng ghi danh khi đủ sĩ số.
+     */
+    @EventListener
+    @Transactional
+    public void onStudentContractSigned(StudentContractSigned event) {
+        ClassStudent cs = classStudentRepository.findById(event.classStudentId()).orElse(null);
+        if (cs == null || cs.getStatus() != ClassStudentStatus.PENDING_SIGNATURE) {
+            return;
+        }
+        cs.setStatus(ClassStudentStatus.ENROLLED);
+        classStudentRepository.save(cs);
+
+        TutoringClass cls = cs.getTutoringClass();
+        Integer max = cls.getMaxStudents();
+        if (max != null && max > 0) {
+            long enrolled = classStudentRepository
+                    .countByTutoringClass_ClassIdAndStatus(cls.getClassId(), ClassStudentStatus.ENROLLED);
+            if (enrolled >= max) {
+                cls.setStatus(TutoringClassStatus.MATCHED);
+                tutoringClassRepository.save(cls);
+            }
+        }
     }
 
     @Override
@@ -2152,6 +2209,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .budget(c.getBudget())
                 .recurringType(c.getRecurringType())
                 .status(c.getStatus())
+                .classType(c.getClassType())
                 .maxStudents(c.getMaxStudents())
                 .enrolledCount(classStudentRepository
                         .countByTutoringClass_ClassIdAndStatus(c.getClassId(), ClassStudentStatus.ENROLLED))
@@ -2222,5 +2280,4 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .verificationStatus(tutor.getVerificationStatus().name())
                 .build();
     }
-
 }

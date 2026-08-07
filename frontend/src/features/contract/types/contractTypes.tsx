@@ -37,6 +37,7 @@ export interface ContractResponse {
   assignmentId?: number | null;
   classId: number | null;
   classStudentId?: number | null;
+  recruitmentApplicationId?: number | null;
   clientId?: number | null;
   clientName?: string | null;
   clientEmail?: string | null;
@@ -49,6 +50,8 @@ export interface ContractResponse {
   templateId?: number | null;
   templateName?: string | null;
   termsSummary: string | null;
+  /** Văn bản hợp đồng đầy đủ (Quốc hiệu + BÊN A + BÊN B + điều khoản). */
+  documentText?: string | null;
   contractFileUrl: string | null;
   hasAllSignatures?: boolean;
   signedCount?: number;
@@ -152,6 +155,7 @@ export interface Contract {
   assignmentId: number | null;
   classId: number | null;
   classStudentId: number | null;
+  recruitmentApplicationId: number | null;
   clientId: number | null;
   clientName: string | null;
   clientEmail: string | null;

@@ -11,7 +11,6 @@ const CENTER_MANAGE_ROLES: UserRole[] = ['TUTOR_CENTER'];
 const WALLET_ROLES: UserRole[] = ['TUTOR', 'TUTOR_CENTER'];
 const CONTRACT_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER'];
 const MESSAGING_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN'];
-const VERIFICATION_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER'];
 
 const userInitials = (displayName: string | undefined, email: string) => {
   const source = displayName?.trim() || email;
@@ -35,7 +34,6 @@ export function HomeNavbar() {
   const showWallet = hasAnyRole(user?.role, WALLET_ROLES);
   const showContract = hasAnyRole(user?.role, CONTRACT_ROLES);
   const showMessaging = hasAnyRole(user?.role, MESSAGING_ROLES);
-  const showVerification = hasAnyRole(user?.role, VERIFICATION_ROLES);
   const showFeedback = hasRole(user?.role, 'CLIENT');
   const showMyReputation = hasRole(user?.role, 'TUTOR');
 
@@ -45,7 +43,9 @@ export function HomeNavbar() {
         <AppLogo href="/" />
         <nav className="tcs-header__nav">
           <Link to="/#find-tutor">Tìm gia sư</Link>
-          <Link to={APP_ROUTES.marketplace}>Tìm lớp</Link>
+          <Link to={APP_ROUTES.classFinder}>Tìm lớp</Link>
+          <Link to={APP_ROUTES.findClass}>Tìm lớp (gia sư)</Link>
+          <Link to={APP_ROUTES.marketplace}>Marketplace</Link>
           <Link to={centersHref}>Trung tâm</Link>
           <Link to="/#news">Tin tức</Link>
           <Link to="/#reviews">Đánh giá</Link>
@@ -80,15 +80,6 @@ export function HomeNavbar() {
                   <Link className="tcs-profile-menu__item" to={profilePath} role="menuitem">
                     Hồ sơ của tôi
                   </Link>
-                  {showVerification ? (
-                    <Link
-                      className="tcs-profile-menu__item"
-                      to={APP_ROUTES.verification}
-                      role="menuitem"
-                    >
-                      {hasRole(user.role, 'CLIENT') ? 'Xác minh danh tính' : 'Xác minh hồ sơ'}
-                    </Link>
-                  ) : null}
                   {showWallet ? (
                     <Link
                       className="tcs-profile-menu__item"

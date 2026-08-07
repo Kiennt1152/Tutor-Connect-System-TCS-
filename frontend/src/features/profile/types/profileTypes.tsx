@@ -116,3 +116,18 @@ export type CatalogItem = {
   name: string;
   description?: string;
 };
+
+/** Thông tin CCCD (đọc QR tự điền + user xác nhận) — dùng cho khối BÊN B hợp đồng. */
+export interface CccdInfo {
+  fullName?: string | null;
+  cccdNumber?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  permanentAddress?: string | null;
+  issueDate?: string | null;
+  issuePlace?: string | null;
+  workplace?: string | null;
+  tempResidence?: string | null;
+  phone?: string | null;
+  complete?: boolean;
+}

@@ -136,6 +136,10 @@ public class PlatformServiceImpl implements PlatformService {
     private final AuditLogService auditLogService;
     private final com.tcs.module.platform.service.PlatformTaskQueueService taskQueueService;
     private final com.tcs.module.platform.service.PlatformAnalyticsService analyticsService;
+    private final com.tcs.module.profile.service.CccdService cccdService;
+
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
 
     private static final String TICKET_CONTEXT_TYPE = "SUPPORT_TICKET";
 
@@ -278,7 +282,11 @@ public class PlatformServiceImpl implements PlatformService {
             Long adminId = authHelper.requireRole(UserRole.PLATFORM_ADMIN).getUserId();
             VerificationStatus oldStatus = verification.getStatus();
             verification.setStatus(VerificationStatus.UNDER_REVIEW);
-            verification = verificationRequestRepository.save(verification);
+            // saveAndFlush + refresh: ghi xuống DB rồi ĐỌC LẠI đúng giá trị updated_at đã lưu
+            // (DB DATETIME làm tròn phần mili-giây của @UpdateTimestamp). Nhờ vậy mốc thời gian
+            // detail trả về khớp chính xác giá trị DB -> bước duyệt không báo "đã cập nhật bởi người khác".
+            verification = verificationRequestRepository.saveAndFlush(verification);
+            entityManager.refresh(verification);
             recordVerificationHistory(verification, oldStatus, VerificationStatus.UNDER_REVIEW, adminId);
         }
         return buildDetail(verification);
@@ -437,6 +445,20 @@ public class PlatformServiceImpl implements PlatformService {
                 details.put("Mô tả", orDash(center.getDescription()));
                 details.put("Trạng thái xác minh", center.getVerificationStatus().name());
             }
+        }
+
+        // Thông tin CCCD (đọc từ QR) của người nộp -> để admin đối chiếu khi duyệt.
+        com.tcs.module.profile.dto.CccdInfoDto cccd = cccdService.getByUserId(userId);
+        if (cccd != null && Boolean.TRUE.equals(cccd.getComplete())) {
+            details.put("CCCD — Họ tên", orDash(cccd.getFullName()));
+            details.put("CCCD — Số", orDash(cccd.getCccdNumber()));
+            details.put("CCCD — Ngày sinh", orDash(cccd.getDateOfBirth()));
+            details.put("CCCD — Giới tính", orDash(cccd.getGender()));
+            details.put("CCCD — Ngày cấp", orDash(cccd.getIssueDate()));
+            details.put("CCCD — Nơi cấp", orDash(cccd.getIssuePlace()));
+            details.put("CCCD — Thường trú", orDash(cccd.getPermanentAddress()));
+        } else {
+            details.put("CCCD", "Chưa quét/hoàn thành thông tin CCCD");
         }
 
         List<VerificationDocumentResponse> documents = verificationDocumentRepository
