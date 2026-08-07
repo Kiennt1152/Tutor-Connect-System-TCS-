@@ -158,6 +158,7 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
 
       {showSearch && (
         <UserSearchModal
+          open={true}
           onClose={() => setShowSearch(false)}
           onSelectUser={handleSelectUser}
         />

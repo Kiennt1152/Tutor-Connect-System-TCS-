@@ -723,7 +723,7 @@ export default function CenterRecruitmentPage() {
                           <ChatButton
                             contextType="RECRUITMENT"
                             contextId={a.recruitmentAppId}
-                            recipientName={a.tutorName}
+                            recipientName={a.tutorName ?? undefined}
                             size="sm"
                           />
                           {a.status === 'APPLIED' ? (
