@@ -59,7 +59,8 @@ export type CenterDocumentSlotKey =
   | 'CENTER_BUSINESS_LICENSE'
   | 'CENTER_EDUCATION_PERMIT'
   | 'CENTER_TAX_CODE'
-  | 'LEGAL_REP_ID_CARD';
+  | 'LEGAL_REP_ID_CARD'
+  | 'LEGAL_REP_ID_CARD_BACK';
 
 export type DocumentSlotKey = TutorDocumentSlotKey | CenterDocumentSlotKey;
 
@@ -137,8 +138,16 @@ export const CENTER_DOCUMENT_SLOTS: readonly DocumentSlotConfig[] = [
   },
   {
     key: 'LEGAL_REP_ID_CARD',
-    label: 'CCCD/CMND người đại diện pháp luật',
-    hint: 'CCCD/CMND hai mặt của người đại diện theo pháp luật (chủ DN / giám đốc / chủ hộ KD).',
+    label: 'CCCD/CMND người đại diện pháp luật (mặt trước)',
+    hint: 'Mặt trước CCCD/CMND của người đại diện theo pháp luật (chủ DN / giám đốc / chủ hộ KD) — thấy rõ ảnh, họ tên và mã QR.',
+    required: true,
+    documentType: 'ID_CARD',
+    multi: false,
+  },
+  {
+    key: 'LEGAL_REP_ID_CARD_BACK',
+    label: 'CCCD/CMND người đại diện pháp luật (mặt sau)',
+    hint: 'Mặt sau CCCD/CMND của người đại diện theo pháp luật — thấy rõ mã vạch và địa chỉ thường trú.',
     required: true,
     documentType: 'ID_CARD',
     multi: false,

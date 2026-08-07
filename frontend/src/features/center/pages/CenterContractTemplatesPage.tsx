@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { SiteFooter } from '../../home/components/SiteFooter';
 import { centerApi } from '../api/centerApi';
 import { CenterContractInfoSection } from '../components/CenterContractInfoSection';
 import type { ContractTemplate } from '../types/centerTypes';
@@ -231,6 +232,7 @@ export default function CenterContractTemplatesPage() {
           ))}
         </div>
       </main>
+      <SiteFooter />
     </div>
   );
 }

@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { SiteFooter } from '../../home/components/SiteFooter';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { ClassRequestForm } from '../components/ClassRequestForm';
 import { ApplicantsPanel } from '../components/ApplicantsPanel';
@@ -112,6 +114,7 @@ export default function MarketplacePage() {
 
   return (
     <div className="tcs-page mkt-page">
+      <HomeNavbar />
       <main>
         <div className="tcs-container mkt-container">
           <header className="mkt-header">
@@ -177,6 +180,7 @@ export default function MarketplacePage() {
           )}
         </div>
       </main>
+      <SiteFooter />
 
       {publishTarget != null && (
         <ConfirmDialog

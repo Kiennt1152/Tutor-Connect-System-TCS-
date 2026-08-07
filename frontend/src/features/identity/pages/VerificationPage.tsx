@@ -5,6 +5,7 @@ import { VerificationHeader } from '../../../shared/components/VerificationHeade
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { CccdSection } from '../../profile/components/CccdSection';
+import { SiteFooter } from '../../home/components/SiteFooter';
 import { profileApi } from '../../profile/api/profileApi';
 import { useVerification } from '../hooks/useVerification';
 import { verificationApi } from '../api/verificationApi';
@@ -395,6 +396,7 @@ export default function VerificationPage() {
           </div>
         </div>
       </main>
+      <SiteFooter />
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { type MouseEvent, useEffect, useState } from 'react';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { SiteFooter } from '../../home/components/SiteFooter';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import '../FinancePage.css';
 import { useFinance } from '../hooks/useFinance';
@@ -194,6 +195,7 @@ export default function FinancePage() {
           </>
         )}
       </main>
+      <SiteFooter />
     </div>
   );
 }

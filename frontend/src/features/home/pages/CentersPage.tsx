@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { SiteFooter } from '../components/SiteFooter';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasRole } from '../../../shared/auth/rbac';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import type { CenterSummary, ClassRequest } from '../../marketplace/types/marketplaceTypes';
 import { useOpenRecruitmentPosts } from '../hooks/useOpenRecruitmentPosts';
-import { HOME_PROMO } from '../config/homeContent';
 import './HomePage.css';
 import './CentersRequest.css';
 
@@ -232,17 +232,6 @@ export default function CentersPage() {
               </div>
             )}
 
-            <div className="tcs-promo tcs-promo--inline">
-              <div className="tcs-promo__content">
-                <span className="tcs-promo__eyebrow">Đối tác nền tảng</span>
-                <h2 className="tcs-promo__title">{HOME_PROMO.title}</h2>
-                <p className="tcs-promo__desc">{HOME_PROMO.description}</p>
-              </div>
-              <a className="tcs-btn tcs-btn--market tcs-promo__cta" href={HOME_PROMO.ctaHref}>
-                {HOME_PROMO.cta}
-              </a>
-            </div>
-
             {/* Danh sách trung tâm đã xác minh (thật). */}
             <div className="tcs-section-bar">
               <div>
@@ -343,6 +332,7 @@ export default function CentersPage() {
           </div>
         </div>
       )}
+      <SiteFooter />
     </div>
   );
 }
