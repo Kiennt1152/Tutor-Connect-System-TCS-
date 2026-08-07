@@ -17,4 +17,6 @@ public interface ClassStudentRepository extends JpaRepository<ClassStudent, Long
     long countByTutoringClass_ClassIdAndStatus(Long classId, ClassStudentStatus status);
 
     List<ClassStudent> findByTutoringClass_ClassIdAndStatus(Long classId, ClassStudentStatus status);
+
+    boolean existsByChildProfile_ChildProfileId(Long childProfileId);
 }

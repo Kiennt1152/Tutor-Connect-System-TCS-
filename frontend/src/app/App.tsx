@@ -32,6 +32,9 @@ import CenterContractTemplatesPage from '../features/center/pages/CenterContract
 import CentersPage from '../features/home/pages/CentersPage';
 import RecruitmentPage from '../features/recruitment/pages/RecruitmentPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
+import DependentProfileLinkerPage from '../features/profile/pages/DependentProfileLinkerPage';
+import ChildProfileDetailPage from '../features/profile/pages/ChildProfileDetailPage';
+import GuardianApprovalPage from '../features/profile/pages/GuardianApprovalPage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
 import ClassFinderPage from '../features/marketplace/pages/ClassFinderPage';
@@ -96,6 +99,30 @@ export default function App() {
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN']}>
                 <ProfilePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.profileDependents}
+            element={
+              <ProtectedRoute roles={['CLIENT']}>
+                <DependentProfileLinkerPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.childProfile(':childProfileId')}
+            element={
+              <ProtectedRoute roles={['CLIENT']}>
+                <ChildProfileDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.guardianApprovals}
+            element={
+              <ProtectedRoute roles={['CLIENT']}>
+                <GuardianApprovalPage />
               </ProtectedRoute>
             }
           />

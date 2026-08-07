@@ -2,8 +2,12 @@ import type { FormEvent } from 'react';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { SiteFooter } from '../../home/components/SiteFooter';
 import { useProfile } from '../hooks/useProfile';
+import { profileApi } from '../api/profileApi';
 import type {
+  ChildProfile,
   Gender,
   ProfileResponse,
   ProfileVerificationStatus,
@@ -75,6 +79,20 @@ function fromProfile(profile: ProfileResponse | null): FormState {
   };
 }
 
+/** Tính tuổi (năm tròn) từ ngày sinh ISO; trả null nếu không có/không hợp lệ. */
+function calcAge(dateOfBirth?: string | null): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const monthDiff = now.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
+
 export default function ProfilePage() {
   const {
     profile,
@@ -92,6 +110,7 @@ export default function ProfilePage() {
   const [fieldError, setFieldError] = useState<Partial<Record<keyof FormState, string>>>({});
   const [success, setSuccess] = useState<string | null>(null);
   const [verificationWarning, setVerificationWarning] = useState<string | null>(null);
+  const [children, setChildren] = useState<ChildProfile[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -106,6 +125,27 @@ export default function ProfilePage() {
   const isClient = role === 'CLIENT';
   const isTutor = role === 'TUTOR';
   const isCenter = role === 'TUTOR_CENTER';
+  const age = calcAge(profile?.dateOfBirth);
+  const isAdultClient = isClient && age != null && age >= 18;
+
+  useEffect(() => {
+    if (!isAdultClient) {
+      setChildren([]);
+      return;
+    }
+    let active = true;
+    profileApi
+      .getMyChildren()
+      .then((res) => {
+        if (active) setChildren(res.data);
+      })
+      .catch(() => {
+        if (active) setChildren([]);
+      });
+    return () => {
+      active = false;
+    };
+  }, [isAdultClient]);
 
   const verificationLinkedField = useMemo(() => {
     if (isTutor) return { key: 'fullName' as const, label: 'Họ và tên (tên pháp lý)' };
@@ -213,7 +253,10 @@ export default function ProfilePage() {
   const errs = fieldError;
 
   return (
-    <div className="profile-page">
+    <div className="tcs-page">
+      <HomeNavbar />
+      <main className="profile-main">
+        <div className="tcs-container profile-page">
       <header className="profile-header">
         <h1>Hồ sơ cá nhân</h1>
         {profile && (
@@ -457,35 +500,58 @@ export default function ProfilePage() {
         </section>
       )}
 
-      {isClient && (
+      {isAdultClient && (
         <section className="profile-section">
-          <h2>Yêu cầu tìm gia sư</h2>
-          <p>Quản lý các yêu cầu tìm gia sư bạn đã đăng — xem, chỉnh sửa và đăng công khai.</p>
-          <Link to="/marketplace" className="btn-primary-link">
-            Xem yêu cầu của tôi
-          </Link>
+          <h2>Quản lý hồ sơ con</h2>
+          <p>Chọn một hồ sơ con để cập nhật thông tin học tập, hoặc thêm hồ sơ con mới.</p>
+          {children.length > 0 ? (
+            <ul className="profile-child-list">
+              {children.map((child) => (
+                <li key={child.childProfileId} className="profile-child-item">
+                  <span className="profile-child-item__name">{child.fullName}</span>
+                  <Link
+                    to={APP_ROUTES.childProfile(child.childProfileId)}
+                    className="btn-link"
+                  >
+                    Quản lý
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="profile-hint">Chưa có hồ sơ con nào.</p>
+          )}
+          <div className="profile-link-actions">
+            <Link to={APP_ROUTES.profileDependents} className="btn-primary-link">
+              Thêm / liên kết hồ sơ con
+            </Link>
+          </div>
         </section>
       )}
 
       {isClient && (
-        <section className="profile-section">
-          <h2>Nhận xét gia sư</h2>
-          <p>Gửi đánh giá và phản hồi cho gia sư của các lớp học đã hoàn thành.</p>
-          <Link to="/nhan-xet-gia-su" className="btn-primary-link">
-            Nhận xét gia sư
-          </Link>
+        <section className="profile-link-card">
+          <div className="profile-link-card__icon" aria-hidden="true">🔗</div>
+          <div className="profile-link-card__body">
+            <h2>Liên kết hồ sơ</h2>
+            <p>
+              Liên kết hồ sơ phụ huynh và quản lý hồ sơ con cho tài khoản học sinh vị thành niên.
+              Cần hoàn tất liên kết trước khi thanh toán hoặc tạo hợp đồng với gia sư.
+            </p>
+            <div className="profile-link-actions">
+              <Link to={APP_ROUTES.profileDependents} className="btn-primary-link">
+                Liên kết hồ sơ
+              </Link>
+              <Link to={APP_ROUTES.guardianApprovals} className="btn-link">
+                Xác nhận phụ huynh
+              </Link>
+            </div>
+          </div>
         </section>
       )}
-
-      {isTutor && (
-        <section className="profile-section">
-          <h2>Nhận xét về tôi</h2>
-          <p>Xem tổng hợp đánh giá và phản hồi mà khách hàng đã gửi cho bạn.</p>
-          <Link to="/nhan-xet-ve-toi" className="btn-primary-link">
-            Xem nhận xét về tôi
-          </Link>
-        </section>
-      )}
+        </div>
+      </main>
+      <SiteFooter />
     </div>
   );
 }

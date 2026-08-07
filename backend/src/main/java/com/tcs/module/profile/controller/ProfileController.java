@@ -3,11 +3,16 @@ package com.tcs.module.profile.controller;
 import com.tcs.module.identity.dto.request.VerificationRequestDto;
 import com.tcs.module.identity.dto.response.VerificationResponse;
 import com.tcs.module.profile.dto.request.ChildProfileRequest;
+import com.tcs.module.profile.dto.request.LinkChildAccountRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
+import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
 import com.tcs.module.profile.dto.request.TutorExperienceRequest;
+import com.tcs.module.profile.dto.request.UpdateChildProfileRequest;
 import com.tcs.module.profile.dto.request.UpdateProfileRequest;
 import com.tcs.module.profile.dto.response.ChildProfileResponse;
+import com.tcs.module.profile.dto.response.DependentLinkStatusResponse;
+import com.tcs.module.profile.dto.response.GuardianProfileResponse;
 import com.tcs.module.profile.dto.response.ProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
@@ -59,9 +64,46 @@ public class ProfileController {
         return profileService.createChild(request);
     }
 
+    @GetMapping("/children/{childProfileId}")
+    public ChildProfileResponse getChildById(@PathVariable Long childProfileId) {
+        return profileService.getChildById(childProfileId);
+    }
+
+    @PutMapping("/children/{childProfileId}")
+    public ChildProfileResponse updateChild(
+            @PathVariable Long childProfileId, @RequestBody UpdateChildProfileRequest request) {
+        return profileService.updateChild(childProfileId, request);
+    }
+
+    @DeleteMapping("/children/{childProfileId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteChild(@PathVariable Long childProfileId) {
+        profileService.deleteChild(childProfileId);
+    }
+
     @PostMapping("/children/link")
     public ChildProfileResponse linkChild(@RequestBody LinkChildRequest request) {
         return profileService.linkChild(request);
+    }
+
+    @PostMapping("/children/link-account")
+    public ChildProfileResponse linkChildAccount(@RequestBody LinkChildAccountRequest request) {
+        return profileService.linkChildAccount(request);
+    }
+
+    @GetMapping("/dependent-status")
+    public DependentLinkStatusResponse getDependentLinkStatus() {
+        return profileService.getDependentLinkStatus();
+    }
+
+    @GetMapping("/guardian")
+    public GuardianProfileResponse getMyGuardian() {
+        return profileService.getMyGuardian();
+    }
+
+    @PostMapping("/guardian/link")
+    public GuardianProfileResponse linkGuardian(@RequestBody LinkGuardianRequest request) {
+        return profileService.linkGuardian(request);
     }
 
     @GetMapping("/experiences")
