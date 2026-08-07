@@ -15,6 +15,13 @@ public interface VerificationRequestRepository extends JpaRepository<Verificatio
 
     Optional<VerificationRequest> findByUser_UserIdAndVerificationType(Long userId, VerificationType verificationType);
 
+    /**
+     * An toàn khi user có NHIỀU đơn xác minh cùng loại (nhiều lần nộp): lấy đơn mới nhất theo trạng thái.
+     * Tránh lỗi 500 (IncorrectResultSize) của biến thể trả Optional ở trên.
+     */
+    Optional<VerificationRequest> findFirstByUser_UserIdAndVerificationTypeAndStatusOrderByVerificationIdDesc(
+            Long userId, VerificationType verificationType, VerificationStatus status);
+
     List<VerificationRequest> findByUser_UserIdOrderBySubmittedAtDesc(Long userId);
 
     List<VerificationRequest> findByStatusOrderBySubmittedAtAsc(VerificationStatus status);

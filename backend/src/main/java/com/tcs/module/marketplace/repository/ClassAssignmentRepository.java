@@ -10,6 +10,9 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface ClassAssignmentRepository extends JpaRepository<ClassAssignment, Long> {
 
+    List<ClassAssignment> findByApplication_TutoringClass_ClassIdAndStatus(
+            Long classId, ClassAssignmentStatus status);
+
     List<ClassAssignment> findByTutor_TutorIdOrderByAssignedDateDesc(Long tutorId);
 
     List<ClassAssignment> findByApplication_TutoringClass_Creator_UserIdOrderByAssignedDateDesc(

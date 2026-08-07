@@ -66,6 +66,9 @@ public class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/tutors/**")
                         .permitAll()
+                        // Danh sách trung tâm đã xác minh: ai cũng xem được (để phụ huynh chọn).
+                        .requestMatchers(HttpMethod.GET, "/api/marketplace/centers")
+                        .permitAll()
                         // Recruitment: các GET cần đăng nhập phải đứng TRƯỚC GET công khai bên dưới.
                         .requestMatchers(HttpMethod.GET, "/api/center/recruitment/my-posts")
                         .hasRole(RbacConstants.TUTOR_CENTER)
@@ -92,7 +95,15 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/platform/**")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.GET, "/api/finance/withdrawals")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.POST, "/api/finance/withdrawals/*/accept")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/finance/withdrawals/*/approve",
+                                "/api/finance/withdrawals/*/reject",
+                                "/api/finance/withdrawals/*/transfer-failed")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/finance/settlements/preview/*")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
@@ -101,6 +112,17 @@ public class SecurityConfig {
                                 "/api/finance/settlements/*/apply",
                                 "/api/finance/settlements/execute")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.POST, "/api/finance/refunds/execute")
+                        .hasRole(RbacConstants.PLATFORM_ADMIN)
+                        .requestMatchers(HttpMethod.GET, "/api/finance/refund-requests")
+                        .hasAnyRole(RbacConstants.PLATFORM_ADMIN, RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/finance/refund-requests/*/approve",
+                                "/api/finance/refund-requests/*/reject")
+                        .hasAnyRole(RbacConstants.PLATFORM_ADMIN, RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.POST, "/api/finance/refund-requests")
+                        .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
                         .requestMatchers("/api/profile/children/**")
                         .hasRole(RbacConstants.CLIENT)
@@ -130,19 +152,32 @@ public class SecurityConfig {
                         .hasAnyRole(RbacConstants.TUTOR, RbacConstants.CLIENT)
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/apply")
                         .hasRole(RbacConstants.TUTOR)
+                        .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/termination")
+                        .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/**")
                         .hasRole(RbacConstants.CLIENT)
                         .requestMatchers("/api/marketplace/favorites/**")
+                        .hasRole(RbacConstants.CLIENT)
+                        // Phụ huynh gửi/quản lý yêu cầu mở lớp tới trung tâm.
+                        .requestMatchers("/api/marketplace/centers/*/class-requests")
+                        .hasRole(RbacConstants.CLIENT)
+                        .requestMatchers("/api/marketplace/class-requests/**")
                         .hasRole(RbacConstants.CLIENT)
 
                         .requestMatchers(
                                 "/api/center/classes/**",
                                 "/api/center/tutors",
+                                "/api/center/class-requests",
+                                "/api/center/class-requests/**",
+                                "/api/center/contract-templates",
+                                "/api/center/contract-templates/**",
                                 "/api/center/schedule",
                                 "/api/center/reschedules",
                                 "/api/center/reschedules/**",
                                 "/api/center/substitutions",
-                                "/api/center/substitutions/**")
+                                "/api/center/substitutions/**",
+                                "/api/center/reports",
+                                "/api/center/reports/**")
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
                         .requestMatchers("/api/tutor/**")
@@ -155,8 +190,23 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/center/recruitment/**")
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
+                        // --- Issue, dispute & refund ---
+                        .requestMatchers(HttpMethod.GET, "/api/disputes", "/api/disputes/**")
+                        .hasAnyRole(RbacConstants.PLATFORM_ADMIN, RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.POST, "/api/disputes/*/resolve")
+                        .hasAnyRole(RbacConstants.PLATFORM_ADMIN, RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.POST, "/api/disputes/*/evidence")
+                        .hasAnyRole(RbacConstants.BUSINESS_ROLES)
+                        .requestMatchers(HttpMethod.POST, "/api/disputes/*/appeal")
+                        .hasAnyRole(RbacConstants.BUSINESS_ROLES)
+                        .requestMatchers(HttpMethod.POST, "/api/disputes", "/api/class-issues")
+                        .hasAnyRole(RbacConstants.BUSINESS_ROLES)
+                        .requestMatchers("/api/disputes/**", "/api/class-issues/**")
+                        .hasAnyRole(RbacConstants.BUSINESS_ROLES)
+
+                        // --- Finance ---
                         .requestMatchers("/api/finance/**")
-                        .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
+                        .hasAnyRole(RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
 
                         .requestMatchers(HttpMethod.POST, "/api/contract/reviews/*/reply")
                         .hasRole(RbacConstants.TUTOR)

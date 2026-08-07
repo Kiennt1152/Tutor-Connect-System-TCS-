@@ -41,3 +41,93 @@ export interface UpdateProfileRequest {
 export interface AvatarUploadResponse {
   avatarUrl: string;
 }
+
+// --- Dependent profile linker types ---
+
+export type ChildProfile = {
+  childProfileId: number;
+  fullName: string;
+  dateOfBirth?: string;
+  gender?: Gender;
+  gradeId?: number;
+  gradeName?: string;
+  schoolName?: string;
+  notes?: string;
+  createdAt?: string;
+  linkedToUserAccount?: boolean;
+  childUserId?: number;
+  childEmail?: string;
+};
+
+export type GuardianProfile = {
+  parentUserId: number;
+  fullName: string;
+  email: string;
+  phone: string;
+  linkedAt?: string;
+};
+
+export type DependentLinkStatus = {
+  dateOfBirthMissing: boolean;
+  minorAccount: boolean;
+  guardianRequired: boolean;
+  guardianLinked: boolean;
+  childrenLinkOptional: boolean;
+  linkedChildrenCount: number;
+  profileLinkComplete: boolean;
+  /** @deprecated dùng profileLinkComplete */
+  canProceedToPayment: boolean;
+  legalProceduresDelegatedToParent: boolean;
+  legalAccountUserId?: number;
+  legalAccountHolderName?: string;
+  legalAccountEmail?: string;
+  /** Học sinh vị thành niên: sau khi thao tác cần phụ huynh xác nhận. */
+  parentApprovalRequired: boolean;
+};
+
+export type ChildProfileRequest = {
+  fullName: string;
+  dateOfBirth?: string;
+  gender?: Gender;
+  gradeId?: number;
+  schoolName?: string;
+  notes?: string;
+};
+
+export type UpdateChildProfileRequest = {
+  fullName?: string;
+  dateOfBirth?: string;
+  gender?: Gender;
+  gradeId?: number | null;
+  schoolName?: string;
+  notes?: string;
+};
+
+export type LinkGuardianRequest = {
+  parentEmail: string;
+};
+
+export type LinkChildAccountRequest = {
+  childEmail: string;
+};
+
+export type CatalogItem = {
+  id: number;
+  name: string;
+  description?: string;
+};
+
+/** Thông tin CCCD (đọc QR tự điền + user xác nhận) — dùng cho khối BÊN B hợp đồng. */
+export interface CccdInfo {
+  fullName?: string | null;
+  cccdNumber?: string | null;
+  dateOfBirth?: string | null;
+  gender?: string | null;
+  permanentAddress?: string | null;
+  issueDate?: string | null;
+  issuePlace?: string | null;
+  workplace?: string | null;
+  tempResidence?: string | null;
+  phone?: string | null;
+  complete?: boolean;
+}

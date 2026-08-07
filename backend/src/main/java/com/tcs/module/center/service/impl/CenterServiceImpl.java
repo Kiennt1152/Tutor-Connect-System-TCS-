@@ -96,7 +96,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import com.tcs.common.classrequest.ClassRequestStore;
+import com.tcs.common.event.CooperationContractSigned;
+import com.tcs.module.center.dto.request.SaveContractTemplateRequest;
+import com.tcs.module.center.dto.response.ContractTemplateResponse;
+import com.tcs.module.contract.entity.ContractTemplate;
+import com.tcs.module.contract.enums.ContractTemplateStatus;
+import com.tcs.module.contract.repository.ContractTemplateRepository;
+import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
+import org.springframework.context.event.EventListener;
 
 @Service
 @RequiredArgsConstructor
@@ -127,6 +135,8 @@ public class CenterServiceImpl implements CenterService {
     private final AuditLogService auditLogService;
     private final SystemParameterRepository systemParameterRepository;
     private final ClassRequestStore classRequestStore;
+    private final ContractService contractService;
+    private final ContractTemplateRepository contractTemplateRepository;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -136,11 +146,19 @@ public class CenterServiceImpl implements CenterService {
     private static final String CLASS_ORIGIN_PREFIX = "classorigin:"; // classorigin:{classId} -> EXTERNAL|SELF
     private static final String ORIGIN_EXTERNAL = "EXTERNAL";
     private static final String ORIGIN_SELF = "SELF";
+    /** Mẫu hợp đồng đã chọn cho lớp: classtpl:{classId} -> templateId. */
+    private static final String CLASS_TEMPLATE_PREFIX = "classtpl:";
+    /** Loại của mẫu hợp đồng: tpltype:{templateId} -> RECRUITMENT|CLASS. */
+    private static final String TEMPLATE_TYPE_PREFIX = "tpltype:";
+    private static final String TEMPLATE_TYPE_RECRUITMENT = "RECRUITMENT";
+    private static final String TEMPLATE_TYPE_CLASS = "CLASS";
 
     // ===================== Tin tuyển gia sư — phía gia sư / công khai =====================
 
     /** Tin tuyển dụng đăng quá số ngày này sẽ tự động gỡ về nháp. */
     private static final int RECRUIT_MAX_ACTIVE_DAYS = 30;
+    /** Số ngày mở ghi danh cho lớp tự tạo (BF-04 bước 5). */
+    private static final int CLASS_ENROLLMENT_DAYS = 30;
 
     /** Gỡ các tin đang mở đã đăng quá {@value #RECRUIT_MAX_ACTIVE_DAYS} ngày về trạng thái nháp. */
     private void autoRevertStalePosts() {
@@ -246,10 +264,18 @@ public class CenterServiceImpl implements CenterService {
         requireCenter();
         RecruitmentPost post = findPost(recruitmentId);
         requireOwner(post);
-        if (post.getStatus() != RecruitmentPostStatus.DRAFT) {
-            throw new IllegalArgumentException("Chỉ tin ở trạng thái nháp mới có thể chỉnh sửa");
+        if (post.getStatus() == RecruitmentPostStatus.CLOSED) {
+            throw new IllegalArgumentException("Tin đã đóng, không thể chỉnh sửa.");
+        }
+        // Cho phép sửa tin (kể cả đã đăng) đến khi có gia sư ứng tuyển; có đơn rồi thì khoá sửa.
+        if (recruitmentApplicationRepository.countByRecruitmentPost_RecruitmentId(recruitmentId) > 0) {
+            throw new IllegalArgumentException(
+                    "Đã có gia sư ứng tuyển, không thể chỉnh sửa tin nữa.");
         }
         validate(request);
+        if (request.getClassId() != null) {
+            validateClassRecruitable(request.getClassId());
+        }
         applyFields(post, request);
         RecruitmentPost saved = recruitmentPostRepository.save(post);
         savePostClassLink(saved.getRecruitmentId(), request.getClassId());
@@ -266,6 +292,9 @@ public class CenterServiceImpl implements CenterService {
         if (post.getStatus() != RecruitmentPostStatus.DRAFT) {
             throw new IllegalArgumentException("Chỉ tin ở trạng thái nháp mới có thể đăng tải");
         }
+        // Kiểm tra lại tại thời điểm đăng: lớp gắn kèm vẫn phải là lớp "theo yêu cầu" và chưa có
+        // gia sư chính (lớp có thể đã được gán gia sư sau khi tạo/sửa nháp).
+        findPostClassId(recruitmentId).ifPresent(this::validateClassRecruitable);
         post.setStatus(RecruitmentPostStatus.ACTIVE);
         post.setPublishedAt(LocalDateTime.now());
         RecruitmentPost saved = recruitmentPostRepository.save(post);
@@ -302,7 +331,8 @@ public class CenterServiceImpl implements CenterService {
 
     @Override
     @Transactional
-    public RecruitmentApplicationResponse decideApplication(Long recruitmentAppId, boolean approve) {
+    public RecruitmentApplicationResponse decideApplication(
+            Long recruitmentAppId, boolean approve, Long contractTemplateId, String contractContent) {
         requireCenter();
         RecruitmentApplication application = recruitmentApplicationRepository
                 .findById(recruitmentAppId)
@@ -311,18 +341,18 @@ public class CenterServiceImpl implements CenterService {
         if (application.getStatus() != RecruitmentApplicationStatus.APPLIED) {
             throw new IllegalArgumentException("Đơn này đã được xử lý");
         }
+        // BF-03: duyệt -> PASSED (chờ ký hợp đồng), CHƯA phải HIRED. Chỉ khi ký xong mới HIRED.
         application.setStatus(
-                approve ? RecruitmentApplicationStatus.HIRED : RecruitmentApplicationStatus.REJECTED);
+                approve ? RecruitmentApplicationStatus.PASSED : RecruitmentApplicationStatus.REJECTED);
         application.setReviewedAt(LocalDateTime.now());
         RecruitmentApplication saved = recruitmentApplicationRepository.save(application);
         if (approve) {
-            // Duyệt (HIRED) -> gia sư trở thành thành viên ACTIVE của trung tâm.
-            addOrReactivateMembership(saved);
-            // Nếu tin gắn với một lớp -> tự gán gia sư vào lớp đó.
-            TutoringClass linked = findPostClassId(saved.getRecruitmentPost().getRecruitmentId())
-                    .flatMap(tutoringClassRepository::findById)
-                    .orElse(null);
-            autoAssignHiredTutor(linked, saved.getTutor());
+            // BF-03 bước 7: duyệt -> CHỈ tạo thỏa thuận hợp tác (e-contract) để gia sư ký.
+            // CHƯA tạo thành viên: gia sư chưa ký thì CHƯA phải gia sư của trung tâm.
+            // Khi ký OTP xong (bước 8) mới HIRED + tạo/kích hoạt thành viên ACTIVE + gán lớp
+            // + đóng tin (bước 9-10) — xử lý trong onCooperationContractSigned.
+            contractService.generateCooperationContract(
+                    saved.getRecruitmentAppId(), contractTemplateId, contractContent);
         }
         return toApplicationResponse(saved);
     }
@@ -360,7 +390,8 @@ public class CenterServiceImpl implements CenterService {
     }
 
     /** Tạo mới hoặc khôi phục (ACTIVE) membership khi trung tâm nhận gia sư qua đơn ứng tuyển. */
-    private void addOrReactivateMembership(RecruitmentApplication application) {
+    private void addOrReactivateMembership(
+            RecruitmentApplication application, CenterTutorMembershipStatus status) {
         TutorCenter center = application.getRecruitmentPost().getCenter();
         Tutor tutor = application.getTutor();
         CenterTutorMembership membership = membershipRepository
@@ -369,11 +400,60 @@ public class CenterServiceImpl implements CenterService {
         membership.setCenter(center);
         membership.setTutor(tutor);
         membership.setRecruitmentApplication(application);
-        membership.setStatus(CenterTutorMembershipStatus.ACTIVE);
+        membership.setStatus(status);
         if (membership.getJoinedAt() == null) {
             membership.setJoinedAt(LocalDateTime.now());
         }
         membershipRepository.save(membership);
+    }
+
+    /**
+     * BF-03 bước 9-10: gia sư đã ký thỏa thuận hợp tác -> kích hoạt thành viên ACTIVE,
+     * tự gán vào lớp nếu tin gắn lớp, và đóng tin khi đủ số gia sư đã ký.
+     */
+    @EventListener
+    @Transactional
+    public void onCooperationContractSigned(CooperationContractSigned event) {
+        RecruitmentApplication app = recruitmentApplicationRepository
+                .findById(event.recruitmentApplicationId())
+                .orElse(null);
+        if (app == null) {
+            return;
+        }
+        // BF-03 bước 9: ký xong -> đơn chính thức HIRED ("Đã được nhận").
+        app.setStatus(RecruitmentApplicationStatus.HIRED);
+        recruitmentApplicationRepository.save(app);
+        // Ký xong mới CHÍNH THỨC là gia sư của trung tâm: tạo/kích hoạt thành viên ACTIVE.
+        addOrReactivateMembership(app, CenterTutorMembershipStatus.ACTIVE);
+        // Nếu tin gắn với lớp -> tự gán gia sư vào lớp đó.
+        findPostClassId(app.getRecruitmentPost().getRecruitmentId())
+                .flatMap(tutoringClassRepository::findById)
+                .ifPresent(cls -> autoAssignHiredTutor(cls, app.getTutor()));
+        // Đóng tin khi đủ số gia sư đã ký hợp đồng.
+        closePostIfEnoughSigned(app.getRecruitmentPost());
+    }
+
+    private void closePostIfEnoughSigned(RecruitmentPost post) {
+        if (post.getStatus() != RecruitmentPostStatus.ACTIVE) {
+            return;
+        }
+        Integer max = post.getMaxPositions();
+        if (max == null || max <= 0) {
+            return;
+        }
+        long signed = membershipRepository
+                .findByCenter_CenterIdOrderByJoinedAtDesc(post.getCenter().getCenterId()).stream()
+                .filter(m -> m.getStatus() == CenterTutorMembershipStatus.ACTIVE)
+                .filter(m -> m.getRecruitmentApplication() != null
+                        && m.getRecruitmentApplication().getRecruitmentPost() != null
+                        && post.getRecruitmentId().equals(
+                                m.getRecruitmentApplication().getRecruitmentPost().getRecruitmentId()))
+                .count();
+        if (signed >= max) {
+            post.setStatus(RecruitmentPostStatus.CLOSED);
+            post.setClosedAt(LocalDateTime.now());
+            recruitmentPostRepository.save(post);
+        }
     }
 
     private CenterTutorResponse toTutorResponse(CenterTutorMembership membership) {
@@ -463,12 +543,38 @@ public class CenterServiceImpl implements CenterService {
     // ===================== UC-14-B: Manage Classes (Tutor Center) =====================
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<CenterClassResponse> listMyClasses() {
         requireCenter();
+        autoCloseExpiredClasses();
         return tutoringClassRepository.findByCreator_UserId(authHelper.currentUserId()).stream()
                 .map(this::toClassResponse)
                 .toList();
+    }
+
+    /**
+     * BF-04 bước 5/9: lớp đang mở ghi danh quá hạn (enrollmentDeadline) -> tự đóng ghi danh.
+     * Đủ gia sư + đủ sĩ số tối thiểu -> MATCHED; ngược lại -> ENROLLMENT_CLOSED (trung tâm xử lý tiếp).
+     */
+    private void autoCloseExpiredClasses() {
+        LocalDate today = LocalDate.now();
+        for (TutoringClass c : tutoringClassRepository.findByCreator_UserId(authHelper.currentUserId())) {
+            if (c.getStatus() != TutoringClassStatus.OPEN
+                    || c.getEnrollmentDeadline() == null
+                    || !c.getEnrollmentDeadline().isBefore(today)) {
+                continue;
+            }
+            long enrolled = classStudentRepository
+                    .countByTutoringClass_ClassIdAndStatus(c.getClassId(), ClassStudentStatus.ENROLLED);
+            int required = c.getMinStudents() != null ? c.getMinStudents() : 1;
+            boolean hasMain = classAssignmentRepository
+                    .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                            c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                    .isPresent();
+            c.setStatus(hasMain && enrolled >= required
+                    ? TutoringClassStatus.MATCHED : TutoringClassStatus.ENROLLMENT_CLOSED);
+            tutoringClassRepository.save(c);
+        }
     }
 
     @Override
@@ -495,6 +601,8 @@ public class CenterServiceImpl implements CenterService {
         applyFields(tutoringClass, request);
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
         saveClassOrigin(saved.getClassId(), request.getOriginType());
+        saveClassTemplate(saved.getClassId(), request.getContractTemplateId());
+        saveClassTerms(saved.getClassId(), request.getContractContent());
 
         replaceScheduleSlots(saved, request);
         auditLogService.record(center.getUser().getUserId(), "CREATE_CENTER_CLASS", "TutoringClass",
@@ -513,10 +621,17 @@ public class CenterServiceImpl implements CenterService {
                 && tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Lớp học này không thể chỉnh sửa nữa.");
         }
+        // Cho phép sửa lớp đến khi có học viên đăng ký; có người đăng ký rồi thì khoá sửa.
+        if (classStudentRepository.existsByTutoringClass_ClassId(classId)) {
+            throw new IllegalArgumentException(
+                    "Đã có học viên đăng ký, không thể chỉnh sửa lớp nữa.");
+        }
         validate(request, false);
         applyFields(tutoringClass, request);
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
         saveClassOrigin(saved.getClassId(), request.getOriginType());
+        saveClassTemplate(saved.getClassId(), request.getContractTemplateId());
+        saveClassTerms(saved.getClassId(), request.getContractContent());
 
         replaceScheduleSlots(saved, request);
         auditLogService.record(authHelper.currentUserId(), "UPDATE_CENTER_CLASS", "TutoringClass",
@@ -538,16 +653,24 @@ public class CenterServiceImpl implements CenterService {
             // Lớp "theo yêu cầu" đã có sẵn học sinh -> không mở ghi danh, đăng tải để bố trí gia sư.
             tutoringClass.setStatus(TutoringClassStatus.ENROLLMENT_CLOSED);
         } else {
-            // Lớp "tự tạo": gán gia sư TRƯỚC, rồi mới mở ghi danh (đăng tải).
+            // Lớp "tự tạo": phải gán ĐỦ 2 gia sư (gia sư chính + gia sư phụ) TRƯỚC,
+            // rồi mới được mở ghi danh (đăng tải) cho học sinh.
             boolean hasMain = classAssignmentRepository
                     .findFirstByApplication_TutoringClass_ClassIdAndStatus(
                             classId, ClassAssignmentStatus.ACTIVE)
                     .isPresent();
             if (!hasMain) {
                 throw new IllegalArgumentException(
-                        "Cần gán gia sư cho lớp trước khi mở ghi danh (đăng tải).");
+                        "Cần gán gia sư chính cho lớp trước khi mở ghi danh (đăng tải).");
+            }
+            boolean hasAssistant = substitutionService.findAssistant(classId).isPresent();
+            if (!hasAssistant) {
+                throw new IllegalArgumentException(
+                        "Cần gán đủ 2 gia sư (gia sư chính + gia sư phụ) trước khi mở ghi danh.");
             }
             tutoringClass.setStatus(TutoringClassStatus.OPEN);
+            // BF-04 bước 5: mở ghi danh trong 30 ngày kể từ khi đăng.
+            tutoringClass.setEnrollmentDeadline(LocalDate.now().plusDays(CLASS_ENROLLMENT_DAYS));
         }
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
@@ -576,6 +699,35 @@ public class CenterServiceImpl implements CenterService {
                 .isPresent();
         tutoringClass.setStatus(
                 hasMain ? TutoringClassStatus.MATCHED : TutoringClassStatus.ENROLLMENT_CLOSED);
+        return toClassResponse(tutoringClassRepository.save(tutoringClass));
+    }
+
+    @Override
+    @Transactional
+    public CenterClassResponse activateClass(Long classId) {
+        requireCenter();
+        TutoringClass tutoringClass = findClass(classId);
+        requireOwner(tutoringClass);
+        // BF-04 bước 10: kích hoạt lớp (bắt đầu học) từ đã ghép / đã đóng ghi danh -> IN_PROGRESS.
+        if (tutoringClass.getStatus() != TutoringClassStatus.MATCHED
+                && tutoringClass.getStatus() != TutoringClassStatus.ENROLLMENT_CLOSED) {
+            throw new IllegalArgumentException(
+                    "Chỉ kích hoạt lớp đã đóng ghi danh / đã ghép gia sư.");
+        }
+        boolean hasMain = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .isPresent();
+        if (!hasMain) {
+            throw new IllegalArgumentException("Cần gán gia sư chính trước khi kích hoạt lớp.");
+        }
+        long enrolled = classStudentRepository
+                .countByTutoringClass_ClassIdAndStatus(classId, ClassStudentStatus.ENROLLED);
+        int required = tutoringClass.getMinStudents() != null ? tutoringClass.getMinStudents() : 1;
+        if (enrolled < required) {
+            throw new IllegalArgumentException(
+                    "Chưa đủ sĩ số tối thiểu để kích hoạt lớp (" + enrolled + "/" + required + ").");
+        }
+        tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
 
@@ -618,13 +770,14 @@ public class CenterServiceImpl implements CenterService {
     @Override
     @Transactional
     public CenterClassResponse assignTutor(Long classId, Long tutorId) {
-        requireCenter();
+        TutorCenter center = requireCenter();
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass);
         requireStaffable(tutoringClass);
         if (tutorId == null) {
             throw new IllegalArgumentException("Vui lòng chọn gia sư");
         }
+        requireActiveCenterTutor(center.getCenterId(), tutorId);
         Tutor tutor = tutorRepository
                 .findById(tutorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
@@ -656,6 +809,21 @@ public class CenterServiceImpl implements CenterService {
                 // ok
             }
             default -> throw new IllegalArgumentException("Lớp này không thể gán gia sư nữa.");
+        }
+    }
+
+    /**
+     * Chỉ được gán gia sư là thành viên ĐANG HOẠT ĐỘNG (ACTIVE) trong danh sách gia sư của
+     * chính trung tâm. Chặn việc gọi API thủ công với tutorId bất kỳ (gia sư ngoài / đã rời trung tâm).
+     */
+    private void requireActiveCenterTutor(Long centerId, Long tutorId) {
+        CenterTutorMembership membership = membershipRepository
+                .findFirstByCenter_CenterIdAndTutor_TutorId(centerId, tutorId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Gia sư này không thuộc danh sách gia sư của trung tâm."));
+        if (membership.getStatus() != CenterTutorMembershipStatus.ACTIVE) {
+            throw new IllegalArgumentException(
+                    "Gia sư này không còn là thành viên đang hoạt động của trung tâm.");
         }
     }
 
@@ -763,13 +931,14 @@ public class CenterServiceImpl implements CenterService {
     @Override
     @Transactional
     public CenterClassResponse assignAssistant(Long classId, Long tutorId) {
-        requireCenter();
+        TutorCenter center = requireCenter();
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass);
         requireStaffable(tutoringClass);
         if (tutorId == null) {
             throw new IllegalArgumentException("Vui lòng chọn gia sư phụ");
         }
+        requireActiveCenterTutor(center.getCenterId(), tutorId);
         Tutor tutor = tutorRepository
                 .findById(tutorId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
@@ -1432,6 +1601,8 @@ public class CenterServiceImpl implements CenterService {
                 .minStudents(c.getMinStudents())
                 .enrolledCount(students.size())
                 .originType(findClassOrigin(c.getClassId()))
+                .contractTemplateId(findClassTemplateId(c.getClassId()))
+                .contractContent(findClassTerms(c.getClassId()))
                 .status(c.getStatus())
                 .createdAt(c.getCreatedAt())
                 .updatedAt(c.getUpdatedAt())
@@ -1602,6 +1773,62 @@ public class CenterServiceImpl implements CenterService {
                 .orElse(ORIGIN_SELF);
     }
 
+    // ---- Mẫu hợp đồng đã chọn cho lớp (qua system_parameters) ----
+
+    private void saveClassTemplate(Long classId, Long templateId) {
+        String key = CLASS_TEMPLATE_PREFIX + classId;
+        if (templateId == null) {
+            // null = không thay đổi mẫu đã chọn (tránh sửa lớp làm mất mẫu khi form không gửi lại).
+            return;
+        }
+        SystemParameter param = systemParameterRepository.findByParamKey(key)
+                .orElseGet(SystemParameter::new);
+        param.setParamKey(key);
+        param.setParamValue(String.valueOf(templateId));
+        param.setDescription("Mẫu hợp đồng đã chọn cho lớp");
+        systemParameterRepository.save(param);
+    }
+
+    /** Mẫu hợp đồng đã chọn cho lớp (classtpl:{classId}), để đổ lại form khi sửa. */
+    private Long findClassTemplateId(Long classId) {
+        return systemParameterRepository.findByParamKey(CLASS_TEMPLATE_PREFIX + classId)
+                .map(p -> {
+                    try {
+                        return Long.valueOf(p.getParamValue().trim());
+                    } catch (NumberFormatException e) {
+                        return null;
+                    }
+                })
+                .orElse(null);
+    }
+
+    /** Nội dung điều khoản HĐ học viên đã lưu cho lớp (classterms:{classId}). */
+    private String findClassTerms(Long classId) {
+        return systemParameterRepository.findByParamKey("classterms:" + classId)
+                .map(SystemParameter::getParamValue)
+                .orElse(null);
+    }
+
+    /** Lưu nội dung điều khoản HĐ học viên center nhập khi tạo/sửa lớp (classterms:{classId}). */
+    private void saveClassTerms(Long classId, String content) {
+        if (content == null) {
+            // null = không thay đổi (form không gửi lại thì giữ nội dung cũ).
+            return;
+        }
+        String key = "classterms:" + classId;
+        if (content.isBlank()) {
+            // chuỗi rỗng = xoá nội dung đã lưu -> quay về dùng mẫu.
+            systemParameterRepository.findByParamKey(key).ifPresent(systemParameterRepository::delete);
+            return;
+        }
+        SystemParameter param = systemParameterRepository.findByParamKey(key)
+                .orElseGet(SystemParameter::new);
+        param.setParamKey(key);
+        param.setParamValue(content);
+        param.setDescription("Nội dung điều khoản HĐ học viên đã nhập cho lớp");
+        systemParameterRepository.save(param);
+    }
+
     private RecruitmentPostResponse toResponse(RecruitmentPost post) {
         Location location = post.getLocation();
         Subject subject = post.getSubject();
@@ -1673,9 +1900,9 @@ public class CenterServiceImpl implements CenterService {
             return List.of();
         }
         return verificationRequestRepository
-                .findByUser_UserIdAndVerificationType(
-                        tutor.getUser().getUserId(), VerificationType.TUTOR_PROFILE)
-                .filter(req -> req.getStatus() == VerificationStatus.VERIFIED)
+                .findFirstByUser_UserIdAndVerificationTypeAndStatusOrderByVerificationIdDesc(
+                        tutor.getUser().getUserId(), VerificationType.TUTOR_PROFILE,
+                        VerificationStatus.VERIFIED)
                 .map(req -> verificationDocumentRepository
                         .findByVerificationRequest_VerificationId(req.getVerificationId()).stream()
                         .filter(doc -> doc.getDocumentType() == VerificationDocumentType.CERTIFICATE)
@@ -1715,6 +1942,9 @@ public class CenterServiceImpl implements CenterService {
             throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
         }
 
+        // Lớp sinh ra từ yêu cầu của phụ huynh luôn cố định là "yêu cầu ngoài" (EXTERNAL),
+        // bất kể client gửi originType gì — không cho biến thành lớp tự tạo (SELF).
+        body.setOriginType(ORIGIN_EXTERNAL);
         CenterClassResponse classResponse = createClass(body);
 
         ClassRequestStore.ClassRequestData updated = new ClassRequestStore.ClassRequestData(
@@ -1742,5 +1972,151 @@ public class CenterServiceImpl implements CenterService {
                 data.requestId(), data.clientUserId(), data.centerId(), data.categoryId(),
                 data.note(), data.desiredBudget(), ClassRequestStore.STATUS_REJECTED, reason, data.createdAt());
         classRequestStore.save(updated);
+    }
+
+    // ===================== Quản lý mẫu hợp đồng =====================
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ContractTemplateResponse> listContractTemplates() {
+        TutorCenter center = requireCenter();
+        return contractTemplateRepository.findUsableByCenter(center.getCenterId()).stream()
+                .map(this::toTemplateResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ContractTemplateResponse createContractTemplate(SaveContractTemplateRequest request) {
+        TutorCenter center = requireCenter();
+        if (!StringUtils.hasText(request.getName())) {
+            throw new IllegalArgumentException("Tên mẫu là bắt buộc");
+        }
+        if (!StringUtils.hasText(request.getContent())) {
+            throw new IllegalArgumentException("Nội dung mẫu là bắt buộc");
+        }
+        ContractTemplate t = new ContractTemplate();
+        t.setName(request.getName().trim());
+        t.setContent(request.getContent().trim());
+        t.setCreatedBy(center.getUser());
+        t.setCenter(center);
+        t.setDefaultTemplate(false);
+        t.setStatus(ContractTemplateStatus.ACTIVE);
+        ContractTemplate saved = contractTemplateRepository.save(t);
+        saveTemplateType(saved.getTemplateId(), request.getContractType());
+        return toTemplateResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public ContractTemplateResponse updateContractTemplate(
+            Long templateId, SaveContractTemplateRequest request) {
+        TutorCenter center = requireCenter();
+        ContractTemplate t = contractTemplateRepository.findById(templateId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mẫu hợp đồng"));
+        if (t.getCenter() == null || !t.getCenter().getCenterId().equals(center.getCenterId())) {
+            throw new ForbiddenException("Chỉ được sửa mẫu của chính trung tâm (không sửa mẫu hệ thống).");
+        }
+        if (StringUtils.hasText(request.getName())) {
+            t.setName(request.getName().trim());
+        }
+        if (StringUtils.hasText(request.getContent())) {
+            t.setContent(request.getContent().trim());
+        }
+        ContractTemplate saved = contractTemplateRepository.save(t);
+        if (StringUtils.hasText(request.getContractType())) {
+            saveTemplateType(saved.getTemplateId(), request.getContractType());
+        }
+        return toTemplateResponse(saved);
+    }
+
+    private ContractTemplateResponse toTemplateResponse(ContractTemplate t) {
+        return ContractTemplateResponse.builder()
+                .templateId(t.getTemplateId())
+                .name(t.getName())
+                .content(t.getContent())
+                .contractType(findTemplateType(t.getTemplateId()))
+                .defaultTemplate(Boolean.TRUE.equals(t.getDefaultTemplate()))
+                .status(t.getStatus() != null ? t.getStatus().name() : null)
+                .system(t.getCenter() == null)
+                .build();
+    }
+
+    // ===================== Thông tin BÊN A của hợp đồng (thông tin trung tâm) =====================
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper CONTRACT_INFO_MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper();
+
+    @Override
+    @Transactional(readOnly = true)
+    public com.tcs.module.center.dto.response.CenterContractInfoResponse getContractInfo() {
+        TutorCenter center = requireCenter();
+        Map<String, String> extra = readCenterContractExtra(center.getCenterId());
+        return com.tcs.module.center.dto.response.CenterContractInfoResponse.builder()
+                .companyName(center.getCompanyName())
+                .address(center.getAddress())
+                .phone(center.getPhone())
+                .email(center.getUser() != null ? center.getUser().getEmail() : null)
+                .website(extra.get("website"))
+                .representativeName(extra.get("representativeName"))
+                .representativePosition(extra.get("representativePosition"))
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public com.tcs.module.center.dto.response.CenterContractInfoResponse saveContractInfo(
+            com.tcs.module.center.dto.request.SaveCenterContractInfoRequest request) {
+        TutorCenter center = requireCenter();
+        Map<String, String> map = new HashMap<>();
+        map.put("website", request.getWebsite() != null ? request.getWebsite().trim() : null);
+        map.put("representativeName",
+                request.getRepresentativeName() != null ? request.getRepresentativeName().trim() : null);
+        map.put("representativePosition",
+                request.getRepresentativePosition() != null ? request.getRepresentativePosition().trim() : null);
+        String key = "centercontract:" + center.getCenterId();
+        try {
+            SystemParameter param = systemParameterRepository.findByParamKey(key)
+                    .orElseGet(SystemParameter::new);
+            param.setParamKey(key);
+            param.setParamValue(CONTRACT_INFO_MAPPER.writeValueAsString(map));
+            param.setDescription("Thông tin BÊN A của trung tâm cho hợp đồng");
+            systemParameterRepository.save(param);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Không lưu được thông tin hợp đồng của trung tâm.");
+        }
+        return getContractInfo();
+    }
+
+    private Map<String, String> readCenterContractExtra(Long centerId) {
+        return systemParameterRepository.findByParamKey("centercontract:" + centerId)
+                .map(p -> {
+                    try {
+                        return CONTRACT_INFO_MAPPER.readValue(p.getParamValue(),
+                                new com.fasterxml.jackson.core.type.TypeReference<Map<String, String>>() {});
+                    } catch (Exception e) {
+                        return new HashMap<String, String>();
+                    }
+                })
+                .orElseGet(HashMap::new);
+    }
+
+    /** Lưu loại mẫu hợp đồng (RECRUITMENT/CLASS) qua system_parameters (không cần cột/migration). */
+    private void saveTemplateType(Long templateId, String contractType) {
+        String value = TEMPLATE_TYPE_RECRUITMENT.equalsIgnoreCase(contractType)
+                ? TEMPLATE_TYPE_RECRUITMENT : TEMPLATE_TYPE_CLASS;
+        String key = TEMPLATE_TYPE_PREFIX + templateId;
+        SystemParameter param = systemParameterRepository.findByParamKey(key)
+                .orElseGet(SystemParameter::new);
+        param.setParamKey(key);
+        param.setParamValue(value);
+        param.setDescription("Loại mẫu hợp đồng: RECRUITMENT / CLASS");
+        systemParameterRepository.save(param);
+    }
+
+    private String findTemplateType(Long templateId) {
+        return systemParameterRepository.findByParamKey(TEMPLATE_TYPE_PREFIX + templateId)
+                .map(SystemParameter::getParamValue)
+                .orElse(TEMPLATE_TYPE_CLASS);
     }
 }

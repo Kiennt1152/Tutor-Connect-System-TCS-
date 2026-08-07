@@ -7,11 +7,13 @@ import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
 import PlatformDashboardPage from '../features/platform/pages/PlatformDashboardPage';
+import PlatformEscrowPage from '../features/platform/pages/PlatformEscrowPage';
 import PlatformProfilePage from '../features/platform/pages/PlatformProfilePage';
 import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage';
 import PlatformReviewsPage from '../features/platform/pages/PlatformReviewsPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
+import PlatformWithdrawalsPage from '../features/platform/pages/PlatformWithdrawalsPage';
 import PlatformTicketsPage from '../features/platform/pages/PlatformTicketsPage';
 import PlatformFaqPage from '../features/platform/pages/PlatformFaqPage';
 import PlatformParametersPage from '../features/platform/pages/PlatformParametersPage';
@@ -19,17 +21,23 @@ import PlatformPenaltiesPage from '../features/platform/pages/PlatformPenaltiesP
 import PlatformAuditLogsPage from '../features/platform/pages/PlatformAuditLogsPage';
 import PlatformAnnouncementsPage from '../features/platform/pages/PlatformAnnouncementsPage';
 import CenterPage from '../features/center/pages/CenterPage';
+import CenterReportsPage from '../features/center/pages/CenterReportsPage';
 import CenterRecruitmentPage from '../features/center/pages/CenterRecruitmentPage';
 import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
 import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
 import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
 import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
 import CenterTutorsPage from '../features/center/pages/CenterTutorsPage';
+import CenterContractTemplatesPage from '../features/center/pages/CenterContractTemplatesPage';
 import CentersPage from '../features/home/pages/CentersPage';
 import RecruitmentPage from '../features/recruitment/pages/RecruitmentPage';
 import ProfilePage from '../features/profile/pages/ProfilePage';
+import DependentProfileLinkerPage from '../features/profile/pages/DependentProfileLinkerPage';
+import ChildProfileDetailPage from '../features/profile/pages/ChildProfileDetailPage';
+import GuardianApprovalPage from '../features/profile/pages/GuardianApprovalPage';
 import FinancePage from '../features/finance/pages/FinancePage';
 import MarketplacePage from '../features/marketplace/pages/MarketplacePage';
+import ClassFinderPage from '../features/marketplace/pages/ClassFinderPage';
 import MarketplaceClassDetailPage from '../features/marketplace/pages/MarketplaceClassDetailPage';
 import CatalogPage from '../features/catalog/pages/CatalogPage';
 import ContractListPage from '../features/contract/pages/ContractListPage';
@@ -60,6 +68,7 @@ export default function App() {
           <Route path={APP_ROUTES.home} element={<HomePage />} />
           <Route path={APP_ROUTES.findTutor} element={<FindTutorPage />} />
           <Route path={APP_ROUTES.findClass} element={<FindClassPage />} />
+          <Route path={APP_ROUTES.classFinder} element={<ClassFinderPage />} />
           <Route path={APP_ROUTES.tutorProfile} element={<TutorPublicProfilePage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
@@ -94,9 +103,33 @@ export default function App() {
             }
           />
           <Route
+            path={APP_ROUTES.profileDependents}
+            element={
+              <ProtectedRoute roles={['CLIENT']}>
+                <DependentProfileLinkerPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.childProfile(':childProfileId')}
+            element={
+              <ProtectedRoute roles={['CLIENT']}>
+                <ChildProfileDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.guardianApprovals}
+            element={
+              <ProtectedRoute roles={['CLIENT']}>
+                <GuardianApprovalPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={APP_ROUTES.finance}
             element={
-              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+              <ProtectedRoute roles={['TUTOR', 'TUTOR_CENTER']}>
                 <FinancePage />
               </ProtectedRoute>
             }
@@ -166,6 +199,14 @@ export default function App() {
             }
           />
           <Route
+            path={APP_ROUTES.centerReports}
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterReportsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/center/schedule"
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
@@ -210,6 +251,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterTutorsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/contract-templates"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterContractTemplatesPage />
               </ProtectedRoute>
             }
           />
@@ -270,6 +319,22 @@ export default function App() {
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
                 <PlatformReportsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformEscrows}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformEscrowPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformWithdrawals}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformWithdrawalsPage />
               </ProtectedRoute>
             }
           />

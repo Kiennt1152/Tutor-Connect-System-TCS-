@@ -1,6 +1,8 @@
 package com.tcs.module.platform.repository;
 
 import com.tcs.module.platform.entity.AuditLog;
+import java.time.LocalDateTime;
+import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -8,10 +10,10 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.time.LocalDateTime;
-
 @Repository
 public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
+
+    List<AuditLog> findByEntityTypeAndEntityIdOrderByCreatedAtAsc(String entityType, Long entityId);
 
     @Query("SELECT a FROM AuditLog a WHERE "
          + "(:actorId IS NULL OR a.actor.userId = :actorId) "
@@ -20,7 +22,6 @@ public interface AuditLogRepository extends JpaRepository<AuditLog, Long> {
          + "AND (:keyword IS NULL OR LOWER(a.actor.email) LIKE CONCAT('%', :keyword, '%')) "
          + "AND (CAST(:from AS timestamp) IS NULL OR a.createdAt >= :from) "
          + "AND (CAST(:to AS timestamp) IS NULL OR a.createdAt <= :to) "
-         // --- Loc theo vai tro cua actor (theo thu tu uu tien giong PlatformMapper.resolveRole) ---
          + "AND (:actorRole IS NULL "
          + "  OR (:actorRole = 'PLATFORM_ADMIN' AND EXISTS (SELECT 1 FROM PlatformAdmin pa WHERE pa.user.userId = a.actor.userId)) "
          + "  OR (:actorRole = 'TUTOR' AND EXISTS (SELECT 1 FROM Tutor t WHERE t.user.userId = a.actor.userId) "

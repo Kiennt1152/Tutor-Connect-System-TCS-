@@ -1,5 +1,6 @@
 package com.tcs.module.marketplace.dto.response;
 
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.LessonMode;
 import com.tcs.module.marketplace.enums.RecurringType;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
@@ -37,8 +38,13 @@ public class ClassResponse {
     private BigDecimal budget;
     private RecurringType recurringType;
     private TutoringClassStatus status;
+    /** SELF/CENTER: lớp của trung tâm (CENTER) không cho gia sư tự đăng ký qua marketplace. */
+    private ClassType classType;
     private Integer maxStudents;
     private long enrolledCount;
+    private boolean canRequestTermination;
+    private Long terminationAssignmentId;
+    private Long terminationClassStudentId;
     private List<ScheduleSlotResponse> schedule;
     private LocalDateTime createdAt;
     private Long applicationCount;

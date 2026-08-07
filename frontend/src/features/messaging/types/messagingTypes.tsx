@@ -46,6 +46,41 @@ export interface SupportTicketDetailApiResponse extends SupportTicketApiResponse
   messages: TicketMessageApiResponse[];
 }
 
+export interface UserSummaryResponse {
+  userId: number;
+  displayName: string;
+  avatarUrl: string | null;
+  role: string;
+}
+
+export interface ConversationResponse {
+  conversationId: number;
+  type: string;
+  otherParticipant: UserSummaryResponse | null;
+  lastMessagePreview: string | null;
+  lastMessageAt: string | null;
+  unreadCount: number;
+}
+
+export interface MessageResponse {
+  messageId: number;
+  conversationId: number;
+  senderId: number;
+  senderName: string;
+  content: string;
+  sentAt: string;
+  isEdited: boolean;
+}
+
+export interface MessagePageResponse {
+  content: MessageResponse[];
+  last: boolean;
+  number: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
 /* ── API request shapes ── */
 
 export interface CreateSupportTicketApiRequest {

@@ -373,6 +373,7 @@ public class MessagingServiceImpl implements MessagingService {
         return switch (category) {
             case FRAUD -> "sai sự thật / gian lận";
             case ABUSE -> "lăng mạ / xúc phạm";
+            case SPAM -> "spam";
             case INAPPROPRIATE -> "nội dung không phù hợp";
             case OTHER -> "lý do khác";
         };
@@ -384,10 +385,10 @@ public class MessagingServiceImpl implements MessagingService {
                 .type(n.getType())
                 .title(n.getTitle())
                 .content(n.getContent())
-                .isRead(n.getIsRead())
-                .createdAt(n.getCreatedAt())
                 .referenceType(n.getReferenceType())
                 .referenceId(n.getReferenceId())
+                .isRead(n.getIsRead())
+                .createdAt(n.getCreatedAt())
                 .build();
     }
 }

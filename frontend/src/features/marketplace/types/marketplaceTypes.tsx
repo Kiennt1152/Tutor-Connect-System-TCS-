@@ -11,6 +11,30 @@ export type ClassStatus =
   | 'CANCELLED'
   | 'DISPUTED';
 
+export interface MarketplaceResponse {}
+
+export type ClassTerminationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
+
+export interface CreateClassTerminationRequest {
+  assignmentId?: number;
+  classStudentId?: number;
+  reason: string;
+  effectiveDate?: string;
+}
+
+export interface ClassTerminationResponse {
+  terminationId: number;
+  classId: number;
+  assignmentId: number | null;
+  classStudentId: number | null;
+  requestedByUserId: number;
+  reason: string;
+  effectiveDate: string | null;
+  status: ClassTerminationStatus;
+  createdAt: string;
+  processedAt: string | null;
+}
+
 export interface CatalogOption {
   id: number;
   name: string;
@@ -278,7 +302,7 @@ export const CLASS_STATUS_LABELS: Record<ClassStatus, string> = {
 /** Lịch học một buổi do backend trả về (đăng ký lớp trực tiếp). */
 export interface MarketplaceScheduleSlot {
   slotId: number;
-  dayOfWeek: number; // 1 = Thứ Hai ... 7 = Chủ Nhật
+  dayOfWeek: number;
   startTime: string;
   endTime: string;
 }
@@ -302,8 +326,13 @@ export interface MarketplaceClass {
   budget: number | null;
   recurringType: RecurringType;
   status: ClassStatus;
+  /** PRIVATE (lớp cá nhân) / CENTER (lớp của trung tâm — gia sư không tự đăng ký). */
+  classType?: 'PRIVATE' | 'CENTER';
   maxStudents: number | null;
   enrolledCount: number;
+  canRequestTermination: boolean;
+  terminationAssignmentId: number | null;
+  terminationClassStudentId: number | null;
   schedule: MarketplaceScheduleSlot[];
   createdAt: string;
 }

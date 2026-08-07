@@ -13,6 +13,11 @@
   max-width: var(--content-max);
   margin: 0 auto;
   padding: var(--space-lg) var(--space-md);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
 }
 
 .adm-header__title {

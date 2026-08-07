@@ -10,6 +10,7 @@ import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.PaymentGateway;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -48,6 +49,9 @@ class WalletServiceImplTest {
 
     @Mock
     private PaymentGateway paymentGateway;
+
+    @Mock
+    private PlatformAdminRepository platformAdminRepository;
 
     @InjectMocks
     private WalletServiceImpl walletService;
@@ -115,6 +119,43 @@ class WalletServiceImplTest {
     }
 
     // ─── balance ────────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("create")
+    class Create {
+
+        @Test
+        @DisplayName("returns existing wallet when user already has one")
+        void returnsExistingWallet() {
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+
+            Wallet result = walletService.create(USER_ID);
+
+            assertEquals(activeWallet, result);
+            verify(walletRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("creates active zero-balance wallet when missing")
+        void createsWalletWhenMissing() {
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.empty());
+            User user = new User();
+            user.setUserId(USER_ID);
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.of(user));
+            when(walletRepository.save(any(Wallet.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            Wallet result = walletService.create(USER_ID);
+
+            verify(walletRepository).save(walletCaptor.capture());
+            Wallet saved = walletCaptor.getValue();
+            assertEquals(saved, result);
+            assertEquals(USER_ID, saved.getWalletId());
+            assertEquals(user, saved.getUser());
+            assertEquals(BigDecimal.ZERO, saved.getAvailableBalance());
+            assertEquals(BigDecimal.ZERO, saved.getFrozenBalance());
+            assertEquals(WalletStatus.ACTIVE, saved.getStatus());
+        }
+    }
 
     @Nested
     @DisplayName("balance")
