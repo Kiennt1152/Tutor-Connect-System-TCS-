@@ -217,8 +217,9 @@ export default function PlatformVerificationsPage() {
               {detailError && <div className="adm-alert adm-alert--error">{detailError}</div>}
 
               {detail && (
-                <>
-                  <section className="pv-section">
+                <div className="pv-detail-grid">
+                  {/* Cột trái: thông tin người nộp + CCCD (để đối chiếu). */}
+                  <section className="pv-section pv-detail-grid__info">
                     <h3 className="pv-section__title">Thông tin người nộp</h3>
                     <div className="pv-kv">
                       <div className="pv-kv__row">
@@ -238,12 +239,15 @@ export default function PlatformVerificationsPage() {
                     </div>
                   </section>
 
-                  <section className="pv-section">
-                    <h3 className="pv-section__title">Tài liệu ({detail.documents.length})</h3>
+                  {/* Cột phải: ảnh tài liệu hiển thị lớn để đối chiếu nhanh (bấm để xem đầy đủ). */}
+                  <section className="pv-section pv-detail-grid__docs">
+                    <h3 className="pv-section__title">
+                      Tài liệu ({detail.documents.length}) — bấm ảnh để xem đầy đủ
+                    </h3>
                     {detail.documents.length === 0 ? (
                       <p className="adm-muted">Không có tài liệu đính kèm.</p>
                     ) : (
-                      <ul className="pv-docs">
+                      <ul className="pv-docs pv-docs--gallery">
                         {detail.documents.map((doc) => (
                           <li className="pv-docs__item" key={doc.documentId}>
                             <span className="pv-docs__type">{DOC_LABEL[doc.documentType]}</span>
@@ -267,7 +271,7 @@ export default function PlatformVerificationsPage() {
                       </div>
                     )}
                   </section>
-                </>
+                </div>
               )}
 
               {selected.isReviewed && (

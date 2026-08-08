@@ -23,7 +23,6 @@ const INPUT: React.CSSProperties = {
 export function CenterContractInfoSection() {
   const [info, setInfo] = useState<CenterContractInfo | null>(null);
   const [website, setWebsite] = useState('');
-  const [repName, setRepName] = useState('');
   const [repPos, setRepPos] = useState('');
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState('');
@@ -35,7 +34,6 @@ export function CenterContractInfoSection() {
       .then((res) => {
         setInfo(res.data);
         setWebsite(res.data.website ?? '');
-        setRepName(res.data.representativeName ?? '');
         setRepPos(res.data.representativePosition ?? '');
       })
       .catch(() => {
@@ -50,7 +48,6 @@ export function CenterContractInfoSection() {
     try {
       const res = await centerApi.saveContractInfo({
         website,
-        representativeName: repName,
         representativePosition: repPos,
       });
       setInfo(res.data);
@@ -66,8 +63,9 @@ export function CenterContractInfoSection() {
     <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, marginBottom: 20 }}>
       <h2 style={{ marginTop: 0, fontSize: 16 }}>Thông tin trung tâm trên hợp đồng (BÊN A)</h2>
       <p style={{ color: '#64748b', fontSize: 13, marginTop: 0 }}>
-        Tên, địa chỉ, SĐT, email lấy từ hồ sơ trung tâm (chỉ xem). Bổ sung website + người đại diện để
-        hiển thị ở khối BÊN A của mọi hợp đồng.
+        Tên, địa chỉ, SĐT, email lấy từ hồ sơ trung tâm. <strong>Người đại diện</strong> lấy từ CCCD
+        người đại diện pháp luật đã xác minh. Bạn chỉ cần bổ sung website + chức vụ để hiển thị ở khối
+        BÊN A của mọi hợp đồng.
       </p>
 
       {err && <p style={{ background: '#fee2e2', color: '#991b1b', padding: 10, borderRadius: 8 }}>{err}</p>}
@@ -102,10 +100,10 @@ export function CenterContractInfoSection() {
         <div>
           <label style={LABEL}>Người đại diện</label>
           <input
-            style={INPUT}
-            value={repName}
-            onChange={(e) => setRepName(e.target.value)}
-            placeholder="VD: Nguyễn Văn A"
+            style={{ ...INPUT, ...RO }}
+            value={info?.representativeName ?? ''}
+            readOnly
+            placeholder="Lấy từ CCCD người đại diện pháp luật"
           />
         </div>
         <div>

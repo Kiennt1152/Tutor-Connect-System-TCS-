@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { SiteFooter } from '../../home/components/SiteFooter';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { centerApi } from '../api/centerApi';
 import { CenterContractInfoSection } from '../components/CenterContractInfoSection';
 import type { ContractTemplate } from '../types/centerTypes';
@@ -27,6 +28,8 @@ export default function CenterContractTemplatesPage() {
   const [templates, setTemplates] = useState<ContractTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // null = đang kiểm tra; false = chưa xác minh (không cho tạo mẫu).
+  const [verified, setVerified] = useState<boolean | null>(null);
 
   // Form tạo/sửa. editingId = null -> tạo mới.
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -45,6 +48,11 @@ export default function CenterContractTemplatesPage() {
 
   useEffect(() => {
     reload();
+    // Kiểm tra trạng thái xác minh để quyết định có cho tạo mẫu hay không.
+    centerApi
+      .getContractInfo()
+      .then((res) => setVerified(res.data.verificationStatus === 'VERIFIED'))
+      .catch(() => setVerified(false));
   }, []);
 
   const startCreate = () => {
@@ -92,13 +100,33 @@ export default function CenterContractTemplatesPage() {
           </Link>
         </div>
         <p style={{ color: '#64748b', fontSize: 14 }}>
-          Mẫu hệ thống dùng chung (chỉ xem). Bạn có thể tạo mẫu riêng của trung tâm để chọn khi tạo lớp.
+          Mẫu hệ thống dùng chung. Bạn có thể tạo mẫu riêng của trung tâm để chọn khi tuyển dụng hoặc tạo lớp.
         </p>
 
         {/* Thông tin BÊN A của trung tâm trên hợp đồng */}
         <CenterContractInfoSection />
 
-        {/* Form tạo/sửa */}
+        {/* Chưa xác minh -> không cho tạo mẫu, hướng dẫn đi xác minh. */}
+        {verified === false && (
+          <div
+            style={{
+              border: '1px solid #fed7aa',
+              background: '#fff7ed',
+              color: '#9a3412',
+              borderRadius: 12,
+              padding: 16,
+              marginBottom: 20,
+            }}
+          >
+            Trung tâm cần được <strong>xác minh</strong> trước khi tạo mẫu hợp đồng.{' '}
+            <Link to={APP_ROUTES.verification} style={{ color: '#c2410c', fontWeight: 600 }}>
+              Đi tới trang xác minh →
+            </Link>
+          </div>
+        )}
+
+        {/* Form tạo/sửa — chỉ khi đã xác minh */}
+        {verified !== false && (
         <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, marginBottom: 20 }}>
           <h2 style={{ marginTop: 0, fontSize: 16 }}>
             {editingId != null ? 'Sửa mẫu' : 'Tạo mẫu mới'}
@@ -182,6 +210,7 @@ export default function CenterContractTemplatesPage() {
             )}
           </div>
         </div>
+        )}
 
         {/* Danh sách mẫu */}
         {loading && <p>Đang tải...</p>}

@@ -53,9 +53,13 @@ function buildNavLinks(role: UserRole): NavLinkItem[] {
       { key: 'centers', label: 'Trung tâm', to: APP_ROUTES.centers },
     ];
   }
-  // Trung tâm: quản lý qua nút "Quản lý trung tâm"; nav chỉ cần trang giới thiệu công khai.
+  // Trung tâm: xem danh sách lớp đang mở (gồm lớp do trung tâm tạo) + trang giới thiệu công khai;
+  // quản lý sâu qua nút "Quản lý trung tâm".
   if (role === 'TUTOR_CENTER') {
-    return [{ key: 'centers', label: 'Trung tâm', to: APP_ROUTES.centers }];
+    return [
+      { key: 'find-class', label: 'Tìm lớp', to: APP_ROUTES.classFinder },
+      { key: 'centers', label: 'Trung tâm', to: APP_ROUTES.centers },
+    ];
   }
   // Admin: không có nav khám phá (dùng khu vực quản trị riêng).
   if (role === 'PLATFORM_ADMIN') {

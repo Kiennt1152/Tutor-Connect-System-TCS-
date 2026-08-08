@@ -327,7 +327,13 @@ export default function VerificationPage() {
                 ) : (
                   <>
                     {/* Quét CCCD (đọc QR tự điền) — bắt buộc trước khi gửi xác minh. */}
-                    <CccdSection />
+                    <CccdSection
+                      title={
+                        isCenter
+                          ? 'Thông tin CCCD (người đại diện pháp luật)'
+                          : 'Thông tin CCCD (dùng khi ký hợp đồng)'
+                      }
+                    />
                     <label
                       style={{
                         display: 'flex',

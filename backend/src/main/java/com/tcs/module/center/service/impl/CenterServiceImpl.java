@@ -137,6 +137,7 @@ public class CenterServiceImpl implements CenterService {
     private final ClassRequestStore classRequestStore;
     private final ContractService contractService;
     private final ContractTemplateRepository contractTemplateRepository;
+    private final com.tcs.module.profile.service.CccdService cccdService;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -1989,6 +1990,8 @@ public class CenterServiceImpl implements CenterService {
     @Transactional
     public ContractTemplateResponse createContractTemplate(SaveContractTemplateRequest request) {
         TutorCenter center = requireCenter();
+        // Phải xác minh trung tâm trước khi được tạo mẫu hợp đồng.
+        requireVerifiedCenter(center);
         if (!StringUtils.hasText(request.getName())) {
             throw new IllegalArgumentException("Tên mẫu là bắt buộc");
         }
@@ -2012,6 +2015,7 @@ public class CenterServiceImpl implements CenterService {
     public ContractTemplateResponse updateContractTemplate(
             Long templateId, SaveContractTemplateRequest request) {
         TutorCenter center = requireCenter();
+        requireVerifiedCenter(center);
         ContractTemplate t = contractTemplateRepository.findById(templateId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mẫu hợp đồng"));
         if (t.getCenter() == null || !t.getCenter().getCenterId().equals(center.getCenterId())) {
@@ -2058,9 +2062,22 @@ public class CenterServiceImpl implements CenterService {
                 .phone(center.getPhone())
                 .email(center.getUser() != null ? center.getUser().getEmail() : null)
                 .website(extra.get("website"))
-                .representativeName(extra.get("representativeName"))
+                // Người đại diện lấy từ CCCD người đại diện pháp luật (đã quét), không nhập tay.
+                .representativeName(legalRepName(center))
                 .representativePosition(extra.get("representativePosition"))
+                .verificationStatus(
+                        center.getVerificationStatus() != null
+                                ? center.getVerificationStatus().name()
+                                : null)
                 .build();
+    }
+
+    /** Họ tên người đại diện pháp luật lấy từ CCCD đã quét (cccd:{userId}). */
+    private String legalRepName(TutorCenter center) {
+        if (center.getUser() == null) {
+            return null;
+        }
+        return cccdService.getByUserId(center.getUser().getUserId()).getFullName();
     }
 
     @Override
@@ -2070,8 +2087,7 @@ public class CenterServiceImpl implements CenterService {
         TutorCenter center = requireCenter();
         Map<String, String> map = new HashMap<>();
         map.put("website", request.getWebsite() != null ? request.getWebsite().trim() : null);
-        map.put("representativeName",
-                request.getRepresentativeName() != null ? request.getRepresentativeName().trim() : null);
+        // Người đại diện KHÔNG lưu ở đây — luôn lấy từ CCCD người đại diện pháp luật (nguồn chuẩn).
         map.put("representativePosition",
                 request.getRepresentativePosition() != null ? request.getRepresentativePosition().trim() : null);
         String key = "centercontract:" + center.getCenterId();

@@ -33,8 +33,13 @@ const EMPTY: CccdInfo = {
   phone: '',
 };
 
+type CccdSectionProps = {
+  /** Tiêu đề tuỳ ngữ cảnh (mặc định: dùng khi ký hợp đồng). */
+  title?: string;
+};
+
 /** Thông tin CCCD (đọc QR tự điền + user xác nhận) — dùng cho khối BÊN B khi ký hợp đồng. */
-export function CccdSection() {
+export function CccdSection({ title = 'Thông tin CCCD (dùng khi ký hợp đồng)' }: CccdSectionProps = {}) {
   const [info, setInfo] = useState<CccdInfo>(EMPTY);
   const [complete, setComplete] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -112,7 +117,7 @@ export function CccdSection() {
   return (
     <section className="profile-section">
       <h2>
-        Thông tin CCCD (dùng khi ký hợp đồng){' '}
+        {title}{' '}
         <span
           style={{
             fontSize: 13,

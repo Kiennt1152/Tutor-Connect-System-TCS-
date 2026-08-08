@@ -704,7 +704,10 @@ public class ContractServiceImpl implements ContractService {
             sb.append("   Website: ").append(website);
         }
         sb.append("\n");
-        String rep = extra.get("representativeName");
+        // Người đại diện lấy từ CCCD người đại diện pháp luật (đã quét), không nhập tay.
+        String rep = center.getUser() != null
+                ? cccdService.getByUserId(center.getUser().getUserId()).getFullName()
+                : null;
         String pos = extra.get("representativePosition");
         if ((rep != null && !rep.isBlank()) || (pos != null && !pos.isBlank())) {
             sb.append("Đại diện: ").append(nz(rep));

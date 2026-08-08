@@ -365,6 +365,8 @@ export default function CenterPage() {
   const [mode, setMode] = useState<'list' | 'form'>('list');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  // Ô điều khoản HĐ mặc định thu gọn; bấm để mở rộng khi cần xem/sửa.
+  const [contractExpanded, setContractExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -978,11 +980,20 @@ export default function CenterPage() {
               <select
                 className="cc-input"
                 value={form.originType}
+                // Tạo thủ công luôn là "Trung tâm tự tạo"; "Theo yêu cầu ngoài" chỉ sinh ra
+                // khi chấp nhận yêu cầu của phụ huynh, nên khóa lại ở luồng tạo mới thủ công.
+                disabled={editingId == null && acceptingRequestId == null}
                 onChange={(e) => patch({ originType: e.target.value as FormState['originType'] })}
               >
                 <option value="SELF">Trung tâm tự tạo (tuyển học sinh)</option>
                 <option value="EXTERNAL">Theo yêu cầu ngoài (đã có học sinh)</option>
               </select>
+              {editingId == null && acceptingRequestId == null && (
+                <small className="cc-hint">
+                  Lớp tạo thủ công mặc định là <strong>Trung tâm tự tạo</strong>. Lớp “theo yêu cầu
+                  ngoài” được tạo khi chấp nhận yêu cầu của phụ huynh.
+                </small>
+              )}
             </label>
 
             <label className="cc-field">
@@ -1010,13 +1021,32 @@ export default function CenterPage() {
             </label>
 
             <label className="cc-field cc-field--full">
-              <span className="cc-label">Nội dung điều khoản & nghĩa vụ (HĐ học viên)</span>
+              <span
+                className="cc-label"
+                style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}
+              >
+                Nội dung điều khoản & nghĩa vụ (HĐ học viên)
+                <button
+                  type="button"
+                  className="cc-btn cc-btn--ghost cc-btn--sm"
+                  onClick={() => setContractExpanded((v) => !v)}
+                  aria-expanded={contractExpanded}
+                >
+                  {contractExpanded ? '▴ Thu gọn' : '▾ Mở rộng để xem / sửa'}
+                </button>
+              </span>
               <textarea
                 className="cc-input"
-                rows={6}
+                rows={contractExpanded ? 16 : 3}
+                style={{
+                  minHeight: contractExpanded ? 340 : 72,
+                  fontFamily: 'inherit',
+                  lineHeight: 1.6,
+                  resize: 'vertical',
+                }}
                 value={form.contractContent}
                 onChange={(e) => patch({ contractContent: e.target.value })}
-                placeholder="Điều 1. ...  (Biến tự điền khi tạo hợp đồng: {{tenHocVien}}, {{tenLop}}, {{monHoc}}, {{hocPhi}}, {{soBuoi}}, {{ngayBatDau}}, {{ngayKetThuc}}, {{tenTrungTam}})"
+                placeholder="Nhập các điều khoản & nghĩa vụ của hợp đồng…"
               />
               <small className="cc-hint">
                 Quốc hiệu, tiêu đề, thông tin các bên sẽ được hệ thống tự thêm. Để trống = dùng nội dung mẫu.
