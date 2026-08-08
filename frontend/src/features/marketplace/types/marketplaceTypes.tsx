@@ -337,6 +337,10 @@ export interface MarketplaceClass {
   maxStudents: number | null;
   enrolledCount: number;
   canRequestTermination: boolean;
+  refundAllowed: boolean;
+  refundBlockedReason: string | null;
+  totalSessions: number | null;
+  completedSessions: number | null;
   terminationAssignmentId: number | null;
   terminationClassStudentId: number | null;
   schedule: MarketplaceScheduleSlot[];

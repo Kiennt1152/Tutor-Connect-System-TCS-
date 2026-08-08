@@ -72,7 +72,6 @@ public class SettlementServiceImpl implements SettlementService {
     public RefundExecutionResponse executeRefund(ExecuteRefundRequest request) {
         authHelper.requireRole(UserRole.PLATFORM_ADMIN);
         validateRefundRequest(request);
-        RefundPayoutInfo payoutInfo = validateRefundPayoutInfo(request.getRefundPayoutInfo());
 
         EscrowTransaction escrow = escrowTransactionRepository.findById(request.getEscrowId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy escrow"));
@@ -86,6 +85,7 @@ public class SettlementServiceImpl implements SettlementService {
         if (releaseAmount.add(refundAmount).compareTo(escrowAmount) != 0) {
             throw new BusinessException("Tổng tiền giải ngân và hoàn tiền phải bằng số tiền escrow");
         }
+        RefundPayoutInfo payoutInfo = validateRefundPayoutInfo(request.getRefundPayoutInfo());
 
         User admin = userRepository.findById(authHelper.currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy quản trị viên"));

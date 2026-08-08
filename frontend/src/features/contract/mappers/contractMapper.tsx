@@ -133,6 +133,11 @@ export function mapContract(response: ContractApiResponse): Contract {
     client: response.client ?? null,
     center: response.center ?? null,
     escrowPayment: response.escrowPayment ?? null,
+    refundPayoutInfo: response.refundPayoutInfo ?? null,
+    totalSessions: response.totalSessions ?? null,
+    completedSessions: response.completedSessions ?? null,
+    refundAllowed: response.refundAllowed ?? true,
+    refundBlockedReason: response.refundBlockedReason ?? null,
   };
 }
 

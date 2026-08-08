@@ -108,6 +108,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import com.tcs.common.classrequest.ClassRequestStore;
+import com.tcs.common.event.EscrowFunded;
 import com.tcs.common.event.StudentContractSigned;
 import com.tcs.module.contract.service.ContractService;
 import org.springframework.context.event.EventListener;
@@ -766,6 +767,21 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
         n.setIsRead(false);
         notificationRepository.save(n);
+    }
+
+    private void notifyStudentEnrollmentSuccess(ClassStudent classStudent) {
+        if (classStudent == null || classStudent.getEnrolledByUser() == null || classStudent.getTutoringClass() == null) {
+            return;
+        }
+        TutoringClass tutoringClass = classStudent.getTutoringClass();
+        String classTitle = StringUtils.hasText(tutoringClass.getTitle()) ? tutoringClass.getTitle() : "lớp học";
+        String studentName = StringUtils.hasText(classStudent.getStudentName()) ? classStudent.getStudentName() : "Học viên";
+        sendClassNotification(
+                classStudent.getEnrolledByUser(),
+                "Ghi danh thành công",
+                studentName + " đã được ghi danh thành công vào lớp \"" + classTitle
+                        + "\" sau khi hệ thống xác nhận thanh toán.",
+                tutoringClass.getClassId());
     }
 
     private User classCounterpart(TutoringClass tc, User me) {
@@ -1633,7 +1649,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             student.setStatus(ClassStudentStatus.PENDING_SIGNATURE);
             ClassStudent savedStudent = classStudentRepository.save(student);
             // BF-04 bước 7: sinh hợp đồng theo học viên để phụ huynh/học viên ký (OTP).
-            // Ký xong -> onStudentContractSigned mới chuyển ENROLLED + đóng ghi danh khi đủ.
+            // Ký xong chỉ mở bước thanh toán; SePay xác nhận escrow mới chuyển ENROLLED.
             contractService.generateStudentContract(savedStudent.getClassStudentId());
             auditLogService.record(userId, "REGISTER_CLASS", "ClassStudent", savedStudent.getClassStudentId(),
                     null, java.util.Map.of("classId", classId));
@@ -1641,16 +1657,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             if (legal.isDelegatedToParent()) {
                 return "Đã ghi nhận đăng ký. Vì bạn dưới 18 tuổi, hợp đồng đã được gửi cho phụ huynh"
                         + (legal.getLegalHolderName() != null ? " (" + legal.getLegalHolderName() + ")" : "")
-                        + " ký. Ký xong bạn mới chính thức vào lớp.";
+                        + " ký. Sau khi ký và thanh toán được xác nhận, bạn mới chính thức vào lớp.";
             }
-            return "Đã ghi nhận đăng ký. Vui lòng vào mục Hợp đồng để ký — ký xong mới chính thức vào lớp.";
+            return "Đã ghi nhận đăng ký. Vui lòng vào mục Hợp đồng để ký và thanh toán — khi SePay xác nhận, bạn mới chính thức vào lớp.";
         }
 
         throw new ForbiddenException("Chỉ gia sư hoặc phụ huynh/học viên mới đăng ký lớp");
     }
 
     /**
-     * BF-04: học viên ký xong hợp đồng -> chính thức vào lớp (ENROLLED) và đóng ghi danh khi đủ sĩ số.
+     * BF-04: ký xong hợp đồng chỉ mở bước thanh toán escrow; học viên chính thức vào lớp khi SePay xác nhận.
      */
     @EventListener
     @Transactional
@@ -1659,8 +1675,34 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (cs == null || cs.getStatus() != ClassStudentStatus.PENDING_SIGNATURE) {
             return;
         }
+        auditLogService.record(
+                cs.getEnrolledByUser() != null ? cs.getEnrolledByUser().getUserId() : null,
+                "STUDENT_CONTRACT_SIGNED_WAIT_PAYMENT",
+                "ClassStudent",
+                cs.getClassStudentId(),
+                null,
+                java.util.Map.of("contractId", event.contractId()));
+    }
+
+    /**
+     * BF-04: SePay xác nhận thanh toán escrow -> học viên mới được tính vào sĩ số.
+     */
+    @EventListener
+    @Transactional
+    public void onEscrowFunded(EscrowFunded event) {
+        if (event.classStudentId() == null) {
+            return;
+        }
+        ClassStudent cs = classStudentRepository.findById(event.classStudentId()).orElse(null);
+        if (cs == null || cs.getStatus() == ClassStudentStatus.ENROLLED) {
+            return;
+        }
+        if (cs.getStatus() != ClassStudentStatus.PENDING_SIGNATURE) {
+            return;
+        }
         cs.setStatus(ClassStudentStatus.ENROLLED);
         classStudentRepository.save(cs);
+        notifyStudentEnrollmentSuccess(cs);
 
         TutoringClass cls = cs.getTutoringClass();
         Integer max = cls.getMaxStudents();
@@ -2185,6 +2227,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private ClassResponse toClassResponse(TutoringClass c, Long assignmentId, Long classStudentId) {
         Client client = clientRepository.findByUser_UserId(c.getCreator().getUserId()).orElse(null);
         TerminationTarget terminationTarget = canRequestTerminationTarget(c, assignmentId, classStudentId);
+        RefundPolicy refundPolicy = resolveClassRefundPolicy(c, terminationTarget);
         return ClassResponse.builder()
                 .classId(c.getClassId())
                 .title(c.getTitle())
@@ -2214,6 +2257,10 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .enrolledCount(classStudentRepository
                         .countByTutoringClass_ClassIdAndStatus(c.getClassId(), ClassStudentStatus.ENROLLED))
                 .canRequestTermination(terminationTarget != null)
+                .refundAllowed(refundPolicy.allowed())
+                .refundBlockedReason(refundPolicy.blockedReason())
+                .totalSessions(refundPolicy.totalSessions())
+                .completedSessions(refundPolicy.completedSessions())
                 .terminationAssignmentId(terminationTarget != null && terminationTarget.assignment() != null
                         ? terminationTarget.assignment().getAssignmentId()
                         : null)
@@ -2232,6 +2279,26 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .applicationCount(tutorApplicationRepository.countByTutoringClass_ClassIdAndStatusNot(
                         c.getClassId(), TutorApplicationStatus.REJECTED))
                 .build();
+    }
+
+    private RefundPolicy resolveClassRefundPolicy(TutoringClass tutoringClass, TerminationTarget target) {
+        if (target == null) {
+            return new RefundPolicy(null, null, false, null);
+        }
+        try {
+            int total = totalSessions(tutoringClass);
+            int completed = completedSessions(tutoringClass, target);
+            boolean allowed = tutoringClass.getClassType() != ClassType.CENTER
+                    || total <= 0
+                    || completed * 2 <= total;
+            return new RefundPolicy(
+                    total,
+                    completed,
+                    allowed,
+                    allowed ? null : "Lớp trung tâm đã học quá 50% số buổi nên không thể yêu cầu hoàn tiền.");
+        } catch (RuntimeException e) {
+            return new RefundPolicy(null, null, true, null);
+        }
     }
 
     private ClassTerminationResponse toTerminationResponse(
@@ -2266,6 +2333,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             int completedSessions,
             BigDecimal releaseAmount,
             BigDecimal refundAmount) {
+    }
+
+    private record RefundPolicy(
+            Integer totalSessions,
+            Integer completedSessions,
+            boolean allowed,
+            String blockedReason) {
     }
 
     private TutorSearchResponse toTutorSearch(Tutor tutor) {

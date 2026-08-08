@@ -438,6 +438,7 @@ public class FinanceServiceImpl implements FinanceService {
         withdrawal.setStatus(initialStatus);
         withdrawal.setRequestedAt(LocalDateTime.now());
         WithdrawalRequest savedWithdrawal = withdrawalRequestRepository.save(withdrawal);
+        notifyWithdrawalAdmins(savedWithdrawal);
         paymentNotificationService.notifyPayment(
                 userId,
                 initialStatus == WithdrawalRequestStatus.APPROVED
@@ -1168,12 +1169,7 @@ public class FinanceServiceImpl implements FinanceService {
             refundRequest.setTransferStatus("SUCCESS");
             refundRequest.setTransferProcessedAt(now);
             refundRequestRepository.save(refundRequest);
-            paymentNotificationService.notifyPayment(
-                    refundRequest.getRequestedBy(),
-                    "Hoàn tiền đã chuyển khoản",
-                    "Khoản hoàn " + formatAmount(tx.getAmount()) + " đã được xác nhận qua SePay.",
-                    "REFUND_REQUEST",
-                    refundRequest.getRefundId());
+            notifyRefundTransferCompleted(refundRequest, tx.getAmount());
         });
     }
 
@@ -1639,6 +1635,74 @@ public class FinanceServiceImpl implements FinanceService {
                     "REFUND_REQUEST",
                     refundRequest.getRefundId());
         }
+    }
+
+    private void notifyRefundTransferCompleted(RefundRequest refundRequest, BigDecimal amount) {
+        if (refundRequest == null) {
+            return;
+        }
+        String content = "Khoản hoàn " + formatAmount(amount) + " đã được xác nhận qua SePay.";
+        User requester = refundRequest.getRequestedBy();
+        paymentNotificationService.notifyPayment(
+                requester,
+                "Hoàn tiền đã chuyển khoản",
+                content,
+                "REFUND_REQUEST",
+                refundRequest.getRefundId());
+
+        Long payerUserId = safeEscrowPayerUserId(refundRequest.getEscrowTransaction());
+        Long requesterId = requester != null ? requester.getUserId() : null;
+        if (payerUserId != null && !Objects.equals(payerUserId, requesterId)) {
+            paymentNotificationService.notifyPayment(
+                    payerUserId,
+                    "Hoàn tiền đã chuyển khoản",
+                    content,
+                    "REFUND_REQUEST",
+                    refundRequest.getRefundId());
+        }
+    }
+
+    private Long safeEscrowPayerUserId(EscrowTransaction escrow) {
+        try {
+            return escrowPayerUserId(escrow);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private void notifyWithdrawalAdmins(WithdrawalRequest withdrawal) {
+        if (withdrawal == null) {
+            return;
+        }
+        String statusSegment = withdrawal.getStatus() == WithdrawalRequestStatus.APPROVED
+                ? " đã được tự động duyệt và đang chờ chuyển khoản/đối soát."
+                : " đang chờ quản trị viên duyệt.";
+        String requesterSegment = withdrawalRequesterSegment(withdrawal);
+        for (PlatformAdmin admin : platformAdminRepository.findAll()) {
+            if (admin == null || admin.getUser() == null) {
+                continue;
+            }
+            paymentNotificationService.notifyPayment(
+                    admin.getUser(),
+                    "Có yêu cầu rút tiền mới",
+                    "Yêu cầu rút " + formatAmount(withdrawal.getAmount())
+                            + requesterSegment
+                            + statusSegment,
+                    "WITHDRAWAL_REQUEST",
+                    withdrawal.getWithdrawalId());
+        }
+    }
+
+    private String withdrawalRequesterSegment(WithdrawalRequest withdrawal) {
+        Wallet wallet = withdrawal != null ? withdrawal.getWallet() : null;
+        User user = wallet != null ? wallet.getUser() : null;
+        if (user != null && user.getEmail() != null && !user.getEmail().isBlank()) {
+            return " từ " + user.getEmail();
+        }
+        if (wallet != null && wallet.getWalletId() != null) {
+            return " từ ví #" + wallet.getWalletId();
+        }
+        return "";
     }
 
     private RefundRequestResponse toRefundRequestResponse(RefundRequest request) {

@@ -3,7 +3,10 @@ package com.tcs.module.marketplace.service.impl;
 import com.tcs.common.event.ContractSigned;
 import com.tcs.common.event.EscrowFunded;
 import java.math.BigDecimal;
+import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.ClassActivationService;
@@ -19,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 public class ClassActivationServiceImpl implements ClassActivationService {
 
     private final TutoringClassRepository tutoringClassRepository;
+    private final EscrowTransactionRepository escrowTransactionRepository;
 
     @Override
     @Transactional
@@ -40,6 +44,14 @@ public class ClassActivationServiceImpl implements ClassActivationService {
     public void onEscrowFunded(EscrowFunded event) {
         log.info("[ClassActivation] Nhan EscrowFunded cho escrow={}, class={}",
                 event.escrowId(), event.classId());
+        if (event.classId() == null) {
+            return;
+        }
+        TutoringClass cls = tutoringClassRepository.findById(event.classId()).orElse(null);
+        if (cls != null && cls.getClassType() == ClassType.CENTER) {
+            log.info("[ClassActivation] Class CENTER {} chi dung de ghi danh, bo qua kich hoat tu dong", event.classId());
+            return;
+        }
         activate(event.classId());
     }
 
@@ -61,8 +73,24 @@ public class ClassActivationServiceImpl implements ClassActivationService {
             log.info("[ClassActivation] Class {} da o trang thai {}, skip", classId, cls.getStatus());
             return;
         }
+        if (cls.getClassType() == ClassType.CENTER && !hasEnoughFundedCenterEscrows(cls)) {
+            log.info("[ClassActivation] Class CENTER {} chua du escrow da thanh toan, skip activate", classId);
+            return;
+        }
         cls.setStatus(TutoringClassStatus.IN_PROGRESS);
         tutoringClassRepository.save(cls);
         log.info("[ClassActivation] Da kich hoat class id={}", classId);
+    }
+
+    private boolean hasEnoughFundedCenterEscrows(TutoringClass cls) {
+        int requiredStudents = cls.getMinStudents() != null && cls.getMinStudents() > 0
+                ? cls.getMinStudents()
+                : 1;
+        long fundedEscrows = escrowTransactionRepository
+                .findByClassStudent_TutoringClass_ClassId(cls.getClassId())
+                .stream()
+                .filter(escrow -> escrow.getStatus() == EscrowStatus.FUNDED)
+                .count();
+        return fundedEscrows >= requiredStudents;
     }
 }

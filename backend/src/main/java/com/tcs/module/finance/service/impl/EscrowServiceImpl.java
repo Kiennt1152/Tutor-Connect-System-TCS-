@@ -28,6 +28,8 @@ import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
+import com.tcs.module.profile.entity.PlatformAdmin;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
@@ -54,6 +56,7 @@ public class EscrowServiceImpl implements EscrowService {
     private final ClassAssignmentRepository classAssignmentRepository;
     private final ClassStudentRepository classStudentRepository;
     private final PaymentNotificationService paymentNotificationService;
+    private final PlatformAdminRepository platformAdminRepository;
 
     @Override
     @Transactional
@@ -252,7 +255,8 @@ public class EscrowServiceImpl implements EscrowService {
             RefundPayoutInfo payoutInfo) {
 
         String reference = REFUND_REF_PREFIX + escrow.getEscrowId();
-        if (paymentUsesPayerWallet(escrow, payerUserId)) {
+        boolean refundedToWallet = paymentUsesPayerWallet(escrow, payerUserId);
+        if (refundedToWallet) {
             Wallet payerWallet = walletService.refundLockedFunds(payerUserId, amount, reference);
 
             PaymentTransaction tx = new PaymentTransaction();
@@ -279,9 +283,11 @@ public class EscrowServiceImpl implements EscrowService {
         }
         paymentNotificationService.notifyPayment(
                 payerUserId,
-                "Hoàn tiền escrow đang xử lý",
-                "Yêu cầu hoàn " + formatAmount(amount) + " từ escrow #" + escrow.getEscrowId()
-                        + " đã được ghi nhận. TCS sẽ chuyển khoản về tài khoản nhận tiền của bạn.",
+                refundedToWallet ? "Hoàn tiền escrow thành công" : "Hoàn tiền escrow đang xử lý",
+                refundedToWallet
+                        ? "Ví của bạn đã được hoàn " + formatAmount(amount) + " từ escrow #" + escrow.getEscrowId() + "."
+                        : "Yêu cầu hoàn " + formatAmount(amount) + " từ escrow #" + escrow.getEscrowId()
+                                + " đã được ghi nhận. TCS sẽ chuyển khoản về tài khoản nhận tiền của bạn.",
                 "ESCROW",
                 escrow.getEscrowId());
     }
@@ -359,7 +365,27 @@ public class EscrowServiceImpl implements EscrowService {
         refundRequest.setStatus(RefundRequestStatus.APPROVED);
         refundRequest.setRequestedAt(now);
         refundRequest.setProcessedAt(now);
-        refundRequestRepository.save(refundRequest);
+        RefundRequest saved = refundRequestRepository.save(refundRequest);
+        notifyRefundAdmins(saved);
+    }
+
+    private void notifyRefundAdmins(RefundRequest refundRequest) {
+        if (refundRequest == null) {
+            return;
+        }
+        for (PlatformAdmin admin : platformAdminRepository.findAll()) {
+            if (admin == null || admin.getUser() == null) {
+                continue;
+            }
+            paymentNotificationService.notifyPayment(
+                    admin.getUser(),
+                    "Có yêu cầu hoàn tiền mới",
+                    "Yêu cầu hoàn " + formatAmount(refundRequest.getAmount())
+                            + " từ escrow #" + refundRequest.getEscrowTransaction().getEscrowId()
+                            + " đang chờ chuyển khoản.",
+                    "REFUND_REQUEST",
+                    refundRequest.getRefundId());
+        }
     }
 
     private RefundPayoutInfo resolveRefundPayoutInfo(RefundRequest request, RefundPayoutInfo payoutInfo) {

@@ -12,6 +12,7 @@ import static org.mockito.Mockito.when;
 import com.tcs.exception.BusinessException;
 import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.entity.RefundRequest;
@@ -33,6 +34,7 @@ import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
 import java.math.BigDecimal;
@@ -75,6 +77,9 @@ class EscrowServiceImplTest {
 
     @Mock
     private PaymentNotificationService paymentNotificationService;
+
+    @Mock
+    private PlatformAdminRepository platformAdminRepository;
 
     @InjectMocks
     private EscrowServiceImpl escrowService;
@@ -300,7 +305,12 @@ class EscrowServiceImplTest {
         when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(inv -> inv.getArgument(0));
         when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        escrowService.apply(new ReleaseInstruction(21L, releaseAmount, refundAmount, "Auto tất toán sớm"));
+        escrowService.apply(new ReleaseInstruction(
+                21L,
+                releaseAmount,
+                refundAmount,
+                "Auto tất toán sớm",
+                new RefundPayoutInfo("TPBank", "0123456789", "Nguyen Van A")));
 
         verify(walletService, never()).releaseLockedFunds(any(), any(), any());
         verify(walletService, never()).refundLockedFunds(any(), any(), any());

@@ -2,6 +2,7 @@ package com.tcs.module.contract.service;
 
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
 import com.tcs.module.contract.dto.request.ReplyReviewRequest;
+import com.tcs.module.contract.dto.request.SaveRefundPayoutRequest;
 import com.tcs.module.contract.dto.request.SignContractRequest;
 import com.tcs.module.contract.dto.request.SignWithOtpRequest;
 import com.tcs.module.contract.dto.response.ContractResponse;
@@ -36,6 +37,8 @@ public interface ContractService {
     Map<String, Object> sendOtp(Long contractId);
 
     ContractResponse signWithOtp(Long contractId, SignWithOtpRequest request);
+
+    ContractResponse saveRefundPayoutInfo(Long contractId, SaveRefundPayoutRequest request);
 
     ContractResponse generateContract(Long assignmentId);
 

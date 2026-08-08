@@ -28,6 +28,7 @@ import com.tcs.exception.BusinessException;
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
 import com.tcs.module.contract.dto.request.ReplyReviewRequest;
 import com.tcs.module.contract.dto.request.ReviewCriterionDto;
+import com.tcs.module.contract.dto.request.SaveRefundPayoutRequest;
 import com.tcs.module.contract.dto.response.ReviewResponse;
 import com.tcs.module.contract.dto.response.ReviewableAssignmentResponse;
 import com.tcs.module.contract.dto.response.TutorReputationResponse;
@@ -38,14 +39,18 @@ import com.tcs.module.contract.enums.ReviewType;
 import com.tcs.module.contract.repository.ReputationHistoryRepository;
 import com.tcs.module.contract.repository.ReviewRepository;
 import com.tcs.module.finance.dto.EscrowLockCommand;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
+import com.tcs.module.marketplace.enums.ClassType;
+import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
 import com.tcs.module.marketplace.repository.LessonRepository;
 import com.tcs.module.profile.enums.UserRole;
 import java.time.LocalDate;
@@ -131,6 +136,7 @@ public class ContractServiceImpl implements ContractService {
     private final SystemParameterRepository systemParameterRepository;
     private final ReputationHistoryRepository reputationHistoryRepository;
     private final LessonRepository lessonRepository;
+    private final LessonAttendanceRepository lessonAttendanceRepository;
     private final com.tcs.module.profile.service.CccdService cccdService;
 
     // ─── VIEW CONTRACT (4.2) ──────────────────────────────────────────────────
@@ -360,7 +366,7 @@ public class ContractServiceImpl implements ContractService {
                         contract.getRecruitmentApplication().getRecruitmentAppId(),
                         contract.getContractId()));
             }
-            // BF-04: học viên ký xong -> marketplace chuyển ENROLLED + đóng ghi danh khi đủ.
+            // BF-04: học viên ký xong -> marketplace mở bước thanh toán escrow.
             if (contract.getClassStudent() != null) {
                 eventPublisher.publishEvent(new StudentContractSigned(
                         contract.getClassStudent().getClassStudentId(),
@@ -377,6 +383,40 @@ public class ContractServiceImpl implements ContractService {
         SignWithOtpRequest otpRequest = new SignWithOtpRequest();
         otpRequest.setOtpCode(request.getOtpCode());
         return signWithOtp(contractId, otpRequest);
+    }
+
+    @Override
+    @Transactional
+    public ContractResponse saveRefundPayoutInfo(Long contractId, SaveRefundPayoutRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thiếu thông tin tài khoản nhận hoàn tiền");
+        }
+        Contract contract = findContract(contractId);
+        validateViewPermission(contract);
+        if (resolvePartyRole(contract) != PartyRole.CLIENT) {
+            throw new ForbiddenException("Chỉ phụ huynh/học viên thanh toán mới được cập nhật tài khoản nhận hoàn tiền");
+        }
+        if (!isFullySigned(contractId)) {
+            throw new IllegalArgumentException("Vui lòng ký đủ hợp đồng trước khi nhập tài khoản nhận hoàn tiền");
+        }
+        ClassStudent classStudent = contract.getClassStudent();
+        if (classStudent == null
+                || classStudent.getTutoringClass() == null
+                || classStudent.getTutoringClass().getClassType() != ClassType.CENTER) {
+            throw new IllegalArgumentException("Thông tin nhận hoàn tiền chỉ áp dụng cho ghi danh lớp trung tâm");
+        }
+
+        RefundPayoutInfo payoutInfo = new RefundPayoutInfo(
+                RefundPayoutInfoCodec.normalize(request.getBankName()),
+                RefundPayoutInfoCodec.normalizeAccountNo(request.getAccountNo()),
+                RefundPayoutInfoCodec.normalize(request.getAccountHolderName()));
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            throw new IllegalArgumentException("Vui lòng nhập đầy đủ ngân hàng, số tài khoản và tên chủ tài khoản");
+        }
+
+        classStudent.setNotes(RefundPayoutInfoCodec.appendToReason(classStudent.getNotes(), payoutInfo));
+        classStudentRepository.save(classStudent);
+        return toContractResponse(contract);
     }
 
     @Override
@@ -1222,9 +1262,92 @@ public class ContractServiceImpl implements ContractService {
         builder.requiredSignatures(required)
                 .signedCount(signed)
                 .hasAllSignatures(signed >= required);
-        builder.escrowPayment(toEscrowPaymentInfo(resolveContractEscrow(contract)));
+        RefundPolicy refundPolicy = resolveRefundPolicy(contract);
+        builder.escrowPayment(toEscrowPaymentInfo(resolveContractEscrow(contract)))
+                .refundPayoutInfo(toRefundPayoutInfoView(contract.getClassStudent()))
+                .totalSessions(refundPolicy.totalSessions())
+                .completedSessions(refundPolicy.completedSessions())
+                .refundAllowed(refundPolicy.allowed())
+                .refundBlockedReason(refundPolicy.blockedReason());
 
         return builder.build();
+    }
+
+    private ContractResponse.RefundPayoutInfoView toRefundPayoutInfoView(ClassStudent classStudent) {
+        if (classStudent == null) {
+            return null;
+        }
+        RefundPayoutInfo payoutInfo = RefundPayoutInfoCodec.parseFromReason(classStudent.getNotes());
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            return null;
+        }
+        return ContractResponse.RefundPayoutInfoView.builder()
+                .bankName(RefundPayoutInfoCodec.normalize(payoutInfo.bankName()))
+                .accountNoMasked(RefundPayoutInfoCodec.maskAccountNo(payoutInfo.accountNo()))
+                .accountHolderName(RefundPayoutInfoCodec.normalize(payoutInfo.accountHolderName()))
+                .build();
+    }
+
+    private RefundPolicy resolveRefundPolicy(Contract contract) {
+        TutoringClass tutoringClass = resolveContractClass(contract);
+        ClassStudent classStudent = contract.getClassStudent();
+        if (tutoringClass == null
+                || tutoringClass.getClassType() != ClassType.CENTER
+                || classStudent == null) {
+            return new RefundPolicy(null, null, true, null);
+        }
+
+        int totalSessions = totalSessions(tutoringClass);
+        int completedSessions = completedCenterSessions(tutoringClass, classStudent);
+        boolean allowed = totalSessions <= 0 || completedSessions * 2 <= totalSessions;
+        return new RefundPolicy(
+                totalSessions,
+                completedSessions,
+                allowed,
+                allowed ? null : "Lớp trung tâm đã học quá 50% số buổi nên không thể yêu cầu hoàn tiền.");
+    }
+
+    private TutoringClass resolveContractClass(Contract contract) {
+        if (contract.getClassStudent() != null) {
+            return contract.getClassStudent().getTutoringClass();
+        }
+        if (contract.getAssignment() != null
+                && contract.getAssignment().getApplication() != null) {
+            return contract.getAssignment().getApplication().getTutoringClass();
+        }
+        return null;
+    }
+
+    private int totalSessions(TutoringClass tutoringClass) {
+        Integer configuredSessions = tutoringClass.getNumberOfSessions();
+        if (configuredSessions != null && configuredSessions > 0) {
+            return configuredSessions;
+        }
+        return lessonRepository.findByTutoringClass_ClassId(tutoringClass.getClassId()).size();
+    }
+
+    private int completedCenterSessions(TutoringClass tutoringClass, ClassStudent classStudent) {
+        List<Long> lessonIds = lessonRepository.findByTutoringClass_ClassId(tutoringClass.getClassId()).stream()
+                .map(Lesson::getLessonId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (lessonIds.isEmpty() || classStudent.getClassStudentId() == null) {
+            return 0;
+        }
+        return (int) lessonAttendanceRepository.findByLesson_LessonIdIn(lessonIds).stream()
+                .filter(attendance -> attendance.getClassStudent() != null
+                        && java.util.Objects.equals(
+                        attendance.getClassStudent().getClassStudentId(),
+                        classStudent.getClassStudentId()))
+                .filter(attendance -> attendance.getStatus() == com.tcs.module.marketplace.enums.LessonAttendanceStatus.PRESENT)
+                .count();
+    }
+
+    private record RefundPolicy(
+            Integer totalSessions,
+            Integer completedSessions,
+            boolean allowed,
+            String blockedReason) {
     }
 
     private EscrowTransaction resolveContractEscrow(Contract contract) {
