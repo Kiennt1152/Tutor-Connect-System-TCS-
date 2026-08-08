@@ -1,8 +1,12 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
+  ConversationResponse,
   CreateSupportTicketApiRequest,
+  MessagePageResponse,
+  MessageResponse,
   SupportTicketApiResponse,
   SupportTicketDetailApiResponse,
+  UserSummaryResponse,
 } from '../types/messagingTypes';
 
 export const MESSAGING_API_BASE = '/messaging';
@@ -10,6 +14,51 @@ export const MESSAGING_API_BASE = '/messaging';
 export const messagingApi = {
   http: axiosClient,
   basePath: MESSAGING_API_BASE,
+
+  async listUsers(keyword?: string) {
+    const response = await axiosClient.get<UserSummaryResponse[]>(`${MESSAGING_API_BASE}/users`, {
+      params: keyword?.trim() ? { keyword: keyword.trim() } : undefined,
+    });
+    return response.data;
+  },
+
+  async getConversations() {
+    const response = await axiosClient.get<ConversationResponse[]>(
+      `${MESSAGING_API_BASE}/conversations`,
+    );
+    return response.data;
+  },
+
+  async startConversation(targetUserId: number) {
+    const response = await axiosClient.post<ConversationResponse>(
+      `${MESSAGING_API_BASE}/conversations`,
+      { targetUserId },
+    );
+    return response.data;
+  },
+
+  async getMessages(conversationId: number, page = 0, size = 30) {
+    const response = await axiosClient.get<MessagePageResponse>(
+      `${MESSAGING_API_BASE}/conversations/${conversationId}/messages`,
+      { params: { page, size } },
+    );
+    return response.data;
+  },
+
+  async sendMessage(conversationId: number, content: string) {
+    const response = await axiosClient.post<MessageResponse>(
+      `${MESSAGING_API_BASE}/conversations/${conversationId}/messages`,
+      { content },
+    );
+    return response.data;
+  },
+
+  async markConversationRead(conversationId: number) {
+    const response = await axiosClient.post<{ message: string }>(
+      `${MESSAGING_API_BASE}/conversations/${conversationId}/read`,
+    );
+    return response.data;
+  },
 
   async getMySupportTickets() {
     const response = await axiosClient.get<SupportTicketApiResponse[]>(

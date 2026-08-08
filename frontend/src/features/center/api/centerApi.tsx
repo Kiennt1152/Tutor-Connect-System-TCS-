@@ -1,8 +1,10 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type { ClassRequest } from '../../marketplace/types/marketplaceTypes';
 import type {
+  CenterContractInfo,
   CenterMember,
   ClassResponse,
+  ContractTemplate,
   MembershipStatus,
   RecruitmentApplication,
   RecruitmentPost,
@@ -13,6 +15,10 @@ import type {
   Substitution,
   TutorOption,
 } from '../types/centerTypes';
+import type {
+  ReportApiResponse,
+  ResolveClassIssueRequest,
+} from '../../platform/types/platformTypes';
 
 export const CENTER_API_BASE = '/center';
 
@@ -45,10 +51,15 @@ export const centerApi = {
       `${CENTER_API_BASE}/recruitment/${recruitmentId}/applications`,
     );
   },
-  decideApplication(recruitmentAppId: number, approve: boolean) {
+  decideApplication(
+    recruitmentAppId: number,
+    approve: boolean,
+    contractTemplateId?: number,
+    contractContent?: string,
+  ) {
     return axiosClient.post<RecruitmentApplication>(
       `${CENTER_API_BASE}/recruitment/applications/${recruitmentAppId}/decision`,
-      { approve },
+      { approve, contractTemplateId, contractContent },
     );
   },
 
@@ -100,6 +111,9 @@ export const centerApi = {
       `${CENTER_API_BASE}/classes/${classId}/close-enrollment`,
     );
   },
+  activateClass(classId: number) {
+    return axiosClient.post<ClassResponse>(`${CENTER_API_BASE}/classes/${classId}/activate`);
+  },
   getTutors(classId?: number) {
     const q = classId != null ? `?classId=${classId}` : '';
     return axiosClient.get<TutorOption[]>(`${CENTER_API_BASE}/tutors${q}`);
@@ -141,6 +155,35 @@ export const centerApi = {
     return axiosClient.get<Substitution[]>(`${CENTER_API_BASE}/substitutions`);
   },
 
+  // ----- Mẫu hợp đồng -----
+  getContractTemplates() {
+    return axiosClient.get<ContractTemplate[]>(`${CENTER_API_BASE}/contract-templates`);
+  },
+  createContractTemplate(payload: { name: string; content: string; contractType?: string }) {
+    return axiosClient.post<ContractTemplate>(`${CENTER_API_BASE}/contract-templates`, payload);
+  },
+  updateContractTemplate(
+    templateId: number,
+    payload: { name: string; content: string; contractType?: string },
+  ) {
+    return axiosClient.put<ContractTemplate>(
+      `${CENTER_API_BASE}/contract-templates/${templateId}`,
+      payload,
+    );
+  },
+
+  // ----- Thông tin trung tâm trên hợp đồng (BÊN A) -----
+  getContractInfo() {
+    return axiosClient.get<CenterContractInfo>(`${CENTER_API_BASE}/contract-info`);
+  },
+  saveContractInfo(payload: {
+    website?: string;
+    representativeName?: string;
+    representativePosition?: string;
+  }) {
+    return axiosClient.put<CenterContractInfo>(`${CENTER_API_BASE}/contract-info`, payload);
+  },
+
   // ----- Yêu cầu mở lớp do phụ huynh gửi tới trung tâm -----
   getClassRequests() {
     return axiosClient.get<ClassRequest[]>(`${CENTER_API_BASE}/class-requests`);
@@ -163,5 +206,14 @@ export const centerApi = {
       date,
       approve,
     });
+  },
+  getReports() {
+    return axiosClient.get<ReportApiResponse[]>(`${CENTER_API_BASE}/reports`);
+  },
+  resolveReport(reportId: string, payload: ResolveClassIssueRequest) {
+    return axiosClient.patch<ReportApiResponse>(
+      `${CENTER_API_BASE}/reports/${reportId}/resolve`,
+      payload,
+    );
   },
 };

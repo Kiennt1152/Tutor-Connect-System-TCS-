@@ -4,6 +4,7 @@ import com.tcs.module.center.dto.request.ApplicationDecisionBody;
 import com.tcs.module.center.dto.request.ApplyRecruitmentRequest;
 import com.tcs.module.center.dto.request.AssignTutorRequest;
 import com.tcs.module.center.dto.request.RejectClassRequestBody;
+import com.tcs.module.center.dto.request.SaveContractTemplateRequest;
 import com.tcs.module.center.dto.request.RescheduleDecisionBody;
 import com.tcs.module.center.dto.request.SaveClassRequest;
 import com.tcs.module.center.dto.request.SaveRecruitmentPostRequest;
@@ -18,6 +19,7 @@ import com.tcs.module.center.dto.response.RescheduleResponse;
 import com.tcs.module.center.dto.response.SubstitutionResponse;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
 import com.tcs.module.center.service.CenterService;
+import com.tcs.module.center.dto.response.ContractTemplateResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import java.time.LocalDate;
 import java.util.List;
@@ -103,7 +105,9 @@ public class CenterController {
     @PostMapping("/recruitment/applications/{recruitmentAppId}/decision")
     public RecruitmentApplicationResponse decideApplication(
             @PathVariable Long recruitmentAppId, @RequestBody ApplicationDecisionBody request) {
-        return centerService.decideApplication(recruitmentAppId, request.isApprove());
+        return centerService.decideApplication(
+                recruitmentAppId, request.isApprove(),
+                request.getContractTemplateId(), request.getContractContent());
     }
 
     // ===== Quản lý danh sách gia sư của trung tâm =====
@@ -157,6 +161,39 @@ public class CenterController {
         return Map.of("message", "Đã từ chối yêu cầu mở lớp");
     }
 
+    // ===== Quản lý mẫu hợp đồng =====
+
+    @GetMapping("/contract-templates")
+    public List<ContractTemplateResponse> listContractTemplates() {
+        return centerService.listContractTemplates();
+    }
+
+    @PostMapping("/contract-templates")
+    @ResponseStatus(HttpStatus.CREATED)
+    public ContractTemplateResponse createContractTemplate(
+            @RequestBody SaveContractTemplateRequest request) {
+        return centerService.createContractTemplate(request);
+    }
+
+    @PutMapping("/contract-templates/{templateId}")
+    public ContractTemplateResponse updateContractTemplate(
+            @PathVariable Long templateId, @RequestBody SaveContractTemplateRequest request) {
+        return centerService.updateContractTemplate(templateId, request);
+    }
+
+    // ===== Thông tin trung tâm trên hợp đồng (BÊN A) =====
+
+    @GetMapping("/contract-info")
+    public com.tcs.module.center.dto.response.CenterContractInfoResponse getContractInfo() {
+        return centerService.getContractInfo();
+    }
+
+    @PutMapping("/contract-info")
+    public com.tcs.module.center.dto.response.CenterContractInfoResponse saveContractInfo(
+            @RequestBody com.tcs.module.center.dto.request.SaveCenterContractInfoRequest request) {
+        return centerService.saveContractInfo(request);
+    }
+
     @PutMapping("/classes/{classId}")
     public CenterClassResponse updateClass(
             @PathVariable Long classId, @RequestBody SaveClassRequest request) {
@@ -171,6 +208,11 @@ public class CenterController {
     @PostMapping("/classes/{classId}/close-enrollment")
     public CenterClassResponse closeEnrollment(@PathVariable Long classId) {
         return centerService.closeEnrollment(classId);
+    }
+
+    @PostMapping("/classes/{classId}/activate")
+    public CenterClassResponse activateClass(@PathVariable Long classId) {
+        return centerService.activateClass(classId);
     }
 
     @GetMapping("/tutors")

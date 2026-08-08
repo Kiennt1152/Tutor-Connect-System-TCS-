@@ -15,6 +15,7 @@ import type {
 } from '../types/financeTypes';
 
 export function useFinance() {
+  const DEFAULT_TX_SIZE = 10;
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [walletLoading, setWalletLoading] = useState(false);
   const [walletError, setWalletError] = useState<string | null>(null);
@@ -28,14 +29,17 @@ export function useFinance() {
 
   // ── Wallet ──────────────────────────────────────────────────────────────
 
-  const fetchWallet = useCallback(async () => {
+  const fetchWallet = useCallback(async (): Promise<WalletInfo | null> => {
     setWalletLoading(true);
     setWalletError(null);
     try {
       const data = await financeApi.getWallet();
       setWallet(data);
+      return data;
     } catch (err: unknown) {
+      setWallet(null);
       setWalletError(getApiErrorMessage(err, 'Không thể tải thông tin ví'));
+      return null;
     } finally {
       setWalletLoading(false);
     }
@@ -49,7 +53,7 @@ export function useFinance() {
     try {
       const data = await financeApi.getTransactions({
         page: 0,
-        size: 20,
+        size: DEFAULT_TX_SIZE,
         ...filters,
       });
       setTransactions(data);
@@ -86,7 +90,7 @@ export function useFinance() {
     try {
       const updated = await financeApi.deposit(payload);
       setWallet(updated);
-      await fetchTransactions({ page: 0, size: 20 });
+      await fetchTransactions({ page: 0, size: DEFAULT_TX_SIZE });
       return true;
     } catch {
       return false;
@@ -105,7 +109,7 @@ export function useFinance() {
     const data = await financeApi.getTopupStatus(reference);
     if (data.wallet) {
       setWallet(data.wallet);
-      await fetchTransactions({ page: 0, size: 20 });
+      await fetchTransactions({ page: 0, size: DEFAULT_TX_SIZE });
     }
     return data;
   }, [fetchTransactions]);
@@ -116,7 +120,7 @@ export function useFinance() {
     const data = await financeApi.simulateTopupSuccess(reference);
     if (data.wallet) {
       setWallet(data.wallet);
-      await fetchTransactions({ page: 0, size: 20 });
+      await fetchTransactions({ page: 0, size: DEFAULT_TX_SIZE });
     }
     return data;
   }, [fetchTransactions]);
@@ -128,10 +132,29 @@ export function useFinance() {
     try {
       const data = await financeApi.getPaymentMethods();
       setPaymentMethods(data);
+    } catch {
+      setPaymentMethods([]);
     } finally {
       setPaymentMethodsLoading(false);
     }
   }, []);
+
+  const createWallet = useCallback(async (): Promise<WalletInfo> => {
+    setWalletLoading(true);
+    setWalletError(null);
+    try {
+      const data = await financeApi.createWallet();
+      setWallet(data);
+      await fetchTransactions({ page: 0, size: DEFAULT_TX_SIZE });
+      await fetchPaymentMethods();
+      return data;
+    } catch (err: unknown) {
+      setWalletError(getApiErrorMessage(err, 'Không thể tạo ví.'));
+      throw err;
+    } finally {
+      setWalletLoading(false);
+    }
+  }, [fetchPaymentMethods, fetchTransactions]);
 
   const createPaymentMethod = useCallback(async (
     payload: PaymentMethodPayload
@@ -173,6 +196,7 @@ export function useFinance() {
     walletLoading,
     walletError,
     fetchWallet,
+    createWallet,
     // transactions
     transactions,
     txLoading,

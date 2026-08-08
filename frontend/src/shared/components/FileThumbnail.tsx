@@ -46,8 +46,8 @@ export function FileThumbnail({
         type="button"
         className="ft-trigger"
         onClick={openModal}
-        aria-label={`Preview ${fileName}`}
-        title={`Click to preview ${fileName}`}
+        aria-label={`Xem trước ${fileName}`}
+        title={`Bấm để xem trước ${fileName}`}
       >
         {isImage ? (
           <img className="ft-thumb" src={resolvedSrc} alt={fileName} loading="lazy" />
@@ -78,8 +78,8 @@ export function FileThumbnail({
             )}
           </div>
           <div className="ft-popover__hint">
-            <span>Click to open full preview</span>
-            <kbd>Esc</kbd> <span>to close</span>
+            <span>Bấm để xem đầy đủ</span>
+            <kbd>Esc</kbd> <span>để đóng</span>
           </div>
         </div>
       )}

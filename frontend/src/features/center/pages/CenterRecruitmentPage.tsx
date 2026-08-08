@@ -8,6 +8,7 @@ import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { profileApi } from '../../profile/api/profileApi';
 import type {
+  ContractTemplate,
   RecruitmentApplication,
   RecruitmentApplicationStatus,
   RecruitmentPost,
@@ -26,8 +27,8 @@ const APP_STATUS_LABELS: Record<RecruitmentApplicationStatus, { label: string; c
   APPLIED: { label: 'Chờ duyệt', cls: 'pending' },
   SCREENING: { label: 'Đang lọc hồ sơ', cls: 'pending' },
   INTERVIEW: { label: 'Phỏng vấn', cls: 'pending' },
-  PASSED: { label: 'Đạt', cls: 'ok' },
-  HIRED: { label: 'Đã duyệt', cls: 'ok' },
+  PASSED: { label: 'Chờ ký hợp đồng', cls: 'pending' },
+  HIRED: { label: 'Đã được nhận', cls: 'ok' },
   REJECTED: { label: 'Từ chối', cls: 'no' },
   WITHDRAWN: { label: 'Đã rút', cls: 'no' },
 };
@@ -321,6 +322,21 @@ export default function CenterRecruitmentPage() {
   // Xem trước file chứng chỉ ngay trong trang (không nhảy sang tab khác).
   const [preview, setPreview] = useState<{ src: string; fileName: string } | null>(null);
 
+  // BF-03: duyệt -> chọn mẫu hợp đồng (loại tuyển dụng) để gửi gia sư ký.
+  const [recruitTemplates, setRecruitTemplates] = useState<ContractTemplate[]>([]);
+  const [approving, setApproving] = useState<
+    { app: RecruitmentApplication; templateId: number | ''; content: string } | null
+  >(null);
+
+  useEffect(() => {
+    centerApi
+      .getContractTemplates()
+      .then((res) =>
+        setRecruitTemplates(res.data.filter((t) => t.contractType === 'RECRUITMENT')),
+      )
+      .catch(() => setRecruitTemplates([]));
+  }, []);
+
   const openApps = async (post: RecruitmentPost) => {
     setAppsFor(post);
     setApps([]);
@@ -339,11 +355,25 @@ export default function CenterRecruitmentPage() {
 
   const closeApps = () => setAppsFor(null);
 
-  const decide = async (app: RecruitmentApplication, approve: boolean) => {
+  const decide = async (
+    app: RecruitmentApplication,
+    approve: boolean,
+    contractTemplateId?: number,
+    contractContent?: string,
+  ) => {
     setDecidingId(app.recruitmentAppId);
     setAppsError('');
     try {
-      await centerApi.decideApplication(app.recruitmentAppId, approve);
+      await centerApi.decideApplication(
+        app.recruitmentAppId,
+        approve,
+        contractTemplateId,
+        contractContent,
+      );
+      // BF-03 bước 7: duyệt -> hệ thống tạo thỏa thuận hợp tác, đơn chuyển "Chờ ký hợp đồng".
+      // Gia sư mới là bên ký (OTP) nên KHÔNG chuyển trung tâm sang trang Hợp đồng — ở lại đây,
+      // chỉ làm mới danh sách để thấy trạng thái đơn cập nhật.
+      setApproving(null);
       if (appsFor) {
         const res = await centerApi.getApplications(appsFor.recruitmentId);
         setApps(res.data);
@@ -733,7 +763,7 @@ export default function CenterRecruitmentPage() {
                                 className="rc-btn rc-btn--primary rc-btn--sm"
                                 type="button"
                                 disabled={busy}
-                                onClick={() => decide(a, true)}
+                                onClick={() => setApproving({ app: a, templateId: '', content: '' })}
                               >
                                 Duyệt
                               </button>
@@ -758,6 +788,96 @@ export default function CenterRecruitmentPage() {
                   })}
                 </ul>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Duyệt -> chọn mẫu hợp đồng tuyển dụng gửi gia sư ký */}
+      {approving && (
+        <div className="rc-modal" role="dialog" aria-modal="true">
+          <div className="rc-modal__backdrop" onClick={() => setApproving(null)} />
+          <div className="rc-modal__card" style={{ width: 'min(560px, 100%)' }}>
+            <div className="rc-modal__head">
+              <div>
+                <h2 className="rc-modal__title">Duyệt &amp; gửi hợp đồng</h2>
+                <p className="rc-modal__sub">Gia sư: {approving.app.tutorName ?? '—'}</p>
+              </div>
+              <button
+                type="button"
+                className="rc-modal__close"
+                onClick={() => setApproving(null)}
+                aria-label="Đóng"
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="rc-modal__body">
+              {recruitTemplates.length > 0 && (
+                <label className="rc-field">
+                  <span>Mẫu hợp đồng (loại tuyển dụng)</span>
+                  <select
+                    value={approving.templateId}
+                    onChange={(e) => {
+                      const id = e.target.value ? Number(e.target.value) : '';
+                      const tpl = recruitTemplates.find((t) => t.templateId === id);
+                      // Chọn mẫu -> nạp sẵn nội dung để center sửa tiếp.
+                      setApproving({
+                        ...approving,
+                        templateId: id,
+                        content: tpl ? tpl.content : approving.content,
+                      });
+                    }}
+                  >
+                    <option value="">— Nội dung mặc định / tự nhập —</option>
+                    {recruitTemplates.map((t) => (
+                      <option key={t.templateId} value={t.templateId}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+
+              <label className="rc-field">
+                <span>Nội dung điều khoản &amp; nghĩa vụ</span>
+                <textarea
+                  rows={8}
+                  style={{ minHeight: 180, resize: 'vertical' }}
+                  value={approving.content}
+                  onChange={(e) => setApproving({ ...approving, content: e.target.value })}
+                  placeholder={'Điều 1. ...\nĐiều 2. ...'}
+                />
+              </label>
+
+            </div>
+
+            <div className="rc-modal__actions">
+              <button
+                type="button"
+                className="rc-btn rc-btn--ghost"
+                onClick={() => setApproving(null)}
+              >
+                Hủy
+              </button>
+              <button
+                type="button"
+                className="rc-btn rc-btn--primary"
+                disabled={decidingId === approving.app.recruitmentAppId}
+                onClick={() =>
+                  decide(
+                    approving.app,
+                    true,
+                    approving.templateId === '' ? undefined : approving.templateId,
+                    approving.content.trim() ? approving.content : undefined,
+                  )
+                }
+              >
+                {decidingId === approving.app.recruitmentAppId
+                  ? 'Đang gửi…'
+                  : 'Duyệt & gửi cho gia sư ký'}
+              </button>
             </div>
           </div>
         </div>

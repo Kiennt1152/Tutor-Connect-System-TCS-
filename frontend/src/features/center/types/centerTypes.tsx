@@ -162,6 +162,10 @@ export interface ClassResponse {
   enrolledCount: number;
   /** EXTERNAL = yêu cầu ngoài (đã có học sinh); SELF = trung tâm tự tạo. */
   originType: string | null;
+  /** Mẫu hợp đồng học viên đã chọn cho lớp (đổ lại form khi sửa). */
+  contractTemplateId: number | null;
+  /** Nội dung điều khoản HĐ học viên đã lưu cho lớp (đổ lại form khi sửa). */
+  contractContent: string | null;
   status: ClassStatus;
   createdAt: string;
   updatedAt: string;
@@ -265,5 +269,33 @@ export interface SaveClassRequest {
   minStudents?: number | null;
   /** EXTERNAL (yêu cầu ngoài) / SELF (tự tạo). Mặc định SELF. */
   originType?: string;
+  /** Mẫu hợp đồng đã chọn cho lớp (tuỳ chọn). */
+  contractTemplateId?: number | null;
+  /** Nội dung điều khoản HĐ học viên center nhập khi tạo/sửa lớp (tuỳ chọn). */
+  contractContent?: string;
   schedule: ScheduleSlot[];
+}
+
+/** Mẫu hợp đồng trung tâm dùng/quản lý. */
+/** Thông tin trung tâm hiển thị ở khối BÊN A của hợp đồng. */
+export interface CenterContractInfo {
+  companyName: string | null;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  representativeName: string | null;
+  representativePosition: string | null;
+}
+
+export interface ContractTemplate {
+  templateId: number;
+  name: string;
+  content: string;
+  /** RECRUITMENT (tuyển dụng/hợp tác gia sư) hoặc CLASS (học viên/dạy lớp). */
+  contractType?: 'RECRUITMENT' | 'CLASS';
+  defaultTemplate: boolean;
+  status: string;
+  /** true = mẫu hệ thống (không sửa được). */
+  system: boolean;
 }
