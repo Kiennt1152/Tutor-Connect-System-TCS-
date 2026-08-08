@@ -26,4 +26,8 @@ public class AssignmentResponse {
     private LocalDate endDate;
 
     private long lessonCount;
+
+    private LocalDateTime tutorSignedAt;
+    private LocalDateTime clientSignedAt;
+    private String paymentMethod;
 }

@@ -11086,3 +11086,58 @@ ALTER TABLE reviews
     ADD COLUMN tutor_reply TEXT NULL AFTER comment,
     ADD COLUMN tutor_reply_at DATETIME NULL AFTER tutor_reply;
 
+
+
+SET @stmt := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'class_assignments'
+       AND COLUMN_NAME = 'tutor_signed_at') = 0,
+  'ALTER TABLE class_assignments ADD COLUMN tutor_signed_at DATETIME NULL AFTER status',
+  'DO 0'
+);
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @stmt := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'class_assignments'
+       AND COLUMN_NAME = 'client_signed_at') = 0,
+  'ALTER TABLE class_assignments ADD COLUMN client_signed_at DATETIME NULL AFTER tutor_signed_at',
+  'DO 0'
+);
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @stmt := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'class_assignments'
+       AND COLUMN_NAME = 'payment_method') = 0,
+  'ALTER TABLE class_assignments ADD COLUMN payment_method VARCHAR(20) NULL AFTER client_signed_at',
+  'DO 0'
+);
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @stmt := IF(
+  (SELECT COUNT(*) FROM information_schema.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'class_assignments'
+       AND COLUMN_NAME = 'terms_b') = 0,
+  'ALTER TABLE class_assignments ADD COLUMN terms_b TEXT NULL AFTER payment_method',
+  'DO 0'
+);
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+SET @has := (SELECT COUNT(*) FROM information_schema.TABLE_CONSTRAINTS
+  WHERE TABLE_SCHEMA = DATABASE()
+    AND TABLE_NAME = 'email_otps'
+    AND CONSTRAINT_NAME = 'chk_email_otps_purpose');
+SET @stmt := IF(@has > 0,
+  'ALTER TABLE email_otps DROP CHECK chk_email_otps_purpose',
+  'DO 0');
+PREPARE s FROM @stmt; EXECUTE s; DEALLOCATE PREPARE s;
+
+ALTER TABLE email_otps
+  ADD CONSTRAINT chk_email_otps_purpose
+  CHECK (purpose IN ('REGISTRATION', 'CONTRACT_SIGNING'));
+
