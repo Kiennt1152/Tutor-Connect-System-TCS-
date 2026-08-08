@@ -27,5 +27,8 @@ public interface ClassAssignmentRepository extends JpaRepository<ClassAssignment
 
     Optional<ClassAssignment> findFirstByApplication_ApplicationId(Long applicationId);
 
+    Optional<ClassAssignment> findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(
+            Long classId);
+
     List<ClassAssignment> findByApplication_TutoringClass_Creator_UserId(Long creatorUserId);
 }

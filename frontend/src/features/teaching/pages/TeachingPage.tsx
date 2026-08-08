@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { SiteHeader } from '../../home/components/SiteHeader';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasRole } from '../../../shared/auth/rbac';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { WeeklyTimetable } from '../components/WeeklyTimetable';
 import { LessonRequestDialog } from '../components/LessonRequestDialog';
 import { ClassDetailModal } from '../components/ClassDetailModal';
@@ -12,7 +14,6 @@ import type { ReviewableAssignment } from '../../reviews/types/reviewTypes';
 import { useTeaching } from '../hooks/useTeaching';
 import { hhmmDisplay } from '../../../shared/utils/format';
 import {
-  ASSIGNMENT_STATUS_LABELS,
   REQUEST_STATUS_LABELS,
   REQUEST_TYPE_LABELS,
   classOptionsFrom,
@@ -32,6 +33,7 @@ function formatDate(iso: string): string {
 
 export default function TeachingPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const isClient = hasRole(user?.role, 'CLIENT');
   const {
     status,
@@ -41,7 +43,6 @@ export default function TeachingPage() {
     notice,
     error,
     reload,
-    accept,
     decline,
     attend,
     requestReschedule,
@@ -159,7 +160,11 @@ export default function TeachingPage() {
                       key={a.assignmentId}
                       assignment={a}
                       isClient={isClient}
-                      onAccept={() => void accept(a.assignmentId)}
+                      onSign={() =>
+                        navigate(APP_ROUTES.signContract, {
+                          state: { assignmentId: a.assignmentId },
+                        })
+                      }
                       onDecline={() =>
                         setConfirmAction({ kind: 'decline', assignmentId: a.assignmentId })
                       }
@@ -414,15 +419,28 @@ function RequestCard({
 
 function InviteCard({
   assignment: a,
-  onAccept,
+  onSign,
   onDecline,
   isClient,
 }: {
   readonly assignment: AssignmentResponse;
   readonly isClient: boolean;
-  readonly onAccept: () => void;
+  readonly onSign: () => void;
   readonly onDecline: () => void;
 }) {
+  const iSigned = isClient ? !!a.clientSignedAt : !!a.tutorSignedAt;
+  const otherSigned = isClient ? !!a.tutorSignedAt : !!a.clientSignedAt;
+  let badge: string;
+  if (iSigned) {
+    badge = otherSigned
+      ? 'Đã ký — hoàn tất'
+      : `Đã ký — chờ ${isClient ? 'gia sư' : 'phụ huynh'} ký`;
+  } else if (isClient) {
+    badge = 'Mời bạn ký hợp đồng';
+  } else {
+    badge = 'Lời mời nhận lớp';
+  }
+
   return (
     <li className="tch-invite">
       <div className="tch-invite__body">
@@ -438,20 +456,25 @@ function InviteCard({
             🗓️ Từ {formatDate(a.startDate)} đến {formatDate(a.endDate)}
           </p>
         )}
-        <span className="tch-badge tch-badge--pending">
-          {isClient ? 'Chờ gia sư nhận lớp' : ASSIGNMENT_STATUS_LABELS[a.status]}
-        </span>
+        <span className="tch-badge tch-badge--pending">{badge}</span>
       </div>
-      {!isClient && (
-        <div className="tch-invite__actions">
-          <button className="tch-btn tch-btn--primary" type="button" onClick={onAccept}>
-            Nhận lớp
+      <div className="tch-invite__actions">
+        {!iSigned && (
+          <button className="tch-btn tch-btn--primary" type="button" onClick={onSign}>
+            {isClient ? 'Ký hợp đồng' : 'Nhận lớp & ký hợp đồng'}
           </button>
+        )}
+        {iSigned && (
+          <button className="tch-btn tch-btn--ghost" type="button" onClick={onSign}>
+            Xem hợp đồng
+          </button>
+        )}
+        {!isClient && !iSigned && (
           <button className="tch-btn tch-btn--ghost" type="button" onClick={onDecline}>
             Từ chối
           </button>
-        </div>
-      )}
+        )}
+      </div>
     </li>
   );
 }

@@ -50,4 +50,16 @@ public class ClassAssignment {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     private ClassAssignmentStatus status = ClassAssignmentStatus.ACTIVE;
+
+    @Column(name = "tutor_signed_at")
+    private LocalDateTime tutorSignedAt;
+
+    @Column(name = "client_signed_at")
+    private LocalDateTime clientSignedAt;
+
+    @Column(name = "payment_method", length = 20)
+    private String paymentMethod;
+
+    @Column(name = "terms_b", columnDefinition = "TEXT")
+    private String termsB;
 }
