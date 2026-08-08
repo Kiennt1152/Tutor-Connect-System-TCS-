@@ -41,6 +41,7 @@ export function SiteHeader({ active }: SiteHeaderProps) {
   const showTeaching = hasAnyRole(user?.role, TEACHING_ROLES);
   const showFeedback = hasAnyRole(user?.role, FEEDBACK_ROLES);
   const showMyReputation = hasAnyRole(user?.role, REPUTATION_ROLES);
+  const showManageClasses = hasRole(user?.role, 'CLIENT');
 
   return (
     <header className="tcs-header">
@@ -53,7 +54,6 @@ export function SiteHeader({ active }: SiteHeaderProps) {
           >
             Tìm gia sư
           </Link>
-          <Link to={APP_ROUTES.classFinder}>Tìm lớp</Link>
           <Link to={APP_ROUTES.findClass}>Tìm lớp (gia sư)</Link>
           <Link to={APP_ROUTES.marketplace}>Marketplace</Link>
           <Link to={APP_ROUTES.centers}>Trung tâm</Link>
@@ -91,6 +91,15 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                   <Link className="tcs-profile-menu__item" to={profilePath} role="menuitem">
                     Hồ sơ của tôi
                   </Link>
+                  {showManageClasses ? (
+                    <Link
+                      className="tcs-profile-menu__item"
+                      to={APP_ROUTES.marketplace}
+                      role="menuitem"
+                    >
+                      Quản lý lớp của tôi
+                    </Link>
+                  ) : null}
                   {showWallet ? (
                     <Link className="tcs-profile-menu__item" to={APP_ROUTES.finance} role="menuitem">
                       Ví của tôi

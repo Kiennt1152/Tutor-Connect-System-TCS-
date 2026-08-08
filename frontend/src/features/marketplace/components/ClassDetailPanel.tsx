@@ -173,7 +173,7 @@ export function ClassDetailPanel({ raw, subjects, grades }: Props) {
       {/* Tổng học phí ước tính */}
       {hasDetails && budget > 0 && (
         <div className="cdm-budget">
-          <span>Tổng học phí ước tính ({cycleLabelOf(form)})</span>
+          <span>Tổng học phí ({cycleLabelOf(form)})</span>
           <strong>{currency.format(budget)}đ</strong>
           <small>{sessions} buổi</small>
         </div>

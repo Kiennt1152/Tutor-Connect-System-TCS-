@@ -9,6 +9,7 @@ import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
+import com.tcs.module.marketplace.dto.response.ContractViewResponse;
 import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
@@ -58,6 +59,14 @@ public interface MarketplaceService {
     void acceptAssignment(Long assignmentId);
 
     void declineAssignment(Long assignmentId);
+
+    ContractViewResponse getAssignmentContract(Long assignmentId);
+
+    void requestSignOtp(Long assignmentId);
+
+    void signAssignmentContract(Long assignmentId, String otp);
+
+    void saveContractTermsB(Long assignmentId, String termsB);
 
     List<LessonResponse> listMyLessons();
 

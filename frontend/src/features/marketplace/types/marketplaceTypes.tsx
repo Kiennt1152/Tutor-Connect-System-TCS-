@@ -81,6 +81,7 @@ export interface ClassResponse {
   status: ClassStatus;
   createdAt: string;
   applicationCount: number | null;
+  assignmentId: number | null;
 }
 
 export interface ApplicantResponse {
