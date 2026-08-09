@@ -174,6 +174,12 @@ export const marketplaceApi = {
       `${MARKETPLACE_API_BASE}/class-requests/${requestId}`,
     );
   },
+  // Phụ huynh chọn 1 gia sư từ shortlist -> tạo lớp + phân công (vào luồng ký hợp đồng).
+  chooseTutorForRequest(requestId: string, tutorId: number) {
+    return axiosClient.post(
+      `${MARKETPLACE_API_BASE}/class-requests/${requestId}/choose-tutor/${tutorId}`,
+    );
+  },
 };
 
 function toOption(dto: CatalogItemDto): CatalogOption {

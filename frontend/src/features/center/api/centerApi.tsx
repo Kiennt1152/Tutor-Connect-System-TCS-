@@ -188,6 +188,34 @@ export const centerApi = {
   getClassRequests() {
     return axiosClient.get<ClassRequest[]>(`${CENTER_API_BASE}/class-requests`);
   },
+  startSearchClassRequest(requestId: string) {
+    return axiosClient.post<{ message: string }>(
+      `${CENTER_API_BASE}/class-requests/${requestId}/start-search`,
+    );
+  },
+  // Trung tâm đề cử / gỡ gia sư (thuộc đội) vào shortlist của yêu cầu.
+  proposeTutor(requestId: string, tutorId: number) {
+    return axiosClient.post<{ message: string }>(
+      `${CENTER_API_BASE}/class-requests/${requestId}/candidates/${tutorId}`,
+    );
+  },
+  removeCandidate(requestId: string, tutorId: number) {
+    return axiosClient.delete<{ message: string }>(
+      `${CENTER_API_BASE}/class-requests/${requestId}/candidates/${tutorId}`,
+    );
+  },
+  // Đăng tin tuyển gia sư NGOÀI đội cho một yêu cầu (tin ACTIVE ngay).
+  postRecruitmentForRequest(requestId: string) {
+    return axiosClient.post<ClassRequest>(
+      `${CENTER_API_BASE}/class-requests/${requestId}/recruitment`,
+    );
+  },
+  // Đơn ứng tuyển vào tin đã đăng cho yêu cầu (để duyệt vào shortlist).
+  getRequestApplications(requestId: string) {
+    return axiosClient.get<RecruitmentApplication[]>(
+      `${CENTER_API_BASE}/class-requests/${requestId}/applications`,
+    );
+  },
   acceptClassRequest(requestId: string, payload: SaveClassRequest) {
     return axiosClient.post<ClassResponse>(
       `${CENTER_API_BASE}/class-requests/${requestId}/accept`,
@@ -197,6 +225,13 @@ export const centerApi = {
   rejectClassRequest(requestId: string, reason: string) {
     return axiosClient.post<{ message: string }>(
       `${CENTER_API_BASE}/class-requests/${requestId}/reject`,
+      { reason },
+    );
+  },
+  // Trung tâm không tìm được gia sư -> đóng yêu cầu + thông báo cho phụ huynh.
+  giveUpClassRequest(requestId: string, reason: string) {
+    return axiosClient.post<{ message: string }>(
+      `${CENTER_API_BASE}/class-requests/${requestId}/give-up`,
       { reason },
     );
   },

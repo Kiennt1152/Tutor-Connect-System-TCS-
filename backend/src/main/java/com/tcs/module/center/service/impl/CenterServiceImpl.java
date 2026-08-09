@@ -149,6 +149,9 @@ public class CenterServiceImpl implements CenterService {
     private final ClassRequestStore classRequestStore;
     private final ContractService contractService;
     private final ContractTemplateRepository contractTemplateRepository;
+    private final com.tcs.module.profile.service.CccdService cccdService;
+    private final com.tcs.module.messaging.repository.NotificationRepository notificationRepository;
+    private final com.tcs.module.identity.repository.UserRepository userRepository;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -247,6 +250,9 @@ public class CenterServiceImpl implements CenterService {
         return recruitmentPostRepository
                 .findByCenter_CenterIdOrderByCreatedAtDesc(center.getCenterId())
                 .stream()
+                // Tin gắn với "yêu cầu nhờ trung tâm tìm gia sư" được quản lý riêng ở trang
+                // "Yêu cầu mở lớp" (duyệt = đưa vào shortlist), nên không hiện ở danh sách tin CTV.
+                .filter(p -> classRequestStore.findByRecruitmentPostId(p.getRecruitmentId()).isEmpty())
                 .map(this::toResponse)
                 .toList();
     }
@@ -352,6 +358,22 @@ public class CenterServiceImpl implements CenterService {
         requireOwner(application.getRecruitmentPost());
         if (application.getStatus() != RecruitmentApplicationStatus.APPLIED) {
             throw new IllegalArgumentException("Đơn này đã được xử lý");
+        }
+        // Tin gắn với "yêu cầu nhờ trung tâm tìm gia sư": duyệt = đưa gia sư vào shortlist để
+        // phụ huynh chọn (KHÔNG ký thỏa thuận CTV, KHÔNG tạo thành viên). Từ chối = bỏ đơn.
+        Optional<ClassRequestStore.ClassRequestData> linkedRequest =
+                classRequestStore.findByRecruitmentPostId(
+                        application.getRecruitmentPost().getRecruitmentId());
+        if (linkedRequest.isPresent()) {
+            application.setStatus(
+                    approve ? RecruitmentApplicationStatus.PASSED
+                            : RecruitmentApplicationStatus.REJECTED);
+            application.setReviewedAt(LocalDateTime.now());
+            RecruitmentApplication saved = recruitmentApplicationRepository.save(application);
+            if (approve) {
+                addTutorToRequestShortlist(linkedRequest.get(), application.getTutor().getTutorId());
+            }
+            return toApplicationResponse(saved);
         }
         // BF-03: duyệt -> PASSED (chờ ký hợp đồng), CHƯA phải HIRED. Chỉ khi ký xong mới HIRED.
         application.setStatus(
@@ -2005,12 +2027,164 @@ public class CenterServiceImpl implements CenterService {
         body.setOriginType(ORIGIN_EXTERNAL);
         CenterClassResponse classResponse = createClass(body);
 
-        ClassRequestStore.ClassRequestData updated = new ClassRequestStore.ClassRequestData(
-                data.requestId(), data.clientUserId(), data.centerId(), data.categoryId(),
-                data.note(), data.desiredBudget(), ClassRequestStore.STATUS_ACCEPTED, null, data.createdAt());
-        classRequestStore.save(updated);
+        classRequestStore.save(
+                classRequestStore.withStatus(data, ClassRequestStore.STATUS_ACCEPTED, null));
 
         return classResponse;
+    }
+
+    @Override
+    @Transactional
+    public void startSearch(String requestId) {
+        TutorCenter center = requireCenter();
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
+        if (!center.getCenterId().equals(data.centerId())) {
+            throw new ForbiddenException("Không có quyền xử lý yêu cầu này");
+        }
+        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
+        }
+        classRequestStore.save(
+                classRequestStore.withStatus(data, ClassRequestStore.STATUS_SEARCHING, null));
+    }
+
+    @Override
+    @Transactional
+    public void proposeTutor(String requestId, Long tutorId) {
+        TutorCenter center = requireClassRequestOwner(requestId);
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId).orElseThrow();
+        if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())
+                || ClassRequestStore.STATUS_REJECTED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này đã kết thúc, không thể đề cử thêm.");
+        }
+        // Gia sư phải thuộc đội của trung tâm.
+        membershipRepository
+                .findFirstByCenter_CenterIdAndTutor_TutorId(center.getCenterId(), tutorId)
+                .orElseThrow(() -> new IllegalArgumentException(
+                        "Gia sư không thuộc đội của trung tâm."));
+        List<Long> candidates = classRequestStore.candidatesOf(data);
+        if (!candidates.contains(tutorId)) {
+            candidates.add(tutorId);
+        }
+        ClassRequestStore.ClassRequestData updated = classRequestStore.withCandidates(data, candidates);
+        if (ClassRequestStore.STATUS_PENDING.equals(updated.status())) {
+            updated = classRequestStore.withStatus(updated, ClassRequestStore.STATUS_SEARCHING, null);
+        }
+        classRequestStore.save(updated);
+    }
+
+    @Override
+    @Transactional
+    public void removeCandidate(String requestId, Long tutorId) {
+        requireClassRequestOwner(requestId);
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId).orElseThrow();
+        List<Long> candidates = classRequestStore.candidatesOf(data);
+        candidates.remove(tutorId);
+        classRequestStore.save(classRequestStore.withCandidates(data, candidates));
+    }
+
+    /**
+     * Đăng tin tuyển gia sư NGOÀI đội cho một yêu cầu của phụ huynh. Tin được đăng ACTIVE ngay để
+     * mọi gia sư đều thấy ở "Tin tuyển dụng" và ứng tuyển; khi trung tâm duyệt đơn (duyệt =
+     * {@link #decideApplication}) thì gia sư được đưa vào shortlist của yêu cầu để phụ huynh chọn.
+     */
+    @Override
+    @Transactional
+    public ClassRequestResponse postRecruitmentForRequest(String requestId) {
+        TutorCenter center = requireClassRequestOwner(requestId);
+        requireVerifiedCenter(center);
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId).orElseThrow();
+        if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())
+                || ClassRequestStore.STATUS_REJECTED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này đã kết thúc, không thể đăng tin.");
+        }
+        if (data.recruitmentPostId() != null
+                && recruitmentPostRepository.findById(data.recruitmentPostId()).isPresent()) {
+            throw new IllegalArgumentException("Đã đăng tin tuyển cho yêu cầu này rồi.");
+        }
+        RecruitmentPost post = new RecruitmentPost();
+        post.setCenter(center);
+        post.setTitle("Tuyển gia sư theo yêu cầu phụ huynh");
+        post.setDescription(StringUtils.hasText(data.note())
+                ? data.note() : "Trung tâm cần tuyển gia sư cho một yêu cầu của phụ huynh.");
+        post.setMaxPositions(1);
+        post.setRequiredExperience(0);
+        post.setStatus(RecruitmentPostStatus.ACTIVE);
+        post.setPublishedAt(LocalDateTime.now());
+        RecruitmentPost saved = recruitmentPostRepository.save(post);
+
+        ClassRequestStore.ClassRequestData updated =
+                classRequestStore.withRecruitmentPost(data, saved.getRecruitmentId());
+        if (ClassRequestStore.STATUS_PENDING.equals(updated.status())) {
+            updated = classRequestStore.withStatus(updated, ClassRequestStore.STATUS_SEARCHING, null);
+        }
+        classRequestStore.save(updated);
+        auditLogService.record(center.getUser().getUserId(), "POST_RECRUITMENT_FOR_REQUEST",
+                "RecruitmentPost", saved.getRecruitmentId(), null, null);
+        return classRequestStore.toResponse(updated);
+    }
+
+    /** Đơn ứng tuyển vào tin tuyển dụng đã đăng cho một yêu cầu (để trung tâm duyệt vào shortlist). */
+    @Override
+    @Transactional(readOnly = true)
+    public List<RecruitmentApplicationResponse> listRequestApplications(String requestId) {
+        requireClassRequestOwner(requestId);
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId).orElseThrow();
+        if (data.recruitmentPostId() == null) {
+            return List.of();
+        }
+        return recruitmentApplicationRepository
+                .findByRecruitmentPost_RecruitmentIdOrderByAppliedAtDesc(data.recruitmentPostId())
+                .stream()
+                .map(this::toApplicationResponse)
+                .toList();
+    }
+
+    /** Thêm một gia sư (từ đơn ứng tuyển đã duyệt) vào shortlist của yêu cầu — không kiểm tra đội. */
+    private void addTutorToRequestShortlist(ClassRequestStore.ClassRequestData data, Long tutorId) {
+        List<Long> candidates = classRequestStore.candidatesOf(data);
+        if (!candidates.contains(tutorId)) {
+            candidates.add(tutorId);
+        }
+        ClassRequestStore.ClassRequestData updated = classRequestStore.withCandidates(data, candidates);
+        if (ClassRequestStore.STATUS_PENDING.equals(updated.status())) {
+            updated = classRequestStore.withStatus(updated, ClassRequestStore.STATUS_SEARCHING, null);
+        }
+        classRequestStore.save(updated);
+    }
+
+    /** Đóng tin tuyển dụng đã đăng cho một yêu cầu (khi yêu cầu kết thúc: được chọn / bị từ chối). */
+    private void closeRequestLinkedPost(ClassRequestStore.ClassRequestData data) {
+        if (data.recruitmentPostId() == null) {
+            return;
+        }
+        recruitmentPostRepository.findById(data.recruitmentPostId()).ifPresent(post -> {
+            if (post.getStatus() == RecruitmentPostStatus.ACTIVE
+                    || post.getStatus() == RecruitmentPostStatus.DRAFT) {
+                post.setStatus(RecruitmentPostStatus.CLOSED);
+                post.setClosedAt(LocalDateTime.now());
+                recruitmentPostRepository.save(post);
+            }
+        });
+    }
+
+    /** Phụ huynh đã chọn gia sư -> yêu cầu hoàn tất -> đóng tin tuyển dụng đã đăng (nếu có). */
+    @EventListener
+    @Transactional
+    public void onClassRequestFulfilled(com.tcs.common.event.ClassRequestFulfilled event) {
+        classRequestStore.find(event.requestId()).ifPresent(this::closeRequestLinkedPost);
+    }
+
+    /** Xác nhận yêu cầu tồn tại và thuộc trung tâm đang đăng nhập. */
+    private TutorCenter requireClassRequestOwner(String requestId) {
+        TutorCenter center = requireCenter();
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
+        if (!center.getCenterId().equals(data.centerId())) {
+            throw new ForbiddenException("Không có quyền xử lý yêu cầu này");
+        }
+        return center;
     }
 
     @Override
@@ -2022,14 +2196,62 @@ public class CenterServiceImpl implements CenterService {
         if (!center.getCenterId().equals(data.centerId())) {
             throw new ForbiddenException("Không có quyền xử lý yêu cầu này");
         }
-        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
+        if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())
+                || ClassRequestStore.STATUS_REJECTED.equals(data.status())) {
             throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
         }
 
-        ClassRequestStore.ClassRequestData updated = new ClassRequestStore.ClassRequestData(
-                data.requestId(), data.clientUserId(), data.centerId(), data.categoryId(),
-                data.note(), data.desiredBudget(), ClassRequestStore.STATUS_REJECTED, reason, data.createdAt());
-        classRequestStore.save(updated);
+        closeRequestLinkedPost(data);
+        classRequestStore.save(
+                classRequestStore.withStatus(data, ClassRequestStore.STATUS_REJECTED, reason));
+        String centerName = center.getCompanyName() != null ? center.getCompanyName() : "Trung tâm";
+        notifyClientRequestClosed(data, "Yêu cầu tìm gia sư bị từ chối",
+                centerName + " đã từ chối yêu cầu tìm gia sư của bạn."
+                        + (StringUtils.hasText(reason) ? " Lý do: " + reason.trim() : ""));
+    }
+
+    /**
+     * Trung tâm không tìm được gia sư phù hợp -> đóng yêu cầu và thông báo cho phụ huynh biết
+     * để họ chủ động (đăng lại / nhờ trung tâm khác / tự tìm).
+     */
+    @Override
+    @Transactional
+    public void giveUpClassRequest(String requestId, String reason) {
+        TutorCenter center = requireClassRequestOwner(requestId);
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId).orElseThrow();
+        if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())
+                || ClassRequestStore.STATUS_REJECTED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
+        }
+        String note = StringUtils.hasText(reason)
+                ? reason.trim() : "Trung tâm không tìm được gia sư phù hợp.";
+        closeRequestLinkedPost(data);
+        classRequestStore.save(
+                classRequestStore.withStatus(data, ClassRequestStore.STATUS_REJECTED, note));
+        String centerName = center.getCompanyName() != null ? center.getCompanyName() : "Trung tâm";
+        notifyClientRequestClosed(data, "Trung tâm chưa tìm được gia sư",
+                centerName + " chưa tìm được gia sư phù hợp cho yêu cầu của bạn. " + note
+                        + " Bạn có thể gửi lại yêu cầu tới trung tâm khác hoặc tự tìm gia sư.");
+    }
+
+    /** Thông báo cho phụ huynh khi trung tâm kết thúc một yêu cầu (từ chối / không tìm được). */
+    private void notifyClientRequestClosed(
+            ClassRequestStore.ClassRequestData data, String title, String content) {
+        if (data.clientUserId() == null) {
+            return;
+        }
+        userRepository.findById(data.clientUserId()).ifPresent(user -> {
+            com.tcs.module.messaging.entity.Notification n =
+                    new com.tcs.module.messaging.entity.Notification();
+            n.setUser(user);
+            n.setType(com.tcs.module.messaging.enums.NotificationType.SYSTEM);
+            n.setTitle(title);
+            n.setContent(content);
+            n.setReferenceType("CLASS_REQUEST");
+            n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
+            n.setIsRead(false);
+            notificationRepository.save(n);
+        });
     }
 
     // ===================== Quản lý mẫu hợp đồng =====================
@@ -2047,6 +2269,8 @@ public class CenterServiceImpl implements CenterService {
     @Transactional
     public ContractTemplateResponse createContractTemplate(SaveContractTemplateRequest request) {
         TutorCenter center = requireCenter();
+        // Phải xác minh trung tâm trước khi được tạo mẫu hợp đồng.
+        requireVerifiedCenter(center);
         if (!StringUtils.hasText(request.getName())) {
             throw new IllegalArgumentException("Tên mẫu là bắt buộc");
         }
@@ -2070,6 +2294,7 @@ public class CenterServiceImpl implements CenterService {
     public ContractTemplateResponse updateContractTemplate(
             Long templateId, SaveContractTemplateRequest request) {
         TutorCenter center = requireCenter();
+        requireVerifiedCenter(center);
         ContractTemplate t = contractTemplateRepository.findById(templateId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mẫu hợp đồng"));
         if (t.getCenter() == null || !t.getCenter().getCenterId().equals(center.getCenterId())) {
@@ -2116,9 +2341,22 @@ public class CenterServiceImpl implements CenterService {
                 .phone(center.getPhone())
                 .email(center.getUser() != null ? center.getUser().getEmail() : null)
                 .website(extra.get("website"))
-                .representativeName(extra.get("representativeName"))
+                // Người đại diện lấy từ CCCD người đại diện pháp luật (đã quét), không nhập tay.
+                .representativeName(legalRepName(center))
                 .representativePosition(extra.get("representativePosition"))
+                .verificationStatus(
+                        center.getVerificationStatus() != null
+                                ? center.getVerificationStatus().name()
+                                : null)
                 .build();
+    }
+
+    /** Họ tên người đại diện pháp luật lấy từ CCCD đã quét (cccd:{userId}). */
+    private String legalRepName(TutorCenter center) {
+        if (center.getUser() == null) {
+            return null;
+        }
+        return cccdService.getByUserId(center.getUser().getUserId()).getFullName();
     }
 
     @Override
@@ -2128,8 +2366,7 @@ public class CenterServiceImpl implements CenterService {
         TutorCenter center = requireCenter();
         Map<String, String> map = new HashMap<>();
         map.put("website", request.getWebsite() != null ? request.getWebsite().trim() : null);
-        map.put("representativeName",
-                request.getRepresentativeName() != null ? request.getRepresentativeName().trim() : null);
+        // Người đại diện KHÔNG lưu ở đây — luôn lấy từ CCCD người đại diện pháp luật (nguồn chuẩn).
         map.put("representativePosition",
                 request.getRepresentativePosition() != null ? request.getRepresentativePosition().trim() : null);
         String key = "centercontract:" + center.getCenterId();

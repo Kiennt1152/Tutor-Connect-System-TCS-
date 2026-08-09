@@ -309,7 +309,13 @@ export default function ContractSigningPage() {
     setError(null);
     try {
       await teachingApi.signAssignmentContract(contract.assignmentId, otp.trim());
-      navigate(APP_ROUTES.teaching);
+      // Ký xong -> tải lại hợp đồng ngay tại chỗ để văn bản phản ánh "Đã ký"
+      // (thay vì chuyển trang luôn, người ký sẽ thấy chữ ký của mình được ghi nhận).
+      const updated = await teachingApi.getAssignmentContract(contract.assignmentId);
+      setContract(updated);
+      setOtpSent(false);
+      setOtp('');
+      setOtpMsg('');
     } catch (err) {
       setError(extractError(err));
     } finally {

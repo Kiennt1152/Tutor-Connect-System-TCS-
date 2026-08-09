@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { SiteFooter } from '../../home/components/SiteFooter';
 import { StarRating } from '../components/StarRating';
 import { CriteriaBreakdown } from '../components/CriteriaBreakdown';
 import { ReportReviewModal } from '../components/ReportReviewModal';
@@ -72,6 +73,7 @@ export default function MyReputationPage() {
           </div>
         ) : null}
       </main>
+      <SiteFooter />
     </div>
   );
 }

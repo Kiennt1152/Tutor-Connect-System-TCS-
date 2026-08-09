@@ -125,10 +125,13 @@
   color: var(--color-text-primary);
 }
 
-.profile-section input:disabled {
+.profile-section input:disabled,
+.profile-section select:disabled {
   background: var(--color-surface-3);
   color: var(--color-text-secondary);
   cursor: not-allowed;
+  -webkit-text-fill-color: var(--color-text-secondary); /* đồng bộ màu chữ ô disabled trên Safari/Chrome */
+  opacity: 1;
 }
 
 .profile-section input:focus,
