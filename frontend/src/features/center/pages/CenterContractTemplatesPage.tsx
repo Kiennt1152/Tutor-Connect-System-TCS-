@@ -6,7 +6,10 @@ import { SiteFooter } from '../../home/components/SiteFooter';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { centerApi } from '../api/centerApi';
 import { CenterContractInfoSection } from '../components/CenterContractInfoSection';
-import type { ContractTemplate } from '../types/centerTypes';
+import { ContractDocumentPreview } from '../components/ContractDocumentPreview';
+import type { CenterContractInfo, ContractTemplate } from '../types/centerTypes';
+import '../../contract/pages/ContractPage.css';
+import './CenterContractTemplatesPage.css';
 
 function extractError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
@@ -30,6 +33,10 @@ export default function CenterContractTemplatesPage() {
   const [error, setError] = useState('');
   // null = đang kiểm tra; false = chưa xác minh (không cho tạo mẫu).
   const [verified, setVerified] = useState<boolean | null>(null);
+  // Thông tin BÊN A (trung tâm) để dựng bản xem trước hợp đồng.
+  const [info, setInfo] = useState<CenterContractInfo | null>(null);
+  // Mẫu đang mở xem trước ở cửa sổ (từ danh sách).
+  const [previewTpl, setPreviewTpl] = useState<ContractTemplate | null>(null);
 
   // Form tạo/sửa. editingId = null -> tạo mới.
   const [editingId, setEditingId] = useState<number | null>(null);
@@ -48,10 +55,13 @@ export default function CenterContractTemplatesPage() {
 
   useEffect(() => {
     reload();
-    // Kiểm tra trạng thái xác minh để quyết định có cho tạo mẫu hay không.
+    // Kiểm tra trạng thái xác minh (để cho tạo mẫu) + lấy thông tin BÊN A cho bản xem trước.
     centerApi
       .getContractInfo()
-      .then((res) => setVerified(res.data.verificationStatus === 'VERIFIED'))
+      .then((res) => {
+        setVerified(res.data.verificationStatus === 'VERIFIED');
+        setInfo(res.data);
+      })
       .catch(() => setVerified(false));
   }, []);
 
@@ -90,177 +100,216 @@ export default function CenterContractTemplatesPage() {
   };
 
   return (
-    <div className="tcs-page">
+    <div className="contract-shell">
       <HomeNavbar />
-      <main style={{ maxWidth: 960, margin: '0 auto', padding: '24px 16px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-          <h1 style={{ margin: 0, fontSize: 22 }}>Mẫu hợp đồng</h1>
-          <Link className="tcs-btn tcs-btn--ghost tcs-btn--sm" to="/center">
+      <main className="contract-page tcs-container">
+        <section className="contract-page-head">
+          <div>
+            <p className="contract-eyebrow">Quản lý hợp đồng</p>
+            <h1>Mẫu hợp đồng</h1>
+            <p>
+              Mẫu hệ thống dùng chung. Bạn có thể tạo mẫu riêng của trung tâm để chọn khi tuyển
+              dụng hoặc tạo lớp.
+            </p>
+          </div>
+          <Link className="tcs-btn tcs-btn--ghost" to="/center">
             ← Về quản lý lớp
           </Link>
-        </div>
-        <p style={{ color: '#64748b', fontSize: 14 }}>
-          Mẫu hệ thống dùng chung. Bạn có thể tạo mẫu riêng của trung tâm để chọn khi tuyển dụng hoặc tạo lớp.
-        </p>
+        </section>
 
         {/* Thông tin BÊN A của trung tâm trên hợp đồng */}
         <CenterContractInfoSection />
 
         {/* Chưa xác minh -> không cho tạo mẫu, hướng dẫn đi xác minh. */}
         {verified === false && (
-          <div
-            style={{
-              border: '1px solid #fed7aa',
-              background: '#fff7ed',
-              color: '#9a3412',
-              borderRadius: 12,
-              padding: 16,
-              marginBottom: 20,
-            }}
-          >
-            Trung tâm cần được <strong>xác minh</strong> trước khi tạo mẫu hợp đồng.{' '}
-            <Link to={APP_ROUTES.verification} style={{ color: '#c2410c', fontWeight: 600 }}>
-              Đi tới trang xác minh →
-            </Link>
+          <div className="cct-warn">
+            <span>
+              Trung tâm cần được <strong>xác minh</strong> trước khi tạo mẫu hợp đồng.
+            </span>
+            <Link to={APP_ROUTES.verification}>Đi tới trang xác minh →</Link>
           </div>
         )}
 
-        {/* Form tạo/sửa — chỉ khi đã xác minh */}
+        {/* Form tạo/sửa + xem trước hợp đồng — chỉ khi đã xác minh */}
         {verified !== false && (
-        <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: 16, marginBottom: 20 }}>
-          <h2 style={{ marginTop: 0, fontSize: 16 }}>
-            {editingId != null ? 'Sửa mẫu' : 'Tạo mẫu mới'}
-          </h2>
-          {formError && (
-            <p style={{ background: '#fee2e2', color: '#991b1b', padding: 10, borderRadius: 8 }}>
-              {formError}
-            </p>
-          )}
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-              Tên mẫu
-            </label>
-            <input
-              style={{ width: '100%', padding: 10, border: '1px solid #cbd5e1', borderRadius: 8 }}
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-              placeholder="Ví dụ: Hợp đồng dạy Toán THCS"
-            />
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-              Loại hợp đồng
-            </label>
-            <select
-              style={{ width: '100%', padding: 10, border: '1px solid #cbd5e1', borderRadius: 8 }}
-              value={form.contractType}
-              onChange={(e) =>
-                setForm({ ...form, contractType: e.target.value as 'CLASS' | 'RECRUITMENT' })
-              }
-            >
-              <option value="CLASS">{TYPE_LABEL.CLASS}</option>
-              <option value="RECRUITMENT">{TYPE_LABEL.RECRUITMENT}</option>
-            </select>
-            <p style={{ color: '#94a3b8', fontSize: 12, margin: '4px 0 0' }}>
-              Hợp đồng tuyển dụng gửi cho gia sư khi duyệt — không có Loại lớp / Số buổi / Học phí.
-            </p>
-          </div>
-          <div style={{ marginBottom: 10 }}>
-            <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 4 }}>
-              Nội dung điều khoản
-            </label>
-            <textarea
-              style={{
-                width: '100%',
-                minHeight: 160,
-                padding: 10,
-                border: '1px solid #cbd5e1',
-                borderRadius: 8,
-                fontFamily: 'inherit',
-              }}
-              value={form.content}
-              onChange={(e) => setForm({ ...form, content: e.target.value })}
-              placeholder="Nhập các điều khoản & nghĩa vụ..."
-            />
-            <p style={{ color: '#94a3b8', fontSize: 12, margin: '6px 0 0' }}>
-              Chỉ nhập <strong>điều khoản & nghĩa vụ</strong>. Quốc hiệu, tiêu ngữ, tiêu đề và thông
-              tin các bên sẽ được hệ thống tự thêm khi tạo hợp đồng. Có thể dùng biến tự điền:
-              {form.contractType === 'RECRUITMENT' ? (
-                <> <code>{'{{tenGiaSu}}'}</code>, <code>{'{{tenTrungTam}}'}</code>, <code>{'{{ngayKy}}'}</code>.</>
-              ) : (
-                <> <code>{'{{tenHocVien}}'}</code>, <code>{'{{tenTrungTam}}'}</code>, <code>{'{{tenLop}}'}</code>,{' '}
-                  <code>{'{{monHoc}}'}</code>, <code>{'{{hocPhi}}'}</code>, <code>{'{{soBuoi}}'}</code>,{' '}
-                  <code>{'{{ngayBatDau}}'}</code>, <code>{'{{ngayKetThuc}}'}</code>, <code>{'{{ngayKy}}'}</code>.</>
-              )}
-            </p>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <button
-              type="button"
-              className="tcs-btn tcs-btn--market tcs-btn--sm"
-              onClick={submit}
-              disabled={saving}
-            >
-              {saving ? 'Đang lưu...' : editingId != null ? 'Cập nhật mẫu' : 'Tạo mẫu'}
-            </button>
-            {editingId != null && (
-              <button type="button" className="tcs-btn tcs-btn--ghost tcs-btn--sm" onClick={startCreate}>
-                Hủy sửa
-              </button>
-            )}
-          </div>
-        </div>
-        )}
-
-        {/* Danh sách mẫu */}
-        {loading && <p>Đang tải...</p>}
-        {error && <p style={{ color: '#991b1b' }}>{error}</p>}
-        {!loading && templates.length === 0 && <p>Chưa có mẫu hợp đồng nào.</p>}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-          {templates.map((t) => (
-            <div
-              key={t.templateId}
-              style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: 14 }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                <strong>
-                  {t.name}
-                  <span style={{ color: '#0d9488', fontWeight: 400 }}>
-                    {' · '}
-                    {TYPE_LABEL[t.contractType ?? 'CLASS']}
-                  </span>
-                  {t.system && (
-                    <span style={{ color: '#94a3b8', fontWeight: 400 }}> · mẫu hệ thống</span>
-                  )}
-                  {t.defaultTemplate && (
-                    <span style={{ color: '#2563eb', fontWeight: 400 }}> · mặc định</span>
-                  )}
-                </strong>
-                {!t.system && (
+          <div className="cct-editor">
+          <section className="contract-card">
+            <div className="contract-card__head">
+              <h2>{editingId != null ? 'Sửa mẫu' : 'Tạo mẫu mới'}</h2>
+            </div>
+            <div className="cct-card-body">
+              {formError && <p className="cct-alert cct-alert--error">{formError}</p>}
+              <div className="cct-grid">
+                <div className="cct-field cct-field--full">
+                  <label className="cct-label">Tên mẫu</label>
+                  <input
+                    className="cct-input"
+                    value={form.name}
+                    onChange={(e) => setForm({ ...form, name: e.target.value })}
+                    placeholder="Ví dụ: Hợp đồng dạy Toán THCS"
+                  />
+                </div>
+                <div className="cct-field cct-field--full">
+                  <label className="cct-label">Loại hợp đồng</label>
+                  <select
+                    className="cct-select"
+                    value={form.contractType}
+                    onChange={(e) =>
+                      setForm({ ...form, contractType: e.target.value as 'CLASS' | 'RECRUITMENT' })
+                    }
+                  >
+                    <option value="CLASS">{TYPE_LABEL.CLASS}</option>
+                    <option value="RECRUITMENT">{TYPE_LABEL.RECRUITMENT}</option>
+                  </select>
+                  <p className="cct-hint">
+                    Hợp đồng tuyển dụng gửi cho gia sư khi duyệt — không có Loại lớp / Số buổi / Học
+                    phí.
+                  </p>
+                </div>
+                <div className="cct-field cct-field--full">
+                  <label className="cct-label">Nội dung điều khoản</label>
+                  <textarea
+                    className="cct-textarea"
+                    value={form.content}
+                    onChange={(e) => setForm({ ...form, content: e.target.value })}
+                    placeholder="Nhập các điều khoản & nghĩa vụ..."
+                  />
+                  <p className="cct-hint">
+                    Chỉ nhập <strong>điều khoản & nghĩa vụ</strong>. Quốc hiệu, tiêu ngữ, tiêu đề và
+                    thông tin các bên sẽ được hệ thống tự thêm khi tạo hợp đồng. Có thể dùng biến tự
+                    điền:{' '}
+                    {form.contractType === 'RECRUITMENT' ? (
+                      <>
+                        <code>{'{{tenGiaSu}}'}</code>, <code>{'{{tenTrungTam}}'}</code>,{' '}
+                        <code>{'{{ngayKy}}'}</code>.
+                      </>
+                    ) : (
+                      <>
+                        <code>{'{{tenHocVien}}'}</code>, <code>{'{{tenTrungTam}}'}</code>,{' '}
+                        <code>{'{{tenLop}}'}</code>, <code>{'{{monHoc}}'}</code>,{' '}
+                        <code>{'{{hocPhi}}'}</code>, <code>{'{{soBuoi}}'}</code>,{' '}
+                        <code>{'{{ngayBatDau}}'}</code>, <code>{'{{ngayKetThuc}}'}</code>,{' '}
+                        <code>{'{{ngayKy}}'}</code>.
+                      </>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="cct-actions">
+                <button
+                  type="button"
+                  className="tcs-btn tcs-btn--market tcs-btn--sm"
+                  onClick={submit}
+                  disabled={saving}
+                >
+                  {saving ? 'Đang lưu...' : editingId != null ? 'Cập nhật mẫu' : 'Tạo mẫu'}
+                </button>
+                {editingId != null && (
                   <button
                     type="button"
                     className="tcs-btn tcs-btn--ghost tcs-btn--sm"
-                    onClick={() => startEdit(t)}
+                    onClick={startCreate}
                   >
-                    Sửa
+                    Hủy sửa
                   </button>
                 )}
               </div>
-              <pre
-                style={{
-                  whiteSpace: 'pre-wrap',
-                  fontFamily: 'inherit',
-                  fontSize: 13,
-                  color: '#475569',
-                  margin: '8px 0 0',
-                }}
-              >
-                {t.content}
-              </pre>
             </div>
-          ))}
-        </div>
+          </section>
+
+          <aside className="cct-preview">
+            <div className="cct-preview__bar">📄 Xem trước hợp đồng</div>
+            <ContractDocumentPreview
+              name={form.name}
+              contractType={form.contractType}
+              content={form.content}
+              info={info}
+            />
+          </aside>
+          </div>
+        )}
+
+        {/* Danh sách mẫu */}
+        <section className="contract-card">
+          <div className="contract-card__head">
+            <h2>Danh sách mẫu</h2>
+            {!loading && <span>{templates.length} mẫu</span>}
+          </div>
+          {loading && <div className="cct-state">Đang tải...</div>}
+          {error && <p className="cct-alert cct-alert--error" style={{ margin: 'var(--space-lg)' }}>{error}</p>}
+          {!loading && !error && templates.length === 0 && (
+            <div className="cct-state">Chưa có mẫu hợp đồng nào.</div>
+          )}
+          {!loading && templates.length > 0 && (
+            <div className="cct-tpl-list">
+              {templates.map((t) => (
+                <article key={t.templateId} className="cct-tpl">
+                  <div className="cct-tpl__head">
+                    <div className="cct-tpl__title">
+                      <strong>{t.name}</strong>
+                      <span className="cct-type-chip">{TYPE_LABEL[t.contractType ?? 'CLASS']}</span>
+                      {t.system && <span className="cct-badge">Mẫu hệ thống</span>}
+                      {t.defaultTemplate && (
+                        <span className="cct-badge cct-badge--primary">Mặc định</span>
+                      )}
+                    </div>
+                    <div className="cct-tpl__actions">
+                      <button
+                        type="button"
+                        className="tcs-btn tcs-btn--ghost tcs-btn--sm"
+                        onClick={() => setPreviewTpl(t)}
+                      >
+                        Xem trước
+                      </button>
+                      {!t.system && (
+                        <button
+                          type="button"
+                          className="tcs-btn tcs-btn--ghost tcs-btn--sm"
+                          onClick={() => startEdit(t)}
+                        >
+                          Sửa
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <pre className="cct-tpl__content">{t.content}</pre>
+                </article>
+              ))}
+            </div>
+          )}
+        </section>
       </main>
+
+      {previewTpl && (
+        <div
+          className="cct-modal"
+          role="dialog"
+          aria-modal="true"
+          onClick={() => setPreviewTpl(null)}
+        >
+          <div className="cct-modal__card" onClick={(e) => e.stopPropagation()}>
+            <div className="cct-modal__head">
+              <h2 className="cct-modal__title">Xem trước hợp đồng</h2>
+              <button
+                type="button"
+                className="cct-modal__close"
+                aria-label="Đóng"
+                onClick={() => setPreviewTpl(null)}
+              >
+                ×
+              </button>
+            </div>
+            <div className="cct-modal__body">
+              <ContractDocumentPreview
+                name={previewTpl.name}
+                contractType={previewTpl.contractType ?? 'CLASS'}
+                content={previewTpl.content}
+                info={info}
+              />
+            </div>
+          </div>
+        </div>
+      )}
       <SiteFooter />
     </div>
   );

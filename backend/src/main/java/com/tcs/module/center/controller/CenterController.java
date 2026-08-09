@@ -154,6 +154,31 @@ public class CenterController {
         return Map.of("message", "Đã nhận tìm gia sư cho yêu cầu");
     }
 
+    @PostMapping("/class-requests/{requestId}/candidates/{tutorId}")
+    public Map<String, String> proposeTutor(
+            @PathVariable String requestId, @PathVariable Long tutorId) {
+        centerService.proposeTutor(requestId, tutorId);
+        return Map.of("message", "Đã đề cử gia sư cho yêu cầu");
+    }
+
+    @DeleteMapping("/class-requests/{requestId}/candidates/{tutorId}")
+    public Map<String, String> removeCandidate(
+            @PathVariable String requestId, @PathVariable Long tutorId) {
+        centerService.removeCandidate(requestId, tutorId);
+        return Map.of("message", "Đã gỡ gia sư khỏi đề cử");
+    }
+
+    @PostMapping("/class-requests/{requestId}/recruitment")
+    public ClassRequestResponse postRecruitmentForRequest(@PathVariable String requestId) {
+        return centerService.postRecruitmentForRequest(requestId);
+    }
+
+    @GetMapping("/class-requests/{requestId}/applications")
+    public List<RecruitmentApplicationResponse> listRequestApplications(
+            @PathVariable String requestId) {
+        return centerService.listRequestApplications(requestId);
+    }
+
     @PostMapping("/class-requests/{requestId}/accept")
     public CenterClassResponse acceptClassRequest(
             @PathVariable String requestId, @RequestBody SaveClassRequest body) {
@@ -165,6 +190,13 @@ public class CenterController {
             @PathVariable String requestId, @RequestBody RejectClassRequestBody body) {
         centerService.rejectClassRequest(requestId, body.getReason());
         return Map.of("message", "Đã từ chối yêu cầu mở lớp");
+    }
+
+    @PostMapping("/class-requests/{requestId}/give-up")
+    public Map<String, String> giveUpClassRequest(
+            @PathVariable String requestId, @RequestBody(required = false) RejectClassRequestBody body) {
+        centerService.giveUpClassRequest(requestId, body != null ? body.getReason() : null);
+        return Map.of("message", "Đã đóng yêu cầu và thông báo cho phụ huynh");
     }
 
     // ===== Quản lý mẫu hợp đồng =====

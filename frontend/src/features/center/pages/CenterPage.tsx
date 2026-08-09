@@ -2,16 +2,19 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
+import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { LocationPicker } from '../components/LocationPicker';
 import { profileApi } from '../../profile/api/profileApi';
 import { centerApi } from '../api/centerApi';
 import type { ClassRequest } from '../../marketplace/types/marketplaceTypes';
 import type {
+  CenterMember,
   ClassResponse,
   ClassStatus,
   ContractTemplate,
   LessonMode,
+  RecruitmentApplication,
   RecurringType,
   SaveClassRequest,
   TutorOption,
@@ -353,6 +356,99 @@ function hasErrors(e: FormErrors): boolean {
   return Object.keys(e.fields).length > 0 || Object.keys(e.slots).length > 0;
 }
 
+function splitFirst(s: string, sep: string): [string, string] {
+  const i = s.indexOf(sep);
+  return i < 0 ? [s, ''] : [s.slice(0, i).trim(), s.slice(i + sep.length).trim()];
+}
+
+/**
+ * Trình bày phần tóm tắt yêu cầu (r.note) dạng có cấu trúc thay vì một đoạn text dài.
+ * Note do phụ huynh gửi được ghép cố định: "Môn học: …" \n "Lịch học … . <môn>[phí]: <buổi>; …"
+ * \n "<ghi chú tự do>". Nếu không khớp cấu trúc thì hiển thị nguyên văn (an toàn với dữ liệu cũ).
+ */
+function RequestNote({ note }: { note: string }) {
+  const lines = (note ?? '')
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean);
+  let subjects: string[] = [];
+  let scheduleHeader = '';
+  let scheduleRows: string[] = [];
+  const extra: string[] = [];
+  for (const line of lines) {
+    if (line.startsWith('Môn học:')) {
+      subjects = line
+        .slice('Môn học:'.length)
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    } else if (line.startsWith('Lịch học')) {
+      const idx = line.indexOf('. ');
+      if (idx >= 0) {
+        scheduleHeader = line.slice(0, idx).trim();
+        scheduleRows = line
+          .slice(idx + 2)
+          .replace(/\.\s*$/, '')
+          .split(';')
+          .map((s) => s.trim())
+          .filter(Boolean);
+      } else {
+        scheduleHeader = line.replace(/\.\s*$/, '');
+      }
+    } else {
+      extra.push(line);
+    }
+  }
+  if (subjects.length === 0 && !scheduleHeader && scheduleRows.length === 0) {
+    return <p className="cc-request__note">{note}</p>;
+  }
+  return (
+    <div className="cc-reqnote">
+      {subjects.length > 0 && (
+        <div className="cc-reqnote__row">
+          <span className="cc-reqnote__key">Môn học</span>
+          <span className="cc-reqnote__subjects">
+            {subjects.map((s) => (
+              <span key={s} className="cc-chip">
+                {s}
+              </span>
+            ))}
+          </span>
+        </div>
+      )}
+      {(scheduleHeader || scheduleRows.length > 0) && (
+        <div className="cc-reqnote__row">
+          <span className="cc-reqnote__key">Lịch học</span>
+          <div className="cc-reqnote__sched">
+            {scheduleHeader && <span className="cc-reqnote__schedhead">{scheduleHeader}</span>}
+            {scheduleRows.map((row, i) => {
+              const [subj, when] = splitFirst(row, ': ');
+              const m = subj.match(/^(.*?)\s*\[(.*?)\]$/);
+              const name = m ? m[1] : subj;
+              const fee = m ? m[2] : '';
+              return (
+                <div key={i} className="cc-reqnote__slot">
+                  <span className="cc-reqnote__slot-subj">
+                    {name}
+                    {fee && <span className="cc-reqnote__fee">{fee}</span>}
+                  </span>
+                  {when && <span className="cc-reqnote__slot-when">{when}</span>}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+      {extra.length > 0 && (
+        <div className="cc-reqnote__row">
+          <span className="cc-reqnote__key">Ghi chú</span>
+          <span className="cc-reqnote__extra">{extra.join(' ')}</span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CenterPage() {
   const navigate = useNavigate();
   const [classes, setClasses] = useState<ClassResponse[]>([]);
@@ -375,9 +471,21 @@ export default function CenterPage() {
   // acceptingRequestId != null -> submit form sẽ gọi acceptClassRequest thay vì createClass.
   const [requests, setRequests] = useState<ClassRequest[]>([]);
   const [acceptingRequestId, setAcceptingRequestId] = useState<string | null>(null);
+  // Đơn ứng tuyển (ngoài đội) theo từng yêu cầu đã đăng tin — để duyệt vào shortlist.
+  const [reqApps, setReqApps] = useState<Record<string, RecruitmentApplication[]>>({});
+  const [postingReqId, setPostingReqId] = useState<string | null>(null);
+  const [decidingAppId, setDecidingAppId] = useState<number | null>(null);
+  // Đơn đang mở xem hồ sơ + xem trước file chứng chỉ.
+  const [certsOpenId, setCertsOpenId] = useState<number | null>(null);
+  const [certPreview, setCertPreview] = useState<{ src: string; fileName: string } | null>(null);
+  // Xác nhận "không tìm được gia sư" (đóng yêu cầu + báo phụ huynh) — inline, không dùng popup trình duyệt.
+  const [giveUpId, setGiveUpId] = useState<string | null>(null);
+  const [giveUpBusy, setGiveUpBusy] = useState(false);
 
   // Mẫu hợp đồng (để chọn khi tạo lớp).
   const [templates, setTemplates] = useState<ContractTemplate[]>([]);
+  // Đội gia sư của trung tâm — để đề cử vào shortlist yêu cầu.
+  const [members, setMembers] = useState<CenterMember[]>([]);
 
   const errors = useMemo(() => validateForm(form, editingId == null), [form, editingId]);
   const sessionCount = useMemo(() => countSessions(form), [form]);
@@ -411,7 +519,19 @@ export default function CenterPage() {
       .getContractTemplates()
       .then((res) => setTemplates(res.data))
       .catch(() => setTemplates([]));
+    centerApi
+      .getMembers()
+      .then((res) => setMembers(res.data))
+      .catch(() => setMembers([]));
   }, []);
+
+  // Yêu cầu nào đã đăng tin tuyển -> tải đơn ứng tuyển (ngoài đội) để trung tâm duyệt.
+  useEffect(() => {
+    requests
+      .filter((r) => r.recruitmentPostId != null && r.status === 'SEARCHING')
+      .forEach((r) => loadRequestApplications(r.requestId));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [requests]);
 
   // Tải trạng thái xác minh trung tâm để chặn tạo lớp khi chưa xác minh.
   useEffect(() => {
@@ -454,25 +574,6 @@ export default function CenterPage() {
     setMode('list');
   };
 
-  // Chấp nhận yêu cầu của phụ huynh: mở form tạo lớp (EXTERNAL), điền sẵn nguyện vọng.
-  const acceptRequest = (req: ClassRequest) => {
-    if (verified === false) {
-      goVerify();
-      return;
-    }
-    setAcceptingRequestId(req.requestId);
-    setEditingId(null);
-    setForm({
-      ...EMPTY_FORM,
-      originType: 'EXTERNAL',
-      description: req.note,
-      tuitionFee: req.desiredBudget != null ? String(req.desiredBudget) : '',
-    });
-    setFormError('');
-    setSubmitted(false);
-    setMode('form');
-  };
-
   const rejectRequest = async (req: ClassRequest) => {
     const reason = window.prompt('Lý do từ chối yêu cầu (tuỳ chọn):', '');
     if (reason === null) return; // người dùng bấm Cancel
@@ -491,6 +592,81 @@ export default function CenterPage() {
       reloadRequests();
     } catch (err) {
       setListError(extractError(err, 'Không nhận tìm được yêu cầu.'));
+    }
+  };
+
+  // Đề cử / gỡ gia sư (từ đội) vào shortlist của một yêu cầu.
+  const proposeTutorToRequest = async (requestId: string, tutorId: number) => {
+    if (!tutorId) return;
+    try {
+      await centerApi.proposeTutor(requestId, tutorId);
+      reloadRequests();
+    } catch (err) {
+      setListError(extractError(err, 'Không đề cử được gia sư.'));
+    }
+  };
+  const removeCandidateFromRequest = async (requestId: string, tutorId: number) => {
+    try {
+      await centerApi.removeCandidate(requestId, tutorId);
+      reloadRequests();
+    } catch (err) {
+      setListError(extractError(err, 'Không gỡ được gia sư.'));
+    }
+  };
+
+  // Tải đơn ứng tuyển (ngoài đội) của một yêu cầu đã đăng tin.
+  const loadRequestApplications = (requestId: string) => {
+    centerApi
+      .getRequestApplications(requestId)
+      .then((res) => setReqApps((prev) => ({ ...prev, [requestId]: res.data })))
+      .catch(() => setReqApps((prev) => ({ ...prev, [requestId]: [] })));
+  };
+
+  // Đăng tin tuyển gia sư NGOÀI đội cho yêu cầu (tin hiện ngay ở "Tin tuyển dụng" phía gia sư).
+  const postRecruitment = async (req: ClassRequest) => {
+    setPostingReqId(req.requestId);
+    setListError('');
+    try {
+      await centerApi.postRecruitmentForRequest(req.requestId);
+      reloadRequests();
+    } catch (err) {
+      setListError(extractError(err, 'Không đăng được tin tuyển.'));
+    } finally {
+      setPostingReqId(null);
+    }
+  };
+
+  // Trung tâm không tìm được gia sư -> đóng yêu cầu + hệ thống báo cho phụ huynh.
+  const giveUpRequest = async (req: ClassRequest) => {
+    setGiveUpBusy(true);
+    setListError('');
+    try {
+      await centerApi.giveUpClassRequest(req.requestId, '');
+      setGiveUpId(null);
+      reloadRequests();
+    } catch (err) {
+      setListError(extractError(err, 'Không đóng được yêu cầu.'));
+    } finally {
+      setGiveUpBusy(false);
+    }
+  };
+
+  // Duyệt đơn ngoài đội: đồng ý -> đưa gia sư vào shortlist; bỏ qua -> loại đơn.
+  const decideRequestApplication = async (
+    requestId: string,
+    appId: number,
+    approve: boolean,
+  ) => {
+    setDecidingAppId(appId);
+    setListError('');
+    try {
+      await centerApi.decideApplication(appId, approve);
+      loadRequestApplications(requestId);
+      reloadRequests();
+    } catch (err) {
+      setListError(extractError(err, 'Không xử lý được đơn ứng tuyển.'));
+    } finally {
+      setDecidingAppId(null);
     }
   };
 
@@ -839,49 +1015,289 @@ export default function CenterPage() {
                   .filter((r) => r.status === 'PENDING' || r.status === 'SEARCHING')
                   .map((r) => (
                     <div className="cc-request" key={r.requestId}>
-                      <div className="cc-request__main">
-                        <p className="cc-request__note">
-                          {r.status === 'SEARCHING' && (
-                            <span className="cc-chip" style={{ marginRight: 8 }}>
-                              🔎 Đang tìm gia sư
-                            </span>
-                          )}
-                          {r.note}
-                        </p>
-                        <span className="cc-request__meta">
-                          Phụ huynh: {r.clientName ?? '—'}
-                          {r.categoryName && ` · Môn: ${r.categoryName}`}
-                          {r.desiredBudget != null &&
-                            ` · Ngân sách: ${formatCurrency(r.desiredBudget)}đ`}
-                          {r.detailsJson && ' · (có thông tin chi tiết)'}
+                      {/* Đầu thẻ: trạng thái + tóm tắt yêu cầu */}
+                      <div className="cc-request__head">
+                        <span className={`cc-req-status cc-req-status--${r.status.toLowerCase()}`}>
+                          {r.status === 'SEARCHING' ? '🔎 Đang tìm gia sư' : '🕒 Chờ nhận'}
                         </span>
-                      </div>
-                      <div className="cc-request__actions">
-                        {r.status === 'PENDING' ? (
-                          <button
-                            className="cc-btn cc-btn--primary cc-btn--sm"
-                            type="button"
-                            onClick={() => startSearchRequest(r)}
-                          >
-                            Nhận tìm
-                          </button>
-                        ) : (
-                          // SEARCHING: tạm dùng luồng tạo lớp cũ cho tới khi có shortlist (Phase 2).
-                          <button
-                            className="cc-btn cc-btn--primary cc-btn--sm"
-                            type="button"
-                            onClick={() => acceptRequest(r)}
-                          >
-                            Tạo lớp từ yêu cầu
-                          </button>
+                        {r.detailsJson && (
+                          <span className="cc-req-tag">Có thông tin chi tiết</span>
                         )}
-                        <button
-                          className="cc-btn cc-btn--ghost cc-btn--sm"
-                          type="button"
-                          onClick={() => rejectRequest(r)}
-                        >
-                          Từ chối
-                        </button>
+                      </div>
+                      <RequestNote note={r.note} />
+                      <div className="cc-request__meta">
+                        <span>👤 {r.clientName ?? '—'}</span>
+                        {r.categoryName && <span>📚 {r.categoryName}</span>}
+                        {r.desiredBudget != null && (
+                          <span>💰 {formatCurrency(r.desiredBudget)}đ</span>
+                        )}
+                      </div>
+
+                      {r.status === 'SEARCHING' && (
+                        <div className="cc-req-sources">
+                          {/* Nguồn 1: gia sư trong đội */}
+                          <section className="cc-req-sec">
+                            <div className="cc-req-sec__head">
+                              <span className="cc-req-sec__label">👥 Từ đội của bạn</span>
+                              <span className="cc-req-sec__hint">
+                                Đề cử {r.candidates?.length ?? 0} — phụ huynh chọn 1
+                              </span>
+                            </div>
+                            <div className="cc-req-sec__body">
+                              {r.candidates && r.candidates.length > 0 && (
+                                <div className="cc-shortlist__chips">
+                                  {r.candidates.map((c) => (
+                                    <span key={c.tutorId} className="cc-chip cc-shortlist__chip">
+                                      {c.fullName}
+                                      <button
+                                        type="button"
+                                        className="cc-shortlist__x"
+                                        aria-label="Gỡ gia sư"
+                                        onClick={() =>
+                                          removeCandidateFromRequest(r.requestId, c.tutorId)
+                                        }
+                                      >
+                                        ×
+                                      </button>
+                                    </span>
+                                  ))}
+                                </div>
+                              )}
+                              <select
+                                className="cc-input cc-shortlist__pick"
+                                value=""
+                                onChange={(e) => {
+                                  const id = Number(e.target.value);
+                                  if (id) proposeTutorToRequest(r.requestId, id);
+                                }}
+                              >
+                                <option value="">+ Đề cử gia sư từ đội…</option>
+                                {members
+                                  .filter(
+                                    (m) =>
+                                      !(r.candidates ?? []).some((c) => c.tutorId === m.tutorId),
+                                  )
+                                  .map((m) => (
+                                    <option key={m.tutorId} value={m.tutorId}>
+                                      {m.tutorName ?? `Gia sư #${m.tutorId}`}
+                                    </option>
+                                  ))}
+                              </select>
+                            </div>
+                          </section>
+
+                          {/* Nguồn 2: tuyển gia sư ngoài đội qua tin tuyển dụng */}
+                          <section className="cc-req-sec">
+                            <div className="cc-req-sec__head">
+                              <span className="cc-req-sec__label">📣 Tuyển ngoài đội</span>
+                              {r.recruitmentPostId != null && (
+                                <span className="cc-req-sec__hint cc-req-sec__hint--ok">
+                                  Đã đăng tin · {reqApps[r.requestId]?.length ?? 0} đơn
+                                </span>
+                              )}
+                            </div>
+                            <div className="cc-req-sec__body">
+                              {r.recruitmentPostId == null ? (
+                                <button
+                                  type="button"
+                                  className="cc-btn cc-btn--soft cc-btn--sm cc-req-postbtn"
+                                  disabled={postingReqId === r.requestId}
+                                  onClick={() => postRecruitment(r)}
+                                >
+                                  {postingReqId === r.requestId
+                                    ? 'Đang đăng…'
+                                    : '＋ Đăng tin tuyển gia sư'}
+                                </button>
+                              ) : (reqApps[r.requestId]?.length ?? 0) === 0 ? (
+                                <span className="cc-shortlist__empty">
+                                  Chưa có gia sư ngoài đội ứng tuyển.
+                                </span>
+                              ) : (
+                                <div className="cc-reqrecruit__apps">
+                                  {reqApps[r.requestId]!.map((a) => {
+                                    const open = certsOpenId === a.recruitmentAppId;
+                                    const certCount = a.certificates?.length ?? 0;
+                                    return (
+                                      <div key={a.recruitmentAppId} className="cc-reqapp">
+                                        <div className="cc-reqapp__top">
+                                          <div className="cc-reqapp__id">
+                                            <span className="cc-reqapp__name">
+                                              {a.tutorName ?? `Gia sư #${a.tutorId}`}
+                                            </span>
+                                            {a.verificationStatus === 'VERIFIED' && (
+                                              <span className="cc-reqapp__verified">
+                                                ✓ Đã xác minh
+                                              </span>
+                                            )}
+                                          </div>
+                                          <button
+                                            type="button"
+                                            className="cc-btn cc-btn--ghost cc-btn--sm"
+                                            aria-expanded={open}
+                                            onClick={() =>
+                                              setCertsOpenId(open ? null : a.recruitmentAppId)
+                                            }
+                                          >
+                                            {open
+                                              ? 'Ẩn hồ sơ ▲'
+                                              : `Xem hồ sơ${certCount ? ` · ${certCount} chứng chỉ` : ''} ▼`}
+                                          </button>
+                                        </div>
+                                        <div className="cc-reqapp__meta">
+                                          {a.experienceYears != null && (
+                                            <span>🎓 {a.experienceYears} năm KN</span>
+                                          )}
+                                          {a.ratingAvg != null && <span>★ {a.ratingAvg}</span>}
+                                          {a.tutorPhone && <span>📞 {a.tutorPhone}</span>}
+                                        </div>
+
+                                        {open && (
+                                          <div className="cc-reqapp__detail">
+                                            {a.coverLetter && (
+                                              <p className="cc-reqapp__letter">“{a.coverLetter}”</p>
+                                            )}
+                                            {certCount > 0 ? (
+                                              <div className="cc-reqapp__certs">
+                                                <span className="cc-reqapp__certs-label">
+                                                  📜 Bằng cấp / chứng chỉ đã xác minh
+                                                </span>
+                                                <ul className="cc-reqapp__certs-list">
+                                                  {a.certificates!.map((cert) => (
+                                                    <li key={cert.fileUrl}>
+                                                      <button
+                                                        type="button"
+                                                        className="cc-reqapp__cert"
+                                                        onClick={() =>
+                                                          setCertPreview({
+                                                            src: cert.fileUrl,
+                                                            fileName: cert.fileName,
+                                                          })
+                                                        }
+                                                      >
+                                                        {cert.mimeType?.startsWith('image/')
+                                                          ? '🖼️'
+                                                          : '📄'}{' '}
+                                                        {cert.fileName}
+                                                      </button>
+                                                    </li>
+                                                  ))}
+                                                </ul>
+                                              </div>
+                                            ) : (
+                                              <span className="cc-shortlist__empty">
+                                                Gia sư chưa có chứng chỉ đã xác minh.
+                                              </span>
+                                            )}
+                                          </div>
+                                        )}
+
+                                        <div className="cc-reqapp__foot">
+                                          {a.status === 'APPLIED' ? (
+                                            <>
+                                              <button
+                                                type="button"
+                                                className="cc-btn cc-btn--ghost cc-btn--sm"
+                                                disabled={decidingAppId === a.recruitmentAppId}
+                                                onClick={() =>
+                                                  decideRequestApplication(
+                                                    r.requestId,
+                                                    a.recruitmentAppId,
+                                                    false,
+                                                  )
+                                                }
+                                              >
+                                                Bỏ qua
+                                              </button>
+                                              <button
+                                                type="button"
+                                                className="cc-btn cc-btn--primary cc-btn--sm"
+                                                disabled={decidingAppId === a.recruitmentAppId}
+                                                onClick={() =>
+                                                  decideRequestApplication(
+                                                    r.requestId,
+                                                    a.recruitmentAppId,
+                                                    true,
+                                                  )
+                                                }
+                                              >
+                                                Duyệt vào danh sách
+                                              </button>
+                                            </>
+                                          ) : (
+                                            <span className="cc-chip">
+                                              {a.status === 'PASSED'
+                                                ? 'Đã duyệt vào danh sách'
+                                                : a.status === 'REJECTED'
+                                                  ? 'Đã bỏ qua'
+                                                  : a.status}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          </section>
+                        </div>
+                      )}
+
+                      {/* Chân thẻ: hành động */}
+                      <div className="cc-request__foot">
+                        {giveUpId === r.requestId ? (
+                          <div className="cc-giveup">
+                            <span className="cc-giveup__text">
+                              Đóng yêu cầu và báo cho phụ huynh?
+                            </span>
+                            <div className="cc-giveup__btns">
+                              <button
+                                className="cc-btn cc-btn--ghost cc-btn--sm"
+                                type="button"
+                                disabled={giveUpBusy}
+                                onClick={() => setGiveUpId(null)}
+                              >
+                                Huỷ
+                              </button>
+                              <button
+                                className="cc-btn cc-btn--danger cc-btn--sm"
+                                type="button"
+                                disabled={giveUpBusy}
+                                onClick={() => giveUpRequest(r)}
+                              >
+                                {giveUpBusy ? 'Đang đóng…' : 'Xác nhận đóng'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <>
+                            {r.status === 'PENDING' && (
+                              <button
+                                className="cc-btn cc-btn--primary cc-btn--sm"
+                                type="button"
+                                onClick={() => startSearchRequest(r)}
+                              >
+                                Nhận tìm
+                              </button>
+                            )}
+                            {r.status === 'SEARCHING' && (
+                              <button
+                                className="cc-btn cc-btn--ghost cc-btn--sm"
+                                type="button"
+                                onClick={() => setGiveUpId(r.requestId)}
+                              >
+                                Không tìm được gia sư
+                              </button>
+                            )}
+                            <button
+                              className="cc-btn cc-btn--ghost cc-btn--sm cc-btn--danger-text"
+                              type="button"
+                              onClick={() => rejectRequest(r)}
+                            >
+                              Từ chối
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -1739,6 +2155,13 @@ export default function CenterPage() {
           </div>
         </div>
       )}
+
+      <FilePreviewModal
+        src={certPreview?.src ?? ''}
+        fileName={certPreview?.fileName ?? ''}
+        isOpen={certPreview !== null}
+        onClose={() => setCertPreview(null)}
+      />
       </div>
       </div>
     </>

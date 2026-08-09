@@ -165,6 +165,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final ContractService contractService;
     private final EmailOtpRepository emailOtpRepository;
     private final com.tcs.module.notification.service.EmailService contractEmailService;
+    private final org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     private static final SecureRandom SIGN_OTP_RANDOM = new SecureRandom();
@@ -2473,6 +2474,67 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return classRequestStore.findByClient(userId).stream()
                 .map(classRequestStore::toResponse)
                 .toList();
+    }
+
+    // ObjectMapper riêng để đọc payload form "tìm gia sư" (có LocalDate) từ detailsJson.
+    private static final com.fasterxml.jackson.databind.ObjectMapper REQUEST_DETAILS_MAPPER =
+            new com.fasterxml.jackson.databind.ObjectMapper()
+                    .registerModule(new com.fasterxml.jackson.datatype.jsr310.JavaTimeModule())
+                    .configure(
+                            com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES,
+                            false);
+
+    @Override
+    @Transactional
+    public ClassResponse fulfillClassRequest(String requestId, Long tutorId) {
+        User creator = requireUser();
+        requireClient(creator.getUserId());
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu"));
+        if (!creator.getUserId().equals(data.clientUserId())) {
+            throw new ForbiddenException("Không có quyền với yêu cầu này");
+        }
+        if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này đã hoàn tất.");
+        }
+        if (!classRequestStore.candidatesOf(data).contains(tutorId)) {
+            throw new IllegalArgumentException("Gia sư này không nằm trong danh sách trung tâm đề cử.");
+        }
+        if (!StringUtils.hasText(data.detailsJson())) {
+            throw new IllegalArgumentException("Yêu cầu thiếu thông tin lớp để tạo.");
+        }
+        CreateClassRequest req;
+        try {
+            req = REQUEST_DETAILS_MAPPER.readValue(data.detailsJson(), CreateClassRequest.class);
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Không đọc được thông tin yêu cầu.");
+        }
+        // 1) Tạo lớp private của phụ huynh từ nội dung yêu cầu (createClass owner = phụ huynh).
+        ClassResponse created = createClass(req);
+        Long classId = created.getClassId();
+        // 2) Mở lớp để có thể chọn gia sư.
+        TutoringClass cls = tutoringClassRepository.findById(classId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp vừa tạo"));
+        cls.setStatus(TutoringClassStatus.OPEN);
+        tutoringClassRepository.save(cls);
+        // 3) Tạo đơn ứng tuyển cho gia sư được chọn.
+        Tutor tutor = tutorRepository.findById(tutorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
+        TutorApplication app = new TutorApplication();
+        app.setTutoringClass(cls);
+        app.setTutor(tutor);
+        app.setStatus(TutorApplicationStatus.SUBMITTED);
+        app.setAppliedAt(LocalDateTime.now());
+        TutorApplication savedApp = tutorApplicationRepository.save(app);
+        // 4) Chọn gia sư -> assignment PENDING + thông báo cho gia sư (tái dùng chooseApplicant).
+        chooseApplicant(classId, savedApp.getApplicationId());
+        // 5) Đánh dấu yêu cầu hoàn tất.
+        classRequestStore.save(
+                classRequestStore.withStatus(data, ClassRequestStore.STATUS_ACCEPTED, null));
+        // 6) Đóng tin tuyển dụng đã đăng cho yêu cầu này (nếu có) — module center lắng nghe.
+        eventPublisher.publishEvent(
+                new com.tcs.common.event.ClassRequestFulfilled(requestId));
+        return getClass(classId, null, null);
     }
 
     @Override

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { SiteFooter } from '../components/SiteFooter';
@@ -8,61 +8,33 @@ import { APP_ROUTES } from '../../../shared/constants/routes';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import type {
   CenterSummary,
-  ClassRequest,
   ClassRequestPayload,
 } from '../../marketplace/types/marketplaceTypes';
 import { ClassRequestForm } from '../../marketplace/components/ClassRequestForm';
 import { emptyForm } from '../../marketplace/mappers/marketplaceMapper';
 import { profileApi } from '../../profile/api/profileApi';
-import { useOpenRecruitmentPosts } from '../hooks/useOpenRecruitmentPosts';
 import { useTutorRequestForm } from '../hooks/useTutorRequestForm';
 import './HomePage.css';
 import './CentersRequest.css';
-
-const currency = (value: number) =>
-  new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(value);
 
 function extractError(error: unknown, fallback: string): string {
   const e = error as { response?: { data?: { message?: string } } };
   return e?.response?.data?.message ?? fallback;
 }
 
-const STATUS_LABEL: Record<ClassRequest['status'], string> = {
-  PENDING: 'Đang chờ',
-  SEARCHING: 'Đang tìm gia sư',
-  ACCEPTED: 'Đã chấp nhận',
-  REJECTED: 'Đã từ chối',
-};
-const STATUS_CLASS: Record<ClassRequest['status'], string> = {
-  PENDING: 'cr-badge cr-badge--pending',
-  SEARCHING: 'cr-badge cr-badge--pending',
-  ACCEPTED: 'cr-badge cr-badge--accepted',
-  REJECTED: 'cr-badge cr-badge--rejected',
-};
-
 /**
  * Trang "Trung tâm":
  * - Mọi người: danh sách trung tâm đã xác minh.
- * - Gia sư: tin tuyển dụng đang mở.
  * - Phụ huynh (CLIENT): gửi yêu cầu mở lớp tới một trung tâm + theo dõi yêu cầu đã gửi.
+ *
+ * Gia sư xem/ứng tuyển tin tuyển dụng ở trang "Tin tuyển dụng" riêng (không lặp ở đây).
  */
 export default function CentersPage() {
   const { user } = useAuth();
-  const isTutor = hasRole(user?.role, 'TUTOR');
   const isClient = hasRole(user?.role, 'CLIENT');
-  const { status: postsStatus, posts, reload: reloadPosts } = useOpenRecruitmentPosts(isTutor);
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [centersLoading, setCentersLoading] = useState(true);
-
-  const [myRequests, setMyRequests] = useState<ClassRequest[]>([]);
-  const reloadRequests = useCallback(() => {
-    if (!isClient) return;
-    marketplaceApi
-      .getMyClassRequests()
-      .then((res) => setMyRequests(res.data))
-      .catch(() => setMyRequests([]));
-  }, [isClient]);
 
   useEffect(() => {
     marketplaceApi
@@ -72,10 +44,6 @@ export default function CentersPage() {
       .finally(() => setCentersLoading(false));
   }, []);
 
-  useEffect(() => {
-    reloadRequests();
-  }, [reloadRequests]);
-
   // ----- Modal gửi yêu cầu (dùng lại form "tìm gia sư" cho rõ ràng) -----
   const { subjects, grades } = useTutorRequestForm();
   const [target, setTarget] = useState<CenterSummary | null>(null);
@@ -83,6 +51,8 @@ export default function CentersPage() {
   const [modalError, setModalError] = useState('');
   // Chỉ phụ huynh đã nhập đủ CCCD mới được gửi yêu cầu.
   const [cccdComplete, setCccdComplete] = useState<boolean | null>(null);
+  // Thông báo thành công (toast trong app, không dùng alert trình duyệt).
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     if (!isClient) return;
@@ -112,7 +82,8 @@ export default function CentersPage() {
         detailsJson: JSON.stringify(payload),
       });
       setTarget(null);
-      reloadRequests();
+      setNotice('Đã gửi yêu cầu nhờ trung tâm tìm gia sư. Theo dõi ở trang “Yêu cầu của tôi”.');
+      window.setTimeout(() => setNotice(''), 6000);
     } catch (err) {
       setModalError(extractError(err, 'Không gửi được yêu cầu.'));
     } finally {
@@ -120,18 +91,26 @@ export default function CentersPage() {
     }
   };
 
-  const cancelRequest = async (requestId: string) => {
-    try {
-      await marketplaceApi.cancelClassRequest(requestId);
-      reloadRequests();
-    } catch (err) {
-      alert(extractError(err, 'Không hủy được yêu cầu.'));
-    }
-  };
-
   return (
     <div className="tcs-page">
       <HomeNavbar />
+      {notice && (
+        <div className="cr-toast" role="status">
+          <span className="cr-toast__icon" aria-hidden="true">✓</span>
+          <span className="cr-toast__msg">{notice}</span>
+          <Link className="cr-toast__link" to={APP_ROUTES.marketplace}>
+            Xem
+          </Link>
+          <button
+            type="button"
+            className="cr-toast__x"
+            aria-label="Đóng thông báo"
+            onClick={() => setNotice('')}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <main>
         <section className="tcs-section tcs-section--centers">
           <div className="tcs-container">
@@ -143,111 +122,6 @@ export default function CentersPage() {
                 </p>
               </div>
             </div>
-
-            {/* Gia sư: tin tuyển dụng đang mở từ các trung tâm. */}
-            {isTutor && (
-              <div className="tcs-recruit">
-                <div className="tcs-section-bar">
-                  <div>
-                    <h2 className="tcs-recruit__title">Tin tuyển gia sư</h2>
-                    <p className="tcs-section-bar__subtitle">
-                      Các trung tâm đang tuyển — xem chi tiết và gửi đơn ứng tuyển.
-                    </p>
-                  </div>
-                  {postsStatus === 'success' && posts.length > 0 ? (
-                    <Link className="tcs-btn tcs-btn--ghost tcs-btn--sm" to={APP_ROUTES.recruitment}>
-                      Xem tất cả ({posts.length})
-                    </Link>
-                  ) : null}
-                </div>
-
-                {postsStatus === 'loading' && (
-                  <div className="tcs-search-results__state">
-                    <span className="tcs-spinner" aria-hidden="true" />
-                    Đang tải tin tuyển dụng...
-                  </div>
-                )}
-                {postsStatus === 'error' && (
-                  <div className="tcs-search-results__state tcs-search-results__state--error">
-                    Không thể tải tin tuyển dụng.
-                    <button
-                      type="button"
-                      className="tcs-btn tcs-btn--ghost tcs-btn--sm"
-                      onClick={reloadPosts}
-                    >
-                      Thử lại
-                    </button>
-                  </div>
-                )}
-                {postsStatus === 'success' && posts.length === 0 && (
-                  <p className="tcs-empty">Hiện chưa có tin tuyển gia sư nào đang mở.</p>
-                )}
-                {postsStatus === 'success' && posts.length > 0 && (
-                  <div className="tcs-recruit__grid">
-                    {posts.map((post) => (
-                      <article key={post.recruitmentId} className="tcs-recruit-card">
-                        <h3 className="tcs-recruit-card__title">{post.title}</h3>
-                        <div className="tcs-recruit-card__chips">
-                          {post.centerName && <span className="tcs-chip">🏫 {post.centerName}</span>}
-                          {post.subjectName && (
-                            <span className="tcs-chip">📘 {post.subjectName}</span>
-                          )}
-                          {post.locationLabel && (
-                            <span className="tcs-chip">📍 {post.locationLabel}</span>
-                          )}
-                          <span className="tcs-chip">👤 {post.maxPositions} vị trí</span>
-                        </div>
-                        <p className="tcs-recruit-card__desc">{post.description}</p>
-                        <Link
-                          className="tcs-btn tcs-btn--market tcs-btn--sm"
-                          to={APP_ROUTES.recruitment}
-                        >
-                          Ứng tuyển
-                        </Link>
-                      </article>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Phụ huynh: yêu cầu mở lớp đã gửi. */}
-            {isClient && myRequests.length > 0 && (
-              <div className="tcs-recruit">
-                <div className="tcs-section-bar">
-                  <div>
-                    <h2 className="tcs-recruit__title">Yêu cầu mở lớp của tôi</h2>
-                    <p className="tcs-section-bar__subtitle">
-                      Theo dõi trạng thái các yêu cầu bạn đã gửi tới trung tâm.
-                    </p>
-                  </div>
-                </div>
-                <div className="cr-req-list">
-                  {myRequests.map((r) => (
-                    <div key={r.requestId} className="cr-req">
-                      <div className="cr-req__main">
-                        <p className="cr-req__note">{r.note}</p>
-                        <span className="cr-req__meta">
-                          Gửi tới: {r.centerName ?? '—'}
-                          {r.desiredBudget != null && ` · Ngân sách: ${currency(r.desiredBudget)}đ`}
-                          {r.status === 'REJECTED' && r.reason && ` · Lý do: ${r.reason}`}
-                        </span>
-                      </div>
-                      <span className={STATUS_CLASS[r.status]}>{STATUS_LABEL[r.status]}</span>
-                      {r.status === 'PENDING' && (
-                        <button
-                          type="button"
-                          className="tcs-btn tcs-btn--ghost tcs-btn--sm"
-                          onClick={() => cancelRequest(r.requestId)}
-                        >
-                          Hủy
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Danh sách trung tâm đã xác minh (thật). */}
             <div className="tcs-section-bar">

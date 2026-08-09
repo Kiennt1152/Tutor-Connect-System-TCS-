@@ -135,11 +135,27 @@ public interface CenterService {
     /** Trung tâm nhận tìm gia sư cho yêu cầu (chuyển sang trạng thái ĐANG TÌM). */
     void startSearch(String requestId);
 
+    /** Trung tâm đề cử một gia sư (thuộc đội) vào shortlist của yêu cầu. */
+    void proposeTutor(String requestId, Long tutorId);
+
+    /** Trung tâm gỡ một gia sư khỏi shortlist của yêu cầu. */
+    void removeCandidate(String requestId, Long tutorId);
+
+    /** Đăng tin tuyển gia sư NGOÀI đội cho yêu cầu (tin ACTIVE, mọi gia sư ứng tuyển được). */
+    ClassRequestResponse postRecruitmentForRequest(String requestId);
+
+    /** Danh sách đơn ứng tuyển vào tin tuyển đã đăng cho yêu cầu (để duyệt vào shortlist). */
+    List<com.tcs.module.center.dto.response.RecruitmentApplicationResponse>
+            listRequestApplications(String requestId);
+
     /** Trung tâm chấp nhận yêu cầu: bổ sung chi tiết và tạo lớp EXTERNAL từ yêu cầu đó. */
     CenterClassResponse acceptClassRequest(String requestId, SaveClassRequest body);
 
     /** Trung tâm từ chối yêu cầu, kèm lý do. */
     void rejectClassRequest(String requestId, String reason);
+
+    /** Trung tâm không tìm được gia sư -> đóng yêu cầu + thông báo cho phụ huynh. */
+    void giveUpClassRequest(String requestId, String reason);
 
     // ===== Quản lý mẫu hợp đồng =====
 

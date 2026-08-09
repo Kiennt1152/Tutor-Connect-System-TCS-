@@ -350,6 +350,24 @@ export interface CenterSummary {
 
 export type ClassRequestStatus = 'PENDING' | 'SEARCHING' | 'ACCEPTED' | 'REJECTED';
 
+/** Bằng cấp / chứng chỉ đã xác minh của gia sư (để phụ huynh xem trước khi chọn). */
+export interface CandidateCertificate {
+  documentType: string | null;
+  fileName: string;
+  fileUrl: string;
+  mimeType: string | null;
+  fileSize: number | null;
+}
+
+/** Gia sư trung tâm đề cử cho một yêu cầu (shortlist). */
+export interface CandidateTutor {
+  tutorId: number;
+  fullName: string;
+  experienceYears: number | null;
+  ratingAvg: number | null;
+  certificates?: CandidateCertificate[];
+}
+
 /** Yêu cầu mở lớp phụ huynh gửi tới một trung tâm. */
 export interface ClassRequest {
   requestId: string;
@@ -366,6 +384,10 @@ export interface ClassRequest {
   createdAt: string;
   /** Nguyên payload form "tìm gia sư" (JSON) để trung tâm xem chi tiết. */
   detailsJson: string | null;
+  /** Gia sư trung tâm đề cử để phụ huynh chọn. */
+  candidates: CandidateTutor[];
+  /** Tin tuyển dụng trung tâm đã đăng cho yêu cầu này (null = chưa đăng). */
+  recruitmentPostId: number | null;
 }
 
 export interface CreateClassRequestPayload {
