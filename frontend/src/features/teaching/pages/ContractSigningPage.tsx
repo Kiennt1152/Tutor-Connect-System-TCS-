@@ -2,6 +2,9 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { SiteHeader } from '../../home/components/SiteHeader';
+import { contractApi } from '../../contract/api/contractApi';
+import { BankPickerDialog, BankSelectField, findBankByName } from '../../finance/components/BankPicker';
+import '../../finance/FinancePage.css';
 import { teachingApi } from '../api/teachingApi';
 import type { ContractView } from '../types/teachingTypes';
 import type {
@@ -115,6 +118,12 @@ export default function ContractSigningPage() {
     tone: 'success' | 'warning' | 'error';
     message: string;
   } | null>(null);
+  const [payoutBankName, setPayoutBankName] = useState('');
+  const [payoutAccountNo, setPayoutAccountNo] = useState('');
+  const [payoutAccountHolder, setPayoutAccountHolder] = useState('');
+  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
+  const [savingPayout, setSavingPayout] = useState(false);
+  const [payoutMessage, setPayoutMessage] = useState('');
   const today = new Date();
 
   useEffect(() => {
@@ -142,6 +151,20 @@ export default function ContractSigningPage() {
         setStatus('error');
       });
   }, [assignmentId]);
+
+  useEffect(() => {
+    if (!contract) return;
+    setPayoutMessage('');
+    if (contract.refundPayoutInfo) {
+      setPayoutBankName(contract.refundPayoutInfo.bankName ?? '');
+      setPayoutAccountHolder(contract.refundPayoutInfo.accountHolderName ?? '');
+      setPayoutAccountNo('');
+      return;
+    }
+    setPayoutBankName('');
+    setPayoutAccountHolder('');
+    setPayoutAccountNo('');
+  }, [contract]);
 
   const form = useMemo(
     () => (contract?.detailsJson ? classToForm({ detailsJson: contract.detailsJson } as never) : null),
@@ -178,6 +201,7 @@ export default function ContractSigningPage() {
 
   const combinedTermsLines = [...DEFAULT_TERMS_B_LINES, ...termsLines(extraTermsText)];
   const combinedTermsB = combinedTermsLines.join('\n');
+  const selectedPayoutBank = findBankByName(payoutBankName);
 
   const showPaymentToast = (tone: 'success' | 'warning' | 'error', message: string, autoClose = true) => {
     setPaymentToast({ tone, message });
@@ -213,6 +237,32 @@ export default function ContractSigningPage() {
       setCheckingPaymentStatus(false);
     }
   };
+
+  async function handleSaveRefundPayout() {
+    if (!contract?.contractId) return;
+    const normalizedAccountNo = payoutAccountNo.trim().replace(/\s+/g, '');
+    if (!payoutBankName.trim() || !normalizedAccountNo || !payoutAccountHolder.trim()) {
+      setPayoutMessage('Vui lòng chọn ngân hàng, nhập số tài khoản và tên chủ tài khoản.');
+      return;
+    }
+
+    setSavingPayout(true);
+    setPayoutMessage('');
+    try {
+      await contractApi.saveRefundPayoutInfo(contract.contractId, {
+        bankName: payoutBankName.trim(),
+        accountNo: normalizedAccountNo,
+        accountHolderName: payoutAccountHolder.trim(),
+      });
+      const latest = await teachingApi.getAssignmentContract(assignmentId);
+      setContract(latest);
+      setPayoutMessage('Đã lưu thông tin nhận hoàn tiền.');
+    } catch (err) {
+      setPayoutMessage(extractError(err));
+    } finally {
+      setSavingPayout(false);
+    }
+  }
 
   async function handleSaveTerms() {
     if (!contract) return;
@@ -572,89 +622,158 @@ export default function ContractSigningPage() {
               </div>
 
               {bothSigned && visibleEscrowPayment ? (
-                <div className="ksign-card ksign-paycard">
-                  <div className="ksign-paycard__head">
-                    <h3>Quét mã để thanh toán</h3>
-                    {escrowStatus ? (
-                      <span className={`ksign-status ${escrowStatus.cls}`}>{escrowStatus.label}</span>
-                    ) : null}
-                  </div>
-
-                  <div className="ksign-escrow">
-                    {visibleEscrowPayment.qrUrl ? (
-                      <div className="ksign-escrow__qr">
-                        <img src={visibleEscrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
+                contract.refundPayoutInfo == null && isClient ? (
+                  <div className="ksign-card ksign-paycard">
+                    <div className="ksign-paycard__head">
+                      <h3>Thông tin nhận hoàn tiền</h3>
+                      {escrowStatus ? (
+                        <span className={`ksign-status ${escrowStatus.cls}`}>{escrowStatus.label}</span>
+                      ) : null}
+                    </div>
+                    <div className="ksign-payout">
+                      <p className="ksign-payout__intro">
+                        Vui lòng nhập tài khoản thụ hưởng của quý khách để phục vụ xử lý các nhu cầu phát sinh.
+                      </p>
+                      {payoutMessage ? <div className="ksign-alert ksign-alert--err">{payoutMessage}</div> : null}
+                      <div className="ksign-payout__field">
+                        <span>Ngân hàng nhận hoàn tiền</span>
+                        <BankSelectField
+                          id="contract-refund-payout-bank"
+                          selectedBank={selectedPayoutBank}
+                          onOpen={() => setPayoutDialogOpen(true)}
+                        />
                       </div>
-                    ) : null}
-
-                    <div className="ksign-escrow__details">
-                      <div className="ksign-escrow__row">
-                        <span>Số tiền</span>
-                        <strong>{currency.format(Number(visibleEscrowPayment.amount ?? 0))} đồng</strong>
-                      </div>
-                      <div className="ksign-escrow__row">
-                        <span>Ngân hàng</span>
-                        <strong>{visibleEscrowPayment.bankName ?? '—'}</strong>
-                      </div>
-                      <div className="ksign-escrow__row">
+                      <label className="ksign-payout__field">
+                        <span>Tên chủ tài khoản</span>
+                        <input
+                          className="ksign-payout__input"
+                          type="text"
+                          value={payoutAccountHolder}
+                          onChange={(event) => setPayoutAccountHolder(event.target.value)}
+                          placeholder="Nhập tên chủ tài khoản"
+                        />
+                      </label>
+                      <label className="ksign-payout__field">
                         <span>Số tài khoản</span>
-                        <strong>{visibleEscrowPayment.accountNumber ?? '—'}</strong>
-                      </div>
-                      <div className="ksign-escrow__row">
-                        <span>Chủ tài khoản</span>
-                        <strong>{visibleEscrowPayment.accountName ?? '—'}</strong>
-                      </div>
-                      <div className="ksign-escrow__code">
-                        <span>Nội dung chuyển khoản</span>
-                        <div>
-                          <code>
-                            {visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode ?? '—'}
-                          </code>
+                        <input
+                          className="ksign-payout__input"
+                          type="text"
+                          inputMode="numeric"
+                          value={payoutAccountNo}
+                          onChange={(event) => setPayoutAccountNo(event.target.value.replace(/\s+/g, ''))}
+                          placeholder="Nhập số tài khoản"
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="ksign-btn ksign-btn--primary ksign-btn--block"
+                        onClick={handleSaveRefundPayout}
+                        disabled={savingPayout}
+                      >
+                        {savingPayout ? 'Đang lưu...' : 'Lưu thông tin & tiếp tục'}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="ksign-card ksign-paycard">
+                    <div className="ksign-paycard__head">
+                      <h3>Quét mã để thanh toán</h3>
+                      {escrowStatus ? (
+                        <span className={`ksign-status ${escrowStatus.cls}`}>{escrowStatus.label}</span>
+                      ) : null}
+                    </div>
+
+                    <div className="ksign-escrow">
+                      {visibleEscrowPayment.qrUrl ? (
+                        <div className="ksign-escrow__qr">
+                          <img src={visibleEscrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
+                        </div>
+                      ) : null}
+
+                      <div className="ksign-escrow__details">
+                        {contract.refundPayoutInfo ? (
+                          <p className="ksign-escrow__saved-note">
+                            Đã lưu tài khoản nhận hoàn tiền cho hợp đồng này.
+                          </p>
+                        ) : null}
+                        <div className="ksign-escrow__row">
+                          <span>Số tiền</span>
+                          <strong>{currency.format(Number(visibleEscrowPayment.amount ?? 0))} đồng</strong>
+                        </div>
+                        <div className="ksign-escrow__row">
+                          <span>Ngân hàng</span>
+                          <strong>{visibleEscrowPayment.bankName ?? '—'}</strong>
+                        </div>
+                        <div className="ksign-escrow__row">
+                          <span>Số tài khoản</span>
+                          <strong>{visibleEscrowPayment.accountNumber ?? '—'}</strong>
+                        </div>
+                        <div className="ksign-escrow__row">
+                          <span>Chủ tài khoản</span>
+                          <strong>{visibleEscrowPayment.accountName ?? '—'}</strong>
+                        </div>
+                        <div className="ksign-escrow__code">
+                          <span>Nội dung chuyển khoản</span>
+                          <div>
+                            <code>
+                              {visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode ?? '—'}
+                            </code>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                void copyText(
+                                  visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode,
+                                )
+                              }
+                            >
+                              Sao chép
+                            </button>
+                          </div>
+                        </div>
+                        <p className={`ksign-note${escrowPending ? ' ksign-note--pending' : ''}`}>
+                          {escrowPending
+                            ? 'Sau khi SePay xác nhận giao dịch, lớp sẽ được kích hoạt và mã QR sẽ tự ẩn.'
+                            : escrowRetryable
+                              ? `Giao dịch chưa thành công. Trạng thái hiện tại: ${
+                                visibleEscrowPayment.paymentStatus
+                                  ? PAYMENT_STATUS_LABEL[visibleEscrowPayment.paymentStatus] ?? visibleEscrowPayment.paymentStatus
+                                  : '—'
+                              }.`
+                              : `Trạng thái giao dịch: ${
+                                visibleEscrowPayment.paymentStatus
+                                  ? PAYMENT_STATUS_LABEL[visibleEscrowPayment.paymentStatus] ?? visibleEscrowPayment.paymentStatus
+                                  : '—'
+                              }.`}
+                        </p>
+                        <div className="ksign-escrow__actions">
                           <button
                             type="button"
-                            onClick={() =>
-                              void copyText(
-                                visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode,
-                              )
-                            }
+                            className="ksign-btn ksign-btn--primary ksign-btn--block"
+                            onClick={handleCheckEscrowPaymentStatus}
+                            disabled={checkingPaymentStatus || paymentReloading}
                           >
-                            Sao chép
+                            {checkingPaymentStatus || paymentReloading ? 'Đang quét...' : 'Quét trạng thái'}
                           </button>
                         </div>
                       </div>
-                      <p className={`ksign-note${escrowPending ? ' ksign-note--pending' : ''}`}>
-                        {escrowPending
-                          ? 'Sau khi SePay xác nhận giao dịch, lớp sẽ được kích hoạt và mã QR sẽ tự ẩn.'
-                          : escrowRetryable
-                            ? `Giao dịch chưa thành công. Trạng thái hiện tại: ${
-                              visibleEscrowPayment.paymentStatus
-                                ? PAYMENT_STATUS_LABEL[visibleEscrowPayment.paymentStatus] ?? visibleEscrowPayment.paymentStatus
-                                : '—'
-                            }.`
-                            : `Trạng thái giao dịch: ${
-                              visibleEscrowPayment.paymentStatus
-                                ? PAYMENT_STATUS_LABEL[visibleEscrowPayment.paymentStatus] ?? visibleEscrowPayment.paymentStatus
-                                : '—'
-                            }.`}
-                      </p>
-                      <div className="ksign-escrow__actions">
-                        <button
-                          type="button"
-                          className="ksign-btn ksign-btn--primary ksign-btn--block"
-                          onClick={handleCheckEscrowPaymentStatus}
-                          disabled={checkingPaymentStatus || paymentReloading}
-                        >
-                          {checkingPaymentStatus || paymentReloading ? 'Đang quét...' : 'Quét trạng thái'}
-                        </button>
-                      </div>
                     </div>
                   </div>
-                </div>
+                )
               ) : bothSigned ? (
                 <div className="ksign-card ksign-paycard">
                   <p className="ksign-muted">Đang tạo lệnh thanh toán escrow…</p>
                 </div>
               ) : null}
+
+              <BankPickerDialog
+                open={payoutDialogOpen}
+                selectedBankCode={selectedPayoutBank?.code ?? ''}
+                onSelect={(bank) => {
+                  setPayoutBankName(bank.name);
+                  setPayoutDialogOpen(false);
+                }}
+                onClose={() => setPayoutDialogOpen(false)}
+              />
 
               {paymentToast ? (
                 <div className={`ksign-toast ksign-toast--${paymentToast.tone}`} role="status">

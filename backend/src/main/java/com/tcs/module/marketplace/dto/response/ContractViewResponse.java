@@ -11,6 +11,7 @@ import lombok.Getter;
 @Builder
 public class ContractViewResponse {
 
+    private Long contractId;
     private Long assignmentId;
     private Long classId;
     private String classTitle;
@@ -41,6 +42,7 @@ public class ContractViewResponse {
     private String paymentMethod;
     private String myRole; // CLIENT | TUTOR
     private ContractResponse.EscrowPaymentInfo escrowPayment;
+    private ContractResponse.RefundPayoutInfoView refundPayoutInfo;
 
     private String termsB;
 }

@@ -218,6 +218,52 @@
   color: #64748b;
   margin-top: 2px;
 }
+.ksign-payout {
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid #d7dfea;
+  border-radius: 10px;
+  background: #f8fbff;
+}
+.ksign-payout__intro {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #33465e;
+}
+.ksign-payout__field {
+  display: block;
+  margin-top: 10px;
+}
+.ksign-payout__field > span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #33465e;
+}
+.ksign-payout__input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 11px 12px;
+  border: 1.5px solid #cfd8e3;
+  border-radius: 10px;
+  font-family: inherit;
+  font-size: 14px;
+  color: #12233b;
+}
+.ksign-payout__input:focus {
+  outline: none;
+  border-color: #1565c0;
+  box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.15);
+}
+.ksign-payout__saved-note {
+  margin: 0 0 10px;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: #e7f6ec;
+  color: #1b7a43;
+  font-size: 13px;
+}
 .ksign-note {
   margin: 12px 0 0;
   font-size: 12px;
@@ -381,6 +427,15 @@
 .ksign-escrow__details {
   flex: 1;
   min-width: 0;
+}
+
+.ksign-escrow__saved-note {
+  margin: 0 0 4px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #e7f6ec;
+  color: #1b7a43;
+  font-size: 12px;
 }
 
 .ksign-escrow__row {

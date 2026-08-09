@@ -5,6 +5,7 @@ import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
 import '../../finance/FinancePage.css';
 import { RefundRequestModal } from '../../marketplace/components/RefundRequestModal';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { contractApi } from '../api/contractApi';
 import { useContractDetail, useSignContract } from '../hooks/useContract';
@@ -87,6 +88,7 @@ const isEscrowPaymentConfirmed = (
 export default function ContractDetailPage() {
   const { contractId } = useParams<{ contractId: string }>();
   const id = Number(contractId);
+  const { user } = useAuth();
 
   const { contract, signatures, loading, error, reload } = useContractDetail();
   const { otpSent, sendingOtp, signing, error: signError, sendOtp, sign } = useSignContract();
@@ -241,6 +243,7 @@ export default function ContractDetailPage() {
 
   const status = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
   const escrowPayment = contract.escrowPayment ?? null;
+  const isClient = user?.role === 'CLIENT';
   const visibleEscrowPayment =
     escrowPayment
     && !isEscrowPaymentConfirmed(escrowPayment.paymentStatus, escrowPayment.escrowStatus)
@@ -264,10 +267,9 @@ export default function ContractDetailPage() {
   const canCreateIssue = contract.classId != null;
   const selectedPayoutBank = findBankByName(payoutBankName);
   const needsRefundPayoutInfo =
-    contract.sourceType === 'CENTER'
-    && contract.classStudentId != null
-    && Boolean(visibleEscrowPayment)
-    && !contract.refundPayoutInfo;
+    Boolean(visibleEscrowPayment)
+    && !contract.refundPayoutInfo
+    && isClient;
   const canRequestRefund = contract.refundAllowed !== false;
   const classDetailUrl = contract.classId
     ? `/marketplace/classes/${contract.classId}${
@@ -465,7 +467,7 @@ export default function ContractDetailPage() {
                   <div className="contract-escrow__details">
                     {contract.refundPayoutInfo ? (
                       <p className="contract-escrow__note">
-                        Đã lưu tài khoản nhận hoàn tiền cho lớp trung tâm.
+                        Đã lưu tài khoản nhận hoàn tiền cho hợp đồng này.
                       </p>
                     ) : null}
                     <div className="contract-escrow__row">

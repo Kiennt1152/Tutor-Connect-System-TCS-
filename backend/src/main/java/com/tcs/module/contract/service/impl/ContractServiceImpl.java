@@ -399,12 +399,6 @@ public class ContractServiceImpl implements ContractService {
         if (!isFullySigned(contractId)) {
             throw new IllegalArgumentException("Vui lòng ký đủ hợp đồng trước khi nhập tài khoản nhận hoàn tiền");
         }
-        ClassStudent classStudent = contract.getClassStudent();
-        if (classStudent == null
-                || classStudent.getTutoringClass() == null
-                || classStudent.getTutoringClass().getClassType() != ClassType.CENTER) {
-            throw new IllegalArgumentException("Thông tin nhận hoàn tiền chỉ áp dụng cho ghi danh lớp trung tâm");
-        }
 
         RefundPayoutInfo payoutInfo = new RefundPayoutInfo(
                 RefundPayoutInfoCodec.normalize(request.getBankName()),
@@ -414,8 +408,20 @@ public class ContractServiceImpl implements ContractService {
             throw new IllegalArgumentException("Vui lòng nhập đầy đủ ngân hàng, số tài khoản và tên chủ tài khoản");
         }
 
-        classStudent.setNotes(RefundPayoutInfoCodec.appendToReason(classStudent.getNotes(), payoutInfo));
-        classStudentRepository.save(classStudent);
+        if (contract.getClassStudent() != null
+                && contract.getClassStudent().getTutoringClass() != null
+                && contract.getClassStudent().getTutoringClass().getClassType() == ClassType.CENTER) {
+            ClassStudent classStudent = contract.getClassStudent();
+            classStudent.setNotes(RefundPayoutInfoCodec.appendToReason(classStudent.getNotes(), payoutInfo));
+            classStudentRepository.save(classStudent);
+        } else if (contract.getAssignment() != null && contract.getSourceType() == ContractSourceType.PRIVATE) {
+            ClassAssignment assignment = contract.getAssignment();
+            assignment.setTermsB(RefundPayoutInfoCodec.appendToReason(assignment.getTermsB(), payoutInfo));
+            classAssignmentRepository.save(assignment);
+        } else {
+            throw new IllegalArgumentException(
+                    "Thông tin nhận hoàn tiền chỉ áp dụng cho hợp đồng lớp private hoặc ghi danh lớp trung tâm");
+        }
         return toContractResponse(contract);
     }
 
@@ -1264,7 +1270,7 @@ public class ContractServiceImpl implements ContractService {
                 .hasAllSignatures(signed >= required);
         RefundPolicy refundPolicy = resolveRefundPolicy(contract);
         builder.escrowPayment(toEscrowPaymentInfo(resolveContractEscrow(contract)))
-                .refundPayoutInfo(toRefundPayoutInfoView(contract.getClassStudent()))
+                .refundPayoutInfo(toRefundPayoutInfoView(contract))
                 .totalSessions(refundPolicy.totalSessions())
                 .completedSessions(refundPolicy.completedSessions())
                 .refundAllowed(refundPolicy.allowed())
@@ -1273,11 +1279,16 @@ public class ContractServiceImpl implements ContractService {
         return builder.build();
     }
 
-    private ContractResponse.RefundPayoutInfoView toRefundPayoutInfoView(ClassStudent classStudent) {
-        if (classStudent == null) {
+    private ContractResponse.RefundPayoutInfoView toRefundPayoutInfoView(Contract contract) {
+        if (contract == null) {
             return null;
         }
-        RefundPayoutInfo payoutInfo = RefundPayoutInfoCodec.parseFromReason(classStudent.getNotes());
+        RefundPayoutInfo payoutInfo = null;
+        if (contract.getClassStudent() != null) {
+            payoutInfo = RefundPayoutInfoCodec.parseFromReason(contract.getClassStudent().getNotes());
+        } else if (contract.getAssignment() != null) {
+            payoutInfo = RefundPayoutInfoCodec.parseFromReason(contract.getAssignment().getTermsB());
+        }
         if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
             return null;
         }

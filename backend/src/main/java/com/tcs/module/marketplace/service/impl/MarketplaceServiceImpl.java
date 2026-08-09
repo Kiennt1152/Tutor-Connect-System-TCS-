@@ -10,6 +10,7 @@ import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.exception.VerificationRequiredException;
 import com.tcs.module.contract.dto.response.ContractResponse;
+import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.finance.dto.EscrowLockCommand;
@@ -754,12 +755,14 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         ClassAssignment assignment = classAssignmentRepository.findById(assignmentId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lời mời nhận lớp"));
         TutoringClass c = requireAssignmentClass(assignment);
+        Contract contract = contractRepository.findByAssignment_AssignmentId(assignmentId).orElse(null);
         String role = contractRoleOf(assignment, c);
         Tutor tutor = assignment.getTutor();
         Client client = clientRepository.findByUser_UserId(c.getCreator().getUserId()).orElse(null);
         CccdInfoDto clientCccd = cccdInfoOf(c.getCreator().getUserId());
         CccdInfoDto tutorCccd = cccdInfoOf(tutor.getUser().getUserId());
         return ContractViewResponse.builder()
+                .contractId(contract != null ? contract.getContractId() : null)
                 .assignmentId(assignment.getAssignmentId())
                 .classId(c.getClassId())
                 .classTitle(c.getTitle())
@@ -792,7 +795,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .paymentMethod(assignment.getPaymentMethod())
                 .myRole(role)
                 .escrowPayment(toEscrowPaymentInfo(resolveAssignmentEscrow(assignment)))
-                .termsB(assignment.getTermsB())
+                .refundPayoutInfo(toRefundPayoutInfoView(contract))
+                .termsB(RefundPayoutInfoCodec.stripFromReason(assignment.getTermsB()))
                 .build();
     }
 
@@ -827,6 +831,25 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .qrUrl(buildEscrowQrUrl(amount, reference))
                 .depositedAt(escrow.getDepositedAt())
                 .processedAt(payment != null ? payment.getProcessedAt() : null)
+                .build();
+    }
+
+    private ContractResponse.RefundPayoutInfoView toRefundPayoutInfoView(Contract contract) {
+        RefundPayoutInfo payoutInfo = null;
+        if (contract != null) {
+            if (contract.getClassStudent() != null) {
+                payoutInfo = RefundPayoutInfoCodec.parseFromReason(contract.getClassStudent().getNotes());
+            } else if (contract.getAssignment() != null) {
+                payoutInfo = RefundPayoutInfoCodec.parseFromReason(contract.getAssignment().getTermsB());
+            }
+        }
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            return null;
+        }
+        return ContractResponse.RefundPayoutInfoView.builder()
+                .bankName(RefundPayoutInfoCodec.normalize(payoutInfo.bankName()))
+                .accountNoMasked(RefundPayoutInfoCodec.maskAccountNo(payoutInfo.accountNo()))
+                .accountHolderName(RefundPayoutInfoCodec.normalize(payoutInfo.accountHolderName()))
                 .build();
     }
 
