@@ -36,6 +36,7 @@ export function HomeNavbar() {
   const showMessaging = hasAnyRole(user?.role, MESSAGING_ROLES);
   const showFeedback = hasRole(user?.role, 'CLIENT');
   const showMyReputation = hasRole(user?.role, 'TUTOR');
+  const showManageClasses = hasRole(user?.role, 'CLIENT');
 
   return (
     <header className="tcs-header">
@@ -43,7 +44,6 @@ export function HomeNavbar() {
         <AppLogo href="/" />
         <nav className="tcs-header__nav">
           <Link to="/#find-tutor">Tìm gia sư</Link>
-          <Link to={APP_ROUTES.classFinder}>Tìm lớp</Link>
           <Link to={APP_ROUTES.findClass}>Tìm lớp (gia sư)</Link>
           <Link to={APP_ROUTES.marketplace}>Marketplace</Link>
           <Link to={centersHref}>Trung tâm</Link>
@@ -80,6 +80,15 @@ export function HomeNavbar() {
                   <Link className="tcs-profile-menu__item" to={profilePath} role="menuitem">
                     Hồ sơ của tôi
                   </Link>
+                  {showManageClasses ? (
+                    <Link
+                      className="tcs-profile-menu__item"
+                      to={APP_ROUTES.marketplace}
+                      role="menuitem"
+                    >
+                      Quản lý lớp của tôi
+                    </Link>
+                  ) : null}
                   {showWallet ? (
                     <Link
                       className="tcs-profile-menu__item"

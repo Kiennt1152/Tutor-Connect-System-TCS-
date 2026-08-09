@@ -7,3 +7,7 @@ postman/
 
 # Cấu hình mail bí mật (App Password) — KHÔNG commit
 secret-mail.properties
+
+# File nguoi dung upload (CCCD, anh ho so...) - KHONG dua len git
+backend/uploads/*
+!backend/uploads/.gitkeep

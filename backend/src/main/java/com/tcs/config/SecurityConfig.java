@@ -145,6 +145,12 @@ public class SecurityConfig {
                                 "/api/marketplace/lessons/requests/*/decision",
                                 "/api/marketplace/lessons/requests/*/cancel")
                         .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR)
+                        .requestMatchers(
+                                "/api/marketplace/assignments/*/contract",
+                                "/api/marketplace/assignments/*/contract-terms",
+                                "/api/marketplace/assignments/*/sign",
+                                "/api/marketplace/assignments/*/sign/request-otp")
+                        .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR)
                         .requestMatchers("/api/marketplace/assignments/**", "/api/marketplace/lessons/**")
                         .hasRole(RbacConstants.TUTOR)
 

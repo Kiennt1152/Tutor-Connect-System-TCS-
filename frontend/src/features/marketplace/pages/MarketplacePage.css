@@ -497,6 +497,12 @@
   background: #fdecea;
   color: #c62828;
 }
+.mkt-field__error {
+  display: block;
+  margin-top: 4px;
+  color: #b91c1c;
+  font-size: 12px;
+}
 .mkt-alert--info {
   background: #e8f2ff;
   color: #1565c0;
