@@ -188,6 +188,11 @@ export const centerApi = {
   getClassRequests() {
     return axiosClient.get<ClassRequest[]>(`${CENTER_API_BASE}/class-requests`);
   },
+  startSearchClassRequest(requestId: string) {
+    return axiosClient.post<{ message: string }>(
+      `${CENTER_API_BASE}/class-requests/${requestId}/start-search`,
+    );
+  },
   acceptClassRequest(requestId: string, payload: SaveClassRequest) {
     return axiosClient.post<ClassResponse>(
       `${CENTER_API_BASE}/class-requests/${requestId}/accept`,

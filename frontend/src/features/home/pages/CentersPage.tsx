@@ -6,8 +6,16 @@ import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasRole } from '../../../shared/auth/rbac';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
-import type { CenterSummary, ClassRequest } from '../../marketplace/types/marketplaceTypes';
+import type {
+  CenterSummary,
+  ClassRequest,
+  ClassRequestPayload,
+} from '../../marketplace/types/marketplaceTypes';
+import { ClassRequestForm } from '../../marketplace/components/ClassRequestForm';
+import { emptyForm } from '../../marketplace/mappers/marketplaceMapper';
+import { profileApi } from '../../profile/api/profileApi';
 import { useOpenRecruitmentPosts } from '../hooks/useOpenRecruitmentPosts';
+import { useTutorRequestForm } from '../hooks/useTutorRequestForm';
 import './HomePage.css';
 import './CentersRequest.css';
 
@@ -21,11 +29,13 @@ function extractError(error: unknown, fallback: string): string {
 
 const STATUS_LABEL: Record<ClassRequest['status'], string> = {
   PENDING: 'Đang chờ',
+  SEARCHING: 'Đang tìm gia sư',
   ACCEPTED: 'Đã chấp nhận',
   REJECTED: 'Đã từ chối',
 };
 const STATUS_CLASS: Record<ClassRequest['status'], string> = {
   PENDING: 'cr-badge cr-badge--pending',
+  SEARCHING: 'cr-badge cr-badge--pending',
   ACCEPTED: 'cr-badge cr-badge--accepted',
   REJECTED: 'cr-badge cr-badge--rejected',
 };
@@ -66,33 +76,40 @@ export default function CentersPage() {
     reloadRequests();
   }, [reloadRequests]);
 
-  // ----- Modal gửi yêu cầu -----
+  // ----- Modal gửi yêu cầu (dùng lại form "tìm gia sư" cho rõ ràng) -----
+  const { subjects, grades } = useTutorRequestForm();
   const [target, setTarget] = useState<CenterSummary | null>(null);
-  const [note, setNote] = useState('');
-  const [budget, setBudget] = useState('');
   const [sending, setSending] = useState(false);
   const [modalError, setModalError] = useState('');
+  // Chỉ phụ huynh đã nhập đủ CCCD mới được gửi yêu cầu.
+  const [cccdComplete, setCccdComplete] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!isClient) return;
+    profileApi
+      .getMyCccd()
+      .then((res) => setCccdComplete(Boolean(res.data.complete)))
+      .catch(() => setCccdComplete(false));
+  }, [isClient]);
 
   const openModal = (center: CenterSummary) => {
     setTarget(center);
-    setNote('');
-    setBudget('');
     setModalError('');
   };
   const closeModal = () => setTarget(null);
 
-  const submitRequest = async () => {
+  // Gửi yêu cầu tới trung tâm: đính nguyên payload form vào detailsJson để trung tâm xem đủ.
+  const submitRequest = async (payload: ClassRequestPayload) => {
     if (!target) return;
-    if (!note.trim()) {
-      setModalError('Vui lòng nhập nội dung nguyện vọng.');
-      return;
-    }
     setSending(true);
     setModalError('');
     try {
+      const note =
+        payload.description?.trim() || 'Yêu cầu tìm gia sư (xem thông tin chi tiết đính kèm).';
       await marketplaceApi.createClassRequest(target.centerId, {
-        note: note.trim(),
-        desiredBudget: budget.trim() ? Number(budget) : null,
+        note,
+        desiredBudget: payload.budget ?? payload.tuitionFee ?? null,
+        detailsJson: JSON.stringify(payload),
       });
       setTarget(null);
       reloadRequests();
@@ -267,7 +284,7 @@ export default function CentersPage() {
                           className="tcs-btn tcs-btn--market tcs-btn--sm"
                           onClick={() => openModal(center)}
                         >
-                          Gửi yêu cầu mở lớp
+                          Nhờ trung tâm tìm gia sư
                         </button>
                       </div>
                     )}
@@ -279,56 +296,51 @@ export default function CentersPage() {
         </section>
       </main>
 
-      {/* Modal gửi yêu cầu mở lớp */}
+      {/* Modal gửi yêu cầu mở lớp — dùng lại form "tìm gia sư" cho đầy đủ thông tin */}
       {target && (
         <div className="cr-overlay" role="dialog" aria-modal="true" onClick={closeModal}>
-          <div className="cr-modal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="cr-modal__title">Gửi yêu cầu mở lớp</h3>
+          <div
+            className="cr-modal"
+            style={{ maxHeight: '88vh', overflowY: 'auto', maxWidth: 720 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="cr-modal__title">Nhờ trung tâm tìm gia sư</h3>
             <p className="cr-modal__subtitle">Gửi tới: {target.companyName}</p>
 
             {modalError && <p className="cr-modal__error">{modalError}</p>}
 
-            <div className="cr-field">
-              <label className="cr-field__label" htmlFor="cr-note">
-                Nguyện vọng của bạn *
-              </label>
-              <textarea
-                id="cr-note"
-                className="cr-textarea"
-                placeholder="Ví dụ: Cần gia sư Toán lớp 9, học 2 buổi/tuần tại nhà (Quận 7), trình độ khá..."
-                value={note}
-                onChange={(e) => setNote(e.target.value)}
+            {cccdComplete === false ? (
+              <div style={{ padding: '8px 0' }}>
+                <p style={{ color: '#9a3412', marginTop: 0 }}>
+                  Bạn cần nhập đầy đủ <strong>thông tin CCCD</strong> trong hồ sơ trước khi gửi yêu
+                  cầu tới trung tâm.
+                </p>
+                <div className="cr-modal__actions">
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost tcs-btn--sm"
+                    onClick={closeModal}
+                  >
+                    Đóng
+                  </button>
+                  <Link className="tcs-btn tcs-btn--market tcs-btn--sm" to={APP_ROUTES.profile}>
+                    Đi tới hồ sơ nhập CCCD →
+                  </Link>
+                </div>
+              </div>
+            ) : (
+              <ClassRequestForm
+                initial={emptyForm()}
+                subjects={subjects}
+                grades={grades}
+                isEdit={false}
+                submitting={sending}
+                error={modalError}
+                onSubmit={submitRequest}
+                onCancel={closeModal}
+                freeTextSubjects
               />
-            </div>
-
-            <div className="cr-field">
-              <label className="cr-field__label" htmlFor="cr-budget">
-                Ngân sách mong muốn (đ/buổi) — tuỳ chọn
-              </label>
-              <input
-                id="cr-budget"
-                className="cr-input"
-                type="number"
-                min={0}
-                placeholder="Ví dụ: 200000"
-                value={budget}
-                onChange={(e) => setBudget(e.target.value)}
-              />
-            </div>
-
-            <div className="cr-modal__actions">
-              <button type="button" className="tcs-btn tcs-btn--ghost tcs-btn--sm" onClick={closeModal}>
-                Hủy
-              </button>
-              <button
-                type="button"
-                className="tcs-btn tcs-btn--market tcs-btn--sm"
-                onClick={submitRequest}
-                disabled={sending}
-              >
-                {sending ? 'Đang gửi...' : 'Gửi yêu cầu'}
-              </button>
-            </div>
+            )}
           </div>
         </div>
       )}

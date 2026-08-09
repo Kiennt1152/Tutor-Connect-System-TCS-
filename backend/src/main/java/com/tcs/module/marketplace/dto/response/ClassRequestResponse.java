@@ -18,9 +18,11 @@ public class ClassRequestResponse {
     private String categoryName;
     private String note;
     private BigDecimal desiredBudget;
-    /** PENDING / ACCEPTED / REJECTED. */
+    /** PENDING / SEARCHING / ACCEPTED / REJECTED. */
     private String status;
     /** Lý do khi trung tâm từ chối (nếu có). */
     private String reason;
     private String createdAt;
+    /** Nguyên payload form "tìm gia sư" (JSON) để trung tâm xem chi tiết. */
+    private String detailsJson;
 }

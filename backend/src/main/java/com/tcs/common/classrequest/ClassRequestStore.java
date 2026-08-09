@@ -32,6 +32,8 @@ public class ClassRequestStore {
 
     public static final String PREFIX = "classreq:";
     public static final String STATUS_PENDING = "PENDING";
+    /** Trung tâm đã nhận tìm gia sư (đang tìm nguồn). */
+    public static final String STATUS_SEARCHING = "SEARCHING";
     public static final String STATUS_ACCEPTED = "ACCEPTED";
     public static final String STATUS_REJECTED = "REJECTED";
 
@@ -44,7 +46,11 @@ public class ClassRequestStore {
     private final ClientRepository clientRepository;
     private final TutorCenterRepository tutorCenterRepository;
 
-    /** Dữ liệu một yêu cầu mở lớp (createdAt lưu dạng chuỗi để không cần Jackson time-module). */
+    /**
+     * Dữ liệu một yêu cầu mở lớp (createdAt lưu dạng chuỗi để không cần Jackson time-module).
+     * {@code detailsJson} chứa nguyên payload form "tìm gia sư" của phụ huynh (môn, lịch, địa điểm…)
+     * để trung tâm xem đầy đủ và dùng lại khi tạo lớp lúc phụ huynh chọn gia sư.
+     */
     public record ClassRequestData(
             String requestId,
             Long clientUserId,
@@ -54,15 +60,24 @@ public class ClassRequestStore {
             BigDecimal desiredBudget,
             String status,
             String reason,
-            String createdAt) {}
+            String createdAt,
+            String detailsJson) {}
 
     public ClassRequestData create(
-            Long clientUserId, Long centerId, Long categoryId, String note, BigDecimal desiredBudget) {
+            Long clientUserId, Long centerId, Long categoryId, String note, BigDecimal desiredBudget,
+            String detailsJson) {
         ClassRequestData data = new ClassRequestData(
                 UUID.randomUUID().toString(), clientUserId, centerId, categoryId, note, desiredBudget,
-                STATUS_PENDING, null, LocalDateTime.now().toString());
+                STATUS_PENDING, null, LocalDateTime.now().toString(), detailsJson);
         save(data);
         return data;
+    }
+
+    /** Trả về bản sao với trạng thái/lý do mới (giữ nguyên các trường còn lại). */
+    public ClassRequestData withStatus(ClassRequestData d, String status, String reason) {
+        return new ClassRequestData(
+                d.requestId(), d.clientUserId(), d.centerId(), d.categoryId(), d.note(),
+                d.desiredBudget(), status, reason, d.createdAt(), d.detailsJson());
     }
 
     public Optional<ClassRequestData> find(String requestId) {
@@ -113,6 +128,7 @@ public class ClassRequestStore {
                 .status(d.status())
                 .reason(d.reason())
                 .createdAt(d.createdAt())
+                .detailsJson(d.detailsJson())
                 .build();
     }
 

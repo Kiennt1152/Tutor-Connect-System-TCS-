@@ -20,4 +20,7 @@ public class ClassRequestCreateRequest {
 
     /** Ngân sách mong muốn (tuỳ chọn). */
     private BigDecimal desiredBudget;
+
+    /** Nguyên payload form "tìm gia sư" của phụ huynh (JSON) — môn, lịch, địa điểm… (tuỳ chọn). */
+    private String detailsJson;
 }

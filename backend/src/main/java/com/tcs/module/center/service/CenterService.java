@@ -132,6 +132,9 @@ public interface CenterService {
     /** Danh sách yêu cầu mở lớp gửi tới trung tâm này (mọi trạng thái). */
     List<ClassRequestResponse> listIncomingClassRequests();
 
+    /** Trung tâm nhận tìm gia sư cho yêu cầu (chuyển sang trạng thái ĐANG TÌM). */
+    void startSearch(String requestId);
+
     /** Trung tâm chấp nhận yêu cầu: bổ sung chi tiết và tạo lớp EXTERNAL từ yêu cầu đó. */
     CenterClassResponse acceptClassRequest(String requestId, SaveClassRequest body);
 

@@ -1948,12 +1948,26 @@ public class CenterServiceImpl implements CenterService {
         body.setOriginType(ORIGIN_EXTERNAL);
         CenterClassResponse classResponse = createClass(body);
 
-        ClassRequestStore.ClassRequestData updated = new ClassRequestStore.ClassRequestData(
-                data.requestId(), data.clientUserId(), data.centerId(), data.categoryId(),
-                data.note(), data.desiredBudget(), ClassRequestStore.STATUS_ACCEPTED, null, data.createdAt());
-        classRequestStore.save(updated);
+        classRequestStore.save(
+                classRequestStore.withStatus(data, ClassRequestStore.STATUS_ACCEPTED, null));
 
         return classResponse;
+    }
+
+    @Override
+    @Transactional
+    public void startSearch(String requestId) {
+        TutorCenter center = requireCenter();
+        ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
+        if (!center.getCenterId().equals(data.centerId())) {
+            throw new ForbiddenException("Không có quyền xử lý yêu cầu này");
+        }
+        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
+        }
+        classRequestStore.save(
+                classRequestStore.withStatus(data, ClassRequestStore.STATUS_SEARCHING, null));
     }
 
     @Override
@@ -1969,10 +1983,8 @@ public class CenterServiceImpl implements CenterService {
             throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
         }
 
-        ClassRequestStore.ClassRequestData updated = new ClassRequestStore.ClassRequestData(
-                data.requestId(), data.clientUserId(), data.centerId(), data.categoryId(),
-                data.note(), data.desiredBudget(), ClassRequestStore.STATUS_REJECTED, reason, data.createdAt());
-        classRequestStore.save(updated);
+        classRequestStore.save(
+                classRequestStore.withStatus(data, ClassRequestStore.STATUS_REJECTED, reason));
     }
 
     // ===================== Quản lý mẫu hợp đồng =====================

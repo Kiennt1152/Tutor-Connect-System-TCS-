@@ -362,7 +362,7 @@ export default function CenterPage() {
   // Trạng thái xác minh trung tâm: null = đang tải, true/false = đã biết.
   const [verified, setVerified] = useState<boolean | null>(null);
 
-  const [mode, setMode] = useState<'list' | 'form'>('list');
+  const [mode, setMode] = useState<'list' | 'form' | 'requests'>('list');
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   // Ô điều khoản HĐ mặc định thu gọn; bấm để mở rộng khi cần xem/sửa.
@@ -481,6 +481,16 @@ export default function CenterPage() {
       reloadRequests();
     } catch (err) {
       setListError(extractError(err, 'Không từ chối được yêu cầu.'));
+    }
+  };
+
+  // Trung tâm nhận tìm gia sư cho yêu cầu (PENDING -> ĐANG TÌM).
+  const startSearchRequest = async (req: ClassRequest) => {
+    try {
+      await centerApi.startSearchClassRequest(req.requestId);
+      reloadRequests();
+    } catch (err) {
+      setListError(extractError(err, 'Không nhận tìm được yêu cầu.'));
     }
   };
 
@@ -711,7 +721,9 @@ export default function CenterPage() {
           : acceptingRequestId != null
             ? 'Tạo lớp từ yêu cầu phụ huynh'
             : 'Tạo lớp học mới'
-        : 'Lớp học của tôi',
+        : mode === 'requests'
+          ? 'Yêu cầu mở lớp từ phụ huynh'
+          : 'Lớp học của tôi',
     [mode, editingId, acceptingRequestId],
   );
 
@@ -742,6 +754,11 @@ export default function CenterPage() {
             <Link className="cc-btn cc-btn--ghost" to={APP_ROUTES.centerReports}>
               Báo cáo & tranh chấp
             </Link>
+            <button className="cc-btn cc-btn--ghost" type="button" onClick={() => setMode('requests')}>
+              📥 Yêu cầu mở lớp
+              {requests.filter((r) => r.status === 'PENDING').length > 0 &&
+                ` (${requests.filter((r) => r.status === 'PENDING').length})`}
+            </button>
             <button className="cc-btn cc-btn--primary" type="button" onClick={openCreate}>
               Tạo lớp mới
             </button>
@@ -764,47 +781,6 @@ export default function CenterPage() {
               <button className="cc-btn cc-btn--primary cc-btn--sm" type="button" onClick={goVerify}>
                 Đi xác minh →
               </button>
-            </div>
-          )}
-          {requests.filter((r) => r.status === 'PENDING').length > 0 && (
-            <div className="cc-card cc-request-inbox">
-              <h2 className="cc-request-inbox__title">
-                📥 Yêu cầu mở lớp từ phụ huynh (
-                {requests.filter((r) => r.status === 'PENDING').length})
-              </h2>
-              <div className="cc-request-list">
-                {requests
-                  .filter((r) => r.status === 'PENDING')
-                  .map((r) => (
-                    <div className="cc-request" key={r.requestId}>
-                      <div className="cc-request__main">
-                        <p className="cc-request__note">{r.note}</p>
-                        <span className="cc-request__meta">
-                          Phụ huynh: {r.clientName ?? '—'}
-                          {r.categoryName && ` · Môn: ${r.categoryName}`}
-                          {r.desiredBudget != null &&
-                            ` · Ngân sách: ${formatCurrency(r.desiredBudget)}đ`}
-                        </span>
-                      </div>
-                      <div className="cc-request__actions">
-                        <button
-                          className="cc-btn cc-btn--primary cc-btn--sm"
-                          type="button"
-                          onClick={() => acceptRequest(r)}
-                        >
-                          Tạo lớp từ yêu cầu
-                        </button>
-                        <button
-                          className="cc-btn cc-btn--ghost cc-btn--sm"
-                          type="button"
-                          onClick={() => rejectRequest(r)}
-                        >
-                          Từ chối
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-              </div>
             </div>
           )}
           {listError && <div className="cc-alert cc-alert--error">{listError}</div>}
@@ -840,6 +816,76 @@ export default function CenterPage() {
                   </div>
                 </article>
               ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {mode === 'requests' && (
+        <>
+          {listError && <div className="cc-alert cc-alert--error">{listError}</div>}
+          {requests.filter((r) => r.status === 'PENDING' || r.status === 'SEARCHING').length === 0 ? (
+            <div className="cc-card cc-state">
+              Hiện chưa có yêu cầu mở lớp nào từ phụ huynh.
+            </div>
+          ) : (
+            <div className="cc-card cc-request-inbox">
+              <h2 className="cc-request-inbox__title">
+                📥 Yêu cầu mở lớp từ phụ huynh (
+                {requests.filter((r) => r.status === 'PENDING' || r.status === 'SEARCHING').length})
+              </h2>
+              <div className="cc-request-list">
+                {requests
+                  .filter((r) => r.status === 'PENDING' || r.status === 'SEARCHING')
+                  .map((r) => (
+                    <div className="cc-request" key={r.requestId}>
+                      <div className="cc-request__main">
+                        <p className="cc-request__note">
+                          {r.status === 'SEARCHING' && (
+                            <span className="cc-chip" style={{ marginRight: 8 }}>
+                              🔎 Đang tìm gia sư
+                            </span>
+                          )}
+                          {r.note}
+                        </p>
+                        <span className="cc-request__meta">
+                          Phụ huynh: {r.clientName ?? '—'}
+                          {r.categoryName && ` · Môn: ${r.categoryName}`}
+                          {r.desiredBudget != null &&
+                            ` · Ngân sách: ${formatCurrency(r.desiredBudget)}đ`}
+                          {r.detailsJson && ' · (có thông tin chi tiết)'}
+                        </span>
+                      </div>
+                      <div className="cc-request__actions">
+                        {r.status === 'PENDING' ? (
+                          <button
+                            className="cc-btn cc-btn--primary cc-btn--sm"
+                            type="button"
+                            onClick={() => startSearchRequest(r)}
+                          >
+                            Nhận tìm
+                          </button>
+                        ) : (
+                          // SEARCHING: tạm dùng luồng tạo lớp cũ cho tới khi có shortlist (Phase 2).
+                          <button
+                            className="cc-btn cc-btn--primary cc-btn--sm"
+                            type="button"
+                            onClick={() => acceptRequest(r)}
+                          >
+                            Tạo lớp từ yêu cầu
+                          </button>
+                        )}
+                        <button
+                          className="cc-btn cc-btn--ghost cc-btn--sm"
+                          type="button"
+                          onClick={() => rejectRequest(r)}
+                        >
+                          Từ chối
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+              </div>
             </div>
           )}
         </>
@@ -980,20 +1026,20 @@ export default function CenterPage() {
               <select
                 className="cc-input"
                 value={form.originType}
-                // Tạo thủ công luôn là "Trung tâm tự tạo"; "Theo yêu cầu ngoài" chỉ sinh ra
-                // khi chấp nhận yêu cầu của phụ huynh, nên khóa lại ở luồng tạo mới thủ công.
-                disabled={editingId == null && acceptingRequestId == null}
+                // Tạo thủ công -> khóa "Trung tâm tự tạo"; tạo từ yêu cầu phụ huynh -> khóa
+                // "Theo yêu cầu ngoài". Chỉ khi sửa lớp đã có mới cho đổi loại.
+                disabled={editingId == null}
+                // Bị khóa -> nền xám nhạt để người dùng dễ nhận biết là cố định.
+                style={
+                  editingId == null
+                    ? { background: '#f1f5f9', color: '#334155', cursor: 'not-allowed' }
+                    : undefined
+                }
                 onChange={(e) => patch({ originType: e.target.value as FormState['originType'] })}
               >
                 <option value="SELF">Trung tâm tự tạo (tuyển học sinh)</option>
                 <option value="EXTERNAL">Theo yêu cầu ngoài (đã có học sinh)</option>
               </select>
-              {editingId == null && acceptingRequestId == null && (
-                <small className="cc-hint">
-                  Lớp tạo thủ công mặc định là <strong>Trung tâm tự tạo</strong>. Lớp “theo yêu cầu
-                  ngoài” được tạo khi chấp nhận yêu cầu của phụ huynh.
-                </small>
-              )}
             </label>
 
             <label className="cc-field">
@@ -1048,9 +1094,6 @@ export default function CenterPage() {
                 onChange={(e) => patch({ contractContent: e.target.value })}
                 placeholder="Nhập các điều khoản & nghĩa vụ của hợp đồng…"
               />
-              <small className="cc-hint">
-                Quốc hiệu, tiêu đề, thông tin các bên sẽ được hệ thống tự thêm. Để trống = dùng nội dung mẫu.
-              </small>
             </label>
 
             {form.originType === 'EXTERNAL' ? (

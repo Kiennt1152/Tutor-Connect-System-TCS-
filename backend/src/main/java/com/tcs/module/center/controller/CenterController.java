@@ -148,6 +148,12 @@ public class CenterController {
         return centerService.listIncomingClassRequests();
     }
 
+    @PostMapping("/class-requests/{requestId}/start-search")
+    public Map<String, String> startSearchClassRequest(@PathVariable String requestId) {
+        centerService.startSearch(requestId);
+        return Map.of("message", "Đã nhận tìm gia sư cho yêu cầu");
+    }
+
     @PostMapping("/class-requests/{requestId}/accept")
     public CenterClassResponse acceptClassRequest(
             @PathVariable String requestId, @RequestBody SaveClassRequest body) {

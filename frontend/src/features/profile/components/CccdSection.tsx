@@ -36,10 +36,15 @@ const EMPTY: CccdInfo = {
 type CccdSectionProps = {
   /** Tiêu đề tuỳ ngữ cảnh (mặc định: dùng khi ký hợp đồng). */
   title?: string;
+  /** Gọi sau khi lưu CCCD thành công (VD: để trang cha nạp lại hồ sơ). */
+  onSaved?: () => void;
 };
 
 /** Thông tin CCCD (đọc QR tự điền + user xác nhận) — dùng cho khối BÊN B khi ký hợp đồng. */
-export function CccdSection({ title = 'Thông tin CCCD (dùng khi ký hợp đồng)' }: CccdSectionProps = {}) {
+export function CccdSection({
+  title = 'Thông tin CCCD (dùng khi ký hợp đồng)',
+  onSaved,
+}: CccdSectionProps = {}) {
   const [info, setInfo] = useState<CccdInfo>(EMPTY);
   const [complete, setComplete] = useState(false);
   const [scanning, setScanning] = useState(false);
@@ -107,6 +112,7 @@ export function CccdSection({ title = 'Thông tin CCCD (dùng khi ký hợp đ�
       setComplete(Boolean(res.data.complete));
       setSaved(true);
       setMsg('Đã lưu thông tin CCCD.');
+      onSaved?.(); // báo trang cha nạp lại hồ sơ (ngày sinh + giới tính đồng bộ từ CCCD).
     } catch (error) {
       setErr(extractError(error, 'Không lưu được thông tin CCCD.'));
     } finally {

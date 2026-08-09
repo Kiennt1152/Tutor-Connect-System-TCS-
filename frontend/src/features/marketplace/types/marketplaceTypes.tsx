@@ -347,7 +347,7 @@ export interface CenterSummary {
   avatar: string | null;
 }
 
-export type ClassRequestStatus = 'PENDING' | 'ACCEPTED' | 'REJECTED';
+export type ClassRequestStatus = 'PENDING' | 'SEARCHING' | 'ACCEPTED' | 'REJECTED';
 
 /** Yêu cầu mở lớp phụ huynh gửi tới một trung tâm. */
 export interface ClassRequest {
@@ -363,10 +363,14 @@ export interface ClassRequest {
   status: ClassRequestStatus;
   reason: string | null;
   createdAt: string;
+  /** Nguyên payload form "tìm gia sư" (JSON) để trung tâm xem chi tiết. */
+  detailsJson: string | null;
 }
 
 export interface CreateClassRequestPayload {
   categoryId?: number | null;
   note: string;
   desiredBudget?: number | null;
+  /** Nguyên payload form "tìm gia sư" (JSON). */
+  detailsJson?: string;
 }

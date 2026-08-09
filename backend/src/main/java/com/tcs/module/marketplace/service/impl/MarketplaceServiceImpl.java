@@ -127,6 +127,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final UserRepository userRepository;
     private final ClientRepository clientRepository;
     private final ClientLegalAccountService clientLegalAccountService;
+    private final com.tcs.module.profile.service.CccdService cccdService;
     private final TutorRepository tutorRepository;
     private final ContractRepository contractRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
@@ -2063,6 +2064,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (center.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
             throw new IllegalArgumentException("Chỉ có thể gửi yêu cầu tới trung tâm đã được xác minh.");
         }
+        // Phải nhập đủ CCCD trong hồ sơ mới được gửi yêu cầu tới trung tâm.
+        if (!cccdService.isComplete(creator.getUserId())) {
+            throw new IllegalArgumentException(
+                    "Bạn cần nhập đầy đủ thông tin CCCD trong Hồ sơ trước khi gửi yêu cầu tới trung tâm.");
+        }
         if (!StringUtils.hasText(request.getNote())) {
             throw new IllegalArgumentException("Vui lòng nhập nội dung nguyện vọng");
         }
@@ -2080,7 +2086,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 center.getCenterId(),
                 category != null ? category.getCategoryId() : null,
                 request.getNote().trim(),
-                request.getDesiredBudget());
+                request.getDesiredBudget(),
+                request.getDetailsJson());
         return classRequestStore.toResponse(data);
     }
 

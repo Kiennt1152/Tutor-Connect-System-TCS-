@@ -1,4 +1,4 @@
-import { useMemo, useState, type ClipboardEvent, type FormEvent } from 'react';
+import { useEffect, useMemo, useState, type ClipboardEvent, type FormEvent } from 'react';
 import {
   BILLING_CYCLE_OPTIONS,
   DAY_OF_WEEK_OPTIONS,
@@ -45,6 +45,11 @@ interface ClassRequestFormProps {
   readonly error: string | null;
   readonly onSubmit: (payload: ClassRequestPayload) => void;
   readonly onCancel: () => void;
+  /**
+   * Khi true: bỏ lưới môn cố định, phụ huynh TỰ ĐIỀN tên môn (kiểu ô "Khác").
+   * Dùng cho luồng "nhờ trung tâm tìm gia sư" — trung tâm đọc tên môn tự do, không cần map danh mục.
+   */
+  readonly freeTextSubjects?: boolean;
 }
 
 const currency = new Intl.NumberFormat('vi-VN');
@@ -160,9 +165,18 @@ export function ClassRequestForm({
   error,
   onSubmit,
   onCancel,
+  freeTextSubjects = false,
 }: ClassRequestFormProps) {
   const [form, setForm] = useState<ClassFormValues>(initial);
   const [touched, setTouched] = useState(false);
+
+  // Chế độ tự-điền môn: đảm bảo luôn có sẵn ít nhất 1 ô nhập tên môn.
+  useEffect(() => {
+    if (freeTextSubjects && form.subjectIds.filter(isOtherSubject).length === 0) {
+      addOtherSubject();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [freeTextSubjects]);
 
   function set<K extends keyof ClassFormValues>(key: K, value: ClassFormValues[K]) {
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -200,9 +214,11 @@ export function ClassRequestForm({
   const isWeekly = form.scheduleMode === 'WEEKLY';
   const knownSubjectNames = form.subjectIds.filter((id) => !isOtherSubject(id)).map(subjName);
   const hasUnknownSubject = form.subjectIds.some(isOtherSubject);
-  const visibleGrades = hasUnknownSubject
-    ? grades
-    : grades.filter((g) => gradeMatchesSubjects(g.name, knownSubjectNames));
+  // Môn tự-điền (nhờ trung tâm) hoặc có môn "khác" -> không lọc, hiện đầy đủ danh sách lớp.
+  const visibleGrades =
+    freeTextSubjects || hasUnknownSubject
+      ? grades
+      : grades.filter((g) => gradeMatchesSubjects(g.name, knownSubjectNames));
   function handleGradeChange(gradeId: string) {
     setForm((prev) => ({ ...prev, gradeId }));
   }
@@ -518,42 +534,47 @@ export function ClassRequestForm({
       <div className="mkt-field">
         <span className="mkt-field__label">
           Môn học <em>*</em>
-          <span className="mkt-field__hint-inline"> (có thể chọn nhiều môn)</span>
+          <span className="mkt-field__hint-inline">
+            {freeTextSubjects ? ' (tự điền tên môn, có thể nhiều môn)' : ' (có thể chọn nhiều môn)'}
+          </span>
         </span>
-        {subjects.length === 0 ? (
-          <p className="mkt-hint">Đang tải danh sách môn học…</p>
-        ) : (
-          <div className="mkt-checks">
-            {subjects.map((s) => {
-              const id = String(s.id);
-              return (
-                <label key={s.id} className="mkt-check">
-                  <input
-                    type="checkbox"
-                    checked={form.subjectIds.includes(id)}
-                    onChange={() => toggleSubject(id)}
-                  />
-                  <span>{s.name}</span>
-                </label>
-              );
-            })}
-            <label className="mkt-check">
-              <input type="checkbox" checked={otherIds.length > 0} onChange={toggleOtherSection} />
-              <span>Khác</span>
-            </label>
-          </div>
-        )}
-        {otherIds.length > 0 && (
+        {!freeTextSubjects &&
+          (subjects.length === 0 ? (
+            <p className="mkt-hint">Đang tải danh sách môn học…</p>
+          ) : (
+            <div className="mkt-checks">
+              {subjects.map((s) => {
+                const id = String(s.id);
+                return (
+                  <label key={s.id} className="mkt-check">
+                    <input
+                      type="checkbox"
+                      checked={form.subjectIds.includes(id)}
+                      onChange={() => toggleSubject(id)}
+                    />
+                    <span>{s.name}</span>
+                  </label>
+                );
+              })}
+              <label className="mkt-check">
+                <input type="checkbox" checked={otherIds.length > 0} onChange={toggleOtherSection} />
+                <span>Khác</span>
+              </label>
+            </div>
+          ))}
+        {(freeTextSubjects || otherIds.length > 0) && (
           <div className="mkt-field mkt-subject-other">
-            <span className="mkt-field__label">
-              Tên môn học khác <em>*</em> <span className="mkt-hint">(mỗi ô 1 môn)</span>
-            </span>
+            {!freeTextSubjects && (
+              <span className="mkt-field__label">
+                Tên môn học khác <em>*</em> <span className="mkt-hint">(mỗi ô 1 môn)</span>
+              </span>
+            )}
             {otherIds.map((id, i) => (
               <div key={id} className="mkt-other-row">
                 <input
                   type="text"
                   value={form.subjectOthers[id] ?? ''}
-                  placeholder={`Tên môn khác ${i + 1}…`}
+                  placeholder={freeTextSubjects ? `Tên môn ${i + 1}… (VD: Toán, Tiếng Anh)` : `Tên môn khác ${i + 1}…`}
                   onChange={(e) => setOtherName(id, e.target.value)}
                 />
                 <button
@@ -567,7 +588,7 @@ export function ClassRequestForm({
               </div>
             ))}
             <button type="button" className="mkt-btn mkt-btn--ghost mkt-other-add" onClick={addOtherSubject}>
-              + Thêm môn khác
+              + Thêm môn
             </button>
           </div>
         )}
