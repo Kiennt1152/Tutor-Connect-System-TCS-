@@ -25,7 +25,10 @@ import com.tcs.module.catalog.repository.CategoryRepository;
 import com.tcs.module.catalog.repository.GradeRepository;
 import com.tcs.module.catalog.repository.LocationRepository;
 import com.tcs.module.catalog.repository.SubjectRepository;
+import com.tcs.module.identity.entity.EmailOtp;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.identity.enums.OtpPurpose;
+import com.tcs.module.identity.repository.EmailOtpRepository;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
@@ -36,6 +39,7 @@ import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
+import com.tcs.module.marketplace.dto.response.ContractViewResponse;
 import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
@@ -75,22 +79,27 @@ import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.MarketplaceService;
 import com.tcs.module.platform.service.AuditLogService;
+import com.tcs.module.profile.dto.CccdInfoDto;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
+import com.tcs.module.profile.service.CccdService;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.service.ClientLegalAccountService;
 import com.tcs.security.AuthHelper;
 import com.tcs.security.UserPrincipal;
 import java.math.BigDecimal;
+import java.security.SecureRandom;
 import java.math.RoundingMode;
 import java.time.DayOfWeek;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -113,6 +122,8 @@ import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -121,11 +132,13 @@ import org.springframework.util.StringUtils;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class MarketplaceServiceImpl implements MarketplaceService {
 
     private final AuthHelper authHelper;
     private final UserRepository userRepository;
     private final ClientRepository clientRepository;
+    private final CccdService cccdService;
     private final ClientLegalAccountService clientLegalAccountService;
     private final com.tcs.module.profile.service.CccdService cccdService;
     private final TutorRepository tutorRepository;
@@ -151,7 +164,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final TutorCenterRepository tutorCenterRepository;
     private final ClassRequestStore classRequestStore;
     private final ContractService contractService;
+    private final EmailOtpRepository emailOtpRepository;
+    private final com.tcs.module.notification.service.EmailService contractEmailService;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    private static final SecureRandom SIGN_OTP_RANDOM = new SecureRandom();
+    private static final int SIGN_OTP_EXPIRE_SECONDS = 30;
+    private static final int SIGN_OTP_MAX_ATTEMPTS = 5;
+    private static final int SIGN_OTP_LOCK_MINUTES = 5;
+
+    @Value("${app.mail.enabled:false}")
+    private boolean mailEnabled;
 
     private static final Map<String, Integer> DAY_CODE_TO_ISO = Map.of(
             "T2", 1, "T3", 2, "T4", 3, "T5", 4, "T6", 5, "T7", 6, "CN", 7);
@@ -214,7 +237,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
         boolean isDraft = tutoringClass.getStatus() == TutoringClassStatus.DRAFT;
         boolean isOpen = tutoringClass.getStatus() == TutoringClassStatus.OPEN;
-        long applicationCount = tutorApplicationRepository.countByTutoringClass_ClassId(classId);
+        long applicationCount = tutorApplicationRepository.countByTutoringClass_ClassIdAndStatusNot(
+                classId, TutorApplicationStatus.REJECTED);
         if (!isDraft && !(isOpen && applicationCount == 0)) {
             throw new IllegalArgumentException(
                     applicationCount > 0
@@ -264,10 +288,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
         StringBuilder sb = new StringBuilder("Cần tìm gia sư");
         if (!names.isEmpty()) {
-            sb.append(names.size() > 1 ? " các môn " : " môn ").append(String.join(", ", names));
-        }
-        if (grade != null) {
-            sb.append(gradeSuffix(grade.getGradeName()));
+            sb.append(" môn ").append(String.join(", ", names));
         }
         String title = sb.toString();
         return title.length() > TITLE_MAX_LENGTH
@@ -321,7 +342,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Chỉ có thể gỡ đăng lớp đang mở");
         }
-        long applicationCount = tutorApplicationRepository.countByTutoringClass_ClassId(classId);
+        long applicationCount = tutorApplicationRepository.countByTutoringClass_ClassIdAndStatusNot(
+                classId, TutorApplicationStatus.REJECTED);
         if (applicationCount > 0) {
             throw new IllegalArgumentException("Lớp đã có gia sư ứng tuyển nên không thể gỡ đăng");
         }
@@ -342,19 +364,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Lớp không mở đơn ứng tuyển");
         }
-        tutorApplicationRepository
+        TutorApplication existing = tutorApplicationRepository
                 .findFirstByTutoringClass_ClassIdAndTutor_TutorId(classId, tutor.getTutorId())
-                .ifPresent(existing -> {
-                    if (existing.getStatus() != TutorApplicationStatus.REJECTED) {
-                        throw new IllegalArgumentException(
-                                "Bạn đã ứng tuyển lớp này rồi. Mỗi lớp chỉ nộp được một đơn.");
-                    }
-                    tutorApplicationRepository.delete(existing);
-                    tutorApplicationRepository.flush();
-                });
+                .orElse(null);
+        if (existing != null && existing.getStatus() != TutorApplicationStatus.REJECTED) {
+            throw new IllegalArgumentException(
+                    "Bạn đã ứng tuyển lớp này rồi. Mỗi lớp chỉ nộp được một đơn.");
+        }
         Map<String, BigDecimal> rates = resolveProposedRates(request, tutoringClass);
 
-        TutorApplication application = new TutorApplication();
+        TutorApplication application = existing != null ? existing : new TutorApplication();
         application.setTutoringClass(tutoringClass);
         application.setTutor(tutor);
         application.setProposedRatesJson(rates.isEmpty() ? null : writeJson(rates));
@@ -422,7 +441,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     private void requireValidRate(BigDecimal rate, String subjectKey) {
-        String subject = subjectKey == null || OTHER_SUBJECT_KEY.equals(subjectKey)
+        String subject = subjectKey == null || isOtherSubjectKey(subjectKey)
                 ? ""
                 : " cho môn #" + subjectKey;
         if (rate.signum() <= 0) {
@@ -474,15 +493,24 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (keys.isEmpty()) {
             return List.of();
         }
-        String otherName = "";
+        JsonNode root = null;
         try {
-            otherName = objectMapper.readTree(detailsJson).path("subjectOther").asText("").trim();
+            root = objectMapper.readTree(detailsJson);
         } catch (JsonProcessingException ignored) {
         }
+        String legacyOther = root != null ? root.path("subjectOther").asText("").trim() : "";
+        JsonNode subjectOthers = root != null ? root.path("subjectOthers") : null;
         List<String> names = new ArrayList<>();
         for (String key : keys) {
-            if (OTHER_SUBJECT_KEY.equals(key)) {
-                names.add(StringUtils.hasText(otherName) ? otherName : "Môn học khác");
+            if (isOtherSubjectKey(key)) {
+                String name = "";
+                if (subjectOthers != null && subjectOthers.isObject()) {
+                    name = subjectOthers.path(key).asText("").trim();
+                }
+                if (!StringUtils.hasText(name)) {
+                    name = legacyOther;
+                }
+                names.add(StringUtils.hasText(name) ? name : "Môn học khác");
                 continue;
             }
             try {
@@ -493,6 +521,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             }
         }
         return names;
+    }
+
+    private boolean isOtherSubjectKey(String key) {
+        return OTHER_SUBJECT_KEY.equals(key)
+                || (key != null && key.startsWith(OTHER_SUBJECT_KEY + ":"));
     }
 
     private BigDecimal highestRate(Map<String, BigDecimal> rates, BigDecimal fallback) {
@@ -537,6 +570,10 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Transactional
     public void chooseApplicant(Long classId, Long applicationId) {
         TutoringClass tutoringClass = requireOwnedClass(classId);
+        if (!StringUtils.hasText(cccdNumberOf(tutoringClass.getCreator().getUserId()))) {
+            throw new IllegalArgumentException(
+                    "Bạn cần cập nhật Căn cước công dân (CCCD) trong hồ sơ trước khi chọn gia sư và lập hợp đồng.");
+        }
         TutorApplication chosen = tutorApplicationRepository
                 .findById(applicationId)
                 .filter(a -> a.getTutoringClass().getClassId().equals(tutoringClass.getClassId()))
@@ -552,6 +589,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                             : TutorApplicationStatus.REJECTED);
             app.setReviewedAt(LocalDateTime.now());
         }
+        applyTutorRatesToClass(tutoringClass, chosen);
         tutoringClass.setStatus(TutoringClassStatus.MATCHED);
         tutoringClassRepository.save(tutoringClass);
 
@@ -563,6 +601,35 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         assignment.setStatus(ClassAssignmentStatus.PENDING);
         classAssignmentRepository.save(assignment);
         notifyTutorInvited(tutoringClass, chosen);
+    }
+
+    private void applyTutorRatesToClass(TutoringClass tutoringClass, TutorApplication chosen) {
+        Map<String, BigDecimal> rates = readRates(chosen.getProposedRatesJson());
+        if (rates == null || rates.isEmpty()) {
+            if (chosen.getProposedRate() != null) {
+                tutoringClass.setTuitionFee(chosen.getProposedRate());
+            }
+            return;
+        }
+        JsonNode root = readTree(tutoringClass.getDetailsJson());
+        if (root != null && root.isObject()) {
+            com.fasterxml.jackson.databind.node.ObjectNode obj =
+                    (com.fasterxml.jackson.databind.node.ObjectNode) root;
+            JsonNode existingFees = obj.get("subjectFees");
+            com.fasterxml.jackson.databind.node.ObjectNode fees =
+                    existingFees != null && existingFees.isObject()
+                            ? (com.fasterxml.jackson.databind.node.ObjectNode) existingFees
+                            : objectMapper.createObjectNode();
+            for (Map.Entry<String, BigDecimal> e : rates.entrySet()) {
+                fees.put(e.getKey(), e.getValue().toPlainString());
+            }
+            obj.set("subjectFees", fees);
+            try {
+                tutoringClass.setDetailsJson(objectMapper.writeValueAsString(obj));
+            } catch (JsonProcessingException ignored) {
+            }
+        }
+        tutoringClass.setTuitionFee(highestRate(rates, chosen.getProposedRate()));
     }
 
     private void notifyTutorInvited(TutoringClass tutoringClass, TutorApplication chosen) {
@@ -603,7 +670,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             throw new IllegalArgumentException("Vui lòng nhập lý do bỏ chọn gia sư");
         }
         notifyApplicantRejected(tutoringClass, application, trimmedReason);
-        tutorApplicationRepository.delete(application);
+        application.setStatus(TutorApplicationStatus.REJECTED);
+        application.setReviewedAt(LocalDateTime.now());
+        tutorApplicationRepository.save(application);
     }
 
     private void notifyApplicantRejected(
@@ -648,15 +717,319 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Transactional
     public void acceptAssignment(Long assignmentId) {
         ClassAssignment assignment = requireMyPendingAssignment(assignmentId);
-        TutoringClass tutoringClass = assignment.getApplication().getTutoringClass();
+        activateAssignment(assignment);
+    }
 
+    private void activateAssignment(ClassAssignment assignment) {
+        TutoringClass tutoringClass = assignment.getApplication().getTutoringClass();
         assignment.setStatus(ClassAssignmentStatus.ACTIVE);
         classAssignmentRepository.save(assignment);
-
         generateSchedule(tutoringClass, assignment.getTutor());
-
         tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
         tutoringClassRepository.save(tutoringClass);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public ContractViewResponse getAssignmentContract(Long assignmentId) {
+        ClassAssignment assignment = classAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lời mời nhận lớp"));
+        TutoringClass c = requireAssignmentClass(assignment);
+        String role = contractRoleOf(assignment, c);
+        Tutor tutor = assignment.getTutor();
+        Client client = clientRepository.findByUser_UserId(c.getCreator().getUserId()).orElse(null);
+        CccdInfoDto clientCccd = cccdInfoOf(c.getCreator().getUserId());
+        CccdInfoDto tutorCccd = cccdInfoOf(tutor.getUser().getUserId());
+        return ContractViewResponse.builder()
+                .assignmentId(assignment.getAssignmentId())
+                .classId(c.getClassId())
+                .classTitle(c.getTitle())
+                .detailsJson(c.getDetailsJson())
+                .gradeName(c.getGrade() != null ? c.getGrade().getGradeName() : null)
+                .address(c.getAddress())
+                .lessonMode(c.getLessonMode() != null ? c.getLessonMode().name() : null)
+                .startDate(c.getStartDate())
+                .endDate(c.getEndDate())
+                .numberOfSessions(c.getNumberOfSessions() != null ? c.getNumberOfSessions() : 0)
+                .subjectNames(subjectNamesFromJson(c.getDetailsJson()))
+                .tuitionFee(c.getTuitionFee())
+                .clientName(firstText(
+                        clientCccd != null ? clientCccd.getFullName() : null,
+                        client != null ? client.getFullName() : null,
+                        c.getCreator().getEmail()))
+                .clientPhone(client != null ? client.getPhone() : c.getCreator().getPhone())
+                .clientAddress(firstAddress(client != null ? client.getAddress() : null, clientCccd))
+                .clientDob(firstDob(client != null ? client.getDateOfBirth() : null, clientCccd))
+                .clientCccd(clientCccd != null ? clientCccd.getCccdNumber() : null)
+                .tutorName(firstText(
+                        tutorCccd != null ? tutorCccd.getFullName() : null,
+                        tutor.getFullName()))
+                .tutorPhone(tutor.getPhone())
+                .tutorAddress(firstAddress(tutor.getAddress(), tutorCccd))
+                .tutorDob(firstDob(tutor.getDateOfBirth(), tutorCccd))
+                .tutorCccd(tutorCccd != null ? tutorCccd.getCccdNumber() : null)
+                .tutorSigned(assignment.getTutorSignedAt() != null)
+                .clientSigned(assignment.getClientSignedAt() != null)
+                .paymentMethod(assignment.getPaymentMethod())
+                .myRole(role)
+                .termsB(assignment.getTermsB())
+                .build();
+    }
+
+    @Override
+    @Transactional
+    public void saveContractTermsB(Long assignmentId, String termsB) {
+        ClassAssignment assignment = classAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lời mời nhận lớp"));
+        TutoringClass c = requireAssignmentClass(assignment);
+        if (!"CLIENT".equals(contractRoleOf(assignment, c))) {
+            throw new ForbiddenException("Chỉ Bên A (phụ huynh/học sinh) mới được chỉnh điều khoản này");
+        }
+        if (assignment.getStatus() != ClassAssignmentStatus.PENDING) {
+            throw new IllegalArgumentException("Hợp đồng đã hoàn tất, không thể chỉnh điều khoản");
+        }
+        if (!StringUtils.hasText(cccdNumberOf(c.getCreator().getUserId()))) {
+            throw new IllegalArgumentException(
+                    "Bạn cần cập nhật Căn cước công dân (CCCD) trong hồ sơ trước khi chỉnh điều khoản hợp đồng.");
+        }
+        assignment.setTermsB(StringUtils.hasText(termsB) ? termsB.trim() : null);
+        classAssignmentRepository.save(assignment);
+    }
+
+    @Override
+    @Transactional
+    public void requestSignOtp(Long assignmentId) {
+        ClassAssignment assignment = classAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lời mời nhận lớp"));
+        TutoringClass c = requireAssignmentClass(assignment);
+        if (assignment.getStatus() != ClassAssignmentStatus.PENDING) {
+            throw new IllegalArgumentException("Lời mời đã được xử lý hoặc hợp đồng đã hoàn tất");
+        }
+        String role = contractRoleOf(assignment, c);
+        if ("TUTOR".equals(role) && assignment.getClientSignedAt() == null) {
+            throw new IllegalArgumentException(
+                    "Bên A (phụ huynh/học sinh) phải ký hợp đồng trước. Vui lòng chờ Bên A ký.");
+        }
+        User signer = "TUTOR".equals(role)
+                ? assignment.getTutor().getUser()
+                : c.getCreator();
+        if (!StringUtils.hasText(cccdNumberOf(signer.getUserId()))) {
+            throw new IllegalArgumentException(
+                    "Bạn cần cập nhật Căn cước công dân (CCCD) trong hồ sơ trước khi ký hợp đồng.");
+        }
+        String email = signer.getEmail();
+        emailOtpRepository
+                .findFirstByEmailAndPurposeOrderByCreatedAtDesc(email, OtpPurpose.CONTRACT_SIGNING)
+                .ifPresent(last -> {
+                    if (last.getAttempts() >= SIGN_OTP_MAX_ATTEMPTS && last.getConsumedAt() != null) {
+                        long waitSecs = Duration.between(
+                                        LocalDateTime.now(),
+                                        last.getConsumedAt().plusMinutes(SIGN_OTP_LOCK_MINUTES))
+                                .getSeconds();
+                        if (waitSecs > 0) {
+                            long waitMins = (waitSecs + 59) / 60;
+                            throw new IllegalArgumentException(
+                                    "Bạn đã nhập sai mã quá " + SIGN_OTP_MAX_ATTEMPTS
+                                            + " lần. Vui lòng đợi khoảng " + waitMins
+                                            + " phút rồi mới gửi lại mã OTP.");
+                        }
+                    }
+                });
+        emailOtpRepository
+                .findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(email, OtpPurpose.CONTRACT_SIGNING)
+                .ifPresent(prev -> {
+                    prev.setConsumedAt(LocalDateTime.now());
+                    emailOtpRepository.save(prev);
+                });
+        EmailOtp otp = new EmailOtp();
+        otp.setEmail(email);
+        otp.setCode(String.format("%06d", SIGN_OTP_RANDOM.nextInt(1_000_000)));
+        otp.setPurpose(OtpPurpose.CONTRACT_SIGNING);
+        otp.setExpiresAt(LocalDateTime.now().plusSeconds(SIGN_OTP_EXPIRE_SECONDS));
+        otp.setAttempts(0);
+        otp.setLastSentAt(LocalDateTime.now());
+        emailOtpRepository.save(otp);
+        try {
+            contractEmailService.sendEmail(
+                    email,
+                    "Mã OTP ký hợp đồng - HĐ-" + c.getClassId(),
+                    buildSignOtpEmailHtml(otp.getCode()));
+        } catch (RuntimeException ex) {
+            if (mailEnabled) {
+                throw ex;
+            }
+            log.warn("[OTP-DEV] Khong gui duoc email OTP ({}). Ma OTP ky hop dong cho {} la: {}",
+                    ex.getMessage(), email, otp.getCode());
+        }
+    }
+
+    private String buildSignOtpEmailHtml(String code) {
+        return """
+                <div style="font-family:Arial,Helvetica,sans-serif;max-width:480px;margin:0 auto;\
+                border:1px solid #e2e8f0;border-radius:16px;overflow:hidden">
+                  <div style="background:#1565c0;padding:24px;text-align:center">
+                    <h1 style="color:#fff;margin:0;font-size:20px">Tutor Connect System</h1>
+                  </div>
+                  <div style="padding:28px 24px;color:#0f172a">
+                    <p style="margin:0 0 16px">Vui lòng dùng mã OTP bên dưới để xác nhận ký hợp đồng:</p>
+                    <div style="text-align:center;margin:24px 0">
+                      <span style="display:inline-block;font-size:32px;font-weight:700;letter-spacing:8px;\
+                color:#1565c0;background:#eff6ff;padding:14px 24px;border-radius:12px">%s</span>
+                    </div>
+                    <p style="margin:0 0 8px;color:#dc2626;font-weight:600">Mã chỉ có hiệu lực trong 30 giây.</p>
+                    <p style="margin:0;color:#64748b">Nếu hết hạn, hãy bấm "Gửi lại mã" để nhận mã mới. Không chia sẻ mã cho bất kỳ ai.</p>
+                  </div>
+                </div>
+                """.formatted(code);
+    }
+
+    @Override
+    @Transactional(noRollbackFor = IllegalArgumentException.class)
+    public void signAssignmentContract(Long assignmentId, String otp) {
+        ClassAssignment assignment = classAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lời mời nhận lớp"));
+        TutoringClass c = requireAssignmentClass(assignment);
+        if (assignment.getStatus() != ClassAssignmentStatus.PENDING) {
+            throw new IllegalArgumentException("Lời mời đã được xử lý hoặc hợp đồng đã hoàn tất");
+        }
+        String role = contractRoleOf(assignment, c);
+        if ("TUTOR".equals(role) && assignment.getClientSignedAt() == null) {
+            throw new IllegalArgumentException(
+                    "Bên A (phụ huynh/học sinh) phải ký hợp đồng trước. Vui lòng chờ Bên A ký.");
+        }
+        User signer = "TUTOR".equals(role)
+                ? assignment.getTutor().getUser()
+                : c.getCreator();
+        if (!StringUtils.hasText(cccdNumberOf(signer.getUserId()))) {
+            throw new IllegalArgumentException(
+                    "Bạn cần cập nhật Căn cước công dân (CCCD) trong hồ sơ trước khi ký hợp đồng.");
+        }
+        verifySignOtp(signer.getEmail(), otp);
+        if ("TUTOR".equals(role)) {
+            if (assignment.getTutorSignedAt() == null) {
+                assignment.setTutorSignedAt(LocalDateTime.now());
+            }
+        } else {
+            if (assignment.getClientSignedAt() == null) {
+                assignment.setClientSignedAt(LocalDateTime.now());
+            }
+        }
+        if (assignment.getTutorSignedAt() != null && assignment.getClientSignedAt() != null) {
+            activateAssignment(assignment);
+        } else {
+            classAssignmentRepository.save(assignment);
+            if ("CLIENT".equals(role)) {
+                notifyTutorContractReady(assignment, c);
+            }
+        }
+    }
+
+    private void notifyTutorContractReady(ClassAssignment assignment, TutoringClass c) {
+        if (assignment.getTutor() == null || assignment.getTutor().getUser() == null) {
+            return;
+        }
+        com.tcs.module.messaging.entity.Notification n =
+                new com.tcs.module.messaging.entity.Notification();
+        n.setUser(assignment.getTutor().getUser());
+        n.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
+        n.setTitle("Bên A đã ký hợp đồng — mời bạn ký");
+        n.setContent("Phụ huynh/học sinh đã ký hợp đồng lớp \"" + c.getTitle()
+                + "\". Vui lòng vào mục Lịch dạy để ký xác nhận và bắt đầu lớp.");
+        n.setReferenceType("TUTORING_CLASS");
+        n.setReferenceId(c.getClassId());
+        n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
+        n.setIsRead(false);
+        notificationRepository.save(n);
+    }
+
+    private void verifySignOtp(String email, String code) {
+        if (!StringUtils.hasText(code)) {
+            throw new IllegalArgumentException("Vui lòng nhập mã OTP đã gửi tới email của bạn.");
+        }
+        EmailOtp otp = emailOtpRepository
+                .findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(email, OtpPurpose.CONTRACT_SIGNING)
+                .orElseThrow(() -> new IllegalArgumentException("Mã OTP không tồn tại. Vui lòng bấm gửi lại mã."));
+        if (otp.isExpired()) {
+            throw new IllegalArgumentException("Mã OTP đã hết hạn. Vui lòng bấm gửi lại mã.");
+        }
+        if (otp.getAttempts() >= SIGN_OTP_MAX_ATTEMPTS) {
+            throw new IllegalArgumentException("Bạn đã nhập sai mã quá " + SIGN_OTP_MAX_ATTEMPTS
+                    + " lần. Vui lòng đợi " + SIGN_OTP_LOCK_MINUTES + " phút rồi gửi lại mã.");
+        }
+        if (!otp.getCode().equals(code.trim())) {
+            otp.setAttempts(otp.getAttempts() + 1);
+            if (otp.getAttempts() >= SIGN_OTP_MAX_ATTEMPTS) {
+                otp.setConsumedAt(LocalDateTime.now());
+            }
+            emailOtpRepository.save(otp);
+            int remaining = SIGN_OTP_MAX_ATTEMPTS - otp.getAttempts();
+            throw new IllegalArgumentException(remaining > 0
+                    ? "Mã OTP không đúng. Bạn còn " + remaining + " lần thử."
+                    : "Bạn đã nhập sai mã quá " + SIGN_OTP_MAX_ATTEMPTS + " lần. Vui lòng đợi "
+                            + SIGN_OTP_LOCK_MINUTES + " phút rồi gửi lại mã.");
+        }
+        otp.setConsumedAt(LocalDateTime.now());
+        emailOtpRepository.save(otp);
+    }
+
+    private TutoringClass requireAssignmentClass(ClassAssignment assignment) {
+        if (assignment.getApplication() == null) {
+            throw new IllegalArgumentException("Lời mời không gắn với lớp nào");
+        }
+        return assignment.getApplication().getTutoringClass();
+    }
+
+    private String contractRoleOf(ClassAssignment assignment, TutoringClass c) {
+        Long uid = authHelper.currentUserId();
+        if (assignment.getTutor().getUser().getUserId().equals(uid)) {
+            return "TUTOR";
+        }
+        if (c.getCreator().getUserId().equals(uid)) {
+            return "CLIENT";
+        }
+        throw new ForbiddenException("Bạn không thuộc hợp đồng này");
+    }
+
+    private CccdInfoDto cccdInfoOf(Long userId) {
+        try {
+            return cccdService.getByUserId(userId);
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private String cccdNumberOf(Long userId) {
+        CccdInfoDto dto = cccdInfoOf(userId);
+        return dto != null ? dto.getCccdNumber() : null;
+    }
+
+    private LocalDate firstDob(LocalDate profileDob, CccdInfoDto cccd) {
+        if (profileDob != null) {
+            return profileDob;
+        }
+        if (cccd != null && StringUtils.hasText(cccd.getDateOfBirth())) {
+            try {
+                return LocalDate.parse(cccd.getDateOfBirth(), DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            } catch (DateTimeParseException ignored) {
+            }
+        }
+        return null;
+    }
+
+    private String firstText(String... values) {
+        for (String v : values) {
+            if (StringUtils.hasText(v)) {
+                return v.trim();
+            }
+        }
+        return null;
+    }
+
+    private String firstAddress(String profileAddress, CccdInfoDto cccd) {
+        if (StringUtils.hasText(profileAddress)) {
+            return profileAddress;
+        }
+        return cccd != null ? cccd.getPermanentAddress() : null;
     }
 
     @Override
@@ -1334,7 +1707,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     private Long subjectIdOf(String key) {
-        if (!StringUtils.hasText(key) || OTHER_SUBJECT_KEY.equals(key)) {
+        if (!StringUtils.hasText(key) || isOtherSubjectKey(key)) {
             return null;
         }
         try {
@@ -1392,6 +1765,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .startDate(c.getStartDate())
                 .endDate(c.getEndDate())
                 .lessonCount(lessonRepository.countByTutoringClass_ClassId(c.getClassId()))
+                .tutorSignedAt(assignment.getTutorSignedAt())
+                .clientSignedAt(assignment.getClientSignedAt())
+                .paymentMethod(assignment.getPaymentMethod())
                 .build();
     }
 
@@ -2223,6 +2599,10 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .createdAt(c.getCreatedAt())
                 .applicationCount(tutorApplicationRepository.countByTutoringClass_ClassIdAndStatusNot(
                         c.getClassId(), TutorApplicationStatus.REJECTED))
+                .assignmentId(classAssignmentRepository
+                        .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(c.getClassId())
+                        .map(ClassAssignment::getAssignmentId)
+                        .orElse(null))
                 .build();
     }
 

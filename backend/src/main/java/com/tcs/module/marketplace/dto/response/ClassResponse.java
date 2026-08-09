@@ -48,4 +48,5 @@ public class ClassResponse {
     private List<ScheduleSlotResponse> schedule;
     private LocalDateTime createdAt;
     private Long applicationCount;
+    private Long assignmentId;
 }

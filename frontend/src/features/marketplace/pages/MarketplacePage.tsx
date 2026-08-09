@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
@@ -127,7 +127,7 @@ export default function MarketplacePage() {
               </p>
             </div>
             {mode.kind === 'list' && isClient && (
-              <Link className="mkt-btn mkt-btn--primary" to={APP_ROUTES.findTutor}>
+              <Link className="mkt-btn mkt-btn--primary" to={APP_ROUTES.postTutorRequest}>
                 + Tạo lớp mới
               </Link>
             )}
@@ -234,6 +234,7 @@ function ClassDetailScreen({
   onUnpublish,
   onBack,
 }: ClassDetailScreenProps) {
+  const navigate = useNavigate();
   return (
     <section className="mkt-detail">
       <div className="mkt-detail__bar">
@@ -241,6 +242,19 @@ function ClassDetailScreen({
           ← Quay lại danh sách
         </button>
         <div className="mkt-detail__bar-right">
+          {target.status === 'MATCHED' && target.assignmentId != null && (
+            <button
+              type="button"
+              className="mkt-btn mkt-btn--primary"
+              onClick={() =>
+                navigate(APP_ROUTES.signContract, {
+                  state: { assignmentId: target.assignmentId },
+                })
+              }
+            >
+              ✍️ Ký hợp đồng
+            </button>
+          )}
           {isEditableClass(target) && (
             <button type="button" className="mkt-btn mkt-btn--ghost" onClick={() => onEdit(target)}>
               ✏️ Sửa lớp

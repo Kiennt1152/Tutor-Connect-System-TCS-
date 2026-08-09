@@ -10,4 +10,5 @@ secret-mail.properties
 
 # Ảnh người dùng tải lên lúc chạy (avatar, giấy tờ xác minh, CCCD…) — KHÔNG commit
 uploads/
-backend/uploads/
+backend/uploads/*
+!backend/uploads/.gitkeep

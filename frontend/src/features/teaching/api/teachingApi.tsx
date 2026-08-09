@@ -1,6 +1,7 @@
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
   AssignmentResponse,
+  ContractView,
   ExtraLessonPayload,
   LessonResponse,
   RescheduleLessonPayload,
@@ -24,6 +25,30 @@ export const teachingApi = {
   declineAssignment: (assignmentId: number) =>
     axiosClient
       .post<{ message: string }>(`/marketplace/assignments/${assignmentId}/decline`)
+      .then((r) => r.data),
+
+  getAssignmentContract: (assignmentId: number) =>
+    axiosClient
+      .get<ContractView>(`/marketplace/assignments/${assignmentId}/contract`)
+      .then((r) => r.data),
+
+  requestSignOtp: (assignmentId: number) =>
+    axiosClient
+      .post<{ message: string }>(`/marketplace/assignments/${assignmentId}/sign/request-otp`)
+      .then((r) => r.data),
+
+  signAssignmentContract: (assignmentId: number, otp: string) =>
+    axiosClient
+      .post<{ message: string }>(`/marketplace/assignments/${assignmentId}/sign`, {
+        otp,
+      })
+      .then((r) => r.data),
+
+  saveContractTerms: (assignmentId: number, termsB: string) =>
+    axiosClient
+      .post<{ message: string }>(`/marketplace/assignments/${assignmentId}/contract-terms`, {
+        termsB,
+      })
       .then((r) => r.data),
 
   listMyLessons: () =>
