@@ -140,7 +140,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final ClientRepository clientRepository;
     private final CccdService cccdService;
     private final ClientLegalAccountService clientLegalAccountService;
-    private final com.tcs.module.profile.service.CccdService cccdService;
     private final TutorRepository tutorRepository;
     private final ContractRepository contractRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
