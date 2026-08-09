@@ -7,3 +7,7 @@ postman/
 
 # Cấu hình mail bí mật (App Password) — KHÔNG commit
 secret-mail.properties
+
+# Ảnh người dùng tải lên lúc chạy (avatar, giấy tờ xác minh, CCCD…) — KHÔNG commit
+uploads/
+backend/uploads/
