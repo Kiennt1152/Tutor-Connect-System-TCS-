@@ -95,6 +95,12 @@ public class MarketplaceController {
         return Map.of("message", "Đã hủy yêu cầu mở lớp");
     }
 
+    @PostMapping("/class-requests/{requestId}/choose-tutor/{tutorId}")
+    public ClassResponse chooseTutorForClassRequest(
+            @PathVariable String requestId, @PathVariable Long tutorId) {
+        return marketplaceService.fulfillClassRequest(requestId, tutorId);
+    }
+
     @PostMapping("/classes/{classId}/publish")
     public ClassResponse publishClass(@PathVariable Long classId) {
         return marketplaceService.publishClass(classId);

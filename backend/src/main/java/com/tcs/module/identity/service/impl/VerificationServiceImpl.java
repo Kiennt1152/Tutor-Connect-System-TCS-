@@ -387,12 +387,12 @@ public class VerificationServiceImpl implements VerificationService {
     }
 
     /**
-     * Trung tâm cần nộp đủ 4 chứng từ bắt buộc theo quy định pháp luật VN:
-     * Giấy ĐKKD, MST, Giấy phép hoạt động GD, CCCD người đại diện PL.
+     * Trung tâm cần nộp đủ 5 chứng từ bắt buộc theo quy định pháp luật VN:
+     * Giấy ĐKKD, Giấy phép hoạt động GD, MST, CCCD người đại diện PL (mặt trước + mặt sau).
      * Do DB CHECK constraint hiện tại chỉ cho phép 4 enum values (ID_CARD, DEGREE,
-     * CERTIFICATE, LICENSE), frontend map 4 slots vào 3 giá trị DB:
+     * CERTIFICATE, LICENSE), frontend map 5 slots vào 3 giá trị DB:
      * - LICENSE  : 2 (business license + education permit)
-     * - ID_CARD  : 1 (legal rep CCCD)
+     * - ID_CARD  : 2 (legal rep CCCD mặt trước + mặt sau)
      * - CERTIFICATE: 1 (tax code)
      */
     private void validateRequiredDocuments(VerificationRequestDto request) {
@@ -407,12 +407,12 @@ public class VerificationServiceImpl implements VerificationService {
             long certificateCount = counts.getOrDefault(VerificationDocumentType.CERTIFICATE, 0L);
             long total = request.getDocuments().size();
 
-            if (total != 4 || licenseCount != 2 || idCardCount != 1 || certificateCount != 1) {
+            if (total != 5 || licenseCount != 2 || idCardCount != 2 || certificateCount != 1) {
                 throw new BusinessException(
-                        "Hồ sơ trung tâm cần đủ 4 chứng từ bắt buộc: "
+                        "Hồ sơ trung tâm cần đủ 5 chứng từ bắt buộc: "
                                 + "Giấy ĐKKD (LICENSE), Giấy phép hoạt động giáo dục (LICENSE), "
                                 + "Mã số thuế / Đăng ký thuế (CERTIFICATE), "
-                                + "CCCD người đại diện pháp luật (ID_CARD).");
+                                + "CCCD người đại diện pháp luật mặt trước và mặt sau (ID_CARD x2).");
             }
         }
     }

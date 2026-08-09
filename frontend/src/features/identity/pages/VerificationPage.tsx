@@ -5,6 +5,7 @@ import { VerificationHeader } from '../../../shared/components/VerificationHeade
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { CccdSection } from '../../profile/components/CccdSection';
+import { SiteFooter } from '../../home/components/SiteFooter';
 import { profileApi } from '../../profile/api/profileApi';
 import { useVerification } from '../hooks/useVerification';
 import { verificationApi } from '../api/verificationApi';
@@ -326,7 +327,13 @@ export default function VerificationPage() {
                 ) : (
                   <>
                     {/* Quét CCCD (đọc QR tự điền) — bắt buộc trước khi gửi xác minh. */}
-                    <CccdSection />
+                    <CccdSection
+                      title={
+                        isCenter
+                          ? 'Thông tin CCCD (người đại diện pháp luật)'
+                          : 'Thông tin CCCD (dùng khi ký hợp đồng)'
+                      }
+                    />
                     <label
                       style={{
                         display: 'flex',
@@ -395,6 +402,7 @@ export default function VerificationPage() {
           </div>
         </div>
       </main>
+      <SiteFooter />
     </div>
   );
 }

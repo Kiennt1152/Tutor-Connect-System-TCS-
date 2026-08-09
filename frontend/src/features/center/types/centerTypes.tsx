@@ -286,6 +286,7 @@ export interface CenterContractInfo {
   website: string | null;
   representativeName: string | null;
   representativePosition: string | null;
+  verificationStatus: string | null;
 }
 
 export interface ContractTemplate {

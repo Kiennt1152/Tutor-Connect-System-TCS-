@@ -76,7 +76,14 @@ export default function App() {
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />
-          <Route path={APP_ROUTES.catalog} element={<CatalogPage />} />
+          <Route
+            path={APP_ROUTES.catalog}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <CatalogPage />
+              </ProtectedRoute>
+            }
+          />
           {/* Trang "Trung tâm" cong khai: ai cung xem duoc; gia su thay them tin tuyen dung. */}
           <Route path={APP_ROUTES.centers} element={<CentersPage />} />
           <Route
