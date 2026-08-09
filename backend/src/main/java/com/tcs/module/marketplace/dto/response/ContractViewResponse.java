@@ -1,5 +1,6 @@
 package com.tcs.module.marketplace.dto.response;
 
+import com.tcs.module.contract.dto.response.ContractResponse;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
@@ -39,6 +40,7 @@ public class ContractViewResponse {
     private boolean clientSigned;
     private String paymentMethod;
     private String myRole; // CLIENT | TUTOR
+    private ContractResponse.EscrowPaymentInfo escrowPayment;
 
     private String termsB;
 }

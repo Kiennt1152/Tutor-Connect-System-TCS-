@@ -4,6 +4,11 @@ import axios from 'axios';
 import { SiteHeader } from '../../home/components/SiteHeader';
 import { teachingApi } from '../api/teachingApi';
 import type { ContractView } from '../types/teachingTypes';
+import type {
+  EscrowPaymentInfo,
+  EscrowStatus,
+  PaymentTransactionStatus,
+} from '../../contract/types/contractTypes';
 import { classToForm, totalBudget, weeksForCycle } from '../../marketplace/mappers/marketplaceMapper';
 import { DAY_OF_WEEK_OPTIONS } from '../../marketplace/types/marketplaceTypes';
 import { APP_ROUTES } from '../../../shared/constants/routes';
@@ -33,6 +38,38 @@ function fmtDob(iso: string | null): string {
 }
 
 const hm = (t: string) => (t === '23:59' ? '00:00' : t);
+
+const ESCROW_STATUS_LABEL: Record<EscrowStatus, { label: string; cls: string }> = {
+  PENDING: { label: 'Chờ nạp', cls: 'is-pending' },
+  FUNDED: { label: 'Đã nạp', cls: 'is-success' },
+  ON_HOLD: { label: 'Đang giữ', cls: 'is-warning' },
+  DISPUTED: { label: 'Đang tranh chấp', cls: 'is-warning' },
+  RELEASED: { label: 'Đã giải ngân', cls: 'is-success' },
+  REFUNDED: { label: 'Đã hoàn tiền', cls: 'is-success' },
+};
+
+const PAYMENT_STATUS_LABEL: Record<PaymentTransactionStatus, string> = {
+  PENDING: 'Chờ thanh toán',
+  SUCCESS: 'Đã thanh toán',
+  FAILED: 'Thanh toán thất bại',
+  CANCELLED: 'Đã hủy',
+};
+
+const isEscrowPaymentConfirmed = (
+  paymentStatus: PaymentTransactionStatus | null | undefined,
+  escrowStatus: EscrowStatus | null | undefined,
+) =>
+  paymentStatus === 'SUCCESS'
+  || escrowStatus === 'FUNDED'
+  || escrowStatus === 'ON_HOLD'
+  || escrowStatus === 'DISPUTED'
+  || escrowStatus === 'RELEASED'
+  || escrowStatus === 'REFUNDED';
+
+const copyText = async (value?: string | null) => {
+  if (!value) return;
+  await navigator.clipboard?.writeText(value);
+};
 
 const DEFAULT_TERMS_B_LINES = [
   'Bảo đảm giờ học cho học viên đúng lịch; nếu nghỉ hoặc chuyển lịch học phải báo trước và dạy bù.',
@@ -72,6 +109,12 @@ export default function ContractSigningPage() {
   const [otpMsg, setOtpMsg] = useState('');
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [agreedTermsB, setAgreedTermsB] = useState(false);
+  const [checkingPaymentStatus, setCheckingPaymentStatus] = useState(false);
+  const [paymentReloading, setPaymentReloading] = useState(false);
+  const [paymentToast, setPaymentToast] = useState<{
+    tone: 'success' | 'warning' | 'error';
+    message: string;
+  } | null>(null);
   const today = new Date();
 
   useEffect(() => {
@@ -113,6 +156,18 @@ export default function ContractSigningPage() {
     return { full, monthly, months };
   }, [form]);
 
+  const escrowPayment = contract?.escrowPayment ?? null;
+  const visibleEscrowPayment: EscrowPaymentInfo | null =
+    escrowPayment && !isEscrowPaymentConfirmed(escrowPayment.paymentStatus, escrowPayment.escrowStatus)
+      ? escrowPayment
+      : null;
+  const escrowStatus =
+    escrowPayment && !isEscrowPaymentConfirmed(escrowPayment.paymentStatus, escrowPayment.escrowStatus)
+      ? ESCROW_STATUS_LABEL[escrowPayment.escrowStatus]
+      : null;
+  const escrowPending = escrowPayment?.paymentStatus === 'PENDING' || escrowPayment?.escrowStatus === 'PENDING';
+  const escrowRetryable = escrowPayment?.paymentStatus === 'FAILED' || escrowPayment?.paymentStatus === 'PENDING';
+
   const isTutor = contract?.myRole === 'TUTOR';
   const isClient = contract?.myRole === 'CLIENT';
   const alreadySignedByMe = isTutor ? contract?.tutorSigned : contract?.clientSigned;
@@ -123,6 +178,41 @@ export default function ContractSigningPage() {
 
   const combinedTermsLines = [...DEFAULT_TERMS_B_LINES, ...termsLines(extraTermsText)];
   const combinedTermsB = combinedTermsLines.join('\n');
+
+  const showPaymentToast = (tone: 'success' | 'warning' | 'error', message: string, autoClose = true) => {
+    setPaymentToast({ tone, message });
+    if (autoClose) {
+      window.setTimeout(() => setPaymentToast(null), 4200);
+    }
+  };
+
+  const handleCheckEscrowPaymentStatus = async () => {
+    if (!assignmentId || checkingPaymentStatus || paymentReloading) return;
+    setCheckingPaymentStatus(true);
+    try {
+      const latest = await teachingApi.getAssignmentContract(assignmentId);
+      const latestPayment = latest.escrowPayment;
+      if (latestPayment && isEscrowPaymentConfirmed(latestPayment.paymentStatus, latestPayment.escrowStatus)) {
+        setPaymentReloading(true);
+        showPaymentToast('success', 'Thanh toán đã được SePay xác nhận. Đang tải lại hợp đồng...', false);
+        window.setTimeout(() => window.location.reload(), 1000);
+        return;
+      }
+
+      const statusText = latestPayment?.paymentStatus
+        ? PAYMENT_STATUS_LABEL[latestPayment.paymentStatus] ?? latestPayment.paymentStatus
+        : 'chưa có giao dịch';
+      showPaymentToast(
+        'warning',
+        `Chưa xác nhận được thanh toán. Trạng thái hiện tại: ${statusText}.`,
+      );
+      setContract(latest);
+    } catch (err) {
+      showPaymentToast('error', extractError(err));
+    } finally {
+      setCheckingPaymentStatus(false);
+    }
+  };
 
   async function handleSaveTerms() {
     if (!contract) return;
@@ -373,9 +463,24 @@ export default function ContractSigningPage() {
                 {error && <div className="ksign-alert ksign-alert--err">{error}</div>}
 
                 {bothSigned ? (
-                  <div className="ksign-alert ksign-alert--ok">
-                    Hợp đồng đã hoàn tất. Lịch dạy đã được tạo.
-                  </div>
+                  escrowPayment ? (
+                    isEscrowPaymentConfirmed(
+                      escrowPayment.paymentStatus,
+                      escrowPayment.escrowStatus,
+                    ) ? (
+                      <div className="ksign-alert ksign-alert--ok">
+                        Thanh toán escrow đã được xác nhận. Hệ thống sẽ kích hoạt lớp.
+                      </div>
+                    ) : (
+                      <div className="ksign-alert ksign-alert--ok">
+                        Hợp đồng đã hoàn tất. Vui lòng quét mã để thanh toán escrow.
+                      </div>
+                    )
+                  ) : (
+                    <div className="ksign-alert ksign-alert--ok">
+                      Hợp đồng đã hoàn tất. Đang tạo lệnh thanh toán escrow.
+                    </div>
+                  )
                 ) : alreadySignedByMe ? (
                   <div className="ksign-alert ksign-alert--ok">
                     Bạn đã ký. Đang chờ {isTutor ? 'phụ huynh' : 'gia sư'} ký để hoàn tất.
@@ -462,9 +567,100 @@ export default function ContractSigningPage() {
                 )}
 
                 <p className="ksign-note">
-                  Khi cả hai bên ký xong, hệ thống chuyển đến giao dịch.
+                  Khi cả hai bên ký xong, hệ thống chuyển sang bước thanh toán escrow.
                 </p>
               </div>
+
+              {bothSigned && visibleEscrowPayment ? (
+                <div className="ksign-card ksign-paycard">
+                  <div className="ksign-paycard__head">
+                    <h3>Quét mã để thanh toán</h3>
+                    {escrowStatus ? (
+                      <span className={`ksign-status ${escrowStatus.cls}`}>{escrowStatus.label}</span>
+                    ) : null}
+                  </div>
+
+                  <div className="ksign-escrow">
+                    {visibleEscrowPayment.qrUrl ? (
+                      <div className="ksign-escrow__qr">
+                        <img src={visibleEscrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
+                      </div>
+                    ) : null}
+
+                    <div className="ksign-escrow__details">
+                      <div className="ksign-escrow__row">
+                        <span>Số tiền</span>
+                        <strong>{currency.format(Number(visibleEscrowPayment.amount ?? 0))} đồng</strong>
+                      </div>
+                      <div className="ksign-escrow__row">
+                        <span>Ngân hàng</span>
+                        <strong>{visibleEscrowPayment.bankName ?? '—'}</strong>
+                      </div>
+                      <div className="ksign-escrow__row">
+                        <span>Số tài khoản</span>
+                        <strong>{visibleEscrowPayment.accountNumber ?? '—'}</strong>
+                      </div>
+                      <div className="ksign-escrow__row">
+                        <span>Chủ tài khoản</span>
+                        <strong>{visibleEscrowPayment.accountName ?? '—'}</strong>
+                      </div>
+                      <div className="ksign-escrow__code">
+                        <span>Nội dung chuyển khoản</span>
+                        <div>
+                          <code>
+                            {visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode ?? '—'}
+                          </code>
+                          <button
+                            type="button"
+                            onClick={() =>
+                              void copyText(
+                                visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode,
+                              )
+                            }
+                          >
+                            Sao chép
+                          </button>
+                        </div>
+                      </div>
+                      <p className={`ksign-note${escrowPending ? ' ksign-note--pending' : ''}`}>
+                        {escrowPending
+                          ? 'Sau khi SePay xác nhận giao dịch, lớp sẽ được kích hoạt và mã QR sẽ tự ẩn.'
+                          : escrowRetryable
+                            ? `Giao dịch chưa thành công. Trạng thái hiện tại: ${
+                              visibleEscrowPayment.paymentStatus
+                                ? PAYMENT_STATUS_LABEL[visibleEscrowPayment.paymentStatus] ?? visibleEscrowPayment.paymentStatus
+                                : '—'
+                            }.`
+                            : `Trạng thái giao dịch: ${
+                              visibleEscrowPayment.paymentStatus
+                                ? PAYMENT_STATUS_LABEL[visibleEscrowPayment.paymentStatus] ?? visibleEscrowPayment.paymentStatus
+                                : '—'
+                            }.`}
+                      </p>
+                      <div className="ksign-escrow__actions">
+                        <button
+                          type="button"
+                          className="ksign-btn ksign-btn--primary ksign-btn--block"
+                          onClick={handleCheckEscrowPaymentStatus}
+                          disabled={checkingPaymentStatus || paymentReloading}
+                        >
+                          {checkingPaymentStatus || paymentReloading ? 'Đang quét...' : 'Quét trạng thái'}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : bothSigned ? (
+                <div className="ksign-card ksign-paycard">
+                  <p className="ksign-muted">Đang tạo lệnh thanh toán escrow…</p>
+                </div>
+              ) : null}
+
+              {paymentToast ? (
+                <div className={`ksign-toast ksign-toast--${paymentToast.tone}`} role="status">
+                  {paymentToast.message}
+                </div>
+              ) : null}
             </aside>
           </div>
         )}

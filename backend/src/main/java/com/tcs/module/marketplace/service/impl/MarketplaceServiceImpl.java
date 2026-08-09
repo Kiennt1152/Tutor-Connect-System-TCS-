@@ -9,11 +9,14 @@ import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.exception.VerificationRequiredException;
+import com.tcs.module.contract.dto.response.ContractResponse;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
+import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.entity.EscrowTransaction;
+import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
@@ -96,6 +99,8 @@ import com.tcs.security.UserPrincipal;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.math.RoundingMode;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.time.DayOfWeek;
 import java.time.Duration;
 import java.time.LocalDate;
@@ -103,6 +108,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -137,6 +143,11 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 @Slf4j
 public class MarketplaceServiceImpl implements MarketplaceService {
+
+    private static final String ESCROW_BANK_NAME = "TPBank";
+    private static final String ESCROW_BANK_BIN = "970423";
+    private static final String ESCROW_ACCOUNT_NUMBER = "02660559201";
+    private static final String ESCROW_ACCOUNT_NAME = "TUTOR CONNECT SYSTEM";
 
     private final AuthHelper authHelper;
     private final UserRepository userRepository;
@@ -719,6 +730,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Transactional
     public void acceptAssignment(Long assignmentId) {
         ClassAssignment assignment = requireMyPendingAssignment(assignmentId);
+        if (assignment.getTutorSignedAt() == null || assignment.getClientSignedAt() == null) {
+            throw new IllegalArgumentException("Vui lòng ký hợp đồng và thanh toán escrow trước khi nhận lớp");
+        }
+        if (escrowTransactionRepository.findByAssignment_AssignmentId(assignmentId).isEmpty()) {
+            throw new IllegalArgumentException("Chưa có escrow hợp lệ cho lớp này");
+        }
         activateAssignment(assignment);
     }
 
@@ -774,8 +791,64 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .clientSigned(assignment.getClientSignedAt() != null)
                 .paymentMethod(assignment.getPaymentMethod())
                 .myRole(role)
+                .escrowPayment(toEscrowPaymentInfo(resolveAssignmentEscrow(assignment)))
                 .termsB(assignment.getTermsB())
                 .build();
+    }
+
+    private EscrowTransaction resolveAssignmentEscrow(ClassAssignment assignment) {
+        if (assignment == null || assignment.getAssignmentId() == null) {
+            return null;
+        }
+        return escrowTransactionRepository.findByAssignment_AssignmentId(assignment.getAssignmentId()).orElse(null);
+    }
+
+    private ContractResponse.EscrowPaymentInfo toEscrowPaymentInfo(EscrowTransaction escrow) {
+        if (escrow == null) {
+            return null;
+        }
+        PaymentTransaction payment = escrow.getPayment();
+        BigDecimal amount = payment != null && payment.getAmount() != null
+                ? payment.getAmount()
+                : escrow.getAmount();
+        String reference = payment != null ? payment.getReferenceCode() : null;
+        return ContractResponse.EscrowPaymentInfo.builder()
+                .escrowId(escrow.getEscrowId())
+                .escrowStatus(escrow.getStatus())
+                .paymentTransactionId(payment != null ? payment.getTransactionId() : null)
+                .paymentStatus(payment != null ? payment.getStatus() : null)
+                .amount(amount)
+                .referenceCode(reference)
+                .bankName(ESCROW_BANK_NAME)
+                .bankBin(ESCROW_BANK_BIN)
+                .accountNumber(ESCROW_ACCOUNT_NUMBER)
+                .accountName(ESCROW_ACCOUNT_NAME)
+                .transferContent(reference)
+                .qrUrl(buildEscrowQrUrl(amount, reference))
+                .depositedAt(escrow.getDepositedAt())
+                .processedAt(payment != null ? payment.getProcessedAt() : null)
+                .build();
+    }
+
+    private String buildEscrowQrUrl(BigDecimal amount, String transferContent) {
+        if (amount == null || transferContent == null || transferContent.isBlank()) {
+            return null;
+        }
+        return "https://img.vietqr.io/image/"
+                + ESCROW_BANK_BIN
+                + "-"
+                + ESCROW_ACCOUNT_NUMBER
+                + "-compact2.png"
+                + "?amount="
+                + amount.setScale(0, RoundingMode.DOWN).toPlainString()
+                + "&addInfo="
+                + urlEncode(transferContent)
+                + "&accountName="
+                + urlEncode(ESCROW_ACCOUNT_NAME);
+    }
+
+    private String urlEncode(String value) {
+        return URLEncoder.encode(value, StandardCharsets.UTF_8);
     }
 
     @Override
@@ -917,7 +990,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             }
         }
         if (assignment.getTutorSignedAt() != null && assignment.getClientSignedAt() != null) {
-            activateAssignment(assignment);
+            assignment.setPaymentMethod(resolvePrivatePaymentMethod(c));
+            classAssignmentRepository.save(assignment);
+            ensurePrivateEscrowPayment(assignment, c);
+            if ("TUTOR".equals(role)) {
+                notifyClientContractPaymentReady(c);
+            }
         } else {
             classAssignmentRepository.save(assignment);
             if ("CLIENT".equals(role)) {
@@ -942,6 +1020,82 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
         n.setIsRead(false);
         notificationRepository.save(n);
+    }
+
+    private void notifyClientContractPaymentReady(TutoringClass c) {
+        if (c.getCreator() == null) {
+            return;
+        }
+        com.tcs.module.messaging.entity.Notification n =
+                new com.tcs.module.messaging.entity.Notification();
+        n.setUser(c.getCreator());
+        n.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
+        n.setTitle("Hợp đồng đã hoàn tất — vui lòng thanh toán escrow");
+        n.setContent("Hợp đồng lớp \"" + c.getTitle()
+                + "\" đã được ký xong. Vui lòng vào mục Lịch học/Hợp đồng để quét mã thanh toán escrow.");
+        n.setReferenceType("TUTORING_CLASS");
+        n.setReferenceId(c.getClassId());
+        n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
+        n.setIsRead(false);
+        notificationRepository.save(n);
+    }
+
+    private void ensurePrivateEscrowPayment(ClassAssignment assignment, TutoringClass tutoringClass) {
+        if (assignment.getAssignmentId() == null
+                || tutoringClass == null
+                || tutoringClass.getCreator() == null
+                || tutoringClass.getCreator().getUserId() == null) {
+            return;
+        }
+        if (escrowTransactionRepository.findByAssignment_AssignmentId(assignment.getAssignmentId()).isPresent()) {
+            return;
+        }
+        BigDecimal amount = resolvePrivateEscrowAmount(tutoringClass);
+        if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("Không xác định được số tiền escrow cần thanh toán");
+        }
+        escrowService.lock(new EscrowLockCommand(
+                tutoringClass.getCreator().getUserId(),
+                amount,
+                assignment.getAssignmentId(),
+                null));
+    }
+
+    private String resolvePrivatePaymentMethod(TutoringClass tutoringClass) {
+        return plannedPrivateClassMonths(tutoringClass) > 1 ? "DEPOSIT_1M" : "FULL";
+    }
+
+    private BigDecimal resolvePrivateEscrowAmount(TutoringClass tutoringClass) {
+        BigDecimal totalAmount = positiveAmount(tutoringClass.getBudget());
+        if (totalAmount == null && tutoringClass.getTuitionFee() != null && tutoringClass.getNumberOfSessions() != null) {
+            totalAmount = tutoringClass.getTuitionFee()
+                    .multiply(BigDecimal.valueOf(tutoringClass.getNumberOfSessions()));
+        }
+        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        int plannedMonths = plannedPrivateClassMonths(tutoringClass);
+        if (plannedMonths <= 1) {
+            return totalAmount.setScale(2, RoundingMode.HALF_UP);
+        }
+        return totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP);
+    }
+
+    private int plannedPrivateClassMonths(TutoringClass tutoringClass) {
+        if (tutoringClass.getStartDate() == null || tutoringClass.getEndDate() == null) {
+            return 1;
+        }
+        if (tutoringClass.getEndDate().isBefore(tutoringClass.getStartDate())) {
+            return 1;
+        }
+        long inclusiveDays = ChronoUnit.DAYS.between(
+                tutoringClass.getStartDate(),
+                tutoringClass.getEndDate().plusDays(1));
+        return Math.max(1, (int) Math.ceil(inclusiveDays / 30.0));
+    }
+
+    private BigDecimal positiveAmount(BigDecimal amount) {
+        return amount != null && amount.compareTo(BigDecimal.ZERO) > 0 ? amount : null;
     }
 
     private void verifySignOtp(String email, String code) {
@@ -2066,6 +2220,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @EventListener
     @Transactional
     public void onEscrowFunded(EscrowFunded event) {
+        if (event.assignmentId() != null) {
+            handlePrivateAssignmentEscrowFunded(event.assignmentId());
+        }
         if (event.classStudentId() == null) {
             return;
         }
@@ -2090,6 +2247,20 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 tutoringClassRepository.save(cls);
             }
         }
+    }
+
+    private void handlePrivateAssignmentEscrowFunded(Long assignmentId) {
+        ClassAssignment assignment = classAssignmentRepository.findById(assignmentId).orElse(null);
+        if (assignment == null || assignment.getStatus() == ClassAssignmentStatus.ACTIVE) {
+            return;
+        }
+        if (assignment.getStatus() != ClassAssignmentStatus.PENDING) {
+            return;
+        }
+        if (assignment.getTutorSignedAt() == null || assignment.getClientSignedAt() == null) {
+            return;
+        }
+        activateAssignment(assignment);
     }
 
     @Override

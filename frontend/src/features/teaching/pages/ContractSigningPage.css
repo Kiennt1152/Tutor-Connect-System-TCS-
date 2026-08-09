@@ -319,3 +319,169 @@
   color: #c62828;
   font-weight: 600;
 }
+
+.ksign-paycard {
+  margin-top: 14px;
+}
+
+.ksign-paycard__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.ksign-paycard__head h3 {
+  margin: 0;
+}
+
+.ksign-status {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.ksign-status.is-pending {
+  background: #fff1d6;
+  color: #b45309;
+}
+.ksign-status.is-warning {
+  background: #fef3c7;
+  color: #b45309;
+}
+.ksign-status.is-success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.ksign-escrow {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.ksign-escrow__qr {
+  flex: 0 0 124px;
+  padding: 8px;
+  border: 1px solid #dbe4ef;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.ksign-escrow__qr img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.ksign-escrow__details {
+  flex: 1;
+  min-width: 0;
+}
+
+.ksign-escrow__row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid #eef2f7;
+  font-size: 13px;
+}
+.ksign-escrow__row span {
+  color: #5b6b7f;
+}
+.ksign-escrow__row strong {
+  color: #12233b;
+  text-align: right;
+  word-break: break-word;
+}
+
+.ksign-escrow__code {
+  margin-top: 10px;
+}
+.ksign-escrow__code span {
+  display: block;
+  font-size: 13px;
+  color: #5b6b7f;
+  margin-bottom: 6px;
+}
+.ksign-escrow__code div {
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.ksign-escrow__code code {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px dashed #cfd8e3;
+  border-radius: 8px;
+  background: #f8fbff;
+  font-family: 'JetBrains Mono', Consolas, monospace;
+  font-size: 13px;
+  word-break: break-word;
+}
+.ksign-escrow__code button {
+  border: 1px solid #d7dfea;
+  border-radius: 8px;
+  padding: 0 12px;
+  background: #fff;
+  color: #ea580c;
+  font-weight: 700;
+  cursor: pointer;
+}
+.ksign-escrow__code button:hover {
+  background: #fff7ed;
+  border-color: #fdba74;
+}
+
+.ksign-escrow__actions {
+  margin-top: 10px;
+}
+
+.ksign-note--pending {
+  color: #b45309;
+}
+
+.ksign-toast {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 40;
+  max-width: 360px;
+  padding: 14px 18px;
+  border-radius: 12px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+}
+.ksign-toast--success {
+  background: #16a34a;
+}
+.ksign-toast--warning {
+  background: #d97706;
+}
+.ksign-toast--error {
+  background: #dc2626;
+}
+
+@media (max-width: 540px) {
+  .ksign-escrow {
+    flex-direction: column;
+  }
+  .ksign-escrow__qr {
+    width: 100%;
+    max-width: 220px;
+  }
+  .ksign-toast {
+    left: 16px;
+    right: 16px;
+    max-width: none;
+  }
+}

@@ -1,4 +1,6 @@
 
+import type { EscrowPaymentInfo } from '../../contract/types/contractTypes';
+
 export type AssignmentStatus = 'PENDING' | 'ACTIVE' | 'DECLINED' | 'TERMINATED';
 
 export type AttendanceStatus = 'PENDING' | 'COMPLETED' | 'ABSENT' | 'DISPUTED';
@@ -52,6 +54,7 @@ export interface ContractView {
   clientSigned: boolean;
   paymentMethod: PaymentMethod | null;
   myRole: 'CLIENT' | 'TUTOR';
+  escrowPayment: EscrowPaymentInfo | null;
   termsB: string | null;
 }
 
