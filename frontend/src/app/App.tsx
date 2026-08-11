@@ -6,6 +6,8 @@ import FindClassPage from '../features/home/pages/FindClassPage';
 import TutorPublicProfilePage from '../features/home/pages/TutorPublicProfilePage';
 import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
+import ForgotPasswordPage from '../features/identity/pages/ForgotPasswordPage';
+import ResetPasswordPage from '../features/identity/pages/ResetPasswordPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
 import PlatformDashboardPage from '../features/platform/pages/PlatformDashboardPage';
 import PlatformEscrowPage from '../features/platform/pages/PlatformEscrowPage';
@@ -44,6 +46,7 @@ import CatalogPage from '../features/catalog/pages/CatalogPage';
 import ContractListPage from '../features/contract/pages/ContractListPage';
 import ContractDetailPage from '../features/contract/pages/ContractDetailPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
+import TicketsPage from '../features/messaging/pages/TicketsPage';
 import MyReviewsPage from '../features/reviews/pages/MyReviewsPage';
 import MyReputationPage from '../features/reviews/pages/MyReputationPage';
 import TeachingPage from '../features/teaching/pages/TeachingPage';
@@ -75,6 +78,8 @@ export default function App() {
           <Route path={APP_ROUTES.tutorProfile} element={<TutorPublicProfilePage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
+          <Route path={APP_ROUTES.forgotPassword} element={<ForgotPasswordPage />} />
+          <Route path={APP_ROUTES.resetPassword} element={<ResetPasswordPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />
           <Route
             path={APP_ROUTES.catalog}
@@ -426,7 +431,7 @@ export default function App() {
             path={APP_ROUTES.messagingTickets}
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
-                <MessagingPage initialTab="tickets" />
+                <TicketsPage />
               </ProtectedRoute>
             }
           />

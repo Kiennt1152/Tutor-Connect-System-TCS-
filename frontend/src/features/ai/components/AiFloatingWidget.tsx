@@ -78,7 +78,7 @@ export default function AiFloatingWidget() {
     <>
       <button className="ai-widget-button" onClick={() => setIsOpen(!isOpen)} title="Trợ lý AI TCS">
         <span style={{ fontSize: '1.2rem' }}>🤖</span>
-        <span>AI Hỗ trợ 24/7</span>
+        <span>TCS AI</span>
       </button>
 
       {isOpen && (
@@ -102,8 +102,9 @@ export default function AiFloatingWidget() {
                   style={{
                     padding: '0.6rem 0.85rem',
                     borderRadius: '1rem',
-                    background: m.role === 'user' ? 'linear-gradient(135deg, #2563eb, #4f46e5)' : '#21262d',
-                    color: '#fff',
+                    background: m.role === 'user' ? 'linear-gradient(135deg, #ea580c, #c4612f)' : '#f9fafb',
+                    color: m.role === 'user' ? '#fff' : '#1F2421',
+                    border: m.role === 'assistant' ? '1px solid #E7E1D7' : 'none',
                     fontSize: '0.85rem',
                     lineHeight: '1.4',
                     borderBottomRightRadius: m.role === 'user' ? '0.2rem' : '1rem',
@@ -133,9 +134,9 @@ export default function AiFloatingWidget() {
                   flex: 1,
                   padding: '0.45rem 0.75rem',
                   borderRadius: '9999px',
-                  border: '1px solid #30363d',
-                  background: '#0d1117',
-                  color: '#fff',
+                  border: '1px solid #E7E1D7',
+                  background: '#fff',
+                  color: '#1F2421',
                   fontSize: '0.85rem',
                   outline: 'none',
                 }}
@@ -147,7 +148,7 @@ export default function AiFloatingWidget() {
                   width: '32px',
                   height: '32px',
                   borderRadius: '50%',
-                  background: '#a855f7',
+                  background: '#ea580c',
                   color: '#fff',
                   border: 'none',
                   cursor: 'pointer',

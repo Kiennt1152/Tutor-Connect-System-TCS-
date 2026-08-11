@@ -6,4 +6,5 @@ import { SiteHeader } from './SiteHeader';
  */
 export function HomeNavbar() {
   return <SiteHeader />;
+
 }

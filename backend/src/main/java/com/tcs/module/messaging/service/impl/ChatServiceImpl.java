@@ -20,6 +20,17 @@ import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.mapper.UserProfileBundle;
+import com.tcs.common.classrequest.ClassRequestStore;
+import com.tcs.module.center.entity.RecruitmentApplication;
+import com.tcs.module.center.repository.RecruitmentApplicationRepository;
+import com.tcs.module.marketplace.entity.ClassAssignment;
+import com.tcs.module.marketplace.entity.TutorApplication;
+import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
+import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
+import com.tcs.module.marketplace.repository.TutorApplicationRepository;
+import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
@@ -53,6 +64,11 @@ public class ChatServiceImpl implements ChatService {
     private final TutorRepository tutorRepository;
     private final TutorCenterRepository tutorCenterRepository;
     private final ClientRepository clientRepository;
+    private final TutorApplicationRepository tutorApplicationRepository;
+    private final RecruitmentApplicationRepository recruitmentApplicationRepository;
+    private final TutoringClassRepository tutoringClassRepository;
+    private final ClassAssignmentRepository classAssignmentRepository;
+    private final ClassRequestStore classRequestStore;
     private final PlatformMapper platformMapper;
     private final SimpMessagingTemplate messagingTemplate;
 
@@ -83,6 +99,114 @@ public class ChatServiceImpl implements ChatService {
                 .orElseGet(() -> createDirectConversation(userId, targetUserId));
 
         return toConversationResponse(conversation, userId);
+    }
+
+    @Override
+    @Transactional
+    public ConversationResponse getOrCreateContextConversation(String contextType, String contextIdStr) {
+        Long currentUserId = authHelper.currentUserId();
+        if (!StringUtils.hasText(contextType) || !StringUtils.hasText(contextIdStr)) {
+            throw new IllegalArgumentException("contextType và contextId là bắt buộc");
+        }
+
+        String normalizedType = contextType.trim().toUpperCase();
+        Long numericContextId = parseContextIdToLong(contextIdStr);
+
+        Optional<Conversation> existingOpt = conversationRepository
+                .findByContextTypeAndContextId(normalizedType, numericContextId);
+
+        if (existingOpt.isPresent()) {
+            Conversation conv = existingOpt.get();
+            requireParticipant(conv.getConversationId(), currentUserId);
+            return toConversationResponse(conv, currentUserId);
+        }
+
+        Long targetUserId = resolveOtherParticipant(normalizedType, contextIdStr, currentUserId);
+        if (targetUserId == null) {
+            throw new ResourceNotFoundException("Không tìm thấy đối phương cho cuộc trò chuyện này");
+        }
+        if (targetUserId.equals(currentUserId)) {
+            throw new IllegalArgumentException("Không thể tạo cuộc trò chuyện với chính mình");
+        }
+
+        Conversation conversation = new Conversation();
+        conversation.setContextType(normalizedType);
+        conversation.setContextId(numericContextId);
+        conversation.setType(normalizedType);
+        conversation.setStatus(ConversationStatus.ACTIVE);
+        Conversation saved = conversationRepository.save(conversation);
+
+        User currentUser = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng hiện tại"));
+        User targetUser = userRepository.findById(targetUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đối phương"));
+
+        conversationParticipantRepository.save(newParticipant(saved, currentUser));
+        conversationParticipantRepository.save(newParticipant(saved, targetUser));
+
+        return toConversationResponse(saved, currentUserId);
+    }
+
+    private Long parseContextIdToLong(String contextIdStr) {
+        try {
+            return Long.parseLong(contextIdStr);
+        } catch (NumberFormatException e) {
+            return Math.abs((long) contextIdStr.hashCode());
+        }
+    }
+
+    private Long resolveOtherParticipant(String contextType, String contextIdStr, Long currentUserId) {
+        return switch (contextType) {
+            case "APPLICATION" -> {
+                Long appId = Long.parseLong(contextIdStr);
+                TutorApplication app = tutorApplicationRepository.findById(appId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn ứng tuyển"));
+                Long tutorUserId = app.getTutor().getUser().getUserId();
+                Long clientUserId = app.getTutoringClass().getCreator().getUserId();
+                if (!currentUserId.equals(tutorUserId) && !currentUserId.equals(clientUserId)) {
+                    throw new ForbiddenException("Bạn không có quyền tham gia cuộc trò chuyện này");
+                }
+                yield currentUserId.equals(tutorUserId) ? clientUserId : tutorUserId;
+            }
+            case "RECRUITMENT", "RECRUITMENT_APPLICATION" -> {
+                Long recAppId = Long.parseLong(contextIdStr);
+                RecruitmentApplication app = recruitmentApplicationRepository.findById(recAppId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn ứng tuyển trung tâm"));
+                Long tutorUserId = app.getTutor().getUser().getUserId();
+                Long centerUserId = app.getRecruitmentPost().getCenter().getUser().getUserId();
+                if (!currentUserId.equals(tutorUserId) && !currentUserId.equals(centerUserId)) {
+                    throw new ForbiddenException("Bạn không có quyền tham gia cuộc trò chuyện này");
+                }
+                yield currentUserId.equals(tutorUserId) ? centerUserId : tutorUserId;
+            }
+            case "CLASS_REQUEST" -> {
+                ClassRequestStore.ClassRequestData data = classRequestStore.find(contextIdStr)
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu mở lớp"));
+                Long clientUserId = data.clientUserId();
+                TutorCenter center = tutorCenterRepository.findById(data.centerId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trung tâm"));
+                Long centerUserId = center.getUser().getUserId();
+                if (!currentUserId.equals(clientUserId) && !currentUserId.equals(centerUserId)) {
+                    throw new ForbiddenException("Bạn không có quyền tham gia cuộc trò chuyện này");
+                }
+                yield currentUserId.equals(clientUserId) ? centerUserId : clientUserId;
+            }
+            case "CLASS_ACTIVE" -> {
+                Long classId = Long.parseLong(contextIdStr);
+                TutoringClass cls = tutoringClassRepository.findById(classId)
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
+                Long creatorUserId = cls.getCreator().getUserId();
+                ClassAssignment assignment = classAssignmentRepository
+                        .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                        .orElseThrow(() -> new IllegalArgumentException("Lớp học chưa có gia sư được phân công"));
+                Long tutorUserId = assignment.getTutor().getUser().getUserId();
+                if (!currentUserId.equals(creatorUserId) && !currentUserId.equals(tutorUserId)) {
+                    throw new ForbiddenException("Bạn không có quyền tham gia cuộc trò chuyện này");
+                }
+                yield currentUserId.equals(creatorUserId) ? tutorUserId : creatorUserId;
+            }
+            default -> throw new IllegalArgumentException("Loại context không hợp lệ: " + contextType);
+        };
     }
 
     @Override

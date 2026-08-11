@@ -16,6 +16,7 @@ import type {
   UpdateProfileRequest,
   UserRole,
 } from '../types/profileTypes';
+import { ChangePasswordPanel } from '../../identity/components/ChangePasswordPanel';
 import './ProfilePage.css';
 
 const VERIFICATION_LABEL: Record<ProfileVerificationStatus, string> = {
@@ -484,6 +485,8 @@ export default function ProfilePage() {
           </div>
         </form>
       )}
+
+      {profile && <ChangePasswordPanel />}
 
       {(isTutor || isCenter) && profile?.verificationStatus && (
         <section className="profile-section">

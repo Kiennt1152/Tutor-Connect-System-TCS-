@@ -47,6 +47,7 @@ public class SecurityConfig {
                                 "/api/identity/send-otp",
                                 "/api/identity/verify-otp",
                                 "/api/identity/password/forgot",
+                                "/api/identity/password/forgot/verify-otp",
                                 "/api/identity/password/reset",
                                 "/uploads/**",
                                 "/swagger-ui/**",
@@ -57,6 +58,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/catalog/parameters/**")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/catalog/chatbot/ask")
                         .permitAll()
                         .requestMatchers("/api/ai/**")
                         .permitAll()
