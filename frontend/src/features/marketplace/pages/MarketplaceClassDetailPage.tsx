@@ -3,6 +3,7 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { ClassTerminationModal } from '../components/ClassTerminationModal';
@@ -120,6 +121,7 @@ export default function MarketplaceClassDetailPage() {
   const isCenterClass = data?.classType === 'CENTER';
   const tutorCanRegister = isTutor && !isCenterClass;
   const canRequestTermination = Boolean(data?.canRequestTermination);
+  const canRequestRefund = data?.refundAllowed ?? true;
 
   const isOpen = data?.status === 'OPEN';
   const sortedSchedule = data
@@ -130,7 +132,7 @@ export default function MarketplaceClassDetailPage() {
     <>
       <VerificationHeader />
       <div className="mk-page">
-        <button className="mk-back" type="button" onClick={() => navigate('/marketplace')}>
+        <button className="mk-back" type="button" onClick={() => navigate(APP_ROUTES.marketplace)}>
           ← Quay lại Tìm lớp
         </button>
 
@@ -269,10 +271,16 @@ export default function MarketplaceClassDetailPage() {
                   <button
                     className="mk-btn mk-btn--secondary mk-btn--block"
                     type="button"
+                    disabled={!canRequestRefund}
                     onClick={() => setRefundModalOpen(true)}
                   >
                     Yêu cầu hoàn tiền
                   </button>
+                  {!canRequestRefund ? (
+                    <p className="mk-note">
+                      {data.refundBlockedReason ?? 'Lớp center đã học quá 50% số buổi nên không thể yêu cầu hoàn tiền.'}
+                    </p>
+                  ) : null}
                 </div>
               ) : null}
             </aside>

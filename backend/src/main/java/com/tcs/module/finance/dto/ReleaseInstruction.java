@@ -10,5 +10,14 @@ public record ReleaseInstruction(
         Long escrowId,
         BigDecimal releaseToBeneficiary,
         BigDecimal refundToPayer,
-        String reason) {
+        String reason,
+        RefundPayoutInfo refundPayoutInfo) {
+
+    public ReleaseInstruction(
+            Long escrowId,
+            BigDecimal releaseToBeneficiary,
+            BigDecimal refundToPayer,
+            String reason) {
+        this(escrowId, releaseToBeneficiary, refundToPayer, reason, null);
+    }
 }

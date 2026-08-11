@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.tcs.common.event.EscrowFunded;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.module.contract.repository.ContractRepository;
@@ -46,6 +47,10 @@ import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
 import com.tcs.module.marketplace.repository.LessonRepository;
 import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.messaging.entity.Notification;
+import com.tcs.module.messaging.enums.NotificationStatus;
+import com.tcs.module.messaging.enums.NotificationType;
+import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
@@ -128,6 +133,9 @@ class MarketplaceServiceImplTest {
     @Mock
     private LocationRepository locationRepository;
 
+    @Mock
+    private NotificationRepository notificationRepository;
+
     @InjectMocks
     private MarketplaceServiceImpl marketplaceService;
 
@@ -144,6 +152,9 @@ class MarketplaceServiceImplTest {
         CreateClassTerminationRequest request = new CreateClassTerminationRequest();
         request.setReason("Gia sư cần dừng lớp sớm");
         request.setEffectiveDate(LocalDate.now().plusDays(2));
+        request.setBankName("TPBank");
+        request.setAccountNo("0123456789");
+        request.setAccountHolderName("Nguyen Van A");
 
         when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
         when(userRepository.findById(TUTOR_USER_ID)).thenReturn(Optional.of(tutorUser));
@@ -206,6 +217,9 @@ class MarketplaceServiceImplTest {
         request.setClassStudentId(CLASS_STUDENT_ID);
         request.setReason("Học viên cần dừng lớp trung tâm sớm");
         request.setEffectiveDate(LocalDate.now().plusDays(3));
+        request.setBankName("TPBank");
+        request.setAccountNo("0123456789");
+        request.setAccountHolderName("Nguyen Van A");
 
         when(authHelper.currentUserId()).thenReturn(enrolledUser.getUserId());
         when(userRepository.findById(enrolledUser.getUserId())).thenReturn(Optional.of(enrolledUser));
@@ -262,6 +276,9 @@ class MarketplaceServiceImplTest {
 
         CreateClassTerminationRequest request = new CreateClassTerminationRequest();
         request.setReason("Lớp đang có tranh chấp nên cần dừng");
+        request.setBankName("TPBank");
+        request.setAccountNo("0123456789");
+        request.setAccountHolderName("Nguyen Van A");
 
         when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
         when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
@@ -306,6 +323,9 @@ class MarketplaceServiceImplTest {
 
         CreateClassTerminationRequest request = new CreateClassTerminationRequest();
         request.setReason("Muốn dừng lớp");
+        request.setBankName("TPBank");
+        request.setAccountNo("0123456789");
+        request.setAccountHolderName("Nguyen Van A");
 
         when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
         when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
@@ -334,6 +354,9 @@ class MarketplaceServiceImplTest {
 
         CreateClassTerminationRequest request = new CreateClassTerminationRequest();
         request.setReason("Muốn dừng lớp");
+        request.setBankName("TPBank");
+        request.setAccountNo("0123456789");
+        request.setAccountHolderName("Nguyen Van A");
 
         when(authHelper.currentUserId()).thenReturn(99L);
         when(userRepository.findById(99L)).thenReturn(Optional.of(outsider));
@@ -356,6 +379,9 @@ class MarketplaceServiceImplTest {
 
         CreateClassTerminationRequest request = new CreateClassTerminationRequest();
         request.setReason("Muốn dừng lớp");
+        request.setBankName("TPBank");
+        request.setAccountNo("0123456789");
+        request.setAccountHolderName("Nguyen Van A");
 
         when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
         when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
@@ -363,6 +389,42 @@ class MarketplaceServiceImplTest {
 
         assertThrows(BusinessException.class, () -> marketplaceService.requestClassTermination(CLASS_ID, request));
         verify(classTerminationRequestRepository, never()).save(any());
+    }
+
+    @Test
+    void onEscrowFundedEnrollsStudentAndNotifiesClient() {
+        User clientUser = user(CLIENT_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(user(99L), TutoringClassStatus.OPEN);
+        ClassStudent classStudent = classStudent(tutoringClass, clientUser);
+        classStudent.setStatus(ClassStudentStatus.PENDING_SIGNATURE);
+
+        when(classStudentRepository.findById(CLASS_STUDENT_ID)).thenReturn(Optional.of(classStudent));
+
+        marketplaceService.onEscrowFunded(new EscrowFunded(
+                101L,
+                CLASS_ID,
+                CLIENT_USER_ID,
+                99L,
+                new BigDecimal("100000.00"),
+                null,
+                CLASS_STUDENT_ID));
+
+        assertEquals(ClassStudentStatus.ENROLLED, classStudent.getStatus());
+        verify(classStudentRepository).save(classStudent);
+
+        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(notificationCaptor.capture());
+        Notification notification = notificationCaptor.getValue();
+        assertEquals(clientUser, notification.getUser());
+        assertEquals(NotificationType.CLASS, notification.getType());
+        assertEquals(NotificationStatus.SENT, notification.getStatus());
+        assertEquals(Boolean.FALSE, notification.getIsRead());
+        assertEquals("TUTORING_CLASS", notification.getReferenceType());
+        assertEquals(CLASS_ID, notification.getReferenceId());
+        assertEquals("Ghi danh thành công", notification.getTitle());
+        assertEquals(
+                "Học viên test đã được ghi danh thành công vào lớp \"Lớp toán\" sau khi hệ thống xác nhận thanh toán.",
+                notification.getContent());
     }
 
     private User user(Long userId) {

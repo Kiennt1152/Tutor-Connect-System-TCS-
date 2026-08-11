@@ -5,11 +5,19 @@ import com.tcs.module.catalog.entity.Category;
 import com.tcs.module.catalog.entity.SystemParameter;
 import com.tcs.module.catalog.repository.CategoryRepository;
 import com.tcs.module.catalog.repository.SystemParameterRepository;
+import com.tcs.module.identity.enums.VerificationDocumentType;
+import com.tcs.module.identity.enums.VerificationStatus;
+import com.tcs.module.identity.enums.VerificationType;
+import com.tcs.module.identity.repository.VerificationDocumentRepository;
+import com.tcs.module.identity.repository.VerificationRequestRepository;
+import com.tcs.module.marketplace.dto.response.CandidateTutorResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.profile.entity.Client;
+import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
+import com.tcs.module.profile.repository.TutorRepository;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -32,6 +40,8 @@ public class ClassRequestStore {
 
     public static final String PREFIX = "classreq:";
     public static final String STATUS_PENDING = "PENDING";
+    /** Trung tâm đã nhận tìm gia sư (đang tìm nguồn). */
+    public static final String STATUS_SEARCHING = "SEARCHING";
     public static final String STATUS_ACCEPTED = "ACCEPTED";
     public static final String STATUS_REJECTED = "REJECTED";
 
@@ -43,8 +53,15 @@ public class ClassRequestStore {
     private final CategoryRepository categoryRepository;
     private final ClientRepository clientRepository;
     private final TutorCenterRepository tutorCenterRepository;
+    private final TutorRepository tutorRepository;
+    private final VerificationRequestRepository verificationRequestRepository;
+    private final VerificationDocumentRepository verificationDocumentRepository;
 
-    /** Dữ liệu một yêu cầu mở lớp (createdAt lưu dạng chuỗi để không cần Jackson time-module). */
+    /**
+     * Dữ liệu một yêu cầu mở lớp (createdAt lưu dạng chuỗi để không cần Jackson time-module).
+     * {@code detailsJson} chứa nguyên payload form "tìm gia sư" của phụ huynh (môn, lịch, địa điểm…)
+     * để trung tâm xem đầy đủ và dùng lại khi tạo lớp lúc phụ huynh chọn gia sư.
+     */
     public record ClassRequestData(
             String requestId,
             Long clientUserId,
@@ -54,15 +71,60 @@ public class ClassRequestStore {
             BigDecimal desiredBudget,
             String status,
             String reason,
-            String createdAt) {}
+            String createdAt,
+            String detailsJson,
+            List<Long> candidateTutorIds,
+            Long recruitmentPostId) {}
 
     public ClassRequestData create(
-            Long clientUserId, Long centerId, Long categoryId, String note, BigDecimal desiredBudget) {
+            Long clientUserId, Long centerId, Long categoryId, String note, BigDecimal desiredBudget,
+            String detailsJson) {
         ClassRequestData data = new ClassRequestData(
                 UUID.randomUUID().toString(), clientUserId, centerId, categoryId, note, desiredBudget,
-                STATUS_PENDING, null, LocalDateTime.now().toString());
+                STATUS_PENDING, null, LocalDateTime.now().toString(), detailsJson, new ArrayList<>(),
+                null);
         save(data);
         return data;
+    }
+
+    /** Trả về bản sao với trạng thái/lý do mới (giữ nguyên các trường còn lại). */
+    public ClassRequestData withStatus(ClassRequestData d, String status, String reason) {
+        return new ClassRequestData(
+                d.requestId(), d.clientUserId(), d.centerId(), d.categoryId(), d.note(),
+                d.desiredBudget(), status, reason, d.createdAt(), d.detailsJson(),
+                candidatesOf(d), d.recruitmentPostId());
+    }
+
+    /** Trả về bản sao với danh sách ứng viên mới. */
+    public ClassRequestData withCandidates(ClassRequestData d, List<Long> candidateTutorIds) {
+        return new ClassRequestData(
+                d.requestId(), d.clientUserId(), d.centerId(), d.categoryId(), d.note(),
+                d.desiredBudget(), d.status(), d.reason(), d.createdAt(), d.detailsJson(),
+                candidateTutorIds == null ? new ArrayList<>() : candidateTutorIds,
+                d.recruitmentPostId());
+    }
+
+    /** Trả về bản sao gắn (hoặc gỡ) tin tuyển dụng đã đăng cho yêu cầu này. */
+    public ClassRequestData withRecruitmentPost(ClassRequestData d, Long recruitmentPostId) {
+        return new ClassRequestData(
+                d.requestId(), d.clientUserId(), d.centerId(), d.categoryId(), d.note(),
+                d.desiredBudget(), d.status(), d.reason(), d.createdAt(), d.detailsJson(),
+                candidatesOf(d), recruitmentPostId);
+    }
+
+    /** Tìm yêu cầu đang gắn với một tin tuyển dụng (dùng khi duyệt đơn/đóng tin). */
+    public Optional<ClassRequestData> findByRecruitmentPostId(Long recruitmentPostId) {
+        if (recruitmentPostId == null) {
+            return Optional.empty();
+        }
+        return all().stream()
+                .filter(d -> recruitmentPostId.equals(d.recruitmentPostId()))
+                .findFirst();
+    }
+
+    /** Danh sách ứng viên (không null) của một yêu cầu. */
+    public List<Long> candidatesOf(ClassRequestData d) {
+        return d.candidateTutorIds() == null ? new ArrayList<>() : new ArrayList<>(d.candidateTutorIds());
     }
 
     public Optional<ClassRequestData> find(String requestId) {
@@ -113,7 +175,50 @@ public class ClassRequestStore {
                 .status(d.status())
                 .reason(d.reason())
                 .createdAt(d.createdAt())
+                .detailsJson(d.detailsJson())
+                .candidates(resolveCandidates(d))
+                .recruitmentPostId(d.recruitmentPostId())
                 .build();
+    }
+
+    /** Nạp thông tin gia sư được đề cử (shortlist) để phụ huynh/trung tâm hiển thị. */
+    private List<CandidateTutorResponse> resolveCandidates(ClassRequestData d) {
+        List<CandidateTutorResponse> out = new ArrayList<>();
+        for (Long tutorId : candidatesOf(d)) {
+            tutorRepository.findById(tutorId).ifPresent(t -> out.add(
+                    CandidateTutorResponse.builder()
+                            .tutorId(t.getTutorId())
+                            .fullName(t.getFullName())
+                            .experienceYears(t.getExperienceYears())
+                            .ratingAvg(t.getRatingAvg())
+                            .certificates(loadCertificates(t))
+                            .build()));
+        }
+        return out;
+    }
+
+    /** Bằng cấp / chứng chỉ đã xác minh (chỉ loại CERTIFICATE) của gia sư — để phụ huynh xem trước. */
+    private List<CandidateTutorResponse.CertificateInfo> loadCertificates(Tutor tutor) {
+        if (tutor.getUser() == null) {
+            return List.of();
+        }
+        return verificationRequestRepository
+                .findFirstByUser_UserIdAndVerificationTypeAndStatusOrderByVerificationIdDesc(
+                        tutor.getUser().getUserId(), VerificationType.TUTOR_PROFILE,
+                        VerificationStatus.VERIFIED)
+                .map(req -> verificationDocumentRepository
+                        .findByVerificationRequest_VerificationId(req.getVerificationId()).stream()
+                        .filter(doc -> doc.getDocumentType() == VerificationDocumentType.CERTIFICATE)
+                        .map(doc -> CandidateTutorResponse.CertificateInfo.builder()
+                                .documentType(doc.getDocumentType() == null
+                                        ? null : doc.getDocumentType().name())
+                                .fileName(doc.getFile().getFileName())
+                                .fileUrl(doc.getFile().getFileUrl())
+                                .mimeType(doc.getFile().getMimeType())
+                                .fileSize(doc.getFile().getFileSize())
+                                .build())
+                        .toList())
+                .orElseGet(List::of);
     }
 
     private List<ClassRequestData> all() {

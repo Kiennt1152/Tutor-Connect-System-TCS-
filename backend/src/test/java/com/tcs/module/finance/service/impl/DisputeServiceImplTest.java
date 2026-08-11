@@ -13,6 +13,7 @@ import static org.mockito.Mockito.when;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
@@ -267,6 +268,7 @@ class DisputeServiceImplTest {
         request.setIssueType(ClassIssueType.PAYMENT_OR_REFUND);
         request.setRequestedAction(ClassIssueRequestedAction.REFUND_REVIEW);
         request.setDescription("Cần xem xét hoàn tiền vì lớp không diễn ra theo cam kết");
+        request.setRefundPayoutInfo(new RefundPayoutInfo("TPBank", "0123456789", "Nguyen Van A"));
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(reporter));
@@ -554,6 +556,7 @@ class DisputeServiceImplTest {
         request.setReleaseToBeneficiary(new BigDecimal("70000.00"));
         request.setRefundToPayer(new BigDecimal("30000.00"));
         request.setResolution("Hoàn một phần theo số buổi chưa học và chấm dứt hợp đồng");
+        request.setRefundPayoutInfo(new RefundPayoutInfo("TPBank", "0123456789", "Nguyen Van A"));
 
         when(authHelper.currentUserId()).thenReturn(900L);
         when(userRepository.findById(900L)).thenReturn(Optional.of(admin));
@@ -601,6 +604,7 @@ class DisputeServiceImplTest {
         ResolveDisputeRequest request = new ResolveDisputeRequest();
         request.setAction(DisputeResolutionAction.TERMINATE_CLASS);
         request.setResolution("Chấm dứt lớp và chia tiền theo số buổi đã hoàn thành");
+        request.setRefundPayoutInfo(new RefundPayoutInfo("TPBank", "0123456789", "Nguyen Van A"));
 
         when(authHelper.currentUserId()).thenReturn(900L);
         when(userRepository.findById(900L)).thenReturn(Optional.of(admin));

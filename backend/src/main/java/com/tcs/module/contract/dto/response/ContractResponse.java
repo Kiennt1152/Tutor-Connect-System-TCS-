@@ -64,6 +64,11 @@ public class ContractResponse {
     private PartyInfo client;
     private PartyInfo center;
     private EscrowPaymentInfo escrowPayment;
+    private RefundPayoutInfoView refundPayoutInfo;
+    private Integer totalSessions;
+    private Integer completedSessions;
+    private boolean refundAllowed = true;
+    private String refundBlockedReason;
 
     @Getter
     @Builder
@@ -91,5 +96,13 @@ public class ContractResponse {
         private String qrUrl;
         private LocalDateTime depositedAt;
         private LocalDateTime processedAt;
+    }
+
+    @Getter
+    @Builder
+    public static class RefundPayoutInfoView {
+        private String bankName;
+        private String accountNoMasked;
+        private String accountHolderName;
     }
 }

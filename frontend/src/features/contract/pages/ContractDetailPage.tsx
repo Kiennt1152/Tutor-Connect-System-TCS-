@@ -1,11 +1,20 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
+import axios from 'axios';
 import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
+import '../../finance/FinancePage.css';
 import { RefundRequestModal } from '../../marketplace/components/RefundRequestModal';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
+import { contractApi } from '../api/contractApi';
 import { useContractDetail, useSignContract } from '../hooks/useContract';
-import type { ContractStatus, EscrowStatus, PaymentTransactionStatus } from '../types/contractTypes';
+import { BankPickerDialog, BankSelectField, findBankByName } from '../../finance/components/BankPicker';
+import type {
+  ContractStatus,
+  EscrowStatus,
+  PaymentTransactionStatus,
+} from '../types/contractTypes';
 import './ContractPage.css';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
@@ -53,9 +62,33 @@ const copyText = (value: string | null | undefined) => {
   void navigator.clipboard?.writeText(value);
 };
 
+type PaymentToastTone = 'success' | 'warning' | 'error';
+
+const getApiMessage = (error: unknown, fallback: string) => {
+  if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
+    return error.response.data.message;
+  }
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+};
+
+const isEscrowPaymentConfirmed = (
+  paymentStatus: PaymentTransactionStatus | null | undefined,
+  escrowStatus: EscrowStatus | null | undefined,
+) =>
+  paymentStatus === 'SUCCESS'
+  || escrowStatus === 'FUNDED'
+  || escrowStatus === 'ON_HOLD'
+  || escrowStatus === 'DISPUTED'
+  || escrowStatus === 'RELEASED'
+  || escrowStatus === 'REFUNDED';
+
 export default function ContractDetailPage() {
   const { contractId } = useParams<{ contractId: string }>();
   const id = Number(contractId);
+  const { user } = useAuth();
 
   const { contract, signatures, loading, error, reload } = useContractDetail();
   const { otpSent, sendingOtp, signing, error: signError, sendOtp, sign } = useSignContract();
@@ -65,6 +98,18 @@ export default function ContractDetailPage() {
   const [signSuccess, setSignSuccess] = useState(false);
   const [issueModalOpen, setIssueModalOpen] = useState(false);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
+  const [payoutBankName, setPayoutBankName] = useState('');
+  const [payoutAccountNo, setPayoutAccountNo] = useState('');
+  const [payoutAccountHolder, setPayoutAccountHolder] = useState('');
+  const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
+  const [savingPayout, setSavingPayout] = useState(false);
+  const [payoutMessage, setPayoutMessage] = useState('');
+  const [checkingPaymentStatus, setCheckingPaymentStatus] = useState(false);
+  const [paymentReloading, setPaymentReloading] = useState(false);
+  const [paymentToast, setPaymentToast] = useState<{
+    tone: PaymentToastTone;
+    message: string;
+  } | null>(null);
 
   useEffect(() => {
     if (id) void reload(id);
@@ -76,6 +121,20 @@ export default function ContractDetailPage() {
       setSignSuccess(false);
     }
   }, [signSuccess, id, reload]);
+
+  useEffect(() => {
+    if (!contract) return;
+    setPayoutMessage('');
+    if (contract.refundPayoutInfo) {
+      setPayoutBankName(contract.refundPayoutInfo.bankName ?? '');
+      setPayoutAccountHolder(contract.refundPayoutInfo.accountHolderName ?? '');
+      setPayoutAccountNo('');
+    } else {
+      setPayoutBankName('');
+      setPayoutAccountHolder('');
+      setPayoutAccountNo('');
+    }
+  }, [contract]);
 
   const handleSendOtp = async () => {
     if (!id) return;
@@ -90,6 +149,71 @@ export default function ContractDetailPage() {
       setOtpInput('');
       setSignSuccess(true);
       setOtpSentSuccess(false);
+    }
+  };
+
+  const handleSaveRefundPayout = async () => {
+    if (!id || !payoutBankName.trim() || !payoutAccountNo.trim() || !payoutAccountHolder.trim()) {
+      setPayoutMessage('Vui lòng chọn ngân hàng, nhập số tài khoản và tên chủ tài khoản.');
+      return;
+    }
+    setSavingPayout(true);
+    setPayoutMessage('');
+    try {
+      await contractApi.saveRefundPayoutInfo(id, {
+        bankName: payoutBankName.trim(),
+        accountNo: payoutAccountNo.trim(),
+        accountHolderName: payoutAccountHolder.trim(),
+      });
+      setPayoutMessage('Đã lưu thông tin nhận hoàn tiền.');
+      await reload(id);
+    } catch (error) {
+      setPayoutMessage(getApiMessage(error, 'Không lưu được thông tin nhận hoàn tiền.'));
+    } finally {
+      setSavingPayout(false);
+    }
+  };
+
+  const showPaymentToast = (tone: PaymentToastTone, message: string, autoClose = true) => {
+    setPaymentToast({ tone, message });
+    if (autoClose) {
+      window.setTimeout(() => setPaymentToast(null), 4200);
+    }
+  };
+
+  const handleCheckEscrowPaymentStatus = async () => {
+    if (!id || checkingPaymentStatus || paymentReloading) return;
+    setCheckingPaymentStatus(true);
+    try {
+      const latest = (await contractApi.getContract(id)).data;
+      const latestPayment = latest.escrowPayment;
+      if (
+        isEscrowPaymentConfirmed(latestPayment?.paymentStatus, latestPayment?.escrowStatus)
+      ) {
+        setPaymentReloading(true);
+        showPaymentToast(
+          'success',
+          'Thanh toán đã được SePay xác nhận. Đang tải lại hợp đồng...',
+          false,
+        );
+        window.setTimeout(() => window.location.reload(), 1000);
+        return;
+      }
+
+      const statusText = latestPayment?.paymentStatus
+        ? PAYMENT_STATUS_LABEL[latestPayment.paymentStatus] ?? latestPayment.paymentStatus
+        : 'chưa có giao dịch';
+      showPaymentToast(
+        'warning',
+        `Chưa ghi nhận thanh toán thành công. Trạng thái hiện tại: ${statusText}.`,
+      );
+    } catch (error) {
+      showPaymentToast(
+        error instanceof Error ? 'error' : 'warning',
+        getApiMessage(error, 'Không quét được trạng thái thanh toán.'),
+      );
+    } finally {
+      setCheckingPaymentStatus(false);
     }
   };
 
@@ -119,20 +243,34 @@ export default function ContractDetailPage() {
 
   const status = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
   const escrowPayment = contract.escrowPayment ?? null;
-  const escrowStatus = escrowPayment
-    ? ESCROW_STATUS_LABEL[escrowPayment.escrowStatus] ?? { label: escrowPayment.escrowStatus, cls: '' }
+  const isClient = user?.role === 'CLIENT';
+  const visibleEscrowPayment =
+    escrowPayment
+    && !isEscrowPaymentConfirmed(escrowPayment.paymentStatus, escrowPayment.escrowStatus)
+      ? escrowPayment
+      : null;
+  const escrowStatus = visibleEscrowPayment
+    ? ESCROW_STATUS_LABEL[visibleEscrowPayment.escrowStatus] ?? {
+        label: visibleEscrowPayment.escrowStatus,
+        cls: '',
+      }
     : null;
-  const escrowPending = escrowPayment?.escrowStatus === 'PENDING' || escrowPayment?.paymentStatus === 'PENDING';
-  // Người xem còn ô ký CHỜ KÝ của chính mình -> mới hiện phần ký OTP.
-  // (Trung tâm đã ký sẵn nên không còn ô chờ ký -> không hiện; admin/không phải bên cũng không hiện.)
+  const escrowPending = visibleEscrowPayment?.paymentStatus === 'PENDING';
+  const escrowRetryable =
+    visibleEscrowPayment?.paymentStatus === 'FAILED' || visibleEscrowPayment?.paymentStatus === 'CANCELLED';
   const myPendingSlot =
     signatures?.signatures.some((s) => s.isCurrentUser && s.signatureStatus !== 'SIGNED') ?? false;
-  // Người xem đã ký (đang chờ bên còn lại) -> hiện thông báo đã ghi nhận chữ ký.
   const mySignedSlot =
     signatures?.signatures.some((s) => s.isCurrentUser && s.signatureStatus === 'SIGNED') ?? false;
   const allSigned = signatures?.fullySigned ?? false;
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
   const canCreateIssue = contract.classId != null;
+  const selectedPayoutBank = findBankByName(payoutBankName);
+  const needsRefundPayoutInfo =
+    Boolean(visibleEscrowPayment)
+    && !contract.refundPayoutInfo
+    && isClient;
+  const canRequestRefund = contract.refundAllowed !== false;
   const classDetailUrl = contract.classId
     ? `/marketplace/classes/${contract.classId}${
         contract.classStudentId
@@ -179,7 +317,7 @@ export default function ContractDetailPage() {
             <button
               className="tcs-btn tcs-btn--ghost"
               type="button"
-              disabled={!canCreateIssue}
+              disabled={!canCreateIssue || !canRequestRefund}
               onClick={() => setRefundModalOpen(true)}
             >
               Yêu cầu hoàn tiền
@@ -193,6 +331,11 @@ export default function ContractDetailPage() {
               </Link>
             ) : null}
           </div>
+          {!canRequestRefund ? (
+            <p className="contract-muted">
+              {contract.refundBlockedReason ?? 'Lớp center đã học quá 50% số buổi nên không thể yêu cầu hoàn tiền.'}
+            </p>
+          ) : null}
         </section>
 
         <div className="contract-detail-grid">
@@ -267,59 +410,127 @@ export default function ContractDetailPage() {
             </div>
           </section>
 
-          {escrowPayment ? (
-            <section className="contract-card contract-escrow-card">
-              <div className="contract-card__head">
-                <h2>Thanh toán escrow</h2>
-                {escrowStatus ? <span className={`contract-status ${escrowStatus.cls}`}>{escrowStatus.label}</span> : null}
-              </div>
-              <div className="contract-escrow">
-                {escrowPayment.qrUrl ? (
-                  <div className="contract-escrow__qr">
-                    <img src={escrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
-                  </div>
-                ) : null}
-                <div className="contract-escrow__details">
-                  <div className="contract-escrow__row">
-                    <span>Số tiền</span>
-                    <strong>{formatCurrency(escrowPayment.amount)}</strong>
-                  </div>
-                  <div className="contract-escrow__row">
-                    <span>Ngân hàng</span>
-                    <strong>{escrowPayment.bankName ?? '—'}</strong>
-                  </div>
-                  <div className="contract-escrow__row">
-                    <span>Số tài khoản</span>
-                    <strong>{escrowPayment.accountNumber ?? '—'}</strong>
-                  </div>
-                  <div className="contract-escrow__row">
-                    <span>Chủ tài khoản</span>
-                    <strong>{escrowPayment.accountName ?? '—'}</strong>
-                  </div>
-                  <div className="contract-escrow__code">
-                    <span>Nội dung chuyển khoản</span>
-                    <div>
-                      <code>{escrowPayment.transferContent ?? escrowPayment.referenceCode ?? '—'}</code>
+          {visibleEscrowPayment ? (
+            needsRefundPayoutInfo ? (
+              <section className="contract-card contract-escrow-card">
+                <div className="contract-card__head">
+                  <h2>Thông tin nhận hoàn tiền</h2>
+                  {escrowStatus ? <span className={`contract-status ${escrowStatus.cls}`}>{escrowStatus.label}</span> : null}
+                </div>
+                <div className="contract-sign-form">
+                  <p>
+                    Vui lòng nhập tài khoản thụ hưởng của quý khách để phục vụ xử lý các nhu cầu phát sinh.
+                  </p>
+                  {payoutMessage ? <div className="contract-alert contract-alert--error">{payoutMessage}</div> : null}
+                  <BankSelectField
+                    id="contract-refund-payout-bank"
+                    selectedBank={selectedPayoutBank}
+                    onOpen={() => setPayoutDialogOpen(true)}
+                  />
+                  <input
+                    type="text"
+                    className="form-input"
+                    placeholder="Tên chủ tài khoản"
+                    value={payoutAccountHolder}
+                    onChange={(event) => setPayoutAccountHolder(event.target.value)}
+                  />
+                  <input
+                    type="text"
+                    className="form-input"
+                    inputMode="numeric"
+                    placeholder="Số tài khoản"
+                    value={payoutAccountNo}
+                    onChange={(event) => setPayoutAccountNo(event.target.value.replace(/\s+/g, ''))}
+                  />
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--primary"
+                    onClick={handleSaveRefundPayout}
+                    disabled={savingPayout}
+                  >
+                    {savingPayout ? 'Đang lưu...' : 'Lưu thông tin & tiếp tục'}
+                  </button>
+                </div>
+              </section>
+            ) : (
+              <section className="contract-card contract-escrow-card">
+                <div className="contract-card__head">
+                  <h2>Quét mã để thanh toán</h2>
+                  {escrowStatus ? <span className={`contract-status ${escrowStatus.cls}`}>{escrowStatus.label}</span> : null}
+                </div>
+                <div className="contract-escrow">
+                  {visibleEscrowPayment.qrUrl ? (
+                    <div className="contract-escrow__qr">
+                      <img src={visibleEscrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
+                    </div>
+                  ) : null}
+                  <div className="contract-escrow__details">
+                    {contract.refundPayoutInfo ? (
+                      <p className="contract-escrow__note">
+                        Đã lưu tài khoản nhận hoàn tiền cho hợp đồng này.
+                      </p>
+                    ) : null}
+                    <div className="contract-escrow__row">
+                      <span>Số tiền</span>
+                      <strong>{formatCurrency(visibleEscrowPayment.amount)}</strong>
+                    </div>
+                    <div className="contract-escrow__row">
+                      <span>Ngân hàng</span>
+                      <strong>{visibleEscrowPayment.bankName ?? '—'}</strong>
+                    </div>
+                    <div className="contract-escrow__row">
+                      <span>Số tài khoản</span>
+                      <strong>{visibleEscrowPayment.accountNumber ?? '—'}</strong>
+                    </div>
+                    <div className="contract-escrow__row">
+                      <span>Chủ tài khoản</span>
+                      <strong>{visibleEscrowPayment.accountName ?? '—'}</strong>
+                    </div>
+                    <div className="contract-escrow__code">
+                      <span>Nội dung chuyển khoản</span>
+                      <div>
+                        <code>
+                          {visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode ?? '—'}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyText(
+                              visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode,
+                            )
+                          }
+                        >
+                          Sao chép
+                        </button>
+                      </div>
+                    </div>
+                    <p className={`contract-escrow__note${escrowPending ? ' contract-escrow__note--pending' : ''}`}>
+                      {escrowPending
+                          ? contract.sourceType === 'CENTER'
+                            ? 'Sau khi SePay xác nhận giao dịch, học viên sẽ được ghi danh chính thức. Lớp vẫn mở cho tới khi đủ sĩ số hoặc đến hạn đóng ghi danh.'
+                            : 'Sau khi SePay xác nhận giao dịch, escrow sẽ chuyển sang đã nạp và lớp mới được kích hoạt.'
+                          : escrowRetryable
+                            ? 'Giao dịch chưa thành công. Vui lòng quét mã và chuyển khoản lại đúng nội dung.'
+                            : `Trạng thái giao dịch: ${
+                            visibleEscrowPayment.paymentStatus
+                              ? PAYMENT_STATUS_LABEL[visibleEscrowPayment.paymentStatus] ?? visibleEscrowPayment.paymentStatus
+                              : '—'
+                          }.`}
+                    </p>
+                    <div className="contract-escrow__actions">
                       <button
                         type="button"
-                        onClick={() => copyText(escrowPayment.transferContent ?? escrowPayment.referenceCode)}
+                        className="tcs-btn tcs-btn--primary contract-escrow__scan"
+                        onClick={handleCheckEscrowPaymentStatus}
+                        disabled={checkingPaymentStatus || paymentReloading}
                       >
-                        Sao chép
+                        {checkingPaymentStatus || paymentReloading ? 'Đang quét...' : 'Quét trạng thái'}
                       </button>
                     </div>
                   </div>
-                  <p className={`contract-escrow__note${escrowPending ? ' contract-escrow__note--pending' : ''}`}>
-                    {escrowPending
-                      ? 'Sau khi SePay xác nhận giao dịch, escrow sẽ chuyển sang đã nạp và lớp mới được kích hoạt.'
-                      : `Trạng thái giao dịch: ${
-                          escrowPayment.paymentStatus
-                            ? PAYMENT_STATUS_LABEL[escrowPayment.paymentStatus] ?? escrowPayment.paymentStatus
-                            : '—'
-                        }.`}
-                  </p>
                 </div>
-              </div>
-            </section>
+              </section>
+            )
           ) : null}
 
           <section className="contract-card">
@@ -439,6 +650,15 @@ export default function ContractDetailPage() {
 
       {contract.classId ? (
         <>
+          <BankPickerDialog
+            open={payoutDialogOpen}
+            selectedBankCode={selectedPayoutBank?.code ?? ''}
+            onSelect={(bank) => {
+              setPayoutBankName(bank.name);
+              setPayoutDialogOpen(false);
+            }}
+            onClose={() => setPayoutDialogOpen(false)}
+          />
           <ClassIssueModal
             open={issueModalOpen}
             classId={contract.classId}
@@ -456,6 +676,11 @@ export default function ContractDetailPage() {
             onClose={() => setRefundModalOpen(false)}
           />
         </>
+      ) : null}
+      {paymentToast ? (
+        <div className={`contract-toast contract-toast--${paymentToast.tone}`} role="status">
+          {paymentToast.message}
+        </div>
       ) : null}
     </div>
   );

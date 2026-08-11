@@ -5,6 +5,7 @@ import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.common.event.EscrowFunded;
 import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.dto.request.CreateRefundRequest;
 import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
 import com.tcs.module.finance.dto.request.DepositRequest;
@@ -45,6 +46,7 @@ import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.FinanceService;
 import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
+import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.ClassAssignment;
@@ -436,6 +438,7 @@ public class FinanceServiceImpl implements FinanceService {
         withdrawal.setStatus(initialStatus);
         withdrawal.setRequestedAt(LocalDateTime.now());
         WithdrawalRequest savedWithdrawal = withdrawalRequestRepository.save(withdrawal);
+        notifyWithdrawalAdmins(savedWithdrawal);
         paymentNotificationService.notifyPayment(
                 userId,
                 initialStatus == WithdrawalRequestStatus.APPROVED
@@ -590,6 +593,10 @@ public class FinanceServiceImpl implements FinanceService {
         EscrowTransaction escrow = resolveRefundEscrow(request);
         requireRefundEscrowParticipant(escrow, userId);
         ensureRefundEscrowOpen(escrow);
+        RefundPayoutInfo payoutInfo = validateRefundPayoutInfo(
+                request.getBankName(),
+                request.getAccountNo(),
+                request.getAccountHolderName());
 
         BigDecimal requestedAmount = request.getAmount().setScale(2, RoundingMode.HALF_UP);
         BigDecimal escrowAmount = amountOrZero(escrow.getAmount());
@@ -602,16 +609,14 @@ public class FinanceServiceImpl implements FinanceService {
             throw new BusinessException("Escrow này đã có yêu cầu hoàn tiền đang chờ xử lý");
         }
 
-        PaymentMethodData refundDestination =
-                validatePaymentMethodRequest(request.getBankName(), request.getAccountNo());
         RefundRequest refundRequest = new RefundRequest();
         refundRequest.setEscrowTransaction(escrow);
         refundRequest.setRequestedBy(requester);
         refundRequest.setAmount(requestedAmount);
-        refundRequest.setBankName(refundDestination.bankName());
-        refundRequest.setAccountNo(refundDestination.accountNo());
+        refundRequest.setBankName(payoutInfo.bankName());
+        refundRequest.setAccountNo(payoutInfo.accountNo());
         refundRequest.setTransferStatus("PENDING");
-        refundRequest.setReason(request.getReason().trim());
+        refundRequest.setReason(RefundPayoutInfoCodec.appendToReason(request.getReason().trim(), payoutInfo));
         refundRequest.setStatus(RefundRequestStatus.PENDING);
         refundRequest.setRequestedAt(LocalDateTime.now());
         RefundRequest saved = refundRequestRepository.save(refundRequest);
@@ -668,11 +673,13 @@ public class FinanceServiceImpl implements FinanceService {
         refundRequest.setProcessedAt(LocalDateTime.now());
         refundRequest = refundRequestRepository.save(refundRequest);
 
+        RefundPayoutInfo payoutInfo = resolveRefundPayoutInfo(refundRequest);
         escrowService.apply(new ReleaseInstruction(
                 escrow.getEscrowId(),
                 releaseAmount,
                 approvedAmount,
-                reason));
+                reason,
+                payoutInfo));
 
         EscrowTransaction settledEscrow = escrowTransactionRepository.findById(escrow.getEscrowId()).orElse(escrow);
         boolean refundedToPayerWallet = escrowPaymentUsesPayerWallet(escrow);
@@ -1162,12 +1169,7 @@ public class FinanceServiceImpl implements FinanceService {
             refundRequest.setTransferStatus("SUCCESS");
             refundRequest.setTransferProcessedAt(now);
             refundRequestRepository.save(refundRequest);
-            paymentNotificationService.notifyPayment(
-                    refundRequest.getRequestedBy(),
-                    "Hoàn tiền đã chuyển khoản",
-                    "Khoản hoàn " + formatAmount(tx.getAmount()) + " đã được xác nhận qua SePay.",
-                    "REFUND_REQUEST",
-                    refundRequest.getRefundId());
+            notifyRefundTransferCompleted(refundRequest, tx.getAmount());
         });
     }
 
@@ -1420,6 +1422,9 @@ public class FinanceServiceImpl implements FinanceService {
             throw new IllegalArgumentException("Vui lòng nhập lý do yêu cầu hoàn tiền");
         }
         validatePaymentMethodRequest(request.getBankName(), request.getAccountNo());
+        if (isBlank(request.getAccountHolderName())) {
+            throw new IllegalArgumentException("Vui lòng nhập tên chủ tài khoản nhận hoàn tiền");
+        }
         int selectorCount = countPresent(request.getEscrowId(), request.getAssignmentId(), request.getClassStudentId());
         if (selectorCount == 0) {
             throw new IllegalArgumentException("Cần cung cấp escrowId, assignmentId hoặc classStudentId");
@@ -1583,9 +1588,11 @@ public class FinanceServiceImpl implements FinanceService {
     }
 
     private String appendDecisionNote(String originalReason, String title, String note) {
+        RefundPayoutInfo payoutInfo = RefundPayoutInfoCodec.parseFromReason(originalReason);
+        String baseReason = RefundPayoutInfoCodec.stripFromReason(originalReason);
         StringBuilder builder = new StringBuilder();
-        if (!isBlank(originalReason)) {
-            builder.append(originalReason.trim());
+        if (!isBlank(baseReason)) {
+            builder.append(baseReason.trim());
         }
         if (!isBlank(title) || !isBlank(note)) {
             if (builder.length() > 0) {
@@ -1596,7 +1603,7 @@ public class FinanceServiceImpl implements FinanceService {
                     .append("] ")
                     .append(isBlank(note) ? "" : note.trim());
         }
-        return builder.toString();
+        return RefundPayoutInfoCodec.appendToReason(builder.toString(), payoutInfo);
     }
 
     private void restoreEscrowIfOnlyRefundHeld(EscrowTransaction escrow) {
@@ -1630,10 +1637,79 @@ public class FinanceServiceImpl implements FinanceService {
         }
     }
 
+    private void notifyRefundTransferCompleted(RefundRequest refundRequest, BigDecimal amount) {
+        if (refundRequest == null) {
+            return;
+        }
+        String content = "Khoản hoàn " + formatAmount(amount) + " đã được xác nhận qua SePay.";
+        User requester = refundRequest.getRequestedBy();
+        paymentNotificationService.notifyPayment(
+                requester,
+                "Hoàn tiền đã chuyển khoản",
+                content,
+                "REFUND_REQUEST",
+                refundRequest.getRefundId());
+
+        Long payerUserId = safeEscrowPayerUserId(refundRequest.getEscrowTransaction());
+        Long requesterId = requester != null ? requester.getUserId() : null;
+        if (payerUserId != null && !Objects.equals(payerUserId, requesterId)) {
+            paymentNotificationService.notifyPayment(
+                    payerUserId,
+                    "Hoàn tiền đã chuyển khoản",
+                    content,
+                    "REFUND_REQUEST",
+                    refundRequest.getRefundId());
+        }
+    }
+
+    private Long safeEscrowPayerUserId(EscrowTransaction escrow) {
+        try {
+            return escrowPayerUserId(escrow);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+    }
+
+    private void notifyWithdrawalAdmins(WithdrawalRequest withdrawal) {
+        if (withdrawal == null) {
+            return;
+        }
+        String statusSegment = withdrawal.getStatus() == WithdrawalRequestStatus.APPROVED
+                ? " đã được tự động duyệt và đang chờ chuyển khoản/đối soát."
+                : " đang chờ quản trị viên duyệt.";
+        String requesterSegment = withdrawalRequesterSegment(withdrawal);
+        for (PlatformAdmin admin : platformAdminRepository.findAll()) {
+            if (admin == null || admin.getUser() == null) {
+                continue;
+            }
+            paymentNotificationService.notifyPayment(
+                    admin.getUser(),
+                    "Có yêu cầu rút tiền mới",
+                    "Yêu cầu rút " + formatAmount(withdrawal.getAmount())
+                            + requesterSegment
+                            + statusSegment,
+                    "WITHDRAWAL_REQUEST",
+                    withdrawal.getWithdrawalId());
+        }
+    }
+
+    private String withdrawalRequesterSegment(WithdrawalRequest withdrawal) {
+        Wallet wallet = withdrawal != null ? withdrawal.getWallet() : null;
+        User user = wallet != null ? wallet.getUser() : null;
+        if (user != null && user.getEmail() != null && !user.getEmail().isBlank()) {
+            return " từ " + user.getEmail();
+        }
+        if (wallet != null && wallet.getWalletId() != null) {
+            return " từ ví #" + wallet.getWalletId();
+        }
+        return "";
+    }
+
     private RefundRequestResponse toRefundRequestResponse(RefundRequest request) {
         EscrowTransaction escrow = request.getEscrowTransaction();
         TutoringClass tutoringClass = resolveTutoringClass(escrow);
         User requester = request.getRequestedBy();
+        RefundPayoutInfo payoutInfo = RefundPayoutInfoCodec.parseFromReason(request.getReason());
         return RefundRequestResponse.builder()
                 .refundId(request.getRefundId())
                 .escrowId(escrow != null ? escrow.getEscrowId() : null)
@@ -1652,10 +1728,11 @@ public class FinanceServiceImpl implements FinanceService {
                 .amount(request.getAmount())
                 .bankName(request.getBankName())
                 .accountNoMasked(maskAccountNo(request.getAccountNo()))
+                .accountHolderName(payoutInfo != null ? payoutInfo.accountHolderName() : null)
                 .refundReferenceCode(request.getRefundReferenceCode())
                 .transferStatus(request.getTransferStatus())
                 .status(request.getStatus())
-                .reason(request.getReason())
+                .reason(RefundPayoutInfoCodec.stripFromReason(request.getReason()))
                 .requestedAt(request.getRequestedAt())
                 .processedAt(request.getProcessedAt())
                 .transferProcessedAt(request.getTransferProcessedAt())
@@ -1790,6 +1867,34 @@ public class FinanceServiceImpl implements FinanceService {
             throw new IllegalArgumentException("Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự");
         }
         return new PaymentMethodData(normalizedBankName, normalizedAccountNo);
+    }
+
+    private RefundPayoutInfo validateRefundPayoutInfo(String bankName, String accountNo, String accountHolderName) {
+        PaymentMethodData data = validatePaymentMethodRequest(bankName, accountNo);
+        if (isBlank(accountHolderName)) {
+            throw new IllegalArgumentException("Vui lòng nhập tên chủ tài khoản nhận hoàn tiền");
+        }
+        return new RefundPayoutInfo(
+                data.bankName(),
+                data.accountNo(),
+                accountHolderName.trim().replaceAll("\\s+", " "));
+    }
+
+    private RefundPayoutInfo resolveRefundPayoutInfo(RefundRequest request) {
+        if (request == null) {
+            return null;
+        }
+        RefundPayoutInfo parsed = RefundPayoutInfoCodec.parseFromReason(request.getReason());
+        if (RefundPayoutInfoCodec.hasCompletePayout(parsed)) {
+            return parsed;
+        }
+        if (!isBlank(request.getBankName()) && !isBlank(request.getAccountNo())) {
+            return new RefundPayoutInfo(
+                    RefundPayoutInfoCodec.normalize(request.getBankName()),
+                    RefundPayoutInfoCodec.normalizeAccountNo(request.getAccountNo()),
+                    parsed != null ? RefundPayoutInfoCodec.normalize(parsed.accountHolderName()) : null);
+        }
+        return parsed;
     }
 
     private PaymentMethodResponse toPaymentMethodResponse(PaymentMethod method, boolean isDefault) {

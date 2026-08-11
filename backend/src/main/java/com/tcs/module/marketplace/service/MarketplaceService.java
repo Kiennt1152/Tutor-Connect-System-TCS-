@@ -9,6 +9,7 @@ import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
+import com.tcs.module.marketplace.dto.response.ContractViewResponse;
 import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
@@ -59,6 +60,14 @@ public interface MarketplaceService {
 
     void declineAssignment(Long assignmentId);
 
+    ContractViewResponse getAssignmentContract(Long assignmentId);
+
+    void requestSignOtp(Long assignmentId);
+
+    void signAssignmentContract(Long assignmentId, String otp);
+
+    void saveContractTermsB(Long assignmentId, String termsB);
+
     List<LessonResponse> listMyLessons();
 
     void checkInLesson(Long lessonId);
@@ -95,6 +104,9 @@ public interface MarketplaceService {
 
     /** Danh sách yêu cầu mở lớp phụ huynh đã gửi (mọi trạng thái). */
     List<ClassRequestResponse> listMyClassRequests();
+
+    /** Phụ huynh chọn 1 gia sư từ shortlist -> tạo lớp + phân công (vào luồng ký hợp đồng). */
+    ClassResponse fulfillClassRequest(String requestId, Long tutorId);
 
     /** Phụ huynh hủy yêu cầu khi còn đang chờ xử lý. */
     void cancelClassRequest(String requestId);

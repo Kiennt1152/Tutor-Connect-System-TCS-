@@ -39,6 +39,13 @@ export interface CreateClassIssueRequest {
   escrowId?: number;
   assignmentId?: number;
   classStudentId?: number;
+  refundPayoutInfo?: RefundPayoutInfoRequest;
+}
+
+export interface RefundPayoutInfoRequest {
+  bankName: string;
+  accountNo: string;
+  accountHolderName: string;
 }
 
 export interface DisputeResponse {

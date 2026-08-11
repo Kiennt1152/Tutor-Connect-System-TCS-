@@ -1,6 +1,7 @@
 package com.tcs.module.finance.dto.request;
 
 import com.tcs.module.platform.enums.ReportCategory;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.platform.enums.ReportTargetType;
 import lombok.Getter;
 import lombok.Setter;
@@ -17,4 +18,5 @@ public class CreateDisputeRequest {
     private Long escrowId;
     private Long assignmentId;
     private Long classStudentId;
+    private RefundPayoutInfo refundPayoutInfo;
 }

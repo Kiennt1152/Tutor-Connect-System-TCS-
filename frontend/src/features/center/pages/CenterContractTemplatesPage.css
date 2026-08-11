@@ -1,0 +1,297 @@
+/* Trang "Mẫu hợp đồng" của trung tâm — dùng lại ngôn ngữ thiết kế của trang Hợp đồng (client). */
+
+.cct-card-body {
+  padding: var(--space-lg);
+}
+
+/* Lưới + trường nhập dùng chung cho form mẫu và thông tin BÊN A */
+.cct-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+.cct-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cct-field--full {
+  grid-column: 1 / -1;
+}
+.cct-label {
+  font-size: var(--fs-label);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+.cct-input,
+.cct-textarea,
+.cct-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  background: var(--color-surface-1);
+  color: var(--color-text-primary);
+  font-family: inherit;
+  font-size: var(--fs-body-md);
+  outline: none;
+}
+.cct-input:focus,
+.cct-textarea:focus,
+.cct-select:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.14);
+}
+.cct-textarea {
+  min-height: 180px;
+  line-height: 1.6;
+  resize: vertical;
+}
+/* Trường chỉ đọc (lấy từ hồ sơ / CCCD) — nền xám để phân biệt. */
+.cct-input--ro {
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+}
+.cct-hint {
+  margin: 0;
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.55;
+}
+.cct-hint code {
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--color-surface-3);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+.cct-actions {
+  display: flex;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+/* Thông báo trong form */
+.cct-alert {
+  margin: 0 0 var(--space-md);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: 8px;
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+}
+.cct-alert--error {
+  background: var(--color-error-light);
+  color: #991b1b;
+}
+.cct-alert--success {
+  background: var(--color-success-light);
+  color: #166534;
+}
+
+/* Cảnh báo chưa xác minh */
+.cct-warn {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--color-accent-border-hover);
+  border-radius: 8px;
+  background: var(--color-primary-xlight);
+  color: var(--color-primary-dark);
+  font-size: var(--fs-body-sm);
+}
+.cct-warn a {
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+/* Danh sách mẫu hợp đồng */
+.cct-tpl-list {
+  display: flex;
+  flex-direction: column;
+}
+.cct-tpl {
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+}
+.cct-tpl:first-child {
+  border-top: 0;
+}
+.cct-tpl__head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+.cct-tpl__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cct-tpl__title strong {
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-lg);
+}
+.cct-type-chip {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-xlight);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+}
+.cct-badge {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-3);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+.cct-badge--primary {
+  color: #075985;
+  background: var(--color-info-light);
+}
+.cct-tpl__content {
+  margin: 10px 0 0;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-1);
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+  line-height: 1.6;
+}
+.cct-state {
+  padding: var(--space-xl);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .cct-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cct-tpl__actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Bố cục soạn mẫu + xem trước hợp đồng cạnh nhau */
+.cct-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: var(--space-lg);
+  align-items: start;
+  margin-bottom: var(--space-lg);
+}
+.cct-preview {
+  position: sticky;
+  top: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+.cct-preview__bar {
+  font-size: var(--fs-label);
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+@media (max-width: 900px) {
+  .cct-editor {
+    grid-template-columns: 1fr;
+  }
+  .cct-preview {
+    position: static;
+  }
+}
+
+/* Tinh chỉnh bản xem trước văn bản hợp đồng (dựa trên .ksign-doc) */
+.cct-doc__tplname {
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-style: italic;
+  color: #64748b;
+}
+.cct-doc__terms {
+  margin-top: 6px;
+}
+.cct-doc__li {
+  position: relative;
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.cct-doc__li::before {
+  content: '•';
+  position: absolute;
+  left: 4px;
+  color: #94a3b8;
+}
+.cct-doc__placeholder {
+  color: #94a3b8;
+  font-style: italic;
+}
+.cct-doc__var {
+  padding: 0 5px;
+  border-radius: 4px;
+  background: #fff7ed;
+  color: #c2410c;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+/* Cửa sổ xem trước mẫu từ danh sách */
+.cct-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: var(--space-lg);
+  overflow-y: auto;
+  background: rgba(15, 23, 42, 0.55);
+}
+.cct-modal__card {
+  width: min(820px, 100%);
+  margin: auto;
+  background: var(--color-surface-2);
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg, 0 20px 50px rgba(0, 0, 0, 0.25));
+}
+.cct-modal__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-md) var(--space-lg);
+  border-bottom: 1px solid var(--color-border);
+}
+.cct-modal__title {
+  margin: 0;
+  font-size: var(--fs-h4);
+  color: var(--color-text-primary);
+}
+.cct-modal__close {
+  border: none;
+  background: transparent;
+  font-size: 26px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+}
+.cct-modal__body {
+  padding: var(--space-lg);
+}

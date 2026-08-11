@@ -15,4 +15,5 @@ public class CreateRefundRequest {
     private String reason;
     private String bankName;
     private String accountNo;
+    private String accountHolderName;
 }

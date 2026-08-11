@@ -16,16 +16,19 @@ import com.tcs.module.finance.dto.response.WithdrawalResponse;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentMethod;
 import com.tcs.module.finance.entity.PaymentTransaction;
+import com.tcs.module.finance.entity.RefundRequest;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.entity.WithdrawalRequest;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
+import com.tcs.module.finance.enums.RefundRequestStatus;
 import com.tcs.module.finance.enums.WithdrawalRequestStatus;
 import com.tcs.module.finance.enums.WalletStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.PaymentMethodRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
+import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
 import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
@@ -33,8 +36,10 @@ import com.tcs.module.identity.entity.User;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -86,10 +91,16 @@ class FinanceServiceImplTest {
     private WithdrawalRequestRepository withdrawalRequestRepository;
 
     @Mock
+    private RefundRequestRepository refundRequestRepository;
+
+    @Mock
     private EscrowTransactionRepository escrowTransactionRepository;
 
     @Mock
     private PaymentNotificationService paymentNotificationService;
+
+    @Mock
+    private PlatformAdminRepository platformAdminRepository;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -427,6 +438,74 @@ class FinanceServiceImplTest {
     }
 
     @Test
+    @DisplayName("handleSepayOutgoingWebhook notifies requester and payer when refund transfer succeeds")
+    void handleSepayOutgoingWebhookNotifiesRefundParties() {
+        BigDecimal amount = new BigDecimal("100000.00");
+        PaymentTransaction refundTx = new PaymentTransaction();
+        refundTx.setWallet(wallet);
+        refundTx.setType(PaymentTransactionType.REFUND);
+        refundTx.setStatus(PaymentTransactionStatus.PENDING);
+        refundTx.setAmount(amount);
+        refundTx.setReferenceCode("REFUND-ESCROW-10");
+
+        EscrowTransaction escrow = privateEscrow(10L, pendingEscrowPayment("ESCROW-A7", amount), amount);
+        User adminUser = new User();
+        adminUser.setUserId(1L);
+        adminUser.setEmail("admin@tcs.com");
+        RefundRequest refundRequest = new RefundRequest();
+        refundRequest.setRefundId(77L);
+        refundRequest.setEscrowTransaction(escrow);
+        refundRequest.setRequestedBy(adminUser);
+        refundRequest.setAmount(amount);
+        refundRequest.setStatus(RefundRequestStatus.APPROVED);
+        refundRequest.setRefundReferenceCode("REFUND-ESCROW-10");
+
+        SepayWebhookRequest request = new SepayWebhookRequest();
+        request.setId(990L);
+        request.setTransferType("out");
+        request.setTransferAmount(amount);
+        request.setContent("Hoan tien REFUND-ESCROW-10");
+        request.setAccountNumber("02660559201");
+
+        when(paymentTransactionRepository.findByExternalTransactionId("SEPAY-OUT-990"))
+                .thenReturn(Optional.empty());
+        when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                PaymentTransactionType.WITHDRAWAL,
+                PaymentTransactionStatus.PENDING,
+                amount))
+                .thenReturn(List.of());
+        when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                PaymentTransactionType.REFUND,
+                PaymentTransactionStatus.PENDING,
+                amount))
+                .thenReturn(List.of(refundTx));
+        when(refundRequestRepository.findByRefundReferenceCode("REFUND-ESCROW-10"))
+                .thenReturn(Optional.of(refundRequest));
+        when(refundRequestRepository.save(any(RefundRequest.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        PaymentWebhookResponse response = financeService.handleSepayOutgoingWebhook(request);
+
+        assertEquals("success", response.getStatus());
+        assertEquals("REFUND-ESCROW-10", response.getReference());
+        assertEquals(PaymentTransactionStatus.SUCCESS, refundTx.getStatus());
+        assertEquals(RefundRequestStatus.COMPLETED, refundRequest.getStatus());
+        assertEquals("SUCCESS", refundRequest.getTransferStatus());
+        verify(paymentNotificationService).notifyPayment(
+                eq(adminUser),
+                eq("Hoàn tiền đã chuyển khoản"),
+                eq("Khoản hoàn 100000 đ đã được xác nhận qua SePay."),
+                eq("REFUND_REQUEST"),
+                eq(77L));
+        verify(paymentNotificationService).notifyPayment(
+                eq(USER_ID),
+                eq("Hoàn tiền đã chuyển khoản"),
+                eq("Khoản hoàn 100000 đ đã được xác nhận qua SePay."),
+                eq("REFUND_REQUEST"),
+                eq(77L));
+    }
+
+    @Test
     @DisplayName("getPaymentMethods returns active saved payout accounts")
     void getPaymentMethodsReturnsActiveMethods() {
         PaymentMethod method = new PaymentMethod();
@@ -562,6 +641,12 @@ class FinanceServiceImplTest {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
         when(walletService.getRequired(USER_ID)).thenReturn(wallet);
         when(walletService.lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), any())).thenReturn(wallet);
+        User adminUser = new User();
+        adminUser.setUserId(1L);
+        adminUser.setEmail("admin@tcs.com");
+        PlatformAdmin admin = new PlatformAdmin();
+        admin.setUser(adminUser);
+        when(platformAdminRepository.findAll()).thenReturn(List.of(admin));
         when(paymentMethodRepository.findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
                 USER_ID, "TPBank", "1234567890", "ACTIVE"))
                 .thenReturn(Optional.empty());
@@ -597,6 +682,12 @@ class FinanceServiceImplTest {
         verify(withdrawalRequestRepository).save(withdrawalCaptor.capture());
         assertEquals(savedMethod, withdrawalCaptor.getValue().getPaymentMethod());
         assertEquals(WithdrawalRequestStatus.PENDING, withdrawalCaptor.getValue().getStatus());
+        verify(paymentNotificationService).notifyPayment(
+                eq(adminUser),
+                eq("Có yêu cầu rút tiền mới"),
+                eq("Yêu cầu rút 100000 đ từ ví #7 đang chờ quản trị viên duyệt."),
+                eq("WITHDRAWAL_REQUEST"),
+                eq(15L));
     }
 
     @Test

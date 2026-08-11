@@ -39,12 +39,25 @@ function AdminHeader() {
           ))}
         </nav>
         <div className="tcs-header__actions">
-          <Link to={APP_ROUTES.platformProfile} className="tcs-home-profile-btn">
-            <span className="tcs-home-profile-btn__avatar">
-              {userInitials(user?.displayName, user?.email ?? 'A')}
-            </span>
-            <span className="tcs-home-profile-btn__label">Hồ sơ</span>
-          </Link>
+          <div className="tcs-profile-menu">
+            <Link to={APP_ROUTES.platformProfile} className="tcs-home-profile-btn" aria-haspopup="menu">
+              <span className="tcs-home-profile-btn__avatar">
+                {userInitials(user?.displayName, user?.email ?? 'A')}
+              </span>
+              <span className="tcs-home-profile-btn__label">Hồ sơ</span>
+            </Link>
+            <div className="tcs-profile-menu__dropdown" role="menu">
+              <Link className="tcs-profile-menu__item" to={APP_ROUTES.platformProfile} role="menuitem">
+                Hồ sơ của tôi
+              </Link>
+              <Link className="tcs-profile-menu__item" to={APP_ROUTES.platform} role="menuitem">
+                Bảng quản trị
+              </Link>
+              <Link className="tcs-profile-menu__item" to={APP_ROUTES.platformReports} role="menuitem">
+                Báo cáo hệ thống
+              </Link>
+            </div>
+          </div>
           <LogoutButton />
         </div>
       </div>

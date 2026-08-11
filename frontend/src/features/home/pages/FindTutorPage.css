@@ -1,6 +1,25 @@
 /* Màn hình "Tìm gia sư" riêng — form đăng yêu cầu tìm gia sư. */
 .tcs-find-hero {
-  padding-bottom: 40px;
+  padding-bottom: 16px;
+}
+
+.tcs-find-topbar {
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: 16px;
+}
+
+.tcs-find-listbar {
+  flex-wrap: wrap;
+}
+.tcs-section--tutors .tcs-section-bar__title.tcs-find-listbar__title {
+  font-size: 1.15rem;
+}
+
+.tcs-find-myreq--lg {
+  padding: 14px 30px;
+  font-size: 16px;
+  border-radius: 14px;
 }
 
 .tcs-find-hero__intro {

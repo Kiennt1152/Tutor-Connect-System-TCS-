@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import HomePage from '../features/home/pages/HomePage';
 import FindTutorPage from '../features/home/pages/FindTutorPage';
+import PostTutorRequestPage from '../features/home/pages/PostTutorRequestPage';
 import FindClassPage from '../features/home/pages/FindClassPage';
 import TutorPublicProfilePage from '../features/home/pages/TutorPublicProfilePage';
 import LoginPage from '../features/identity/pages/LoginPage';
@@ -46,6 +47,7 @@ import MessagingPage from '../features/messaging/pages/MessagingPage';
 import MyReviewsPage from '../features/reviews/pages/MyReviewsPage';
 import MyReputationPage from '../features/reviews/pages/MyReputationPage';
 import TeachingPage from '../features/teaching/pages/TeachingPage';
+import ContractSigningPage from '../features/teaching/pages/ContractSigningPage';
 import HelpPage from '../features/help/pages/HelpPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
@@ -67,19 +69,27 @@ export default function App() {
         <Routes>
           <Route path={APP_ROUTES.home} element={<HomePage />} />
           <Route path={APP_ROUTES.findTutor} element={<FindTutorPage />} />
+          <Route path={APP_ROUTES.postTutorRequest} element={<PostTutorRequestPage />} />
           <Route path={APP_ROUTES.findClass} element={<FindClassPage />} />
           <Route path={APP_ROUTES.classFinder} element={<ClassFinderPage />} />
           <Route path={APP_ROUTES.tutorProfile} element={<TutorPublicProfilePage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />
-          <Route path={APP_ROUTES.catalog} element={<CatalogPage />} />
+          <Route
+            path={APP_ROUTES.catalog}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <CatalogPage />
+              </ProtectedRoute>
+            }
+          />
           {/* Trang "Trung tâm" cong khai: ai cung xem duoc; gia su thay them tin tuyen dung. */}
           <Route path={APP_ROUTES.centers} element={<CentersPage />} />
           <Route
             path={APP_ROUTES.verification}
             element={
-              <ProtectedRoute roles={['TUTOR', 'TUTOR_CENTER']}>
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
                 <VerificationPage />
               </ProtectedRoute>
             }
@@ -90,6 +100,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR', 'CLIENT']}>
                 <TeachingPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.signContract}
+            element={
+              <ProtectedRoute roles={['TUTOR', 'CLIENT']}>
+                <ContractSigningPage />
               </ProtectedRoute>
             }
           />

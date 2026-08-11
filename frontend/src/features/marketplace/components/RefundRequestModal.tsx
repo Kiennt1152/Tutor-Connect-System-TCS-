@@ -42,6 +42,7 @@ export function RefundRequestModal({
   const [selectedBankCode, setSelectedBankCode] = useState('');
   const [bankPickerOpen, setBankPickerOpen] = useState(false);
   const [accountNo, setAccountNo] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
   const [reason, setReason] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -56,6 +57,7 @@ export function RefundRequestModal({
     setSelectedBankCode('');
     setBankPickerOpen(false);
     setAccountNo('');
+    setAccountHolderName('');
     setReason('');
     setError('');
     setSuccess(null);
@@ -83,6 +85,10 @@ export function RefundRequestModal({
       setError('Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự.');
       return;
     }
+    if (accountHolderName.trim().length < 2) {
+      setError('Vui lòng nhập tên chủ tài khoản nhận hoàn tiền.');
+      return;
+    }
     if (reason.trim().length < 10) {
       setError('Vui lòng nhập lý do tối thiểu 10 ký tự.');
       return;
@@ -102,6 +108,7 @@ export function RefundRequestModal({
         reason: reason.trim(),
         bankName: selectedBank.name,
         accountNo: normalizedAccountNo,
+        accountHolderName: accountHolderName.trim().replace(/\s+/g, ' '),
       });
       setSuccess(result);
     } catch (err) {
@@ -180,6 +187,17 @@ export function RefundRequestModal({
                   value={accountNo}
                   onChange={(event) => setAccountNo(event.target.value)}
                   placeholder="Nhập số tài khoản"
+                />
+              </label>
+
+              <label className="termination-field">
+                <span>Tên chủ tài khoản</span>
+                <input
+                  type="text"
+                  inputMode="text"
+                  value={accountHolderName}
+                  onChange={(event) => setAccountHolderName(event.target.value)}
+                  placeholder="Nhập tên chủ tài khoản"
                 />
               </label>
 

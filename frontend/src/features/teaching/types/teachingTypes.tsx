@@ -1,4 +1,9 @@
 
+import type {
+  ContractRefundPayoutInfo,
+  EscrowPaymentInfo,
+} from '../../contract/types/contractTypes';
+
 export type AssignmentStatus = 'PENDING' | 'ACTIVE' | 'DECLINED' | 'TERMINATED';
 
 export type AttendanceStatus = 'PENDING' | 'COMPLETED' | 'ABSENT' | 'DISPUTED';
@@ -18,6 +23,44 @@ export interface AssignmentResponse {
   startDate: string | null;
   endDate: string | null;
   lessonCount: number;
+  tutorSignedAt: string | null;
+  clientSignedAt: string | null;
+  paymentMethod: PaymentMethod | null;
+}
+
+export type PaymentMethod = 'FULL' | 'DEPOSIT_1M';
+
+export interface ContractView {
+  contractId: number | null;
+  assignmentId: number;
+  classId: number;
+  classTitle: string;
+  detailsJson: string | null;
+  gradeName: string | null;
+  address: string | null;
+  lessonMode: string;
+  startDate: string | null;
+  endDate: string | null;
+  numberOfSessions: number;
+  subjectNames: string[] | null;
+  tuitionFee: number | null;
+  clientName: string | null;
+  clientPhone: string | null;
+  clientAddress: string | null;
+  clientDob: string | null;
+  clientCccd: string | null;
+  tutorName: string | null;
+  tutorPhone: string | null;
+  tutorAddress: string | null;
+  tutorDob: string | null;
+  tutorCccd: string | null;
+  tutorSigned: boolean;
+  clientSigned: boolean;
+  paymentMethod: PaymentMethod | null;
+  myRole: 'CLIENT' | 'TUTOR';
+  escrowPayment: EscrowPaymentInfo | null;
+  refundPayoutInfo: ContractRefundPayoutInfo | null;
+  termsB: string | null;
 }
 
 export interface LessonResponse {

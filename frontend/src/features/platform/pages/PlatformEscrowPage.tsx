@@ -3,6 +3,12 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { useExecuteRefund, useExecuteSettlement } from '../hooks/usePlatformMutations';
 import { APP_ROUTES } from '../../../shared/constants/routes';
+import {
+  BANK_OPTIONS,
+  BankPickerDialog,
+  BankSelectField,
+  type BankOption,
+} from '../../finance/components/BankPicker';
 import './PlatformEscrowPage.css';
 
 const formatCurrency = (value: number | null | undefined) => {
@@ -41,9 +47,14 @@ export default function PlatformEscrowPage() {
   const [escrowAmount, setEscrowAmount] = useState('');
   const [releaseAmount, setReleaseAmount] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
+  const [selectedBankCode, setSelectedBankCode] = useState('');
+  const [bankPickerOpen, setBankPickerOpen] = useState(false);
+  const [accountNo, setAccountNo] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
   const [reason, setReason] = useState('Tất toán escrow theo quyết định xử lý tranh chấp');
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
 
   useEffect(() => {
     const amount = readMoneyParam(searchParams.get('amount'));
@@ -51,6 +62,10 @@ export default function PlatformEscrowPage() {
     setEscrowAmount(amount);
     setReleaseAmount(amount);
     setRefundAmount('');
+    setSelectedBankCode('');
+    setBankPickerOpen(false);
+    setAccountNo('');
+    setAccountHolderName('');
     resetSettlement();
     resetRefund();
     setFormError('');
@@ -76,6 +91,11 @@ export default function PlatformEscrowPage() {
   const setSplit = (release: number, refund: number) => {
     setReleaseAmount(release > 0 ? String(Math.trunc(release)) : '');
     setRefundAmount(refund > 0 ? String(Math.trunc(refund)) : '');
+  };
+
+  const handleSelectBank = (bank: BankOption) => {
+    setSelectedBankCode(bank.code);
+    setBankPickerOpen(false);
   };
 
   const applyQuickAction = (mode: 'release-all' | 'refund-all' | 'half' | 'refund-30') => {
@@ -128,6 +148,21 @@ export default function PlatformEscrowPage() {
       setFormError('Tổng tiền giải ngân và hoàn tiền phải bằng tổng tiền escrow.');
       return;
     }
+    if (parsedRefundAmount > 0) {
+      const normalizedAccountNo = accountNo.trim().replace(/\s+/g, '');
+      if (!selectedBank) {
+        setFormError('Vui lòng chọn ngân hàng nhận hoàn tiền.');
+        return;
+      }
+      if (!/^[A-Za-z0-9]{4,50}$/.test(normalizedAccountNo)) {
+        setFormError('Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự.');
+        return;
+      }
+      if (accountHolderName.trim().length < 2) {
+        setFormError('Vui lòng nhập tên chủ tài khoản nhận hoàn tiền.');
+        return;
+      }
+    }
     if (trimmedReason.length < 10) {
       setFormError('Vui lòng nhập lý do tất toán ít nhất 10 ký tự.');
       return;
@@ -140,6 +175,13 @@ export default function PlatformEscrowPage() {
       releaseToBeneficiary: parsedReleaseAmount,
       refundToPayer: parsedRefundAmount,
       reason: trimmedReason,
+      refundPayoutInfo: parsedRefundAmount > 0 && selectedBank
+        ? {
+            bankName: selectedBank.name,
+            accountNo: accountNo.trim().replace(/\s+/g, ''),
+            accountHolderName: accountHolderName.trim().replace(/\s+/g, ' '),
+          }
+        : undefined,
     };
 
     const result = parsedRefundAmount > 0
@@ -230,6 +272,39 @@ export default function PlatformEscrowPage() {
               />
             </label>
 
+            {refundAmountNumber > 0 ? (
+              <>
+                <div className="pe-field pe-field--full">
+                  <span>Ngân hàng nhận hoàn tiền</span>
+                  <BankSelectField
+                    id="escrow-refund-bank-field"
+                    selectedBank={selectedBank}
+                    onOpen={() => setBankPickerOpen(true)}
+                  />
+                </div>
+                <label className="pe-field">
+                  <span>Số tài khoản nhận hoàn tiền</span>
+                  <input
+                    className="adm-field"
+                    inputMode="text"
+                    value={accountNo}
+                    disabled={isSubmitting}
+                    onChange={(event) => setAccountNo(event.target.value)}
+                  />
+                </label>
+                <label className="pe-field">
+                  <span>Tên chủ tài khoản</span>
+                  <input
+                    className="adm-field"
+                    inputMode="text"
+                    value={accountHolderName}
+                    disabled={isSubmitting}
+                    onChange={(event) => setAccountHolderName(event.target.value)}
+                  />
+                </label>
+              </>
+            ) : null}
+
             <label className="pe-field pe-field--full">
               <span>Lý do tất toán</span>
               <textarea
@@ -291,6 +366,13 @@ export default function PlatformEscrowPage() {
           </div>
         </aside>
       </div>
+
+      <BankPickerDialog
+        open={bankPickerOpen}
+        selectedBankCode={selectedBankCode}
+        onSelect={handleSelectBank}
+        onClose={() => setBankPickerOpen(false)}
+      />
     </AdminLayout>
   );
 }

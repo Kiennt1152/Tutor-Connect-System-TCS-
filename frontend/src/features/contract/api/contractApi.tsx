@@ -8,6 +8,7 @@ import type {
   OtpSentResponse,
   SendOtpApiResponse,
   SignatureStatusResponse,
+  SaveRefundPayoutRequest,
   SignContractRequest,
   SignWithOtpApiRequest,
 } from '../types/contractTypes';
@@ -138,6 +139,17 @@ export const contractApi = {
   ): Promise<ContractResponse> {
     const response = await this.signWithOtp(contractId, payload);
     return response.data;
+  },
+
+  async saveRefundPayoutInfo(
+    contractId: number,
+    payload: SaveRefundPayoutRequest,
+  ): Promise<DataWrapped<ContractApiResponse>> {
+    const res = await axiosClient.post<ContractApiResponse>(
+      `${BASE}/${contractId}/refund-payout`,
+      payload,
+    );
+    return withData(res.data);
   },
 
   async getSignatureStatus(contractId: number): Promise<SignatureStatusResponse> {

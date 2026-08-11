@@ -23,7 +23,7 @@
   position: relative;
   z-index: 1;
   width: 100%;
-  max-width: 580px;
+  max-width: 1080px;
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -76,6 +76,31 @@
   gap: var(--space-sm);
   padding: var(--space-md) var(--space-lg);
   border-top: 1px solid var(--color-border);
+}
+
+/* Bố cục 2 cột: thông tin trái · ảnh phải (để admin đối chiếu dễ) */
+.pv-detail-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+  gap: var(--space-lg);
+  align-items: start;
+}
+/* Cột trái: cố định (dính) khi cuộn để luôn thấy thông tin CCCD đối chiếu. */
+.pv-detail-grid__info {
+  position: sticky;
+  top: 0;
+  align-self: start;
+}
+.pv-detail-grid__info .pv-kv__k {
+  flex-basis: 140px;
+}
+@media (max-width: 760px) {
+  .pv-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .pv-detail-grid__info {
+    position: static;
+  }
 }
 
 /* Sections & key-value */
@@ -136,6 +161,35 @@
   color: var(--color-error);
   font-weight: 600;
   font-size: var(--fs-body-sm);
+}
+
+/* Gallery: phóng to ảnh tài liệu để admin đối chiếu trực tiếp (vẫn bấm để xem đầy đủ). */
+.pv-docs--gallery .ft {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 8px;
+  padding: 10px;
+}
+.pv-docs--gallery .ft-trigger {
+  width: 100%;
+  height: 320px;
+  border-radius: 8px;
+  background: #0f172a;
+}
+.pv-docs--gallery .ft-thumb {
+  object-fit: contain; /* thấy trọn thẻ CCCD, không bị cắt */
+}
+.pv-docs--gallery .ft-icon {
+  height: 320px;
+  font-size: 44px;
+}
+.pv-docs--gallery .ft-info {
+  flex: none;
+  width: 100%;
+}
+/* Ảnh đã lớn sẵn nên tắt popover hover cho đỡ rối. */
+.pv-docs--gallery .ft-popover {
+  display: none;
 }
 
 /* Textarea */

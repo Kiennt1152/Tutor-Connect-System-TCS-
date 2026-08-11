@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { SiteFooter } from '../../home/components/SiteFooter';
 import { reviewApi } from '../api/reviewApi';
 import type { ReviewableAssignment } from '../types/reviewTypes';
 import { ReviewFormModal } from '../components/ReviewFormModal';
@@ -128,6 +129,7 @@ export default function MyReviewsPage() {
           </section>
         ) : null}
       </main>
+      <SiteFooter />
 
       {active ? (
         <ReviewFormModal
