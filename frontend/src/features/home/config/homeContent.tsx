@@ -82,7 +82,7 @@ export const FOOTER_LINKS = [
     title: 'Cộng đồng',
     links: [
       { label: 'Tin tức', href: '#news' },
-      { label: 'Đánh giá', href: '#reviews' },
+      { label: 'Đánh giá', href: '/danh-gia' },
       { label: 'Đăng ký', href: '/register' },
     ],
   },

@@ -4,6 +4,7 @@ import FindTutorPage from '../features/home/pages/FindTutorPage';
 import PostTutorRequestPage from '../features/home/pages/PostTutorRequestPage';
 import FindClassPage from '../features/home/pages/FindClassPage';
 import TutorPublicProfilePage from '../features/home/pages/TutorPublicProfilePage';
+import TutorReviewsPage from '../features/home/pages/TutorReviewsPage';
 import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
 import VerificationPage from '../features/identity/pages/VerificationPage';
@@ -73,6 +74,7 @@ export default function App() {
           <Route path={APP_ROUTES.findClass} element={<FindClassPage />} />
           <Route path={APP_ROUTES.classFinder} element={<ClassFinderPage />} />
           <Route path={APP_ROUTES.tutorProfile} element={<TutorPublicProfilePage />} />
+          <Route path={APP_ROUTES.tutorReviews} element={<TutorReviewsPage />} />
           <Route path={APP_ROUTES.login} element={<LoginPage />} />
           <Route path={APP_ROUTES.register} element={<RegisterPage />} />
           <Route path={APP_ROUTES.forbidden} element={<ForbiddenPage />} />

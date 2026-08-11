@@ -24,7 +24,7 @@ const userInitials = (displayName: string | undefined, email: string) => {
 };
 
 type SiteHeaderProps = {
-  active?: 'find-tutor';
+  active?: 'find-tutor' | 'reviews';
 };
 
 export function SiteHeader({ active }: SiteHeaderProps) {
@@ -56,7 +56,12 @@ export function SiteHeader({ active }: SiteHeaderProps) {
           <Link to={APP_ROUTES.marketplace}>Marketplace</Link>
           <Link to={APP_ROUTES.centers}>Trung tâm</Link>
           <a href="/#news">Tin tức</a>
-          <a href="/#reviews">Đánh giá</a>
+          <Link
+            to={APP_ROUTES.tutorReviews}
+            className={active === 'reviews' ? 'tcs-header__nav-link--active' : undefined}
+          >
+            Đánh giá
+          </Link>
         </nav>
         <div className="tcs-header__actions">
           {user ? (

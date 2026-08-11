@@ -48,7 +48,7 @@ export function HomeNavbar() {
           <Link to={APP_ROUTES.marketplace}>Marketplace</Link>
           <Link to={centersHref}>Trung tâm</Link>
           <Link to="/#news">Tin tức</Link>
-          <Link to="/#reviews">Đánh giá</Link>
+          <Link to={APP_ROUTES.tutorReviews}>Đánh giá</Link>
         </nav>
         <div className="tcs-header__actions">
           <NotificationBell enabled={!!user} />
