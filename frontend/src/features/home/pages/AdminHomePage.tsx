@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom';
 import { AppLogo } from '../../../shared/components/AppLogo';
 import { LogoutButton } from '../../../shared/components/LogoutButton';
+import { MessageIcon } from '../../../shared/components/MessageIcon';
+import { NotificationBell } from '../../../shared/components/NotificationBell';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { usePlatformDashboard } from '../../platform/hooks/usePlatformDashboard';
@@ -10,7 +12,7 @@ import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
 import './HomePage.css';
 import './AdminHomePage.css';
 
-const formatCount = (value: any) =>
+const formatCount = (value: unknown) =>
   new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(typeof value === 'number' ? value : 0);
 
 const userInitials = (displayName: string | undefined, email: string) => {
@@ -39,12 +41,15 @@ function AdminHeader() {
           ))}
         </nav>
         <div className="tcs-header__actions">
+          <MessageIcon />
+          <NotificationBell enabled={!!user} />
           <div className="tcs-profile-menu">
             <Link to={APP_ROUTES.platformProfile} className="tcs-home-profile-btn" aria-haspopup="menu">
               <span className="tcs-home-profile-btn__avatar">
                 {userInitials(user?.displayName, user?.email ?? 'A')}
               </span>
               <span className="tcs-home-profile-btn__label">Hồ sơ</span>
+              <span className="tcs-home-profile-btn__chevron" aria-hidden="true">⌄</span>
             </Link>
             <div className="tcs-profile-menu__dropdown" role="menu">
               <Link className="tcs-profile-menu__item" to={APP_ROUTES.platformProfile} role="menuitem">
