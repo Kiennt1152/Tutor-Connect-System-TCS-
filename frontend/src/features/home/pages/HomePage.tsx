@@ -3,8 +3,6 @@ import { useHome } from '../hooks/useHome';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasAnyRole, hasRole } from '../../../shared/auth/rbac';
 import type { UserRole } from '../../../shared/types/userRole';
-import { Link } from 'react-router-dom';
-import { APP_ROUTES } from '../../../shared/constants/routes';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { TutorSearchBlock } from '../components/TutorSearchBlock';
@@ -17,7 +15,6 @@ import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import type { CenterSummary } from '../../marketplace/types/marketplaceTypes';
 import {
   HOME_NEWS,
-  HOME_TESTIMONIALS,
 } from '../config/homeContent';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import type { OpenClassItem } from '../types/openClassTypes';
@@ -63,17 +60,6 @@ function HomeHeroSection({
                 <p className="tcs-hero__eyebrow">{copy.eyebrow}</p>
                 <h1 className="tcs-hero__title">Xin chào, {firstName}</h1>
                 <p className="tcs-hero__subtitle">{copy.subtitle}</p>
-                {hasAnyRole(role, ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN']) && (
-                  <div className="tcs-hero__quick-actions">
-                    <Link to={APP_ROUTES.messaging} className="tcs-quick-action">
-                      <span className="tcs-quick-action__icon">💬</span>
-                      <div>
-                        <span className="tcs-quick-action__label">Tin nhắn</span>
-                        <span className="tcs-quick-action__desc">Trò chuyện với gia sư, học viên</span>
-                      </div>
-                    </Link>
-                  </div>
-                )}
               </>
             ) : (
               <>
@@ -331,34 +317,6 @@ function NewsSection() {
   );
 }
 
-function ReviewsSection() {
-  return (
-    <section id="reviews" className="tcs-section tcs-section--testimonials">
-      <div className="tcs-container">
-        <div className="tcs-section-bar">
-          <div>
-            <h2 className="tcs-section-bar__title">Đánh giá</h2>
-            <p className="tcs-section-bar__subtitle">
-              Trải nghiệm thực tế từ phụ huynh, gia sư và trung tâm trên Tutor Connect System.
-            </p>
-          </div>
-        </div>
-        <div className="tcs-testimonial-grid">
-          {HOME_TESTIMONIALS.map((item) => (
-            <blockquote key={item.author} className="tcs-testimonial">
-              <p className="tcs-testimonial__quote">“{item.quote}”</p>
-              <footer className="tcs-testimonial__author">
-                <strong>{item.author}</strong>
-                <span>{item.role}</span>
-              </footer>
-            </blockquote>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
 function LoadingState() {
   return (
     <div className="tcs-state">
@@ -434,7 +392,6 @@ function HomePage() {
 
         <CentersSection />
         <NewsSection />
-        <ReviewsSection />
       </main>
       <SiteFooter />
     </div>

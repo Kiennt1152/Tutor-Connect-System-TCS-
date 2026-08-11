@@ -10,12 +10,14 @@ export default function PlatformAnalyticsPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [exportingType, setExportingType] = useState<string | null>(null);
+  const [from, setFrom] = useState('');
+  const [to, setTo] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await platformApi.getAnalyticsSummary();
+        const response = await platformApi.getAnalyticsSummary(from, to);
         setData(response.data);
       } catch (err) {
         setError(getApiErrorMessage(err));
@@ -25,12 +27,12 @@ export default function PlatformAnalyticsPage() {
     };
 
     fetchData();
-  }, []);
+  }, [from, to]);
 
   const handleExport = async (type: 'users' | 'classes' | 'revenue') => {
     setExportingType(type);
     try {
-      const response = await platformApi.exportAnalyticsCsv(type);
+      const response = await platformApi.exportAnalyticsCsv(type, from, to);
       const url = window.URL.createObjectURL(response.data);
       const link = document.createElement('a');
       link.href = url;
@@ -64,6 +66,8 @@ export default function PlatformAnalyticsPage() {
     return (
       <div>
         <div className="adm-analytics-header-actions" style={{ marginBottom: '2rem' }}>
+          <label>Từ ngày <input type="date" value={from} max={to || undefined} onChange={(event) => setFrom(event.target.value)} /></label>
+          <label>Đến ngày <input type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} /></label>
           <button disabled={exportingType === 'users'} onClick={() => handleExport('users')}>
             {exportingType === 'users' ? 'Đang tải...' : 'Tải CSV Người dùng'}
           </button>
@@ -144,9 +148,17 @@ export default function PlatformAnalyticsPage() {
             <span className="adm-analytics-card-value">{data.totalRevenue.toLocaleString('vi-VN')} VND</span>
           </div>
           <div className="adm-analytics-card adm-analytics-card--revenue">
-            <span className="adm-analytics-card-title">Doanh thu phí dịch vụ (10%)</span>
+            <span className="adm-analytics-card-title">
+              Doanh thu phí dịch vụ ({(data.platformFeeRate * 100).toLocaleString('vi-VN')}%)
+            </span>
             <span className="adm-analytics-card-value">{data.platformFeeRevenue.toLocaleString('vi-VN')} VND</span>
           </div>
+        </div>
+        <div className="adm-analytics-grid-4">
+          <div className="adm-analytics-card"><span className="adm-analytics-card-title">Tiền nạp</span><span className="adm-analytics-card-value">{data.deposits.toLocaleString('vi-VN')} VND</span></div>
+          <div className="adm-analytics-card"><span className="adm-analytics-card-title">Tiền rút</span><span className="adm-analytics-card-value">{data.withdrawals.toLocaleString('vi-VN')} VND</span></div>
+          <div className="adm-analytics-card"><span className="adm-analytics-card-title">Escrow đang giữ</span><span className="adm-analytics-card-value">{data.escrowHeld.toLocaleString('vi-VN')} VND</span></div>
+          <div className="adm-analytics-card"><span className="adm-analytics-card-title">Escrow đã giải ngân / hoàn</span><span className="adm-analytics-card-value">{data.escrowReleased.toLocaleString('vi-VN')} / {data.escrowRefunded.toLocaleString('vi-VN')} VND</span></div>
         </div>
 
         <h2 className="adm-kpi-section-title">Tăng trưởng 6 tháng gần nhất</h2>

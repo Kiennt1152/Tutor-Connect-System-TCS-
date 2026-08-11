@@ -1,8 +1,13 @@
 package com.tcs.module.messaging.controller;
 
+import com.tcs.module.messaging.dto.request.AddGroupMembersRequest;
+import com.tcs.module.messaging.dto.request.CreateGroupRequest;
 import com.tcs.module.messaging.dto.request.SendMessageRequest;
 import com.tcs.module.messaging.dto.request.StartConversationRequest;
+import com.tcs.module.messaging.dto.request.TransferGroupOwnerRequest;
+import com.tcs.module.messaging.dto.request.UpdateGroupRequest;
 import com.tcs.module.messaging.dto.response.ConversationResponse;
+import com.tcs.module.messaging.dto.response.GroupMemberResponse;
 import com.tcs.module.messaging.dto.response.MessageResponse;
 import com.tcs.module.messaging.dto.response.UserSummaryResponse;
 import com.tcs.module.messaging.service.ChatService;
@@ -10,9 +15,12 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
+import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.handler.annotation.MessageMapping;
 import org.springframework.messaging.handler.annotation.Payload;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -35,6 +43,47 @@ public class ChatController {
     @PostMapping("/conversations")
     public ConversationResponse startOrGetConversation(@RequestBody StartConversationRequest request) {
         return chatService.startOrGetConversation(request.getTargetUserId());
+    }
+
+    @PostMapping("/groups")
+    public ConversationResponse createGroup(@RequestBody CreateGroupRequest request) {
+        return chatService.createGroup(request.getName(), request.getMemberIds());
+    }
+
+    @GetMapping("/groups/{id}/members")
+    public List<GroupMemberResponse> getGroupMembers(@PathVariable("id") Long conversationId) {
+        return chatService.getGroupMembers(conversationId);
+    }
+
+    @PatchMapping("/groups/{id}")
+    public ConversationResponse renameGroup(
+            @PathVariable("id") Long conversationId, @RequestBody UpdateGroupRequest request) {
+        return chatService.renameGroup(conversationId, request.getName());
+    }
+
+    @PostMapping("/groups/{id}/members")
+    public ConversationResponse addGroupMembers(
+            @PathVariable("id") Long conversationId, @RequestBody AddGroupMembersRequest request) {
+        return chatService.addGroupMembers(conversationId, request.getMemberIds());
+    }
+
+    @DeleteMapping("/groups/{id}/members/{userId}")
+    public ResponseEntity<Void> removeGroupMember(
+            @PathVariable("id") Long conversationId, @PathVariable Long userId) {
+        chatService.removeGroupMember(conversationId, userId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PatchMapping("/groups/{id}/owner")
+    public ConversationResponse transferGroupOwner(
+            @PathVariable("id") Long conversationId, @RequestBody TransferGroupOwnerRequest request) {
+        return chatService.transferGroupOwner(conversationId, request.getOwnerUserId());
+    }
+
+    @DeleteMapping("/groups/{id}/members/me")
+    public ResponseEntity<Void> leaveGroup(@PathVariable("id") Long conversationId) {
+        chatService.leaveGroup(conversationId);
+        return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/context/{contextType}/{contextId}")

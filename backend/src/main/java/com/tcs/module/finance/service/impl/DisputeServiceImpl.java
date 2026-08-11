@@ -33,10 +33,8 @@ import com.tcs.module.finance.service.DisputeService;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
-import com.tcs.module.messaging.entity.Notification;
-import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
-import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.ClassTerminationRequest;
@@ -76,6 +74,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -94,7 +93,7 @@ public class DisputeServiceImpl implements DisputeService {
     private final DisputeRepository disputeRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final RefundRequestRepository refundRequestRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationDispatchService notificationDispatchService;
     private final PlatformAdminRepository platformAdminRepository;
     private final AuditLogRepository auditLogRepository;
     private final TutoringClassRepository tutoringClassRepository;
@@ -2052,16 +2051,15 @@ public class DisputeServiceImpl implements DisputeService {
             NotificationType type,
             Dispute dispute) {
 
-        Notification notification = new Notification();
-        notification.setUser(user);
-        notification.setType(type);
-        notification.setTitle(title);
-        notification.setContent(content);
-        notification.setReferenceType("DISPUTE");
-        notification.setReferenceId(dispute.getDisputeId());
-        notification.setStatus(NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        notificationDispatchService.notifyUserFromTemplate(
+                user,
+                type,
+                "DISPUTE_EVENT",
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                "DISPUTE",
+                dispute.getDisputeId());
     }
 
     private void createReportNotification(
@@ -2071,16 +2069,15 @@ public class DisputeServiceImpl implements DisputeService {
             NotificationType type,
             Report report) {
 
-        Notification notification = new Notification();
-        notification.setUser(user);
-        notification.setType(type);
-        notification.setTitle(title);
-        notification.setContent(content);
-        notification.setReferenceType("REPORT");
-        notification.setReferenceId(report.getReportId());
-        notification.setStatus(NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        notificationDispatchService.notifyUserFromTemplate(
+                user,
+                type,
+                "REPORT_EVENT",
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                "REPORT",
+                report.getReportId());
     }
 
     private List<String> parseEvidenceUrls(String evidenceUrls) {

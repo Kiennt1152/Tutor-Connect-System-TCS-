@@ -19,13 +19,14 @@ public class JwtService {
     @Value("${app.jwt.expiration-ms}")
     private long expirationMs;
 
-    public String generateToken(Long userId, String email, UserRole role) {
+    public String generateToken(Long userId, String email, UserRole role, long tokenVersion) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + expirationMs);
         return Jwts.builder()
                 .subject(String.valueOf(userId))
                 .claim("email", email)
                 .claim("role", role.name())
+                .claim("tokenVersion", tokenVersion)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(signingKey())
@@ -46,6 +47,11 @@ public class JwtService {
 
     public UserRole extractRole(String token) {
         return UserRole.valueOf(parseClaims(token).get("role", String.class));
+    }
+
+    public long extractTokenVersion(Claims claims) {
+        Number value = claims.get("tokenVersion", Number.class);
+        return value == null ? 0L : value.longValue();
     }
 
     private SecretKey signingKey() {

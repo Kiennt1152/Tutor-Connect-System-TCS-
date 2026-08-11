@@ -10,6 +10,7 @@ import {
   type BankOption,
 } from '../../finance/components/BankPicker';
 import './PlatformEscrowPage.css';
+import { AdminEscrowQueue } from '../components/AdminEscrowQueue';
 
 const formatCurrency = (value: number | null | undefined) => {
   if (typeof value !== 'number' || Number.isNaN(value)) return '—';
@@ -200,6 +201,10 @@ export default function PlatformEscrowPage() {
       title="Tất toán escrow"
       subtitle="Thực hiện giải ngân, hoàn tiền toàn phần hoặc chia tiền theo quyết định xử lý."
     >
+      <AdminEscrowQueue onSelect={(item) => {
+        setEscrowId(String(item.escrowId)); setEscrowAmount(String(item.amount));
+        setReleaseAmount(String(item.amount)); setRefundAmount(''); setSuccessMessage(''); setFormError('');
+      }} />
       <div className="pe-layout">
         <section className="adm-card pe-card">
           <div className="pe-card__head">

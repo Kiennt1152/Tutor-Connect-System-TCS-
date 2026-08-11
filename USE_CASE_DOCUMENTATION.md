@@ -573,7 +573,7 @@
 | **BF-ID Ref** | BF-10 |
 | **Depends On** | — |
 | **Preconditions** | Admin is logged in. |
-| **Postconditions** | System parameters are updated. |
+| **Postconditions** | System parameters are updated; future escrow settlements use the new fee rate. |
 
 ### Main Flow
 1. **[U]** Navigates to Platform Settings.
@@ -581,6 +581,7 @@
 3. **[U]** Updates the Platform Fee Rate input (e.g., to 10%) and clicks Save.
 4. **[S]** Validates constraints. Updates `system_parameters` table and logs the change.
 5. **[S]** Shows a success message.
+6. **[S]** On the next escrow release, deducts the configured fee, credits the beneficiary with the net amount, and records a `PLATFORM_FEE` transaction.
 
 ### Alternative Flows
 - **AF-01 — Invalid Bounds:** If fee rate > 50%, system rejects with "Fee rate exceeds allowed bounds."

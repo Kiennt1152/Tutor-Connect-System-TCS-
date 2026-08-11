@@ -1,0 +1,45 @@
+.msg-icon {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  border: 0;
+  border-radius: 50%;
+  background: #e4e6eb;
+  color: #050505;
+  text-decoration: none;
+  transition: background-color 0.15s ease, transform 0.15s ease;
+}
+
+.msg-icon:hover {
+  background: #d8dadf;
+}
+
+.msg-icon:focus-visible {
+  outline: 2px solid #0866ff;
+  outline-offset: 2px;
+}
+
+.msg-icon__glyph {
+  width: 24px;
+  height: 24px;
+}
+
+.msg-icon__badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #e5484d;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 18px;
+  text-align: center;
+}

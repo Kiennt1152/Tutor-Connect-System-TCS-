@@ -28,9 +28,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.YearMonth;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -52,14 +53,17 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
     private final SystemParameterRepository systemParameterRepository;
 
     @Override
-    public AnalyticsSummaryResponse getSummary() {
-        long totalUsers = userRepository.count();
+    public AnalyticsSummaryResponse getSummary(LocalDate from, LocalDate to) {
+        List<User> allUsers = userRepository.findAll().stream()
+                .filter(user -> inRange(user.getCreatedAt(), from, to)).toList();
+        long totalUsers = allUsers.size();
         long totalTutors = tutorRepository.count();
         long totalParents = clientRepository.count();
         long totalCenters = tutorCenterRepository.count();
         long totalStudents = Math.max(0, totalUsers - totalTutors - totalParents - totalCenters);
 
-        List<TutoringClass> allClasses = tutoringClassRepository.findAll();
+        List<TutoringClass> allClasses = tutoringClassRepository.findAll().stream()
+                .filter(item -> inRange(item.getCreatedAt(), from, to)).toList();
         long totalClasses = allClasses.size();
         
         long activeClasses = allClasses.stream()
@@ -72,7 +76,8 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                 .filter(c -> c.getStatus() == TutoringClassStatus.COMPLETED)
                 .count();
 
-        List<PaymentTransaction> allTransactions = paymentTransactionRepository.findAll();
+        List<PaymentTransaction> allTransactions = paymentTransactionRepository.findAll().stream()
+                .filter(item -> inRange(item.getCreatedAt(), from, to)).toList();
         BigDecimal totalRevenue = allTransactions.stream()
                 .filter(pt -> pt.getStatus() == PaymentTransactionStatus.SUCCESS 
                            && (pt.getType() == PaymentTransactionType.DEPOSIT 
@@ -90,7 +95,17 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                 // ignore, fallback to default
             }
         }
-        BigDecimal platformFeeRevenue = totalRevenue.multiply(platformFeeRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal platformFeeRevenue = sumTransactions(allTransactions, PaymentTransactionType.PLATFORM_FEE);
+        BigDecimal deposits = sumTransactions(allTransactions, PaymentTransactionType.DEPOSIT);
+        BigDecimal withdrawals = sumTransactions(allTransactions, PaymentTransactionType.WITHDRAWAL);
+        BigDecimal escrowDeposited = sumTransactions(allTransactions, PaymentTransactionType.ESCROW_DEPOSIT);
+        BigDecimal escrowReleased = sumTransactions(allTransactions, PaymentTransactionType.ESCROW_RELEASE);
+        BigDecimal escrowRefunded = sumTransactions(allTransactions, PaymentTransactionType.REFUND);
+        BigDecimal escrowHeld = escrowDeposited
+                .subtract(escrowReleased)
+                .subtract(escrowRefunded)
+                .subtract(platformFeeRevenue)
+                .max(BigDecimal.ZERO);
 
         long totalVerif = verificationRequestRepository.count();
         long approvedVerif = verificationRequestRepository.findAll().stream()
@@ -107,8 +122,6 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         double contractCompletionRate = totalContracts == 0 ? 0.0 : (double) completedContracts / totalContracts * 100.0;
 
         List<MonthlyMetricResponse> monthlyMetrics = new ArrayList<>();
-        List<User> allUsers = userRepository.findAll();
-        
         for (int i = 5; i >= 0; i--) {
             YearMonth ym = YearMonth.now().minusMonths(i);
             
@@ -151,6 +164,12 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                 .completedClasses(completedClasses)
                 .totalRevenue(totalRevenue)
                 .platformFeeRevenue(platformFeeRevenue)
+                .platformFeeRate(platformFeeRate)
+                .deposits(deposits)
+                .withdrawals(withdrawals)
+                .escrowHeld(escrowHeld)
+                .escrowReleased(escrowReleased)
+                .escrowRefunded(escrowRefunded)
                 .verificationConversionRate(verificationConversionRate)
                 .disputeRate(disputeRate)
                 .contractCompletionRate(contractCompletionRate)
@@ -159,13 +178,13 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
     }
 
     @Override
-    public byte[] exportCsv(String type) {
+    public byte[] exportCsv(String type, LocalDate from, LocalDate to) {
         StringBuilder sb = new StringBuilder();
         sb.append("\uFEFF");
         
         if ("classes".equalsIgnoreCase(type)) {
             sb.append("ID,Tiêu đề,Môn học,Trạng thái,Học phí (VND),Ngày tạo\n");
-            for (TutoringClass c : tutoringClassRepository.findAll()) {
+            for (TutoringClass c : tutoringClassRepository.findAll().stream().filter(item -> inRange(item.getCreatedAt(), from, to)).toList()) {
                 sb.append(c.getClassId()).append(",")
                   .append(escapeCsv(c.getTitle())).append(",")
                   .append(c.getSubject() != null ? escapeCsv(c.getSubject().getSubjectName()) : "").append(",")
@@ -175,7 +194,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
             }
         } else if ("revenue".equalsIgnoreCase(type)) {
             sb.append("ID,Mã tham chiếu,Loại giao dịch,Số tiền (VND),Trạng thái,Ngày giao dịch\n");
-            for (PaymentTransaction pt : paymentTransactionRepository.findAll()) {
+            for (PaymentTransaction pt : paymentTransactionRepository.findAll().stream().filter(item -> inRange(item.getCreatedAt(), from, to)).toList()) {
                 sb.append(pt.getTransactionId()).append(",")
                   .append(escapeCsv(pt.getReferenceCode())).append(",")
                   .append(pt.getType()).append(",")
@@ -185,7 +204,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
             }
         } else {
             sb.append("ID,Email,Số điện thoại,Trạng thái,Ngày tạo\n");
-            for (User u : userRepository.findAll()) {
+            for (User u : userRepository.findAll().stream().filter(item -> inRange(item.getCreatedAt(), from, to)).toList()) {
                 sb.append(u.getUserId()).append(",")
                   .append(escapeCsv(u.getEmail())).append(",")
                   .append(escapeCsv(u.getPhone())).append(",")
@@ -194,6 +213,20 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
             }
         }
         return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private BigDecimal sumTransactions(List<PaymentTransaction> transactions, PaymentTransactionType type) {
+        return transactions.stream()
+                .filter(item -> item.getStatus() == PaymentTransactionStatus.SUCCESS && item.getType() == type)
+                .map(PaymentTransaction::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private boolean inRange(LocalDateTime value, LocalDate from, LocalDate to) {
+        if (value == null) return from == null && to == null;
+        return (from == null || !value.toLocalDate().isBefore(from))
+                && (to == null || !value.toLocalDate().isAfter(to));
     }
     
     private String escapeCsv(String val) {

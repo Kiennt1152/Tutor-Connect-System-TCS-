@@ -4,19 +4,28 @@
 }
 .ntf__btn {
   position: relative;
-  width: 40px;
-  height: 40px;
-  border: 1px solid #e3e9f2;
-  border-radius: 10px;
-  background: #fff;
-  font-size: 18px;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: 50%;
+  background: #e4e6eb;
+  color: #050505;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.15s ease;
 }
 .ntf__btn:hover {
-  background: #f5f7fb;
+  background: #d8dadf;
+}
+.ntf__btn:focus-visible {
+  outline: 2px solid #0866ff;
+  outline-offset: 2px;
+}
+.ntf__glyph {
+  width: 24px;
+  height: 24px;
 }
 .ntf__badge {
   position: absolute;

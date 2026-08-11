@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { useAuth } from '../../../shared/auth/AuthProvider';
@@ -7,6 +7,8 @@ import { ConversationList } from '../components/ConversationList';
 import { MessageThread } from '../components/MessageThread';
 import { ChatInput } from '../components/ChatInput';
 import { UserSearchModal } from '../components/UserSearchModal';
+import { GroupInfoPanel } from '../components/GroupInfoPanel';
+import { ReportUserDialog } from '../../reviews/components/ReportUserDialog';
 import { useConversations } from '../hooks/useConversations';
 import { useMessages } from '../hooks/useMessages';
 import { messagingApi } from '../api/messagingApi';
@@ -30,19 +32,24 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
     return 'chat';
   });
 
-  const [selectedConvId, setSelectedConvId] = useState<number | null>(() => {
-    return convIdParam ? Number(convIdParam) : null;
-  });
-
   const [showSearch, setShowSearch] = useState(false);
+  const [showGroupInfo, setShowGroupInfo] = useState(false);
+  const [showReportUser, setShowReportUser] = useState(false);
 
   const {
     conversations,
     loading: convLoading,
     error: convError,
+    reload: reloadConversations,
     upsertConversation,
     markConversationRead,
   } = useConversations();
+
+  const requestedConversationId = convIdParam ? Number(convIdParam) : null;
+  const selectedConvId = requestedConversationId !== null && Number.isFinite(requestedConversationId)
+    ? requestedConversationId
+    : conversations[0]?.conversationId ?? null;
+  const displayedTab = convIdParam ? 'chat' : tabParam === 'tickets' ? 'tickets' : activeTab;
 
   const {
     messages,
@@ -52,24 +59,8 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
     sendMessage,
   } = useMessages(selectedConvId);
 
-  useEffect(() => {
-    if (convIdParam) {
-      const id = Number(convIdParam);
-      if (!isNaN(id)) {
-        setSelectedConvId(id);
-        setActiveTab('chat');
-      }
-    }
-  }, [convIdParam]);
-
-  useEffect(() => {
-    if (!selectedConvId && conversations.length > 0 && !convIdParam) {
-      setSelectedConvId(conversations[0].conversationId);
-    }
-  }, [conversations, selectedConvId, convIdParam]);
-
   const handleSelectConv = (conv: ConversationResponse) => {
-    setSelectedConvId(conv.conversationId);
+    setActiveTab('chat');
     setSearchParams({ conv: String(conv.conversationId) });
     if (conv.unreadCount > 0) {
       messagingApi.markAsRead(conv.conversationId).then(() => {
@@ -83,11 +74,30 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
     try {
       const conv = await messagingApi.startOrGetConversation(targetUser.userId);
       upsertConversation(conv);
-      setSelectedConvId(conv.conversationId);
+      setActiveTab('chat');
       setSearchParams({ conv: String(conv.conversationId) });
     } catch (err) {
       console.error('Không thể tạo cuộc trò chuyện:', err);
     }
+  };
+
+  const handleCreateGroup = async (name: string, members: UserSummaryResponse[]) => {
+    const conversation = await messagingApi.createGroup({
+      name,
+      memberIds: members.map((member) => member.userId),
+    });
+    upsertConversation(conversation);
+    setActiveTab('chat');
+    setSearchParams({ conv: String(conversation.conversationId) });
+    setShowSearch(false);
+  };
+
+  const handleLeftGroup = (conversationId: number) => {
+    setShowGroupInfo(false);
+    if (selectedConvId === conversationId) {
+      setSearchParams({ tab: 'chat' });
+    }
+    void reloadConversations();
   };
 
   const activeConv = conversations.find((c) => c.conversationId === selectedConvId) || null;
@@ -99,22 +109,28 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
         <div className="msg-page__nav-tabs">
           <button
             type="button"
-            className={`msg-page__nav-tab${activeTab === 'chat' ? ' msg-page__nav-tab--active' : ''}`}
-            onClick={() => setActiveTab('chat')}
+            className={`msg-page__nav-tab${displayedTab === 'chat' ? ' msg-page__nav-tab--active' : ''}`}
+            onClick={() => {
+              setActiveTab('chat');
+              setSearchParams({ tab: 'chat' });
+            }}
           >
             💬 Tin nhắn trực tiếp
           </button>
           <button
             type="button"
-            className={`msg-page__nav-tab${activeTab === 'tickets' ? ' msg-page__nav-tab--active' : ''}`}
-            onClick={() => setActiveTab('tickets')}
+            className={`msg-page__nav-tab${displayedTab === 'tickets' ? ' msg-page__nav-tab--active' : ''}`}
+            onClick={() => {
+              setActiveTab('tickets');
+              setSearchParams({ tab: 'tickets' });
+            }}
           >
             🎫 Yêu cầu hỗ trợ (Tickets)
           </button>
         </div>
 
         <div className="msg-page__body">
-          {activeTab === 'tickets' ? (
+          {displayedTab === 'tickets' ? (
             <MessagingPanel />
           ) : (
             <div className="msg-layout">
@@ -131,9 +147,31 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
                 {activeConv ? (
                   <>
                     <div className="msg-thread-header">
-                      <span className="msg-thread-header__name">
-                        {activeConv.otherParticipant?.displayName ?? 'Cuộc trò chuyện'}
-                      </span>
+                      <div>
+                        <span className="msg-thread-header__name">
+                          {activeConv.type === 'GROUP'
+                            ? activeConv.name
+                            : activeConv.otherParticipant?.displayName ?? 'Cuộc trò chuyện'}
+                        </span>
+                        {activeConv.type === 'GROUP' && (
+                          <span className="msg-thread-header__meta">
+                            {activeConv.participantCount} thành viên
+                          </span>
+                        )}
+                      </div>
+                      {activeConv.type === 'GROUP' && (
+                        <button
+                          type="button"
+                          className="msg-thread-header__info"
+                          title="Thông tin nhóm"
+                          onClick={() => setShowGroupInfo(true)}
+                        >
+                          i
+                        </button>
+                      )}
+                      {activeConv.type !== 'GROUP' && activeConv.otherParticipant && (
+                        <button type="button" className="msg-thread-header__info" title="Báo cáo người dùng" onClick={() => setShowReportUser(true)}>!</button>
+                      )}
                     </div>
                     <MessageThread
                       messages={messages}
@@ -161,6 +199,20 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
           open={true}
           onClose={() => setShowSearch(false)}
           onSelectUser={handleSelectUser}
+          onCreateGroup={handleCreateGroup}
+        />
+      )}
+      {showReportUser && activeConv?.otherParticipant && (
+        <ReportUserDialog userId={activeConv.otherParticipant.userId} displayName={activeConv.otherParticipant.displayName} onClose={() => setShowReportUser(false)} />
+      )}
+
+      {showGroupInfo && activeConv?.type === 'GROUP' && (
+        <GroupInfoPanel
+          conversation={activeConv}
+          currentUserId={user?.userId}
+          onClose={() => setShowGroupInfo(false)}
+          onUpdated={upsertConversation}
+          onLeft={handleLeftGroup}
         />
       )}
     </div>

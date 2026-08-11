@@ -6,6 +6,8 @@ export const APP_ROUTES = {
   /** Trang "Tìm lớp phù hợp với bạn" — duyệt lớp đang mở để đăng ký (bản của center/class). */
   classFinder: '/lop-hoc',
   tutorProfile: '/gia-su/:tutorId',
+  /** Trang "Đánh giá" công khai: danh sách toàn bộ gia sư kèm số sao để xem chi tiết đánh giá. */
+  tutorReviews: '/danh-gia',
   teaching: '/lich-day',
   signContract: '/lich-day/ki-hop-dong',
   login: '/login',
@@ -46,6 +48,8 @@ export const APP_ROUTES = {
   platformFaq: '/platform/faq',
   platformParameters: '/platform/parameters',
   platformAnnouncements: '/platform/announcements',
+  platformNotificationTemplates: '/platform/notification-templates',
+  platformCircumvention: '/platform/circumvention',
   platformPenalties: '/platform/penalties',
   platformAuditLogs: '/platform/audit-logs',
   platformProfile: '/platform/profile',

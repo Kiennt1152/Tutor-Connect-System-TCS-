@@ -4,6 +4,7 @@ import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.messaging.dto.request.SendMessageRequest;
 import com.tcs.module.messaging.dto.response.ConversationResponse;
+import com.tcs.module.messaging.dto.response.GroupMemberResponse;
 import com.tcs.module.messaging.dto.response.MessageResponse;
 import com.tcs.module.messaging.dto.response.UserSummaryResponse;
 import com.tcs.module.messaging.entity.Conversation;
@@ -11,14 +12,18 @@ import com.tcs.module.messaging.entity.ConversationParticipant;
 import com.tcs.module.messaging.entity.Message;
 import com.tcs.module.messaging.enums.ConversationStatus;
 import com.tcs.module.messaging.enums.MessageType;
+import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.repository.ConversationParticipantRepository;
 import com.tcs.module.messaging.repository.ConversationRepository;
 import com.tcs.module.messaging.repository.MessageRepository;
 import com.tcs.module.messaging.service.ChatService;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.platform.mapper.PlatformMapper;
+import com.tcs.module.platform.service.CircumventionService;
+import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.module.platform.mapper.UserProfileBundle;
 import com.tcs.common.classrequest.ClassRequestStore;
 import com.tcs.module.center.entity.RecruitmentApplication;
@@ -38,8 +43,11 @@ import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
 import java.time.LocalDateTime;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -54,6 +62,9 @@ import org.springframework.util.StringUtils;
 public class ChatServiceImpl implements ChatService {
 
     private static final int MAX_PREVIEW_LENGTH = 200;
+    private static final int MIN_GROUP_NAME_LENGTH = 3;
+    private static final int MAX_GROUP_NAME_LENGTH = 80;
+    private static final int MAX_GROUP_PARTICIPANTS = 20;
 
     private final AuthHelper authHelper;
     private final ConversationRepository conversationRepository;
@@ -71,6 +82,9 @@ public class ChatServiceImpl implements ChatService {
     private final ClassRequestStore classRequestStore;
     private final PlatformMapper platformMapper;
     private final SimpMessagingTemplate messagingTemplate;
+    private final CircumventionService circumventionService;
+    private final PenaltyAccessService penaltyAccessService;
+    private final NotificationDispatchService notificationDispatchService;
 
     @Override
     @Transactional(readOnly = true)
@@ -99,6 +113,127 @@ public class ChatServiceImpl implements ChatService {
                 .orElseGet(() -> createDirectConversation(userId, targetUserId));
 
         return toConversationResponse(conversation, userId);
+    }
+
+    @Override
+    @Transactional
+    public ConversationResponse createGroup(String name, List<Long> memberIds) {
+        Long ownerUserId = authHelper.currentUserId();
+        String normalizedName = validateGroupName(name);
+        List<User> members = validateNewMembers(memberIds, ownerUserId, 2, 19);
+        User owner = requireActiveUser(ownerUserId);
+
+        Conversation conversation = new Conversation();
+        conversation.setType("GROUP");
+        conversation.setName(normalizedName);
+        conversation.setOwner(owner);
+        conversation.setStatus(ConversationStatus.ACTIVE);
+        Conversation saved = conversationRepository.save(conversation);
+
+        conversationParticipantRepository.save(newParticipant(saved, owner));
+        for (User member : members) {
+            conversationParticipantRepository.save(newParticipant(saved, member));
+            createGroupNotification(member, saved, owner);
+        }
+        return toConversationResponse(saved, ownerUserId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<GroupMemberResponse> getGroupMembers(Long conversationId) {
+        Long currentUserId = authHelper.currentUserId();
+        Conversation group = requireGroup(conversationId);
+        requireParticipant(conversationId, currentUserId);
+        Long ownerUserId = group.getOwner().getUserId();
+        return conversationParticipantRepository.findByConversation_ConversationId(conversationId).stream()
+                .map(ConversationParticipant::getUser)
+                .map(user -> toGroupMemberResponse(user, user.getUserId().equals(ownerUserId)))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ConversationResponse renameGroup(Long conversationId, String name) {
+        Long currentUserId = authHelper.currentUserId();
+        Conversation group = requireOwnedGroup(conversationId, currentUserId);
+        group.setName(validateGroupName(name));
+        return toConversationResponse(conversationRepository.save(group), currentUserId);
+    }
+
+    @Override
+    @Transactional
+    public ConversationResponse addGroupMembers(Long conversationId, List<Long> memberIds) {
+        Long currentUserId = authHelper.currentUserId();
+        Conversation group = requireOwnedGroup(conversationId, currentUserId);
+        long currentCount = conversationParticipantRepository.countByConversation_ConversationId(conversationId);
+        int availableSlots = MAX_GROUP_PARTICIPANTS - Math.toIntExact(currentCount);
+        if (availableSlots <= 0) {
+            throw new IllegalArgumentException("Nhóm đã đạt tối đa 20 thành viên");
+        }
+
+        List<User> members = validateNewMembers(memberIds, currentUserId, 1, availableSlots);
+        for (User member : members) {
+            if (conversationParticipantRepository.existsByConversation_ConversationIdAndUser_UserId(
+                    conversationId, member.getUserId())) {
+                throw new IllegalArgumentException("Người dùng đã là thành viên của nhóm");
+            }
+        }
+
+        User owner = group.getOwner();
+        for (User member : members) {
+            conversationParticipantRepository.save(newParticipant(group, member));
+            createGroupNotification(member, group, owner);
+        }
+        return toConversationResponse(group, currentUserId);
+    }
+
+    @Override
+    @Transactional
+    public void removeGroupMember(Long conversationId, Long memberUserId) {
+        Long currentUserId = authHelper.currentUserId();
+        Conversation group = requireOwnedGroup(conversationId, currentUserId);
+        if (memberUserId == null) {
+            throw new IllegalArgumentException("memberUserId là bắt buộc");
+        }
+        if (group.getOwner().getUserId().equals(memberUserId)) {
+            throw new IllegalArgumentException("Owner phải chuyển quyền trước khi rời nhóm");
+        }
+        if (!conversationParticipantRepository.existsByConversation_ConversationIdAndUser_UserId(
+                conversationId, memberUserId)) {
+            throw new ResourceNotFoundException("Không tìm thấy thành viên trong nhóm");
+        }
+        conversationParticipantRepository.deleteByConversation_ConversationIdAndUser_UserId(
+                conversationId, memberUserId);
+    }
+
+    @Override
+    @Transactional
+    public ConversationResponse transferGroupOwner(Long conversationId, Long ownerUserId) {
+        Long currentUserId = authHelper.currentUserId();
+        Conversation group = requireOwnedGroup(conversationId, currentUserId);
+        if (ownerUserId == null || ownerUserId.equals(currentUserId)) {
+            throw new IllegalArgumentException("Hãy chọn một thành viên khác làm owner");
+        }
+        if (!conversationParticipantRepository.existsByConversation_ConversationIdAndUser_UserId(
+                conversationId, ownerUserId)) {
+            throw new IllegalArgumentException("Owner mới phải là thành viên hiện tại của nhóm");
+        }
+        group.setOwner(userRepository.findById(ownerUserId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy owner mới")));
+        return toConversationResponse(conversationRepository.save(group), currentUserId);
+    }
+
+    @Override
+    @Transactional
+    public void leaveGroup(Long conversationId) {
+        Long currentUserId = authHelper.currentUserId();
+        Conversation group = requireGroup(conversationId);
+        requireParticipant(conversationId, currentUserId);
+        if (group.getOwner().getUserId().equals(currentUserId)) {
+            throw new IllegalArgumentException("Owner phải chuyển quyền trước khi rời nhóm");
+        }
+        conversationParticipantRepository.deleteByConversation_ConversationIdAndUser_UserId(
+                conversationId, currentUserId);
     }
 
     @Override
@@ -228,6 +363,7 @@ public class ChatServiceImpl implements ChatService {
     @Transactional
     public MessageResponse sendMessage(SendMessageRequest request) {
         Long userId = authHelper.currentUserId();
+        penaltyAccessService.requireFeature(userId, "MESSAGING");
         if (request.getConversationId() == null || !StringUtils.hasText(request.getContent())) {
             throw new IllegalArgumentException("conversationId và content là bắt buộc");
         }
@@ -250,6 +386,7 @@ public class ChatServiceImpl implements ChatService {
         message.setContent(content);
         message.setSentAt(LocalDateTime.now());
         Message saved = messageRepository.save(message);
+        circumventionService.inspect(saved);
 
         conversation.setLastMessageAt(saved.getSentAt());
         conversation.setLastMessagePreview(truncatePreview(content));
@@ -327,12 +464,13 @@ public class ChatServiceImpl implements ChatService {
                 .findFirst()
                 .orElse(null);
 
-        Optional<ConversationParticipant> otherParticipant = participants.stream()
-                .filter(p -> !p.getUser().getUserId().equals(currentUserId))
-                .findFirst();
-
-        UserSummaryResponse otherSummary =
-                otherParticipant.map(p -> toUserSummary(p.getUser())).orElse(null);
+        UserSummaryResponse otherSummary = null;
+        if (!"GROUP".equals(conversation.getType())) {
+            Optional<ConversationParticipant> otherParticipant = participants.stream()
+                    .filter(p -> !p.getUser().getUserId().equals(currentUserId))
+                    .findFirst();
+            otherSummary = otherParticipant.map(p -> toUserSummary(p.getUser())).orElse(null);
+        }
 
         LocalDateTime since = me != null ? me.getLastReadAt() : null;
         int unreadCount = since == null
@@ -344,6 +482,11 @@ public class ChatServiceImpl implements ChatService {
         return ConversationResponse.builder()
                 .conversationId(conversation.getConversationId())
                 .type(conversation.getType())
+                .name(conversation.getName())
+                .ownerUserId(conversation.getOwner() != null ? conversation.getOwner().getUserId() : null)
+                .participantCount(Math.toIntExact(
+                        conversationParticipantRepository.countByConversation_ConversationId(
+                                conversation.getConversationId())))
                 .otherParticipant(otherSummary)
                 .lastMessagePreview(conversation.getLastMessagePreview())
                 .lastMessageAt(conversation.getLastMessageAt())
@@ -372,6 +515,96 @@ public class ChatServiceImpl implements ChatService {
                 .avatarUrl(resolveAvatarUrl(profiles))
                 .role(role)
                 .build();
+    }
+
+    private GroupMemberResponse toGroupMemberResponse(User user, boolean owner) {
+        UserProfileBundle profiles = loadProfileBundle(user.getUserId());
+        return GroupMemberResponse.builder()
+                .userId(user.getUserId())
+                .displayName(resolveDisplayName(user, profiles))
+                .avatarUrl(resolveAvatarUrl(profiles))
+                .role(platformMapper.resolveRole(profiles))
+                .owner(owner)
+                .build();
+    }
+
+    private Conversation requireGroup(Long conversationId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy nhóm"));
+        if (!"GROUP".equals(conversation.getType())) {
+            throw new IllegalArgumentException("Hội thoại này không phải là nhóm");
+        }
+        if (conversation.getStatus() != ConversationStatus.ACTIVE) {
+            throw new IllegalArgumentException("Nhóm đã bị lưu trữ");
+        }
+        return conversation;
+    }
+
+    private Conversation requireOwnedGroup(Long conversationId, Long currentUserId) {
+        Conversation group = requireGroup(conversationId);
+        requireParticipant(conversationId, currentUserId);
+        if (group.getOwner() == null || !group.getOwner().getUserId().equals(currentUserId)) {
+            throw new ForbiddenException("Chỉ owner mới có thể quản lý nhóm");
+        }
+        return group;
+    }
+
+    private String validateGroupName(String name) {
+        String normalized = name == null ? "" : name.trim();
+        if (normalized.length() < MIN_GROUP_NAME_LENGTH || normalized.length() > MAX_GROUP_NAME_LENGTH) {
+            throw new IllegalArgumentException("Tên nhóm phải từ 3 đến 80 ký tự");
+        }
+        return normalized;
+    }
+
+    private List<User> validateNewMembers(
+            List<Long> memberIds, Long currentUserId, int minMembers, int maxMembers) {
+        if (memberIds == null) {
+            throw new IllegalArgumentException("Danh sách thành viên là bắt buộc");
+        }
+        Set<Long> uniqueIds = new HashSet<>(memberIds);
+        if (uniqueIds.size() != memberIds.size()) {
+            throw new IllegalArgumentException("Danh sách thành viên không được trùng lặp");
+        }
+        if (uniqueIds.contains(currentUserId)) {
+            throw new IllegalArgumentException("Không thêm chính mình vào danh sách thành viên");
+        }
+        if (uniqueIds.size() < minMembers || uniqueIds.size() > maxMembers) {
+            throw new IllegalArgumentException(
+                    "Số thành viên được chọn phải từ " + minMembers + " đến " + maxMembers);
+        }
+        List<User> users = userRepository.findAllById(uniqueIds);
+        if (users.size() != uniqueIds.size()) {
+            throw new ResourceNotFoundException("Có thành viên không tồn tại");
+        }
+        if (users.stream().anyMatch(user -> user.getStatus() != UserStatus.ACTIVE)) {
+            throw new IllegalArgumentException("Chỉ có thể thêm tài khoản đang hoạt động");
+        }
+        return users;
+    }
+
+    private User requireActiveUser(Long userId) {
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            throw new IllegalArgumentException("Tài khoản không hoạt động");
+        }
+        return user;
+    }
+
+    private void createGroupNotification(User member, Conversation group, User owner) {
+        String ownerName = resolveDisplayName(owner);
+        String title = "Bạn đã được thêm vào nhóm " + group.getName();
+        String content = ownerName + " đã thêm bạn vào nhóm chat.";
+        notificationDispatchService.notifyUserFromTemplate(
+                member,
+                NotificationType.CHAT,
+                "CHAT_GROUP_MEMBER_ADDED",
+                Map.of("groupName", group.getName(), "ownerName", ownerName),
+                title,
+                content,
+                "CONVERSATION",
+                group.getConversationId());
     }
 
     private String resolveDisplayName(User user) {

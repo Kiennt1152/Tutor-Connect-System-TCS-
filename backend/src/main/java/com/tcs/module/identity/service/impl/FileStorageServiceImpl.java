@@ -49,16 +49,31 @@ public class FileStorageServiceImpl implements FileStorageService {
     public void init() {
         this.storageLocation = Paths.get(storagePath).toAbsolutePath().normalize();
         try {
-            Files.createDirectories(storageLocation);
+            Files.createDirectories(storageLocation.resolve("public"));
+            Files.createDirectories(storageLocation.resolve("private"));
         } catch (IOException e) {
-            throw new RuntimeException("Could not create upload directory", e);
+            throw new RuntimeException("Could not create upload directories", e);
         }
-        log.info("[TCS] File storage directory (nơi file được lưu và phục vụ /uploads/**): {}", storageLocation);
+        log.info("[TCS] File storage directory: {}", storageLocation);
+        log.info("[TCS]   public/  -> avatars (served via /uploads/public/**)");
+        log.info("[TCS]   private/ -> CCCD, licenses, verification docs (served via /api/files/private/*)");
     }
 
     @Override
     @Transactional
     public FileUploadResponse uploadFile(MultipartFile file, Long uploadedBy) {
+        return uploadFile(file, uploadedBy, false);
+    }
+
+    /**
+     * Upload a file to either the public or private subdirectory.
+     *
+     * @param file       the uploaded file
+     * @param uploadedBy the user ID performing the upload
+     * @param isPublic   true for avatars (public access), false for sensitive docs (private access)
+     */
+    @Transactional
+    public FileUploadResponse uploadFile(MultipartFile file, Long uploadedBy, boolean isPublic) {
         if (file == null || file.isEmpty()) {
             throw new IllegalArgumentException("File is empty");
         }
@@ -71,10 +86,11 @@ public class FileStorageServiceImpl implements FileStorageService {
             throw new IllegalArgumentException("File type not allowed. Allowed: PDF, JPEG, PNG, WEBP");
         }
 
+        String subDir = isPublic ? "public" : "private";
         String storedName = UUID.randomUUID() + FileMagicDetector.extensionFor(detectedMime);
 
         try {
-            Path targetLocation = storageLocation.resolve(storedName);
+            Path targetLocation = storageLocation.resolve(subDir).resolve(storedName);
             Files.copy(file.getInputStream(), targetLocation, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new RuntimeException("Failed to store file", e);
@@ -85,7 +101,7 @@ public class FileStorageServiceImpl implements FileStorageService {
 
         MediaFile mediaFile = new MediaFile();
         mediaFile.setFileName(file.getOriginalFilename());
-        mediaFile.setFileUrl("/uploads/" + storedName);
+        mediaFile.setFileUrl("/uploads/" + subDir + "/" + storedName);
         mediaFile.setMimeType(detectedMime);
         mediaFile.setFileSize(file.getSize());
         mediaFile.setUploadedBy(user);
@@ -103,7 +119,7 @@ public class FileStorageServiceImpl implements FileStorageService {
 
     @Override
     public String getFileUrl(String fileName) {
-        return "/uploads/" + fileName;
+        return "/uploads/public/" + fileName;
     }
 
     private String detectMime(MultipartFile file) {

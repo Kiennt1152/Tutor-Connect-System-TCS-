@@ -19,10 +19,8 @@ import com.tcs.module.identity.repository.VerificationHistoryRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.identity.service.VerificationService;
-import com.tcs.module.messaging.entity.Notification;
-import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
-import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
@@ -54,7 +52,6 @@ public class VerificationServiceImpl implements VerificationService {
     private final VerificationRequestRepository verificationRequestRepository;
     private final VerificationDocumentRepository verificationDocumentRepository;
     private final VerificationHistoryRepository verificationHistoryRepository;
-    private final NotificationRepository notificationRepository;
     private final MediaFileRepository mediaFileRepository;
     private final UserRepository userRepository;
     private final TutorRepository tutorRepository;
@@ -62,6 +59,7 @@ public class VerificationServiceImpl implements VerificationService {
     private final VerificationMapper verificationMapper;
     private final AuthHelper authHelper;
     private final AuditLogService auditLogService;
+    private final NotificationDispatchService notificationDispatchService;
 
     @Override
     @Transactional
@@ -371,16 +369,18 @@ public class VerificationServiceImpl implements VerificationService {
         } else {
             return;
         }
-        Notification notification = new Notification();
-        notification.setUser(request.getUser());
-        notification.setType(NotificationType.VERIFICATION);
-        notification.setTitle(title);
-        notification.setContent(content);
-        notification.setReferenceType("VERIFICATION_REQUEST");
-        notification.setReferenceId(request.getVerificationId());
-        notification.setStatus(NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        String templateCode = status == VerificationStatus.VERIFIED
+                ? "VERIFICATION_APPROVED"
+                : "VERIFICATION_REJECTED";
+        notificationDispatchService.notifyUserFromTemplate(
+                request.getUser(),
+                NotificationType.VERIFICATION,
+                templateCode,
+                Map.of("reason", request.getRejectionReason() == null ? "" : request.getRejectionReason()),
+                title,
+                content,
+                "VERIFICATION_REQUEST",
+                request.getVerificationId());
     }
 
     private void guardReviewFlow() {
