@@ -48,7 +48,7 @@ public class AiServiceImpl implements AiService {
     @Value("${ai.gemini.api-key:}")
     private String geminiApiKey;
 
-    @Value("${ai.groq.api-key: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}")
+    @Value("${ai.groq.api-key:}")
     private String groqApiKey;
 
     @Value("${ai.groq.model:llama-3.3-70b-versatile}")
