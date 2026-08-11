@@ -10,6 +10,7 @@ import com.tcs.module.center.dto.response.RescheduleResponse;
 import com.tcs.module.center.dto.response.ScheduleSlotResponse;
 import com.tcs.module.center.dto.response.StudentAttendanceResponse;
 import com.tcs.module.center.dto.response.SubstitutionResponse;
+import com.tcs.module.finance.service.CenterEscrowAutoSettlementService;
 import com.tcs.module.marketplace.dto.RescheduleEntry;
 import com.tcs.module.marketplace.dto.SubstitutionEntry;
 import com.tcs.module.marketplace.service.RescheduleService;
@@ -64,6 +65,7 @@ public class TutorServiceImpl implements TutorService {
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final RescheduleService rescheduleService;
     private final SubstitutionService substitutionService;
+    private final CenterEscrowAutoSettlementService centerEscrowAutoSettlementService;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -455,6 +457,7 @@ public class TutorServiceImpl implements TutorService {
                     l.setSlot(repSlot);
                     l.setSequenceNo(seq);
                     l.setTutor(tutor);
+                    l.setLessonDate(d);
                     return lessonRepository.save(l);
                 });
 
@@ -468,6 +471,7 @@ public class TutorServiceImpl implements TutorService {
                 });
         attendance.setStatus(status);
         lessonAttendanceRepository.save(attendance);
+        centerEscrowAutoSettlementService.trySettleCompletedCenterClass(classId);
 
         return buildScheduleItem(tutoringClass, d, weekday, tutor);
     }
@@ -542,7 +546,9 @@ public class TutorServiceImpl implements TutorService {
             throw new IllegalArgumentException("Buổi học này đã được điểm danh, không thể điểm danh lại");
         }
 
-        Lesson lesson = existing != null ? existing : lessonRepository.save(newLesson(tutoringClass, repSlot, seq, tutor));
+        Lesson lesson = existing != null
+                ? existing
+                : lessonRepository.save(newLesson(tutoringClass, repSlot, seq, tutor, d));
 
         for (MarkAttendanceRequest r : records) {
             if (r.getClassStudentId() == null || r.getStatus() == null) {
@@ -566,15 +572,17 @@ public class TutorServiceImpl implements TutorService {
             att.setStatus(r.getStatus());
             lessonAttendanceRepository.save(att);
         }
+        centerEscrowAutoSettlementService.trySettleCompletedCenterClass(classId);
         return buildScheduleItem(tutoringClass, d, weekday, tutor);
     }
 
-    private Lesson newLesson(TutoringClass c, ScheduleSlot slot, int seq, Tutor tutor) {
+    private Lesson newLesson(TutoringClass c, ScheduleSlot slot, int seq, Tutor tutor, LocalDate date) {
         Lesson l = new Lesson();
         l.setTutoringClass(c);
         l.setSlot(slot);
         l.setSequenceNo(seq);
         l.setTutor(tutor);
+        l.setLessonDate(date);
         return l;
     }
 

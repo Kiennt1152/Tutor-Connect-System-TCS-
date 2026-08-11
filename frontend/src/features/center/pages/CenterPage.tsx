@@ -6,11 +6,11 @@ import { APP_ROUTES } from '../../../shared/constants/routes';
 import { LocationPicker } from '../components/LocationPicker';
 import { profileApi } from '../../profile/api/profileApi';
 import { centerApi } from '../api/centerApi';
+import { ChatButton } from '../../messaging/components/ChatButton';
 import type { ClassRequest } from '../../marketplace/types/marketplaceTypes';
 import type {
   ClassResponse,
   ClassStatus,
-  ContractTemplate,
   LessonMode,
   RecurringType,
   SaveClassRequest,
@@ -86,8 +86,6 @@ interface FormState {
   maxStudents: string;
   minStudents: string;
   originType: 'SELF' | 'EXTERNAL';
-  contractTemplateId: string;
-  contractContent: string;
   startDate: string;
   endDate: string;
   schedule: SlotForm[];
@@ -109,8 +107,6 @@ const EMPTY_FORM: FormState = {
   maxStudents: '',
   minStudents: '',
   originType: 'SELF',
-  contractTemplateId: '',
-  contractContent: '',
   startDate: '',
   endDate: '',
   schedule: [{ dayOfWeek: 1, startTime: '18:00', endTime: '20:00' }],
@@ -167,8 +163,6 @@ function toFormState(c: ClassResponse): FormState {
     maxStudents: c.maxStudents != null ? String(c.maxStudents) : '',
     minStudents: c.minStudents != null ? String(c.minStudents) : '',
     originType: c.originType === 'EXTERNAL' ? 'EXTERNAL' : 'SELF',
-    contractTemplateId: c.contractTemplateId != null ? String(c.contractTemplateId) : '',
-    contractContent: c.contractContent ?? '',
     startDate: c.startDate,
     endDate: c.endDate,
     schedule,
@@ -246,8 +240,6 @@ function buildPayload(form: FormState): SaveClassRequest {
     // Lớp theo yêu cầu không dùng tối thiểu (không mở ghi danh).
     minStudents: form.originType === 'EXTERNAL' ? null : num(form.minStudents),
     originType: form.originType,
-    contractTemplateId: form.contractTemplateId ? Number(form.contractTemplateId) : null,
-    contractContent: form.contractContent,
     startDate: form.startDate || null,
     endDate: form.endDate || null,
     schedule: form.schedule.map((s) => ({
@@ -374,9 +366,6 @@ export default function CenterPage() {
   const [requests, setRequests] = useState<ClassRequest[]>([]);
   const [acceptingRequestId, setAcceptingRequestId] = useState<string | null>(null);
 
-  // Mẫu hợp đồng (để chọn khi tạo lớp).
-  const [templates, setTemplates] = useState<ContractTemplate[]>([]);
-
   const errors = useMemo(() => validateForm(form, editingId == null), [form, editingId]);
   const sessionCount = useMemo(() => countSessions(form), [form]);
   const allowedDays = useMemo(
@@ -405,10 +394,6 @@ export default function CenterPage() {
   useEffect(() => {
     reloadList();
     reloadRequests();
-    centerApi
-      .getContractTemplates()
-      .then((res) => setTemplates(res.data))
-      .catch(() => setTemplates([]));
   }, []);
 
   // Tải trạng thái xác minh trung tâm để chặn tạo lớp khi chưa xác minh.
@@ -519,20 +504,6 @@ export default function CenterPage() {
       if (detailData?.classId === classId) refreshDetail(classId);
     } catch (err) {
       const msg = extractError(err, 'Không đóng ghi danh được lớp học.');
-      setDetailError(msg);
-      setListError(msg);
-    }
-  };
-
-  const activateClass = async (classId: number) => {
-    setListError('');
-    setDetailError('');
-    try {
-      await centerApi.activateClass(classId);
-      reloadList();
-      if (detailData?.classId === classId) refreshDetail(classId);
-    } catch (err) {
-      const msg = extractError(err, 'Không kích hoạt được lớp học.');
       setDetailError(msg);
       setListError(msg);
     }
@@ -728,9 +699,6 @@ export default function CenterPage() {
             <Link className="cc-btn cc-btn--ghost" to="/center/tutors">
               Gia sư của trung tâm
             </Link>
-            <Link className="cc-btn cc-btn--ghost" to="/center/contract-templates">
-              Mẫu hợp đồng
-            </Link>
             <Link className="cc-btn cc-btn--ghost" to="/center/schedule">
               Lịch hôm nay
             </Link>
@@ -785,6 +753,12 @@ export default function CenterPage() {
                         </span>
                       </div>
                       <div className="cc-request__actions">
+                        <ChatButton
+                          contextType="CLASS_REQUEST"
+                          contextId={r.requestId}
+                          recipientName={r.clientName ?? undefined}
+                          size="sm"
+                        />
                         <button
                           className="cc-btn cc-btn--primary cc-btn--sm"
                           type="button"
@@ -983,44 +957,6 @@ export default function CenterPage() {
                 <option value="SELF">Trung tâm tự tạo (tuyển học sinh)</option>
                 <option value="EXTERNAL">Theo yêu cầu ngoài (đã có học sinh)</option>
               </select>
-            </label>
-
-            <label className="cc-field">
-              <span className="cc-label">Mẫu hợp đồng (học viên)</span>
-              <select
-                className="cc-input"
-                value={form.contractTemplateId}
-                onChange={(e) => {
-                  const id = e.target.value;
-                  const tpl = templates.find((t) => String(t.templateId) === id);
-                  // Chọn mẫu -> nạp sẵn nội dung điều khoản để trung tâm sửa tiếp.
-                  patch(tpl ? { contractTemplateId: id, contractContent: tpl.content } : { contractTemplateId: id });
-                }}
-              >
-                <option value="">— Dùng mẫu mặc định / tự nhập —</option>
-                {templates
-                  .filter((t) => t.contractType !== 'RECRUITMENT')
-                  .map((t) => (
-                    <option key={t.templateId} value={String(t.templateId)}>
-                      {t.name}
-                      {t.system ? ' (hệ thống)' : ''}
-                    </option>
-                  ))}
-              </select>
-            </label>
-
-            <label className="cc-field cc-field--full">
-              <span className="cc-label">Nội dung điều khoản & nghĩa vụ (HĐ học viên)</span>
-              <textarea
-                className="cc-input"
-                rows={6}
-                value={form.contractContent}
-                onChange={(e) => patch({ contractContent: e.target.value })}
-                placeholder="Điều 1. ...  (Biến tự điền khi tạo hợp đồng: {{tenHocVien}}, {{tenLop}}, {{monHoc}}, {{hocPhi}}, {{soBuoi}}, {{ngayBatDau}}, {{ngayKetThuc}}, {{tenTrungTam}})"
-              />
-              <small className="cc-hint">
-                Quốc hiệu, tiêu đề, thông tin các bên sẽ được hệ thống tự thêm. Để trống = dùng nội dung mẫu.
-              </small>
             </label>
 
             {form.originType === 'EXTERNAL' ? (
@@ -1534,32 +1470,6 @@ export default function CenterPage() {
                               onClick={() => closeEnrollment(detailData.classId)}
                             >
                               Đóng ghi danh
-                            </button>
-                          </div>
-                        );
-                      })()}
-                    {(detailData.status === 'MATCHED' ||
-                      detailData.status === 'ENROLLMENT_CLOSED') &&
-                      (() => {
-                        const required = detailData.minStudents ?? 1;
-                        const canActivate = detailData.enrolledCount >= required;
-                        return (
-                          <div className="cc-publish">
-                            <p className="cc-publish__hint">
-                              Học sinh: <b>{detailData.enrolledCount}</b>
-                              {` / tối thiểu ${required}`}
-                              {!canActivate && ' — chưa đủ để kích hoạt.'}
-                            </p>
-                            <button
-                              className="cc-btn cc-btn--primary"
-                              type="button"
-                              disabled={!canActivate}
-                              title={
-                                canActivate ? undefined : 'Cần đủ sĩ số tối thiểu để kích hoạt lớp'
-                              }
-                              onClick={() => activateClass(detailData.classId)}
-                            >
-                              Kích hoạt lớp (bắt đầu học)
                             </button>
                           </div>
                         );

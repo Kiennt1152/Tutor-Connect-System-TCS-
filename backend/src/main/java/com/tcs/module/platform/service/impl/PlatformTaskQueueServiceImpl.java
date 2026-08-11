@@ -73,7 +73,7 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
                 allItems.add(TaskItemResponse.builder()
                         .taskId("VERIF-" + v.getVerificationId())
                         .taskType("VERIFICATION")
-                        .title("Xác minh " + v.getVerificationType().name() + " - " + v.getUser().getEmail())
+                        .title("Hồ sơ xác minh - " + v.getUser().getEmail())
                         .description("Trạng thái: " + v.getStatus().name())
                         .entityId(v.getVerificationId())
                         .targetRoute("/platform/verifications")

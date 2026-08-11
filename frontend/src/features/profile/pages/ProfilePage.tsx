@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
@@ -16,9 +16,8 @@ import type {
   UpdateProfileRequest,
   UserRole,
 } from '../types/profileTypes';
+import { ChangePasswordPanel } from '../../identity/components/ChangePasswordPanel';
 import './ProfilePage.css';
-
-const VIETNAM_PHONE = /^(0|\+84)(3|5|7|8|9)[0-9]{8}$/;
 
 const VERIFICATION_LABEL: Record<ProfileVerificationStatus, string> = {
   UNDER_VERIFY: 'Đang chờ xét duyệt',
@@ -132,13 +131,22 @@ export default function ProfilePage() {
 
   // Cách A: đã có CCCD -> ngày sinh khóa theo CCCD (không cho sửa tay).
   const [dobLockedByCccd, setDobLockedByCccd] = useState(false);
-  useEffect(() => {
+  const refreshCccdLock = useCallback(() => {
     if (!isClient && !isTutor) return;
     profileApi
       .getMyCccd()
       .then((res) => setDobLockedByCccd(Boolean(res.data.cccdNumber)))
       .catch(() => setDobLockedByCccd(false));
   }, [isClient, isTutor]);
+  useEffect(() => {
+    refreshCccdLock();
+  }, [refreshCccdLock]);
+
+  // Sau khi lưu CCCD: nạp lại hồ sơ để ngày sinh + giới tính (đồng bộ từ CCCD) hiển thị ngay.
+  const handleCccdSaved = useCallback(() => {
+    void reload();
+    refreshCccdLock();
+  }, [reload, refreshCccdLock]);
 
   useEffect(() => {
     if (!isAdultClient) {
@@ -175,9 +183,6 @@ export default function ProfilePage() {
       }
     }
 
-    if (form.phone && !VIETNAM_PHONE.test(form.phone.replace(/\s/g, ''))) {
-      errs.phone = 'Số điện thoại không hợp lệ (10 số, đầu 0 hoặc +84)';
-    }
 
     if (isClient && form.dateOfBirth) {
       const dob = new Date(form.dateOfBirth);
@@ -224,7 +229,6 @@ export default function ProfilePage() {
       if (form.licenseNo) payload.licenseNo = form.licenseNo.trim();
       if (form.description) payload.description = form.description;
     }
-    if (form.phone) payload.phone = form.phone.replace(/\s/g, '');
     if (form.address) payload.address = form.address;
     if (form.dateOfBirth) payload.dateOfBirth = form.dateOfBirth;
     if (form.gender) payload.gender = form.gender;
@@ -331,12 +335,8 @@ export default function ProfilePage() {
             </label>
             <label>
               Số điện thoại
-              <input
-                value={form.phone}
-                onChange={(e) => setForm({ ...form, phone: e.target.value })}
-                placeholder="VD: 0912345678"
-              />
-              {errs.phone && <span className="profile-field-error">{errs.phone}</span>}
+              <input value={profile?.phone ?? ''} disabled readOnly />
+              <span className="profile-hint">Lấy từ lúc đăng ký — không thể sửa.</span>
             </label>
             <label>
               Địa chỉ
@@ -375,12 +375,6 @@ export default function ProfilePage() {
                   onChange={(e) => setForm({ ...form, dateOfBirth: e.target.value })}
                   disabled={dobLockedByCccd}
                 />
-                {dobLockedByCccd && (
-                  <small className="profile-hint">
-                    Ngày sinh được lấy từ CCCD đã xác minh — không thể sửa tay. Cập nhật bằng cách đọc
-                    lại ảnh CCCD ở mục dưới.
-                  </small>
-                )}
                 {errs.dateOfBirth && <span className="profile-field-error">{errs.dateOfBirth}</span>}
               </label>
               <label>
@@ -395,11 +389,6 @@ export default function ProfilePage() {
                   <option value="FEMALE">Nữ</option>
                   <option value="OTHER">Khác</option>
                 </select>
-                {dobLockedByCccd && (
-                  <small className="profile-hint">
-                    Giới tính lấy từ CCCD đã xác minh — không thể sửa tay.
-                  </small>
-                )}
               </label>
             </section>
           )}
@@ -497,6 +486,8 @@ export default function ProfilePage() {
         </form>
       )}
 
+      {profile && <ChangePasswordPanel />}
+
       {(isTutor || isCenter) && profile?.verificationStatus && (
         <section className="profile-section">
           <h2>Xác minh hồ sơ</h2>
@@ -526,7 +517,7 @@ export default function ProfilePage() {
       )}
 
       {/* Phụ huynh: tự quét/sửa CCCD ở profile. Gia sư/Trung tâm: nộp khi xác minh -> chỉ xem. */}
-      {isClient && <CccdSection />}
+      {isClient && <CccdSection onSaved={handleCccdSaved} />}
       {(isTutor || isCenter) && (
         <CccdVerifiedView
           verified={profile?.verificationStatus === 'VERIFIED'}
@@ -535,6 +526,16 @@ export default function ProfilePage() {
       )}
 
       {isAdultClient && (
+        <section className="profile-section">
+          <h2>Xác minh danh tính</h2>
+          <p>
+            Xác minh danh tính của client hiện được hệ thống xử lý tự động, bạn không cần mở màn
+            riêng tại đây.
+          </p>
+        </section>
+      )}
+
+      {isClient && (
         <section className="profile-section">
           <h2>Quản lý hồ sơ con</h2>
           <p>Chọn một hồ sơ con để cập nhật thông tin học tập, hoặc thêm hồ sơ con mới.</p>

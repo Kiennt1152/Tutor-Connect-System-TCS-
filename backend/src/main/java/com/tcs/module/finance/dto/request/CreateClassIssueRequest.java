@@ -2,6 +2,7 @@ package com.tcs.module.finance.dto.request;
 
 import com.tcs.module.finance.enums.ClassIssueRequestedAction;
 import com.tcs.module.finance.enums.ClassIssueType;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.platform.enums.ReportCategory;
 import java.time.LocalDate;
 import lombok.Getter;
@@ -22,4 +23,5 @@ public class CreateClassIssueRequest {
     private Long escrowId;
     private Long assignmentId;
     private Long classStudentId;
+    private RefundPayoutInfo refundPayoutInfo;
 }

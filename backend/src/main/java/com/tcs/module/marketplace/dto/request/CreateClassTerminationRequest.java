@@ -15,4 +15,10 @@ public class CreateClassTerminationRequest {
     private String reason;
 
     private LocalDate effectiveDate;
+
+    private String bankName;
+
+    private String accountNo;
+
+    private String accountHolderName;
 }

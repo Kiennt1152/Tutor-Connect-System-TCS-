@@ -12,6 +12,8 @@ export const APP_ROUTES = {
   signContract: '/lich-day/ki-hop-dong',
   login: '/login',
   register: '/register',
+  forgotPassword: '/forgot-password',
+  resetPassword: '/reset-password',
   identity: '/identity',
   profile: '/profile',
   profileDependents: '/profile/dependents',

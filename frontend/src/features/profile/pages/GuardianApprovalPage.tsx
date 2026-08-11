@@ -1,4 +1,7 @@
-import { ClientLayout } from '../components/ClientLayout';
+import { Link } from 'react-router-dom';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { SiteFooter } from '../../home/components/SiteFooter';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useGuardianApprovals, formatApprovalAction, statusLabel } from '../hooks/useGuardianApprovals';
 import './DependentProfileLinkerPage.css';
 
@@ -12,61 +15,81 @@ export default function GuardianApprovalPage() {
     useGuardianApprovals('pending');
 
   return (
-    <ClientLayout
-      title="Xác nhận phụ huynh"
-      subtitle="Phê duyệt các yêu cầu thanh toán và hợp đồng từ học sinh liên kết."
-    >
-      {status === 'loading' && <div className="dpl-state">Đang tải yêu cầu…</div>}
+    <div className="tcs-page">
+      <HomeNavbar />
+      <main className="dpl-main">
+        <div className="tcs-container">
+          <header className="dpl-page-header">
+            <h1>Xác nhận phụ huynh</h1>
+            <p>Phê duyệt các yêu cầu thanh toán và hợp đồng từ học sinh liên kết.</p>
+          </header>
 
-      {status === 'error' && (
-        <div className="dpl-card">
-          <div className="dpl-alert dpl-alert--error">{errorMessage}</div>
-          <button className="tcs-btn tcs-btn--primary" type="button" onClick={reload}>
-            Thử lại
-          </button>
-        </div>
-      )}
+          {/* Điều hướng chéo trong khu vực hồ sơ phụ huynh (thay cho ClientLayout cũ). */}
+          <nav className="dpl-actions">
+            <Link className="tcs-btn tcs-btn--ghost tcs-btn--sm" to={APP_ROUTES.profile}>
+              Về hồ sơ
+            </Link>
+            <Link className="tcs-btn tcs-btn--ghost tcs-btn--sm" to={APP_ROUTES.profileDependents}>
+              Liên kết hồ sơ
+            </Link>
+          </nav>
 
-      {status === 'success' && (
-        <div className="dpl-card">
-          <h2 className="dpl-section-title">Yêu cầu chờ xác nhận</h2>
-          {approvals.length === 0 ? (
-            <p className="dpl-muted">Không có yêu cầu nào đang chờ xác nhận.</p>
-          ) : (
-            <ul className="dpl-child-list">
-              {approvals.map((approval) => (
-                <li key={approval.approvalId} className="dpl-child-item dpl-approval-item">
-                  <div>
-                    <strong>{formatApprovalAction(approval)}</strong>
-                    <span className="dpl-child-item__meta"> · {approval.minorName}</span>
-                    <p className="dpl-muted">{approval.description}</p>
-                    <p className="dpl-muted">Gửi lúc {formatDate(approval.createdAt)}</p>
-                  </div>
-                  <div className="dpl-approval-item__actions">
-                    <button
-                      className="tcs-btn tcs-btn--primary"
-                      type="button"
-                      disabled={actionStatus === 'loading'}
-                      onClick={() => approve(approval.approvalId)}
-                    >
-                      Xác nhận
-                    </button>
-                    <button
-                      className="tcs-btn tcs-btn--ghost"
-                      type="button"
-                      disabled={actionStatus === 'loading'}
-                      onClick={() => reject(approval.approvalId)}
-                    >
-                      Từ chối
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+          <div className="dpl-content">
+            {status === 'loading' && <div className="dpl-state">Đang tải yêu cầu…</div>}
+
+            {status === 'error' && (
+              <div className="dpl-card">
+                <div className="dpl-alert dpl-alert--error">{errorMessage}</div>
+                <button className="tcs-btn tcs-btn--primary" type="button" onClick={reload}>
+                  Thử lại
+                </button>
+              </div>
+            )}
+
+            {status === 'success' && (
+              <div className="dpl-card">
+                <h2 className="dpl-section-title">Yêu cầu chờ xác nhận</h2>
+                {approvals.length === 0 ? (
+                  <p className="dpl-muted">Không có yêu cầu nào đang chờ xác nhận.</p>
+                ) : (
+                  <ul className="dpl-child-list">
+                    {approvals.map((approval) => (
+                      <li key={approval.approvalId} className="dpl-child-item dpl-approval-item">
+                        <div>
+                          <strong>{formatApprovalAction(approval)}</strong>
+                          <span className="dpl-child-item__meta"> · {approval.minorName}</span>
+                          <p className="dpl-muted">{approval.description}</p>
+                          <p className="dpl-muted">Gửi lúc {formatDate(approval.createdAt)}</p>
+                        </div>
+                        <div className="dpl-approval-item__actions">
+                          <button
+                            className="tcs-btn tcs-btn--primary"
+                            type="button"
+                            disabled={actionStatus === 'loading'}
+                            onClick={() => approve(approval.approvalId)}
+                          >
+                            Xác nhận
+                          </button>
+                          <button
+                            className="tcs-btn tcs-btn--ghost"
+                            type="button"
+                            disabled={actionStatus === 'loading'}
+                            onClick={() => reject(approval.approvalId)}
+                          >
+                            Từ chối
+                          </button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
         </div>
-      )}
-    </ClientLayout>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }
 

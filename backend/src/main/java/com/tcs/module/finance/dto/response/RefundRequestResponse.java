@@ -24,6 +24,7 @@ public class RefundRequestResponse {
     private BigDecimal amount;
     private String bankName;
     private String accountNoMasked;
+    private String accountHolderName;
     private String refundReferenceCode;
     private String transferStatus;
     private RefundRequestStatus status;

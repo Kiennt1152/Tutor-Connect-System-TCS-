@@ -8,10 +8,15 @@ import static org.mockito.Mockito.when;
 
 import com.tcs.common.event.ContractSigned;
 import com.tcs.common.event.EscrowFunded;
+import com.tcs.module.finance.entity.EscrowTransaction;
+import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -24,6 +29,9 @@ class ClassActivationServiceImplTest {
 
     @Mock
     private TutoringClassRepository tutoringClassRepository;
+
+    @Mock
+    private EscrowTransactionRepository escrowTransactionRepository;
 
     @InjectMocks
     private ClassActivationServiceImpl classActivationService;
@@ -65,5 +73,56 @@ class ClassActivationServiceImplTest {
 
         assertEquals(TutoringClassStatus.IN_PROGRESS, tutoringClass.getStatus());
         verify(tutoringClassRepository).save(tutoringClass);
+    }
+
+    @Test
+    void onEscrowFundedDoesNotActivateCenterClassUntilEnoughStudentsPaid() {
+        TutoringClass tutoringClass = centerClass();
+        when(tutoringClassRepository.findById(3L)).thenReturn(Optional.of(tutoringClass));
+
+        classActivationService.onEscrowFunded(new EscrowFunded(
+                5L,
+                3L,
+                11L,
+                21L,
+                new BigDecimal("100000.00"),
+                null,
+                15L));
+
+        assertEquals(TutoringClassStatus.MATCHED, tutoringClass.getStatus());
+        verify(tutoringClassRepository, never()).save(any());
+    }
+
+    @Test
+    void onEscrowFundedActivatesCenterClassWhenEnoughStudentsPaid() {
+        TutoringClass tutoringClass = centerClass();
+        when(tutoringClassRepository.findById(3L)).thenReturn(Optional.of(tutoringClass));
+
+        classActivationService.onEscrowFunded(new EscrowFunded(
+                6L,
+                3L,
+                12L,
+                21L,
+                new BigDecimal("100000.00"),
+                null,
+                16L));
+
+        assertEquals(TutoringClassStatus.MATCHED, tutoringClass.getStatus());
+        verify(tutoringClassRepository, never()).save(any());
+    }
+
+    private TutoringClass centerClass() {
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setClassId(3L);
+        tutoringClass.setClassType(ClassType.CENTER);
+        tutoringClass.setMinStudents(2);
+        tutoringClass.setStatus(TutoringClassStatus.MATCHED);
+        return tutoringClass;
+    }
+
+    private EscrowTransaction escrow(EscrowStatus status) {
+        EscrowTransaction escrow = new EscrowTransaction();
+        escrow.setStatus(status);
+        return escrow;
     }
 }

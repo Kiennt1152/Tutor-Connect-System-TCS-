@@ -40,57 +40,31 @@ export const HOME_NEWS = [
   },
 ];
 
-export const HOME_CENTERS = [
-  {
-    id: '1',
-    name: 'Trung tâm Gia sư FPT',
-    description: 'Kết nối gia sư chất lượng từ các trường đại học top đầu.',
-    tutors: 120,
-  },
-  {
-    id: '2',
-    name: 'TT Kết nối Sư phạm',
-    description: 'Chuyên gia sư các môn THCS — THPT, online và offline.',
-    tutors: 85,
-  },
-  {
-    id: '3',
-    name: 'TT Tutor Connect đối tác',
-    description: 'Quy trình tuyển chọn, đào tạo và hỗ trợ gia sư toàn diện.',
-    tutors: 64,
-  },
-];
-
-export const HOME_PROMO = {
-  title: 'Trung tâm kết nối gia sư uy tín',
-  description:
-    '100% gia sư được xác minh hồ sơ, hỗ trợ kết nối nhanh, thanh toán an toàn qua ký quỹ và quy trình minh bạch cho học viên — gia sư — trung tâm.',
-  cta: 'Đăng ký trung tâm',
-  ctaHref: '/register',
-};
+import { APP_ROUTES } from '../../../shared/constants/routes';
 
 export const FOOTER_LINKS = [
   {
     title: 'Khám phá',
     links: [
-      { label: 'Tìm gia sư', href: '#find-tutor' },
-      { label: 'Tìm lớp', href: '#classes' },
-      { label: 'Trung tâm', href: '/centers' },
+      { label: 'Tìm gia sư', href: APP_ROUTES.findTutor },
+      { label: 'Tìm lớp', href: APP_ROUTES.classFinder },
+      { label: 'Trung tâm', href: APP_ROUTES.centers },
     ],
   },
   {
     title: 'Cộng đồng',
     links: [
-      { label: 'Tin tức', href: '#news' },
-      { label: 'Đánh giá', href: '/danh-gia' },
-      { label: 'Đăng ký', href: '/register' },
+      // Trỏ về mục trên trang chủ kèm "/" để hoạt động từ mọi trang.
+      { label: 'Tin tức', href: '/#news' },
+      { label: 'Đánh giá', href: APP_ROUTES.tutorReviews },
+      { label: 'Trợ giúp', href: APP_ROUTES.help },
     ],
   },
   {
     title: 'Tài khoản',
     links: [
-      { label: 'Đăng nhập', href: '/login' },
-      { label: 'Quản trị nền tảng', href: '/platform' },
+      { label: 'Đăng nhập', href: APP_ROUTES.login },
+      { label: 'Đăng ký', href: APP_ROUTES.register },
     ],
   },
 ];

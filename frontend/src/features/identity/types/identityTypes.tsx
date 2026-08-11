@@ -84,3 +84,17 @@ export type RegisterResponse = {
   email: string;
   message: string;
 };
+
+export type PasswordResetOtpResponse = {
+  email: string;
+  message: string;
+  otpExpiresInSeconds?: number;
+  resendCooldownSeconds?: number;
+  resetToken?: string;
+  resetTokenExpiresInSeconds?: number;
+};
+
+export type RequestPasswordResetOtpRequest = { email: string };
+export type VerifyPasswordResetOtpRequest = { email: string; code: string };
+export type ResetPasswordRequest = { token: string; newPassword: string };
+export type ChangePasswordRequest = { currentPassword: string; newPassword: string };

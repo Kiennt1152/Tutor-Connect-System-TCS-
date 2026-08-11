@@ -1,13 +1,17 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { SiteFooter } from '../../home/components/SiteFooter';
+import { marketplaceApi } from '../api/marketplaceApi';
 import { useMarketplace } from '../hooks/useMarketplace';
 import { ClassRequestForm } from '../components/ClassRequestForm';
 import { ApplicantsPanel } from '../components/ApplicantsPanel';
 import { ClassDetailPanel } from '../components/ClassDetailPanel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
+import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
 import { WeeklyTimetable } from '../../teaching/components/WeeklyTimetable';
 import { useClassLessons } from '../../teaching/hooks/useTeaching';
 import { classToForm, emptyForm } from '../mappers/marketplaceMapper';
@@ -16,12 +20,22 @@ import {
   isOtherSubject,
   type CatalogOption,
   type ClassFormValues,
+  type ClassRequest,
+  type ClassRequestStatus,
   type ClassRequestPayload,
   type ClassResponse,
 } from '../types/marketplaceTypes';
 import './MarketplacePage.css';
 
 const currency = new Intl.NumberFormat('vi-VN');
+
+// Nhãn trạng thái yêu cầu "nhờ trung tâm tìm".
+const REQ_STATUS_LABEL: Record<ClassRequestStatus, string> = {
+  PENDING: 'Đang chờ',
+  SEARCHING: 'Đang tìm gia sư',
+  ACCEPTED: 'Đã chấp nhận',
+  REJECTED: 'Đã từ chối',
+};
 
 function isEditableClass(c: ClassResponse): boolean {
   const noApplicants = (c.applicationCount ?? 0) === 0;
@@ -55,6 +69,58 @@ export default function MarketplacePage() {
   const [publishTarget, setPublishTarget] = useState<number | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [unpublishTarget, setUnpublishTarget] = useState<number | null>(null);
+
+  // Yêu cầu "nhờ trung tâm tìm" (gửi tới trung tâm) — gộp về đây để theo dõi chung.
+  const [centerRequests, setCenterRequests] = useState<ClassRequest[]>([]);
+  const [chooseTarget, setChooseTarget] = useState<
+    { requestId: string; tutorId: number; tutorName: string } | null
+  >(null);
+  const [chooseBusy, setChooseBusy] = useState(false);
+  const [reqNotice, setReqNotice] = useState('');
+  // Gia sư đang mở xem chứng chỉ (khoá theo requestId:tutorId) + xem trước file.
+  const [candCertsOpen, setCandCertsOpen] = useState<string | null>(null);
+  const [candPreview, setCandPreview] = useState<{ src: string; fileName: string } | null>(null);
+  useEffect(() => {
+    if (!isClient) return;
+    marketplaceApi
+      .getMyClassRequests()
+      .then((res) => setCenterRequests(res.data))
+      .catch(() => setCenterRequests([]));
+  }, [isClient]);
+  const cancelCenterRequest = async (requestId: string) => {
+    try {
+      await marketplaceApi.cancelClassRequest(requestId);
+      const res = await marketplaceApi.getMyClassRequests();
+      setCenterRequests(res.data);
+    } catch {
+      /* bỏ qua */
+    }
+  };
+  // Phụ huynh chọn 1 gia sư đề cử -> xác nhận (ConfirmDialog) rồi materialize.
+  const confirmChooseTutor = async () => {
+    if (!chooseTarget) return;
+    setChooseBusy(true);
+    try {
+      await marketplaceApi.chooseTutorForRequest(chooseTarget.requestId, chooseTarget.tutorId);
+      reload();
+      const res = await marketplaceApi.getMyClassRequests();
+      setCenterRequests(res.data);
+      setChooseTarget(null);
+      setReqNotice(
+        'Đã chọn gia sư. Lớp đã được tạo — gia sư sẽ nhận thông báo để nhận lớp và ký hợp đồng.',
+      );
+      window.setTimeout(() => setReqNotice(''), 6000);
+    } catch (err) {
+      setChooseTarget(null);
+      setPublishError(
+        axios.isAxiosError(err) && typeof err.response?.data?.message === 'string'
+          ? err.response.data.message
+          : 'Không chọn được gia sư. Vui lòng thử lại.',
+      );
+    } finally {
+      setChooseBusy(false);
+    }
+  };
 
   function openEdit(target: ClassResponse) {
     setError(null);
@@ -112,6 +178,21 @@ export default function MarketplacePage() {
 
   return (
     <div className="tcs-page mkt-page">
+      <HomeNavbar />
+      {reqNotice && (
+        <div className="mkt-toast" role="status">
+          <span className="mkt-toast__icon" aria-hidden="true">✓</span>
+          <span className="mkt-toast__msg">{reqNotice}</span>
+          <button
+            type="button"
+            className="mkt-toast__x"
+            aria-label="Đóng thông báo"
+            onClick={() => setReqNotice('')}
+          >
+            ×
+          </button>
+        </div>
+      )}
       <main>
         <div className="tcs-container mkt-container">
           <header className="mkt-header">
@@ -165,18 +246,164 @@ export default function MarketplacePage() {
               </div>
             </section>
           ) : (
-            <ClassList
-              status={status}
-              classes={classes}
-              subjects={subjects}
-              onEdit={openEdit}
-              onPublish={setPublishTarget}
-              onUnpublish={setUnpublishTarget}
-              onOpenDetail={openDetail}
-            />
+            <>
+              {/* Phần 1: yêu cầu tự tìm (lớp tự đăng cho gia sư ứng tuyển) */}
+              <div className="mkt-section-head mkt-section-head--first">
+                <h2>Yêu cầu tự tìm</h2>
+              </div>
+              <p className="mkt-section-desc">Lớp bạn tự đăng để gia sư ứng tuyển trực tiếp.</p>
+              <ClassList
+                status={status}
+                classes={classes}
+                subjects={subjects}
+                onEdit={openEdit}
+                onPublish={setPublishTarget}
+                onUnpublish={setUnpublishTarget}
+                onOpenDetail={openDetail}
+              />
+
+              {/* Phần 2: yêu cầu nhờ trung tâm tìm */}
+              <div className="mkt-section-head">
+                <h2>Yêu cầu nhờ trung tâm tìm</h2>
+                {centerRequests.length > 0 && (
+                  <span className="mkt-section-head__count">{centerRequests.length}</span>
+                )}
+              </div>
+              <p className="mkt-section-desc">
+                Yêu cầu bạn gửi cho trung tâm để nhờ tìm gia sư giúp.
+              </p>
+              {centerRequests.length === 0 ? (
+                <div className="mkt-req-empty">
+                  Chưa có yêu cầu nào. Vào trang <Link to={APP_ROUTES.centers}>Trung tâm</Link> để nhờ
+                  trung tâm tìm gia sư giúp bạn.
+                </div>
+              ) : (
+                <div className="mkt-req-list">
+                  {centerRequests.map((r) => (
+                    <div key={r.requestId} className="mkt-req-card">
+                      <div className="mkt-req-card__main">
+                        <p className="mkt-req-card__note">{r.note}</p>
+                        <div className="mkt-req-card__meta">
+                          <span>
+                            Gửi tới: <b>{r.centerName ?? '—'}</b>
+                          </span>
+                          {r.desiredBudget != null && (
+                            <span>
+                              Ngân sách: <b>{currency.format(r.desiredBudget)}đ</b>
+                            </span>
+                          )}
+                          {r.status === 'REJECTED' && r.reason && (
+                            <span className="mkt-req-card__reason">Lý do: {r.reason}</span>
+                          )}
+                        </div>
+                        {r.status !== 'ACCEPTED' && r.candidates && r.candidates.length > 0 && (
+                          <div className="mkt-req-cands">
+                            <span className="mkt-req-cands__label">
+                              Gia sư trung tâm đề cử — chọn 1:
+                            </span>
+                            {r.candidates.map((c) => {
+                              const key = `${r.requestId}:${c.tutorId}`;
+                              const open = candCertsOpen === key;
+                              const certCount = c.certificates?.length ?? 0;
+                              return (
+                                <div key={c.tutorId} className="mkt-req-cand">
+                                  <div className="mkt-req-cand__row">
+                                    <div className="mkt-req-cand__id">
+                                      <span className="mkt-req-cand__name">{c.fullName}</span>
+                                      <span className="mkt-req-cand__meta">
+                                        {c.experienceYears != null && `${c.experienceYears} năm KN`}
+                                        {c.ratingAvg != null && ` · ⭐ ${c.ratingAvg}`}
+                                      </span>
+                                    </div>
+                                    <div className="mkt-req-cand__btns">
+                                      <button
+                                        type="button"
+                                        className="mkt-btn mkt-btn--ghost mkt-btn--sm"
+                                        aria-expanded={open}
+                                        onClick={() => setCandCertsOpen(open ? null : key)}
+                                      >
+                                        {open
+                                          ? 'Ẩn hồ sơ ▲'
+                                          : `Xem hồ sơ${certCount ? ` · ${certCount} chứng chỉ` : ''} ▼`}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="mkt-btn mkt-btn--primary mkt-btn--sm"
+                                        onClick={() =>
+                                          setChooseTarget({
+                                            requestId: r.requestId,
+                                            tutorId: c.tutorId,
+                                            tutorName: c.fullName,
+                                          })
+                                        }
+                                      >
+                                        Chọn
+                                      </button>
+                                    </div>
+                                  </div>
+                                  {open && (
+                                    <div className="mkt-req-cand__certs">
+                                      {certCount > 0 ? (
+                                        <>
+                                          <span className="mkt-req-cand__certs-label">
+                                            📜 Bằng cấp / chứng chỉ đã xác minh
+                                          </span>
+                                          <ul className="mkt-req-cand__certs-list">
+                                            {c.certificates!.map((cert) => (
+                                              <li key={cert.fileUrl}>
+                                                <button
+                                                  type="button"
+                                                  className="mkt-req-cand__cert"
+                                                  onClick={() =>
+                                                    setCandPreview({
+                                                      src: cert.fileUrl,
+                                                      fileName: cert.fileName,
+                                                    })
+                                                  }
+                                                >
+                                                  {cert.mimeType?.startsWith('image/') ? '🖼️' : '📄'}{' '}
+                                                  {cert.fileName}
+                                                </button>
+                                              </li>
+                                            ))}
+                                          </ul>
+                                        </>
+                                      ) : (
+                                        <span className="mkt-req-cand__certs-empty">
+                                          Gia sư chưa có chứng chỉ đã xác minh.
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </div>
+                      <span className={`mkt-status mkt-status--${r.status.toLowerCase()}`}>
+                        {REQ_STATUS_LABEL[r.status]}
+                      </span>
+                      {r.status === 'PENDING' && (
+                        <div className="mkt-req-card__actions">
+                          <button
+                            type="button"
+                            className="mkt-btn mkt-btn--ghost mkt-btn--sm"
+                            onClick={() => cancelCenterRequest(r.requestId)}
+                          >
+                            Hủy
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       </main>
+      <SiteFooter />
 
       {publishTarget != null && (
         <ConfirmDialog
@@ -207,6 +434,24 @@ export default function MarketplacePage() {
           onClose={() => setPublishError(null)}
         />
       )}
+
+      {chooseTarget && (
+        <ConfirmDialog
+          title="Chọn gia sư"
+          message={`Chọn gia sư "${chooseTarget.tutorName}" cho yêu cầu này? Hệ thống sẽ tạo lớp và gửi lời mời nhận lớp cho gia sư.`}
+          confirmLabel={chooseBusy ? 'Đang xử lý…' : 'Chọn gia sư'}
+          cancelLabel="Hủy"
+          onConfirm={confirmChooseTutor}
+          onClose={() => setChooseTarget(null)}
+        />
+      )}
+
+      <FilePreviewModal
+        src={candPreview?.src ?? ''}
+        fileName={candPreview?.fileName ?? ''}
+        isOpen={candPreview !== null}
+        onClose={() => setCandPreview(null)}
+      />
     </div>
   );
 }

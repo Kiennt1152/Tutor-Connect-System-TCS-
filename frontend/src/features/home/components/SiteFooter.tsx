@@ -29,7 +29,7 @@ export function SiteFooter() {
         </div>
         <div className="tcs-footer__bottom">
           <span>© {new Date().getFullYear()} Tutor Connect System</span>
-          <span className="tcs-footer__muted">SEP490 · TCS</span>
+          <span className="tcs-footer__muted">Kết nối gia sư · học viên · trung tâm</span>
         </div>
       </div>
     </footer>

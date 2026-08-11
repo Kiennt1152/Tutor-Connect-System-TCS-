@@ -124,6 +124,20 @@ export function mapContract(response: ContractApiResponse): Contract {
     confirmedAt: response.confirmedAt ? formatDateTime(response.confirmedAt) : null,
     createdAt: formatDateTime(response.createdAt),
     updatedAt: formatDateTime(response.updatedAt),
+    classTitle: response.classTitle ?? null,
+    classType: response.classType ?? null,
+    tuitionFee: response.tuitionFee ?? null,
+    lessonMode: response.lessonMode ?? null,
+    numberOfSessions: response.numberOfSessions ?? null,
+    tutor: response.tutor ?? null,
+    client: response.client ?? null,
+    center: response.center ?? null,
+    escrowPayment: response.escrowPayment ?? null,
+    refundPayoutInfo: response.refundPayoutInfo ?? null,
+    totalSessions: response.totalSessions ?? null,
+    completedSessions: response.completedSessions ?? null,
+    refundAllowed: response.refundAllowed ?? true,
+    refundBlockedReason: response.refundBlockedReason ?? null,
   };
 }
 

@@ -9,6 +9,12 @@ import type {
   EvidenceUploadResponse,
   ReportCategory,
 } from '../types/disputeTypes';
+import {
+  BANK_OPTIONS,
+  BankPickerDialog,
+  BankSelectField,
+  type BankOption,
+} from '../../finance/components/BankPicker';
 import './ClassIssueModal.css';
 
 type ClassIssueModalProps = {
@@ -55,6 +61,12 @@ function buildEvidenceUrls(files: EvidenceUploadResponse[]) {
   return files.map((file) => file.fileUrl).join('\n');
 }
 
+function needsRefundPayoutInfo(issueType: ClassIssueType, requestedAction: ClassIssueRequestedAction) {
+  return issueType === 'PAYMENT_OR_REFUND'
+    || requestedAction === 'REFUND_REVIEW'
+    || requestedAction === 'TERMINATE_CLASS';
+}
+
 export function ClassIssueModal({
   open,
   classId,
@@ -68,11 +80,17 @@ export function ClassIssueModal({
   const [occurredAt, setOccurredAt] = useState('');
   const [requestedAction, setRequestedAction] = useState<ClassIssueRequestedAction>('RESCHEDULE');
   const [description, setDescription] = useState('');
+  const [selectedBankCode, setSelectedBankCode] = useState('');
+  const [bankPickerOpen, setBankPickerOpen] = useState(false);
+  const [accountNo, setAccountNo] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
   const [evidenceFiles, setEvidenceFiles] = useState<EvidenceUploadResponse[]>([]);
   const [uploadingEvidence, setUploadingEvidence] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<DisputeResponse | null>(null);
+  const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
+  const showRefundPayoutInfo = needsRefundPayoutInfo(issueType, requestedAction);
 
   if (!open) return null;
 
@@ -83,6 +101,10 @@ export function ClassIssueModal({
     setOccurredAt('');
     setRequestedAction('RESCHEDULE');
     setDescription('');
+    setSelectedBankCode('');
+    setBankPickerOpen(false);
+    setAccountNo('');
+    setAccountHolderName('');
     setEvidenceFiles([]);
     setError('');
     setSuccess(null);
@@ -127,6 +149,11 @@ export function ClassIssueModal({
     setEvidenceFiles((current) => current.filter((file) => file.fileId !== fileId));
   };
 
+  const handleSelectBank = (bank: BankOption) => {
+    setSelectedBankCode(bank.code);
+    setBankPickerOpen(false);
+  };
+
   const handleSubmit = async () => {
     setError('');
     if (uploadingEvidence) {
@@ -140,6 +167,21 @@ export function ClassIssueModal({
     if (occurredAt && new Date(occurredAt) > new Date()) {
       setError('Ngày xảy ra sự cố không được ở tương lai.');
       return;
+    }
+    const normalizedAccountNo = accountNo.trim().replace(/\s+/g, '');
+    if (showRefundPayoutInfo) {
+      if (!selectedBank) {
+        setError('Vui lòng chọn ngân hàng nhận hoàn tiền.');
+        return;
+      }
+      if (!/^[A-Za-z0-9]{4,50}$/.test(normalizedAccountNo)) {
+        setError('Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự.');
+        return;
+      }
+      if (accountHolderName.trim().length < 2) {
+        setError('Vui lòng nhập tên chủ tài khoản nhận hoàn tiền.');
+        return;
+      }
     }
 
     setSubmitting(true);
@@ -155,6 +197,13 @@ export function ClassIssueModal({
         evidenceUrls: buildEvidenceUrls(evidenceFiles) || undefined,
         assignmentId: assignmentId ?? undefined,
         classStudentId: classStudentId ?? undefined,
+        refundPayoutInfo: showRefundPayoutInfo && selectedBank
+          ? {
+              bankName: selectedBank.name,
+              accountNo: normalizedAccountNo,
+              accountHolderName: accountHolderName.trim().replace(/\s+/g, ' '),
+            }
+          : undefined,
       });
       setSuccess(result);
     } catch (err) {
@@ -252,6 +301,38 @@ export function ClassIssueModal({
                 </select>
               </label>
 
+              {showRefundPayoutInfo ? (
+                <div className="issue-payout">
+                  <p className="issue-payout__title">Tài khoản nhận hoàn tiền</p>
+                  <div className="issue-field">
+                    <span>Ngân hàng</span>
+                    <BankSelectField
+                      id="issue-refund-bank-field"
+                      selectedBank={selectedBank}
+                      onOpen={() => setBankPickerOpen(true)}
+                    />
+                  </div>
+                  <div className="issue-field-grid">
+                    <label className="issue-field">
+                      <span>Số tài khoản</span>
+                      <input
+                        value={accountNo}
+                        onChange={(event) => setAccountNo(event.target.value)}
+                        placeholder="Nhập số tài khoản"
+                      />
+                    </label>
+                    <label className="issue-field">
+                      <span>Tên chủ tài khoản</span>
+                      <input
+                        value={accountHolderName}
+                        onChange={(event) => setAccountHolderName(event.target.value)}
+                        placeholder="Nhập tên chủ tài khoản"
+                      />
+                    </label>
+                  </div>
+                </div>
+              ) : null}
+
               <label className="issue-field">
                 <span>Mô tả chi tiết</span>
                 <textarea
@@ -321,6 +402,12 @@ export function ClassIssueModal({
             </button>
           )}
         </div>
+        <BankPickerDialog
+          open={bankPickerOpen}
+          selectedBankCode={selectedBankCode}
+          onSelect={handleSelectBank}
+          onClose={() => setBankPickerOpen(false)}
+        />
       </div>
     </div>
   );

@@ -3,6 +3,12 @@ import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { disputeApi } from '../../dispute/api/disputeApi';
 import type { EvidenceUploadResponse } from '../../dispute/types/disputeTypes';
+import {
+  BANK_OPTIONS,
+  BankPickerDialog,
+  BankSelectField,
+  type BankOption,
+} from '../../finance/components/BankPicker';
 import { AdminLayout } from '../components/AdminLayout';
 import { platformApi } from '../api/platformApi';
 import { useDisputeReviewList } from '../hooks/useDisputeReviewList';
@@ -134,6 +140,17 @@ function isEscrowSettleable(status: EscrowStatus | null | undefined) {
 }
 
 const normalizeDigits = (value: string) => value.replace(/[^\d]/g, '');
+
+const normalizeAccountNo = (value: string) => value.trim().replace(/\s+/g, '');
+
+function hasExistingRefundPayoutInfo(detail: AdminDisputeReviewApiResponse) {
+  const latestRefund = detail.latestRefundRequest;
+  const termination = detail.terminationRequest;
+  return Boolean(
+    (latestRefund?.bankName && latestRefund.accountNoMasked && latestRefund.accountHolderName)
+      || (termination?.bankName && termination.accountNoMasked && termination.accountHolderName),
+  );
+}
 
 const formatDateTime = (value: string | null | undefined) => {
   if (!value) return '—';
@@ -549,6 +566,10 @@ function ResolutionDecisionPanel({
   const [resolutionNote, setResolutionNote] = useState('');
   const [releaseAmount, setReleaseAmount] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
+  const [selectedBankCode, setSelectedBankCode] = useState('');
+  const [bankPickerOpen, setBankPickerOpen] = useState(false);
+  const [accountNo, setAccountNo] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
   const [policyPreset, setPolicyPreset] = useState<SettlementPolicyPreset>('CUSTOM');
   const [policyCalculationNote, setPolicyCalculationNote] = useState('');
   const [policyWarning, setPolicyWarning] = useState('');
@@ -570,6 +591,10 @@ function ResolutionDecisionPanel({
   const needsSplit = action === 'TERMINATE_CLASS' || action === 'APPROVE_PARTIAL_REFUND';
   const fullRefund = action === 'APPROVE_FULL_REFUND';
   const financialAction = needsSplit || fullRefund;
+  const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
+  const shouldCollectRefundPayout = financialAction
+    && refundAmountNumber > 0
+    && !hasExistingRefundPayoutInfo(detail);
   const settlementContext = getSettlementPolicyContext(escrowAmount, suggestion);
 
   useEffect(() => {
@@ -588,6 +613,10 @@ function ResolutionDecisionPanel({
       setRefundAmount('');
     }
     setResolutionNote(detail.resolution ?? '');
+    setSelectedBankCode('');
+    setBankPickerOpen(false);
+    setAccountNo('');
+    setAccountHolderName('');
     setPolicyPreset('CUSTOM');
     setPolicyCalculationNote('');
     setPolicyWarning('');
@@ -727,6 +756,11 @@ function ResolutionDecisionPanel({
     return true;
   };
 
+  const handleSelectBank = (bank: BankOption) => {
+    setSelectedBankCode(bank.code);
+    setBankPickerOpen(false);
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     const trimmedResolution = resolutionNote.trim();
@@ -735,6 +769,21 @@ function ResolutionDecisionPanel({
       return;
     }
     if (!validateFinancialDecision()) return;
+    const normalizedAccountNo = normalizeAccountNo(accountNo);
+    if (shouldCollectRefundPayout) {
+      if (!selectedBank) {
+        setFormError('Vui lòng chọn ngân hàng nhận hoàn tiền.');
+        return;
+      }
+      if (!/^[A-Za-z0-9]{4,50}$/.test(normalizedAccountNo)) {
+        setFormError('Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự.');
+        return;
+      }
+      if (accountHolderName.trim().length < 2) {
+        setFormError('Vui lòng nhập tên chủ tài khoản nhận hoàn tiền.');
+        return;
+      }
+    }
 
     setFormError('');
     setSuccessMessage('');
@@ -744,6 +793,13 @@ function ResolutionDecisionPanel({
       resolution: trimmedResolution,
       releaseToBeneficiary: financialAction ? releaseAmountNumber : undefined,
       refundToPayer: financialAction ? refundAmountNumber : undefined,
+      refundPayoutInfo: shouldCollectRefundPayout && selectedBank
+        ? {
+            bankName: selectedBank.name,
+            accountNo: normalizedAccountNo,
+            accountHolderName: accountHolderName.trim().replace(/\s+/g, ' '),
+          }
+        : undefined,
     };
 
     const updated = await resolveDispute(String(detail.disputeId), payload);
@@ -919,8 +975,43 @@ function ResolutionDecisionPanel({
                     />
                   </label>
                 </div>
+
               </>
             )}
+
+            {shouldCollectRefundPayout ? (
+              <div className="pd-payout-panel">
+                <p className="pd-payout-panel__title">Tài khoản nhận hoàn tiền</p>
+                <div className="pd-field">
+                  <span>Ngân hàng</span>
+                  <BankSelectField
+                    id={`admin-dispute-refund-bank-${detail.disputeId}`}
+                    selectedBank={selectedBank}
+                    onOpen={() => setBankPickerOpen(true)}
+                  />
+                </div>
+                <div className="pd-money-grid">
+                  <label className="pd-field">
+                    <span>Số tài khoản</span>
+                    <input
+                      className="adm-field"
+                      value={accountNo}
+                      disabled={isSubmitting}
+                      onChange={(event) => setAccountNo(event.target.value)}
+                    />
+                  </label>
+                  <label className="pd-field">
+                    <span>Tên chủ tài khoản</span>
+                    <input
+                      className="adm-field"
+                      value={accountHolderName}
+                      disabled={isSubmitting}
+                      onChange={(event) => setAccountHolderName(event.target.value)}
+                    />
+                  </label>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
 
@@ -949,6 +1040,12 @@ function ResolutionDecisionPanel({
           </button>
         </div>
       </form>
+      <BankPickerDialog
+        open={bankPickerOpen}
+        selectedBankCode={selectedBankCode}
+        onSelect={handleSelectBank}
+        onClose={() => setBankPickerOpen(false)}
+      />
     </section>
   );
 }
@@ -1260,6 +1357,7 @@ function DisputeDetail({
               <InfoRow label="Số tiền hoàn" value={formatCurrency(detail.latestRefundRequest.amount)} />
               <InfoRow label="Ngân hàng nhận" value={detail.latestRefundRequest.bankName ?? '—'} />
               <InfoRow label="Tài khoản nhận" value={detail.latestRefundRequest.accountNoMasked ?? '—'} />
+              <InfoRow label="Tên chủ tài khoản" value={detail.latestRefundRequest.accountHolderName ?? '—'} />
               <InfoRow label="Mã chuyển khoản" value={detail.latestRefundRequest.refundReferenceCode ?? '—'} />
               <InfoRow label="Trạng thái chuyển khoản" value={detail.latestRefundRequest.transferStatus ?? '—'} />
               <InfoRow label="Người xử lý" value={detail.latestRefundRequest.requestedByEmail ?? detail.latestRefundRequest.requestedByUserId} />
@@ -1293,6 +1391,9 @@ function DisputeDetail({
             <InfoRow label="Mã yêu cầu" value={`#${detail.terminationRequest.terminationId}`} />
             <InfoRow label="Trạng thái" value={detail.terminationRequest.status} />
             <InfoRow label="Người yêu cầu" value={detail.terminationRequest.requestedByEmail ?? detail.terminationRequest.requestedByUserId} />
+            <InfoRow label="Ngân hàng nhận" value={detail.terminationRequest.bankName ?? '—'} />
+            <InfoRow label="Tài khoản nhận" value={detail.terminationRequest.accountNoMasked ?? '—'} />
+            <InfoRow label="Tên chủ tài khoản" value={detail.terminationRequest.accountHolderName ?? '—'} />
             <InfoRow label="Ngày hiệu lực" value={formatDate(detail.terminationRequest.effectiveDate)} />
           </div>
           <p className="pd-description">{detail.terminationRequest.reason ?? '—'}</p>
@@ -1531,6 +1632,7 @@ function RefundRequestDetail({
           <InfoRow label="Số tiền yêu cầu" value={item.amount} />
           <InfoRow label="Ngân hàng nhận" value={item.bankName} />
           <InfoRow label="Tài khoản nhận" value={item.accountNoMasked} />
+          <InfoRow label="Tên chủ tài khoản" value={item.accountHolderName} />
           <InfoRow label="Mã chuyển khoản" value={item.refundReferenceCode} />
           <InfoRow label="Trạng thái chuyển khoản" value={item.transferStatus} />
           <InfoRow label="Tạo lúc" value={item.requestedAt} />

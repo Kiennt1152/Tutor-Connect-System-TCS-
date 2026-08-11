@@ -59,9 +59,17 @@ export type CenterDocumentSlotKey =
   | 'CENTER_BUSINESS_LICENSE'
   | 'CENTER_EDUCATION_PERMIT'
   | 'CENTER_TAX_CODE'
-  | 'LEGAL_REP_ID_CARD';
+  | 'LEGAL_REP_ID_CARD_FRONT'
+  | 'LEGAL_REP_ID_CARD_BACK';
 
-export type DocumentSlotKey = TutorDocumentSlotKey | CenterDocumentSlotKey;
+export type ClientDocumentSlotKey =
+  | 'CLIENT_ID_FRONT'
+  | 'CLIENT_ID_BACK';
+
+export type DocumentSlotKey =
+  | TutorDocumentSlotKey
+  | CenterDocumentSlotKey
+  | ClientDocumentSlotKey;
 
 export interface DocumentSlotConfig {
   readonly key: DocumentSlotKey;
@@ -86,7 +94,7 @@ export const TUTOR_DOCUMENT_SLOTS: readonly DocumentSlotConfig[] = [
     label: 'CCCD/CMND mặt sau',
     hint: 'Ảnh chụp rõ CCCD/CMND mặt sau, thấy đầy đủ mã vạch và địa chỉ thường trú',
     required: true,
-    documentType: 'ID_CARD',
+    documentType: 'DEGREE',
     multi: false,
   },
   {
@@ -99,16 +107,36 @@ export const TUTOR_DOCUMENT_SLOTS: readonly DocumentSlotConfig[] = [
   },
 ] as const;
 
+export const CLIENT_DOCUMENT_SLOTS: readonly DocumentSlotConfig[] = [
+  {
+    key: 'CLIENT_ID_FRONT',
+    label: 'CCCD/CMND mặt trước',
+    hint: 'Ảnh chụp rõ mặt trước căn cước, thấy đầy đủ ảnh chân dung, họ tên và số giấy tờ',
+    required: true,
+    documentType: 'ID_CARD',
+    multi: false,
+  },
+  {
+    key: 'CLIENT_ID_BACK',
+    label: 'CCCD/CMND mặt sau',
+    hint: 'Ảnh chụp rõ mặt sau căn cước, thấy đầy đủ mã QR/mã vạch và ngày cấp',
+    required: true,
+    documentType: 'DEGREE',
+    multi: false,
+  },
+] as const;
+
 /**
- * Four legally required documents for a Vietnamese tutor center to be verified
+ * Required documents for a Vietnamese tutor center to be verified
  * (per Luật Doanh nghiệp 2020, Nghị định 46/2017/NĐ-CP, Luật Quản lý thuế 2019).
  *
  * NOTE: DB CHECK constraint only allows {ID_CARD, DEGREE, CERTIFICATE, LICENSE},
- * so the 4 center slots are mapped onto 3 enum values:
+ * so the 5 center slots are mapped onto 4 enum values:
  *   CENTER_BUSINESS_LICENSE   -> LICENSE
  *   CENTER_EDUCATION_PERMIT   -> LICENSE
  *   CENTER_TAX_CODE           -> CERTIFICATE
- *   LEGAL_REP_ID_CARD         -> ID_CARD
+ *   LEGAL_REP_ID_CARD_FRONT   -> ID_CARD
+ *   LEGAL_REP_ID_CARD_BACK    -> DEGREE
  */
 export const CENTER_DOCUMENT_SLOTS: readonly DocumentSlotConfig[] = [
   {
@@ -136,11 +164,19 @@ export const CENTER_DOCUMENT_SLOTS: readonly DocumentSlotConfig[] = [
     multi: false,
   },
   {
-    key: 'LEGAL_REP_ID_CARD',
-    label: 'CCCD/CMND người đại diện pháp luật',
-    hint: 'CCCD/CMND hai mặt của người đại diện theo pháp luật (chủ DN / giám đốc / chủ hộ KD).',
+    key: 'LEGAL_REP_ID_CARD_FRONT',
+    label: 'CCCD/CMND mặt trước của người đại diện',
+    hint: 'Mặt trước CCCD/CMND của người đại diện theo pháp luật (chủ DN / giám đốc / chủ hộ KD).',
     required: true,
     documentType: 'ID_CARD',
+    multi: false,
+  },
+  {
+    key: 'LEGAL_REP_ID_CARD_BACK',
+    label: 'CCCD/CMND mặt sau của người đại diện',
+    hint: 'Mặt sau CCCD/CMND của người đại diện theo pháp luật, thấy rõ mã QR/mã vạch và ngày cấp.',
+    required: true,
+    documentType: 'DEGREE',
     multi: false,
   },
 ] as const;
@@ -150,7 +186,13 @@ export const DOCUMENT_SLOTS: readonly DocumentSlotConfig[] = TUTOR_DOCUMENT_SLOT
 export function getSlotsForRole(
   role: string,
 ): readonly DocumentSlotConfig[] {
-  return role === 'TUTOR_CENTER' ? CENTER_DOCUMENT_SLOTS : TUTOR_DOCUMENT_SLOTS;
+  if (role === 'TUTOR_CENTER') {
+    return CENTER_DOCUMENT_SLOTS;
+  }
+  if (role === 'CLIENT') {
+    return CLIENT_DOCUMENT_SLOTS;
+  }
+  return TUTOR_DOCUMENT_SLOTS;
 }
 
 export function getVerificationTypeForRole(

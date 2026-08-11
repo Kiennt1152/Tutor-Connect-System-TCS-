@@ -25,6 +25,8 @@ public interface FaqEntryRepository extends JpaRepository<FaqEntry, Long> {
 
     List<FaqEntry> findByPublishedTrueOrderBySortOrderAscFaqIdAsc();
 
+    List<FaqEntry> findByPublishedTrueAndCategoryOrderBySortOrderAscFaqIdAsc(String category);
+
     @Query("""
             SELECT f FROM FaqEntry f
             WHERE (:category IS NULL OR :category = '' OR f.category = :category)

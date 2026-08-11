@@ -18,9 +18,15 @@ public class ClassRequestResponse {
     private String categoryName;
     private String note;
     private BigDecimal desiredBudget;
-    /** PENDING / ACCEPTED / REJECTED. */
+    /** PENDING / SEARCHING / ACCEPTED / REJECTED. */
     private String status;
     /** Lý do khi trung tâm từ chối (nếu có). */
     private String reason;
     private String createdAt;
+    /** Nguyên payload form "tìm gia sư" (JSON) để trung tâm xem chi tiết. */
+    private String detailsJson;
+    /** Danh sách gia sư trung tâm đề cử (shortlist) để phụ huynh chọn. */
+    private java.util.List<CandidateTutorResponse> candidates;
+    /** Tin tuyển dụng trung tâm đã đăng cho yêu cầu này (null = chưa đăng). */
+    private Long recruitmentPostId;
 }

@@ -105,6 +105,9 @@ public interface MarketplaceService {
     /** Danh sách yêu cầu mở lớp phụ huynh đã gửi (mọi trạng thái). */
     List<ClassRequestResponse> listMyClassRequests();
 
+    /** Phụ huynh chọn 1 gia sư từ shortlist -> tạo lớp + phân công (vào luồng ký hợp đồng). */
+    ClassResponse fulfillClassRequest(String requestId, Long tutorId);
+
     /** Phụ huynh hủy yêu cầu khi còn đang chờ xử lý. */
     void cancelClassRequest(String requestId);
 }

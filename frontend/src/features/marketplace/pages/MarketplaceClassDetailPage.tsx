@@ -3,9 +3,9 @@ import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { useAuth } from '../../../shared/auth/AuthProvider';
-import { APP_ROUTES } from '../../../shared/constants/routes';
 import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
 import { marketplaceApi } from '../api/marketplaceApi';
+import { ChatButton } from '../../messaging/components/ChatButton';
 import { ClassTerminationModal } from '../components/ClassTerminationModal';
 import { RefundRequestModal } from '../components/RefundRequestModal';
 import type { LessonMode, MarketplaceClass, RecurringType } from '../types/marketplaceTypes';
@@ -32,25 +32,8 @@ const DAY_LABELS: Record<number, string> = {
 };
 
 function extractError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    // Log đầy đủ để debug (mở DevTools -> Console để xem chi tiết).
-    console.error('[register] lỗi:', error.response?.status, error.response?.data);
-    const data = error.response?.data as { message?: unknown } | string | undefined;
-    if (data && typeof data === 'object' && typeof data.message === 'string' && data.message.trim()) {
-      return data.message;
-    }
-    if (typeof data === 'string' && data.trim()) {
-      return data;
-    }
-    if (error.response?.status) {
-      return `${fallback} (mã lỗi ${error.response.status})`;
-    }
-    if (error.message) {
-      return error.message;
-    }
-  }
-  if (error instanceof Error && error.message) {
-    return error.message;
+  if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
+    return error.response.data.message;
   }
   return fallback;
 }
@@ -117,9 +100,6 @@ export default function MarketplaceClassDetailPage() {
   const role = user?.role;
   const isClient = role === 'CLIENT';
   const isTutor = role === 'TUTOR';
-  // Lớp của trung tâm do trung tâm tự bố trí gia sư -> gia sư không có phần đăng ký.
-  const isCenterClass = data?.classType === 'CENTER';
-  const tutorCanRegister = isTutor && !isCenterClass;
   const canRequestTermination = Boolean(data?.canRequestTermination);
 
   const isOpen = data?.status === 'OPEN';
@@ -131,7 +111,7 @@ export default function MarketplaceClassDetailPage() {
     <>
       <VerificationHeader />
       <div className="mk-page">
-        <button className="mk-back" type="button" onClick={() => navigate(APP_ROUTES.marketplace)}>
+        <button className="mk-back" type="button" onClick={() => navigate('/marketplace')}>
           ← Quay lại Tìm lớp
         </button>
 
@@ -220,25 +200,30 @@ export default function MarketplaceClassDetailPage() {
                     {regStatus === 'error' && (
                       <div className="mk-alert mk-alert--error">{regMessage}</div>
                     )}
-                    {isClient || tutorCanRegister ? (
-                      <button
-                        className="mk-btn mk-btn--primary mk-btn--block"
-                        type="button"
-                        disabled={regStatus === 'loading' || !isOpen}
-                        onClick={register}
-                      >
-                        {regStatus === 'loading'
-                          ? 'Đang xử lý…'
-                          : !isOpen
-                            ? 'Lớp đã đóng đăng ký'
-                            : isTutor
-                              ? 'Ứng tuyển dạy lớp'
-                              : 'Đăng ký học'}
-                      </button>
-                    ) : isTutor && isCenterClass ? (
-                      <p className="mk-note">
-                        Lớp của trung tâm do trung tâm tự bố trí gia sư — gia sư không thể tự đăng ký.
-                      </p>
+                    {isClient || isTutor ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <button
+                          className="mk-btn mk-btn--primary mk-btn--block"
+                          type="button"
+                          disabled={regStatus === 'loading' || !isOpen}
+                          onClick={register}
+                        >
+                          {regStatus === 'loading'
+                            ? 'Đang xử lý…'
+                            : !isOpen
+                              ? 'Lớp đã đóng đăng ký'
+                              : isTutor
+                                ? 'Ứng tuyển dạy lớp'
+                                : 'Đăng ký học'}
+                        </button>
+                        {data.status === 'IN_PROGRESS' && (
+                          <ChatButton
+                            contextType="CLASS_ACTIVE"
+                            contextId={data.classId}
+                            label="Chat với bên liên quan"
+                          />
+                        )}
+                      </div>
                     ) : (
                       <p className="mk-note">
                         Đăng nhập bằng tài khoản gia sư hoặc phụ huynh/học viên để đăng ký.
