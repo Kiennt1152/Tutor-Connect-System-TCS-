@@ -39,7 +39,9 @@ import org.springframework.stereotype.Component;
 public class ClassRequestStore {
 
     public static final String PREFIX = "classreq:";
+    public static final String STATUS_PAYMENT_PENDING = "PAYMENT_PENDING";
     public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_CANCELLED = "CANCELLED";
     /** Trung tâm đã nhận tìm gia sư (đang tìm nguồn). */
     public static final String STATUS_SEARCHING = "SEARCHING";
     public static final String STATUS_ACCEPTED = "ACCEPTED";
@@ -81,7 +83,7 @@ public class ClassRequestStore {
             String detailsJson) {
         ClassRequestData data = new ClassRequestData(
                 UUID.randomUUID().toString(), clientUserId, centerId, categoryId, note, desiredBudget,
-                STATUS_PENDING, null, LocalDateTime.now().toString(), detailsJson, new ArrayList<>(),
+                STATUS_PAYMENT_PENDING, null, LocalDateTime.now().toString(), detailsJson, new ArrayList<>(),
                 null);
         save(data);
         return data;

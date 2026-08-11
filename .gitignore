@@ -18,3 +18,6 @@ secret-ai.properties
 uploads/
 backend/uploads/*
 !backend/uploads/.gitkeep
+
+# Log file sinh ra khi chạy local — KHÔNG commit
+backend/*.log
