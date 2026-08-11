@@ -155,7 +155,7 @@
                 <configuration>
                     <url>${db.url}</url>
                     <user>${db.username}</user>
-                    <password>12345</password>
+                    <password>${db.password}</password>
                     <locations>
                         <location>filesystem:src/main/resources/db/migration</location>
                     </locations>
