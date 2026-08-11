@@ -78,6 +78,12 @@ export const centerApi = {
       `${CENTER_API_BASE}/recruitment/applications/mine`,
     );
   },
+  // Gia sư rút đơn ứng tuyển (chỉ khi đơn còn ở trạng thái mới nộp).
+  withdrawApplication(recruitmentAppId: number) {
+    return axiosClient.post<{ message: string }>(
+      `${CENTER_API_BASE}/recruitment/applications/${recruitmentAppId}/withdraw`,
+    );
+  },
 
   // ----- Quản lý danh sách gia sư của trung tâm -----
   getMembers() {
