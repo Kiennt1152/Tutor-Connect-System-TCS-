@@ -16,11 +16,13 @@ import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.RefundPayoutInfo;
+import com.tcs.module.finance.dto.response.CenterRequestFeePaymentResponse;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.catalog.entity.Category;
@@ -177,6 +179,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final AuditLogService auditLogService;
     private final TutorCenterRepository tutorCenterRepository;
     private final ClassRequestStore classRequestStore;
+    private final CenterRequestFeeService centerRequestFeeService;
     private final ContractService contractService;
     private final EmailOtpRepository emailOtpRepository;
     private final com.tcs.module.notification.service.EmailService contractEmailService;
@@ -2703,7 +2706,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         // Nếu có gửi categoryId thì kiểm tra tồn tại.
         Category category = resolveCategory(request.getCategoryId());
         long pending = classRequestStore.findByClient(creator.getUserId()).stream()
-                .filter(d -> ClassRequestStore.STATUS_PENDING.equals(d.status()))
+                .filter(d -> ClassRequestStore.STATUS_PAYMENT_PENDING.equals(d.status())
+                        || ClassRequestStore.STATUS_PENDING.equals(d.status())
+                        || ClassRequestStore.STATUS_SEARCHING.equals(d.status()))
                 .count();
         if (pending >= MAX_PENDING_CLASS_REQUESTS) {
             throw new IllegalArgumentException("Bạn đang có quá nhiều yêu cầu chờ xử lý.");
@@ -2715,7 +2720,19 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 request.getNote().trim(),
                 request.getDesiredBudget(),
                 request.getDetailsJson());
-        return classRequestStore.toResponse(data);
+        ClassRequestStore.ClassRequestData pendingRequest =
+                classRequestStore.withStatus(data, ClassRequestStore.STATUS_PAYMENT_PENDING, null);
+        classRequestStore.save(pendingRequest);
+        CenterRequestFeePaymentResponse payment = centerRequestFeeService.createPayment(
+                pendingRequest.requestId(),
+                creator.getUserId(),
+                center.getUser() != null ? center.getUser().getUserId() : null,
+                center.getCompanyName(),
+                request.getDesiredBudget(),
+                request.getRefundPayoutInfo());
+        return classRequestStore.toResponse(pendingRequest).toBuilder()
+                .centerRequestFeePayment(payment)
+                .build();
     }
 
     @Override
@@ -2723,7 +2740,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     public List<ClassRequestResponse> listMyClassRequests() {
         Long userId = requireUser().getUserId();
         return classRequestStore.findByClient(userId).stream()
-                .map(classRequestStore::toResponse)
+                .map(this::toClassRequestResponse)
                 .toList();
     }
 
@@ -2745,7 +2762,10 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (!creator.getUserId().equals(data.clientUserId())) {
             throw new ForbiddenException("Không có quyền với yêu cầu này");
         }
-        if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())) {
+        if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())
+                || ClassRequestStore.STATUS_REJECTED.equals(data.status())
+                || ClassRequestStore.STATUS_CANCELLED.equals(data.status())
+                || ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())) {
             throw new IllegalArgumentException("Yêu cầu này đã hoàn tất.");
         }
         if (!classRequestStore.candidatesOf(data).contains(tutorId)) {
@@ -2779,6 +2799,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         TutorApplication savedApp = tutorApplicationRepository.save(app);
         // 4) Chọn gia sư -> assignment PENDING + thông báo cho gia sư (tái dùng chooseApplicant).
         chooseApplicant(classId, savedApp.getApplicationId());
+        classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(classId)
+                .ifPresent(assignment -> centerRequestFeeService.linkFulfilledAssignment(
+                        requestId,
+                        classId,
+                        assignment.getAssignmentId()));
         // 5) Đánh dấu yêu cầu hoàn tất.
         classRequestStore.save(
                 classRequestStore.withStatus(data, ClassRequestStore.STATUS_ACCEPTED, null));
@@ -2798,10 +2824,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (!userId.equals(data.clientUserId())) {
             throw new ForbiddenException("Bạn không có quyền hủy yêu cầu này");
         }
-        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
-            throw new IllegalArgumentException("Chỉ hủy được yêu cầu đang chờ xử lý");
+        if (!ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())) {
+            throw new IllegalArgumentException("Chỉ hủy được yêu cầu đang chờ thanh toán");
         }
-        classRequestStore.delete(requestId);
+        centerRequestFeeService.cancelUnpaid(requestId);
+    }
+
+    private ClassRequestResponse toClassRequestResponse(ClassRequestStore.ClassRequestData data) {
+        return classRequestStore.toResponse(data).toBuilder()
+                .centerRequestFeePayment(centerRequestFeeService.getPayment(data.requestId()).orElse(null))
+                .build();
     }
 
     private User requireUser() {

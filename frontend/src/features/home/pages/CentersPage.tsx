@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { SiteFooter } from '../components/SiteFooter';
@@ -7,11 +7,19 @@ import { hasRole } from '../../../shared/auth/rbac';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import type {
+  CenterRequestFeePayment,
   CenterSummary,
   ClassRequestPayload,
 } from '../../marketplace/types/marketplaceTypes';
 import { ClassRequestForm } from '../../marketplace/components/ClassRequestForm';
 import { emptyForm } from '../../marketplace/mappers/marketplaceMapper';
+import {
+  BANK_OPTIONS,
+  BankPickerDialog,
+  BankSelectField,
+  findBankByName,
+  type BankOption,
+} from '../../finance/components/BankPicker';
 import { profileApi } from '../../profile/api/profileApi';
 import { useTutorRequestForm } from '../hooks/useTutorRequestForm';
 import './HomePage.css';
@@ -21,6 +29,17 @@ function extractError(error: unknown, fallback: string): string {
   const e = error as { response?: { data?: { message?: string } } };
   return e?.response?.data?.message ?? fallback;
 }
+
+function formatMoney(value: number | null | undefined): string {
+  if (typeof value !== 'number') return '—';
+  return `${new Intl.NumberFormat('vi-VN').format(value)} đ`;
+}
+
+function normalizeAccountNo(value: string): string {
+  return value.trim().replace(/\s+/g, '');
+}
+
+const PAYOUT_STORAGE_PREFIX = 'tcs-center-request-payout-info:';
 
 /**
  * Trang "Trung tâm":
@@ -53,6 +72,18 @@ export default function CentersPage() {
   const [cccdComplete, setCccdComplete] = useState<boolean | null>(null);
   // Thông báo thành công (toast trong app, không dùng alert trình duyệt).
   const [notice, setNotice] = useState('');
+  const [paymentRequest, setPaymentRequest] = useState<CenterRequestFeePayment | null>(null);
+  const [checkingPayment, setCheckingPayment] = useState(false);
+  const [payoutBankCode, setPayoutBankCode] = useState('');
+  const [payoutAccountNo, setPayoutAccountNo] = useState('');
+  const [payoutAccountHolderName, setPayoutAccountHolderName] = useState('');
+  const [payoutPickerOpen, setPayoutPickerOpen] = useState(false);
+  const [payoutLoaded, setPayoutLoaded] = useState(false);
+  const payoutStorageKey = user?.userId ? `${PAYOUT_STORAGE_PREFIX}${user.userId}` : null;
+  const selectedPayoutBank = useMemo(
+    () => BANK_OPTIONS.find((bank) => bank.code === payoutBankCode),
+    [payoutBankCode],
+  );
 
   useEffect(() => {
     if (!isClient) return;
@@ -62,32 +93,137 @@ export default function CentersPage() {
       .catch(() => setCccdComplete(false));
   }, [isClient]);
 
+  useEffect(() => {
+    setPayoutLoaded(false);
+    setPayoutBankCode('');
+    setPayoutAccountNo('');
+    setPayoutAccountHolderName('');
+    if (!payoutStorageKey) {
+      setPayoutLoaded(true);
+      return;
+    }
+    try {
+      const raw = window.localStorage.getItem(payoutStorageKey);
+      if (raw) {
+        const saved = JSON.parse(raw) as {
+          bankName?: string;
+          accountNo?: string;
+          accountHolderName?: string;
+        };
+        const savedBank = findBankByName(saved.bankName);
+        setPayoutBankCode(savedBank?.code ?? '');
+        setPayoutAccountNo(saved.accountNo ?? '');
+        setPayoutAccountHolderName(saved.accountHolderName ?? '');
+      }
+    } catch {
+      // Bỏ qua dữ liệu localStorage hỏng.
+    } finally {
+      setPayoutLoaded(true);
+    }
+  }, [payoutStorageKey]);
+
+  useEffect(() => {
+    if (!payoutStorageKey || !payoutLoaded) return;
+    window.localStorage.setItem(
+      payoutStorageKey,
+      JSON.stringify({
+        bankName: selectedPayoutBank?.name ?? '',
+        accountNo: payoutAccountNo,
+        accountHolderName: payoutAccountHolderName,
+      }),
+    );
+  }, [
+    payoutAccountHolderName,
+    payoutAccountNo,
+    payoutLoaded,
+    payoutStorageKey,
+    selectedPayoutBank?.name,
+  ]);
+
   const openModal = (center: CenterSummary) => {
     setTarget(center);
     setModalError('');
+    setPaymentRequest(null);
+    setCheckingPayment(false);
   };
-  const closeModal = () => setTarget(null);
+  const closeModal = () => {
+    setTarget(null);
+    setPaymentRequest(null);
+    setCheckingPayment(false);
+    setPayoutPickerOpen(false);
+    setModalError('');
+  };
 
   // Gửi yêu cầu tới trung tâm: đính nguyên payload form vào detailsJson để trung tâm xem đủ.
   const submitRequest = async (payload: ClassRequestPayload) => {
     if (!target) return;
+    const normalizedAccountNo = normalizeAccountNo(payoutAccountNo);
+    if (!selectedPayoutBank) {
+      setModalError('Vui lòng chọn ngân hàng nhận hoàn tiền.');
+      return;
+    }
+    if (!/^[A-Za-z0-9]{4,50}$/.test(normalizedAccountNo)) {
+      setModalError('Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự.');
+      return;
+    }
+    if (payoutAccountHolderName.trim().length < 2) {
+      setModalError('Vui lòng nhập tên chủ tài khoản nhận hoàn tiền.');
+      return;
+    }
     setSending(true);
     setModalError('');
     try {
       const note =
         payload.description?.trim() || 'Yêu cầu tìm gia sư (xem thông tin chi tiết đính kèm).';
-      await marketplaceApi.createClassRequest(target.centerId, {
+      const response = await marketplaceApi.createClassRequest(target.centerId, {
         note,
         desiredBudget: payload.budget ?? payload.tuitionFee ?? null,
         detailsJson: JSON.stringify(payload),
+        refundPayoutInfo: {
+          bankName: selectedPayoutBank.name,
+          accountNo: normalizedAccountNo,
+          accountHolderName: payoutAccountHolderName.trim().replace(/\s+/g, ' '),
+        },
       });
-      setTarget(null);
-      setNotice('Đã gửi yêu cầu nhờ trung tâm tìm gia sư. Theo dõi ở trang “Yêu cầu của tôi”.');
+      if (response.centerRequestFeePayment) {
+        setPaymentRequest(response.centerRequestFeePayment);
+        setNotice('Đã tạo mã thanh toán phí xử lý. Vui lòng chuyển khoản và quét trạng thái.');
+      } else {
+        setTarget(null);
+        setNotice('Đã gửi yêu cầu nhờ trung tâm tìm gia sư. Theo dõi ở trang “Yêu cầu của tôi”.');
+      }
       window.setTimeout(() => setNotice(''), 6000);
     } catch (err) {
       setModalError(extractError(err, 'Không gửi được yêu cầu.'));
     } finally {
       setSending(false);
+    }
+  };
+
+  const handleSelectPayoutBank = (bank: BankOption) => {
+    setPayoutBankCode(bank.code);
+    setPayoutPickerOpen(false);
+  };
+
+  const checkPaymentStatus = async () => {
+    if (!paymentRequest) return;
+    setCheckingPayment(true);
+    setModalError('');
+    try {
+      const requests = await marketplaceApi.getMyClassRequests();
+      const current = requests.find((item) => item.requestId === paymentRequest.requestId);
+      const latestPayment = current?.centerRequestFeePayment ?? paymentRequest;
+      setPaymentRequest(latestPayment);
+      if (current && current.status !== 'PAYMENT_PENDING') {
+        setNotice('Thanh toán thành công. Yêu cầu đã được gửi tới trung tâm.');
+        window.setTimeout(() => setNotice(''), 6000);
+      } else if (latestPayment.status === 'PENDING_PAYMENT') {
+        setModalError('Chưa ghi nhận thanh toán. Vui lòng kiểm tra lại sau vài giây.');
+      }
+    } catch (err) {
+      setModalError(extractError(err, 'Không kiểm tra được trạng thái thanh toán.'));
+    } finally {
+      setCheckingPayment(false);
     }
   };
 
@@ -202,18 +338,149 @@ export default function CentersPage() {
                   </Link>
                 </div>
               </div>
+            ) : paymentRequest ? (
+              <div className="cr-payment-step">
+                {paymentRequest.status === 'PENDING_PAYMENT' ? (
+                  <>
+                    <div className="cr-payment-step__head">
+                      <span className="cr-payment-step__eyebrow">Phí xử lý yêu cầu trung tâm</span>
+                      <h4>Quét mã để thanh toán</h4>
+                      <p>
+                        Sau khi SePay ghi nhận thanh toán, yêu cầu mới được gửi vào danh sách xử lý
+                        của trung tâm.
+                      </p>
+                    </div>
+                    <div className="cr-payment-step__body">
+                      <img src={paymentRequest.qrUrl} alt="QR thanh toán phí xử lý yêu cầu" />
+                      <div className="cr-payment-step__info">
+                        <div>
+                          <span>Số tiền</span>
+                          <strong>{formatMoney(paymentRequest.amount)}</strong>
+                        </div>
+                        <div>
+                          <span>Ngân hàng</span>
+                          <strong>{paymentRequest.bankName}</strong>
+                        </div>
+                        <div>
+                          <span>Số tài khoản</span>
+                          <strong>{paymentRequest.accountNumber}</strong>
+                        </div>
+                        <div>
+                          <span>Nội dung chuyển khoản</span>
+                          <strong>{paymentRequest.transferContent}</strong>
+                        </div>
+                        <button
+                          type="button"
+                          className="tcs-btn tcs-btn--ghost tcs-btn--sm"
+                          onClick={() => navigator.clipboard?.writeText(paymentRequest.transferContent)}
+                        >
+                          Sao chép nội dung
+                        </button>
+                      </div>
+                    </div>
+                    <div className="cr-payment-step__actions">
+                      <button
+                        type="button"
+                        className="tcs-btn tcs-btn--ghost tcs-btn--sm"
+                        onClick={closeModal}
+                      >
+                        Đóng
+                      </button>
+                      <button
+                        type="button"
+                        className="tcs-btn tcs-btn--market tcs-btn--sm"
+                        onClick={checkPaymentStatus}
+                        disabled={checkingPayment}
+                      >
+                        {checkingPayment ? 'Đang quét…' : 'Quét trạng thái'}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="cr-payment-step__success">
+                    <span className="cr-payment-step__success-icon">✓</span>
+                    <h4>Thanh toán đã được ghi nhận</h4>
+                    <p>
+                      Yêu cầu đã được gửi tới trung tâm. Bạn có thể theo dõi ở trang “Yêu cầu của
+                      tôi”.
+                    </p>
+                    <div className="cr-payment-step__actions">
+                      <button
+                        type="button"
+                        className="tcs-btn tcs-btn--ghost tcs-btn--sm"
+                        onClick={closeModal}
+                      >
+                        Đóng
+                      </button>
+                      <Link className="tcs-btn tcs-btn--market tcs-btn--sm" to={APP_ROUTES.marketplace}>
+                        Xem yêu cầu
+                      </Link>
+                    </div>
+                  </div>
+                )}
+              </div>
             ) : (
-              <ClassRequestForm
-                initial={emptyForm()}
-                subjects={subjects}
-                grades={grades}
-                isEdit={false}
-                submitting={sending}
-                error={modalError}
-                onSubmit={submitRequest}
-                onCancel={closeModal}
-                freeTextSubjects
-              />
+              <>
+                <ClassRequestForm
+                  initial={emptyForm()}
+                  subjects={subjects}
+                  grades={grades}
+                  isEdit={false}
+                  submitting={sending}
+                  error={modalError}
+                  onSubmit={submitRequest}
+                  onCancel={closeModal}
+                  submitLabel="Gửi yêu cầu & tạo QR"
+                  freeTextSubjects
+                  extraContent={
+                    <div className="cr-payout">
+                      <div className="cr-payout__head">
+                        <strong>Tài khoản nhận tiền phát sinh</strong>
+                        <span>
+                          Vui lòng nhập tài khoản thụ hưởng của quý khách để phục vụ xử lý các nhu
+                          cầu phát sinh.
+                        </span>
+                      </div>
+                      <div className="cr-payout__grid">
+                        <div className="cr-field cr-field--full">
+                          <span className="cr-field__label">Ngân hàng nhận hoàn tiền *</span>
+                          <BankSelectField
+                            id="center-request-payout-bank"
+                            selectedBank={selectedPayoutBank}
+                            onOpen={() => setPayoutPickerOpen(true)}
+                          />
+                        </div>
+                        <label className="cr-field">
+                          <span className="cr-field__label">Số tài khoản *</span>
+                          <input
+                            className="cr-input"
+                            type="text"
+                            value={payoutAccountNo}
+                            onChange={(event) => setPayoutAccountNo(event.target.value)}
+                            placeholder="Nhập số tài khoản"
+                          />
+                        </label>
+                        <label className="cr-field">
+                          <span className="cr-field__label">Tên chủ tài khoản *</span>
+                          <input
+                            className="cr-input"
+                            type="text"
+                            value={payoutAccountHolderName}
+                            onChange={(event) => setPayoutAccountHolderName(event.target.value)}
+                            placeholder="Nhập tên chủ tài khoản"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  }
+                />
+                <BankPickerDialog
+                  open={payoutPickerOpen}
+                  selectedBankCode={payoutBankCode}
+                  onSelect={handleSelectPayoutBank}
+                  onClose={() => setPayoutPickerOpen(false)}
+                />
+              </>
             )}
           </div>
         </div>

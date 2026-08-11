@@ -164,10 +164,11 @@ export const marketplaceApi = {
     return axiosClient.post<ClassRequest>(
       `${MARKETPLACE_API_BASE}/centers/${centerId}/class-requests`,
       payload,
-    );
+    ).then((r) => r.data);
   },
   getMyClassRequests() {
-    return axiosClient.get<ClassRequest[]>(`${MARKETPLACE_API_BASE}/class-requests/mine`);
+    return axiosClient.get<ClassRequest[]>(`${MARKETPLACE_API_BASE}/class-requests/mine`)
+      .then((r) => r.data);
   },
   cancelClassRequest(requestId: string) {
     return axiosClient.delete<{ message: string }>(

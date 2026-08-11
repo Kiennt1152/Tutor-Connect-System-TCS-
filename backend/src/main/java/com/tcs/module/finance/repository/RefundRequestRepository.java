@@ -12,6 +12,8 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
 
     Optional<RefundRequest> findFirstByEscrowTransaction_EscrowIdOrderByRequestedAtDesc(Long escrowId);
 
+    Optional<RefundRequest> findFirstByCenterRequestFeeHold_FeeHoldIdOrderByRequestedAtDesc(Long feeHoldId);
+
     Optional<RefundRequest> findByRefundReferenceCode(String refundReferenceCode);
 
     boolean existsByEscrowTransaction_EscrowIdAndRequestedBy_UserIdAndStatus(
@@ -20,6 +22,8 @@ public interface RefundRequestRepository extends JpaRepository<RefundRequest, Lo
             RefundRequestStatus status);
 
     boolean existsByEscrowTransaction_EscrowIdAndStatus(Long escrowId, RefundRequestStatus status);
+
+    boolean existsByCenterRequestFeeHold_FeeHoldIdAndStatus(Long feeHoldId, RefundRequestStatus status);
 
     List<RefundRequest> findAllByOrderByRequestedAtDesc();
 

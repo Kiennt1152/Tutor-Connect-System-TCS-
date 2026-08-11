@@ -48,10 +48,13 @@ import com.tcs.module.identity.repository.VerificationDocumentRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.RefundPayoutInfo;
+import com.tcs.module.finance.dto.response.CenterRequestFeePaymentResponse;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.enums.CenterRequestFeeStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
@@ -142,6 +145,7 @@ public class CenterServiceImpl implements CenterService {
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final EscrowService escrowService;
+    private final CenterRequestFeeService centerRequestFeeService;
     private final RescheduleService rescheduleService;
     private final SubstitutionService substitutionService;
     private final AuditLogService auditLogService;
@@ -2005,6 +2009,8 @@ public class CenterServiceImpl implements CenterService {
     public List<ClassRequestResponse> listIncomingClassRequests() {
         TutorCenter center = requireCenter();
         return classRequestStore.findByCenter(center.getCenterId()).stream()
+                .filter(data -> !ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status()))
+                .filter(data -> !ClassRequestStore.STATUS_CANCELLED.equals(data.status()))
                 .map(classRequestStore::toResponse)
                 .toList();
     }
@@ -2018,6 +2024,10 @@ public class CenterServiceImpl implements CenterService {
         if (!center.getCenterId().equals(data.centerId())) {
             throw new ForbiddenException("Không có quyền xử lý yêu cầu này");
         }
+        if (ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())
+                || ClassRequestStore.STATUS_CANCELLED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này chưa sẵn sàng để xử lý");
+        }
         if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
             throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
         }
@@ -2026,6 +2036,7 @@ public class CenterServiceImpl implements CenterService {
         // bất kể client gửi originType gì — không cho biến thành lớp tự tạo (SELF).
         body.setOriginType(ORIGIN_EXTERNAL);
         CenterClassResponse classResponse = createClass(body);
+        centerRequestFeeService.linkFulfilledAssignment(requestId, classResponse.getClassId(), null);
 
         classRequestStore.save(
                 classRequestStore.withStatus(data, ClassRequestStore.STATUS_ACCEPTED, null));
@@ -2042,6 +2053,10 @@ public class CenterServiceImpl implements CenterService {
         if (!center.getCenterId().equals(data.centerId())) {
             throw new ForbiddenException("Không có quyền xử lý yêu cầu này");
         }
+        if (ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())
+                || ClassRequestStore.STATUS_CANCELLED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này chưa sẵn sàng để xử lý");
+        }
         if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
             throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
         }
@@ -2054,6 +2069,10 @@ public class CenterServiceImpl implements CenterService {
     public void proposeTutor(String requestId, Long tutorId) {
         TutorCenter center = requireClassRequestOwner(requestId);
         ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId).orElseThrow();
+        if (ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())
+                || ClassRequestStore.STATUS_CANCELLED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này chưa sẵn sàng để xử lý");
+        }
         if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())
                 || ClassRequestStore.STATUS_REJECTED.equals(data.status())) {
             throw new IllegalArgumentException("Yêu cầu này đã kết thúc, không thể đề cử thêm.");
@@ -2095,6 +2114,10 @@ public class CenterServiceImpl implements CenterService {
         TutorCenter center = requireClassRequestOwner(requestId);
         requireVerifiedCenter(center);
         ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId).orElseThrow();
+        if (ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())
+                || ClassRequestStore.STATUS_CANCELLED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này chưa sẵn sàng để xử lý.");
+        }
         if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())
                 || ClassRequestStore.STATUS_REJECTED.equals(data.status())) {
             throw new IllegalArgumentException("Yêu cầu này đã kết thúc, không thể đăng tin.");
@@ -2201,9 +2224,16 @@ public class CenterServiceImpl implements CenterService {
             throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
         }
 
+        CenterRequestFeePaymentResponse payment = centerRequestFeeService.getPayment(requestId).orElse(null);
+        if (payment == null || payment.getStatus() == CenterRequestFeeStatus.PENDING_PAYMENT) {
+            centerRequestFeeService.cancelUnpaid(requestId);
+            return;
+        }
+
         closeRequestLinkedPost(data);
         classRequestStore.save(
                 classRequestStore.withStatus(data, ClassRequestStore.STATUS_REJECTED, reason));
+        centerRequestFeeService.requestRefund(requestId, reason);
         String centerName = center.getCompanyName() != null ? center.getCompanyName() : "Trung tâm";
         notifyClientRequestClosed(data, "Yêu cầu tìm gia sư bị từ chối",
                 centerName + " đã từ chối yêu cầu tìm gia sư của bạn."
@@ -2225,9 +2255,15 @@ public class CenterServiceImpl implements CenterService {
         }
         String note = StringUtils.hasText(reason)
                 ? reason.trim() : "Trung tâm không tìm được gia sư phù hợp.";
+        CenterRequestFeePaymentResponse payment = centerRequestFeeService.getPayment(requestId).orElse(null);
+        if (payment == null || payment.getStatus() == CenterRequestFeeStatus.PENDING_PAYMENT) {
+            centerRequestFeeService.cancelUnpaid(requestId);
+            return;
+        }
         closeRequestLinkedPost(data);
         classRequestStore.save(
                 classRequestStore.withStatus(data, ClassRequestStore.STATUS_REJECTED, note));
+        centerRequestFeeService.requestRefund(requestId, note);
         String centerName = center.getCompanyName() != null ? center.getCompanyName() : "Trung tâm";
         notifyClientRequestClosed(data, "Trung tâm chưa tìm được gia sư",
                 centerName + " chưa tìm được gia sư phù hợp cho yêu cầu của bạn. " + note
