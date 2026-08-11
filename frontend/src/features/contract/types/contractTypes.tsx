@@ -29,6 +29,18 @@ export interface EscrowPaymentInfo {
   processedAt: string | null;
 }
 
+export interface ContractRefundPayoutInfo {
+  bankName: string | null;
+  accountNoMasked: string | null;
+  accountHolderName: string | null;
+}
+
+export interface SaveRefundPayoutRequest {
+  bankName: string;
+  accountNo: string;
+  accountHolderName: string;
+}
+
 export interface ContractResponse {
   contractId: number;
   contractNo: string;
@@ -70,6 +82,11 @@ export interface ContractResponse {
   client: ContractPartyInfo | null;
   center: ContractPartyInfo | null;
   escrowPayment?: EscrowPaymentInfo | null;
+  refundPayoutInfo?: ContractRefundPayoutInfo | null;
+  totalSessions?: number | null;
+  completedSessions?: number | null;
+  refundAllowed?: boolean;
+  refundBlockedReason?: string | null;
 }
 
 export type ContractApiResponse = ContractResponse;
@@ -177,6 +194,20 @@ export interface Contract {
   confirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
+  classTitle: string | null;
+  classType: string | null;
+  tuitionFee: number | string | null;
+  lessonMode: string | null;
+  numberOfSessions: number | null;
+  tutor: ContractPartyInfo | null;
+  client: ContractPartyInfo | null;
+  center: ContractPartyInfo | null;
+  escrowPayment: EscrowPaymentInfo | null;
+  refundPayoutInfo: ContractRefundPayoutInfo | null;
+  totalSessions: number | null;
+  completedSessions: number | null;
+  refundAllowed: boolean;
+  refundBlockedReason: string | null;
 }
 
 export interface ContractSignature {

@@ -430,8 +430,13 @@ function InviteCard({
 }) {
   const iSigned = isClient ? !!a.clientSignedAt : !!a.tutorSignedAt;
   const otherSigned = isClient ? !!a.tutorSignedAt : !!a.clientSignedAt;
+  const bothSigned = !!a.clientSignedAt && !!a.tutorSignedAt;
   let badge: string;
-  if (iSigned) {
+  if (bothSigned) {
+    badge = isClient
+      ? 'Đã ký — chờ thanh toán'
+      : 'Đã ký — chờ phụ huynh thanh toán';
+  } else if (iSigned) {
     badge = otherSigned
       ? 'Đã ký — hoàn tất'
       : `Đã ký — chờ ${isClient ? 'gia sư' : 'phụ huynh'} ký`;
@@ -466,7 +471,7 @@ function InviteCard({
         )}
         {iSigned && (
           <button className="tch-btn tch-btn--ghost" type="button" onClick={onSign}>
-            Xem hợp đồng
+            {bothSigned && isClient ? 'Thanh toán' : 'Xem hợp đồng'}
           </button>
         )}
         {!isClient && !iSigned && (

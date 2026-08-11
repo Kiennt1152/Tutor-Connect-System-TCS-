@@ -524,6 +524,16 @@ export default function ProfilePage() {
 
       {isAdultClient && (
         <section className="profile-section">
+          <h2>Xác minh danh tính</h2>
+          <p>
+            Xác minh danh tính của client hiện được hệ thống xử lý tự động, bạn không cần mở màn
+            riêng tại đây.
+          </p>
+        </section>
+      )}
+
+      {isClient && (
+        <section className="profile-section">
           <h2>Quản lý hồ sơ con</h2>
           <p>Chọn một hồ sơ con để cập nhật thông tin học tập, hoặc thêm hồ sơ con mới.</p>
           {children.length > 0 ? (

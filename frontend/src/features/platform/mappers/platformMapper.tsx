@@ -158,6 +158,13 @@ const VERIFICATION_TYPE_LABELS: Record<VerificationType, string> = {
   TUTOR_CENTER_LICENSE: 'Giấy phép trung tâm',
 };
 
+function verificationTypeLabel(type: VerificationType, role?: string | null): string {
+  if (type === 'TUTOR_PROFILE' && role === 'CLIENT') {
+    return 'Xác minh danh tính';
+  }
+  return VERIFICATION_TYPE_LABELS[type] ?? type;
+}
+
 const VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
   DRAFT: 'Nháp',
   SUBMITTED: 'Chờ duyệt',
@@ -242,8 +249,9 @@ export function mapVerificationItem(item: VerificationRequestApiResponse): Verif
     id: String(item.verificationId),
     userId: String(item.userId),
     userEmail: item.userEmail,
+    userRole: item.userRole,
     verificationType: item.verificationType,
-    typeLabel: VERIFICATION_TYPE_LABELS[item.verificationType] ?? item.verificationType,
+    typeLabel: verificationTypeLabel(item.verificationType, item.userRole),
     status: item.status,
     statusLabel: VERIFICATION_STATUS_LABELS[item.status] ?? item.status,
     adminNotes: item.adminNotes?.trim() || '—',
@@ -373,6 +381,7 @@ export function mapRefundRequestItem(item: RefundRequestApiResponse): RefundRequ
     escrowAmount: formatCurrency(item.escrowAmount),
     bankName: item.bankName?.trim() || '—',
     accountNoMasked: item.accountNoMasked?.trim() || '—',
+    accountHolderName: item.accountHolderName?.trim() || '—',
     refundReferenceCode: item.refundReferenceCode?.trim() || '—',
     transferStatus: item.transferStatus?.trim() || '—',
     status: item.status,

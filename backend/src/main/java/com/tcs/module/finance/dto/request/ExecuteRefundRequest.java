@@ -1,5 +1,6 @@
 package com.tcs.module.finance.dto.request;
 
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,4 +13,5 @@ public class ExecuteRefundRequest {
     private BigDecimal releaseToBeneficiary;
     private BigDecimal refundToPayer;
     private String reason;
+    private RefundPayoutInfo refundPayoutInfo;
 }

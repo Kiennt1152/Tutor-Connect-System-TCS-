@@ -1,4 +1,9 @@
 
+import type {
+  ContractRefundPayoutInfo,
+  EscrowPaymentInfo,
+} from '../../contract/types/contractTypes';
+
 export type AssignmentStatus = 'PENDING' | 'ACTIVE' | 'DECLINED' | 'TERMINATED';
 
 export type AttendanceStatus = 'PENDING' | 'COMPLETED' | 'ABSENT' | 'DISPUTED';
@@ -26,6 +31,7 @@ export interface AssignmentResponse {
 export type PaymentMethod = 'FULL' | 'DEPOSIT_1M';
 
 export interface ContractView {
+  contractId: number | null;
   assignmentId: number;
   classId: number;
   classTitle: string;
@@ -52,6 +58,8 @@ export interface ContractView {
   clientSigned: boolean;
   paymentMethod: PaymentMethod | null;
   myRole: 'CLIENT' | 'TUTOR';
+  escrowPayment: EscrowPaymentInfo | null;
+  refundPayoutInfo: ContractRefundPayoutInfo | null;
   termsB: string | null;
 }
 

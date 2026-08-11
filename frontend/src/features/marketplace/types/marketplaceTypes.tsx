@@ -20,6 +20,9 @@ export interface CreateClassTerminationRequest {
   classStudentId?: number;
   reason: string;
   effectiveDate?: string;
+  bankName: string;
+  accountNo: string;
+  accountHolderName: string;
 }
 
 export interface ClassTerminationResponse {
@@ -30,6 +33,9 @@ export interface ClassTerminationResponse {
   requestedByUserId: number;
   reason: string;
   effectiveDate: string | null;
+  bankName?: string | null;
+  accountNoMasked?: string | null;
+  accountHolderName?: string | null;
   status: ClassTerminationStatus;
   createdAt: string;
   processedAt: string | null;
@@ -332,6 +338,10 @@ export interface MarketplaceClass {
   maxStudents: number | null;
   enrolledCount: number;
   canRequestTermination: boolean;
+  refundAllowed: boolean;
+  refundBlockedReason: string | null;
+  totalSessions: number | null;
+  completedSessions: number | null;
   terminationAssignmentId: number | null;
   terminationClassStudentId: number | null;
   schedule: MarketplaceScheduleSlot[];

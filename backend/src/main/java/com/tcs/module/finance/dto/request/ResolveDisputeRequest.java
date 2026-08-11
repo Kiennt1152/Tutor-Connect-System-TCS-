@@ -2,6 +2,7 @@ package com.tcs.module.finance.dto.request;
 
 import com.tcs.module.finance.enums.DisputeResolutionAction;
 import com.tcs.module.finance.enums.DisputeStatus;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import java.math.BigDecimal;
 import lombok.Getter;
 import lombok.Setter;
@@ -15,4 +16,5 @@ public class ResolveDisputeRequest {
     private String resolution;
     private BigDecimal releaseToBeneficiary;
     private BigDecimal refundToPayer;
+    private RefundPayoutInfo refundPayoutInfo;
 }

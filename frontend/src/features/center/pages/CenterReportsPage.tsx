@@ -9,6 +9,12 @@ import { useCenterReportList } from '../hooks/useCenterReportList';
 import { platformApi } from '../../platform/api/platformApi';
 import { useDisputeReviewList } from '../../platform/hooks/useDisputeReviewList';
 import { useRefundRequestList } from '../../platform/hooks/useRefundRequestList';
+import {
+  BANK_OPTIONS,
+  BankPickerDialog,
+  BankSelectField,
+  type BankOption,
+} from '../../finance/components/BankPicker';
 import type {
   AdminDisputeReviewApiResponse,
   ClassIssueResolutionAction,
@@ -68,8 +74,21 @@ function normalizeMoney(value: string) {
   return value.replace(/[^\d]/g, '');
 }
 
+function normalizeAccountNo(value: string) {
+  return value.trim().replace(/\s+/g, '');
+}
+
 function moneyNumber(value: string) {
   return value ? Number(value) : 0;
+}
+
+function hasExistingRefundPayoutInfo(dispute: AdminDisputeReviewApiResponse) {
+  const latestRefund = dispute.latestRefundRequest;
+  const termination = dispute.terminationRequest;
+  return Boolean(
+    (latestRefund?.bankName && latestRefund.accountNoMasked && latestRefund.accountHolderName)
+      || (termination?.bankName && termination.accountNoMasked && termination.accountHolderName),
+  );
 }
 
 function statusBadgeClass(status: string | null | undefined) {
@@ -276,6 +295,10 @@ function DisputeDetail({
   const [resolution, setResolution] = useState('');
   const [releaseAmount, setReleaseAmount] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
+  const [selectedBankCode, setSelectedBankCode] = useState('');
+  const [bankPickerOpen, setBankPickerOpen] = useState(false);
+  const [accountNo, setAccountNo] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
@@ -288,6 +311,13 @@ function DisputeDetail({
     action === 'TERMINATE_CLASS' ||
     action === 'APPROVE_FULL_REFUND' ||
     action === 'APPROVE_PARTIAL_REFUND';
+  const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
+  const shouldCollectRefundPayout = Boolean(
+    dispute
+      && financialAction
+      && refundNumber > 0
+      && !hasExistingRefundPayoutInfo(dispute),
+  );
 
   useEffect(() => {
     const suggestion = dispute?.settlementSuggestion;
@@ -303,6 +333,10 @@ function DisputeDetail({
       setReleaseAmount(escrowAmount > 0 ? String(escrowAmount) : '');
       setRefundAmount('');
     }
+    setSelectedBankCode('');
+    setBankPickerOpen(false);
+    setAccountNo('');
+    setAccountHolderName('');
     setMessage('');
     setError('');
   }, [dispute?.disputeId, dispute?.resolution, dispute?.terminationRequest?.status, escrowAmount]);
@@ -351,6 +385,21 @@ function DisputeDetail({
       setError('Tổng giải ngân và hoàn tiền phải bằng tổng escrow.');
       return;
     }
+    const normalizedAccountNo = normalizeAccountNo(accountNo);
+    if (shouldCollectRefundPayout) {
+      if (!selectedBank) {
+        setError('Vui lòng chọn ngân hàng nhận hoàn tiền.');
+        return;
+      }
+      if (!/^[A-Za-z0-9]{4,50}$/.test(normalizedAccountNo)) {
+        setError('Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự.');
+        return;
+      }
+      if (accountHolderName.trim().length < 2) {
+        setError('Vui lòng nhập tên chủ tài khoản nhận hoàn tiền.');
+        return;
+      }
+    }
 
     setBusy(true);
     setError('');
@@ -362,6 +411,13 @@ function DisputeDetail({
         resolution: trimmedResolution,
         releaseToBeneficiary: financialAction ? releaseNumber : undefined,
         refundToPayer: financialAction ? refundNumber : undefined,
+        refundPayoutInfo: shouldCollectRefundPayout && selectedBank
+          ? {
+              bankName: selectedBank.name,
+              accountNo: normalizedAccountNo,
+              accountHolderName: accountHolderName.trim().replace(/\s+/g, ' '),
+            }
+          : undefined,
       });
       setMessage('Đã lưu quyết định xử lý tranh chấp.');
       onChanged();
@@ -370,6 +426,11 @@ function DisputeDetail({
     } finally {
       setBusy(false);
     }
+  };
+
+  const handleSelectBank = (bank: BankOption) => {
+    setSelectedBankCode(bank.code);
+    setBankPickerOpen(false);
   };
 
   return (
@@ -458,6 +519,40 @@ function DisputeDetail({
           </div>
         ) : null}
 
+        {shouldCollectRefundPayout ? (
+          <div className="center-report-payout">
+            <p className="center-report-payout__title">Tài khoản nhận hoàn tiền</p>
+            <label>
+              Ngân hàng
+              <BankSelectField
+                id={`center-dispute-refund-bank-${dispute.disputeId}`}
+                selectedBank={selectedBank}
+                onOpen={() => setBankPickerOpen(true)}
+              />
+            </label>
+            <div className="center-report-money-grid">
+              <label>
+                Số tài khoản
+                <input
+                  className="adm-field"
+                  value={accountNo}
+                  disabled={!canResolve || busy}
+                  onChange={(event) => setAccountNo(event.target.value)}
+                />
+              </label>
+              <label>
+                Tên chủ tài khoản
+                <input
+                  className="adm-field"
+                  value={accountHolderName}
+                  disabled={!canResolve || busy}
+                  onChange={(event) => setAccountHolderName(event.target.value)}
+                />
+              </label>
+            </div>
+          </div>
+        ) : null}
+
         <label>
           Nội dung quyết định
           <textarea
@@ -474,6 +569,12 @@ function DisputeDetail({
           {busy ? 'Đang lưu...' : 'Lưu quyết định'}
         </button>
       </form>
+      <BankPickerDialog
+        open={bankPickerOpen}
+        selectedBankCode={selectedBankCode}
+        onSelect={handleSelectBank}
+        onClose={() => setBankPickerOpen(false)}
+      />
     </section>
   );
 }
@@ -555,6 +656,7 @@ function RefundDetail({
         <InfoRow label="Tổng escrow" value={refund.escrowAmount} />
         <InfoRow label="Ngân hàng" value={refund.bankName} />
         <InfoRow label="Số tài khoản" value={refund.accountNoMasked} />
+        <InfoRow label="Tên chủ tài khoản" value={refund.accountHolderName} />
         <InfoRow label="Mã chuyển khoản" value={refund.refundReferenceCode} />
         <InfoRow label="Trạng thái chuyển khoản" value={refund.transferStatus} />
       </div>

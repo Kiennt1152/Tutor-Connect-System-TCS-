@@ -2,6 +2,7 @@ package com.tcs.module.platform.dto.response;
 
 import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.enums.VerificationType;
+import com.tcs.module.profile.enums.UserRole;
 import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Getter;
@@ -13,6 +14,7 @@ public class VerificationRequestResponse {
     private Long verificationId;
     private Long userId;
     private String userEmail;
+    private UserRole userRole;
     private VerificationType verificationType;
     private VerificationStatus status;
     private String adminNotes;

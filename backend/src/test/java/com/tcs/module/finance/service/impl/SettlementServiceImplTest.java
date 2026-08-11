@@ -13,6 +13,7 @@ import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.dto.request.ExecuteRefundRequest;
 import com.tcs.module.finance.dto.response.RefundExecutionResponse;
 import com.tcs.module.finance.entity.EscrowTransaction;
@@ -130,6 +131,7 @@ class SettlementServiceImplTest {
         request.setReleaseToBeneficiary(new BigDecimal("400000.00"));
         request.setRefundToPayer(new BigDecimal("100000.00"));
         request.setReason("Hoàn tiền một phần theo quyết định admin");
+        request.setRefundPayoutInfo(new RefundPayoutInfo("TPBank", "0123456789", "Nguyen Van A"));
 
         when(authHelper.currentUserId()).thenReturn(1L);
         when(userRepository.findById(1L)).thenReturn(Optional.of(admin));

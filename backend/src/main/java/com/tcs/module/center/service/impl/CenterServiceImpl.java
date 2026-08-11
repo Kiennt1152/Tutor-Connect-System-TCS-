@@ -46,6 +46,13 @@ import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.enums.VerificationType;
 import com.tcs.module.identity.repository.VerificationDocumentRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
+import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
+import com.tcs.module.finance.entity.EscrowTransaction;
+import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
@@ -76,6 +83,7 @@ import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -91,6 +99,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -106,6 +115,7 @@ import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import org.springframework.context.event.EventListener;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CenterServiceImpl implements CenterService {
@@ -130,6 +140,8 @@ public class CenterServiceImpl implements CenterService {
     private final ClassStudentRepository classStudentRepository;
     private final LessonRepository lessonRepository;
     private final LessonAttendanceRepository lessonAttendanceRepository;
+    private final EscrowTransactionRepository escrowTransactionRepository;
+    private final EscrowService escrowService;
     private final RescheduleService rescheduleService;
     private final SubstitutionService substitutionService;
     private final AuditLogService auditLogService;
@@ -576,7 +588,7 @@ public class CenterServiceImpl implements CenterService {
 
     /**
      * BF-04 bước 5/9: lớp đang mở ghi danh quá hạn (enrollmentDeadline) -> tự đóng ghi danh.
-     * Đủ gia sư + đủ sĩ số tối thiểu -> MATCHED; ngược lại -> ENROLLMENT_CLOSED (trung tâm xử lý tiếp).
+     * Đủ sĩ số tối thiểu -> đóng/ghép; thiếu sĩ số -> hủy lớp và tạo hoàn tiền cho học viên đã thanh toán.
      */
     private void autoCloseExpiredClasses() {
         LocalDate today = LocalDate.now();
@@ -593,10 +605,53 @@ public class CenterServiceImpl implements CenterService {
                     .findFirstByApplication_TutoringClass_ClassIdAndStatus(
                             c.getClassId(), ClassAssignmentStatus.ACTIVE)
                     .isPresent();
-            c.setStatus(hasMain && enrolled >= required
-                    ? TutoringClassStatus.MATCHED : TutoringClassStatus.ENROLLMENT_CLOSED);
+            if (enrolled < required) {
+                cancelExpiredCenterClassAndRefund(c);
+                continue;
+            }
+            c.setStatus(hasMain ? TutoringClassStatus.MATCHED : TutoringClassStatus.ENROLLMENT_CLOSED);
             tutoringClassRepository.save(c);
         }
+    }
+
+    private void cancelExpiredCenterClassAndRefund(TutoringClass tutoringClass) {
+        List<ClassStudent> fundedStudents = classStudentRepository
+                .findByTutoringClass_ClassIdAndStatus(tutoringClass.getClassId(), ClassStudentStatus.ENROLLED);
+        for (ClassStudent classStudent : fundedStudents) {
+            EscrowTransaction escrow = escrowTransactionRepository
+                    .findByClassStudent_ClassStudentId(classStudent.getClassStudentId())
+                    .orElse(null);
+            if (escrow == null || escrow.getStatus() != EscrowStatus.FUNDED) {
+                continue;
+            }
+            RefundPayoutInfo payoutInfo = resolveRefundPayoutInfo(classStudent);
+            if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+                log.warn("[Center] Bo qua refund tu dong cho classStudent={} vi thieu payout info", 
+                        classStudent.getClassStudentId());
+                continue;
+            }
+            try {
+                escrowService.apply(new ReleaseInstruction(
+                        escrow.getEscrowId(),
+                        BigDecimal.ZERO,
+                        escrow.getAmount(),
+                        "Hủy lớp do đến hạn đóng ghi danh nhưng chưa đạt sĩ số tối thiểu",
+                        payoutInfo));
+            } catch (Exception e) {
+                log.error("[Center] Khong tao duoc refund tu dong cho escrow={} classStudent={}",
+                        escrow.getEscrowId(), classStudent.getClassStudentId(), e);
+            }
+        }
+        tutoringClass.setStatus(TutoringClassStatus.CANCELLED);
+        tutoringClassRepository.save(tutoringClass);
+    }
+
+    private RefundPayoutInfo resolveRefundPayoutInfo(ClassStudent classStudent) {
+        if (classStudent == null) {
+            return null;
+        }
+        RefundPayoutInfo payoutInfo = RefundPayoutInfoCodec.parseFromReason(classStudent.getNotes());
+        return RefundPayoutInfoCodec.hasCompletePayout(payoutInfo) ? payoutInfo : null;
     }
 
     @Override
@@ -691,8 +746,11 @@ public class CenterServiceImpl implements CenterService {
                         "Cần gán đủ 2 gia sư (gia sư chính + gia sư phụ) trước khi mở ghi danh.");
             }
             tutoringClass.setStatus(TutoringClassStatus.OPEN);
-            // BF-04 bước 5: mở ghi danh trong 30 ngày kể từ khi đăng.
-            tutoringClass.setEnrollmentDeadline(LocalDate.now().plusDays(CLASS_ENROLLMENT_DAYS));
+            // Deadline ghi danh bám theo ngày học đầu tiên: đóng trước buổi đầu.
+            tutoringClass.setEnrollmentDeadline(
+                    tutoringClass.getStartDate() != null
+                            ? tutoringClass.getStartDate().minusDays(1)
+                            : LocalDate.now().plusDays(CLASS_ENROLLMENT_DAYS));
         }
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
@@ -1926,7 +1984,7 @@ public class CenterServiceImpl implements CenterService {
                         tutor.getUser().getUserId(), VerificationType.TUTOR_PROFILE,
                         VerificationStatus.VERIFIED)
                 .map(req -> verificationDocumentRepository
-                        .findByVerificationRequest_VerificationId(req.getVerificationId()).stream()
+                        .findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(req.getVerificationId()).stream()
                         .filter(doc -> doc.getDocumentType() == VerificationDocumentType.CERTIFICATE)
                         .map(doc -> RecruitmentApplicationResponse.CertificateInfo.builder()
                                 .documentType(doc.getDocumentType() == null
