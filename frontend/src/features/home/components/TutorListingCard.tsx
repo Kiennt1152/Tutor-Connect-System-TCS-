@@ -6,6 +6,7 @@ type TutorListingCardProps = {
   tutor: FeaturedTutor;
   isAuthenticated: boolean;
   variant?: 'grid' | 'search';
+  showPrice?: boolean;
 };
 
 const currency = (value: number) =>
@@ -25,7 +26,11 @@ const bioSnippet = (bio: string | null) => {
   return text.length > 120 ? `${text.slice(0, 120)}…` : text;
 };
 
-export function TutorListingCard({ tutor, variant = 'grid' }: TutorListingCardProps) {
+export function TutorListingCard({
+  tutor,
+  variant = 'grid',
+  showPrice = true,
+}: TutorListingCardProps) {
   return (
     <article className={`tcs-listing-card${variant === 'search' ? ' tcs-listing-card--compact' : ''}`}>
       <div className="tcs-listing-card__top">
@@ -36,10 +41,12 @@ export function TutorListingCard({ tutor, variant = 'grid' }: TutorListingCardPr
             <span className="tcs-listing-card__badge">Gia sư</span>
           </div>
         </div>
-        <div className="tcs-listing-card__price">
-          <span className="tcs-listing-card__price-value">{currency(tutor.hourlyRate)} đ</span>
-          <span className="tcs-listing-card__price-unit">/giờ</span>
-        </div>
+        {showPrice ? (
+          <div className="tcs-listing-card__price">
+            <span className="tcs-listing-card__price-value">{currency(tutor.hourlyRate)} đ</span>
+            <span className="tcs-listing-card__price-unit">/giờ</span>
+          </div>
+        ) : null}
       </div>
 
       <div className="tcs-listing-card__meta">

@@ -37,15 +37,19 @@ function formatDate(iso: string): string {
 
 const STAR_ROWS = [5, 4, 3, 2, 1] as const;
 
+type StarFilter = number | 'all';
+
 export default function TutorPublicProfilePage() {
   const { tutorId } = useParams<{ tutorId: string }>();
   const [data, setData] = useState<TutorReputation | null>(null);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [error, setError] = useState('');
+  const [starFilter, setStarFilter] = useState<StarFilter>('all');
 
   const load = useCallback(() => {
     if (!tutorId) return;
     setStatus('loading');
+    setStarFilter('all');
     reviewApi
       .getTutorReputation(tutorId)
       .then((res) => {
@@ -84,8 +88,17 @@ export default function TutorPublicProfilePage() {
           <>
             <ProfileHeader data={data} />
             <div className="tp-grid">
-              <ReputationSummary data={data} />
-              <ReviewsList reviews={data.reviews} />
+              <ReputationSummary
+                data={data}
+                activeStar={starFilter}
+                onSelectStar={setStarFilter}
+              />
+              <ReviewsList
+                reviews={data.reviews}
+                distribution={data.ratingDistribution}
+                activeStar={starFilter}
+                onSelectStar={setStarFilter}
+              />
             </div>
           </>
         ) : null}
@@ -121,7 +134,15 @@ function ProfileHeader({ data }: { readonly data: TutorReputation }) {
   );
 }
 
-function ReputationSummary({ data }: { readonly data: TutorReputation }) {
+function ReputationSummary({
+  data,
+  activeStar,
+  onSelectStar,
+}: {
+  readonly data: TutorReputation;
+  readonly activeStar: StarFilter;
+  readonly onSelectStar: (star: StarFilter) => void;
+}) {
   const total = data.totalReviews;
   return (
     <section className="tp-card tp-summary">
@@ -139,13 +160,22 @@ function ReputationSummary({ data }: { readonly data: TutorReputation }) {
         {STAR_ROWS.map((star) => {
           const count = data.ratingDistribution?.[String(star)] ?? 0;
           const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+          const active = activeStar === star;
           return (
-            <li key={star} className="tp-dist__row">
-              <span className="tp-dist__star">{star}★</span>
-              <span className="tp-dist__bar">
-                <span className="tp-dist__fill" style={{ width: `${pct}%` }} />
-              </span>
-              <span className="tp-dist__count">{count}</span>
+            <li key={star}>
+              <button
+                type="button"
+                className={`tp-dist__row tp-dist__row--btn${active ? ' tp-dist__row--active' : ''}`}
+                onClick={() => onSelectStar(active ? 'all' : star)}
+                aria-pressed={active}
+                title={`Lọc đánh giá ${star} sao`}
+              >
+                <span className="tp-dist__star">{star}★</span>
+                <span className="tp-dist__bar">
+                  <span className="tp-dist__fill" style={{ width: `${pct}%` }} />
+                </span>
+                <span className="tp-dist__count">{count}</span>
+              </button>
             </li>
           );
         })}
@@ -170,15 +200,55 @@ function ReputationSummary({ data }: { readonly data: TutorReputation }) {
   );
 }
 
-function ReviewsList({ reviews }: { readonly reviews: ReviewResponse[] }) {
+function ReviewsList({
+  reviews,
+  distribution,
+  activeStar,
+  onSelectStar,
+}: {
+  readonly reviews: ReviewResponse[];
+  readonly distribution: Record<string, number>;
+  readonly activeStar: StarFilter;
+  readonly onSelectStar: (star: StarFilter) => void;
+}) {
+  const filtered =
+    activeStar === 'all'
+      ? reviews
+      : reviews.filter((r) => Math.round(r.rating) === activeStar);
+
   return (
     <section className="tp-card tp-reviews">
-      <h2 className="tp-card__title">Đánh giá từ học viên ({reviews.length})</h2>
+      <h2 className="tp-card__title">Đánh giá từ học viên ({filtered.length})</h2>
+
+      {reviews.length > 0 ? (
+        <div className="tp-filter" role="group" aria-label="Lọc theo số sao">
+          <button
+            type="button"
+            className={`tp-filter__chip${activeStar === 'all' ? ' tp-filter__chip--active' : ''}`}
+            onClick={() => onSelectStar('all')}
+          >
+            Tất cả ({reviews.length})
+          </button>
+          {STAR_ROWS.map((star) => (
+            <button
+              key={star}
+              type="button"
+              className={`tp-filter__chip${activeStar === star ? ' tp-filter__chip--active' : ''}`}
+              onClick={() => onSelectStar(star)}
+            >
+              {star}★ ({distribution?.[String(star)] ?? 0})
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       {reviews.length === 0 ? (
         <p className="tp-muted">Gia sư chưa có đánh giá công khai nào.</p>
+      ) : filtered.length === 0 ? (
+        <p className="tp-muted">Chưa có đánh giá {activeStar} sao.</p>
       ) : (
         <ul className="tp-reviews__list">
-          {reviews.map((r) => (
+          {filtered.map((r) => (
             <li key={r.reviewId} className="tp-review">
               <div className="tp-review__head">
                 <span className="tp-review__author">{r.reviewerDisplayName}</span>
