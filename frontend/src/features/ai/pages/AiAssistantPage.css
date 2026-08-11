@@ -2,8 +2,8 @@
 .ai-assistant-page {
   display: flex;
   height: calc(100vh - 70px);
-  background: #0d1117;
-  color: #e6edf3;
+  background: #FBF9F5;
+  color: #1F2421;
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
   overflow: hidden;
 }
@@ -11,8 +11,8 @@
 /* Sidebar */
 .ai-sidebar {
   width: 300px;
-  background: #161b22;
-  border-right: 1px solid #30363d;
+  background: #F7F4EF;
+  border-right: 1px solid #E7E1D7;
   display: flex;
   flex-direction: column;
   transition: width 0.3s ease;
@@ -20,13 +20,13 @@
 
 .ai-sidebar-header {
   padding: 1.25rem 1rem;
-  border-bottom: 1px solid #30363d;
+  border-bottom: 1px solid #E7E1D7;
 }
 
 .ai-new-chat-btn {
   width: 100%;
   padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+  background: linear-gradient(135deg, #ea580c 0%, #c4612f 100%);
   color: #fff;
   border: none;
   border-radius: 9999px;
@@ -37,13 +37,13 @@
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  box-shadow: 0 4px 15px rgba(168, 85, 247, 0.35);
+  box-shadow: 0 4px 15px rgba(234, 88, 12, 0.35);
   transition: all 0.25s ease;
 }
 
 .ai-new-chat-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(168, 85, 247, 0.5);
+  box-shadow: 0 6px 20px rgba(234, 88, 12, 0.5);
 }
 
 .ai-sessions-list {
@@ -60,18 +60,18 @@
   margin-bottom: 0.35rem;
   border-radius: 0.5rem;
   cursor: pointer;
-  color: #8b949e;
+  color: #6B7280;
   font-size: 0.9rem;
   transition: all 0.2s ease;
 }
 
 .ai-session-item:hover {
-  background: #21262d;
-  color: #c9d1d9;
+  background: #E7E1D7;
+  color: #1F2421;
 }
 
 .ai-session-item.active {
-  background: #238636;
+  background: #ea580c;
   color: #ffffff;
   font-weight: 500;
 }
@@ -109,16 +109,13 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.08) 0%, transparent 40%),
-              radial-gradient(circle at bottom left, rgba(236, 72, 153, 0.05) 0%, transparent 40%),
-              #0d1117;
+  background: #FBF9F5;
 }
 
 .ai-chat-header {
   padding: 1rem 1.75rem;
-  background: rgba(22, 27, 34, 0.8);
-  backdrop-filter: blur(10px);
-  border-bottom: 1px solid #30363d;
+  background: #F7F4EF;
+  border-bottom: 1px solid #E7E1D7;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -134,7 +131,7 @@
   margin: 0;
   font-size: 1.15rem;
   font-weight: 600;
-  background: linear-gradient(90deg, #60a5fa, #c084fc);
+  background: linear-gradient(90deg, #ea580c, #c4612f);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -192,11 +189,11 @@
 .ai-welcome-state h3 {
   font-size: 1.6rem;
   margin-bottom: 0.5rem;
-  color: #f0f6fc;
+  color: #1F2421;
 }
 
 .ai-welcome-state p {
-  color: #8b949e;
+  color: #6B7280;
   margin-bottom: 2rem;
   line-height: 1.6;
 }
@@ -210,9 +207,9 @@
 
 .ai-starter-chip {
   padding: 0.65rem 1.15rem;
-  background: #161b22;
-  border: 1px solid #30363d;
-  color: #c9d1d9;
+  background: #ffffff;
+  border: 1px solid #E7E1D7;
+  color: #1F2421;
   border-radius: 9999px;
   font-size: 0.85rem;
   cursor: pointer;
@@ -220,9 +217,9 @@
 }
 
 .ai-starter-chip:hover {
-  background: #21262d;
-  border-color: #58a6ff;
-  color: #58a6ff;
+  background: #F7F4EF;
+  border-color: #ea580c;
+  color: #ea580c;
   transform: translateY(-2px);
 }
 
@@ -271,18 +268,18 @@
 }
 
 .ai-message-row.user .ai-bubble {
-  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  background: linear-gradient(135deg, #ea580c, #c4612f);
   color: #ffffff;
   border-bottom-right-radius: 0.25rem;
-  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.25);
+  box-shadow: 0 4px 15px rgba(234, 88, 12, 0.25);
 }
 
 .ai-message-row.assistant .ai-bubble {
-  background: #161b22;
-  border: 1px solid #30363d;
-  color: #e6edf3;
+  background: #f9fafb;
+  border: 1px solid #E7E1D7;
+  color: #1F2421;
   border-bottom-left-radius: 0.25rem;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
 }
 
 /* Rich Interactive Cards inside Assistant Messages */
@@ -344,8 +341,8 @@
 /* Input Area */
 .ai-input-area {
   padding: 1rem 1.75rem 1.5rem;
-  background: #161b22;
-  border-top: 1px solid #30363d;
+  background: #F7F4EF;
+  border-top: 1px solid #E7E1D7;
 }
 
 .ai-input-wrapper {
@@ -353,8 +350,8 @@
   margin: 0 auto;
   display: flex;
   gap: 0.75rem;
-  background: #0d1117;
-  border: 1px solid #30363d;
+  background: #ffffff;
+  border: 1px solid #E7E1D7;
   border-radius: 9999px;
   padding: 0.4rem 0.6rem 0.4rem 1.25rem;
   align-items: center;
@@ -362,15 +359,15 @@
 }
 
 .ai-input-wrapper:focus-within {
-  border-color: #a855f7;
-  box-shadow: 0 0 15px rgba(168, 85, 247, 0.2);
+  border-color: #ea580c;
+  box-shadow: 0 0 15px rgba(234, 88, 12, 0.2);
 }
 
 .ai-input-field {
   flex: 1;
   background: transparent;
   border: none;
-  color: #f0f6fc;
+  color: #1F2421;
   font-size: 0.95rem;
   outline: none;
 }
@@ -383,7 +380,7 @@
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #6366f1, #a855f7);
+  background: #ea580c;
   color: #fff;
   border: none;
   display: flex;
@@ -395,7 +392,7 @@
 
 .ai-send-btn:hover:not(:disabled) {
   transform: scale(1.08);
-  box-shadow: 0 0 12px rgba(168, 85, 247, 0.5);
+  box-shadow: 0 0 12px rgba(234, 88, 12, 0.5);
 }
 
 .ai-send-btn:disabled {

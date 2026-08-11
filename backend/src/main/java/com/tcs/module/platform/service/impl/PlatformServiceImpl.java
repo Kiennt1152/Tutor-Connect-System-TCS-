@@ -807,9 +807,12 @@ public class PlatformServiceImpl implements PlatformService {
         auditLogService.record("CLOSE_TICKET", "SupportTicket", ticketId,
                 java.util.Map.of("oldStatus", oldStatus), java.util.Map.of("newStatus", request.getStatus()));
 
-        if (StringUtils.hasText(request.getAdminNotes())) {
-            notifyUserOfTicketResponse(saved, request.getAdminNotes());
-        }
+        String note = StringUtils.hasText(request.getAdminNotes())
+                ? request.getAdminNotes()
+                : (request.getStatus() == SupportTicketStatus.RESOLVED
+                        ? "Yêu cầu hỗ trợ của bạn đã được giải quyết."
+                        : "Yêu cầu hỗ trợ của bạn đã được đóng.");
+        notifyUserOfTicketResponse(saved, note);
         return toTicketDetail(saved);
     }
 

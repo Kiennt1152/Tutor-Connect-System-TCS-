@@ -48,7 +48,7 @@ public class AiServiceImpl implements AiService {
     @Value("${ai.gemini.api-key:}")
     private String geminiApiKey;
 
-    @Value("${ai.groq.api-key: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}")
+    @Value("${ai.groq.api-key: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}")
     private String groqApiKey;
 
     @Value("${ai.groq.model:llama-3.3-70b-versatile}")
@@ -69,7 +69,7 @@ public class AiServiceImpl implements AiService {
         List<TutorReferenceDto> tutors = retrieveRelevantTutors(request.getMessage());
         List<ClassReferenceDto> classes = retrieveRelevantClasses(request.getMessage());
 
-        String aiResponseText = callLlmOrFallback(request.getMessage(), faqs, tutors, classes);
+        String aiResponseText = callLlmOrFallback(session.getSessionId(), request.getMessage(), faqs, tutors, classes);
 
         AiChatMessage aiMsg = new AiChatMessage();
         aiMsg.setSession(session);
@@ -176,6 +176,7 @@ public class AiServiceImpl implements AiService {
                     }
                     return new AbstractMap.SimpleEntry<>(f, score);
                 })
+                .filter(e -> e.getValue() > 0)
                 .sorted((a, b) -> Integer.compare(b.getValue(), a.getValue()))
                 .limit(3)
                 .map(e -> FaqReferenceDto.builder()
@@ -306,7 +307,7 @@ public class AiServiceImpl implements AiService {
         return list;
     }
 
-    private String callLlmOrFallback(String userQuery, List<FaqReferenceDto> faqs, List<TutorReferenceDto> tutors, List<ClassReferenceDto> classes) {
+    private String callLlmOrFallback(Long sessionId, String userQuery, List<FaqReferenceDto> faqs, List<TutorReferenceDto> tutors, List<ClassReferenceDto> classes) {
         try {
             StringBuilder prompt = new StringBuilder();
             prompt.append("Dưới đây là DỮ LIỆU RAG THỰC TẾ từ hệ thống Tutor Connect System (TCS):\n");
@@ -342,12 +343,20 @@ public class AiServiceImpl implements AiService {
             String systemPrompt = "Bạn là Trợ lý AI thông minh kiêm Gia sư tận tâm của hệ thống Tutor Connect System (TCS). Nhiệm vụ của bạn là tư vấn chính xác dựa trên RAG Context và hướng dẫn học sinh giải bài tập từng bước.";
 
             if ("groq".equalsIgnoreCase(provider) && groqApiKey != null && !groqApiKey.isBlank()) {
+                List<AiChatMessage> history = messageRepository.findBySession_SessionIdOrderByCreatedAtAsc(sessionId);
+                List<Map<String, String>> messages = new ArrayList<>();
+                messages.add(Map.of("role", "system", "content", systemPrompt));
+                
+                int endIndex = Math.max(0, history.size() - 1);
+                int startIndex = Math.max(0, endIndex - 10);
+                for (AiChatMessage msg : history.subList(startIndex, endIndex)) {
+                    messages.add(Map.of("role", msg.getRole(), "content", msg.getContent()));
+                }
+                messages.add(Map.of("role", "user", "content", prompt.toString()));
+                
                 String payload = objectMapper.writeValueAsString(Map.of(
                         "model", groqModel,
-                        "messages", List.of(
-                                Map.of("role", "system", "content", systemPrompt),
-                                Map.of("role", "user", "content", prompt.toString())
-                        ),
+                        "messages", messages,
                         "temperature", 0.3
                 ));
                 HttpRequest req = HttpRequest.newBuilder()

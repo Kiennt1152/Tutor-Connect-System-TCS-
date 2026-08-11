@@ -154,152 +154,108 @@
   border-top: 1px solid #f0f4f8;
 }
 
-/* Chatbot panel */
-.help-chatbot {
+/* Sidebar */
+.help-side {
+  position: sticky;
+  top: 1.5rem;
+}
+
+/* CTA Section */
+.help-cta {
+  text-align: center;
+}
+
+.help-cta__box {
   background: #fff;
   border: 1px solid #e2e8f0;
   border-radius: 12px;
-  padding: 1.25rem;
-  position: sticky;
-  top: 1rem;
+  padding: 1.75rem 1.25rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+  text-align: center;
 }
 
-.help-chatbot__title {
-  font-size: 1rem;
+.help-cta__success {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.help-cta__title {
+  font-size: 1.25rem;
   font-weight: 700;
   color: #1a202c;
-  margin: 0 0 0.25rem;
+  margin: 0 0 0.5rem;
 }
 
-.help-chatbot__desc {
-  font-size: 0.83rem;
+.help-cta__desc {
   color: #718096;
-  margin: 0 0 1rem;
+  margin: 0 0 1.5rem;
+  font-size: 0.95rem;
 }
 
-.help-chatbot__form {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.help-chatbot__textarea {
-  width: 100%;
+/* Ticket Form Inline */
+.ticket-form-card {
+  background: #fff;
   border: 1px solid #e2e8f0;
-  border-radius: 8px;
-  padding: 0.65rem 0.9rem;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+}
+
+.ticket-form-card h3 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 0 1.5rem;
+  color: #1a202c;
+}
+
+.ticket-form-card .form-group {
+  margin-bottom: 1.25rem;
+  text-align: left;
+}
+
+.ticket-form-card label {
+  display: block;
   font-size: 0.9rem;
-  resize: vertical;
-  min-height: 80px;
-  font-family: inherit;
+  font-weight: 600;
+  color: #4a5568;
+  margin-bottom: 0.5rem;
+}
+
+.ticket-form-card select,
+.ticket-form-card input,
+.ticket-form-card textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid #cbd5e0;
+  border-radius: 8px;
+  font-size: 0.95rem;
   color: #1a202c;
   outline: none;
+  font-family: inherit;
   box-sizing: border-box;
 }
 
-.help-chatbot__textarea:focus {
+.ticket-form-card select:focus,
+.ticket-form-card input:focus,
+.ticket-form-card textarea:focus {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(234,88,12,0.1);
 }
 
-.help-chatbot__ask-btn {
-  background: var(--color-primary);
-  color: #fff;
-  border: none;
-  border-radius: 8px;
-  padding: 0.65rem;
+.ticket-form-card textarea {
+  resize: vertical;
+}
+
+.ticket-form-card .form-error {
+  color: #e53e3e;
   font-size: 0.9rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s;
+  margin-bottom: 1rem;
+  text-align: left;
 }
 
-.help-chatbot__ask-btn:hover:not(:disabled) {
-  background: var(--color-primary-dark);
-}
-
-.help-chatbot__ask-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.help-chatbot__result {
-  margin-top: 1rem;
-  padding: 0.9rem;
-  border-radius: 8px;
-  font-size: 0.88rem;
-  line-height: 1.6;
-}
-
-.help-chatbot__result--matched {
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  color: #166534;
-}
-
-.help-chatbot__result--unmatched {
-  background: #fffbeb;
-  border: 1px solid #fed7aa;
-  color: #92400e;
-}
-
-.help-chatbot__result--error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  color: #991b1b;
-}
-
-.help-chatbot__result-label {
-  font-weight: 700;
-  margin-bottom: 0.35rem;
-  display: block;
-}
-
-.help-chatbot__result-q {
-  font-style: italic;
-  margin-bottom: 0.4rem;
-}
-
-.help-chatbot__result-a {
-  color: #065f46;
-}
-
-.help-chatbot__feedback {
-  margin-top: 0.75rem;
-  padding-top: 0.75rem;
-  border-top: 1px dashed #e2e8f0;
-}
-
-.help-chatbot__feedback-text {
-  font-size: 0.83rem;
-  color: #718096;
-  margin: 0 0 0.5rem;
-}
-
-.help-chatbot__ticket-link {
-  display: inline-block;
-  margin-top: 0.6rem;
-  background: var(--color-primary);
-  color: #fff;
-  border-radius: 6px;
-  padding: 0.4rem 0.8rem;
-  font-size: 0.83rem;
-  font-weight: 600;
-  text-decoration: none;
-  transition: background 0.15s;
-}
-
-.help-chatbot__ticket-link:hover {
-  background: var(--color-primary-dark);
-}
-
-.help-chatbot__reset-btn {
-  background: none;
-  border: none;
-  color: #718096;
-  font-size: 0.8rem;
-  cursor: pointer;
-  margin-top: 0.5rem;
-  padding: 0;
-  text-decoration: underline;
+.ticket-form-card .form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 1.5rem;
 }

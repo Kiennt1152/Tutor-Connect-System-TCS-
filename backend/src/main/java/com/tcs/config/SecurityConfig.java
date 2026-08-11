@@ -59,6 +59,8 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/catalog/**")
                         .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/catalog/chatbot/ask")
+                        .permitAll()
                         .requestMatchers("/api/ai/**")
                         .permitAll()
                         .requestMatchers("/api/catalog/**")

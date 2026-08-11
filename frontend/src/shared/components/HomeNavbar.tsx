@@ -51,6 +51,19 @@ export function HomeNavbar() {
           <Link to="/#reviews">Đánh giá</Link>
         </nav>
         <div className="tcs-header__actions">
+          {showMessaging ? (
+            <Link
+              to={APP_ROUTES.messaging}
+              className="tcs-btn tcs-btn--icon"
+              title="Tin nhắn"
+              aria-label="Tin nhắn"
+              style={{ padding: '8px', display: 'flex', alignItems: 'center' }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+            </Link>
+          ) : null}
           <NotificationBell enabled={!!user} />
           {user ? (
             <>
@@ -98,15 +111,7 @@ export function HomeNavbar() {
                       Hợp đồng
                     </Link>
                   ) : null}
-                  {showMessaging ? (
-                    <Link
-                      className="tcs-profile-menu__item"
-                      to={APP_ROUTES.messaging}
-                      role="menuitem"
-                    >
-                      Thông báo
-                    </Link>
-                  ) : null}
+
                   {showFeedback ? (
                     <Link
                       className="tcs-profile-menu__item"
