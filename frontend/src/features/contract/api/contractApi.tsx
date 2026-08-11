@@ -114,6 +114,12 @@ export const contractApi = {
     return withData(res.data);
   },
 
+  // BF-03: gia sư từ chối thỏa thuận hợp tác chưa ký.
+  async declineContract(contractId: number): Promise<{ message: string }> {
+    const res = await axiosClient.post<{ message: string }>(`${BASE}/${contractId}/decline`);
+    return res.data;
+  },
+
   async sendSignOtp(contractId: number): Promise<OtpSentResponse> {
     const response = await this.sendOtp(contractId);
     return {

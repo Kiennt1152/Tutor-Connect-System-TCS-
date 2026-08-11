@@ -67,6 +67,12 @@ public class CenterController {
         return centerService.listMyApplications();
     }
 
+    @PostMapping("/recruitment/applications/{recruitmentAppId}/withdraw")
+    public Map<String, String> withdrawApplication(@PathVariable Long recruitmentAppId) {
+        centerService.withdrawApplication(recruitmentAppId);
+        return Map.of("message", "Đã rút đơn ứng tuyển");
+    }
+
     // ===== FT-33: tin tuyển gia sư — phía trung tâm =====
 
     @GetMapping("/recruitment/my-posts")
