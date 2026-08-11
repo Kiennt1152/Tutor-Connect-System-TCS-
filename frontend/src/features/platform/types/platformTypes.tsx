@@ -229,7 +229,7 @@ export interface VerificationDetailApiResponse {
 }
 
 export type ReportStatus = 'PENDING' | 'RESOLVED';
-export type ReportCategory = 'FRAUD' | 'ABUSE' | 'SPAM';
+export type ReportCategory = 'FRAUD' | 'ABUSE' | 'SPAM' | 'INAPPROPRIATE' | 'OTHER';
 export type ReportTargetType = string;
 export type ClassIssueResolutionAction =
   | 'REQUEST_MORE_INFORMATION'
@@ -249,7 +249,13 @@ export type DisputeResolutionAction =
   | 'CLOSE_MUTUAL_AGREEMENT'
   | 'REQUEST_MORE_EVIDENCE';
 export type EscrowStatus = 'PENDING' | 'FUNDED' | 'RELEASED' | 'REFUNDED' | 'ON_HOLD' | 'DISPUTED';
-export type PaymentTransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'REFUND' | 'ESCROW_DEPOSIT' | 'ESCROW_RELEASE';
+export type PaymentTransactionType =
+  | 'DEPOSIT'
+  | 'WITHDRAWAL'
+  | 'REFUND'
+  | 'ESCROW_DEPOSIT'
+  | 'ESCROW_RELEASE'
+  | 'PLATFORM_FEE';
 export type PaymentTransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
 export type ClassTerminationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 export type RefundRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
@@ -946,6 +952,7 @@ export interface AnalyticsSummaryApiResponse {
   completedClasses: number;
   totalRevenue: number;
   platformFeeRevenue: number;
+  platformFeeRate: number;
   deposits: number;
   withdrawals: number;
   escrowHeld: number;

@@ -14,7 +14,8 @@ export interface Transaction {
     | 'WITHDRAWAL'
     | 'REFUND'
     | 'ESCROW_DEPOSIT'
-    | 'ESCROW_RELEASE';
+    | 'ESCROW_RELEASE'
+    | 'PLATFORM_FEE';
   status: 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
   amount: number;
   description: string | null;

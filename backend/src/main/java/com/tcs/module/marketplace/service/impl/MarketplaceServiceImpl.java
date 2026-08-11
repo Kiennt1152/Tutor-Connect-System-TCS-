@@ -174,7 +174,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final GradeRepository gradeRepository;
     private final LocationRepository locationRepository;
     private final LessonRescheduleRequestRepository rescheduleRequestRepository;
-    private final com.tcs.module.messaging.repository.NotificationRepository notificationRepository;
+    private final com.tcs.module.messaging.service.NotificationDispatchService notificationDispatchService;
     private final AuditLogService auditLogService;
     private final PenaltyAccessService penaltyAccessService;
     private final TutorCenterRepository tutorCenterRepository;
@@ -412,19 +412,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         String tutorName = tutor != null && StringUtils.hasText(tutor.getFullName())
                 ? tutor.getFullName()
                 : "Một gia sư";
-        com.tcs.module.messaging.entity.Notification notification =
-                new com.tcs.module.messaging.entity.Notification();
-        notification.setUser(tutoringClass.getCreator());
-        notification.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
-        notification.setTitle("Có gia sư ứng tuyển");
-        notification.setContent(
-                tutorName + " vừa ứng tuyển vào lớp \"" + tutoringClass.getTitle()
-                        + "\". Xem chi tiết để chọn gia sư.");
-        notification.setReferenceType("TUTORING_CLASS");
-        notification.setReferenceId(tutoringClass.getClassId());
-        notification.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        String content = tutorName + " vừa ứng tuyển vào lớp \"" + tutoringClass.getTitle()
+                + "\". Xem chi tiết để chọn gia sư.";
+        notificationDispatchService.notifyUserFromTemplate(
+                tutoringClass.getCreator(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "MARKETPLACE_NEW_APPLICATION",
+                Map.of("tutorName", tutorName, "classTitle", tutoringClass.getTitle()),
+                "Có gia sư ứng tuyển",
+                content,
+                "TUTORING_CLASS",
+                tutoringClass.getClassId());
     }
 
     private Map<String, BigDecimal> resolveProposedRates(
@@ -655,19 +653,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (chosen.getTutor() == null || chosen.getTutor().getUser() == null) {
             return;
         }
-        com.tcs.module.messaging.entity.Notification notification =
-                new com.tcs.module.messaging.entity.Notification();
-        notification.setUser(chosen.getTutor().getUser());
-        notification.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
-        notification.setTitle("Bạn được mời nhận lớp");
-        notification.setContent(
-                "Bạn được chọn cho lớp \"" + tutoringClass.getTitle()
-                        + "\". Vào mục Lịch dạy để bấm nhận lớp và bắt đầu lịch học.");
-        notification.setReferenceType("TUTORING_CLASS");
-        notification.setReferenceId(tutoringClass.getClassId());
-        notification.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        String content = "Bạn được chọn cho lớp \"" + tutoringClass.getTitle()
+                + "\". Vào mục Lịch dạy để bấm nhận lớp và bắt đầu lịch học.";
+        notificationDispatchService.notifyUserFromTemplate(
+                chosen.getTutor().getUser(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "MARKETPLACE_TUTOR_INVITED",
+                Map.of("classTitle", tutoringClass.getTitle()),
+                "Bạn được mời nhận lớp",
+                content,
+                "TUTORING_CLASS",
+                tutoringClass.getClassId());
     }
 
     @Override
@@ -699,19 +695,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (application.getTutor() == null || application.getTutor().getUser() == null) {
             return;
         }
-        com.tcs.module.messaging.entity.Notification notification =
-                new com.tcs.module.messaging.entity.Notification();
-        notification.setUser(application.getTutor().getUser());
-        notification.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
-        notification.setTitle("Đơn ứng tuyển không được chọn");
-        notification.setContent(
-                "Lớp \"" + tutoringClass.getTitle() + "\" đã bỏ chọn đơn ứng tuyển của bạn. Lý do: \""
-                        + reason + "\". Bạn có thể điều chỉnh điều kiện lại để ứng tuyển lại.");
-        notification.setReferenceType("TUTORING_CLASS");
-        notification.setReferenceId(tutoringClass.getClassId());
-        notification.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        String content = "Lớp \"" + tutoringClass.getTitle() + "\" đã bỏ chọn đơn ứng tuyển của bạn. Lý do: \""
+                + reason + "\". Bạn có thể điều chỉnh điều kiện lại để ứng tuyển lại.";
+        notificationDispatchService.notifyUserFromTemplate(
+                application.getTutor().getUser(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "MARKETPLACE_APPLICATION_REJECTED",
+                Map.of("classTitle", tutoringClass.getTitle(), "reason", reason),
+                "Đơn ứng tuyển không được chọn",
+                content,
+                "TUTORING_CLASS",
+                tutoringClass.getClassId());
     }
 
     @Override
@@ -1036,36 +1030,34 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (assignment.getTutor() == null || assignment.getTutor().getUser() == null) {
             return;
         }
-        com.tcs.module.messaging.entity.Notification n =
-                new com.tcs.module.messaging.entity.Notification();
-        n.setUser(assignment.getTutor().getUser());
-        n.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
-        n.setTitle("Bên A đã ký hợp đồng — mời bạn ký");
-        n.setContent("Phụ huynh/học sinh đã ký hợp đồng lớp \"" + c.getTitle()
-                + "\". Vui lòng vào mục Lịch dạy để ký xác nhận và bắt đầu lớp.");
-        n.setReferenceType("TUTORING_CLASS");
-        n.setReferenceId(c.getClassId());
-        n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        n.setIsRead(false);
-        notificationRepository.save(n);
+        String content = "Phụ huynh/học sinh đã ký hợp đồng lớp \"" + c.getTitle()
+                + "\". Vui lòng vào mục Lịch dạy để ký xác nhận và bắt đầu lớp.";
+        notificationDispatchService.notifyUserFromTemplate(
+                assignment.getTutor().getUser(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "MARKETPLACE_CONTRACT_TUTOR_SIGN",
+                Map.of("classTitle", c.getTitle()),
+                "Bên A đã ký hợp đồng — mời bạn ký",
+                content,
+                "TUTORING_CLASS",
+                c.getClassId());
     }
 
     private void notifyClientContractPaymentReady(TutoringClass c) {
         if (c.getCreator() == null) {
             return;
         }
-        com.tcs.module.messaging.entity.Notification n =
-                new com.tcs.module.messaging.entity.Notification();
-        n.setUser(c.getCreator());
-        n.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
-        n.setTitle("Hợp đồng đã hoàn tất — vui lòng thanh toán escrow");
-        n.setContent("Hợp đồng lớp \"" + c.getTitle()
-                + "\" đã được ký xong. Vui lòng vào mục Lịch học/Hợp đồng để quét mã thanh toán escrow.");
-        n.setReferenceType("TUTORING_CLASS");
-        n.setReferenceId(c.getClassId());
-        n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        n.setIsRead(false);
-        notificationRepository.save(n);
+        String content = "Hợp đồng lớp \"" + c.getTitle()
+                + "\" đã được ký xong. Vui lòng vào mục Lịch học/Hợp đồng để quét mã thanh toán escrow.";
+        notificationDispatchService.notifyUserFromTemplate(
+                c.getCreator(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "MARKETPLACE_ESCROW_PAYMENT_READY",
+                Map.of("classTitle", c.getTitle()),
+                "Hợp đồng đã hoàn tất — vui lòng thanh toán escrow",
+                content,
+                "TUTORING_CLASS",
+                c.getClassId());
     }
 
     private void ensurePrivateEscrowPayment(ClassAssignment assignment, TutoringClass tutoringClass) {
@@ -1311,17 +1303,15 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (user == null) {
             return;
         }
-        com.tcs.module.messaging.entity.Notification n =
-                new com.tcs.module.messaging.entity.Notification();
-        n.setUser(user);
-        n.setType(com.tcs.module.messaging.enums.NotificationType.CLASS);
-        n.setTitle(title);
-        n.setContent(content);
-        n.setReferenceType("TUTORING_CLASS");
-        n.setReferenceId(classId);
-        n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        n.setIsRead(false);
-        notificationRepository.save(n);
+        notificationDispatchService.notifyUserFromTemplate(
+                user,
+                com.tcs.module.messaging.enums.NotificationType.CLASS,
+                "MARKETPLACE_CLASS_EVENT",
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                "TUTORING_CLASS",
+                classId);
     }
 
     private void notifyStudentEnrollmentSuccess(ClassStudent classStudent) {

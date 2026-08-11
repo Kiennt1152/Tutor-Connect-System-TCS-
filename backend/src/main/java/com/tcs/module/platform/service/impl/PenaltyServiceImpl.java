@@ -156,7 +156,10 @@ public class PenaltyServiceImpl implements PenaltyService {
         auditLogService.record("ISSUE_PENALTY", "UserPenalty", penalty.getPenaltyId(), null, request);
         notificationDispatchService.notifyUserFromTemplate(
                 user, NotificationType.SYSTEM, "PENALTY_ISSUED",
-                Map.of("penaltyType", penaltyType.name(), "reason", request.getReason()),
+                Map.of(
+                        "penaltyType", penaltyType.name(),
+                        "reason", request.getReason(),
+                        "expiresAt", request.getExpiresAt() == null ? "Không thời hạn" : request.getExpiresAt()),
                 "Tài khoản của bạn vừa nhận một hình phạt",
                 "Loại: " + penaltyType.name() + ". Lý do: " + request.getReason(),
                 "PENALTY", penalty.getPenaltyId());

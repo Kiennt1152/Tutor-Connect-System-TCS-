@@ -15,6 +15,7 @@ import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.messaging.service.MessagingService;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.platform.enums.ReportCategory;
@@ -68,6 +69,7 @@ public class MessagingServiceImpl implements MessagingService {
     private final TutoringClassRepository tutoringClassRepository;
     private final PlatformAdminRepository platformAdminRepository;
     private final TicketMessageRepository ticketMessageRepository;
+    private final NotificationDispatchService notificationDispatchService;
 
     @Override
     @Transactional(readOnly = true)
@@ -362,16 +364,17 @@ public class MessagingServiceImpl implements MessagingService {
                 "Có báo cáo mới về %s (lý do: %s). Vào mục \"Nhận xét gia sư\" để kiểm tra.",
                 reportTargetLabel(report.getTargetType()), reportCategoryLabel(report.getCategory()));
         for (PlatformAdmin admin : admins) {
-            Notification n = new Notification();
-            n.setUser(admin.getUser());
-            n.setType(NotificationType.REPORT);
-            n.setTitle("Báo cáo mới cần kiểm duyệt");
-            n.setContent(content);
-            n.setReferenceType("REPORT");
-            n.setReferenceId(report.getReportId());
-            n.setStatus(NotificationStatus.SENT);
-            n.setIsRead(false);
-            notificationRepository.save(n);
+            notificationDispatchService.notifyUserFromTemplate(
+                    admin.getUser(),
+                    NotificationType.REPORT,
+                    "REPORT_CREATED",
+                    Map.of(
+                            "targetType", reportTargetLabel(report.getTargetType()),
+                            "category", reportCategoryLabel(report.getCategory())),
+                    "Báo cáo mới cần kiểm duyệt",
+                    content,
+                    "REPORT",
+                    report.getReportId());
         }
     }
 

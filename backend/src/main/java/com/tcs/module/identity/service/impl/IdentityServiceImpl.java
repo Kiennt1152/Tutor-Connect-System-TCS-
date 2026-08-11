@@ -71,6 +71,8 @@ public class IdentityServiceImpl implements IdentityService {
             "Tài khoản của bạn đã bị khóa và không thể đăng nhập. Vui lòng liên hệ quản trị viên.";
     private static final String BANNED_EMAIL_REGISTER_MESSAGE =
             "Email này đã bị khóa và không thể đăng ký tài khoản mới.";
+    private static final String SUSPENDED_LOGIN_MESSAGE =
+            "Tài khoản của bạn đang bị tạm ngừng. Vui lòng liên hệ quản trị viên.";
 
     /** Bo dem so lan gui ma theo IP trong 1 gio (best-effort, theo tien trinh). */
     private final Map<String, Deque<Long>> ipRequestLog = new ConcurrentHashMap<>();
@@ -299,11 +301,7 @@ public class IdentityServiceImpl implements IdentityService {
                 .findByEmail(request.getEmail().trim().toLowerCase())
                 .orElseThrow(() -> new IllegalArgumentException("Email hoặc mật khẩu không đúng"));
 
-        // Chi tai khoan BANNED moi bi chan dang nhap. SUSPENDED van vao duoc he thong
-        // nhung se bi gioi han mot so quyen (se cap nhat sau).
-        if (user.getStatus() == UserStatus.BANNED) {
-            throw new IllegalArgumentException(BANNED_LOGIN_MESSAGE);
-        }
+        ensureLoginAllowed(user);
         if (!passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
             throw new IllegalArgumentException("Email hoặc mật khẩu không đúng");
         }
@@ -313,7 +311,7 @@ public class IdentityServiceImpl implements IdentityService {
 
         UserProfileBundle profiles = loadProfiles(user.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);
-        String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role);
+        String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role, user.getTokenVersion());
         recordAudit(user.getUserId(), "LOGIN", "User", user.getUserId(), null,
                 Map.of("email", user.getEmail(), "method", "PASSWORD"));
         return buildAuthResponse(user, profiles, token);
@@ -337,16 +335,14 @@ public class IdentityServiceImpl implements IdentityService {
                     .suggestedDisplayName(suggestDisplayName(email, payload.getName()))
                     .build();
         }
-        if (user.getStatus() == UserStatus.BANNED) {
-            throw new IllegalArgumentException(BANNED_LOGIN_MESSAGE);
-        }
+        ensureLoginAllowed(user);
 
         user.setLastLogin(LocalDateTime.now());
         userRepository.save(user);
 
         UserProfileBundle profiles = loadProfiles(user.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);
-        String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role);
+        String token = jwtService.generateToken(user.getUserId(), user.getEmail(), role, user.getTokenVersion());
         recordAudit(user.getUserId(), "LOGIN", "User", user.getUserId(), null,
                 Map.of("email", user.getEmail(), "method", "GOOGLE"));
         return buildGoogleLoginResponse(user, profiles, token);
@@ -379,7 +375,8 @@ public class IdentityServiceImpl implements IdentityService {
 
         UserProfileBundle profiles = loadProfiles(savedUser.getUserId());
         UserRole role = platformMapper.resolveRole(profiles);
-        String token = jwtService.generateToken(savedUser.getUserId(), savedUser.getEmail(), role);
+        String token = jwtService.generateToken(
+                savedUser.getUserId(), savedUser.getEmail(), role, savedUser.getTokenVersion());
         recordAudit(savedUser.getUserId(), "REGISTER", "User", savedUser.getUserId(), null,
                 Map.of("email", email, "role", request.getRole().name(), "method", "GOOGLE"));
         return buildGoogleLoginResponse(savedUser, profiles, token);
@@ -389,6 +386,17 @@ public class IdentityServiceImpl implements IdentityService {
         return (googleName == null || googleName.isBlank())
                 ? email.substring(0, email.indexOf('@'))
                 : googleName.trim();
+    }
+
+    @Override
+    @Transactional
+    public void logout() {
+        User user = findUser(authHelper.currentUserId());
+        long previousVersion = user.getTokenVersion();
+        user.setTokenVersion(previousVersion + 1L);
+        userRepository.save(user);
+        recordAudit(user.getUserId(), "LOGOUT", "User", user.getUserId(),
+                Map.of("tokenVersion", previousVersion), Map.of("tokenVersion", user.getTokenVersion()));
     }
 
     /**
@@ -599,6 +607,15 @@ public class IdentityServiceImpl implements IdentityService {
         }
         if (!password.matches("^(?=.*[A-Za-z])(?=.*\\d).{8,}$")) {
             throw new IllegalArgumentException("Mật khẩu phải có ít nhất 8 ký tự, gồm cả chữ và số");
+        }
+    }
+
+    private void ensureLoginAllowed(User user) {
+        if (user.getStatus() == UserStatus.BANNED) {
+            throw new IllegalArgumentException(BANNED_LOGIN_MESSAGE);
+        }
+        if (user.getStatus() == UserStatus.SUSPENDED) {
+            throw new IllegalArgumentException(SUSPENDED_LOGIN_MESSAGE);
         }
     }
 

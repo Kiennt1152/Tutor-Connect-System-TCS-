@@ -10,16 +10,14 @@ import com.tcs.module.messaging.dto.response.UserSummaryResponse;
 import com.tcs.module.messaging.entity.Conversation;
 import com.tcs.module.messaging.entity.ConversationParticipant;
 import com.tcs.module.messaging.entity.Message;
-import com.tcs.module.messaging.entity.Notification;
 import com.tcs.module.messaging.enums.ConversationStatus;
 import com.tcs.module.messaging.enums.MessageType;
-import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.repository.ConversationParticipantRepository;
 import com.tcs.module.messaging.repository.ConversationRepository;
 import com.tcs.module.messaging.repository.MessageRepository;
-import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.messaging.service.ChatService;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.identity.repository.UserRepository;
@@ -47,6 +45,7 @@ import com.tcs.security.AuthHelper;
 import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -71,7 +70,6 @@ public class ChatServiceImpl implements ChatService {
     private final ConversationRepository conversationRepository;
     private final ConversationParticipantRepository conversationParticipantRepository;
     private final MessageRepository messageRepository;
-    private final NotificationRepository notificationRepository;
     private final UserRepository userRepository;
     private final PlatformAdminRepository platformAdminRepository;
     private final TutorRepository tutorRepository;
@@ -86,6 +84,7 @@ public class ChatServiceImpl implements ChatService {
     private final SimpMessagingTemplate messagingTemplate;
     private final CircumventionService circumventionService;
     private final PenaltyAccessService penaltyAccessService;
+    private final NotificationDispatchService notificationDispatchService;
 
     @Override
     @Transactional(readOnly = true)
@@ -594,16 +593,18 @@ public class ChatServiceImpl implements ChatService {
     }
 
     private void createGroupNotification(User member, Conversation group, User owner) {
-        Notification notification = new Notification();
-        notification.setUser(member);
-        notification.setType(NotificationType.CHAT);
-        notification.setTitle("Bạn đã được thêm vào nhóm " + group.getName());
-        notification.setContent(resolveDisplayName(owner) + " đã thêm bạn vào nhóm chat.");
-        notification.setReferenceType("CONVERSATION");
-        notification.setReferenceId(group.getConversationId());
-        notification.setStatus(NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        String ownerName = resolveDisplayName(owner);
+        String title = "Bạn đã được thêm vào nhóm " + group.getName();
+        String content = ownerName + " đã thêm bạn vào nhóm chat.";
+        notificationDispatchService.notifyUserFromTemplate(
+                member,
+                NotificationType.CHAT,
+                "CHAT_GROUP_MEMBER_ADDED",
+                Map.of("groupName", group.getName(), "ownerName", ownerName),
+                title,
+                content,
+                "CONVERSATION",
+                group.getConversationId());
     }
 
     private String resolveDisplayName(User user) {

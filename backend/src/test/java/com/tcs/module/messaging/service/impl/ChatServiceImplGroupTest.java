@@ -30,6 +30,7 @@ import com.tcs.module.messaging.repository.ConversationParticipantRepository;
 import com.tcs.module.messaging.repository.ConversationRepository;
 import com.tcs.module.messaging.repository.MessageRepository;
 import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.service.CircumventionService;
 import com.tcs.module.platform.service.PenaltyAccessService;
@@ -63,6 +64,7 @@ class ChatServiceImplGroupTest {
     @Mock private ConversationParticipantRepository participantRepository;
     @Mock private MessageRepository messageRepository;
     @Mock private NotificationRepository notificationRepository;
+    @Mock private NotificationDispatchService notificationDispatchService;
     @Mock private UserRepository userRepository;
     @Mock private PlatformAdminRepository platformAdminRepository;
     @Mock private TutorRepository tutorRepository;
@@ -121,7 +123,12 @@ class ChatServiceImplGroupTest {
         assertEquals("Nhóm học Toán", response.getName());
         assertEquals(owner.getUserId(), response.getOwnerUserId());
         assertEquals(3, response.getParticipantCount());
-        verify(notificationRepository, times(2)).save(any(Notification.class));
+        verify(notificationDispatchService, times(2)).notifyUserFromTemplate(
+                any(), any(),
+                org.mockito.ArgumentMatchers.eq("CHAT_GROUP_MEMBER_ADDED"),
+                any(), any(), any(),
+                org.mockito.ArgumentMatchers.eq("CONVERSATION"),
+                org.mockito.ArgumentMatchers.eq(10L));
     }
 
     @Test

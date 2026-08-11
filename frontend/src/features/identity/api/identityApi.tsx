@@ -27,6 +27,10 @@ export const identityApi = {
     return data;
   },
 
+  async logout(): Promise<void> {
+    await axiosClient.post(`${BASE}/logout`);
+  },
+
   async loginWithGoogle(body: GoogleLoginRequest): Promise<GoogleLoginResponse> {
     const { data } = await axiosClient.post<GoogleLoginResponse>(`${BASE}/google`, body);
     return data;

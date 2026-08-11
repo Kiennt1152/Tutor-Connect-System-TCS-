@@ -20,6 +20,7 @@ import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
+import com.tcs.module.catalog.repository.SystemParameterRepository;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.ClassAssignment;
@@ -57,6 +58,7 @@ public class EscrowServiceImpl implements EscrowService {
     private final ClassStudentRepository classStudentRepository;
     private final PaymentNotificationService paymentNotificationService;
     private final PlatformAdminRepository platformAdminRepository;
+    private final SystemParameterRepository systemParameterRepository;
 
     @Override
     @Transactional
@@ -218,33 +220,81 @@ public class EscrowServiceImpl implements EscrowService {
     private void releaseToBeneficiary(
             EscrowTransaction escrow,
             Long payerUserId,
-            BigDecimal amount,
+            BigDecimal grossAmount,
             String reason) {
 
         String reference = RELEASE_REF_PREFIX + escrow.getEscrowId();
         if (paymentUsesPayerWallet(escrow, payerUserId)) {
-            walletService.releaseLockedFunds(payerUserId, amount, reference);
+            walletService.releaseLockedFunds(payerUserId, grossAmount, reference);
         }
 
+        BigDecimal feeRate = resolvePlatformFeeRate();
+        BigDecimal platformFee = grossAmount.multiply(feeRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal netAmount = grossAmount.subtract(platformFee);
         Long beneficiaryUserId = beneficiaryUserId(escrow);
-        walletService.credit(beneficiaryUserId, amount, reference);
+        if (netAmount.compareTo(BigDecimal.ZERO) > 0) {
+            walletService.credit(beneficiaryUserId, netAmount, reference);
+        }
         Wallet beneficiaryWallet = walletService.getOrCreate(beneficiaryUserId);
 
         PaymentTransaction tx = new PaymentTransaction();
         tx.setWallet(beneficiaryWallet);
         tx.setType(PaymentTransactionType.ESCROW_RELEASE);
         tx.setStatus(PaymentTransactionStatus.SUCCESS);
-        tx.setAmount(amount);
+        tx.setAmount(netAmount);
         tx.setDescription(buildSettlementDescription("Giải ngân escrow", reason));
         tx.setReferenceCode(reference);
         tx.setProcessedAt(LocalDateTime.now());
         paymentTransactionRepository.save(tx);
+        recordPlatformFee(escrow, platformFee, feeRate);
         paymentNotificationService.notifyPayment(
                 beneficiaryUserId,
                 "Đã nhận tiền từ escrow",
-                "Ví của bạn đã được cộng " + formatAmount(amount) + " từ tất toán escrow #" + escrow.getEscrowId() + ".",
+                "Ví của bạn đã được cộng " + formatAmount(netAmount) + " từ tất toán escrow #"
+                        + escrow.getEscrowId() + " sau phí nền tảng " + formatAmount(platformFee) + ".",
                 "ESCROW",
                 escrow.getEscrowId());
+    }
+
+    private void recordPlatformFee(EscrowTransaction escrow, BigDecimal fee, BigDecimal feeRate) {
+        if (fee.compareTo(BigDecimal.ZERO) <= 0) {
+            return;
+        }
+        Wallet platformWallet = walletService.getSystemEscrowWallet();
+        Long platformUserId = platformWallet.getUser().getUserId();
+        String reference = "PLATFORM_FEE-" + escrow.getEscrowId();
+        walletService.credit(platformUserId, fee, reference);
+
+        PaymentTransaction feeTransaction = new PaymentTransaction();
+        feeTransaction.setWallet(platformWallet);
+        feeTransaction.setType(PaymentTransactionType.PLATFORM_FEE);
+        feeTransaction.setStatus(PaymentTransactionStatus.SUCCESS);
+        feeTransaction.setAmount(fee);
+        feeTransaction.setDescription("Phí nền tảng escrow #" + escrow.getEscrowId()
+                + " (" + feeRate.multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%)");
+        feeTransaction.setReferenceCode(reference);
+        feeTransaction.setProcessedAt(LocalDateTime.now());
+        paymentTransactionRepository.save(feeTransaction);
+    }
+
+    private BigDecimal resolvePlatformFeeRate() {
+        BigDecimal fallback = new BigDecimal("0.10");
+        if (systemParameterRepository == null) {
+            return fallback;
+        }
+        return systemParameterRepository.findByParamKey("PLATFORM_FEE_RATE")
+                .map(parameter -> {
+                    try {
+                        BigDecimal parsed = new BigDecimal(parameter.getParamValue().trim());
+                        return parsed.compareTo(BigDecimal.ZERO) >= 0
+                                        && parsed.compareTo(new BigDecimal("0.50")) <= 0
+                                ? parsed
+                                : fallback;
+                    } catch (RuntimeException exception) {
+                        return fallback;
+                    }
+                })
+                .orElse(fallback);
     }
 
     private void refundToPayer(

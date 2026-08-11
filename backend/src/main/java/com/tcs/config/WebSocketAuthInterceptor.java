@@ -40,10 +40,13 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
             if (authHeader != null && authHeader.startsWith("Bearer ")) {
                 String token = authHeader.substring(7);
                 try {
-                    String email = jwtService.parseClaims(token).get("email", String.class);
+                    var claims = jwtService.parseClaims(token);
+                    String email = claims.get("email", String.class);
                     if (email != null) {
                         UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-                        if (userDetails.isEnabled()) {
+                        if (userDetails.isEnabled()
+                                && userDetails instanceof UserPrincipal principal
+                                && principal.getTokenVersion() == jwtService.extractTokenVersion(claims)) {
                             Authentication authentication = new UsernamePasswordAuthenticationToken(
                                     userDetails, null, userDetails.getAuthorities());
                             accessor.setUser(authentication);

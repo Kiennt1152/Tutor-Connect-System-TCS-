@@ -12,9 +12,21 @@ export function notificationLink(
     return isAdmin ? APP_ROUTES.platformTickets : APP_ROUTES.messagingTickets;
   }
 
+  if (n.referenceType === 'PENALTY') {
+    return isAdmin ? APP_ROUTES.platformPenalties : APP_ROUTES.profile;
+  }
+
+  if (n.referenceType === 'CLASS_REQUEST') {
+    return role === 'TUTOR_CENTER' ? APP_ROUTES.center : APP_ROUTES.marketplace;
+  }
+
+  if (n.referenceType === 'REPORT') {
+    return isAdmin ? APP_ROUTES.platformReports : APP_ROUTES.help;
+  }
+
   switch (n.type) {
     case 'REPORT':
-      return APP_ROUTES.platformReports;
+      return isAdmin ? APP_ROUTES.platformReports : APP_ROUTES.help;
 
     case 'VERIFICATION':
       return isAdmin ? APP_ROUTES.platformVerifications : APP_ROUTES.verification;

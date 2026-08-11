@@ -2,10 +2,9 @@ package com.tcs.module.finance.service;
 
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
-import com.tcs.module.messaging.entity.Notification;
-import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
-import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.messaging.service.NotificationDispatchService;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -14,7 +13,7 @@ import org.springframework.stereotype.Service;
 public class PaymentNotificationService {
 
     private final UserRepository userRepository;
-    private final NotificationRepository notificationRepository;
+    private final NotificationDispatchService notificationDispatchService;
 
     public void notifyPayment(Long userId, String title, String content, String referenceType, Long referenceId) {
         if (userId == null) {
@@ -29,15 +28,15 @@ public class PaymentNotificationService {
             return;
         }
 
-        Notification notification = new Notification();
-        notification.setUser(user);
-        notification.setType(NotificationType.PAYMENT);
-        notification.setTitle(title);
-        notification.setContent(content);
-        notification.setReferenceType(referenceType);
-        notification.setReferenceId(referenceId);
-        notification.setStatus(NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        String templateCode = "PAYMENT_" + (referenceType == null ? "EVENT" : referenceType);
+        notificationDispatchService.notifyUserFromTemplate(
+                user,
+                NotificationType.PAYMENT,
+                templateCode,
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                referenceType,
+                referenceId);
     }
 }

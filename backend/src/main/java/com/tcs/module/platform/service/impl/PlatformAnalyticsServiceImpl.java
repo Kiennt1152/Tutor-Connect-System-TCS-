@@ -28,7 +28,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.nio.charset.StandardCharsets;
 import java.time.YearMonth;
 import java.time.LocalDate;
@@ -96,13 +95,17 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                 // ignore, fallback to default
             }
         }
-        BigDecimal platformFeeRevenue = totalRevenue.multiply(platformFeeRate).setScale(2, RoundingMode.HALF_UP);
+        BigDecimal platformFeeRevenue = sumTransactions(allTransactions, PaymentTransactionType.PLATFORM_FEE);
         BigDecimal deposits = sumTransactions(allTransactions, PaymentTransactionType.DEPOSIT);
         BigDecimal withdrawals = sumTransactions(allTransactions, PaymentTransactionType.WITHDRAWAL);
         BigDecimal escrowDeposited = sumTransactions(allTransactions, PaymentTransactionType.ESCROW_DEPOSIT);
         BigDecimal escrowReleased = sumTransactions(allTransactions, PaymentTransactionType.ESCROW_RELEASE);
         BigDecimal escrowRefunded = sumTransactions(allTransactions, PaymentTransactionType.REFUND);
-        BigDecimal escrowHeld = escrowDeposited.subtract(escrowReleased).subtract(escrowRefunded).max(BigDecimal.ZERO);
+        BigDecimal escrowHeld = escrowDeposited
+                .subtract(escrowReleased)
+                .subtract(escrowRefunded)
+                .subtract(platformFeeRevenue)
+                .max(BigDecimal.ZERO);
 
         long totalVerif = verificationRequestRepository.count();
         long approvedVerif = verificationRequestRepository.findAll().stream()
@@ -161,6 +164,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                 .completedClasses(completedClasses)
                 .totalRevenue(totalRevenue)
                 .platformFeeRevenue(platformFeeRevenue)
+                .platformFeeRate(platformFeeRate)
                 .deposits(deposits)
                 .withdrawals(withdrawals)
                 .escrowHeld(escrowHeld)

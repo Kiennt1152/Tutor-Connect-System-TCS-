@@ -120,7 +120,7 @@ export const platformApi = {
   },
 
   resolveReport(reportId: number, payload: ResolveReportApiRequest) {
-    return axiosClient.patch(`${BASE}/reports/${reportId}/resolve`, payload);
+    return axiosClient.patch<ReportApiResponse>(`${BASE}/reports/${reportId}`, payload);
   },
 
   getDisputes(status?: DisputeStatus) {

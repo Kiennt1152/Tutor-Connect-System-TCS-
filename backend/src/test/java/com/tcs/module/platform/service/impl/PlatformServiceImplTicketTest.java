@@ -3,6 +3,7 @@ package com.tcs.module.platform.service.impl;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.dto.request.CloseTicketRequest;
 import com.tcs.module.platform.dto.request.RespondTicketRequest;
 import com.tcs.module.platform.dto.request.UpdateTicketRequest;
@@ -51,6 +52,8 @@ class PlatformServiceImplTicketTest {
     private TicketMessageRepository ticketMessageRepository;
     @Mock
     private NotificationRepository notificationRepository;
+    @Mock
+    private NotificationDispatchService notificationDispatchService;
     @Mock
     private AuditLogService auditLogService;
     @Mock

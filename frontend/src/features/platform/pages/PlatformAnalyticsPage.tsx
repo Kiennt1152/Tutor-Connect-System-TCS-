@@ -148,7 +148,9 @@ export default function PlatformAnalyticsPage() {
             <span className="adm-analytics-card-value">{data.totalRevenue.toLocaleString('vi-VN')} VND</span>
           </div>
           <div className="adm-analytics-card adm-analytics-card--revenue">
-            <span className="adm-analytics-card-title">Doanh thu phí dịch vụ (10%)</span>
+            <span className="adm-analytics-card-title">
+              Doanh thu phí dịch vụ ({(data.platformFeeRate * 100).toLocaleString('vi-VN')}%)
+            </span>
             <span className="adm-analytics-card-value">{data.platformFeeRevenue.toLocaleString('vi-VN')} VND</span>
           </div>
         </div>
