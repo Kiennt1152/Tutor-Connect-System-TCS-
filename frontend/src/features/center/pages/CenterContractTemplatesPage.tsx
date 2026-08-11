@@ -174,25 +174,6 @@ export default function CenterContractTemplatesPage() {
                     onChange={(e) => setForm({ ...form, content: e.target.value })}
                     placeholder="Nhập các điều khoản & nghĩa vụ..."
                   />
-                  <p className="cct-hint">
-                    Chỉ nhập <strong>điều khoản & nghĩa vụ</strong>. Quốc hiệu, tiêu ngữ, tiêu đề và
-                    thông tin các bên sẽ được hệ thống tự thêm khi tạo hợp đồng. Có thể dùng biến tự
-                    điền:{' '}
-                    {form.contractType === 'RECRUITMENT' ? (
-                      <>
-                        <code>{'{{tenGiaSu}}'}</code>, <code>{'{{tenTrungTam}}'}</code>,{' '}
-                        <code>{'{{ngayKy}}'}</code>.
-                      </>
-                    ) : (
-                      <>
-                        <code>{'{{tenHocVien}}'}</code>, <code>{'{{tenTrungTam}}'}</code>,{' '}
-                        <code>{'{{tenLop}}'}</code>, <code>{'{{monHoc}}'}</code>,{' '}
-                        <code>{'{{hocPhi}}'}</code>, <code>{'{{soBuoi}}'}</code>,{' '}
-                        <code>{'{{ngayBatDau}}'}</code>, <code>{'{{ngayKetThuc}}'}</code>,{' '}
-                        <code>{'{{ngayKy}}'}</code>.
-                      </>
-                    )}
-                  </p>
                 </div>
               </div>
               <div className="cct-actions">
