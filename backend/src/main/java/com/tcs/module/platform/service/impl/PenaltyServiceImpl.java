@@ -14,6 +14,8 @@ import com.tcs.module.platform.enums.UserPenaltyType;
 import com.tcs.module.platform.repository.UserPenaltyRepository;
 import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.platform.service.PenaltyService;
+import com.tcs.module.messaging.enums.NotificationType;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
@@ -29,6 +31,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -41,6 +45,10 @@ public class PenaltyServiceImpl implements PenaltyService {
     private final PlatformAdminRepository platformAdminRepository;
     private final AuthHelper authHelper;
     private final AuditLogService auditLogService;
+    private final NotificationDispatchService notificationDispatchService;
+
+    private static final Set<UserPenaltyType> BAN_TYPES = Set.of(
+            UserPenaltyType.TEMPORARY_BAN, UserPenaltyType.PERMANENT_BAN);
 
     private PlatformAdmin currentAdminOrThrow() {
         Long adminUserId = authHelper.requireRole(UserRole.PLATFORM_ADMIN).getUserId();
@@ -66,7 +74,7 @@ public class PenaltyServiceImpl implements PenaltyService {
             userPenaltyRepository.save(penalty);
 
             User user = penalty.getUser();
-            if (!userPenaltyRepository.existsByUser_UserIdAndStatus(user.getUserId(), UserPenaltyStatus.ACTIVE)) {
+            if (!hasActiveBan(user.getUserId())) {
                 user.setStatus(UserStatus.ACTIVE);
                 userRepository.save(user);
             }
@@ -96,8 +104,16 @@ public class PenaltyServiceImpl implements PenaltyService {
     @Override
     @Transactional
     public PenaltyResponse issuePenalty(IssuePenaltyRequest request) {
+        PlatformAdmin issuingAdmin = currentAdminOrThrow();
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+
+        if (issuingAdmin.getUser().getUserId().equals(user.getUserId())) {
+            throw new IllegalArgumentException("Quản trị viên không thể tự áp dụng hình phạt.");
+        }
+        if (platformAdminRepository.findByUser_UserId(user.getUserId()).isPresent()) {
+            throw new IllegalArgumentException("Không thể áp dụng hình phạt cho tài khoản quản trị viên khác.");
+        }
 
         UserPenaltyType penaltyType;
         try {
@@ -115,10 +131,13 @@ public class PenaltyServiceImpl implements PenaltyService {
         if (penaltyType == UserPenaltyType.PERMANENT_BAN) {
             request.setExpiresAt(null);
         }
+        if (penaltyType == UserPenaltyType.FEATURE_RESTRICTION) {
+            validateRestrictionCodes(request.getRestrictionDetails());
+        }
 
         UserPenalty penalty = new UserPenalty();
         penalty.setUser(user);
-        penalty.setIssuedBy(currentAdminOrThrow());
+        penalty.setIssuedBy(issuingAdmin);
         penalty.setPenaltyType(penaltyType);
         penalty.setReason(request.getReason());
         penalty.setEvidenceUrls(request.getEvidenceUrls());
@@ -135,6 +154,12 @@ public class PenaltyServiceImpl implements PenaltyService {
 
         userPenaltyRepository.save(penalty);
         auditLogService.record("ISSUE_PENALTY", "UserPenalty", penalty.getPenaltyId(), null, request);
+        notificationDispatchService.notifyUserFromTemplate(
+                user, NotificationType.SYSTEM, "PENALTY_ISSUED",
+                Map.of("penaltyType", penaltyType.name(), "reason", request.getReason()),
+                "Tài khoản của bạn vừa nhận một hình phạt",
+                "Loại: " + penaltyType.name() + ". Lý do: " + request.getReason(),
+                "PENALTY", penalty.getPenaltyId());
         return toResponse(penalty);
     }
 
@@ -155,12 +180,29 @@ public class PenaltyServiceImpl implements PenaltyService {
         auditLogService.record("REVOKE_PENALTY", "UserPenalty", penalty.getPenaltyId(), null, request);
 
         User user = penalty.getUser();
-        if (!userPenaltyRepository.existsByUser_UserIdAndStatus(user.getUserId(), UserPenaltyStatus.ACTIVE)) {
+        if (!hasActiveBan(user.getUserId())) {
             user.setStatus(UserStatus.ACTIVE);
             userRepository.save(user);
         }
 
         return toResponse(penalty);
+    }
+
+    private boolean hasActiveBan(Long userId) {
+        return userPenaltyRepository.existsByUser_UserIdAndStatusAndPenaltyTypeIn(
+                userId, UserPenaltyStatus.ACTIVE, BAN_TYPES);
+    }
+
+    private void validateRestrictionCodes(String details) {
+        if (details == null || details.isBlank()) {
+            throw new IllegalArgumentException("Hạn chế tính năng phải có mã tính năng.");
+        }
+        Set<String> allowed = Set.of("MESSAGING", "CLASS_POSTING", "CLASS_APPLICATION", "WITHDRAWAL");
+        String normalized = details.toUpperCase(java.util.Locale.ROOT).trim();
+        if (!(normalized.startsWith("{") || normalized.startsWith("["))
+                || allowed.stream().noneMatch(normalized::contains)) {
+            throw new IllegalArgumentException("restrictionDetails phải là JSON chứa mã tính năng hợp lệ: " + allowed);
+        }
     }
 
     private PenaltyResponse toResponse(UserPenalty penalty) {

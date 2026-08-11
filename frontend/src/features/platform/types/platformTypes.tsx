@@ -767,6 +767,33 @@ export interface AnnouncementItem {
   updatedAt: string | null;
 }
 
+export interface NotificationTemplateApiResponse {
+  templateId: number;
+  code: string;
+  titleTemplate: string;
+  contentTemplate: string;
+  channel: 'IN_APP' | 'EMAIL';
+  description: string | null;
+  enabled: boolean;
+  placeholders: string[];
+  updatedAt: string;
+}
+
+export interface UpsertNotificationTemplateApiRequest {
+  code: string;
+  titleTemplate: string;
+  contentTemplate: string;
+  channel: 'IN_APP' | 'EMAIL';
+  description: string;
+  enabled: boolean;
+}
+
+export interface NotificationTemplatePreviewApiResponse {
+  title: string;
+  content: string;
+  unresolvedPlaceholders: string[];
+}
+
 /* ── User Penalties ── */
 
 export type PenaltyType = 'WARNING' | 'FEATURE_RESTRICTION' | 'TEMPORARY_BAN' | 'PERMANENT_BAN';
@@ -919,8 +946,29 @@ export interface AnalyticsSummaryApiResponse {
   completedClasses: number;
   totalRevenue: number;
   platformFeeRevenue: number;
+  deposits: number;
+  withdrawals: number;
+  escrowHeld: number;
+  escrowReleased: number;
+  escrowRefunded: number;
   verificationConversionRate: number;
   disputeRate: number;
   contractCompletionRate: number;
   monthlyMetrics: MonthlyMetricApiResponse[];
 }
+
+export interface AdminEscrowApiResponse {
+  escrowId: number; paymentId: number; referenceCode: string | null; amount: number; status: EscrowStatus;
+  payerUserId: number; payerEmail: string; beneficiaryUserId: number | null; beneficiaryEmail: string | null;
+  assignmentId: number | null; classStudentId: number | null; depositedAt: string | null; releasedAt: string | null;
+  createdAt: string; updatedAt: string;
+}
+export interface AdminEscrowPageApiResponse { content: AdminEscrowApiResponse[]; page: number; size: number; totalElements: number; totalPages: number; }
+
+export type CircumventionStatus = 'PENDING' | 'CONFIRMED' | 'DISMISSED';
+export interface CircumventionEventApiResponse {
+  eventId: number; messageId: number; conversationId: number; senderId: number; senderEmail: string;
+  matchedRule: string; evidence: string; riskScore: number; status: CircumventionStatus;
+  reviewNote: string | null; reviewedAt: string | null; createdAt: string;
+}
+export interface PageCircumventionEventApiResponse { content: CircumventionEventApiResponse[]; page: number; size: number; totalElements: number; totalPages: number; }

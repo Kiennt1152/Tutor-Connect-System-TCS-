@@ -29,7 +29,9 @@ export function notificationLink(
       return APP_ROUTES.teaching;
 
     case 'CHAT':
-      return APP_ROUTES.messaging;
+      return n.referenceType === 'CONVERSATION' && n.referenceId
+        ? `${APP_ROUTES.messaging}?conv=${n.referenceId}`
+        : APP_ROUTES.messaging;
 
     case 'PAYMENT':
       return APP_ROUTES.finance;

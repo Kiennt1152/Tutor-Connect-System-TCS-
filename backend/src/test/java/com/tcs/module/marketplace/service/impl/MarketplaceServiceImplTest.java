@@ -51,6 +51,7 @@ import com.tcs.module.messaging.entity.Notification;
 import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
@@ -69,6 +70,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class MarketplaceServiceImplTest {
+
+    @Mock private PenaltyAccessService penaltyAccessService;
 
     private static final Long CLASS_ID = 5L;
     private static final Long ASSIGNMENT_ID = 7L;

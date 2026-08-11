@@ -85,6 +85,7 @@ import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.MarketplaceService;
 import com.tcs.module.platform.service.AuditLogService;
+import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.module.profile.dto.CccdInfoDto;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
@@ -175,6 +176,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final LessonRescheduleRequestRepository rescheduleRequestRepository;
     private final com.tcs.module.messaging.repository.NotificationRepository notificationRepository;
     private final AuditLogService auditLogService;
+    private final PenaltyAccessService penaltyAccessService;
     private final TutorCenterRepository tutorCenterRepository;
     private final ClassRequestStore classRequestStore;
     private final ContractService contractService;
@@ -229,6 +231,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Transactional
     public ClassResponse createClass(CreateClassRequest request) {
         User creator = requireUser();
+        penaltyAccessService.requireFeature(creator.getUserId(), "CLASS_POSTING");
         requireClient(creator.getUserId());
         if (request.getSubjectId() == null && !StringUtils.hasText(request.getDetailsJson())) {
             throw new IllegalArgumentException("Vui lòng chọn môn học");
@@ -370,6 +373,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Transactional
     public void applyToClass(Long classId, ApplyClassRequest request) {
         Tutor tutor = requireTutor();
+        penaltyAccessService.requireFeature(tutor.getUser().getUserId(), "CLASS_APPLICATION");
         // Chặn cứng: chỉ gia sư đã được xác minh mới được ứng tuyển vào lớp.
         if (tutor.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
             throw new VerificationRequiredException(

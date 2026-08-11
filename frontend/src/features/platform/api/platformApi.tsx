@@ -45,6 +45,13 @@ import type {
   WithdrawalDecisionApiRequest,
   WithdrawalListFilters,
   AnalyticsSummaryApiResponse,
+  NotificationTemplateApiResponse,
+  NotificationTemplatePreviewApiResponse,
+  UpsertNotificationTemplateApiRequest,
+  AdminEscrowPageApiResponse,
+  CircumventionStatus,
+  PageCircumventionEventApiResponse,
+  CircumventionEventApiResponse,
 } from '../types/platformTypes';
 import {
   buildTicketListQuery,
@@ -203,6 +210,39 @@ export const platformApi = {
     return axiosClient.delete(`${BASE}/announcements/${announcementId}`);
   },
 
+  getEscrows(filters: Record<string, string>) {
+    return axiosClient.get<AdminEscrowPageApiResponse>(`${BASE}/escrows?${new URLSearchParams(filters)}`);
+  },
+
+  getCircumventionEvents(status?: CircumventionStatus) {
+    const query = status ? `?status=${status}` : '';
+    return axiosClient.get<PageCircumventionEventApiResponse>(`${BASE}/circumvention-events${query}`);
+  },
+
+  reviewCircumventionEvent(eventId: number, status: Exclude<CircumventionStatus, 'PENDING'>, note: string) {
+    return axiosClient.patch<CircumventionEventApiResponse>(`${BASE}/circumvention-events/${eventId}`, { status, note });
+  },
+
+  getNotificationTemplates() {
+    return axiosClient.get<NotificationTemplateApiResponse[]>(`${BASE}/notification-templates`);
+  },
+
+  createNotificationTemplate(payload: UpsertNotificationTemplateApiRequest) {
+    return axiosClient.post<NotificationTemplateApiResponse>(`${BASE}/notification-templates`, payload);
+  },
+
+  updateNotificationTemplate(templateId: number, payload: UpsertNotificationTemplateApiRequest) {
+    return axiosClient.patch<NotificationTemplateApiResponse>(`${BASE}/notification-templates/${templateId}`, payload);
+  },
+
+  disableNotificationTemplate(templateId: number) {
+    return axiosClient.delete<NotificationTemplateApiResponse>(`${BASE}/notification-templates/${templateId}`);
+  },
+
+  previewNotificationTemplate(payload: Pick<UpsertNotificationTemplateApiRequest, 'titleTemplate' | 'contentTemplate'> & { variables: Record<string, string> }) {
+    return axiosClient.post<NotificationTemplatePreviewApiResponse>(`${BASE}/notification-templates/preview`, payload);
+  },
+
   getPublicAnnouncements() {
     return axiosClient.get<AnnouncementApiResponse[]>('/home/announcements');
   },
@@ -249,12 +289,18 @@ export const platformApi = {
     return axiosClient.get<PageTaskItemApiResponse>(`${BASE}/tasks?${params}`);
   },
 
-  getAnalyticsSummary() {
-    return axiosClient.get<AnalyticsSummaryApiResponse>(`${BASE}/analytics/summary`);
+  getAnalyticsSummary(from?: string, to?: string) {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return axiosClient.get<AnalyticsSummaryApiResponse>(`${BASE}/analytics/summary?${params}`);
   },
 
-  exportAnalyticsCsv(type: 'users' | 'classes' | 'revenue') {
-    return axiosClient.get<Blob>(`${BASE}/analytics/export?type=${type}&format=csv`, {
+  exportAnalyticsCsv(type: 'users' | 'classes' | 'revenue', from?: string, to?: string) {
+    const params = new URLSearchParams({ type, format: 'csv' });
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return axiosClient.get<Blob>(`${BASE}/analytics/export?${params}`, {
       responseType: 'blob',
     });
   },

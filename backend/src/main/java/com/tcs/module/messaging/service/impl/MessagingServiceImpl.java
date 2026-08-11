@@ -311,12 +311,32 @@ public class MessagingServiceImpl implements MessagingService {
         User reporter = userRepository
                 .findById(authHelper.currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+        String description = request.getDescription() == null ? "" : request.getDescription().trim();
+        if (description.length() < 10) {
+            throw new IllegalArgumentException("Mô tả báo cáo phải có ít nhất 10 ký tự.");
+        }
+        if (reportRepository.countByReporter_UserIdAndCreatedAtAfter(
+                reporter.getUserId(), LocalDateTime.now().minusDays(1)) >= 5) {
+            throw new IllegalArgumentException("Bạn đã đạt giới hạn 5 báo cáo trong 24 giờ.");
+        }
+        if (request.getTargetType() == com.tcs.module.platform.enums.ReportTargetType.USER) {
+            if (reporter.getUserId().equals(request.getTargetId())) {
+                throw new IllegalArgumentException("Không thể báo cáo chính mình.");
+            }
+            userRepository.findById(request.getTargetId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng bị báo cáo."));
+        }
+        if (!reportRepository.findByReporter_UserIdAndTargetTypeAndTargetIdAndStatusOrderByCreatedAtDesc(
+                reporter.getUserId(), request.getTargetType(), request.getTargetId(),
+                com.tcs.module.platform.enums.ReportStatus.PENDING).isEmpty()) {
+            throw new IllegalArgumentException("Bạn đã có một báo cáo đang chờ xử lý cho đối tượng này.");
+        }
         Report report = new Report();
         report.setReporter(reporter);
         report.setTargetType(request.getTargetType());
         report.setTargetId(request.getTargetId());
         report.setCategory(request.getCategory());
-        report.setDescription(request.getDescription() != null ? request.getDescription() : "");
+        report.setDescription(description);
         report.setEvidenceUrls(request.getEvidenceUrls());
         Report saved = reportRepository.save(report);
 

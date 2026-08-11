@@ -18,6 +18,11 @@ public class AnalyticsSummaryResponse {
     long completedClasses;
     BigDecimal totalRevenue;
     BigDecimal platformFeeRevenue;
+    BigDecimal deposits;
+    BigDecimal withdrawals;
+    BigDecimal escrowHeld;
+    BigDecimal escrowReleased;
+    BigDecimal escrowRefunded;
     double verificationConversionRate;
     double disputeRate;
     double contractCompletionRate;

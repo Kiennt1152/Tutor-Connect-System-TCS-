@@ -203,7 +203,7 @@ public class PlatformServiceImpl implements PlatformService {
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard() {
         com.tcs.module.platform.dto.response.TaskQueueSummaryResponse taskSummary = taskQueueService.getSummary();
-        com.tcs.module.platform.dto.response.AnalyticsSummaryResponse analyticsSummary = analyticsService.getSummary();
+        com.tcs.module.platform.dto.response.AnalyticsSummaryResponse analyticsSummary = analyticsService.getSummary(null, null);
 
         java.util.List<com.tcs.module.platform.dto.response.DashboardAlertResponse> alerts = new java.util.ArrayList<>();
         if (taskSummary.getOpenDisputes() > 0) {
@@ -746,18 +746,58 @@ public class PlatformServiceImpl implements PlatformService {
     @Transactional
     public SupportTicketDetailResponse updateTicket(Long ticketId, UpdateTicketRequest request) {
         SupportTicket ticket = findTicketOrThrow(ticketId);
-        java.util.Map<String, Object> oldValue = java.util.Map.of(
-                "category", ticket.getCategory(), "priority", ticket.getPriority());
 
-        if (request.getCategory() != null) {
+        if (ticket.getStatus() == SupportTicketStatus.RESOLVED
+                || ticket.getStatus() == SupportTicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Không thể chỉnh ticket đã kết thúc");
+        }
+        if (request == null || (request.getCategory() == null && request.getPriority() == null)) {
+            throw new IllegalArgumentException("Hãy chọn category hoặc priority cần cập nhật");
+        }
+
+        boolean categoryChanged = request.getCategory() != null
+                && request.getCategory() != ticket.getCategory();
+        boolean priorityChanged = request.getPriority() != null
+                && request.getPriority() != ticket.getPriority();
+        if (!categoryChanged && !priorityChanged) {
+            throw new IllegalArgumentException("Ticket không có thay đổi để lưu");
+        }
+
+        Map<String, Object> oldValue = ticketAuditSnapshot(ticket);
+
+        if (categoryChanged) {
             ticket.setCategory(request.getCategory());
         }
-        if (request.getPriority() != null) {
+        if (priorityChanged) {
             ticket.setPriority(request.getPriority());
+            LocalDateTime baseTime = ticket.getCreatedAt() != null
+                    ? ticket.getCreatedAt()
+                    : LocalDateTime.now();
+            LocalDateTime dueAt = baseTime.plusHours(calculateTicketSlaHours(request.getPriority()));
+            ticket.setDueAt(dueAt);
+            ticket.setSlaBreached(LocalDateTime.now().isAfter(dueAt));
         }
         SupportTicket saved = supportTicketRepository.save(ticket);
-        auditLogService.record("UPDATE_TICKET", "SupportTicket", ticketId, oldValue, request);
+        auditLogService.record(
+                "UPDATE_TICKET", "SupportTicket", ticketId, oldValue, ticketAuditSnapshot(saved));
         return toTicketDetail(saved);
+    }
+
+    private Map<String, Object> ticketAuditSnapshot(SupportTicket ticket) {
+        Map<String, Object> value = new LinkedHashMap<>();
+        value.put("category", ticket.getCategory());
+        value.put("priority", ticket.getPriority());
+        value.put("dueAt", ticket.getDueAt());
+        return value;
+    }
+
+    private int calculateTicketSlaHours(SupportTicketPriority priority) {
+        return switch (priority) {
+            case URGENT -> 4;
+            case HIGH -> 12;
+            case MEDIUM -> 24;
+            case LOW -> 48;
+        };
     }
 
     @Override
