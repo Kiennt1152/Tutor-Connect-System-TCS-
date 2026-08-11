@@ -54,9 +54,13 @@ cd Tutor-Connect-System-TCS-
 ### 2. Configure environment
 
 ```bash
-cp .env.example .env
+cp backend/.env.example backend/.env
 # Edit .env with your actual credentials
 ```
+
+`JWT_SECRET` is required and must contain at least 32 random characters. The backend loads
+`backend/.env` when started from either the repository root (such as IntelliJ) or the
+`backend` directory. Environment variables still take precedence in deployed environments.
 
 ### 3. Set up the database
 
