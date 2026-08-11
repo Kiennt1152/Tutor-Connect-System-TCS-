@@ -71,12 +71,13 @@ public class VerificationServiceImpl implements VerificationService {
                 .orElseThrow(() -> new ResourceNotFoundException("User not found: " + userId));
 
         UserRole role = authHelper.requireAuthenticated().getRole();
-        if (role != UserRole.TUTOR && role != UserRole.TUTOR_CENTER) {
-            throw new ForbiddenException("Chỉ gia sư hoặc trung tâm mới được nộp xác minh");
+        if (role != UserRole.CLIENT && role != UserRole.TUTOR && role != UserRole.TUTOR_CENTER) {
+            throw new ForbiddenException("Chỉ phụ huynh, gia sư hoặc trung tâm mới được nộp xác minh");
         }
 
-        if (role == UserRole.TUTOR && request.getVerificationType() != VerificationType.TUTOR_PROFILE) {
-            throw new BusinessException("Tài khoản gia sư chỉ được nộp hồ sơ loại TUTOR_PROFILE");
+        if ((role == UserRole.CLIENT || role == UserRole.TUTOR)
+                && request.getVerificationType() != VerificationType.TUTOR_PROFILE) {
+            throw new BusinessException("Tài khoản này chỉ được nộp hồ sơ xác minh danh tính");
         }
         if (role == UserRole.TUTOR_CENTER
                 && request.getVerificationType() != VerificationType.TUTOR_CENTER_LICENSE) {
@@ -106,7 +107,7 @@ public class VerificationServiceImpl implements VerificationService {
             throw new IllegalArgumentException("At least one document is required");
         }
 
-        validateRequiredDocuments(request);
+        validateRequiredDocuments(request, role);
 
         VerificationRequest verification = new VerificationRequest();
         verification.setUser(user);
@@ -117,6 +118,9 @@ public class VerificationServiceImpl implements VerificationService {
         VerificationRequest saved = verificationRequestRepository.save(verification);
 
         for (VerificationRequestDto.DocumentUpload docUpload : request.getDocuments()) {
+            if (docUpload.getFileId() == null) {
+                throw new BusinessException("Mỗi tài liệu xác minh phải có file đã tải lên");
+            }
             var fileOpt = mediaFileRepository.findById(docUpload.getFileId());
             if (fileOpt.isEmpty()) {
                 throw new ResourceNotFoundException("File not found: " + docUpload.getFileId());
@@ -150,7 +154,7 @@ public class VerificationServiceImpl implements VerificationService {
         verifyOwnerOrAdmin(request);
 
         List<VerificationDocument> docs = verificationDocumentRepository
-                .findByVerificationRequest_VerificationId(verificationId);
+                .findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(verificationId);
 
         return verificationMapper.toResponse(request, docs);
     }
@@ -168,7 +172,7 @@ public class VerificationServiceImpl implements VerificationService {
                 .stream()
                 .map(v -> {
                     List<VerificationDocument> docs = verificationDocumentRepository
-                            .findByVerificationRequest_VerificationId(v.getVerificationId());
+                            .findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(v.getVerificationId());
                     return verificationMapper.toResponse(v, docs);
                 })
                 .toList();
@@ -182,7 +186,7 @@ public class VerificationServiceImpl implements VerificationService {
                 .stream()
                 .map(v -> {
                     List<VerificationDocument> docs = verificationDocumentRepository
-                            .findByVerificationRequest_VerificationId(v.getVerificationId());
+                            .findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(v.getVerificationId());
                     return verificationMapper.toResponse(v, docs);
                 })
                 .toList();
@@ -210,7 +214,7 @@ public class VerificationServiceImpl implements VerificationService {
 
         log.info("Verification review started: verificationId={}, adminId={}", verificationId, adminId);
         return verificationMapper.toResponse(saved,
-                verificationDocumentRepository.findByVerificationRequest_VerificationId(verificationId));
+                verificationDocumentRepository.findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(verificationId));
     }
 
     @Override
@@ -254,7 +258,7 @@ public class VerificationServiceImpl implements VerificationService {
                 verificationId, adminId, decision.getDecision());
 
         return verificationMapper.toResponse(saved,
-                verificationDocumentRepository.findByVerificationRequest_VerificationId(verificationId));
+                verificationDocumentRepository.findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(verificationId));
     }
 
     @Override
@@ -271,7 +275,7 @@ public class VerificationServiceImpl implements VerificationService {
         return verificationRequestRepository.findByUser_UserIdOrderBySubmittedAtDesc(userId)
                 .stream()
                 .map(v -> verificationMapper.toResponse(v,
-                        verificationDocumentRepository.findByVerificationRequest_VerificationId(v.getVerificationId())))
+                        verificationDocumentRepository.findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(v.getVerificationId())))
                 .toList();
     }
 
@@ -387,33 +391,61 @@ public class VerificationServiceImpl implements VerificationService {
     }
 
     /**
-     * Trung tâm cần nộp đủ 4 chứng từ bắt buộc theo quy định pháp luật VN:
-     * Giấy ĐKKD, MST, Giấy phép hoạt động GD, CCCD người đại diện PL.
-     * Do DB CHECK constraint hiện tại chỉ cho phép 4 enum values (ID_CARD, DEGREE,
-     * CERTIFICATE, LICENSE), frontend map 4 slots vào 3 giá trị DB:
-     * - LICENSE  : 2 (business license + education permit)
-     * - ID_CARD  : 1 (legal rep CCCD)
-     * - CERTIFICATE: 1 (tax code)
+     * Reuse document_type values to avoid a schema migration:
+     * ID_CARD = CCCD/CMND mặt trước, DEGREE = CCCD/CMND mặt sau,
+     * CERTIFICATE = chứng chỉ/MST, LICENSE = giấy phép.
      */
-    private void validateRequiredDocuments(VerificationRequestDto request) {
-        if (request.getVerificationType() == VerificationType.TUTOR_CENTER_LICENSE) {
-            Map<VerificationDocumentType, Long> counts = request.getDocuments().stream()
-                    .collect(Collectors.groupingBy(
-                            VerificationRequestDto.DocumentUpload::getDocumentType,
-                            Collectors.counting()));
+    private void validateRequiredDocuments(VerificationRequestDto request, UserRole role) {
+        if (request.getDocuments().stream().anyMatch(doc -> doc.getDocumentType() == null)) {
+            throw new BusinessException("Mỗi tài liệu xác minh phải có loại tài liệu");
+        }
 
+        Map<VerificationDocumentType, Long> counts = request.getDocuments().stream()
+                .collect(Collectors.groupingBy(
+                        VerificationRequestDto.DocumentUpload::getDocumentType,
+                        Collectors.counting()));
+
+        if (request.getVerificationType() == VerificationType.TUTOR_CENTER_LICENSE) {
             long licenseCount = counts.getOrDefault(VerificationDocumentType.LICENSE, 0L);
             long idCardCount = counts.getOrDefault(VerificationDocumentType.ID_CARD, 0L);
+            long idCardBackCount = counts.getOrDefault(VerificationDocumentType.DEGREE, 0L);
             long certificateCount = counts.getOrDefault(VerificationDocumentType.CERTIFICATE, 0L);
             long total = request.getDocuments().size();
 
-            if (total != 4 || licenseCount != 2 || idCardCount != 1 || certificateCount != 1) {
+            if (total != 5
+                    || licenseCount != 2
+                    || idCardCount != 1
+                    || idCardBackCount != 1
+                    || certificateCount != 1) {
                 throw new BusinessException(
-                        "Hồ sơ trung tâm cần đủ 4 chứng từ bắt buộc: "
+                        "Hồ sơ trung tâm cần đủ 5 chứng từ bắt buộc: "
                                 + "Giấy ĐKKD (LICENSE), Giấy phép hoạt động giáo dục (LICENSE), "
                                 + "Mã số thuế / Đăng ký thuế (CERTIFICATE), "
-                                + "CCCD người đại diện pháp luật (ID_CARD).");
+                                + "CCCD mặt trước người đại diện (ID_CARD), "
+                                + "CCCD mặt sau người đại diện (DEGREE).");
             }
+            return;
+        }
+
+        long idCardFrontCount = counts.getOrDefault(VerificationDocumentType.ID_CARD, 0L);
+        long idCardBackCount = counts.getOrDefault(VerificationDocumentType.DEGREE, 0L);
+        long total = request.getDocuments().size();
+        long certificateCount = counts.getOrDefault(VerificationDocumentType.CERTIFICATE, 0L);
+        boolean hasOnlyAllowedTypes =
+                idCardFrontCount + idCardBackCount + certificateCount == total;
+
+        if (role == UserRole.CLIENT) {
+            if (total != 2 || idCardFrontCount != 1 || idCardBackCount != 1) {
+                throw new BusinessException(
+                        "Hồ sơ xác minh phụ huynh cần đúng 2 ảnh: CCCD/CMND mặt trước và mặt sau.");
+            }
+            return;
+        }
+
+        if (role == UserRole.TUTOR
+                && (!hasOnlyAllowedTypes || idCardFrontCount != 1 || idCardBackCount != 1)) {
+            throw new BusinessException(
+                    "Hồ sơ xác minh gia sư cần CCCD/CMND mặt trước, mặt sau; bằng cấp/chứng chỉ là không bắt buộc.");
         }
     }
 }

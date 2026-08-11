@@ -24,6 +24,12 @@ public class ClassTerminationResponse {
 
     private LocalDate effectiveDate;
 
+    private String bankName;
+
+    private String accountNoMasked;
+
+    private String accountHolderName;
+
     private ClassTerminationStatus status;
 
     private LocalDateTime createdAt;

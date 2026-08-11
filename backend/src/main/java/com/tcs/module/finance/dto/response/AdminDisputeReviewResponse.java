@@ -75,6 +75,7 @@ public class AdminDisputeReviewResponse {
         private BigDecimal amount;
         private String bankName;
         private String accountNoMasked;
+        private String accountHolderName;
         private String refundReferenceCode;
         private String transferStatus;
         private String reason;
@@ -113,6 +114,9 @@ public class AdminDisputeReviewResponse {
         private Long requestedByUserId;
         private String requestedByEmail;
         private String reason;
+        private String bankName;
+        private String accountNoMasked;
+        private String accountHolderName;
         private LocalDate effectiveDate;
         private LocalDateTime createdAt;
         private LocalDateTime processedAt;

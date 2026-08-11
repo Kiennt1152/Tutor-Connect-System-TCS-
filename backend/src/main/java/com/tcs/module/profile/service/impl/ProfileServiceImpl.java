@@ -672,7 +672,7 @@ public class ProfileServiceImpl implements ProfileService {
 
     private void updateClient(Client client, UpdateProfileRequest request) {
         if (StringUtils.hasText(request.getFullName())) client.setFullName(request.getFullName());
-        if (StringUtils.hasText(request.getPhone())) client.setPhone(request.getPhone());
+        // SĐT lấy từ lúc đăng ký — không cho sửa qua hồ sơ.
         if (request.getAddress() != null) client.setAddress(request.getAddress());
         if (request.getAvatarUrl() != null) client.setAvatarUrl(request.getAvatarUrl());
         // Cách A: đã có CCCD -> ngày sinh + giới tính khóa theo CCCD, bỏ qua thay đổi tự nhập.
@@ -688,7 +688,7 @@ public class ProfileServiceImpl implements ProfileService {
 
     private void updateTutor(Tutor tutor, UpdateProfileRequest request) {
         if (StringUtils.hasText(request.getFullName())) tutor.setFullName(request.getFullName());
-        if (StringUtils.hasText(request.getPhone())) tutor.setPhone(request.getPhone());
+        // SĐT lấy từ lúc đăng ký — không cho sửa qua hồ sơ.
         if (request.getAddress() != null) tutor.setAddress(request.getAddress());
         if (request.getAvatarUrl() != null) tutor.setAvatar(request.getAvatarUrl());
         // Cách A: đã có CCCD -> ngày sinh + giới tính khóa theo CCCD, bỏ qua thay đổi tự nhập.
@@ -707,7 +707,7 @@ public class ProfileServiceImpl implements ProfileService {
 
     private void updateCenter(TutorCenter center, UpdateProfileRequest request) {
         if (StringUtils.hasText(request.getCompanyName())) center.setCompanyName(request.getCompanyName());
-        if (StringUtils.hasText(request.getPhone())) center.setPhone(request.getPhone());
+        // SĐT lấy từ lúc đăng ký — không cho sửa qua hồ sơ.
         if (request.getAddress() != null) center.setAddress(request.getAddress());
         if (request.getAvatarUrl() != null) center.setAvatar(request.getAvatarUrl());
         if (request.getDescription() != null) center.setDescription(request.getDescription());

@@ -3,6 +3,7 @@ package com.tcs.module.contract.controller;
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
 import com.tcs.module.contract.dto.request.GenerateContractRequest;
 import com.tcs.module.contract.dto.request.ReplyReviewRequest;
+import com.tcs.module.contract.dto.request.SaveRefundPayoutRequest;
 import com.tcs.module.contract.dto.request.SignContractRequest;
 import com.tcs.module.contract.dto.response.ContractResponse;
 import com.tcs.module.contract.dto.response.ContractSignatureListResponse;
@@ -100,6 +101,13 @@ public class ContractController {
             @PathVariable Long contractId,
             @RequestBody SignContractRequest request) {
         return contractService.signContract(contractId, request);
+    }
+
+    @PostMapping("/{contractId}/refund-payout")
+    public ContractResponse saveRefundPayoutInfo(
+            @PathVariable Long contractId,
+            @RequestBody SaveRefundPayoutRequest request) {
+        return contractService.saveRefundPayoutInfo(contractId, request);
     }
 
     @PostMapping("/reviews/{reviewId}/reply")

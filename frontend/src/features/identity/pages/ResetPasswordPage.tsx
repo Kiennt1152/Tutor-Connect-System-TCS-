@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react';
 import { useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { imageAssets } from '../../../assets/images/ImageAssets';
 import { identityApi } from '../api/identityApi';
@@ -35,7 +35,6 @@ function EyeIcon({ off }: { off: boolean }) {
 
 export default function ResetPasswordPage() {
   const location = useLocation();
-  const navigate = useNavigate();
   const resetToken = (location.state as { resetToken?: string } | null)?.resetToken ?? '';
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');

@@ -195,6 +195,41 @@
   gap: 12px;
 }
 
+.issue-payout {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 14px;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  background: #fff7ed;
+}
+
+.issue-payout__title {
+  margin: 0;
+  color: #9a3412;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.issue-field .bank-select-field {
+  width: 100%;
+  min-height: 46px;
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.issue-field .bank-select-field:hover,
+.issue-field .bank-select-field:focus-visible {
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.14);
+  outline: none;
+}
+
 .issue-error {
   margin: 0;
   padding: 10px 12px;

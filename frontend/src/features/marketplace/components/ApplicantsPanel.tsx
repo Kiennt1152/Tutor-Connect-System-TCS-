@@ -84,7 +84,7 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
     try {
       await marketplaceApi.rejectApplicant(classId, applicationId, reason);
       setApplicants((list) => list.filter((a) => a.applicationId !== applicationId));
-      setNotice('Đã bỏ chọn gia sư và gửi thông báo kèm lý do. Lớp mở lại cho gia sư ứng tuyển.');
+      setNotice('Đã từ chối gia sư và gửi thông báo kèm lý do. Lớp mở lại cho gia sư ứng tuyển.');
       onChosen?.();
     } catch (err) {
       setNotice(extractError(err));
@@ -175,15 +175,15 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
           className="mkt-modal-overlay"
           role="dialog"
           aria-modal="true"
-          aria-label="Bỏ chọn gia sư"
+          aria-label="Từ chối gia sư"
           onMouseDown={(e) => {
             if (e.target === e.currentTarget) setConfirmAction(null);
           }}
         >
           <div className="mkt-modal">
-            <h3 className="mkt-modal__title">Bỏ chọn gia sư</h3>
+            <h3 className="mkt-modal__title">Từ chối gia sư</h3>
             <p className="mkt-modal__msg">
-              Gia sư sẽ nhận được thông báo kèm lý do. Vui lòng cho biết lý do bỏ chọn:
+              Gia sư sẽ nhận được thông báo kèm lý do. Vui lòng cho biết lý do từ chối:
             </p>
             <textarea
               className="apm-reason"
@@ -213,7 +213,7 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
                   void handleReject(id, reason);
                 }}
               >
-                Gửi & bỏ chọn
+                Gửi & từ chối
               </button>
             </div>
           </div>
@@ -334,7 +334,7 @@ function ApplicantCard({
               </span>
             )
           ) : rejected ? (
-            <span className="apm-chip apm-chip--rejected">Đã bỏ chọn</span>
+            <span className="apm-chip apm-chip--rejected">Đã từ chối</span>
           ) : (
             <>
               <button
@@ -343,7 +343,7 @@ function ApplicantCard({
                 disabled={disabled}
                 onClick={onReject}
               >
-                {rejecting ? 'Đang bỏ chọn…' : 'Bỏ chọn'}
+                {rejecting ? 'Đang từ chối…' : 'Từ chối'}
               </button>
               <button
                 type="button"

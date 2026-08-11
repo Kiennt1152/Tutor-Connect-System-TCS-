@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useHome } from '../hooks/useHome';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasAnyRole, hasRole } from '../../../shared/auth/rbac';
@@ -13,10 +13,10 @@ import { TutorListingCard } from '../components/TutorListingCard';
 import { ClassListingCard } from '../components/ClassListingCard';
 import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
 import { useOpenClasses } from '../hooks/useOpenClasses';
+import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
+import type { CenterSummary } from '../../marketplace/types/marketplaceTypes';
 import {
-  HOME_CENTERS,
   HOME_NEWS,
-  HOME_PROMO,
   HOME_TESTIMONIALS,
 } from '../config/homeContent';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
@@ -238,6 +238,30 @@ export function ClassesSection({
 }
 
 function CentersSection() {
+  // Lấy trung tâm THẬT đã xác minh (không dùng dữ liệu mẫu bịa sẵn).
+  const [centers, setCenters] = useState<CenterSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    marketplaceApi
+      .listCenters()
+      .then((res) => {
+        if (alive) setCenters(res.data);
+      })
+      .catch(() => {
+        if (alive) setCenters([]);
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const featured = centers.slice(0, 3);
+
   return (
     <section id="centers" className="tcs-section tcs-section--centers">
       <div className="tcs-container">
@@ -245,31 +269,37 @@ function CentersSection() {
           <div>
             <h2 className="tcs-section-bar__title">Trung tâm</h2>
             <p className="tcs-section-bar__subtitle">
-              Các trung tâm gia sư đối tác — quy trình tuyển chọn và hỗ trợ chuyên nghiệp.
+              Các trung tâm gia sư đã được xác minh trên nền tảng.
             </p>
           </div>
+          {centers.length > 3 && (
+            <a className="tcs-btn tcs-btn--ghost tcs-btn--sm" href="/centers">
+              Xem tất cả
+            </a>
+          )}
         </div>
 
-        <div className="tcs-promo tcs-promo--inline">
-          <div className="tcs-promo__content">
-            <span className="tcs-promo__eyebrow">Đối tác nền tảng</span>
-            <h3 className="tcs-promo__title">{HOME_PROMO.title}</h3>
-            <p className="tcs-promo__desc">{HOME_PROMO.description}</p>
+        {loading ? (
+          <p className="tcs-section-bar__subtitle">Đang tải danh sách trung tâm…</p>
+        ) : featured.length === 0 ? (
+          <p className="tcs-section-bar__subtitle">
+            Chưa có trung tâm nào được xác minh. Vui lòng quay lại sau.
+          </p>
+        ) : (
+          <div className="tcs-center-grid">
+            {featured.map((center) => (
+              <article key={center.centerId} className="tcs-center-card">
+                <h3 className="tcs-center-card__name">{center.companyName}</h3>
+                {center.description && (
+                  <p className="tcs-center-card__desc">{center.description}</p>
+                )}
+                {center.address && (
+                  <span className="tcs-center-card__meta">📍 {center.address}</span>
+                )}
+              </article>
+            ))}
           </div>
-          <a className="tcs-btn tcs-btn--market tcs-promo__cta" href={HOME_PROMO.ctaHref}>
-            {HOME_PROMO.cta}
-          </a>
-        </div>
-
-        <div className="tcs-center-grid">
-          {HOME_CENTERS.map((center) => (
-            <article key={center.id} className="tcs-center-card">
-              <h3 className="tcs-center-card__name">{center.name}</h3>
-              <p className="tcs-center-card__desc">{center.description}</p>
-              <span className="tcs-center-card__meta">{currency(center.tutors)} gia sư</span>
-            </article>
-          ))}
-        </div>
+        )}
       </div>
     </section>
   );

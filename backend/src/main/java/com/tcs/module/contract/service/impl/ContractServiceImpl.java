@@ -28,6 +28,7 @@ import com.tcs.exception.BusinessException;
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
 import com.tcs.module.contract.dto.request.ReplyReviewRequest;
 import com.tcs.module.contract.dto.request.ReviewCriterionDto;
+import com.tcs.module.contract.dto.request.SaveRefundPayoutRequest;
 import com.tcs.module.contract.dto.response.ReviewResponse;
 import com.tcs.module.contract.dto.response.ReviewableAssignmentResponse;
 import com.tcs.module.contract.dto.response.TutorReputationResponse;
@@ -38,14 +39,18 @@ import com.tcs.module.contract.enums.ReviewType;
 import com.tcs.module.contract.repository.ReputationHistoryRepository;
 import com.tcs.module.contract.repository.ReviewRepository;
 import com.tcs.module.finance.dto.EscrowLockCommand;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
+import com.tcs.module.marketplace.enums.ClassType;
+import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
 import com.tcs.module.marketplace.repository.LessonRepository;
 import com.tcs.module.profile.enums.UserRole;
 import java.time.LocalDate;
@@ -81,6 +86,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -130,6 +136,7 @@ public class ContractServiceImpl implements ContractService {
     private final SystemParameterRepository systemParameterRepository;
     private final ReputationHistoryRepository reputationHistoryRepository;
     private final LessonRepository lessonRepository;
+    private final LessonAttendanceRepository lessonAttendanceRepository;
     private final com.tcs.module.profile.service.CccdService cccdService;
 
     // ─── VIEW CONTRACT (4.2) ──────────────────────────────────────────────────
@@ -359,7 +366,7 @@ public class ContractServiceImpl implements ContractService {
                         contract.getRecruitmentApplication().getRecruitmentAppId(),
                         contract.getContractId()));
             }
-            // BF-04: học viên ký xong -> marketplace chuyển ENROLLED + đóng ghi danh khi đủ.
+            // BF-04: học viên ký xong -> marketplace mở bước thanh toán escrow.
             if (contract.getClassStudent() != null) {
                 eventPublisher.publishEvent(new StudentContractSigned(
                         contract.getClassStudent().getClassStudentId(),
@@ -376,6 +383,46 @@ public class ContractServiceImpl implements ContractService {
         SignWithOtpRequest otpRequest = new SignWithOtpRequest();
         otpRequest.setOtpCode(request.getOtpCode());
         return signWithOtp(contractId, otpRequest);
+    }
+
+    @Override
+    @Transactional
+    public ContractResponse saveRefundPayoutInfo(Long contractId, SaveRefundPayoutRequest request) {
+        if (request == null) {
+            throw new IllegalArgumentException("Thiếu thông tin tài khoản nhận hoàn tiền");
+        }
+        Contract contract = findContract(contractId);
+        validateViewPermission(contract);
+        if (resolvePartyRole(contract) != PartyRole.CLIENT) {
+            throw new ForbiddenException("Chỉ phụ huynh/học viên thanh toán mới được cập nhật tài khoản nhận hoàn tiền");
+        }
+        if (!isFullySigned(contractId)) {
+            throw new IllegalArgumentException("Vui lòng ký đủ hợp đồng trước khi nhập tài khoản nhận hoàn tiền");
+        }
+
+        RefundPayoutInfo payoutInfo = new RefundPayoutInfo(
+                RefundPayoutInfoCodec.normalize(request.getBankName()),
+                RefundPayoutInfoCodec.normalizeAccountNo(request.getAccountNo()),
+                RefundPayoutInfoCodec.normalize(request.getAccountHolderName()));
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            throw new IllegalArgumentException("Vui lòng nhập đầy đủ ngân hàng, số tài khoản và tên chủ tài khoản");
+        }
+
+        if (contract.getClassStudent() != null
+                && contract.getClassStudent().getTutoringClass() != null
+                && contract.getClassStudent().getTutoringClass().getClassType() == ClassType.CENTER) {
+            ClassStudent classStudent = contract.getClassStudent();
+            classStudent.setNotes(RefundPayoutInfoCodec.appendToReason(classStudent.getNotes(), payoutInfo));
+            classStudentRepository.save(classStudent);
+        } else if (contract.getAssignment() != null && contract.getSourceType() == ContractSourceType.PRIVATE) {
+            ClassAssignment assignment = contract.getAssignment();
+            assignment.setTermsB(RefundPayoutInfoCodec.appendToReason(assignment.getTermsB(), payoutInfo));
+            classAssignmentRepository.save(assignment);
+        } else {
+            throw new IllegalArgumentException(
+                    "Thông tin nhận hoàn tiền chỉ áp dụng cho hợp đồng lớp private hoặc ghi danh lớp trung tâm");
+        }
+        return toContractResponse(contract);
     }
 
     @Override
@@ -704,7 +751,10 @@ public class ContractServiceImpl implements ContractService {
             sb.append("   Website: ").append(website);
         }
         sb.append("\n");
-        String rep = extra.get("representativeName");
+        // Người đại diện lấy từ CCCD người đại diện pháp luật (đã quét), không nhập tay.
+        String rep = center.getUser() != null
+                ? cccdService.getByUserId(center.getUser().getUserId()).getFullName()
+                : null;
         String pos = extra.get("representativePosition");
         if ((rep != null && !rep.isBlank()) || (pos != null && !pos.isBlank())) {
             sb.append("Đại diện: ").append(nz(rep));
@@ -1069,7 +1119,7 @@ public class ContractServiceImpl implements ContractService {
             if (application != null && application.getTutoringClass() != null) {
                 TutoringClass tutoringClass = application.getTutoringClass();
                 classId = tutoringClass.getClassId();
-                amount = tutoringClass.getTuitionFee() != null ? tutoringClass.getTuitionFee() : BigDecimal.ZERO;
+                amount = resolveInitialEscrowAmount(contract, tutoringClass);
                 payerUserId = tutoringClass.getCreator() != null ? tutoringClass.getCreator().getUserId() : null;
             }
             beneficiaryUserId = contract.getAssignment().getTutor() != null
@@ -1081,7 +1131,7 @@ public class ContractServiceImpl implements ContractService {
             TutoringClass tutoringClass = contract.getClassStudent().getTutoringClass();
             if (tutoringClass != null) {
                 classId = tutoringClass.getClassId();
-                amount = tutoringClass.getTuitionFee() != null ? tutoringClass.getTuitionFee() : BigDecimal.ZERO;
+                amount = resolveInitialEscrowAmount(contract, tutoringClass);
                 payerUserId = contract.getClassStudent().getEnrolledByUser() != null
                         ? contract.getClassStudent().getEnrolledByUser().getUserId()
                         : null;
@@ -1107,6 +1157,44 @@ public class ContractServiceImpl implements ContractService {
                 amount,
                 assignmentId,
                 classStudentId));
+    }
+
+    private BigDecimal resolveInitialEscrowAmount(Contract contract, TutoringClass tutoringClass) {
+        BigDecimal totalAmount = positiveAmount(tutoringClass.getBudget());
+        if (totalAmount == null && tutoringClass.getTuitionFee() != null
+                && tutoringClass.getNumberOfSessions() != null) {
+            totalAmount = tutoringClass.getTuitionFee()
+                    .multiply(BigDecimal.valueOf(tutoringClass.getNumberOfSessions()));
+        }
+        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        if (contract.getSourceType() != ContractSourceType.PRIVATE) {
+            return totalAmount.setScale(2, RoundingMode.HALF_UP);
+        }
+
+        int plannedMonths = plannedPrivateClassMonths(tutoringClass);
+        if (plannedMonths <= 1) {
+            return totalAmount.setScale(2, RoundingMode.HALF_UP);
+        }
+        return totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP);
+    }
+
+    private int plannedPrivateClassMonths(TutoringClass tutoringClass) {
+        if (tutoringClass.getStartDate() == null || tutoringClass.getEndDate() == null) {
+            return 1;
+        }
+        if (tutoringClass.getEndDate().isBefore(tutoringClass.getStartDate())) {
+            return 1;
+        }
+        long inclusiveDays = ChronoUnit.DAYS.between(
+                tutoringClass.getStartDate(),
+                tutoringClass.getEndDate().plusDays(1));
+        return Math.max(1, (int) Math.ceil(inclusiveDays / 30.0));
+    }
+
+    private BigDecimal positiveAmount(BigDecimal amount) {
+        return amount != null && amount.compareTo(BigDecimal.ZERO) > 0 ? amount : null;
     }
 
     private ContractResponse toContractResponse(Contract contract) {
@@ -1183,9 +1271,97 @@ public class ContractServiceImpl implements ContractService {
         builder.requiredSignatures(required)
                 .signedCount(signed)
                 .hasAllSignatures(signed >= required);
-        builder.escrowPayment(toEscrowPaymentInfo(resolveContractEscrow(contract)));
+        RefundPolicy refundPolicy = resolveRefundPolicy(contract);
+        builder.escrowPayment(toEscrowPaymentInfo(resolveContractEscrow(contract)))
+                .refundPayoutInfo(toRefundPayoutInfoView(contract))
+                .totalSessions(refundPolicy.totalSessions())
+                .completedSessions(refundPolicy.completedSessions())
+                .refundAllowed(refundPolicy.allowed())
+                .refundBlockedReason(refundPolicy.blockedReason());
 
         return builder.build();
+    }
+
+    private ContractResponse.RefundPayoutInfoView toRefundPayoutInfoView(Contract contract) {
+        if (contract == null) {
+            return null;
+        }
+        RefundPayoutInfo payoutInfo = null;
+        if (contract.getClassStudent() != null) {
+            payoutInfo = RefundPayoutInfoCodec.parseFromReason(contract.getClassStudent().getNotes());
+        } else if (contract.getAssignment() != null) {
+            payoutInfo = RefundPayoutInfoCodec.parseFromReason(contract.getAssignment().getTermsB());
+        }
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            return null;
+        }
+        return ContractResponse.RefundPayoutInfoView.builder()
+                .bankName(RefundPayoutInfoCodec.normalize(payoutInfo.bankName()))
+                .accountNoMasked(RefundPayoutInfoCodec.maskAccountNo(payoutInfo.accountNo()))
+                .accountHolderName(RefundPayoutInfoCodec.normalize(payoutInfo.accountHolderName()))
+                .build();
+    }
+
+    private RefundPolicy resolveRefundPolicy(Contract contract) {
+        TutoringClass tutoringClass = resolveContractClass(contract);
+        ClassStudent classStudent = contract.getClassStudent();
+        if (tutoringClass == null
+                || tutoringClass.getClassType() != ClassType.CENTER
+                || classStudent == null) {
+            return new RefundPolicy(null, null, true, null);
+        }
+
+        int totalSessions = totalSessions(tutoringClass);
+        int completedSessions = completedCenterSessions(tutoringClass, classStudent);
+        boolean allowed = totalSessions <= 0 || completedSessions * 2 <= totalSessions;
+        return new RefundPolicy(
+                totalSessions,
+                completedSessions,
+                allowed,
+                allowed ? null : "Lớp trung tâm đã học quá 50% số buổi nên không thể yêu cầu hoàn tiền.");
+    }
+
+    private TutoringClass resolveContractClass(Contract contract) {
+        if (contract.getClassStudent() != null) {
+            return contract.getClassStudent().getTutoringClass();
+        }
+        if (contract.getAssignment() != null
+                && contract.getAssignment().getApplication() != null) {
+            return contract.getAssignment().getApplication().getTutoringClass();
+        }
+        return null;
+    }
+
+    private int totalSessions(TutoringClass tutoringClass) {
+        Integer configuredSessions = tutoringClass.getNumberOfSessions();
+        if (configuredSessions != null && configuredSessions > 0) {
+            return configuredSessions;
+        }
+        return lessonRepository.findByTutoringClass_ClassId(tutoringClass.getClassId()).size();
+    }
+
+    private int completedCenterSessions(TutoringClass tutoringClass, ClassStudent classStudent) {
+        List<Long> lessonIds = lessonRepository.findByTutoringClass_ClassId(tutoringClass.getClassId()).stream()
+                .map(Lesson::getLessonId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (lessonIds.isEmpty() || classStudent.getClassStudentId() == null) {
+            return 0;
+        }
+        return (int) lessonAttendanceRepository.findByLesson_LessonIdIn(lessonIds).stream()
+                .filter(attendance -> attendance.getClassStudent() != null
+                        && java.util.Objects.equals(
+                        attendance.getClassStudent().getClassStudentId(),
+                        classStudent.getClassStudentId()))
+                .filter(attendance -> attendance.getStatus() == com.tcs.module.marketplace.enums.LessonAttendanceStatus.PRESENT)
+                .count();
+    }
+
+    private record RefundPolicy(
+            Integer totalSessions,
+            Integer completedSessions,
+            boolean allowed,
+            String blockedReason) {
     }
 
     private EscrowTransaction resolveContractEscrow(Contract contract) {

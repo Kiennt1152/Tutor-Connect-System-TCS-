@@ -1417,7 +1417,7 @@
 /* Hộp thư yêu cầu mở lớp từ phụ huynh */
 .cc-request-inbox {
   margin-bottom: 16px;
-  border-left: 4px solid #2563eb;
+  border-left: 4px solid var(--color-primary);
 }
 .cc-request-inbox__title {
   margin: 0 0 12px;
@@ -1427,30 +1427,386 @@
 .cc-request-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
 }
 .cc-request {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface-1);
+}
+.cc-request__head {
+  display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px 16px;
-  padding: 12px 14px;
-  border: 1px solid #e2e8f0;
-  border-radius: 10px;
+  gap: 8px;
 }
-.cc-request__main {
-  flex: 1;
-  min-width: 220px;
+.cc-req-status {
+  display: inline-flex;
+  align-items: center;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 10px;
+  border-radius: 999px;
+}
+.cc-req-status--searching {
+  color: var(--color-primary-dark);
+  background: var(--color-primary-xlight);
+}
+.cc-req-status--pending {
+  color: var(--color-text-secondary);
+  background: var(--color-surface-3);
+}
+.cc-req-tag {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 2px 8px;
 }
 .cc-request__note {
-  margin: 0 0 4px;
+  margin: 0;
   font-size: 14px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
 }
 .cc-request__meta {
-  font-size: 12px;
-  color: #94a3b8;
-}
-.cc-request__actions {
   display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+/* Tóm tắt yêu cầu (môn / lịch / ghi chú) dạng có cấu trúc */
+.cc-reqnote {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+}
+.cc-reqnote__row {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 8px 10px;
+  align-items: start;
+}
+.cc-reqnote__key {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+  padding-top: 4px;
+}
+.cc-reqnote__subjects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cc-reqnote__sched {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cc-reqnote__schedhead {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.cc-reqnote__slot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  padding: 6px 10px;
+  background: var(--color-surface-2);
+  border-radius: 8px;
+}
+.cc-reqnote__slot-subj {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.cc-reqnote__fee {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-primary-dark);
+  background: var(--color-primary-xlight);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.cc-reqnote__slot-when {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.cc-reqnote__extra {
+  font-size: 13px;
+  color: var(--color-text-primary);
+  padding-top: 3px;
+}
+@media (max-width: 520px) {
+  .cc-reqnote__row {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Hai nguồn tìm gia sư: từ đội / ngoài đội */
+.cc-req-sources {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-top: 2px;
+}
+.cc-req-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-2);
+}
+.cc-req-sec__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cc-req-sec__label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.cc-req-sec__hint {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+.cc-req-sec__hint--ok {
+  color: var(--color-primary-dark);
+  font-weight: 600;
+}
+.cc-req-sec__body {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cc-req-postbtn {
+  align-self: flex-start;
+}
+.cc-request__foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+.cc-btn--danger-text {
+  color: var(--color-error);
+}
+
+@media (max-width: 640px) {
+  .cc-req-sources {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Shortlist đề cử gia sư trong yêu cầu "nhờ trung tâm tìm" */
+.cc-shortlist {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--color-border);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.cc-shortlist__label {
+  width: 100%;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-secondary);
+}
+.cc-shortlist__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.cc-shortlist__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.cc-shortlist__x {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  color: var(--color-error);
+  font-size: 16px;
+  line-height: 1;
+  padding: 0;
+}
+.cc-shortlist__empty {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+.cc-shortlist__pick {
+  max-width: 260px;
+}
+
+/* Tuyển gia sư ngoài đội (tin tuyển dụng gắn với yêu cầu). */
+.cc-reqrecruit {
+  width: 100%;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.cc-reqrecruit__badge {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-primary-dark);
+}
+.cc-reqrecruit__apps {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.cc-reqrecruit__app {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+.cc-reqrecruit__name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+.cc-reqrecruit__actions {
+  display: inline-flex;
+  gap: 6px;
+}
+
+/* Thẻ đơn ứng tuyển ngoài đội (xem hồ sơ trước khi đưa vào shortlist). */
+.cc-reqapp {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+}
+.cc-reqapp__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.cc-reqapp__id {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.cc-reqapp__name {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.cc-reqapp__verified {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-success);
+  background: var(--color-success-light);
+  border-radius: 999px;
+  padding: 1px 8px;
+}
+.cc-reqapp__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+.cc-reqapp__detail {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 10px;
+  background: var(--color-surface-2);
+  border-radius: 8px;
+}
+.cc-reqapp__letter {
+  margin: 0;
+  font-size: 13px;
+  font-style: italic;
+  color: var(--color-text-secondary);
+}
+.cc-reqapp__certs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cc-reqapp__certs-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+.cc-reqapp__certs-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cc-reqapp__cert {
+  border: none;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--color-primary);
+  text-align: left;
+}
+.cc-reqapp__cert:hover {
+  text-decoration: underline;
+}
+.cc-reqapp__foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+/* Xác nhận "không tìm được gia sư" (inline, không dùng popup trình duyệt). */
+.cc-giveup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px 12px;
+  width: 100%;
+}
+.cc-giveup__text {
+  font-size: 13px;
+  color: var(--color-text-primary);
+}
+.cc-giveup__btns {
+  display: inline-flex;
+  gap: 6px;
 }

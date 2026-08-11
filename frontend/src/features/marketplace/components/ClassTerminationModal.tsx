@@ -2,6 +2,12 @@ import { useState } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { marketplaceApi } from '../api/marketplaceApi';
 import type { ClassTerminationResponse } from '../types/marketplaceTypes';
+import {
+  BANK_OPTIONS,
+  BankPickerDialog,
+  BankSelectField,
+  type BankOption,
+} from '../../finance/components/BankPicker';
 import './ClassTerminationModal.css';
 
 type ClassTerminationModalProps = {
@@ -30,9 +36,14 @@ export function ClassTerminationModal({
 }: ClassTerminationModalProps) {
   const [reason, setReason] = useState('');
   const [effectiveDate, setEffectiveDate] = useState('');
+  const [selectedBankCode, setSelectedBankCode] = useState('');
+  const [bankPickerOpen, setBankPickerOpen] = useState(false);
+  const [accountNo, setAccountNo] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<ClassTerminationResponse | null>(null);
+  const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
 
   if (!open) return null;
 
@@ -40,15 +51,37 @@ export function ClassTerminationModal({
     if (submitting) return;
     setReason('');
     setEffectiveDate('');
+    setSelectedBankCode('');
+    setBankPickerOpen(false);
+    setAccountNo('');
+    setAccountHolderName('');
     setError('');
     setSuccess(null);
     onClose();
+  };
+
+  const handleSelectBank = (bank: BankOption) => {
+    setSelectedBankCode(bank.code);
+    setBankPickerOpen(false);
   };
 
   const handleSubmit = async () => {
     setError('');
     if (reason.trim().length < 10) {
       setError('Vui lòng nhập lý do tối thiểu 10 ký tự.');
+      return;
+    }
+    const normalizedAccountNo = accountNo.trim().replace(/\s+/g, '');
+    if (!selectedBank) {
+      setError('Vui lòng chọn ngân hàng nhận hoàn tiền.');
+      return;
+    }
+    if (!/^[A-Za-z0-9]{4,50}$/.test(normalizedAccountNo)) {
+      setError('Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự.');
+      return;
+    }
+    if (accountHolderName.trim().length < 2) {
+      setError('Vui lòng nhập tên chủ tài khoản nhận hoàn tiền.');
       return;
     }
 
@@ -59,6 +92,9 @@ export function ClassTerminationModal({
         classStudentId: classStudentId ?? undefined,
         reason: reason.trim(),
         effectiveDate: effectiveDate || undefined,
+        bankName: selectedBank.name,
+        accountNo: normalizedAccountNo,
+        accountHolderName: accountHolderName.trim().replace(/\s+/g, ' '),
       });
       setSuccess(result);
     } catch (err) {
@@ -125,6 +161,37 @@ export function ClassTerminationModal({
                   onChange={(event) => setEffectiveDate(event.target.value)}
                 />
               </label>
+
+              <div className="termination-field">
+                <span>Ngân hàng nhận hoàn tiền</span>
+                <BankSelectField
+                  id="termination-bank-field"
+                  selectedBank={selectedBank}
+                  onOpen={() => setBankPickerOpen(true)}
+                />
+              </div>
+
+              <label className="termination-field">
+                <span>Số tài khoản nhận hoàn tiền</span>
+                <input
+                  type="text"
+                  inputMode="text"
+                  value={accountNo}
+                  onChange={(event) => setAccountNo(event.target.value)}
+                  placeholder="Nhập số tài khoản"
+                />
+              </label>
+
+              <label className="termination-field">
+                <span>Tên chủ tài khoản</span>
+                <input
+                  type="text"
+                  inputMode="text"
+                  value={accountHolderName}
+                  onChange={(event) => setAccountHolderName(event.target.value)}
+                  placeholder="Nhập tên chủ tài khoản"
+                />
+              </label>
             </>
           )}
 
@@ -151,6 +218,13 @@ export function ClassTerminationModal({
             </button>
           )}
         </div>
+
+        <BankPickerDialog
+          open={bankPickerOpen}
+          selectedBankCode={selectedBankCode}
+          onSelect={handleSelectBank}
+          onClose={() => setBankPickerOpen(false)}
+        />
       </div>
     </div>
   );

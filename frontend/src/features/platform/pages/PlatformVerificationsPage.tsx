@@ -7,6 +7,7 @@ import { useReviewVerification } from '../hooks/usePlatformMutations';
 import { useVerificationList } from '../hooks/useVerificationList';
 import type {
   VerificationDetailApiResponse,
+  VerificationDocumentApiResponse,
   VerificationDocumentType,
   VerificationRequestItem,
   VerificationStatus,
@@ -14,11 +15,44 @@ import type {
 import './PlatformVerificationsPage.css';
 
 const DOC_LABEL: Record<VerificationDocumentType, string> = {
-  ID_CARD: 'CMND/CCCD',
-  DEGREE: 'Bằng cấp',
-  CERTIFICATE: 'Chứng chỉ',
+  ID_CARD: 'CCCD/CMND mặt trước',
+  DEGREE: 'CCCD/CMND mặt sau',
+  CERTIFICATE: 'Bằng cấp / chứng chỉ',
   LICENSE: 'Giấy phép',
 };
+
+function documentLabel(
+  doc: VerificationDocumentApiResponse,
+  detail: VerificationDetailApiResponse,
+  index: number,
+): string {
+  if (detail.verificationType === 'TUTOR_CENTER_LICENSE') {
+    if (doc.documentType === 'LICENSE') {
+      const licenseOrder = detail.documents
+        .slice(0, index + 1)
+        .filter((item) => item.documentType === 'LICENSE').length;
+      return licenseOrder === 1
+        ? 'Giấy chứng nhận đăng ký doanh nghiệp'
+        : 'Giấy phép hoạt động giáo dục';
+    }
+    if (doc.documentType === 'CERTIFICATE') {
+      return 'Mã số thuế / Giấy đăng ký thuế';
+    }
+    if (doc.documentType === 'ID_CARD') {
+      return 'CCCD/CMND mặt trước người đại diện';
+    }
+    if (doc.documentType === 'DEGREE') {
+      return 'CCCD/CMND mặt sau người đại diện';
+    }
+  }
+
+  if (detail.userRole === 'CLIENT') {
+    if (doc.documentType === 'ID_CARD') return 'CCCD/CMND mặt trước';
+    if (doc.documentType === 'DEGREE') return 'CCCD/CMND mặt sau';
+  }
+
+  return DOC_LABEL[doc.documentType] ?? doc.documentType;
+}
 
 function verificationBadgeClass(status: VerificationStatus) {
   if (status === 'VERIFIED') return 'tcs-badge tcs-badge--active';
@@ -217,8 +251,9 @@ export default function PlatformVerificationsPage() {
               {detailError && <div className="adm-alert adm-alert--error">{detailError}</div>}
 
               {detail && (
-                <>
-                  <section className="pv-section">
+                <div className="pv-detail-grid">
+                  {/* Cột trái: thông tin người nộp + CCCD (để đối chiếu). */}
+                  <section className="pv-section pv-detail-grid__info">
                     <h3 className="pv-section__title">Thông tin người nộp</h3>
                     <div className="pv-kv">
                       <div className="pv-kv__row">
@@ -238,15 +273,18 @@ export default function PlatformVerificationsPage() {
                     </div>
                   </section>
 
-                  <section className="pv-section">
-                    <h3 className="pv-section__title">Tài liệu ({detail.documents.length})</h3>
+                  {/* Cột phải: ảnh tài liệu hiển thị lớn để đối chiếu nhanh (bấm để xem đầy đủ). */}
+                  <section className="pv-section pv-detail-grid__docs">
+                    <h3 className="pv-section__title">
+                      Tài liệu ({detail.documents.length}) — bấm ảnh để xem đầy đủ
+                    </h3>
                     {detail.documents.length === 0 ? (
                       <p className="adm-muted">Không có tài liệu đính kèm.</p>
                     ) : (
-                      <ul className="pv-docs">
-                        {detail.documents.map((doc) => (
+                      <ul className="pv-docs pv-docs--gallery">
+                        {detail.documents.map((doc, index) => (
                           <li className="pv-docs__item" key={doc.documentId}>
-                            <span className="pv-docs__type">{DOC_LABEL[doc.documentType]}</span>
+                            <span className="pv-docs__type">{documentLabel(doc, detail, index)}</span>
                             {doc.available && doc.fileUrl ? (
                               <FileThumbnail
                                 src={doc.fileUrl}
@@ -267,7 +305,7 @@ export default function PlatformVerificationsPage() {
                       </div>
                     )}
                   </section>
-                </>
+                </div>
               )}
 
               {selected.isReviewed && (

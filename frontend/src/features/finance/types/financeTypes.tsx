@@ -114,6 +114,7 @@ export interface RefundRequestPayload {
   reason: string;
   bankName: string;
   accountNo: string;
+  accountHolderName: string;
 }
 
 export interface RefundRequestInfo {
@@ -130,6 +131,7 @@ export interface RefundRequestInfo {
   amount: number;
   bankName?: string | null;
   accountNoMasked?: string | null;
+  accountHolderName?: string | null;
   refundReferenceCode?: string | null;
   transferStatus?: string | null;
   status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED' | string;

@@ -30,6 +30,7 @@ import com.tcs.module.identity.service.EmailService;
 import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.mapper.UserProfileBundle;
 import com.tcs.module.platform.dto.response.UserListItemResponse;
+import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
@@ -82,7 +83,8 @@ class IdentityServiceImplTest {
     @Mock
     private GoogleTokenVerifier googleTokenVerifier;
     @Mock
-    private com.tcs.module.platform.service.AuditLogService auditLogService;
+    private AuditLogService auditLogService;
+
 
     @InjectMocks
     private IdentityServiceImpl identityService;

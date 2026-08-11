@@ -43,9 +43,14 @@ public class ClassResponse {
     private Integer maxStudents;
     private long enrolledCount;
     private boolean canRequestTermination;
+    private boolean refundAllowed;
+    private String refundBlockedReason;
+    private Integer totalSessions;
+    private Integer completedSessions;
     private Long terminationAssignmentId;
     private Long terminationClassStudentId;
     private List<ScheduleSlotResponse> schedule;
     private LocalDateTime createdAt;
     private Long applicationCount;
+    private Long assignmentId;
 }

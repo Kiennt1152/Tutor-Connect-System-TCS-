@@ -9,6 +9,7 @@ import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
+import com.tcs.module.marketplace.dto.response.ContractViewResponse;
 import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
@@ -94,6 +95,12 @@ public class MarketplaceController {
         return Map.of("message", "Đã hủy yêu cầu mở lớp");
     }
 
+    @PostMapping("/class-requests/{requestId}/choose-tutor/{tutorId}")
+    public ClassResponse chooseTutorForClassRequest(
+            @PathVariable String requestId, @PathVariable Long tutorId) {
+        return marketplaceService.fulfillClassRequest(requestId, tutorId);
+    }
+
     @PostMapping("/classes/{classId}/publish")
     public ClassResponse publishClass(@PathVariable Long classId) {
         return marketplaceService.publishClass(classId);
@@ -167,6 +174,34 @@ public class MarketplaceController {
     public Map<String, String> declineAssignment(@PathVariable Long assignmentId) {
         marketplaceService.declineAssignment(assignmentId);
         return Map.of("message", "Đã từ chối lớp");
+    }
+
+    @GetMapping("/assignments/{assignmentId}/contract")
+    public ContractViewResponse getAssignmentContract(@PathVariable Long assignmentId) {
+        return marketplaceService.getAssignmentContract(assignmentId);
+    }
+
+    @PostMapping("/assignments/{assignmentId}/sign/request-otp")
+    public Map<String, String> requestSignOtp(@PathVariable Long assignmentId) {
+        marketplaceService.requestSignOtp(assignmentId);
+        return Map.of("message", "Đã gửi mã OTP tới email của bạn");
+    }
+
+    @PostMapping("/assignments/{assignmentId}/sign")
+    public Map<String, String> signAssignmentContract(
+            @PathVariable Long assignmentId,
+            @RequestBody(required = false) Map<String, String> body) {
+        String otp = body != null ? body.get("otp") : null;
+        marketplaceService.signAssignmentContract(assignmentId, otp);
+        return Map.of("message", "Đã ký hợp đồng");
+    }
+
+    @PostMapping("/assignments/{assignmentId}/contract-terms")
+    public Map<String, String> saveContractTerms(
+            @PathVariable Long assignmentId,
+            @RequestBody(required = false) Map<String, String> body) {
+        marketplaceService.saveContractTermsB(assignmentId, body != null ? body.get("termsB") : null);
+        return Map.of("message", "Đã lưu điều khoản");
     }
 
     @GetMapping("/lessons/mine")
