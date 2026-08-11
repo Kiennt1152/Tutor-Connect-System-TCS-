@@ -31,6 +31,9 @@ public interface IdentityService {
 
     AuthResponse login(LoginRequest request);
 
+    /** Thu hoi tat ca JWT da cap cho phien ban token hien tai va ghi audit logout. */
+    void logout();
+
     /**
      * Dang nhap bang Google: xac thuc access token. Neu email da co tai khoan thi dang nhap luon;
      * neu la lan dau thi tra ve {@code newUser=true} de frontend cho chon vai tro + SDT truoc khi

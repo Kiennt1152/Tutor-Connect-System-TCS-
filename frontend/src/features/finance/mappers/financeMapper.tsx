@@ -26,6 +26,7 @@ export function statusLabel(type: Transaction['type']): string {
     REFUND: 'Hoàn tiền',
     ESCROW_DEPOSIT: 'Đặt cọc Escrow',
     ESCROW_RELEASE: 'Giải ngân Escrow',
+    PLATFORM_FEE: 'Phí nền tảng',
   };
   return map[type] ?? type;
 }

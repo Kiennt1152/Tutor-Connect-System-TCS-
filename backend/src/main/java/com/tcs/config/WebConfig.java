@@ -13,13 +13,13 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Bảo đảm URI luôn có dấu "/" ở cuối; nếu không, Spring coi đây là file
-        // (không phải thư mục) và mọi /uploads/** sẽ trả 404.
-        String absolutePath = java.nio.file.Paths.get(storagePath).toAbsolutePath().normalize().toUri().toString();
+        // Only serve public uploads (avatars) as static resources.
+        // Private files (CCCD, licenses) are served through FileAccessController with auth.
+        String absolutePath = java.nio.file.Paths.get(storagePath, "public").toAbsolutePath().normalize().toUri().toString();
         if (!absolutePath.endsWith("/")) {
             absolutePath = absolutePath + "/";
         }
-        registry.addResourceHandler("/uploads/**")
+        registry.addResourceHandler("/uploads/public/**")
                 .addResourceLocations(absolutePath);
     }
 }

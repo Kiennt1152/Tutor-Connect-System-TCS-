@@ -452,7 +452,7 @@ class IdentityServiceImplTest {
         when(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.of(user));
         when(passwordEncoder.matches("Password123", "hash")).thenReturn(true);
         when(platformMapper.resolveRole(any())).thenReturn(UserRole.CLIENT);
-        when(jwtService.generateToken(1L, "test@gmail.com", UserRole.CLIENT)).thenReturn("jwt-token");
+        when(jwtService.generateToken(1L, "test@gmail.com", UserRole.CLIENT, 0L)).thenReturn("jwt-token");
         
         UserListItemResponse uli = UserListItemResponse.builder().displayName("Test").build();
         when(platformMapper.toUserListItem(any(), any())).thenReturn(uli);
@@ -478,6 +478,40 @@ class IdentityServiceImplTest {
         Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.login(req));
         assertEquals("Tài khoản của bạn đã bị khóa và không thể đăng nhập. Vui lòng liên hệ quản trị viên.", ex.getMessage());
         verify(passwordEncoder, never()).matches(anyString(), anyString());
+    }
+
+    @Test
+    void login_suspendedUser_isRejected() {
+        LoginRequest req = new LoginRequest();
+        req.setEmail("test@gmail.com");
+        req.setPassword("Password123");
+
+        User user = new User();
+        user.setStatus(UserStatus.SUSPENDED);
+        when(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.of(user));
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.login(req));
+
+        assertEquals("Tài khoản của bạn đang bị tạm ngừng. Vui lòng liên hệ quản trị viên.", ex.getMessage());
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+    }
+
+    @Test
+    void logout_incrementsTokenVersionAndWritesAudit() {
+        User user = new User();
+        user.setUserId(7L);
+        user.setTokenVersion(3L);
+        when(authHelper.currentUserId()).thenReturn(7L);
+        when(userRepository.findById(7L)).thenReturn(Optional.of(user));
+
+        identityService.logout();
+
+        assertEquals(4L, user.getTokenVersion());
+        verify(userRepository).save(user);
+        verify(auditLogService).record(
+                eq(7L), eq("LOGOUT"), eq("User"), eq(7L),
+                eq(java.util.Map.of("tokenVersion", 3L)),
+                eq(java.util.Map.of("tokenVersion", 4L)));
     }
 
     @Test

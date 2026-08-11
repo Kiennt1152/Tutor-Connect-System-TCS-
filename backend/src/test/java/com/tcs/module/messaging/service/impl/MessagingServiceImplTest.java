@@ -10,6 +10,8 @@ import com.tcs.module.messaging.dto.request.ReplyTicketRequest;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.messaging.dto.response.SupportTicketResponse;
 import com.tcs.module.messaging.dto.response.TicketMessageResponse;
+import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.entity.SupportTicket;
 import com.tcs.module.platform.entity.TicketMessage;
 import com.tcs.module.platform.enums.SupportTicketCategory;
@@ -49,6 +51,10 @@ class MessagingServiceImplTest {
     private TicketMessageRepository ticketMessageRepository;
     @Mock
     private TutoringClassRepository tutoringClassRepository;
+    @Mock
+    private NotificationRepository notificationRepository;
+    @Mock
+    private NotificationDispatchService notificationDispatchService;
 
     @InjectMocks
     private MessagingServiceImpl messagingService;

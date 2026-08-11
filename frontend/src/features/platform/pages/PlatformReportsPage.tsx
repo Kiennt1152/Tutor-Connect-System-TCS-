@@ -1539,6 +1539,105 @@ function ClassIssueReportDetail({
   );
 }
 
+function GenericReportDetail({
+  detail,
+  onChanged,
+}: {
+  detail: ReportItem | null;
+  onChanged: () => void;
+}) {
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  if (!detail) {
+    return <div className="pd-detail pd-detail--empty">Chọn một báo cáo để xem chi tiết và xử lý.</div>;
+  }
+
+  const canResolve = detail.status === 'PENDING';
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+    if (notes.trim().length < 5) {
+      setErrorMessage('Ghi chú xử lý phải có ít nhất 5 ký tự.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      await platformApi.resolveReport(Number(detail.id), {
+        status: 'RESOLVED',
+        adminNotes: notes.trim(),
+      });
+      setSuccessMessage('Đã đánh dấu báo cáo là đã xử lý.');
+      setNotes('');
+      onChanged();
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, 'Không thể xử lý báo cáo.'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="pd-detail">
+      <div className="pd-detail__head">
+        <div>
+          <p className="pd-detail__eyebrow">Báo cáo #{detail.id}</p>
+          <h2 className="pd-detail__title">
+            {detail.targetTypeLabel} #{detail.targetId}
+          </h2>
+        </div>
+        <span className={reportBadgeClass(detail.status)}>{detail.statusLabel}</span>
+      </div>
+
+      <section className="pd-section">
+        <h3 className="pd-section__title">Thông tin báo cáo</h3>
+        <div className="pd-info-grid">
+          <InfoRow label="Người báo cáo" value={detail.reporterEmail} />
+          <InfoRow label="Đối tượng" value={`${detail.targetTypeLabel} #${detail.targetId}`} />
+          <InfoRow label="Danh mục" value={detail.categoryLabel} />
+          <InfoRow label="Tạo lúc" value={detail.createdAt} />
+        </div>
+        <p className="pd-description">{detail.description}</p>
+      </section>
+
+      <section className="pd-section">
+        <h3 className="pd-section__title">Bằng chứng</h3>
+        <EvidencePreviewList urls={detail.evidenceUrlList} emptyText="Chưa có bằng chứng." />
+      </section>
+
+      <section className="pd-section">
+        <h3 className="pd-section__title">Xử lý</h3>
+        {!canResolve ? (
+          <div className="adm-alert adm-alert--success">Báo cáo này đã được xử lý.</div>
+        ) : (
+          <form className="pd-resolution-form" onSubmit={handleSubmit}>
+            <label className="pd-field">
+              <span>Ghi chú xử lý</span>
+              <textarea
+                className="pd-textarea"
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="Nhập kết quả kiểm tra và biện pháp đã áp dụng..."
+              />
+            </label>
+            {errorMessage && <div className="adm-alert adm-alert--error">{errorMessage}</div>}
+            {successMessage && <div className="adm-alert adm-alert--success">{successMessage}</div>}
+            <div className="pd-resolution-actions">
+              <button className="tcs-btn tcs-btn--primary" type="submit" disabled={submitting}>
+                {submitting ? 'Đang xử lý...' : 'Đánh dấu đã xử lý'}
+              </button>
+            </div>
+          </form>
+        )}
+      </section>
+    </div>
+  );
+}
+
 function RefundRequestDetail({
   item,
   onChanged,
@@ -1710,19 +1809,18 @@ export default function PlatformReportsPage() {
       || (item.status === 'APPROVED' && item.raw.transferStatus === 'PENDING')
   ).length;
   const heldEscrowCount = disputes.items.filter((item) => isEscrowHeldForDispute(item.escrowStatus)).length;
-  const classIssueReports = reports.items.filter((item) => item.targetType === 'CLASS');
-  const selectedReport = classIssueReports.find((item) => item.id === selectedReportId) ?? null;
+  const selectedReport = reports.items.find((item) => item.id === selectedReportId) ?? null;
   const selectedRefund = refunds.items.find((item) => item.id === selectedRefundId) ?? null;
 
   useEffect(() => {
-    if (classIssueReports.length === 0) {
+    if (reports.items.length === 0) {
       setSelectedReportId(null);
       return;
     }
-    if (!selectedReportId || !classIssueReports.some((item) => item.id === selectedReportId)) {
-      setSelectedReportId(classIssueReports[0].id);
+    if (!selectedReportId || !reports.items.some((item) => item.id === selectedReportId)) {
+      setSelectedReportId(reports.items[0].id);
     }
-  }, [classIssueReports, selectedReportId]);
+  }, [reports.items, selectedReportId]);
 
   useEffect(() => {
     if (refunds.items.length === 0) {
@@ -1858,8 +1956,8 @@ export default function PlatformReportsPage() {
         <div className="adm-card pd-console__list">
           <div className="pd-card-head">
             <div>
-              <h2 className="pd-card-head__title">Báo cáo sự cố lớp</h2>
-              <p className="pd-card-head__meta">{classIssueReports.length} báo cáo</p>
+              <h2 className="pd-card-head__title">Báo cáo người dùng, đánh giá và lớp học</h2>
+              <p className="pd-card-head__meta">{reports.items.length} báo cáo</p>
             </div>
             <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reports.reload}>
               Làm mới
@@ -1881,10 +1979,10 @@ export default function PlatformReportsPage() {
 
           {reports.status === 'success' && (
             <div className="pd-dispute-list">
-              {classIssueReports.length === 0 ? (
+              {reports.items.length === 0 ? (
                 <div className="adm-state">Chưa có báo cáo nào.</div>
               ) : (
-                classIssueReports.map((item) => (
+                reports.items.map((item) => (
                   <button
                     key={item.id}
                     type="button"
@@ -1897,10 +1995,14 @@ export default function PlatformReportsPage() {
                       <span className="pd-dispute-item__id">#{item.id}</span>
                       <span className={reportBadgeClass(item.status)}>{item.statusLabel}</span>
                     </span>
-                    <span className="pd-dispute-item__title">{item.classTitle}</span>
-                    <span className="pd-dispute-item__desc">{item.userDescription}</span>
+                    <span className="pd-dispute-item__title">
+                      {item.targetType === 'CLASS'
+                        ? item.classTitle
+                        : `${item.targetTypeLabel} #${item.targetId}`}
+                    </span>
+                    <span className="pd-dispute-item__desc">{item.description}</span>
                     <span className="pd-dispute-item__meta">
-                      {item.issueTypeLabel} · {item.evidenceCount} bằng chứng · {item.createdAt}
+                      {item.categoryLabel} · {item.evidenceCount} bằng chứng · {item.createdAt}
                       {item.linkedDisputeId ? (
                         <span className="tcs-badge tcs-badge--role">Tranh chấp #{item.linkedDisputeId}</span>
                       ) : null}
@@ -1912,7 +2014,15 @@ export default function PlatformReportsPage() {
           )}
         </div>
 
-        <ClassIssueReportDetail detail={selectedReport} onChanged={reloadIssueQueues} />
+        {selectedReport?.targetType === 'CLASS' ? (
+          <ClassIssueReportDetail detail={selectedReport} onChanged={reloadIssueQueues} />
+        ) : (
+          <GenericReportDetail
+            key={selectedReport?.id ?? 'empty-report'}
+            detail={selectedReport}
+            onChanged={reloadIssueQueues}
+          />
+        )}
       </section>
 
       <section className="pd-console" aria-label="Hàng đợi yêu cầu hoàn tiền">

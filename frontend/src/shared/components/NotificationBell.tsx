@@ -79,7 +79,12 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
         aria-label={`Thông báo${unread > 0 ? ` (${unread} chưa đọc)` : ''}`}
         onClick={togglePanel}
       >
-        🔔
+        <svg className="ntf__glyph" viewBox="0 0 24 24" aria-hidden="true">
+          <path
+            fill="currentColor"
+            d="M12 2.25a6.15 6.15 0 0 0-6.15 6.15v2.76c0 1.85-.63 3.64-1.79 5.08l-.72.9A1.15 1.15 0 0 0 4.24 19h15.52a1.15 1.15 0 0 0 .9-1.86l-.72-.9a8.13 8.13 0 0 1-1.79-5.08V8.4A6.15 6.15 0 0 0 12 2.25Zm0 20a2.75 2.75 0 0 0 2.58-1.8H9.42A2.75 2.75 0 0 0 12 22.25Z"
+          />
+        </svg>
         {unread > 0 && <span className="ntf__badge">{unread > 9 ? '9+' : unread}</span>}
         {hasDot && <span className="ntf__dot" />}
       </button>

@@ -71,6 +71,23 @@ export default function RecruitmentPage() {
     load();
   }, [load]);
 
+  // Gia sư rút đơn ứng tuyển (chỉ khi đơn còn ở trạng thái chờ duyệt).
+  const [withdrawBusy, setWithdrawBusy] = useState<number | null>(null);
+  const withdraw = async (a: RecruitmentApplication) => {
+    setWithdrawBusy(a.recruitmentAppId);
+    setError('');
+    setOkMsg('');
+    try {
+      await centerApi.withdrawApplication(a.recruitmentAppId);
+      setOkMsg('Đã rút đơn ứng tuyển.');
+      load();
+    } catch (err) {
+      setError(extractError(err, 'Không rút được đơn.'));
+    } finally {
+      setWithdrawBusy(null);
+    }
+  };
+
   /** recruitmentId của các tin mình đã nộp đơn — để khoá nút ứng tuyển. */
   const appliedIds = useMemo(
     () => new Set(myApps.map((a) => a.recruitmentId)),
@@ -262,6 +279,18 @@ export default function RecruitmentPage() {
                         </div>
                       </div>
                       {a.coverLetter && <p className="rc-card__desc">{a.coverLetter}</p>}
+                      {a.status === 'APPLIED' && (
+                        <div className="rc-card__foot">
+                          <button
+                            type="button"
+                            className="rc-btn rc-btn--ghost rc-btn--sm"
+                            disabled={withdrawBusy === a.recruitmentAppId}
+                            onClick={() => withdraw(a)}
+                          >
+                            {withdrawBusy === a.recruitmentAppId ? 'Đang rút…' : 'Rút đơn'}
+                          </button>
+                        </div>
+                      )}
                     </article>
                   );
                 })}

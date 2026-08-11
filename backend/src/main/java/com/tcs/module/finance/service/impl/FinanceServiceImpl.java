@@ -61,6 +61,7 @@ import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
+import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.security.AuthHelper;
 import com.tcs.security.UserPrincipal;
 import java.math.RoundingMode;
@@ -117,6 +118,7 @@ public class FinanceServiceImpl implements FinanceService {
     private final EscrowService escrowService;
     private final CenterRequestFeeService centerRequestFeeService;
     private final PaymentNotificationService paymentNotificationService;
+    private final PenaltyAccessService penaltyAccessService;
     private final ApplicationEventPublisher eventPublisher;
     private final ClassRequestStore classRequestStore;
 
@@ -139,6 +141,7 @@ public class FinanceServiceImpl implements FinanceService {
     @Transactional
     public WalletResponse createMyWallet() {
         Long userId = requireEarningWalletUserId();
+        penaltyAccessService.requireFeature(userId, "WITHDRAWAL");
         return toWalletResponse(walletService.create(userId));
     }
 

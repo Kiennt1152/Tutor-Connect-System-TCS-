@@ -38,7 +38,8 @@ function getContextLabel(type: string): string | null {
 
 export function ConversationItem({ conversation, active, onClick }: ConversationItemProps) {
   const other = conversation.otherParticipant;
-  const name = other?.displayName ?? 'Người dùng';
+  const isGroup = conversation.type === 'GROUP';
+  const name = isGroup ? conversation.name ?? 'Nhóm chat' : other?.displayName ?? 'Người dùng';
   const hasUnread = conversation.unreadCount > 0;
   const contextLabel = getContextLabel(conversation.type);
 
@@ -48,8 +49,11 @@ export function ConversationItem({ conversation, active, onClick }: Conversation
       className={`msg-conversation-item${active ? ' msg-conversation-item--active' : ''}`}
       onClick={onClick}
     >
-      <div className="msg-avatar" style={{ backgroundColor: getAvatarColor(other?.userId ?? 0) }}>
-        {other?.avatarUrl ? (
+      <div
+        className={`msg-avatar${isGroup ? ' msg-avatar--group' : ''}`}
+        style={{ backgroundColor: getAvatarColor(other?.userId ?? conversation.conversationId) }}
+      >
+        {!isGroup && other?.avatarUrl ? (
           <img src={other.avatarUrl} alt={name} className="msg-avatar__img" />
         ) : (
           <span>{getInitials(name)}</span>
@@ -78,6 +82,11 @@ export function ConversationItem({ conversation, active, onClick }: Conversation
         {contextLabel && (
           <div className="msg-conversation-item__context">
             <span>{contextLabel}</span>
+          </div>
+        )}
+        {isGroup && (
+          <div className="msg-conversation-item__context">
+            <span>{conversation.participantCount} thành viên</span>
           </div>
         )}
       </div>

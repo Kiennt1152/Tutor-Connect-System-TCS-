@@ -17,13 +17,15 @@ public class UserPrincipal implements UserDetails {
     private final String passwordHash;
     private final UserRole role;
     private final boolean enabled;
+    private final long tokenVersion;
 
     public UserPrincipal(User user, UserRole role) {
         this.userId = user.getUserId();
         this.email = user.getEmail();
         this.passwordHash = user.getPasswordHash();
         this.role = role;
-        this.enabled = user.getStatus() != com.tcs.module.identity.enums.UserStatus.BANNED;
+        this.enabled = user.getStatus() == com.tcs.module.identity.enums.UserStatus.ACTIVE;
+        this.tokenVersion = user.getTokenVersion();
     }
 
     @Override
