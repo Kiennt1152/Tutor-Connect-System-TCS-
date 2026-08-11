@@ -18,6 +18,6 @@ public class VerifyOtpRequest {
     private String email;
 
     @NotBlank(message = "Vui lòng nhập mã OTP")
-    @Pattern(regexp = "^\\d{6}$", message = "Mã OTP gồm 6 chữ số")
+    @Pattern(regexp = "^\\d+$", message = "Mã OTP chỉ chứa chữ số")
     private String code;
 }

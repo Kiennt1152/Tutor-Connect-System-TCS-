@@ -53,7 +53,16 @@ export function ConversationList({
           <div className="msg-state msg-state--error">{error}</div>
         ) : filtered.length === 0 ? (
           <div className="msg-state msg-state--empty">
-            {search.trim() ? 'Không tìm thấy hội thoại phù hợp' : 'Chưa có cuộc trò chuyện nào'}
+            {search.trim() ? (
+              'Không tìm thấy hội thoại phù hợp'
+            ) : (
+              <div>
+                <p style={{ margin: '0 0 0.5rem', fontWeight: 600 }}>Bạn chưa có cuộc trò chuyện nào.</p>
+                <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b' }}>
+                  Nhấn nút "💬 Nhắn tin" từ Marketplace, Tuyển dụng, Lịch dạy v.v. để bắt đầu chat.
+                </p>
+              </div>
+            )}
           </div>
         ) : (
           filtered.map((conversation) => (

@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { centerApi } from '../../center/api/centerApi';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { ChatButton } from '../../messaging/components/ChatButton';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import type {
   RecruitmentApplication,
@@ -252,6 +253,12 @@ export default function RecruitmentPage() {
                         <div className="rc-card__meta">
                           <span>Nộp: {fmtDate(a.appliedAt)}</span>
                           {a.reviewedAt && <span>Duyệt: {fmtDate(a.reviewedAt)}</span>}
+                          <ChatButton
+                            contextType="RECRUITMENT"
+                            contextId={a.recruitmentAppId}
+                            label="Nhắn tin với trung tâm"
+                            size="sm"
+                          />
                         </div>
                       </div>
                       {a.coverLetter && <p className="rc-card__desc">{a.coverLetter}</p>}

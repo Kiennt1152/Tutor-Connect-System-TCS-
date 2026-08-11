@@ -28,12 +28,17 @@ import com.tcs.module.catalog.service.CatalogService;
 import com.tcs.module.catalog.service.GeminiService;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.platform.service.AuditLogService;
+import java.text.Normalizer;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +47,11 @@ import org.springframework.util.StringUtils;
 @Service
 @RequiredArgsConstructor
 public class CatalogServiceImpl implements CatalogService {
+
+    private static final Set<String> STOP_WORDS = new HashSet<>(Arrays.asList(
+            "toi", "cua", "la", "va", "cho", "co", "cac", "nhung", "mot", "nay", "do"
+    ));
+    private static final Pattern DIACRITICAL_MARKS = Pattern.compile("\\p{InCombiningDiacriticalMarks}+");
 
     private final SubjectRepository subjectRepository;
     private final CategoryRepository categoryRepository;
@@ -55,6 +65,46 @@ public class CatalogServiceImpl implements CatalogService {
     private final CatalogMapper catalogMapper;
     private final GeminiService geminiService;
     private final AuditLogService auditLogService;
+
+    private String normalizeVietnamese(String text) {
+        if (text == null) {
+            return "";
+        }
+        String normalized = text.toLowerCase(Locale.ROOT);
+        normalized = normalized.replace('đ', 'd').replace('Đ', 'd');
+        normalized = Normalizer.normalize(normalized, Normalizer.Form.NFD);
+        return DIACRITICAL_MARKS.matcher(normalized).replaceAll("");
+    }
+
+    private List<String> tokenize(String text) {
+        String normalized = normalizeVietnamese(text);
+        String[] parts = normalized.split("[^a-z0-9]+");
+        List<String> tokens = new ArrayList<>();
+        for (String part : parts) {
+            if (!part.isBlank() && !STOP_WORDS.contains(part)) {
+                tokens.add(part);
+            }
+        }
+        return tokens;
+    }
+
+    private int calculateFaqScore(FaqEntry faq, List<String> queryTokens) {
+        if (queryTokens.isEmpty()) {
+            return 0;
+        }
+        String qNorm = normalizeVietnamese(faq.getQuestion());
+        String aNorm = normalizeVietnamese(faq.getAnswer());
+
+        int score = 0;
+        for (String token : queryTokens) {
+            if (qNorm.contains(token)) {
+                score += 2;
+            } else if (aNorm.contains(token)) {
+                score += 1;
+            }
+        }
+        return score;
+    }
 
     @Override
     @Transactional(readOnly = true)
@@ -137,26 +187,93 @@ public class CatalogServiceImpl implements CatalogService {
     public List<FaqResponse> getFaqEntries(String category, String keyword) {
         String trimmedCategory = StringUtils.hasText(category) ? category.trim() : null;
         String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
-        return faqEntryRepository.search(trimmedCategory, trimmedKeyword).stream().map(this::toFaq).toList();
+
+        List<FaqEntry> entries;
+        if (trimmedCategory != null) {
+            entries = faqEntryRepository.findByPublishedTrueAndCategoryOrderBySortOrderAscFaqIdAsc(trimmedCategory);
+        } else {
+            entries = faqEntryRepository.findByPublishedTrueOrderBySortOrderAscFaqIdAsc();
+        }
+
+        if (!StringUtils.hasText(trimmedKeyword)) {
+            return entries.stream().map(this::toFaq).toList();
+        }
+
+        List<String> tokens = tokenize(trimmedKeyword);
+        if (tokens.isEmpty()) {
+            return entries.stream().map(this::toFaq).toList();
+        }
+
+        record ScoredFaq(FaqEntry faq, int score) {}
+
+        List<ScoredFaq> scoredList = new ArrayList<>();
+        for (FaqEntry entry : entries) {
+            int score = calculateFaqScore(entry, tokens);
+            if (score > 0) {
+                scoredList.add(new ScoredFaq(entry, score));
+            }
+        }
+
+        scoredList.sort((a, b) -> {
+            if (b.score() != a.score()) {
+                return Integer.compare(b.score(), a.score());
+            }
+            int sortOrderComp = Integer.compare(
+                    a.faq().getSortOrder() != null ? a.faq().getSortOrder() : 0,
+                    b.faq().getSortOrder() != null ? b.faq().getSortOrder() : 0
+            );
+            if (sortOrderComp != 0) {
+                return sortOrderComp;
+            }
+            return Long.compare(
+                    a.faq().getFaqId() != null ? a.faq().getFaqId() : 0L,
+                    b.faq().getFaqId() != null ? b.faq().getFaqId() : 0L
+            );
+        });
+
+        return scoredList.stream().map(sf -> toFaq(sf.faq())).toList();
     }
 
     @Override
     @Transactional(readOnly = true)
     public ChatbotAskResponse askChatbot(ChatbotAskRequest request) {
-        Optional<String> aiAnswer = geminiService.askQuestion(request.getQuestion());
-        if (aiAnswer.isPresent()) {
+        String question = request != null ? request.getQuestion() : null;
+        if (!StringUtils.hasText(question)) {
             return ChatbotAskResponse.builder()
-                    .matched(true)
-                    .aiGenerated(true)
-                    .question(request.getQuestion())
-                    .answer(aiAnswer.get())
+                    .matched(false)
+                    .suggestion("Không tìm thấy câu trả lời. Vui lòng tạo yêu cầu hỗ trợ.")
                     .build();
+        }
+
+        List<FaqEntry> entries = faqEntryRepository.findByPublishedTrueOrderBySortOrderAscFaqIdAsc();
+        List<String> tokens = tokenize(question);
+
+        if (!tokens.isEmpty()) {
+            FaqEntry best = null;
+            int maxScore = 0;
+
+            for (FaqEntry entry : entries) {
+                int score = calculateFaqScore(entry, tokens);
+                if (score > maxScore) {
+                    maxScore = score;
+                    best = entry;
+                }
+            }
+
+            if (best != null && maxScore > 0) {
+                return ChatbotAskResponse.builder()
+                        .matched(true)
+                        .aiGenerated(false)
+                        .question(best.getQuestion())
+                        .answer(best.getAnswer())
+                        .faqId(best.getFaqId())
+                        .build();
+            }
         }
 
         return ChatbotAskResponse.builder()
                 .matched(false)
-                .suggestion("Xin lỗi, tôi chưa tìm được câu trả lời phù hợp. "
-                        + "Bạn vui lòng tạo yêu cầu hỗ trợ để được đội ngũ hỗ trợ giải đáp trực tiếp.")
+                .suggestion("Không tìm thấy câu trả lời. Vui lòng tạo yêu cầu hỗ trợ.")
                 .build();
     }
 
