@@ -2,6 +2,7 @@ import { Link, NavLink } from 'react-router-dom';
 import type { ReactNode } from 'react';
 import { AppLogo } from '../../../shared/components/AppLogo';
 import { LogoutButton } from '../../../shared/components/LogoutButton';
+import { MessageIcon } from '../../../shared/components/MessageIcon';
 import { NotificationBell } from '../../../shared/components/NotificationBell';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
@@ -33,6 +34,7 @@ export function AdminLayout({ title, subtitle, children }: AdminLayoutProps) {
         <div className="adm-topbar__inner">
           <AppLogo href={APP_ROUTES.platform} className="adm-topbar__logo" />
           <div className="adm-topbar__actions">
+            <MessageIcon />
             <NotificationBell enabled={!!user} />
             <NavLink
               to={APP_ROUTES.platformProfile}

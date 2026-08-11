@@ -24,7 +24,12 @@ export function usePlatformDashboard() {
   }, []);
 
   useEffect(() => {
-    reload();
+    const initialId = window.setTimeout(reload, 0);
+    const intervalId = window.setInterval(reload, 60_000);
+    return () => {
+      window.clearTimeout(initialId);
+      window.clearInterval(intervalId);
+    };
   }, [reload]);
 
   return { status, data, reload };

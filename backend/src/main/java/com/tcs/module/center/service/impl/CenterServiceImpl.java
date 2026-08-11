@@ -150,8 +150,8 @@ public class CenterServiceImpl implements CenterService {
     private final ContractService contractService;
     private final ContractTemplateRepository contractTemplateRepository;
     private final com.tcs.module.profile.service.CccdService cccdService;
-    private final com.tcs.module.messaging.repository.NotificationRepository notificationRepository;
     private final com.tcs.module.identity.repository.UserRepository userRepository;
+    private final com.tcs.module.messaging.service.NotificationDispatchService notificationDispatchService;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -433,17 +433,15 @@ public class CenterServiceImpl implements CenterService {
         if (app.getTutor() == null || app.getTutor().getUser() == null) {
             return;
         }
-        com.tcs.module.messaging.entity.Notification n =
-                new com.tcs.module.messaging.entity.Notification();
-        n.setUser(app.getTutor().getUser());
-        n.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
-        n.setTitle(title);
-        n.setContent(content);
-        n.setReferenceType("RECRUITMENT_APPLICATION");
-        n.setReferenceId(app.getRecruitmentAppId());
-        n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        n.setIsRead(false);
-        notificationRepository.save(n);
+        notificationDispatchService.notifyUserFromTemplate(
+                app.getTutor().getUser(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "CENTER_APPLICATION_RESULT",
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                "RECRUITMENT_APPLICATION",
+                app.getRecruitmentAppId());
     }
 
     // ===================== Quản lý danh sách gia sư của trung tâm =====================
@@ -2296,16 +2294,15 @@ public class CenterServiceImpl implements CenterService {
             return;
         }
         userRepository.findById(data.clientUserId()).ifPresent(user -> {
-            com.tcs.module.messaging.entity.Notification n =
-                    new com.tcs.module.messaging.entity.Notification();
-            n.setUser(user);
-            n.setType(com.tcs.module.messaging.enums.NotificationType.SYSTEM);
-            n.setTitle(title);
-            n.setContent(content);
-            n.setReferenceType("CLASS_REQUEST");
-            n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-            n.setIsRead(false);
-            notificationRepository.save(n);
+            notificationDispatchService.notifyUserFromTemplate(
+                    user,
+                    com.tcs.module.messaging.enums.NotificationType.SYSTEM,
+                    "CENTER_CLASS_REQUEST_CLOSED",
+                    Map.of("title", title, "content", content),
+                    title,
+                    content,
+                    "CLASS_REQUEST",
+                    null);
         });
     }
 

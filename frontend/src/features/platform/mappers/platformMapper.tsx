@@ -177,6 +177,8 @@ const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
   FRAUD: 'Gian lận',
   ABUSE: 'Lạm dụng',
   SPAM: 'Spam',
+  INAPPROPRIATE: 'Nội dung không phù hợp',
+  OTHER: 'Khác',
 };
 
 const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
@@ -229,6 +231,7 @@ const TARGET_TYPE_LABELS: Record<string, string> = {
   USER: 'Người dùng',
   TUTOR: 'Gia sư',
   CLASS: 'Lớp học',
+  REVIEW: 'Đánh giá',
   MESSAGE: 'Tin nhắn',
 };
 

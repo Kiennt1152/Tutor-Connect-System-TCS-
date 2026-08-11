@@ -9,4 +9,6 @@ public interface ConversationParticipantRepository extends JpaRepository<Convers
     java.util.Optional<ConversationParticipant> findByConversation_ConversationIdAndUser_UserId(Long conversationId, Long userId);
     boolean existsByConversation_ConversationIdAndUser_UserId(Long conversationId, Long userId);
     java.util.List<ConversationParticipant> findByConversation_ConversationId(Long conversationId);
+    long countByConversation_ConversationId(Long conversationId);
+    void deleteByConversation_ConversationIdAndUser_UserId(Long conversationId, Long userId);
 }

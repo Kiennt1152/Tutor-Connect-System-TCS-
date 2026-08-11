@@ -7,9 +7,11 @@ import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.repository.NotificationQueueRepository;
 import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.messaging.service.NotificationTemplateService;
 import com.tcs.module.messaging.service.EmailService;
 import com.tcs.module.messaging.service.NotificationDispatchService;
 import java.time.LocalDateTime;
+import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +23,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
     private final NotificationRepository notificationRepository;
     private final NotificationQueueRepository notificationQueueRepository;
     private final EmailService emailService;
+    private final NotificationTemplateService notificationTemplateService;
 
     @Override
     @Transactional
@@ -70,5 +73,21 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
         queue.setStatus("SENT");
         queue.setSentAt(LocalDateTime.now());
         notificationQueueRepository.save(queue);
+    }
+
+    @Override
+    public void notifyUserFromTemplate(
+            User user,
+            NotificationType type,
+            String templateCode,
+            Map<String, ?> variables,
+            String fallbackTitle,
+            String fallbackContent,
+            String referenceType,
+            Long referenceId) {
+        NotificationTemplateService.RenderedTemplate rendered = notificationTemplateService
+                .renderEnabled(templateCode, variables)
+                .orElse(new NotificationTemplateService.RenderedTemplate(fallbackTitle, fallbackContent));
+        notifyUser(user, type, rendered.title(), rendered.content(), referenceType, referenceId);
     }
 }

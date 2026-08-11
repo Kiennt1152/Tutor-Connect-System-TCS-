@@ -31,4 +31,17 @@ public class AuthHelper {
     public Long currentUserId() {
         return requireAuthenticated().getUserId();
     }
+
+    /**
+     * Returns true if the currently authenticated user has the given role name
+     * (e.g. "PLATFORM_ADMIN", "TUTOR", "CLIENT", "TUTOR_CENTER").
+     */
+    public boolean hasRole(String roleName) {
+        try {
+            UserPrincipal principal = requireAuthenticated();
+            return principal.getRole().name().equals(roleName);
+        } catch (Exception e) {
+            return false;
+        }
+    }
 }

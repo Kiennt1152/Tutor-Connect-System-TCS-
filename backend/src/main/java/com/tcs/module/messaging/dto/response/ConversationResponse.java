@@ -10,6 +10,9 @@ public class ConversationResponse {
 
     private Long conversationId;
     private String type;
+    private String name;
+    private Long ownerUserId;
+    private int participantCount;
     private UserSummaryResponse otherParticipant;
     private String lastMessagePreview;
     private LocalDateTime lastMessageAt;

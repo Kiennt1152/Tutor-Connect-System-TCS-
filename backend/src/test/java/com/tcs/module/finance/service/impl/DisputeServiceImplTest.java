@@ -111,6 +111,9 @@ class DisputeServiceImplTest {
     private NotificationRepository notificationRepository;
 
     @Mock
+    private com.tcs.module.messaging.service.NotificationDispatchService notificationDispatchService;
+
+    @Mock
     private PlatformAdminRepository platformAdminRepository;
 
     @Mock

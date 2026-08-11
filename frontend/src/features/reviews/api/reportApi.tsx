@@ -3,6 +3,11 @@ import axiosClient from '../../../shared/api/axiosClient';
 export type ReportCategory = 'FRAUD' | 'ABUSE' | 'INAPPROPRIATE' | 'OTHER';
 
 export const reportApi = {
+  reportUser(userId: number, category: ReportCategory, description: string) {
+    return axiosClient.post('/messaging/reports', {
+      targetType: 'USER', targetId: userId, category, description: description.trim(),
+    });
+  },
   reportReview(reviewId: number, category: ReportCategory, description?: string) {
     return axiosClient.post('/messaging/reports', {
       targetType: 'REVIEW',

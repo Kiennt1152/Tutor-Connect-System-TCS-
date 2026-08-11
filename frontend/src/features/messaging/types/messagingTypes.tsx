@@ -56,6 +56,9 @@ export interface UserSummaryResponse {
 export interface ConversationResponse {
   conversationId: number;
   type: string;
+  name: string | null;
+  ownerUserId: number | null;
+  participantCount: number;
   otherParticipant: UserSummaryResponse | null;
   lastMessagePreview: string | null;
   lastMessageAt: string | null;
@@ -154,10 +157,22 @@ export interface UserSummaryResponse {
 export interface ConversationResponse {
   conversationId: number;
   type: string;
+  name: string | null;
+  ownerUserId: number | null;
+  participantCount: number;
   otherParticipant: UserSummaryResponse | null;
   lastMessagePreview: string | null;
   lastMessageAt: string | null;
   unreadCount: number;
+}
+
+export interface GroupMemberResponse extends UserSummaryResponse {
+  owner: boolean;
+}
+
+export interface CreateGroupRequest {
+  name: string;
+  memberIds: number[];
 }
 
 export interface MessageResponse {

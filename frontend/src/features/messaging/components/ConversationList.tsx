@@ -23,7 +23,7 @@ export function ConversationList({
 
   const filtered = conversations.filter((c) => {
     if (!search.trim()) return true;
-    const name = c.otherParticipant?.displayName ?? '';
+    const name = c.type === 'GROUP' ? c.name ?? '' : c.otherParticipant?.displayName ?? '';
     return name.toLowerCase().includes(search.trim().toLowerCase());
   });
 

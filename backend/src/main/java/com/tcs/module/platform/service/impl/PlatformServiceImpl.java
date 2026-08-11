@@ -46,10 +46,8 @@ import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.messaging.dto.response.TicketMessageResponse;
-import com.tcs.module.messaging.entity.Notification;
-import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
-import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.dto.request.CloseTicketRequest;
 import com.tcs.module.platform.dto.request.RespondTicketRequest;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
@@ -121,7 +119,6 @@ public class PlatformServiceImpl implements PlatformService {
     private final VerificationRequestRepository verificationRequestRepository;
     private final VerificationDocumentRepository verificationDocumentRepository;
     private final VerificationHistoryRepository verificationHistoryRepository;
-    private final NotificationRepository notificationRepository;
     private final ReportRepository reportRepository;
     private final AuditLogRepository auditLogRepository;
     private final DisputeRepository disputeRepository;
@@ -137,6 +134,7 @@ public class PlatformServiceImpl implements PlatformService {
     private final com.tcs.module.platform.service.PlatformTaskQueueService taskQueueService;
     private final com.tcs.module.platform.service.PlatformAnalyticsService analyticsService;
     private final com.tcs.module.profile.service.CccdService cccdService;
+    private final NotificationDispatchService notificationDispatchService;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
@@ -203,7 +201,7 @@ public class PlatformServiceImpl implements PlatformService {
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard() {
         com.tcs.module.platform.dto.response.TaskQueueSummaryResponse taskSummary = taskQueueService.getSummary();
-        com.tcs.module.platform.dto.response.AnalyticsSummaryResponse analyticsSummary = analyticsService.getSummary();
+        com.tcs.module.platform.dto.response.AnalyticsSummaryResponse analyticsSummary = analyticsService.getSummary(null, null);
 
         java.util.List<com.tcs.module.platform.dto.response.DashboardAlertResponse> alerts = new java.util.ArrayList<>();
         if (taskSummary.getOpenDisputes() > 0) {
@@ -390,16 +388,18 @@ public class PlatformServiceImpl implements PlatformService {
         } else {
             return;
         }
-        Notification notification = new Notification();
-        notification.setUser(request.getUser());
-        notification.setType(NotificationType.VERIFICATION);
-        notification.setTitle(title);
-        notification.setContent(content);
-        notification.setReferenceType("VERIFICATION_REQUEST");
-        notification.setReferenceId(request.getVerificationId());
-        notification.setStatus(NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        String templateCode = request.getStatus() == VerificationStatus.VERIFIED
+                ? "VERIFICATION_APPROVED"
+                : "VERIFICATION_REJECTED";
+        notificationDispatchService.notifyUserFromTemplate(
+                request.getUser(),
+                NotificationType.VERIFICATION,
+                templateCode,
+                Map.of("reason", request.getRejectionReason() == null ? "" : request.getRejectionReason()),
+                title,
+                content,
+                "VERIFICATION_REQUEST",
+                request.getVerificationId());
     }
 
     private VerificationDetailResponse buildDetail(VerificationRequest v) {
@@ -695,10 +695,26 @@ public class PlatformServiceImpl implements PlatformService {
     public ReportResponse resolveReport(Long reportId, com.tcs.module.platform.dto.request.ResolveReportRequest request) {
         Report report = reportRepository.findById(reportId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy báo cáo"));
+        if (report.getTargetType() == ReportTargetType.CLASS) {
+            throw new BusinessException("Báo cáo lớp phải được xử lý bằng luồng sự cố lớp học");
+        }
+        if (request == null || request.getStatus() != ReportStatus.RESOLVED) {
+            throw new IllegalArgumentException("Trạng thái xử lý báo cáo phải là RESOLVED");
+        }
+        if (report.getStatus() == ReportStatus.RESOLVED) {
+            throw new BusinessException("Báo cáo đã được xử lý");
+        }
         com.tcs.module.platform.enums.ReportStatus oldStatus = report.getStatus();
         report.setStatus(request.getStatus());
         Report saved = reportRepository.save(report);
         auditLogService.record("RESOLVE_REPORT", "Report", reportId, java.util.Map.of("oldStatus", oldStatus), java.util.Map.of("newStatus", request.getStatus(), "adminNotes", request.getAdminNotes() != null ? request.getAdminNotes() : ""));
+        createReportNotification(
+                saved.getReporter(),
+                "Báo cáo của bạn đã được xử lý",
+                request.getAdminNotes() == null || request.getAdminNotes().isBlank()
+                        ? "Quản trị viên đã hoàn tất xử lý báo cáo #" + saved.getReportId() + "."
+                        : request.getAdminNotes().trim(),
+                saved);
         return toReportResponse(saved);
     }
 
@@ -746,18 +762,58 @@ public class PlatformServiceImpl implements PlatformService {
     @Transactional
     public SupportTicketDetailResponse updateTicket(Long ticketId, UpdateTicketRequest request) {
         SupportTicket ticket = findTicketOrThrow(ticketId);
-        java.util.Map<String, Object> oldValue = java.util.Map.of(
-                "category", ticket.getCategory(), "priority", ticket.getPriority());
 
-        if (request.getCategory() != null) {
+        if (ticket.getStatus() == SupportTicketStatus.RESOLVED
+                || ticket.getStatus() == SupportTicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Không thể chỉnh ticket đã kết thúc");
+        }
+        if (request == null || (request.getCategory() == null && request.getPriority() == null)) {
+            throw new IllegalArgumentException("Hãy chọn category hoặc priority cần cập nhật");
+        }
+
+        boolean categoryChanged = request.getCategory() != null
+                && request.getCategory() != ticket.getCategory();
+        boolean priorityChanged = request.getPriority() != null
+                && request.getPriority() != ticket.getPriority();
+        if (!categoryChanged && !priorityChanged) {
+            throw new IllegalArgumentException("Ticket không có thay đổi để lưu");
+        }
+
+        Map<String, Object> oldValue = ticketAuditSnapshot(ticket);
+
+        if (categoryChanged) {
             ticket.setCategory(request.getCategory());
         }
-        if (request.getPriority() != null) {
+        if (priorityChanged) {
             ticket.setPriority(request.getPriority());
+            LocalDateTime baseTime = ticket.getCreatedAt() != null
+                    ? ticket.getCreatedAt()
+                    : LocalDateTime.now();
+            LocalDateTime dueAt = baseTime.plusHours(calculateTicketSlaHours(request.getPriority()));
+            ticket.setDueAt(dueAt);
+            ticket.setSlaBreached(LocalDateTime.now().isAfter(dueAt));
         }
         SupportTicket saved = supportTicketRepository.save(ticket);
-        auditLogService.record("UPDATE_TICKET", "SupportTicket", ticketId, oldValue, request);
+        auditLogService.record(
+                "UPDATE_TICKET", "SupportTicket", ticketId, oldValue, ticketAuditSnapshot(saved));
         return toTicketDetail(saved);
+    }
+
+    private Map<String, Object> ticketAuditSnapshot(SupportTicket ticket) {
+        Map<String, Object> value = new LinkedHashMap<>();
+        value.put("category", ticket.getCategory());
+        value.put("priority", ticket.getPriority());
+        value.put("dueAt", ticket.getDueAt());
+        return value;
+    }
+
+    private int calculateTicketSlaHours(SupportTicketPriority priority) {
+        return switch (priority) {
+            case URGENT -> 4;
+            case HIGH -> 12;
+            case MEDIUM -> 24;
+            case LOW -> 48;
+        };
     }
 
     @Override
@@ -844,16 +900,16 @@ public class PlatformServiceImpl implements PlatformService {
 
 
     private void notifyUserOfTicketResponse(SupportTicket ticket, String content) {
-        Notification notification = new Notification();
-        notification.setUser(ticket.getUser());
-        notification.setType(NotificationType.SYSTEM);
-        notification.setTitle("Phản hồi yêu cầu hỗ trợ #" + ticket.getTicketId());
-        notification.setContent(content);
-        notification.setReferenceType("SUPPORT_TICKET");
-        notification.setReferenceId(ticket.getTicketId());
-        notification.setStatus(NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        String title = "Phản hồi yêu cầu hỗ trợ #" + ticket.getTicketId();
+        notificationDispatchService.notifyUserFromTemplate(
+                ticket.getUser(),
+                NotificationType.SYSTEM,
+                "SUPPORT_TICKET_RESPONSE",
+                Map.of("ticketId", ticket.getTicketId(), "content", content),
+                title,
+                content,
+                "SUPPORT_TICKET",
+                ticket.getTicketId());
     }
 
     private SupportTicketListItemResponse toTicketListItem(SupportTicket ticket) {
@@ -1112,16 +1168,15 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     private void createReportNotification(User user, String title, String content, Report report) {
-        Notification notification = new Notification();
-        notification.setUser(user);
-        notification.setType(NotificationType.CLASS);
-        notification.setTitle(title);
-        notification.setContent(content);
-        notification.setReferenceType("REPORT");
-        notification.setReferenceId(report.getReportId());
-        notification.setStatus(NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        notificationDispatchService.notifyUserFromTemplate(
+                user,
+                NotificationType.REPORT,
+                "REPORT_RESOLVED",
+                Map.of("title", title, "content", content, "reportId", report.getReportId()),
+                title,
+                content,
+                "REPORT",
+                report.getReportId());
     }
 
     private User currentActorOrNull() {

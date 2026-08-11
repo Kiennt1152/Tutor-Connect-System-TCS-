@@ -23,7 +23,8 @@ Nội dung:
   - UC-57: Manage Categories
   - UC-46: Configure Platform Fees
   - UC-61: Monitor Audit Logs
-  - UC-47: View Financial Reports
+  - UC-41: Monitor Financial Report
+  - UC-43: Export Financial Statements
 - Demo timeline (30 phút)
 - Tips cho video recording
 - Known issues & workarounds

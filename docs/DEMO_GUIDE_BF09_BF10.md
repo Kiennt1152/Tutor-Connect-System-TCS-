@@ -358,13 +358,14 @@ Cần chuẩn bị:
    - Description: "Platform fee rate (0-1). Current: 12%"
    - Submit → parameter updated, audit logged
 6. Show success message
-7. Explain: "Platform fee được áp dụng cho mọi transaction. 
-    Analytics/Reports sẽ dùng rate này để tính revenue."
+7. Explain: "Platform fee được áp dụng khi escrow được giải ngân.
+    Gia sư/trung tâm nhận số tiền sau phí; hệ thống ghi một giao dịch PLATFORM_FEE riêng."
 ```
 
 #### Các Điểm Cần Highlight
 - ✅ System parameters: Key-value config store
-- ✅ PLATFORM_FEE_RATE drives fee calculation in analytics
+- ✅ PLATFORM_FEE_RATE drives actual fee deduction for future escrow settlements
+- ✅ Analytics sums recorded PLATFORM_FEE transactions instead of estimating from deposits
 - ✅ Audit logging
 - ✅ Searchable parameters
 - ✅ Other parameters: MAX_FILE_SIZE, SESSION_TIMEOUT, etc.
@@ -415,7 +416,7 @@ Cần chuẩn bị:
 
 ---
 
-### UC-47: View Financial Reports
+### UC-41 / UC-43: Monitor & Export Financial Reports
 **Demo Time: 4 phút**
 
 #### Màn Hình: Platform Analytics Page
@@ -427,7 +428,7 @@ Cần chuẩn bị:
 2. Navigate to Platform > Analytics (hoặc Financial Reports)
 3. Show summary section (6-month metrics):
    - Total Revenue
-   - Platform Fee Revenue (= totalRevenue * PLATFORM_FEE_RATE)
+   - Platform Fee Revenue (sum of actual PLATFORM_FEE transactions)
    - Total Users (by month)
    - Total Classes (by month)
    - Verification Conversion Rate
@@ -482,7 +483,7 @@ Cần chuẩn bị:
 8. **UC-57: Categories** (3 min): Tree structure, CRUD với validation (hoặc skip nếu không có UI)
 9. **UC-46: Platform Fees** (2 min): Edit PLATFORM_FEE_RATE parameter
 10. **UC-61: Audit Logs** (3 min): Filters, JSON diff viewer
-11. **UC-47: Financial Reports** (4 min): Summary metrics, CSV export
+11. **UC-41 / UC-43: Financial Reports** (4 min): Summary metrics, CSV export
 
 #### Closing (1 min)
 - Recap: "Vừa rồi chúng ta đã demo đầy đủ BF-09 Customer Support và BF-10 Platform Administration"

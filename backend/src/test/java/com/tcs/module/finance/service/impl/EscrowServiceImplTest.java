@@ -10,6 +10,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.tcs.exception.BusinessException;
+import com.tcs.module.catalog.entity.SystemParameter;
+import com.tcs.module.catalog.repository.SystemParameterRepository;
 import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.RefundPayoutInfo;
@@ -40,6 +42,7 @@ import com.tcs.module.profile.entity.TutorCenter;
 import java.math.BigDecimal;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Captor;
@@ -81,6 +84,9 @@ class EscrowServiceImplTest {
     @Mock
     private PlatformAdminRepository platformAdminRepository;
 
+    @Mock
+    private SystemParameterRepository systemParameterRepository;
+
     @InjectMocks
     private EscrowServiceImpl escrowService;
 
@@ -92,6 +98,15 @@ class EscrowServiceImplTest {
 
     @Captor
     private ArgumentCaptor<RefundRequest> refundRequestCaptor;
+
+    @BeforeEach
+    void defaultToZeroPlatformFeeForLegacySettlementAssertions() {
+        SystemParameter parameter = new SystemParameter();
+        parameter.setParamValue("0.00");
+        org.mockito.Mockito.lenient()
+                .when(systemParameterRepository.findByParamKey("PLATFORM_FEE_RATE"))
+                .thenReturn(Optional.of(parameter));
+    }
 
     @Test
     void lockPrivateAssignmentCreatesPendingEscrowPayment() {
@@ -196,6 +211,41 @@ class EscrowServiceImplTest {
         assertEquals(PaymentTransactionStatus.SUCCESS, releaseTx.getStatus());
         assertEquals("ESCROW_RELEASE-5", releaseTx.getReferenceCode());
         assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
+    }
+
+    @Test
+    void applyDeductsConfiguredPlatformFeeAndRecordsActualFeeTransaction() {
+        BigDecimal amount = new BigDecimal("500000.00");
+        EscrowTransaction escrow = fundedPrivateEscrow(15L, amount);
+        Wallet tutorWallet = wallet(TUTOR_USER_ID);
+        Wallet platformWallet = wallet(99L);
+        User platformUser = new User();
+        platformUser.setUserId(99L);
+        platformWallet.setUser(platformUser);
+        SystemParameter parameter = new SystemParameter();
+        parameter.setParamValue("0.10");
+
+        when(systemParameterRepository.findByParamKey("PLATFORM_FEE_RATE"))
+                .thenReturn(Optional.of(parameter));
+        when(escrowTransactionRepository.findById(15L)).thenReturn(Optional.of(escrow));
+        when(walletService.getOrCreate(TUTOR_USER_ID)).thenReturn(tutorWallet);
+        when(walletService.getSystemEscrowWallet()).thenReturn(platformWallet);
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        escrowService.apply(new ReleaseInstruction(15L, amount, BigDecimal.ZERO, "Hoàn thành lớp"));
+
+        verify(walletService).releaseLockedFunds(PAYER_ID, amount, "ESCROW_RELEASE-15");
+        verify(walletService).credit(TUTOR_USER_ID, new BigDecimal("450000.00"), "ESCROW_RELEASE-15");
+        verify(walletService).credit(99L, new BigDecimal("50000.00"), "PLATFORM_FEE-15");
+        verify(paymentTransactionRepository, times(2)).save(paymentCaptor.capture());
+        PaymentTransaction release = paymentCaptor.getAllValues().get(0);
+        PaymentTransaction fee = paymentCaptor.getAllValues().get(1);
+        assertEquals(PaymentTransactionType.ESCROW_RELEASE, release.getType());
+        assertEquals(new BigDecimal("450000.00"), release.getAmount());
+        assertEquals(PaymentTransactionType.PLATFORM_FEE, fee.getType());
+        assertEquals(new BigDecimal("50000.00"), fee.getAmount());
+        assertEquals("PLATFORM_FEE-15", fee.getReferenceCode());
     }
 
     @Test

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Collection;
 
 @Repository
 public interface UserPenaltyRepository extends JpaRepository<UserPenalty, Long> {
@@ -28,6 +29,9 @@ public interface UserPenaltyRepository extends JpaRepository<UserPenalty, Long> 
     List<UserPenalty> findByUser_UserIdAndStatus(Long userId, UserPenaltyStatus status);
 
     boolean existsByUser_UserIdAndStatus(Long userId, UserPenaltyStatus status);
+
+    boolean existsByUser_UserIdAndStatusAndPenaltyTypeIn(
+            Long userId, UserPenaltyStatus status, Collection<UserPenaltyType> penaltyTypes);
 
     List<UserPenalty> findByStatusAndExpiresAtBefore(UserPenaltyStatus status, LocalDateTime now);
 

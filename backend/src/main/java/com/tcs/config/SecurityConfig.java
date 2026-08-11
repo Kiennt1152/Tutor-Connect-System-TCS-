@@ -37,7 +37,7 @@ public class SecurityConfig {
                         // --- Public ---
                         .requestMatchers(
                                 "/error",
-                                "/uploads/**",
+                                "/uploads/public/**",
                                 "/api/home",
                                 "/api/home/announcements",
                                 "/api/identity/login",
@@ -49,10 +49,12 @@ public class SecurityConfig {
                                 "/api/identity/password/forgot",
                                 "/api/identity/password/forgot/verify-otp",
                                 "/api/identity/password/reset",
-                                "/uploads/**",
                                 "/swagger-ui/**",
                                 "/v3/api-docs/**")
                         .permitAll()
+                        // Private file access: authenticated users only (owner + admin check in controller)
+                        .requestMatchers("/api/files/private/**")
+                        .authenticated()
                         .requestMatchers(HttpMethod.GET, "/api/catalog/faq/admin")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/catalog/parameters/**")
