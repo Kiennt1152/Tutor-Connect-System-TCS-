@@ -1,6 +1,6 @@
 SET NAMES utf8mb4;
 
-CREATE TABLE center_request_fee_holds (
+CREATE TABLE IF NOT EXISTS center_request_fee_holds (
     fee_hold_id BIGINT NOT NULL AUTO_INCREMENT,
     request_id VARCHAR(64) NOT NULL,
     client_user_id BIGINT NOT NULL,
@@ -40,7 +40,39 @@ CREATE TABLE center_request_fee_holds (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 ALTER TABLE refund_requests
-    MODIFY escrow_id BIGINT NULL,
-    ADD COLUMN center_request_fee_hold_id BIGINT NULL AFTER escrow_id,
-    ADD CONSTRAINT fk_refund_requests_center_request_fee_hold
-        FOREIGN KEY (center_request_fee_hold_id) REFERENCES center_request_fee_holds (fee_hold_id);
+    MODIFY escrow_id BIGINT NULL;
+
+SET @column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'refund_requests'
+      AND column_name = 'center_request_fee_hold_id'
+);
+
+SET @ddl := IF(
+    @column_exists = 0,
+    'ALTER TABLE refund_requests ADD COLUMN center_request_fee_hold_id BIGINT NULL AFTER escrow_id',
+    'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @fk_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.table_constraints
+    WHERE table_schema = DATABASE()
+      AND table_name = 'refund_requests'
+      AND constraint_name = 'fk_refund_requests_center_request_fee_hold'
+      AND constraint_type = 'FOREIGN KEY'
+);
+
+SET @ddl := IF(
+    @fk_exists = 0,
+    'ALTER TABLE refund_requests ADD CONSTRAINT fk_refund_requests_center_request_fee_hold FOREIGN KEY (center_request_fee_hold_id) REFERENCES center_request_fee_holds (fee_hold_id)',
+    'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
