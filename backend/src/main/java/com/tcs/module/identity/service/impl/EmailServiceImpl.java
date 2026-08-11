@@ -27,16 +27,8 @@ public class EmailServiceImpl implements EmailService {
     @Value("${app.mail.from-name}")
     private String fromName;
 
-    @Value("${app.mail.enabled:false}")
-    private boolean mailEnabled;
-
     @Override
     public void sendRegistrationOtp(String toEmail, String code, long expireMinutes) {
-        if (!mailEnabled) {
-            log.warn("Email disabled (app.mail.enabled=false). Skipping OTP email to {}", toEmail);
-            throw new IllegalArgumentException(
-                    "Chức năng gửi email chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
-        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
@@ -64,11 +56,6 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendPasswordResetOtp(String toEmail, String code, long expireMinutes) {
-        if (!mailEnabled) {
-            log.warn("Email disabled (app.mail.enabled=false). Skipping password reset OTP email to {}", toEmail);
-            throw new IllegalArgumentException(
-                    "Chức năng gửi email chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
-        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
@@ -87,11 +74,6 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendContractOtp(String toEmail, String otpCode, String contractNo, int expireMinutes) {
-        if (!mailEnabled) {
-            log.warn("Email disabled (app.mail.enabled=false). Skipping contract OTP email to {}", toEmail);
-            throw new IllegalArgumentException(
-                    "Chức năng gửi email chưa được kích hoạt. Vui lòng liên hệ quản trị viên.");
-        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
@@ -105,7 +87,7 @@ public class EmailServiceImpl implements EmailService {
             mailSender.send(message);
             log.info("Da gui OTP ky hop dong {} toi email {}", contractNo, toEmail);
         } catch (MessagingException | UnsupportedEncodingException | MailException ex) {
-            log.error("Khong gui duoc email OTP hop dong toi {}: ", toEmail, ex.getMessage());
+            log.error("Khong gui duoc email OTP hop dong toi {}: {}", toEmail, ex.getMessage());
             throw new IllegalArgumentException("Không gửi được email OTP. Vui lòng thử lại sau.");
         }
     }

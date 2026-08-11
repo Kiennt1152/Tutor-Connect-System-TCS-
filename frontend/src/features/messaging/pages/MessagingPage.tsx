@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
+import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { MessagingPanel } from '../components/MessagingPanel';
 import { ConversationList } from '../components/ConversationList';
 import { MessageThread } from '../components/MessageThread';
 import { ChatInput } from '../components/ChatInput';
@@ -12,10 +14,21 @@ import type { ConversationResponse, UserSummaryResponse } from '../types/messagi
 import '../components/MessagingPanel.css';
 import './MessagingPage.css';
 
-export default function MessagingPage() {
+type MessagingPageProps = {
+  initialTab?: 'chat' | 'tickets';
+};
+
+export default function MessagingPage({ initialTab }: MessagingPageProps) {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const convIdParam = searchParams.get('conv');
+  const tabParam = searchParams.get('tab');
+
+  const [activeTab, setActiveTab] = useState<'chat' | 'tickets'>(() => {
+    if (convIdParam) return 'chat';
+    if (tabParam === 'tickets' || initialTab === 'tickets') return 'tickets';
+    return 'chat';
+  });
 
   const [selectedConvId, setSelectedConvId] = useState<number | null>(() => {
     return convIdParam ? Number(convIdParam) : null;
@@ -44,6 +57,7 @@ export default function MessagingPage() {
       const id = Number(convIdParam);
       if (!isNaN(id)) {
         setSelectedConvId(id);
+        setActiveTab('chat');
       }
     }
   }, [convIdParam]);
@@ -79,48 +93,64 @@ export default function MessagingPage() {
   const activeConv = conversations.find((c) => c.conversationId === selectedConvId) || null;
 
   return (
-    <div className="msg-page msg-page--standalone">
-      <header className="msg-page__header">
-        <Link to="/" className="msg-page__back-btn" title="Trang chủ">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M19 12H5"></path>
-            <polyline points="12 19 5 12 12 5"></polyline>
-          </svg>
-        </Link>
-        <span className="msg-page__title">Tin nhắn</span>
-      </header>
-      
-      <div className="msg-layout">
-        <ConversationList
-          conversations={conversations}
-          activeConversationId={selectedConvId}
-          loading={convLoading}
-          error={convError}
-          onSelect={handleSelectConv}
-          onNewConversation={() => setShowSearch(true)}
-        />
+    <div className="tcs-page">
+      <HomeNavbar />
+      <div className="msg-page">
+        <div className="msg-page__nav-tabs">
+          <button
+            type="button"
+            className={`msg-page__nav-tab${activeTab === 'chat' ? ' msg-page__nav-tab--active' : ''}`}
+            onClick={() => setActiveTab('chat')}
+          >
+            💬 Tin nhắn trực tiếp
+          </button>
+          <button
+            type="button"
+            className={`msg-page__nav-tab${activeTab === 'tickets' ? ' msg-page__nav-tab--active' : ''}`}
+            onClick={() => setActiveTab('tickets')}
+          >
+            🎫 Yêu cầu hỗ trợ (Tickets)
+          </button>
+        </div>
 
-        <div className="msg-thread-panel">
-          {activeConv ? (
-            <>
-              <div className="msg-thread-header">
-                <span className="msg-thread-header__name">
-                  {activeConv.otherParticipant?.displayName ?? 'Cuộc trò chuyện'}
-                </span>
-              </div>
-              <MessageThread
-                messages={messages}
-                currentUserId={user?.userId}
-                loading={messagesLoading}
-                hasMore={hasMore}
-                onLoadMore={loadMore}
-              />
-              <ChatInput disabled={messagesLoading} onSend={sendMessage} />
-            </>
+        <div className="msg-page__body">
+          {activeTab === 'tickets' ? (
+            <MessagingPanel />
           ) : (
-            <div className="msg-thread-panel__empty">
-              <span style={{ fontSize: '2.5rem' }}>💬</span>
-              <p>Chọn một cuộc trò chuyện từ danh sách bên trái để bắt đầu nhắn tin.</p>
+            <div className="msg-layout">
+              <ConversationList
+                conversations={conversations}
+                activeConversationId={selectedConvId}
+                loading={convLoading}
+                error={convError}
+                onSelect={handleSelectConv}
+                onNewConversation={() => setShowSearch(true)}
+              />
+
+              <div className="msg-thread-panel">
+                {activeConv ? (
+                  <>
+                    <div className="msg-thread-header">
+                      <span className="msg-thread-header__name">
+                        {activeConv.otherParticipant?.displayName ?? 'Cuộc trò chuyện'}
+                      </span>
+                    </div>
+                    <MessageThread
+                      messages={messages}
+                      currentUserId={user?.userId}
+                      loading={messagesLoading}
+                      hasMore={hasMore}
+                      onLoadMore={loadMore}
+                    />
+                    <ChatInput disabled={messagesLoading} onSend={sendMessage} />
+                  </>
+                ) : (
+                  <div className="msg-thread-panel__empty">
+                    <span style={{ fontSize: '2.5rem' }}>💬</span>
+                    <p>Chọn một cuộc trò chuyện từ danh sách bên trái để bắt đầu nhắn tin.</p>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </div>
