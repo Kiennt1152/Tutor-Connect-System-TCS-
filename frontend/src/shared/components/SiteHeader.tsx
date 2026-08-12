@@ -23,7 +23,8 @@ export type SiteHeaderNav =
   | 'find-class-tutor'
   | 'marketplace'
   | 'recruitment'
-  | 'centers';
+  | 'centers'
+  | 'reviews';
 
 interface NavLinkItem {
   readonly key: SiteHeaderNav;
@@ -124,7 +125,13 @@ export function SiteHeader({ active }: SiteHeaderProps) {
           {showHomeAnchors && (
             <>
               <a href="/#news">Tin tức</a>
-              <a href="/#reviews">Đánh giá</a>
+              {/* "Đánh giá" mở trang riêng /danh-gia (danh sách gia sư + số sao). */}
+              <Link
+                to={APP_ROUTES.tutorReviews}
+                className={active === 'reviews' ? 'tcs-header__nav-link--active' : undefined}
+              >
+                Đánh giá
+              </Link>
             </>
           )}
         </nav>

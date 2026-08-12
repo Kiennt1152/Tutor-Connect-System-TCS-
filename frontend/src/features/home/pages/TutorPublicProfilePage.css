@@ -188,6 +188,52 @@
 .tp-dist__count {
   text-align: right;
 }
+.tp-dist__row--btn {
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 3px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background 0.12s ease;
+}
+.tp-dist__row--btn:hover {
+  background: var(--color-surface-2, #f8fafc);
+}
+.tp-dist__row--active {
+  background: var(--color-primary-soft, #ffedd5);
+}
+.tp-dist__row--active .tp-dist__star {
+  color: var(--color-primary-dark, #c2410c);
+  font-weight: 700;
+}
+
+.tp-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.tp-filter__chip {
+  background: none;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 5px 14px;
+  cursor: pointer;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary);
+  transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+.tp-filter__chip:hover {
+  background: var(--color-surface-2, #f8fafc);
+}
+.tp-filter__chip--active {
+  background: var(--color-primary, #ea580c);
+  border-color: var(--color-primary, #ea580c);
+  color: #fff;
+}
 
 .tp-criteria {
   margin-top: 18px;

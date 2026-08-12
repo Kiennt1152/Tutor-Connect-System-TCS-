@@ -56,7 +56,7 @@ export const FOOTER_LINKS = [
     links: [
       // Trỏ về mục trên trang chủ kèm "/" để hoạt động từ mọi trang.
       { label: 'Tin tức', href: '/#news' },
-      { label: 'Đánh giá', href: '/#reviews' },
+      { label: 'Đánh giá', href: APP_ROUTES.tutorReviews },
       { label: 'Trợ giúp', href: APP_ROUTES.help },
     ],
   },

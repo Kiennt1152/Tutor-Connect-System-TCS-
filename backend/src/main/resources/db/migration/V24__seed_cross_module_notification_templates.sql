@@ -1,3 +1,51 @@
+SET @column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'notification_templates'
+      AND column_name = 'enabled'
+);
+SET @ddl := IF(
+    @column_exists = 0,
+    'ALTER TABLE notification_templates ADD COLUMN enabled BOOLEAN NOT NULL DEFAULT TRUE',
+    'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'notification_templates'
+      AND column_name = 'description'
+);
+SET @ddl := IF(
+    @column_exists = 0,
+    'ALTER TABLE notification_templates ADD COLUMN description VARCHAR(500) NULL',
+    'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @column_exists := (
+    SELECT COUNT(*)
+    FROM information_schema.columns
+    WHERE table_schema = DATABASE()
+      AND table_name = 'notification_templates'
+      AND column_name = 'updated_at'
+);
+SET @ddl := IF(
+    @column_exists = 0,
+    'ALTER TABLE notification_templates ADD COLUMN updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP',
+    'SELECT 1'
+);
+PREPARE stmt FROM @ddl;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 INSERT IGNORE INTO notification_templates
     (code, title_template, content_template, channel, enabled, description)
 VALUES

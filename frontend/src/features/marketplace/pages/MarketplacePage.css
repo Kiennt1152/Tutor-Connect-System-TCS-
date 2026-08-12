@@ -825,6 +825,10 @@
   background: var(--color-warning-light);
   color: #92400e;
 }
+.mkt-status--payment_pending {
+  background: var(--color-warning-light);
+  color: #92400e;
+}
 .mkt-status--searching {
   background: var(--color-info-light);
   color: #075985;
