@@ -733,12 +733,24 @@ export default function CenterRecruitmentPage() {
                                       <button
                                         type="button"
                                         className="rc-certs__link"
-                                        onClick={() =>
-                                          setPreview({
-                                            src: cert.fileUrl,
-                                            fileName: cert.fileName,
-                                          })
-                                        }
+                                        onClick={async () => {
+                                          // Chứng chỉ là file private -> tải kèm JWT rồi tạo blob URL.
+                                          if (cert.fileId == null) {
+                                            setPreview({ src: cert.fileUrl, fileName: cert.fileName });
+                                            return;
+                                          }
+                                          try {
+                                            const blob = await centerApi.getCertificateBlob(cert.fileId);
+                                            const url = URL.createObjectURL(blob);
+                                            setPreview((prev) => {
+                                              if (prev?.src.startsWith('blob:'))
+                                                URL.revokeObjectURL(prev.src);
+                                              return { src: url, fileName: cert.fileName };
+                                            });
+                                          } catch {
+                                            setPreview({ src: cert.fileUrl, fileName: cert.fileName });
+                                          }
+                                        }}
                                       >
                                         {cert.mimeType?.startsWith('image/') ? '🖼️' : '📄'}{' '}
                                         {cert.fileName}
@@ -894,7 +906,12 @@ export default function CenterRecruitmentPage() {
         src={preview?.src ?? ''}
         fileName={preview?.fileName ?? ''}
         isOpen={preview !== null}
-        onClose={() => setPreview(null)}
+        onClose={() =>
+          setPreview((prev) => {
+            if (prev?.src.startsWith('blob:')) URL.revokeObjectURL(prev.src);
+            return null;
+          })
+        }
       />
       </div>
     </>

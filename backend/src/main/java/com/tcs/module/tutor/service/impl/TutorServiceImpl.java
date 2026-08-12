@@ -24,6 +24,7 @@ import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.LessonAttendanceStatus;
+import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
@@ -471,7 +472,6 @@ public class TutorServiceImpl implements TutorService {
                 });
         attendance.setStatus(status);
         lessonAttendanceRepository.save(attendance);
-        centerEscrowAutoSettlementService.trySettleCompletedCenterClass(classId);
 
         return buildScheduleItem(tutoringClass, d, weekday, tutor);
     }
@@ -572,8 +572,23 @@ public class TutorServiceImpl implements TutorService {
             att.setStatus(r.getStatus());
             lessonAttendanceRepository.save(att);
         }
-        centerEscrowAutoSettlementService.trySettleCompletedCenterClass(classId);
         return buildScheduleItem(tutoringClass, d, weekday, tutor);
+    }
+
+    /**
+     * Bước 13: gia sư (phụ trách lớp) xác nhận khóa học đã hoàn thành -> hệ thống tất toán + đóng lớp.
+     */
+    @Override
+    @Transactional
+    public void confirmClassCompletion(Long classId) {
+        Tutor tutor = requireTutor();
+        ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
+                .orElseThrow(() -> new ForbiddenException("Bạn không phụ trách lớp này"));
+        if (!assignment.getTutor().getTutorId().equals(tutor.getTutorId())) {
+            throw new ForbiddenException("Bạn không phụ trách lớp này");
+        }
+        centerEscrowAutoSettlementService.confirmCompletion(classId);
     }
 
     private Lesson newLesson(TutoringClass c, ScheduleSlot slot, int seq, Tutor tutor, LocalDate date) {
@@ -636,6 +651,27 @@ public class TutorServiceImpl implements TutorService {
         return (int) Math.max(0, ChronoUnit.DAYS.between(start, date));
     }
 
+    /** {@code date} có phải là NGÀY HỌC CUỐI CÙNG của lớp không (dựa trên lịch tuần + ngày kết thúc). */
+    private boolean isLastScheduledSession(TutoringClass c, LocalDate date) {
+        if (c.getStartDate() == null || c.getEndDate() == null) {
+            return false;
+        }
+        java.util.Set<Integer> slotDays = scheduleSlotRepository
+                .findByTutoringClass_ClassId(c.getClassId()).stream()
+                .map(ScheduleSlot::getDayOfWeek)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+        if (slotDays.isEmpty()) {
+            return false;
+        }
+        for (LocalDate d = c.getEndDate(); !d.isBefore(c.getStartDate()); d = d.minusDays(1)) {
+            if (slotDays.contains(d.getDayOfWeek().getValue())) {
+                return d.equals(date);
+            }
+        }
+        return false;
+    }
+
     private CenterScheduleClassResponse buildScheduleItem(
             TutoringClass c, LocalDate date, int weekday, Tutor tutor) {
         List<ScheduleSlot> slotsToday = slotsOn(c.getClassId(), weekday);
@@ -686,6 +722,8 @@ public class TutorServiceImpl implements TutorService {
                 .studentCount(students.size())
                 .students(studentItems)
                 .attendanceTaken(!attendanceByStudent.isEmpty())
+                .finalSession(isLastScheduledSession(c, date))
+                .classCompleted(c.getStatus() == TutoringClassStatus.COMPLETED)
                 .build();
         // Đính kèm gia sư phụ của lớp (nếu có) để gia sư chính biết có thể nhờ dạy thay.
         substitutionService.findAssistant(c.getClassId()).ifPresent(assistantId -> {

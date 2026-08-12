@@ -1287,6 +1287,7 @@ function DisputeDetail({
                       <FileThumbnail
                         key={file.fileId}
                         src={file.fileUrl}
+                        fileId={file.fileId}
                         fileName={file.fileName}
                         mimeType={file.mimeType}
                         fileSize={file.fileSize}

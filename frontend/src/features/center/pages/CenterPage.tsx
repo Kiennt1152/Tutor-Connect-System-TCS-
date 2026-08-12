@@ -1177,12 +1177,33 @@ export default function CenterPage() {
                                                       <button
                                                         type="button"
                                                         className="cc-reqapp__cert"
-                                                        onClick={() =>
-                                                          setCertPreview({
-                                                            src: cert.fileUrl,
-                                                            fileName: cert.fileName,
-                                                          })
-                                                        }
+                                                        onClick={async () => {
+                                                          // Chứng chỉ là file private -> tải kèm JWT rồi tạo blob URL.
+                                                          if (cert.fileId == null) {
+                                                            setCertPreview({
+                                                              src: cert.fileUrl,
+                                                              fileName: cert.fileName,
+                                                            });
+                                                            return;
+                                                          }
+                                                          try {
+                                                            const blob =
+                                                              await centerApi.getCertificateBlob(
+                                                                cert.fileId,
+                                                              );
+                                                            const url = URL.createObjectURL(blob);
+                                                            setCertPreview((prev) => {
+                                                              if (prev?.src.startsWith('blob:'))
+                                                                URL.revokeObjectURL(prev.src);
+                                                              return { src: url, fileName: cert.fileName };
+                                                            });
+                                                          } catch {
+                                                            setCertPreview({
+                                                              src: cert.fileUrl,
+                                                              fileName: cert.fileName,
+                                                            });
+                                                          }
+                                                        }}
                                                       >
                                                         {cert.mimeType?.startsWith('image/')
                                                           ? '🖼️'
@@ -2211,7 +2232,12 @@ export default function CenterPage() {
         src={certPreview?.src ?? ''}
         fileName={certPreview?.fileName ?? ''}
         isOpen={certPreview !== null}
-        onClose={() => setCertPreview(null)}
+        onClose={() =>
+          setCertPreview((prev) => {
+            if (prev?.src.startsWith('blob:')) URL.revokeObjectURL(prev.src);
+            return null;
+          })
+        }
       />
       </div>
       </div>

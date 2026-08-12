@@ -70,6 +70,10 @@ public interface MarketplaceService {
 
     List<LessonResponse> listMyLessons();
 
+    /** Lịch học các lớp trung tâm mà client đã ghi danh (theo ngày) — để client xem thời khóa biểu. */
+    java.util.List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getMyEnrolledSchedule(
+            java.time.LocalDate date);
+
     void checkInLesson(Long lessonId);
 
     void checkOutLesson(Long lessonId);

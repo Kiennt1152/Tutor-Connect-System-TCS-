@@ -67,6 +67,12 @@ export function getHomeQuickActions(role: string): HomeQuickAction[] {
           to: APP_ROUTES.teaching,
         },
         {
+          title: 'Lịch lớp trung tâm',
+          description: 'Xem lịch lớp của trung tâm và điểm danh học sinh theo buổi.',
+          icon: '🏫',
+          to: '/tutor/schedule',
+        },
+        {
           title: 'Hồ sơ gia sư',
           description: 'Chỉnh sửa kinh nghiệm, môn dạy và học phí.',
           icon: '👤',

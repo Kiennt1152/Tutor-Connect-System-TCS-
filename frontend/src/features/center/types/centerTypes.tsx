@@ -81,6 +81,7 @@ export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'L
 
 export interface CertificateInfo {
   documentType: VerificationDocumentType | null;
+  fileId: number | null;
   fileName: string;
   fileUrl: string;
   mimeType: string | null;
@@ -221,6 +222,10 @@ export interface ScheduleClass {
   /** Gia sư phụ của lớp (nếu có) — để gia sư chính biết có thể nhờ dạy thay. */
   assistantTutorId?: number | null;
   assistantTutorName?: string | null;
+  /** true nếu đây là buổi cuối của khóa — nơi hiện nút "Xác nhận hoàn thành". */
+  finalSession?: boolean;
+  /** true nếu lớp đã được xác nhận hoàn thành. */
+  classCompleted?: boolean;
 }
 
 export type RescheduleStatus = 'PENDING' | 'APPROVED' | 'REJECTED';

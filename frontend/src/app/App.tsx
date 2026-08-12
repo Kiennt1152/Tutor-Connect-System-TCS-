@@ -33,6 +33,7 @@ import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
 import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
 import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
 import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
+import ClientSchedulePage from '../features/marketplace/pages/ClientSchedulePage';
 import CenterTutorsPage from '../features/center/pages/CenterTutorsPage';
 import CenterContractTemplatesPage from '../features/center/pages/CenterContractTemplatesPage';
 import CentersPage from '../features/home/pages/CentersPage';
@@ -254,6 +255,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR']}>
                 <TutorSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/client/schedule"
+            element={
+              <ProtectedRoute roles={['CLIENT']}>
+                <ClientSchedulePage />
               </ProtectedRoute>
             }
           />

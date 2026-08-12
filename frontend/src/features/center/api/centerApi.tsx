@@ -23,6 +23,14 @@ import type {
 export const CENTER_API_BASE = '/center';
 
 export const centerApi = {
+  // Tải file chứng chỉ đã xác minh của gia sư (endpoint kèm JWT) -> Blob để hiển thị.
+  // Ảnh/giấy tờ private không xem được bằng <img src> vì thẻ img không gửi được token.
+  async getCertificateBlob(fileId: number): Promise<Blob> {
+    const res = await axiosClient.get(`/files/certificate/${fileId}`, {
+      responseType: 'blob',
+    });
+    return res.data as Blob;
+  },
   // ----- Tin tuyển gia sư — phía trung tâm (FT-33) -----
   getMyPosts() {
     return axiosClient.get<RecruitmentPost[]>(`${CENTER_API_BASE}/recruitment/my-posts`);

@@ -44,6 +44,8 @@ public class CenterEscrowAutoSettlementService {
     private static final BigDecimal ZERO = BigDecimal.ZERO;
     private static final String AUTO_RELEASE_REASON =
             "Tự động giải ngân học phí lớp center hoàn thành, không có khiếu nại đang xử lý";
+    private static final String CONFIRM_RELEASE_REASON =
+            "Giải ngân học phí sau khi xác nhận khóa học hoàn thành";
 
     private final TutoringClassRepository tutoringClassRepository;
     private final ClassStudentRepository classStudentRepository;
@@ -112,6 +114,64 @@ public class CenterEscrowAutoSettlementService {
             tutoringClassRepository.save(tutoringClass);
         }
         return releasedAny;
+    }
+
+    /**
+     * Bước 13 (Tutor & Tutor Center xác nhận khóa học đã hoàn thành) -> bước 14 (hệ thống tất toán +
+     * đóng lớp). Đây là hành động CHỦ ĐỘNG (không tự động): kiểm tra đủ điều kiện rồi giải ngân escrow
+     * đã nạp cho bên dạy và đặt lớp COMPLETED. Nếu chưa đủ điều kiện thì ném lỗi rõ ràng để hiển thị.
+     */
+    @Transactional
+    public void confirmCompletion(Long classId) {
+        TutoringClass tutoringClass = tutoringClassRepository.findById(classId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy lớp học."));
+        if (tutoringClass.getClassType() != ClassType.CENTER) {
+            throw new IllegalArgumentException("Chỉ áp dụng cho lớp của trung tâm.");
+        }
+        if (tutoringClass.getStatus() == TutoringClassStatus.COMPLETED) {
+            throw new IllegalArgumentException("Khóa học đã được xác nhận hoàn thành trước đó.");
+        }
+        if (!isCenterClassReadyForAutoSettlement(tutoringClass)) {
+            throw new IllegalArgumentException("Lớp chưa ở trạng thái có thể hoàn thành.");
+        }
+
+        List<ClassStudent> enrolledStudents = classStudentRepository
+                .findByTutoringClass_ClassIdAndStatus(classId, ClassStudentStatus.ENROLLED);
+        if (enrolledStudents.isEmpty()) {
+            throw new IllegalArgumentException("Lớp chưa có học sinh ghi danh.");
+        }
+        if (!hasCompletedRequiredSessions(tutoringClass, enrolledStudents)) {
+            throw new IllegalArgumentException(
+                    "Chưa điểm danh đủ số buổi học của khóa — không thể xác nhận hoàn thành.");
+        }
+
+        List<EscrowTransaction> escrows = escrowTransactionRepository
+                .findByClassStudent_TutoringClass_ClassId(classId);
+        Map<Long, EscrowTransaction> escrowByStudent = escrows.stream()
+                .filter(e -> e.getClassStudent() != null && e.getClassStudent().getClassStudentId() != null)
+                .collect(Collectors.toMap(
+                        e -> e.getClassStudent().getClassStudentId(), e -> e, (a, b) -> a));
+
+        if (hasBlockingClassIssue(tutoringClass, enrolledStudents, escrowByStudent)) {
+            throw new IllegalArgumentException(
+                    "Lớp đang có khiếu nại/tranh chấp đang xử lý — chưa thể xác nhận hoàn thành.");
+        }
+
+        // Tất toán: giải ngân các escrow đã nạp cho bên dạy.
+        for (ClassStudent student : enrolledStudents) {
+            EscrowTransaction escrow = escrowByStudent.get(student.getClassStudentId());
+            if (escrow != null && escrow.getStatus() == EscrowStatus.FUNDED) {
+                escrowService.apply(new ReleaseInstruction(
+                        escrow.getEscrowId(),
+                        amountOrZero(escrow.getAmount()),
+                        ZERO,
+                        CONFIRM_RELEASE_REASON));
+            }
+        }
+
+        // Đóng lớp.
+        tutoringClass.setStatus(TutoringClassStatus.COMPLETED);
+        tutoringClassRepository.save(tutoringClass);
     }
 
     private boolean isCenterClassReadyForAutoSettlement(TutoringClass tutoringClass) {

@@ -259,6 +259,12 @@ public class CenterController {
         return centerService.activateClass(classId);
     }
 
+    @PostMapping("/classes/{classId}/complete")
+    public Map<String, String> confirmClassCompletion(@PathVariable Long classId) {
+        centerService.confirmClassCompletion(classId);
+        return Map.of("message", "Đã xác nhận khóa học hoàn thành và tất toán học phí.");
+    }
+
     @GetMapping("/tutors")
     public List<TutorOptionResponse> listTutors(@RequestParam(required = false) Long classId) {
         return centerService.listTutors(classId);

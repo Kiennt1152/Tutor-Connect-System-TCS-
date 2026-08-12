@@ -44,6 +44,7 @@ import com.tcs.module.center.service.CenterService;
 import com.tcs.module.identity.enums.VerificationDocumentType;
 import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.enums.VerificationType;
+import com.tcs.module.finance.service.CenterEscrowAutoSettlementService;
 import com.tcs.module.identity.repository.VerificationDocumentRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.finance.dto.ReleaseInstruction;
@@ -133,6 +134,7 @@ public class CenterServiceImpl implements CenterService {
     private final GradeRepository gradeRepository;
     private final VerificationRequestRepository verificationRequestRepository;
     private final VerificationDocumentRepository verificationDocumentRepository;
+    private final CenterEscrowAutoSettlementService centerEscrowAutoSettlementService;
     private final TutoringClassRepository tutoringClassRepository;
     private final ScheduleSlotRepository scheduleSlotRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
@@ -1618,6 +1620,14 @@ public class CenterServiceImpl implements CenterService {
         }
     }
 
+    @Override
+    @Transactional
+    public void confirmClassCompletion(Long classId) {
+        requireCenter();
+        requireOwner(findClass(classId));
+        centerEscrowAutoSettlementService.confirmCompletion(classId);
+    }
+
     private TutoringClass findClass(Long classId) {
         return tutoringClassRepository
                 .findById(classId)
@@ -2042,6 +2052,7 @@ public class CenterServiceImpl implements CenterService {
                         .map(doc -> RecruitmentApplicationResponse.CertificateInfo.builder()
                                 .documentType(doc.getDocumentType() == null
                                         ? null : doc.getDocumentType().name())
+                                .fileId(doc.getFile().getFileId())
                                 .fileName(doc.getFile().getFileName())
                                 .fileUrl(doc.getFile().getFileUrl())
                                 .mimeType(doc.getFile().getMimeType())

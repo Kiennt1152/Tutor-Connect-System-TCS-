@@ -60,6 +60,7 @@ import com.tcs.module.marketplace.entity.ClassTerminationRequest;
 import com.tcs.module.marketplace.entity.FavoriteTutor;
 import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.entity.LessonRescheduleRequest;
+import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
 import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
@@ -114,6 +115,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -1236,6 +1238,96 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     public List<LessonResponse> listMyLessons() {
         LocalDate today = LocalDate.now();
         return myLessons().stream().map(lesson -> toLesson(lesson, today)).toList();
+    }
+
+    /**
+     * Lịch học các lớp TRUNG TÂM mà client (phụ huynh) đã GHI DANH, theo từng ngày —
+     * để client xem thời khóa biểu như phía gia sư (chỉ xem, không thao tác).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<CenterScheduleClassResponse> getMyEnrolledSchedule(LocalDate date) {
+        Long userId = authHelper.currentUserId();
+        LocalDate d = date != null ? date : LocalDate.now();
+        int weekday = d.getDayOfWeek().getValue();
+
+        Map<Long, TutoringClass> classes = new LinkedHashMap<>();
+        Map<Long, List<ClassStudent>> studentsByClass = new HashMap<>();
+        for (ClassStudent cs : classStudentRepository
+                .findByEnrolledByUser_UserIdAndStatus(userId, ClassStudentStatus.ENROLLED)) {
+            TutoringClass c = cs.getTutoringClass();
+            if (c == null || c.getClassType() != ClassType.CENTER) {
+                continue;
+            }
+            classes.put(c.getClassId(), c);
+            studentsByClass.computeIfAbsent(c.getClassId(), k -> new ArrayList<>()).add(cs);
+        }
+
+        List<CenterScheduleClassResponse> result = new ArrayList<>();
+        for (TutoringClass c : classes.values()) {
+            if (c.getStartDate() == null || c.getEndDate() == null
+                    || d.isBefore(c.getStartDate()) || d.isAfter(c.getEndDate())) {
+                continue;
+            }
+            List<ScheduleSlot> slotsToday = scheduleSlotRepository
+                    .findByTutoringClass_ClassId(c.getClassId()).stream()
+                    .filter(s -> s.getDayOfWeek() != null && s.getDayOfWeek() == weekday)
+                    .sorted(Comparator.comparing(ScheduleSlot::getStartTime))
+                    .toList();
+            if (slotsToday.isEmpty()) {
+                continue;
+            }
+
+            Map<Long, String> attendanceByStudent = new HashMap<>();
+            ScheduleSlot repSlot = slotsToday.get(0);
+            int seq = (int) Math.max(0, ChronoUnit.DAYS.between(c.getStartDate(), d));
+            lessonRepository
+                    .findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
+                            c.getClassId(), repSlot.getSlotId(), seq)
+                    .ifPresent(lesson -> lessonAttendanceRepository.findByLesson_LessonId(lesson.getLessonId())
+                            .forEach(a -> attendanceByStudent.put(
+                                    a.getClassStudent().getClassStudentId(), a.getStatus().name())));
+
+            String tutorName = classAssignmentRepository
+                    .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                            c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                    .map(a -> a.getTutor() != null ? a.getTutor().getFullName() : null)
+                    .orElse(null);
+
+            List<com.tcs.module.center.dto.response.StudentAttendanceResponse> studentItems = studentsByClass
+                    .getOrDefault(c.getClassId(), List.of()).stream()
+                    .map(s -> com.tcs.module.center.dto.response.StudentAttendanceResponse.builder()
+                            .classStudentId(s.getClassStudentId())
+                            .studentName(s.getStudentName())
+                            .studentPhone(s.getStudentPhone())
+                            .status(attendanceByStudent.get(s.getClassStudentId()))
+                            .build())
+                    .toList();
+
+            List<com.tcs.module.center.dto.response.ScheduleSlotResponse> slotResponses = slotsToday.stream()
+                    .map(s -> com.tcs.module.center.dto.response.ScheduleSlotResponse.builder()
+                            .slotId(s.getSlotId())
+                            .dayOfWeek(s.getDayOfWeek())
+                            .startTime(s.getStartTime())
+                            .endTime(s.getEndTime())
+                            .build())
+                    .toList();
+
+            result.add(CenterScheduleClassResponse.builder()
+                    .classId(c.getClassId())
+                    .title(c.getTitle())
+                    .subjectName(c.getSubject() != null ? c.getSubject().getSubjectName() : null)
+                    .gradeName(c.getGrade() != null ? c.getGrade().getGradeName() : null)
+                    .lessonMode(c.getLessonMode())
+                    .slots(slotResponses)
+                    .assignedTutorName(tutorName)
+                    .studentCount(studentItems.size())
+                    .students(studentItems)
+                    .attendanceTaken(!attendanceByStudent.isEmpty())
+                    .classCompleted(c.getStatus() == TutoringClassStatus.COMPLETED)
+                    .build());
+        }
+        return result;
     }
 
     @Override

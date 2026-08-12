@@ -91,6 +91,9 @@ public interface CenterService {
     /** BF-04 bước 10: kích hoạt lớp (bắt đầu học) khi đủ sĩ số tối thiểu -> IN_PROGRESS. */
     CenterClassResponse activateClass(Long classId);
 
+    /** Bước 13: trung tâm xác nhận khóa học đã hoàn thành -> tất toán + đóng lớp. */
+    void confirmClassCompletion(Long classId);
+
     /**
      * Danh sách gia sư để trung tâm chọn gán (tạm thời lấy tất cả).
      * Nếu truyền {@code classId}, mỗi gia sư sẽ được đánh dấu có trùng lịch với lớp đó hay không.
