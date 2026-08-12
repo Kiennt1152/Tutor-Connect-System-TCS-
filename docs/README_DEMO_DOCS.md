@@ -4,6 +4,10 @@
 
 Bộ tài liệu hướng dẫn demo đầy đủ cho **BF-09: Customer Support** và **BF-10: Platform Administration** trong hệ thống Tutor Connect System.
 
+## Kịch bản BF-10 cập nhật
+
+- `DEMO_HAPPY_CASE_BF10.md`: happy case BF-10 bám theo UI và luồng tích hợp hiện tại, gồm dashboard, task queue, ticket priority/SLA, quản trị tài nguyên, analytics, notification và audit log.
+
 ---
 
 ## 📄 Danh Sách Tài Liệu

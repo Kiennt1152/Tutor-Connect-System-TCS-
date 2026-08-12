@@ -39,8 +39,9 @@ public class GeminiServiceImpl implements GeminiService {
             + "Quy trình cơ bản:\n"
             + "- Học viên đăng ký → tìm gia sư → liên hệ → tạo hợp đồng → học → thanh toán → đánh giá.\n"
             + "- Gia sư đăng ký → tạo hồ sơ → chờ duyệt → đăng lớp → nhận học viên → dạy → nhận thanh toán.\n\n"
-            + "Nếu câu hỏi không liên quan đến học tập, gia sư, hoặc hệ thống TCS, "
-            + "hãy trả lời lịch sự rằng bạn chỉ hỗ trợ các vấn đề liên quan đến Tutor Connect System. "
+            + "Với phép tính đơn giản hoặc câu hỏi kiến thức phổ thông, hãy trả lời trực tiếp và ngắn gọn. "
+            + "Với câu hỏi chuyên sâu không liên quan đến học tập, gia sư hoặc hệ thống TCS, "
+            + "hãy nói rõ giới hạn kiến thức nếu không thể trả lời chính xác. "
             + "Nếu không chắc chắn, hãy gợi ý người dùng tạo yêu cầu hỗ trợ để được đội ngũ giải đáp trực tiếp.";
 
     // ===== Gemini config =====
@@ -54,13 +55,13 @@ public class GeminiServiceImpl implements GeminiService {
     private String geminiBaseUrl;
 
     // ===== Groq config (fallback) =====
-    @Value("${app.groq.api-key:}")
+    @Value("${ai.groq.api-key:}")
     private String groqApiKey;
 
-    @Value("${app.groq.model:llama-3.1-8b-instant}")
+    @Value("${ai.groq.model:llama-3.3-70b-versatile}")
     private String groqModel;
 
-    @Value("${app.groq.base-url:https://api.groq.com/openai/v1}")
+    @Value("${ai.groq.base-url:https://api.groq.com/openai/v1}")
     private String groqBaseUrl;
 
     // ===== Shared config =====
