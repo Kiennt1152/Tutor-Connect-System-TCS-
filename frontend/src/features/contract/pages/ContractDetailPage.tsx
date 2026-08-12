@@ -480,7 +480,7 @@ export default function ContractDetailPage() {
                 <div className="contract-escrow">
                   {visibleEscrowPayment.qrUrl ? (
                     <div className="contract-escrow__qr">
-                      <img src={visibleEscrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
+                      <img src={visibleEscrowPayment.qrUrl} alt="Mã QR thanh toán escrow" />
                     </div>
                   ) : null}
                   <div className="contract-escrow__details">

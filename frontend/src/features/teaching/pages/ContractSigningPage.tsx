@@ -692,7 +692,7 @@ export default function ContractSigningPage() {
                     <div className="ksign-escrow">
                       {visibleEscrowPayment.qrUrl ? (
                         <div className="ksign-escrow__qr">
-                          <img src={visibleEscrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
+                          <img src={visibleEscrowPayment.qrUrl} alt="Mã QR thanh toán escrow" />
                         </div>
                       ) : null}
 
