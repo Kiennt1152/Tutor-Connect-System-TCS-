@@ -289,7 +289,7 @@ export default function ContractDetailPage() {
     Boolean(visibleEscrowPayment)
     && !contract.refundPayoutInfo
     && isClient;
-  const canRequestRefund = contract.refundAllowed !== false;
+  const canRequestRefund = isClient && contract.refundAllowed !== false;
   const classDetailUrl = contract.classId
     ? `/marketplace/classes/${contract.classId}${
         contract.classStudentId
@@ -708,6 +708,7 @@ export default function ContractDetailPage() {
             assignmentId={contract.assignmentId}
             classStudentId={contract.classStudentId}
             classTitle={contract.classTitle}
+            currentUserRole={user?.role}
             onClose={() => setIssueModalOpen(false)}
           />
           <RefundRequestModal
@@ -715,7 +716,7 @@ export default function ContractDetailPage() {
             classTitle={contract.classTitle}
             assignmentId={contract.assignmentId}
             classStudentId={contract.classStudentId}
-            amountHint={contract.tuitionFee == null ? null : Number(contract.tuitionFee)}
+            amountHint={canRequestRefund && contract.tuitionFee != null ? Number(contract.tuitionFee) : null}
             onClose={() => setRefundModalOpen(false)}
           />
         </>

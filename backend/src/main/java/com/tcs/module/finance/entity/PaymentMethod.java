@@ -9,9 +9,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
 @Table(name = "payment_methods")
@@ -37,6 +40,26 @@ public class PaymentMethod {
 
     @Column(name = "bank_name", length = 100)
     private String bankName;
+
+    @Column(name = "account_holder_name", length = 150)
+    private String accountHolderName;
+
+    @Column(name = "verified_at")
+    private LocalDateTime verifiedAt;
+
+    @Column(name = "cooldown_until")
+    private LocalDateTime cooldownUntil;
+
+    @Column(name = "last_used_at")
+    private LocalDateTime lastUsedAt;
+
+    @CreationTimestamp
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
+    @UpdateTimestamp
+    @Column(name = "updated_at", nullable = false)
+    private LocalDateTime updatedAt;
 
     @Column(name = "status", length = 20, nullable = false)
     private String status = "ACTIVE";
