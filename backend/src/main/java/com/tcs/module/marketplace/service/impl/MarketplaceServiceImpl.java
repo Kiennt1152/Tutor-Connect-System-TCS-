@@ -647,6 +647,80 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         tutoringClass.setTuitionFee(highestRate(rates, chosen.getProposedRate()));
     }
 
+    /**
+     * Tập môn gia sư THỰC SỰ nhận dạy của một phân công (theo giá đề xuất trong đơn).
+     * Trả về {@code null} khi gia sư nhận tất cả môn (không lọc) — giữ nguyên lớp.
+     */
+    private java.util.Set<String> acceptedSubjectKeys(ClassAssignment assignment) {
+        if (assignment == null || assignment.getApplication() == null) {
+            return null;
+        }
+        Map<String, BigDecimal> rates = readRates(assignment.getApplication().getProposedRatesJson());
+        if (rates == null || rates.isEmpty()) {
+            return null;
+        }
+        return rates.keySet();
+    }
+
+    /**
+     * Lọc detailsJson của LỚP về đúng tập môn gia sư nhận dạy (không sửa dữ liệu lớp gốc, để
+     * còn mở lại cho gia sư khác nếu huỷ chọn). Dùng cho hợp đồng và sinh lịch. Nếu keptKeys
+     * rỗng/null thì trả nguyên bản (gia sư nhận tất cả môn).
+     */
+    private String filterDetailsToSubjects(String detailsJson, java.util.Set<String> keptKeys) {
+        if (keptKeys == null || keptKeys.isEmpty() || !StringUtils.hasText(detailsJson)) {
+            return detailsJson;
+        }
+        JsonNode root = readTree(detailsJson);
+        if (root == null || !root.isObject()) {
+            return detailsJson;
+        }
+        com.fasterxml.jackson.databind.node.ObjectNode obj =
+                (com.fasterxml.jackson.databind.node.ObjectNode) root;
+
+        JsonNode ids = obj.get("subjectIds");
+        if (ids != null && ids.isArray()) {
+            com.fasterxml.jackson.databind.node.ArrayNode keptIds = objectMapper.createArrayNode();
+            for (JsonNode id : ids) {
+                if (keptKeys.contains(id.asText())) {
+                    keptIds.add(id);
+                }
+            }
+            if (!keptIds.isEmpty()) {
+                obj.set("subjectIds", keptIds);
+            }
+        }
+
+        JsonNode feesNode = obj.get("subjectFees");
+        if (feesNode != null && feesNode.isObject()) {
+            com.fasterxml.jackson.databind.node.ObjectNode fees = objectMapper.createObjectNode();
+            for (String key : keptKeys) {
+                if (feesNode.has(key)) {
+                    fees.set(key, feesNode.get(key));
+                }
+            }
+            obj.set("subjectFees", fees);
+        }
+
+        JsonNode slots = obj.get("slots");
+        if (slots != null && slots.isArray()) {
+            com.fasterxml.jackson.databind.node.ArrayNode keptSlots = objectMapper.createArrayNode();
+            for (JsonNode slot : slots) {
+                String slotKey = slot.path("subjectId").asText("");
+                if (slotKey.isEmpty() || keptKeys.contains(slotKey)) {
+                    keptSlots.add(slot);
+                }
+            }
+            obj.set("slots", keptSlots);
+        }
+
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (JsonProcessingException e) {
+            return detailsJson;
+        }
+    }
+
     private void notifyTutorInvited(TutoringClass tutoringClass, TutorApplication chosen) {
         if (chosen.getTutor() == null || chosen.getTutor().getUser() == null) {
             return;
@@ -745,7 +819,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         TutoringClass tutoringClass = assignment.getApplication().getTutoringClass();
         assignment.setStatus(ClassAssignmentStatus.ACTIVE);
         classAssignmentRepository.save(assignment);
-        generateSchedule(tutoringClass, assignment.getTutor());
+        generateSchedule(tutoringClass, assignment.getTutor(), acceptedSubjectKeys(assignment));
         tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
         tutoringClassRepository.save(tutoringClass);
     }
@@ -762,19 +836,21 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         Client client = clientRepository.findByUser_UserId(c.getCreator().getUserId()).orElse(null);
         CccdInfoDto clientCccd = cccdInfoOf(c.getCreator().getUserId());
         CccdInfoDto tutorCccd = cccdInfoOf(tutor.getUser().getUserId());
+        // Hợp đồng chỉ gồm môn gia sư nhận dạy (lọc theo giá đề xuất trong đơn), không sửa lớp gốc.
+        String contractDetailsJson = filterDetailsToSubjects(c.getDetailsJson(), acceptedSubjectKeys(assignment));
         return ContractViewResponse.builder()
                 .contractId(contract != null ? contract.getContractId() : null)
                 .assignmentId(assignment.getAssignmentId())
                 .classId(c.getClassId())
                 .classTitle(c.getTitle())
-                .detailsJson(c.getDetailsJson())
+                .detailsJson(contractDetailsJson)
                 .gradeName(c.getGrade() != null ? c.getGrade().getGradeName() : null)
                 .address(c.getAddress())
                 .lessonMode(c.getLessonMode() != null ? c.getLessonMode().name() : null)
                 .startDate(c.getStartDate())
                 .endDate(c.getEndDate())
                 .numberOfSessions(c.getNumberOfSessions() != null ? c.getNumberOfSessions() : 0)
-                .subjectNames(subjectNamesFromJson(c.getDetailsJson()))
+                .subjectNames(subjectNamesFromJson(contractDetailsJson))
                 .tuitionFee(c.getTuitionFee())
                 .clientName(firstText(
                         clientCccd != null ? clientCccd.getFullName() : null,
@@ -1074,7 +1150,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (escrowTransactionRepository.findByAssignment_AssignmentId(assignment.getAssignmentId()).isPresent()) {
             return;
         }
-        BigDecimal amount = resolvePrivateEscrowAmount(tutoringClass);
+        BigDecimal amount = resolvePrivateEscrowAmount(tutoringClass, acceptedSubjectKeys(assignment));
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Không xác định được số tiền escrow cần thanh toán");
         }
@@ -1089,11 +1165,18 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return plannedPrivateClassMonths(tutoringClass) > 1 ? "DEPOSIT_1M" : "FULL";
     }
 
-    private BigDecimal resolvePrivateEscrowAmount(TutoringClass tutoringClass) {
-        BigDecimal totalAmount = positiveAmount(tutoringClass.getBudget());
-        if (totalAmount == null && tutoringClass.getTuitionFee() != null && tutoringClass.getNumberOfSessions() != null) {
-            totalAmount = tutoringClass.getTuitionFee()
-                    .multiply(BigDecimal.valueOf(tutoringClass.getNumberOfSessions()));
+    private BigDecimal resolvePrivateEscrowAmount(
+            TutoringClass tutoringClass, java.util.Set<String> acceptedSubjectKeys) {
+        // Ưu tiên: tổng học phí tính theo ĐÚNG lịch sẽ dạy và chỉ các môn gia sư nhận
+        // (khớp hợp đồng). Chỉ khi không tính được mới rơi về budget/tuitionFee của lớp.
+        BigDecimal totalAmount = courseFeeFromSchedule(tutoringClass, acceptedSubjectKeys);
+        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            totalAmount = positiveAmount(tutoringClass.getBudget());
+            if (totalAmount == null && tutoringClass.getTuitionFee() != null
+                    && tutoringClass.getNumberOfSessions() != null) {
+                totalAmount = tutoringClass.getTuitionFee()
+                        .multiply(BigDecimal.valueOf(tutoringClass.getNumberOfSessions()));
+            }
         }
         if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
@@ -1103,6 +1186,67 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return totalAmount.setScale(2, RoundingMode.HALF_UP);
         }
         return totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP);
+    }
+
+    /**
+     * Tổng học phí toàn khoá tính theo đúng các buổi sẽ được sinh (cùng logic với
+     * {@link #generateSchedule}) và chỉ gồm môn gia sư nhận dạy. Trả {@code null} nếu
+     * lớp chưa đủ dữ liệu lịch để tính (khi đó dùng cách tính dự phòng).
+     */
+    private BigDecimal courseFeeFromSchedule(
+            TutoringClass tutoringClass, java.util.Set<String> acceptedSubjectKeys) {
+        if (tutoringClass.getStartDate() == null || tutoringClass.getEndDate() == null) {
+            return null;
+        }
+        JsonNode form = readTree(
+                filterDetailsToSubjects(tutoringClass.getDetailsJson(), acceptedSubjectKeys));
+        if (form == null) {
+            return null;
+        }
+        List<SlotSpec> specs = slotSpecs(form);
+        if (specs.isEmpty()) {
+            return null;
+        }
+        List<Map.Entry<LocalDate, SlotSpec>> occurrences = expandOccurrences(form, specs, tutoringClass);
+        if (occurrences.isEmpty()) {
+            return null;
+        }
+
+        // Ánh xạ từng buổi (SlotSpec) -> phí/giờ theo môn (đọc theo key môn trong form.slots).
+        JsonNode fees = form.path("subjectFees");
+        boolean custom = "CUSTOM".equals(form.path("scheduleMode").asText("WEEKLY"));
+        Map<SlotSpec, BigDecimal> ratePerHour = new java.util.HashMap<>();
+        JsonNode slots = form.path("slots");
+        if (slots.isArray()) {
+            for (JsonNode slot : slots) {
+                LocalTime start = parseTime(slot.path("start").asText(""));
+                LocalTime end = parseTime(slot.path("end").asText(""));
+                if (start == null || end == null) {
+                    continue;
+                }
+                Integer day = custom
+                        ? dayOfWeekOf(parseDate(slot.path("date").asText("")))
+                        : DAY_CODE_TO_ISO.get(slot.path("day").asText(""));
+                if (day == null) {
+                    continue;
+                }
+                String key = slot.path("subjectId").asText("");
+                SlotSpec spec = new SlotSpec(day, start, end, subjectIdOf(key));
+                BigDecimal rate = fees.has(key)
+                        ? new BigDecimal(fees.get(key).asText("0"))
+                        : BigDecimal.ZERO;
+                ratePerHour.putIfAbsent(spec, rate);
+            }
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<LocalDate, SlotSpec> occurrence : occurrences) {
+            SlotSpec spec = occurrence.getValue();
+            BigDecimal rate = ratePerHour.getOrDefault(spec, BigDecimal.ZERO);
+            double hours = java.time.Duration.between(spec.start(), spec.end()).toMinutes() / 60.0;
+            total = total.add(rate.multiply(BigDecimal.valueOf(hours)));
+        }
+        return total.setScale(2, RoundingMode.HALF_UP);
     }
 
     private int plannedPrivateClassMonths(TutoringClass tutoringClass) {
@@ -1757,11 +1901,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return lesson;
     }
 
-    private void generateSchedule(TutoringClass tutoringClass, Tutor tutor) {
+    private void generateSchedule(
+            TutoringClass tutoringClass, Tutor tutor, java.util.Set<String> acceptedSubjectKeys) {
         if (lessonRepository.countByTutoringClass_ClassId(tutoringClass.getClassId()) > 0) {
             return;
         }
-        JsonNode form = readTree(tutoringClass.getDetailsJson());
+        // Chỉ sinh buổi cho môn gia sư nhận dạy; lọc trên bản sao detailsJson, không sửa lớp gốc.
+        JsonNode form = readTree(filterDetailsToSubjects(tutoringClass.getDetailsJson(), acceptedSubjectKeys));
         List<SlotSpec> specs = slotSpecs(form);
         if (specs.isEmpty() || tutoringClass.getStartDate() == null || tutoringClass.getEndDate() == null) {
             return;
