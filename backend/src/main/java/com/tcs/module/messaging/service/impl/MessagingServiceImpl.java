@@ -360,9 +360,16 @@ public class MessagingServiceImpl implements MessagingService {
         if (admins.isEmpty()) {
             return;
         }
+        String reporterEmail = report.getReporter() != null ? report.getReporter().getEmail() : null;
         String content = String.format(
-                "Có báo cáo mới về %s (lý do: %s). Vào mục \"Nhận xét gia sư\" để kiểm tra.",
-                reportTargetLabel(report.getTargetType()), reportCategoryLabel(report.getCategory()));
+                "%s vừa báo cáo %s (lý do: %s). Vào mục \"%s\" để xử lý.",
+                StringUtils.hasText(reporterEmail) ? reporterEmail : "Một người dùng",
+                reportTargetLabel(report.getTargetType()),
+                reportCategoryLabel(report.getCategory()),
+                reportHandlingPageLabel(report.getTargetType()));
+        String title = report.getTargetType() == ReportTargetType.REVIEW
+                ? "Có nhận xét gia sư bị báo cáo"
+                : "Báo cáo mới cần kiểm duyệt";
         for (PlatformAdmin admin : admins) {
             notificationDispatchService.notifyUserFromTemplate(
                     admin.getUser(),
@@ -371,7 +378,7 @@ public class MessagingServiceImpl implements MessagingService {
                     Map.of(
                             "targetType", reportTargetLabel(report.getTargetType()),
                             "category", reportCategoryLabel(report.getCategory())),
-                    "Báo cáo mới cần kiểm duyệt",
+                    title,
                     content,
                     "REPORT",
                     report.getReportId());
@@ -387,6 +394,13 @@ public class MessagingServiceImpl implements MessagingService {
             case USER -> "một người dùng";
             case CLASS -> "một lớp học";
         };
+    }
+
+    private String reportHandlingPageLabel(ReportTargetType type) {
+        if (type == ReportTargetType.REVIEW) {
+            return "Báo cáo & tranh chấp > Báo cáo đánh giá";
+        }
+        return "Báo cáo & tranh chấp";
     }
 
     private String reportCategoryLabel(ReportCategory category) {

@@ -292,10 +292,19 @@ export interface ReportApiResponse {
   linkedDisputeId: number | null;
   createdAt: string;
   updatedAt: string | null;
+  /** Chỉ có với báo cáo targetType = REVIEW; null nếu đánh giá đã bị xóa. */
+  reportedReview: AdminReviewApiResponse | null;
 }
 
 export interface ResolveClassIssueRequest {
   action: ClassIssueResolutionAction;
+  notes: string;
+}
+
+export type ReviewReportAction = 'KEEP_REVIEW' | 'HIDE_REVIEW' | 'MARK_VIOLATION' | 'DELETE_REVIEW';
+
+export interface ResolveReviewReportRequest {
+  action: ReviewReportAction;
   notes: string;
 }
 
@@ -325,6 +334,7 @@ export interface ReportItem {
   linkedDisputeId: number | null;
   createdAt: string;
   updatedAt: string;
+  reportedReview: AdminReviewApiResponse | null;
   raw: ReportApiResponse;
 }
 
@@ -590,6 +600,13 @@ export interface AdminReviewApiResponse {
   subjectName: string | null;
   tutorReply: string | null;
   createdAt: string;
+  reportCount: number;
+  pendingReportCount: number;
+  latestReportId: number | null;
+  latestReportCategory: ReportCategory | null;
+  latestReportReason: string | null;
+  latestReporterEmail: string | null;
+  latestReportAt: string | null;
 }
 
 /* ── Support Tickets (admin) ── */
