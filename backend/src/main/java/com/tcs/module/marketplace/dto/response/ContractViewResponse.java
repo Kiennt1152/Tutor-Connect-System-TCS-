@@ -3,6 +3,7 @@ package com.tcs.module.marketplace.dto.response;
 import com.tcs.module.contract.dto.response.ContractResponse;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
@@ -39,6 +40,8 @@ public class ContractViewResponse {
 
     private boolean tutorSigned;
     private boolean clientSigned;
+    private LocalDateTime tutorSignedAt;
+    private LocalDateTime clientSignedAt;
     private String paymentMethod;
     private String myRole; // CLIENT | TUTOR
     private ContractResponse.EscrowPaymentInfo escrowPayment;

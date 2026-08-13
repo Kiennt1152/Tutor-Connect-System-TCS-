@@ -207,9 +207,14 @@ export default function MarketplacePage() {
               </p>
             </div>
             {mode.kind === 'list' && isClient && (
-              <Link className="mkt-btn mkt-btn--primary" to={APP_ROUTES.postTutorRequest}>
-                + Tạo lớp mới
-              </Link>
+              <div className="mkt-header__actions">
+                <Link className="mkt-btn mkt-btn--ghost" to={APP_ROUTES.classBoard}>
+                  📋 Danh sách lớp đã đăng
+                </Link>
+                <Link className="mkt-btn mkt-btn--primary" to={APP_ROUTES.postTutorRequest}>
+                  + Tạo lớp mới
+                </Link>
+              </div>
             )}
           </header>
 
@@ -611,6 +616,48 @@ function fullAddressOf(form: ClassFormValues, c: ClassResponse): string {
   return parts.join(', ') || c.address || '';
 }
 
+/**
+ * Badge đếm ngược thời gian hiển thị lớp OPEN (30 ngày), cập nhật mỗi giây.
+ * Hiển thị dạng "Còn Xd HH:MM:SS". Hết hạn -> lớp sẽ bị hệ thống tự xóa (job định kỳ).
+ */
+function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
+  const end = new Date(expiresAt).getTime();
+  const [msLeft, setMsLeft] = useState(() => end - Date.now());
+
+  useEffect(() => {
+    const tick = () => setMsLeft(end - Date.now());
+    tick();
+    const id = window.setInterval(tick, 1000);
+    return () => window.clearInterval(id);
+  }, [end]);
+
+  const pad = (n: number) => String(n).padStart(2, '0');
+  let label: string;
+  let tone: 'ok' | 'warn' | 'expired';
+  if (msLeft <= 0) {
+    label = 'Đã hết hạn';
+    tone = 'expired';
+  } else {
+    const totalSec = Math.floor(msLeft / 1000);
+    const days = Math.floor(totalSec / 86400);
+    const hours = Math.floor((totalSec % 86400) / 3600);
+    const mins = Math.floor((totalSec % 3600) / 60);
+    const secs = totalSec % 60;
+    label = `Còn ${days}d ${pad(hours)}:${pad(mins)}:${pad(secs)}`;
+    const daysLeft = Math.ceil(msLeft / 86400000);
+    tone = daysLeft <= 7 ? 'warn' : 'ok';
+  }
+
+  return (
+    <span
+      className={`mkt-expiry mkt-expiry--${tone}`}
+      title={`Lớp chỉ hiển thị đến ${new Date(expiresAt).toLocaleString('vi-VN')}. Hết hạn sẽ tự bị xóa nếu chưa ký hợp đồng.`}
+    >
+      ⏳ {label}
+    </span>
+  );
+}
+
 function ClassList({
   status,
   classes,
@@ -647,6 +694,7 @@ function ClassList({
             <span className={`mkt-status mkt-status--${c.status.toLowerCase()}`}>
               {CLASS_STATUS_LABELS[c.status] ?? c.status}
             </span>
+            {c.status === 'OPEN' && c.expiresAt && <ExpiryBadge expiresAt={c.expiresAt} />}
           </div>
           <h3 className="mkt-class-card__title">{c.title}</h3>
           <dl className="mkt-class-card__meta">

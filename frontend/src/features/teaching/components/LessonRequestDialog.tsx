@@ -40,7 +40,12 @@ function sessionOf(start: string): string {
   return 'Sáng';
 }
 
-type Props = { readonly onClose: () => void } & (
+type Props = {
+  readonly onClose: () => void;
+  readonly submitError?: string | null;
+  /** Các buổi học hiện có để cảnh báo trùng lịch ngay khi chọn ngày/giờ. */
+  readonly existingLessons?: readonly LessonResponse[];
+} & (
   | {
       readonly mode: 'RESCHEDULE';
       readonly lesson: LessonResponse;
@@ -68,6 +73,7 @@ export function LessonRequestDialog(props: Props) {
   const [reason, setReason] = useState('');
   const [localError, setLocalError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   const subjects = useMemo(
     () => classes.find((c) => c.classId === classId)?.subjects ?? [],
@@ -85,6 +91,22 @@ export function LessonRequestDialog(props: Props) {
     [allSlots, isToday, nowHm],
   );
   const endOptions = allSlots.filter((t) => t > startTime);
+
+  // Cảnh báo trùng lịch ngay khi chọn ngày/giờ (không đợi bấm gửi).
+  const excludeId = props.mode === 'RESCHEDULE' ? props.lesson.lessonId : null;
+  const conflict = useMemo(() => {
+    if (!date || !startTime || !endTime || startTime >= endTime) return null;
+    const clash = (props.existingLessons ?? []).find(
+      (l) =>
+        l.lessonId !== excludeId &&
+        l.lessonDate === date &&
+        startTime < hhmm(l.endTime) &&
+        hhmm(l.startTime) < endTime,
+    );
+    return clash
+      ? `Khung giờ này trùng với buổi "${clash.classTitle}" ngày ${date} (${hhmm(clash.startTime)}–${hhmm(clash.endTime)}). Vui lòng chọn giờ hoặc ngày khác.`
+      : null;
+  }, [date, startTime, endTime, props.existingLessons, excludeId]);
 
   useEffect(() => {
     if (startOptions.length > 0 && !startOptions.includes(startTime)) {
@@ -129,6 +151,7 @@ export function LessonRequestDialog(props: Props) {
     ) {
       return 'Lịch mới trùng với lịch hiện tại — chưa có gì để đổi.';
     }
+    if (conflict) return conflict;
     return null;
   }
 
@@ -140,6 +163,7 @@ export function LessonRequestDialog(props: Props) {
       return;
     }
     setLocalError(null);
+    setSubmitted(true);
     setBusy(true);
     const ok =
       props.mode === 'RESCHEDULE'
@@ -306,7 +330,10 @@ export function LessonRequestDialog(props: Props) {
             />
           </label>
 
-          {localError && <p className="lrd__err">{localError}</p>}
+          {!localError && conflict && <p className="lrd__err">⚠ {conflict}</p>}
+          {(localError || (submitted && props.submitError)) && (
+            <p className="lrd__err">{localError || props.submitError}</p>
+          )}
 
           <p className="lrd__hint">
             Yêu cầu sẽ được gửi tới bên còn lại. Lịch chỉ thay đổi sau khi được duyệt.
@@ -316,7 +343,7 @@ export function LessonRequestDialog(props: Props) {
             <button className="tcs-btn tcs-btn--ghost" type="button" onClick={onClose} disabled={busy}>
               Huỷ
             </button>
-            <button className="tcs-btn tcs-btn--primary" type="submit" disabled={busy}>
+            <button className="tcs-btn tcs-btn--primary" type="submit" disabled={busy || !!conflict}>
               {busy ? 'Đang gửi…' : 'Gửi yêu cầu'}
             </button>
           </div>

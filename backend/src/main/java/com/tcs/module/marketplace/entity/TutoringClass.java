@@ -131,4 +131,11 @@ public class TutoringClass {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    /**
+     * Thời điểm hết hạn hiển thị (đăng lớp + 30 ngày). Chỉ áp dụng cho lớp OPEN chưa ký hợp đồng.
+     * Hết hạn -> job dọn dẹp sẽ hard-delete lớp. Null = không tính hạn (DRAFT/đã ghép...).
+     */
+    @Column(name = "expires_at")
+    private LocalDateTime expiresAt;
 }
