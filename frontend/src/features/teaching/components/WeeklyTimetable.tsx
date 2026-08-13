@@ -29,6 +29,7 @@ interface Props {
   readonly onOpenDetail?: (lesson: LessonResponse) => void;
   readonly onReview?: (lesson: LessonResponse) => void;
   readonly pendingLessonIds?: ReadonlySet<number>;
+  readonly reviewedLessonIds?: ReadonlySet<number>;
 }
 
 export function WeeklyTimetable({
@@ -39,6 +40,7 @@ export function WeeklyTimetable({
   onOpenDetail,
   onReview,
   pendingLessonIds,
+  reviewedLessonIds,
 }: Props) {
   const [weekOffset, setWeekOffset] = useState(0);
   const todayIso = toIsoDate(new Date());
@@ -128,7 +130,7 @@ export function WeeklyTimetable({
                 <th className="wtt__rowhead">
                   {session.value}
                   <small>
-                    {session.min}–{session.max}
+                    {hhmmDisplay(session.min)}–{hhmmDisplay(session.max)}
                   </small>
                 </th>
                 {days.map((d) => {
@@ -148,6 +150,7 @@ export function WeeklyTimetable({
                             onOpenDetail={onOpenDetail}
                             onReview={onReview}
                             hasPendingRequest={pendingLessonIds?.has(lesson.lessonId) ?? false}
+                            reviewed={reviewedLessonIds?.has(lesson.lessonId) ?? false}
                           />
                         ))
                       )}
@@ -193,6 +196,7 @@ function LessonChip({
   onOpenDetail,
   onReview,
   hasPendingRequest,
+  reviewed,
 }: {
   readonly lesson: LessonResponse;
   readonly readOnly: boolean;
@@ -201,6 +205,7 @@ function LessonChip({
   readonly onOpenDetail?: (lesson: LessonResponse) => void;
   readonly onReview?: (lesson: LessonResponse) => void;
   readonly hasPendingRequest: boolean;
+  readonly reviewed: boolean;
 }) {
   const done = lesson.attendanceStatus === 'COMPLETED';
   const absent = lesson.attendanceStatus === 'ABSENT';
@@ -300,13 +305,19 @@ function LessonChip({
         )
       )}
       {onReview && done && (
-        <button
-          className="tcs-btn tcs-btn--sm tcs-btn--primary"
-          type="button"
-          onClick={() => onReview(lesson)}
-        >
-          Đánh giá gia sư
-        </button>
+        reviewed ? (
+          <span className="wtt-chip__reviewed" title="Bạn đã đánh giá gia sư cho buổi học này">
+            ✓ Đã đánh giá
+          </span>
+        ) : (
+          <button
+            className="tcs-btn tcs-btn--sm tcs-btn--primary"
+            type="button"
+            onClick={() => onReview(lesson)}
+          >
+            Đánh giá gia sư
+          </button>
+        )
       )}
     </div>
   );

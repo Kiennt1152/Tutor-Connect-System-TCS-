@@ -60,6 +60,8 @@ public interface ContractService {
 
     SignatureStatusResponse getSignatureStatus(Long contractId);
 
+    ReviewResponse createReview(CreateReviewRequest request);
+
     ReviewResponse replyToReview(Long reviewId, ReplyReviewRequest request);
 
     ReviewResponse updateReview(Long reviewId, CreateReviewRequest request);

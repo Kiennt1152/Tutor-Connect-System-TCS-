@@ -8,6 +8,7 @@ import com.tcs.module.platform.dto.request.ModerateReviewRequest;
 import com.tcs.module.platform.dto.request.RespondTicketRequest;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
 import com.tcs.module.platform.dto.request.ResolveClassIssueRequest;
+import com.tcs.module.platform.dto.request.ResolveReviewReportRequest;
 import com.tcs.module.platform.dto.request.UpdateTicketRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
 import com.tcs.module.platform.dto.response.AdminReviewResponse;
@@ -107,6 +108,13 @@ public class PlatformController {
             @PathVariable Long reportId,
             @RequestBody ResolveClassIssueRequest request) {
         return platformService.resolveClassIssue(reportId, request);
+    }
+
+    @PatchMapping("/reports/{reportId}/resolve-review")
+    public ReportResponse resolveReviewReport(
+            @PathVariable Long reportId,
+            @RequestBody ResolveReviewReportRequest request) {
+        return platformService.resolveReviewReport(reportId, request);
     }
 
     @GetMapping("/tickets")

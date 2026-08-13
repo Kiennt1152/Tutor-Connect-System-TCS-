@@ -36,7 +36,7 @@ public class ContractController {
     @PostMapping("/reviews")
     @ResponseStatus(HttpStatus.CREATED)
     public ReviewResponse createReview(@RequestBody CreateReviewRequest request) {
-        return reviewService.createReview(request);
+        return contractService.createReview(request);
     }
 
     @GetMapping("/reviews/tutor/{tutorUserId}")

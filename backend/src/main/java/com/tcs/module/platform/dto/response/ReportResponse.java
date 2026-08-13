@@ -34,4 +34,6 @@ public class ReportResponse {
     private Long linkedDisputeId;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
+    /** Chỉ có với báo cáo targetType = REVIEW; null nếu đánh giá đã bị xóa. */
+    private AdminReviewResponse reportedReview;
 }

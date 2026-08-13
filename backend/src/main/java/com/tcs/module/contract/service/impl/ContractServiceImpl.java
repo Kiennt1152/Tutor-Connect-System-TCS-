@@ -1590,6 +1590,66 @@ public class ContractServiceImpl implements ContractService {
     // ===== Reviews & Reputation =====
     @Override
     @Transactional
+    public ReviewResponse createReview(CreateReviewRequest request) {
+        Long clientId = authHelper.requireRole(UserRole.CLIENT).getUserId();
+        if (request == null || request.getAssignmentId() == null) {
+            throw new IllegalArgumentException("Thiếu thông tin đánh giá");
+        }
+
+        ClassAssignment assignment = classAssignmentRepository
+                .findById(request.getAssignmentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công lớp"));
+        TutoringClass tutoringClass = assignment.getApplication() != null
+                ? assignment.getApplication().getTutoringClass()
+                : null;
+        if (tutoringClass == null || tutoringClass.getCreator() == null
+                || !tutoringClass.getCreator().getUserId().equals(clientId)) {
+            throw new BusinessException("Bạn chỉ có thể đánh giá lớp học của mình");
+        }
+
+        // Điều kiện: đã có buổi diễn ra và chưa vượt số lượt đánh giá cho phép.
+        List<LocalDate> occurred = occurredLessonDates(tutoringClass.getClassId());
+        if (occurred.isEmpty()) {
+            throw new BusinessException("Chưa có buổi học nào diễn ra để đánh giá");
+        }
+        long submitted = reviewRepository.findByReviewer_UserId(clientId).stream()
+                .filter(r -> r.getReviewType() == ReviewType.CLIENT_TO_TUTOR)
+                .filter(r -> r.getAssignment().getAssignmentId().equals(assignment.getAssignmentId()))
+                .count();
+        if (submitted >= occurred.size()) {
+            throw new BusinessException("Bạn đã đánh giá đủ số lượt cho các buổi đã học");
+        }
+
+        BigDecimal overallRating = resolveOverallRating(request);
+        if (overallRating.compareTo(BigDecimal.ONE) < 0
+                || overallRating.compareTo(BigDecimal.valueOf(5)) > 0) {
+            throw new IllegalArgumentException("Số sao phải từ 1 đến 5");
+        }
+
+        Tutor tutor = assignment.getTutor();
+        User reviewer = userRepository.findById(clientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+
+        Review review = new Review();
+        review.setAssignment(assignment);
+        review.setTutoringClass(tutoringClass);
+        review.setReviewer(reviewer);
+        review.setReviewee(tutor.getUser());
+        review.setReviewType(ReviewType.CLIENT_TO_TUTOR);
+        review.setRating(overallRating);
+        review.setComment(trimToNull(request.getComment()));
+        review.setCriteriaJson(serializeCriteria(request.getCriteria()));
+        boolean anonymous = Boolean.TRUE.equals(request.getAnonymous());
+        review.setAnonymous(anonymous);
+        review.setDisplayName(anonymous ? trimToNull(request.getDisplayName()) : null);
+        Review saved = reviewRepository.save(review);
+
+        recomputeTutorReputation(tutor, tutor.getUser().getUserId());
+        return toResponse(saved);
+    }
+
+    @Override
+    @Transactional
     public ReviewResponse replyToReview(Long reviewId, ReplyReviewRequest request) {
         Long tutorUserId = authHelper.requireRole(UserRole.TUTOR).getUserId();
 
