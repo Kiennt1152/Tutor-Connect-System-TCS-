@@ -312,7 +312,9 @@ export function mapAdminWithdrawalItem(item: AdminWithdrawalApiResponse): AdminW
     status: item.status,
     statusLabel: WITHDRAWAL_STATUS_LABELS[item.status] ?? item.status,
     bankName: item.bankName?.trim() || '—',
+    accountNo: item.accountNo?.trim() || '',
     accountNoMasked: item.accountNoMasked?.trim() || '—',
+    accountHolderName: item.accountHolderName?.trim() || '—',
     referenceCode: item.referenceCode?.trim() || '—',
     transactionStatusLabel: item.transactionStatus
       ? (item.transactionStatus === 'SUCCESS' ? 'Thành công'

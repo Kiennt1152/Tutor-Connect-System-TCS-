@@ -271,10 +271,14 @@
 }
 
 .adm-main {
+  min-width: 0;
   padding: var(--space-lg);
 }
 
 .adm-card {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
   background: var(--color-surface-2);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);

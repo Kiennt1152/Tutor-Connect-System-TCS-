@@ -16,6 +16,7 @@ public class WithdrawalResponse {
     private Long paymentMethodId;
     private String bankName;
     private String accountNoMasked;
+    private String accountHolderName;
     private String referenceCode;
     private LocalDateTime requestedAt;
     private WalletResponse wallet;

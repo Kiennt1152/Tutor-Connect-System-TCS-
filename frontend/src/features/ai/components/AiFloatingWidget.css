@@ -21,6 +21,20 @@
   animation: pulse-glow 3s infinite;
 }
 
+.ai-widget-button--support {
+  bottom: 84px;
+}
+
+.ai-widget-button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.2rem;
+  height: 1.2rem;
+  font-size: 1.2rem;
+  line-height: 1;
+}
+
 @keyframes pulse-glow {
   0%, 100% { box-shadow: 0 4px 20px rgba(234, 88, 12, 0.45); }
   50% { box-shadow: 0 4px 30px rgba(234, 88, 12, 0.75); }
@@ -47,6 +61,33 @@
   overflow: hidden;
   font-family: 'Inter', system-ui, sans-serif;
   animation: slide-up 0.25s ease-out;
+}
+
+.ai-widget-popup--with-support {
+  bottom: 145px;
+}
+
+@media (max-width: 640px) {
+  .ai-widget-button {
+    right: 16px;
+    bottom: 16px;
+  }
+
+  .ai-widget-button--support {
+    bottom: 76px;
+  }
+
+  .ai-widget-popup {
+    right: 12px;
+    bottom: 76px;
+    width: calc(100vw - 24px);
+    height: min(520px, calc(100svh - 100px));
+  }
+
+  .ai-widget-popup--with-support {
+    bottom: 137px;
+    height: min(520px, calc(100svh - 161px));
+  }
 }
 
 @keyframes slide-up {

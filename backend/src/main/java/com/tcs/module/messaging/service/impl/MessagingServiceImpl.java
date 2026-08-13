@@ -18,6 +18,7 @@ import com.tcs.module.messaging.service.MessagingService;
 import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
+import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.platform.enums.ReportCategory;
 import com.tcs.module.platform.enums.ReportTargetType;
 import com.tcs.module.profile.entity.PlatformAdmin;
@@ -120,6 +121,7 @@ public class MessagingServiceImpl implements MessagingService {
         }
         SupportTicket saved = supportTicketRepository.save(ticket);
         createTicketConversation(saved, user);
+        notifyAdminsNewSupportTicket(saved);
         return toResponse(saved);
     }
 
@@ -173,6 +175,28 @@ public class MessagingServiceImpl implements MessagingService {
         message.setContent(ticket.getDescription());
         message.setEvidenceUrls(ticket.getEvidenceUrls());
         ticketMessageRepository.save(message);
+    }
+
+    private void notifyAdminsNewSupportTicket(SupportTicket ticket) {
+        String content = String.format(
+                "%s vừa tạo yêu cầu hỗ trợ #%d: %s. Mức ưu tiên: %s.",
+                ticket.getUser().getEmail(), ticket.getTicketId(), ticket.getSubject(), ticket.getPriority());
+        platformAdminRepository.findAll().stream()
+                .map(PlatformAdmin::getUser)
+                .filter(adminUser -> adminUser.getStatus() == UserStatus.ACTIVE)
+                .forEach(adminUser -> notificationDispatchService.notifyUserFromTemplate(
+                        adminUser,
+                        NotificationType.SYSTEM,
+                        "SUPPORT_TICKET_CREATED",
+                        Map.of(
+                                "ticketId", ticket.getTicketId(),
+                                "userEmail", ticket.getUser().getEmail(),
+                                "subject", ticket.getSubject(),
+                                "priority", ticket.getPriority()),
+                        "Yêu cầu hỗ trợ mới #" + ticket.getTicketId(),
+                        content,
+                        TICKET_CONTEXT_TYPE,
+                        ticket.getTicketId()));
     }
 
     private SupportTicketResponse toResponse(SupportTicket ticket) {

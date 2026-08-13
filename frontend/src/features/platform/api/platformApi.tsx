@@ -231,6 +231,12 @@ export const platformApi = {
     return axiosClient.patch<CircumventionEventApiResponse>(`${BASE}/circumvention-events/${eventId}`, { status, note });
   },
 
+  getCircumventionConversation(eventId: number) {
+    return axiosClient.get<import('../types/platformTypes').CircumventionConversationApiResponse>(
+      `${BASE}/circumvention-events/${eventId}/conversation`,
+    );
+  },
+
   getNotificationTemplates() {
     return axiosClient.get<NotificationTemplateApiResponse[]>(`${BASE}/notification-templates`);
   },

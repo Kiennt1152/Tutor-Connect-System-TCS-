@@ -41,7 +41,7 @@ const JsonDisplay = ({ value }: { value: string | null }) => {
   let parsed = value;
   try {
     parsed = JSON.stringify(JSON.parse(value), null, 2);
-  } catch (e) {
+  } catch {
     // Keep as is if not valid JSON
   }
 
@@ -83,7 +83,7 @@ export default function PlatformAuditLogsPage() {
       setLogs(res.data.content);
       setTotalElements(res.data.totalElements);
       setTotalPages(res.data.totalPages);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setError(getApiErrorMessage(err) || 'Không thể tải nhật ký hoạt động.');
     } finally {
       setLoading(false);
@@ -91,10 +91,12 @@ export default function PlatformAuditLogsPage() {
   }, [filters]);
 
   useEffect(() => {
+    // The request lifecycle updates this page's loading, error and result states.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchLogs();
   }, [fetchLogs]);
 
-  const handleFilterChange = (key: keyof AuditLogFilters, value: any) => {
+  const handleFilterChange = (key: keyof AuditLogFilters, value: string | number | undefined) => {
     setFilters((prev) => ({
       ...prev,
       [key]: value || undefined,
@@ -160,8 +162,8 @@ export default function PlatformAuditLogsPage() {
 
       {error && <div className="adm-error-message" style={{ color: 'red', marginBottom: '16px' }}>{error}</div>}
 
-      <div className="adm-table-wrap">
-        <table className="adm-table">
+      <div className="adm-table-wrap adm-audit-table-wrap">
+        <table className="adm-table adm-audit-table">
           <thead>
             <tr>
               <th>ID</th>

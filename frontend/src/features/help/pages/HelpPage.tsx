@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
-import { useChatbot, useFaqSearch } from '../hooks/useHelp';
+import { useFaqSearch } from '../hooks/useHelp';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
@@ -17,18 +17,12 @@ function ChevronDown({ className }: { className?: string }) {
 export default function HelpPage() {
   const { user } = useAuth();
   const { status, items, keyword, setKeyword, errorMessage, reload } = useFaqSearch();
-  const { input, setInput, status: chatStatus, result, errorMessage: chatError, ask, reset } = useChatbot();
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);
   const [searchDraft, setSearchDraft] = useState('');
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     setKeyword(searchDraft);
-  };
-
-  const handleChatSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    ask(input);
   };
 
   return (
@@ -95,87 +89,52 @@ export default function HelpPage() {
           ))}
         </section>
 
-        {/* Chatbot panel */}
-        <aside className="help-chatbot">
-          <p className="help-chatbot__title">Hỏi chatbot hỗ trợ</p>
-          <p className="help-chatbot__desc">Nhập câu hỏi, chatbot AI sẽ trả lời cho bạn.</p>
-
-          {result === null ? (
-            <form className="help-chatbot__form" onSubmit={handleChatSubmit}>
-              <textarea
-                className="help-chatbot__textarea"
-                placeholder="Nhập câu hỏi của bạn…"
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                rows={3}
-              />
-              <button
-                type="submit"
-                className="help-chatbot__ask-btn"
-                disabled={chatStatus === 'loading' || !input.trim()}
-              >
-                {chatStatus === 'loading' ? 'Đang xử lý…' : 'Gửi câu hỏi'}
-              </button>
-              {chatError && (
-                <p style={{ color: '#991b1b', fontSize: '0.83rem', margin: '0.25rem 0 0' }}>{chatError}</p>
-              )}
-            </form>
-          ) : (
-            <div>
-              {result.matched ? (
-                <div className="help-chatbot__result help-chatbot__result--matched">
-                  <span className="help-chatbot__result-label">Câu trả lời từ AI</span>
-                  <p className="help-chatbot__result-q">❓ {result.question}</p>
-                  <p className="help-chatbot__result-a">💡 {result.answer}</p>
-                </div>
-              ) : (
-                <div className="help-chatbot__result help-chatbot__result--unmatched">
-                  <span className="help-chatbot__result-label">Chưa tìm được câu trả lời</span>
-                  <p style={{ margin: '0 0 0.25rem' }}>{result.suggestion}</p>
-                </div>
-              )}
-
-              {result.matched && (
-                <div className="help-chatbot__feedback">
-                  <p className="help-chatbot__feedback-text">Bạn chưa hài lòng với câu trả lời này?</p>
-                  {user ? (
-                    <Link to={APP_ROUTES.messagingTickets} className="help-chatbot__ticket-link">
-                      Tạo yêu cầu hỗ trợ →
-                    </Link>
-                  ) : (
-                    <Link
-                      to={APP_ROUTES.login}
-                      state={{ from: APP_ROUTES.messagingTickets }}
-                      className="help-chatbot__ticket-link"
-                    >
-                      Đăng nhập để gửi yêu cầu →
-                    </Link>
-                  )}
-                </div>
-              )}
-
-              {!result.matched && (
-                user ? (
-                  <Link to={APP_ROUTES.messagingTickets} className="help-chatbot__ticket-link">
-                    Tạo yêu cầu hỗ trợ →
-                  </Link>
-                ) : (
-                  <Link
-                    to={APP_ROUTES.login}
-                    state={{ from: APP_ROUTES.messagingTickets }}
-                    className="help-chatbot__ticket-link"
-                  >
-                    Đăng nhập để gửi yêu cầu →
-                  </Link>
-                )
-              )}
-
-              <button type="button" className="help-chatbot__reset-btn" onClick={reset}>
-                Đặt câu hỏi khác
-              </button>
+        <div className="help-page__sidebar">
+          <section className="help-action-card help-action-card--primary" aria-labelledby="help-support-title">
+            <div className="help-action-card__heading">
+              <span className="help-action-card__icon" aria-hidden="true">🔍</span>
+              <h2 id="help-support-title">Không tìm thấy câu trả lời?</h2>
             </div>
-          )}
-        </aside>
+            <p>Gửi yêu cầu hỗ trợ và đội ngũ của chúng tôi sẽ phản hồi trong 24 giờ.</p>
+            {user ? (
+              <Link to={APP_ROUTES.messagingTickets} className="help-action-card__button help-action-card__button--primary">
+                Tạo yêu cầu hỗ trợ
+              </Link>
+            ) : (
+              <Link
+                to={APP_ROUTES.login}
+                state={{ from: APP_ROUTES.messagingTickets }}
+                className="help-action-card__button help-action-card__button--primary"
+              >
+                Tạo yêu cầu hỗ trợ
+              </Link>
+            )}
+            <Link to={APP_ROUTES.aiAssistant} className="help-action-card__text-link">
+              Hoặc chat với trợ lý AI cá nhân <span aria-hidden="true">→</span>
+            </Link>
+          </section>
+
+          <section className="help-action-card" aria-labelledby="help-ticket-title">
+            <div className="help-action-card__heading">
+              <span className="help-action-card__icon help-action-card__icon--tickets" aria-hidden="true">▤</span>
+              <h2 id="help-ticket-title">Yêu cầu hỗ trợ của tôi</h2>
+            </div>
+            <p>Theo dõi trạng thái và xem phản hồi từ đội ngũ hỗ trợ.</p>
+            {user ? (
+              <Link to={APP_ROUTES.messagingTickets} className="help-action-card__button help-action-card__button--secondary">
+                Xem các yêu cầu <span aria-hidden="true">→</span>
+              </Link>
+            ) : (
+              <Link
+                to={APP_ROUTES.login}
+                state={{ from: APP_ROUTES.messagingTickets }}
+                className="help-action-card__button help-action-card__button--secondary"
+              >
+                Xem các yêu cầu <span aria-hidden="true">→</span>
+              </Link>
+            )}
+          </section>
+        </div>
       </div>
     </div>
     </div>

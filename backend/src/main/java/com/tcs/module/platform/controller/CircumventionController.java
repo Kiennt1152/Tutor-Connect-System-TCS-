@@ -2,6 +2,7 @@ package com.tcs.module.platform.controller;
 
 import com.tcs.module.platform.dto.request.ReviewCircumventionRequest;
 import com.tcs.module.platform.dto.response.CircumventionEventResponse;
+import com.tcs.module.platform.dto.response.CircumventionConversationResponse;
 import com.tcs.module.platform.dto.response.PageCircumventionEventResponse;
 import com.tcs.module.platform.service.CircumventionService;
 import jakarta.validation.Valid;
@@ -24,5 +25,10 @@ public class CircumventionController {
     public CircumventionEventResponse review(@PathVariable Long eventId,
             @Valid @RequestBody ReviewCircumventionRequest request) {
         return service.review(eventId, request);
+    }
+
+    @GetMapping("/{eventId}/conversation")
+    public CircumventionConversationResponse getConversationEvidence(@PathVariable Long eventId) {
+        return service.getConversationEvidence(eventId);
     }
 }
