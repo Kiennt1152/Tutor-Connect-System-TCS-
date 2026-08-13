@@ -196,7 +196,11 @@ export function useDependentProfile() {
   };
 }
 
-export function useDependentLinkStatus() {
+/**
+ * @param enabled Chỉ gọi endpoint khi true (endpoint yêu cầu role CLIENT — tránh 401/403 dư thừa
+ *   cho gia sư/khách khi hook được dùng ở màn hình dùng chung).
+ */
+export function useDependentLinkStatus(enabled: boolean = true) {
   const [status, setStatus] = useState<LoadStatus>('idle');
   const [linkStatus, setLinkStatus] = useState<DependentLinkStatus | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -215,8 +219,11 @@ export function useDependentLinkStatus() {
   }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      return;
+    }
     reload();
-  }, [reload]);
+  }, [enabled, reload]);
 
   return { status, linkStatus, errorMessage, reload };
 }
