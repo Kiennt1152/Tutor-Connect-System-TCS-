@@ -1,7 +1,13 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { AdminLayout } from '../components/AdminLayout';
 import { useReviewModeration } from '../hooks/useReviewModeration';
-import type { AdminReviewApiResponse, ReviewModerationStatus } from '../types/platformTypes';
+import type {
+  AdminReviewApiResponse,
+  ReportCategory,
+  ReviewModerationStatus,
+} from '../types/platformTypes';
 import './PlatformReviewsPage.css';
 
 const STATUS_LABEL: Record<ReviewModerationStatus, string> = {
@@ -10,9 +16,27 @@ const STATUS_LABEL: Record<ReviewModerationStatus, string> = {
   MODERATED: 'Vi phạm',
 };
 
+const REPORT_CATEGORY_LABEL: Record<ReportCategory, string> = {
+  FRAUD: 'Sai sự thật / gian lận',
+  ABUSE: 'Lăng mạ / xúc phạm',
+  SPAM: 'Spam',
+  INAPPROPRIATE: 'Nội dung không phù hợp',
+  OTHER: 'Lý do khác',
+};
+
 function statusBadgeClass(status: ReviewModerationStatus) {
   if (status === 'VISIBLE') return 'tcs-badge tcs-badge--active';
   return 'tcs-badge tcs-badge--suspended';
+}
+
+function reportTooltip(r: AdminReviewApiResponse) {
+  const parts = [
+    `${r.reportCount} báo cáo (${r.pendingReportCount} chờ xử lý)`,
+    r.latestReporterEmail ? `Mới nhất: ${r.latestReporterEmail}` : null,
+    r.latestReportAt ? formatDate(r.latestReportAt) : null,
+    r.latestReportReason,
+  ];
+  return parts.filter(Boolean).join(' · ');
 }
 
 function formatDate(iso: string) {
@@ -27,6 +51,7 @@ export default function PlatformReviewsPage() {
 
   const visibleCount = items.filter((r) => r.status === 'VISIBLE').length;
   const flaggedCount = items.filter((r) => r.status !== 'VISIBLE').length;
+  const reportedItems = items.filter((r) => r.pendingReportCount > 0);
 
   function runAction(reviewId: number, fn: () => Promise<unknown>) {
     setBusyId(reviewId);
@@ -62,11 +87,27 @@ export default function PlatformReviewsPage() {
           <p className="adm-summary-card__label">Đã ẩn / vi phạm</p>
           <p className="adm-summary-card__value">{flaggedCount}</p>
         </article>
+        <article className={`adm-summary-card${reportedItems.length > 0 ? ' adm-summary-card--warn' : ''}`}>
+          <p className="adm-summary-card__label">Bị báo cáo, chờ xử lý</p>
+          <p className="adm-summary-card__value">{reportedItems.length}</p>
+        </article>
         <article className="adm-summary-card">
           <p className="adm-summary-card__label">Tổng đánh giá</p>
           <p className="adm-summary-card__value">{items.length}</p>
         </article>
       </div>
+
+      {reportedItems.length > 0 && (
+        <div className="adm-alert adm-alert--warn adm-review__report-alert">
+          <span>
+            Có <strong>{reportedItems.length}</strong> đánh giá đang bị người dùng báo cáo và chưa
+            được xử lý.
+          </span>
+          <Link className="tcs-btn tcs-btn--primary tcs-btn--sm" to={APP_ROUTES.platformReports}>
+            Xem &amp; xử lý báo cáo →
+          </Link>
+        </div>
+      )}
 
       <div className="adm-card">
         <div className="adm-toolbar">
@@ -141,6 +182,26 @@ export default function PlatformReviewsPage() {
                       </td>
                       <td className="adm-table__badge">
                         <span className={statusBadgeClass(r.status)}>{STATUS_LABEL[r.status]}</span>
+                        {r.reportCount > 0 && (
+                          <span
+                            className={
+                              r.pendingReportCount > 0
+                                ? 'tcs-badge tcs-badge--banned adm-review__report-badge'
+                                : 'tcs-badge tcs-badge--role adm-review__report-badge'
+                            }
+                            title={reportTooltip(r)}
+                          >
+                            {r.pendingReportCount > 0
+                              ? `⚑ Bị báo cáo (${r.pendingReportCount})`
+                              : `⚑ Đã xử lý báo cáo (${r.reportCount})`}
+                          </span>
+                        )}
+                        {r.reportCount > 0 && r.latestReportCategory && (
+                          <span className="adm-table__sub adm-review__report-reason">
+                            {REPORT_CATEGORY_LABEL[r.latestReportCategory] ?? r.latestReportCategory}
+                            {r.latestReportReason ? `: “${r.latestReportReason}”` : ''}
+                          </span>
+                        )}
                       </td>
                       <td>{formatDate(r.createdAt)}</td>
                       <td>

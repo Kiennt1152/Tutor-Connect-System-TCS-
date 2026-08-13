@@ -330,6 +330,18 @@
   border: 1px solid #bfdbfe;
 }
 
+.adm-alert--warn {
+  background: #fffbeb;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.adm-alert--success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
 .adm-state {
   padding: var(--space-xl) var(--space-md);
   text-align: center;
