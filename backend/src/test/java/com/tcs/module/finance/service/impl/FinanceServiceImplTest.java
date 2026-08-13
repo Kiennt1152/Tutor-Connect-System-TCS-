@@ -41,6 +41,7 @@ import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
+import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -73,6 +74,8 @@ import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
 class FinanceServiceImplTest {
+
+    @Mock private PenaltyAccessService penaltyAccessService;
 
     private static final Long USER_ID = 7L;
 

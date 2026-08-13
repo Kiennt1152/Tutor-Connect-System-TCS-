@@ -111,6 +111,8 @@ public class ContractServiceImpl implements ContractService {
     private static final int OTP_EXPIRY_MINUTES = 5;
     private static final int OTP_MAX_ATTEMPTS = 5;
     private static final int CONTRACT_EXPIRY_DAYS = 7;
+    /** BF-03: thỏa thuận hợp tác chưa ký sẽ hết hiệu lực sau 48 giờ. */
+    private static final int COOPERATION_EXPIRY_HOURS = 48;
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String ESCROW_BANK_NAME = "TPBank";
     private static final String ESCROW_BANK_BIN = "970423";
@@ -549,7 +551,8 @@ public class ContractServiceImpl implements ContractService {
         contract.setRecruitmentApplication(app);
         contract.setStatus(ContractStatus.PENDING);
         contract.setSourceType(ContractSourceType.CENTER);
-        contract.setExpiresAt(LocalDateTime.now().plusDays(CONTRACT_EXPIRY_DAYS));
+        // BF-03: thỏa thuận hợp tác chỉ có hiệu lực 48 giờ để gia sư ký.
+        contract.setExpiresAt(LocalDateTime.now().plusHours(COOPERATION_EXPIRY_HOURS));
         contract.setTemplate(template);
         // Lưu ĐIỀU KHOẢN đã render placeholder (đóng băng); BÊN A/BÊN B dựng động khi hiển thị.
         contract.setTermsSummary(renderPlaceholders(rawTerms, vars).trim());
@@ -560,6 +563,33 @@ public class ContractServiceImpl implements ContractService {
         createPendingSignature(contract, PartyRole.TUTOR, tutor.getUser().getEmail());
 
         return toContractResponse(contract);
+    }
+
+    /**
+     * BF-03 (exception): gia sư TỪ CHỐI thỏa thuận hợp tác chưa ký. Chấm dứt hợp đồng và đóng đơn
+     * (WITHDRAWN) để trung tâm chọn ứng viên khác. Chỉ gia sư của đơn mới được từ chối.
+     */
+    @Override
+    @Transactional
+    public void declineCooperationContract(Long contractId) {
+        Contract contract = contractRepository.findById(contractId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hợp đồng"));
+        RecruitmentApplication app = contract.getRecruitmentApplication();
+        if (app == null) {
+            throw new IllegalArgumentException("Đây không phải thỏa thuận hợp tác gia sư.");
+        }
+        if (contract.getStatus() != ContractStatus.PENDING) {
+            throw new IllegalArgumentException("Thỏa thuận này không còn ở trạng thái chờ ký.");
+        }
+        Long currentUserId = authHelper.currentUserId();
+        if (app.getTutor() == null || app.getTutor().getUser() == null
+                || !app.getTutor().getUser().getUserId().equals(currentUserId)) {
+            throw new ForbiddenException("Bạn không có quyền từ chối thỏa thuận này");
+        }
+        contract.setStatus(ContractStatus.TERMINATED);
+        contractRepository.save(contract);
+        app.setStatus(com.tcs.module.center.enums.RecruitmentApplicationStatus.WITHDRAWN);
+        recruitmentApplicationRepository.save(app);
     }
 
     // ─── GENERATE STUDENT CONTRACT (BF-04 bước 7) ───────────────────────────

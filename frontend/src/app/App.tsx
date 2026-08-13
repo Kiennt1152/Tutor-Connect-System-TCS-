@@ -24,6 +24,8 @@ import PlatformParametersPage from '../features/platform/pages/PlatformParameter
 import PlatformPenaltiesPage from '../features/platform/pages/PlatformPenaltiesPage';
 import PlatformAuditLogsPage from '../features/platform/pages/PlatformAuditLogsPage';
 import PlatformAnnouncementsPage from '../features/platform/pages/PlatformAnnouncementsPage';
+import PlatformNotificationTemplatesPage from '../features/platform/pages/PlatformNotificationTemplatesPage';
+import PlatformCircumventionPage from '../features/platform/pages/PlatformCircumventionPage';
 import CenterPage from '../features/center/pages/CenterPage';
 import CenterReportsPage from '../features/center/pages/CenterReportsPage';
 import CenterRecruitmentPage from '../features/center/pages/CenterRecruitmentPage';
@@ -409,6 +411,22 @@ export default function App() {
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
                 <PlatformPenaltiesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformNotificationTemplates}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformNotificationTemplatesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformCircumvention}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformCircumventionPage />
               </ProtectedRoute>
             }
           />

@@ -34,6 +34,9 @@ public interface CenterService {
     /** Các đơn ứng tuyển của gia sư đang đăng nhập. */
     List<RecruitmentApplicationResponse> listMyApplications();
 
+    /** Gia sư rút đơn ứng tuyển (chỉ khi đơn còn ở trạng thái mới nộp). */
+    void withdrawApplication(Long recruitmentAppId);
+
     // ===================== Tin tuyển gia sư — phía trung tâm =====================
 
     /** Tin tuyển dụng của trung tâm đang đăng nhập (mọi trạng thái). */

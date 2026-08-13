@@ -3,8 +3,6 @@ import { useHome } from '../hooks/useHome';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasAnyRole, hasRole } from '../../../shared/auth/rbac';
 import type { UserRole } from '../../../shared/types/userRole';
-import { Link } from 'react-router-dom';
-import { APP_ROUTES } from '../../../shared/constants/routes';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { TutorSearchBlock } from '../components/TutorSearchBlock';
@@ -62,17 +60,6 @@ function HomeHeroSection({
                 <p className="tcs-hero__eyebrow">{copy.eyebrow}</p>
                 <h1 className="tcs-hero__title">Xin chào, {firstName}</h1>
                 <p className="tcs-hero__subtitle">{copy.subtitle}</p>
-                {hasAnyRole(role, ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'PLATFORM_ADMIN']) && (
-                  <div className="tcs-hero__quick-actions">
-                    <Link to={APP_ROUTES.messaging} className="tcs-quick-action">
-                      <span className="tcs-quick-action__icon">💬</span>
-                      <div>
-                        <span className="tcs-quick-action__label">Tin nhắn</span>
-                        <span className="tcs-quick-action__desc">Trò chuyện với gia sư, học viên</span>
-                      </div>
-                    </Link>
-                  </div>
-                )}
               </>
             ) : (
               <>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
 import '../../finance/FinancePage.css';
@@ -88,6 +88,7 @@ const isEscrowPaymentConfirmed = (
 export default function ContractDetailPage() {
   const { contractId } = useParams<{ contractId: string }>();
   const id = Number(contractId);
+  const navigate = useNavigate();
   const { user } = useAuth();
 
   const { contract, signatures, loading, error, reload } = useContractDetail();
@@ -149,6 +150,24 @@ export default function ContractDetailPage() {
       setOtpInput('');
       setSignSuccess(true);
       setOtpSentSuccess(false);
+    }
+  };
+
+  // BF-03: gia sư từ chối thỏa thuận hợp tác chưa ký (đóng đơn, trung tâm chọn người khác).
+  const [declining, setDeclining] = useState(false);
+  const [declineError, setDeclineError] = useState('');
+  const handleDecline = async () => {
+    if (!id) return;
+    setDeclining(true);
+    setDeclineError('');
+    try {
+      await contractApi.declineContract(id);
+      navigate(APP_ROUTES.contract);
+    } catch (err) {
+      const e = err as { response?: { data?: { message?: string } } };
+      setDeclineError(e?.response?.data?.message ?? 'Không từ chối được thỏa thuận.');
+    } finally {
+      setDeclining(false);
     }
   };
 
@@ -626,6 +645,30 @@ export default function ContractDetailPage() {
                     disabled={sendingOtp}
                   >
                     Gửi lại mã OTP
+                  </button>
+                </div>
+              )}
+              {/* BF-03: gia sư có thể từ chối thỏa thuận hợp tác chưa ký. */}
+              {contract.recruitmentApplicationId != null && (
+                <div
+                  className="contract-sign-form"
+                  style={{
+                    marginTop: 'var(--space-md)',
+                    paddingTop: 'var(--space-md)',
+                    borderTop: '1px solid var(--color-border)',
+                  }}
+                >
+                  {declineError ? (
+                    <div className="contract-alert contract-alert--error">{declineError}</div>
+                  ) : null}
+                  <p>Không muốn hợp tác với trung tâm này? Bạn có thể từ chối thỏa thuận.</p>
+                  <button
+                    className="tcs-btn tcs-btn--ghost"
+                    type="button"
+                    onClick={handleDecline}
+                    disabled={declining}
+                  >
+                    {declining ? 'Đang từ chối...' : 'Từ chối thỏa thuận'}
                   </button>
                 </div>
               )}

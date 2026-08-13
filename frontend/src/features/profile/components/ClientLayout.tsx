@@ -14,8 +14,8 @@ export function ClientLayout({ title, subtitle, children }: ClientLayoutProps) {
   const { logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     navigate(APP_ROUTES.home);
   }
 

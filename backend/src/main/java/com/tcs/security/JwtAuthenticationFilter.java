@@ -36,10 +36,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String token = authHeader.substring(7);
         try {
-            String email = jwtService.parseClaims(token).get("email", String.class);
+            var claims = jwtService.parseClaims(token);
+            String email = claims.get("email", String.class);
             if (email != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(email);
-                if (!userDetails.isEnabled()) {
+                if (!userDetails.isEnabled()
+                        || !(userDetails instanceof UserPrincipal principal)
+                        || principal.getTokenVersion() != jwtService.extractTokenVersion(claims)) {
                     filterChain.doFilter(request, response);
                     return;
                 }

@@ -31,10 +31,12 @@ const currency = new Intl.NumberFormat('vi-VN');
 
 // Nhãn trạng thái yêu cầu "nhờ trung tâm tìm".
 const REQ_STATUS_LABEL: Record<ClassRequestStatus, string> = {
+  PAYMENT_PENDING: 'Chờ thanh toán',
   PENDING: 'Đang chờ',
   SEARCHING: 'Đang tìm gia sư',
   ACCEPTED: 'Đã chấp nhận',
   REJECTED: 'Đã từ chối',
+  CANCELLED: 'Đã hủy',
 };
 
 function isEditableClass(c: ClassResponse): boolean {
@@ -84,14 +86,14 @@ export default function MarketplacePage() {
     if (!isClient) return;
     marketplaceApi
       .getMyClassRequests()
-      .then((res) => setCenterRequests(res.data))
+      .then(setCenterRequests)
       .catch(() => setCenterRequests([]));
   }, [isClient]);
   const cancelCenterRequest = async (requestId: string) => {
     try {
       await marketplaceApi.cancelClassRequest(requestId);
-      const res = await marketplaceApi.getMyClassRequests();
-      setCenterRequests(res.data);
+      const requests = await marketplaceApi.getMyClassRequests();
+      setCenterRequests(requests);
     } catch {
       /* bỏ qua */
     }
@@ -103,8 +105,8 @@ export default function MarketplacePage() {
     try {
       await marketplaceApi.chooseTutorForRequest(chooseTarget.requestId, chooseTarget.tutorId);
       reload();
-      const res = await marketplaceApi.getMyClassRequests();
-      setCenterRequests(res.data);
+      const requests = await marketplaceApi.getMyClassRequests();
+      setCenterRequests(requests);
       setChooseTarget(null);
       setReqNotice(
         'Đã chọn gia sư. Lớp đã được tạo — gia sư sẽ nhận thông báo để nhận lớp và ký hợp đồng.',
@@ -384,7 +386,7 @@ export default function MarketplacePage() {
                       <span className={`mkt-status mkt-status--${r.status.toLowerCase()}`}>
                         {REQ_STATUS_LABEL[r.status]}
                       </span>
-                      {r.status === 'PENDING' && (
+                      {r.status === 'PAYMENT_PENDING' && (
                         <div className="mkt-req-card__actions">
                           <button
                             type="button"

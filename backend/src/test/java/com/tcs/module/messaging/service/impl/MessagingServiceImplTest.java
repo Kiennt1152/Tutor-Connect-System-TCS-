@@ -11,12 +11,9 @@ import com.tcs.module.messaging.dto.request.ReplyTicketRequest;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.messaging.dto.response.SupportTicketResponse;
 import com.tcs.module.messaging.dto.response.TicketMessageResponse;
-<<<<<<< Updated upstream
-=======
 import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.messaging.enums.NotificationType;
->>>>>>> Stashed changes
 import com.tcs.module.platform.entity.SupportTicket;
 import com.tcs.module.platform.entity.TicketMessage;
 import com.tcs.module.platform.enums.SupportTicketCategory;
@@ -60,15 +57,12 @@ class MessagingServiceImplTest {
     private TicketMessageRepository ticketMessageRepository;
     @Mock
     private TutoringClassRepository tutoringClassRepository;
-<<<<<<< Updated upstream
-=======
     @Mock
     private NotificationRepository notificationRepository;
     @Mock
     private NotificationDispatchService notificationDispatchService;
     @Mock
     private PlatformAdminRepository platformAdminRepository;
->>>>>>> Stashed changes
 
     @InjectMocks
     private MessagingServiceImpl messagingService;

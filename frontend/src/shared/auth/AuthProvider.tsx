@@ -17,7 +17,7 @@ type AuthContextValue = {
   /** newUser=true nghia la chua co tai khoan; goi completeGoogleSignup de hoan tat. */
   loginWithGoogle: (body: GoogleLoginRequest) => Promise<GoogleLoginResponse>;
   completeGoogleSignup: (body: GoogleCompleteRequest) => Promise<GoogleLoginResponse>;
-  logout: () => void;
+  logout: () => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -86,9 +86,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return response;
   }, []);
 
-  const logout = useCallback(() => {
-    authStorage.clearAll();
-    setUser(null);
+  const logout = useCallback(async () => {
+    try {
+      await identityApi.logout();
+    } finally {
+      authStorage.clearAll();
+      setUser(null);
+    }
   }, []);
 
   const value = useMemo(

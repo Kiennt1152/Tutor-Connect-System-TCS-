@@ -27,6 +27,9 @@ public interface ContractService {
     ContractResponse generateCooperationContract(
             Long recruitmentApplicationId, Long templateId, String editedTerms);
 
+    /** BF-03 (exception): gia sư từ chối thỏa thuận hợp tác chưa ký -> chấm dứt + đóng đơn. */
+    void declineCooperationContract(Long contractId);
+
     /** BF-04: tạo hợp đồng theo học viên khi ghi danh (dùng mẫu hợp đồng của lớp nếu có). */
     ContractResponse generateStudentContract(Long classStudentId);
 

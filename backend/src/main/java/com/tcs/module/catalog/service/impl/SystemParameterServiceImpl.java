@@ -10,6 +10,8 @@ import com.tcs.exception.ResourceNotFoundException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
+import java.math.BigDecimal;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,6 +19,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class SystemParameterServiceImpl implements SystemParameterService {
+
+    private static final Set<String> MANDATORY_KEYS = Set.of("PLATFORM_FEE_RATE", "ESCROW_HOLD_DAYS");
 
     private final SystemParameterRepository systemParameterRepository;
     private final AuditLogService auditLogService;
@@ -58,7 +62,7 @@ public class SystemParameterServiceImpl implements SystemParameterService {
 
         SystemParameter parameter = new SystemParameter();
         parameter.setParamKey(paramKey);
-        parameter.setParamValue(normalizeValue(request));
+        parameter.setParamValue(validateValue(paramKey, normalizeValue(request)));
         parameter.setDescription(normalizeText(request.getDescription()));
         SystemParameter saved = systemParameterRepository.save(parameter);
         auditLogService.record("CREATE_SYSTEM_PARAMETER", "SystemParameter", saved.getParameterId(), null, request);
@@ -70,6 +74,9 @@ public class SystemParameterServiceImpl implements SystemParameterService {
     public SystemParameterResponse updateParameter(Long parameterId, UpsertSystemParameterRequest request) {
         SystemParameter parameter = getRequiredParameter(parameterId);
         String paramKey = normalizeKey(request);
+        if (MANDATORY_KEYS.contains(parameter.getParamKey()) && !parameter.getParamKey().equals(paramKey)) {
+            throw new IllegalArgumentException("Không thể đổi tên khóa cấu hình bắt buộc: " + parameter.getParamKey());
+        }
         systemParameterRepository.findByParamKey(paramKey).ifPresent(existing -> {
             if (!existing.getParameterId().equals(parameterId)) {
                 throw new IllegalArgumentException("Khóa tham số đã tồn tại: " + paramKey);
@@ -78,7 +85,7 @@ public class SystemParameterServiceImpl implements SystemParameterService {
 
         SystemParameterResponse oldValue = toResponse(parameter);
         parameter.setParamKey(paramKey);
-        parameter.setParamValue(normalizeValue(request));
+        parameter.setParamValue(validateValue(paramKey, normalizeValue(request)));
         parameter.setDescription(normalizeText(request.getDescription()));
         SystemParameter saved = systemParameterRepository.save(parameter);
         auditLogService.record("UPDATE_SYSTEM_PARAMETER", "SystemParameter", saved.getParameterId(), oldValue, request);
@@ -89,6 +96,9 @@ public class SystemParameterServiceImpl implements SystemParameterService {
     @Transactional
     public void deleteParameter(Long parameterId) {
         SystemParameter parameter = getRequiredParameter(parameterId);
+        if (MANDATORY_KEYS.contains(parameter.getParamKey())) {
+            throw new IllegalArgumentException("Không thể xóa khóa cấu hình bắt buộc: " + parameter.getParamKey());
+        }
         SystemParameterResponse oldValue = toResponse(parameter);
         systemParameterRepository.delete(parameter);
         auditLogService.record("DELETE_SYSTEM_PARAMETER", "SystemParameter", parameterId, oldValue, null);
@@ -111,6 +121,28 @@ public class SystemParameterServiceImpl implements SystemParameterService {
         String value = request.getParamValue() != null ? request.getParamValue().trim() : null;
         if (value == null || value.isEmpty()) {
             throw new IllegalArgumentException("Giá trị tham số là bắt buộc.");
+        }
+        return value;
+    }
+
+    private String validateValue(String key, String value) {
+        try {
+            if ("PLATFORM_FEE_RATE".equals(key)) {
+                BigDecimal rate = new BigDecimal(value);
+                if (rate.compareTo(BigDecimal.ZERO) < 0 || rate.compareTo(new BigDecimal("0.50")) > 0) {
+                    throw new IllegalArgumentException("PLATFORM_FEE_RATE phải từ 0.00 đến 0.50.");
+                }
+                return rate.stripTrailingZeros().toPlainString();
+            }
+            if ("ESCROW_HOLD_DAYS".equals(key)) {
+                int days = Integer.parseInt(value);
+                if (days < 1 || days > 365) {
+                    throw new IllegalArgumentException("ESCROW_HOLD_DAYS phải từ 1 đến 365.");
+                }
+                return String.valueOf(days);
+            }
+        } catch (NumberFormatException exception) {
+            throw new IllegalArgumentException("Giá trị không đúng định dạng cho " + key + ".");
         }
         return value;
     }

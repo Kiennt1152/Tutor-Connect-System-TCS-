@@ -249,7 +249,13 @@ export type DisputeResolutionAction =
   | 'CLOSE_MUTUAL_AGREEMENT'
   | 'REQUEST_MORE_EVIDENCE';
 export type EscrowStatus = 'PENDING' | 'FUNDED' | 'RELEASED' | 'REFUNDED' | 'ON_HOLD' | 'DISPUTED';
-export type PaymentTransactionType = 'DEPOSIT' | 'WITHDRAWAL' | 'REFUND' | 'ESCROW_DEPOSIT' | 'ESCROW_RELEASE';
+export type PaymentTransactionType =
+  | 'DEPOSIT'
+  | 'WITHDRAWAL'
+  | 'REFUND'
+  | 'ESCROW_DEPOSIT'
+  | 'ESCROW_RELEASE'
+  | 'PLATFORM_FEE';
 export type PaymentTransactionStatus = 'PENDING' | 'SUCCESS' | 'FAILED' | 'CANCELLED';
 export type ClassTerminationStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
 export type RefundRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'COMPLETED';
@@ -788,6 +794,33 @@ export interface AnnouncementItem {
   updatedAt: string | null;
 }
 
+export interface NotificationTemplateApiResponse {
+  templateId: number;
+  code: string;
+  titleTemplate: string;
+  contentTemplate: string;
+  channel: 'IN_APP' | 'EMAIL';
+  description: string | null;
+  enabled: boolean;
+  placeholders: string[];
+  updatedAt: string;
+}
+
+export interface UpsertNotificationTemplateApiRequest {
+  code: string;
+  titleTemplate: string;
+  contentTemplate: string;
+  channel: 'IN_APP' | 'EMAIL';
+  description: string;
+  enabled: boolean;
+}
+
+export interface NotificationTemplatePreviewApiResponse {
+  title: string;
+  content: string;
+  unresolvedPlaceholders: string[];
+}
+
 /* ── User Penalties ── */
 
 export type PenaltyType = 'WARNING' | 'FEATURE_RESTRICTION' | 'TEMPORARY_BAN' | 'PERMANENT_BAN';
@@ -940,13 +973,17 @@ export interface AnalyticsSummaryApiResponse {
   completedClasses: number;
   totalRevenue: number;
   platformFeeRevenue: number;
+  platformFeeRate: number;
+  deposits: number;
+  withdrawals: number;
+  escrowHeld: number;
+  escrowReleased: number;
+  escrowRefunded: number;
   verificationConversionRate: number;
   disputeRate: number;
   contractCompletionRate: number;
   monthlyMetrics: MonthlyMetricApiResponse[];
 }
-<<<<<<< Updated upstream
-=======
 
 export interface AdminEscrowApiResponse {
   escrowId: number; paymentId: number; referenceCode: string | null; amount: number; status: EscrowStatus;
@@ -980,4 +1017,3 @@ export interface CircumventionConversationApiResponse {
   }>;
   hasMore: boolean;
 }
->>>>>>> Stashed changes

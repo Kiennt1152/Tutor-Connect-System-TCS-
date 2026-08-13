@@ -27,19 +27,23 @@ function TicketPriorityBadge({ tone, label }: { tone: string; label: string }) {
 type TicketModalProps = {
   ticketId: string;
   onClose: () => void;
+  onUpdated: () => void;
 };
 
-function TicketDetailModal({ ticketId, onClose }: TicketModalProps) {
+function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
   const { status, detail, errorMessage, reload } = useAdminTicketDetail(ticketId);
   const [replyText, setReplyText] = useState('');
   const [closeNote, setCloseNote] = useState('');
   const [showClose, setShowClose] = useState(false);
+  const [editCategory, setEditCategory] = useState<AdminTicketCategory | ''>('');
+  const [editPriority, setEditPriority] = useState<AdminTicketPriority | ''>('');
 
   const handleMutationSuccess = () => {
     setReplyText('');
     setCloseNote('');
     setShowClose(false);
     reload();
+    onUpdated();
   };
 
   const mutations = useTicketMutations(handleMutationSuccess);
@@ -51,6 +55,17 @@ function TicketDetailModal({ ticketId, onClose }: TicketModalProps) {
 
   const handleClose = (closeStatus: 'RESOLVED' | 'CLOSED') => {
     void mutations.closeTicket(ticketId, { status: closeStatus, adminNotes: closeNote.trim() || undefined });
+  };
+
+  const handleUpdate = () => {
+    if (!detail) return;
+    const payload: { category?: AdminTicketCategory; priority?: AdminTicketPriority } = {};
+    const nextCategory = editCategory || detail.category;
+    const nextPriority = editPriority || detail.priority;
+    if (nextCategory !== detail.category) payload.category = nextCategory;
+    if (nextPriority !== detail.priority) payload.priority = nextPriority;
+    if (Object.keys(payload).length === 0) return;
+    void mutations.updateTicket(ticketId, payload);
   };
 
   const isTerminated = detail?.status === 'RESOLVED' || detail?.status === 'CLOSED';
@@ -90,10 +105,15 @@ function TicketDetailModal({ ticketId, onClose }: TicketModalProps) {
             showClose={showClose}
             setShowClose={setShowClose}
             isTerminated={isTerminated}
+            editCategory={editCategory || detail.category}
+            setEditCategory={setEditCategory}
+            editPriority={editPriority || detail.priority}
+            setEditPriority={setEditPriority}
             mutStatus={mutations.status}
             mutError={mutations.errorMessage}
             onClose={onClose}
             onRespond={handleRespond}
+            onUpdate={handleUpdate}
             onCloseTicket={handleClose}
           />
         )}
@@ -112,10 +132,15 @@ type ContentProps = {
   showClose: boolean;
   setShowClose: (v: boolean) => void;
   isTerminated: boolean;
+  editCategory: AdminTicketCategory | '';
+  setEditCategory: (value: AdminTicketCategory) => void;
+  editPriority: AdminTicketPriority | '';
+  setEditPriority: (value: AdminTicketPriority) => void;
   mutStatus: string;
   mutError: string | null;
   onClose: () => void;
   onRespond: () => void;
+  onUpdate: () => void;
   onCloseTicket: (s: 'RESOLVED' | 'CLOSED') => void;
 };
 
@@ -128,10 +153,15 @@ function TicketDetailContent({
   showClose,
   setShowClose,
   isTerminated,
+  editCategory,
+  setEditCategory,
+  editPriority,
+  setEditPriority,
   mutStatus,
   mutError,
   onClose,
   onRespond,
+  onUpdate,
   onCloseTicket,
 }: ContentProps) {
   return (
@@ -164,6 +194,58 @@ function TicketDetailContent({
       </div>
 
       <div className="adm-ticket-modal__body">
+        <div className="adm-ticket-classification">
+          <div className="adm-ticket-modal__section-title">Phân loại xử lý</div>
+          <div className="adm-ticket-classification__grid">
+            <label>
+              <span>Danh mục</span>
+              <select
+                value={editCategory}
+                disabled={isTerminated || mutStatus === 'loading'}
+                onChange={(event) => setEditCategory(event.target.value as AdminTicketCategory)}
+              >
+                {CATEGORIES.filter((item) => item.value).map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>Độ ưu tiên</span>
+              <select
+                value={editPriority}
+                disabled={isTerminated || mutStatus === 'loading'}
+                onChange={(event) => setEditPriority(event.target.value as AdminTicketPriority)}
+              >
+                {PRIORITIES.filter((item) => item.value).map((item) => (
+                  <option key={item.value} value={item.value}>{item.label}</option>
+                ))}
+              </select>
+            </label>
+            <div className="adm-ticket-classification__sla">
+              <span>Hạn SLA hiện tại</span>
+              <strong>{detail.dueAt || 'Chưa đặt'}</strong>
+            </div>
+            <button
+              type="button"
+              className="tcs-btn tcs-btn--primary"
+              disabled={
+                isTerminated
+                || mutStatus === 'loading'
+                || (editCategory === detail.category && editPriority === detail.priority)
+              }
+              onClick={onUpdate}
+            >
+              {mutStatus === 'loading' ? 'Đang lưu...' : 'Lưu phân loại'}
+            </button>
+          </div>
+          {mutStatus === 'success' && !mutError && (
+            <div className="adm-ticket-classification__success">Đã cập nhật ticket.</div>
+          )}
+          {isTerminated && (
+            <div className="adm-ticket-classification__locked">Ticket đã kết thúc và chỉ có thể xem.</div>
+          )}
+        </div>
+
         <div className="adm-ticket-modal__section-title">Mo ta</div>
         <div className="adm-ticket-modal__desc">
           {detail.description}
@@ -539,12 +621,8 @@ export default function PlatformTicketsPage() {
       {selectedId && (
         <TicketDetailModal
           ticketId={selectedId}
-<<<<<<< Updated upstream
-          onClose={() => setSelectedId(null)}
-=======
           onClose={closeTicket}
           onUpdated={reload}
->>>>>>> Stashed changes
         />
       )}
     </AdminLayout>

@@ -1,5 +1,3 @@
-<<<<<<< Updated upstream
-=======
 # Tutor Connect System (TCS)
 
 A full-stack platform connecting students/parents with tutors and tutoring centers. Built as a capstone project.
@@ -122,4 +120,3 @@ Once the backend is running, visit:
 ## License
 
 This project is developed for academic purposes as part of a capstone project at FPT University.
->>>>>>> Stashed changes

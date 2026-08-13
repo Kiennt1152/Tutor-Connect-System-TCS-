@@ -103,6 +103,12 @@ public class ContractController {
         return contractService.signContract(contractId, request);
     }
 
+    @PostMapping("/{contractId}/decline")
+    public Map<String, String> declineCooperation(@PathVariable Long contractId) {
+        contractService.declineCooperationContract(contractId);
+        return Map.of("message", "Đã từ chối thỏa thuận hợp tác");
+    }
+
     @PostMapping("/{contractId}/refund-payout")
     public ContractResponse saveRefundPayoutInfo(
             @PathVariable Long contractId,

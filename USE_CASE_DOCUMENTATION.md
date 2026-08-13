@@ -602,7 +602,7 @@
 | **BF-ID Ref** | BF-10 |
 | **Depends On** | — |
 | **Preconditions** | Admin is logged in. |
-| **Postconditions** | System parameters are updated. |
+| **Postconditions** | System parameters are updated; future escrow settlements use the new fee rate. |
 
 ### Main Flow
 1. **[U]** Navigates to Platform Settings.
@@ -610,6 +610,7 @@
 3. **[U]** Updates the Platform Fee Rate input (e.g., to 10%) and clicks Save.
 4. **[S]** Validates constraints. Updates `system_parameters` table and logs the change.
 5. **[S]** Shows a success message.
+6. **[S]** On the next escrow release, deducts the configured fee, credits the beneficiary with the net amount, and records a `PLATFORM_FEE` transaction.
 
 ### Alternative Flows
 - **AF-01 — Invalid Bounds:** If fee rate is negative or greater than 0.50 (50%), the system rejects the update with "PLATFORM_FEE_RATE phải từ 0.00 đến 0.50."
@@ -823,9 +824,6 @@
 ### Verification Criteria
 - **Given** an admin on the Audit Logs page.
 - **When** they apply specific Date Range and Action Type filters.
-<<<<<<< Updated upstream
-- **Then** the table displays only the logs matching the requested criteria.
-=======
 - **Then** the table displays only the logs matching the requested criteria.
 
 ---
@@ -985,4 +983,3 @@
 - **Given** an admin reviewing a `PENDING` event.
 - **When** they mark it `CONFIRMED` with a note.
 - **Then** the event status updates AND the reviewer and note are recorded.
->>>>>>> Stashed changes

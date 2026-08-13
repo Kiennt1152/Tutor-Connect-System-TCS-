@@ -1,6 +1,7 @@
 package com.tcs.module.marketplace.dto.request;
 
 import java.math.BigDecimal;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -23,4 +24,7 @@ public class ClassRequestCreateRequest {
 
     /** Nguyên payload form "tìm gia sư" của phụ huynh (JSON) — môn, lịch, địa điểm… (tuỳ chọn). */
     private String detailsJson;
+
+    /** Tài khoản nhận hoàn tiền/hoàn phí nếu yêu cầu không được hoàn thành. */
+    private RefundPayoutInfo refundPayoutInfo;
 }

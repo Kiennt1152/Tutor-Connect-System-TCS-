@@ -51,13 +51,10 @@ import com.tcs.module.messaging.entity.Notification;
 import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.repository.NotificationRepository;
-<<<<<<< Updated upstream
-=======
 import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.module.profile.dto.CccdInfoDto;
 import com.tcs.module.profile.service.CccdService;
->>>>>>> Stashed changes
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
@@ -77,6 +74,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 @ExtendWith(MockitoExtension.class)
 class MarketplaceServiceImplTest {
+
+    @Mock private PenaltyAccessService penaltyAccessService;
 
     private static final Long CLASS_ID = 5L;
     private static final Long ASSIGNMENT_ID = 7L;
@@ -144,15 +143,12 @@ class MarketplaceServiceImplTest {
     @Mock
     private NotificationRepository notificationRepository;
 
-<<<<<<< Updated upstream
-=======
     @Mock
     private NotificationDispatchService notificationDispatchService;
 
     @Mock
     private CccdService cccdService;
 
->>>>>>> Stashed changes
     @InjectMocks
     private MarketplaceServiceImpl marketplaceService;
 
@@ -482,19 +478,16 @@ class MarketplaceServiceImplTest {
         assertEquals(ClassStudentStatus.ENROLLED, classStudent.getStatus());
         verify(classStudentRepository).save(classStudent);
 
-        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
-        verify(notificationRepository).save(notificationCaptor.capture());
-        Notification notification = notificationCaptor.getValue();
-        assertEquals(clientUser, notification.getUser());
-        assertEquals(NotificationType.CLASS, notification.getType());
-        assertEquals(NotificationStatus.SENT, notification.getStatus());
-        assertEquals(Boolean.FALSE, notification.getIsRead());
-        assertEquals("TUTORING_CLASS", notification.getReferenceType());
-        assertEquals(CLASS_ID, notification.getReferenceId());
-        assertEquals("Ghi danh thành công", notification.getTitle());
-        assertEquals(
-                "Học viên test đã được ghi danh thành công vào lớp \"Lớp toán\" sau khi hệ thống xác nhận thanh toán.",
-                notification.getContent());
+        verify(notificationDispatchService).notifyUserFromTemplate(
+                org.mockito.ArgumentMatchers.eq(clientUser),
+                org.mockito.ArgumentMatchers.eq(NotificationType.CLASS),
+                org.mockito.ArgumentMatchers.eq("MARKETPLACE_CLASS_EVENT"),
+                any(),
+                org.mockito.ArgumentMatchers.eq("Ghi danh thành công"),
+                org.mockito.ArgumentMatchers.eq(
+                        "Học viên test đã được ghi danh thành công vào lớp \"Lớp toán\" sau khi hệ thống xác nhận thanh toán."),
+                org.mockito.ArgumentMatchers.eq("TUTORING_CLASS"),
+                org.mockito.ArgumentMatchers.eq(CLASS_ID));
     }
 
     private User user(Long userId) {

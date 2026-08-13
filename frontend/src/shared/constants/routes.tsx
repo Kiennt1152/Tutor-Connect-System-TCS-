@@ -48,6 +48,8 @@ export const APP_ROUTES = {
   platformFaq: '/platform/faq',
   platformParameters: '/platform/parameters',
   platformAnnouncements: '/platform/announcements',
+  platformNotificationTemplates: '/platform/notification-templates',
+  platformCircumvention: '/platform/circumvention',
   platformPenalties: '/platform/penalties',
   platformAuditLogs: '/platform/audit-logs',
   platformProfile: '/platform/profile',

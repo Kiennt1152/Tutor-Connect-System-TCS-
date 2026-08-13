@@ -64,6 +64,12 @@ public class IdentityController {
         return identityService.login(request);
     }
 
+    @PostMapping("/logout")
+    public Map<String, String> logout() {
+        identityService.logout();
+        return Map.of("message", "Dang xuat thanh cong");
+    }
+
     @PostMapping("/google")
     public GoogleLoginResponse loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
         return identityService.loginWithGoogle(request);

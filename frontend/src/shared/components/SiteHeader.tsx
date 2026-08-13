@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { AppLogo } from './AppLogo';
 import { LogoutButton } from './LogoutButton';
+import { MessageIcon } from './MessageIcon';
 import { NotificationBell } from './NotificationBell';
 import { useAuth } from '../auth/AuthProvider';
 import { APP_ROUTES } from '../constants/routes';
@@ -138,20 +139,21 @@ export function SiteHeader({ active }: SiteHeaderProps) {
           {user ? (
             <>
               {isAdmin ? (
-                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.platform}>
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header tcs-header__shortcut" to={APP_ROUTES.platform}>
                   Quản trị
                 </Link>
               ) : null}
               {showCenterManage ? (
-                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.center}>
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header tcs-header__shortcut" to={APP_ROUTES.center}>
                   Quản lý trung tâm
                 </Link>
               ) : null}
               {showTeaching ? (
-                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header" to={APP_ROUTES.teaching}>
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header tcs-header__shortcut" to={APP_ROUTES.teaching}>
                   {hasRole(role, 'CLIENT') ? 'Lịch học' : 'Lịch dạy'}
                 </Link>
               ) : null}
+              {showMessaging ? <MessageIcon /> : null}
               <NotificationBell enabled={!!user} />
               <div className="tcs-profile-menu">
                 <Link to={profilePath} className="tcs-home-profile-btn" aria-haspopup="menu">
@@ -159,6 +161,7 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                     {userInitials(user.displayName, user.email)}
                   </span>
                   <span className="tcs-home-profile-btn__label">Hồ sơ</span>
+                  <span className="tcs-home-profile-btn__chevron" aria-hidden="true">⌄</span>
                 </Link>
                 <div className="tcs-profile-menu__dropdown" role="menu">
                   <Link className="tcs-profile-menu__item" to={profilePath} role="menuitem">
@@ -181,11 +184,6 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                       role="menuitem"
                     >
                       Xác minh hồ sơ
-                    </Link>
-                  ) : null}
-                  {showMessaging ? (
-                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.messaging} role="menuitem">
-                      Thông báo
                     </Link>
                   ) : null}
                   {showFeedback ? (

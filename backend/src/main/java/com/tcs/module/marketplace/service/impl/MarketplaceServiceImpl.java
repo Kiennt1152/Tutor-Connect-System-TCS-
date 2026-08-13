@@ -16,11 +16,13 @@ import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.RefundPayoutInfo;
+import com.tcs.module.finance.dto.response.CenterRequestFeePaymentResponse;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.catalog.entity.Category;
@@ -85,6 +87,7 @@ import com.tcs.module.marketplace.repository.TutorApplicationRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.MarketplaceService;
 import com.tcs.module.platform.service.AuditLogService;
+import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.module.profile.dto.CccdInfoDto;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
@@ -173,10 +176,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final GradeRepository gradeRepository;
     private final LocationRepository locationRepository;
     private final LessonRescheduleRequestRepository rescheduleRequestRepository;
-    private final com.tcs.module.messaging.repository.NotificationRepository notificationRepository;
+    private final com.tcs.module.messaging.service.NotificationDispatchService notificationDispatchService;
     private final AuditLogService auditLogService;
+    private final PenaltyAccessService penaltyAccessService;
     private final TutorCenterRepository tutorCenterRepository;
     private final ClassRequestStore classRequestStore;
+    private final CenterRequestFeeService centerRequestFeeService;
     private final ContractService contractService;
     private final EmailOtpRepository emailOtpRepository;
     private final com.tcs.module.notification.service.EmailService contractEmailService;
@@ -229,6 +234,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Transactional
     public ClassResponse createClass(CreateClassRequest request) {
         User creator = requireUser();
+        penaltyAccessService.requireFeature(creator.getUserId(), "CLASS_POSTING");
         requireClient(creator.getUserId());
         if (request.getSubjectId() == null && !StringUtils.hasText(request.getDetailsJson())) {
             throw new IllegalArgumentException("Vui lòng chọn môn học");
@@ -370,6 +376,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Transactional
     public void applyToClass(Long classId, ApplyClassRequest request) {
         Tutor tutor = requireTutor();
+        penaltyAccessService.requireFeature(tutor.getUser().getUserId(), "CLASS_APPLICATION");
         // Chặn cứng: chỉ gia sư đã được xác minh mới được ứng tuyển vào lớp.
         if (tutor.getVerificationStatus() != ProfileVerificationStatus.VERIFIED) {
             throw new VerificationRequiredException(
@@ -408,19 +415,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         String tutorName = tutor != null && StringUtils.hasText(tutor.getFullName())
                 ? tutor.getFullName()
                 : "Một gia sư";
-        com.tcs.module.messaging.entity.Notification notification =
-                new com.tcs.module.messaging.entity.Notification();
-        notification.setUser(tutoringClass.getCreator());
-        notification.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
-        notification.setTitle("Có gia sư ứng tuyển");
-        notification.setContent(
-                tutorName + " vừa ứng tuyển vào lớp \"" + tutoringClass.getTitle()
-                        + "\". Xem chi tiết để chọn gia sư.");
-        notification.setReferenceType("TUTORING_CLASS");
-        notification.setReferenceId(tutoringClass.getClassId());
-        notification.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        String content = tutorName + " vừa ứng tuyển vào lớp \"" + tutoringClass.getTitle()
+                + "\". Xem chi tiết để chọn gia sư.";
+        notificationDispatchService.notifyUserFromTemplate(
+                tutoringClass.getCreator(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "MARKETPLACE_NEW_APPLICATION",
+                Map.of("tutorName", tutorName, "classTitle", tutoringClass.getTitle()),
+                "Có gia sư ứng tuyển",
+                content,
+                "TUTORING_CLASS",
+                tutoringClass.getClassId());
     }
 
     private Map<String, BigDecimal> resolveProposedRates(
@@ -749,19 +754,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (chosen.getTutor() == null || chosen.getTutor().getUser() == null) {
             return;
         }
-        com.tcs.module.messaging.entity.Notification notification =
-                new com.tcs.module.messaging.entity.Notification();
-        notification.setUser(chosen.getTutor().getUser());
-        notification.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
-        notification.setTitle("Bạn được mời nhận lớp");
-        notification.setContent(
-                "Bạn được chọn cho lớp \"" + tutoringClass.getTitle()
-                        + "\". Vào mục Lịch dạy để bấm nhận lớp và bắt đầu lịch học.");
-        notification.setReferenceType("TUTORING_CLASS");
-        notification.setReferenceId(tutoringClass.getClassId());
-        notification.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        String content = "Bạn được chọn cho lớp \"" + tutoringClass.getTitle()
+                + "\". Vào mục Lịch dạy để bấm nhận lớp và bắt đầu lịch học.";
+        notificationDispatchService.notifyUserFromTemplate(
+                chosen.getTutor().getUser(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "MARKETPLACE_TUTOR_INVITED",
+                Map.of("classTitle", tutoringClass.getTitle()),
+                "Bạn được mời nhận lớp",
+                content,
+                "TUTORING_CLASS",
+                tutoringClass.getClassId());
     }
 
     @Override
@@ -793,19 +796,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (application.getTutor() == null || application.getTutor().getUser() == null) {
             return;
         }
-        com.tcs.module.messaging.entity.Notification notification =
-                new com.tcs.module.messaging.entity.Notification();
-        notification.setUser(application.getTutor().getUser());
-        notification.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
-        notification.setTitle("Đơn ứng tuyển không được chọn");
-        notification.setContent(
-                "Lớp \"" + tutoringClass.getTitle() + "\" đã bỏ chọn đơn ứng tuyển của bạn. Lý do: \""
-                        + reason + "\". Bạn có thể điều chỉnh điều kiện lại để ứng tuyển lại.");
-        notification.setReferenceType("TUTORING_CLASS");
-        notification.setReferenceId(tutoringClass.getClassId());
-        notification.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        notification.setIsRead(false);
-        notificationRepository.save(notification);
+        String content = "Lớp \"" + tutoringClass.getTitle() + "\" đã bỏ chọn đơn ứng tuyển của bạn. Lý do: \""
+                + reason + "\". Bạn có thể điều chỉnh điều kiện lại để ứng tuyển lại.";
+        notificationDispatchService.notifyUserFromTemplate(
+                application.getTutor().getUser(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "MARKETPLACE_APPLICATION_REJECTED",
+                Map.of("classTitle", tutoringClass.getTitle(), "reason", reason),
+                "Đơn ứng tuyển không được chọn",
+                content,
+                "TUTORING_CLASS",
+                tutoringClass.getClassId());
     }
 
     @Override
@@ -1132,36 +1133,34 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (assignment.getTutor() == null || assignment.getTutor().getUser() == null) {
             return;
         }
-        com.tcs.module.messaging.entity.Notification n =
-                new com.tcs.module.messaging.entity.Notification();
-        n.setUser(assignment.getTutor().getUser());
-        n.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
-        n.setTitle("Bên A đã ký hợp đồng — mời bạn ký");
-        n.setContent("Phụ huynh/học sinh đã ký hợp đồng lớp \"" + c.getTitle()
-                + "\". Vui lòng vào mục Lịch dạy để ký xác nhận và bắt đầu lớp.");
-        n.setReferenceType("TUTORING_CLASS");
-        n.setReferenceId(c.getClassId());
-        n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        n.setIsRead(false);
-        notificationRepository.save(n);
+        String content = "Phụ huynh/học sinh đã ký hợp đồng lớp \"" + c.getTitle()
+                + "\". Vui lòng vào mục Lịch dạy để ký xác nhận và bắt đầu lớp.";
+        notificationDispatchService.notifyUserFromTemplate(
+                assignment.getTutor().getUser(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "MARKETPLACE_CONTRACT_TUTOR_SIGN",
+                Map.of("classTitle", c.getTitle()),
+                "Bên A đã ký hợp đồng — mời bạn ký",
+                content,
+                "TUTORING_CLASS",
+                c.getClassId());
     }
 
     private void notifyClientContractPaymentReady(TutoringClass c) {
         if (c.getCreator() == null) {
             return;
         }
-        com.tcs.module.messaging.entity.Notification n =
-                new com.tcs.module.messaging.entity.Notification();
-        n.setUser(c.getCreator());
-        n.setType(com.tcs.module.messaging.enums.NotificationType.APPLICATION);
-        n.setTitle("Hợp đồng đã hoàn tất — vui lòng thanh toán escrow");
-        n.setContent("Hợp đồng lớp \"" + c.getTitle()
-                + "\" đã được ký xong. Vui lòng vào mục Lịch học/Hợp đồng để quét mã thanh toán escrow.");
-        n.setReferenceType("TUTORING_CLASS");
-        n.setReferenceId(c.getClassId());
-        n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        n.setIsRead(false);
-        notificationRepository.save(n);
+        String content = "Hợp đồng lớp \"" + c.getTitle()
+                + "\" đã được ký xong. Vui lòng vào mục Lịch học/Hợp đồng để quét mã thanh toán escrow.";
+        notificationDispatchService.notifyUserFromTemplate(
+                c.getCreator(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "MARKETPLACE_ESCROW_PAYMENT_READY",
+                Map.of("classTitle", c.getTitle()),
+                "Hợp đồng đã hoàn tất — vui lòng thanh toán escrow",
+                content,
+                "TUTORING_CLASS",
+                c.getClassId());
     }
 
     private void ensurePrivateEscrowPayment(ClassAssignment assignment, TutoringClass tutoringClass) {
@@ -1528,17 +1527,15 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (user == null) {
             return;
         }
-        com.tcs.module.messaging.entity.Notification n =
-                new com.tcs.module.messaging.entity.Notification();
-        n.setUser(user);
-        n.setType(com.tcs.module.messaging.enums.NotificationType.CLASS);
-        n.setTitle(title);
-        n.setContent(content);
-        n.setReferenceType("TUTORING_CLASS");
-        n.setReferenceId(classId);
-        n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-        n.setIsRead(false);
-        notificationRepository.save(n);
+        notificationDispatchService.notifyUserFromTemplate(
+                user,
+                com.tcs.module.messaging.enums.NotificationType.CLASS,
+                "MARKETPLACE_CLASS_EVENT",
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                "TUTORING_CLASS",
+                classId);
     }
 
     private void notifyStudentEnrollmentSuccess(ClassStudent classStudent) {
@@ -2979,7 +2976,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         // Nếu có gửi categoryId thì kiểm tra tồn tại.
         Category category = resolveCategory(request.getCategoryId());
         long pending = classRequestStore.findByClient(creator.getUserId()).stream()
-                .filter(d -> ClassRequestStore.STATUS_PENDING.equals(d.status()))
+                .filter(d -> ClassRequestStore.STATUS_PAYMENT_PENDING.equals(d.status())
+                        || ClassRequestStore.STATUS_PENDING.equals(d.status())
+                        || ClassRequestStore.STATUS_SEARCHING.equals(d.status()))
                 .count();
         if (pending >= MAX_PENDING_CLASS_REQUESTS) {
             throw new IllegalArgumentException("Bạn đang có quá nhiều yêu cầu chờ xử lý.");
@@ -2991,7 +2990,19 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 request.getNote().trim(),
                 request.getDesiredBudget(),
                 request.getDetailsJson());
-        return classRequestStore.toResponse(data);
+        ClassRequestStore.ClassRequestData pendingRequest =
+                classRequestStore.withStatus(data, ClassRequestStore.STATUS_PAYMENT_PENDING, null);
+        classRequestStore.save(pendingRequest);
+        CenterRequestFeePaymentResponse payment = centerRequestFeeService.createPayment(
+                pendingRequest.requestId(),
+                creator.getUserId(),
+                center.getUser() != null ? center.getUser().getUserId() : null,
+                center.getCompanyName(),
+                request.getDesiredBudget(),
+                request.getRefundPayoutInfo());
+        return classRequestStore.toResponse(pendingRequest).toBuilder()
+                .centerRequestFeePayment(payment)
+                .build();
     }
 
     @Override
@@ -2999,7 +3010,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     public List<ClassRequestResponse> listMyClassRequests() {
         Long userId = requireUser().getUserId();
         return classRequestStore.findByClient(userId).stream()
-                .map(classRequestStore::toResponse)
+                .map(this::toClassRequestResponse)
                 .toList();
     }
 
@@ -3021,7 +3032,10 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (!creator.getUserId().equals(data.clientUserId())) {
             throw new ForbiddenException("Không có quyền với yêu cầu này");
         }
-        if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())) {
+        if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())
+                || ClassRequestStore.STATUS_REJECTED.equals(data.status())
+                || ClassRequestStore.STATUS_CANCELLED.equals(data.status())
+                || ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())) {
             throw new IllegalArgumentException("Yêu cầu này đã hoàn tất.");
         }
         if (!classRequestStore.candidatesOf(data).contains(tutorId)) {
@@ -3055,6 +3069,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         TutorApplication savedApp = tutorApplicationRepository.save(app);
         // 4) Chọn gia sư -> assignment PENDING + thông báo cho gia sư (tái dùng chooseApplicant).
         chooseApplicant(classId, savedApp.getApplicationId());
+        classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(classId)
+                .ifPresent(assignment -> centerRequestFeeService.linkFulfilledAssignment(
+                        requestId,
+                        classId,
+                        assignment.getAssignmentId()));
         // 5) Đánh dấu yêu cầu hoàn tất.
         classRequestStore.save(
                 classRequestStore.withStatus(data, ClassRequestStore.STATUS_ACCEPTED, null));
@@ -3074,10 +3094,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (!userId.equals(data.clientUserId())) {
             throw new ForbiddenException("Bạn không có quyền hủy yêu cầu này");
         }
-        if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
-            throw new IllegalArgumentException("Chỉ hủy được yêu cầu đang chờ xử lý");
+        if (!ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())) {
+            throw new IllegalArgumentException("Chỉ hủy được yêu cầu đang chờ thanh toán");
         }
-        classRequestStore.delete(requestId);
+        centerRequestFeeService.cancelUnpaid(requestId);
+    }
+
+    private ClassRequestResponse toClassRequestResponse(ClassRequestStore.ClassRequestData data) {
+        return classRequestStore.toResponse(data).toBuilder()
+                .centerRequestFeePayment(centerRequestFeeService.getPayment(data.requestId()).orElse(null))
+                .build();
     }
 
     private User requireUser() {

@@ -15,6 +15,7 @@ import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.messaging.service.MessagingService;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.identity.enums.UserStatus;
@@ -69,6 +70,7 @@ public class MessagingServiceImpl implements MessagingService {
     private final TutoringClassRepository tutoringClassRepository;
     private final PlatformAdminRepository platformAdminRepository;
     private final TicketMessageRepository ticketMessageRepository;
+    private final NotificationDispatchService notificationDispatchService;
 
     @Override
     @Transactional(readOnly = true)
@@ -335,12 +337,32 @@ public class MessagingServiceImpl implements MessagingService {
         User reporter = userRepository
                 .findById(authHelper.currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+        String description = request.getDescription() == null ? "" : request.getDescription().trim();
+        if (description.length() < 10) {
+            throw new IllegalArgumentException("Mô tả báo cáo phải có ít nhất 10 ký tự.");
+        }
+        if (reportRepository.countByReporter_UserIdAndCreatedAtAfter(
+                reporter.getUserId(), LocalDateTime.now().minusDays(1)) >= 5) {
+            throw new IllegalArgumentException("Bạn đã đạt giới hạn 5 báo cáo trong 24 giờ.");
+        }
+        if (request.getTargetType() == com.tcs.module.platform.enums.ReportTargetType.USER) {
+            if (reporter.getUserId().equals(request.getTargetId())) {
+                throw new IllegalArgumentException("Không thể báo cáo chính mình.");
+            }
+            userRepository.findById(request.getTargetId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng bị báo cáo."));
+        }
+        if (!reportRepository.findByReporter_UserIdAndTargetTypeAndTargetIdAndStatusOrderByCreatedAtDesc(
+                reporter.getUserId(), request.getTargetType(), request.getTargetId(),
+                com.tcs.module.platform.enums.ReportStatus.PENDING).isEmpty()) {
+            throw new IllegalArgumentException("Bạn đã có một báo cáo đang chờ xử lý cho đối tượng này.");
+        }
         Report report = new Report();
         report.setReporter(reporter);
         report.setTargetType(request.getTargetType());
         report.setTargetId(request.getTargetId());
         report.setCategory(request.getCategory());
-        report.setDescription(request.getDescription() != null ? request.getDescription() : "");
+        report.setDescription(description);
         report.setEvidenceUrls(request.getEvidenceUrls());
         Report saved = reportRepository.save(report);
 
@@ -373,16 +395,17 @@ public class MessagingServiceImpl implements MessagingService {
                 ? "Có nhận xét gia sư bị báo cáo"
                 : "Báo cáo mới cần kiểm duyệt";
         for (PlatformAdmin admin : admins) {
-            Notification n = new Notification();
-            n.setUser(admin.getUser());
-            n.setType(NotificationType.REPORT);
-            n.setTitle(title);
-            n.setContent(content);
-            n.setReferenceType("REPORT");
-            n.setReferenceId(report.getReportId());
-            n.setStatus(NotificationStatus.SENT);
-            n.setIsRead(false);
-            notificationRepository.save(n);
+            notificationDispatchService.notifyUserFromTemplate(
+                    admin.getUser(),
+                    NotificationType.REPORT,
+                    "REPORT_CREATED",
+                    Map.of(
+                            "targetType", reportTargetLabel(report.getTargetType()),
+                            "category", reportCategoryLabel(report.getCategory())),
+                    title,
+                    content,
+                    "REPORT",
+                    report.getReportId());
         }
     }
 

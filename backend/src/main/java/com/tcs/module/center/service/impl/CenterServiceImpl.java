@@ -48,10 +48,13 @@ import com.tcs.module.identity.repository.VerificationDocumentRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.RefundPayoutInfo;
+import com.tcs.module.finance.dto.response.CenterRequestFeePaymentResponse;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.enums.CenterRequestFeeStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
@@ -142,6 +145,7 @@ public class CenterServiceImpl implements CenterService {
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final EscrowService escrowService;
+    private final CenterRequestFeeService centerRequestFeeService;
     private final RescheduleService rescheduleService;
     private final SubstitutionService substitutionService;
     private final AuditLogService auditLogService;
@@ -150,8 +154,8 @@ public class CenterServiceImpl implements CenterService {
     private final ContractService contractService;
     private final ContractTemplateRepository contractTemplateRepository;
     private final com.tcs.module.profile.service.CccdService cccdService;
-    private final com.tcs.module.messaging.repository.NotificationRepository notificationRepository;
     private final com.tcs.module.identity.repository.UserRepository userRepository;
+    private final com.tcs.module.messaging.service.NotificationDispatchService notificationDispatchService;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -238,6 +242,28 @@ public class CenterServiceImpl implements CenterService {
                 .stream()
                 .map(this::toApplicationResponse)
                 .toList();
+    }
+
+    /**
+     * BF-03 (exception): gia sư rút đơn ứng tuyển TRƯỚC khi trung tâm quyết định.
+     * Chỉ rút được đơn của chính mình và khi đơn còn ở trạng thái mới nộp (APPLIED).
+     */
+    @Override
+    @Transactional
+    public void withdrawApplication(Long recruitmentAppId) {
+        Tutor tutor = requireTutor();
+        RecruitmentApplication application = recruitmentApplicationRepository
+                .findById(recruitmentAppId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy đơn ứng tuyển"));
+        if (application.getTutor() == null
+                || !application.getTutor().getTutorId().equals(tutor.getTutorId())) {
+            throw new ForbiddenException("Bạn không có quyền với đơn ứng tuyển này");
+        }
+        if (application.getStatus() != RecruitmentApplicationStatus.APPLIED) {
+            throw new IllegalArgumentException("Đơn đã được xử lý, không thể rút.");
+        }
+        application.setStatus(RecruitmentApplicationStatus.WITHDRAWN);
+        recruitmentApplicationRepository.save(application);
     }
 
     // ===================== Phía trung tâm =====================
@@ -387,8 +413,39 @@ public class CenterServiceImpl implements CenterService {
             // + đóng tin (bước 9-10) — xử lý trong onCooperationContractSigned.
             contractService.generateCooperationContract(
                     saved.getRecruitmentAppId(), contractTemplateId, contractContent);
+            notifyTutorApplicationResult(saved, "Đơn ứng tuyển được duyệt",
+                    "Trung tâm \"" + centerNameOf(saved) + "\" đã duyệt đơn của bạn cho tin \""
+                            + saved.getRecruitmentPost().getTitle()
+                            + "\". Vào mục Hợp đồng để ký thỏa thuận hợp tác (trong 48 giờ).");
+        } else {
+            // BF-03 (exception): từ chối -> thông báo kết quả cho gia sư.
+            notifyTutorApplicationResult(saved, "Đơn ứng tuyển bị từ chối",
+                    "Trung tâm \"" + centerNameOf(saved) + "\" đã từ chối đơn của bạn cho tin \""
+                            + saved.getRecruitmentPost().getTitle() + "\".");
         }
         return toApplicationResponse(saved);
+    }
+
+    /** Tên trung tâm của tin gắn với một đơn ứng tuyển (an toàn null). */
+    private String centerNameOf(RecruitmentApplication app) {
+        TutorCenter c = app.getRecruitmentPost() != null ? app.getRecruitmentPost().getCenter() : null;
+        return c != null && c.getCompanyName() != null ? c.getCompanyName() : "Trung tâm";
+    }
+
+    /** Thông báo cho gia sư kết quả xử lý đơn ứng tuyển (duyệt / từ chối). */
+    private void notifyTutorApplicationResult(RecruitmentApplication app, String title, String content) {
+        if (app.getTutor() == null || app.getTutor().getUser() == null) {
+            return;
+        }
+        notificationDispatchService.notifyUserFromTemplate(
+                app.getTutor().getUser(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "CENTER_APPLICATION_RESULT",
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                "RECRUITMENT_APPLICATION",
+                app.getRecruitmentAppId());
     }
 
     // ===================== Quản lý danh sách gia sư của trung tâm =====================
@@ -2005,6 +2062,8 @@ public class CenterServiceImpl implements CenterService {
     public List<ClassRequestResponse> listIncomingClassRequests() {
         TutorCenter center = requireCenter();
         return classRequestStore.findByCenter(center.getCenterId()).stream()
+                .filter(data -> !ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status()))
+                .filter(data -> !ClassRequestStore.STATUS_CANCELLED.equals(data.status()))
                 .map(classRequestStore::toResponse)
                 .toList();
     }
@@ -2018,6 +2077,10 @@ public class CenterServiceImpl implements CenterService {
         if (!center.getCenterId().equals(data.centerId())) {
             throw new ForbiddenException("Không có quyền xử lý yêu cầu này");
         }
+        if (ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())
+                || ClassRequestStore.STATUS_CANCELLED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này chưa sẵn sàng để xử lý");
+        }
         if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
             throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
         }
@@ -2026,6 +2089,7 @@ public class CenterServiceImpl implements CenterService {
         // bất kể client gửi originType gì — không cho biến thành lớp tự tạo (SELF).
         body.setOriginType(ORIGIN_EXTERNAL);
         CenterClassResponse classResponse = createClass(body);
+        centerRequestFeeService.linkFulfilledAssignment(requestId, classResponse.getClassId(), null);
 
         classRequestStore.save(
                 classRequestStore.withStatus(data, ClassRequestStore.STATUS_ACCEPTED, null));
@@ -2042,6 +2106,10 @@ public class CenterServiceImpl implements CenterService {
         if (!center.getCenterId().equals(data.centerId())) {
             throw new ForbiddenException("Không có quyền xử lý yêu cầu này");
         }
+        if (ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())
+                || ClassRequestStore.STATUS_CANCELLED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này chưa sẵn sàng để xử lý");
+        }
         if (!ClassRequestStore.STATUS_PENDING.equals(data.status())) {
             throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
         }
@@ -2054,6 +2122,10 @@ public class CenterServiceImpl implements CenterService {
     public void proposeTutor(String requestId, Long tutorId) {
         TutorCenter center = requireClassRequestOwner(requestId);
         ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId).orElseThrow();
+        if (ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())
+                || ClassRequestStore.STATUS_CANCELLED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này chưa sẵn sàng để xử lý");
+        }
         if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())
                 || ClassRequestStore.STATUS_REJECTED.equals(data.status())) {
             throw new IllegalArgumentException("Yêu cầu này đã kết thúc, không thể đề cử thêm.");
@@ -2095,6 +2167,10 @@ public class CenterServiceImpl implements CenterService {
         TutorCenter center = requireClassRequestOwner(requestId);
         requireVerifiedCenter(center);
         ClassRequestStore.ClassRequestData data = classRequestStore.find(requestId).orElseThrow();
+        if (ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status())
+                || ClassRequestStore.STATUS_CANCELLED.equals(data.status())) {
+            throw new IllegalArgumentException("Yêu cầu này chưa sẵn sàng để xử lý.");
+        }
         if (ClassRequestStore.STATUS_ACCEPTED.equals(data.status())
                 || ClassRequestStore.STATUS_REJECTED.equals(data.status())) {
             throw new IllegalArgumentException("Yêu cầu này đã kết thúc, không thể đăng tin.");
@@ -2201,9 +2277,16 @@ public class CenterServiceImpl implements CenterService {
             throw new IllegalArgumentException("Yêu cầu này đã được xử lý");
         }
 
+        CenterRequestFeePaymentResponse payment = centerRequestFeeService.getPayment(requestId).orElse(null);
+        if (payment == null || payment.getStatus() == CenterRequestFeeStatus.PENDING_PAYMENT) {
+            centerRequestFeeService.cancelUnpaid(requestId);
+            return;
+        }
+
         closeRequestLinkedPost(data);
         classRequestStore.save(
                 classRequestStore.withStatus(data, ClassRequestStore.STATUS_REJECTED, reason));
+        centerRequestFeeService.requestRefund(requestId, reason);
         String centerName = center.getCompanyName() != null ? center.getCompanyName() : "Trung tâm";
         notifyClientRequestClosed(data, "Yêu cầu tìm gia sư bị từ chối",
                 centerName + " đã từ chối yêu cầu tìm gia sư của bạn."
@@ -2225,9 +2308,15 @@ public class CenterServiceImpl implements CenterService {
         }
         String note = StringUtils.hasText(reason)
                 ? reason.trim() : "Trung tâm không tìm được gia sư phù hợp.";
+        CenterRequestFeePaymentResponse payment = centerRequestFeeService.getPayment(requestId).orElse(null);
+        if (payment == null || payment.getStatus() == CenterRequestFeeStatus.PENDING_PAYMENT) {
+            centerRequestFeeService.cancelUnpaid(requestId);
+            return;
+        }
         closeRequestLinkedPost(data);
         classRequestStore.save(
                 classRequestStore.withStatus(data, ClassRequestStore.STATUS_REJECTED, note));
+        centerRequestFeeService.requestRefund(requestId, note);
         String centerName = center.getCompanyName() != null ? center.getCompanyName() : "Trung tâm";
         notifyClientRequestClosed(data, "Trung tâm chưa tìm được gia sư",
                 centerName + " chưa tìm được gia sư phù hợp cho yêu cầu của bạn. " + note
@@ -2241,16 +2330,15 @@ public class CenterServiceImpl implements CenterService {
             return;
         }
         userRepository.findById(data.clientUserId()).ifPresent(user -> {
-            com.tcs.module.messaging.entity.Notification n =
-                    new com.tcs.module.messaging.entity.Notification();
-            n.setUser(user);
-            n.setType(com.tcs.module.messaging.enums.NotificationType.SYSTEM);
-            n.setTitle(title);
-            n.setContent(content);
-            n.setReferenceType("CLASS_REQUEST");
-            n.setStatus(com.tcs.module.messaging.enums.NotificationStatus.SENT);
-            n.setIsRead(false);
-            notificationRepository.save(n);
+            notificationDispatchService.notifyUserFromTemplate(
+                    user,
+                    com.tcs.module.messaging.enums.NotificationType.SYSTEM,
+                    "CENTER_CLASS_REQUEST_CLOSED",
+                    Map.of("title", title, "content", content),
+                    title,
+                    content,
+                    "CLASS_REQUEST",
+                    null);
         });
     }
 

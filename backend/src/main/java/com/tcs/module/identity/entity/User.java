@@ -54,4 +54,7 @@ public class User {
 
     @Column(name = "profile_completed_at")
     private LocalDateTime profileCompletedAt;
+
+    @Column(name = "token_version", nullable = false)
+    private long tokenVersion = 0L;
 }
