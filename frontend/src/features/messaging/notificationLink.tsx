@@ -9,7 +9,8 @@ export function notificationLink(
   const isClientSide = role === 'CLIENT' || role === 'TUTOR_CENTER';
 
   if (n.referenceType === 'SUPPORT_TICKET') {
-    return isAdmin ? APP_ROUTES.platformTickets : APP_ROUTES.messagingTickets;
+    if (!n.referenceId) return isAdmin ? APP_ROUTES.platformTickets : APP_ROUTES.messagingTickets;
+    return isAdmin ? `${APP_ROUTES.platformTickets}?ticket=${n.referenceId}` : APP_ROUTES.messagingTickets;
   }
 
   switch (n.type) {

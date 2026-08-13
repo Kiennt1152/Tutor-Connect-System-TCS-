@@ -59,6 +59,7 @@ import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 import { APP_ROUTES } from '../shared/constants/routes';
 import { lazy, Suspense } from 'react';
 import { ScrollToHash } from './ScrollToHash';
+import { WalletActivationPrompt } from '../shared/components/WalletActivationPrompt';
 
 const PlatformTasksPage = lazy(() => import('../features/platform/pages/PlatformTasksPage'));
 const PlatformAnalyticsPage = lazy(() => import('../features/platform/pages/PlatformAnalyticsPage'));
@@ -438,6 +439,7 @@ export default function App() {
             }
           />
         </Routes>
+        <WalletActivationPrompt />
         <AiFloatingWidget />
       </BrowserRouter>
     </ErrorBoundary>

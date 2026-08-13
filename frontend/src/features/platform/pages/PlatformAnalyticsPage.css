@@ -1,15 +1,47 @@
-.adm-analytics-header-actions {
+.adm-analytics-controls {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.adm-analytics-date-range,
+.adm-analytics-export-actions,
+.adm-analytics-export-actions > div {
   display: flex;
   gap: 12px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
-.adm-analytics-header-actions button {
+.adm-analytics-date-range label {
+  display: grid;
+  gap: 5px;
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.adm-analytics-date-range input {
+  height: 40px;
+  padding: 0 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  background: #fff;
+  color: #0f172a;
+  font: inherit;
+}
+
+.adm-analytics-controls button {
   display: flex;
   align-items: center;
-  gap: 8px;
+  justify-content: center;
+  min-height: 40px;
   padding: 8px 16px;
-  border-radius: 8px;
+  border-radius: 7px;
   border: 1px solid #e2e8f0;
   background-color: white;
   color: #1e293b;
@@ -20,15 +52,48 @@
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
-.adm-analytics-header-actions button:hover:not(:disabled) {
+.adm-analytics-controls button:hover:not(:disabled) {
   background-color: #f8fafc;
   border-color: #cbd5e1;
   transform: translateY(-1px);
 }
 
-.adm-analytics-header-actions button:disabled {
+.adm-analytics-controls button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
+}
+
+.adm-analytics-date-range .adm-analytics-apply {
+  align-self: end;
+  border-color: var(--color-primary);
+  background: var(--color-primary);
+  color: #fff;
+}
+
+.adm-analytics-date-range .adm-analytics-apply:hover:not(:disabled) {
+  border-color: var(--color-primary-dark);
+  background: var(--color-primary-dark);
+}
+
+.adm-analytics-date-range .adm-analytics-clear {
+  align-self: end;
+}
+
+.adm-analytics-export-actions {
+  justify-content: space-between;
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.adm-analytics-export-actions > span {
+  color: #64748b;
+  font-size: 0.84rem;
+}
+
+.adm-analytics-range-error {
+  margin: -0.5rem 0 0;
+  color: #b91c1c;
+  font-size: 0.82rem;
 }
 
 .adm-kpi-section-title {
@@ -176,4 +241,15 @@
   padding: 4rem;
   color: #64748b;
   font-size: 1.1rem;
+}
+
+@media (max-width: 640px) {
+  .adm-analytics-date-range label,
+  .adm-analytics-date-range input,
+  .adm-analytics-date-range button,
+  .adm-analytics-export-actions,
+  .adm-analytics-export-actions > div,
+  .adm-analytics-export-actions button {
+    width: 100%;
+  }
 }

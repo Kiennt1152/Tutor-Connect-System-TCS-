@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
 import { useState, type FormEvent } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import {
   useAdminTicketDetail,
@@ -310,7 +311,9 @@ const PRIORITIES: { value: AdminTicketPriority | ''; label: string }[] = [
 ];
 
 export default function PlatformTicketsPage() {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const ticketParam = searchParams.get('ticket');
+  const selectedId = ticketParam && /^\d+$/.test(ticketParam) ? ticketParam : null;
   const [keywordDraft, setKeywordDraft] = useState('');
 
   const { status, data, filters, setFilters, errorMessage, reload } = useAdminTicketList({
@@ -324,6 +327,14 @@ export default function PlatformTicketsPage() {
   const handleKeywordSearch = (e: FormEvent) => {
     e.preventDefault();
     setFilters((f) => ({ ...f, page: 0, keyword: keywordDraft || undefined }));
+  };
+
+  const openTicket = (ticketId: string) => {
+    setSearchParams({ ticket: ticketId });
+  };
+
+  const closeTicket = () => {
+    setSearchParams({});
   };
 
   return (
@@ -432,8 +443,8 @@ export default function PlatformTicketsPage() {
 
         {status === 'success' && (
           <>
-            <div className="adm-table-wrap">
-              <table className="adm-table">
+            <div className="adm-table-wrap adm-ticket-table-wrap">
+              <table className="adm-table adm-ticket-table">
                 <thead>
                   <tr>
                     <th>ID</th>
@@ -486,7 +497,7 @@ export default function PlatformTicketsPage() {
                             type="button"
                             className="tcs-btn tcs-btn--ghost"
                             style={{ fontSize: '0.8rem', padding: '0.3rem 0.7rem' }}
-                            onClick={() => setSelectedId(ticket.id)}
+                            onClick={() => openTicket(ticket.id)}
                           >
                             Xem
                           </button>
@@ -528,7 +539,12 @@ export default function PlatformTicketsPage() {
       {selectedId && (
         <TicketDetailModal
           ticketId={selectedId}
+<<<<<<< Updated upstream
           onClose={() => setSelectedId(null)}
+=======
+          onClose={closeTicket}
+          onUpdated={reload}
+>>>>>>> Stashed changes
         />
       )}
     </AdminLayout>

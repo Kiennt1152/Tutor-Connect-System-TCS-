@@ -51,6 +51,13 @@ import com.tcs.module.messaging.entity.Notification;
 import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.repository.NotificationRepository;
+<<<<<<< Updated upstream
+=======
+import com.tcs.module.messaging.service.NotificationDispatchService;
+import com.tcs.module.platform.service.PenaltyAccessService;
+import com.tcs.module.profile.dto.CccdInfoDto;
+import com.tcs.module.profile.service.CccdService;
+>>>>>>> Stashed changes
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
@@ -59,6 +66,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -136,6 +144,15 @@ class MarketplaceServiceImplTest {
     @Mock
     private NotificationRepository notificationRepository;
 
+<<<<<<< Updated upstream
+=======
+    @Mock
+    private NotificationDispatchService notificationDispatchService;
+
+    @Mock
+    private CccdService cccdService;
+
+>>>>>>> Stashed changes
     @InjectMocks
     private MarketplaceServiceImpl marketplaceService;
 
@@ -389,6 +406,59 @@ class MarketplaceServiceImplTest {
 
         assertThrows(BusinessException.class, () -> marketplaceService.requestClassTermination(CLASS_ID, request));
         verify(classTerminationRequestRepository, never()).save(any());
+    }
+
+    @Test
+    void chooseApplicantReplacesPrivateClassDealRatesWithTutorProposal() {
+        User clientUser = user(CLIENT_USER_ID);
+        User tutorUser = user(TUTOR_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.OPEN);
+        tutoringClass.setNumberOfSessions(4);
+        tutoringClass.setDetailsJson("""
+                {"scheduleMode":"WEEKLY","repeatEveryWeeks":1,"subjectIds":["1","2","3"],
+                 "subjectFees":{"1":"120000","2":"150000","3":"180000"},
+                 "slots":[
+                    {"subjectId":"1","day":"T2","start":"18:00","end":"19:00"},
+                    {"subjectId":"2","day":"T3","start":"18:00","end":"19:00"},
+                    {"subjectId":"3","day":"T4","start":"18:00","end":"19:00"}
+                 ]}
+                """);
+        Tutor tutor = tutor(tutorUser);
+        TutorApplication chosen = new TutorApplication();
+        chosen.setApplicationId(55L);
+        chosen.setTutoringClass(tutoringClass);
+        chosen.setTutor(tutor);
+        chosen.setProposedRatesJson("{\"1\":140000}");
+        chosen.setProposedRate(new BigDecimal("140000"));
+
+        when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(cccdService.getByUserId(CLIENT_USER_ID)).thenReturn(CccdInfoDto.builder()
+                .fullName("Client Test")
+                .cccdNumber("012345678901")
+                .dateOfBirth("01/01/2000")
+                .permanentAddress("Hà Nội")
+                .complete(true)
+                .build());
+        when(tutorApplicationRepository.findById(55L)).thenReturn(Optional.of(chosen));
+        when(tutorApplicationRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(List.of(chosen));
+        when(classAssignmentRepository.findByApplication_ApplicationId(55L)).thenReturn(Optional.empty());
+        when(classAssignmentRepository.save(any(ClassAssignment.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(tutoringClassRepository.save(any(TutoringClass.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        marketplaceService.chooseApplicant(CLASS_ID, 55L);
+
+        assertEquals(BigDecimal.valueOf(140000), tutoringClass.getTuitionFee());
+        Map<String, Object> parsed = null;
+        try {
+            parsed = new com.fasterxml.jackson.databind.ObjectMapper()
+                    .readValue(tutoringClass.getDetailsJson(), Map.class);
+        } catch (Exception ignored) {
+        }
+        assertEquals("{1=140000}", parsed != null ? parsed.get("subjectFees").toString() : null);
+        assertEquals("[1]", parsed != null ? parsed.get("subjectIds").toString() : null);
     }
 
     @Test

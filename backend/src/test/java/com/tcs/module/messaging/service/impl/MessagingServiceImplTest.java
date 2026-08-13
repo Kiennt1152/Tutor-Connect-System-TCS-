@@ -4,12 +4,19 @@ import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
+import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.messaging.dto.request.CreateSupportTicketRequest;
 import com.tcs.module.messaging.dto.request.ReplyTicketRequest;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
 import com.tcs.module.messaging.dto.response.SupportTicketResponse;
 import com.tcs.module.messaging.dto.response.TicketMessageResponse;
+<<<<<<< Updated upstream
+=======
+import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.messaging.service.NotificationDispatchService;
+import com.tcs.module.messaging.enums.NotificationType;
+>>>>>>> Stashed changes
 import com.tcs.module.platform.entity.SupportTicket;
 import com.tcs.module.platform.entity.TicketMessage;
 import com.tcs.module.platform.enums.SupportTicketCategory;
@@ -17,9 +24,13 @@ import com.tcs.module.platform.enums.SupportTicketPriority;
 import com.tcs.module.platform.enums.SupportTicketStatus;
 import com.tcs.module.platform.repository.SupportTicketRepository;
 import com.tcs.module.platform.repository.TicketMessageRepository;
+import com.tcs.module.profile.entity.PlatformAdmin;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.security.AuthHelper;
 import java.time.LocalDateTime;
 import java.util.Optional;
+import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -49,6 +60,15 @@ class MessagingServiceImplTest {
     private TicketMessageRepository ticketMessageRepository;
     @Mock
     private TutoringClassRepository tutoringClassRepository;
+<<<<<<< Updated upstream
+=======
+    @Mock
+    private NotificationRepository notificationRepository;
+    @Mock
+    private NotificationDispatchService notificationDispatchService;
+    @Mock
+    private PlatformAdminRepository platformAdminRepository;
+>>>>>>> Stashed changes
 
     @InjectMocks
     private MessagingServiceImpl messagingService;
@@ -61,6 +81,7 @@ class MessagingServiceImplTest {
         user = new User();
         user.setUserId(USER_ID);
         user.setEmail("user@example.com");
+        user.setStatus(UserStatus.ACTIVE);
 
         ticket = new SupportTicket();
         ticket.setTicketId(TICKET_ID);
@@ -83,6 +104,13 @@ class MessagingServiceImplTest {
             t.setTicketId(TICKET_ID);
             return t;
         });
+        User activeAdminUser = new User();
+        activeAdminUser.setUserId(200L); activeAdminUser.setEmail("admin@example.com"); activeAdminUser.setStatus(UserStatus.ACTIVE);
+        User suspendedAdminUser = new User();
+        suspendedAdminUser.setUserId(201L); suspendedAdminUser.setEmail("disabled@example.com"); suspendedAdminUser.setStatus(UserStatus.SUSPENDED);
+        PlatformAdmin activeAdmin = new PlatformAdmin(); activeAdmin.setUser(activeAdminUser);
+        PlatformAdmin suspendedAdmin = new PlatformAdmin(); suspendedAdmin.setUser(suspendedAdminUser);
+        when(platformAdminRepository.findAll()).thenReturn(List.of(activeAdmin, suspendedAdmin));
 
         CreateSupportTicketRequest req = new CreateSupportTicketRequest();
         req.setCategory(SupportTicketCategory.INQUIRY);
@@ -97,6 +125,11 @@ class MessagingServiceImplTest {
         assertEquals(false, response.getSlaBreached());
         verify(supportTicketRepository, times(1)).save(any(SupportTicket.class));
         verify(ticketMessageRepository, times(1)).save(any(TicketMessage.class));
+        verify(notificationDispatchService).notifyUserFromTemplate(
+                eq(activeAdminUser), eq(NotificationType.SYSTEM), eq("SUPPORT_TICKET_CREATED"),
+                any(Map.class), eq("Yêu cầu hỗ trợ mới #1"), anyString(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+        verify(notificationDispatchService, times(1)).notifyUserFromTemplate(
+                any(), any(), anyString(), any(), anyString(), anyString(), anyString(), anyLong());
     }
 
     @Test

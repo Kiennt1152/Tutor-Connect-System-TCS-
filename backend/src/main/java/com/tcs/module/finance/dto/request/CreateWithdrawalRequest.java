@@ -12,4 +12,5 @@ public class CreateWithdrawalRequest {
     private Long paymentMethodId;
     private String bankName;
     private String accountNo;
+    private String accountHolderName;
 }

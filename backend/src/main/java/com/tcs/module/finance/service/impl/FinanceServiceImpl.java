@@ -66,6 +66,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -88,6 +89,7 @@ public class FinanceServiceImpl implements FinanceService {
     private static final int MAX_PAGE_SIZE = 100;
     private static final int TOPUP_TTL_MINUTES = 15;
     private static final int WITHDRAWAL_MATCH_WINDOW_MINUTES = 5;
+    private static final int PAYOUT_COOLDOWN_HOURS = 24;
     private static final String TOPUP_BANK_NAME = "TPBank";
     private static final String TOPUP_BANK_BIN = "970423";
     private static final String TOPUP_ACCOUNT_NUMBER = "02660559201";
@@ -364,12 +366,16 @@ public class FinanceServiceImpl implements FinanceService {
                     paymentMethod.setType(BANK_TRANSFER_TYPE);
                     paymentMethod.setBankName(data.bankName());
                     paymentMethod.setAccountNo(data.accountNo());
+                    paymentMethod.setAccountHolderName(data.accountHolderName());
+                    paymentMethod.setVerifiedAt(LocalDateTime.now());
+                    applyPayoutCooldown(paymentMethod);
                     paymentMethod.setStatus(PAYMENT_METHOD_ACTIVE);
                     return paymentMethodRepository.save(paymentMethod);
                 });
 
         boolean isDefault = activeMethods.isEmpty()
                 || Objects.equals(method.getPaymentMethodId(), defaultPaymentMethodId(activeMethods));
+        maybeWarnAnomalousPaymentMethod(method);
         return toPaymentMethodResponse(method, isDefault);
     }
 
@@ -393,7 +399,11 @@ public class FinanceServiceImpl implements FinanceService {
 
         method.setBankName(data.bankName());
         method.setAccountNo(data.accountNo());
+        method.setAccountHolderName(data.accountHolderName());
+        method.setVerifiedAt(LocalDateTime.now());
+        applyPayoutCooldown(method);
         PaymentMethod saved = paymentMethodRepository.save(method);
+        maybeWarnAnomalousPaymentMethod(saved);
         return toPaymentMethodResponse(saved, isDefaultPaymentMethod(wallet, saved));
     }
 
@@ -414,7 +424,9 @@ public class FinanceServiceImpl implements FinanceService {
         Long userId = requireEarningWalletUserId();
         Wallet wallet = walletService.getRequired(userId);
         PaymentMethod paymentMethod = resolveWithdrawalMethod(wallet, request);
+        ensurePaymentMethodCanBeUsed(paymentMethod);
         String referenceCode = "WITHDRAW-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+        String accountHolderName = resolveWithdrawalAccountHolderName(request, paymentMethod);
 
         Wallet updatedWallet = walletService.lockFunds(userId, request.getAmount(), referenceCode);
         WithdrawalRequestStatus initialStatus = initialWithdrawalStatus(request.getAmount());
@@ -435,6 +447,9 @@ public class FinanceServiceImpl implements FinanceService {
         withdrawal.setWallet(updatedWallet);
         withdrawal.setPaymentMethod(paymentMethod);
         withdrawal.setAmount(request.getAmount());
+        withdrawal.setBankName(paymentMethod.getBankName());
+        withdrawal.setAccountNo(paymentMethod.getAccountNo());
+        withdrawal.setAccountHolderName(accountHolderName);
         withdrawal.setStatus(initialStatus);
         withdrawal.setRequestedAt(LocalDateTime.now());
         WithdrawalRequest savedWithdrawal = withdrawalRequestRepository.save(withdrawal);
@@ -615,6 +630,7 @@ public class FinanceServiceImpl implements FinanceService {
         refundRequest.setAmount(requestedAmount);
         refundRequest.setBankName(payoutInfo.bankName());
         refundRequest.setAccountNo(payoutInfo.accountNo());
+        refundRequest.setAccountHolderName(payoutInfo.accountHolderName());
         refundRequest.setTransferStatus("PENDING");
         refundRequest.setReason(RefundPayoutInfoCodec.appendToReason(request.getReason().trim(), payoutInfo));
         refundRequest.setStatus(RefundRequestStatus.PENDING);
@@ -804,6 +820,12 @@ public class FinanceServiceImpl implements FinanceService {
             if (isBlank(request.getAccountNo())) {
                 throw new IllegalArgumentException("Vui lòng nhập số tài khoản nhận tiền");
             }
+            if (isBlank(request.getAccountHolderName())) {
+                throw new IllegalArgumentException("Vui lòng nhập tên chủ tài khoản nhận tiền");
+            }
+        }
+        if (!isBlank(request.getAccountHolderName()) && request.getAccountHolderName().trim().length() > 150) {
+            throw new IllegalArgumentException("Tên chủ tài khoản không được vượt quá 150 ký tự");
         }
     }
 
@@ -812,7 +834,10 @@ public class FinanceServiceImpl implements FinanceService {
             return requireOwnedActivePaymentMethod(wallet, request.getPaymentMethodId());
         }
 
-        PaymentMethodData data = validatePaymentMethodRequest(request.getBankName(), request.getAccountNo());
+        PaymentMethodData data = validatePaymentMethodRequest(
+                request.getBankName(),
+                request.getAccountNo(),
+                request.getAccountHolderName());
         return paymentMethodRepository
                 .findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
                         wallet.getWalletId(),
@@ -825,6 +850,9 @@ public class FinanceServiceImpl implements FinanceService {
                     paymentMethod.setType(BANK_TRANSFER_TYPE);
                     paymentMethod.setBankName(data.bankName());
                     paymentMethod.setAccountNo(data.accountNo());
+                    paymentMethod.setAccountHolderName(data.accountHolderName());
+                    paymentMethod.setVerifiedAt(LocalDateTime.now());
+                    applyPayoutCooldown(paymentMethod);
                     paymentMethod.setStatus(PAYMENT_METHOD_ACTIVE);
                     return paymentMethodRepository.save(paymentMethod);
                 });
@@ -1081,6 +1109,7 @@ public class FinanceServiceImpl implements FinanceService {
         withdrawal.setProcessedAt(now);
         withdrawal.setFailureReason(null);
         WithdrawalRequest savedWithdrawal = withdrawalRequestRepository.save(withdrawal);
+        flagPayoutMethodUsage(withdrawal.getPaymentMethod(), now);
         paymentNotificationService.notifyPayment(
                 withdrawal.getWallet().getWalletId(),
                 "Rút tiền thành công",
@@ -1171,6 +1200,7 @@ public class FinanceServiceImpl implements FinanceService {
             refundRequestRepository.save(refundRequest);
             notifyRefundTransferCompleted(refundRequest, tx.getAmount());
         });
+        flagPayoutMethodUsage(tx.getPaymentMethod(), now);
     }
 
     private TopupStatusResponse completeTopup(
@@ -1201,6 +1231,7 @@ public class FinanceServiceImpl implements FinanceService {
         paymentTransactionRepository.save(tx);
 
         walletService.credit(tx.getWallet().getWalletId(), tx.getAmount(), tx.getReferenceCode());
+        flagPayoutMethodUsage(tx.getPaymentMethod(), LocalDateTime.now());
         Wallet wallet = walletService.getOrCreate(tx.getWallet().getWalletId());
         paymentNotificationService.notifyPayment(
                 wallet.getWalletId(),
@@ -1832,6 +1863,37 @@ public class FinanceServiceImpl implements FinanceService {
         return Objects.equals(method.getPaymentMethodId(), defaultPaymentMethodId(activePaymentMethods(wallet)));
     }
 
+    private void ensurePaymentMethodCanBeUsed(PaymentMethod paymentMethod) {
+        if (paymentMethod == null) {
+            return;
+        }
+        LocalDateTime cooldownUntil = paymentMethod.getCooldownUntil();
+        if (cooldownUntil != null && LocalDateTime.now().isBefore(cooldownUntil)) {
+            throw new BusinessException("Tài khoản nhận tiền mới cần chờ một thời gian trước khi rút tiền");
+        }
+    }
+
+    private String resolveWithdrawalAccountHolderName(CreateWithdrawalRequest request, PaymentMethod paymentMethod) {
+        if (!isBlank(request.getAccountHolderName())) {
+            return request.getAccountHolderName().trim().replaceAll("\\s+", " ");
+        }
+        if (paymentMethod != null && !isBlank(paymentMethod.getAccountHolderName())) {
+            return paymentMethod.getAccountHolderName().trim().replaceAll("\\s+", " ");
+        }
+        return null;
+    }
+
+    private void flagPayoutMethodUsage(PaymentMethod method, LocalDateTime usedAt) {
+        if (method == null || usedAt == null) {
+            return;
+        }
+        method.setLastUsedAt(usedAt);
+        if (method.getCooldownUntil() == null) {
+            method.setCooldownUntil(usedAt.plusHours(PAYOUT_COOLDOWN_HOURS));
+        }
+        paymentMethodRepository.save(method);
+    }
+
     private PaymentMethod requireOwnedActivePaymentMethod(Wallet wallet, Long paymentMethodId) {
         if (paymentMethodId == null) {
             throw new ResourceNotFoundException("Không tìm thấy tài khoản nhận tiền");
@@ -1847,7 +1909,7 @@ public class FinanceServiceImpl implements FinanceService {
         if (request == null) {
             throw new IllegalArgumentException("Thiếu thông tin tài khoản nhận tiền");
         }
-        return validatePaymentMethodRequest(request.getBankName(), request.getAccountNo());
+        return validatePaymentMethodRequest(request.getBankName(), request.getAccountNo(), request.getAccountHolderName());
     }
 
     private PaymentMethodData validatePaymentMethodRequest(String bankName, String accountNo) {
@@ -1866,18 +1928,30 @@ public class FinanceServiceImpl implements FinanceService {
         if (!normalizedAccountNo.matches("[A-Za-z0-9]{4,50}")) {
             throw new IllegalArgumentException("Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự");
         }
-        return new PaymentMethodData(normalizedBankName, normalizedAccountNo);
+        return new PaymentMethodData(normalizedBankName, normalizedAccountNo, null);
+    }
+
+    private PaymentMethodData validatePaymentMethodRequest(
+            String bankName,
+            String accountNo,
+            String accountHolderName) {
+        PaymentMethodData base = validatePaymentMethodRequest(bankName, accountNo);
+        if (isBlank(accountHolderName)) {
+            throw new IllegalArgumentException("Vui lòng nhập tên chủ tài khoản nhận tiền");
+        }
+        String normalizedHolderName = accountHolderName.trim().replaceAll("\\s+", " ");
+        if (normalizedHolderName.length() > 150) {
+            throw new IllegalArgumentException("Tên chủ tài khoản không được vượt quá 150 ký tự");
+        }
+        return new PaymentMethodData(base.bankName(), base.accountNo(), normalizedHolderName);
     }
 
     private RefundPayoutInfo validateRefundPayoutInfo(String bankName, String accountNo, String accountHolderName) {
-        PaymentMethodData data = validatePaymentMethodRequest(bankName, accountNo);
-        if (isBlank(accountHolderName)) {
-            throw new IllegalArgumentException("Vui lòng nhập tên chủ tài khoản nhận hoàn tiền");
-        }
+        PaymentMethodData data = validatePaymentMethodRequest(bankName, accountNo, accountHolderName);
         return new RefundPayoutInfo(
                 data.bankName(),
                 data.accountNo(),
-                accountHolderName.trim().replaceAll("\\s+", " "));
+                data.accountHolderName());
     }
 
     private RefundPayoutInfo resolveRefundPayoutInfo(RefundRequest request) {
@@ -1888,11 +1962,11 @@ public class FinanceServiceImpl implements FinanceService {
         if (RefundPayoutInfoCodec.hasCompletePayout(parsed)) {
             return parsed;
         }
-        if (!isBlank(request.getBankName()) && !isBlank(request.getAccountNo())) {
+        if (!isBlank(request.getBankName()) && !isBlank(request.getAccountNo()) && !isBlank(request.getAccountHolderName())) {
             return new RefundPayoutInfo(
                     RefundPayoutInfoCodec.normalize(request.getBankName()),
                     RefundPayoutInfoCodec.normalizeAccountNo(request.getAccountNo()),
-                    parsed != null ? RefundPayoutInfoCodec.normalize(parsed.accountHolderName()) : null);
+                    RefundPayoutInfoCodec.normalize(request.getAccountHolderName()));
         }
         return parsed;
     }
@@ -1903,10 +1977,41 @@ public class FinanceServiceImpl implements FinanceService {
                 .type(method.getType())
                 .provider(method.getBankName())
                 .bankName(method.getBankName())
+                .accountHolderName(method.getAccountHolderName())
                 .lastFour(lastFour(method.getAccountNo()))
                 .accountNoMasked(maskAccountNo(method.getAccountNo()))
                 .isDefault(isDefault)
+                .verifiedAt(method.getVerifiedAt())
+                .cooldownUntil(method.getCooldownUntil())
+                .lastUsedAt(method.getLastUsedAt())
+                .createdAt(method.getCreatedAt())
+                .updatedAt(method.getUpdatedAt())
                 .build();
+    }
+
+    private void maybeWarnAnomalousPaymentMethod(PaymentMethod method) {
+        if (method == null || method.getCreatedAt() == null) {
+            return;
+        }
+        long ageHours = ChronoUnit.HOURS.between(method.getCreatedAt(), LocalDateTime.now());
+        if (ageHours < PAYOUT_COOLDOWN_HOURS) {
+            paymentNotificationService.notifyPayment(
+                    method.getWallet() != null && method.getWallet().getUser() != null
+                            ? method.getWallet().getUser()
+                            : null,
+                    "Tài khoản nhận tiền mới",
+                    "Tài khoản nhận tiền vừa được thêm/cập nhật và đang ở thời gian chờ.",
+                    "PAYMENT_METHOD",
+                    method.getPaymentMethodId());
+        }
+    }
+
+    private void applyPayoutCooldown(PaymentMethod method) {
+        if (method == null) {
+            return;
+        }
+        LocalDateTime verifiedAt = method.getVerifiedAt() != null ? method.getVerifiedAt() : LocalDateTime.now();
+        method.setCooldownUntil(verifiedAt.plusHours(PAYOUT_COOLDOWN_HOURS));
     }
 
     private String lastFour(String accountNo) {
@@ -1954,7 +2059,11 @@ public class FinanceServiceImpl implements FinanceService {
                 .status(withdrawal.getStatus())
                 .paymentMethodId(paymentMethod != null ? paymentMethod.getPaymentMethodId() : null)
                 .bankName(paymentMethod != null ? paymentMethod.getBankName() : null)
+                .accountNo(paymentMethod != null ? paymentMethod.getAccountNo() : null)
                 .accountNoMasked(paymentMethod != null ? maskAccountNo(paymentMethod.getAccountNo()) : "")
+                .accountHolderName(withdrawal.getAccountHolderName() != null
+                        ? withdrawal.getAccountHolderName()
+                        : paymentMethod != null ? paymentMethod.getAccountHolderName() : null)
                 .transactionId(tx != null ? tx.getTransactionId() : null)
                 .transactionStatus(tx != null ? tx.getStatus() : null)
                 .referenceCode(tx != null ? tx.getReferenceCode() : null)
@@ -1977,6 +2086,7 @@ public class FinanceServiceImpl implements FinanceService {
                 .paymentMethodId(paymentMethod.getPaymentMethodId())
                 .bankName(paymentMethod.getBankName())
                 .accountNoMasked(maskAccountNo(paymentMethod.getAccountNo()))
+                .accountHolderName(withdrawal.getAccountHolderName())
                 .referenceCode(tx.getReferenceCode())
                 .requestedAt(withdrawal.getRequestedAt())
                 .wallet(toWalletResponse(wallet))
@@ -1994,7 +2104,7 @@ public class FinanceServiceImpl implements FinanceService {
         return "****" + trimmed.substring(trimmed.length() - 4);
     }
 
-    private record PaymentMethodData(String bankName, String accountNo) {
+    private record PaymentMethodData(String bankName, String accountNo, String accountHolderName) {
     }
 
     private record WithdrawalMatch(WithdrawalRequest withdrawal, PaymentTransaction tx) {

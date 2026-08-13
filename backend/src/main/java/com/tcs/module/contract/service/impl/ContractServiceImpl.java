@@ -23,6 +23,7 @@ import com.tcs.module.contract.repository.ContractSignatureRepository;
 import com.tcs.module.contract.repository.ContractTemplateRepository;
 import com.tcs.module.contract.service.ContractService;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tcs.exception.BusinessException;
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
@@ -84,6 +85,7 @@ import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.time.LocalTime;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -92,11 +94,13 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 @Service
@@ -1119,7 +1123,7 @@ public class ContractServiceImpl implements ContractService {
             if (application != null && application.getTutoringClass() != null) {
                 TutoringClass tutoringClass = application.getTutoringClass();
                 classId = tutoringClass.getClassId();
-                amount = resolveInitialEscrowAmount(contract, tutoringClass);
+                amount = resolvePrivateEscrowAmount(tutoringClass);
                 payerUserId = tutoringClass.getCreator() != null ? tutoringClass.getCreator().getUserId() : null;
             }
             beneficiaryUserId = contract.getAssignment().getTutor() != null
@@ -1131,7 +1135,7 @@ public class ContractServiceImpl implements ContractService {
             TutoringClass tutoringClass = contract.getClassStudent().getTutoringClass();
             if (tutoringClass != null) {
                 classId = tutoringClass.getClassId();
-                amount = resolveInitialEscrowAmount(contract, tutoringClass);
+                amount = resolveCenterEscrowAmount(tutoringClass);
                 payerUserId = contract.getClassStudent().getEnrolledByUser() != null
                         ? contract.getClassStudent().getEnrolledByUser().getUserId()
                         : null;
@@ -1159,25 +1163,147 @@ public class ContractServiceImpl implements ContractService {
                 classStudentId));
     }
 
-    private BigDecimal resolveInitialEscrowAmount(Contract contract, TutoringClass tutoringClass) {
+    private BigDecimal resolvePrivateEscrowAmount(TutoringClass tutoringClass) {
+        BigDecimal totalAmount = resolvePrivateDealTotalAmount(tutoringClass);
+        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        int plannedMonths = plannedPrivateClassMonths(tutoringClass);
+        if (plannedMonths <= 1) {
+            return totalAmount.setScale(2, RoundingMode.HALF_UP);
+        }
+        return totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal resolveCenterEscrowAmount(TutoringClass tutoringClass) {
         BigDecimal totalAmount = positiveAmount(tutoringClass.getBudget());
         if (totalAmount == null && tutoringClass.getTuitionFee() != null
                 && tutoringClass.getNumberOfSessions() != null) {
             totalAmount = tutoringClass.getTuitionFee()
                     .multiply(BigDecimal.valueOf(tutoringClass.getNumberOfSessions()));
         }
-        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+        return totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0
+                ? totalAmount.setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+    }
+
+    private BigDecimal resolvePrivateDealTotalAmount(TutoringClass tutoringClass) {
+        if (tutoringClass == null || !StringUtils.hasText(tutoringClass.getDetailsJson())) {
+            return null;
+        }
+        JsonNode root = readTree(tutoringClass.getDetailsJson());
+        JsonNode subjectFeesNode = root.path("subjectFees");
+        JsonNode slots = root.path("slots");
+        if (subjectFeesNode == null || !subjectFeesNode.isObject() || slots == null || !slots.isArray()) {
+            return null;
+        }
+        Map<String, BigDecimal> fees = readRates(subjectFeesNode.toString());
+        if (fees == null || fees.isEmpty()) {
+            return null;
+        }
+        int repeats = Math.max(1, patternRepeats(root));
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> entry : fees.entrySet()) {
+            BigDecimal fee = entry.getValue();
+            if (fee == null || fee.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            BigDecimal hours = hoursPerRepeatForSubject(root, entry.getKey());
+            if (hours.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            total = total.add(fee.multiply(hours).multiply(BigDecimal.valueOf(repeats)));
+        }
+        return total.compareTo(BigDecimal.ZERO) > 0 ? total : null;
+    }
+
+    private JsonNode readTree(String json) {
+        if (!StringUtils.hasText(json)) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+        try {
+            return OBJECT_MAPPER.readTree(json);
+        } catch (Exception ignored) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+    }
+
+    private Map<String, BigDecimal> readRates(String json) {
+        if (!StringUtils.hasText(json)) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.readValue(json, new TypeReference<LinkedHashMap<String, BigDecimal>>() {});
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private Set<Integer> studyWeeksOf(JsonNode form, int cycleWeeks) {
+        Set<Integer> weeks = new LinkedHashSet<>();
+        for (JsonNode w : form.path("studyWeeks")) {
+            int v = w.asInt(0);
+            if (v >= 1 && v <= cycleWeeks) {
+                weeks.add(v);
+            }
+        }
+        if (weeks.isEmpty()) {
+            weeks.add(1);
+        }
+        return weeks;
+    }
+
+    private int durationCountOf(JsonNode form) {
+        return Math.max(1, form.path("months").asInt(1));
+    }
+
+    private int totalMonthsOf(JsonNode form) {
+        int n = durationCountOf(form);
+        return "YEAR".equals(form.path("durationUnit").asText("MONTH")) ? n * 12 : n;
+    }
+
+    private int weeksForCycle(JsonNode form) {
+        return switch (form.path("billingCycle").asText("MONTH")) {
+            case "MONTH" -> totalMonthsOf(form) * 4;
+            case "TERM" -> 12;
+            case "QUARTER" -> 24;
+            case "YEAR" -> 48;
+            default -> 4;
+        };
+    }
+
+    private int repeatWeeksOf(JsonNode form) {
+        if (!"WEEKLY".equals(form.path("scheduleMode").asText("WEEKLY"))) {
+            return 1;
+        }
+        int n = form.path("repeatEveryWeeks").asInt(1);
+        return Math.min(4, Math.max(1, n));
+    }
+
+    private int patternRepeats(JsonNode form) {
+        int weeks = weeksForCycle(form);
+        int cycleWeeks = repeatWeeksOf(form);
+        if (cycleWeeks <= 1) {
+            return weeks;
+        }
+        Set<Integer> on = studyWeeksOf(form, cycleWeeks);
+        int remainder = weeks % cycleWeeks;
+        return (weeks / cycleWeeks) * on.size() + (int) on.stream().filter(w -> w <= remainder).count();
+    }
+
+    private BigDecimal hoursPerRepeatForSubject(JsonNode form, String subjectId) {
+        JsonNode slots = form.path("slots");
+        if (slots == null || !slots.isArray() || !StringUtils.hasText(subjectId)) {
             return BigDecimal.ZERO;
         }
-        if (contract.getSourceType() != ContractSourceType.PRIVATE) {
-            return totalAmount.setScale(2, RoundingMode.HALF_UP);
+        BigDecimal total = BigDecimal.ZERO;
+        for (JsonNode slot : slots) {
+            if (!subjectId.equals(slot.path("subjectId").asText(""))) {
+                continue;
+            }
+            total = total.add(slotHours(slot.path("start").asText(""), slot.path("end").asText("")));
         }
-
-        int plannedMonths = plannedPrivateClassMonths(tutoringClass);
-        if (plannedMonths <= 1) {
-            return totalAmount.setScale(2, RoundingMode.HALF_UP);
-        }
-        return totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP);
+        return total;
     }
 
     private int plannedPrivateClassMonths(TutoringClass tutoringClass) {
@@ -1195,6 +1321,23 @@ public class ContractServiceImpl implements ContractService {
 
     private BigDecimal positiveAmount(BigDecimal amount) {
         return amount != null && amount.compareTo(BigDecimal.ZERO) > 0 ? amount : null;
+    }
+
+    private BigDecimal slotHours(String start, String end) {
+        if (!StringUtils.hasText(start) || !StringUtils.hasText(end)) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            LocalTime s = LocalTime.parse(start);
+            LocalTime e = LocalTime.parse(end);
+            int startMin = s.getHour() * 60 + s.getMinute();
+            int endMin = e.getHour() * 60 + e.getMinute();
+            int diff = endMin - startMin;
+            return diff > 0 ? BigDecimal.valueOf(diff).divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+        } catch (Exception ex) {
+            return BigDecimal.ZERO;
+        }
     }
 
     private ContractResponse toContractResponse(Contract contract) {

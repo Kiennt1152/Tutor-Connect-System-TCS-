@@ -25,10 +25,23 @@ export function TransactionList({ page, loading, filters, onFilterChange }: Prop
   const firstItem = page.totalElements === 0 ? 0 : page.page * pageSize + 1;
   const lastItem = Math.min((page.page + 1) * pageSize, page.totalElements);
   const pageCredit = page.transactions
+<<<<<<< Updated upstream
     .filter((tx) => tx.type === 'DEPOSIT' || tx.type === 'REFUND' || tx.type === 'ESCROW_RELEASE')
+=======
+    .filter((tx) =>
+      tx.status === 'SUCCESS'
+      && (
+        tx.type === 'DEPOSIT'
+        || tx.type === 'REFUND'
+        || tx.type === 'ESCROW_RELEASE'
+        || tx.type === 'PLATFORM_FEE'
+      ))
+>>>>>>> Stashed changes
     .reduce((sum, tx) => sum + tx.amount, 0);
   const pageDebit = page.transactions
-    .filter((tx) => tx.type === 'WITHDRAWAL' || tx.type === 'ESCROW_DEPOSIT')
+    .filter((tx) =>
+      tx.status === 'SUCCESS'
+      && (tx.type === 'WITHDRAWAL' || tx.type === 'ESCROW_DEPOSIT'))
     .reduce((sum, tx) => sum + tx.amount, 0);
 
   return (

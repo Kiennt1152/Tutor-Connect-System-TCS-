@@ -21,6 +21,7 @@ export default function AiFloatingWidget() {
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
+  const isHomepage = location.pathname === APP_ROUTES.home;
 
   useEffect(() => {
     if (isOpen) {
@@ -53,7 +54,7 @@ export default function AiFloatingWidget() {
     try {
       const resp = await aiApi.chat({ message: text });
       setMessages(prev => [...prev, resp]);
-    } catch (err) {
+    } catch {
       setMessages(prev => [
         ...prev,
         {
@@ -76,13 +77,23 @@ export default function AiFloatingWidget() {
 
   return (
     <>
+      {isHomepage && (
+        <button
+          className="ai-widget-button ai-widget-button--support"
+          onClick={() => navigate(APP_ROUTES.help)}
+          title="Hỗ trợ khách hàng"
+        >
+          <span className="ai-widget-button__icon" aria-hidden="true">☎</span>
+          <span>Hỗ trợ khách hàng</span>
+        </button>
+      )}
       <button className="ai-widget-button" onClick={() => setIsOpen(!isOpen)} title="Trợ lý AI TCS">
-        <span style={{ fontSize: '1.2rem' }}>🤖</span>
+        <span className="ai-widget-button__icon" aria-hidden="true">🤖</span>
         <span>TCS AI</span>
       </button>
 
       {isOpen && (
-        <div className="ai-widget-popup">
+        <div className={`ai-widget-popup${isHomepage ? ' ai-widget-popup--with-support' : ''}`}>
           <header className="ai-popup-header">
             <h3><span>🧠</span> Trợ lý AI TCS (RAG)</h3>
             <div className="ai-popup-actions">

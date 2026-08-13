@@ -5,6 +5,28 @@ import { useWithdrawalList } from '../hooks/useWithdrawalList';
 import type { WithdrawalRequestStatus } from '../types/platformTypes';
 import './PlatformWithdrawalsPage.css';
 
+function VisibilityIcon({ hidden }: { hidden: boolean }) {
+  if (hidden) {
+    return (
+      <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+        <path
+          d="M2.5 12c1.8-4.3 5.5-7 9.5-7s7.7 2.7 9.5 7c-1.8 4.3-5.5 7-9.5 7s-7.7-2.7-9.5-7Zm9.5 4c2.2 0 4-1.8 4-4s-1.8-4-4-4-4 1.8-4 4 1.8 4 4 4Zm0-2.5A1.5 1.5 0 1 1 12 10a1.5 1.5 0 0 1 0 3Z"
+          fill="currentColor"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+      <path
+        d="M12 5c4 0 7.7 2.7 9.5 7-1.8 4.3-5.5 7-9.5 7S4.3 16.3 2.5 12C4.3 7.7 8 5 12 5Zm0 2c-3 0-5.9 1.9-7.4 5 1.5 3.1 4.4 5 7.4 5s5.9-1.9 7.4-5c-1.5-3.1-4.4-5-7.4-5Zm0 2.5A2.5 2.5 0 1 1 12 14a2.5 2.5 0 0 1 0-5Z"
+        fill="currentColor"
+      />
+    </svg>
+  );
+}
+
 function statusBadgeClass(status: WithdrawalRequestStatus) {
   if (status === 'COMPLETED') return 'tcs-badge tcs-badge--active';
   if (status === 'REJECTED') return 'tcs-badge tcs-badge--banned';
@@ -39,6 +61,7 @@ export default function PlatformWithdrawalsPage() {
     title: string;
   } | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
+  const [visibleAccountIds, setVisibleAccountIds] = useState<Record<string, boolean>>({});
 
   const pagePendingCount = useMemo(
     () => data?.items.filter((item) => item.status === 'PENDING').length ?? 0,
@@ -85,6 +108,13 @@ export default function PlatformWithdrawalsPage() {
       closeDecisionDialog();
       reload();
     }
+  };
+
+  const toggleAccountVisibility = (withdrawalId: string) => {
+    setVisibleAccountIds((current) => ({
+      ...current,
+      [withdrawalId]: !current[withdrawalId],
+    }));
   };
 
   return (
@@ -191,7 +221,33 @@ export default function PlatformWithdrawalsPage() {
                         <td>
                           <div className="pw-bank-cell">
                             <strong>{item.bankName}</strong>
-                            <span>{item.accountNoMasked}</span>
+                            <div className="pw-bank-row">
+                              <span>
+                                {visibleAccountIds[item.id] && item.raw.accountNo
+                                  ? item.raw.accountNo
+                                  : item.accountNoMasked}
+                              </span>
+                              <button
+                                className="pw-account-toggle"
+                                type="button"
+                                onClick={() => toggleAccountVisibility(item.id)}
+                                aria-label={
+                                  visibleAccountIds[item.id]
+                                    ? 'Ẩn số tài khoản nhận'
+                                    : 'Hiện số tài khoản nhận'
+                                }
+                                title={
+                                  visibleAccountIds[item.id]
+                                    ? 'Ẩn số tài khoản nhận'
+                                    : 'Hiện số tài khoản nhận'
+                                }
+                              >
+                                <VisibilityIcon hidden={!!visibleAccountIds[item.id]} />
+                              </button>
+                            </div>
+                            <span className="pw-bank-cell__holder">
+                              {item.accountHolderName || '—'}
+                            </span>
                           </div>
                         </td>
                         <td>

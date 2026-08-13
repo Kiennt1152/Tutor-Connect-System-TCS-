@@ -4,6 +4,7 @@ import type {
   TopupSessionInfo,
   TopupStatusInfo,
 } from '../types/financeTypes';
+import { useAutoPolling } from '../../../shared/hooks/useAutoPolling';
 
 interface Props {
   onCreateTopup: (payload: DepositPayload) => Promise<TopupSessionInfo>;
@@ -37,6 +38,7 @@ export function DepositModal({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('');
+  const [amountError, setAmountError] = useState<string | null>(null);
   const [description, setDescription] = useState('');
   const [session, setSession] = useState<TopupSessionInfo | null>(null);
   const [flowStatus, setFlowStatus] = useState<TopupFlowStatus>('form');
@@ -67,31 +69,25 @@ export function DepositModal({
     return () => window.clearInterval(timer);
   }, [open, session, flowStatus]);
 
-  useEffect(() => {
-    if (!open || !session || flowStatus !== 'pending') {
-      return;
-    }
-
-    let cancelled = false;
-    const timer = window.setInterval(async () => {
+  useAutoPolling(
+    async () => {
+      if (!open || !session || flowStatus !== 'pending') {
+        return;
+      }
       try {
         const data = await onCheckTopupStatus(session.reference);
-        if (!cancelled) {
-          applyTopupStatus(data, false);
-        }
+        applyTopupStatus(data, false);
       } catch {
-        // Polling is quiet; manual check shows the user-facing error.
+        // Auto polling im lặng, tránh làm người dùng bị nhiễu.
       }
-    }, 3000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [open, session, flowStatus, onCheckTopupStatus]);
+    },
+    open && !!session && flowStatus === 'pending',
+    5000,
+  );
 
   function resetFlow() {
     setAmount('');
+    setAmountError(null);
     setDescription('');
     setSession(null);
     setFlowStatus('form');
@@ -160,12 +156,31 @@ export function DepositModal({
     }
   }
 
+  function handleAmountChange(value: string) {
+    setAmount(value);
+    setError(null);
+
+    if (!value.trim()) {
+      setAmountError(null);
+      return;
+    }
+
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setAmountError('Số tiền phải lớn hơn 0');
+      return;
+    }
+
+    setAmountError(null);
+  }
+
   async function handleSubmit() {
     const parsed = Number(amount);
     if (!parsed || parsed <= 0) {
-      setError('Số tiền phải lớn hơn 0');
+      setAmountError('Số tiền phải lớn hơn 0');
       return;
     }
+    setAmountError(null);
     await createSession(parsed);
   }
 
@@ -251,8 +266,9 @@ export function DepositModal({
                     {PRESETS.map((v) => (
                       <button
                         key={v}
+                        type="button"
                         className={`deposit-preset ${amount === String(v) ? 'deposit-preset--active' : ''}`}
-                        onClick={() => setAmount(String(v))}
+                        onClick={() => handleAmountChange(String(v))}
                       >
                         {v >= 1000000
                           ? `${(v / 1000000).toFixed(0)}M`
@@ -268,9 +284,10 @@ export function DepositModal({
                     className="form-input"
                     placeholder="Nhập số tiền"
                     value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
+                    onChange={(e) => handleAmountChange(e.target.value)}
                     min={1}
                   />
+                  {amountError && <p className="form-error">{amountError}</p>}
 
                   <label className="form-label" htmlFor="deposit-desc">Ghi chú (tùy chọn)</label>
                   <input

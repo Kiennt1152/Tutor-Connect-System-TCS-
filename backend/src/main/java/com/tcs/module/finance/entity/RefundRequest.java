@@ -51,6 +51,9 @@ public class RefundRequest {
     @Column(name = "account_no", length = 50)
     private String accountNo;
 
+    @Column(name = "account_holder_name", length = 150)
+    private String accountHolderName;
+
     @Column(name = "refund_reference_code", length = 100)
     private String refundReferenceCode;
 

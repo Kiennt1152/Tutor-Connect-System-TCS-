@@ -9,4 +9,5 @@ public class PaymentMethodRequest {
 
     private String bankName;
     private String accountNo;
+    private String accountHolderName;
 }

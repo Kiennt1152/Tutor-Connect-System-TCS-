@@ -31,7 +31,14 @@ public class PlatformAnalyticsController {
         if (!"csv".equalsIgnoreCase(format)) {
             throw new IllegalArgumentException("Chỉ hỗ trợ định dạng xuất CSV: " + format);
         }
+<<<<<<< Updated upstream
         byte[] csvData = analyticsService.exportCsv(type);
+=======
+        validateRange(from, to);
+        byte[] csvData = analyticsService.exportCsv(type, from, to);
+        auditLogService.record("EXPORT_ANALYTICS", "AnalyticsExport", 0L, null,
+                java.util.Map.of("type", type, "from", String.valueOf(from), "to", String.valueOf(to)));
+>>>>>>> Stashed changes
         String filename = "tcs-analytics-" + type + "-" + LocalDate.now() + ".csv";
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")

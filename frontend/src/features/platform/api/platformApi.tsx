@@ -211,6 +211,48 @@ export const platformApi = {
     return axiosClient.delete(`${BASE}/announcements/${announcementId}`);
   },
 
+<<<<<<< Updated upstream
+=======
+  getEscrows(filters: Record<string, string>) {
+    return axiosClient.get<AdminEscrowPageApiResponse>(`${BASE}/escrows?${new URLSearchParams(filters)}`);
+  },
+
+  getCircumventionEvents(status?: CircumventionStatus) {
+    const query = status ? `?status=${status}` : '';
+    return axiosClient.get<PageCircumventionEventApiResponse>(`${BASE}/circumvention-events${query}`);
+  },
+
+  reviewCircumventionEvent(eventId: number, status: Exclude<CircumventionStatus, 'PENDING'>, note: string) {
+    return axiosClient.patch<CircumventionEventApiResponse>(`${BASE}/circumvention-events/${eventId}`, { status, note });
+  },
+
+  getCircumventionConversation(eventId: number) {
+    return axiosClient.get<import('../types/platformTypes').CircumventionConversationApiResponse>(
+      `${BASE}/circumvention-events/${eventId}/conversation`,
+    );
+  },
+
+  getNotificationTemplates() {
+    return axiosClient.get<NotificationTemplateApiResponse[]>(`${BASE}/notification-templates`);
+  },
+
+  createNotificationTemplate(payload: UpsertNotificationTemplateApiRequest) {
+    return axiosClient.post<NotificationTemplateApiResponse>(`${BASE}/notification-templates`, payload);
+  },
+
+  updateNotificationTemplate(templateId: number, payload: UpsertNotificationTemplateApiRequest) {
+    return axiosClient.patch<NotificationTemplateApiResponse>(`${BASE}/notification-templates/${templateId}`, payload);
+  },
+
+  disableNotificationTemplate(templateId: number) {
+    return axiosClient.delete<NotificationTemplateApiResponse>(`${BASE}/notification-templates/${templateId}`);
+  },
+
+  previewNotificationTemplate(payload: Pick<UpsertNotificationTemplateApiRequest, 'titleTemplate' | 'contentTemplate'> & { variables: Record<string, string> }) {
+    return axiosClient.post<NotificationTemplatePreviewApiResponse>(`${BASE}/notification-templates/preview`, payload);
+  },
+
+>>>>>>> Stashed changes
   getPublicAnnouncements() {
     return axiosClient.get<AnnouncementApiResponse[]>('/home/announcements');
   },

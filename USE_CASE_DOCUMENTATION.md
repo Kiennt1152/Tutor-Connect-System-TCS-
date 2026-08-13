@@ -1,6 +1,6 @@
 # Use Case Documentation - feature/user Branch (BF-09 & BF-10 Focus)
 
-> **Document Version**: 4.1 (PRD Standard Template - Fully Compliant)
+> **Document Version**: 5.0 (PRD Standard Template - Fully Compliant)
 > **Scope**: BF-09 (Customer Support), BF-10 (Platform Admin), plus core identity UCs (UC-01, 03, 04, 36).
 
 ## Table of Contents
@@ -25,8 +25,9 @@
 - [UC-57: Manage System Categories](#uc-57-manage-system-categories)
 - [UC-60: Enforce Platform Penalties](#uc-60-enforce-platform-penalties)
 - [UC-61: Monitor Audit Logs](#uc-61-monitor-audit-logs)
-
-*(Note: UC-35 Configure Notification Templates, UC-58 Manage Escrow Transactions, and UC-59 Detect Platform Circumvention are currently partially implemented/API-only and are excluded from this UI documentation until fully developed.)*
+- [UC-35: Configure Notification Templates](#uc-35-configure-notification-templates)
+- [UC-58: Manage Escrow Transactions](#uc-58-manage-escrow-transactions)
+- [UC-59: Detect Platform Circumvention](#uc-59-detect-platform-circumvention)
 
 ---
 
@@ -191,11 +192,11 @@
 | **BF-ID Ref** | BF-02, BF-04, BF-05 |
 | **Depends On** | UC-01 |
 | **Preconditions** | The user has an active session. |
-| **Postconditions** | A message is stored and delivered to the recipient in real-time. |
+| **Postconditions** | A message is stored and delivered to the recipient(s) in real-time. For group creation, a new conversation with multiple participants is created. |
 
 ### Main Flow
 1. **[U]** Opens the Messaging page from the navigation menu.
-2. **[S]** Loads existing conversations and establishes a WebSocket connection.
+2. **[S]** Loads existing conversations (direct and group) and establishes a WebSocket connection.
 3. **[U]** Selects a conversation.
 4. **[S]** Loads the paginated message history.
 5. **[U]** Types a message and clicks Send.
@@ -204,17 +205,24 @@
 
 ### Alternative Flows
 - **AF-01 — WebSocket Disconnected:** System falls back to REST API for sending.
+- **AF-02 — Create Group Chat:** User opens the new-chat modal, switches to group mode, enters a group name (3-80 chars) and selects 2-19 other members, then clicks "Create". System creates a `GROUP` conversation, adds the creator as owner, and notifies all added members.
+- **AF-03 — Manage Group:** The group owner opens Group Info and can rename the group, add members (up to a total of 20 participants), remove a member, or transfer ownership to another member. The owner must transfer ownership before leaving the group; non-owner members can leave freely.
 
 ### Business Rules
 - **BR-UC36-01**: Messages are text-only, maximum 5000 characters.
 - **BR-UC36-02**: Read receipts (`lastReadAt`) are tracked per user per conversation.
+- **BR-UC36-03**: A `GROUP` conversation has exactly one owner (`Conversation.ownerUserId`) at any time; there is no multi-admin/co-owner role. Only the owner can rename the group, add/remove members, or transfer ownership.
+- **BR-UC36-04**: Group size is capped at 20 participants (owner + up to 19 members). Creation requires the owner plus at least 2 other members.
+- **BR-UC36-05**: The owner cannot leave the group without first transferring ownership to another member.
 
 ### Request Fields
 | Field | Type | Rule |
 |-------|------|------|
 | Content | Text | Required. Max 5000 characters. |
+| Group Name | Text | Required for group creation. 3-80 characters. |
+| Member IDs | List | Required for group creation. 2-19 other users. |
 
-**On success:** The person sees their sent message appear immediately in the chat thread.
+**On success:** The person sees their sent message appear immediately in the chat thread, or the new group appears in the conversation list.
 
 ### Allowed Roles
 - Client, Tutor, Tutor Center, Platform Admin
@@ -223,6 +231,9 @@
 - **Given** two authenticated users.
 - **When** User A sends a valid message to User B.
 - **Then** the message is saved AND User B receives it in real-time via WebSocket.
+- **Given** an authenticated user creating a group.
+- **When** they enter a valid name and select 2 or more members.
+- **Then** a `GROUP` conversation is created AND all selected members receive a notification AND the creator is set as owner.
 
 ---
 
@@ -394,38 +405,47 @@
 | **Postconditions** | A report is created. Admin can review and resolve it. |
 
 ### Main Flow
-1. **[U]** Navigates to a user profile or active class.
-2. **[U]** Clicks "Report User" or "Report Class".
-3. **[U]** Selects a report category, enters details, and clicks Submit.
-4. **[S]** Validates the payload and creates a `Report` record via `POST /reports`.
-5. **[S]** Displays a success message confirming the report was sent to Platform Admins.
-6. **[U]** (Admin Flow) Logs in and navigates to Reports view (`GET /reports`).
+1. **[U]** Opens an existing direct (1-1) chat conversation with the user to be reported, and clicks the "Report User" (!) icon in the chat header.
+2. **[U]** Selects a report category (FRAUD, ABUSE, SPAM, INAPPROPRIATE, OTHER), enters a description (min. 10 characters), and clicks Submit.
+3. **[S]** Validates the payload and creates a `Report` record via `POST /api/messaging/reports`.
+4. **[S]** Displays a success message confirming the report was sent to Platform Admins.
+5. **[U]** (Class Flow) Navigates to a contract or active class detail page and clicks "Report Class Issue". Fills in issue type, description, and optional evidence, then submits via `POST /api/class-issues`.
+6. **[U]** (Admin Flow) Logs in and navigates to Reports view (`GET /api/platform/reports`).
 7. **[U]** (Admin Flow) Reviews the report and clicks Resolve.
-8. **[S]** (Admin Flow) Validates and sends `PATCH /reports/{reportId}/resolve` to mark it as resolved.
+8. **[S]** (Admin Flow) Validates and sends `PATCH /api/platform/reports/{reportId}` (USER/REVIEW) or `PATCH /api/platform/reports/{reportId}/resolve` (CLASS) to mark it as resolved.
 
 ### Alternative Flows
-- **AF-01 — Invalid Payload:** At step 4, if details are empty, validation fails and prompts the user.
+- **AF-01 — Invalid Payload:** At step 3, if description is under 10 characters or required fields are empty, validation fails and prompts the user.
+- **AF-02 — Report a Review:** From "My Reputation" (Tutor) or "My Reviews" (Client), the user can report a specific review via the same underlying report endpoint with `targetType = REVIEW`.
+- **AF-03 — Rate Limit / Duplicate Block:** If the user has submitted 5+ reports in the last 24 hours, or already has a `PENDING` report against the same target, the submission is rejected with an inline error.
+- **AF-04 — Tutor Center Review:** For class reports belonging to their own classes, a Tutor Center can view and resolve them via a dedicated Reports page (`GET/PATCH /api/center/reports/**`).
 
 ### Business Rules
 - **BR-UC52-01**: Admins review and manually apply penalties if the report is valid.
+- **BR-UC52-02**: A user cannot report themselves, and cannot submit more than 5 reports within a rolling 24-hour window.
+- **BR-UC52-03**: A new report against the same target is blocked while a prior report from the same reporter for that target is still `PENDING`.
+- **BR-UC52-04**: `CLASS` target reports must be resolved through the class-issue resolution flow (`resolveClassIssue`), not the generic report resolution endpoint.
 
 ### Request Fields
 | Field | Type | Rule |
 |-------|------|------|
-| Target Type | Text | Required. USER or CLASS. |
+| Target Type | Text | Required. USER, CLASS, or REVIEW. |
 | Target ID | Number | Required. Valid ID of the reported entity. |
-| Category | Text | Required. E.g., SPAM, HARASSMENT, SCAM. |
-| Description | Text | Required. |
+| Category | Text | Required. One of: FRAUD, ABUSE, SPAM, INAPPROPRIATE, OTHER. |
+| Description | Text | Required. Min 10 characters. |
 
 **On success:** The person sees a success message confirming the report was lodged.
 
 ### Allowed Roles
-- Client, Tutor, Tutor Center (Submitter). Platform Admin (Reviewer).
+- Client, Tutor, Tutor Center (Submitter). Platform Admin (Reviewer, all targets). Tutor Center (Reviewer, class reports for their own classes only).
 
 ### Verification Criteria
-- **Given** an authenticated user.
-- **When** the user submits a report with valid details.
-- **Then** a report record is created in the DB AND is visible to admins for resolution.
+- **Given** an authenticated user viewing an open direct chat.
+- **When** the user submits a "Report User" with a valid category and description (≥10 chars).
+- **Then** a report record is created in the DB AND is visible to Platform Admins for resolution.
+
+### Known Gap
+- There is currently no standalone "Report User" screen with its own user search/target picker; reporting a user is only reachable from within an already-open direct chat conversation (`activeConv.otherParticipant`).
 
 ---
 
@@ -490,23 +510,24 @@
 | **Postconditions** | Read-only operation. |
 
 ### Main Flow
-1. **[U]** Navigates to Financial Reports.
-2. **[S]** Aggregates data from `PlatformAnalyticsController`.
-3. **[S]** Displays total platform revenue, deposits, withdrawals, and escrow balances over time.
-4. **[U]** Uses date filters to adjust the chart views.
+1. **[U]** Navigates to the Analytics page.
+2. **[S]** Calls `GET /api/platform/analytics/summary?from=&to=` (`PlatformAnalyticsController` → `PlatformAnalyticsServiceImpl`).
+3. **[S]** Displays user/tutor/class counts, contract completion rate, verification conversion rate, dispute rate, total platform revenue, platform fee revenue, and a breakdown of deposits, withdrawals, escrow held, escrow released, and escrow refunded.
+4. **[U]** Uses the date range filter to re-aggregate the same metrics for a specific period.
 
 ### Alternative Flows
-- **AF-01 — No Data:** If no data exists for the selected period, charts display an empty state placeholder.
+- **AF-01 — No Data:** If no data exists for the selected period, cards display zero values.
+- **AF-02 — Invalid Range:** If `from` is after `to`, the API rejects the request with a validation error.
 
 ### Business Rules
-- **BR-UC41-01**: Access to financial data is restricted to PLATFORM_ADMIN.
+- **BR-UC41-01**: Access to financial data is restricted to PLATFORM_ADMIN. There is currently no Tutor Center-scoped financial report endpoint.
 
 ### Request Fields
 | Field | Type | Rule |
 |-------|------|------|
-| Date Range | Date | Optional. Used for filtering. |
+| Date Range (`from`, `to`) | Date | Optional. When provided, `from` must not be after `to`. |
 
-**On success:** The admin sees updated aggregate financial metrics based on the applied filters.
+**On success:** The admin sees updated aggregate financial metrics (including deposit/withdrawal/escrow breakdown) based on the applied filters.
 
 ### Allowed Roles
 - Platform Admin
@@ -514,7 +535,10 @@
 ### Verification Criteria
 - **Given** an admin on the financial report page.
 - **When** they apply a date filter.
-- **Then** the dashboard data re-aggregates accurately for the selected period.
+- **Then** the dashboard data re-aggregates accurately for the selected period, including the deposit/withdrawal/escrow breakdown.
+
+### Known Gap
+- Tutor Center users cannot view a financial report scoped to their own center; the analytics endpoint is PLATFORM_ADMIN-only.
 
 ---
 
@@ -530,34 +554,39 @@
 | **BF-ID Ref** | BF-10 |
 | **Depends On** | UC-41 |
 | **Preconditions** | Admin is logged in. |
-| **Postconditions** | CSV file is generated and downloaded. |
+| **Postconditions** | CSV file is generated and downloaded. An `EXPORT_ANALYTICS` audit log entry is recorded. |
 
 ### Main Flow
-1. **[U]** Navigates to Financial Reports.
-2. **[U]** Selects a date range and clicks "Export CSV".
-3. **[S]** Generates the CSV report from the database.
-4. **[S]** Streams the file download to the user's browser.
+1. **[U]** Navigates to the Analytics page.
+2. **[U]** Selects an export type (e.g., users, transactions), an optional date range, and clicks "Export CSV".
+3. **[S]** Calls `GET /api/platform/analytics/export?type=&from=&to=&format=csv`.
+4. **[S]** Generates the CSV report from the database (`analyticsService.exportCsv`).
+5. **[S]** Records an `EXPORT_ANALYTICS` entry in the audit log (type, from, to).
+6. **[S]** Streams the file download (`tcs-analytics-{type}-{date}.csv`) to the admin's browser.
 
 ### Alternative Flows
 - **AF-01 — Empty Export:** If no transactions occurred, the exported CSV contains only headers.
+- **AF-02 — Unsupported Format:** If a format other than `csv` is requested, the API rejects with a validation error.
 
 ### Business Rules
-- **BR-UC43-01**: Export actions are recorded in the audit trail.
+- **BR-UC43-01**: Every export action is recorded in the audit trail via `auditLogService.record("EXPORT_ANALYTICS", ...)`.
 
 ### Request Fields
 | Field | Type | Rule |
 |-------|------|------|
-| Date Range | Date | Required. Start and end date for the export. |
+| Type | Text | Required. Defaults to `users`. Determines which dataset is exported. |
+| Format | Text | Optional. Only `csv` is supported. |
+| Date Range | Date | Optional. Start and end date for the export period. |
 
-**On success:** A CSV file is successfully generated and downloaded to the admin's machine.
+**On success:** A CSV file is successfully generated and downloaded to the admin's machine, and the export is logged.
 
 ### Allowed Roles
 - Platform Admin
 
 ### Verification Criteria
 - **Given** an admin on the financial report page.
-- **When** they click Export CSV.
-- **Then** a CSV file is generated containing all transactions for the selected period.
+- **When** they click Export CSV for a given period.
+- **Then** a CSV file is generated for that period AND an `EXPORT_ANALYTICS` audit log entry is created.
 
 ---
 
@@ -583,11 +612,14 @@
 5. **[S]** Shows a success message.
 
 ### Alternative Flows
-- **AF-01 — Invalid Bounds:** If fee rate > 50%, system rejects with "Fee rate exceeds allowed bounds."
+- **AF-01 — Invalid Bounds:** If fee rate is negative or greater than 0.50 (50%), the system rejects the update with "PLATFORM_FEE_RATE phải từ 0.00 đến 0.50."
+- **AF-02 — Protected Key:** If the admin attempts to rename or delete a mandatory key (`PLATFORM_FEE_RATE` or `ESCROW_HOLD_DAYS`), the system rejects the operation.
 
 ### Business Rules
-- **BR-UC46-01**: Platform Fee Rate must be a valid decimal between 0.00 and 0.50.
+- **BR-UC46-01**: Platform Fee Rate must be a valid decimal between 0.00 and 0.50, validated server-side on every create/update.
 - **BR-UC46-02**: Changes apply only to future contracts.
+- **BR-UC46-03**: `PLATFORM_FEE_RATE` and `ESCROW_HOLD_DAYS` are mandatory keys; they cannot be deleted, and their key name cannot be changed.
+- **BR-UC46-04**: `ESCROW_HOLD_DAYS` must be an integer between 1 and 365.
 
 ### Request Fields
 | Field | Type | Rule |
@@ -622,14 +654,15 @@
 
 ### Main Flow
 1. **[U]** Lands on the main Dashboard after login.
-2. **[S]** Fetches KPIs via `PlatformController.getDashboardStats()`.
-3. **[S]** Renders summary cards (Pending Verifications, Open Tickets, New Users) and revenue charts.
+2. **[S]** Fetches KPIs via `PlatformService.getDashboard()`, which combines the task queue summary and the analytics summary.
+3. **[S]** Renders summary cards (Pending Verifications, Open Tickets, New Users) and revenue figures, plus contextual alert cards (e.g., open disputes, pending withdrawals).
+4. **[S]** Frontend polls `GET /api/platform/dashboard` every 60 seconds (`usePlatformDashboard`) to keep the view current.
 
 ### Alternative Flows
 - **AF-01 — Service Error:** If backend fails, a fallback generic "Service Unavailable" is displayed instead of charts.
 
 ### Business Rules
-- **BR-UC56-01**: Dashboard stats are cached for performance and refreshed periodically.
+- **BR-UC56-01**: The dashboard automatically refreshes every 60 seconds via client-side polling; there is currently no server-side cache, so each refresh re-aggregates from the database.
 
 ### Request Fields
 | Field | Type | Rule |
@@ -644,7 +677,10 @@
 ### Verification Criteria
 - **Given** an admin logs into the system.
 - **When** they land on the dashboard.
-- **Then** the system displays the aggregated KPI summaries and charts.
+- **Then** the system displays the aggregated KPI summaries and charts, refreshing automatically every 60 seconds.
+
+### Known Gap
+- Dashboard aggregation is not cached (no `@Cacheable`/Redis/Caffeine); `PlatformAnalyticsServiceImpl` performs multiple `findAll()` calls (users, classes, transactions, verification requests) and aggregates in application code rather than via DB-level aggregate queries. This may not scale well as data volume grows.
 
 ---
 
@@ -707,32 +743,44 @@
 
 ### Main Flow
 1. **[U]** Navigates to the user's profile and clicks "Apply Penalty".
-2. **[S]** Shows the penalty modal (handled via `PlatformPenaltyController`).
-3. **[U]** Selects a penalty type (e.g., Account Suspension, Warning), inputs a reason, and saves.
-4. **[S]** Records the penalty in the database.
-5. **[S]** Triggers the penalty effects (e.g., locks account) and notifies the user.
+2. **[S]** Shows the penalty modal (handled via `PlatformPenaltyController` → `PenaltyService`).
+3. **[U]** Selects a penalty type (`TEMPORARY_BAN`, `PERMANENT_BAN`, `WARNING`, or `FEATURE_RESTRICTION`), inputs a reason (and, for `FEATURE_RESTRICTION`, the restricted feature codes; for `TEMPORARY_BAN`, an expiry date), and saves.
+4. **[S]** Records the penalty in the `user_penalties` table.
+5. **[S]** For `TEMPORARY_BAN`/`PERMANENT_BAN`, sets the user's account status to `BANNED`. For `FEATURE_RESTRICTION`, no account-level lock is applied; enforcement happens per-feature at request time (see BR-UC60-03).
+6. **[S]** Sends a `PENALTY_ISSUED` notification to the affected user with the penalty type and reason.
+7. **[S]** (Background) A scheduled job (`expireOverduePenalties`, every 5 minutes) automatically expires `TEMPORARY_BAN` penalties past their `expiresAt` and restores the user to `ACTIVE` status if no other active ban remains.
 
 ### Alternative Flows
-- **AF-01 — Self-Penalty Block:** Admin cannot apply a penalty to their own account.
+- **AF-01 — Self-Penalty Block:** Admin cannot apply a penalty to their own account, nor to another Platform Admin's account.
+- **AF-02 — Revoke Penalty:** Admin selects an active penalty and clicks "Revoke" with a reason; system sets status to `REVOKED` and restores `ACTIVE` status if no other active ban exists.
+- **AF-03 — Feature Restriction Enforcement:** When a restricted user attempts the restricted action (sending a message, posting a class, applying to a class, or requesting a withdrawal), the system blocks the request with a 403 error until the restriction expires or is revoked.
 
 ### Business Rules
 - **BR-UC60-01**: Penalties are permanently logged and directly impact user login access or platform privileges.
+- **BR-UC60-02**: An admin cannot apply a penalty to their own account or to another Platform Admin's account.
+- **BR-UC60-03**: `FEATURE_RESTRICTION` is enforced per feature code (`MESSAGING`, `CLASS_POSTING`, `CLASS_APPLICATION`, `WITHDRAWAL`) via `PenaltyAccessService.requireFeature()`, checked at the point of use rather than as a blanket account lock.
+- **BR-UC60-04**: `TEMPORARY_BAN` requires a future `expiresAt`; `PERMANENT_BAN` has no expiry. Expired temporary bans are auto-restored to `ACTIVE` by a scheduled job.
 
 ### Request Fields
 | Field | Type | Rule |
 |-------|------|------|
-| Penalty Type | Text | Required. E.g., SUSPENSION, WARNING. |
+| Penalty Type | Text | Required. One of: TEMPORARY_BAN, PERMANENT_BAN, WARNING, FEATURE_RESTRICTION. |
 | Reason | Text | Required. Must provide justification. |
+| Restriction Details | Text (JSON) | Required for FEATURE_RESTRICTION. Must reference at least one valid feature code. |
+| Expires At | Date | Required for TEMPORARY_BAN. Must be a future date. |
 
-**On success:** The penalty is enforced and the user's status updates immediately.
+**On success:** The penalty is enforced and the user's status/feature access updates immediately, and the user is notified.
 
 ### Allowed Roles
 - Platform Admin
 
 ### Verification Criteria
 - **Given** an admin reviewing a user account.
-- **When** the admin applies a suspension penalty.
+- **When** the admin applies a suspension (ban) penalty.
 - **Then** the user is immediately suspended AND receives a notification detailing the reason.
+- **Given** an admin applies a `FEATURE_RESTRICTION` on `WITHDRAWAL` to a user.
+- **When** that user attempts to request a withdrawal.
+- **Then** the request is rejected with a 403 error while the account otherwise remains usable.
 
 ---
 
@@ -775,4 +823,166 @@
 ### Verification Criteria
 - **Given** an admin on the Audit Logs page.
 - **When** they apply specific Date Range and Action Type filters.
+<<<<<<< Updated upstream
 - **Then** the table displays only the logs matching the requested criteria.
+=======
+- **Then** the table displays only the logs matching the requested criteria.
+
+---
+
+## UC-35: Configure Notification Templates
+**UI-type block**
+
+| Field | Value |
+|-------|-------|
+| **Primary Actor** | Platform Admin |
+| **Secondary Actor(s)** | Notification Service |
+| **Module** | Platform Administration |
+| **FT-ID Ref** | FT-47 |
+| **BF-ID Ref** | BF-10 |
+| **Depends On** | — |
+| **Preconditions** | Admin is logged in. |
+| **Postconditions** | Notification template records are created, updated, or disabled. Future notifications using that template code render with the updated content. |
+
+### Main Flow
+1. **[U]** Navigates to Notification Templates (`PlatformNotificationTemplatesPage`).
+2. **[S]** Fetches the list via `GET /api/platform/notification-templates`.
+3. **[U]** Clicks "Create Template", enters a unique code, title template, content template (with `{{placeholder}}` syntax), channel, and enabled flag, then clicks Save.
+4. **[S]** Validates the payload and creates the record via `POST /api/platform/notification-templates`.
+5. **[U]** Clicks "Preview", supplies sample JSON variables, and views the rendered title/content.
+6. **[S]** Calls `POST /api/platform/notification-templates/preview` to substitute placeholders and return the rendered text.
+7. **[S]** At runtime, whenever a module (e.g., Marketplace, Chat, Payment, Verification, Dispute, Penalty) triggers a notification via `NotificationDispatchService.notifyUserFromTemplate(user, type, code, variables, fallbackTitle, fallbackContent, ...)`, the system looks up the enabled template by code, substitutes the variables, and sends it; if the template is disabled or missing, the fallback title/content is used instead.
+
+### Alternative Flows
+- **AF-01 — Edit Template:** Admin edits an existing template's title/content/channel and saves via `PATCH /api/platform/notification-templates/{id}`.
+- **AF-02 — Disable Template:** Admin disables a template via `DELETE /api/platform/notification-templates/{id}` (soft-disable, not a hard delete); future dispatches for that code fall back to the caller-provided default text.
+- **AF-03 — Missing Placeholder:** If a variable referenced in the template is not supplied at render time, the placeholder is left as-is or substituted with an empty value depending on the renderer's behavior.
+
+### Business Rules
+- **BR-UC35-01**: Template `code` must be unique (case-insensitive).
+- **BR-UC35-02**: Placeholders use the syntax `{{variableName}}`, matched via a fixed regex pattern.
+- **BR-UC35-03**: Disabled or non-existent templates cause the dispatch service to fall back to the caller-supplied default title/content rather than failing the notification.
+
+### Request Fields
+| Field | Type | Rule |
+|-------|------|------|
+| Code | Text | Required. Unique (case-insensitive). |
+| Title Template | Text | Required. |
+| Content Template | Text | Required. |
+| Channel | Text | Required. |
+| Enabled | Yes/No | Required boolean. |
+
+**On success:** The admin sees the new/updated template in the list, and the preview reflects the rendered output for supplied sample variables.
+
+### Allowed Roles
+- Platform Admin
+
+### Verification Criteria
+- **Given** an admin creates a template with code `PENALTY_ISSUED` and content `"Loại: {{penaltyType}}. Lý do: {{reason}}"`.
+- **When** `PenaltyServiceImpl.issuePenalty()` later calls `notifyUserFromTemplate(user, ..., "PENALTY_ISSUED", Map.of("penaltyType", ..., "reason", ...), ...)`.
+- **Then** the user receives a notification with the placeholders substituted by the actual penalty type and reason.
+
+---
+
+## UC-58: Manage Escrow Transactions
+**UI-type block**
+
+| Field | Value |
+|-------|-------|
+| **Primary Actor** | Platform Admin |
+| **Secondary Actor(s)** | None |
+| **Module** | Platform Administration / Finance |
+| **FT-ID Ref** | FT-39 |
+| **BF-ID Ref** | BF-10 |
+| **Depends On** | — |
+| **Preconditions** | Admin is logged in. |
+| **Postconditions** | Escrow funds are released to the beneficiary and/or refunded to the payer; the transaction status is updated. |
+
+### Main Flow
+1. **[U]** Navigates to the Escrow Transactions queue (`AdminEscrowQueue`).
+2. **[S]** Fetches a filtered, paginated list via `GET /api/platform/escrows?status=&from=&to=&reference=&payer=&beneficiary=&page=&size=`.
+3. **[U]** Filters by status and/or keyword (reference), and clicks "Xử lý" (Process) on a transaction.
+4. **[S]** Loads the transaction detail via `GET /api/platform/escrows/{escrowId}` into the settlement form (`PlatformEscrowPage`).
+5. **[U]** Chooses a split (release all, refund all, half, custom percentage) and confirms.
+6. **[S]** Calls `POST /finance/settlements/execute` (release to beneficiary / partial release) or `POST /finance/refunds/execute` (refund to payer) with the `escrowId` and computed amounts.
+7. **[S]** Updates the escrow transaction status and records the settlement/refund.
+
+### Alternative Flows
+- **AF-01 — No Results:** If filters yield no matching transactions, the queue shows an empty state.
+- **AF-02 — Split Settlement:** Admin can split funds between release-to-beneficiary and refund-to-payer in the same action (e.g., 70/30) rather than an all-or-nothing settlement.
+
+### Business Rules
+- **BR-UC58-01**: Only PLATFORM_ADMIN can list, view, settle, or refund escrow transactions.
+- **BR-UC58-02**: The sum of released and refunded amounts in a settlement action cannot exceed the escrowed amount.
+
+### Request Fields
+| Field | Type | Rule |
+|-------|------|------|
+| Status | Text | Optional filter. |
+| Date Range (`from`, `to`) | Date | Optional filter. |
+| Reference / Payer / Beneficiary | Text | Optional filter. |
+| Escrow ID | Number | Required for settle/refund actions. |
+| Release / Refund Amount | Number | Required. Must not exceed the escrowed amount. |
+
+**On success:** The admin sees the escrow transaction move to a settled/refunded state, and the list reflects the updated status.
+
+### Allowed Roles
+- Platform Admin
+
+### Verification Criteria
+- **Given** an admin viewing the escrow queue with an `ESCROWED` filter.
+- **When** they select a transaction and execute a full release.
+- **Then** the beneficiary's wallet is credited AND the escrow transaction status changes accordingly.
+
+---
+
+## UC-59: Detect Platform Circumvention
+**UI-type block**
+
+| Field | Value |
+|-------|-------|
+| **Primary Actor** | Platform Admin |
+| **Secondary Actor(s)** | Messaging Service (automatic scan) |
+| **Module** | Trust & Safety |
+| **FT-ID Ref** | FT-42 |
+| **BF-ID Ref** | BF-10 |
+| **Depends On** | UC-36 |
+| **Preconditions** | Admin is logged in. A chat message has been sent through the Messaging module. |
+| **Postconditions** | Suspicious messages are flagged as a `CircumventionEvent` for admin review, and the review decision is recorded. |
+
+### Main Flow
+1. **[S]** Every time a chat message is saved (`ChatServiceImpl`), the system automatically inspects its content via `CircumventionService.inspect(message)`.
+2. **[S]** The inspector applies regex-based rules for phone numbers, email addresses, URLs, and social-media handles, assigning a risk score (65-90) per matched rule.
+3. **[S]** If a rule matches, a `CircumventionEvent` is created with status `PENDING`, storing the matched rule, evidence snippet, and risk score.
+4. **[U]** Navigates to the Circumvention Detection page (`PlatformCircumventionPage`).
+5. **[S]** Fetches the review queue via `GET /api/platform/circumvention-events?status=&page=&size=`.
+6. **[U]** Opens the linked conversation to review context, then clicks "Confirm" or "Dismiss", optionally entering a note.
+7. **[S]** Calls `PATCH /api/platform/circumvention-events/{eventId}` to set status to `CONFIRMED` or `DISMISSED`, recording the reviewer and review note.
+
+### Alternative Flows
+- **AF-01 — No Match:** If a message triggers no rule, no event is created.
+- **AF-02 — Escalation:** Admin may follow up a `CONFIRMED` event by applying a penalty (see UC-60) to the offending user.
+
+### Business Rules
+- **BR-UC59-01**: Detection runs automatically and synchronously as part of message delivery; it is not a manual/on-demand scan.
+- **BR-UC59-02**: Events default to `PENDING` status and can only transition to `CONFIRMED` or `DISMISSED` via admin review.
+
+### Request Fields
+| Field | Type | Rule |
+|-------|------|------|
+| Status Filter | Text | Optional. One of PENDING, CONFIRMED, DISMISSED. |
+| Review Note | Text | Optional. Max 500 characters. |
+
+**On success:** The admin sees the circumvention event queue update to reflect the review decision.
+
+### Allowed Roles
+- Platform Admin
+
+### Verification Criteria
+- **Given** a user sends a chat message containing a phone number.
+- **When** the message is saved.
+- **Then** a `CircumventionEvent` with status `PENDING` is created and appears in the admin review queue.
+- **Given** an admin reviewing a `PENDING` event.
+- **When** they mark it `CONFIRMED` with a note.
+- **Then** the event status updates AND the reviewer and note are recorded.
+>>>>>>> Stashed changes
