@@ -16,6 +16,11 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
             Long targetId,
             ReportStatus status);
 
+    List<Report> findByTargetTypeOrderByCreatedAtDesc(ReportTargetType targetType);
+
+    List<Report> findByTargetTypeAndTargetIdOrderByCreatedAtDesc(
+            ReportTargetType targetType, Long targetId);
+
     boolean existsByTargetTypeAndTargetIdAndStatus(
             ReportTargetType targetType,
             Long targetId,

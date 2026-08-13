@@ -174,9 +174,11 @@ const VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
 };
 
 const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
-  FRAUD: 'Gian lận',
-  ABUSE: 'Lạm dụng',
+  FRAUD: 'Sai sự thật / gian lận',
+  ABUSE: 'Lăng mạ / xúc phạm',
   SPAM: 'Spam',
+  INAPPROPRIATE: 'Nội dung không phù hợp',
+  OTHER: 'Lý do khác',
 };
 
 const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {

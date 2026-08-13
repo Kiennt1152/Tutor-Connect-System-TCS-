@@ -229,7 +229,7 @@ export interface VerificationDetailApiResponse {
 }
 
 export type ReportStatus = 'PENDING' | 'RESOLVED';
-export type ReportCategory = 'FRAUD' | 'ABUSE' | 'SPAM';
+export type ReportCategory = 'FRAUD' | 'ABUSE' | 'SPAM' | 'INAPPROPRIATE' | 'OTHER';
 export type ReportTargetType = string;
 export type ClassIssueResolutionAction =
   | 'REQUEST_MORE_INFORMATION'
@@ -594,6 +594,13 @@ export interface AdminReviewApiResponse {
   subjectName: string | null;
   tutorReply: string | null;
   createdAt: string;
+  reportCount: number;
+  pendingReportCount: number;
+  latestReportId: number | null;
+  latestReportCategory: ReportCategory | null;
+  latestReportReason: string | null;
+  latestReporterEmail: string | null;
+  latestReportAt: string | null;
 }
 
 /* ── Support Tickets (admin) ── */

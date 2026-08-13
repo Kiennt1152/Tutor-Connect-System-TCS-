@@ -614,7 +614,17 @@ public class PlatformServiceImpl implements PlatformService {
                 ? reviewRepository.findByReviewTypeOrderByCreatedAtDesc(ReviewType.CLIENT_TO_TUTOR)
                 : reviewRepository.findByReviewTypeAndStatusOrderByCreatedAtDesc(
                         ReviewType.CLIENT_TO_TUTOR, status);
-        return reviews.stream().map(this::toAdminReviewResponse).toList();
+
+        Map<Long, List<Report>> reportsByReviewId =
+                reportRepository.findByTargetTypeOrderByCreatedAtDesc(ReportTargetType.REVIEW).stream()
+                        .filter(report -> report.getTargetId() != null)
+                        .collect(Collectors.groupingBy(Report::getTargetId));
+
+        return reviews.stream()
+                .map(review -> toAdminReviewResponse(
+                        review,
+                        reportsByReviewId.getOrDefault(review.getReviewId(), List.of())))
+                .toList();
     }
 
     @Override
@@ -759,6 +769,13 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     private AdminReviewResponse toAdminReviewResponse(Review review) {
+        return toAdminReviewResponse(
+                review,
+                reportRepository.findByTargetTypeAndTargetIdOrderByCreatedAtDesc(
+                        ReportTargetType.REVIEW, review.getReviewId()));
+    }
+
+    private AdminReviewResponse toAdminReviewResponse(Review review, List<Report> reports) {
         Long reviewerId = review.getReviewer().getUserId();
         String reviewerName = clientRepository
                 .findByUser_UserId(reviewerId)
@@ -781,6 +798,11 @@ public class PlatformServiceImpl implements PlatformService {
 
         TutoringClass reviewClass = review.getTutoringClass();
 
+        Report latestReport = reports.isEmpty() ? null : reports.get(0);
+        int pendingReportCount = (int) reports.stream()
+                .filter(r -> r.getStatus() == ReportStatus.PENDING)
+                .count();
+
         return AdminReviewResponse.builder()
                 .reviewId(review.getReviewId())
                 .rating(review.getRating())
@@ -802,7 +824,27 @@ public class PlatformServiceImpl implements PlatformService {
                                 : null)
                 .tutorReply(review.getTutorReply())
                 .createdAt(review.getCreatedAt())
+                .reportCount(reports.size())
+                .pendingReportCount(pendingReportCount)
+                .latestReportId(latestReport != null ? latestReport.getReportId() : null)
+                .latestReportCategory(latestReport != null ? latestReport.getCategory() : null)
+                .latestReportReason(latestReport != null ? reportUserDescription(latestReport) : null)
+                .latestReporterEmail(
+                        latestReport != null && latestReport.getReporter() != null
+                                ? latestReport.getReporter().getEmail()
+                                : null)
+                .latestReportAt(latestReport != null ? latestReport.getCreatedAt() : null)
                 .build();
+    }
+
+    /** Bỏ phần ghi chú xử lý mà admin đã nối vào mô tả, chỉ giữ nội dung người dùng nhập. */
+    private String reportUserDescription(Report report) {
+        String description = report.getDescription();
+        if (!StringUtils.hasText(description)) {
+            return null;
+        }
+        String userPart = description.split("\\[UC-30\\]")[0].split("\\[UC-55\\]")[0].trim();
+        return StringUtils.hasText(userPart) ? userPart : description.trim();
     }
 
     @Override

@@ -1567,12 +1567,15 @@ function ReviewReportDetail({
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  const reviewMissing = detail != null && detail.reportedReview == null;
+
   useEffect(() => {
-    setAction('HIDE_REVIEW');
+    // Đánh giá đã bị xóa thì chỉ còn cách đóng báo cáo.
+    setAction(reviewMissing ? 'KEEP_REVIEW' : 'HIDE_REVIEW');
     setNotes('');
     setErrorMessage('');
     setSuccessMessage('');
-  }, [detail?.id]);
+  }, [detail?.id, reviewMissing]);
 
   if (!detail) {
     return (
@@ -1676,14 +1679,23 @@ function ReviewReportDetail({
               <select
                 className="adm-field"
                 value={action}
+                disabled={reviewMissing}
                 onChange={(event) => setAction(event.target.value as ReviewReportAction)}
               >
-                {REVIEW_REPORT_ACTION_OPTIONS.map((option) => (
+                {(reviewMissing
+                  ? REVIEW_REPORT_ACTION_OPTIONS.filter((option) => option.value === 'KEEP_REVIEW')
+                  : REVIEW_REPORT_ACTION_OPTIONS
+                ).map((option) => (
                   <option key={option.value} value={option.value}>
                     {option.label}
                   </option>
                 ))}
               </select>
+              {reviewMissing && (
+                <span className="adm-table__sub">
+                  Đánh giá không còn tồn tại nên chỉ có thể đóng báo cáo.
+                </span>
+              )}
             </label>
             <label className="pd-field">
               <span>Ghi chú xử lý</span>
