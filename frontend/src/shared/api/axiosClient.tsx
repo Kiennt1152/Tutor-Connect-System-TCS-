@@ -3,8 +3,7 @@ import { authStorage } from '../auth/authStorage';
 import { APP_ROUTES } from '../constants/routes';
 
 const baseURL =
-  (import.meta.env.VITE_API_URL as string | undefined) ??
-  (import.meta.env.DEV ? '/api' : 'http://localhost:8080/api');
+  (import.meta.env.VITE_API_URL as string | undefined) ?? '/api';
 
 const axiosClient = axios.create({
   baseURL,

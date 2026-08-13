@@ -81,7 +81,7 @@ public class CatalogServiceImpl implements CatalogService {
         String[] parts = normalized.split("[^a-z0-9]+");
         List<String> tokens = new ArrayList<>();
         for (String part : parts) {
-            if (!part.isBlank() && !STOP_WORDS.contains(part)) {
+            if (!part.isBlank() && !part.chars().allMatch(Character::isDigit) && !STOP_WORDS.contains(part)) {
                 tokens.add(part);
             }
         }
@@ -95,15 +95,17 @@ public class CatalogServiceImpl implements CatalogService {
         String qNorm = normalizeVietnamese(faq.getQuestion());
         String aNorm = normalizeVietnamese(faq.getAnswer());
 
-        int score = 0;
+        int questionMatches = 0;
+        int answerMatches = 0;
         for (String token : queryTokens) {
             if (qNorm.contains(token)) {
-                score += 2;
+                questionMatches++;
             } else if (aNorm.contains(token)) {
-                score += 1;
+                answerMatches++;
             }
         }
-        return score;
+        int requiredQuestionMatches = Math.min(2, queryTokens.size());
+        return questionMatches >= requiredQuestionMatches ? questionMatches * 2 + answerMatches : 0;
     }
 
     @Override
@@ -269,6 +271,16 @@ public class CatalogServiceImpl implements CatalogService {
                         .faqId(best.getFaqId())
                         .build();
             }
+        }
+
+        Optional<String> aiAnswer = geminiService.askQuestion(question.trim());
+        if (aiAnswer.isPresent()) {
+            return ChatbotAskResponse.builder()
+                    .matched(true)
+                    .aiGenerated(true)
+                    .question(question.trim())
+                    .answer(aiAnswer.get())
+                    .build();
         }
 
         return ChatbotAskResponse.builder()

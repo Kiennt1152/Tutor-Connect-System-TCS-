@@ -12,12 +12,15 @@ export default function PlatformAnalyticsPage() {
   const [exportingType, setExportingType] = useState<string | null>(null);
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
+  const [appliedFrom, setAppliedFrom] = useState('');
+  const [appliedTo, setAppliedTo] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         setLoading(true);
-        const response = await platformApi.getAnalyticsSummary(from, to);
+        setError(null);
+        const response = await platformApi.getAnalyticsSummary(appliedFrom, appliedTo);
         setData(response.data);
       } catch (err) {
         setError(getApiErrorMessage(err));
@@ -27,13 +30,32 @@ export default function PlatformAnalyticsPage() {
     };
 
     fetchData();
-  }, [from, to]);
+  }, [appliedFrom, appliedTo]);
+
+  const invalidRange = Boolean(from && to && from > to);
+
+  const handleApplyRange = () => {
+    if (invalidRange) return;
+    setAppliedFrom(from);
+    setAppliedTo(to);
+  };
+
+  const handleClearRange = () => {
+    setFrom('');
+    setTo('');
+    setAppliedFrom('');
+    setAppliedTo('');
+  };
 
   const handleExport = async (type: 'users' | 'classes' | 'revenue') => {
     setExportingType(type);
     try {
+      if (invalidRange) return;
       const response = await platformApi.exportAnalyticsCsv(type, from, to);
-      const url = window.URL.createObjectURL(response.data);
+      const csvBlob = response.data instanceof Blob
+        ? response.data
+        : new Blob([response.data], { type: 'text/csv;charset=utf-8' });
+      const url = window.URL.createObjectURL(csvBlob);
       const link = document.createElement('a');
       link.href = url;
       link.setAttribute('download', `tcs-analytics-${type}-${new Date().toISOString().slice(0, 10)}.csv`);
@@ -65,20 +87,6 @@ export default function PlatformAnalyticsPage() {
 
     return (
       <div>
-        <div className="adm-analytics-header-actions" style={{ marginBottom: '2rem' }}>
-          <label>Từ ngày <input type="date" value={from} max={to || undefined} onChange={(event) => setFrom(event.target.value)} /></label>
-          <label>Đến ngày <input type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} /></label>
-          <button disabled={exportingType === 'users'} onClick={() => handleExport('users')}>
-            {exportingType === 'users' ? 'Đang tải...' : 'Tải CSV Người dùng'}
-          </button>
-          <button disabled={exportingType === 'classes'} onClick={() => handleExport('classes')}>
-            {exportingType === 'classes' ? 'Đang tải...' : 'Tải CSV Lớp học'}
-          </button>
-          <button disabled={exportingType === 'revenue'} onClick={() => handleExport('revenue')}>
-            {exportingType === 'revenue' ? 'Đang tải...' : 'Tải CSV Doanh thu'}
-          </button>
-        </div>
-
         <h2 className="adm-kpi-section-title">Cơ cấu Người dùng & Hệ sinh thái</h2>
         <div className="adm-analytics-grid-4">
           <div className="adm-analytics-card">
@@ -200,6 +208,42 @@ export default function PlatformAnalyticsPage() {
       title="Báo cáo & Phân tích"
       subtitle="Thống kê tổng quan hoạt động và doanh thu của nền tảng"
     >
+      <section className="adm-analytics-controls" aria-label="Bộ lọc và xuất báo cáo">
+        <div className="adm-analytics-date-range">
+          <label>
+            <span>Từ ngày</span>
+            <input type="date" value={from} max={to || undefined} onChange={(event) => setFrom(event.target.value)} />
+          </label>
+          <label>
+            <span>Đến ngày</span>
+            <input type="date" value={to} min={from || undefined} onChange={(event) => setTo(event.target.value)} />
+          </label>
+          <button type="button" className="adm-analytics-apply" disabled={invalidRange || loading} onClick={handleApplyRange}>
+            Áp dụng
+          </button>
+          {(from || to) && (
+            <button type="button" className="adm-analytics-clear" onClick={handleClearRange}>
+              Xóa lọc
+            </button>
+          )}
+        </div>
+        {invalidRange && <p className="adm-analytics-range-error">Ngày bắt đầu phải trước hoặc bằng ngày kết thúc.</p>}
+
+        <div className="adm-analytics-export-actions">
+          <span>Xuất dữ liệu theo khoảng ngày đã chọn</span>
+          <div>
+            <button disabled={Boolean(exportingType) || invalidRange} onClick={() => handleExport('users')}>
+              {exportingType === 'users' ? 'Đang tải...' : 'CSV Người dùng'}
+            </button>
+            <button disabled={Boolean(exportingType) || invalidRange} onClick={() => handleExport('classes')}>
+              {exportingType === 'classes' ? 'Đang tải...' : 'CSV Lớp học'}
+            </button>
+            <button disabled={Boolean(exportingType) || invalidRange} onClick={() => handleExport('revenue')}>
+              {exportingType === 'revenue' ? 'Đang tải...' : 'CSV Doanh thu'}
+            </button>
+          </div>
+        </div>
+      </section>
       {renderContent()}
     </AdminLayout>
   );

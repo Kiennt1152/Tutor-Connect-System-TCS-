@@ -979,3 +979,20 @@ export interface CircumventionEventApiResponse {
   reviewNote: string | null; reviewedAt: string | null; createdAt: string;
 }
 export interface PageCircumventionEventApiResponse { content: CircumventionEventApiResponse[]; page: number; size: number; totalElements: number; totalPages: number; }
+export interface CircumventionConversationApiResponse {
+  eventId: number;
+  conversationId: number;
+  conversationType: string;
+  conversationName: string | null;
+  flaggedMessageId: number;
+  participants: Array<{ userId: number; email: string }>;
+  messages: Array<{
+    messageId: number;
+    senderId: number;
+    senderEmail: string;
+    content: string;
+    sentAt: string;
+    flagged: boolean;
+  }>;
+  hasMore: boolean;
+}

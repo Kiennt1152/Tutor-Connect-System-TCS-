@@ -30,6 +30,7 @@ import com.tcs.module.finance.repository.PaymentMethodRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
+import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.identity.entity.User;
@@ -98,6 +99,9 @@ class FinanceServiceImplTest {
 
     @Mock
     private EscrowTransactionRepository escrowTransactionRepository;
+
+    @Mock
+    private CenterRequestFeeService centerRequestFeeService;
 
     @Mock
     private PaymentNotificationService paymentNotificationService;

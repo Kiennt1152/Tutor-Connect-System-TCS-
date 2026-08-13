@@ -15,6 +15,7 @@ services:
       retries: 5
 
   backend:
+    image: tcs-backend:latest
     build:
       context: .
       dockerfile: Dockerfile
@@ -33,12 +34,12 @@ services:
         condition: service_healthy
 
   frontend:
-    image: nginx:alpine
+    image: tcs-frontend:latest
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
     ports:
       - "3000:80"
-    volumes:
-      - ./frontend/dist:/usr/share/nginx/html:ro
-      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     depends_on:
       - backend
 
