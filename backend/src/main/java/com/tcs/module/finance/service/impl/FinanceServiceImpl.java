@@ -924,6 +924,9 @@ public class FinanceServiceImpl implements FinanceService {
                     paymentMethod.setType(BANK_TRANSFER_TYPE);
                     paymentMethod.setBankName(data.bankName());
                     paymentMethod.setAccountNo(data.accountNo());
+                    paymentMethod.setAccountHolderName(data.accountHolderName());
+                    paymentMethod.setVerifiedAt(LocalDateTime.now());
+                    applyPayoutCooldown(paymentMethod);
                     paymentMethod.setStatus(PAYMENT_METHOD_ACTIVE);
                     return paymentMethodRepository.save(paymentMethod);
                 });
