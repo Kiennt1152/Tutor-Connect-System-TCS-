@@ -94,6 +94,9 @@ public interface CenterService {
     /** Bước 13: trung tâm xác nhận khóa học đã hoàn thành -> tất toán + đóng lớp. */
     void confirmClassCompletion(Long classId);
 
+    /** Thống kê tình trạng lớp (điểm danh có mặt/vắng/có phép) theo lớp + học sinh. */
+    com.tcs.module.center.dto.response.CenterStatsResponse getClassStats();
+
     /**
      * Danh sách gia sư để trung tâm chọn gán (tạm thời lấy tất cả).
      * Nếu truyền {@code classId}, mỗi gia sư sẽ được đánh dấu có trùng lịch với lớp đó hay không.

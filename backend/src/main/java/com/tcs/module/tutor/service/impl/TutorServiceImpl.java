@@ -588,7 +588,7 @@ public class TutorServiceImpl implements TutorService {
         if (!assignment.getTutor().getTutorId().equals(tutor.getTutorId())) {
             throw new ForbiddenException("Bạn không phụ trách lớp này");
         }
-        centerEscrowAutoSettlementService.confirmCompletion(classId);
+        centerEscrowAutoSettlementService.markTutorConfirmed(classId);
     }
 
     private Lesson newLesson(TutoringClass c, ScheduleSlot slot, int seq, Tutor tutor, LocalDate date) {
@@ -724,6 +724,7 @@ public class TutorServiceImpl implements TutorService {
                 .attendanceTaken(!attendanceByStudent.isEmpty())
                 .finalSession(isLastScheduledSession(c, date))
                 .classCompleted(c.getStatus() == TutoringClassStatus.COMPLETED)
+                .tutorCompletionConfirmed(centerEscrowAutoSettlementService.isTutorConfirmed(c.getClassId()))
                 .build();
         // Đính kèm gia sư phụ của lớp (nếu có) để gia sư chính biết có thể nhờ dạy thay.
         substitutionService.findAssistant(c.getClassId()).ifPresent(assistantId -> {

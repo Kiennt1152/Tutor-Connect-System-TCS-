@@ -78,23 +78,6 @@ export default function TutorSchedulePage() {
   const openAttendance = (classId: number, dateIso: string) =>
     navigate(`/tutor/classes/${classId}/attendance?date=${dateIso}`);
 
-  // Bước 13: xác nhận khóa học hoàn thành -> hệ thống tất toán + đóng lớp.
-  const [completingId, setCompletingId] = useState<number | null>(null);
-  const [okMsg, setOkMsg] = useState('');
-  const confirmComplete = async (classId: number) => {
-    setCompletingId(classId);
-    setError('');
-    setOkMsg('');
-    try {
-      const res = await tutorApi.confirmClassCompletion(classId);
-      setOkMsg(res.data?.message ?? 'Đã xác nhận khóa học hoàn thành.');
-      load();
-    } catch (err) {
-      setError(extractError(err, 'Không xác nhận được hoàn thành khóa học.'));
-    } finally {
-      setCompletingId(null);
-    }
-  };
 
   // Đổi lịch (báo ốm)
   const [reschedFor, setReschedFor] = useState<{ cls: ScheduleClass; date: string } | null>(null);
@@ -239,7 +222,6 @@ export default function TutorSchedulePage() {
         </div>
 
         {error && <div className="cs-alert cs-alert--error">{error}</div>}
-        {okMsg && <div className="cs-alert cs-alert--ok">{okMsg}</div>}
 
         {error && <div className="cs-alert cs-alert--error">{error}</div>}
         {reschedOk && <div className="cs-alert cs-alert--ok">{reschedOk}</div>}
@@ -310,20 +292,10 @@ export default function TutorSchedulePage() {
                                   🤒
                                 </button>
                               </div>
-                              {c.classCompleted && c.finalSession ? (
-                                <div className="tw-complete-done">✓ Đã xác nhận hoàn thành</div>
-                              ) : c.attendanceTaken && c.finalSession ? (
-                                <button
-                                  className="tw-complete-btn"
-                                  type="button"
-                                  disabled={completingId === c.classId}
-                                  onClick={() => confirmComplete(c.classId)}
-                                  title="Xác nhận cả khóa học đã hoàn thành để hệ thống tất toán học phí và đóng lớp"
-                                >
-                                  {completingId === c.classId
-                                    ? 'Đang xác nhận…'
-                                    : '✅ Xác nhận hoàn thành khóa học'}
-                                </button>
+                              {c.classCompleted ? (
+                                <div className="tw-complete-done">✓ Đã hoàn thành</div>
+                              ) : c.tutorCompletionConfirmed ? (
+                                <div className="tw-complete-done">⏳ Chờ trung tâm xác nhận</div>
                               ) : null}
                             </>
                           )}

@@ -23,6 +23,10 @@ import com.tcs.module.marketplace.repository.LessonRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.platform.enums.ReportStatus;
 import com.tcs.module.platform.enums.ReportTargetType;
+import com.tcs.module.catalog.entity.SystemParameter;
+import com.tcs.module.catalog.repository.SystemParameterRepository;
+import com.tcs.module.messaging.enums.NotificationType;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.repository.ReportRepository;
 import java.math.BigDecimal;
 import java.util.Collections;
@@ -57,6 +61,10 @@ public class CenterEscrowAutoSettlementService {
     private final ClassTerminationRequestRepository classTerminationRequestRepository;
     private final ReportRepository reportRepository;
     private final EscrowService escrowService;
+    private final SystemParameterRepository systemParameterRepository;
+    private final NotificationDispatchService notificationDispatchService;
+
+    private static final String TUTOR_DONE_KEY_PREFIX = "classtutorcompleted:";
 
     @Transactional
     public boolean trySettleCompletedCenterClass(Long classId) {
@@ -131,6 +139,10 @@ public class CenterEscrowAutoSettlementService {
         if (tutoringClass.getStatus() == TutoringClassStatus.COMPLETED) {
             throw new IllegalArgumentException("Khóa học đã được xác nhận hoàn thành trước đó.");
         }
+        if (!isTutorConfirmed(classId)) {
+            throw new IllegalArgumentException(
+                    "Gia sư chưa xác nhận hoàn thành khóa học — chưa thể đóng lớp.");
+        }
         if (!isCenterClassReadyForAutoSettlement(tutoringClass)) {
             throw new IllegalArgumentException("Lớp chưa ở trạng thái có thể hoàn thành.");
         }
@@ -172,6 +184,54 @@ public class CenterEscrowAutoSettlementService {
         // Đóng lớp.
         tutoringClass.setStatus(TutoringClassStatus.COMPLETED);
         tutoringClassRepository.save(tutoringClass);
+        clearTutorConfirmed(classId);
+    }
+
+    /**
+     * Bước 13a: GIA SƯ xác nhận đã hoàn thành khóa học (ở buổi cuối). Chưa đóng lớp — chỉ đánh dấu
+     * và báo trung tâm để trung tâm xác nhận đóng lớp (bước 13b/14).
+     */
+    @Transactional
+    public void markTutorConfirmed(Long classId) {
+        TutoringClass c = tutoringClassRepository.findById(classId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy lớp học."));
+        if (c.getClassType() != ClassType.CENTER) {
+            throw new IllegalArgumentException("Chỉ áp dụng cho lớp của trung tâm.");
+        }
+        if (c.getStatus() == TutoringClassStatus.COMPLETED) {
+            throw new IllegalArgumentException("Khóa học đã hoàn thành.");
+        }
+        String key = TUTOR_DONE_KEY_PREFIX + classId;
+        SystemParameter p = systemParameterRepository.findByParamKey(key)
+                .orElseGet(SystemParameter::new);
+        p.setParamKey(key);
+        p.setParamValue("1");
+        p.setDescription("Gia sư đã xác nhận hoàn thành khóa học");
+        systemParameterRepository.save(p);
+
+        if (c.getCreator() != null) {
+            String title = "Gia sư đã xác nhận hoàn thành khóa học";
+            String content = "Gia sư đã xác nhận lớp \"" + c.getTitle()
+                    + "\" hoàn thành. Vào xác nhận để tất toán học phí và đóng lớp.";
+            notificationDispatchService.notifyUserFromTemplate(
+                    c.getCreator(),
+                    NotificationType.CLASS,
+                    "CLASS_TUTOR_CONFIRMED_COMPLETION",
+                    java.util.Map.of("title", title, "content", content),
+                    title,
+                    content,
+                    "TUTORING_CLASS",
+                    classId);
+        }
+    }
+
+    public boolean isTutorConfirmed(Long classId) {
+        return systemParameterRepository.findByParamKey(TUTOR_DONE_KEY_PREFIX + classId).isPresent();
+    }
+
+    private void clearTutorConfirmed(Long classId) {
+        systemParameterRepository.findByParamKey(TUTOR_DONE_KEY_PREFIX + classId)
+                .ifPresent(systemParameterRepository::delete);
     }
 
     private boolean isCenterClassReadyForAutoSettlement(TutoringClass tutoringClass) {

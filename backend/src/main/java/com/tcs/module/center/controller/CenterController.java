@@ -265,6 +265,11 @@ public class CenterController {
         return Map.of("message", "Đã xác nhận khóa học hoàn thành và tất toán học phí.");
     }
 
+    @GetMapping("/stats")
+    public com.tcs.module.center.dto.response.CenterStatsResponse getClassStats() {
+        return centerService.getClassStats();
+    }
+
     @GetMapping("/tutors")
     public List<TutorOptionResponse> listTutors(@RequestParam(required = false) Long classId) {
         return centerService.listTutors(classId);

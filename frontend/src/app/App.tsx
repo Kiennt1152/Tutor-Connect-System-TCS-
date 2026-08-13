@@ -34,6 +34,7 @@ import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPag
 import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
 import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
 import ClientSchedulePage from '../features/marketplace/pages/ClientSchedulePage';
+import CenterStatsPage from '../features/center/pages/CenterStatsPage';
 import CenterTutorsPage from '../features/center/pages/CenterTutorsPage';
 import CenterContractTemplatesPage from '../features/center/pages/CenterContractTemplatesPage';
 import CentersPage from '../features/home/pages/CentersPage';
@@ -227,6 +228,14 @@ export default function App() {
             }
           />
           <Route
+            path="/center/requests"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={APP_ROUTES.centerReports}
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
@@ -263,6 +272,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['CLIENT']}>
                 <ClientSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/stats"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterStatsPage />
               </ProtectedRoute>
             }
           />

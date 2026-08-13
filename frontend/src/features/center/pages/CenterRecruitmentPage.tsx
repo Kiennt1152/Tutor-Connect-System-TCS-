@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { centerApi } from '../api/centerApi';
 import { LocationPicker } from '../components/LocationPicker';
 import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { CenterSidebar } from '../components/CenterSidebar';
 import { ChatButton } from '../../messaging/components/ChatButton';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { profileApi } from '../../profile/api/profileApi';
@@ -391,23 +392,13 @@ export default function CenterRecruitmentPage() {
     <>
       <HomeNavbar />
       <div className="rc-bg">
+      <div className="cc-shell">
+      <CenterSidebar />
+      <div className="cc-shell__main">
       <div className="rc-page">
-        <div className="rc-topbar">
-          <Link className="rc-back" to="/">
-            ← Trang chủ
-          </Link>
-          <Link className="rc-btn rc-btn--ghost rc-btn--sm" to="/center/tutors">
-            Gia sư của trung tâm
-          </Link>
-        </div>
-
         <header className="rc-header">
           <div>
             <h1 className="rc-title">Tin tuyển gia sư</h1>
-            <p className="rc-subtitle">
-              Tạo tin ở dạng nháp, đăng tin để gia sư tự do nhìn thấy và ứng tuyển, rồi duyệt hoặc
-              từ chối từng ứng viên.
-            </p>
           </div>
           <button className="rc-btn rc-btn--primary" type="button" onClick={() => openCreate()}>
             + Tạo tin tuyển dụng
@@ -913,6 +904,8 @@ export default function CenterRecruitmentPage() {
           })
         }
       />
+      </div>
+      </div>
       </div>
     </>
   );

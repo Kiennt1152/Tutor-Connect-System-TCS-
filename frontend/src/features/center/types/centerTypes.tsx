@@ -79,6 +79,47 @@ export interface RecruitmentApplication {
 
 export type VerificationDocumentType = 'ID_CARD' | 'DEGREE' | 'CERTIFICATE' | 'LICENSE';
 
+export interface CenterStatsTotals {
+  classCount: number;
+  activeClassCount: number;
+  completedClassCount: number;
+  studentCount: number;
+  present: number;
+  absent: number;
+  excused: number;
+  totalMarks: number;
+  attendanceRate: number;
+}
+export interface CenterClassStat {
+  classId: number;
+  title: string;
+  status: string;
+  tutorId: number | null;
+  tutorName: string | null;
+  studentCount: number;
+  present: number;
+  absent: number;
+  excused: number;
+  attendanceRate: number;
+}
+export interface CenterStudentStat {
+  classStudentId: number;
+  studentName: string;
+  classId: number;
+  className: string;
+  tutorId: number | null;
+  tutorName: string | null;
+  present: number;
+  absent: number;
+  excused: number;
+  attendanceRate: number;
+}
+export interface CenterStats {
+  totals: CenterStatsTotals;
+  classes: CenterClassStat[];
+  students: CenterStudentStat[];
+}
+
 export interface CertificateInfo {
   documentType: VerificationDocumentType | null;
   fileId: number | null;
@@ -176,6 +217,8 @@ export interface ClassResponse {
   assistantTutorId: number | null;
   assistantTutorName: string | null;
   students?: StudentAttendance[];
+  /** true nếu gia sư đã xác nhận hoàn thành — trung tâm cần xác nhận để đóng lớp. */
+  tutorCompletionConfirmed?: boolean;
 }
 
 export interface TutorOption {
@@ -226,6 +269,8 @@ export interface ScheduleClass {
   finalSession?: boolean;
   /** true nếu lớp đã được xác nhận hoàn thành. */
   classCompleted?: boolean;
+  /** true nếu gia sư đã xác nhận hoàn thành (đang chờ trung tâm đóng lớp). */
+  tutorCompletionConfirmed?: boolean;
 }
 
 export type RescheduleStatus = 'PENDING' | 'APPROVED' | 'REJECTED';

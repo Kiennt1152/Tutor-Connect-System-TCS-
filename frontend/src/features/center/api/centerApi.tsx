@@ -23,6 +23,14 @@ import type {
 export const CENTER_API_BASE = '/center';
 
 export const centerApi = {
+  // Bước 13b/14: trung tâm xác nhận khóa học hoàn thành -> tất toán + đóng lớp.
+  completeClass(classId: number) {
+    return axiosClient.post<{ message: string }>(`${CENTER_API_BASE}/classes/${classId}/complete`);
+  },
+  // Thống kê tình trạng lớp (điểm danh) — biểu đồ + số tổng hợp cho trung tâm.
+  getStats() {
+    return axiosClient.get<import('../types/centerTypes').CenterStats>(`${CENTER_API_BASE}/stats`);
+  },
   // Tải file chứng chỉ đã xác minh của gia sư (endpoint kèm JWT) -> Blob để hiển thị.
   // Ảnh/giấy tờ private không xem được bằng <img src> vì thẻ img không gửi được token.
   async getCertificateBlob(fileId: number): Promise<Blob> {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { CenterSidebar } from '../components/CenterSidebar';
 import { SiteFooter } from '../../home/components/SiteFooter';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { centerApi } from '../api/centerApi';
@@ -102,19 +103,18 @@ export default function CenterContractTemplatesPage() {
   return (
     <div className="contract-shell">
       <HomeNavbar />
+      <div className="cc-shell">
+      <CenterSidebar />
+      <div className="cc-shell__main">
       <main className="contract-page tcs-container">
         <section className="contract-page-head">
           <div>
-            <p className="contract-eyebrow">Quản lý hợp đồng</p>
             <h1>Mẫu hợp đồng</h1>
             <p>
               Mẫu hệ thống dùng chung. Bạn có thể tạo mẫu riêng của trung tâm để chọn khi tuyển
               dụng hoặc tạo lớp.
             </p>
           </div>
-          <Link className="tcs-btn tcs-btn--ghost" to="/center">
-            ← Về quản lý lớp
-          </Link>
         </section>
 
         {/* Thông tin BÊN A của trung tâm trên hợp đồng */}
@@ -260,6 +260,8 @@ export default function CenterContractTemplatesPage() {
           )}
         </section>
       </main>
+      </div>
+      </div>
 
       {previewTpl && (
         <div

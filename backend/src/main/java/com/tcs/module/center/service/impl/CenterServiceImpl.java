@@ -44,6 +44,7 @@ import com.tcs.module.center.service.CenterService;
 import com.tcs.module.identity.enums.VerificationDocumentType;
 import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.enums.VerificationType;
+import com.tcs.module.center.dto.response.CenterStatsResponse;
 import com.tcs.module.finance.service.CenterEscrowAutoSettlementService;
 import com.tcs.module.identity.repository.VerificationDocumentRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
@@ -801,11 +802,9 @@ public class CenterServiceImpl implements CenterService {
                         "Cần gán đủ 2 gia sư (gia sư chính + gia sư phụ) trước khi mở ghi danh.");
             }
             tutoringClass.setStatus(TutoringClassStatus.OPEN);
-            // Deadline ghi danh bám theo ngày học đầu tiên: đóng trước buổi đầu.
-            tutoringClass.setEnrollmentDeadline(
-                    tutoringClass.getStartDate() != null
-                            ? tutoringClass.getStartDate().minusDays(1)
-                            : LocalDate.now().plusDays(CLASS_ENROLLMENT_DAYS));
+            // Ghi danh mở cố định 30 ngày kể từ lúc đăng (BF-04) — không bám theo ngày bắt đầu,
+            // tránh trường hợp ngày bắt đầu quá gần khiến lớp bị tự đóng/hủy ngay.
+            tutoringClass.setEnrollmentDeadline(LocalDate.now().plusDays(CLASS_ENROLLMENT_DAYS));
         }
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
@@ -863,7 +862,40 @@ public class CenterServiceImpl implements CenterService {
                     "Chưa đủ sĩ số tối thiểu để kích hoạt lớp (" + enrolled + "/" + required + ").");
         }
         tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
-        return toClassResponse(tutoringClassRepository.save(tutoringClass));
+        TutoringClass saved = tutoringClassRepository.save(tutoringClass);
+        notifyClassStarted(saved);
+        return toClassResponse(saved);
+    }
+
+    /** BF-04: khi lớp bắt đầu (kích hoạt) -> báo cho gia sư phụ trách và phụ huynh của từng học viên. */
+    private void notifyClassStarted(TutoringClass c) {
+        String title = "Lớp học đã bắt đầu";
+        String content = "Lớp \"" + c.getTitle()
+                + "\" đã bắt đầu và đã có lịch học. Vào mục lịch học để xem các buổi.";
+        classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                .filter(a -> a.getTutor() != null && a.getTutor().getUser() != null)
+                .ifPresent(a -> notifyUserClass(a.getTutor().getUser(), title, content, c.getClassId()));
+        for (ClassStudent s : classStudentRepository
+                .findByTutoringClass_ClassIdAndStatus(c.getClassId(), ClassStudentStatus.ENROLLED)) {
+            if (s.getEnrolledByUser() != null) {
+                notifyUserClass(s.getEnrolledByUser(), title, content, c.getClassId());
+            }
+        }
+    }
+
+    private void notifyUserClass(com.tcs.module.identity.entity.User user, String title,
+            String content, Long classId) {
+        notificationDispatchService.notifyUserFromTemplate(
+                user,
+                com.tcs.module.messaging.enums.NotificationType.CLASS,
+                "CENTER_CLASS_STARTED",
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                "TUTORING_CLASS",
+                classId);
     }
 
     @Override
@@ -1628,6 +1660,139 @@ public class CenterServiceImpl implements CenterService {
         centerEscrowAutoSettlementService.confirmCompletion(classId);
     }
 
+    /** Thống kê tình trạng lớp: điểm danh (có mặt/vắng/có phép) theo lớp + học sinh, kèm số tổng hợp. */
+    @Override
+    @Transactional(readOnly = true)
+    public CenterStatsResponse getClassStats() {
+        requireCenter();
+        Long centerUserId = authHelper.currentUserId();
+        List<TutoringClass> myClasses = tutoringClassRepository.findByCreator_UserId(centerUserId);
+
+        List<CenterStatsResponse.ClassStat> classStats = new ArrayList<>();
+        List<CenterStatsResponse.StudentStat> studentStats = new ArrayList<>();
+        long totPresent = 0;
+        long totAbsent = 0;
+        long totExcused = 0;
+        int totStudents = 0;
+        int activeCount = 0;
+        int completedCount = 0;
+
+        for (TutoringClass c : myClasses) {
+            var assignment = classAssignmentRepository
+                    .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                            c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                    .orElse(null);
+            Long tutorId = (assignment != null && assignment.getTutor() != null)
+                    ? assignment.getTutor().getTutorId() : null;
+            String tutorName = (assignment != null && assignment.getTutor() != null)
+                    ? assignment.getTutor().getFullName() : null;
+
+            List<ClassStudent> students = classStudentRepository
+                    .findByTutoringClass_ClassIdAndStatus(c.getClassId(), ClassStudentStatus.ENROLLED);
+            totStudents += students.size();
+
+            List<com.tcs.module.marketplace.entity.Lesson> lessons = lessonRepository
+                    .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(c.getClassId());
+            List<Long> lessonIds = lessons.stream()
+                    .map(com.tcs.module.marketplace.entity.Lesson::getLessonId)
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+
+            java.util.Map<Long, long[]> perStudent = new java.util.LinkedHashMap<>();
+            long cP = 0;
+            long cA = 0;
+            long cE = 0;
+            if (!lessonIds.isEmpty()) {
+                for (com.tcs.module.marketplace.entity.LessonAttendance a
+                        : lessonAttendanceRepository.findByLesson_LessonIdIn(lessonIds)) {
+                    if (a.getClassStudent() == null || a.getStatus() == null) {
+                        continue;
+                    }
+                    long[] arr = perStudent.computeIfAbsent(
+                            a.getClassStudent().getClassStudentId(), k -> new long[3]);
+                    switch (a.getStatus()) {
+                        case PRESENT -> {
+                            arr[0]++;
+                            cP++;
+                        }
+                        case ABSENT -> {
+                            arr[1]++;
+                            cA++;
+                        }
+                        case EXCUSED -> {
+                            arr[2]++;
+                            cE++;
+                        }
+                    }
+                }
+            }
+            totPresent += cP;
+            totAbsent += cA;
+            totExcused += cE;
+
+            if (c.getStatus() == TutoringClassStatus.COMPLETED) {
+                completedCount++;
+            } else if (c.getStatus() == TutoringClassStatus.IN_PROGRESS
+                    || c.getStatus() == TutoringClassStatus.MATCHED
+                    || c.getStatus() == TutoringClassStatus.ENROLLMENT_CLOSED
+                    || c.getStatus() == TutoringClassStatus.OPEN) {
+                activeCount++;
+            }
+
+            classStats.add(CenterStatsResponse.ClassStat.builder()
+                    .classId(c.getClassId())
+                    .title(c.getTitle())
+                    .status(c.getStatus() != null ? c.getStatus().name() : null)
+                    .tutorId(tutorId)
+                    .tutorName(tutorName)
+                    .studentCount(students.size())
+                    .present(cP)
+                    .absent(cA)
+                    .excused(cE)
+                    .attendanceRate(rate(cP, cP + cA + cE))
+                    .build());
+
+            for (ClassStudent s : students) {
+                long[] arr = perStudent.getOrDefault(s.getClassStudentId(), new long[3]);
+                studentStats.add(CenterStatsResponse.StudentStat.builder()
+                        .classStudentId(s.getClassStudentId())
+                        .studentName(s.getStudentName())
+                        .classId(c.getClassId())
+                        .className(c.getTitle())
+                        .tutorId(tutorId)
+                        .tutorName(tutorName)
+                        .present(arr[0])
+                        .absent(arr[1])
+                        .excused(arr[2])
+                        .attendanceRate(rate(arr[0], arr[0] + arr[1] + arr[2]))
+                        .build());
+            }
+        }
+
+        long totalMarks = totPresent + totAbsent + totExcused;
+        CenterStatsResponse.Totals totals = CenterStatsResponse.Totals.builder()
+                .classCount(myClasses.size())
+                .activeClassCount(activeCount)
+                .completedClassCount(completedCount)
+                .studentCount(totStudents)
+                .present(totPresent)
+                .absent(totAbsent)
+                .excused(totExcused)
+                .totalMarks(totalMarks)
+                .attendanceRate(rate(totPresent, totalMarks))
+                .build();
+
+        return CenterStatsResponse.builder()
+                .totals(totals)
+                .classes(classStats)
+                .students(studentStats)
+                .build();
+    }
+
+    private double rate(long present, long total) {
+        return total <= 0 ? 0.0 : Math.round((present * 10000.0) / total) / 100.0;
+    }
+
     private TutoringClass findClass(Long classId) {
         return tutoringClassRepository
                 .findById(classId)
@@ -1755,6 +1920,7 @@ public class CenterServiceImpl implements CenterService {
                 .assistantTutorId(assistant != null ? assistant.getTutorId() : null)
                 .assistantTutorName(assistant != null ? assistant.getFullName() : null)
                 .students(students)
+                .tutorCompletionConfirmed(centerEscrowAutoSettlementService.isTutorConfirmed(c.getClassId()))
                 .build();
     }
 

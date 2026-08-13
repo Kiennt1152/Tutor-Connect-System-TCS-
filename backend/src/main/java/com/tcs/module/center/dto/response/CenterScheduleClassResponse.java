@@ -46,4 +46,6 @@ public class CenterScheduleClassResponse {
     private boolean finalSession;
     /** true nếu lớp đã được xác nhận hoàn thành (COMPLETED). */
     private boolean classCompleted;
+    /** true nếu GIA SƯ đã xác nhận hoàn thành (đang chờ trung tâm đóng lớp). */
+    private boolean tutorCompletionConfirmed;
 }
