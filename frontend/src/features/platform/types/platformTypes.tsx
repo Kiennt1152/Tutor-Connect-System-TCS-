@@ -336,7 +336,9 @@ export interface AdminWithdrawalApiResponse {
   status: WithdrawalRequestStatus;
   paymentMethodId: number | null;
   bankName: string | null;
+  accountNo: string | null;
   accountNoMasked: string | null;
+  accountHolderName?: string | null;
   transactionId: number | null;
   transactionStatus: PaymentTransactionStatus | null;
   referenceCode: string | null;
@@ -363,7 +365,9 @@ export interface AdminWithdrawalItem {
   status: WithdrawalRequestStatus;
   statusLabel: string;
   bankName: string;
+  accountNo: string;
   accountNoMasked: string;
+  accountHolderName?: string;
   referenceCode: string;
   transactionStatusLabel: string;
   requestedAt: string;

@@ -85,6 +85,12 @@
   overflow: hidden;
 }
 
+.contract-section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
 .contract-table-card__head,
 .contract-card__head {
   display: flex;
@@ -149,6 +155,38 @@
   font-weight: 600;
 }
 
+.contract-escrow-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+}
+
+.contract-escrow-summary__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-2);
+}
+
+.contract-escrow-summary__item span {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.contract-escrow-summary__item strong {
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-lg);
+}
+
 .contract-no {
   color: var(--color-primary-dark);
   font-family: var(--font-mono);
@@ -204,6 +242,31 @@
 .contract-back-link:hover,
 .contract-link-button:hover:not(:disabled) {
   color: var(--color-primary);
+}
+
+.contract-escrow-code {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contract-escrow-code strong {
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+}
+
+.contract-escrow-code code {
+  display: inline-block;
+  max-width: 180px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .contract-detail-nav {
@@ -677,6 +740,10 @@
   .contract-card--wide {
     grid-row: auto;
   }
+
+  .contract-escrow-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -707,6 +774,10 @@
   }
 
   .contract-info-list {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-escrow-summary {
     grid-template-columns: 1fr;
   }
 

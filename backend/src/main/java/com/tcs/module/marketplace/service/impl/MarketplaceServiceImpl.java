@@ -635,15 +635,39 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (root != null && root.isObject()) {
             com.fasterxml.jackson.databind.node.ObjectNode obj =
                     (com.fasterxml.jackson.databind.node.ObjectNode) root;
-            JsonNode existingFees = obj.get("subjectFees");
-            com.fasterxml.jackson.databind.node.ObjectNode fees =
-                    existingFees != null && existingFees.isObject()
-                            ? (com.fasterxml.jackson.databind.node.ObjectNode) existingFees
-                            : objectMapper.createObjectNode();
-            for (Map.Entry<String, BigDecimal> e : rates.entrySet()) {
-                fees.put(e.getKey(), e.getValue().toPlainString());
+            List<String> selectedSubjects = classSubjectKeys(tutoringClass).stream()
+                    .filter(rates::containsKey)
+                    .toList();
+            if (!selectedSubjects.isEmpty()) {
+                com.fasterxml.jackson.databind.node.ArrayNode subjectIds = objectMapper.createArrayNode();
+                for (String subjectId : selectedSubjects) {
+                    subjectIds.add(subjectId);
+                }
+                obj.set("subjectIds", subjectIds);
             }
-            obj.set("subjectFees", fees);
+            com.fasterxml.jackson.databind.node.ObjectNode fees = objectMapper.createObjectNode();
+            Set<String> feeKeys = selectedSubjects.isEmpty() ? rates.keySet() : new LinkedHashSet<>(selectedSubjects);
+            for (String key : feeKeys) {
+                BigDecimal value = rates.get(key);
+                if (value == null) {
+                    continue;
+                }
+                if (value.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+                fees.put(key, value.toPlainString());
+            }
+            if (fees.isEmpty()) {
+                for (Map.Entry<String, BigDecimal> e : rates.entrySet()) {
+                    if (e.getValue() == null || e.getValue().compareTo(BigDecimal.ZERO) <= 0) {
+                        continue;
+                    }
+                    fees.put(e.getKey(), e.getValue().toPlainString());
+                }
+            }
+            if (!fees.isEmpty()) {
+                obj.set("subjectFees", fees);
+            }
             try {
                 tutoringClass.setDetailsJson(objectMapper.writeValueAsString(obj));
             } catch (JsonProcessingException ignored) {
@@ -1073,7 +1097,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (escrowTransactionRepository.findByAssignment_AssignmentId(assignment.getAssignmentId()).isPresent()) {
             return;
         }
-        BigDecimal amount = resolvePrivateEscrowAmount(tutoringClass);
+        BigDecimal amount = resolvePrivateEscrowAmount(tutoringClass, assignment);
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Không xác định được số tiền escrow cần thanh toán");
         }
@@ -1088,12 +1112,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return plannedPrivateClassMonths(tutoringClass) > 1 ? "DEPOSIT_1M" : "FULL";
     }
 
-    private BigDecimal resolvePrivateEscrowAmount(TutoringClass tutoringClass) {
-        BigDecimal totalAmount = positiveAmount(tutoringClass.getBudget());
-        if (totalAmount == null && tutoringClass.getTuitionFee() != null && tutoringClass.getNumberOfSessions() != null) {
-            totalAmount = tutoringClass.getTuitionFee()
-                    .multiply(BigDecimal.valueOf(tutoringClass.getNumberOfSessions()));
-        }
+    private BigDecimal resolvePrivateEscrowAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
+        BigDecimal totalAmount = resolvePrivateDealTotalAmount(tutoringClass, assignment);
         if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
@@ -1102,6 +1122,48 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return totalAmount.setScale(2, RoundingMode.HALF_UP);
         }
         return totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal resolvePrivateDealTotalAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
+        BigDecimal totalAmount = resolveFromDealDetails(tutoringClass);
+        if (totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0) {
+            return totalAmount;
+        }
+        BigDecimal tuitionFee = positiveAmount(tutoringClass != null ? tutoringClass.getTuitionFee() : null);
+        if (tuitionFee != null && tutoringClass != null && tutoringClass.getNumberOfSessions() != null) {
+            return tuitionFee.multiply(BigDecimal.valueOf(tutoringClass.getNumberOfSessions()));
+        }
+        return positiveAmount(tutoringClass != null ? tutoringClass.getBudget() : null);
+    }
+
+    private BigDecimal resolveFromDealDetails(TutoringClass tutoringClass) {
+        if (tutoringClass == null || !StringUtils.hasText(tutoringClass.getDetailsJson())) {
+            return null;
+        }
+        JsonNode root = readTree(tutoringClass.getDetailsJson());
+        JsonNode subjectFeesNode = root.path("subjectFees");
+        JsonNode slots = root.path("slots");
+        if (subjectFeesNode == null || !subjectFeesNode.isObject() || slots == null || !slots.isArray()) {
+            return null;
+        }
+        Map<String, BigDecimal> fees = readRates(subjectFeesNode.toString());
+        if (fees == null || fees.isEmpty()) {
+            return null;
+        }
+        int repeats = Math.max(1, patternRepeats(root));
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> entry : fees.entrySet()) {
+            BigDecimal fee = entry.getValue();
+            if (fee == null || fee.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            BigDecimal hours = hoursPerRepeatForSubject(root, entry.getKey());
+            if (hours.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            total = total.add(fee.multiply(hours).multiply(BigDecimal.valueOf(repeats)));
+        }
+        return total.compareTo(BigDecimal.ZERO) > 0 ? total : null;
     }
 
     private int plannedPrivateClassMonths(TutoringClass tutoringClass) {
@@ -1119,6 +1181,23 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
     private BigDecimal positiveAmount(BigDecimal amount) {
         return amount != null && amount.compareTo(BigDecimal.ZERO) > 0 ? amount : null;
+    }
+
+    private BigDecimal slotHours(String start, String end) {
+        if (!StringUtils.hasText(start) || !StringUtils.hasText(end)) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            LocalTime s = LocalTime.parse(start);
+            LocalTime e = LocalTime.parse(end);
+            int startMin = s.getHour() * 60 + s.getMinute();
+            int endMin = e.getHour() * 60 + e.getMinute();
+            int diff = endMin - startMin;
+            return diff > 0 ? BigDecimal.valueOf(diff).divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+        } catch (Exception ex) {
+            return BigDecimal.ZERO;
+        }
     }
 
     private void verifySignOtp(String email, String code) {
@@ -1896,6 +1975,59 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             weeks.add(1);
         }
         return weeks;
+    }
+
+    private int durationCountOf(JsonNode form) {
+        return Math.max(1, form.path("months").asInt(1));
+    }
+
+    private int totalMonthsOf(JsonNode form) {
+        int n = durationCountOf(form);
+        return "YEAR".equals(form.path("durationUnit").asText("MONTH")) ? n * 12 : n;
+    }
+
+    private int weeksForCycle(JsonNode form) {
+        return switch (form.path("billingCycle").asText("MONTH")) {
+            case "MONTH" -> totalMonthsOf(form) * 4;
+            case "TERM" -> 12;
+            case "QUARTER" -> 24;
+            case "YEAR" -> 48;
+            default -> 4;
+        };
+    }
+
+    private int repeatWeeksOf(JsonNode form) {
+        if (!"WEEKLY".equals(form.path("scheduleMode").asText("WEEKLY"))) {
+            return 1;
+        }
+        int n = form.path("repeatEveryWeeks").asInt(1);
+        return Math.min(4, Math.max(1, n));
+    }
+
+    private int patternRepeats(JsonNode form) {
+        int weeks = weeksForCycle(form);
+        int cycleWeeks = repeatWeeksOf(form);
+        if (cycleWeeks <= 1) {
+            return weeks;
+        }
+        Set<Integer> on = studyWeeksOf(form, cycleWeeks);
+        int remainder = weeks % cycleWeeks;
+        return (weeks / cycleWeeks) * on.size() + (int) on.stream().filter(w -> w <= remainder).count();
+    }
+
+    private BigDecimal hoursPerRepeatForSubject(JsonNode form, String subjectId) {
+        JsonNode slots = form.path("slots");
+        if (slots == null || !slots.isArray() || !StringUtils.hasText(subjectId)) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        for (JsonNode slot : slots) {
+            if (!subjectId.equals(slot.path("subjectId").asText(""))) {
+                continue;
+            }
+            total = total.add(slotHours(slot.path("start").asText(""), slot.path("end").asText("")));
+        }
+        return total;
     }
 
     private Long subjectIdOf(String key) {

@@ -107,6 +107,9 @@ class FinanceServiceImplTest {
     private PaymentNotificationService paymentNotificationService;
 
     @Mock
+    private CenterRequestFeeService centerRequestFeeService;
+
+    @Mock
     private PlatformAdminRepository platformAdminRepository;
 
     @Mock
@@ -281,6 +284,7 @@ class FinanceServiceImplTest {
                 PaymentTransactionStatus.PENDING,
                 amount))
                 .thenReturn(List.of(tx));
+        when(centerRequestFeeService.isCenterRequestFeePayment(tx)).thenReturn(false);
         when(escrowTransactionRepository.findByPayment_TransactionId(88L)).thenReturn(Optional.of(escrow));
         when(escrowTransactionRepository.save(any(EscrowTransaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
@@ -544,6 +548,7 @@ class FinanceServiceImplTest {
         PaymentMethodRequest request = new PaymentMethodRequest();
         request.setBankName(" TPBank ");
         request.setAccountNo(" 1234 5678 90 ");
+        request.setAccountHolderName(" Nguyễn Văn A ");
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
         when(walletService.getRequired(USER_ID)).thenReturn(wallet);
@@ -570,6 +575,7 @@ class FinanceServiceImplTest {
         assertEquals("BANK_TRANSFER", methodCaptor.getValue().getType());
         assertEquals("ACTIVE", methodCaptor.getValue().getStatus());
         assertEquals("1234567890", methodCaptor.getValue().getAccountNo());
+        assertEquals("Nguyễn Văn A", methodCaptor.getValue().getAccountHolderName());
     }
 
     @Test
@@ -578,6 +584,7 @@ class FinanceServiceImplTest {
         PaymentMethodRequest request = new PaymentMethodRequest();
         request.setBankName("TPBank");
         request.setAccountNo("1234567890");
+        request.setAccountHolderName("Nguyễn Văn A");
 
         PaymentMethod current = new PaymentMethod();
         current.setPaymentMethodId(3L);
@@ -636,6 +643,7 @@ class FinanceServiceImplTest {
         request.setAmount(new BigDecimal("100000.00"));
         request.setBankName("TPBank");
         request.setAccountNo("1234567890");
+        request.setAccountHolderName("Nguyễn Văn A");
 
         PaymentMethod savedMethod = new PaymentMethod();
         savedMethod.setPaymentMethodId(3L);
@@ -913,6 +921,7 @@ class FinanceServiceImplTest {
         method.setType("BANK_TRANSFER");
         method.setBankName("TPBank");
         method.setAccountNo("1234567890");
+        method.setAccountHolderName("Nguyễn Văn A");
         method.setStatus("ACTIVE");
         return method;
     }

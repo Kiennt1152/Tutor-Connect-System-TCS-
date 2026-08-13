@@ -61,8 +61,10 @@ DB_HOST=localhost
 DB_PORT=3306
 DB_NAME=tutorconnectsystem
 DB_USERNAME=root
-DB_PASSWORD=12345
+DB_PASSWORD=your_mysql_password
 ```
+
+Backend sẽ đọc `DB_PASSWORD` từ `.env` hoặc biến môi trường. Nếu chưa khai báo, ứng dụng sẽ không kết nối được database.
 
 ### 4. Run Application
 
