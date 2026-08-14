@@ -115,6 +115,11 @@ public class FinanceController {
         return financeService.updatePaymentMethod(paymentMethodId, request);
     }
 
+    @PostMapping("/payment-methods/{paymentMethodId}/default")
+    public PaymentMethodResponse setDefaultPaymentMethod(@PathVariable Long paymentMethodId) {
+        return financeService.setDefaultPaymentMethod(paymentMethodId);
+    }
+
     @DeleteMapping("/payment-methods/{paymentMethodId}")
     public void deletePaymentMethod(@PathVariable Long paymentMethodId) {
         financeService.deletePaymentMethod(paymentMethodId);

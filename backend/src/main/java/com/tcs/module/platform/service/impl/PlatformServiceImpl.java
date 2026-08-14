@@ -52,6 +52,7 @@ import com.tcs.module.platform.dto.request.CloseTicketRequest;
 import com.tcs.module.platform.dto.request.RespondTicketRequest;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
 import com.tcs.module.platform.dto.request.ResolveClassIssueRequest;
+import com.tcs.module.platform.dto.request.ResolveReviewReportRequest;
 import com.tcs.module.platform.dto.request.UpdateTicketRequest;
 import com.tcs.module.platform.dto.response.DashboardResponse;
 import com.tcs.module.platform.dto.response.PageSupportTicketResponse;
@@ -65,6 +66,7 @@ import com.tcs.module.platform.entity.Report;
 import com.tcs.module.platform.enums.ClassIssueResolutionAction;
 import com.tcs.module.platform.enums.ReportStatus;
 import com.tcs.module.platform.enums.ReportTargetType;
+import com.tcs.module.platform.enums.ReviewReportAction;
 import com.tcs.module.platform.repository.AuditLogRepository;
 import com.tcs.module.platform.entity.SupportTicket;
 import com.tcs.module.platform.entity.TicketMessage;
@@ -660,7 +662,17 @@ public class PlatformServiceImpl implements PlatformService {
                 ? reviewRepository.findByReviewTypeOrderByCreatedAtDesc(ReviewType.CLIENT_TO_TUTOR)
                 : reviewRepository.findByReviewTypeAndStatusOrderByCreatedAtDesc(
                         ReviewType.CLIENT_TO_TUTOR, status);
-        return reviews.stream().map(this::toAdminReviewResponse).toList();
+
+        Map<Long, List<Report>> reportsByReviewId =
+                reportRepository.findByTargetTypeOrderByCreatedAtDesc(ReportTargetType.REVIEW).stream()
+                        .filter(report -> report.getTargetId() != null)
+                        .collect(Collectors.groupingBy(Report::getTargetId));
+
+        return reviews.stream()
+                .map(review -> toAdminReviewResponse(
+                        review,
+                        reportsByReviewId.getOrDefault(review.getReviewId(), List.of())))
+                .toList();
     }
 
     @Override
@@ -691,7 +703,127 @@ public class PlatformServiceImpl implements PlatformService {
         contractService.recomputeReputationByTutorUser(tutorUserId);
     }
 
+    @Override
+    @Transactional
+    public ReportResponse resolveReviewReport(Long reportId, ResolveReviewReportRequest request) {
+        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+        if (reportId == null) {
+            throw new IllegalArgumentException("reportId là bắt buộc");
+        }
+        if (request == null || request.getAction() == null) {
+            throw new IllegalArgumentException("Hành động xử lý là bắt buộc");
+        }
+
+        Report report = reportRepository.findById(reportId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy báo cáo"));
+        if (report.getTargetType() != ReportTargetType.REVIEW) {
+            throw new BusinessException("Luồng này chỉ xử lý báo cáo nhắm vào đánh giá");
+        }
+        if (report.getStatus() == ReportStatus.RESOLVED) {
+            throw new BusinessException("Báo cáo đã được xử lý");
+        }
+
+        String notes = normalizeClassIssueNotes(request.getNotes());
+        ReviewReportAction action = request.getAction();
+        Review review = report.getTargetId() == null
+                ? null
+                : reviewRepository.findById(report.getTargetId()).orElse(null);
+        if (review == null && action != ReviewReportAction.KEEP_REVIEW) {
+            throw new BusinessException("Đánh giá bị báo cáo không còn tồn tại");
+        }
+
+        if (review != null && action != ReviewReportAction.KEEP_REVIEW) {
+            Long tutorUserId = review.getReviewee().getUserId();
+            switch (action) {
+                case HIDE_REVIEW -> {
+                    review.setStatus(ReviewStatus.HIDDEN);
+                    reviewRepository.save(review);
+                }
+                case MARK_VIOLATION -> {
+                    review.setStatus(ReviewStatus.MODERATED);
+                    reviewRepository.save(review);
+                }
+                case DELETE_REVIEW -> reviewRepository.delete(review);
+                default -> { }
+            }
+            contractService.recomputeReputationByTutorUser(tutorUserId);
+        }
+
+        String oldDescription = report.getDescription();
+        ReportStatus oldStatus = report.getStatus();
+        report.setDescription(appendReviewReportHandlingNote(oldDescription, action, notes));
+        report.setStatus(ReportStatus.RESOLVED);
+        Report saved = reportRepository.save(report);
+
+        auditReviewReportResolution(saved, action, oldStatus, oldDescription, saved.getDescription());
+        notifyReviewReportResolution(saved, action, notes);
+        return toReportResponse(saved);
+    }
+
+    private String reviewReportActionLabel(ReviewReportAction action) {
+        return switch (action) {
+            case KEEP_REVIEW -> "Giữ nguyên đánh giá";
+            case HIDE_REVIEW -> "Ẩn đánh giá";
+            case MARK_VIOLATION -> "Đánh dấu vi phạm";
+            case DELETE_REVIEW -> "Xóa đánh giá";
+        };
+    }
+
+    private String appendReviewReportHandlingNote(
+            String currentDescription, ReviewReportAction action, String notes) {
+
+        String prefix = StringUtils.hasText(currentDescription) ? currentDescription.trim() : "";
+        String handlingNote = "[UC-55] Xử lý báo cáo đánh giá\n"
+                + "Hành động: " + reviewReportActionLabel(action) + "\n"
+                + "Ghi chú: " + notes.trim() + "\n"
+                + "Thời gian xử lý: " + LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);
+        return StringUtils.hasText(prefix) ? prefix + "\n\n" + handlingNote : handlingNote;
+    }
+
+    private void auditReviewReportResolution(
+            Report report,
+            ReviewReportAction action,
+            ReportStatus oldStatus,
+            String oldDescription,
+            String newDescription) {
+
+        AuditLog auditLog = new AuditLog();
+        auditLog.setActor(currentActorOrNull());
+        auditLog.setAction("Xử lý báo cáo đánh giá");
+        auditLog.setEntityType("REPORT");
+        auditLog.setEntityId(report.getReportId());
+        auditLog.setOldValue(jsonObject(
+                "status", oldStatus,
+                "description", oldDescription));
+        auditLog.setNewValue(jsonObject(
+                "status", report.getStatus(),
+                "action", action,
+                "description", newDescription,
+                "reviewId", report.getTargetId()));
+        auditLogRepository.save(auditLog);
+    }
+
+    private void notifyReviewReportResolution(Report report, ReviewReportAction action, String notes) {
+        User reporter = report.getReporter();
+        if (reporter == null) {
+            return;
+        }
+        createReportNotification(
+                reporter,
+                "Báo cáo đánh giá đã được xử lý",
+                "Báo cáo #" + report.getReportId() + " về một đánh giá đã được xử lý: "
+                        + reviewReportActionLabel(action) + ".\nGhi chú của quản trị viên: " + notes,
+                report);
+    }
+
     private AdminReviewResponse toAdminReviewResponse(Review review) {
+        return toAdminReviewResponse(
+                review,
+                reportRepository.findByTargetTypeAndTargetIdOrderByCreatedAtDesc(
+                        ReportTargetType.REVIEW, review.getReviewId()));
+    }
+
+    private AdminReviewResponse toAdminReviewResponse(Review review, List<Report> reports) {
         Long reviewerId = review.getReviewer().getUserId();
         String reviewerName = clientRepository
                 .findByUser_UserId(reviewerId)
@@ -714,6 +846,11 @@ public class PlatformServiceImpl implements PlatformService {
 
         TutoringClass reviewClass = review.getTutoringClass();
 
+        Report latestReport = reports.isEmpty() ? null : reports.get(0);
+        int pendingReportCount = (int) reports.stream()
+                .filter(r -> r.getStatus() == ReportStatus.PENDING)
+                .count();
+
         return AdminReviewResponse.builder()
                 .reviewId(review.getReviewId())
                 .rating(review.getRating())
@@ -735,7 +872,27 @@ public class PlatformServiceImpl implements PlatformService {
                                 : null)
                 .tutorReply(review.getTutorReply())
                 .createdAt(review.getCreatedAt())
+                .reportCount(reports.size())
+                .pendingReportCount(pendingReportCount)
+                .latestReportId(latestReport != null ? latestReport.getReportId() : null)
+                .latestReportCategory(latestReport != null ? latestReport.getCategory() : null)
+                .latestReportReason(latestReport != null ? reportUserDescription(latestReport) : null)
+                .latestReporterEmail(
+                        latestReport != null && latestReport.getReporter() != null
+                                ? latestReport.getReporter().getEmail()
+                                : null)
+                .latestReportAt(latestReport != null ? latestReport.getCreatedAt() : null)
                 .build();
+    }
+
+    /** Bỏ phần ghi chú xử lý mà admin đã nối vào mô tả, chỉ giữ nội dung người dùng nhập. */
+    private String reportUserDescription(Report report) {
+        String description = report.getDescription();
+        if (!StringUtils.hasText(description)) {
+            return null;
+        }
+        String userPart = description.split("\\[UC-30\\]")[0].split("\\[UC-55\\]")[0].trim();
+        return StringUtils.hasText(userPart) ? userPart : description.trim();
     }
 
     @Override
@@ -1295,6 +1452,12 @@ public class PlatformServiceImpl implements PlatformService {
                 .map(Dispute::getDisputeId)
                 .orElse(null);
         ClassReportContext classContext = resolveClassReportContext(report);
+        AdminReviewResponse reportedReview =
+                report.getTargetType() == ReportTargetType.REVIEW && report.getTargetId() != null
+                        ? reviewRepository.findById(report.getTargetId())
+                                .map(this::toAdminReviewResponse)
+                                .orElse(null)
+                        : null;
         return ReportResponse.builder()
                 .reportId(report.getReportId())
                 .reporterId(report.getReporter().getUserId())
@@ -1317,6 +1480,7 @@ public class PlatformServiceImpl implements PlatformService {
                 .linkedDisputeId(linkedDisputeId)
                 .createdAt(report.getCreatedAt())
                 .updatedAt(report.getUpdatedAt())
+                .reportedReview(reportedReview)
                 .build();
     }
 

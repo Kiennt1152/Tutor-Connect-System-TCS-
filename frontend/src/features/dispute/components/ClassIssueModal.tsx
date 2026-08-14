@@ -23,6 +23,7 @@ type ClassIssueModalProps = {
   classTitle?: string | null;
   assignmentId?: number | null;
   classStudentId?: number | null;
+  currentUserRole?: string | null;
   onClose: () => void;
 };
 
@@ -37,15 +38,10 @@ const ISSUE_TYPE_LABELS: Record<ClassIssueType, string> = {
   OTHER: 'Khác',
 };
 
-const REQUESTED_ACTION_LABELS: Record<ClassIssueRequestedAction, string> = {
-  CONTINUE_CLASS: 'Tiếp tục lớp',
-  RESCHEDULE: 'Dời lịch/bù buổi',
-  REPLACE_TUTOR: 'Đổi gia sư',
-  REFUND_REVIEW: 'Xem xét hoàn tiền',
-  ESCALATE_DISPUTE: 'Chuyển thành tranh chấp',
-  TERMINATE_CLASS: 'Đề nghị chấm dứt lớp',
-  OTHER: 'Khác',
-};
+const REQUESTED_ACTION_OPTIONS: Array<[ClassIssueRequestedAction, string]> = [
+  ['ESCALATE_DISPUTE', 'Chuyển thành tranh chấp'],
+  ['TERMINATE_CLASS', 'Đề nghị chấm dứt lớp'],
+];
 
 const MAX_EVIDENCE_FILES = 5;
 const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
@@ -61,7 +57,14 @@ function buildEvidenceUrls(files: EvidenceUploadResponse[]) {
   return files.map((file) => file.fileUrl).join('\n');
 }
 
-function needsRefundPayoutInfo(issueType: ClassIssueType, requestedAction: ClassIssueRequestedAction) {
+function needsRefundPayoutInfo(
+  issueType: ClassIssueType,
+  requestedAction: ClassIssueRequestedAction,
+  currentUserRole?: string | null,
+) {
+  if (currentUserRole !== 'CLIENT') {
+    return false;
+  }
   return issueType === 'PAYMENT_OR_REFUND'
     || requestedAction === 'REFUND_REVIEW'
     || requestedAction === 'TERMINATE_CLASS';
@@ -73,12 +76,14 @@ export function ClassIssueModal({
   classTitle,
   assignmentId,
   classStudentId,
+  currentUserRole,
   onClose,
 }: ClassIssueModalProps) {
+  const isClient = currentUserRole === 'CLIENT';
   const [issueType, setIssueType] = useState<ClassIssueType>('TUTOR_ABSENT');
   const [lessonRef, setLessonRef] = useState('');
   const [occurredAt, setOccurredAt] = useState('');
-  const [requestedAction, setRequestedAction] = useState<ClassIssueRequestedAction>('RESCHEDULE');
+  const [requestedAction, setRequestedAction] = useState<ClassIssueRequestedAction>('ESCALATE_DISPUTE');
   const [description, setDescription] = useState('');
   const [selectedBankCode, setSelectedBankCode] = useState('');
   const [bankPickerOpen, setBankPickerOpen] = useState(false);
@@ -90,7 +95,12 @@ export function ClassIssueModal({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<DisputeResponse | null>(null);
   const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
-  const showRefundPayoutInfo = needsRefundPayoutInfo(issueType, requestedAction);
+  const showRefundPayoutInfo = needsRefundPayoutInfo(issueType, requestedAction, currentUserRole);
+  const availableIssueTypes = Object.entries(ISSUE_TYPE_LABELS).filter(([value]) => {
+    if (isClient) return true;
+    return value !== 'PAYMENT_OR_REFUND';
+  }) as Array<[ClassIssueType, string]>;
+  const availableRequestedActions = REQUESTED_ACTION_OPTIONS;
 
   if (!open) return null;
 
@@ -99,7 +109,7 @@ export function ClassIssueModal({
     setIssueType('TUTOR_ABSENT');
     setLessonRef('');
     setOccurredAt('');
-    setRequestedAction('RESCHEDULE');
+    setRequestedAction('ESCALATE_DISPUTE');
     setDescription('');
     setSelectedBankCode('');
     setBankPickerOpen(false);
@@ -259,7 +269,7 @@ export function ClassIssueModal({
                   value={issueType}
                   onChange={(event) => setIssueType(event.target.value as ClassIssueType)}
                 >
-                  {Object.entries(ISSUE_TYPE_LABELS).map(([value, label]) => (
+                  {availableIssueTypes.map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -293,7 +303,7 @@ export function ClassIssueModal({
                   value={requestedAction}
                   onChange={(event) => setRequestedAction(event.target.value as ClassIssueRequestedAction)}
                 >
-                  {Object.entries(REQUESTED_ACTION_LABELS).map(([value, label]) => (
+                  {availableRequestedActions.map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -364,6 +374,7 @@ export function ClassIssueModal({
                     <FileThumbnail
                       key={file.fileId}
                       src={file.fileUrl}
+                      fileId={file.fileId}
                       fileName={file.fileName}
                       mimeType={file.mimeType}
                       fileSize={file.fileSize}

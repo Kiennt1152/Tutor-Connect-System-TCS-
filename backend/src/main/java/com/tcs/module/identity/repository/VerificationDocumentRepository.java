@@ -18,6 +18,16 @@ public interface VerificationDocumentRepository extends JpaRepository<Verificati
 
     boolean existsByVerificationRequest_VerificationIdAndDocumentType(Long verificationId, VerificationDocumentType documentType);
 
+    /**
+     * File có phải là một chứng chỉ (CERTIFICATE) thuộc hồ sơ đã VERIFIED không.
+     * Dùng để cho phép trung tâm/phụ huynh xem chứng chỉ của gia sư mà KHÔNG lộ
+     * CCCD hay tài liệu chưa duyệt: endpoint chỉ phục vụ file thoả điều kiện này.
+     */
+    boolean existsByFile_FileIdAndDocumentTypeAndVerificationRequest_Status(
+            Long fileId,
+            VerificationDocumentType documentType,
+            com.tcs.module.identity.enums.VerificationStatus status);
+
     long deleteByVerificationRequest_VerificationId(Long verificationId);
 
     @Modifying

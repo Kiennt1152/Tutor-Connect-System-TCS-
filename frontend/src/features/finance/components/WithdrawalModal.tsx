@@ -6,12 +6,6 @@ import type {
   WithdrawalPayload,
 } from '../types/financeTypes';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
-import {
-  BANK_OPTIONS,
-  type BankOption,
-  BankPickerDialog,
-  BankSelectField,
-} from './BankPicker';
 
 interface Props {
   wallet: WalletInfo | null;
@@ -40,30 +34,35 @@ export function WithdrawalModal({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('');
-  const [selectedBankCode, setSelectedBankCode] = useState('');
-  const [bankPickerOpen, setBankPickerOpen] = useState(false);
-  const [accountNo, setAccountNo] = useState('');
   const [paymentMethodId, setPaymentMethodId] = useState('');
+  const [hasAutoSelectedMethod, setHasAutoSelectedMethod] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const availableBalance = wallet?.availableBalance ?? wallet?.balance ?? 0;
   const useSavedMethod = paymentMethodId !== '';
-  const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
+  const defaultPaymentMethod = paymentMethods.find((method) => method.isDefault) ?? paymentMethods[0];
 
   useEffect(() => {
     if (open) {
+      setHasAutoSelectedMethod(false);
       void onLoadPaymentMethods();
     }
   }, [open, onLoadPaymentMethods]);
 
+  useEffect(() => {
+    if (!open || hasAutoSelectedMethod || paymentMethodId || !defaultPaymentMethod) {
+      return;
+    }
+    setPaymentMethodId(String(defaultPaymentMethod.paymentMethodId));
+    setHasAutoSelectedMethod(true);
+  }, [defaultPaymentMethod, hasAutoSelectedMethod, open, paymentMethodId]);
+
   function resetForm() {
     setAmount('');
-    setSelectedBankCode('');
-    setBankPickerOpen(false);
-    setAccountNo('');
     setPaymentMethodId('');
+    setHasAutoSelectedMethod(false);
     setSubmitting(false);
     setSuccessMessage(null);
     setError(null);
@@ -87,12 +86,8 @@ export function WithdrawalModal({
       setError('Số dư khả dụng không đủ để rút tiền');
       return;
     }
-    if (!useSavedMethod && !selectedBank) {
-      setError('Vui lòng chọn ngân hàng nhận tiền');
-      return;
-    }
-    if (!useSavedMethod && !accountNo.trim()) {
-      setError('Vui lòng nhập số tài khoản nhận tiền');
+    if (!useSavedMethod) {
+      setError('Vui lòng thêm và chọn tài khoản nhận tiền trước khi rút tiền');
       return;
     }
 
@@ -103,28 +98,19 @@ export function WithdrawalModal({
     try {
       const response = await onWithdraw({
         amount: parsedAmount,
-        paymentMethodId: useSavedMethod ? Number(paymentMethodId) : undefined,
-        bankName: useSavedMethod ? undefined : selectedBank?.name,
-        accountNo: useSavedMethod ? undefined : accountNo.trim(),
+        paymentMethodId: Number(paymentMethodId),
       });
       setSuccessMessage(
         `Đã tạo yêu cầu rút ${formatMoney(response.amount)}. Vui lòng chờ quản trị viên xử lý.`
       );
       setAmount('');
-      setSelectedBankCode('');
-      setBankPickerOpen(false);
-      setAccountNo('');
       setPaymentMethodId('');
+      setHasAutoSelectedMethod(false);
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Không thể tạo yêu cầu rút tiền. Vui lòng thử lại.'));
     } finally {
       setSubmitting(false);
     }
-  }
-
-  function handleSelectBank(bank: BankOption) {
-    setSelectedBankCode(bank.code);
-    setBankPickerOpen(false);
   }
 
   return (
@@ -172,7 +158,7 @@ export function WithdrawalModal({
                 ))}
               </div>
 
-              {paymentMethods.length > 0 && (
+              {paymentMethods.length > 0 ? (
                 <>
                   <label className="form-label" htmlFor="withdraw-method">Tài khoản nhận tiền</label>
                   <select
@@ -182,42 +168,19 @@ export function WithdrawalModal({
                     onChange={(event) => setPaymentMethodId(event.target.value)}
                     disabled={paymentMethodsLoading}
                   >
-                    <option value="">Nhập tài khoản mới</option>
                     {paymentMethods.map((method) => (
                       <option key={method.paymentMethodId} value={method.paymentMethodId}>
-                        {method.provider || 'Ngân hàng'} • {method.lastFour || 'Không rõ'}
+                        {method.bankName || method.provider || 'Ngân hàng'} • {method.accountNoMasked || `****${method.lastFour || '----'}`}
+                        {method.accountHolderName ? ` • ${method.accountHolderName}` : ''}
+                        {method.isDefault ? ' • Mặc định' : ''}
                       </option>
                     ))}
                   </select>
                 </>
-              )}
-
-              {!useSavedMethod && (
-                <>
-                  <label className="form-label" htmlFor="withdraw-bank-field">Ngân hàng</label>
-                  <BankSelectField
-                    id="withdraw-bank-field"
-                    selectedBank={selectedBank}
-                    onOpen={() => setBankPickerOpen(true)}
-                  />
-
-                  <label className="form-label" htmlFor="withdraw-account">Số tài khoản</label>
-                  <input
-                    id="withdraw-account"
-                    type="text"
-                    className="form-input"
-                    placeholder="Nhập số tài khoản nhận tiền"
-                    value={accountNo}
-                    onChange={(event) => setAccountNo(event.target.value)}
-                  />
-
-                  <BankPickerDialog
-                    open={bankPickerOpen}
-                    selectedBankCode={selectedBankCode}
-                    onSelect={handleSelectBank}
-                    onClose={() => setBankPickerOpen(false)}
-                  />
-                </>
+              ) : (
+                <div className="withdrawal-empty-method">
+                  Vui lòng thêm tài khoản nhận tiền ở mục Tài khoản nhận tiền trước khi rút.
+                </div>
               )}
 
               {successMessage && (
@@ -232,7 +195,11 @@ export function WithdrawalModal({
               <button className="btn btn--secondary" onClick={handleClose}>
                 Đóng
               </button>
-              <button className="btn btn--primary" onClick={handleSubmit} disabled={submitting}>
+              <button
+                className="btn btn--primary"
+                onClick={handleSubmit}
+                disabled={submitting || paymentMethods.length === 0}
+              >
                 {submitting ? 'Đang gửi…' : 'Tạo yêu cầu'}
               </button>
             </div>

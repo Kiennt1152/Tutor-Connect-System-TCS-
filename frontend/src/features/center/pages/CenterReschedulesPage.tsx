@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
+import { CenterSidebar } from '../components/CenterSidebar';
 import { centerApi } from '../api/centerApi';
 import type { Reschedule, RescheduleStatus, Substitution } from '../types/centerTypes';
 import './CenterSchedulePage.css';
@@ -186,12 +186,10 @@ export default function CenterReschedulesPage() {
     <>
       <VerificationHeader />
       <div className="cs-bg">
+        <div className="cc-shell">
+        <CenterSidebar />
+        <div className="cc-shell__main">
         <div className="cs-page">
-          <div className="cs-topbar">
-            <Link className="cs-back" to="/center">
-              ← Lớp học của tôi
-            </Link>
-          </div>
 
           <header className="cs-header">
             <div>
@@ -243,6 +241,8 @@ export default function CenterReschedulesPage() {
               <div className="cs-list">{subDecided.map(renderSubCard)}</div>
             </>
           )}
+        </div>
+        </div>
         </div>
       </div>
     </>

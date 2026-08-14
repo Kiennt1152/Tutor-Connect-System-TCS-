@@ -18,6 +18,7 @@ interface Props {
   onLoad: () => Promise<void>;
   onCreate: (payload: PaymentMethodPayload) => Promise<PaymentMethodInfo>;
   onUpdate: (paymentMethodId: number, payload: PaymentMethodPayload) => Promise<PaymentMethodInfo>;
+  onSetDefault: (paymentMethodId: number) => Promise<PaymentMethodInfo>;
   onDelete: (paymentMethodId: number) => Promise<void>;
 }
 
@@ -35,6 +36,7 @@ export function PaymentMethodsPanel({
   onLoad,
   onCreate,
   onUpdate,
+  onSetDefault,
   onDelete,
 }: Props) {
   const [formOpen, setFormOpen] = useState(false);
@@ -42,8 +44,10 @@ export function PaymentMethodsPanel({
   const [selectedBankCode, setSelectedBankCode] = useState('');
   const [bankPickerOpen, setBankPickerOpen] = useState(false);
   const [accountNo, setAccountNo] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const [defaultingId, setDefaultingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
@@ -53,6 +57,7 @@ export function PaymentMethodsPanel({
     setSelectedBankCode('');
     setBankPickerOpen(false);
     setAccountNo('');
+    setAccountHolderName('');
     setError(null);
     setSuccess(null);
     setFormOpen(true);
@@ -63,6 +68,7 @@ export function PaymentMethodsPanel({
     setSelectedBankCode(findBankByName(displayBankName(method))?.code ?? '');
     setBankPickerOpen(false);
     setAccountNo('');
+    setAccountHolderName(method.accountHolderName ?? '');
     setError(null);
     setSuccess(null);
     setFormOpen(true);
@@ -75,6 +81,7 @@ export function PaymentMethodsPanel({
     setSelectedBankCode('');
     setBankPickerOpen(false);
     setAccountNo('');
+    setAccountHolderName('');
     setError(null);
   }
 
@@ -93,6 +100,11 @@ export function PaymentMethodsPanel({
       setError('Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự');
       return;
     }
+    const normalizedAccountHolderName = accountHolderName.trim().replace(/\s+/g, ' ');
+    if (normalizedAccountHolderName.length < 2) {
+      setError('Vui lòng nhập tên chủ tài khoản');
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -102,12 +114,14 @@ export function PaymentMethodsPanel({
         await onUpdate(editing.paymentMethodId, {
           bankName: selectedBank.name,
           accountNo: normalizedAccountNo,
+          accountHolderName: normalizedAccountHolderName,
         });
         setSuccess('Đã cập nhật tài khoản nhận tiền.');
       } else {
         await onCreate({
           bankName: selectedBank.name,
           accountNo: normalizedAccountNo,
+          accountHolderName: normalizedAccountHolderName,
         });
         setSuccess('Đã thêm tài khoản nhận tiền.');
       }
@@ -116,6 +130,7 @@ export function PaymentMethodsPanel({
       setSelectedBankCode('');
       setBankPickerOpen(false);
       setAccountNo('');
+      setAccountHolderName('');
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Không thể lưu tài khoản nhận tiền.'));
     } finally {
@@ -137,6 +152,22 @@ export function PaymentMethodsPanel({
       setError(getApiErrorMessage(err, 'Không thể xóa tài khoản nhận tiền.'));
     } finally {
       setRemovingId(null);
+    }
+  }
+
+  async function handleSetDefault(method: PaymentMethodInfo) {
+    if (method.isDefault) return;
+
+    setDefaultingId(method.paymentMethodId);
+    setError(null);
+    setSuccess(null);
+    try {
+      await onSetDefault(method.paymentMethodId);
+      setSuccess('Đã đặt tài khoản nhận tiền mặc định.');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Không thể đặt tài khoản mặc định.'));
+    } finally {
+      setDefaultingId(null);
     }
   }
 
@@ -180,6 +211,15 @@ export function PaymentMethodsPanel({
                 placeholder={editing ? 'Nhập số mới để cập nhật' : 'Nhập số tài khoản'}
               />
             </label>
+            <label>
+              <span>Tên chủ tài khoản</span>
+              <input
+                className="form-input"
+                value={accountHolderName}
+                onChange={(event) => setAccountHolderName(event.target.value)}
+                placeholder="Nhập tên chủ tài khoản"
+              />
+            </label>
           </div>
           <div className="payment-method-form__actions">
             <button className="btn btn--secondary" onClick={closeForm} disabled={saving}>
@@ -209,9 +249,19 @@ export function PaymentMethodsPanel({
               <div className="payment-method-item__main">
                 <strong>{displayBankName(method)}</strong>
                 <span>{displayAccount(method)}</span>
+                {method.accountHolderName ? <span>{method.accountHolderName}</span> : null}
               </div>
               {method.isDefault && <span className="payment-method-item__default">Mặc định</span>}
               <div className="payment-method-item__actions">
+                {!method.isDefault && (
+                  <button
+                    className="btn-link"
+                    onClick={() => void handleSetDefault(method)}
+                    disabled={defaultingId === method.paymentMethodId}
+                  >
+                    {defaultingId === method.paymentMethodId ? 'Đang đặt' : 'Đặt mặc định'}
+                  </button>
+                )}
                 <button className="btn-link" onClick={() => openEditForm(method)}>
                   Sửa
                 </button>

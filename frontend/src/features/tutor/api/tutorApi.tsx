@@ -48,4 +48,8 @@ export const tutorApi = {
   getSubstitutions() {
     return axiosClient.get<Substitution[]>(`${BASE}/substitutions`);
   },
+  // Bước 13: gia sư xác nhận khóa học đã hoàn thành -> tất toán + đóng lớp.
+  confirmClassCompletion(classId: number) {
+    return axiosClient.post<{ message: string }>(`${BASE}/classes/${classId}/complete`);
+  },
 };

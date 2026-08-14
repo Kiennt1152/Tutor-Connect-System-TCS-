@@ -19,6 +19,12 @@ import './ContractSigningPage.css';
 
 const currency = new Intl.NumberFormat('vi-VN');
 
+const positiveNumber = (value: number | string | null | undefined): number | null => {
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
 function extractError(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;
@@ -38,6 +44,14 @@ function fmtDob(iso: string | null): string {
   if (!iso) return '.................';
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
+}
+
+function fmtDateTime(iso: string | null): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
 
 const hm = (t: string) => (t === '23:59' ? '00:00' : t);
@@ -173,11 +187,12 @@ export default function ContractSigningPage() {
 
   const amounts = useMemo(() => {
     if (!form) return { full: 0, monthly: 0, months: 1 };
-    const full = totalBudget(form);
+    const calculatedFull = totalBudget(form);
     const months = Math.max(1, Math.round(weeksForCycle(form) / 4));
-    const monthly = months > 1 ? Math.round(full / months) : full;
+    const full = positiveNumber(contract?.totalTuitionAmount) ?? calculatedFull;
+    const monthly = positiveNumber(contract?.escrowAmount) ?? (months > 1 ? Math.round(full / months) : full);
     return { full, monthly, months };
-  }, [form]);
+  }, [contract?.escrowAmount, contract?.totalTuitionAmount, form]);
 
   const escrowPayment = contract?.escrowPayment ?? null;
   const visibleEscrowPayment: EscrowPaymentInfo | null =
@@ -498,13 +513,41 @@ export default function ContractSigningPage() {
               </p>
 
               <div className="ksign-sign-row">
-                <div>
+                <div className="ksign-sign-box">
                   <b>ĐẠI DIỆN BÊN A</b>
-                  <p className="ksign-sign-status">{contract.clientSigned ? '✔ Đã ký' : '(Chưa ký)'}</p>
+                  <span className="ksign-sign-role">(Phụ huynh/Học sinh)</span>
+                  {contract.clientSigned ? (
+                    <div className="ksign-sign-valid">
+                      <span className="ksign-sign-valid__mark">✔</span>
+                      <span className="ksign-sign-valid__text">Đã ký</span>
+                    </div>
+                  ) : null}
+                  {contract.clientSigned ? (
+                    <>
+                      <p className="ksign-sign-by">Ký bởi: <b>{contract.clientName || '—'}</b></p>
+                      <p className="ksign-sign-at">Ký ngày: {fmtDateTime(contract.clientSignedAt) || '—'}</p>
+                    </>
+                  ) : (
+                    <p className="ksign-sign-status">(Chưa ký)</p>
+                  )}
                 </div>
-                <div>
+                <div className="ksign-sign-box">
                   <b>ĐẠI DIỆN BÊN B</b>
-                  <p className="ksign-sign-status">{contract.tutorSigned ? '✔ Đã ký' : '(Chưa ký)'}</p>
+                  <span className="ksign-sign-role">(Gia sư)</span>
+                  {contract.tutorSigned ? (
+                    <div className="ksign-sign-valid">
+                      <span className="ksign-sign-valid__mark">✔</span>
+                      <span className="ksign-sign-valid__text">Đã ký</span>
+                    </div>
+                  ) : null}
+                  {contract.tutorSigned ? (
+                    <>
+                      <p className="ksign-sign-by">Ký bởi: <b>{contract.tutorName || '—'}</b></p>
+                      <p className="ksign-sign-at">Ký ngày: {fmtDateTime(contract.tutorSignedAt) || '—'}</p>
+                    </>
+                  ) : (
+                    <p className="ksign-sign-status">(Chưa ký)</p>
+                  )}
                 </div>
               </div>
             </article>
@@ -692,7 +735,7 @@ export default function ContractSigningPage() {
                     <div className="ksign-escrow">
                       {visibleEscrowPayment.qrUrl ? (
                         <div className="ksign-escrow__qr">
-                          <img src={visibleEscrowPayment.qrUrl} alt="VietQR thanh toán escrow" />
+                          <img src={visibleEscrowPayment.qrUrl} alt="Mã QR thanh toán escrow" />
                         </div>
                       ) : null}
 

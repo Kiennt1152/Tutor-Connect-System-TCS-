@@ -31,6 +31,8 @@ import type {
   RefundRequestStatus,
   ReportItem,
   ReportStatus,
+  ReviewModerationStatus,
+  ReviewReportAction,
 } from '../types/platformTypes';
 import { IssuePenaltyModal, type UserOption } from '../components/IssuePenaltyModal';
 import { SettleDisputeModal } from '../components/SettleDisputeModal';
@@ -56,6 +58,19 @@ const CLASS_ISSUE_ACTION_OPTIONS: { value: ClassIssueResolutionAction; label: st
   { value: 'TERMINATE_CLASS', label: 'Chuyển xử lý chấm dứt lớp' },
   { value: 'CLOSE_NO_ACTION', label: 'Đóng báo cáo' },
 ];
+
+const REVIEW_REPORT_ACTION_OPTIONS: { value: ReviewReportAction; label: string }[] = [
+  { value: 'HIDE_REVIEW', label: 'Ẩn đánh giá khỏi hồ sơ gia sư' },
+  { value: 'MARK_VIOLATION', label: 'Đánh dấu vi phạm' },
+  { value: 'DELETE_REVIEW', label: 'Xóa đánh giá vĩnh viễn' },
+  { value: 'KEEP_REVIEW', label: 'Giữ nguyên đánh giá (báo cáo không hợp lệ)' },
+];
+
+const REVIEW_MODERATION_LABELS: Record<ReviewModerationStatus, string> = {
+  VISIBLE: 'Đang hiển thị',
+  HIDDEN: 'Đã ẩn',
+  MODERATED: 'Vi phạm',
+};
 
 const MAX_EVIDENCE_FILES = 5;
 const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
@@ -1372,6 +1387,7 @@ function DisputeDetail({
                       <FileThumbnail
                         key={file.fileId}
                         src={file.fileUrl}
+                        fileId={file.fileId}
                         fileName={file.fileName}
                         mimeType={file.mimeType}
                         fileSize={file.fileSize}
@@ -1783,6 +1799,175 @@ function GenericReportDetail({
   );
 }
 
+function ReviewReportDetail({
+  detail,
+  onChanged,
+}: {
+  detail: ReportItem | null;
+  onChanged: () => void;
+}) {
+  const [action, setAction] = useState<ReviewReportAction>('HIDE_REVIEW');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const reviewMissing = detail != null && detail.reportedReview == null;
+
+  useEffect(() => {
+    // Đánh giá đã bị xóa thì chỉ còn cách đóng báo cáo.
+    setAction(reviewMissing ? 'KEEP_REVIEW' : 'HIDE_REVIEW');
+    setNotes('');
+    setErrorMessage('');
+    setSuccessMessage('');
+  }, [detail?.id, reviewMissing]);
+
+  if (!detail) {
+    return (
+      <div className="pd-detail pd-detail--empty">
+        <p>Chọn một báo cáo đánh giá để xem nội dung bị tố cáo và xử lý.</p>
+      </div>
+    );
+  }
+
+  const review = detail.reportedReview;
+  const canResolve = detail.status === 'PENDING';
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    setErrorMessage('');
+    setSuccessMessage('');
+    if (notes.trim().length < 10) {
+      setErrorMessage('Ghi chú xử lý phải có ít nhất 10 ký tự.');
+      return;
+    }
+    if (action === 'DELETE_REVIEW') {
+      const ok = window.confirm(
+        'Xóa vĩnh viễn đánh giá này? Hành động không thể hoàn tác và điểm danh tiếng của gia sư sẽ được tính lại.',
+      );
+      if (!ok) return;
+    }
+
+    setSubmitting(true);
+    try {
+      await platformApi.resolveReviewReport(detail.id, { action, notes: notes.trim() });
+      setSuccessMessage('Đã xử lý báo cáo đánh giá.');
+      setNotes('');
+      onChanged();
+    } catch (error) {
+      setErrorMessage(getApiErrorMessage(error, 'Không thể xử lý báo cáo đánh giá.'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="pd-detail">
+      <div className="pd-detail__head">
+        <div>
+          <p className="pd-detail__eyebrow">Báo cáo đánh giá #{detail.id}</p>
+          <h2 className="pd-detail__title">{review?.classTitle ?? detail.classTitle}</h2>
+        </div>
+        <span className={reportBadgeClass(detail.status)}>{detail.statusLabel}</span>
+      </div>
+
+      <section className="pd-section">
+        <h3 className="pd-section__title">Thông tin báo cáo</h3>
+        <div className="pd-info-grid">
+          <InfoRow label="Người báo cáo" value={detail.reporterEmail} />
+          <InfoRow label="Lý do" value={detail.categoryLabel} />
+          <InfoRow label="Mã đánh giá" value={`#${detail.targetId}`} />
+          <InfoRow label="Gửi lúc" value={detail.createdAt} />
+        </div>
+        <p className="pd-description">{detail.userDescription}</p>
+      </section>
+
+      <section className="pd-section">
+        <h3 className="pd-section__title">Đánh giá bị báo cáo</h3>
+        {!review ? (
+          <div className="adm-alert adm-alert--info">
+            Đánh giá này không còn tồn tại (đã bị xóa trước đó).
+          </div>
+        ) : (
+          <>
+            <div className="pd-info-grid">
+              <InfoRow
+                label="Người đánh giá"
+                value={
+                  review.anonymous
+                    ? `${review.reviewerName ?? '—'} (ẩn danh: ${review.publicDisplayName ?? '—'})`
+                    : (review.reviewerName ?? review.reviewerEmail ?? '—')
+                }
+              />
+              <InfoRow label="Gia sư bị đánh giá" value={review.tutorName ?? '—'} />
+              <InfoRow label="Môn" value={review.subjectName ?? '—'} />
+              <InfoRow label="Điểm" value={review.rating != null ? `${review.rating.toFixed(1)}/5` : '—'} />
+              <InfoRow label="Trạng thái" value={REVIEW_MODERATION_LABELS[review.status] ?? review.status} />
+              <InfoRow label="Đánh giá lúc" value={formatDateTime(review.createdAt)} />
+            </div>
+            <p className="pd-description">{review.comment ? `“${review.comment}”` : '(Không có nội dung)'}</p>
+            {review.tutorReply ? (
+              <p className="pd-description">↩ Gia sư phản hồi: {review.tutorReply}</p>
+            ) : null}
+          </>
+        )}
+      </section>
+
+      <section className="pd-section">
+        <h3 className="pd-section__title">Xử lý</h3>
+        {!canResolve ? (
+          <div className="adm-alert adm-alert--success">Báo cáo này đã được xử lý.</div>
+        ) : (
+          <form className="pd-resolution-form" onSubmit={handleSubmit}>
+            <label className="pd-field">
+              <span>Hành động</span>
+              <select
+                className="adm-field"
+                value={action}
+                disabled={reviewMissing}
+                onChange={(event) => setAction(event.target.value as ReviewReportAction)}
+              >
+                {(reviewMissing
+                  ? REVIEW_REPORT_ACTION_OPTIONS.filter((option) => option.value === 'KEEP_REVIEW')
+                  : REVIEW_REPORT_ACTION_OPTIONS
+                ).map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              {reviewMissing && (
+                <span className="adm-table__sub">
+                  Đánh giá không còn tồn tại nên chỉ có thể đóng báo cáo.
+                </span>
+              )}
+            </label>
+            <label className="pd-field">
+              <span>Ghi chú xử lý</span>
+              <textarea
+                className="pd-textarea"
+                rows={4}
+                maxLength={2000}
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                placeholder="Nhập căn cứ xử lý để lưu vào hồ sơ báo cáo và gửi cho người báo cáo..."
+              />
+            </label>
+            {errorMessage && <div className="adm-alert adm-alert--error">{errorMessage}</div>}
+            {successMessage && <div className="adm-alert adm-alert--success">{successMessage}</div>}
+            <div className="pd-resolution-actions">
+              <button className="tcs-btn tcs-btn--primary" type="submit" disabled={submitting}>
+                {submitting ? 'Đang xử lý...' : 'Lưu xử lý'}
+              </button>
+            </div>
+          </form>
+        )}
+      </section>
+    </div>
+  );
+}
+
+
 function RefundRequestDetail({
   item,
   onChanged,
@@ -1964,6 +2149,7 @@ function RefundRequestDetail({
 export default function PlatformReportsPage() {
   const reports = useReportList();
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedReviewReportId, setSelectedReviewReportId] = useState<string | null>(null);
   const [disputeStatusFilter, setDisputeStatusFilter] = useState<DisputeStatus | undefined>();
   const [refundStatusFilter, setRefundStatusFilter] = useState<RefundRequestStatus | undefined>();
   const disputes = useDisputeReviewList(disputeStatusFilter);
@@ -2007,18 +2193,34 @@ export default function PlatformReportsPage() {
       || (item.status === 'APPROVED' && item.raw.transferStatus === 'PENDING')
   ).length;
   const heldEscrowCount = disputes.items.filter((item) => isEscrowHeldForDispute(item.escrowStatus)).length;
-  const selectedReport = reports.items.find((item) => item.id === selectedReportId) ?? null;
+  // Báo cáo đánh giá có khu vực xử lý riêng bên dưới nên tách khỏi danh sách chung.
+  const generalReports = reports.items.filter((item) => item.targetType !== 'REVIEW');
+  const reviewReports = reports.items.filter((item) => item.targetType === 'REVIEW');
+  const openReviewReportCount = reviewReports.filter((item) => item.status === 'PENDING').length;
+  const selectedReport = generalReports.find((item) => item.id === selectedReportId) ?? null;
+  const selectedReviewReport =
+    reviewReports.find((item) => item.id === selectedReviewReportId) ?? null;
   const selectedRefund = refunds.items.find((item) => item.id === selectedRefundId) ?? null;
 
   useEffect(() => {
-    if (reports.items.length === 0) {
+    if (generalReports.length === 0) {
       setSelectedReportId(null);
       return;
     }
-    if (!selectedReportId || !reports.items.some((item) => item.id === selectedReportId)) {
-      setSelectedReportId(reports.items[0].id);
+    if (!selectedReportId || !generalReports.some((item) => item.id === selectedReportId)) {
+      setSelectedReportId(generalReports[0].id);
     }
-  }, [reports.items, selectedReportId]);
+  }, [generalReports, selectedReportId]);
+
+  useEffect(() => {
+    if (reviewReports.length === 0) {
+      setSelectedReviewReportId(null);
+      return;
+    }
+    if (!selectedReviewReportId || !reviewReports.some((item) => item.id === selectedReviewReportId)) {
+      setSelectedReviewReportId(reviewReports[0].id);
+    }
+  }, [reviewReports, selectedReviewReportId]);
 
   useEffect(() => {
     if (refunds.items.length === 0) {
@@ -2156,8 +2358,8 @@ export default function PlatformReportsPage() {
         <div className="adm-card pd-console__list">
           <div className="pd-card-head">
             <div>
-              <h2 className="pd-card-head__title">Báo cáo người dùng, đánh giá và lớp học</h2>
-              <p className="pd-card-head__meta">{reports.items.length} báo cáo</p>
+              <h2 className="pd-card-head__title">Báo cáo người dùng và lớp học</h2>
+              <p className="pd-card-head__meta">{generalReports.length} báo cáo</p>
             </div>
             <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reports.reload}>
               Làm mới
@@ -2179,10 +2381,10 @@ export default function PlatformReportsPage() {
 
           {reports.status === 'success' && (
             <div className="pd-dispute-list">
-              {reports.items.length === 0 ? (
+              {generalReports.length === 0 ? (
                 <div className="adm-state">Chưa có báo cáo nào.</div>
               ) : (
-                reports.items.map((item) => (
+                generalReports.map((item) => (
                   <button
                     key={item.id}
                     type="button"
@@ -2223,6 +2425,78 @@ export default function PlatformReportsPage() {
             onChanged={reloadIssueQueues}
           />
         )}
+      </section>
+
+      <section className="pd-console" aria-label="Hàng đợi báo cáo đánh giá">
+        <div className="adm-card pd-console__list">
+          <div className="pd-card-head">
+            <div>
+              <h2 className="pd-card-head__title">Báo cáo đánh giá</h2>
+              <p className="pd-card-head__meta">
+                {reviewReports.length} báo cáo · {openReviewReportCount} chờ xử lý
+              </p>
+            </div>
+            <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reports.reload}>
+              Làm mới
+            </button>
+          </div>
+
+          {reports.status === 'loading' && (
+            <div className="adm-state adm-state--loading">Đang tải danh sách báo cáo…</div>
+          )}
+
+          {reports.status === 'error' && (
+            <div className="adm-state">
+              <p>{reports.errorMessage ?? 'Không tải được dữ liệu.'}</p>
+              <button className="tcs-btn tcs-btn--market" type="button" onClick={reports.reload}>
+                Thử lại
+              </button>
+            </div>
+          )}
+
+          {reports.status === 'success' && (
+            <div className="pd-dispute-list">
+              {reviewReports.length === 0 ? (
+                <div className="adm-state">Chưa có báo cáo đánh giá nào.</div>
+              ) : (
+                reviewReports.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    className={`pd-dispute-item${
+                      selectedReviewReportId === item.id ? ' pd-dispute-item--active' : ''
+                    }`}
+                    onClick={() => setSelectedReviewReportId(item.id)}
+                  >
+                    <span className="pd-dispute-item__top">
+                      <span className="pd-dispute-item__id">#{item.id}</span>
+                      <span className={reportBadgeClass(item.status)}>{item.statusLabel}</span>
+                    </span>
+                    <span className="pd-dispute-item__title">
+                      {item.reportedReview?.tutorName
+                        ? `Đánh giá gia sư ${item.reportedReview.tutorName}`
+                        : `Đánh giá #${item.targetId}`}
+                    </span>
+                    <span className="pd-dispute-item__desc">{item.userDescription}</span>
+                    <span className="pd-dispute-item__meta">
+                      {item.categoryLabel} · {item.reporterEmail} · {item.createdAt}
+                      {item.reportedReview ? (
+                        <span className="tcs-badge tcs-badge--role">
+                          {REVIEW_MODERATION_LABELS[item.reportedReview.status]
+                            ?? item.reportedReview.status}
+                        </span>
+                      ) : (
+                        <span className="tcs-badge tcs-badge--banned">Đã xóa</span>
+                      )}
+                    </span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        <ReviewReportDetail detail={selectedReviewReport} onChanged={reports.reload} />
       </section>
 
       <section id="section-refunds" className="pd-console" aria-label="Hàng đợi yêu cầu hoàn tiền">

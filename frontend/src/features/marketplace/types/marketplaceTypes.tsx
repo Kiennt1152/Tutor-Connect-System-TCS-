@@ -1,3 +1,6 @@
+import type { CompletionState } from '../../teaching/types/teachingTypes';
+
+export type { CompletionState };
 
 export type LessonMode = 'ONLINE' | 'OFFLINE' | 'HYBRID';
 export type RecurringType = 'DAILY' | 'WEEKLY' | 'ONCE';
@@ -80,6 +83,8 @@ export interface ClassResponse {
   recurringType: RecurringType;
   status: ClassStatus;
   createdAt: string;
+  /** Hạn hiển thị (đăng lớp + 30 ngày); null nếu không tính hạn. Chỉ có với lớp OPEN. */
+  expiresAt: string | null;
   applicationCount: number | null;
   assignmentId: number | null;
 }
@@ -345,6 +350,10 @@ export interface MarketplaceClass {
   completedSessions: number | null;
   terminationAssignmentId: number | null;
   terminationClassStudentId: number | null;
+  /** UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE 1 gia sư – 1 phụ huynh/học viên). */
+  completionAssignmentId: number | null;
+  completionState: CompletionState;
+  completionBlockedReason: string | null;
   schedule: MarketplaceScheduleSlot[];
   createdAt: string;
 }

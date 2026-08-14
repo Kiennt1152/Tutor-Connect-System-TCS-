@@ -301,6 +301,7 @@ export default function PlatformVerificationsPage() {
                             {doc.available && doc.fileUrl ? (
                               <FileThumbnail
                                 src={doc.fileUrl}
+                                fileId={doc.fileId ?? undefined}
                                 fileName={doc.fileName ?? 'Tài liệu'}
                                 mimeType={doc.mimeType}
                                 fileSize={doc.fileSize}

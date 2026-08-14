@@ -21,4 +21,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
     long countByTutoringClass_ClassId(Long classId);
 
     List<Lesson> findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(Long classId);
+
+    /** Buổi học đúng ngày truyền vào và chưa gửi nhắc nhở -> cần gửi thông báo. */
+    List<Lesson> findByLessonDateAndReminderSentAtIsNull(java.time.LocalDate lessonDate);
 }

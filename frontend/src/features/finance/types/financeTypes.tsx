@@ -78,14 +78,21 @@ export interface PaymentMethodInfo {
   type: string;
   provider: string | null;
   bankName?: string | null;
+  accountHolderName?: string | null;
   lastFour: string | null;
   accountNoMasked?: string | null;
   isDefault: boolean;
+  verifiedAt?: string | null;
+  cooldownUntil?: string | null;
+  lastUsedAt?: string | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
 }
 
 export interface PaymentMethodPayload {
   bankName: string;
   accountNo: string;
+  accountHolderName: string;
 }
 
 export interface WithdrawalPayload {
@@ -93,6 +100,7 @@ export interface WithdrawalPayload {
   paymentMethodId?: number;
   bankName?: string;
   accountNo?: string;
+  accountHolderName?: string;
 }
 
 export interface WithdrawalInfo {
@@ -102,6 +110,7 @@ export interface WithdrawalInfo {
   paymentMethodId: number;
   bankName: string | null;
   accountNoMasked: string;
+  accountHolderName?: string | null;
   referenceCode: string;
   requestedAt: string;
   wallet: WalletInfo;

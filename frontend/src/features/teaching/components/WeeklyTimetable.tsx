@@ -29,6 +29,7 @@ interface Props {
   readonly onOpenDetail?: (lesson: LessonResponse) => void;
   readonly onReview?: (lesson: LessonResponse) => void;
   readonly pendingLessonIds?: ReadonlySet<number>;
+  readonly reviewedLessonIds?: ReadonlySet<number>;
 }
 
 export function WeeklyTimetable({
@@ -39,6 +40,7 @@ export function WeeklyTimetable({
   onOpenDetail,
   onReview,
   pendingLessonIds,
+  reviewedLessonIds,
 }: Props) {
   const [weekOffset, setWeekOffset] = useState(0);
   const todayIso = toIsoDate(new Date());
@@ -128,7 +130,7 @@ export function WeeklyTimetable({
                 <th className="wtt__rowhead">
                   {session.value}
                   <small>
-                    {session.min}–{session.max}
+                    {hhmmDisplay(session.min)}–{hhmmDisplay(session.max)}
                   </small>
                 </th>
                 {days.map((d) => {
@@ -148,6 +150,7 @@ export function WeeklyTimetable({
                             onOpenDetail={onOpenDetail}
                             onReview={onReview}
                             hasPendingRequest={pendingLessonIds?.has(lesson.lessonId) ?? false}
+                            reviewed={reviewedLessonIds?.has(lesson.lessonId) ?? false}
                           />
                         ))
                       )}
@@ -169,13 +172,16 @@ export function WeeklyTimetable({
           <i className="wtt__dot wtt__dot--done" /> Đã điểm danh
         </span>
         <span>
-          <i className="wtt__dot wtt__dot--pending" /> Chưa điểm danh
+          <i className="wtt__dot wtt__dot--todaywait" /> Diễn ra trong ngày (chưa tới giờ điểm danh)
         </span>
         <span>
-          <i className="wtt__dot wtt__dot--today" /> Diễn ra hôm nay
+          <i className="wtt__dot wtt__dot--today" /> Đang diễn ra buổi học
         </span>
         <span>
           <i className="wtt__dot wtt__dot--absent" /> Vắng mặt
+        </span>
+        <span>
+          <i className="wtt__dot wtt__dot--pending" /> Lịch học
         </span>
         <span>
           <strong>-</strong> Không có buổi học
@@ -193,6 +199,7 @@ function LessonChip({
   onOpenDetail,
   onReview,
   hasPendingRequest,
+  reviewed,
 }: {
   readonly lesson: LessonResponse;
   readonly readOnly: boolean;
@@ -201,11 +208,24 @@ function LessonChip({
   readonly onOpenDetail?: (lesson: LessonResponse) => void;
   readonly onReview?: (lesson: LessonResponse) => void;
   readonly hasPendingRequest: boolean;
+  readonly reviewed: boolean;
 }) {
   const done = lesson.attendanceStatus === 'COMPLETED';
   const absent = lesson.attendanceStatus === 'ABSENT';
-  const tone = done ? 'done' : absent ? 'absent' : lesson.canCheckInToday ? 'today' : 'pending';
-  const canReschedule = onReschedule && lesson.attendanceStatus === 'PENDING';
+  const isTodayLesson = lesson.lessonDate === toIsoDate(new Date());
+  // done=xanh lá · absent=đỏ · today(đang tới giờ điểm danh)=xanh dương ·
+  // todaywait(hôm nay nhưng chưa tới giờ)=vàng · pending(lịch tương lai)=cam.
+  const tone = done
+    ? 'done'
+    : absent
+      ? 'absent'
+      : lesson.canCheckInToday
+        ? 'today'
+        : isTodayLesson
+          ? 'todaywait'
+          : 'pending';
+  const canReschedule =
+    onReschedule && lesson.attendanceStatus === 'PENDING' && !lesson.rescheduleLocked;
   const [attendOpen, setAttendOpen] = useState(false);
 
   const info = (
@@ -251,7 +271,7 @@ function LessonChip({
             title={
               lesson.canCheckInToday
                 ? undefined
-                : 'Chỉ điểm danh được trong đúng ngày diễn ra buổi học'
+                : `Chỉ điểm danh được từ giờ bắt đầu buổi học (${hhmmDisplay(lesson.startTime)}) đến hết ngày hôm đó`
             }
           >
             Điểm danh
@@ -300,13 +320,19 @@ function LessonChip({
         )
       )}
       {onReview && done && (
-        <button
-          className="tcs-btn tcs-btn--sm tcs-btn--primary"
-          type="button"
-          onClick={() => onReview(lesson)}
-        >
-          Đánh giá gia sư
-        </button>
+        reviewed ? (
+          <span className="wtt-chip__reviewed" title="Bạn đã đánh giá gia sư cho buổi học này">
+            ✓ Đã đánh giá
+          </span>
+        ) : (
+          <button
+            className="tcs-btn tcs-btn--sm tcs-btn--primary"
+            type="button"
+            onClick={() => onReview(lesson)}
+          >
+            Đánh giá gia sư
+          </button>
+        )
       )}
     </div>
   );

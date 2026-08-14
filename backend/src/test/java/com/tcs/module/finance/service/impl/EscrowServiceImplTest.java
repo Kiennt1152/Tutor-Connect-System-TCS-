@@ -109,7 +109,7 @@ class EscrowServiceImplTest {
     }
 
     @Test
-    void lockPrivateAssignmentCreatesPendingEscrowPayment() {
+    void preparePrivateAssignmentCreatesPendingEscrowPayment() {
         BigDecimal amount = new BigDecimal("500000.00");
         Wallet wallet = wallet(999L);
         ClassAssignment assignment = new ClassAssignment();
@@ -117,11 +117,11 @@ class EscrowServiceImplTest {
 
         when(escrowTransactionRepository.findByAssignment_AssignmentId(7L)).thenReturn(Optional.empty());
         when(classAssignmentRepository.findById(7L)).thenReturn(Optional.of(assignment));
+        when(paymentTransactionRepository.findByReferenceCode("ESCROW-A7")).thenReturn(Optional.empty());
         when(walletService.getSystemEscrowWallet()).thenReturn(wallet);
         when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        EscrowTransaction result = escrowService.lock(new EscrowLockCommand(PAYER_ID, amount, 7L, null));
+        PaymentTransaction result = escrowService.preparePayment(new EscrowLockCommand(PAYER_ID, amount, 7L, null));
 
         verify(paymentTransactionRepository).save(paymentCaptor.capture());
         PaymentTransaction payment = paymentCaptor.getValue();
@@ -129,18 +129,13 @@ class EscrowServiceImplTest {
         assertEquals(PaymentTransactionType.ESCROW_DEPOSIT, payment.getType());
         assertEquals(PaymentTransactionStatus.PENDING, payment.getStatus());
         assertEquals("ESCROW-A7", payment.getReferenceCode());
-
-        verify(escrowTransactionRepository).save(escrowCaptor.capture());
-        EscrowTransaction escrow = escrowCaptor.getValue();
-        assertSame(assignment, escrow.getAssignment());
-        assertEquals(EscrowStatus.PENDING, escrow.getStatus());
-        assertEquals(amount, escrow.getAmount());
-        assertSame(escrow, result);
+        assertSame(payment, result);
         verify(walletService, never()).lockFunds(any(), any(), any());
+        verify(escrowTransactionRepository, never()).save(any());
     }
 
     @Test
-    void lockCenterEnrollmentCreatesPendingEscrowPayment() {
+    void prepareCenterEnrollmentCreatesPendingEscrowPayment() {
         BigDecimal amount = new BigDecimal("300000.00");
         Wallet wallet = wallet(999L);
         ClassStudent classStudent = new ClassStudent();
@@ -148,37 +143,62 @@ class EscrowServiceImplTest {
 
         when(escrowTransactionRepository.findByClassStudent_ClassStudentId(9L)).thenReturn(Optional.empty());
         when(classStudentRepository.findById(9L)).thenReturn(Optional.of(classStudent));
+        when(paymentTransactionRepository.findByReferenceCode("ESCROW-CS9")).thenReturn(Optional.empty());
         when(walletService.getSystemEscrowWallet()).thenReturn(wallet);
         when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        EscrowTransaction result = escrowService.lock(new EscrowLockCommand(PAYER_ID, amount, null, 9L));
+        PaymentTransaction result = escrowService.preparePayment(new EscrowLockCommand(PAYER_ID, amount, null, 9L));
 
         verify(paymentTransactionRepository).save(paymentCaptor.capture());
         assertEquals("ESCROW-CS9", paymentCaptor.getValue().getReferenceCode());
         assertEquals(PaymentTransactionStatus.PENDING, paymentCaptor.getValue().getStatus());
-
-        verify(escrowTransactionRepository).save(escrowCaptor.capture());
-        EscrowTransaction escrow = escrowCaptor.getValue();
-        assertSame(classStudent, escrow.getClassStudent());
-        assertEquals(EscrowStatus.PENDING, escrow.getStatus());
-        assertSame(escrow, result);
+        assertSame(paymentCaptor.getValue(), result);
         verify(walletService, never()).lockFunds(any(), any(), any());
+        verify(escrowTransactionRepository, never()).save(any());
     }
 
     @Test
-    void lockReturnsExistingEscrowWithoutChargingAgain() {
+    void preparePaymentReturnsExistingEscrowPaymentWithoutChargingAgain() {
+        PaymentTransaction payment = new PaymentTransaction();
         EscrowTransaction existing = new EscrowTransaction();
         existing.setEscrowId(100L);
+        existing.setPayment(payment);
         when(escrowTransactionRepository.findByAssignment_AssignmentId(7L)).thenReturn(Optional.of(existing));
 
-        EscrowTransaction result = escrowService.lock(
+        PaymentTransaction result = escrowService.preparePayment(
                 new EscrowLockCommand(PAYER_ID, new BigDecimal("500000.00"), 7L, null));
 
-        assertSame(existing, result);
+        assertSame(payment, result);
         verify(walletService, never()).lockFunds(any(), any(), any());
         verify(paymentTransactionRepository, never()).save(any());
         verify(escrowTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void fundConfirmedPaymentCreatesFundedEscrow() {
+        BigDecimal amount = new BigDecimal("500000.00");
+        PaymentTransaction payment = new PaymentTransaction();
+        payment.setTransactionId(88L);
+        payment.setType(PaymentTransactionType.ESCROW_DEPOSIT);
+        payment.setStatus(PaymentTransactionStatus.SUCCESS);
+        payment.setAmount(amount);
+        payment.setReferenceCode("ESCROW-A7");
+        ClassAssignment assignment = new ClassAssignment();
+        assignment.setAssignmentId(7L);
+
+        when(escrowTransactionRepository.findByPayment_TransactionId(88L)).thenReturn(Optional.empty());
+        when(classAssignmentRepository.findById(7L)).thenReturn(Optional.of(assignment));
+        when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        EscrowTransaction result = escrowService.fundConfirmedPayment(payment);
+
+        verify(escrowTransactionRepository).save(escrowCaptor.capture());
+        EscrowTransaction escrow = escrowCaptor.getValue();
+        assertSame(assignment, escrow.getAssignment());
+        assertSame(payment, escrow.getPayment());
+        assertEquals(EscrowStatus.FUNDED, escrow.getStatus());
+        assertEquals(amount, escrow.getAmount());
+        assertSame(escrow, result);
     }
 
     @Test

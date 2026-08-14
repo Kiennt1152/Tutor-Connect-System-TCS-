@@ -153,10 +153,54 @@
   margin-top: 30px;
   gap: 20px;
 }
+.ksign-sign-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+.ksign-sign-role {
+  color: #475569;
+  font-size: 13px;
+  margin-bottom: 4px;
+}
 .ksign-sign-status {
   margin: 6px 0 0;
   color: #64748b;
   font-style: italic;
+}
+.ksign-sign-valid {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 4px 0 2px;
+}
+.ksign-sign-valid__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #1b7a43;
+  color: #fff;
+  font-size: 12px;
+  line-height: 1;
+}
+.ksign-sign-valid__text {
+  color: #1b7a43;
+  font-weight: 600;
+  font-size: 13px;
+}
+.ksign-sign-by {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #0f172a;
+}
+.ksign-sign-at {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: #64748b;
 }
 
 .ksign-side {

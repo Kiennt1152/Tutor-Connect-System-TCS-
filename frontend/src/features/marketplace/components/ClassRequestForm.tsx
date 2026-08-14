@@ -458,8 +458,9 @@ export function ClassRequestForm({
       : 'TERM';
   const repeats = patternRepeats(form);
   const cycleName = cycleLabelOf(form);
-  const cycleLabelDisplay = isMonth ? cycleName : cycle.short;
-  const cycleSuffix = `đ / ${isMonth ? cycleName : cycle.short}`;
+  // Chọn ngày cụ thể: tổng là số tiền cố định cho các buổi đã chọn, không theo chu kỳ.
+  const cycleLabelDisplay = !isWeekly ? 'các buổi đã chọn' : isMonth ? cycleName : cycle.short;
+  const cycleSuffix = !isWeekly ? 'đ' : `đ / ${isMonth ? cycleName : cycle.short}`;
   const perRepeatUnit = repeatWeeksOf(form) === 1 ? 'tuần' : 'tuần học';
   const studyWeeks = studyWeeksOf(form);
   const restWeeks = restWeeksOf(form);
@@ -700,6 +701,8 @@ export function ClassRequestForm({
         </label>
       </div>
 
+      {/* Chọn ngày cụ thể (lịch cá nhân) -> bỏ qua chu kỳ Tháng/Quý/Kỳ/Năm và số tháng học. */}
+      {isWeekly && (
       <div className="mkt-form__grid">
         <label className="mkt-field">
           <span className="mkt-field__label">Chọn thời gian học</span>
@@ -747,6 +750,7 @@ export function ClassRequestForm({
           </label>
         )}
       </div>
+      )}
 
       <div className="mkt-field">
         <span className="mkt-field__label">Kiểu lịch học</span>
@@ -1016,6 +1020,7 @@ export function ClassRequestForm({
                           <div key={idx} className="mkt-slot-row">
                             <input
                               type="date"
+                              lang="vi-VN"
                               className="mkt-slot-date"
                               aria-label="Ngày học"
                               min={today}
@@ -1079,7 +1084,7 @@ export function ClassRequestForm({
                               <option value="">Đến…</option>
                               {endTimes.map((t) => (
                                 <option key={t} value={t}>
-                                  {fmtTime(t)}
+                                  {slot.start ? `${fmtTime(t)} (${durationLabel(slot.start, t)})` : fmtTime(t)}
                                 </option>
                               ))}
                             </select>
@@ -1115,9 +1120,17 @@ export function ClassRequestForm({
           {currency.format(total)} {cycleSuffix}
         </div>
         <span className="mkt-hint">
-          {hoursPerRepeat} giờ/{perRepeatUnit} · {form.slots.length} buổi/{perRepeatUnit} — Tổng:{' '}
-          {hoursPerRepeat * repeats} giờ · {form.slots.length * repeats} buổi ({repeats} tuần học
-          {repeatWeeksOf(form) > 1 ? ` trong ${weeksForCycle(form)} tuần` : ''}).
+          {isWeekly ? (
+            <>
+              {hoursPerRepeat} giờ/{perRepeatUnit} · {form.slots.length} buổi/{perRepeatUnit} — Tổng:{' '}
+              {hoursPerRepeat * repeats} giờ · {form.slots.length * repeats} buổi ({repeats} tuần học
+              {repeatWeeksOf(form) > 1 ? ` trong ${weeksForCycle(form)} tuần` : ''}).
+            </>
+          ) : (
+            <>
+              {form.slots.length} buổi đã chọn · Tổng {hoursPerRepeat} giờ (không lặp lịch).
+            </>
+          )}
         </span>
       </div>
 

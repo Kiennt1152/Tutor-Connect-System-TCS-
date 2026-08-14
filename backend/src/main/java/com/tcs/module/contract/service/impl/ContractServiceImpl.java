@@ -23,6 +23,7 @@ import com.tcs.module.contract.repository.ContractSignatureRepository;
 import com.tcs.module.contract.repository.ContractTemplateRepository;
 import com.tcs.module.contract.service.ContractService;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tcs.exception.BusinessException;
 import com.tcs.module.contract.dto.request.CreateReviewRequest;
@@ -42,12 +43,15 @@ import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
+import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.Lesson;
+import com.tcs.module.marketplace.event.ClientReviewedClassEvent;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
@@ -84,6 +88,7 @@ import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.time.LocalTime;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
@@ -92,11 +97,13 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 @Slf4j
 @Service
@@ -114,7 +121,11 @@ public class ContractServiceImpl implements ContractService {
     private static final String ESCROW_BANK_BIN = "970423";
     private static final String ESCROW_ACCOUNT_NUMBER = "02660559201";
     private static final String ESCROW_ACCOUNT_NAME = "TUTOR CONNECT SYSTEM";
+    private static final String PRIVATE_ESCROW_REF_PREFIX = "ESCROW-A";
+    private static final String CENTER_ESCROW_REF_PREFIX = "ESCROW-CS";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final Map<String, Integer> DAY_CODE_TO_ISO = Map.of(
+            "T2", 1, "T3", 2, "T4", 3, "T5", 4, "T6", 5, "T7", 6, "CN", 7);
     private static final String DEFAULT_ANONYMOUS_NAME = "Người dùng ẩn danh";
     private static final int REVIEW_REQUIRED_WITHIN_MONTHS = 1;
     private static final DateTimeFormatter DOC_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -132,6 +143,7 @@ public class ContractServiceImpl implements ContractService {
     private final EmailService emailService;
     private final EscrowService escrowService;
     private final EscrowTransactionRepository escrowTransactionRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ReviewRepository reviewRepository;
     private final RecruitmentApplicationRepository recruitmentApplicationRepository;
@@ -1149,7 +1161,7 @@ public class ContractServiceImpl implements ContractService {
             if (application != null && application.getTutoringClass() != null) {
                 TutoringClass tutoringClass = application.getTutoringClass();
                 classId = tutoringClass.getClassId();
-                amount = resolveInitialEscrowAmount(contract, tutoringClass);
+                amount = resolvePrivateEscrowAmount(tutoringClass, contract.getAssignment());
                 payerUserId = tutoringClass.getCreator() != null ? tutoringClass.getCreator().getUserId() : null;
             }
             beneficiaryUserId = contract.getAssignment().getTutor() != null
@@ -1161,7 +1173,7 @@ public class ContractServiceImpl implements ContractService {
             TutoringClass tutoringClass = contract.getClassStudent().getTutoringClass();
             if (tutoringClass != null) {
                 classId = tutoringClass.getClassId();
-                amount = resolveInitialEscrowAmount(contract, tutoringClass);
+                amount = resolveCenterEscrowAmount(tutoringClass);
                 payerUserId = contract.getClassStudent().getEnrolledByUser() != null
                         ? contract.getClassStudent().getEnrolledByUser().getUserId()
                         : null;
@@ -1173,7 +1185,7 @@ public class ContractServiceImpl implements ContractService {
 
         if (payerUserId != null && amount.compareTo(BigDecimal.ZERO) > 0
                 && (assignmentId != null || classStudentId != null)) {
-            escrowService.lock(new EscrowLockCommand(payerUserId, amount, assignmentId, classStudentId));
+            escrowService.preparePayment(new EscrowLockCommand(payerUserId, amount, assignmentId, classStudentId));
         } else {
             log.warn("[Contract] Bỏ qua khóa escrow: payer={}, amount={}, assignmentId={}, classStudentId={}",
                     payerUserId, amount, assignmentId, classStudentId);
@@ -1189,25 +1201,219 @@ public class ContractServiceImpl implements ContractService {
                 classStudentId));
     }
 
-    private BigDecimal resolveInitialEscrowAmount(Contract contract, TutoringClass tutoringClass) {
+    private BigDecimal resolvePrivateEscrowAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
+        BigDecimal totalAmount = resolvePrivateContractTotalAmount(tutoringClass, assignment);
+        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        int plannedMonths = plannedPrivateClassMonths(tutoringClass);
+        if (plannedMonths <= 1) {
+            return totalAmount.setScale(2, RoundingMode.HALF_UP);
+        }
+        return totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal resolvePrivateContractTotalAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
+        BigDecimal totalAmount = resolvePrivateDealTotalAmount(tutoringClass, assignment);
+        return totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0
+                ? totalAmount.setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+    }
+
+    private BigDecimal resolveCenterEscrowAmount(TutoringClass tutoringClass) {
         BigDecimal totalAmount = positiveAmount(tutoringClass.getBudget());
         if (totalAmount == null && tutoringClass.getTuitionFee() != null
                 && tutoringClass.getNumberOfSessions() != null) {
             totalAmount = tutoringClass.getTuitionFee()
                     .multiply(BigDecimal.valueOf(tutoringClass.getNumberOfSessions()));
         }
-        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            return BigDecimal.ZERO;
+        return totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0
+                ? totalAmount.setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+    }
+
+    private BigDecimal resolvePrivateDealTotalAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
+        if (tutoringClass == null || !StringUtils.hasText(tutoringClass.getDetailsJson())) {
+            return null;
         }
-        if (contract.getSourceType() != ContractSourceType.PRIVATE) {
-            return totalAmount.setScale(2, RoundingMode.HALF_UP);
+        JsonNode root = readTree(filterDetailsToSubjects(tutoringClass.getDetailsJson(), acceptedSubjectKeys(assignment)));
+        JsonNode subjectFeesNode = root.path("subjectFees");
+        JsonNode slots = root.path("slots");
+        if (subjectFeesNode == null || !subjectFeesNode.isObject() || slots == null || !slots.isArray()) {
+            return null;
+        }
+        Map<String, BigDecimal> fees = readRates(subjectFeesNode.toString());
+        if (fees == null || fees.isEmpty()) {
+            return null;
+        }
+        int repeats = Math.max(1, patternRepeats(root));
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> entry : fees.entrySet()) {
+            BigDecimal fee = entry.getValue();
+            if (fee == null || fee.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            BigDecimal hours = hoursPerRepeatForSubject(root, entry.getKey());
+            if (hours.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            total = total.add(fee.multiply(hours).multiply(BigDecimal.valueOf(repeats)));
+        }
+        return total.compareTo(BigDecimal.ZERO) > 0 ? total : null;
+    }
+
+    private Set<String> acceptedSubjectKeys(ClassAssignment assignment) {
+        if (assignment == null || assignment.getApplication() == null) {
+            return null;
+        }
+        Map<String, BigDecimal> rates = readRates(assignment.getApplication().getProposedRatesJson());
+        if (rates == null || rates.isEmpty()) {
+            return null;
+        }
+        return rates.keySet();
+    }
+
+    private String filterDetailsToSubjects(String detailsJson, Set<String> keptKeys) {
+        if (keptKeys == null || keptKeys.isEmpty() || !StringUtils.hasText(detailsJson)) {
+            return detailsJson;
+        }
+        JsonNode root = readTree(detailsJson);
+        if (root == null || !root.isObject()) {
+            return detailsJson;
+        }
+        com.fasterxml.jackson.databind.node.ObjectNode obj =
+                (com.fasterxml.jackson.databind.node.ObjectNode) root;
+
+        JsonNode ids = obj.get("subjectIds");
+        if (ids != null && ids.isArray()) {
+            com.fasterxml.jackson.databind.node.ArrayNode keptIds = OBJECT_MAPPER.createArrayNode();
+            for (JsonNode id : ids) {
+                if (keptKeys.contains(id.asText())) {
+                    keptIds.add(id);
+                }
+            }
+            if (!keptIds.isEmpty()) {
+                obj.set("subjectIds", keptIds);
+            }
         }
 
-        int plannedMonths = plannedPrivateClassMonths(tutoringClass);
-        if (plannedMonths <= 1) {
-            return totalAmount.setScale(2, RoundingMode.HALF_UP);
+        JsonNode feesNode = obj.get("subjectFees");
+        if (feesNode != null && feesNode.isObject()) {
+            com.fasterxml.jackson.databind.node.ObjectNode fees = OBJECT_MAPPER.createObjectNode();
+            for (String key : keptKeys) {
+                if (feesNode.has(key)) {
+                    fees.set(key, feesNode.get(key));
+                }
+            }
+            obj.set("subjectFees", fees);
         }
-        return totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP);
+
+        JsonNode slots = obj.get("slots");
+        if (slots != null && slots.isArray()) {
+            com.fasterxml.jackson.databind.node.ArrayNode keptSlots = OBJECT_MAPPER.createArrayNode();
+            for (JsonNode slot : slots) {
+                String slotKey = slot.path("subjectId").asText("");
+                if (slotKey.isEmpty() || keptKeys.contains(slotKey)) {
+                    keptSlots.add(slot);
+                }
+            }
+            obj.set("slots", keptSlots);
+        }
+
+        try {
+            return OBJECT_MAPPER.writeValueAsString(obj);
+        } catch (Exception ignored) {
+            return detailsJson;
+        }
+    }
+
+    private JsonNode readTree(String json) {
+        if (!StringUtils.hasText(json)) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+        try {
+            return OBJECT_MAPPER.readTree(json);
+        } catch (Exception ignored) {
+            return OBJECT_MAPPER.createObjectNode();
+        }
+    }
+
+    private Map<String, BigDecimal> readRates(String json) {
+        if (!StringUtils.hasText(json)) {
+            return null;
+        }
+        try {
+            return OBJECT_MAPPER.readValue(json, new TypeReference<LinkedHashMap<String, BigDecimal>>() {});
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
+    private Set<Integer> studyWeeksOf(JsonNode form, int cycleWeeks) {
+        Set<Integer> weeks = new LinkedHashSet<>();
+        for (JsonNode w : form.path("studyWeeks")) {
+            int v = w.asInt(0);
+            if (v >= 1 && v <= cycleWeeks) {
+                weeks.add(v);
+            }
+        }
+        if (weeks.isEmpty()) {
+            weeks.add(1);
+        }
+        return weeks;
+    }
+
+    private int durationCountOf(JsonNode form) {
+        return Math.max(1, form.path("months").asInt(1));
+    }
+
+    private int totalMonthsOf(JsonNode form) {
+        int n = durationCountOf(form);
+        return "YEAR".equals(form.path("durationUnit").asText("MONTH")) ? n * 12 : n;
+    }
+
+    private int weeksForCycle(JsonNode form) {
+        return switch (form.path("billingCycle").asText("MONTH")) {
+            case "MONTH" -> totalMonthsOf(form) * 4;
+            case "TERM" -> 12;
+            case "QUARTER" -> 24;
+            case "YEAR" -> 48;
+            default -> 4;
+        };
+    }
+
+    private int repeatWeeksOf(JsonNode form) {
+        if (!"WEEKLY".equals(form.path("scheduleMode").asText("WEEKLY"))) {
+            return 1;
+        }
+        int n = form.path("repeatEveryWeeks").asInt(1);
+        return Math.min(4, Math.max(1, n));
+    }
+
+    private int patternRepeats(JsonNode form) {
+        int weeks = weeksForCycle(form);
+        int cycleWeeks = repeatWeeksOf(form);
+        if (cycleWeeks <= 1) {
+            return weeks;
+        }
+        Set<Integer> on = studyWeeksOf(form, cycleWeeks);
+        int remainder = weeks % cycleWeeks;
+        return (weeks / cycleWeeks) * on.size() + (int) on.stream().filter(w -> w <= remainder).count();
+    }
+
+    private BigDecimal hoursPerRepeatForSubject(JsonNode form, String subjectId) {
+        JsonNode slots = form.path("slots");
+        if (slots == null || !slots.isArray() || !StringUtils.hasText(subjectId)) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        for (JsonNode slot : slots) {
+            if (!subjectId.equals(slot.path("subjectId").asText(""))) {
+                continue;
+            }
+            total = total.add(slotHours(slot.path("start").asText(""), slot.path("end").asText("")));
+        }
+        return total;
     }
 
     private int plannedPrivateClassMonths(TutoringClass tutoringClass) {
@@ -1225,6 +1431,23 @@ public class ContractServiceImpl implements ContractService {
 
     private BigDecimal positiveAmount(BigDecimal amount) {
         return amount != null && amount.compareTo(BigDecimal.ZERO) > 0 ? amount : null;
+    }
+
+    private BigDecimal slotHours(String start, String end) {
+        if (!StringUtils.hasText(start) || !StringUtils.hasText(end)) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            LocalTime s = LocalTime.parse(start);
+            LocalTime e = LocalTime.parse(end);
+            int startMin = s.getHour() * 60 + s.getMinute();
+            int endMin = e.getHour() * 60 + e.getMinute();
+            int diff = endMin - startMin;
+            return diff > 0 ? BigDecimal.valueOf(diff).divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+        } catch (Exception ex) {
+            return BigDecimal.ZERO;
+        }
     }
 
     private ContractResponse toContractResponse(Contract contract) {
@@ -1302,7 +1525,7 @@ public class ContractServiceImpl implements ContractService {
                 .signedCount(signed)
                 .hasAllSignatures(signed >= required);
         RefundPolicy refundPolicy = resolveRefundPolicy(contract);
-        builder.escrowPayment(toEscrowPaymentInfo(resolveContractEscrow(contract)))
+        builder.escrowPayment(toEscrowPaymentInfo(resolveContractEscrow(contract), resolveContractEscrowPayment(contract)))
                 .refundPayoutInfo(toRefundPayoutInfoView(contract))
                 .totalSessions(refundPolicy.totalSessions())
                 .completedSessions(refundPolicy.completedSessions())
@@ -1411,19 +1634,34 @@ public class ContractServiceImpl implements ContractService {
         return null;
     }
 
-    private ContractResponse.EscrowPaymentInfo toEscrowPaymentInfo(EscrowTransaction escrow) {
-        if (escrow == null) {
+    private PaymentTransaction resolveContractEscrowPayment(Contract contract) {
+        if (contract == null) {
+            return null;
+        }
+        String reference = null;
+        if (contract.getAssignment() != null && contract.getAssignment().getAssignmentId() != null) {
+            reference = PRIVATE_ESCROW_REF_PREFIX + contract.getAssignment().getAssignmentId();
+        } else if (contract.getClassStudent() != null && contract.getClassStudent().getClassStudentId() != null) {
+            reference = CENTER_ESCROW_REF_PREFIX + contract.getClassStudent().getClassStudentId();
+        }
+        return StringUtils.hasText(reference)
+                ? paymentTransactionRepository.findByReferenceCode(reference).orElse(null)
+                : null;
+    }
+
+    private ContractResponse.EscrowPaymentInfo toEscrowPaymentInfo(EscrowTransaction escrow, PaymentTransaction fallbackPayment) {
+        if (escrow == null && fallbackPayment == null) {
             return null;
         }
 
-        PaymentTransaction payment = escrow.getPayment();
+        PaymentTransaction payment = escrow != null ? escrow.getPayment() : fallbackPayment;
         BigDecimal amount = payment != null && payment.getAmount() != null
                 ? payment.getAmount()
-                : escrow.getAmount();
+                : escrow != null ? escrow.getAmount() : null;
         String reference = payment != null ? payment.getReferenceCode() : null;
         return ContractResponse.EscrowPaymentInfo.builder()
-                .escrowId(escrow.getEscrowId())
-                .escrowStatus(escrow.getStatus())
+                .escrowId(escrow != null ? escrow.getEscrowId() : null)
+                .escrowStatus(escrow != null ? escrow.getStatus() : EscrowStatus.PENDING)
                 .paymentTransactionId(payment != null ? payment.getTransactionId() : null)
                 .paymentStatus(payment != null ? payment.getStatus() : null)
                 .amount(amount)
@@ -1434,7 +1672,7 @@ public class ContractServiceImpl implements ContractService {
                 .accountName(ESCROW_ACCOUNT_NAME)
                 .transferContent(reference)
                 .qrUrl(buildEscrowQrUrl(amount, reference))
-                .depositedAt(escrow.getDepositedAt())
+                .depositedAt(escrow != null ? escrow.getDepositedAt() : null)
                 .processedAt(payment != null ? payment.getProcessedAt() : null)
                 .build();
     }
@@ -1483,6 +1721,7 @@ public class ContractServiceImpl implements ContractService {
                     : null;
             if (tutoringClass != null) {
                 fillClassFields(builder, tutoringClass);
+                fillPrivateContractAmounts(builder, tutoringClass, assignment);
                 fillCreatorParty(builder, tutoringClass.getCreator());
             }
             return;
@@ -1508,6 +1747,17 @@ public class ContractServiceImpl implements ContractService {
                 .tuitionFee(tutoringClass.getTuitionFee())
                 .lessonMode(tutoringClass.getLessonMode() != null ? tutoringClass.getLessonMode().name() : null)
                 .numberOfSessions(tutoringClass.getNumberOfSessions());
+    }
+
+    private void fillPrivateContractAmounts(
+            ContractResponse.ContractResponseBuilder builder,
+            TutoringClass tutoringClass,
+            ClassAssignment assignment) {
+        BigDecimal totalTuitionAmount = resolvePrivateContractTotalAmount(tutoringClass, assignment);
+        BigDecimal escrowAmount = resolvePrivateEscrowAmount(tutoringClass, assignment);
+        builder.tuitionFee(totalTuitionAmount)
+                .totalTuitionAmount(totalTuitionAmount)
+                .escrowAmount(escrowAmount);
     }
 
     private void fillCreatorParty(ContractResponse.ContractResponseBuilder builder, User creator) {
@@ -1618,6 +1868,76 @@ public class ContractServiceImpl implements ContractService {
     }
 
     // ===== Reviews & Reputation =====
+    @Override
+    @Transactional
+    public ReviewResponse createReview(CreateReviewRequest request) {
+        Long clientId = authHelper.requireRole(UserRole.CLIENT).getUserId();
+        if (request == null || request.getAssignmentId() == null) {
+            throw new IllegalArgumentException("Thiếu thông tin đánh giá");
+        }
+
+        ClassAssignment assignment = classAssignmentRepository
+                .findById(request.getAssignmentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công lớp"));
+        TutoringClass tutoringClass = assignment.getApplication() != null
+                ? assignment.getApplication().getTutoringClass()
+                : null;
+        if (tutoringClass == null || tutoringClass.getCreator() == null
+                || !tutoringClass.getCreator().getUserId().equals(clientId)) {
+            throw new BusinessException("Bạn chỉ có thể đánh giá lớp học của mình");
+        }
+
+        // Điều kiện: đã có buổi diễn ra và chưa vượt số lượt đánh giá cho phép.
+        List<LocalDate> occurred = occurredLessonDates(tutoringClass.getClassId());
+        if (occurred.isEmpty()) {
+            throw new BusinessException("Chưa có buổi học nào diễn ra để đánh giá");
+        }
+        long submitted = reviewRepository.findByReviewer_UserId(clientId).stream()
+                .filter(r -> r.getReviewType() == ReviewType.CLIENT_TO_TUTOR)
+                .filter(r -> r.getAssignment().getAssignmentId().equals(assignment.getAssignmentId()))
+                .count();
+        if (submitted >= occurred.size()) {
+            throw new BusinessException("Bạn đã đánh giá đủ số lượt cho các buổi đã học");
+        }
+
+        BigDecimal overallRating = resolveOverallRating(request);
+        if (overallRating.compareTo(BigDecimal.ONE) < 0
+                || overallRating.compareTo(BigDecimal.valueOf(5)) > 0) {
+            throw new IllegalArgumentException("Số sao phải từ 1 đến 5");
+        }
+
+        Tutor tutor = assignment.getTutor();
+        User reviewer = userRepository.findById(clientId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+
+        Review review = new Review();
+        review.setAssignment(assignment);
+        review.setTutoringClass(tutoringClass);
+        review.setReviewer(reviewer);
+        review.setReviewee(tutor.getUser());
+        review.setReviewType(ReviewType.CLIENT_TO_TUTOR);
+        review.setRating(overallRating);
+        review.setComment(trimToNull(request.getComment()));
+        review.setCriteriaJson(serializeCriteria(request.getCriteria()));
+        boolean anonymous = Boolean.TRUE.equals(request.getAnonymous());
+        review.setAnonymous(anonymous);
+        review.setDisplayName(anonymous ? trimToNull(request.getDisplayName()) : null);
+        Review saved = reviewRepository.save(review);
+
+        recomputeTutorReputation(tutor, tutor.getUser().getUserId());
+
+        // Client đã đánh giá -> nếu gia sư đã yêu cầu hoàn thành, marketplace sẽ đóng lớp + giải ngân.
+        eventPublisher.publishEvent(new ClientReviewedClassEvent(tutoringClass.getClassId()));
+        return toResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasClientReviewedClass(Long classId) {
+        return reviewRepository.existsByTutoringClass_ClassIdAndReviewType(
+                classId, ReviewType.CLIENT_TO_TUTOR);
+    }
+
     @Override
     @Transactional
     public ReviewResponse replyToReview(Long reviewId, ReplyReviewRequest request) {

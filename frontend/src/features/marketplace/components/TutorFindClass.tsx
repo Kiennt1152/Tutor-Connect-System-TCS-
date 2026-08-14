@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { marketplaceApi } from '../api/marketplaceApi';
 import { ClassDetailModal } from './ClassDetailModal';
 import { ApplyClassModal } from './ApplyClassModal';
+import { ExpiryBadge } from './ExpiryBadge';
 import { FormulaExplainer } from './FormulaExplainer';
 import { FALLBACK_SUBJECTS, FALLBACK_GRADES } from '../constants/catalogFallback';
 import {
@@ -27,6 +28,7 @@ const WEIGHT_LABELS: { key: keyof MatchWeights; label: string; hint: string }[] 
 ];
 
 const WEIGHT_SCALE = ['Bỏ qua', 'Rất thấp', 'Thấp', 'Vừa', 'Cao', 'Rất cao'];
+const PAGE_SIZE = 6;
 const weightLabel = (v: number) => WEIGHT_SCALE[v] ?? '';
 
 const normalize = (s: string) =>
@@ -199,6 +201,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const [otherText, setOtherText] = useState('');
   const [searched, setSearched] = useState(false);
   const [showFormula, setShowFormula] = useState(false);
+  const [page, setPage] = useState(1);
 
   const loadClasses = useCallback((silent = false) => {
     if (!silent) setStatus('loading');
@@ -317,6 +320,15 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     }
     return out;
   }, [classes, activeCriteria, selectedIds, gradeIds, provinceId, queryMode, goalKeys, reqKeys, otherText]);
+
+  // Phân trang: 6 lớp / trang (2 cột × 3 hàng); lớp thứ 7 nhảy sang trang 2.
+  const pageCount = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageResults = results.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  // Kết quả đổi (tìm mới / lọc khác) -> quay về trang 1.
+  useEffect(() => {
+    setPage(1);
+  }, [selectedIds, gradeIds, provinceId, queryMode, queryFee, goalKeys, reqKeys, otherText]);
 
   useEffect(() => {
     if (!query.trim()) {
@@ -498,20 +510,12 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
         </aside>
       </form>
 
-      {!searched && (
-        <div className="tfc-state">
-          Trả lời vài câu ở trên rồi bấm <strong>Tìm lớp</strong> — hệ thống sẽ chấm điểm và xếp
-          hạng các lớp phù hợp với bạn.
-        </div>
-      )}
-
-      {searched && (
       <section className="tfc-results" id="tfc-results">
         <header className="tfc-results__head">
-          <h2>Lớp phù hợp với bạn</h2>
+          <h2>{searched ? 'Lớp phù hợp với bạn' : 'Tất cả lớp đang mở'}</h2>
           <span className="tfc-results__count">
             {status === 'success'
-              ? selectedIds.length > 0
+              ? searched && selectedIds.length > 0
                 ? `${results.length} lớp cần: ${selectedNames}`
                 : `${results.length} lớp đang mở`
               : ''}
@@ -526,27 +530,59 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
         )}
         {status === 'success' && results.length === 0 && (
           <div className="tfc-state">
-            {selectedIds.length > 0
+            {searched && selectedIds.length > 0
               ? `Chưa có lớp nào đang cần: ${selectedNames}. Thử môn khác nhé.`
               : 'Chưa có lớp nào đang mở đơn ứng tuyển.'}
           </div>
         )}
 
         <div className="tfc-list">
-          {results.map((r) => (
+          {pageResults.map((r) => (
             <ClassCard
               key={r.parsed.raw.classId}
               result={r}
               subjectName={subjectName}
               gradeName={gradeName}
+              showScore={searched}
               applied={applied.has(r.parsed.raw.classId)}
               onApply={() => openApply(r.parsed.raw)}
               onDetail={() => setDetailTarget(r.parsed.raw)}
             />
           ))}
         </div>
+
+        {pageCount > 1 && (
+          <nav className="tfc-pager" aria-label="Phân trang danh sách lớp">
+            <button
+              type="button"
+              className="tfc-pager__btn"
+              disabled={safePage <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+            >
+              ← Trước
+            </button>
+            {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+              <button
+                key={n}
+                type="button"
+                className={`tfc-pager__num${n === safePage ? ' is-active' : ''}`}
+                aria-current={n === safePage ? 'page' : undefined}
+                onClick={() => setPage(n)}
+              >
+                {n}
+              </button>
+            ))}
+            <button
+              type="button"
+              className="tfc-pager__btn"
+              disabled={safePage >= pageCount}
+              onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+            >
+              Sau →
+            </button>
+          </nav>
+        )}
       </section>
-      )}
 
       {showFormula && (
         <div
@@ -597,6 +633,7 @@ interface CardProps {
   readonly result: MatchResult;
   readonly subjectName: (id: string) => string;
   readonly gradeName: (id: string) => string;
+  readonly showScore: boolean;
   readonly applied: boolean;
   readonly onApply: () => void;
   readonly onDetail: () => void;
@@ -606,6 +643,7 @@ function ClassCard({
   result,
   subjectName,
   gradeName,
+  showScore,
   applied,
   onApply,
   onDetail,
@@ -647,14 +685,17 @@ function ClassCard({
       : '';
 
   return (
-    <article className="tfc-card">
-      <div className={`tfc-score tfc-score--${tone}`}>
-        <span className="tfc-score__num">{pct}%</span>
-        <span className="tfc-score__unit">phù hợp</span>
-      </div>
+    <article className={`tfc-card${showScore ? '' : ' tfc-card--noscore'}`}>
+      {showScore && (
+        <div className={`tfc-score tfc-score--${tone}`}>
+          <span className="tfc-score__num">{pct}%</span>
+          <span className="tfc-score__unit">phù hợp</span>
+        </div>
+      )}
       <div className="tfc-card__body">
         <div className="tfc-card__top">
           <h3 className="tfc-card__title">{c.title}</h3>
+          {c.expiresAt && <ExpiryBadge expiresAt={c.expiresAt} />}
         </div>
         {/* Không nêu học phí ở đây: lớp nhiều môn mỗi môn một giá — xem chi tiết để biết từng môn. */}
         <div className="tfc-card__meta">

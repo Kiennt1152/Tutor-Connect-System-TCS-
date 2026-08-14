@@ -4,7 +4,6 @@ import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
-import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
@@ -125,6 +124,12 @@ public class MarketplaceController {
         return marketplaceService.requestClassTermination(classId, request);
     }
 
+    /** UC "Hoàn thành lớp": gia sư bấm hoàn thành; lớp đóng sau khi học viên đánh giá gia sư. */
+    @PostMapping("/classes/{classId}/complete")
+    public Map<String, String> confirmClassCompletion(@PathVariable Long classId) {
+        return Map.of("message", marketplaceService.confirmClassCompletion(classId));
+    }
+
     /** Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh. */
     @PostMapping("/classes/{classId}/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -209,6 +214,15 @@ public class MarketplaceController {
         return marketplaceService.listMyLessons();
     }
 
+    @GetMapping("/center-schedule")
+    public List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getMyEnrolledSchedule(
+            @RequestParam(required = false)
+            @org.springframework.format.annotation.DateTimeFormat(
+                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            java.time.LocalDate date) {
+        return marketplaceService.getMyEnrolledSchedule(date);
+    }
+
     @PostMapping("/lessons/{lessonId}/checkin")
     public Map<String, String> checkInLesson(@PathVariable Long lessonId) {
         marketplaceService.checkInLesson(lessonId);
@@ -226,12 +240,6 @@ public class MarketplaceController {
     public RescheduleRequestResponse requestReschedule(
             @PathVariable Long lessonId, @RequestBody RescheduleLessonRequest request) {
         return marketplaceService.requestReschedule(lessonId, request);
-    }
-
-    @PostMapping("/lessons/extra")
-    @ResponseStatus(HttpStatus.CREATED)
-    public RescheduleRequestResponse requestExtraLesson(@RequestBody ExtraLessonRequest request) {
-        return marketplaceService.requestExtraLesson(request);
     }
 
     @GetMapping("/lessons/requests")

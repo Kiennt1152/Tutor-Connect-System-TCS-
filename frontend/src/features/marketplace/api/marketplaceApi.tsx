@@ -145,6 +145,13 @@ export const marketplaceApi = {
     );
   },
 
+  /** UC "Hoàn thành lớp": gia sư bấm hoàn thành; lớp đóng sau khi học viên đánh giá gia sư. */
+  confirmCompletion(classId: number) {
+    return axiosClient.post<{ message: string }>(
+      `${MARKETPLACE_API_BASE}/classes/${classId}/complete`,
+    );
+  },
+
   async requestClassTermination(
     classId: number,
     payload: CreateClassTerminationRequest,

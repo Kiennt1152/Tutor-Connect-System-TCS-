@@ -9,6 +9,7 @@ import com.tcs.module.platform.dto.request.RespondTicketRequest;
 import com.tcs.module.platform.dto.request.ReviewVerificationRequest;
 import com.tcs.module.platform.dto.request.ResolveClassIssueRequest;
 import com.tcs.module.platform.dto.request.ResolveReportRequest;
+import com.tcs.module.platform.dto.request.ResolveReviewReportRequest;
 import com.tcs.module.platform.dto.request.UpdateTicketRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
 import com.tcs.module.platform.dto.response.AdminReviewResponse;
@@ -49,6 +50,9 @@ public interface PlatformService {
     ReportResponse resolveCenterClassIssue(Long reportId, ResolveClassIssueRequest request);
 
     ReportResponse resolveReport(Long reportId, ResolveReportRequest request);
+
+    /** Xử lý báo cáo vi phạm nhắm vào một đánh giá (targetType = REVIEW). */
+    ReportResponse resolveReviewReport(Long reportId, ResolveReviewReportRequest request);
 
     List<AdminReviewResponse> listReviews(ReviewStatus status);
 

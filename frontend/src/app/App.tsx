@@ -3,6 +3,7 @@ import HomePage from '../features/home/pages/HomePage';
 import FindTutorPage from '../features/home/pages/FindTutorPage';
 import PostTutorRequestPage from '../features/home/pages/PostTutorRequestPage';
 import FindClassPage from '../features/home/pages/FindClassPage';
+import ClassBoardPage from '../features/home/pages/ClassBoardPage';
 import TutorPublicProfilePage from '../features/home/pages/TutorPublicProfilePage';
 import TutorReviewsPage from '../features/home/pages/TutorReviewsPage';
 import LoginPage from '../features/identity/pages/LoginPage';
@@ -33,6 +34,8 @@ import CenterSchedulePage from '../features/center/pages/CenterSchedulePage';
 import CenterReschedulesPage from '../features/center/pages/CenterReschedulesPage';
 import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
 import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
+import ClientSchedulePage from '../features/marketplace/pages/ClientSchedulePage';
+import CenterStatsPage from '../features/center/pages/CenterStatsPage';
 import CenterTutorsPage from '../features/center/pages/CenterTutorsPage';
 import CenterContractTemplatesPage from '../features/center/pages/CenterContractTemplatesPage';
 import CentersPage from '../features/home/pages/CentersPage';
@@ -61,6 +64,7 @@ import { ErrorBoundary } from '../shared/components/ErrorBoundary';
 import { APP_ROUTES } from '../shared/constants/routes';
 import { lazy, Suspense } from 'react';
 import { ScrollToHash } from './ScrollToHash';
+import { WalletActivationPrompt } from '../shared/components/WalletActivationPrompt';
 
 const PlatformTasksPage = lazy(() => import('../features/platform/pages/PlatformTasksPage'));
 const PlatformAnalyticsPage = lazy(() => import('../features/platform/pages/PlatformAnalyticsPage'));
@@ -77,6 +81,7 @@ export default function App() {
           <Route path={APP_ROUTES.findTutor} element={<FindTutorPage />} />
           <Route path={APP_ROUTES.postTutorRequest} element={<PostTutorRequestPage />} />
           <Route path={APP_ROUTES.findClass} element={<FindClassPage />} />
+          <Route path={APP_ROUTES.classBoard} element={<ClassBoardPage />} />
           <Route path={APP_ROUTES.classFinder} element={<ClassFinderPage />} />
           <Route path={APP_ROUTES.tutorProfile} element={<TutorPublicProfilePage />} />
           <Route path={APP_ROUTES.tutorReviews} element={<TutorReviewsPage />} />
@@ -226,6 +231,14 @@ export default function App() {
             }
           />
           <Route
+            path="/center/requests"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={APP_ROUTES.centerReports}
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
@@ -254,6 +267,22 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR']}>
                 <TutorSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/client/schedule"
+            element={
+              <ProtectedRoute roles={['CLIENT']}>
+                <ClientSchedulePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/stats"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterStatsPage />
               </ProtectedRoute>
             }
           />
@@ -456,6 +485,7 @@ export default function App() {
             }
           />
         </Routes>
+        <WalletActivationPrompt />
         <AiFloatingWidget />
       </BrowserRouter>
     </ErrorBoundary>

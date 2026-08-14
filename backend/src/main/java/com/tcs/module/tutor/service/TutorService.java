@@ -37,4 +37,7 @@ public interface TutorService {
     /** Lưu điểm danh cả buổi (nhiều học sinh) sau khi gia sư xác nhận. */
     CenterScheduleClassResponse markAttendanceBatch(
             Long classId, LocalDate date, List<MarkAttendanceRequest> records);
+
+    /** Bước 13: gia sư phụ trách xác nhận khóa học đã hoàn thành -> tất toán + đóng lớp. */
+    void confirmClassCompletion(Long classId);
 }

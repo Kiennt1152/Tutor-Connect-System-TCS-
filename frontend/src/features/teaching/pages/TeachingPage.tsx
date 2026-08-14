@@ -12,11 +12,10 @@ import { ReviewFormModal } from '../../reviews/components/ReviewFormModal';
 import { reviewApi } from '../../reviews/api/reviewApi';
 import type { ReviewableAssignment } from '../../reviews/types/reviewTypes';
 import { useTeaching } from '../hooks/useTeaching';
-import { hhmmDisplay } from '../../../shared/utils/format';
+import { hhmmDisplay, toIsoDate } from '../../../shared/utils/format';
 import {
   REQUEST_STATUS_LABELS,
   REQUEST_TYPE_LABELS,
-  classOptionsFrom,
   type AssignmentResponse,
   type LessonResponse,
   type RescheduleRequestResponse,
@@ -46,14 +45,12 @@ export default function TeachingPage() {
     decline,
     attend,
     requestReschedule,
-    requestExtraLesson,
     decideRequest,
     cancelRequest,
+    confirmCompletion,
   } = useTeaching();
 
-  const [dialog, setDialog] = useState<
-    { mode: 'EXTRA' } | { mode: 'RESCHEDULE'; lesson: LessonResponse } | null
-  >(null);
+  const [dialog, setDialog] = useState<{ mode: 'RESCHEDULE'; lesson: LessonResponse } | null>(null);
   const [detailClassId, setDetailClassId] = useState<number | null>(null);
   const [reviewables, setReviewables] = useState<ReviewableAssignment[]>([]);
   const [activeReview, setActiveReview] = useState<ReviewableAssignment | null>(null);
@@ -69,8 +66,8 @@ export default function TeachingPage() {
     loadReviewables();
   }, [isClient]);
 
-  function openReview(lesson: LessonResponse) {
-    const match = reviewables.find((a) => a.classId === lesson.classId);
+  function openReviewByClass(classId: number) {
+    const match = reviewables.find((a) => a.classId === classId);
     if (!match) {
       setReviewNotice('Chưa có buổi học nào diễn ra để đánh giá gia sư.');
       return;
@@ -82,8 +79,13 @@ export default function TeachingPage() {
     setActiveReview(match);
   }
 
+  const openReview = (lesson: LessonResponse) => openReviewByClass(lesson.classId);
+
   const [confirmAction, setConfirmAction] = useState<
-    { kind: 'decline'; assignmentId: number } | { kind: 'cancelReq'; requestId: number } | null
+    | { kind: 'decline'; assignmentId: number }
+    | { kind: 'cancelReq'; requestId: number }
+    | { kind: 'complete'; classId: number; classTitle: string }
+    | null
   >(null);
 
   const invites = assignments.filter((a) => a.status === 'PENDING');
@@ -91,8 +93,30 @@ export default function TeachingPage() {
 
   const openRequests = requests.filter((r) => r.status === 'PENDING');
   const historyRequests = requests.filter((r) => r.status !== 'PENDING');
-  const classOptions = useMemo(() => classOptionsFrom(lessons), [lessons]);
   const pendingLessonIds = new Set(openRequests.flatMap((r) => r.lessonId ?? []));
+
+  // Quota đánh giá tính theo lớp: mỗi buổi đã diễn ra cho phép 1 đánh giá.
+  // Số đánh giá đã gửi được gán cho các buổi đã diễn ra sớm nhất của lớp đó.
+  const reviewedLessonIds = useMemo(() => {
+    const today = toIsoDate(new Date());
+    const ids = new Set<number>();
+    for (const a of reviewables) {
+      if (a.reviewsSubmitted <= 0) continue;
+      lessons
+        .filter(
+          (l) =>
+            l.classId === a.classId && l.lessonDate <= today && l.attendanceStatus !== 'ABSENT',
+        )
+        .sort((x, y) =>
+          x.lessonDate === y.lessonDate
+            ? x.sequenceNo - y.sequenceNo
+            : x.lessonDate.localeCompare(y.lessonDate),
+        )
+        .slice(0, a.reviewsSubmitted)
+        .forEach((l) => ids.add(l.lessonId));
+    }
+    return ids;
+  }, [reviewables, lessons]);
 
   const detailAssignment =
     detailClassId != null ? (assignments.find((a) => a.classId === detailClassId) ?? null) : null;
@@ -188,11 +212,26 @@ export default function TeachingPage() {
                 <ul className="tch-classes">
                   {active.map((a) => (
                     <li key={a.assignmentId} className="tch-class">
-                      <span className="tch-class__title">{a.classTitle}</span>
-                      <span className="tch-class__meta">
-                        {isClient && a.tutorName ? `👩‍🏫 ${a.tutorName} · ` : ''}
-                        {(a.subjectNames ?? []).join(', ') || '—'} · {a.lessonCount} buổi
-                      </span>
+                      <div className="tch-class__info">
+                        <span className="tch-class__title">{a.classTitle}</span>
+                        <span className="tch-class__meta">
+                          {isClient && a.tutorName ? `👩‍🏫 ${a.tutorName} · ` : ''}
+                          {(a.subjectNames ?? []).join(', ') || '—'} · {a.lessonCount} buổi
+                        </span>
+                      </div>
+                      <div className="tch-class__action">
+                        <CompletionCell
+                          assignment={a}
+                          onTutorConfirm={() =>
+                            setConfirmAction({
+                              kind: 'complete',
+                              classId: a.classId,
+                              classTitle: a.classTitle,
+                            })
+                          }
+                          onClientReview={() => openReviewByClass(a.classId)}
+                        />
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -237,15 +276,6 @@ export default function TeachingPage() {
             <section className="tch-card">
               <div className="tch-card__head">
                 <h2>Thời khóa biểu</h2>
-                {classOptions.length > 0 && (
-                  <button
-                    className="tch-btn tch-btn--primary"
-                    type="button"
-                    onClick={() => setDialog({ mode: 'EXTRA' })}
-                  >
-                    + Thêm buổi
-                  </button>
-                )}
               </div>
               {lessons.length === 0 ? (
                 <p className="tch-muted">
@@ -262,6 +292,7 @@ export default function TeachingPage() {
                   onOpenDetail={(lesson) => setDetailClassId(lesson.classId)}
                   onReview={isClient ? openReview : undefined}
                   pendingLessonIds={pendingLessonIds}
+                  reviewedLessonIds={reviewedLessonIds}
                 />
               )}
             </section>
@@ -270,18 +301,11 @@ export default function TeachingPage() {
 
         {dialog?.mode === 'RESCHEDULE' && (
           <LessonRequestDialog
-            mode="RESCHEDULE"
             lesson={dialog.lesson}
             onClose={() => setDialog(null)}
+            submitError={error}
+            existingLessons={lessons}
             onSubmit={(payload) => requestReschedule(dialog.lesson.lessonId, payload)}
-          />
-        )}
-        {dialog?.mode === 'EXTRA' && (
-          <LessonRequestDialog
-            mode="EXTRA"
-            classes={classOptions}
-            onClose={() => setDialog(null)}
-            onSubmit={requestExtraLesson}
           />
         )}
         {detailClassId != null && (
@@ -301,6 +325,8 @@ export default function TeachingPage() {
             onSubmitted={() => {
               setActiveReview(null);
               loadReviewables();
+              // Sau khi đánh giá, nếu gia sư đã yêu cầu hoàn thành thì lớp đã đóng -> làm mới danh sách.
+              void reload();
             }}
           />
         )}
@@ -342,9 +368,64 @@ export default function TeachingPage() {
             onClose={() => setConfirmAction(null)}
           />
         )}
+
+        {confirmAction?.kind === 'complete' && (
+          <ConfirmDialog
+            title="Hoàn thành lớp"
+            message={`Đánh dấu lớp "${confirmAction.classTitle}" đã hoàn thành và mời học viên đánh giá gia sư? Lớp sẽ đóng và học phí escrow được giải ngân cho bạn sau khi học viên đánh giá.`}
+            confirmLabel="Hoàn thành lớp"
+            cancelLabel="Hủy"
+            onConfirm={() => {
+              const id = confirmAction.classId;
+              setConfirmAction(null);
+              void confirmCompletion(id);
+            }}
+            onClose={() => setConfirmAction(null)}
+          />
+        )}
       </main>
     </div>
   );
+}
+
+/** Ô hành động "Hoàn thành lớp" theo trạng thái của người dùng hiện tại. */
+function CompletionCell({
+  assignment: a,
+  onTutorConfirm,
+  onClientReview,
+}: {
+  readonly assignment: AssignmentResponse;
+  readonly onTutorConfirm: () => void;
+  readonly onClientReview: () => void;
+}) {
+  switch (a.completionState) {
+    case 'COMPLETED':
+      return <span className="tch-badge tch-badge--done">✓ Đã hoàn thành</span>;
+    case 'TUTOR_CAN_CONFIRM':
+      return (
+        <button className="tch-btn tch-btn--primary" type="button" onClick={onTutorConfirm}>
+          Hoàn thành lớp
+        </button>
+      );
+    case 'TUTOR_BLOCKED':
+      return (
+        <span className="tch-class__hint" title={a.completionBlockedReason ?? undefined}>
+          ⏳ Chưa đủ điều kiện hoàn thành
+        </span>
+      );
+    case 'TUTOR_WAITING':
+      return <span className="tch-badge tch-badge--pending">Chờ học viên đánh giá</span>;
+    case 'CLIENT_WAITING_TUTOR':
+      return <span className="tch-class__hint">Chờ gia sư hoàn thành lớp</span>;
+    case 'CLIENT_MUST_REVIEW':
+      return (
+        <button className="tch-btn tch-btn--primary" type="button" onClick={onClientReview}>
+          Đánh giá gia sư để hoàn thành
+        </button>
+      );
+    default:
+      return null;
+  }
 }
 
 function RequestCard({

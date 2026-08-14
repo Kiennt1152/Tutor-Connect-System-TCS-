@@ -4,7 +4,6 @@ import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
-import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
@@ -41,6 +40,16 @@ public interface MarketplaceService {
     ClassTerminationResponse requestClassTermination(Long classId, CreateClassTerminationRequest request);
 
     /**
+     * UC "Hoàn thành lớp" (lớp PRIVATE): gia sư bấm hoàn thành.
+     * - Nếu học viên đã đánh giá gia sư -> đóng lớp ngay + giải ngân escrow.
+     * - Nếu chưa -> gửi thông báo mời học viên đánh giá; lớp đóng khi học viên đánh giá xong.
+     */
+    String confirmClassCompletion(Long classId);
+
+    /** Được gọi khi học viên đánh giá gia sư: nếu gia sư đã yêu cầu hoàn thành thì đóng lớp. */
+    void completeClassAfterClientReview(Long classId);
+
+    /**
      * Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh.
      * Trả về thông báo phù hợp ngữ cảnh (tự ký / phụ huynh ký thay).
      */
@@ -70,6 +79,10 @@ public interface MarketplaceService {
 
     List<LessonResponse> listMyLessons();
 
+    /** Lịch học các lớp trung tâm mà client đã ghi danh (theo ngày) — để client xem thời khóa biểu. */
+    java.util.List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getMyEnrolledSchedule(
+            java.time.LocalDate date);
+
     void checkInLesson(Long lessonId);
 
     void checkOutLesson(Long lessonId);
@@ -77,8 +90,6 @@ public interface MarketplaceService {
     void markAttendance(Long lessonId, boolean present);
 
     RescheduleRequestResponse requestReschedule(Long lessonId, RescheduleLessonRequest request);
-
-    RescheduleRequestResponse requestExtraLesson(ExtraLessonRequest request);
 
     List<RescheduleRequestResponse> listMyRescheduleRequests();
 

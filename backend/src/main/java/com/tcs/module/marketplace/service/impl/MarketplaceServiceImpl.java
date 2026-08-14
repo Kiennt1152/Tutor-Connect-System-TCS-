@@ -21,6 +21,7 @@ import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
@@ -42,7 +43,6 @@ import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
-import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
@@ -62,10 +62,12 @@ import com.tcs.module.marketplace.entity.ClassTerminationRequest;
 import com.tcs.module.marketplace.entity.FavoriteTutor;
 import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.entity.LessonRescheduleRequest;
+import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
 import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
+import com.tcs.module.marketplace.event.ClientReviewedClassEvent;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.ClassTerminationStatus;
@@ -116,6 +118,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -123,6 +126,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -140,7 +144,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.util.StringUtils;
 
 @Service
@@ -152,6 +159,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private static final String ESCROW_BANK_BIN = "970423";
     private static final String ESCROW_ACCOUNT_NUMBER = "02660559201";
     private static final String ESCROW_ACCOUNT_NAME = "TUTOR CONNECT SYSTEM";
+    private static final String PRIVATE_ESCROW_REF_PREFIX = "ESCROW-A";
 
     private final AuthHelper authHelper;
     private final UserRepository userRepository;
@@ -161,6 +169,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final TutorRepository tutorRepository;
     private final ContractRepository contractRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
     private final EscrowService escrowService;
     private final TutoringClassRepository tutoringClassRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
@@ -183,10 +192,14 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final ClassRequestStore classRequestStore;
     private final CenterRequestFeeService centerRequestFeeService;
     private final ContractService contractService;
+    private final LessonReminderService lessonReminderService;
     private final EmailOtpRepository emailOtpRepository;
     private final com.tcs.module.notification.service.EmailService contractEmailService;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper = new ObjectMapper();
+
+    /** Số ngày hiển thị lớp OPEN trước khi hết hạn và bị xóa. */
+    private static final long CLASS_DISPLAY_DAYS = 30;
 
     private static final SecureRandom SIGN_OTP_RANDOM = new SecureRandom();
     private static final int SIGN_OTP_EXPIRE_SECONDS = 30;
@@ -348,6 +361,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             throw new ForbiddenException("Không có quyền đăng lớp này");
         }
         tutoringClass.setStatus(TutoringClassStatus.OPEN);
+        // Thời gian hiển thị 30 ngày kể từ lúc đăng; đăng lại sẽ làm mới hạn.
+        tutoringClass.setExpiresAt(java.time.LocalDateTime.now().plusDays(CLASS_DISPLAY_DAYS));
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
         auditLogService.record(userId, "PUBLISH_CLASS", "TutoringClass", saved.getClassId(), null, null);
         return toClassResponse(saved, null, null);
@@ -369,6 +384,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             throw new IllegalArgumentException("Lớp đã có gia sư ứng tuyển nên không thể gỡ đăng");
         }
         tutoringClass.setStatus(TutoringClassStatus.DRAFT);
+        tutoringClass.setExpiresAt(null); // Về nháp thì không tính hạn hiển thị nữa.
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
 
@@ -635,21 +651,119 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (root != null && root.isObject()) {
             com.fasterxml.jackson.databind.node.ObjectNode obj =
                     (com.fasterxml.jackson.databind.node.ObjectNode) root;
-            JsonNode existingFees = obj.get("subjectFees");
-            com.fasterxml.jackson.databind.node.ObjectNode fees =
-                    existingFees != null && existingFees.isObject()
-                            ? (com.fasterxml.jackson.databind.node.ObjectNode) existingFees
-                            : objectMapper.createObjectNode();
-            for (Map.Entry<String, BigDecimal> e : rates.entrySet()) {
-                fees.put(e.getKey(), e.getValue().toPlainString());
+            List<String> selectedSubjects = classSubjectKeys(tutoringClass).stream()
+                    .filter(rates::containsKey)
+                    .toList();
+            if (!selectedSubjects.isEmpty()) {
+                com.fasterxml.jackson.databind.node.ArrayNode subjectIds = objectMapper.createArrayNode();
+                for (String subjectId : selectedSubjects) {
+                    subjectIds.add(subjectId);
+                }
+                obj.set("subjectIds", subjectIds);
             }
-            obj.set("subjectFees", fees);
+            com.fasterxml.jackson.databind.node.ObjectNode fees = objectMapper.createObjectNode();
+            Set<String> feeKeys = selectedSubjects.isEmpty() ? rates.keySet() : new LinkedHashSet<>(selectedSubjects);
+            for (String key : feeKeys) {
+                BigDecimal value = rates.get(key);
+                if (value == null) {
+                    continue;
+                }
+                if (value.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
+                }
+                fees.put(key, value.toPlainString());
+            }
+            if (fees.isEmpty()) {
+                for (Map.Entry<String, BigDecimal> e : rates.entrySet()) {
+                    if (e.getValue() == null || e.getValue().compareTo(BigDecimal.ZERO) <= 0) {
+                        continue;
+                    }
+                    fees.put(e.getKey(), e.getValue().toPlainString());
+                }
+            }
+            if (!fees.isEmpty()) {
+                obj.set("subjectFees", fees);
+            }
             try {
                 tutoringClass.setDetailsJson(objectMapper.writeValueAsString(obj));
             } catch (JsonProcessingException ignored) {
             }
         }
         tutoringClass.setTuitionFee(highestRate(rates, chosen.getProposedRate()));
+    }
+
+    /**
+     * Tập môn gia sư THỰC SỰ nhận dạy của một phân công (theo giá đề xuất trong đơn).
+     * Trả về {@code null} khi gia sư nhận tất cả môn (không lọc) — giữ nguyên lớp.
+     */
+    private java.util.Set<String> acceptedSubjectKeys(ClassAssignment assignment) {
+        if (assignment == null || assignment.getApplication() == null) {
+            return null;
+        }
+        Map<String, BigDecimal> rates = readRates(assignment.getApplication().getProposedRatesJson());
+        if (rates == null || rates.isEmpty()) {
+            return null;
+        }
+        return rates.keySet();
+    }
+
+    /**
+     * Lọc detailsJson của LỚP về đúng tập môn gia sư nhận dạy (không sửa dữ liệu lớp gốc, để
+     * còn mở lại cho gia sư khác nếu huỷ chọn). Dùng cho hợp đồng và sinh lịch. Nếu keptKeys
+     * rỗng/null thì trả nguyên bản (gia sư nhận tất cả môn).
+     */
+    private String filterDetailsToSubjects(String detailsJson, java.util.Set<String> keptKeys) {
+        if (keptKeys == null || keptKeys.isEmpty() || !StringUtils.hasText(detailsJson)) {
+            return detailsJson;
+        }
+        JsonNode root = readTree(detailsJson);
+        if (root == null || !root.isObject()) {
+            return detailsJson;
+        }
+        com.fasterxml.jackson.databind.node.ObjectNode obj =
+                (com.fasterxml.jackson.databind.node.ObjectNode) root;
+
+        JsonNode ids = obj.get("subjectIds");
+        if (ids != null && ids.isArray()) {
+            com.fasterxml.jackson.databind.node.ArrayNode keptIds = objectMapper.createArrayNode();
+            for (JsonNode id : ids) {
+                if (keptKeys.contains(id.asText())) {
+                    keptIds.add(id);
+                }
+            }
+            if (!keptIds.isEmpty()) {
+                obj.set("subjectIds", keptIds);
+            }
+        }
+
+        JsonNode feesNode = obj.get("subjectFees");
+        if (feesNode != null && feesNode.isObject()) {
+            com.fasterxml.jackson.databind.node.ObjectNode fees = objectMapper.createObjectNode();
+            for (String key : keptKeys) {
+                if (feesNode.has(key)) {
+                    fees.set(key, feesNode.get(key));
+                }
+            }
+            obj.set("subjectFees", fees);
+        }
+
+        JsonNode slots = obj.get("slots");
+        if (slots != null && slots.isArray()) {
+            com.fasterxml.jackson.databind.node.ArrayNode keptSlots = objectMapper.createArrayNode();
+            for (JsonNode slot : slots) {
+                String slotKey = slot.path("subjectId").asText("");
+                if (slotKey.isEmpty() || keptKeys.contains(slotKey)) {
+                    keptSlots.add(slot);
+                }
+            }
+            obj.set("slots", keptSlots);
+        }
+
+        try {
+            return objectMapper.writeValueAsString(obj);
+        } catch (JsonProcessingException e) {
+            return detailsJson;
+        }
     }
 
     private void notifyTutorInvited(TutoringClass tutoringClass, TutorApplication chosen) {
@@ -746,7 +860,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         TutoringClass tutoringClass = assignment.getApplication().getTutoringClass();
         assignment.setStatus(ClassAssignmentStatus.ACTIVE);
         classAssignmentRepository.save(assignment);
-        generateSchedule(tutoringClass, assignment.getTutor());
+        generateSchedule(tutoringClass, assignment.getTutor(), acceptedSubjectKeys(assignment));
         tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
         tutoringClassRepository.save(tutoringClass);
     }
@@ -763,20 +877,26 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         Client client = clientRepository.findByUser_UserId(c.getCreator().getUserId()).orElse(null);
         CccdInfoDto clientCccd = cccdInfoOf(c.getCreator().getUserId());
         CccdInfoDto tutorCccd = cccdInfoOf(tutor.getUser().getUserId());
+        // Hợp đồng chỉ gồm môn gia sư nhận dạy (lọc theo giá đề xuất trong đơn), không sửa lớp gốc.
+        String contractDetailsJson = filterDetailsToSubjects(c.getDetailsJson(), acceptedSubjectKeys(assignment));
+        BigDecimal totalTuitionAmount = resolvePrivateContractTotalAmount(c, assignment);
+        BigDecimal escrowAmount = resolvePrivateEscrowAmount(c, assignment);
         return ContractViewResponse.builder()
                 .contractId(contract != null ? contract.getContractId() : null)
                 .assignmentId(assignment.getAssignmentId())
                 .classId(c.getClassId())
                 .classTitle(c.getTitle())
-                .detailsJson(c.getDetailsJson())
+                .detailsJson(contractDetailsJson)
                 .gradeName(c.getGrade() != null ? c.getGrade().getGradeName() : null)
                 .address(c.getAddress())
                 .lessonMode(c.getLessonMode() != null ? c.getLessonMode().name() : null)
                 .startDate(c.getStartDate())
                 .endDate(c.getEndDate())
                 .numberOfSessions(c.getNumberOfSessions() != null ? c.getNumberOfSessions() : 0)
-                .subjectNames(subjectNamesFromJson(c.getDetailsJson()))
-                .tuitionFee(c.getTuitionFee())
+                .subjectNames(subjectNamesFromJson(contractDetailsJson))
+                .tuitionFee(totalTuitionAmount)
+                .totalTuitionAmount(totalTuitionAmount)
+                .escrowAmount(escrowAmount)
                 .clientName(firstText(
                         clientCccd != null ? clientCccd.getFullName() : null,
                         client != null ? client.getFullName() : null,
@@ -794,9 +914,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .tutorCccd(tutorCccd != null ? tutorCccd.getCccdNumber() : null)
                 .tutorSigned(assignment.getTutorSignedAt() != null)
                 .clientSigned(assignment.getClientSignedAt() != null)
+                .tutorSignedAt(assignment.getTutorSignedAt())
+                .clientSignedAt(assignment.getClientSignedAt())
                 .paymentMethod(assignment.getPaymentMethod())
                 .myRole(role)
-                .escrowPayment(toEscrowPaymentInfo(resolveAssignmentEscrow(assignment)))
+                .escrowPayment(toEscrowPaymentInfo(resolveAssignmentEscrow(assignment), resolveAssignmentEscrowPayment(assignment)))
                 .refundPayoutInfo(toRefundPayoutInfoView(contract))
                 .termsB(RefundPayoutInfoCodec.stripFromReason(assignment.getTermsB()))
                 .build();
@@ -809,18 +931,27 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return escrowTransactionRepository.findByAssignment_AssignmentId(assignment.getAssignmentId()).orElse(null);
     }
 
-    private ContractResponse.EscrowPaymentInfo toEscrowPaymentInfo(EscrowTransaction escrow) {
-        if (escrow == null) {
+    private PaymentTransaction resolveAssignmentEscrowPayment(ClassAssignment assignment) {
+        if (assignment == null || assignment.getAssignmentId() == null) {
             return null;
         }
-        PaymentTransaction payment = escrow.getPayment();
+        return paymentTransactionRepository
+                .findByReferenceCode(PRIVATE_ESCROW_REF_PREFIX + assignment.getAssignmentId())
+                .orElse(null);
+    }
+
+    private ContractResponse.EscrowPaymentInfo toEscrowPaymentInfo(EscrowTransaction escrow, PaymentTransaction fallbackPayment) {
+        if (escrow == null && fallbackPayment == null) {
+            return null;
+        }
+        PaymentTransaction payment = escrow != null ? escrow.getPayment() : fallbackPayment;
         BigDecimal amount = payment != null && payment.getAmount() != null
                 ? payment.getAmount()
-                : escrow.getAmount();
+                : escrow != null ? escrow.getAmount() : null;
         String reference = payment != null ? payment.getReferenceCode() : null;
         return ContractResponse.EscrowPaymentInfo.builder()
-                .escrowId(escrow.getEscrowId())
-                .escrowStatus(escrow.getStatus())
+                .escrowId(escrow != null ? escrow.getEscrowId() : null)
+                .escrowStatus(escrow != null ? escrow.getStatus() : EscrowStatus.PENDING)
                 .paymentTransactionId(payment != null ? payment.getTransactionId() : null)
                 .paymentStatus(payment != null ? payment.getStatus() : null)
                 .amount(amount)
@@ -831,7 +962,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .accountName(ESCROW_ACCOUNT_NAME)
                 .transferContent(reference)
                 .qrUrl(buildEscrowQrUrl(amount, reference))
-                .depositedAt(escrow.getDepositedAt())
+                .depositedAt(escrow != null ? escrow.getDepositedAt() : null)
                 .processedAt(payment != null ? payment.getProcessedAt() : null)
                 .build();
     }
@@ -1073,11 +1204,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (escrowTransactionRepository.findByAssignment_AssignmentId(assignment.getAssignmentId()).isPresent()) {
             return;
         }
-        BigDecimal amount = resolvePrivateEscrowAmount(tutoringClass);
+        BigDecimal amount = resolvePrivateEscrowAmount(tutoringClass, assignment);
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Không xác định được số tiền escrow cần thanh toán");
         }
-        escrowService.lock(new EscrowLockCommand(
+        escrowService.preparePayment(new EscrowLockCommand(
                 tutoringClass.getCreator().getUserId(),
                 amount,
                 assignment.getAssignmentId(),
@@ -1088,12 +1219,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return plannedPrivateClassMonths(tutoringClass) > 1 ? "DEPOSIT_1M" : "FULL";
     }
 
-    private BigDecimal resolvePrivateEscrowAmount(TutoringClass tutoringClass) {
-        BigDecimal totalAmount = positiveAmount(tutoringClass.getBudget());
-        if (totalAmount == null && tutoringClass.getTuitionFee() != null && tutoringClass.getNumberOfSessions() != null) {
-            totalAmount = tutoringClass.getTuitionFee()
-                    .multiply(BigDecimal.valueOf(tutoringClass.getNumberOfSessions()));
-        }
+    private BigDecimal resolvePrivateEscrowAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
+        BigDecimal totalAmount = resolvePrivateContractTotalAmount(tutoringClass, assignment);
         if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
@@ -1102,6 +1229,119 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return totalAmount.setScale(2, RoundingMode.HALF_UP);
         }
         return totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal resolvePrivateContractTotalAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
+        BigDecimal totalAmount = courseFeeFromSchedule(tutoringClass, acceptedSubjectKeys(assignment));
+        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            totalAmount = resolvePrivateDealTotalAmount(tutoringClass, assignment);
+        }
+        return totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0
+                ? totalAmount.setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+    }
+
+    /**
+     * Tổng học phí toàn khoá tính theo đúng các buổi sẽ được sinh (cùng logic với
+     * {@link #generateSchedule}) và chỉ gồm môn gia sư nhận dạy. Trả {@code null} nếu
+     * lớp chưa đủ dữ liệu lịch để tính (khi đó dùng cách tính dự phòng).
+     */
+    private BigDecimal courseFeeFromSchedule(
+            TutoringClass tutoringClass, java.util.Set<String> acceptedSubjectKeys) {
+        if (tutoringClass.getStartDate() == null || tutoringClass.getEndDate() == null) {
+            return null;
+        }
+        JsonNode form = readTree(
+                filterDetailsToSubjects(tutoringClass.getDetailsJson(), acceptedSubjectKeys));
+        if (form == null) {
+            return null;
+        }
+        List<SlotSpec> specs = slotSpecs(form);
+        if (specs.isEmpty()) {
+            return null;
+        }
+        List<Map.Entry<LocalDate, SlotSpec>> occurrences = expandOccurrences(form, specs, tutoringClass);
+        if (occurrences.isEmpty()) {
+            return null;
+        }
+
+        // Ánh xạ từng buổi (SlotSpec) -> phí/giờ theo môn (đọc theo key môn trong form.slots).
+        JsonNode fees = form.path("subjectFees");
+        boolean custom = "CUSTOM".equals(form.path("scheduleMode").asText("WEEKLY"));
+        Map<SlotSpec, BigDecimal> ratePerHour = new java.util.HashMap<>();
+        JsonNode slots = form.path("slots");
+        if (slots.isArray()) {
+            for (JsonNode slot : slots) {
+                LocalTime start = parseTime(slot.path("start").asText(""));
+                LocalTime end = parseTime(slot.path("end").asText(""));
+                if (start == null || end == null) {
+                    continue;
+                }
+                Integer day = custom
+                        ? dayOfWeekOf(parseDate(slot.path("date").asText("")))
+                        : DAY_CODE_TO_ISO.get(slot.path("day").asText(""));
+                if (day == null) {
+                    continue;
+                }
+                String key = slot.path("subjectId").asText("");
+                SlotSpec spec = new SlotSpec(day, start, end, subjectIdOf(key));
+                BigDecimal rate = fees.has(key)
+                        ? new BigDecimal(fees.get(key).asText("0"))
+                        : BigDecimal.ZERO;
+                ratePerHour.putIfAbsent(spec, rate);
+            }
+        }
+
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<LocalDate, SlotSpec> occurrence : occurrences) {
+            SlotSpec spec = occurrence.getValue();
+            BigDecimal rate = ratePerHour.getOrDefault(spec, BigDecimal.ZERO);
+            double hours = java.time.Duration.between(spec.start(), spec.end()).toMinutes() / 60.0;
+            total = total.add(rate.multiply(BigDecimal.valueOf(hours)));
+        }
+        return total.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal resolvePrivateDealTotalAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
+        BigDecimal totalAmount = resolveFromDealDetails(tutoringClass, acceptedSubjectKeys(assignment));
+        if (totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0) {
+            return totalAmount;
+        }
+        BigDecimal tuitionFee = positiveAmount(tutoringClass != null ? tutoringClass.getTuitionFee() : null);
+        if (tuitionFee != null && tutoringClass != null && tutoringClass.getNumberOfSessions() != null) {
+            return tuitionFee.multiply(BigDecimal.valueOf(tutoringClass.getNumberOfSessions()));
+        }
+        return positiveAmount(tutoringClass != null ? tutoringClass.getBudget() : null);
+    }
+
+    private BigDecimal resolveFromDealDetails(TutoringClass tutoringClass, java.util.Set<String> acceptedSubjectKeys) {
+        if (tutoringClass == null || !StringUtils.hasText(tutoringClass.getDetailsJson())) {
+            return null;
+        }
+        JsonNode root = readTree(filterDetailsToSubjects(tutoringClass.getDetailsJson(), acceptedSubjectKeys));
+        JsonNode subjectFeesNode = root.path("subjectFees");
+        JsonNode slots = root.path("slots");
+        if (subjectFeesNode == null || !subjectFeesNode.isObject() || slots == null || !slots.isArray()) {
+            return null;
+        }
+        Map<String, BigDecimal> fees = readRates(subjectFeesNode.toString());
+        if (fees == null || fees.isEmpty()) {
+            return null;
+        }
+        int repeats = Math.max(1, patternRepeats(root));
+        BigDecimal total = BigDecimal.ZERO;
+        for (Map.Entry<String, BigDecimal> entry : fees.entrySet()) {
+            BigDecimal fee = entry.getValue();
+            if (fee == null || fee.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            BigDecimal hours = hoursPerRepeatForSubject(root, entry.getKey());
+            if (hours.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            total = total.add(fee.multiply(hours).multiply(BigDecimal.valueOf(repeats)));
+        }
+        return total.compareTo(BigDecimal.ZERO) > 0 ? total : null;
     }
 
     private int plannedPrivateClassMonths(TutoringClass tutoringClass) {
@@ -1119,6 +1359,23 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
     private BigDecimal positiveAmount(BigDecimal amount) {
         return amount != null && amount.compareTo(BigDecimal.ZERO) > 0 ? amount : null;
+    }
+
+    private BigDecimal slotHours(String start, String end) {
+        if (!StringUtils.hasText(start) || !StringUtils.hasText(end)) {
+            return BigDecimal.ZERO;
+        }
+        try {
+            LocalTime s = LocalTime.parse(start);
+            LocalTime e = LocalTime.parse(end);
+            int startMin = s.getHour() * 60 + s.getMinute();
+            int endMin = e.getHour() * 60 + e.getMinute();
+            int diff = endMin - startMin;
+            return diff > 0 ? BigDecimal.valueOf(diff).divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+        } catch (Exception ex) {
+            return BigDecimal.ZERO;
+        }
     }
 
     private void verifySignOtp(String email, String code) {
@@ -1231,6 +1488,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             }
         }
         tutoringClass.setStatus(TutoringClassStatus.OPEN);
+        // Lớp mở lại sau khi gia sư từ chối -> làm mới hạn hiển thị 30 ngày.
+        tutoringClass.setExpiresAt(java.time.LocalDateTime.now().plusDays(CLASS_DISPLAY_DAYS));
         tutoringClassRepository.save(tutoringClass);
     }
 
@@ -1238,7 +1497,121 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Transactional(readOnly = true)
     public List<LessonResponse> listMyLessons() {
         LocalDate today = LocalDate.now();
-        return myLessons().stream().map(lesson -> toLesson(lesson, today)).toList();
+        List<Lesson> lessons = myLessons();
+        // Lớp đã điểm danh buổi cuối => khóa đổi lịch cho mọi buổi của lớp đó.
+        Set<Long> lockedClassIds = lessons.stream()
+                .collect(Collectors.groupingBy(l -> l.getTutoringClass().getClassId()))
+                .entrySet().stream()
+                .filter(e -> isLastLessonAttended(e.getValue()))
+                .map(Map.Entry::getKey)
+                .collect(Collectors.toSet());
+        return lessons.stream()
+                .map(lesson -> toLesson(lesson, today,
+                        lockedClassIds.contains(lesson.getTutoringClass().getClassId())))
+                .toList();
+    }
+
+    /**
+     * Lịch học các lớp TRUNG TÂM mà client (phụ huynh) đã GHI DANH, theo từng ngày —
+     * để client xem thời khóa biểu như phía gia sư (chỉ xem, không thao tác).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<CenterScheduleClassResponse> getMyEnrolledSchedule(LocalDate date) {
+        Long userId = authHelper.currentUserId();
+        LocalDate d = date != null ? date : LocalDate.now();
+        int weekday = d.getDayOfWeek().getValue();
+
+        Map<Long, TutoringClass> classes = new LinkedHashMap<>();
+        Map<Long, List<ClassStudent>> studentsByClass = new HashMap<>();
+        // Người HỌC là child, nhưng bản ghi ghi danh do phụ huynh (enrolledByUser). Cho CẢ HAI thấy lịch:
+        //  - phụ huynh: các bản ghi mình ghi danh (enrolledByUser = mình)
+        //  - child: các bản ghi mà tài khoản học viên là mình (studentEmail = email mình)
+        String myEmail = userRepository.findById(userId).map(User::getEmail).orElse(null);
+        List<ClassStudent> myRecords = new ArrayList<>(classStudentRepository
+                .findByEnrolledByUser_UserIdAndStatus(userId, ClassStudentStatus.ENROLLED));
+        if (StringUtils.hasText(myEmail)) {
+            myRecords.addAll(classStudentRepository
+                    .findByStudentEmailAndStatus(myEmail, ClassStudentStatus.ENROLLED));
+        }
+        Set<Long> seenRecords = new LinkedHashSet<>();
+        for (ClassStudent cs : myRecords) {
+            if (cs.getClassStudentId() != null && !seenRecords.add(cs.getClassStudentId())) {
+                continue; // dedup: acc người lớn tự ghi danh khớp cả 2 truy vấn
+            }
+            TutoringClass c = cs.getTutoringClass();
+            if (c == null || c.getClassType() != ClassType.CENTER) {
+                continue;
+            }
+            classes.put(c.getClassId(), c);
+            studentsByClass.computeIfAbsent(c.getClassId(), k -> new ArrayList<>()).add(cs);
+        }
+
+        List<CenterScheduleClassResponse> result = new ArrayList<>();
+        for (TutoringClass c : classes.values()) {
+            if (c.getStartDate() == null || c.getEndDate() == null
+                    || d.isBefore(c.getStartDate()) || d.isAfter(c.getEndDate())) {
+                continue;
+            }
+            List<ScheduleSlot> slotsToday = scheduleSlotRepository
+                    .findByTutoringClass_ClassId(c.getClassId()).stream()
+                    .filter(s -> s.getDayOfWeek() != null && s.getDayOfWeek() == weekday)
+                    .sorted(Comparator.comparing(ScheduleSlot::getStartTime))
+                    .toList();
+            if (slotsToday.isEmpty()) {
+                continue;
+            }
+
+            Map<Long, String> attendanceByStudent = new HashMap<>();
+            ScheduleSlot repSlot = slotsToday.get(0);
+            int seq = (int) Math.max(0, ChronoUnit.DAYS.between(c.getStartDate(), d));
+            lessonRepository
+                    .findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
+                            c.getClassId(), repSlot.getSlotId(), seq)
+                    .ifPresent(lesson -> lessonAttendanceRepository.findByLesson_LessonId(lesson.getLessonId())
+                            .forEach(a -> attendanceByStudent.put(
+                                    a.getClassStudent().getClassStudentId(), a.getStatus().name())));
+
+            String tutorName = classAssignmentRepository
+                    .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                            c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                    .map(a -> a.getTutor() != null ? a.getTutor().getFullName() : null)
+                    .orElse(null);
+
+            List<com.tcs.module.center.dto.response.StudentAttendanceResponse> studentItems = studentsByClass
+                    .getOrDefault(c.getClassId(), List.of()).stream()
+                    .map(s -> com.tcs.module.center.dto.response.StudentAttendanceResponse.builder()
+                            .classStudentId(s.getClassStudentId())
+                            .studentName(s.getStudentName())
+                            .studentPhone(s.getStudentPhone())
+                            .status(attendanceByStudent.get(s.getClassStudentId()))
+                            .build())
+                    .toList();
+
+            List<com.tcs.module.center.dto.response.ScheduleSlotResponse> slotResponses = slotsToday.stream()
+                    .map(s -> com.tcs.module.center.dto.response.ScheduleSlotResponse.builder()
+                            .slotId(s.getSlotId())
+                            .dayOfWeek(s.getDayOfWeek())
+                            .startTime(s.getStartTime())
+                            .endTime(s.getEndTime())
+                            .build())
+                    .toList();
+
+            result.add(CenterScheduleClassResponse.builder()
+                    .classId(c.getClassId())
+                    .title(c.getTitle())
+                    .subjectName(c.getSubject() != null ? c.getSubject().getSubjectName() : null)
+                    .gradeName(c.getGrade() != null ? c.getGrade().getGradeName() : null)
+                    .lessonMode(c.getLessonMode())
+                    .slots(slotResponses)
+                    .assignedTutorName(tutorName)
+                    .studentCount(studentItems.size())
+                    .students(studentItems)
+                    .attendanceTaken(!attendanceByStudent.isEmpty())
+                    .classCompleted(c.getStatus() == TutoringClassStatus.COMPLETED)
+                    .build());
+        }
+        return result;
     }
 
     @Override
@@ -1300,6 +1673,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     "Chỉ điểm danh được trong ngày diễn ra buổi học ("
                             + lesson.getLessonDate() + "). Hôm nay là " + today + ".");
         }
+        // Chỉ điểm danh được từ đúng giờ bắt đầu slot đến hết ngày hôm đó.
+        LocalTime start = lesson.getSlot().getStartTime();
+        if (start != null && LocalTime.now().isBefore(start)) {
+            throw new IllegalArgumentException(
+                    "Chỉ điểm danh được từ giờ bắt đầu buổi học ("
+                            + start + ") đến hết ngày hôm nay.");
+        }
     }
 
     private void sendClassNotification(User user, String title, String content, Long classId) {
@@ -1324,12 +1704,25 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         TutoringClass tutoringClass = classStudent.getTutoringClass();
         String classTitle = StringUtils.hasText(tutoringClass.getTitle()) ? tutoringClass.getTitle() : "lớp học";
         String studentName = StringUtils.hasText(classStudent.getStudentName()) ? classStudent.getStudentName() : "Học viên";
+        // Người ký/thanh toán (phụ huynh nếu là minor, hoặc chính học viên).
+        User enroller = classStudent.getEnrolledByUser();
         sendClassNotification(
-                classStudent.getEnrolledByUser(),
+                enroller,
                 "Ghi danh thành công",
                 studentName + " đã được ghi danh thành công vào lớp \"" + classTitle
                         + "\" sau khi hệ thống xác nhận thanh toán.",
                 tutoringClass.getClassId());
+        // Người HỌC là child: nếu tài khoản học viên khác tài khoản người ghi danh (phụ huynh) thì báo cho child.
+        if (StringUtils.hasText(classStudent.getStudentEmail())) {
+            userRepository.findByEmail(classStudent.getStudentEmail())
+                    .filter(child -> enroller == null || !child.getUserId().equals(enroller.getUserId()))
+                    .ifPresent(child -> sendClassNotification(
+                            child,
+                            "Bạn đã chính thức vào lớp",
+                            "Bạn đã chính thức vào lớp \"" + classTitle
+                                    + "\" sau khi phụ huynh hoàn tất ký hợp đồng và thanh toán.",
+                            tutoringClass.getClassId()));
+        }
     }
 
     private User classCounterpart(TutoringClass tc, User me) {
@@ -1357,6 +1750,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (lesson.getAttendanceStatus() != AttendanceStatus.PENDING) {
             throw new IllegalArgumentException(
                     "Buổi này đã điểm danh xong nên không đổi lịch được nữa");
+        }
+        // Đã điểm danh buổi cuối cùng => lớp coi như học xong, khóa toàn bộ đổi lịch.
+        if (isLastLessonAttended(lessonRepository.findByTutoringClass_ClassId(
+                lesson.getTutoringClass().getClassId()))) {
+            throw new IllegalArgumentException(
+                    "Lớp đã điểm danh buổi học cuối cùng nên không thể đổi lịch nữa.");
         }
         if (rescheduleRequestRepository.existsByLesson_LessonIdAndStatus(
                 lessonId, RescheduleRequestStatus.PENDING)) {
@@ -1386,50 +1785,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 "Có yêu cầu đổi lịch buổi học ở lớp \"" + lesson.getTutoringClass().getTitle()
                         + "\". Vào mục Lịch dạy để duyệt.",
                 lesson.getTutoringClass().getClassId());
-        return toRescheduleResponse(saved, me);
-    }
-
-    @Override
-    @Transactional
-    public RescheduleRequestResponse requestExtraLesson(ExtraLessonRequest request) {
-        User me = requireUser();
-        if (request.getClassId() == null) {
-            throw new IllegalArgumentException("Thiếu lớp cần thêm buổi");
-        }
-        TutoringClass tutoringClass = tutoringClassRepository
-                .findById(request.getClassId())
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
-        requireClassParticipant(tutoringClass, me);
-
-        Tutor tutor = activeTutorOf(tutoringClass);
-
-        LocalDate date = requireUpcomingDate(request.getLessonDate());
-        LocalTime start = request.getStartTime();
-        LocalTime end = request.getEndTime();
-        requireTimeRange(start, end);
-        requireNotPastTimeToday(date, start);
-        requireSlotFree(tutoringClass, tutor, date, start, end, null);
-
-        LessonRescheduleRequest row = new LessonRescheduleRequest();
-        row.setTutoringClass(tutoringClass);
-        row.setRequestType(RescheduleRequestType.EXTRA);
-        row.setNewDate(date);
-        row.setNewStartTime(start);
-        row.setNewEndTime(end);
-        String reason = trimToNull(request.getReason());
-        if (reason == null) {
-            throw new IllegalArgumentException("Vui lòng nhập lý do thêm buổi");
-        }
-        row.setSubject(resolveSubject(request.getSubjectId()));
-        row.setReason(reason);
-        row.setRequestedBy(me);
-        LessonRescheduleRequest saved = rescheduleRequestRepository.save(row);
-        sendClassNotification(
-                classCounterpart(tutoringClass, me),
-                "Yêu cầu thêm buổi học",
-                "Có yêu cầu thêm buổi học ở lớp \"" + tutoringClass.getTitle()
-                        + "\". Vào mục Lịch dạy để duyệt.",
-                tutoringClass.getClassId());
         return toRescheduleResponse(saved, me);
     }
 
@@ -1521,7 +1876,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             requireSlotFree(tutoringClass, lesson.getTutor(), date, start, end, lesson.getLessonId());
             lesson.setSlot(resolveSlot(tutoringClass, date, start, end, lesson.getSlot().getSubject()));
             lesson.setLessonDate(date);
+            // Đổi lịch được duyệt -> phát lại nhắc nhở vào 00:00 ngày học mới.
+            lesson.setReminderSentAt(null);
             lessonRepository.save(lesson);
+            // Nếu chuyển sang đúng hôm nay thì nhắc nhở ngay, không chờ 00:00 hôm sau.
+            lessonReminderService.sendReminderIfToday(lesson);
         } else {
             Tutor tutor = activeTutorOf(tutoringClass);
             requireSlotFree(tutoringClass, tutor, date, start, end, null);
@@ -1533,6 +1892,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             lesson.setAttendanceStatus(AttendanceStatus.PENDING);
             lesson.setSequenceNo(0);
             lessonRepository.save(lesson);
+            // Buổi mới thêm rơi vào hôm nay -> nhắc nhở ngay.
+            lessonReminderService.sendReminderIfToday(lesson);
         }
         resequenceLessons(tutoringClass.getClassId());
     }
@@ -1754,11 +2115,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return lesson;
     }
 
-    private void generateSchedule(TutoringClass tutoringClass, Tutor tutor) {
+    private void generateSchedule(
+            TutoringClass tutoringClass, Tutor tutor, java.util.Set<String> acceptedSubjectKeys) {
         if (lessonRepository.countByTutoringClass_ClassId(tutoringClass.getClassId()) > 0) {
             return;
         }
-        JsonNode form = readTree(tutoringClass.getDetailsJson());
+        // Chỉ sinh buổi cho môn gia sư nhận dạy; lọc trên bản sao detailsJson, không sửa lớp gốc.
+        JsonNode form = readTree(filterDetailsToSubjects(tutoringClass.getDetailsJson(), acceptedSubjectKeys));
         List<SlotSpec> specs = slotSpecs(form);
         if (specs.isEmpty() || tutoringClass.getStartDate() == null || tutoringClass.getEndDate() == null) {
             return;
@@ -1898,6 +2261,59 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return weeks;
     }
 
+    private int durationCountOf(JsonNode form) {
+        return Math.max(1, form.path("months").asInt(1));
+    }
+
+    private int totalMonthsOf(JsonNode form) {
+        int n = durationCountOf(form);
+        return "YEAR".equals(form.path("durationUnit").asText("MONTH")) ? n * 12 : n;
+    }
+
+    private int weeksForCycle(JsonNode form) {
+        return switch (form.path("billingCycle").asText("MONTH")) {
+            case "MONTH" -> totalMonthsOf(form) * 4;
+            case "TERM" -> 12;
+            case "QUARTER" -> 24;
+            case "YEAR" -> 48;
+            default -> 4;
+        };
+    }
+
+    private int repeatWeeksOf(JsonNode form) {
+        if (!"WEEKLY".equals(form.path("scheduleMode").asText("WEEKLY"))) {
+            return 1;
+        }
+        int n = form.path("repeatEveryWeeks").asInt(1);
+        return Math.min(4, Math.max(1, n));
+    }
+
+    private int patternRepeats(JsonNode form) {
+        int weeks = weeksForCycle(form);
+        int cycleWeeks = repeatWeeksOf(form);
+        if (cycleWeeks <= 1) {
+            return weeks;
+        }
+        Set<Integer> on = studyWeeksOf(form, cycleWeeks);
+        int remainder = weeks % cycleWeeks;
+        return (weeks / cycleWeeks) * on.size() + (int) on.stream().filter(w -> w <= remainder).count();
+    }
+
+    private BigDecimal hoursPerRepeatForSubject(JsonNode form, String subjectId) {
+        JsonNode slots = form.path("slots");
+        if (slots == null || !slots.isArray() || !StringUtils.hasText(subjectId)) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal total = BigDecimal.ZERO;
+        for (JsonNode slot : slots) {
+            if (!subjectId.equals(slot.path("subjectId").asText(""))) {
+                continue;
+            }
+            total = total.add(slotHours(slot.path("start").asText(""), slot.path("end").asText("")));
+        }
+        return total;
+    }
+
     private Long subjectIdOf(String key) {
         if (!StringUtils.hasText(key) || isOtherSubjectKey(key)) {
             return null;
@@ -1942,6 +2358,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
     private AssignmentResponse toAssignment(ClassAssignment assignment) {
         TutoringClass c = assignment.getApplication().getTutoringClass();
+        CompletionView completion = resolveCompletionView(c, assignment);
         return AssignmentResponse.builder()
                 .assignmentId(assignment.getAssignmentId())
                 .classId(c.getClassId())
@@ -1960,10 +2377,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .tutorSignedAt(assignment.getTutorSignedAt())
                 .clientSignedAt(assignment.getClientSignedAt())
                 .paymentMethod(assignment.getPaymentMethod())
+                .classCompleted(c.getStatus() == TutoringClassStatus.COMPLETED)
+                .completionState(completion.state())
+                .completionBlockedReason(completion.blockedReason())
                 .build();
     }
 
-    private LessonResponse toLesson(Lesson lesson, LocalDate today) {
+    private LessonResponse toLesson(Lesson lesson, LocalDate today, boolean rescheduleLocked) {
         ScheduleSlot slot = lesson.getSlot();
         return LessonResponse.builder()
                 .lessonId(lesson.getLessonId())
@@ -1978,7 +2398,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .attendanceStatus(lesson.getAttendanceStatus().name())
                 .tutorCheckInAt(lesson.getTutorCheckInAt())
                 .tutorCheckOutAt(lesson.getTutorCheckOutAt())
-                .canCheckInToday(today.equals(lesson.getLessonDate()))
+                // Chỉ điểm danh được từ đúng giờ bắt đầu slot đến hết ngày hôm đó
+                // (vd slot 18:00 -> chỉ điểm danh 18:00–23:59, không điểm danh buổi sáng).
+                .canCheckInToday(
+                        today.equals(lesson.getLessonDate())
+                                && !LocalTime.now().isBefore(slot.getStartTime()))
+                .rescheduleLocked(rescheduleLocked)
                 .build();
     }
 
@@ -2121,6 +2546,163 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return toTerminationResponse(classTerminationRequestRepository.save(termination), tutoringClass);
     }
 
+    // ===== UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE: 1 gia sư – 1 phụ huynh/học viên) =====
+
+    @Override
+    @Transactional
+    public String confirmClassCompletion(Long classId) {
+        requireUser();
+        TutoringClass c = findClass(classId);
+        if (c.getClassType() == ClassType.CENTER) {
+            throw new IllegalArgumentException("Chức năng hoàn thành lớp chỉ áp dụng cho lớp gia sư riêng.");
+        }
+        ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(classId)
+                .filter(a -> a.getStatus() == ClassAssignmentStatus.ACTIVE)
+                .orElseThrow(() -> new IllegalArgumentException("Lớp chưa có gia sư nhận, không thể hoàn thành."));
+        String role = contractRoleOf(assignment, c); // ném lỗi nếu không phải gia sư/người tạo lớp
+        if (!"TUTOR".equals(role)) {
+            throw new IllegalArgumentException("Chỉ gia sư mới có thể đánh dấu hoàn thành lớp.");
+        }
+
+        if (c.getStatus() == TutoringClassStatus.COMPLETED) {
+            throw new IllegalArgumentException("Lớp đã hoàn thành.");
+        }
+        if (c.getStatus() != TutoringClassStatus.IN_PROGRESS) {
+            throw new IllegalArgumentException("Chỉ hoàn thành khi lớp đang diễn ra.");
+        }
+        String blockedReason = completionBlockedReason(c);
+        if (blockedReason != null) {
+            throw new IllegalArgumentException(blockedReason);
+        }
+
+        if (assignment.getTutorCompletedAt() == null) {
+            assignment.setTutorCompletedAt(LocalDateTime.now());
+            classAssignmentRepository.save(assignment);
+        }
+
+        // Học viên đã đánh giá gia sư -> đóng lớp ngay + giải ngân.
+        if (contractService.hasClientReviewedClass(classId)) {
+            assignment.setClientCompletedAt(LocalDateTime.now());
+            classAssignmentRepository.save(assignment);
+            finalizeClassCompletion(c, assignment);
+            return "Lớp đã hoàn thành. Học phí escrow đã được giải ngân cho gia sư.";
+        }
+
+        // Chưa đánh giá -> mời học viên đánh giá; lớp đóng khi học viên đánh giá xong.
+        sendClassNotification(
+                c.getCreator(),
+                "Vui lòng đánh giá gia sư để hoàn thành lớp",
+                "Gia sư đã đánh dấu lớp \"" + c.getTitle()
+                        + "\" hoàn thành. Vui lòng đánh giá gia sư để hoàn tất lớp học,"
+                        + " hệ thống sẽ giải ngân học phí cho gia sư sau khi bạn đánh giá.",
+                classId);
+        return "Đã gửi yêu cầu tới học viên. Lớp sẽ đóng và giải ngân sau khi học viên đánh giá gia sư.";
+    }
+
+    /**
+     * Khi học viên đánh giá gia sư (sự kiện {@link ClientReviewedClassEvent}): nếu gia sư đã yêu cầu
+     * hoàn thành lớp thì đóng lớp + giải ngân. Chạy sau khi giao dịch đánh giá đã commit.
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void onClientReviewedClass(ClientReviewedClassEvent event) {
+        completeClassAfterClientReview(event.classId());
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void completeClassAfterClientReview(Long classId) {
+        TutoringClass c = tutoringClassRepository.findById(classId).orElse(null);
+        if (c == null || c.getClassType() == ClassType.CENTER
+                || c.getStatus() != TutoringClassStatus.IN_PROGRESS) {
+            return;
+        }
+        ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(classId)
+                .filter(a -> a.getStatus() == ClassAssignmentStatus.ACTIVE)
+                .orElse(null);
+        // Chỉ đóng khi gia sư đã yêu cầu hoàn thành trước đó.
+        if (assignment == null || assignment.getTutorCompletedAt() == null
+                || assignment.getClientCompletedAt() != null) {
+            return;
+        }
+        assignment.setClientCompletedAt(LocalDateTime.now());
+        classAssignmentRepository.save(assignment);
+        finalizeClassCompletion(c, assignment);
+    }
+
+    private void finalizeClassCompletion(TutoringClass c, ClassAssignment assignment) {
+        EscrowTransaction escrow = escrowTransactionRepository
+                .findByAssignment_AssignmentId(assignment.getAssignmentId())
+                .orElse(null);
+        if (escrow != null && escrow.getStatus() == EscrowStatus.FUNDED) {
+            escrowService.apply(new ReleaseInstruction(
+                    escrow.getEscrowId(),
+                    escrow.getAmount(),
+                    BigDecimal.ZERO,
+                    "Lớp \"" + c.getTitle() + "\" đã hoàn thành — giải ngân toàn bộ escrow cho gia sư."));
+        }
+
+        c.setStatus(TutoringClassStatus.COMPLETED);
+        tutoringClassRepository.save(c);
+
+        contractRepository.findByAssignment_AssignmentId(assignment.getAssignmentId())
+                .ifPresent(contract -> {
+                    if (contract.getStatus() != ContractStatus.COMPLETED) {
+                        contract.setStatus(ContractStatus.COMPLETED);
+                        contract.setConfirmedAt(LocalDateTime.now());
+                        contractRepository.save(contract);
+                    }
+                });
+
+        String content = "Lớp \"" + c.getTitle()
+                + "\" đã được cả hai bên xác nhận hoàn thành. Học phí đã được giải ngân cho gia sư.";
+        sendClassNotification(assignment.getTutor().getUser(), "Lớp đã hoàn thành", content, c.getClassId());
+        sendClassNotification(c.getCreator(), "Lớp đã hoàn thành", content, c.getClassId());
+    }
+
+    /**
+     * Đủ điều kiện xác nhận hoàn thành khi BUỔI HỌC CUỐI CÙNG đã được điểm danh
+     * (trạng thái khác PENDING) và có ít nhất một buổi đã dạy (COMPLETED). Trả về null nếu đủ điều kiện.
+     */
+    private String completionBlockedReason(TutoringClass c) {
+        List<Lesson> lessons = lessonRepository.findByTutoringClass_ClassId(c.getClassId());
+        if (lessons.isEmpty()) {
+            return "Lớp chưa có buổi học nào để xác nhận hoàn thành.";
+        }
+        if (!isLastLessonAttended(lessons)) {
+            return "Cần điểm danh buổi học cuối cùng trước khi xác nhận hoàn thành lớp.";
+        }
+        boolean anyCompleted = lessons.stream()
+                .anyMatch(l -> l.getAttendanceStatus() == AttendanceStatus.COMPLETED);
+        if (!anyCompleted) {
+            return "Chưa có buổi nào được điểm danh (đã dạy) nên chưa thể xác nhận hoàn thành lớp.";
+        }
+        return null;
+    }
+
+    /** Buổi học cuối cùng (theo ngày, rồi số thứ tự) đã được điểm danh (khác PENDING) hay chưa. */
+    private boolean isLastLessonAttended(List<Lesson> lessons) {
+        Lesson last = null;
+        for (Lesson l : lessons) {
+            if (l.getLessonDate() == null) {
+                continue;
+            }
+            if (last == null
+                    || l.getLessonDate().isAfter(last.getLessonDate())
+                    || (l.getLessonDate().isEqual(last.getLessonDate())
+                            && seqNo(l) > seqNo(last))) {
+                last = l;
+            }
+        }
+        return last != null && last.getAttendanceStatus() != AttendanceStatus.PENDING;
+    }
+
+    private int seqNo(Lesson l) {
+        return l.getSequenceNo() == null ? 0 : l.getSequenceNo();
+    }
+
     private RefundPayoutInfo validateTerminationRefundPayoutInfo(CreateClassTerminationRequest request) {
         RefundPayoutInfo payoutInfo = new RefundPayoutInfo(
                 RefundPayoutInfoCodec.normalize(request.getBankName()),
@@ -2204,6 +2786,33 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             contractService.generateStudentContract(savedStudent.getClassStudentId());
             auditLogService.record(userId, "REGISTER_CLASS", "ClassStudent", savedStudent.getClassStudentId(),
                     null, java.util.Map.of("classId", classId));
+            // Chuông: phụ huynh (người KÝ + trả tiền) và học viên (child) được báo đúng vai trò.
+            String enrollClassTitle = StringUtils.hasText(tutoringClass.getTitle())
+                    ? tutoringClass.getTitle() : "lớp học";
+            if (legal.isDelegatedToParent()) {
+                // Người học là child; người ký hợp đồng + thanh toán là phụ huynh (payer).
+                sendClassNotification(
+                        payer,
+                        "Con bạn vừa đăng ký lớp — cần ký hợp đồng",
+                        client.getFullName() + " đã đăng ký lớp \"" + enrollClassTitle
+                                + "\". Vui lòng vào mục Hợp đồng để ký và thanh toán để "
+                                + client.getFullName() + " chính thức vào lớp.",
+                        classId);
+                sendClassNotification(
+                        user,
+                        "Đã ghi nhận đăng ký — chờ phụ huynh ký",
+                        "Bạn đã đăng ký lớp \"" + enrollClassTitle + "\". Hợp đồng đã gửi cho phụ huynh"
+                                + (legal.getLegalHolderName() != null ? " (" + legal.getLegalHolderName() + ")" : "")
+                                + " ký và thanh toán. Bạn vào lớp sau khi phụ huynh hoàn tất.",
+                        classId);
+            } else {
+                sendClassNotification(
+                        payer,
+                        "Cần ký hợp đồng lớp học",
+                        "Bạn đã đăng ký lớp \"" + enrollClassTitle
+                                + "\". Vui lòng vào mục Hợp đồng để ký và thanh toán để chính thức vào lớp.",
+                        classId);
+            }
             // #2: thông báo đúng ngữ cảnh — minor thì phụ huynh ký thay.
             if (legal.isDelegatedToParent()) {
                 return "Đã ghi nhận đăng ký. Vì bạn dưới 18 tuổi, hợp đồng đã được gửi cho phụ huynh"
@@ -2892,6 +3501,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         Client client = clientRepository.findByUser_UserId(c.getCreator().getUserId()).orElse(null);
         TerminationTarget terminationTarget = canRequestTerminationTarget(c, assignmentId, classStudentId);
         RefundPolicy refundPolicy = resolveClassRefundPolicy(c, terminationTarget);
+        CompletionView completion = resolveCompletionView(c);
         return ClassResponse.builder()
                 .classId(c.getClassId())
                 .title(c.getTitle())
@@ -2931,6 +3541,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .terminationClassStudentId(terminationTarget != null && terminationTarget.classStudent() != null
                         ? terminationTarget.classStudent().getClassStudentId()
                         : null)
+                .completionAssignmentId(completion.assignmentId())
+                .completionState(completion.state())
+                .completionBlockedReason(completion.blockedReason())
                 .schedule(scheduleSlotRepository.findByTutoringClass_ClassId(c.getClassId()).stream()
                         .map(s -> ScheduleSlotResponse.builder()
                                 .slotId(s.getSlotId())
@@ -2940,6 +3553,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                                 .build())
                         .toList())
                 .createdAt(c.getCreatedAt())
+                .expiresAt(c.getExpiresAt())
                 .applicationCount(tutorApplicationRepository.countByTutoringClass_ClassIdAndStatusNot(
                         c.getClassId(), TutorApplicationStatus.REJECTED))
                 .assignmentId(classAssignmentRepository
@@ -2947,6 +3561,69 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                         .map(ClassAssignment::getAssignmentId)
                         .orElse(null))
                 .build();
+    }
+
+    /** Trạng thái nút "Hoàn thành lớp" theo góc nhìn người dùng hiện tại. */
+    private record CompletionView(
+            Long assignmentId,
+            String state,
+            String blockedReason) {
+        static CompletionView none() {
+            return new CompletionView(null, "NONE", null);
+        }
+    }
+
+    private CompletionView resolveCompletionView(TutoringClass c) {
+        if (c.getClassType() == ClassType.CENTER) {
+            return CompletionView.none();
+        }
+        ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(c.getClassId())
+                .filter(a -> a.getStatus() == ClassAssignmentStatus.ACTIVE)
+                .orElse(null);
+        if (assignment == null) {
+            return CompletionView.none();
+        }
+        return resolveCompletionView(c, assignment);
+    }
+
+    private CompletionView resolveCompletionView(TutoringClass c, ClassAssignment assignment) {
+        if (c.getClassType() == ClassType.CENTER) {
+            return CompletionView.none();
+        }
+        Long uid = currentUserIdOrNull();
+        if (uid == null) {
+            return CompletionView.none();
+        }
+        boolean isTutor = assignment.getTutor().getUser().getUserId().equals(uid);
+        boolean isCreator = c.getCreator().getUserId().equals(uid);
+        if (!isTutor && !isCreator) {
+            return CompletionView.none();
+        }
+        Long aid = assignment.getAssignmentId();
+
+        if (c.getStatus() == TutoringClassStatus.COMPLETED) {
+            return new CompletionView(aid, "COMPLETED", null);
+        }
+        if (c.getStatus() != TutoringClassStatus.IN_PROGRESS) {
+            return new CompletionView(aid, "NONE", null);
+        }
+
+        boolean tutorRequested = assignment.getTutorCompletedAt() != null;
+        if (isTutor) {
+            if (!tutorRequested) {
+                String blockedReason = completionBlockedReason(c);
+                return new CompletionView(aid,
+                        blockedReason == null ? "TUTOR_CAN_CONFIRM" : "TUTOR_BLOCKED",
+                        blockedReason);
+            }
+            // Đã yêu cầu hoàn thành, đang chờ học viên đánh giá gia sư.
+            return new CompletionView(aid, "TUTOR_WAITING", null);
+        }
+
+        // Phụ huynh/học viên: gia sư chưa yêu cầu -> chờ; đã yêu cầu -> cần đánh giá để đóng lớp.
+        return new CompletionView(aid,
+                tutorRequested ? "CLIENT_MUST_REVIEW" : "CLIENT_WAITING_TUTOR", null);
     }
 
     private RefundPolicy resolveClassRefundPolicy(TutoringClass tutoringClass, TerminationTarget target) {

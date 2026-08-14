@@ -71,4 +71,8 @@ public class Lesson {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    /** Thời điểm đã gửi thông báo nhắc nhở buổi học; null = chưa gửi (chống gửi trùng). */
+    @Column(name = "reminder_sent_at")
+    private LocalDateTime reminderSentAt;
 }

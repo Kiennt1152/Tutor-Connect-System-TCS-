@@ -47,6 +47,20 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
             LocalDateTime from,
             LocalDateTime to);
 
+    List<PaymentTransaction> findByWallet_WalletIdAndTypeAndStatusAndCreatedAtBetweenOrderByCreatedAtAsc(
+            Long walletId,
+            PaymentTransactionType type,
+            PaymentTransactionStatus status,
+            LocalDateTime from,
+            LocalDateTime to);
+
+    List<PaymentTransaction> findByWallet_WalletIdAndTypeInAndStatusAndCreatedAtBetweenOrderByCreatedAtAsc(
+            Long walletId,
+            Collection<PaymentTransactionType> types,
+            PaymentTransactionStatus status,
+            LocalDateTime from,
+            LocalDateTime to);
+
     Page<PaymentTransaction> findByWallet_WalletIdOrderByCreatedAtDesc(Long walletId, Pageable pageable);
 
     Page<PaymentTransaction> findByWallet_WalletIdAndTypeOrderByCreatedAtDesc(

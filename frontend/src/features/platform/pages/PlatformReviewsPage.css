@@ -82,6 +82,29 @@
   font-size: 0.78rem;
 }
 
+.adm-review__report-alert {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.adm-review__report-badge {
+  display: inline-block;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.adm-review__report-reason {
+  display: block;
+  margin-top: 4px;
+  max-width: 220px;
+  font-size: 0.75rem;
+}
+
 .adm-table--reviews td:nth-child(7) {
   font-size: 0.82rem;
   color: var(--color-text-secondary);

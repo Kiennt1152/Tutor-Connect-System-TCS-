@@ -64,10 +64,35 @@ public class EscrowServiceImpl implements EscrowService {
     @Transactional
     public EscrowTransaction lock(EscrowLockCommand command) {
         validateCommand(command);
+        String reference = command.assignmentId() != null
+                ? PRIVATE_REF_PREFIX + command.assignmentId()
+                : CENTER_REF_PREFIX + command.classStudentId();
+        PaymentTransaction payment = paymentTransactionRepository.findByReferenceCode(reference)
+                .orElseThrow(() -> new BusinessException("Chưa có giao dịch thanh toán escrow"));
+        return fundConfirmedPayment(payment);
+    }
+
+    @Override
+    @Transactional
+    public PaymentTransaction preparePayment(EscrowLockCommand command) {
+        validateCommand(command);
         if (command.assignmentId() != null) {
-            return lockPrivateAssignment(command);
+            return preparePrivatePayment(command);
         }
-        return lockCenterEnrollment(command);
+        return prepareCenterPayment(command);
+    }
+
+    @Override
+    @Transactional
+    public EscrowTransaction fundConfirmedPayment(PaymentTransaction payment) {
+        if (payment == null || payment.getTransactionId() == null) {
+            throw new BusinessException("Thiếu giao dịch thanh toán escrow");
+        }
+        if (payment.getStatus() != PaymentTransactionStatus.SUCCESS) {
+            throw new BusinessException("Chỉ giao dịch đã thanh toán thành công mới sinh escrow");
+        }
+        return escrowTransactionRepository.findByPayment_TransactionId(payment.getTransactionId())
+                .orElseGet(() -> createFundedEscrow(payment));
     }
 
     @Override
@@ -166,43 +191,39 @@ public class EscrowServiceImpl implements EscrowService {
         return saved;
     }
 
-    private EscrowTransaction lockPrivateAssignment(EscrowLockCommand command) {
+    private PaymentTransaction preparePrivatePayment(EscrowLockCommand command) {
         return escrowTransactionRepository.findByAssignment_AssignmentId(command.assignmentId())
+                .map(EscrowTransaction::getPayment)
                 .orElseGet(() -> {
-                    ClassAssignment assignment = classAssignmentRepository.findById(command.assignmentId())
+                    classAssignmentRepository.findById(command.assignmentId())
                             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công lớp"));
                     String reference = PRIVATE_REF_PREFIX + command.assignmentId();
-                    PaymentTransaction payment = createEscrowPayment(command, reference);
-
-                    EscrowTransaction escrow = new EscrowTransaction();
-                    escrow.setPayment(payment);
-                    escrow.setAssignment(assignment);
-                    escrow.setAmount(command.amount());
-                    escrow.setStatus(EscrowStatus.PENDING);
-                    EscrowTransaction saved = escrowTransactionRepository.save(escrow);
-                    log.info("[Escrow] Đã tạo lệnh thanh toán escrow cho assignment={} amount={}",
-                            command.assignmentId(), command.amount());
-                    return saved;
+                    return paymentTransactionRepository.findByReferenceCode(reference)
+                            .map(payment -> reuseOrUpdatePendingPayment(payment, command))
+                            .orElseGet(() -> {
+                                PaymentTransaction payment = createEscrowPayment(command, reference);
+                                log.info("[Escrow] Đã tạo lệnh thanh toán escrow cho assignment={} amount={}",
+                                        command.assignmentId(), command.amount());
+                                return payment;
+                            });
                 });
     }
 
-    private EscrowTransaction lockCenterEnrollment(EscrowLockCommand command) {
+    private PaymentTransaction prepareCenterPayment(EscrowLockCommand command) {
         return escrowTransactionRepository.findByClassStudent_ClassStudentId(command.classStudentId())
+                .map(EscrowTransaction::getPayment)
                 .orElseGet(() -> {
-                    ClassStudent classStudent = classStudentRepository.findById(command.classStudentId())
+                    classStudentRepository.findById(command.classStudentId())
                             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ghi danh học viên"));
                     String reference = CENTER_REF_PREFIX + command.classStudentId();
-                    PaymentTransaction payment = createEscrowPayment(command, reference);
-
-                    EscrowTransaction escrow = new EscrowTransaction();
-                    escrow.setPayment(payment);
-                    escrow.setClassStudent(classStudent);
-                    escrow.setAmount(command.amount());
-                    escrow.setStatus(EscrowStatus.PENDING);
-                    EscrowTransaction saved = escrowTransactionRepository.save(escrow);
-                    log.info("[Escrow] Đã tạo lệnh thanh toán escrow cho ghi danh={} amount={}",
-                            command.classStudentId(), command.amount());
-                    return saved;
+                    return paymentTransactionRepository.findByReferenceCode(reference)
+                            .map(payment -> reuseOrUpdatePendingPayment(payment, command))
+                            .orElseGet(() -> {
+                                PaymentTransaction payment = createEscrowPayment(command, reference);
+                                log.info("[Escrow] Đã tạo lệnh thanh toán escrow cho ghi danh={} amount={}",
+                                        command.classStudentId(), command.amount());
+                                return payment;
+                            });
                 });
     }
 
@@ -216,6 +237,59 @@ public class EscrowServiceImpl implements EscrowService {
         tx.setReferenceCode(reference);
         return paymentTransactionRepository.save(tx);
     }
+
+    private PaymentTransaction reuseOrUpdatePendingPayment(PaymentTransaction payment, EscrowLockCommand command) {
+        if (payment.getStatus() == PaymentTransactionStatus.PENDING
+                && command.amount() != null
+                && payment.getAmount() != null
+                && payment.getAmount().compareTo(command.amount()) != 0) {
+            payment.setAmount(command.amount());
+            return paymentTransactionRepository.save(payment);
+        }
+        return payment;
+    }
+
+    private EscrowTransaction createFundedEscrow(PaymentTransaction payment) {
+        EscrowTarget target = resolveTarget(payment);
+        EscrowTransaction escrow = new EscrowTransaction();
+        escrow.setPayment(payment);
+        escrow.setAssignment(target.assignment());
+        escrow.setClassStudent(target.classStudent());
+        escrow.setAmount(payment.getAmount());
+        escrow.setStatus(EscrowStatus.FUNDED);
+        escrow.setDepositedAt(payment.getProcessedAt() != null ? payment.getProcessedAt() : LocalDateTime.now());
+        EscrowTransaction saved = escrowTransactionRepository.save(escrow);
+        log.info("[Escrow] Đã sinh escrow funded từ payment={} reference={} amount={}",
+                payment.getTransactionId(), payment.getReferenceCode(), payment.getAmount());
+        return saved;
+    }
+
+    private EscrowTarget resolveTarget(PaymentTransaction payment) {
+        String reference = payment.getReferenceCode();
+        if (reference != null && reference.startsWith(PRIVATE_REF_PREFIX)) {
+            Long assignmentId = parseReferenceId(reference, PRIVATE_REF_PREFIX);
+            ClassAssignment assignment = classAssignmentRepository.findById(assignmentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công lớp"));
+            return new EscrowTarget(assignment, null);
+        }
+        if (reference != null && reference.startsWith(CENTER_REF_PREFIX)) {
+            Long classStudentId = parseReferenceId(reference, CENTER_REF_PREFIX);
+            ClassStudent classStudent = classStudentRepository.findById(classStudentId)
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ghi danh học viên"));
+            return new EscrowTarget(null, classStudent);
+        }
+        throw new BusinessException("Giao dịch thanh toán không xác định được đối tượng escrow");
+    }
+
+    private Long parseReferenceId(String reference, String prefix) {
+        try {
+            return Long.valueOf(reference.substring(prefix.length()));
+        } catch (RuntimeException exception) {
+            throw new BusinessException("Mã giao dịch escrow không hợp lệ");
+        }
+    }
+
+    private record EscrowTarget(ClassAssignment assignment, ClassStudent classStudent) {}
 
     private void releaseToBeneficiary(
             EscrowTransaction escrow,
@@ -372,6 +446,7 @@ public class EscrowServiceImpl implements EscrowService {
         }
         request.setBankName(RefundPayoutInfoCodec.normalize(resolvedPayoutInfo.bankName()));
         request.setAccountNo(RefundPayoutInfoCodec.normalizeAccountNo(resolvedPayoutInfo.accountNo()));
+        request.setAccountHolderName(RefundPayoutInfoCodec.normalize(resolvedPayoutInfo.accountHolderName()));
         if (isBlank(request.getRefundReferenceCode())) {
             request.setRefundReferenceCode(reference);
         }
@@ -407,6 +482,7 @@ public class EscrowServiceImpl implements EscrowService {
         refundRequest.setAmount(amount);
         refundRequest.setBankName(RefundPayoutInfoCodec.normalize(resolvedPayoutInfo.bankName()));
         refundRequest.setAccountNo(RefundPayoutInfoCodec.normalizeAccountNo(resolvedPayoutInfo.accountNo()));
+        refundRequest.setAccountHolderName(RefundPayoutInfoCodec.normalize(resolvedPayoutInfo.accountHolderName()));
         refundRequest.setReason(RefundPayoutInfoCodec.appendToReason(
                 buildSettlementDescription("Hoàn tiền tự động từ tất toán escrow", reason),
                 resolvedPayoutInfo));
@@ -457,7 +533,9 @@ public class EscrowServiceImpl implements EscrowService {
                 return new RefundPayoutInfo(
                         RefundPayoutInfoCodec.normalize(request.getBankName()),
                         RefundPayoutInfoCodec.normalizeAccountNo(request.getAccountNo()),
-                        parsed != null ? RefundPayoutInfoCodec.normalize(parsed.accountHolderName()) : null);
+                        !isBlank(request.getAccountHolderName())
+                                ? RefundPayoutInfoCodec.normalize(request.getAccountHolderName())
+                                : parsed != null ? RefundPayoutInfoCodec.normalize(parsed.accountHolderName()) : null);
             }
         }
         return resolved;

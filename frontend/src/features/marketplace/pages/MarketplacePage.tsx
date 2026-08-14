@@ -13,7 +13,10 @@ import { ClassDetailPanel } from '../components/ClassDetailPanel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
 import { WeeklyTimetable } from '../../teaching/components/WeeklyTimetable';
-import { useClassLessons } from '../../teaching/hooks/useTeaching';
+import { LessonRequestDialog } from '../../teaching/components/LessonRequestDialog';
+import { ExpiryBadge } from '../components/ExpiryBadge';
+import { useTeaching } from '../../teaching/hooks/useTeaching';
+import type { LessonResponse } from '../../teaching/types/teachingTypes';
 import { classToForm, emptyForm } from '../mappers/marketplaceMapper';
 import {
   CLASS_STATUS_LABELS,
@@ -207,9 +210,14 @@ export default function MarketplacePage() {
               </p>
             </div>
             {mode.kind === 'list' && isClient && (
-              <Link className="mkt-btn mkt-btn--primary" to={APP_ROUTES.postTutorRequest}>
-                + Tạo lớp mới
-              </Link>
+              <div className="mkt-header__actions">
+                <Link className="mkt-btn mkt-btn--ghost" to={APP_ROUTES.classBoard}>
+                  📋 Danh sách lớp đã đăng
+                </Link>
+                <Link className="mkt-btn mkt-btn--primary" to={APP_ROUTES.postTutorRequest}>
+                  + Tạo lớp mới
+                </Link>
+              </div>
             )}
           </header>
 
@@ -551,7 +559,14 @@ function ClassDetailScreen({
 }
 
 function ClassTimetableCard({ classId }: { readonly classId: number }) {
-  const { status, lessons } = useClassLessons(classId);
+  const { status, lessons: allLessons, requests, error, requestReschedule } = useTeaching();
+  const [dialogLesson, setDialogLesson] = useState<LessonResponse | null>(null);
+
+  const lessons = allLessons.filter((l) => l.classId === classId);
+  // Buổi đang có yêu cầu đổi lịch chờ duyệt -> hiện "chờ duyệt" thay vì nút đổi lịch.
+  const pendingLessonIds = new Set(
+    requests.filter((r) => r.status === 'PENDING').flatMap((r) => r.lessonId ?? []),
+  );
 
   return (
     <div className="mkt-card mkt-detail__timetable">
@@ -565,9 +580,27 @@ function ClassTimetableCard({ classId }: { readonly classId: number }) {
           (lessons.length === 0 ? (
             <p className="mkt-muted">Lớp chưa có buổi học nào.</p>
           ) : (
-            <WeeklyTimetable lessons={lessons} readOnly />
+            <WeeklyTimetable
+              lessons={lessons}
+              readOnly
+              onReschedule={(lesson) => setDialogLesson(lesson)}
+              pendingLessonIds={pendingLessonIds}
+            />
           ))}
       </div>
+      {dialogLesson && (
+        <LessonRequestDialog
+          lesson={dialogLesson}
+          submitError={error}
+          existingLessons={lessons}
+          onClose={() => setDialogLesson(null)}
+          onSubmit={async (payload) => {
+            const ok = await requestReschedule(dialogLesson.lessonId, payload);
+            if (ok) setDialogLesson(null);
+            return ok;
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -611,6 +644,10 @@ function fullAddressOf(form: ClassFormValues, c: ClassResponse): string {
   return parts.join(', ') || c.address || '';
 }
 
+/**
+ * Badge đếm ngược thời gian hiển thị lớp OPEN (30 ngày), cập nhật mỗi giây.
+ * Hiển thị dạng "Còn Xd HH:MM:SS". Hết hạn -> lớp sẽ bị hệ thống tự xóa (job định kỳ).
+ */
 function ClassList({
   status,
   classes,
@@ -647,6 +684,7 @@ function ClassList({
             <span className={`mkt-status mkt-status--${c.status.toLowerCase()}`}>
               {CLASS_STATUS_LABELS[c.status] ?? c.status}
             </span>
+            {c.status === 'OPEN' && c.expiresAt && <ExpiryBadge expiresAt={c.expiresAt} />}
           </div>
           <h3 className="mkt-class-card__title">{c.title}</h3>
           <dl className="mkt-class-card__meta">

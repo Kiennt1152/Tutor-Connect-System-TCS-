@@ -8,6 +8,16 @@ export type AssignmentStatus = 'PENDING' | 'ACTIVE' | 'DECLINED' | 'TERMINATED';
 
 export type AttendanceStatus = 'PENDING' | 'COMPLETED' | 'ABSENT' | 'DISPUTED';
 
+/** Trạng thái "Hoàn thành lớp" theo góc nhìn người dùng hiện tại. */
+export type CompletionState =
+  | 'NONE'
+  | 'COMPLETED'
+  | 'TUTOR_CAN_CONFIRM'
+  | 'TUTOR_BLOCKED'
+  | 'TUTOR_WAITING'
+  | 'CLIENT_WAITING_TUTOR'
+  | 'CLIENT_MUST_REVIEW';
+
 export interface AssignmentResponse {
   assignmentId: number;
   classId: number;
@@ -26,6 +36,10 @@ export interface AssignmentResponse {
   tutorSignedAt: string | null;
   clientSignedAt: string | null;
   paymentMethod: PaymentMethod | null;
+  /** UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE). */
+  classCompleted: boolean;
+  completionState: CompletionState;
+  completionBlockedReason: string | null;
 }
 
 export type PaymentMethod = 'FULL' | 'DEPOSIT_1M';
@@ -44,6 +58,8 @@ export interface ContractView {
   numberOfSessions: number;
   subjectNames: string[] | null;
   tuitionFee: number | null;
+  totalTuitionAmount: number | string | null;
+  escrowAmount: number | string | null;
   clientName: string | null;
   clientPhone: string | null;
   clientAddress: string | null;
@@ -56,6 +72,8 @@ export interface ContractView {
   tutorCccd: string | null;
   tutorSigned: boolean;
   clientSigned: boolean;
+  tutorSignedAt: string | null;
+  clientSignedAt: string | null;
   paymentMethod: PaymentMethod | null;
   myRole: 'CLIENT' | 'TUTOR';
   escrowPayment: EscrowPaymentInfo | null;
@@ -77,6 +95,8 @@ export interface LessonResponse {
   tutorCheckInAt: string | null;
   tutorCheckOutAt: string | null;
   canCheckInToday: boolean;
+  /** True khi lớp đã điểm danh buổi cuối — khóa đổi lịch. */
+  rescheduleLocked: boolean;
 }
 
 export type RescheduleRequestType = 'RESCHEDULE' | 'EXTRA';
@@ -112,45 +132,10 @@ export interface RescheduleRequestResponse {
   canCancel: boolean;
 }
 
-export interface ClassOption {
-  classId: number;
-  classTitle: string;
-  subjects: { subjectId: number; subjectName: string }[];
-}
-
-export function classOptionsFrom(lessons: LessonResponse[]): ClassOption[] {
-  const byClass = new Map<number, ClassOption>();
-  for (const lesson of lessons) {
-    const option = byClass.get(lesson.classId) ?? {
-      classId: lesson.classId,
-      classTitle: lesson.classTitle,
-      subjects: [],
-    };
-    if (
-      lesson.subjectId !== null &&
-      lesson.subjectName !== null &&
-      !option.subjects.some((s) => s.subjectId === lesson.subjectId)
-    ) {
-      option.subjects.push({ subjectId: lesson.subjectId, subjectName: lesson.subjectName });
-    }
-    byClass.set(lesson.classId, option);
-  }
-  return [...byClass.values()];
-}
-
 export interface RescheduleLessonPayload {
   newDate: string;
   newStartTime: string;
   newEndTime: string;
-  reason?: string;
-}
-
-export interface ExtraLessonPayload {
-  classId: number;
-  lessonDate: string;
-  startTime: string;
-  endTime: string;
-  subjectId?: number | null;
   reason?: string;
 }
 

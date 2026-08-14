@@ -14,8 +14,13 @@
   max-width: 1120px;
 }
 
+.contract-page--list {
+  max-width: 1180px;
+}
+
 .contract-page-head,
-.contract-detail-head {
+.contract-detail-head,
+.contract-header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -24,7 +29,8 @@
 }
 
 .contract-page-head h1,
-.contract-detail-head h1 {
+.contract-detail-head h1,
+.contract-header h1 {
   margin: 0;
   color: var(--color-text-primary);
   font-size: var(--fs-h1);
@@ -47,7 +53,13 @@
   text-transform: uppercase;
 }
 
+.contract-header .tcs-btn {
+  flex-shrink: 0;
+}
+
 .contract-state,
+.contract-loading,
+.contract-error,
 .contract-empty,
 .contract-table-card,
 .contract-card {
@@ -57,14 +69,21 @@
   box-shadow: var(--shadow-sm);
 }
 
+.contract-loading,
+.contract-error,
 .contract-state {
   padding: var(--space-2xl);
   color: var(--color-text-secondary);
   text-align: center;
 }
 
+.contract-error,
 .contract-state--error {
   color: var(--color-error);
+}
+
+.contract-page--list .contract-error + .tcs-btn {
+  margin-top: var(--space-md);
 }
 
 .contract-empty {
@@ -83,6 +102,16 @@
 
 .contract-table-card {
   overflow: hidden;
+}
+
+.contract-section-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+}
+
+.contract-page--list .contract-section-stack {
+  gap: var(--space-xl);
 }
 
 .contract-table-card__head,
@@ -149,6 +178,50 @@
   font-weight: 600;
 }
 
+.contract-escrow-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--space-sm);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-surface-1);
+}
+
+.contract-escrow-summary__item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface-2);
+}
+
+.contract-escrow-summary__item span {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-label);
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.contract-escrow-summary__item strong {
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-lg);
+}
+
+.contract-escrow-summary__item small {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+}
+
+.contract-table__money {
+  color: var(--color-primary-dark) !important;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
 .contract-no {
   color: var(--color-primary-dark);
   font-family: var(--font-mono);
@@ -204,6 +277,31 @@
 .contract-back-link:hover,
 .contract-link-button:hover:not(:disabled) {
   color: var(--color-primary);
+}
+
+.contract-escrow-code {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.contract-escrow-code strong {
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+}
+
+.contract-escrow-code code {
+  display: inline-block;
+  max-width: 180px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .contract-detail-nav {
@@ -316,6 +414,62 @@
   margin: 0;
   color: var(--color-text-secondary);
   line-height: 1.7;
+}
+
+/* Thân hợp đồng dạng tờ A4 (dùng lại .ksign-doc của form ký lớp gia sư). */
+.contract-doc-wrap {
+  margin: 0 var(--space-lg) var(--space-lg);
+}
+.contract-doc-wrap > h3 {
+  margin: 0 0 var(--space-xs);
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-md);
+}
+.cdoc__docno {
+  text-align: center;
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #475569;
+}
+.cdoc__party {
+  margin: 16px 0 4px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f2a4a;
+}
+.cdoc__li {
+  margin: 4px 0 4px 20px;
+  position: relative;
+}
+.cdoc__li::before {
+  content: '•';
+  position: absolute;
+  left: -14px;
+  color: #64748b;
+}
+
+/* Ký hợp đồng: checkbox đồng ý + đồng hồ đếm ngược OTP. */
+.contract-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  cursor: pointer;
+}
+.contract-agree input {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+.contract-otp-timer {
+  margin: 4px 0 0;
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+}
+.contract-otp-timer--expired {
+  color: var(--color-error, #991b1b);
+  font-weight: 600;
 }
 
 .contract-party-list,
@@ -661,7 +815,8 @@
 
 @media (max-width: 900px) {
   .contract-page-head,
-  .contract-detail-head {
+  .contract-detail-head,
+  .contract-header {
     align-items: stretch;
     flex-direction: column;
   }
@@ -677,6 +832,10 @@
   .contract-card--wide {
     grid-row: auto;
   }
+
+  .contract-escrow-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 640px) {
@@ -685,7 +844,8 @@
   }
 
   .contract-page-head h1,
-  .contract-detail-head h1 {
+  .contract-detail-head h1,
+  .contract-header h1 {
     font-size: var(--fs-h2);
   }
 
@@ -707,6 +867,10 @@
   }
 
   .contract-info-list {
+    grid-template-columns: 1fr;
+  }
+
+  .contract-escrow-summary {
     grid-template-columns: 1fr;
   }
 

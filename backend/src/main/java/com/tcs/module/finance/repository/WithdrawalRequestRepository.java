@@ -30,6 +30,12 @@ public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalReq
             LocalDateTime from,
             LocalDateTime to);
 
+    List<WithdrawalRequest> findByWallet_WalletIdAndAmountAndRequestedAtBetweenOrderByRequestedAtAsc(
+            Long walletId,
+            BigDecimal amount,
+            LocalDateTime from,
+            LocalDateTime to);
+
     @Query(
             value = """
                     SELECT wr FROM WithdrawalRequest wr

@@ -63,6 +63,11 @@ public interface ContractService {
 
     SignatureStatusResponse getSignatureStatus(Long contractId);
 
+    ReviewResponse createReview(CreateReviewRequest request);
+
+    /** True nếu lớp đã có ít nhất một đánh giá của phụ huynh/học viên dành cho gia sư. */
+    boolean hasClientReviewedClass(Long classId);
+
     ReviewResponse replyToReview(Long reviewId, ReplyReviewRequest request);
 
     ReviewResponse updateReview(Long reviewId, CreateReviewRequest request);

@@ -18,7 +18,9 @@ public class AdminWithdrawalResponse {
     private WithdrawalRequestStatus status;
     private Long paymentMethodId;
     private String bankName;
+    private String accountNo;
     private String accountNoMasked;
+    private String accountHolderName;
     private Long transactionId;
     private PaymentTransactionStatus transactionStatus;
     private String referenceCode;

@@ -206,12 +206,12 @@ const VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
 };
 
 const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
-  FRAUD: 'Gian lận',
-  ABUSE: 'Lạm dụng',
+  FRAUD: 'Sai sự thật / gian lận',
+  ABUSE: 'Lăng mạ / xúc phạm',
   SPAM: 'Spam',
   INAPPROPRIATE: 'Nội dung không phù hợp',
   PLATFORM_CIRCUMVENTION: 'Lách sàn nền tảng',
-  OTHER: 'Khác',
+  OTHER: 'Lý do khác',
 };
 
 const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
@@ -270,7 +270,8 @@ const TARGET_TYPE_LABELS: Record<string, string> = {
 
 function extractClassIssueUserDescription(description: string | null | undefined) {
   if (!description?.trim()) return '—';
-  const beforeHandling = description.split('[UC-30]')[0]?.trim() || description.trim();
+  const beforeHandling =
+    description.split('[UC-30]')[0].split('[UC-55]')[0].trim() || description.trim();
   const marker = 'Mô tả:';
   const markerIndex = beforeHandling.indexOf(marker);
   if (markerIndex < 0) return beforeHandling;
@@ -307,7 +308,11 @@ export function mapReportItem(item: ReportApiResponse): ReportItem {
     targetType: item.targetType,
     targetTypeLabel: TARGET_TYPE_LABELS[item.targetType] ?? item.targetType,
     targetId: String(item.targetId),
-    classTitle: item.classTitle?.trim() || (item.targetType === 'CLASS' ? `Lớp #${item.targetId}` : '—'),
+    classTitle:
+      item.classTitle?.trim()
+      || item.reportedReview?.classTitle?.trim()
+      || (item.targetType === 'CLASS' ? `Lớp #${item.targetId}` : '—'),
+    reportedReview: item.reportedReview ?? null,
     classStatus: item.classStatus ? (CLASS_STATUS_LABELS[item.classStatus] ?? item.classStatus) : '—',
     category: item.category,
     categoryLabel: REPORT_CATEGORY_LABELS[item.category] ?? item.category,
@@ -340,7 +345,9 @@ export function mapAdminWithdrawalItem(item: AdminWithdrawalApiResponse): AdminW
     status: item.status,
     statusLabel: WITHDRAWAL_STATUS_LABELS[item.status] ?? item.status,
     bankName: item.bankName?.trim() || '—',
+    accountNo: item.accountNo?.trim() || '',
     accountNoMasked: item.accountNoMasked?.trim() || '—',
+    accountHolderName: item.accountHolderName?.trim() || '—',
     referenceCode: item.referenceCode?.trim() || '—',
     transactionStatusLabel: item.transactionStatus
       ? (item.transactionStatus === 'SUCCESS' ? 'Thành công'

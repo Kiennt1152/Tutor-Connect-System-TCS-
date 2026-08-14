@@ -439,10 +439,19 @@ export interface ReportApiResponse {
   linkedDisputeId: number | null;
   createdAt: string;
   updatedAt: string | null;
+  /** Chỉ có với báo cáo targetType = REVIEW; null nếu đánh giá đã bị xóa. */
+  reportedReview: AdminReviewApiResponse | null;
 }
 
 export interface ResolveClassIssueRequest {
   action: ClassIssueResolutionAction;
+  notes: string;
+}
+
+export type ReviewReportAction = 'KEEP_REVIEW' | 'HIDE_REVIEW' | 'MARK_VIOLATION' | 'DELETE_REVIEW';
+
+export interface ResolveReviewReportRequest {
+  action: ReviewReportAction;
   notes: string;
 }
 
@@ -472,6 +481,7 @@ export interface ReportItem {
   linkedDisputeId: number | null;
   createdAt: string;
   updatedAt: string;
+  reportedReview: AdminReviewApiResponse | null;
   raw: ReportApiResponse;
 }
 
@@ -483,7 +493,9 @@ export interface AdminWithdrawalApiResponse {
   status: WithdrawalRequestStatus;
   paymentMethodId: number | null;
   bankName: string | null;
+  accountNo: string | null;
   accountNoMasked: string | null;
+  accountHolderName?: string | null;
   transactionId: number | null;
   transactionStatus: PaymentTransactionStatus | null;
   referenceCode: string | null;
@@ -510,7 +522,9 @@ export interface AdminWithdrawalItem {
   status: WithdrawalRequestStatus;
   statusLabel: string;
   bankName: string;
+  accountNo: string;
   accountNoMasked: string;
+  accountHolderName?: string;
   referenceCode: string;
   transactionStatusLabel: string;
   requestedAt: string;
@@ -737,6 +751,13 @@ export interface AdminReviewApiResponse {
   subjectName: string | null;
   tutorReply: string | null;
   createdAt: string;
+  reportCount: number;
+  pendingReportCount: number;
+  latestReportId: number | null;
+  latestReportCategory: ReportCategory | null;
+  latestReportReason: string | null;
+  latestReporterEmail: string | null;
+  latestReportAt: string | null;
 }
 
 /* ── Support Tickets (admin) ── */

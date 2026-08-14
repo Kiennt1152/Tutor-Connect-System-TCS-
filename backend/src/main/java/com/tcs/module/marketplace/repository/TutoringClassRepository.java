@@ -5,6 +5,7 @@ import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -26,5 +27,9 @@ public interface TutoringClassRepository extends JpaRepository<TutoringClass, Lo
     List<TutoringClass> findByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
 
     List<TutoringClass> findByCreatedAtBetweenOrderByCreatedAtDesc(
-            LocalDateTime from, LocalDateTime to, org.springframework.data.domain.Pageable pageable);
+            LocalDateTime from, LocalDateTime to, Pageable pageable);
+
+    /** Lớp OPEN đã quá hạn hiển thị (expires_at < mốc truyền vào) -> cần dọn dẹp. */
+    List<TutoringClass> findByStatusAndExpiresAtBefore(
+            TutoringClassStatus status, LocalDateTime cutoff);
 }

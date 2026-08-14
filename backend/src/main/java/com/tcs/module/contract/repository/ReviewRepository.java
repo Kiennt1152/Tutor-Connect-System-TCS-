@@ -17,6 +17,8 @@ public interface ReviewRepository extends JpaRepository<Review, Long> {
     long countByAssignment_AssignmentIdAndReviewer_UserIdAndReviewType(
             Long assignmentId, Long reviewerId, ReviewType reviewType);
 
+    boolean existsByTutoringClass_ClassIdAndReviewType(Long classId, ReviewType reviewType);
+
     List<Review> findByReviewee_UserIdAndReviewTypeAndStatus(
             Long userId, ReviewType reviewType, ReviewStatus status);
 

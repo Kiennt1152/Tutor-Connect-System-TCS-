@@ -41,4 +41,11 @@ public class CenterScheduleClassResponse {
     /** Gia sư phụ của lớp (nếu có) — để gia sư chính biết có thể nhờ dạy thay hay không. */
     private Long assistantTutorId;
     private String assistantTutorName;
+
+    /** true nếu đây là buổi CUỐI của khóa (đủ số buổi) — nơi hiện nút "Xác nhận hoàn thành". */
+    private boolean finalSession;
+    /** true nếu lớp đã được xác nhận hoàn thành (COMPLETED). */
+    private boolean classCompleted;
+    /** true nếu GIA SƯ đã xác nhận hoàn thành (đang chờ trung tâm đóng lớp). */
+    private boolean tutorCompletionConfirmed;
 }
