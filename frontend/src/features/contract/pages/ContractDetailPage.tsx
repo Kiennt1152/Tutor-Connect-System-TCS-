@@ -26,6 +26,34 @@ const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
   TERMINATED: { label: 'Đã chấm dứt', cls: 'contract-status--terminated' },
 };
 
+/**
+ * Xuất hợp đồng ra PDF: mở cửa sổ in chỉ chứa văn bản hợp đồng để người dùng chọn "Lưu thành PDF".
+ * Không cần thư viện; trình duyệt render tiếng Việt chuẩn. Tiêu đề cửa sổ = tên file PDF gợi ý.
+ */
+function printContractDocument(contractNo: string, documentText: string): void {
+  const esc = (s: string) =>
+    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const win = window.open('', '_blank', 'width=840,height=1000');
+  if (!win) return; // popup bị chặn -> bỏ qua (không dùng alert/confirm)
+  win.document.write(
+    `<!doctype html><html lang="vi"><head><meta charset="utf-8">` +
+      `<title>Hop-dong-${esc(contractNo)}</title><style>` +
+      `@page{size:A4;margin:20mm}` +
+      `body{font-family:'Times New Roman',Times,serif;font-size:13pt;line-height:1.6;color:#111;white-space:pre-wrap;margin:0}` +
+      `</style></head><body>${esc(documentText)}</body></html>`,
+  );
+  win.document.close();
+  win.focus();
+  let printed = false;
+  const doPrint = () => {
+    if (printed) return;
+    printed = true;
+    win.print();
+  };
+  win.onload = doPrint;
+  window.setTimeout(doPrint, 400); // fallback nếu onload không kích hoạt
+}
+
 const ESCROW_STATUS_LABEL: Record<EscrowStatus, { label: string; cls: string }> = {
   PENDING: { label: 'Chờ thanh toán', cls: 'contract-status--pending' },
   FUNDED: { label: 'Đã nạp escrow', cls: 'contract-status--active' },
@@ -282,6 +310,12 @@ export default function ContractDetailPage() {
   const mySignedSlot =
     signatures?.signatures.some((s) => s.isCurrentUser && s.signatureStatus === 'SIGNED') ?? false;
   const allSigned = signatures?.fullySigned ?? false;
+  // "Đã ký" = đủ chữ ký hoặc hợp đồng đã sang trạng thái sau khi ký -> cho phép tải PDF.
+  const isSigned =
+    allSigned ||
+    contract.status === 'SIGNED' ||
+    contract.status === 'ACTIVE' ||
+    contract.status === 'COMPLETED';
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
   const canCreateIssue = contract.classId != null;
   const selectedPayoutBank = findBankByName(payoutBankName);
@@ -325,6 +359,20 @@ export default function ContractDetailPage() {
             </p>
           </div>
           <div className="contract-detail-head__actions">
+            {isSigned && (
+              <button
+                className="tcs-btn tcs-btn--primary"
+                type="button"
+                onClick={() =>
+                  printContractDocument(
+                    contract.contractNo,
+                    contract.documentText ?? contract.termsSummary ?? '',
+                  )
+                }
+              >
+                Tải PDF
+              </button>
+            )}
             <button
               className="tcs-btn tcs-btn--ghost"
               type="button"

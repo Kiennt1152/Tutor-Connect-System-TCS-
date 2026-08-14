@@ -1,19 +1,23 @@
 import { useContractList } from '../hooks/useContract';
 import type { ContractStatus } from '../types/contractTypes';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { useAuth } from '../../../shared/auth/AuthProvider';
+import { normalizeRole } from '../../../shared/auth/rbac';
 import './ContractPage.css';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
-  PENDING: { label: 'Chờ ký', cls: 'status-draft' },
-  DRAFT: { label: 'Chưa ký', cls: 'status-draft' },
-  SIGNED: { label: 'Đã ký', cls: 'status-signed' },
-  ACTIVE: { label: 'Đang hoạt động', cls: 'status-active' },
-  COMPLETED: { label: 'Hoàn thành', cls: 'status-completed' },
-  TERMINATED: { label: 'Đã chấm dứt', cls: 'status-terminated' },
+  PENDING: { label: 'Chờ ký', cls: 'contract-status--pending' },
+  DRAFT: { label: 'Chưa ký', cls: 'contract-status--draft' },
+  SIGNED: { label: 'Đã ký', cls: 'contract-status--signed' },
+  ACTIVE: { label: 'Đang hoạt động', cls: 'contract-status--active' },
+  COMPLETED: { label: 'Hoàn thành', cls: 'contract-status--completed' },
+  TERMINATED: { label: 'Đã chấm dứt', cls: 'contract-status--terminated' },
 };
 
 export default function ContractListPage() {
   const { contracts, loading, error, reload } = useContractList();
+  const { user } = useAuth();
+  const viewerRole = normalizeRole(user?.role);
 
   if (loading) {
     return (
@@ -63,7 +67,7 @@ export default function ContractListPage() {
                 <tr>
                   <th>Số HĐ</th>
                   <th>Lớp học</th>
-                  <th>Loại</th>
+                  <th>Người ký với</th>
                   <th>Phí</th>
                   <th>Trạng thái</th>
                   <th>Ngày tạo</th>
@@ -73,14 +77,26 @@ export default function ContractListPage() {
               <tbody>
                 {contracts.map((c) => {
                   const st = STATUS_LABEL[c.status] ?? { label: c.status, cls: '' };
+                  // Chỉ hiện BÊN KIA mà mình ký cùng — ẩn chính người đang xem theo vai trò.
+                  const signers = [
+                    viewerRole !== 'CLIENT' ? c.clientName : null,
+                    viewerRole !== 'TUTOR' ? c.tutorName : null,
+                    viewerRole !== 'TUTOR_CENTER' ? c.centerName : null,
+                  ]
+                    .filter((n): n is string => Boolean(n))
+                    .join(' · ');
                   return (
                     <tr key={c.contractId}>
                       <td className="contract-no">{c.contractNo}</td>
-                      <td>{c.clientName ?? '—'}</td>
-                      <td>{c.sourceType}</td>
-                      <td>—</td>
+                      <td>{c.classTitle ?? '—'}</td>
+                      <td>{signers || '—'}</td>
                       <td>
-                        <span className={`status-badge ${st.cls}`}>{st.label}</span>
+                        {c.tuitionFee != null && c.tuitionFee !== ''
+                          ? `${new Intl.NumberFormat('vi-VN').format(Number(c.tuitionFee))} đ`
+                          : '—'}
+                      </td>
+                      <td>
+                        <span className={`contract-status ${st.cls}`}>{st.label}</span>
                       </td>
                       <td>{new Date(c.createdAt).toLocaleDateString('vi-VN')}</td>
                       <td>
