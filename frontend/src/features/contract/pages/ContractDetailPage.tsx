@@ -486,6 +486,7 @@ export default function ContractDetailPage() {
     Boolean(visibleEscrowPayment)
     && Boolean(contract.refundPayoutInfo)
     && isClient;
+  const clientEscrowPayment = clientCanViewEscrowPayment ? visibleEscrowPayment : null;
   const waitingForClientPayment =
     Boolean(visibleEscrowPayment)
     && !isClient;
@@ -694,16 +695,16 @@ export default function ContractDetailPage() {
                   </button>
                 </div>
               </section>
-          ) : clientCanViewEscrowPayment ? (
+          ) : clientEscrowPayment ? (
               <section className="contract-card contract-escrow-card">
                 <div className="contract-card__head">
                   <h2>Quét mã để thanh toán</h2>
                   {escrowStatus ? <span className={`contract-status ${escrowStatus.cls}`}>{escrowStatus.label}</span> : null}
                 </div>
                 <div className="contract-escrow">
-                  {visibleEscrowPayment.qrUrl ? (
+                  {clientEscrowPayment.qrUrl ? (
                     <div className="contract-escrow__qr">
-                      <img src={visibleEscrowPayment.qrUrl} alt="Mã QR thanh toán escrow" />
+                      <img src={clientEscrowPayment.qrUrl} alt="Mã QR thanh toán escrow" />
                     </div>
                   ) : null}
                   <div className="contract-escrow__details">
@@ -714,31 +715,31 @@ export default function ContractDetailPage() {
                     ) : null}
                     <div className="contract-escrow__row">
                       <span>Số tiền</span>
-                      <strong>{formatCurrency(visibleEscrowPayment.amount)}</strong>
+                      <strong>{formatCurrency(clientEscrowPayment.amount)}</strong>
                     </div>
                     <div className="contract-escrow__row">
                       <span>Ngân hàng</span>
-                      <strong>{visibleEscrowPayment.bankName ?? '—'}</strong>
+                      <strong>{clientEscrowPayment.bankName ?? '—'}</strong>
                     </div>
                     <div className="contract-escrow__row">
                       <span>Số tài khoản</span>
-                      <strong>{visibleEscrowPayment.accountNumber ?? '—'}</strong>
+                      <strong>{clientEscrowPayment.accountNumber ?? '—'}</strong>
                     </div>
                     <div className="contract-escrow__row">
                       <span>Chủ tài khoản</span>
-                      <strong>{visibleEscrowPayment.accountName ?? '—'}</strong>
+                      <strong>{clientEscrowPayment.accountName ?? '—'}</strong>
                     </div>
                     <div className="contract-escrow__code">
                       <span>Nội dung chuyển khoản</span>
                       <div>
                         <code>
-                          {visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode ?? '—'}
+                          {clientEscrowPayment.transferContent ?? clientEscrowPayment.referenceCode ?? '—'}
                         </code>
                         <button
                           type="button"
                           onClick={() =>
                             copyText(
-                              visibleEscrowPayment.transferContent ?? visibleEscrowPayment.referenceCode,
+                              clientEscrowPayment.transferContent ?? clientEscrowPayment.referenceCode,
                             )
                           }
                         >
@@ -754,8 +755,8 @@ export default function ContractDetailPage() {
                           : escrowRetryable
                             ? 'Giao dịch chưa thành công. Vui lòng quét mã và chuyển khoản lại đúng nội dung.'
                             : `Trạng thái giao dịch: ${
-                            visibleEscrowPayment.paymentStatus
-                              ? PAYMENT_STATUS_LABEL[visibleEscrowPayment.paymentStatus] ?? visibleEscrowPayment.paymentStatus
+                            clientEscrowPayment.paymentStatus
+                              ? PAYMENT_STATUS_LABEL[clientEscrowPayment.paymentStatus] ?? clientEscrowPayment.paymentStatus
                               : '—'
                           }.`}
                     </p>
