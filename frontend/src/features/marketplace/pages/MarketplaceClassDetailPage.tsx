@@ -55,6 +55,8 @@ export default function MarketplaceClassDetailPage() {
   const [regMessage, setRegMessage] = useState('');
   const [terminationModalOpen, setTerminationModalOpen] = useState(false);
   const [issueModalOpen, setIssueModalOpen] = useState(false);
+  const [completing, setCompleting] = useState(false);
+  const [completeMsg, setCompleteMsg] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
 
   const load = useCallback(() => {
     if (!classId) return;
@@ -95,10 +97,28 @@ export default function MarketplaceClassDetailPage() {
     }
   };
 
+  const confirmCompletion = async () => {
+    if (!data) return;
+    setCompleting(true);
+    setCompleteMsg(null);
+    try {
+      const res = await marketplaceApi.confirmCompletion(data.classId);
+      setCompleteMsg({ tone: 'ok', text: res.data?.message ?? 'Đã ghi nhận xác nhận hoàn thành.' });
+      load();
+    } catch (err) {
+      setCompleteMsg({ tone: 'error', text: extractError(err, 'Không xác nhận được. Vui lòng thử lại.') });
+    } finally {
+      setCompleting(false);
+    }
+  };
+
   const role = user?.role;
   const isClient = role === 'CLIENT';
   const isTutor = role === 'TUTOR';
   const canRequestTermination = Boolean(data?.canRequestTermination);
+  const isCompleted = data?.status === 'COMPLETED';
+  const isCompletionParty = data?.completionAssignmentId != null;
+  const showCompletionCard = isCompletionParty || isCompleted;
 
   const isOpen = data?.status === 'OPEN';
   const sortedSchedule = data
@@ -230,6 +250,52 @@ export default function MarketplaceClassDetailPage() {
                   </>
                 )}
               </div>
+
+              {showCompletionCard ? (
+                <div className="mk-class-actions">
+                  <div className="mk-enroll__head">
+                    <span className="mk-enroll__title">Hoàn thành lớp</span>
+                  </div>
+                  {isCompleted ? (
+                    <div className="mk-alert mk-alert--ok">
+                      Lớp đã được cả hai bên xác nhận hoàn thành. Học phí đã giải ngân cho gia sư.
+                    </div>
+                  ) : (
+                    <>
+                      {completeMsg ? (
+                        <div className={`mk-alert mk-alert--${completeMsg.tone === 'ok' ? 'ok' : 'error'}`}>
+                          {completeMsg.text}
+                        </div>
+                      ) : null}
+                      {data.completionPendingOther ? (
+                        <p className="mk-note">
+                          Bạn đã xác nhận hoàn thành. Đang chờ {isTutor ? 'phụ huynh/học viên' : 'gia sư'} xác nhận
+                          để hệ thống tất toán học phí.
+                        </p>
+                      ) : data.canConfirmCompletion ? (
+                        <>
+                          <p className="mk-note">
+                            Cả gia sư và phụ huynh/học viên cùng xác nhận thì lớp sẽ hoàn thành và học phí
+                            escrow được giải ngân cho gia sư.
+                          </p>
+                          <button
+                            className="mk-btn mk-btn--primary mk-btn--block"
+                            type="button"
+                            disabled={completing}
+                            onClick={confirmCompletion}
+                          >
+                            {completing ? 'Đang xử lý…' : 'Xác nhận lớp đã hoàn thành'}
+                          </button>
+                        </>
+                      ) : data.completionBlockedReason ? (
+                        <p className="mk-note">{data.completionBlockedReason}</p>
+                      ) : (
+                        <p className="mk-note">Chưa thể xác nhận hoàn thành lớp lúc này.</p>
+                      )}
+                    </>
+                  )}
+                </div>
+              ) : null}
 
               {canRequestTermination ? (
                 <div className="mk-class-actions">

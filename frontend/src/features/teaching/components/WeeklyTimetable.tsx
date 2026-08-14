@@ -172,13 +172,16 @@ export function WeeklyTimetable({
           <i className="wtt__dot wtt__dot--done" /> Đã điểm danh
         </span>
         <span>
-          <i className="wtt__dot wtt__dot--pending" /> Chưa điểm danh
+          <i className="wtt__dot wtt__dot--todaywait" /> Diễn ra trong ngày (chưa tới giờ điểm danh)
         </span>
         <span>
-          <i className="wtt__dot wtt__dot--today" /> Diễn ra hôm nay
+          <i className="wtt__dot wtt__dot--today" /> Đang diễn ra buổi học
         </span>
         <span>
           <i className="wtt__dot wtt__dot--absent" /> Vắng mặt
+        </span>
+        <span>
+          <i className="wtt__dot wtt__dot--pending" /> Lịch học
         </span>
         <span>
           <strong>-</strong> Không có buổi học
@@ -209,7 +212,18 @@ function LessonChip({
 }) {
   const done = lesson.attendanceStatus === 'COMPLETED';
   const absent = lesson.attendanceStatus === 'ABSENT';
-  const tone = done ? 'done' : absent ? 'absent' : lesson.canCheckInToday ? 'today' : 'pending';
+  const isTodayLesson = lesson.lessonDate === toIsoDate(new Date());
+  // done=xanh lá · absent=đỏ · today(đang tới giờ điểm danh)=xanh dương ·
+  // todaywait(hôm nay nhưng chưa tới giờ)=vàng · pending(lịch tương lai)=cam.
+  const tone = done
+    ? 'done'
+    : absent
+      ? 'absent'
+      : lesson.canCheckInToday
+        ? 'today'
+        : isTodayLesson
+          ? 'todaywait'
+          : 'pending';
   const canReschedule = onReschedule && lesson.attendanceStatus === 'PENDING';
   const [attendOpen, setAttendOpen] = useState(false);
 
@@ -256,7 +270,7 @@ function LessonChip({
             title={
               lesson.canCheckInToday
                 ? undefined
-                : 'Chỉ điểm danh được trong đúng ngày diễn ra buổi học'
+                : `Chỉ điểm danh được từ giờ bắt đầu buổi học (${hhmmDisplay(lesson.startTime)}) đến hết ngày hôm đó`
             }
           >
             Điểm danh

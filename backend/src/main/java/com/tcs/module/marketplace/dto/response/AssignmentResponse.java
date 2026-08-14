@@ -30,4 +30,10 @@ public class AssignmentResponse {
     private LocalDateTime tutorSignedAt;
     private LocalDateTime clientSignedAt;
     private String paymentMethod;
+
+    /** UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE). */
+    private boolean classCompleted;
+    private boolean canConfirmCompletion;
+    private boolean completionPendingOther;
+    private String completionBlockedReason;
 }

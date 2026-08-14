@@ -135,6 +135,7 @@ export function LessonRequestDialog(props: Props) {
 
   function validate(): string | null {
     if (!isReschedule && classId === '') return 'Chọn lớp cần thêm buổi.';
+    if (!isReschedule && subjects.length > 0 && subjectId === '') return 'Vui lòng chọn môn học.';
     if (!reason.trim())
       return isReschedule ? 'Vui lòng nhập lý do đổi lịch.' : 'Vui lòng nhập lý do thêm buổi.';
     if (!date) return 'Chọn ngày học.';
@@ -234,13 +235,13 @@ export function LessonRequestDialog(props: Props) {
 
           {!isReschedule && subjects.length > 0 && (
             <label className="tcs-field">
-              <span className="tcs-field__label">Môn học</span>
+              <span className="tcs-field__label">Môn học *</span>
               <select
                 className="tcs-input"
                 value={subjectId}
                 onChange={(e) => setSubjectId(e.target.value === '' ? '' : Number(e.target.value))}
               >
-                <option value="">— Không chỉ định —</option>
+                <option value="">— Chọn môn học —</option>
                 {subjects.map((s) => (
                   <option key={s.subjectId} value={s.subjectId}>
                     {s.subjectName}
@@ -255,6 +256,7 @@ export function LessonRequestDialog(props: Props) {
             <input
               className="tcs-input"
               type="date"
+              lang="vi-VN"
               value={date}
               min={toIsoDate(new Date())}
               onChange={(e) => setDate(e.target.value)}

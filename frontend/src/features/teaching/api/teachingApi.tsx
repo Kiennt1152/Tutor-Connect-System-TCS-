@@ -98,4 +98,10 @@ export const teachingApi = {
     axiosClient
       .post<{ message: string }>(`/marketplace/lessons/requests/${requestId}/cancel`)
       .then((r) => r.data),
+
+  /** UC "Xác nhận lớp đã hoàn thành": gia sư/phụ huynh mỗi bên xác nhận. */
+  confirmClassCompletion: (classId: number) =>
+    axiosClient
+      .post<{ message: string }>(`/marketplace/classes/${classId}/complete`)
+      .then((r) => r.data),
 };

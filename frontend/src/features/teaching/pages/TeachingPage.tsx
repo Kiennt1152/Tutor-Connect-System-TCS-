@@ -49,6 +49,7 @@ export default function TeachingPage() {
     requestExtraLesson,
     decideRequest,
     cancelRequest,
+    confirmCompletion,
   } = useTeaching();
 
   const [dialog, setDialog] = useState<
@@ -83,7 +84,10 @@ export default function TeachingPage() {
   }
 
   const [confirmAction, setConfirmAction] = useState<
-    { kind: 'decline'; assignmentId: number } | { kind: 'cancelReq'; requestId: number } | null
+    | { kind: 'decline'; assignmentId: number }
+    | { kind: 'cancelReq'; requestId: number }
+    | { kind: 'complete'; classId: number; classTitle: string }
+    | null
   >(null);
 
   const invites = assignments.filter((a) => a.status === 'PENDING');
@@ -211,11 +215,40 @@ export default function TeachingPage() {
                 <ul className="tch-classes">
                   {active.map((a) => (
                     <li key={a.assignmentId} className="tch-class">
-                      <span className="tch-class__title">{a.classTitle}</span>
-                      <span className="tch-class__meta">
-                        {isClient && a.tutorName ? `👩‍🏫 ${a.tutorName} · ` : ''}
-                        {(a.subjectNames ?? []).join(', ') || '—'} · {a.lessonCount} buổi
-                      </span>
+                      <div className="tch-class__info">
+                        <span className="tch-class__title">{a.classTitle}</span>
+                        <span className="tch-class__meta">
+                          {isClient && a.tutorName ? `👩‍🏫 ${a.tutorName} · ` : ''}
+                          {(a.subjectNames ?? []).join(', ') || '—'} · {a.lessonCount} buổi
+                        </span>
+                      </div>
+                      <div className="tch-class__action">
+                        {a.classCompleted ? (
+                          <span className="tch-badge tch-badge--done">✓ Đã hoàn thành</span>
+                        ) : a.completionPendingOther ? (
+                          <span className="tch-badge tch-badge--pending">
+                            Chờ {isClient ? 'gia sư' : 'phụ huynh/học viên'} xác nhận
+                          </span>
+                        ) : a.canConfirmCompletion ? (
+                          <button
+                            className="tch-btn tch-btn--primary"
+                            type="button"
+                            onClick={() =>
+                              setConfirmAction({
+                                kind: 'complete',
+                                classId: a.classId,
+                                classTitle: a.classTitle,
+                              })
+                            }
+                          >
+                            Hoàn thành lớp
+                          </button>
+                        ) : a.completionBlockedReason ? (
+                          <span className="tch-class__hint" title={a.completionBlockedReason}>
+                            ⏳ Chưa đủ điều kiện hoàn thành
+                          </span>
+                        ) : null}
+                      </div>
                     </li>
                   ))}
                 </ul>
@@ -366,6 +399,25 @@ export default function TeachingPage() {
               const id = confirmAction.requestId;
               setConfirmAction(null);
               void cancelRequest(id);
+            }}
+            onClose={() => setConfirmAction(null)}
+          />
+        )}
+
+        {confirmAction?.kind === 'complete' && (
+          <ConfirmDialog
+            title="Xác nhận lớp đã hoàn thành"
+            message={
+              isClient
+                ? `Xác nhận lớp "${confirmAction.classTitle}" đã hoàn thành? Khi cả bạn và gia sư cùng xác nhận, học phí escrow sẽ được giải ngân cho gia sư.`
+                : `Xác nhận lớp "${confirmAction.classTitle}" đã hoàn thành? Khi cả bạn và phụ huynh/học viên cùng xác nhận, học phí escrow sẽ được giải ngân cho bạn.`
+            }
+            confirmLabel="Xác nhận hoàn thành"
+            cancelLabel="Hủy"
+            onConfirm={() => {
+              const id = confirmAction.classId;
+              setConfirmAction(null);
+              void confirmCompletion(id);
             }}
             onClose={() => setConfirmAction(null)}
           />

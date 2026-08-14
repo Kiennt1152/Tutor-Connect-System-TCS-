@@ -41,6 +41,13 @@ public interface MarketplaceService {
     ClassTerminationResponse requestClassTermination(Long classId, CreateClassTerminationRequest request);
 
     /**
+     * UC "Xác nhận lớp đã hoàn thành": gia sư hoặc phụ huynh/học viên xác nhận lớp PRIVATE đã học xong.
+     * Khi cả hai bên đều xác nhận -> lớp chuyển COMPLETED và giải ngân escrow cho gia sư.
+     * Trả về thông báo phù hợp (đã ghi nhận / đã tất toán).
+     */
+    String confirmClassCompletion(Long classId);
+
+    /**
      * Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh.
      * Trả về thông báo phù hợp ngữ cảnh (tự ký / phụ huynh ký thay).
      */

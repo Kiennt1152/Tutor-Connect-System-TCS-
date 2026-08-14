@@ -347,6 +347,11 @@ export interface MarketplaceClass {
   completedSessions: number | null;
   terminationAssignmentId: number | null;
   terminationClassStudentId: number | null;
+  /** UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE 1 gia sư – 1 phụ huynh/học viên). */
+  completionAssignmentId: number | null;
+  canConfirmCompletion: boolean;
+  completionPendingOther: boolean;
+  completionBlockedReason: string | null;
   schedule: MarketplaceScheduleSlot[];
   createdAt: string;
 }

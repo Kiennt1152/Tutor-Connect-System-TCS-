@@ -125,6 +125,12 @@ public class MarketplaceController {
         return marketplaceService.requestClassTermination(classId, request);
     }
 
+    /** UC "Xác nhận lớp đã hoàn thành": gia sư/phụ huynh mỗi bên xác nhận; đủ hai bên -> tất toán. */
+    @PostMapping("/classes/{classId}/complete")
+    public Map<String, String> confirmClassCompletion(@PathVariable Long classId) {
+        return Map.of("message", marketplaceService.confirmClassCompletion(classId));
+    }
+
     /** Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh. */
     @PostMapping("/classes/{classId}/register")
     @ResponseStatus(HttpStatus.CREATED)

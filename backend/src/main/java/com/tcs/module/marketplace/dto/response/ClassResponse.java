@@ -49,6 +49,14 @@ public class ClassResponse {
     private Integer completedSessions;
     private Long terminationAssignmentId;
     private Long terminationClassStudentId;
+    /** UC "Xác nhận lớp đã hoàn thành" (chỉ lớp PRIVATE 1 gia sư – 1 phụ huynh/học viên). */
+    private Long completionAssignmentId;
+    /** True: người dùng hiện tại (gia sư hoặc phụ huynh/học viên) được phép bấm xác nhận hoàn thành. */
+    private boolean canConfirmCompletion;
+    /** True: người dùng hiện tại đã xác nhận, đang chờ bên còn lại xác nhận. */
+    private boolean completionPendingOther;
+    /** Lý do chưa cho xác nhận hoàn thành (vd: chưa điểm danh xong các buổi đã tới lịch). */
+    private String completionBlockedReason;
     private List<ScheduleSlotResponse> schedule;
     private LocalDateTime createdAt;
     /** Hạn hiển thị (đăng lớp + 30 ngày); null nếu không tính hạn. Chỉ có với lớp OPEN. */

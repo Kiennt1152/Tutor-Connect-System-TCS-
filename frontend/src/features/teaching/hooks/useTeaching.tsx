@@ -143,5 +143,7 @@ export function useTeaching() {
       run(() => teachingApi.decideRequest(requestId, approve, note), 'Xử lý yêu cầu thất bại.'),
     cancelRequest: (requestId: number) =>
       run(() => teachingApi.cancelRequest(requestId), 'Thu hồi yêu cầu thất bại.'),
+    confirmCompletion: (classId: number) =>
+      run(() => teachingApi.confirmClassCompletion(classId), 'Xác nhận hoàn thành lớp thất bại.'),
   };
 }

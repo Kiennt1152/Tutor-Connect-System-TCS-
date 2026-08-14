@@ -26,6 +26,11 @@ export interface AssignmentResponse {
   tutorSignedAt: string | null;
   clientSignedAt: string | null;
   paymentMethod: PaymentMethod | null;
+  /** UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE). */
+  classCompleted: boolean;
+  canConfirmCompletion: boolean;
+  completionPendingOther: boolean;
+  completionBlockedReason: string | null;
 }
 
 export type PaymentMethod = 'FULL' | 'DEPOSIT_1M';

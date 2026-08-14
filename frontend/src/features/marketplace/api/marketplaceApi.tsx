@@ -145,6 +145,13 @@ export const marketplaceApi = {
     );
   },
 
+  /** UC "Xác nhận lớp đã hoàn thành": gia sư/phụ huynh mỗi bên xác nhận. */
+  confirmCompletion(classId: number) {
+    return axiosClient.post<{ message: string }>(
+      `${MARKETPLACE_API_BASE}/classes/${classId}/complete`,
+    );
+  },
+
   async requestClassTermination(
     classId: number,
     payload: CreateClassTerminationRequest,

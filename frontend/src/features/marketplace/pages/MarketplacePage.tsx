@@ -13,7 +13,10 @@ import { ClassDetailPanel } from '../components/ClassDetailPanel';
 import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
 import { WeeklyTimetable } from '../../teaching/components/WeeklyTimetable';
-import { useClassLessons } from '../../teaching/hooks/useTeaching';
+import { LessonRequestDialog } from '../../teaching/components/LessonRequestDialog';
+import { ExpiryBadge } from '../components/ExpiryBadge';
+import { useTeaching } from '../../teaching/hooks/useTeaching';
+import type { LessonResponse } from '../../teaching/types/teachingTypes';
 import { classToForm, emptyForm } from '../mappers/marketplaceMapper';
 import {
   CLASS_STATUS_LABELS,
@@ -556,7 +559,14 @@ function ClassDetailScreen({
 }
 
 function ClassTimetableCard({ classId }: { readonly classId: number }) {
-  const { status, lessons } = useClassLessons(classId);
+  const { status, lessons: allLessons, requests, error, requestReschedule } = useTeaching();
+  const [dialogLesson, setDialogLesson] = useState<LessonResponse | null>(null);
+
+  const lessons = allLessons.filter((l) => l.classId === classId);
+  // Buổi đang có yêu cầu đổi lịch chờ duyệt -> hiện "chờ duyệt" thay vì nút đổi lịch.
+  const pendingLessonIds = new Set(
+    requests.filter((r) => r.status === 'PENDING').flatMap((r) => r.lessonId ?? []),
+  );
 
   return (
     <div className="mkt-card mkt-detail__timetable">
@@ -570,9 +580,28 @@ function ClassTimetableCard({ classId }: { readonly classId: number }) {
           (lessons.length === 0 ? (
             <p className="mkt-muted">Lớp chưa có buổi học nào.</p>
           ) : (
-            <WeeklyTimetable lessons={lessons} readOnly />
+            <WeeklyTimetable
+              lessons={lessons}
+              readOnly
+              onReschedule={(lesson) => setDialogLesson(lesson)}
+              pendingLessonIds={pendingLessonIds}
+            />
           ))}
       </div>
+      {dialogLesson && (
+        <LessonRequestDialog
+          mode="RESCHEDULE"
+          lesson={dialogLesson}
+          submitError={error}
+          existingLessons={lessons}
+          onClose={() => setDialogLesson(null)}
+          onSubmit={async (payload) => {
+            const ok = await requestReschedule(dialogLesson.lessonId, payload);
+            if (ok) setDialogLesson(null);
+            return ok;
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -620,44 +649,6 @@ function fullAddressOf(form: ClassFormValues, c: ClassResponse): string {
  * Badge đếm ngược thời gian hiển thị lớp OPEN (30 ngày), cập nhật mỗi giây.
  * Hiển thị dạng "Còn Xd HH:MM:SS". Hết hạn -> lớp sẽ bị hệ thống tự xóa (job định kỳ).
  */
-function ExpiryBadge({ expiresAt }: { expiresAt: string }) {
-  const end = new Date(expiresAt).getTime();
-  const [msLeft, setMsLeft] = useState(() => end - Date.now());
-
-  useEffect(() => {
-    const tick = () => setMsLeft(end - Date.now());
-    tick();
-    const id = window.setInterval(tick, 1000);
-    return () => window.clearInterval(id);
-  }, [end]);
-
-  const pad = (n: number) => String(n).padStart(2, '0');
-  let label: string;
-  let tone: 'ok' | 'warn' | 'expired';
-  if (msLeft <= 0) {
-    label = 'Đã hết hạn';
-    tone = 'expired';
-  } else {
-    const totalSec = Math.floor(msLeft / 1000);
-    const days = Math.floor(totalSec / 86400);
-    const hours = Math.floor((totalSec % 86400) / 3600);
-    const mins = Math.floor((totalSec % 3600) / 60);
-    const secs = totalSec % 60;
-    label = `Còn ${days}d ${pad(hours)}:${pad(mins)}:${pad(secs)}`;
-    const daysLeft = Math.ceil(msLeft / 86400000);
-    tone = daysLeft <= 7 ? 'warn' : 'ok';
-  }
-
-  return (
-    <span
-      className={`mkt-expiry mkt-expiry--${tone}`}
-      title={`Lớp chỉ hiển thị đến ${new Date(expiresAt).toLocaleString('vi-VN')}. Hết hạn sẽ tự bị xóa nếu chưa ký hợp đồng.`}
-    >
-      ⏳ {label}
-    </span>
-  );
-}
-
 function ClassList({
   status,
   classes,
