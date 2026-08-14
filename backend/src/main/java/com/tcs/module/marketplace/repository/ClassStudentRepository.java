@@ -21,5 +21,11 @@ public interface ClassStudentRepository extends JpaRepository<ClassStudent, Long
 
     List<ClassStudent> findByTutoringClass_ClassIdAndStatus(Long classId, ClassStudentStatus status);
 
+    /** Các học viên do một người dùng (phụ huynh) ghi danh — để client xem lịch học lớp đã đăng ký. */
+    List<ClassStudent> findByEnrolledByUser_UserIdAndStatus(Long userId, ClassStudentStatus status);
+
+    /** Các bản ghi mà TÀI KHOẢN học viên (child) chính là người học — child xem lịch lớp mình học. */
+    List<ClassStudent> findByStudentEmailAndStatus(String studentEmail, ClassStudentStatus status);
+
     boolean existsByChildProfile_ChildProfileId(Long childProfileId);
 }

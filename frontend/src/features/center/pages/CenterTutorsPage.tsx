@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
 import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { CenterSidebar } from '../components/CenterSidebar';
 import { centerApi } from '../api/centerApi';
 import type {
   CenterMember,
@@ -93,20 +93,14 @@ export default function CenterTutorsPage() {
     <>
       <HomeNavbar />
       <div className="rc-bg">
+        <div className="cc-shell">
+        <CenterSidebar />
+        <div className="cc-shell__main">
         <div className="rc-page">
-          <div className="rc-topbar">
-            <Link className="rc-back" to="/center/recruitment">
-              ← Tin tuyển dụng
-            </Link>
-          </div>
 
         <header className="rc-header">
           <div>
             <h1 className="rc-title">Gia sư của trung tâm</h1>
-            <p className="rc-subtitle">
-              Gia sư được thêm vào đây khi bạn duyệt (nhận) đơn ứng tuyển. Bạn có thể tạm ngưng,
-              kích hoạt lại, hoặc gỡ khỏi trung tâm.
-            </p>
           </div>
         </header>
 
@@ -124,7 +118,7 @@ export default function CenterTutorsPage() {
             <p className="rc-count">
               {members.length} gia sư · {activeCount} đang hoạt động
             </p>
-            <ul className="rc-applicants">
+            <ul className="rc-applicants ct-members">
               {members.map((m) => {
                 const st = STATUS_LABELS[m.status];
                 const busy = busyId === m.membershipId;
@@ -212,6 +206,8 @@ export default function CenterTutorsPage() {
             </ul>
           </>
         )}
+        </div>
+        </div>
         </div>
       </div>
     </>

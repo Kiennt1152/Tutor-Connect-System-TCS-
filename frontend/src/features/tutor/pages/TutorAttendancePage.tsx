@@ -95,6 +95,25 @@ export default function TutorAttendancePage() {
     }
   };
 
+  // Bước 13a: gia sư xác nhận khóa học hoàn thành (ở buổi cuối) -> gửi cho trung tâm.
+  const [completing, setCompleting] = useState(false);
+  const [completeMsg, setCompleteMsg] = useState('');
+  const confirmCourseDone = async () => {
+    if (!data) return;
+    setCompleting(true);
+    setSaveError('');
+    try {
+      const res = await tutorApi.confirmClassCompletion(data.classId);
+      setCompleteMsg(res.data?.message ?? 'Đã gửi xác nhận cho trung tâm.');
+      const s = await tutorApi.getSession(data.classId, date);
+      setData(s.data);
+    } catch (err) {
+      setSaveError(extractError(err, 'Không xác nhận được hoàn thành khóa học.'));
+    } finally {
+      setCompleting(false);
+    }
+  };
+
   const hasStudents = (data?.students.length ?? 0) > 0;
   const locked = !!data?.attendanceTaken;
 
@@ -208,6 +227,35 @@ export default function TutorAttendancePage() {
                     </button>
                   )}
                 </div>
+
+                {data.finalSession && (
+                  <div className="cs-savebar" style={{ marginTop: 12 }}>
+                    {data.classCompleted ? (
+                      <div className="cs-alert cs-alert--ok">✓ Khóa học đã hoàn thành.</div>
+                    ) : data.tutorCompletionConfirmed ? (
+                      <div className="cs-alert cs-alert--ok">
+                        ✓ Bạn đã xác nhận hoàn thành — chờ trung tâm xác nhận đóng lớp.
+                      </div>
+                    ) : locked ? (
+                      <>
+                        {completeMsg && <div className="cs-alert cs-alert--ok">{completeMsg}</div>}
+                        <button
+                          className="cs-btn cs-btn--primary cs-btn--lg"
+                          type="button"
+                          disabled={completing}
+                          onClick={confirmCourseDone}
+                          title="Buổi học cuối — xác nhận khóa học đã hoàn thành để gửi trung tâm duyệt đóng lớp"
+                        >
+                          {completing ? 'Đang gửi…' : '✅ Xác nhận khóa học hoàn thành'}
+                        </button>
+                      </>
+                    ) : (
+                      <div className="cs-alert cs-alert--ok">
+                        Đây là buổi học cuối — điểm danh xong sẽ xác nhận được khóa học hoàn thành.
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </>

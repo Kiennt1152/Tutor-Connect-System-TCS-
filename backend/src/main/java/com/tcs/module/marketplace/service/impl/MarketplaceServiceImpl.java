@@ -63,6 +63,7 @@ import com.tcs.module.marketplace.entity.ClassTerminationRequest;
 import com.tcs.module.marketplace.entity.FavoriteTutor;
 import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.entity.LessonRescheduleRequest;
+import com.tcs.module.center.dto.response.CenterScheduleClassResponse;
 import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
@@ -117,6 +118,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -1493,6 +1495,109 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return myLessons().stream().map(lesson -> toLesson(lesson, today)).toList();
     }
 
+    /**
+     * Lịch học các lớp TRUNG TÂM mà client (phụ huynh) đã GHI DANH, theo từng ngày —
+     * để client xem thời khóa biểu như phía gia sư (chỉ xem, không thao tác).
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<CenterScheduleClassResponse> getMyEnrolledSchedule(LocalDate date) {
+        Long userId = authHelper.currentUserId();
+        LocalDate d = date != null ? date : LocalDate.now();
+        int weekday = d.getDayOfWeek().getValue();
+
+        Map<Long, TutoringClass> classes = new LinkedHashMap<>();
+        Map<Long, List<ClassStudent>> studentsByClass = new HashMap<>();
+        // Người HỌC là child, nhưng bản ghi ghi danh do phụ huynh (enrolledByUser). Cho CẢ HAI thấy lịch:
+        //  - phụ huynh: các bản ghi mình ghi danh (enrolledByUser = mình)
+        //  - child: các bản ghi mà tài khoản học viên là mình (studentEmail = email mình)
+        String myEmail = userRepository.findById(userId).map(User::getEmail).orElse(null);
+        List<ClassStudent> myRecords = new ArrayList<>(classStudentRepository
+                .findByEnrolledByUser_UserIdAndStatus(userId, ClassStudentStatus.ENROLLED));
+        if (StringUtils.hasText(myEmail)) {
+            myRecords.addAll(classStudentRepository
+                    .findByStudentEmailAndStatus(myEmail, ClassStudentStatus.ENROLLED));
+        }
+        Set<Long> seenRecords = new LinkedHashSet<>();
+        for (ClassStudent cs : myRecords) {
+            if (cs.getClassStudentId() != null && !seenRecords.add(cs.getClassStudentId())) {
+                continue; // dedup: acc người lớn tự ghi danh khớp cả 2 truy vấn
+            }
+            TutoringClass c = cs.getTutoringClass();
+            if (c == null || c.getClassType() != ClassType.CENTER) {
+                continue;
+            }
+            classes.put(c.getClassId(), c);
+            studentsByClass.computeIfAbsent(c.getClassId(), k -> new ArrayList<>()).add(cs);
+        }
+
+        List<CenterScheduleClassResponse> result = new ArrayList<>();
+        for (TutoringClass c : classes.values()) {
+            if (c.getStartDate() == null || c.getEndDate() == null
+                    || d.isBefore(c.getStartDate()) || d.isAfter(c.getEndDate())) {
+                continue;
+            }
+            List<ScheduleSlot> slotsToday = scheduleSlotRepository
+                    .findByTutoringClass_ClassId(c.getClassId()).stream()
+                    .filter(s -> s.getDayOfWeek() != null && s.getDayOfWeek() == weekday)
+                    .sorted(Comparator.comparing(ScheduleSlot::getStartTime))
+                    .toList();
+            if (slotsToday.isEmpty()) {
+                continue;
+            }
+
+            Map<Long, String> attendanceByStudent = new HashMap<>();
+            ScheduleSlot repSlot = slotsToday.get(0);
+            int seq = (int) Math.max(0, ChronoUnit.DAYS.between(c.getStartDate(), d));
+            lessonRepository
+                    .findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
+                            c.getClassId(), repSlot.getSlotId(), seq)
+                    .ifPresent(lesson -> lessonAttendanceRepository.findByLesson_LessonId(lesson.getLessonId())
+                            .forEach(a -> attendanceByStudent.put(
+                                    a.getClassStudent().getClassStudentId(), a.getStatus().name())));
+
+            String tutorName = classAssignmentRepository
+                    .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                            c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                    .map(a -> a.getTutor() != null ? a.getTutor().getFullName() : null)
+                    .orElse(null);
+
+            List<com.tcs.module.center.dto.response.StudentAttendanceResponse> studentItems = studentsByClass
+                    .getOrDefault(c.getClassId(), List.of()).stream()
+                    .map(s -> com.tcs.module.center.dto.response.StudentAttendanceResponse.builder()
+                            .classStudentId(s.getClassStudentId())
+                            .studentName(s.getStudentName())
+                            .studentPhone(s.getStudentPhone())
+                            .status(attendanceByStudent.get(s.getClassStudentId()))
+                            .build())
+                    .toList();
+
+            List<com.tcs.module.center.dto.response.ScheduleSlotResponse> slotResponses = slotsToday.stream()
+                    .map(s -> com.tcs.module.center.dto.response.ScheduleSlotResponse.builder()
+                            .slotId(s.getSlotId())
+                            .dayOfWeek(s.getDayOfWeek())
+                            .startTime(s.getStartTime())
+                            .endTime(s.getEndTime())
+                            .build())
+                    .toList();
+
+            result.add(CenterScheduleClassResponse.builder()
+                    .classId(c.getClassId())
+                    .title(c.getTitle())
+                    .subjectName(c.getSubject() != null ? c.getSubject().getSubjectName() : null)
+                    .gradeName(c.getGrade() != null ? c.getGrade().getGradeName() : null)
+                    .lessonMode(c.getLessonMode())
+                    .slots(slotResponses)
+                    .assignedTutorName(tutorName)
+                    .studentCount(studentItems.size())
+                    .students(studentItems)
+                    .attendanceTaken(!attendanceByStudent.isEmpty())
+                    .classCompleted(c.getStatus() == TutoringClassStatus.COMPLETED)
+                    .build());
+        }
+        return result;
+    }
+
     @Override
     @Transactional
     public void checkInLesson(Long lessonId) {
@@ -1576,12 +1681,25 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         TutoringClass tutoringClass = classStudent.getTutoringClass();
         String classTitle = StringUtils.hasText(tutoringClass.getTitle()) ? tutoringClass.getTitle() : "lớp học";
         String studentName = StringUtils.hasText(classStudent.getStudentName()) ? classStudent.getStudentName() : "Học viên";
+        // Người ký/thanh toán (phụ huynh nếu là minor, hoặc chính học viên).
+        User enroller = classStudent.getEnrolledByUser();
         sendClassNotification(
-                classStudent.getEnrolledByUser(),
+                enroller,
                 "Ghi danh thành công",
                 studentName + " đã được ghi danh thành công vào lớp \"" + classTitle
                         + "\" sau khi hệ thống xác nhận thanh toán.",
                 tutoringClass.getClassId());
+        // Người HỌC là child: nếu tài khoản học viên khác tài khoản người ghi danh (phụ huynh) thì báo cho child.
+        if (StringUtils.hasText(classStudent.getStudentEmail())) {
+            userRepository.findByEmail(classStudent.getStudentEmail())
+                    .filter(child -> enroller == null || !child.getUserId().equals(enroller.getUserId()))
+                    .ifPresent(child -> sendClassNotification(
+                            child,
+                            "Bạn đã chính thức vào lớp",
+                            "Bạn đã chính thức vào lớp \"" + classTitle
+                                    + "\" sau khi phụ huynh hoàn tất ký hợp đồng và thanh toán.",
+                            tutoringClass.getClassId()));
+        }
     }
 
     private User classCounterpart(TutoringClass tc, User me) {
@@ -2513,6 +2631,33 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             contractService.generateStudentContract(savedStudent.getClassStudentId());
             auditLogService.record(userId, "REGISTER_CLASS", "ClassStudent", savedStudent.getClassStudentId(),
                     null, java.util.Map.of("classId", classId));
+            // Chuông: phụ huynh (người KÝ + trả tiền) và học viên (child) được báo đúng vai trò.
+            String enrollClassTitle = StringUtils.hasText(tutoringClass.getTitle())
+                    ? tutoringClass.getTitle() : "lớp học";
+            if (legal.isDelegatedToParent()) {
+                // Người học là child; người ký hợp đồng + thanh toán là phụ huynh (payer).
+                sendClassNotification(
+                        payer,
+                        "Con bạn vừa đăng ký lớp — cần ký hợp đồng",
+                        client.getFullName() + " đã đăng ký lớp \"" + enrollClassTitle
+                                + "\". Vui lòng vào mục Hợp đồng để ký và thanh toán để "
+                                + client.getFullName() + " chính thức vào lớp.",
+                        classId);
+                sendClassNotification(
+                        user,
+                        "Đã ghi nhận đăng ký — chờ phụ huynh ký",
+                        "Bạn đã đăng ký lớp \"" + enrollClassTitle + "\". Hợp đồng đã gửi cho phụ huynh"
+                                + (legal.getLegalHolderName() != null ? " (" + legal.getLegalHolderName() + ")" : "")
+                                + " ký và thanh toán. Bạn vào lớp sau khi phụ huynh hoàn tất.",
+                        classId);
+            } else {
+                sendClassNotification(
+                        payer,
+                        "Cần ký hợp đồng lớp học",
+                        "Bạn đã đăng ký lớp \"" + enrollClassTitle
+                                + "\". Vui lòng vào mục Hợp đồng để ký và thanh toán để chính thức vào lớp.",
+                        classId);
+            }
             // #2: thông báo đúng ngữ cảnh — minor thì phụ huynh ký thay.
             if (legal.isDelegatedToParent()) {
                 return "Đã ghi nhận đăng ký. Vì bạn dưới 18 tuổi, hợp đồng đã được gửi cho phụ huynh"
