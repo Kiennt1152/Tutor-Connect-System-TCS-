@@ -14,42 +14,45 @@ public class AiPromptBuilderService {
     public String buildPrompt(String query, AiIntent intent, String userRole, List<AiSourceResponse> sources) {
         StringBuilder sb = new StringBuilder();
         
-        // System Prompt Setup
-        sb.append("Bạn là Trợ lý AI của hệ thống kết nối gia sư Tutor Connect System (TCS). ");
+        // 1. System Persona Setup
+        sb.append("Bạn là Trợ lý AI thông minh chính thức của hệ thống Tutor Connect System (TCS) - Nền tảng kết nối gia sư, phụ huynh, học sinh và trung tâm gia sư.\n");
         
-        // Inject current system time and date
+        // 2. Realtime System Context
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("EEEE, 'ngày' dd/MM/yyyy, HH:mm", Locale.of("vi", "VN"));
-        sb.append("Thời gian hiện tại của hệ thống: ").append(now.format(formatter)).append(". ");
+        sb.append("Thời gian hiện tại: ").append(now.format(formatter)).append(".\n");
 
         if ("PLATFORM_ADMIN".equals(userRole)) {
-            sb.append("Bạn là trợ lý vận hành cho Platform Admin. Chỉ tóm tắt và gợi ý, không tự đưa ra quyết định thay admin. ");
+            sb.append("Vai trò người dùng: Platform Admin. Hỗ trợ tóm tắt phân tích dữ liệu, tra cứu nghiệp vụ hệ thống. Không tự đưa ra quyết định thay Admin.\n");
         } else {
-            sb.append("Bạn hỗ trợ người dùng nhiệt tình, chính xác và chuyên nghiệp. ");
+            sb.append("Phong cách: Chuyên nghiệp, súc tích, đi thẳng vào trọng tâm, sử dụng gạch đầu dòng rõ ràng, dẫn link đường dẫn nghiệp vụ (ví dụ: /tim-gia-su, /lop-hoc, /tao-lop, /finance, /support/tickets, /help).\n");
         }
 
-        // Rules based on intent
+        // 3. Domain Rules & Strict Grounding
+        sb.append("\n--- QUY TẮC PHẢN HỒI THEO NGHIỆP VỤ ---\n");
         if (intent == AiIntent.AI_TUTORING) {
-            sb.append("Luật: Hướng dẫn từng bước, hỏi lại nếu thiếu đề bài, ưu tiên giải thích phương pháp tư duy. Gợi ý tìm gia sư trên TCS nếu học sinh cần kèm cặp sâu hơn. ");
+            sb.append("- Nhiệm vụ: Hướng dẫn giải bài tập, giải thích kiến thức từng bước phương pháp tư duy. Nếu bài tập thiếu đề bài hãy hỏi lại rõ ràng. Khuyến khích gợi ý tìm gia sư kèm 1-1 trên TCS nếu học sinh cần hỗ trợ chuyên sâu hơn.\n");
         } else if (intent == AiIntent.OUT_OF_SCOPE) {
-            sb.append("Luật: Đối với các câu hỏi ngoài phạm vi hệ thống (như hỏi ngày giờ, thời tiết, toán học cơ bản, kiến thức chung, chào hỏi xã giao): "
-                    + "1. Trả lời một cách ngắn gọn, chính xác, tự nhiên và thân thiện. "
-                    + "2. Sau câu trả lời, hãy khéo léo và nhẹ nhàng thêm 1 câu gợi ý ngắn định hướng người dùng quay lại các tính năng chính của Tutor Connect System (TCS) như: tìm gia sư phù hợp, đăng tin tìm lớp, hướng dẫn thanh toán ký quỹ Escrow, hoặc giải đáp các thắc mắc về quy trình dạy & học. ");
+            sb.append("- Nhiệm vụ: Với các câu hỏi kiến thức phổ thông, xã giao hoặc ngoài hệ thống:\n")
+              .append("  1. Trả lời chính xác, ngắn gọn, tự nhiên như một chatbot thông minh.\n")
+              .append("  2. Khéo léo thêm 1 câu gợi ý ngắn cuối câu để định hướng người dùng đến các tính năng của sàn TCS (tìm gia sư, tìm lớp, ký quỹ Escrow, hỗ trợ tài khoản).\n");
         } else if (intent == AiIntent.FIND_TUTOR) {
-            sb.append("Luật: Hãy giới thiệu các gia sư CÓ TRONG CONTEXT (nêu đúng họ tên thật, học phí thật, khu vực và đánh giá). Tuyệt đối KHÔNG được tự bịa ra bất kỳ tên gia sư giả định nào như 'Gia sư A', 'Gia sư B', 'Gia sư C'. Nếu trong CONTEXT không có gia sư nào hoặc ghi chưa có dữ liệu phù hợp, hãy thông báo lịch sự rằng hiện chưa tìm thấy gia sư phù hợp trong hệ thống và gợi ý người dùng nới lỏng mức giá/khu vực hoặc đăng bài tìm gia sư tại /tao-lop. ");
+            sb.append("- Nhiệm vụ: Chỉ giới thiệu các gia sư CÓ TRONG CONTEXT (ghi đúng họ tên thật, học phí thật, khu vực, môn học). Tuyệt đối KHÔNG bịa tên giả định (như Gia sư A, Gia sư B). Nếu CONTEXT không có dữ liệu phù hợp, hãy thông báo lịch sự và gợi ý phụ huynh đăng tin tạo lớp tại /tao-lop hoặc xem thêm tại /tim-gia-su.\n");
+        } else if (intent == AiIntent.FIND_CLASS) {
+            sb.append("- Nhiệm vụ: Chỉ giới thiệu các lớp học CÓ TRONG CONTEXT (ghi đúng tiêu đề lớp, môn học, khối lớp, học phí, khu vực/hình thức). Tuyệt đối KHÔNG bịa lớp học giả định. Nếu CONTEXT không có lớp phù hợp, hãy thông báo lịch sự và gợi ý tạo lớp tại /tao-lop hoặc xem danh sách lớp tại /lop-hoc.\n");
         } else if (intent == AiIntent.PLATFORM_STATS) {
-            sb.append("Luật: Trả lời ngắn gọn thống kê số liệu thực tế của nền tảng dựa trên CONTEXT. ");
+            sb.append("- Nhiệm vụ: Trả lời ngắn gọn thống kê số liệu thực tế dựa trên CONTEXT. Không tự đoán mò số lượng người dùng hay doanh thu.\n");
         } else {
-            sb.append("Luật: Bạn chỉ được dùng dữ liệu trong CONTEXT để trả lời. Nếu CONTEXT không đủ, hãy nói rõ chưa đủ dữ liệu và gợi ý thao tác tiếp theo. Không tự bịa ID, trạng thái thanh toán, trạng thái ticket, học phí, rating, tên người dùng. ");
+            sb.append("- Nhiệm vụ: Trả lời đúng trọng tâm câu hỏi dựa trên tài liệu CONTEXT (FAQ, quy định ký quỹ Escrow, thanh toán SePay, hợp đồng 3 bên, xử lý tranh chấp, báo cáo lách sàn). Không trả lời miên man hoặc bịa đặt quy định không có trong hệ thống.\n");
         }
         
-        sb.append("\n\n");
+        sb.append("\n");
 
         if (intent != AiIntent.OUT_OF_SCOPE) {
             // Context Setup
-            sb.append("--- CONTEXT ---\n");
+            sb.append("--- DỮ LIỆU THỰC TẾ HỆ THỐNG (CONTEXT) ---\n");
             if (sources == null || sources.isEmpty()) {
-                sb.append("Không có dữ liệu.\n");
+                sb.append("Không có dữ liệu phù hợp trong cơ sở dữ liệu.\n");
             } else {
                 for (int i = 0; i < Math.min(sources.size(), 10); i++) {
                     AiSourceResponse s = sources.get(i);
@@ -58,7 +61,7 @@ public class AiPromptBuilderService {
                     sb.append(s.getSnippet()).append("\n");
                 }
             }
-            sb.append("---------------\n\n");
+            sb.append("------------------------------------------\n\n");
         }
 
         sb.append("Câu hỏi của người dùng:\n").append(query);

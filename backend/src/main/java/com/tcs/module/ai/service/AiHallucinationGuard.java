@@ -12,8 +12,10 @@ import org.springframework.stereotype.Service;
 @Service
 public class AiHallucinationGuard {
 
-    private static final Set<String> FAKE_TUTOR_PATTERNS = Set.of(
+    private static final Set<String> FAKE_PATTERNS = Set.of(
         "gia sư a", "gia sư b", "gia sư c",
+        "lớp học a", "lớp học b", "lớp học c",
+        "lớp a", "lớp b", "lớp c",
         "nguyễn văn a", "trần thị b", "lê văn c",
         "một số gia sư phù hợp", "một vài gia sư"
     );
@@ -28,8 +30,8 @@ public class AiHallucinationGuard {
             return fallbackMessage;
         }
 
-        String lowerResponse = response.toLowerCase();
-        boolean hasFakeName = FAKE_TUTOR_PATTERNS.stream().anyMatch(lowerResponse::contains);
+        String lowerResponse = response != null ? response.toLowerCase() : "";
+        boolean hasFakeName = FAKE_PATTERNS.stream().anyMatch(lowerResponse::contains);
 
         if (hasFakeName) {
             log.warn("[HallucinationGuard] FIND_TUTOR: detected fake tutor names in LLM response, replacing");
@@ -39,6 +41,9 @@ public class AiHallucinationGuard {
                 sb.append("• **").append(t.getFullName()).append("**");
                 if (t.getHourlyRate() != null) {
                     sb.append(" — ").append(String.format("%,.0f", t.getHourlyRate())).append(" ₫/buổi");
+                }
+                if (t.getTeachingAreas() != null && !t.getTeachingAreas().isEmpty()) {
+                    sb.append(" (").append(t.getTeachingAreas()).append(")");
                 }
                 sb.append("\n");
             }
@@ -50,13 +55,35 @@ public class AiHallucinationGuard {
     }
 
     /**
-     * Guard FIND_CLASS responses: if no real classes found, return fallback.
+     * Guard FIND_CLASS responses: if no real classes found or fake classes invented, return deterministic answer.
      */
     public String guardClassResponse(String response, List<ClassReferenceDto> realClasses, String fallbackMessage) {
         if (realClasses == null || realClasses.isEmpty()) {
             log.warn("[HallucinationGuard] FIND_CLASS: no real classes in sources, using fallback");
             return fallbackMessage;
         }
+
+        String lowerResponse = response != null ? response.toLowerCase() : "";
+        boolean hasFakeName = FAKE_PATTERNS.stream().anyMatch(lowerResponse::contains);
+
+        if (hasFakeName) {
+            log.warn("[HallucinationGuard] FIND_CLASS: detected fake class placeholders in LLM response, replacing");
+            StringBuilder sb = new StringBuilder();
+            sb.append("Dựa trên tiêu chí tìm kiếm của bạn, hệ thống TCS tìm thấy các lớp học phù hợp sau:\n\n");
+            for (ClassReferenceDto c : realClasses) {
+                sb.append("• **").append(c.getTitle()).append("**");
+                if (c.getTuitionFee() != null) {
+                    sb.append(" — ").append(String.format("%,.0f", c.getTuitionFee())).append(" ₫/tháng");
+                }
+                if (c.getLocation() != null && !c.getLocation().isEmpty()) {
+                    sb.append(" (").append(c.getLocation()).append(")");
+                }
+                sb.append("\n");
+            }
+            sb.append("\nBạn có thể nhấn vào thẻ lớp học bên dưới để xem chi tiết và ứng tuyển.");
+            return sb.toString();
+        }
+
         return response;
     }
 
@@ -77,7 +104,7 @@ public class AiHallucinationGuard {
      * if user is not authenticated as TUTOR/TUTOR_CENTER, block.
      */
     public String guardFinanceResponse(String query, String userRole, Long userId, String fallbackMessage) {
-        String lower = query.toLowerCase();
+        String lower = query != null ? query.toLowerCase() : "";
         boolean isPersonal = lower.contains("của tôi") || lower.contains("lương của") || lower.contains("thu nhập của") || lower.contains("ví của");
 
         if (isPersonal && (userId == null || (!"TUTOR".equals(userRole) && !"TUTOR_CENTER".equals(userRole)))) {
