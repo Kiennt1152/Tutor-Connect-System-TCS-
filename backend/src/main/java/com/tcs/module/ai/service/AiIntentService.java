@@ -116,7 +116,9 @@ public class AiIntentService {
         }
 
         // 4. Extract Subject
-        if (lower.contains("toán") || normalized.contains("toan") || lower.contains("math")) {
+        if (lower.contains("tiếng việt") || lower.contains("môn tiếng việt") || normalized.contains("tieng viet") || normalized.contains("tiieng viet") || lower.contains("vietnamese")) {
+            entities.put("subject", "Tiếng Việt");
+        } else if (lower.contains("toán") || normalized.contains("toan") || lower.contains("math")) {
             entities.put("subject", "Toán");
         } else if (lower.contains("tiếng pháp") || lower.contains("môn pháp") || normalized.contains("tieng phap") || normalized.contains("mon phap") || lower.contains("french")) {
             entities.put("subject", "Tiếng Pháp");

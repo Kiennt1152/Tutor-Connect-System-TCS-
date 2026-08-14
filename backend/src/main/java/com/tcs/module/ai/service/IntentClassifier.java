@@ -247,11 +247,15 @@ public class IntentClassifier {
         }
 
         // 14. MARKETPLACE - FIND CLASS
+        boolean hasTutorKeyword = containsAny(normalized,
+                "gia su", "tutor", "thay giao", "co giao", "thay co", "giao vien", "nguoi day", "day kem", "gs", "tim thay", "tim co", "thue");
+
         if (containsAny(normalized,
                 "tim lop", "lop hoc dang mo", "lop dang mo", "khoa hoc", "dang ky lop", "danh sach lop", "ung tuyen lop", "chon gia su ung tuyen", "day kem hoa",
-                "tim lop toan", "tim lop ly", "tim lop hoa", "tim lop anh", "tim lop van", "co lop nao", "co lop toan nao", "co lop toan ko", "tim lop hoc",
+                "tim lop toan", "tim lop ly", "tim lop hoa", "tim lop anh", "tim lop van", "tim lop su", "tim lop dia", "tim lop sinh", "tim lop tin", "tim lop tieng",
+                "co lop nao", "co lop toan nao", "co lop toan ko", "co lop day", "co lop", "tim lop hoc", "lop hoc tieng", "lop day tieng", "lop day toan",
                 "find class", "find classes", "find math classes", "open classes", "math classes open", "classes near me", "search classes", "can tim lop") ||
-            (normalized.contains("lop") && containsAny(normalized, "tim lop", "mo tuyen", "tuyen gia su", "dang mo", "nguoi di lam", "find", "classes"))) {
+            (normalized.contains("lop") && !hasTutorKeyword && containsAny(normalized, "tim", "co ", "day", "mo tuyen", "dang mo", "nguoi di lam", "find", "classes", "hoc"))) {
             return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.FIND_CLASS, AiIntent.FIND_CLASS, 0.9, "/lop-hoc");
         }
 
@@ -266,8 +270,6 @@ public class IntentClassifier {
         }
 
         // 16. MARKETPLACE - FIND TUTOR (Resilient multi-word & accent-free matching)
-        boolean hasTutorKeyword = containsAny(normalized,
-                "gia su", "tutor", "thay", "co", "giao vien", "nguoi day", "day kem", "gs");
         boolean hasSearchKeyword = containsAny(normalized,
                 "tim", "thue", "can", "kiem", "cho toi", "gioi thieu", "mon", "toan", "ly", "hoa", "anh", "van", "tin", "sinh", "su", "dia",
                 "lop", "khu vuc", "cau giay", "dong da", "ba dinh", "ha noi", "hcm", "sai gon", "da nang",
@@ -275,7 +277,7 @@ public class IntentClassifier {
 
         if (!normalized.contains("ngu phap") && ((hasTutorKeyword && hasSearchKeyword) || containsAny(normalized,
                 "tim gia su", "thue gia su", "can gia su", "can thue gia su", "gia su day", "giao vien day", "tim thay", "tim co", "ai re hon",
-                "tim gs", "tim gs toan", "tim gs ly", "tim gs hoa", "tim gs anh", "tim thay day toan", "tim co day toan", "co gia su toan ko",
+                "tim gs", "tim gs toan", "tim gs ly", "tim gs hoa", "tim gs anh", "tim thay day toan", "tim co day toan", "co gia su toan ko", "co gia su nao",
                 "gia su toan", "gia su ly", "gia su hoa", "gia su anh", "gia su van", "gia su tin", "gia su luyen thi", "gia su tieng",
                 "find tutor", "math tutor", "tutor near me", "looking for tutor", "need a tutor", "hire tutor", "math tutor near"))) {
             return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.FIND_TUTOR, AiIntent.FIND_TUTOR, 0.95, "/tim-gia-su");

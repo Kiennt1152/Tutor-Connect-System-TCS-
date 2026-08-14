@@ -41,7 +41,9 @@ class IntentClassifierTest {
     @CsvSource({
         "'tim gia su toan lop 12 cau giay duoi 250k', FIND_TUTOR",
         "'co bao nhieu nguoi dung tren he thong', PLATFORM_STATS",
-        "'bao cao doanh thu dashboard', ADMIN_DASHBOARD"
+        "'bao cao doanh thu dashboard', ADMIN_DASHBOARD",
+        "'co lop day tiieng viet khong', FIND_CLASS",
+        "'co lop toan khong', FIND_CLASS"
     })
     void shouldClassifyVietnameseWithoutDiacritics(String message, AiIntent expected) {
         var result = classifier.classify(message);
