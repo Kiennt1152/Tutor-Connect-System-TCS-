@@ -24,11 +24,13 @@ public class PlatformPenaltyController {
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(required = false) UserPenaltyStatus status,
             @RequestParam(required = false) UserPenaltyType type,
-            @RequestParam(required = false) Long userId) {
-        return penaltyService.listPenalties(userId, status, type, page, size);
+            @RequestParam(required = false) Long userId,
+            @RequestParam(required = false) String sourceType) {
+        return penaltyService.listPenalties(userId, status, type, sourceType, page, size);
     }
 
     @PostMapping
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.CREATED)
     public PenaltyResponse issue(@Valid @RequestBody IssuePenaltyRequest request) {
         return penaltyService.issuePenalty(request);
     }

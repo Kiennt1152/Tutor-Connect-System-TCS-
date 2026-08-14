@@ -13,4 +13,7 @@ public interface PlatformAdminRepository extends JpaRepository<PlatformAdmin, Lo
     Optional<PlatformAdmin> findByUser_UserId(Long userId);
 
     List<PlatformAdmin> findByUser_UserIdIn(Collection<Long> userIds);
+
+    @org.springframework.data.jpa.repository.Query("SELECT a.user.userId FROM PlatformAdmin a")
+    List<Long> findAllUserIds();
 }

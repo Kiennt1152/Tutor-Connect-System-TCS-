@@ -83,4 +83,49 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to,
             Pageable pageable);
+
+    @Query("SELECT COALESCE(SUM(pt.amount), 0) FROM PaymentTransaction pt " +
+           "WHERE pt.status = :status AND pt.type = :type " +
+           "AND (:from IS NULL OR pt.createdAt >= :from) " +
+           "AND (:to IS NULL OR pt.createdAt <= :to)")
+    BigDecimal sumAmountByStatusAndTypeAndCreatedAtBetween(
+            @Param("status") PaymentTransactionStatus status,
+            @Param("type") PaymentTransactionType type,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
+    @Query("SELECT COALESCE(SUM(pt.amount), 0) FROM PaymentTransaction pt " +
+           "WHERE pt.status = :status AND pt.type IN :types " +
+           "AND (:from IS NULL OR pt.createdAt >= :from) " +
+           "AND (:to IS NULL OR pt.createdAt <= :to)")
+    BigDecimal sumAmountByStatusAndTypeInAndCreatedAtBetween(
+            @Param("status") PaymentTransactionStatus status,
+            @Param("types") Collection<PaymentTransactionType> types,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
+    List<PaymentTransaction> findByStatusAndCreatedAtBetween(
+            PaymentTransactionStatus status, LocalDateTime from, LocalDateTime to);
+
+    @Query("SELECT COUNT(pt) FROM PaymentTransaction pt " +
+           "WHERE pt.status = :status AND pt.type = :type " +
+           "AND (:from IS NULL OR pt.createdAt >= :from) " +
+           "AND (:to IS NULL OR pt.createdAt <= :to)")
+    long countByStatusAndTypeAndDateRange(
+            @Param("status") PaymentTransactionStatus status,
+            @Param("type") PaymentTransactionType type,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to);
+
+    List<PaymentTransaction> findByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
+
+    List<PaymentTransaction> findByCreatedAtBetweenOrderByCreatedAtDesc(
+            LocalDateTime from, LocalDateTime to, org.springframework.data.domain.Pageable pageable);
+
+    List<PaymentTransaction> findAllByOrderByCreatedAtDesc();
+
+    long countByCreatedAtBetween(LocalDateTime from, LocalDateTime to);
+
+    long countByStatusAndTypeAndCreatedAtBetween(
+            PaymentTransactionStatus status, PaymentTransactionType type, LocalDateTime from, LocalDateTime to);
 }

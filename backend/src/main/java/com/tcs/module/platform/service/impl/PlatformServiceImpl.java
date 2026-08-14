@@ -125,6 +125,7 @@ public class PlatformServiceImpl implements PlatformService {
     private final AuditLogRepository auditLogRepository;
     private final DisputeRepository disputeRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
+    private final com.tcs.module.finance.repository.PaymentTransactionRepository paymentTransactionRepository;
     private final EscrowService escrowService;
     private final TutoringClassRepository tutoringClassRepository;
     private final ReviewRepository reviewRepository;
@@ -201,72 +202,119 @@ public class PlatformServiceImpl implements PlatformService {
 
     @Override
     @Transactional(readOnly = true)
-    public DashboardResponse getDashboard() {
+    public DashboardResponse getDashboard(LocalDate from, LocalDate to, String granularity) {
+        LocalDate effectiveFrom = from != null ? from : LocalDate.now().minusDays(30);
+        LocalDate effectiveTo = to != null ? to : LocalDate.now();
+        
         com.tcs.module.platform.dto.response.TaskQueueSummaryResponse taskSummary = taskQueueService.getSummary();
-        com.tcs.module.platform.dto.response.AnalyticsSummaryResponse analyticsSummary = analyticsService.getSummary(null, null);
+        com.tcs.module.platform.dto.response.AnalyticsSummaryResponse analyticsSummary = analyticsService.getSummary(effectiveFrom, effectiveTo);
 
-        java.util.List<com.tcs.module.platform.dto.response.DashboardAlertResponse> alerts = new java.util.ArrayList<>();
-        if (taskSummary.getOpenDisputes() > 0) {
-            alerts.add(com.tcs.module.platform.dto.response.DashboardAlertResponse.builder()
-                    .type("CRITICAL")
-                    .title("Tranh chấp giao dịch")
-                    .message("Hiện có " + taskSummary.getOpenDisputes() + " tranh chấp thanh toán cần giải quyết gấp.")
-                    .actionUrl("/platform/tasks")
-                    .build());
-        }
-        if (taskSummary.getPendingWithdrawals() > 0) {
-            alerts.add(com.tcs.module.platform.dto.response.DashboardAlertResponse.builder()
-                    .type("WARNING")
-                    .title("Yêu cầu rút tiền")
-                    .message("Có " + taskSummary.getPendingWithdrawals() + " yêu cầu rút tiền đang chờ kiểm duyệt.")
-                    .actionUrl("/platform/tasks")
-                    .build());
-        }
-        if (taskSummary.getOpenReports() > 0) {
-            alerts.add(com.tcs.module.platform.dto.response.DashboardAlertResponse.builder()
-                    .type("WARNING")
-                    .title("Báo cáo vi phạm")
-                    .message("Có " + taskSummary.getOpenReports() + " báo cáo vi phạm chưa được xử lý.")
-                    .actionUrl("/platform/reports")
-                    .build());
-        }
-        if (taskSummary.getPendingVerifications() > 0) {
-            alerts.add(com.tcs.module.platform.dto.response.DashboardAlertResponse.builder()
-                    .type("INFO")
-                    .title("Hồ sơ xác minh")
-                    .message("Có " + taskSummary.getPendingVerifications() + " hồ sơ xác minh gia sư/trung tâm đang chờ duyệt.")
-                    .actionUrl("/platform/verifications")
-                    .build());
-        }
-        if (taskSummary.getOpenTickets() > 0) {
-            alerts.add(com.tcs.module.platform.dto.response.DashboardAlertResponse.builder()
-                    .type("INFO")
-                    .title("Khiếu nại & Hỗ trợ")
-                    .message("Có " + taskSummary.getOpenTickets() + " phiếu hỗ trợ đang mở hoặc đang xử lý.")
-                    .actionUrl("/platform/tickets")
-                    .build());
-        }
+        com.tcs.module.platform.dto.response.PageTaskItemResponse queueResponse = taskQueueService.listTasks("ALL", null, null, 0, 10);
+        java.util.List<com.tcs.module.platform.dto.response.TaskItemResponse> queuePreview = queueResponse.getContent();
+
+        com.tcs.module.platform.dto.response.RiskSummaryResponse riskSummary = com.tcs.module.platform.dto.response.RiskSummaryResponse.builder()
+                .overdueTickets(taskSummary.getOverdueCount())
+                .openDisputes(taskSummary.getOpenDisputes())
+                .pendingRefunds(taskSummary.getPendingRefunds())
+                .escrowExposure(taskSummary.getMoneyAtRisk())
+                .unhandledReports(taskSummary.getOpenReports())
+                .build();
+        
+        com.tcs.module.platform.dto.response.FinancialFlowResponse financialFlow = com.tcs.module.platform.dto.response.FinancialFlowResponse.builder()
+                .moneyIn(analyticsSummary.getMoneyIn())
+                .moneyOut(analyticsSummary.getMoneyOut())
+                .netMovement(analyticsSummary.getNetMovement())
+                .escrowHeld(analyticsSummary.getEscrowHeld())
+                .deposits(analyticsSummary.getDeposits())
+                .escrowDeposits(analyticsSummary.getEscrowHeld())
+                .withdrawals(analyticsSummary.getWithdrawals())
+                .refunds(analyticsSummary.getEscrowRefunded())
+                .platformFeeRevenue(analyticsSummary.getPlatformFeeRevenue())
+                .feeRate(analyticsSummary.getPlatformFeeRate() != null ? analyticsSummary.getPlatformFeeRate().doubleValue() : 10.0)
+                .build();
+        LocalDateTime rangeStart = effectiveFrom.atStartOfDay();
+        LocalDateTime rangeEnd = effectiveTo.plusDays(1).atStartOfDay();
+
+        // --- Active Tutors ---
+        long activeTutors = 0;
+        long newTutors = 0;
+        long verifiedTutors = 0;
+        long recentlyActiveTutors = 0;
+        try {
+            newTutors = tutorRepository.countByCreatedAtBetween(rangeStart, rangeEnd);
+            activeTutors = tutorRepository.countByUserStatus(com.tcs.module.identity.enums.UserStatus.ACTIVE);
+            verifiedTutors = tutorRepository.countByVerificationStatus(com.tcs.module.profile.enums.ProfileVerificationStatus.VERIFIED);
+            recentlyActiveTutors = tutorRepository.countByRecentlyActive(rangeStart);
+        } catch (Exception ignored) {}
+
+        // --- Active Centers ---
+        long activeCenters = 0;
+        long newCenters = 0;
+        long verifiedCenters = 0;
+        long recentlyActiveCenters = 0;
+        try {
+            newCenters = tutorCenterRepository.countByCreatedAtBetween(rangeStart, rangeEnd);
+            activeCenters = tutorCenterRepository.countByUserStatus(com.tcs.module.identity.enums.UserStatus.ACTIVE);
+            verifiedCenters = tutorCenterRepository.countByVerificationStatus(com.tcs.module.profile.enums.ProfileVerificationStatus.VERIFIED);
+            recentlyActiveCenters = tutorCenterRepository.countByRecentlyActive(rangeStart);
+        } catch (Exception ignored) {}
+
+        // --- Classes ---
+        long activeClasses = 0;
+        long completedClasses = 0;
+        long cancelledClasses = 0;
+        long totalClassCount = 0;
+        try {
+            totalClassCount = tutoringClassRepository.count();
+            activeClasses = tutoringClassRepository.countByStatus(com.tcs.module.marketplace.enums.TutoringClassStatus.IN_PROGRESS);
+            completedClasses = tutoringClassRepository.countByStatus(com.tcs.module.marketplace.enums.TutoringClassStatus.COMPLETED);
+            cancelledClasses = tutoringClassRepository.countByStatus(com.tcs.module.marketplace.enums.TutoringClassStatus.CANCELLED);
+        } catch (Exception ignored) {}
+
+        List<com.tcs.module.platform.dto.response.ActivityTimelineEntry> activityTimeline = buildActivityTimeline(effectiveFrom, effectiveTo, granularity);
+        
+        com.tcs.module.platform.dto.response.HealthMetricsResponse tutorHealth = com.tcs.module.platform.dto.response.HealthMetricsResponse.builder()
+                .totalCount(analyticsSummary.getTotalTutors())
+                .activeCount(activeTutors)
+                .verifiedCount(verifiedTutors)
+                .newCount(newTutors)
+                .recentlyActiveCount(recentlyActiveTutors)
+                .build();
+                
+        com.tcs.module.platform.dto.response.HealthMetricsResponse centerHealth = com.tcs.module.platform.dto.response.HealthMetricsResponse.builder()
+                .totalCount(analyticsSummary.getTotalCenters())
+                .activeCount(activeCenters)
+                .verifiedCount(verifiedCenters)
+                .newCount(newCenters)
+                .recentlyActiveCount(recentlyActiveCenters)
+                .build();
+                
+        com.tcs.module.platform.dto.response.HealthMetricsResponse classHealth = com.tcs.module.platform.dto.response.HealthMetricsResponse.builder()
+                .totalCount(totalClassCount)
+                .activeCount(activeClasses)
+                .verifiedCount(completedClasses)
+                .newCount(cancelledClasses)
+                .recentlyActiveCount(0)
+                .build();
 
         return DashboardResponse.builder()
                 .totalUsers(analyticsSummary.getTotalUsers())
-                .totalTutors(analyticsSummary.getTotalTutors())
                 .totalClasses(analyticsSummary.getTotalClasses())
-                .activeClasses(analyticsSummary.getActiveClasses())
-                .totalRevenue(analyticsSummary.getTotalRevenue())
-                .platformFeeRevenue(analyticsSummary.getPlatformFeeRevenue())
-                .pendingVerifications(taskSummary.getPendingVerifications())
-                .openReports(taskSummary.getOpenReports())
-                .openTickets(taskSummary.getOpenTickets())
-                .pendingWithdrawals(taskSummary.getPendingWithdrawals())
-                .openDisputes(taskSummary.getOpenDisputes())
-                .alerts(alerts)
+                .riskSummary(riskSummary)
+                .financialFlow(financialFlow)
+                .tutorHealth(tutorHealth)
+                .centerHealth(centerHealth)
+                .classHealth(classHealth)
+                .activityTimeline(activityTimeline)
+                .queuePreview(queuePreview)
+                .alerts(new java.util.ArrayList<>()) // Keep empty for backward compatibility if needed, or remove entirely in DTO later
                 .build();
     }
 
     @Override
     @Transactional(readOnly = true)
     public List<VerificationRequestResponse> listVerificationRequests() {
-        return verificationRequestRepository.findAll().stream()
+        return verificationRequestRepository.findAllByOrderBySubmittedAtDesc().stream()
                 .map(this::toVerificationResponse)
                 .toList();
     }
@@ -512,7 +560,7 @@ public class PlatformServiceImpl implements PlatformService {
     @Override
     @Transactional(readOnly = true)
     public List<ReportResponse> listReports() {
-        return reportRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
+        return reportRepository.findAllByOrderByCreatedAtDesc()
                 .stream()
                 .map(this::toReportResponse)
                 .toList();
@@ -522,7 +570,7 @@ public class PlatformServiceImpl implements PlatformService {
     @Transactional(readOnly = true)
     public List<ReportResponse> listCenterReports() {
         Long centerUserId = authHelper.requireRole(UserRole.TUTOR_CENTER).getUserId();
-        return reportRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))
+        return reportRepository.findByTargetTypeOrderByCreatedAtDesc(ReportTargetType.CLASS)
                 .stream()
                 .filter(report -> isOwnedCenterClassReport(report, centerUserId))
                 .map(this::toReportResponse)
@@ -1109,6 +1157,9 @@ public class PlatformServiceImpl implements PlatformService {
                 .status(ticket.getStatus())
                 .resolvedAt(ticket.getResolvedAt())
                 .closedAt(ticket.getClosedAt())
+                .dueAt(ticket.getDueAt())
+                .slaBreached(ticket.getSlaBreached())
+                .responseSlaMs(ticket.getResponseSlaMs())
                 .createdAt(ticket.getCreatedAt())
                 .updatedAt(ticket.getUpdatedAt())
                 .messages(messages)
@@ -1535,18 +1586,10 @@ public class PlatformServiceImpl implements PlatformService {
 
     private List<Long> findUserIdsByRole(UserRole role) {
         return switch (role) {
-            case PLATFORM_ADMIN -> platformAdminRepository.findAll().stream()
-                    .map(admin -> admin.getUser().getUserId())
-                    .toList();
-            case TUTOR -> tutorRepository.findAll().stream()
-                    .map(tutor -> tutor.getUser().getUserId())
-                    .toList();
-            case TUTOR_CENTER -> tutorCenterRepository.findAll().stream()
-                    .map(center -> center.getUser().getUserId())
-                    .toList();
-            case CLIENT -> clientRepository.findAll().stream()
-                    .map(client -> client.getUser().getUserId())
-                    .toList();
+            case PLATFORM_ADMIN -> platformAdminRepository.findAllUserIds();
+            case TUTOR -> tutorRepository.findAllUserIds();
+            case TUTOR_CENTER -> tutorCenterRepository.findAllUserIds();
+            case CLIENT -> clientRepository.findAllUserIds();
             default -> List.of();
         };
     }
@@ -1613,5 +1656,88 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     private record ClassReportContext(String title, String status) {
+    }
+
+    private List<com.tcs.module.platform.dto.response.ActivityTimelineEntry> buildActivityTimeline(
+            LocalDate from, LocalDate to, String granularity) {
+        List<com.tcs.module.platform.dto.response.ActivityTimelineEntry> timeline = new ArrayList<>();
+        LocalDate cursor = from;
+        
+        while (!cursor.isAfter(to)) {
+            LocalDate periodEnd;
+            String label;
+            
+            if ("MONTH".equalsIgnoreCase(granularity)) {
+                periodEnd = cursor.withDayOfMonth(cursor.lengthOfMonth());
+                if (periodEnd.isAfter(to)) periodEnd = to;
+                label = "T" + cursor.getMonthValue() + "/" + cursor.getYear();
+            } else if ("WEEK".equalsIgnoreCase(granularity)) {
+                periodEnd = cursor.plusDays(6);
+                if (periodEnd.isAfter(to)) periodEnd = to;
+                label = cursor.toString() + " \u2192 " + periodEnd.toString();
+            } else {
+                periodEnd = cursor;
+                label = cursor.toString();
+            }
+            
+            LocalDateTime start = cursor.atStartOfDay();
+            LocalDateTime end = periodEnd.plusDays(1).atStartOfDay();
+            
+            long newUsers = userRepository.countByCreatedAtBetween(start, end);
+            long newTutors = tutorRepository.countByCreatedAtBetween(start, end);
+            long newCenters = tutorCenterRepository.countByCreatedAtBetween(start, end);
+            long newClasses = tutoringClassRepository.countByCreatedAtBetween(start, end);
+            long newTickets = supportTicketRepository.countByCreatedAtBetween(start, end);
+            
+            long activeTutors = tutorRepository.countByUserStatus(com.tcs.module.identity.enums.UserStatus.ACTIVE);
+            long activeCenters = tutorCenterRepository.countByUserStatus(com.tcs.module.identity.enums.UserStatus.ACTIVE);
+            
+            java.math.BigDecimal moneyIn = paymentTransactionRepository.sumAmountByStatusAndTypeInAndCreatedAtBetween(
+                    com.tcs.module.finance.enums.PaymentTransactionStatus.SUCCESS,
+                    java.util.List.of(
+                            com.tcs.module.finance.enums.PaymentTransactionType.DEPOSIT,
+                            com.tcs.module.finance.enums.PaymentTransactionType.ESCROW_DEPOSIT,
+                            com.tcs.module.finance.enums.PaymentTransactionType.PLATFORM_FEE
+                    ),
+                    start,
+                    end
+            );
+
+            java.math.BigDecimal moneyOut = paymentTransactionRepository.sumAmountByStatusAndTypeInAndCreatedAtBetween(
+                    com.tcs.module.finance.enums.PaymentTransactionStatus.SUCCESS,
+                    java.util.List.of(
+                            com.tcs.module.finance.enums.PaymentTransactionType.WITHDRAWAL,
+                            com.tcs.module.finance.enums.PaymentTransactionType.REFUND,
+                            com.tcs.module.finance.enums.PaymentTransactionType.ESCROW_RELEASE
+                    ),
+                    start,
+                    end
+            );
+
+            java.math.BigDecimal platformFeeRevenue = paymentTransactionRepository.sumAmountByStatusAndTypeAndCreatedAtBetween(
+                    com.tcs.module.finance.enums.PaymentTransactionStatus.SUCCESS,
+                    com.tcs.module.finance.enums.PaymentTransactionType.PLATFORM_FEE,
+                    start,
+                    end
+            );
+            
+            java.math.BigDecimal netMovement = moneyIn.subtract(moneyOut);
+            
+            timeline.add(com.tcs.module.platform.dto.response.ActivityTimelineEntry.builder()
+                    .label(label).newUsers(newUsers).newTutors(newTutors).newCenters(newCenters)
+                    .newClasses(newClasses).newTickets(newTickets).activeTutors(activeTutors)
+                    .activeCenters(activeCenters).moneyIn(moneyIn).moneyOut(moneyOut)
+                    .netMovement(netMovement).platformFeeRevenue(platformFeeRevenue)
+                    .build());
+            
+            if ("MONTH".equalsIgnoreCase(granularity)) {
+                cursor = cursor.plusMonths(1).withDayOfMonth(1);
+            } else if ("WEEK".equalsIgnoreCase(granularity)) {
+                cursor = cursor.plusWeeks(1);
+            } else {
+                cursor = cursor.plusDays(1);
+            }
+        }
+        return timeline;
     }
 }

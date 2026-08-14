@@ -1,0 +1,17 @@
+package com.tcs.module.ai.enums;
+
+public enum AiIntent {
+    FAQ_SUPPORT,
+    FIND_TUTOR,
+    FIND_CLASS,
+    CREATE_CLASS,
+    PAYMENT_SUPPORT,
+    TICKET_SUPPORT,
+    TUTOR_VERIFICATION,
+    TUTOR_OPTIMIZATION,
+    CENTER_MANAGEMENT,
+    ADMIN_DASHBOARD,
+    AI_TUTORING,
+    PLATFORM_STATS,
+    OUT_OF_SCOPE
+}

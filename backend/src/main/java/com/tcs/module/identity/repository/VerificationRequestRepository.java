@@ -36,4 +36,6 @@ public interface VerificationRequestRepository extends JpaRepository<Verificatio
             VerificationType verificationType,
             List<VerificationStatus> statuses
     );
+
+    List<VerificationRequest> findAllByOrderBySubmittedAtDesc();
 }

@@ -1,4 +1,5 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { disputeApi } from '../../dispute/api/disputeApi';
@@ -10,6 +11,7 @@ import {
   type BankOption,
 } from '../../finance/components/BankPicker';
 import { AdminLayout } from '../components/AdminLayout';
+import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { platformApi } from '../api/platformApi';
 import { useDisputeReviewList } from '../hooks/useDisputeReviewList';
 import {
@@ -32,6 +34,9 @@ import type {
   ReviewModerationStatus,
   ReviewReportAction,
 } from '../types/platformTypes';
+import { IssuePenaltyModal, type UserOption } from '../components/IssuePenaltyModal';
+import { SettleDisputeModal } from '../components/SettleDisputeModal';
+import { RefundDecisionModal } from '../components/RefundDecisionModal';
 import './PlatformReportsPage.css';
 
 const RESOLUTION_ACTION_OPTIONS: { value: DisputeResolutionAction; label: string }[] = [
@@ -1087,6 +1092,8 @@ function DisputeDetail({
   const [appealUploadingEvidence, setAppealUploadingEvidence] = useState(false);
   const [appealFormError, setAppealFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState(false);
+  const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
 
   useEffect(() => {
     if (!detail) return;
@@ -1195,6 +1202,38 @@ function DisputeDetail({
   const appealBlockedBySettlement = isEscrowSettled(detail.escrow?.status);
   const auditTrail = detail.auditTrail ?? [];
 
+  const disputeUserOptions: UserOption[] = [];
+  if (detail.tutoringClass?.tutorUserId) {
+    disputeUserOptions.push({
+      label: `Gia sư: ${detail.tutoringClass.tutorName || detail.tutoringClass.tutorEmail || 'Tutor'}`,
+      userId: detail.tutoringClass.tutorUserId,
+    });
+  }
+  if (detail.tutoringClass?.creatorUserId) {
+    disputeUserOptions.push({
+      label: `Người tạo lớp: ${detail.tutoringClass.creatorEmail || 'Creator'}`,
+      userId: detail.tutoringClass.creatorUserId,
+    });
+  }
+  if (detail.tutoringClass?.enrolledByUserId) {
+    disputeUserOptions.push({
+      label: `Học viên: ${detail.tutoringClass.studentName || detail.tutoringClass.enrolledByEmail || 'Student'}`,
+      userId: detail.tutoringClass.enrolledByUserId,
+    });
+  }
+  if (disputeUserOptions.length === 0 && detail.reporterId) {
+    disputeUserOptions.push({
+      label: `Người báo cáo (${detail.reporterEmail || 'Reporter'})`,
+      userId: detail.reporterId,
+    });
+  }
+  if (disputeUserOptions.length === 0 && detail.targetId) {
+    disputeUserOptions.push({
+      label: `Đối tượng bị báo cáo (#${detail.targetId})`,
+      userId: detail.targetId,
+    });
+  }
+
   return (
     <div className="pd-detail">
       <div className="pd-detail__head">
@@ -1202,8 +1241,54 @@ function DisputeDetail({
           <p className="pd-detail__eyebrow">Tranh chấp #{detail.disputeId}</p>
           <h2 className="pd-detail__title">{detail.tutoringClass?.title ?? 'Không xác định lớp'}</h2>
         </div>
-        <span className={disputeBadgeClass(detail.disputeStatus)}>{detail.disputeStatus}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className={disputeBadgeClass(detail.disputeStatus)}>{detail.disputeStatus}</span>
+          {detail.disputeStatus !== 'RESOLVED' && (
+            <button
+              type="button"
+              className="tcs-btn tcs-btn--sm tcs-btn--primary"
+              onClick={() => setIsSettleModalOpen(true)}
+              title="Phân bổ tiền Escrow và giải quyết dứt điểm tranh chấp"
+            >
+              💰 Giải quyết tranh chấp
+            </button>
+          )}
+          <button
+            type="button"
+            className="tcs-btn tcs-btn--sm tcs-btn--danger"
+            onClick={() => setIsPenaltyModalOpen(true)}
+            title="Tạo quyết định xử phạt liên quan đến tranh chấp này"
+          >
+            ⚖️ Tạo xử phạt
+          </button>
+        </div>
       </div>
+
+      <SettleDisputeModal
+        isOpen={isSettleModalOpen}
+        dispute={detail}
+        onClose={() => setIsSettleModalOpen(false)}
+        onSuccess={() => {
+          setSuccessMessage('Đã giải quyết phân bổ tài chính cho tranh chấp thành công.');
+          onChanged();
+        }}
+      />
+
+      <IssuePenaltyModal
+        isOpen={isPenaltyModalOpen}
+        onClose={() => setIsPenaltyModalOpen(false)}
+        onSuccess={() => {
+          setSuccessMessage('Đã tạo quyết định xử phạt thành công và lưu vết nguồn tranh chấp.');
+          onChanged();
+        }}
+        userOptions={disputeUserOptions}
+        initialReason={`Xử phạt từ Tranh chấp #${detail.disputeId}: Lớp "${detail.tutoringClass?.title || 'Chưa rõ'}"`}
+        initialEvidenceUrls={detail.evidenceUrlList?.join(', ')}
+        sourceType="DISPUTE"
+        sourceId={detail.disputeId}
+        sourceTaskId={`DISPUTE-${detail.disputeId}`}
+        title={`Tạo xử phạt từ Tranh chấp #${detail.disputeId}`}
+      />
 
       <AutomationState detail={detail} />
 
@@ -1431,6 +1516,7 @@ function ClassIssueReportDetail({
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState(false);
 
   useEffect(() => {
     setAction('REQUEST_MORE_INFORMATION');
@@ -1486,8 +1572,34 @@ function ClassIssueReportDetail({
           <p className="pd-detail__eyebrow">Báo cáo #{detail.id}</p>
           <h2 className="pd-detail__title">{detail.classTitle}</h2>
         </div>
-        <span className={reportBadgeClass(detail.status)}>{detail.statusLabel}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className={reportBadgeClass(detail.status)}>{detail.statusLabel}</span>
+          <button
+            type="button"
+            className="tcs-btn tcs-btn--sm tcs-btn--danger"
+            onClick={() => setIsPenaltyModalOpen(true)}
+            title="Tạo quyết định xử phạt liên quan đến sự cố lớp này"
+          >
+            ⚖️ Tạo xử phạt
+          </button>
+        </div>
       </div>
+
+      <IssuePenaltyModal
+        isOpen={isPenaltyModalOpen}
+        onClose={() => setIsPenaltyModalOpen(false)}
+        onSuccess={() => {
+          setSuccessMessage('Đã tạo quyết định xử phạt thành công và lưu vết nguồn báo cáo.');
+          onChanged();
+        }}
+        initialUserId={Number(detail.targetId) || undefined}
+        initialReason={`Xử phạt từ Báo cáo sự cố lớp #${detail.id}: ${detail.classTitle}`}
+        initialEvidenceUrls={detail.evidenceUrlList?.join(', ')}
+        sourceType="REPORT"
+        sourceId={detail.id}
+        sourceTaskId={`REPORT-${detail.id}`}
+        title={`Tạo xử phạt từ Báo cáo #${detail.id}`}
+      />
 
       <section className="pd-section">
         <h3 className="pd-section__title">Thông tin sự cố</h3>
@@ -1543,7 +1655,7 @@ function ClassIssueReportDetail({
             </label>
             {errorMessage && <div className="adm-alert adm-alert--error">{errorMessage}</div>}
             {successMessage && <div className="adm-alert adm-alert--success">{successMessage}</div>}
-            <div className="pd-resolution-actions">
+            <div className="pd-resolution-actions" style={{ display: 'flex', gap: '8px' }}>
               <button className="tcs-btn tcs-btn--primary" type="submit" disabled={submitting}>
                 {submitting ? 'Đang xử lý...' : 'Lưu xử lý'}
               </button>
@@ -1566,6 +1678,7 @@ function GenericReportDetail({
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState(false);
 
   if (!detail) {
     return <div className="pd-detail pd-detail--empty">Chọn một báo cáo để xem chi tiết và xử lý.</div>;
@@ -1606,8 +1719,40 @@ function GenericReportDetail({
             {detail.targetTypeLabel} #{detail.targetId}
           </h2>
         </div>
-        <span className={reportBadgeClass(detail.status)}>{detail.statusLabel}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className={reportBadgeClass(detail.status)}>{detail.statusLabel}</span>
+          <button
+            type="button"
+            className="tcs-btn tcs-btn--sm tcs-btn--danger"
+            onClick={() => setIsPenaltyModalOpen(true)}
+            title="Tạo quyết định xử phạt người dùng từ báo cáo này"
+          >
+            ⚖️ Tạo xử phạt
+          </button>
+        </div>
       </div>
+
+      {(() => {
+        const isCircumvention = detail.category === 'PLATFORM_CIRCUMVENTION' || (Boolean(detail.categoryLabel) && detail.categoryLabel.toLowerCase().includes('lách sàn'));
+        const penaltySourceType = isCircumvention ? 'CIRCUMVENTION' : 'REPORT';
+        return (
+          <IssuePenaltyModal
+            isOpen={isPenaltyModalOpen}
+            onClose={() => setIsPenaltyModalOpen(false)}
+            onSuccess={() => {
+              setSuccessMessage('Đã tạo quyết định xử phạt thành công và lưu vết nguồn báo cáo.');
+              onChanged();
+            }}
+            initialUserId={Number(detail.targetId) || undefined}
+            initialReason={`Xử lý từ ${isCircumvention ? 'Cảnh báo lách sàn' : 'Báo cáo'} #${detail.id} (${detail.categoryLabel}): ${detail.description}`}
+            initialEvidenceUrls={detail.evidenceUrlList?.join(', ')}
+            sourceType={penaltySourceType}
+            sourceId={detail.id}
+            sourceTaskId={`${penaltySourceType}-${detail.id}`}
+            title={`Tạo xử phạt từ ${isCircumvention ? 'Cảnh báo lách sàn' : 'Báo cáo'} #${detail.id}`}
+          />
+        );
+      })()}
 
       <section className="pd-section">
         <h3 className="pd-section__title">Thông tin báo cáo</h3>
@@ -1642,7 +1787,7 @@ function GenericReportDetail({
             </label>
             {errorMessage && <div className="adm-alert adm-alert--error">{errorMessage}</div>}
             {successMessage && <div className="adm-alert adm-alert--success">{successMessage}</div>}
-            <div className="pd-resolution-actions">
+            <div className="pd-resolution-actions" style={{ display: 'flex', gap: '8px' }}>
               <button className="tcs-btn tcs-btn--primary" type="submit" disabled={submitting}>
                 {submitting ? 'Đang xử lý...' : 'Đánh dấu đã xử lý'}
               </button>
@@ -1835,6 +1980,7 @@ function RefundRequestDetail({
   const [submitting, setSubmitting] = useState<'approve' | 'reject' | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+  const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
 
   useEffect(() => {
     setApprovedAmount(item?.raw.amount ? String(Math.trunc(item.raw.amount)) : '');
@@ -1903,8 +2049,30 @@ function RefundRequestDetail({
           <p className="pd-detail__eyebrow">Yêu cầu hoàn tiền #{item.id}</p>
           <h2 className="pd-detail__title">{item.classTitle}</h2>
         </div>
-        <span className={refundBadgeClass(item.status)}>{item.statusLabel}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <span className={refundBadgeClass(item.status)}>{item.statusLabel}</span>
+          {canDecide && (
+            <button
+              type="button"
+              className="tcs-btn tcs-btn--sm tcs-btn--primary"
+              onClick={() => setIsDecisionModalOpen(true)}
+              title="Mở form duyệt hoặc từ chối yêu cầu hoàn tiền"
+            >
+              ⚡ Xử lý yêu cầu
+            </button>
+          )}
+        </div>
       </div>
+
+      <RefundDecisionModal
+        isOpen={isDecisionModalOpen}
+        refund={item}
+        onClose={() => setIsDecisionModalOpen(false)}
+        onSuccess={() => {
+          setSuccessMessage('Đã cập nhật trạng thái yêu cầu hoàn tiền thành công.');
+          onChanged();
+        }}
+      />
 
       <section className="pd-section">
         <h3 className="pd-section__title">Thông tin yêu cầu</h3>
@@ -1987,6 +2155,36 @@ export default function PlatformReportsPage() {
   const disputes = useDisputeReviewList(disputeStatusFilter);
   const refunds = useRefundRequestList(refundStatusFilter);
   const [selectedRefundId, setSelectedRefundId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const targetTab = searchParams.get('tab');
+  const targetId = searchParams.get('id');
+
+  useEffect(() => {
+    if (!targetTab) return;
+    const tabName = targetTab === 'circumvention' ? 'reports' : targetTab;
+    const el = document.getElementById(`section-${tabName}`);
+    if (el) {
+      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [targetTab]);
+
+  useEffect(() => {
+    if (!targetId || reports.items.length === 0) return;
+    const match = reports.items.find((item) => String(item.id) === String(targetId));
+    if (match) setSelectedReportId(match.id);
+  }, [reports.items, targetId]);
+
+  useEffect(() => {
+    if (!targetId || disputes.items.length === 0) return;
+    const match = disputes.items.find((item) => String(item.id) === String(targetId) || String(item.raw?.disputeId) === String(targetId));
+    if (match) disputes.selectDispute(match);
+  }, [disputes.items, targetId]);
+
+  useEffect(() => {
+    if (!targetId || refunds.items.length === 0) return;
+    const match = refunds.items.find((item) => String(item.id) === String(targetId));
+    if (match) setSelectedRefundId(match.id);
+  }, [refunds.items, targetId]);
 
   const openReportCount = reports.items.filter((item) => item.status === 'PENDING').length;
   const openDisputeCount = disputes.items.filter((item) => item.status !== 'RESOLVED').length;
@@ -2077,7 +2275,9 @@ export default function PlatformReportsPage() {
         </article>
       </div>
 
-      <section className="pd-console" aria-label="Danh sách tranh chấp">
+      <AdminTimeFilter showGranularity={false} />
+
+      <section id="section-disputes" className="pd-console" aria-label="Danh sách tranh chấp">
         <div className="adm-card pd-console__list">
           <div className="pd-card-head">
             <div>
@@ -2154,7 +2354,7 @@ export default function PlatformReportsPage() {
         />
       </section>
 
-      <section className="pd-console" aria-label="Hàng đợi báo cáo sự cố">
+      <section id="section-reports" className="pd-console" aria-label="Hàng đợi báo cáo sự cố">
         <div className="adm-card pd-console__list">
           <div className="pd-card-head">
             <div>
@@ -2299,7 +2499,7 @@ export default function PlatformReportsPage() {
         <ReviewReportDetail detail={selectedReviewReport} onChanged={reports.reload} />
       </section>
 
-      <section className="pd-console" aria-label="Hàng đợi yêu cầu hoàn tiền">
+      <section id="section-refunds" className="pd-console" aria-label="Hàng đợi yêu cầu hoàn tiền">
         <div className="adm-card pd-console__list">
           <div className="pd-card-head">
             <div>

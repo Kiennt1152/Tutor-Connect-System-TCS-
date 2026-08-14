@@ -24,6 +24,7 @@ import com.tcs.module.platform.enums.SupportTicketCategory;
 import com.tcs.module.platform.enums.SupportTicketPriority;
 import com.tcs.module.platform.enums.SupportTicketStatus;
 import com.tcs.module.platform.service.PlatformService;
+import java.time.LocalDate;
 import com.tcs.module.profile.enums.UserRole;
 import jakarta.validation.Valid;
 import java.util.List;
@@ -62,8 +63,11 @@ public class PlatformController {
     }
 
     @GetMapping("/dashboard")
-    public DashboardResponse getDashboard() {
-        return platformService.getDashboard();
+    public DashboardResponse getDashboard(
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @RequestParam(defaultValue = "DAY") String granularity) {
+        return platformService.getDashboard(from, to, granularity);
     }
 
     @GetMapping("/verifications")

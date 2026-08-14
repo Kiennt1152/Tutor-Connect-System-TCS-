@@ -20,6 +20,7 @@ import com.tcs.module.platform.dto.response.ReportResponse;
 import com.tcs.module.platform.dto.response.UserListItemResponse;
 import com.tcs.module.platform.dto.response.VerificationDetailResponse;
 import com.tcs.module.platform.dto.response.VerificationRequestResponse;
+import java.time.LocalDate;
 import com.tcs.module.platform.enums.SupportTicketCategory;
 import com.tcs.module.platform.enums.SupportTicketPriority;
 import com.tcs.module.platform.enums.SupportTicketStatus;
@@ -32,7 +33,7 @@ public interface PlatformService {
 
     UserListItemResponse updateUserStatus(Long userId, UpdateUserStatusRequest request);
 
-    DashboardResponse getDashboard();
+    DashboardResponse getDashboard(LocalDate from, LocalDate to, String granularity);
 
     List<VerificationRequestResponse> listVerificationRequests();
 

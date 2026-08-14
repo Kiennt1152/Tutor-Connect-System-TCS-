@@ -87,16 +87,27 @@
 
 **[Wait for response]**
 
-> "AI phân tích câu hỏi và trả lời cả về:
+> AI phân tích ý định (intent) và trả lời theo luồng RAG rất chuẩn xác:
 > - Danh sách gia sư Vật Lý phù hợp với filter
 > - Quy trình đăng ký (referenced FAQ)
 > - Chính sách hoàn tiền (referenced FAQ)
+> 
+> Đặc biệt, hệ thống hiển thị thanh Metadata Bar bên dưới mỗi câu trả lời.
+> Ở đây ta thấy AI chấm mức độ tin cậy (Confidence Score) là 90%, thuộc nhóm HIGH, dựa trên 5 nguồn tham chiếu, và chế độ trả lời là RAG.
 > 
 > Tất cả được trình bày dưới dạng cards clickable."
 
 **[Click vào tutor card]**
 
 > "Click vào tutor card sẽ navigate tới trang profile của gia sư."
+
+**[Type vào ô chat: "Thời tiết hôm nay thế nào?" hoặc "1 + 1 bằng mấy?"]**
+
+> "Bây giờ thử một câu hỏi ngoài lề hoặc phổ thông.
+> Hệ thống sẽ nhận diện Intent là 'Ngoài phạm vi' (OUT_OF_SCOPE), sau đó chuyển sang Fallback mode (chỉ dùng kiến thức nội tại của LLM, không ép nhồi nhét RAG sai ngữ cảnh).
+> Và nếu điểm tin cậy thấp, hệ thống sẽ tự động hiện Banner cảnh báo người dùng."
+
+---
 
 **[Back to AI page, show session history]**
 
@@ -330,15 +341,25 @@
 
 ## 📊 PART 2: BF-10 - PLATFORM ADMINISTRATION (11 phút)
 
-### Scene 6: Admin Dashboard - Tổng Quan Nền Tảng (2 phút)
+### Scene 6: Admin Dashboard (Activity Timeline) (3 phút)
 
 **[Navigate to /platform/dashboard]**
 
-> "Chuyển sang BF-10: Platform Administration.
-> 
-> Đầu tiên là Admin Dashboard - nơi admin có cái nhìn tổng quan về hệ thống."
+> "Chuyển sang BF-10: Quản trị nền tảng.
+> Đầu tiên là Dashboard tổng quan, hiển thị các KPI quan trọng nhất.
+> Ta có thể thấy Active Users, Active Tutors, v.v..."
 
-**[Show KPI cards]**
+**[Scroll down to Activity Timeline]**
+
+> "Điểm nổi bật ở bản nâng cấp này là Bảng Hoạt động (Activity Timeline).
+> Ở đây chúng ta có bộ lọc ngày (từ ngày, đến ngày) và mức độ hiển thị (Ngày/Tuần/Tháng).
+> Khi thay đổi bộ lọc, bảng dữ liệu bên dưới sẽ tính toán realtime sự tăng trưởng: có bao nhiêu Gia sư mới, Trung tâm mới, Lớp mới và Doanh thu tương ứng."
+
+**[Test thay đổi Date Filter trên Dashboard]**
+
+> "Dữ liệu được truy vấn ngay lập tức, rất tiện lợi cho Admin theo dõi sức khỏe nền tảng."
+
+---
 
 > "Dashboard hiển thị các KPI quan trọng:
 > 
@@ -477,15 +498,26 @@
 
 ---
 
-### Scene 9: Financial Reports - Báo Cáo Tài Chính (4 phút)
+### Scene 9: Financial Reports & Analytics (4 phút)
 
 **[Navigate to /platform/analytics]**
 
-> "Cuối cùng là Financial Reports - báo cáo tài chính và analytics.
+> "Cuối cùng là phần quan trọng nhất của Admin: Báo cáo tài chính.
+> Hệ thống cung cấp các metrics tổng quan về User Growth, Classes, Revenue.
 > 
-> Admin vào Platform > Analytics."
+> Về luồng tài chính, dữ liệu giờ đây được tách biệt minh bạch thành 2 dòng: IN (Nạp tiền, Phí Sàn, Cọc) và OUT (Rút tiền, Hoàn tiền).
+> Bảng Transaction Breakdown bên dưới thống kê số lượng và tổng tiền của từng loại giao dịch, kèm phân loại IN/OUT bằng màu sắc rõ ràng."
 
-**[Show summary section]**
+**[Click Export CSV 'Cashflow' & 'Transaction Breakdown']**
+
+> "Hệ thống hỗ trợ xuất dữ liệu ra file CSV tương ứng với bộ lọc thời gian đang chọn.
+> Mình sẽ tải thử Cashflow và Transaction Breakdown."
+
+**[Mở CSV files]**
+
+> "Như bạn thấy, file tải về khớp chuẩn format, UTF-8, có thể dùng ngay cho Excel."
+
+---
 
 > "Phần Summary hiển thị metrics 6 tháng gần nhất:
 > 

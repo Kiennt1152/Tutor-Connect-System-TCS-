@@ -1,0 +1,206 @@
+/* RefundDecisionModal Styles */
+.adm-refund-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(15, 23, 42, 0.65);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 1rem;
+  animation: admModalFadeIn 0.2s ease-out;
+}
+
+.adm-refund-modal {
+  background: #ffffff;
+  border-radius: 1rem;
+  width: 100%;
+  max-width: 540px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  max-height: 90vh;
+}
+
+.adm-refund-modal__header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #f8fafc;
+}
+
+.adm-refund-modal__header h2 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.adm-refund-modal__close {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.375rem;
+  transition: all 0.15s;
+}
+
+.adm-refund-modal__close:hover {
+  background: #e2e8f0;
+  color: #0f172a;
+}
+
+.adm-refund-modal__tabs {
+  display: flex;
+  border-bottom: 1px solid #e2e8f0;
+  background: #f1f5f9;
+}
+
+.adm-refund-tab {
+  flex: 1;
+  padding: 0.75rem 1rem;
+  border: none;
+  background: transparent;
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.adm-refund-tab--active {
+  background: #ffffff;
+  color: #0f172a;
+  border-bottom: 2px solid #0284c7;
+}
+
+.adm-refund-tab--danger.adm-refund-tab--active {
+  border-bottom-color: #dc2626;
+  color: #dc2626;
+}
+
+.adm-refund-modal__banner {
+  background: #f0fdf4;
+  border-left: 4px solid #16a34a;
+  padding: 0.75rem 1.25rem;
+  margin: 1rem 1.5rem 0;
+  border-radius: 0.375rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.9rem;
+  color: #166534;
+}
+
+.adm-refund-modal__banner--reject {
+  background: #fef2f2;
+  border-left-color: #dc2626;
+  color: #991b1b;
+}
+
+.adm-refund-form {
+  padding: 1.25rem 1.5rem 1.5rem;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 1.15rem;
+}
+
+.adm-refund-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+.adm-refund-form label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #334155;
+}
+
+.adm-refund-form input,
+.adm-refund-form textarea {
+  padding: 0.625rem 0.875rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-size: 0.925rem;
+  transition: border-color 0.15s, box-shadow 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.adm-refund-form input:focus,
+.adm-refund-form textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+}
+
+.adm-refund-error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.adm-refund-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+.adm-refund-actions .btn-cancel {
+  padding: 0.625rem 1.25rem;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.adm-refund-actions .btn-submit-approve {
+  padding: 0.625rem 1.5rem;
+  background: #16a34a;
+  border: 1px solid transparent;
+  color: #ffffff;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.adm-refund-actions .btn-submit-approve:hover:not(:disabled) {
+  background: #15803d;
+}
+
+.adm-refund-actions .btn-submit-reject {
+  padding: 0.625rem 1.5rem;
+  background: #dc2626;
+  border: 1px solid transparent;
+  color: #ffffff;
+  border-radius: 0.5rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.adm-refund-actions .btn-submit-reject:hover:not(:disabled) {
+  background: #b91c1c;
+}
+
+.adm-refund-actions button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

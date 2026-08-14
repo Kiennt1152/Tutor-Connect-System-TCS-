@@ -54,8 +54,17 @@ public class UserPenalty {
     private String evidenceUrls;
 
     @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "restriction_details", columnDefinition = "JSON")
+    @Column(name = "restriction_details", columnDefinition = "json")
     private String restrictionDetails;
+
+    @Column(name = "source_type", length = 50)
+    private String sourceType;
+
+    @Column(name = "source_id")
+    private Long sourceId;
+
+    @Column(name = "source_task_id", length = 100)
+    private String sourceTaskId;
 
     @Column(name = "starts_at", nullable = false)
     private LocalDateTime startsAt = LocalDateTime.now();

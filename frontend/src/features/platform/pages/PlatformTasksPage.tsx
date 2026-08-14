@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
+import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { platformApi } from '../api/platformApi';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import type { TaskQueueSummaryApiResponse, TaskItemApiResponse, TaskPriority } from '../types/platformTypes';
@@ -24,13 +25,38 @@ const PRIORITY_LABELS: Record<TaskPriority, string> = {
 
 export default function PlatformTasksPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [summary, setSummary] = useState<TaskQueueSummaryApiResponse | null>(null);
   const [tasks, setTasks] = useState<TaskItemApiResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  const [selectedType, setSelectedType] = useState<string>('ALL');
+  const initialType = searchParams.get('type') || 'ALL';
+  const initialPriority = searchParams.get('priority') || 'ALL';
+  const initialSla = searchParams.get('slaBreached') === 'true' ? true : searchParams.get('slaBreached') === 'false' ? false : undefined;
+
+  const [selectedType, setSelectedType] = useState<string>(initialType);
+  const [selectedPriority, setSelectedPriority] = useState<string>(initialPriority);
+  const [slaBreachedFilter, setSlaBreachedFilter] = useState<boolean | undefined>(initialSla);
   const [page, setPage] = useState(0);
+
+  useEffect(() => {
+    const qType = searchParams.get('type') || 'ALL';
+    const qPriority = searchParams.get('priority') || 'ALL';
+    const qSla = searchParams.get('slaBreached') === 'true' ? true : searchParams.get('slaBreached') === 'false' ? false : undefined;
+    setSelectedType(qType);
+    setSelectedPriority(qPriority);
+    setSlaBreachedFilter(qSla);
+  }, [searchParams]);
+
+  const updateFilters = (newType: string, newPriority: string, newSla?: boolean) => {
+    const params: Record<string, string> = {};
+    if (newType && newType !== 'ALL') params.type = newType;
+    if (newPriority && newPriority !== 'ALL') params.priority = newPriority;
+    if (newSla !== undefined) params.slaBreached = String(newSla);
+    setSearchParams(params);
+    setPage(0);
+  };
 
   const fetchSummary = useCallback(async () => {
     try {
@@ -45,14 +71,20 @@ export default function PlatformTasksPage() {
     setLoading(true);
     setError(null);
     try {
-      const res = await platformApi.getTasks({ type: selectedType, page, size: 20 });
+      const res = await platformApi.getTasks({
+        type: selectedType,
+        priority: selectedPriority,
+        slaBreached: slaBreachedFilter,
+        page,
+        size: 20,
+      });
       setTasks(res.data.content);
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [selectedType, page]);
+  }, [selectedType, selectedPriority, slaBreachedFilter, page]);
 
   useEffect(() => {
     fetchSummary();
@@ -63,8 +95,16 @@ export default function PlatformTasksPage() {
   }, [fetchTasks]);
 
   const handleTypeSelect = (type: string) => {
-    setSelectedType(type);
-    setPage(0);
+    updateFilters(type, selectedPriority, slaBreachedFilter);
+  };
+
+  const handlePrioritySelect = (priority: string) => {
+    updateFilters(selectedType, priority, slaBreachedFilter);
+  };
+
+  const handleSlaToggle = () => {
+    const next = slaBreachedFilter === true ? undefined : true;
+    updateFilters(selectedType, selectedPriority, next);
   };
 
   const getPriorityBadgeClass = (priority: TaskPriority) => {
@@ -77,6 +117,7 @@ export default function PlatformTasksPage() {
 
   return (
     <AdminLayout title="Hàng đợi công việc" subtitle="Quản lý và xử lý các yêu cầu, báo cáo trên hệ thống.">
+      <AdminTimeFilter showGranularity={false} />
       {summary && (
         <div className="adm-task-kpis">
           <article 
@@ -146,6 +187,28 @@ export default function PlatformTasksPage() {
             <option value="REFUND_REQUEST">Hoàn tiền chờ duyệt</option>
             <option value="DISPUTE">Tranh chấp giao dịch</option>
           </select>
+
+          <select
+            value={selectedPriority}
+            onChange={(e) => handlePrioritySelect(e.target.value)}
+            className="tcs-input"
+          >
+            <option value="ALL">Tất cả mức ưu tiên</option>
+            <option value="URGENT">Khẩn cấp</option>
+            <option value="HIGH">Cao</option>
+            <option value="MEDIUM">Trung bình</option>
+            <option value="LOW">Thấp</option>
+          </select>
+
+          <button
+            type="button"
+            className={`tcs-btn ${slaBreachedFilter === true ? 'tcs-btn--primary' : 'tcs-btn--ghost'}`}
+            style={{ borderColor: slaBreachedFilter === true ? '#0f172a' : undefined, background: slaBreachedFilter === true ? '#0f172a' : undefined, color: slaBreachedFilter === true ? '#fff' : undefined }}
+            onClick={handleSlaToggle}
+          >
+            Quá hạn SLA {slaBreachedFilter === true ? '✓' : ''}
+          </button>
+
           <button className="tcs-btn tcs-btn--ghost" type="button" onClick={() => { fetchSummary(); fetchTasks(); }}>
             Làm mới
           </button>
@@ -172,12 +235,12 @@ export default function PlatformTasksPage() {
             <table className="adm-table">
               <thead>
                 <tr>
-                  <th>#</th>
-                  <th>Mã</th>
+                  <th>Case ID</th>
                   <th>Loại</th>
-                  <th>Tiêu đề & Mô tả</th>
-                  <th>Ưu tiên</th>
-                  <th>Thời gian tạo</th>
+                  <th>Tiêu đề & User</th>
+                  <th>Ưu tiên / Risk</th>
+                  <th>SLA / Due At</th>
+                  <th>Số tiền</th>
                   <th>Trạng thái</th>
                   <th>Hành động</th>
                 </tr>
@@ -185,34 +248,52 @@ export default function PlatformTasksPage() {
               <tbody>
                 {tasks.length === 0 ? (
                   <tr>
-                    <td colSpan={8}>Không có công việc nào cần xử lý.</td>
+                    <td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                      Không có công việc nào cần xử lý.
+                    </td>
                   </tr>
                 ) : (
-                  tasks.map((item, index) => (
-                    <tr key={item.taskId}>
-                      <td>{index + 1}</td>
-                      <td>{item.taskId}</td>
+                  tasks.map((item) => (
+                    <tr key={item.taskId} style={{ background: item.slaBreached ? '#fef2f2' : undefined }}>
+                      <td><strong>{item.taskId}</strong></td>
                       <td>
                         <span className={getTypeBadgeClass(item.taskType)}>
                           {TYPE_LABELS[item.taskType] || item.taskType}
                         </span>
                       </td>
                       <td>
-                        <strong>{item.title}</strong>
-                        <p className="adm-table__notes">{item.description}</p>
+                        <strong style={{ display: 'block', marginBottom: '0.25rem' }}>{item.title}</strong>
+                        {item.relatedEntityType && (
+                          <span style={{ fontSize: '0.75rem', background: '#e2e8f0', padding: '0.125rem 0.375rem', borderRadius: '0.25rem', marginRight: '0.25rem' }}>
+                            {item.relatedEntityType}: {item.relatedEntityId}
+                          </span>
+                        )}
+                        <span className="adm-table__notes">{item.description}</span>
                       </td>
                       <td>
                         <span className={getPriorityBadgeClass(item.priority)}>
                           {PRIORITY_LABELS[item.priority] || item.priority}
                         </span>
+                        {item.riskReason && (
+                          <div style={{ fontSize: '0.75rem', color: '#0f172a', fontWeight: 600, marginTop: '0.25rem' }}>
+                            [{item.riskReason}]
+                          </div>
+                        )}
                       </td>
-                      <td>{new Date(item.createdAt).toLocaleString('vi-VN')}</td>
+                      <td style={{ color: item.slaBreached ? '#dc2626' : '#475569', fontWeight: item.slaBreached ? 600 : 400 }}>
+                        {item.dueAt ? new Date(item.dueAt).toLocaleString('vi-VN') : '—'}
+                      </td>
+                      <td>
+                        {item.amount ? (
+                          <span style={{ fontWeight: 500 }}>{new Intl.NumberFormat('vi-VN').format(item.amount)} {item.currency || '₫'}</span>
+                        ) : '—'}
+                      </td>
                       <td>{item.status}</td>
                       <td className="adm-table__actions">
                         <button
                           className="tcs-btn tcs-btn--sm tcs-btn--primary"
                           type="button"
-                          onClick={() => navigate(item.targetRoute)}
+                          onClick={() => navigate(item.targetRoute + (item.targetQuery || ''))}
                         >
                           Xử lý ngay
                         </button>

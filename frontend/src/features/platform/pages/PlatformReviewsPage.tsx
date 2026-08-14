@@ -21,6 +21,7 @@ const REPORT_CATEGORY_LABEL: Record<ReportCategory, string> = {
   ABUSE: 'Lăng mạ / xúc phạm',
   SPAM: 'Spam',
   INAPPROPRIATE: 'Nội dung không phù hợp',
+  PLATFORM_CIRCUMVENTION: 'Lách sàn nền tảng',
   OTHER: 'Lý do khác',
 };
 

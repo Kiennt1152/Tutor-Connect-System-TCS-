@@ -22,4 +22,10 @@ public class IssuePenaltyRequest {
     private String restrictionDetails;
 
     private LocalDateTime expiresAt;
+
+    private String sourceType;
+
+    private Long sourceId;
+
+    private String sourceTaskId;
 }

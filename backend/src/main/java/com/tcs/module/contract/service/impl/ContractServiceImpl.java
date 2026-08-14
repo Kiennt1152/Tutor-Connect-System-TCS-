@@ -846,7 +846,7 @@ public class ContractServiceImpl implements ContractService {
         if (amount == null) {
             return "";
         }
-        return java.text.NumberFormat.getInstance(new java.util.Locale("vi", "VN")).format(amount) + " đ";
+        return java.text.NumberFormat.getInstance(java.util.Locale.of("vi", "VN")).format(amount) + " đ";
     }
 
     /** Ô ký của bên còn lại (gia sư / phụ huynh) — trạng thái CHỜ KÝ, ký bằng OTP. */
