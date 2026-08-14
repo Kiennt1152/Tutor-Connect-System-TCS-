@@ -169,6 +169,15 @@
   color: var(--color-text-secondary);
   line-height: 1.6;
 }
+/* Xem trước mẫu dạng tờ A4 ngay trong danh sách (giới hạn chiều cao + cuộn). */
+.cct-tpl__preview {
+  margin-top: 12px;
+  max-height: 560px;
+  overflow: auto;
+  padding: 12px;
+  border-radius: 10px;
+  background: var(--color-surface-2, #f1f5f9);
+}
 .cct-state {
   padding: var(--space-xl);
   color: var(--color-text-secondary);

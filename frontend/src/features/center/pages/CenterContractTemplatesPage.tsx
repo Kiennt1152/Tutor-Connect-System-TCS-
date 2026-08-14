@@ -253,7 +253,14 @@ export default function CenterContractTemplatesPage() {
                       )}
                     </div>
                   </div>
-                  <pre className="cct-tpl__content">{t.content}</pre>
+                  <div className="cct-tpl__preview">
+                    <ContractDocumentPreview
+                      name={t.name}
+                      contractType={t.contractType ?? 'CLASS'}
+                      content={t.content}
+                      info={info}
+                    />
+                  </div>
                 </article>
               ))}
             </div>

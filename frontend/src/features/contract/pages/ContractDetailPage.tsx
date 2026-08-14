@@ -16,6 +16,7 @@ import type {
   PaymentTransactionStatus,
 } from '../types/contractTypes';
 import './ContractPage.css';
+import '../../teaching/pages/ContractSigningPage.css';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
   PENDING: { label: 'Chờ ký', cls: 'contract-status--pending' },
@@ -26,21 +27,99 @@ const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
   TERMINATED: { label: 'Đã chấm dứt', cls: 'contract-status--terminated' },
 };
 
+type SignerForPrint = {
+  partyLabel: string;
+  signatureStatus: string;
+  signerName?: string | null;
+  signedAt?: string | null;
+};
+
+const escapeHtml = (s: string) =>
+  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+/** Chuyển documentText thành HTML A4 có định dạng (dùng cho cửa sổ in/PDF). */
+function contractDocumentToHtml(documentText: string): string {
+  const lines = documentText.replace(/\r/g, '').split('\n');
+  const partyIdx = lines.findIndex((l) => /^\s*BÊN A/i.test(l));
+  const headLines = (partyIdx >= 0 ? lines.slice(0, partyIdx) : lines.slice(0, 6))
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const bodyLines = (partyIdx >= 0 ? lines.slice(partyIdx) : lines.slice(6))
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  let html = '<div class="doc-head">';
+  for (const t of headLines) {
+    const e = escapeHtml(t);
+    if (/^CỘNG H[OÒ]A/i.test(t)) html += `<p class="c title">${e}</p>`;
+    else if (/^Độc lập/i.test(t)) html += `<p class="c sub">${e}</p>`;
+    else if (/o0o/i.test(t) || /^[-–—]{3,}$/.test(t)) html += `<p class="c hr">———</p>`;
+    else if (/^HỢP ĐỒNG/i.test(t)) html += `<h2 class="c name">${e}</h2>`;
+    else if (/^Số:/i.test(t)) html += `<p class="c docno">${e}</p>`;
+    else html += `<p class="c">${e}</p>`;
+  }
+  html += '</div>';
+  for (const t of bodyLines) {
+    const e = escapeHtml(t);
+    if (/^BÊN [AB]/i.test(t) || /^ĐIỀU KHOẢN/i.test(t)) html += `<h3 class="party">${e}</h3>`;
+    else if (/^Điều\s*\d+/i.test(t)) html += `<h4 class="art">${e}</h4>`;
+    else if (/^[-•*]\s+/.test(t)) html += `<p class="li">${escapeHtml(t.replace(/^[-•*]\s+/, ''))}</p>`;
+    else html += `<p>${e}</p>`;
+  }
+  return html;
+}
+
+/** Hàng chữ ký cho bản in (BÊN A / BÊN B: đã ký + tên + ngày, hoặc "Chưa ký"). */
+function signRowToHtml(signers: SignerForPrint[]): string {
+  if (!signers.length) return '';
+  const boxes = signers
+    .map((s) => {
+      const signed = s.signatureStatus === 'SIGNED';
+      const inner = signed
+        ? `<p class="sign-mark">✔ Đã ký</p><p class="sign-by">Ký bởi: <b>${escapeHtml(
+            s.signerName || '—',
+          )}</b></p><p class="sign-at">Ký ngày: ${escapeHtml(formatDateTime(s.signedAt ?? null))}</p>`
+        : `<p class="sign-status">(Chưa ký)</p>`;
+      return `<div class="sign-box"><b>${escapeHtml(s.partyLabel)}</b>${inner}</div>`;
+    })
+    .join('');
+  return `<div class="sign-row">${boxes}</div>`;
+}
+
 /**
- * Xuất hợp đồng ra PDF: mở cửa sổ in chỉ chứa văn bản hợp đồng để người dùng chọn "Lưu thành PDF".
+ * Xuất hợp đồng ra PDF: mở cửa sổ in định dạng A4 (giống form hợp đồng) để người dùng chọn "Lưu thành PDF".
  * Không cần thư viện; trình duyệt render tiếng Việt chuẩn. Tiêu đề cửa sổ = tên file PDF gợi ý.
  */
-function printContractDocument(contractNo: string, documentText: string): void {
-  const esc = (s: string) =>
-    s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+function printContractDocument(
+  contractNo: string,
+  documentText: string,
+  signers: SignerForPrint[] = [],
+): void {
   const win = window.open('', '_blank', 'width=840,height=1000');
   if (!win) return; // popup bị chặn -> bỏ qua (không dùng alert/confirm)
+  const css =
+    `@page{size:A4;margin:18mm}` +
+    `body{font-family:'Times New Roman',Times,serif;font-size:13pt;line-height:1.6;color:#111;margin:0}` +
+    `p{margin:6px 0}` +
+    `.doc-head{margin-bottom:12px}` +
+    `.c{text-align:center;margin:2px 0}` +
+    `.title{font-weight:700}` +
+    `.sub{font-weight:600;text-decoration:underline}` +
+    `.hr{color:#888}` +
+    `.name{font-size:16pt;font-weight:800;margin:12px 0}` +
+    `.docno{font-size:11pt;color:#444}` +
+    `.party{font-size:13pt;font-weight:800;margin:14px 0 4px}` +
+    `.art{font-size:12.5pt;font-weight:700;margin:14px 0 4px}` +
+    `.li{margin:3px 0 3px 22px}` +
+    `.sign-row{display:flex;justify-content:space-around;text-align:center;margin-top:40px;gap:24px}` +
+    `.sign-box b{display:block}` +
+    `.sign-mark{color:#166534;font-weight:700;margin:4px 0}` +
+    `.sign-status{color:#64748b;margin:8px 0}` +
+    `.sign-by,.sign-at{margin:2px 0;font-size:11pt}`;
   win.document.write(
     `<!doctype html><html lang="vi"><head><meta charset="utf-8">` +
-      `<title>Hop-dong-${esc(contractNo)}</title><style>` +
-      `@page{size:A4;margin:20mm}` +
-      `body{font-family:'Times New Roman',Times,serif;font-size:13pt;line-height:1.6;color:#111;white-space:pre-wrap;margin:0}` +
-      `</style></head><body>${esc(documentText)}</body></html>`,
+      `<title>Hop-dong-${escapeHtml(contractNo)}</title><style>${css}</style></head>` +
+      `<body>${contractDocumentToHtml(documentText)}${signRowToHtml(signers)}</body></html>`,
   );
   win.document.close();
   win.focus();
@@ -52,6 +131,46 @@ function printContractDocument(contractNo: string, documentText: string): void {
   };
   win.onload = doPrint;
   window.setTimeout(doPrint, 400); // fallback nếu onload không kích hoạt
+}
+
+/**
+ * Dựng văn bản hợp đồng (documentText) thành bố cục A4 giống form ký của lớp gia sư:
+ * quốc hiệu canh giữa, tiêu đề, khối BÊN A/BÊN B, các "Điều", gạch đầu dòng.
+ */
+function renderContractDocument(documentText: string) {
+  const lines = documentText.replace(/\r/g, '').split('\n');
+  // Phần đầu (quốc hiệu + tiêu đề) nằm trước "BÊN A" -> canh giữa.
+  const partyIdx = lines.findIndex((l) => /^\s*BÊN A/i.test(l));
+  const headLines = (partyIdx >= 0 ? lines.slice(0, partyIdx) : lines.slice(0, 6))
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const bodyLines = (partyIdx >= 0 ? lines.slice(partyIdx) : lines.slice(6))
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  const head = headLines.map((t, i) => {
+    if (/^CỘNG H[OÒ]A/i.test(t)) return <p key={`h${i}`} className="ksign-doc__title">{t}</p>;
+    if (/^Độc lập/i.test(t)) return <p key={`h${i}`} className="ksign-doc__sub">{t}</p>;
+    if (/o0o/i.test(t) || /^[-–—]{3,}$/.test(t)) return <p key={`h${i}`} className="ksign-doc__hr">———</p>;
+    if (/^HỢP ĐỒNG/i.test(t)) return <h2 key={`h${i}`} className="ksign-doc__name">{t}</h2>;
+    if (/^Số:/i.test(t)) return <p key={`h${i}`} className="cdoc__docno">{t}</p>;
+    return <p key={`h${i}`} className="ksign-doc__p">{t}</p>;
+  });
+
+  const body = bodyLines.map((t, i) => {
+    if (/^BÊN [AB]/i.test(t) || /^ĐIỀU KHOẢN/i.test(t))
+      return <h3 key={`b${i}`} className="cdoc__party">{t}</h3>;
+    if (/^Điều\s*\d+/i.test(t)) return <h4 key={`b${i}`} className="ksign-art">{t}</h4>;
+    if (/^[-•*]\s+/.test(t)) return <p key={`b${i}`} className="cdoc__li">{t.replace(/^[-•*]\s+/, '')}</p>;
+    return <p key={`b${i}`} className="ksign-doc__p">{t}</p>;
+  });
+
+  return (
+    <>
+      <div className="ksign-doc__center">{head}</div>
+      {body}
+    </>
+  );
 }
 
 const ESCROW_STATUS_LABEL: Record<EscrowStatus, { label: string; cls: string }> = {
@@ -124,6 +243,8 @@ export default function ContractDetailPage() {
 
   const [otpInput, setOtpInput] = useState('');
   const [otpSentSuccess, setOtpSentSuccess] = useState(false);
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(0);
   const [signSuccess, setSignSuccess] = useState(false);
   const [issueModalOpen, setIssueModalOpen] = useState(false);
   const [refundModalOpen, setRefundModalOpen] = useState(false);
@@ -151,6 +272,13 @@ export default function ContractDetailPage() {
     }
   }, [signSuccess, id, reload]);
 
+  // Đếm ngược hiệu lực mã OTP (30 giây) — giống form ký lớp gia sư.
+  useEffect(() => {
+    if (!otpSentSuccess || secondsLeft <= 0) return;
+    const t = window.setTimeout(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    return () => window.clearTimeout(t);
+  }, [otpSentSuccess, secondsLeft]);
+
   useEffect(() => {
     if (!contract) return;
     setPayoutMessage('');
@@ -168,7 +296,11 @@ export default function ContractDetailPage() {
   const handleSendOtp = async () => {
     if (!id) return;
     const result = await sendOtp(id);
-    if (result) setOtpSentSuccess(true);
+    if (result) {
+      setOtpSentSuccess(true);
+      setOtpInput('');
+      setSecondsLeft(30); // mã có hiệu lực 30 giây
+    }
   };
 
   const handleSign = async () => {
@@ -367,6 +499,7 @@ export default function ContractDetailPage() {
                   printContractDocument(
                     contract.contractNo,
                     contract.documentText ?? contract.termsSummary ?? '',
+                    signatures?.signatures ?? [],
                   )
                 }
               >
@@ -438,12 +571,35 @@ export default function ContractDetailPage() {
               )}
             </dl>
             {contract.documentText || contract.termsSummary ? (
-              <div className="contract-terms">
+              <div className="contract-doc-wrap">
                 <h3>Nội dung hợp đồng</h3>
-                {/* Văn bản hợp đồng đầy đủ (quốc hiệu, BÊN A, BÊN B, điều khoản) -> giữ xuống dòng. */}
-                <p style={{ whiteSpace: 'pre-wrap' }}>
-                  {contract.documentText ?? contract.termsSummary}
-                </p>
+                {/* Bố cục A4 giống form ký của lớp gia sư (quốc hiệu, BÊN A/B, điều khoản, ô chữ ký). */}
+                <article className="ksign-doc cdoc">
+                  {renderContractDocument(contract.documentText ?? contract.termsSummary ?? '')}
+                  {signatures?.signatures?.length ? (
+                    <div className="ksign-sign-row">
+                      {signatures.signatures.map((s) => (
+                        <div className="ksign-sign-box" key={s.signatureId}>
+                          <b>{s.partyLabel}</b>
+                          {s.signatureStatus === 'SIGNED' ? (
+                            <>
+                              <div className="ksign-sign-valid">
+                                <span className="ksign-sign-valid__mark">✔</span>
+                                <span className="ksign-sign-valid__text">Đã ký</span>
+                              </div>
+                              <p className="ksign-sign-by">
+                                Ký bởi: <b>{s.signerName || '—'}</b>
+                              </p>
+                              <p className="ksign-sign-at">Ký ngày: {formatDateTime(s.signedAt)}</p>
+                            </>
+                          ) : (
+                            <p className="ksign-sign-status">(Chưa ký)</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </article>
               </div>
             ) : null}
           </section>
@@ -651,15 +807,30 @@ export default function ContractDetailPage() {
 
               {!otpSentSuccess ? (
                 <div className="contract-sign-form">
+                  <label className="contract-agree">
+                    <input
+                      type="checkbox"
+                      checked={agreedTerms}
+                      onChange={(event) => setAgreedTerms(event.target.checked)}
+                    />
+                    <span>
+                      Tôi đã đọc và đồng ý với <b>các điều khoản</b> trong hợp đồng.
+                    </span>
+                  </label>
                   <p>Hệ thống sẽ gửi mã OTP về email của bạn.</p>
                   <button
                     className="tcs-btn tcs-btn--primary"
                     type="button"
                     onClick={handleSendOtp}
-                    disabled={sendingOtp}
+                    disabled={sendingOtp || !agreedTerms}
                   >
-                    {sendingOtp ? 'Đang gửi...' : 'Gửi mã OTP'}
+                    {sendingOtp ? 'Đang gửi...' : 'Gửi mã OTP để ký'}
                   </button>
+                  {!agreedTerms ? (
+                    <p className="contract-muted">
+                      Vui lòng đọc kỹ và tích xác nhận điều khoản để được gửi mã OTP.
+                    </p>
+                  ) : null}
                 </div>
               ) : (
                 <div className="contract-sign-form">
@@ -675,17 +846,27 @@ export default function ContractDetailPage() {
                       value={otpInput}
                       onChange={(event) => setOtpInput(event.target.value.replace(/\D/g, '').slice(0, 6))}
                       maxLength={6}
+                      disabled={secondsLeft <= 0}
                       autoFocus
                     />
                     <button
                       className="tcs-btn tcs-btn--primary"
                       type="button"
                       onClick={handleSign}
-                      disabled={signing || otpInput.trim().length < 6}
+                      disabled={signing || otpInput.trim().length < 6 || secondsLeft <= 0}
                     >
                       {signing ? 'Đang ký...' : 'Xác nhận ký'}
                     </button>
                   </div>
+                  {secondsLeft > 0 ? (
+                    <p className="contract-otp-timer">
+                      Mã hết hạn sau: <b>{secondsLeft}s</b>
+                    </p>
+                  ) : (
+                    <p className="contract-otp-timer contract-otp-timer--expired">
+                      Mã đã hết hạn. Vui lòng bấm "Gửi lại mã".
+                    </p>
+                  )}
                   <button
                     className="contract-link-button"
                     type="button"
