@@ -2241,7 +2241,7 @@ public class CenterServiceImpl implements CenterService {
         return classRequestStore.findByCenter(center.getCenterId()).stream()
                 .filter(data -> !ClassRequestStore.STATUS_PAYMENT_PENDING.equals(data.status()))
                 .filter(data -> !ClassRequestStore.STATUS_CANCELLED.equals(data.status()))
-                .map(classRequestStore::toResponse)
+                .map(this::toCenterClassRequestResponse)
                 .toList();
     }
 
@@ -2375,7 +2375,13 @@ public class CenterServiceImpl implements CenterService {
         classRequestStore.save(updated);
         auditLogService.record(center.getUser().getUserId(), "POST_RECRUITMENT_FOR_REQUEST",
                 "RecruitmentPost", saved.getRecruitmentId(), null, null);
-        return classRequestStore.toResponse(updated);
+        return toCenterClassRequestResponse(updated);
+    }
+
+    private ClassRequestResponse toCenterClassRequestResponse(ClassRequestStore.ClassRequestData data) {
+        return classRequestStore.toResponse(data).toBuilder()
+                .centerRequestFeePayment(centerRequestFeeService.getPayment(data.requestId()).orElse(null))
+                .build();
     }
 
     /** Đơn ứng tuyển vào tin tuyển dụng đã đăng cho một yêu cầu (để trung tâm duyệt vào shortlist). */
