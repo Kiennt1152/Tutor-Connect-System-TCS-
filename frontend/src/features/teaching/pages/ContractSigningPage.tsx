@@ -19,6 +19,12 @@ import './ContractSigningPage.css';
 
 const currency = new Intl.NumberFormat('vi-VN');
 
+const positiveNumber = (value: number | string | null | undefined): number | null => {
+  if (value == null) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
 function extractError(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;
@@ -173,11 +179,12 @@ export default function ContractSigningPage() {
 
   const amounts = useMemo(() => {
     if (!form) return { full: 0, monthly: 0, months: 1 };
-    const full = totalBudget(form);
+    const calculatedFull = totalBudget(form);
     const months = Math.max(1, Math.round(weeksForCycle(form) / 4));
-    const monthly = months > 1 ? Math.round(full / months) : full;
+    const full = positiveNumber(contract?.totalTuitionAmount) ?? calculatedFull;
+    const monthly = positiveNumber(contract?.escrowAmount) ?? (months > 1 ? Math.round(full / months) : full);
     return { full, monthly, months };
-  }, [form]);
+  }, [contract?.escrowAmount, contract?.totalTuitionAmount, form]);
 
   const escrowPayment = contract?.escrowPayment ?? null;
   const visibleEscrowPayment: EscrowPaymentInfo | null =

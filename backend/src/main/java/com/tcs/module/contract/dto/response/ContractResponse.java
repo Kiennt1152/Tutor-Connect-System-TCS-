@@ -57,6 +57,8 @@ public class ContractResponse {
     private String classTitle;
     private String classType;
     private BigDecimal tuitionFee;
+    private BigDecimal totalTuitionAmount;
+    private BigDecimal escrowAmount;
     private String lessonMode;
     private Integer numberOfSessions;
 

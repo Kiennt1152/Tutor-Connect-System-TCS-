@@ -21,6 +21,7 @@ import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
@@ -152,6 +153,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private static final String ESCROW_BANK_BIN = "970423";
     private static final String ESCROW_ACCOUNT_NUMBER = "02660559201";
     private static final String ESCROW_ACCOUNT_NAME = "TUTOR CONNECT SYSTEM";
+    private static final String PRIVATE_ESCROW_REF_PREFIX = "ESCROW-A";
 
     private final AuthHelper authHelper;
     private final UserRepository userRepository;
@@ -161,6 +163,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final TutorRepository tutorRepository;
     private final ContractRepository contractRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
     private final EscrowService escrowService;
     private final TutoringClassRepository tutoringClassRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
@@ -863,6 +866,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         CccdInfoDto tutorCccd = cccdInfoOf(tutor.getUser().getUserId());
         // Hợp đồng chỉ gồm môn gia sư nhận dạy (lọc theo giá đề xuất trong đơn), không sửa lớp gốc.
         String contractDetailsJson = filterDetailsToSubjects(c.getDetailsJson(), acceptedSubjectKeys(assignment));
+        BigDecimal totalTuitionAmount = resolvePrivateContractTotalAmount(c, assignment);
+        BigDecimal escrowAmount = resolvePrivateEscrowAmount(c, assignment);
         return ContractViewResponse.builder()
                 .contractId(contract != null ? contract.getContractId() : null)
                 .assignmentId(assignment.getAssignmentId())
@@ -876,7 +881,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .endDate(c.getEndDate())
                 .numberOfSessions(c.getNumberOfSessions() != null ? c.getNumberOfSessions() : 0)
                 .subjectNames(subjectNamesFromJson(contractDetailsJson))
-                .tuitionFee(c.getTuitionFee())
+                .tuitionFee(totalTuitionAmount)
+                .totalTuitionAmount(totalTuitionAmount)
+                .escrowAmount(escrowAmount)
                 .clientName(firstText(
                         clientCccd != null ? clientCccd.getFullName() : null,
                         client != null ? client.getFullName() : null,
@@ -896,7 +903,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .clientSigned(assignment.getClientSignedAt() != null)
                 .paymentMethod(assignment.getPaymentMethod())
                 .myRole(role)
-                .escrowPayment(toEscrowPaymentInfo(resolveAssignmentEscrow(assignment)))
+                .escrowPayment(toEscrowPaymentInfo(resolveAssignmentEscrow(assignment), resolveAssignmentEscrowPayment(assignment)))
                 .refundPayoutInfo(toRefundPayoutInfoView(contract))
                 .termsB(RefundPayoutInfoCodec.stripFromReason(assignment.getTermsB()))
                 .build();
@@ -909,18 +916,27 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return escrowTransactionRepository.findByAssignment_AssignmentId(assignment.getAssignmentId()).orElse(null);
     }
 
-    private ContractResponse.EscrowPaymentInfo toEscrowPaymentInfo(EscrowTransaction escrow) {
-        if (escrow == null) {
+    private PaymentTransaction resolveAssignmentEscrowPayment(ClassAssignment assignment) {
+        if (assignment == null || assignment.getAssignmentId() == null) {
             return null;
         }
-        PaymentTransaction payment = escrow.getPayment();
+        return paymentTransactionRepository
+                .findByReferenceCode(PRIVATE_ESCROW_REF_PREFIX + assignment.getAssignmentId())
+                .orElse(null);
+    }
+
+    private ContractResponse.EscrowPaymentInfo toEscrowPaymentInfo(EscrowTransaction escrow, PaymentTransaction fallbackPayment) {
+        if (escrow == null && fallbackPayment == null) {
+            return null;
+        }
+        PaymentTransaction payment = escrow != null ? escrow.getPayment() : fallbackPayment;
         BigDecimal amount = payment != null && payment.getAmount() != null
                 ? payment.getAmount()
-                : escrow.getAmount();
+                : escrow != null ? escrow.getAmount() : null;
         String reference = payment != null ? payment.getReferenceCode() : null;
         return ContractResponse.EscrowPaymentInfo.builder()
-                .escrowId(escrow.getEscrowId())
-                .escrowStatus(escrow.getStatus())
+                .escrowId(escrow != null ? escrow.getEscrowId() : null)
+                .escrowStatus(escrow != null ? escrow.getStatus() : EscrowStatus.PENDING)
                 .paymentTransactionId(payment != null ? payment.getTransactionId() : null)
                 .paymentStatus(payment != null ? payment.getStatus() : null)
                 .amount(amount)
@@ -931,7 +947,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .accountName(ESCROW_ACCOUNT_NAME)
                 .transferContent(reference)
                 .qrUrl(buildEscrowQrUrl(amount, reference))
-                .depositedAt(escrow.getDepositedAt())
+                .depositedAt(escrow != null ? escrow.getDepositedAt() : null)
                 .processedAt(payment != null ? payment.getProcessedAt() : null)
                 .build();
     }
@@ -1177,7 +1193,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Không xác định được số tiền escrow cần thanh toán");
         }
-        escrowService.lock(new EscrowLockCommand(
+        escrowService.preparePayment(new EscrowLockCommand(
                 tutoringClass.getCreator().getUserId(),
                 amount,
                 assignment.getAssignmentId(),
@@ -1189,12 +1205,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     private BigDecimal resolvePrivateEscrowAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
-        // Ưu tiên: tổng học phí tính theo ĐÚNG lịch sẽ dạy và chỉ các môn gia sư nhận
-        // (khớp hợp đồng). Không tính được mới rơi về cách tính theo detailsJson/tuitionFee/budget.
-        BigDecimal totalAmount = courseFeeFromSchedule(tutoringClass, acceptedSubjectKeys(assignment));
-        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
-            totalAmount = resolvePrivateDealTotalAmount(tutoringClass, assignment);
-        }
+        BigDecimal totalAmount = resolvePrivateContractTotalAmount(tutoringClass, assignment);
         if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
@@ -1203,6 +1214,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return totalAmount.setScale(2, RoundingMode.HALF_UP);
         }
         return totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal resolvePrivateContractTotalAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
+        BigDecimal totalAmount = courseFeeFromSchedule(tutoringClass, acceptedSubjectKeys(assignment));
+        if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            totalAmount = resolvePrivateDealTotalAmount(tutoringClass, assignment);
+        }
+        return totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0
+                ? totalAmount.setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
     }
 
     /**
@@ -1267,7 +1288,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     private BigDecimal resolvePrivateDealTotalAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
-        BigDecimal totalAmount = resolveFromDealDetails(tutoringClass);
+        BigDecimal totalAmount = resolveFromDealDetails(tutoringClass, acceptedSubjectKeys(assignment));
         if (totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0) {
             return totalAmount;
         }
@@ -1278,11 +1299,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return positiveAmount(tutoringClass != null ? tutoringClass.getBudget() : null);
     }
 
-    private BigDecimal resolveFromDealDetails(TutoringClass tutoringClass) {
+    private BigDecimal resolveFromDealDetails(TutoringClass tutoringClass, java.util.Set<String> acceptedSubjectKeys) {
         if (tutoringClass == null || !StringUtils.hasText(tutoringClass.getDetailsJson())) {
             return null;
         }
-        JsonNode root = readTree(tutoringClass.getDetailsJson());
+        JsonNode root = readTree(filterDetailsToSubjects(tutoringClass.getDetailsJson(), acceptedSubjectKeys));
         JsonNode subjectFeesNode = root.path("subjectFees");
         JsonNode slots = root.path("slots");
         if (subjectFeesNode == null || !subjectFeesNode.isObject() || slots == null || !slots.isArray()) {

@@ -70,6 +70,12 @@ export const financeApi = {
       .then((r) => r.data);
   },
 
+  setDefaultPaymentMethod(paymentMethodId: number): Promise<PaymentMethodInfo> {
+    return axiosClient
+      .post(`${BASE}/payment-methods/${paymentMethodId}/default`)
+      .then((r) => r.data);
+  },
+
   deletePaymentMethod(paymentMethodId: number): Promise<void> {
     return axiosClient.delete(`${BASE}/payment-methods/${paymentMethodId}`).then((r) => r.data);
   },

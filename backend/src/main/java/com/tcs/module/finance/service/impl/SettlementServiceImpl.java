@@ -97,6 +97,7 @@ public class SettlementServiceImpl implements SettlementService {
         refundRequest.setRequestedBy(admin);
         refundRequest.setBankName(payoutInfo.bankName());
         refundRequest.setAccountNo(payoutInfo.accountNo());
+        refundRequest.setAccountHolderName(payoutInfo.accountHolderName());
         refundRequest.setReason(RefundPayoutInfoCodec.appendToReason(reason, payoutInfo));
         refundRequest.setAmount(refundAmount);
         refundRequest.setStatus(RefundRequestStatus.APPROVED);

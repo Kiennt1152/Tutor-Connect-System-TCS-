@@ -43,7 +43,9 @@ import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
+import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.identity.entity.User;
@@ -118,7 +120,11 @@ public class ContractServiceImpl implements ContractService {
     private static final String ESCROW_BANK_BIN = "970423";
     private static final String ESCROW_ACCOUNT_NUMBER = "02660559201";
     private static final String ESCROW_ACCOUNT_NAME = "TUTOR CONNECT SYSTEM";
+    private static final String PRIVATE_ESCROW_REF_PREFIX = "ESCROW-A";
+    private static final String CENTER_ESCROW_REF_PREFIX = "ESCROW-CS";
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final Map<String, Integer> DAY_CODE_TO_ISO = Map.of(
+            "T2", 1, "T3", 2, "T4", 3, "T5", 4, "T6", 5, "T7", 6, "CN", 7);
     private static final String DEFAULT_ANONYMOUS_NAME = "Người dùng ẩn danh";
     private static final int REVIEW_REQUIRED_WITHIN_MONTHS = 1;
     private static final DateTimeFormatter DOC_DATE = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -136,6 +142,7 @@ public class ContractServiceImpl implements ContractService {
     private final EmailService emailService;
     private final EscrowService escrowService;
     private final EscrowTransactionRepository escrowTransactionRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final ReviewRepository reviewRepository;
     private final RecruitmentApplicationRepository recruitmentApplicationRepository;
@@ -1153,7 +1160,7 @@ public class ContractServiceImpl implements ContractService {
             if (application != null && application.getTutoringClass() != null) {
                 TutoringClass tutoringClass = application.getTutoringClass();
                 classId = tutoringClass.getClassId();
-                amount = resolvePrivateEscrowAmount(tutoringClass);
+                amount = resolvePrivateEscrowAmount(tutoringClass, contract.getAssignment());
                 payerUserId = tutoringClass.getCreator() != null ? tutoringClass.getCreator().getUserId() : null;
             }
             beneficiaryUserId = contract.getAssignment().getTutor() != null
@@ -1177,7 +1184,7 @@ public class ContractServiceImpl implements ContractService {
 
         if (payerUserId != null && amount.compareTo(BigDecimal.ZERO) > 0
                 && (assignmentId != null || classStudentId != null)) {
-            escrowService.lock(new EscrowLockCommand(payerUserId, amount, assignmentId, classStudentId));
+            escrowService.preparePayment(new EscrowLockCommand(payerUserId, amount, assignmentId, classStudentId));
         } else {
             log.warn("[Contract] Bỏ qua khóa escrow: payer={}, amount={}, assignmentId={}, classStudentId={}",
                     payerUserId, amount, assignmentId, classStudentId);
@@ -1193,8 +1200,8 @@ public class ContractServiceImpl implements ContractService {
                 classStudentId));
     }
 
-    private BigDecimal resolvePrivateEscrowAmount(TutoringClass tutoringClass) {
-        BigDecimal totalAmount = resolvePrivateDealTotalAmount(tutoringClass);
+    private BigDecimal resolvePrivateEscrowAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
+        BigDecimal totalAmount = resolvePrivateContractTotalAmount(tutoringClass, assignment);
         if (totalAmount == null || totalAmount.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
@@ -1203,6 +1210,13 @@ public class ContractServiceImpl implements ContractService {
             return totalAmount.setScale(2, RoundingMode.HALF_UP);
         }
         return totalAmount.divide(BigDecimal.valueOf(plannedMonths), 2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal resolvePrivateContractTotalAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
+        BigDecimal totalAmount = resolvePrivateDealTotalAmount(tutoringClass, assignment);
+        return totalAmount != null && totalAmount.compareTo(BigDecimal.ZERO) > 0
+                ? totalAmount.setScale(2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
     }
 
     private BigDecimal resolveCenterEscrowAmount(TutoringClass tutoringClass) {
@@ -1217,11 +1231,11 @@ public class ContractServiceImpl implements ContractService {
                 : BigDecimal.ZERO;
     }
 
-    private BigDecimal resolvePrivateDealTotalAmount(TutoringClass tutoringClass) {
+    private BigDecimal resolvePrivateDealTotalAmount(TutoringClass tutoringClass, ClassAssignment assignment) {
         if (tutoringClass == null || !StringUtils.hasText(tutoringClass.getDetailsJson())) {
             return null;
         }
-        JsonNode root = readTree(tutoringClass.getDetailsJson());
+        JsonNode root = readTree(filterDetailsToSubjects(tutoringClass.getDetailsJson(), acceptedSubjectKeys(assignment)));
         JsonNode subjectFeesNode = root.path("subjectFees");
         JsonNode slots = root.path("slots");
         if (subjectFeesNode == null || !subjectFeesNode.isObject() || slots == null || !slots.isArray()) {
@@ -1245,6 +1259,71 @@ public class ContractServiceImpl implements ContractService {
             total = total.add(fee.multiply(hours).multiply(BigDecimal.valueOf(repeats)));
         }
         return total.compareTo(BigDecimal.ZERO) > 0 ? total : null;
+    }
+
+    private Set<String> acceptedSubjectKeys(ClassAssignment assignment) {
+        if (assignment == null || assignment.getApplication() == null) {
+            return null;
+        }
+        Map<String, BigDecimal> rates = readRates(assignment.getApplication().getProposedRatesJson());
+        if (rates == null || rates.isEmpty()) {
+            return null;
+        }
+        return rates.keySet();
+    }
+
+    private String filterDetailsToSubjects(String detailsJson, Set<String> keptKeys) {
+        if (keptKeys == null || keptKeys.isEmpty() || !StringUtils.hasText(detailsJson)) {
+            return detailsJson;
+        }
+        JsonNode root = readTree(detailsJson);
+        if (root == null || !root.isObject()) {
+            return detailsJson;
+        }
+        com.fasterxml.jackson.databind.node.ObjectNode obj =
+                (com.fasterxml.jackson.databind.node.ObjectNode) root;
+
+        JsonNode ids = obj.get("subjectIds");
+        if (ids != null && ids.isArray()) {
+            com.fasterxml.jackson.databind.node.ArrayNode keptIds = OBJECT_MAPPER.createArrayNode();
+            for (JsonNode id : ids) {
+                if (keptKeys.contains(id.asText())) {
+                    keptIds.add(id);
+                }
+            }
+            if (!keptIds.isEmpty()) {
+                obj.set("subjectIds", keptIds);
+            }
+        }
+
+        JsonNode feesNode = obj.get("subjectFees");
+        if (feesNode != null && feesNode.isObject()) {
+            com.fasterxml.jackson.databind.node.ObjectNode fees = OBJECT_MAPPER.createObjectNode();
+            for (String key : keptKeys) {
+                if (feesNode.has(key)) {
+                    fees.set(key, feesNode.get(key));
+                }
+            }
+            obj.set("subjectFees", fees);
+        }
+
+        JsonNode slots = obj.get("slots");
+        if (slots != null && slots.isArray()) {
+            com.fasterxml.jackson.databind.node.ArrayNode keptSlots = OBJECT_MAPPER.createArrayNode();
+            for (JsonNode slot : slots) {
+                String slotKey = slot.path("subjectId").asText("");
+                if (slotKey.isEmpty() || keptKeys.contains(slotKey)) {
+                    keptSlots.add(slot);
+                }
+            }
+            obj.set("slots", keptSlots);
+        }
+
+        try {
+            return OBJECT_MAPPER.writeValueAsString(obj);
+        } catch (Exception ignored) {
+            return detailsJson;
+        }
     }
 
     private JsonNode readTree(String json) {
@@ -1445,7 +1524,7 @@ public class ContractServiceImpl implements ContractService {
                 .signedCount(signed)
                 .hasAllSignatures(signed >= required);
         RefundPolicy refundPolicy = resolveRefundPolicy(contract);
-        builder.escrowPayment(toEscrowPaymentInfo(resolveContractEscrow(contract)))
+        builder.escrowPayment(toEscrowPaymentInfo(resolveContractEscrow(contract), resolveContractEscrowPayment(contract)))
                 .refundPayoutInfo(toRefundPayoutInfoView(contract))
                 .totalSessions(refundPolicy.totalSessions())
                 .completedSessions(refundPolicy.completedSessions())
@@ -1554,19 +1633,34 @@ public class ContractServiceImpl implements ContractService {
         return null;
     }
 
-    private ContractResponse.EscrowPaymentInfo toEscrowPaymentInfo(EscrowTransaction escrow) {
-        if (escrow == null) {
+    private PaymentTransaction resolveContractEscrowPayment(Contract contract) {
+        if (contract == null) {
+            return null;
+        }
+        String reference = null;
+        if (contract.getAssignment() != null && contract.getAssignment().getAssignmentId() != null) {
+            reference = PRIVATE_ESCROW_REF_PREFIX + contract.getAssignment().getAssignmentId();
+        } else if (contract.getClassStudent() != null && contract.getClassStudent().getClassStudentId() != null) {
+            reference = CENTER_ESCROW_REF_PREFIX + contract.getClassStudent().getClassStudentId();
+        }
+        return StringUtils.hasText(reference)
+                ? paymentTransactionRepository.findByReferenceCode(reference).orElse(null)
+                : null;
+    }
+
+    private ContractResponse.EscrowPaymentInfo toEscrowPaymentInfo(EscrowTransaction escrow, PaymentTransaction fallbackPayment) {
+        if (escrow == null && fallbackPayment == null) {
             return null;
         }
 
-        PaymentTransaction payment = escrow.getPayment();
+        PaymentTransaction payment = escrow != null ? escrow.getPayment() : fallbackPayment;
         BigDecimal amount = payment != null && payment.getAmount() != null
                 ? payment.getAmount()
-                : escrow.getAmount();
+                : escrow != null ? escrow.getAmount() : null;
         String reference = payment != null ? payment.getReferenceCode() : null;
         return ContractResponse.EscrowPaymentInfo.builder()
-                .escrowId(escrow.getEscrowId())
-                .escrowStatus(escrow.getStatus())
+                .escrowId(escrow != null ? escrow.getEscrowId() : null)
+                .escrowStatus(escrow != null ? escrow.getStatus() : EscrowStatus.PENDING)
                 .paymentTransactionId(payment != null ? payment.getTransactionId() : null)
                 .paymentStatus(payment != null ? payment.getStatus() : null)
                 .amount(amount)
@@ -1577,7 +1671,7 @@ public class ContractServiceImpl implements ContractService {
                 .accountName(ESCROW_ACCOUNT_NAME)
                 .transferContent(reference)
                 .qrUrl(buildEscrowQrUrl(amount, reference))
-                .depositedAt(escrow.getDepositedAt())
+                .depositedAt(escrow != null ? escrow.getDepositedAt() : null)
                 .processedAt(payment != null ? payment.getProcessedAt() : null)
                 .build();
     }
@@ -1626,6 +1720,7 @@ public class ContractServiceImpl implements ContractService {
                     : null;
             if (tutoringClass != null) {
                 fillClassFields(builder, tutoringClass);
+                fillPrivateContractAmounts(builder, tutoringClass, assignment);
                 fillCreatorParty(builder, tutoringClass.getCreator());
             }
             return;
@@ -1651,6 +1746,17 @@ public class ContractServiceImpl implements ContractService {
                 .tuitionFee(tutoringClass.getTuitionFee())
                 .lessonMode(tutoringClass.getLessonMode() != null ? tutoringClass.getLessonMode().name() : null)
                 .numberOfSessions(tutoringClass.getNumberOfSessions());
+    }
+
+    private void fillPrivateContractAmounts(
+            ContractResponse.ContractResponseBuilder builder,
+            TutoringClass tutoringClass,
+            ClassAssignment assignment) {
+        BigDecimal totalTuitionAmount = resolvePrivateContractTotalAmount(tutoringClass, assignment);
+        BigDecimal escrowAmount = resolvePrivateEscrowAmount(tutoringClass, assignment);
+        builder.tuitionFee(totalTuitionAmount)
+                .totalTuitionAmount(totalTuitionAmount)
+                .escrowAmount(escrowAmount);
     }
 
     private void fillCreatorParty(ContractResponse.ContractResponseBuilder builder, User creator) {
