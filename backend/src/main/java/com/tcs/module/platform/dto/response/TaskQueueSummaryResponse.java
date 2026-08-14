@@ -13,4 +13,8 @@ public class TaskQueueSummaryResponse {
     long pendingRefunds;
     long openDisputes;
     long totalPendingTasks;
+    java.util.Map<String, Long> byType;
+    java.util.Map<String, Long> byPriority;
+    long overdueCount;
+    java.math.BigDecimal moneyAtRisk;
 }

@@ -88,17 +88,17 @@ export default function AiFloatingWidget() {
         </button>
       )}
       <button className="ai-widget-button" onClick={() => setIsOpen(!isOpen)} title="Trợ lý AI TCS">
-        <span className="ai-widget-button__icon" aria-hidden="true">🤖</span>
+        <img className="app-logo__image" alt="" src="/logo.png" style={{ width: '24px', height: '24px', borderRadius: '50%' }} />
         <span>TCS AI</span>
       </button>
 
       {isOpen && (
         <div className={`ai-widget-popup${isHomepage ? ' ai-widget-popup--with-support' : ''}`}>
           <header className="ai-popup-header">
-            <h3><span>🧠</span> Trợ lý AI TCS (RAG)</h3>
+            <h3>Trợ lý AI TCS</h3>
             <div className="ai-popup-actions">
               <button className="ai-popup-expand" onClick={goToFullPage}>
-                🚀 Toàn màn hình
+                Toàn màn hình
               </button>
               <button className="ai-popup-close" onClick={() => setIsOpen(false)}>
                 ✕
@@ -128,7 +128,7 @@ export default function AiFloatingWidget() {
             ))}
             {sending && (
               <div style={{ alignSelf: 'flex-start', fontSize: '0.8rem', color: '#8b949e', fontStyle: 'italic' }}>
-                🤖 AI đang tra cứu RAG...
+                🤖 AI đang tìm kiếm câu trả lời...
               </div>
             )}
           </div>

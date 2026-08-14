@@ -47,7 +47,7 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleUploadTooLarge(MaxUploadSizeExceededException exception) {
         Map<String, String> body = new HashMap<>();
         body.put("message", "Kích thước tệp vượt quá giới hạn cho phép");
-        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE).body(body);
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE).body(body);
     }
 
     @ExceptionHandler(ResourceNotFoundException.class)

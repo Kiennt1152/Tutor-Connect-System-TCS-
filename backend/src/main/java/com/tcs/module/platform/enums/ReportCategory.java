@@ -5,5 +5,6 @@ public enum ReportCategory {
     ABUSE,
     SPAM,
     INAPPROPRIATE,
+    PLATFORM_CIRCUMVENTION,
     OTHER
 }

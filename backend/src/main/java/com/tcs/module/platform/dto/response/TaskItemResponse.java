@@ -14,7 +14,16 @@ public class TaskItemResponse {
     String description;
     Long entityId;
     String targetRoute;
+    String targetQuery;
     String status;
     String priority; // URGENT, HIGH, MEDIUM, LOW
     LocalDateTime createdAt;
+    LocalDateTime dueAt;
+    Boolean slaBreached;
+    String assigneeName;
+    String riskReason;
+    java.math.BigDecimal amount;
+    String currency;
+    String relatedEntityType;
+    Long relatedEntityId;
 }

@@ -2,6 +2,7 @@ import { createPortal } from 'react-dom';
 import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
+import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import {
   useAdminTicketDetail,
   useAdminTicketList,
@@ -13,6 +14,7 @@ import type {
   AdminTicketPriority,
   AdminTicketStatus,
 } from '../types/platformTypes';
+import { IssuePenaltyModal } from '../components/IssuePenaltyModal';
 import './PlatformTicketsPage.css';
 
 /* ── Inline badge helper ── */
@@ -37,6 +39,8 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
   const [showClose, setShowClose] = useState(false);
   const [editCategory, setEditCategory] = useState<AdminTicketCategory | ''>('');
   const [editPriority, setEditPriority] = useState<AdminTicketPriority | ''>('');
+  const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState(false);
+  const [penaltySuccessMessage, setPenaltySuccessMessage] = useState<string | null>(null);
 
   const handleMutationSuccess = () => {
     setReplyText('');
@@ -80,17 +84,17 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
     >
       <div className="adm-ticket-modal" role="dialog" aria-modal="true">
         {status === 'loading' && (
-          <div style={{ padding: '2rem', textAlign: 'center', color: '#718096' }}>Dang tai...</div>
+          <div style={{ padding: '2rem', textAlign: 'center', color: '#718096' }}>Đang tải...</div>
         )}
 
         {status === 'error' && (
           <div style={{ padding: '1.5rem' }}>
             <p style={{ color: '#991b1b' }}>{errorMessage}</p>
             <button type="button" className="tcs-btn tcs-btn--ghost" onClick={reload}>
-              Thu lai
+              Thử lại
             </button>
             <button type="button" className="tcs-btn tcs-btn--ghost" onClick={onClose} style={{ marginLeft: '0.5rem' }}>
-              Dong
+              Đóng
             </button>
           </div>
         )}
@@ -111,10 +115,29 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
             setEditPriority={setEditPriority}
             mutStatus={mutations.status}
             mutError={mutations.errorMessage}
+            penaltySuccessMessage={penaltySuccessMessage}
+            onOpenPenaltyModal={() => setIsPenaltyModalOpen(true)}
             onClose={onClose}
             onRespond={handleRespond}
             onUpdate={handleUpdate}
             onCloseTicket={handleClose}
+          />
+        )}
+        {detail && (
+          <IssuePenaltyModal
+            isOpen={isPenaltyModalOpen}
+            onClose={() => setIsPenaltyModalOpen(false)}
+            onSuccess={() => {
+              setPenaltySuccessMessage('Đã ban hành quyết định xử phạt thành công và lưu vết từ Ticket.');
+              onUpdated();
+            }}
+            initialUserId={Number(detail.userId) || undefined}
+            initialReason={`Xử lý từ Hỗ trợ & Khiếu nại #${detail.id}: ${detail.subject}`}
+            initialEvidenceUrls={detail.evidenceUrls || undefined}
+            sourceType="TICKET"
+            sourceId={detail.id}
+            sourceTaskId={`TICKET-${detail.id}`}
+            title={`Tạo xử phạt từ Ticket #${detail.id}`}
           />
         )}
       </div>
@@ -138,6 +161,8 @@ type ContentProps = {
   setEditPriority: (value: AdminTicketPriority) => void;
   mutStatus: string;
   mutError: string | null;
+  penaltySuccessMessage: string | null;
+  onOpenPenaltyModal: () => void;
   onClose: () => void;
   onRespond: () => void;
   onUpdate: () => void;
@@ -159,6 +184,8 @@ function TicketDetailContent({
   setEditPriority,
   mutStatus,
   mutError,
+  penaltySuccessMessage,
+  onOpenPenaltyModal,
   onClose,
   onRespond,
   onUpdate,
@@ -180,12 +207,27 @@ function TicketDetailContent({
                 🚨 Quá hạn SLA
               </span>
             )}
+            <button
+              type="button"
+              className="tcs-btn tcs-btn--sm tcs-btn--danger"
+              style={{ fontSize: '0.75rem', padding: '2px 8px' }}
+              onClick={onOpenPenaltyModal}
+              title="Tạo quyết định xử phạt liên quan đến ticket này"
+            >
+              ⚖️ Tạo xử phạt
+            </button>
           </div>
         </div>
-        <button type="button" className="adm-ticket-modal__close" onClick={onClose} aria-label="Dong">
+        <button type="button" className="adm-ticket-modal__close" onClick={onClose} aria-label="Đóng">
           ×
         </button>
       </div>
+
+      {penaltySuccessMessage && (
+        <div style={{ padding: '8px 12px', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', fontSize: '0.85rem', margin: '0 16px 12px' }}>
+          {penaltySuccessMessage}
+        </div>
+      )}
 
       <div className="adm-ticket-modal__info">
         User #{detail.userId} - Tạo lúc {detail.createdAt} - Hạn SLA: {detail.dueAt || 'Chưa đặt'}
@@ -246,18 +288,18 @@ function TicketDetailContent({
           )}
         </div>
 
-        <div className="adm-ticket-modal__section-title">Mo ta</div>
+        <div className="adm-ticket-modal__section-title">Mô tả</div>
         <div className="adm-ticket-modal__desc">
           {detail.description}
           {detail.evidenceUrls && (
             <p style={{ marginTop: '0.4rem', fontSize: '0.8rem', color: '#718096' }}>
-              Bang chung: {detail.evidenceUrls}
+              Bằng chứng: {detail.evidenceUrls}
             </p>
           )}
         </div>
 
         <div className="adm-ticket-modal__section-title">
-          Hoi thoai ({detail.messages.length})
+          Hội thoại ({detail.messages.length})
         </div>
         {detail.messages.length > 0 ? (
           <div className="adm-ticket-conv">
@@ -274,18 +316,18 @@ function TicketDetailContent({
           </div>
         ) : (
           <p style={{ color: '#718096', fontSize: '0.88rem', marginBottom: '1rem' }}>
-            Chua co tin nhan.
+            Chưa có tin nhắn.
           </p>
         )}
 
         {!isTerminated && (
           <div className="adm-ticket-respond">
             <div className="adm-ticket-modal__section-title" style={{ marginBottom: '0.5rem' }}>
-              Phan hoi
+              Phản hồi
             </div>
             <textarea
               className="adm-ticket-respond__textarea"
-              placeholder="Nhap noi dung phan hoi cho nguoi dung..."
+              placeholder="Nhập nội dung phản hồi cho người dùng..."
               value={replyText}
               onChange={(e) => setReplyText(e.target.value)}
               rows={3}
@@ -295,7 +337,7 @@ function TicketDetailContent({
             {showClose && (
               <textarea
                 className="adm-ticket-respond__textarea"
-                placeholder="Ghi chu dong ticket (tuy chon)..."
+                placeholder="Ghi chú đóng ticket (tùy chọn)..."
                 value={closeNote}
                 onChange={(e) => setCloseNote(e.target.value)}
                 rows={2}
@@ -315,7 +357,7 @@ function TicketDetailContent({
                 onClick={onRespond}
                 disabled={mutStatus === 'loading' || !replyText.trim()}
               >
-                {mutStatus === 'loading' ? 'Dang gui...' : 'Gui phan hoi'}
+                {mutStatus === 'loading' ? 'Đang gửi...' : 'Gửi phản hồi'}
               </button>
               {!showClose && (
                 <button
@@ -323,7 +365,7 @@ function TicketDetailContent({
                   className="tcs-btn tcs-btn--ghost"
                   onClick={() => setShowClose(true)}
                 >
-                  Dong ticket
+                  Đóng ticket
                 </button>
               )}
               {showClose && (
@@ -335,7 +377,7 @@ function TicketDetailContent({
                     onClick={() => onCloseTicket('RESOLVED')}
                     disabled={mutStatus === 'loading'}
                   >
-                    Da giai quyet
+                    Đã giải quyết
                   </button>
                   <button
                     type="button"
@@ -344,10 +386,10 @@ function TicketDetailContent({
                     onClick={() => onCloseTicket('CLOSED')}
                     disabled={mutStatus === 'loading'}
                   >
-                    Dong (khong giai quyet)
+                    Đóng (không giải quyết)
                   </button>
                   <button type="button" className="tcs-btn tcs-btn--ghost" onClick={() => setShowClose(false)}>
-                    Huy
+                    Hủy
                   </button>
                 </>
               )}
@@ -357,7 +399,7 @@ function TicketDetailContent({
 
         {isTerminated && (
           <p style={{ color: '#718096', fontSize: '0.88rem', marginTop: '0.5rem' }}>
-            Ticket nay da duoc dong.
+            Ticket này đã được đóng.
           </p>
         )}
       </div>
@@ -367,34 +409,34 @@ function TicketDetailContent({
 
 /* ── Main page ── */
 const STATUSES: { value: AdminTicketStatus | ''; label: string }[] = [
-  { value: '', label: 'Tat ca trang thai' },
-  { value: 'OPEN', label: 'Cho xu ly' },
-  { value: 'IN_PROGRESS', label: 'Dang xu ly' },
-  { value: 'IN_REVIEW', label: 'Cho phan hoi' },
-  { value: 'RESOLVED', label: 'Da giai quyet' },
-  { value: 'CLOSED', label: 'Da dong' },
+  { value: '', label: 'Tất cả trạng thái' },
+  { value: 'OPEN', label: 'Chờ xử lý' },
+  { value: 'IN_PROGRESS', label: 'Đang xử lý' },
+  { value: 'IN_REVIEW', label: 'Chờ phản hồi' },
+  { value: 'RESOLVED', label: 'Đã giải quyết' },
+  { value: 'CLOSED', label: 'Đã đóng' },
 ];
 
 const CATEGORIES: { value: AdminTicketCategory | ''; label: string }[] = [
-  { value: '', label: 'Tat ca danh muc' },
-  { value: 'INQUIRY', label: 'Cau hoi chung' },
-  { value: 'BUG_REPORT', label: 'Loi phan mem' },
-  { value: 'SYSTEM_ERROR', label: 'Loi he thong' },
-  { value: 'REPORT_USER', label: 'Bao cao nguoi dung' },
-  { value: 'DISPUTE', label: 'Tranh chap' },
+  { value: '', label: 'Tất cả danh mục' },
+  { value: 'INQUIRY', label: 'Câu hỏi chung' },
+  { value: 'BUG_REPORT', label: 'Lỗi phần mềm' },
+  { value: 'SYSTEM_ERROR', label: 'Lỗi hệ thống' },
+  { value: 'REPORT_USER', label: 'Báo cáo người dùng' },
+  { value: 'DISPUTE', label: 'Tranh chấp' },
 ];
 
 const PRIORITIES: { value: AdminTicketPriority | ''; label: string }[] = [
-  { value: '', label: 'Tat ca do uu tien' },
-  { value: 'LOW', label: 'Thap' },
-  { value: 'MEDIUM', label: 'Trung binh' },
+  { value: '', label: 'Tất cả độ ưu tiên' },
+  { value: 'LOW', label: 'Thấp' },
+  { value: 'MEDIUM', label: 'Trung bình' },
   { value: 'HIGH', label: 'Cao' },
-  { value: 'URGENT', label: 'Khan cap' },
+  { value: 'URGENT', label: 'Khẩn cấp' },
 ];
 
 export default function PlatformTicketsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const ticketParam = searchParams.get('ticket');
+  const ticketParam = searchParams.get('id') || searchParams.get('ticket');
   const selectedId = ticketParam && /^\d+$/.test(ticketParam) ? ticketParam : null;
   const [keywordDraft, setKeywordDraft] = useState('');
 
@@ -412,7 +454,7 @@ export default function PlatformTicketsPage() {
   };
 
   const openTicket = (ticketId: string) => {
-    setSearchParams({ ticket: ticketId });
+    setSearchParams({ id: ticketId });
   };
 
   const closeTicket = () => {
@@ -421,23 +463,25 @@ export default function PlatformTicketsPage() {
 
   return (
     <AdminLayout
-      title="Quan ly yeu cau ho tro"
-      subtitle="Tiep nhan, phan hoi va dong cac yeu cau ho tro tu nguoi dung."
+      title="Quản lý yêu cầu hỗ trợ"
+      subtitle="Tiếp nhận, phản hồi và đóng các yêu cầu hỗ trợ từ người dùng."
     >
       <div className="adm-summary-row">
         <article className="adm-summary-card adm-summary-card--warn">
-          <p className="adm-summary-card__label">Cho xu ly</p>
+          <p className="adm-summary-card__label">Chờ xử lý</p>
           <p className="adm-summary-card__value">{openCount}</p>
         </article>
         <article className="adm-summary-card">
-          <p className="adm-summary-card__label">Dang xu ly</p>
+          <p className="adm-summary-card__label">Đang xử lý</p>
           <p className="adm-summary-card__value">{inProgressCount}</p>
         </article>
         <article className="adm-summary-card">
-          <p className="adm-summary-card__label">Tong ticket</p>
+          <p className="adm-summary-card__label">Tổng vé hỗ trợ</p>
           <p className="adm-summary-card__value">{data?.totalElements ?? '—'}</p>
         </article>
       </div>
+
+      <AdminTimeFilter showGranularity={false} />
 
       <div className="adm-card">
         <div className="adm-ticket-filters">
@@ -493,32 +537,32 @@ export default function PlatformTicketsPage() {
             <input
               type="text"
               className="adm-ticket-filter__input"
-              placeholder="Tim kiem theo tieu de..."
+              placeholder="Tìm kiếm theo tiêu đề..."
               value={keywordDraft}
               onChange={(e) => setKeywordDraft(e.target.value)}
             />
             <button type="submit" className="tcs-btn tcs-btn--ghost" style={{ flexShrink: 0 }}>
-              Tim
+              Tìm
             </button>
           </form>
 
           <button type="button" className="tcs-btn tcs-btn--ghost" onClick={reload}>
-            Lam moi
+            Làm mới
           </button>
         </div>
 
         {status === 'loading' && (
           <div className="adm-state adm-state--loading">
             <span className="adm-spinner" aria-hidden="true" />
-            Dang tai danh sach ticket...
+            Đang tải danh sách vé hỗ trợ...
           </div>
         )}
 
         {status === 'error' && (
           <div className="adm-state">
-            <p>{errorMessage ?? 'Khong tai duoc du lieu.'}</p>
+            <p>{errorMessage ?? 'Không tải được dữ liệu.'}</p>
             <button className="tcs-btn tcs-btn--market" type="button" onClick={reload}>
-              Thu lai
+              Thử lại
             </button>
           </div>
         )}
@@ -530,21 +574,21 @@ export default function PlatformTicketsPage() {
                 <thead>
                   <tr>
                     <th>ID</th>
-                    <th>Nguoi dung</th>
-                    <th>Tieu de</th>
-                    <th>Danh muc</th>
-                    <th>Do uu tien</th>
-                    <th>Trang thai</th>
+                    <th>Người dùng</th>
+                    <th>Tiêu đề</th>
+                    <th>Danh mục</th>
+                    <th>Độ ưu tiên</th>
+                    <th>Trạng thái</th>
                     <th>SLA</th>
-                    <th>Admin xu ly</th>
-                    <th>Thoi gian</th>
+                    <th>Admin xử lý</th>
+                    <th>Thời gian</th>
                     <th></th>
                   </tr>
                 </thead>
                 <tbody>
                     {!data || data.items.length === 0 ? (
                       <tr>
-                        <td colSpan={10}>Chua co yeu cau ho tro nao.</td>
+                        <td colSpan={10}>Chưa có yêu cầu hỗ trợ nào.</td>
                       </tr>
                   ) : (
                     data.items.map((ticket) => (
@@ -599,7 +643,7 @@ export default function PlatformTicketsPage() {
                   disabled={filters.page === 0}
                   onClick={() => setFilters((f) => ({ ...f, page: f.page - 1 }))}
                 >
-                  Truoc
+                  Trước
                 </button>
                 <span style={{ alignSelf: 'center', fontSize: '0.88rem', color: '#4a5568' }}>
                   Trang {filters.page + 1} / {data.totalPages}

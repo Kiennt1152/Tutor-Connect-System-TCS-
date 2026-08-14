@@ -26,6 +26,16 @@ export interface FaqReference {
   category?: string;
 }
 
+export interface AiSourceResponse {
+  sourceId: string;
+  sourceType: string;
+  title: string;
+  snippet: string;
+  similarity: number;
+  finalScore: number;
+  visibility: string;
+}
+
 export interface AiMessage {
   messageId: number;
   sessionId: number;
@@ -35,6 +45,17 @@ export interface AiMessage {
   referencedTutors?: TutorReference[];
   referencedClasses?: ClassReference[];
   referencedFaqs?: FaqReference[];
+  sources?: AiSourceResponse[];
+  intent?: string;
+  answerMode?: 'RAG' | 'LLM' | 'FALLBACK';
+  confidenceScore?: number;
+  confidenceLevel?: 'HIGH' | 'MEDIUM' | 'LOW';
+  sourceCount?: number;
+  groundingStatus?: string;
+  warningCode?: string;
+  rewrittenQuery?: string;
+  followUp?: boolean;
+  evaluationNotes?: string;
 }
 
 export interface AiSession {

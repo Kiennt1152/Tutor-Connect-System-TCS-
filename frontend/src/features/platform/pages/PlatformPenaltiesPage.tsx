@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
+import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { platformApi } from '../api/platformApi';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import type { 
@@ -10,6 +12,7 @@ import type {
   PenaltyFilters,
   IssuePenaltyApiRequest
 } from '../types/platformTypes';
+import { resolvePenaltySourceRoute } from '../utils/penaltySourceUtils';
 import './PlatformPenaltiesPage.css';
 
 const PENALTY_TYPE_LABELS: Record<PenaltyType, string> = {
@@ -39,6 +42,7 @@ const PENALTY_STATUS_TONES: Record<PenaltyStatus, string> = {
 };
 
 export default function PlatformPenaltiesPage() {
+  const navigate = useNavigate();
   const [penalties, setPenalties] = useState<PenaltyApiResponse[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -51,6 +55,7 @@ export default function PlatformPenaltiesPage() {
 
   const [statusFilter, setStatusFilter] = useState<PenaltyStatus | ''>('');
   const [typeFilter, setTypeFilter] = useState<PenaltyType | ''>('');
+  const [sourceTypeFilter, setSourceTypeFilter] = useState<string>('');
   const [userIdFilter, setUserIdFilter] = useState('');
 
   // Modals
@@ -72,6 +77,7 @@ export default function PlatformPenaltiesPage() {
       const filters: PenaltyFilters = { page, size };
       if (statusFilter) filters.status = statusFilter;
       if (typeFilter) filters.type = typeFilter;
+      if (sourceTypeFilter) filters.sourceType = sourceTypeFilter;
       if (userIdFilter && !isNaN(Number(userIdFilter))) {
         filters.userId = Number(userIdFilter);
       }
@@ -81,14 +87,10 @@ export default function PlatformPenaltiesPage() {
       setTotalPages(res.data.totalPages);
       setTotalElements(res.data.totalElements);
 
-      // Simple summary calculation based on current page data (for demo purposes)
-      // Ideally this should come from a dedicated dashboard/summary endpoint
-      let active = 0, warnings = 0, bans = 0;
-      res.data.content.forEach(p => {
-        if (p.status === 'ACTIVE') active++;
-        if (p.penaltyType === 'WARNING') warnings++;
-        if (p.penaltyType === 'TEMPORARY_BAN' || p.penaltyType === 'PERMANENT_BAN') bans++;
-      });
+      // Simple summary calculations from content (mocking overall stats)
+      const active = res.data.content.filter(p => p.status === 'ACTIVE').length;
+      const warnings = res.data.content.filter(p => p.penaltyType === 'WARNING').length;
+      const bans = res.data.content.filter(p => p.penaltyType === 'TEMPORARY_BAN' || p.penaltyType === 'PERMANENT_BAN').length;
       setSummary({ active, warnings, bans });
 
     } catch (err: any) {
@@ -96,7 +98,7 @@ export default function PlatformPenaltiesPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, size, statusFilter, typeFilter, userIdFilter]);
+  }, [page, size, statusFilter, typeFilter, sourceTypeFilter, userIdFilter]);
 
   useEffect(() => {
     fetchPenalties();
@@ -105,6 +107,7 @@ export default function PlatformPenaltiesPage() {
   const handleFilterReset = () => {
     setStatusFilter('');
     setTypeFilter('');
+    setSourceTypeFilter('');
     setUserIdFilter('');
     setPage(0);
   };
@@ -213,6 +216,8 @@ export default function PlatformPenaltiesPage() {
         </div>
       </div>
 
+      <AdminTimeFilter showGranularity={false} />
+
       {/* Filters */}
       <div className="adm-penalty-filters">
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as PenaltyStatus | '')}>
@@ -227,6 +232,14 @@ export default function PlatformPenaltiesPage() {
           <option value="FEATURE_RESTRICTION">Hạn chế tính năng</option>
           <option value="TEMPORARY_BAN">Cấm tạm thời</option>
           <option value="PERMANENT_BAN">Cấm vĩnh viễn</option>
+        </select>
+        <select value={sourceTypeFilter} onChange={(e) => setSourceTypeFilter(e.target.value)}>
+          <option value="">Tất cả nguồn</option>
+          <option value="REPORT">Báo cáo (REPORT)</option>
+          <option value="CIRCUMVENTION">Gian lận luồn lách (CIRCUMVENTION)</option>
+          <option value="DISPUTE">Tranh chấp (DISPUTE)</option>
+          <option value="TICKET">Khiếu nại / Ticket (TICKET)</option>
+          <option value="DIRECT">Trực tiếp (DIRECT)</option>
         </select>
         <input 
           type="number" 
@@ -247,6 +260,7 @@ export default function PlatformPenaltiesPage() {
               <th style={{ padding: '12px 16px' }}>#</th>
               <th style={{ padding: '12px 16px' }}>Người dùng</th>
               <th style={{ padding: '12px 16px' }}>Loại</th>
+              <th style={{ padding: '12px 16px' }}>Nguồn xử lý</th>
               <th style={{ padding: '12px 16px' }}>Lý do</th>
               <th style={{ padding: '12px 16px' }}>Bắt đầu</th>
               <th style={{ padding: '12px 16px' }}>Hết hạn</th>
@@ -257,22 +271,47 @@ export default function PlatformPenaltiesPage() {
           </thead>
           <tbody>
             {loading ? (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '16px' }}>Đang tải...</td></tr>
+              <tr><td colSpan={10} style={{ textAlign: 'center', padding: '16px' }}>Đang tải...</td></tr>
             ) : penalties.length === 0 ? (
-              <tr><td colSpan={9} style={{ textAlign: 'center', padding: '16px' }}>Không có dữ liệu</td></tr>
+              <tr><td colSpan={10} style={{ textAlign: 'center', padding: '16px' }}>Không có dữ liệu</td></tr>
             ) : (
-              penalties.map(p => (
-                <tr key={p.penaltyId} style={{ borderBottom: '1px solid #e5e7eb' }}>
-                  <td style={{ padding: '12px 16px' }}>{p.penaltyId}</td>
-                  <td style={{ padding: '12px 16px' }}>
-                    <div>ID: {p.userId}</div>
-                    <div style={{ fontSize: '12px', color: '#6b7280' }}>{p.userEmail}</div>
-                  </td>
-                  <td style={{ padding: '12px 16px' }}>
-                    <span className={`tcs-badge tcs-badge--status-${PENALTY_TYPE_TONES[p.penaltyType]}`} style={{ padding: '4px 8px', borderRadius: '999px', fontSize: '12px' }}>
-                      {PENALTY_TYPE_LABELS[p.penaltyType]}
-                    </span>
-                  </td>
+              penalties.map(p => {
+                const sourceRoute = resolvePenaltySourceRoute(p.sourceType, p.sourceId);
+                return (
+                  <tr key={p.penaltyId} style={{ borderBottom: '1px solid #e5e7eb' }}>
+                    <td style={{ padding: '12px 16px' }}>{p.penaltyId}</td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div>ID: {p.userId}</div>
+                      <div style={{ fontSize: '12px', color: '#6b7280' }}>{p.userEmail}</div>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span className={`tcs-badge tcs-badge--status-${PENALTY_TYPE_TONES[p.penaltyType]}`} style={{ padding: '4px 8px', borderRadius: '999px', fontSize: '12px' }}>
+                        {PENALTY_TYPE_LABELS[p.penaltyType]}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      {p.sourceType ? (
+                        <div>
+                          <span style={{ fontSize: '0.75rem', fontWeight: 600, background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px', color: '#334155' }}>
+                            {p.sourceType} #{p.sourceId}
+                          </span>
+                          {sourceRoute && (
+                            <div style={{ marginTop: '4px' }}>
+                              <button
+                                type="button"
+                                className="tcs-btn tcs-btn--sm tcs-btn--ghost"
+                                style={{ fontSize: '0.75rem', padding: '2px 6px' }}
+                                onClick={() => navigate(sourceRoute)}
+                              >
+                                Mở case nguồn →
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <span style={{ color: '#94a3b8', fontSize: '0.8rem' }}>Trực tiếp</span>
+                      )}
+                    </td>
                   <td style={{ padding: '12px 16px', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={p.reason}>
                     {p.reason}
                   </td>
@@ -292,7 +331,8 @@ export default function PlatformPenaltiesPage() {
                     )}
                   </td>
                 </tr>
-              ))
+              );
+            })
             )}
           </tbody>
         </table>

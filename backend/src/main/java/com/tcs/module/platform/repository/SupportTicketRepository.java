@@ -48,4 +48,6 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, Lo
     List<SupportTicket> findBreachedCandidateTickets(
             @Param("excludedStatuses") List<SupportTicketStatus> excludedStatuses,
             @Param("now") java.time.LocalDateTime now);
+
+    long countByCreatedAtBetween(java.time.LocalDateTime from, java.time.LocalDateTime to);
 }

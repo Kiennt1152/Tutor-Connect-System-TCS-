@@ -1,9 +1,12 @@
 package com.tcs.module.platform.service.impl;
 
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.identity.repository.UserRepository;
+import com.tcs.module.messaging.enums.NotificationType;
+import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.dto.request.IssuePenaltyRequest;
 import com.tcs.module.platform.dto.request.RevokePenaltyRequest;
 import com.tcs.module.platform.dto.response.PagePenaltyResponse;
@@ -11,15 +14,22 @@ import com.tcs.module.platform.dto.response.PenaltyResponse;
 import com.tcs.module.platform.entity.UserPenalty;
 import com.tcs.module.platform.enums.UserPenaltyStatus;
 import com.tcs.module.platform.enums.UserPenaltyType;
+import com.tcs.module.platform.repository.CircumventionEventRepository;
+import com.tcs.module.platform.repository.ReportRepository;
+import com.tcs.module.platform.repository.SupportTicketRepository;
 import com.tcs.module.platform.repository.UserPenaltyRepository;
 import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.platform.service.PenaltyService;
-import com.tcs.module.messaging.enums.NotificationType;
-import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.security.AuthHelper;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -29,12 +39,6 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
-
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -43,12 +47,19 @@ public class PenaltyServiceImpl implements PenaltyService {
     private final UserPenaltyRepository userPenaltyRepository;
     private final UserRepository userRepository;
     private final PlatformAdminRepository platformAdminRepository;
+    private final ReportRepository reportRepository;
+    private final CircumventionEventRepository circumventionEventRepository;
+    private final DisputeRepository disputeRepository;
+    private final SupportTicketRepository supportTicketRepository;
     private final AuthHelper authHelper;
     private final AuditLogService auditLogService;
     private final NotificationDispatchService notificationDispatchService;
 
     private static final Set<UserPenaltyType> BAN_TYPES = Set.of(
             UserPenaltyType.TEMPORARY_BAN, UserPenaltyType.PERMANENT_BAN);
+
+    private static final Set<String> ALLOWED_SOURCE_TYPES = Set.of(
+            "REPORT", "CIRCUMVENTION", "DISPUTE", "TICKET", "DIRECT");
 
     private PlatformAdmin currentAdminOrThrow() {
         Long adminUserId = authHelper.requireRole(UserRole.PLATFORM_ADMIN).getUserId();
@@ -84,9 +95,10 @@ public class PenaltyServiceImpl implements PenaltyService {
 
     @Override
     @Transactional
-    public PagePenaltyResponse listPenalties(Long userId, UserPenaltyStatus status, UserPenaltyType type, int page, int size) {
+    public PagePenaltyResponse listPenalties(Long userId, UserPenaltyStatus status, UserPenaltyType type, String sourceType, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        Page<UserPenalty> penaltyPage = userPenaltyRepository.search(userId, status, type, pageable);
+        String normalizedSourceType = (sourceType != null && !sourceType.isBlank()) ? sourceType.trim().toUpperCase(Locale.ROOT) : null;
+        Page<UserPenalty> penaltyPage = userPenaltyRepository.search(userId, status, type, normalizedSourceType, pageable);
         
         List<PenaltyResponse> content = penaltyPage.getContent().stream()
                 .map(this::toResponse)
@@ -115,6 +127,10 @@ public class PenaltyServiceImpl implements PenaltyService {
             throw new IllegalArgumentException("Không thể áp dụng hình phạt cho tài khoản quản trị viên khác.");
         }
 
+        if (request.getReason() == null || request.getReason().trim().length() < 20) {
+            throw new IllegalArgumentException("Lý do xử phạt phải có ít nhất 20 ký tự.");
+        }
+
         UserPenaltyType penaltyType;
         try {
             penaltyType = UserPenaltyType.valueOf(request.getPenaltyType());
@@ -135,6 +151,35 @@ public class PenaltyServiceImpl implements PenaltyService {
             validateRestrictionCodes(request.getRestrictionDetails());
         }
 
+        String rawSourceType = request.getSourceType();
+        String sourceType = (rawSourceType != null && !rawSourceType.isBlank()) 
+                ? rawSourceType.trim().toUpperCase(Locale.ROOT) 
+                : null;
+        Long sourceId = request.getSourceId();
+
+        if (sourceType != null) {
+            if (!ALLOWED_SOURCE_TYPES.contains(sourceType)) {
+                throw new IllegalArgumentException("Loại nguồn xử phạt không hợp lệ: " + sourceType + ". Chỉ chấp nhận: " + ALLOWED_SOURCE_TYPES);
+            }
+            if (!sourceType.equals("DIRECT") && sourceId == null) {
+                throw new IllegalArgumentException("sourceId là bắt buộc khi sourceType là " + sourceType);
+            }
+            if (sourceId != null) {
+                validateSourceExists(sourceType, sourceId);
+            }
+        } else if (sourceId != null) {
+            throw new IllegalArgumentException("sourceType là bắt buộc khi có sourceId.");
+        }
+
+        String rawTaskId = request.getSourceTaskId();
+        String sourceTaskId = (rawTaskId != null && !rawTaskId.isBlank())
+                ? rawTaskId.trim()
+                : (sourceType != null && sourceId != null ? sourceType + "-" + sourceId : null);
+
+        request.setSourceType(sourceType);
+        request.setSourceId(sourceId);
+        request.setSourceTaskId(sourceTaskId);
+
         UserPenalty penalty = new UserPenalty();
         penalty.setUser(user);
         penalty.setIssuedBy(issuingAdmin);
@@ -146,6 +191,9 @@ public class PenaltyServiceImpl implements PenaltyService {
         penalty.setExpiresAt(request.getExpiresAt());
         penalty.setStatus(UserPenaltyStatus.ACTIVE);
         penalty.setCreatedAt(LocalDateTime.now());
+        penalty.setSourceType(sourceType);
+        penalty.setSourceId(sourceId);
+        penalty.setSourceTaskId(sourceTaskId);
 
         if (penaltyType == UserPenaltyType.TEMPORARY_BAN || penaltyType == UserPenaltyType.PERMANENT_BAN) {
             user.setStatus(UserStatus.BANNED);
@@ -169,8 +217,13 @@ public class PenaltyServiceImpl implements PenaltyService {
     @Override
     @Transactional
     public PenaltyResponse revokePenalty(Long penaltyId, RevokePenaltyRequest request) {
+        PlatformAdmin revokingAdmin = currentAdminOrThrow();
         UserPenalty penalty = userPenaltyRepository.findById(penaltyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hình phạt"));
+
+        if (penalty.getUser().getUserId().equals(revokingAdmin.getUser().getUserId())) {
+            throw new IllegalArgumentException("Quản trị viên không thể tự thu hồi hình phạt của chính mình.");
+        }
 
         if (penalty.getStatus() != UserPenaltyStatus.ACTIVE) {
             throw new IllegalStateException("Chỉ có thể thu hồi hình phạt đang hoạt động");
@@ -191,6 +244,35 @@ public class PenaltyServiceImpl implements PenaltyService {
         return toResponse(penalty);
     }
 
+    private void validateSourceExists(String sourceType, Long sourceId) {
+        switch (sourceType.toUpperCase(Locale.ROOT)) {
+            case "REPORT" -> {
+                if (!reportRepository.existsById(sourceId)) {
+                    throw new ResourceNotFoundException("Không tìm thấy báo cáo #" + sourceId);
+                }
+            }
+            case "CIRCUMVENTION" -> {
+                if (!circumventionEventRepository.existsById(sourceId) && !reportRepository.existsById(sourceId)) {
+                    throw new ResourceNotFoundException("Không tìm thấy sự kiện lách sàn hoặc báo cáo #" + sourceId);
+                }
+            }
+            case "DISPUTE" -> {
+                if (!disputeRepository.existsById(sourceId)) {
+                    throw new ResourceNotFoundException("Không tìm thấy tranh chấp #" + sourceId);
+                }
+            }
+            case "TICKET" -> {
+                if (!supportTicketRepository.existsById(sourceId)) {
+                    throw new ResourceNotFoundException("Không tìm thấy ticket #" + sourceId);
+                }
+            }
+            case "DIRECT" -> {
+                // Direct penalty, no specific entity existence required
+            }
+            default -> throw new IllegalArgumentException("Nguồn xử lý không được hỗ trợ: " + sourceType);
+        }
+    }
+
     private boolean hasActiveBan(Long userId) {
         return userPenaltyRepository.existsByUser_UserIdAndStatusAndPenaltyTypeIn(
                 userId, UserPenaltyStatus.ACTIVE, BAN_TYPES);
@@ -201,7 +283,7 @@ public class PenaltyServiceImpl implements PenaltyService {
             throw new IllegalArgumentException("Hạn chế tính năng phải có mã tính năng.");
         }
         Set<String> allowed = Set.of("MESSAGING", "CLASS_POSTING", "CLASS_APPLICATION", "WITHDRAWAL");
-        String normalized = details.toUpperCase(java.util.Locale.ROOT).trim();
+        String normalized = details.toUpperCase(Locale.ROOT).trim();
         if (!(normalized.startsWith("{") || normalized.startsWith("["))
                 || allowed.stream().noneMatch(normalized::contains)) {
             throw new IllegalArgumentException("restrictionDetails phải là JSON chứa mã tính năng hợp lệ: " + allowed);
@@ -231,6 +313,9 @@ public class PenaltyServiceImpl implements PenaltyService {
                 .revokedReason(penalty.getRevokedReason())
                 .createdAt(penalty.getCreatedAt())
                 .issuedByName(adminName)
+                .sourceType(penalty.getSourceType())
+                .sourceId(penalty.getSourceId())
+                .sourceTaskId(penalty.getSourceTaskId())
                 .build();
     }
 }

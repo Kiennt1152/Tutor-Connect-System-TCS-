@@ -1,0 +1,147 @@
+.adm-penalty-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-color: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10000;
+}
+
+.adm-penalty-modal {
+  background-color: #ffffff;
+  padding: 24px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.adm-penalty-modal__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.adm-penalty-modal__header .btn-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.adm-penalty-modal__header .btn-close:hover {
+  color: #0f172a;
+}
+
+.adm-penalty-modal__source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #334155;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.825rem;
+  margin-bottom: 16px;
+}
+
+.adm-penalty-modal__error {
+  background-color: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+.adm-penalty-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.adm-penalty-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.adm-penalty-form label {
+  font-weight: 600;
+  font-size: 13px;
+  color: #334155;
+}
+
+.adm-penalty-form input,
+.adm-penalty-form select,
+.adm-penalty-form textarea {
+  padding: 8px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #1e293b;
+  background: #fff;
+  transition: border-color 0.15s ease;
+}
+
+.adm-penalty-form input:focus,
+.adm-penalty-form select:focus,
+.adm-penalty-form textarea:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.1);
+}
+
+.adm-penalty-form .form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.adm-penalty-form .btn-cancel {
+  padding: 8px 16px;
+  background-color: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.adm-penalty-form .btn-cancel:hover {
+  background-color: #e2e8f0;
+}
+
+.adm-penalty-form .btn-submit {
+  padding: 8px 20px;
+  background-color: #dc2626;
+  color: #ffffff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.adm-penalty-form .btn-submit:hover:not(:disabled) {
+  background-color: #b91c1c;
+}
+
+.adm-penalty-form .btn-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

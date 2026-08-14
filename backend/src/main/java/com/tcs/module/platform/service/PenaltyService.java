@@ -8,7 +8,12 @@ import com.tcs.module.platform.enums.UserPenaltyStatus;
 import com.tcs.module.platform.enums.UserPenaltyType;
 
 public interface PenaltyService {
-    PagePenaltyResponse listPenalties(Long userId, UserPenaltyStatus status, UserPenaltyType type, int page, int size);
+    PagePenaltyResponse listPenalties(Long userId, UserPenaltyStatus status, UserPenaltyType type, String sourceType, int page, int size);
+
+    default PagePenaltyResponse listPenalties(Long userId, UserPenaltyStatus status, UserPenaltyType type, int page, int size) {
+        return listPenalties(userId, status, type, null, page, size);
+    }
+
     PenaltyResponse issuePenalty(IssuePenaltyRequest request);
     PenaltyResponse revokePenalty(Long penaltyId, RevokePenaltyRequest request);
 }

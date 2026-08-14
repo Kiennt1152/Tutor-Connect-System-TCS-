@@ -1,10 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useFaqSearch } from '../hooks/useHelp';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import './HelpPage.css';
+
+const PAGE_SIZE = 8;
 
 function ChevronDown({ className }: { className?: string }) {
   return (
@@ -14,15 +16,96 @@ function ChevronDown({ className }: { className?: string }) {
   );
 }
 
+function SearchIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="11" cy="11" r="8" />
+      <line x1="21" y1="21" x2="16.65" y2="16.65" />
+    </svg>
+  );
+}
+
+function TicketIcon() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+      <line x1="10" y1="9" x2="8" y2="9" />
+    </svg>
+  );
+}
+
+function getVisiblePages(currentPage: number, totalPages: number): (number | 'ellipsis-start' | 'ellipsis-end')[] {
+  if (totalPages <= 5) {
+    return Array.from({ length: totalPages }, (_, i) => i + 1);
+  }
+
+  const pages: (number | 'ellipsis-start' | 'ellipsis-end')[] = [];
+
+  // When at page 1 or 2: show 1, 2, 3, ..., totalPages
+  if (currentPage <= 2) {
+    pages.push(1, 2, 3);
+    if (totalPages > 4) {
+      pages.push('ellipsis-end');
+    }
+    pages.push(totalPages);
+    return pages;
+  }
+
+  // When near the end: show ..., totalPages-2, totalPages-1, totalPages
+  if (currentPage >= totalPages - 1) {
+    pages.push('ellipsis-start');
+    for (let i = totalPages - 2; i <= totalPages; i++) {
+      pages.push(i);
+    }
+    return pages;
+  }
+
+  // Sliding window (e.g. at page 3 -> ... 2 3 4 ... totalPages; at page 4 -> ... 3 4 5 ... totalPages)
+  pages.push('ellipsis-start');
+  pages.push(currentPage - 1);
+  pages.push(currentPage);
+  pages.push(currentPage + 1);
+  if (currentPage + 1 < totalPages) {
+    pages.push('ellipsis-end');
+  }
+  pages.push(totalPages);
+
+  return pages;
+}
+
 export default function HelpPage() {
   const { user } = useAuth();
   const { status, items, keyword, setKeyword, errorMessage, reload } = useFaqSearch();
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);
   const [searchDraft, setSearchDraft] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+
+  // Reset to page 1 when search keyword or item list changes
+  useEffect(() => {
+    setCurrentPage(1);
+    setOpenFaqId(null);
+  }, [keyword, items.length]);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     setKeyword(searchDraft);
+  };
+
+  const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
+  const startIndex = (currentPage - 1) * PAGE_SIZE;
+  const endIndex = Math.min(startIndex + PAGE_SIZE, items.length);
+  const paginatedItems = items.slice(startIndex, endIndex);
+  const visiblePages = getVisiblePages(currentPage, totalPages);
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage >= 1 && newPage <= totalPages) {
+      setCurrentPage(newPage);
+      setOpenFaqId(null);
+      window.scrollTo({ top: 300, behavior: 'smooth' });
+    }
   };
 
   return (
@@ -49,10 +132,17 @@ export default function HelpPage() {
       <div className="help-page__body">
         {/* FAQ accordion */}
         <section>
-          <h2 className="help-faq__heading">
-            Câu hỏi thường gặp
-            {status === 'success' && <span className="help-faq__count">{items.length}</span>}
-          </h2>
+          <div className="help-faq__header-row">
+            <h2 className="help-faq__heading">
+              Câu hỏi thường gặp
+              {status === 'success' && <span className="help-faq__count">{items.length}</span>}
+            </h2>
+            {status === 'success' && items.length > 0 && (
+              <span className="help-faq__pagination-info">
+                Hiển thị {startIndex + 1}–{endIndex} trong tổng số {items.length} câu
+              </span>
+            )}
+          </div>
 
           {status === 'loading' && <p className="help-faq__empty">Đang tải…</p>}
 
@@ -71,7 +161,7 @@ export default function HelpPage() {
             </p>
           )}
 
-          {status === 'success' && items.map((faq) => (
+          {status === 'success' && paginatedItems.map((faq) => (
             <div key={faq.faqId} className="help-faq__item">
               <button
                 type="button"
@@ -87,12 +177,64 @@ export default function HelpPage() {
               )}
             </div>
           ))}
+
+          {/* Pagination Controls */}
+          {status === 'success' && totalPages > 1 && (
+            <div className="help-pagination">
+              <button
+                type="button"
+                className="help-pagination__btn"
+                disabled={currentPage === 1}
+                onClick={() => handlePageChange(currentPage - 1)}
+                aria-label="Trang trước"
+              >
+                ‹ Trước
+              </button>
+
+              <div className="help-pagination__pages">
+                {visiblePages.map((item, idx) => {
+                  if (item === 'ellipsis-start' || item === 'ellipsis-end') {
+                    return (
+                      <span key={`ellipsis-${idx}`} className="help-pagination__ellipsis">
+                        …
+                      </span>
+                    );
+                  }
+
+                  const pageNum = item as number;
+                  return (
+                    <button
+                      key={pageNum}
+                      type="button"
+                      className={`help-pagination__page-btn ${pageNum === currentPage ? 'help-pagination__page-btn--active' : ''}`}
+                      onClick={() => handlePageChange(pageNum)}
+                      aria-current={pageNum === currentPage ? 'page' : undefined}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                className="help-pagination__btn"
+                disabled={currentPage === totalPages}
+                onClick={() => handlePageChange(currentPage + 1)}
+                aria-label="Trang sau"
+              >
+                Sau ›
+              </button>
+            </div>
+          )}
         </section>
 
         <div className="help-page__sidebar">
           <section className="help-action-card help-action-card--primary" aria-labelledby="help-support-title">
             <div className="help-action-card__heading">
-              <span className="help-action-card__icon" aria-hidden="true">🔍</span>
+              <span className="help-action-card__icon" aria-hidden="true">
+                <SearchIcon />
+              </span>
               <h2 id="help-support-title">Không tìm thấy câu trả lời?</h2>
             </div>
             <p>Gửi yêu cầu hỗ trợ và đội ngũ của chúng tôi sẽ phản hồi trong 24 giờ.</p>
@@ -116,7 +258,9 @@ export default function HelpPage() {
 
           <section className="help-action-card" aria-labelledby="help-ticket-title">
             <div className="help-action-card__heading">
-              <span className="help-action-card__icon help-action-card__icon--tickets" aria-hidden="true">▤</span>
+              <span className="help-action-card__icon help-action-card__icon--tickets" aria-hidden="true">
+                <TicketIcon />
+              </span>
               <h2 id="help-ticket-title">Yêu cầu hỗ trợ của tôi</h2>
             </div>
             <p>Theo dõi trạng thái và xem phản hồi từ đội ngũ hỗ trợ.</p>

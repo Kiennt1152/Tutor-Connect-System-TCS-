@@ -23,8 +23,10 @@ public class PlatformTaskController {
     @GetMapping
     public PageTaskItemResponse listTasks(
             @RequestParam(required = false) String type,
+            @RequestParam(required = false) String priority,
+            @RequestParam(required = false) Boolean slaBreached,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return taskQueueService.listTasks(type, page, size);
+        return taskQueueService.listTasks(type, priority, slaBreached, page, size);
     }
 }

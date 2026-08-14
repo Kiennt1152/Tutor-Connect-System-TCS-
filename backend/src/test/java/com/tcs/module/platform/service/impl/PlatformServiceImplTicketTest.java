@@ -243,4 +243,27 @@ class PlatformServiceImplTicketTest {
                 () -> platformService.updateTicket(TICKET_ID, request));
         verify(supportTicketRepository, never()).save(any());
     }
+
+    @Test
+    @DisplayName("getTicketDetail: trả về đầy đủ thông tin ticket bao gồm dueAt, slaBreached, responseSlaMs")
+    void getTicketDetail_Success() {
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        ticket.setSlaBreached(true);
+        ticket.setResponseSlaMs(45000L);
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(i -> i.getArgument(0));
+        when(ticketMessageRepository.findByTicket_TicketIdOrderByCreatedAtAsc(TICKET_ID)).thenReturn(java.util.List.of());
+
+        SupportTicketDetailResponse response = platformService.getTicketDetail(TICKET_ID);
+
+        assertNotNull(response);
+        assertEquals(TICKET_ID, response.getTicketId());
+        assertEquals(ticket.getDueAt(), response.getDueAt());
+        assertEquals(Boolean.TRUE, response.getSlaBreached());
+        assertEquals(45000L, response.getResponseSlaMs());
+        assertEquals(SupportTicketStatus.IN_PROGRESS, response.getStatus());
+        assertEquals(platformAdmin.getAdminId(), response.getAssignedAdminId());
+    }
 }

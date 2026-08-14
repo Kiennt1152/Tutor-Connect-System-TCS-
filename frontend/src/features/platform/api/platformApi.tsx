@@ -53,6 +53,8 @@ import type {
   CircumventionStatus,
   PageCircumventionEventApiResponse,
   CircumventionEventApiResponse,
+  AiKnowledgeStatsApiResponse,
+  AiKnowledgeReindexApiResponse,
 } from '../types/platformTypes';
 import {
   buildTicketListQuery,
@@ -63,8 +65,12 @@ import {
 const BASE = '/platform';
 
 export const platformApi = {
-  getDashboard() {
-    return axiosClient.get<DashboardApiResponse>(`${BASE}/dashboard`);
+  getDashboard(from?: string, to?: string, granularity: string = 'DAY') {
+    const params = new URLSearchParams();
+    if (from) params.append('from', from);
+    if (to) params.append('to', to);
+    params.append('granularity', granularity);
+    return axiosClient.get<DashboardApiResponse>(`${BASE}/dashboard?${params.toString()}`);
   },
 
   getUsers(filters: UserListFilters) {
@@ -268,6 +274,7 @@ export const platformApi = {
     if (filters.status) params.set('status', filters.status);
     if (filters.type) params.set('type', filters.type);
     if (filters.userId) params.set('userId', String(filters.userId));
+    if (filters.sourceType && filters.sourceType !== 'ALL') params.set('sourceType', filters.sourceType);
     return axiosClient.get<PagePenaltyApiResponse>(`${BASE}/penalties?${params}`);
   },
 
@@ -300,7 +307,17 @@ export const platformApi = {
     params.set('page', String(filters.page));
     params.set('size', String(filters.size));
     if (filters.type && filters.type !== 'ALL') params.set('type', filters.type);
+    if (filters.priority && filters.priority !== 'ALL') params.set('priority', filters.priority);
+    if (filters.slaBreached !== undefined) params.set('slaBreached', String(filters.slaBreached));
     return axiosClient.get<PageTaskItemApiResponse>(`${BASE}/tasks?${params}`);
+  },
+
+  getAiKnowledgeStats() {
+    return axiosClient.get<AiKnowledgeStatsApiResponse>(`${BASE}/ai/knowledge/stats`);
+  },
+
+  reindexAiKnowledge() {
+    return axiosClient.post<AiKnowledgeReindexApiResponse>(`${BASE}/ai/reindex`);
   },
 
   getAnalyticsSummary(from?: string, to?: string) {
@@ -310,7 +327,7 @@ export const platformApi = {
     return axiosClient.get<AnalyticsSummaryApiResponse>(`${BASE}/analytics/summary?${params}`);
   },
 
-  exportAnalyticsCsv(type: 'users' | 'classes' | 'revenue', from?: string, to?: string) {
+  exportAnalyticsCsv(type: 'users' | 'classes' | 'revenue' | 'cashflow' | 'transaction-breakdown', from?: string, to?: string) {
     const params = new URLSearchParams({ type, format: 'csv' });
     if (from) params.set('from', from);
     if (to) params.set('to', to);
