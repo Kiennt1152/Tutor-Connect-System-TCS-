@@ -23,6 +23,7 @@ import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassStudentStatus;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.LessonAttendanceStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
@@ -31,6 +32,7 @@ import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
 import com.tcs.module.marketplace.repository.LessonRepository;
 import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.marketplace.service.MarketplaceService;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.TutorRepository;
@@ -67,6 +69,7 @@ public class TutorServiceImpl implements TutorService {
     private final RescheduleService rescheduleService;
     private final SubstitutionService substitutionService;
     private final CenterEscrowAutoSettlementService centerEscrowAutoSettlementService;
+    private final MarketplaceService marketplaceService;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -580,7 +583,7 @@ public class TutorServiceImpl implements TutorService {
      */
     @Override
     @Transactional
-    public void confirmClassCompletion(Long classId) {
+    public String confirmClassCompletion(Long classId) {
         Tutor tutor = requireTutor();
         ClassAssignment assignment = classAssignmentRepository
                 .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
@@ -588,7 +591,17 @@ public class TutorServiceImpl implements TutorService {
         if (!assignment.getTutor().getTutorId().equals(tutor.getTutorId())) {
             throw new ForbiddenException("Bạn không phụ trách lớp này");
         }
-        centerEscrowAutoSettlementService.markTutorConfirmed(classId);
+        TutoringClass tutoringClass = assignment.getApplication() != null
+                ? assignment.getApplication().getTutoringClass()
+                : null;
+        if (tutoringClass == null) {
+            throw new ResourceNotFoundException("Không tìm thấy lớp học.");
+        }
+        if (tutoringClass.getClassType() == ClassType.CENTER) {
+            centerEscrowAutoSettlementService.markTutorConfirmed(classId);
+            return "Đã xác nhận khóa học hoàn thành. Nếu đủ điều kiện, hệ thống sẽ tự tất toán; nếu chưa, trung tâm sẽ nhận thông báo để xác nhận đóng lớp.";
+        }
+        return marketplaceService.confirmClassCompletion(classId);
     }
 
     private Lesson newLesson(TutoringClass c, ScheduleSlot slot, int seq, Tutor tutor, LocalDate date) {

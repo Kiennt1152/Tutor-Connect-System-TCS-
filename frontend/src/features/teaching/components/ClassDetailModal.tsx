@@ -3,6 +3,7 @@ import { hhmmDisplay } from '../../../shared/utils/format';
 import {
   ASSIGNMENT_STATUS_LABELS,
   ATTENDANCE_STATUS_LABELS,
+  CLASS_STATUS_LABELS,
   type AssignmentResponse,
   type LessonResponse,
 } from '../types/teachingTypes';
@@ -45,6 +46,9 @@ export function ClassDetailModal({ assignment, lessons, classTitle, isClient, on
       : assignment
         ? ASSIGNMENT_STATUS_LABELS[assignment.status]
         : '';
+  const classStatusLabel = assignment?.classStatus
+    ? (CLASS_STATUS_LABELS[assignment.classStatus] ?? assignment.classStatus)
+    : '';
 
   const mode = assignment?.lessonMode ?? '';
   const modeLabel = LESSON_MODE_LABELS[mode] ?? mode;
@@ -63,6 +67,7 @@ export function ClassDetailModal({ assignment, lessons, classTitle, isClient, on
           <div className="cdm__headmain">
             <h3 id="cdm-title">{assignment?.classTitle ?? classTitle}</h3>
             {statusLabel && <span className="cdm__badge">{statusLabel}</span>}
+            {classStatusLabel && <span className="cdm__badge cdm__badge--class">{classStatusLabel}</span>}
           </div>
           <button className="cdm__x" type="button" onClick={onClose} aria-label="Đóng">
             ×

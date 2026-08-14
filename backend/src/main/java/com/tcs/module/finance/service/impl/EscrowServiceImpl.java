@@ -341,7 +341,7 @@ public class EscrowServiceImpl implements EscrowService {
 
         PaymentTransaction feeTransaction = new PaymentTransaction();
         feeTransaction.setWallet(platformWallet);
-        feeTransaction.setType(PaymentTransactionType.PLATFORM_FEE);
+        feeTransaction.setType(PaymentTransactionType.DEPOSIT);
         feeTransaction.setStatus(PaymentTransactionStatus.SUCCESS);
         feeTransaction.setAmount(fee);
         feeTransaction.setDescription("Phí nền tảng escrow #" + escrow.getEscrowId()
@@ -352,7 +352,7 @@ public class EscrowServiceImpl implements EscrowService {
     }
 
     private BigDecimal resolvePlatformFeeRate() {
-        BigDecimal fallback = new BigDecimal("0.10");
+        BigDecimal fallback = new BigDecimal("0.02");
         if (systemParameterRepository == null) {
             return fallback;
         }

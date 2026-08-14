@@ -40,6 +40,8 @@ import java.util.Optional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
+    private static final String PLATFORM_FEE_REFERENCE_PREFIX = "PLATFORM_FEE-";
+
 
     private final UserRepository userRepository;
     private final TutorRepository tutorRepository;
@@ -81,12 +83,13 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         BigDecimal totalRevenue = allTransactions.stream()
                 .filter(pt -> pt.getStatus() == PaymentTransactionStatus.SUCCESS 
                            && (pt.getType() == PaymentTransactionType.DEPOSIT 
-                            || pt.getType() == PaymentTransactionType.ESCROW_DEPOSIT))
+                            || pt.getType() == PaymentTransactionType.ESCROW_DEPOSIT)
+                           && !isPlatformFeeTransaction(pt))
                 .map(PaymentTransaction::getAmount)
                 .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal platformFeeRate = new BigDecimal("0.10");
+        BigDecimal platformFeeRate = new BigDecimal("0.02");
         Optional<SystemParameter> paramOpt = systemParameterRepository.findByParamKey("PLATFORM_FEE_RATE");
         if (paramOpt.isPresent() && paramOpt.get().getParamValue() != null) {
             try {
@@ -95,7 +98,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                 // ignore, fallback to default
             }
         }
-        BigDecimal platformFeeRevenue = sumTransactions(allTransactions, PaymentTransactionType.PLATFORM_FEE);
+        BigDecimal platformFeeRevenue = sumPlatformFeeTransactions(allTransactions);
         BigDecimal deposits = sumTransactions(allTransactions, PaymentTransactionType.DEPOSIT);
         BigDecimal withdrawals = sumTransactions(allTransactions, PaymentTransactionType.WITHDRAWAL);
         BigDecimal escrowDeposited = sumTransactions(allTransactions, PaymentTransactionType.ESCROW_DEPOSIT);
@@ -217,10 +220,27 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
 
     private BigDecimal sumTransactions(List<PaymentTransaction> transactions, PaymentTransactionType type) {
         return transactions.stream()
-                .filter(item -> item.getStatus() == PaymentTransactionStatus.SUCCESS && item.getType() == type)
+                .filter(item -> item.getStatus() == PaymentTransactionStatus.SUCCESS
+                        && item.getType() == type
+                        && !isPlatformFeeTransaction(item))
                 .map(PaymentTransaction::getAmount)
                 .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private BigDecimal sumPlatformFeeTransactions(List<PaymentTransaction> transactions) {
+        return transactions.stream()
+                .filter(item -> item.getStatus() == PaymentTransactionStatus.SUCCESS
+                        && isPlatformFeeTransaction(item))
+                .map(PaymentTransaction::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private boolean isPlatformFeeTransaction(PaymentTransaction transaction) {
+        return transaction != null
+                && transaction.getReferenceCode() != null
+                && transaction.getReferenceCode().startsWith(PLATFORM_FEE_REFERENCE_PREFIX);
     }
 
     private boolean inRange(LocalDateTime value, LocalDate from, LocalDate to) {

@@ -263,7 +263,7 @@ class EscrowServiceImplTest {
         PaymentTransaction fee = paymentCaptor.getAllValues().get(1);
         assertEquals(PaymentTransactionType.ESCROW_RELEASE, release.getType());
         assertEquals(new BigDecimal("450000.00"), release.getAmount());
-        assertEquals(PaymentTransactionType.PLATFORM_FEE, fee.getType());
+        assertEquals(PaymentTransactionType.DEPOSIT, fee.getType());
         assertEquals(new BigDecimal("50000.00"), fee.getAmount());
         assertEquals("PLATFORM_FEE-15", fee.getReferenceCode());
     }

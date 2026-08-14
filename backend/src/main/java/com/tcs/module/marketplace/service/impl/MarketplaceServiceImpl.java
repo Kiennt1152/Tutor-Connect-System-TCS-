@@ -1697,6 +1697,21 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 classId);
     }
 
+    private void sendReviewNotification(User user, String title, String content, Long classId) {
+        if (user == null) {
+            return;
+        }
+        notificationDispatchService.notifyUserFromTemplate(
+                user,
+                com.tcs.module.messaging.enums.NotificationType.REVIEW,
+                "MARKETPLACE_CLASS_REVIEW_REQUIRED",
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                "TUTORING_CLASS",
+                classId);
+    }
+
     private void notifyStudentEnrollmentSuccess(ClassStudent classStudent) {
         if (classStudent == null || classStudent.getEnrolledByUser() == null || classStudent.getTutoringClass() == null) {
             return;
@@ -2363,6 +2378,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .assignmentId(assignment.getAssignmentId())
                 .classId(c.getClassId())
                 .classTitle(c.getTitle())
+                .classStatus(c.getStatus().name())
                 .clientName(c.getCreator().getEmail())
                 .tutorName(assignment.getTutor().getFullName())
                 .status(assignment.getStatus().name())
@@ -2590,7 +2606,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
 
         // Chưa đánh giá -> mời học viên đánh giá; lớp đóng khi học viên đánh giá xong.
-        sendClassNotification(
+        sendReviewNotification(
                 c.getCreator(),
                 "Vui lòng đánh giá gia sư để hoàn thành lớp",
                 "Gia sư đã đánh dấu lớp \"" + c.getTitle()
