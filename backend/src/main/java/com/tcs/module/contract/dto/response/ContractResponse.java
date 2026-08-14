@@ -69,6 +69,7 @@ public class ContractResponse {
     private RefundPayoutInfoView refundPayoutInfo;
     private Integer totalSessions;
     private Integer completedSessions;
+    @Builder.Default
     private boolean refundAllowed = true;
     private String refundBlockedReason;
 
