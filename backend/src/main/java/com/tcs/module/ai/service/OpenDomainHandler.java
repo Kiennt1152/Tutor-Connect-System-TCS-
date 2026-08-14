@@ -1,17 +1,26 @@
 package com.tcs.module.ai.service;
 
 import com.tcs.module.ai.enums.AiSubIntent;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 @Service
+@RequiredArgsConstructor
 public class OpenDomainHandler {
+
+    private final WeatherService weatherService;
+    private final ContentSafetyFilter contentSafetyFilter;
 
     public record OpenDomainResponse(
         String answer,
@@ -28,16 +37,35 @@ public class OpenDomainHandler {
     }
 
     private static final Pattern SIMPLE_ARITHMETIC = Pattern.compile("([0-9]+(?:\\.[0-9]+)?)\\s*([+\\-*/÷×^%])\\s*([0-9]+(?:\\.[0-9]+)?)");
+    private final Map<String, String> responseCache = new ConcurrentHashMap<>();
+
+    public OpenDomainHandler() {
+        this.weatherService = new WeatherService();
+        this.contentSafetyFilter = new ContentSafetyFilter();
+    }
 
     public OpenDomainResponse handle(AiSubIntent subIntent, String query, Map<String, String> extractedData) {
         if (subIntent == null) {
             subIntent = AiSubIntent.GENERAL_KNOWLEDGE;
         }
 
+        // 1. Content Safety Check First
+        ContentSafetyFilter.SafetyCheckResult safety = contentSafetyFilter.checkQuery(query);
+        if (!safety.isSafe()) {
+            return new OpenDomainResponse(
+                safety.suggestedResponse(),
+                null,
+                safety.isCrisis() ? "/help" : "/tim-gia-su",
+                safety.isCrisis()
+                    ? List.of("Tổng đài Trẻ em (111)", "Đường dây nóng Sức khỏe Tâm thần (1800 599 920)", "Trung tâm trợ giúp (/help)")
+                    : List.of("Tìm gia sư uy tín (/tim-gia-su)", "Quy tắc cộng đồng (/help)")
+            );
+        }
+
         return switch (subIntent) {
             case MATH_CALCULATION -> handleMath(extractedData.getOrDefault("expression", query));
             case TIME_DATE_QUERY -> handleTimeDate(query);
-            case WEATHER_QUERY -> handleWeather(extractedData.getOrDefault("location", "khu vực của bạn"));
+            case WEATHER_QUERY -> handleWeather(extractedData.getOrDefault("location", "Hà Nội"));
             case DEFINITION_LOOKUP -> handleDefinition(extractedData.getOrDefault("term", query));
             case ENTERTAINMENT -> handleEntertainment(extractedData.getOrDefault("topic", query));
             case NEWS_CURRENT_EVENTS -> handleNews(extractedData.getOrDefault("topic", query));
@@ -46,7 +74,14 @@ public class OpenDomainHandler {
     }
 
     public OpenDomainResponse handleMath(String expression) {
-        String answer = computeSimpleMath(expression);
+        String cacheKey = "math:" + (expression != null ? expression.trim().toLowerCase() : "");
+        String cachedAnswer = responseCache.get(cacheKey);
+
+        String answer = (cachedAnswer != null) ? cachedAnswer : computeSimpleMath(expression);
+        if (cachedAnswer == null && expression != null) {
+            responseCache.put(cacheKey, answer);
+        }
+
         String steering = "Nếu bạn có các dạng bài tập khó hơn cần giải thích phương pháp giải chi tiết, hoặc muốn tìm gia sư dạy kèm 1-1, hãy gửi yêu cầu cho tôi nhé!";
         return new OpenDomainResponse(
             answer,
@@ -70,7 +105,23 @@ public class OpenDomainHandler {
     }
 
     public OpenDomainResponse handleWeather(String location) {
-        String answer = "Để theo dõi thông tin thời tiết chính xác và mới nhất tại " + location + ", bạn có thể kiểm tra ứng dụng thời tiết trên điện thoại hoặc trang dự báo khí tượng thủy văn.";
+        Optional<WeatherService.WeatherInfo> weatherOpt = weatherService.getWeather(location);
+
+        String answer;
+        if (weatherOpt.isPresent()) {
+            WeatherService.WeatherInfo w = weatherOpt.get();
+            answer = String.format(
+                Locale.of("vi", "VN"),
+                "Thời tiết tại **%s** hiện tại:\n" +
+                "• 🌡️ **Nhiệt độ**: %.1f°C\n" +
+                "• ☁️ **Tình trạng**: %s\n" +
+                "• 💧 **Độ ẩm**: %d%%",
+                w.location(), w.tempC(), w.condition(), w.humidity()
+            );
+        } else {
+            answer = "Để theo dõi thông tin thời tiết chính xác và mới nhất tại " + location + ", bạn có thể kiểm tra ứng dụng thời tiết trên điện thoại hoặc trang dự báo khí tượng thủy văn.";
+        }
+
         String steering = "Nếu thời tiết mưa gió bất tiện ra ngoài, bạn hoàn toàn có thể lựa chọn hình thức học Gia sư Online qua Zoom/Google Meet tiện lợi trên TCS!";
         return new OpenDomainResponse(
             answer,

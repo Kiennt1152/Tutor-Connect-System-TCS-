@@ -57,6 +57,10 @@ public class AiServiceImpl implements AiService {
     private final AiFallbackService fallbackService;
     private final AiHallucinationGuard hallucinationGuard;
     private final OpenDomainHandler openDomainHandler;
+    private final ContentSafetyFilter contentSafetyFilter;
+    private final OpenDomainRateLimiter openDomainRateLimiter;
+    private final ConversationContextService conversationContextService;
+    private final OpenDomainAnalytics openDomainAnalytics;
 
     private final AiTicketContextProvider ticketContextProvider;
     private final AiAdminDashboardContextProvider dashboardContextProvider;
@@ -100,6 +104,41 @@ public class AiServiceImpl implements AiService {
         userMsg.setContent(request.getMessage());
         messageRepository.save(userMsg);
 
+        // 0. Content Safety & Crisis Fast-Path Filter
+        ContentSafetyFilter.SafetyCheckResult safetyCheck = contentSafetyFilter.checkQuery(request.getMessage());
+        if (!safetyCheck.isSafe()) {
+            AiChatMessage aiMsg = new AiChatMessage();
+            aiMsg.setSession(session);
+            aiMsg.setRole("assistant");
+            aiMsg.setContent(safetyCheck.suggestedResponse());
+            messageRepository.save(aiMsg);
+            sessionRepository.save(session);
+
+            return AiMessageResponse.builder()
+                    .messageId(aiMsg.getMessageId())
+                    .sessionId(session.getSessionId())
+                    .role("assistant")
+                    .content(safetyCheck.suggestedResponse())
+                    .createdAt(aiMsg.getCreatedAt())
+                    .intent(AiIntent.OUT_OF_SCOPE.name())
+                    .domain(AiDomain.CONVERSATION_SAFETY.name())
+                    .subIntent(AiSubIntent.OUT_OF_SCOPE.name())
+                    .suggestedRoute("/help")
+                    .clarificationOptions(safetyCheck.isCrisis()
+                        ? List.of("Tổng đài Trẻ em (111)", "Đường dây nóng Sức khỏe Tâm thần (1800 599 920)", "Trung tâm trợ giúp (/help)")
+                        : List.of("Tìm gia sư uy tín (/tim-gia-su)", "Quy tắc cộng đồng (/help)"))
+                    .answerMode("SAFETY_FILTER")
+                    .confidenceScore(1.0)
+                    .confidenceLevel("HIGH")
+                    .sourceCount(0)
+                    .groundingStatus("SAFETY_FILTERED")
+                    .sources(List.of())
+                    .referencedTutors(List.of())
+                    .referencedClasses(List.of())
+                    .referencedFaqs(List.of())
+                    .build();
+        }
+
         List<AiChatMessage> history = contextService.getHistory(session.getSessionId());
 
         // 1. 3-Tier Classification (Domain -> SubIntent -> Entities)
@@ -109,6 +148,14 @@ public class AiServiceImpl implements AiService {
         AiIntent legacyIntent = classification.legacyIntent();
         Map<String, String> entities = classification.entities();
         String suggestedRoute = classification.suggestedRoute();
+
+        // 1.1 Multi-turn Context & Follow-up Resolution
+        ConversationContextService.FollowUpResolution followUp = conversationContextService.resolveFollowUp(session.getSessionId(), request.getMessage(), entities);
+        if (followUp.isFollowUp()) {
+            if (followUp.domain() != null) domain = followUp.domain();
+            if (followUp.subIntent() != null) subIntent = followUp.subIntent();
+            if (followUp.resolvedEntities() != null) entities = followUp.resolvedEntities();
+        }
 
         // 2. Fast-Path Level 0 Safety & Conversational Fallback (Deterministic, no LLM)
         AiFallbackService.FallbackResult safetyResult = fallbackService.checkLevel0Safety(subIntent);
@@ -179,10 +226,45 @@ public class AiServiceImpl implements AiService {
                     .build();
         }
 
-        // 4.5. Open Domain Handling with Soft Steering
+        // 4.5. Open Domain Handling with Rate Limiting, Soft Steering & Analytics
         if (domain == AiDomain.OPEN_DOMAIN) {
+            if (!openDomainRateLimiter.allowRequest(userId, session.getSessionId(), subIntent)) {
+                String rateLimitMsg = "Bạn đã gửi quá nhiều câu hỏi trong thời gian ngắn. Vui lòng chờ 1 phút hoặc hỏi về dịch vụ tìm gia sư / lớp học của TCS để được hỗ trợ tốt nhất.";
+                AiChatMessage aiMsg = new AiChatMessage();
+                aiMsg.setSession(session);
+                aiMsg.setRole("assistant");
+                aiMsg.setContent(rateLimitMsg);
+                messageRepository.save(aiMsg);
+                sessionRepository.save(session);
+
+                return AiMessageResponse.builder()
+                        .messageId(aiMsg.getMessageId())
+                        .sessionId(session.getSessionId())
+                        .role("assistant")
+                        .content(rateLimitMsg)
+                        .createdAt(aiMsg.getCreatedAt())
+                        .intent(legacyIntent.name())
+                        .domain(domain.name())
+                        .subIntent(subIntent.name())
+                        .suggestedRoute("/tim-gia-su")
+                        .clarificationOptions(List.of("Tìm gia sư (/tim-gia-su)", "Xem lớp học (/lop-hoc)", "Trung tâm trợ giúp (/help)"))
+                        .answerMode("RATE_LIMITED")
+                        .confidenceScore(1.0)
+                        .confidenceLevel("HIGH")
+                        .sourceCount(0)
+                        .groundingStatus("RATE_LIMITED")
+                        .sources(List.of())
+                        .referencedTutors(List.of())
+                        .referencedClasses(List.of())
+                        .referencedFaqs(List.of())
+                        .build();
+            }
+
             OpenDomainHandler.OpenDomainResponse openResp = openDomainHandler.handle(subIntent, request.getMessage(), entities);
             String fullContent = openResp.formatFullResponse();
+
+            openDomainAnalytics.track(userId, session.getSessionId(), subIntent, request.getMessage(), openResp.suggestedRoute(), openResp.ctaButtons());
+            conversationContextService.saveContext(session.getSessionId(), domain, subIntent, entities, request.getMessage());
 
             AiChatMessage aiMsg = new AiChatMessage();
             aiMsg.setSession(session);
@@ -358,6 +440,7 @@ public class AiServiceImpl implements AiService {
 
         messageRepository.save(aiMsg);
         sessionRepository.save(session);
+        conversationContextService.saveContext(session.getSessionId(), domain, subIntent, entities, request.getMessage());
 
         return AiMessageResponse.builder()
                 .messageId(aiMsg.getMessageId())
