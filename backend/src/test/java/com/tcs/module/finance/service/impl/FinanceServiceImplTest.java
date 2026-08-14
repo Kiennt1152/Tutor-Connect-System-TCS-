@@ -31,6 +31,7 @@ import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
 import com.tcs.module.finance.service.CenterRequestFeeService;
+import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.PaymentNotificationService;
 import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.identity.entity.User;
@@ -104,10 +105,10 @@ class FinanceServiceImplTest {
     private CenterRequestFeeService centerRequestFeeService;
 
     @Mock
-    private PaymentNotificationService paymentNotificationService;
+    private EscrowService escrowService;
 
     @Mock
-    private CenterRequestFeeService centerRequestFeeService;
+    private PaymentNotificationService paymentNotificationService;
 
     @Mock
     private PlatformAdminRepository platformAdminRepository;
@@ -285,9 +286,10 @@ class FinanceServiceImplTest {
                 amount))
                 .thenReturn(List.of(tx));
         when(centerRequestFeeService.isCenterRequestFeePayment(tx)).thenReturn(false);
-        when(escrowTransactionRepository.findByPayment_TransactionId(88L)).thenReturn(Optional.of(escrow));
-        when(escrowTransactionRepository.save(any(EscrowTransaction.class)))
-                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(escrowService.fundConfirmedPayment(tx)).thenAnswer(invocation -> {
+            escrow.setStatus(EscrowStatus.FUNDED);
+            return escrow;
+        });
 
         PaymentWebhookResponse response = financeService.handleSepayWebhook(request);
 
@@ -297,7 +299,7 @@ class FinanceServiceImplTest {
         assertEquals("456", tx.getExternalTransactionId());
         assertEquals(EscrowStatus.FUNDED, escrow.getStatus());
         verify(paymentTransactionRepository).save(tx);
-        verify(escrowTransactionRepository).save(escrow);
+        verify(escrowService).fundConfirmedPayment(tx);
         verify(eventPublisher).publishEvent(any(EscrowFunded.class));
     }
 
@@ -529,7 +531,7 @@ class FinanceServiceImplTest {
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
         when(walletService.getRequired(USER_ID)).thenReturn(wallet);
-        when(paymentMethodRepository.findByWallet_WalletIdAndStatusOrderByPaymentMethodIdAsc(USER_ID, "ACTIVE"))
+        when(paymentMethodRepository.findByWallet_WalletIdAndStatusOrderByLastUsedAtDescPaymentMethodIdAsc(USER_ID, "ACTIVE"))
                 .thenReturn(List.of(method));
 
         List<PaymentMethodResponse> response = financeService.getPaymentMethods();
@@ -552,7 +554,7 @@ class FinanceServiceImplTest {
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
         when(walletService.getRequired(USER_ID)).thenReturn(wallet);
-        when(paymentMethodRepository.findByWallet_WalletIdAndStatusOrderByPaymentMethodIdAsc(USER_ID, "ACTIVE"))
+        when(paymentMethodRepository.findByWallet_WalletIdAndStatusOrderByLastUsedAtDescPaymentMethodIdAsc(USER_ID, "ACTIVE"))
                 .thenReturn(List.of());
         when(paymentMethodRepository.findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
                 USER_ID, "TPBank", "1234567890", "ACTIVE"))
@@ -641,9 +643,7 @@ class FinanceServiceImplTest {
     void createWithdrawalCreatesPendingRequest() {
         CreateWithdrawalRequest request = new CreateWithdrawalRequest();
         request.setAmount(new BigDecimal("100000.00"));
-        request.setBankName("TPBank");
-        request.setAccountNo("1234567890");
-        request.setAccountHolderName("Nguyễn Văn A");
+        request.setPaymentMethodId(3L);
 
         PaymentMethod savedMethod = new PaymentMethod();
         savedMethod.setPaymentMethodId(3L);
@@ -651,6 +651,7 @@ class FinanceServiceImplTest {
         savedMethod.setType("BANK_TRANSFER");
         savedMethod.setBankName("TPBank");
         savedMethod.setAccountNo("1234567890");
+        savedMethod.setAccountHolderName("Nguyễn Văn A");
         savedMethod.setStatus("ACTIVE");
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
@@ -662,10 +663,9 @@ class FinanceServiceImplTest {
         PlatformAdmin admin = new PlatformAdmin();
         admin.setUser(adminUser);
         when(platformAdminRepository.findAll()).thenReturn(List.of(admin));
-        when(paymentMethodRepository.findByWallet_WalletIdAndBankNameIgnoreCaseAndAccountNoAndStatus(
-                USER_ID, "TPBank", "1234567890", "ACTIVE"))
-                .thenReturn(Optional.empty());
-        when(paymentMethodRepository.save(any(PaymentMethod.class))).thenReturn(savedMethod);
+        when(paymentMethodRepository.findByPaymentMethodIdAndWallet_WalletIdAndStatus(
+                3L, USER_ID, "ACTIVE"))
+                .thenReturn(Optional.of(savedMethod));
         when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
                 .thenAnswer(invocation -> invocation.getArgument(0));
         when(withdrawalRequestRepository.save(any(WithdrawalRequest.class))).thenAnswer(invocation -> {
@@ -718,6 +718,7 @@ class FinanceServiceImplTest {
         paymentMethod.setType("BANK_TRANSFER");
         paymentMethod.setBankName("TPBank");
         paymentMethod.setAccountNo("1234567890");
+        paymentMethod.setAccountHolderName("Nguyễn Văn A");
         paymentMethod.setStatus("ACTIVE");
 
         when(authHelper.currentUserId()).thenReturn(USER_ID);
@@ -868,7 +869,7 @@ class FinanceServiceImplTest {
         tx.setType(PaymentTransactionType.DEPOSIT);
         tx.setStatus(PaymentTransactionStatus.PENDING);
         tx.setAmount(amount);
-        tx.setDescription("Nạp tiền ví qua VietQR");
+        tx.setDescription("Nạp tiền ví qua mã QR chuyển khoản");
         tx.setReferenceCode(reference);
         tx.setCreatedAt(LocalDateTime.now());
         return tx;

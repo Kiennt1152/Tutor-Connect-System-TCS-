@@ -196,6 +196,17 @@
   background: var(--color-primary-light);
 }
 
+.withdrawal-empty-method {
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  border: 1px solid var(--color-warning-light);
+  border-radius: var(--radius-md);
+  background: var(--color-warning-light);
+  color: var(--color-warning);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+}
+
 /* ── Payment Methods ───────────────────────────────────────────────── */
 
 .payment-methods {

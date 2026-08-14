@@ -1,9 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
 import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
 import '../../finance/FinancePage.css';
-import { RefundRequestModal } from '../../marketplace/components/RefundRequestModal';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
@@ -247,7 +246,6 @@ export default function ContractDetailPage() {
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [signSuccess, setSignSuccess] = useState(false);
   const [issueModalOpen, setIssueModalOpen] = useState(false);
-  const [refundModalOpen, setRefundModalOpen] = useState(false);
   const [payoutBankName, setPayoutBankName] = useState('');
   const [payoutAccountNo, setPayoutAccountNo] = useState('');
   const [payoutAccountHolder, setPayoutAccountHolder] = useState('');
@@ -260,6 +258,13 @@ export default function ContractDetailPage() {
     tone: PaymentToastTone;
     message: string;
   } | null>(null);
+  const currentEscrowPayment = contract?.escrowPayment ?? null;
+  const shouldAutoCheckEscrowPayment =
+    Boolean(currentEscrowPayment)
+    && !isEscrowPaymentConfirmed(
+      currentEscrowPayment?.paymentStatus,
+      currentEscrowPayment?.escrowStatus,
+    );
 
   useEffect(() => {
     if (id) void reload(id);
@@ -353,14 +358,14 @@ export default function ContractDetailPage() {
     }
   };
 
-  const showPaymentToast = (tone: PaymentToastTone, message: string, autoClose = true) => {
+  const showPaymentToast = useCallback((tone: PaymentToastTone, message: string, autoClose = true) => {
     setPaymentToast({ tone, message });
     if (autoClose) {
       window.setTimeout(() => setPaymentToast(null), 4200);
     }
-  };
+  }, []);
 
-  const handleCheckEscrowPaymentStatus = async () => {
+  const checkEscrowPaymentStatus = useCallback(async (silentPending = false) => {
     if (!id || checkingPaymentStatus || paymentReloading) return;
     setCheckingPaymentStatus(true);
     try {
@@ -379,22 +384,41 @@ export default function ContractDetailPage() {
         return;
       }
 
-      const statusText = latestPayment?.paymentStatus
-        ? PAYMENT_STATUS_LABEL[latestPayment.paymentStatus] ?? latestPayment.paymentStatus
-        : 'chưa có giao dịch';
-      showPaymentToast(
-        'warning',
-        `Chưa ghi nhận thanh toán thành công. Trạng thái hiện tại: ${statusText}.`,
-      );
+      if (!silentPending) {
+        const statusText = latestPayment?.paymentStatus
+          ? PAYMENT_STATUS_LABEL[latestPayment.paymentStatus] ?? latestPayment.paymentStatus
+          : 'chưa có giao dịch';
+        showPaymentToast(
+          'warning',
+          `Chưa ghi nhận thanh toán thành công. Trạng thái hiện tại: ${statusText}.`,
+        );
+      }
     } catch (error) {
-      showPaymentToast(
-        error instanceof Error ? 'error' : 'warning',
-        getApiMessage(error, 'Không quét được trạng thái thanh toán.'),
-      );
+      if (!silentPending) {
+        showPaymentToast(
+          error instanceof Error ? 'error' : 'warning',
+          getApiMessage(error, 'Không quét được trạng thái thanh toán.'),
+        );
+      }
     } finally {
       setCheckingPaymentStatus(false);
     }
+  }, [checkingPaymentStatus, id, paymentReloading, showPaymentToast]);
+
+  const handleCheckEscrowPaymentStatus = () => {
+    void checkEscrowPaymentStatus(false);
   };
+
+  useEffect(() => {
+    if (!shouldAutoCheckEscrowPayment || paymentReloading) return undefined;
+
+    const timer = window.setInterval(() => {
+      if (document.hidden) return;
+      void checkEscrowPaymentStatus(true);
+    }, 5000);
+
+    return () => window.clearInterval(timer);
+  }, [checkEscrowPaymentStatus, paymentReloading, shouldAutoCheckEscrowPayment]);
 
   if (loading) {
     return (
@@ -451,11 +475,11 @@ export default function ContractDetailPage() {
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
   const canCreateIssue = contract.classId != null;
   const selectedPayoutBank = findBankByName(payoutBankName);
+  const displayTuitionFee = contract.totalTuitionAmount ?? contract.tuitionFee;
   const needsRefundPayoutInfo =
     Boolean(visibleEscrowPayment)
     && !contract.refundPayoutInfo
     && isClient;
-  const canRequestRefund = isClient && contract.refundAllowed !== false;
   const classDetailUrl = contract.classId
     ? `/marketplace/classes/${contract.classId}${
         contract.classStudentId
@@ -514,14 +538,6 @@ export default function ContractDetailPage() {
             >
               Báo cáo sự cố
             </button>
-            <button
-              className="tcs-btn tcs-btn--ghost"
-              type="button"
-              disabled={!canCreateIssue || !canRequestRefund}
-              onClick={() => setRefundModalOpen(true)}
-            >
-              Yêu cầu hoàn tiền
-            </button>
             {classDetailUrl ? (
               <Link
                 className="tcs-btn tcs-btn--primary"
@@ -531,11 +547,6 @@ export default function ContractDetailPage() {
               </Link>
             ) : null}
           </div>
-          {!canRequestRefund ? (
-            <p className="contract-muted">
-              {contract.refundBlockedReason ?? 'Lớp center đã học quá 50% số buổi nên không thể yêu cầu hoàn tiền.'}
-            </p>
-          ) : null}
         </section>
 
         <div className="contract-detail-grid">
@@ -565,7 +576,7 @@ export default function ContractDetailPage() {
                   </div>
                   <div>
                     <dt>Học phí</dt>
-                    <dd>{formatCurrency(contract.tuitionFee)}</dd>
+                    <dd>{formatCurrency(displayTuitionFee)}</dd>
                   </div>
                 </>
               )}
@@ -939,14 +950,6 @@ export default function ContractDetailPage() {
             classTitle={contract.classTitle}
             currentUserRole={user?.role}
             onClose={() => setIssueModalOpen(false)}
-          />
-          <RefundRequestModal
-            open={refundModalOpen}
-            classTitle={contract.classTitle}
-            assignmentId={contract.assignmentId}
-            classStudentId={contract.classStudentId}
-            amountHint={canRequestRefund && contract.tuitionFee != null ? Number(contract.tuitionFee) : null}
-            onClose={() => setRefundModalOpen(false)}
           />
         </>
       ) : null}

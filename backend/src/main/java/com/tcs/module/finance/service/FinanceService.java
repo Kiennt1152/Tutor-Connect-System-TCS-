@@ -44,6 +44,8 @@ public interface FinanceService {
 
     PaymentMethodResponse updatePaymentMethod(Long paymentMethodId, PaymentMethodRequest request);
 
+    PaymentMethodResponse setDefaultPaymentMethod(Long paymentMethodId);
+
     void deletePaymentMethod(Long paymentMethodId);
 
     WithdrawalResponse createWithdrawal(CreateWithdrawalRequest request);
