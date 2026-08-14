@@ -16,9 +16,11 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class AiIntentService {
 
-    private final IntentClassifier intentClassifier;
-
-    public record IntentResultWithEntities(AiIntent intent, double confidence, Map<String, String> entities) {}
+    public record IntentResultWithEntities(
+        AiIntent intent,
+        double confidence,
+        Map<String, String> entities
+    ) {}
 
     public record DetailedIntentResult(
         AiDomain domain,
@@ -29,9 +31,15 @@ public class AiIntentService {
         String suggestedRoute
     ) {}
 
-    public IntentResultWithEntities classifyAndExtract(String message) {
+    private final IntentClassifier intentClassifier;
+
+    public IntentResultWithEntities classify(String message) {
         DetailedIntentResult detailed = classifyAndExtractDetailed(message);
         return new IntentResultWithEntities(detailed.legacyIntent(), detailed.confidence(), detailed.entities());
+    }
+
+    public IntentResultWithEntities classifyAndExtract(String message) {
+        return classify(message);
     }
 
     public DetailedIntentResult classifyAndExtractDetailed(String message) {
@@ -81,7 +89,25 @@ public class AiIntentService {
             entities.put("grade", gradeMatcher.group(2));
         }
 
-        // 3. Extract Location
+        // 3. Extract Stage / Educational Level
+        if (lower.contains("tiểu học") || normalized.contains("tieu hoc") || lower.contains("cấp 1") || normalized.contains("cap 1")) {
+            entities.put("level", "Tiểu học");
+        } else if (lower.contains("thcs") || lower.contains("cấp 2") || normalized.contains("cap 2")) {
+            entities.put("level", "THCS");
+        } else if (lower.contains("thpt") || lower.contains("cấp 3") || normalized.contains("cap 3") || lower.contains("luyện thi đại học") || normalized.contains("luyen thi dai hoc")) {
+            entities.put("level", "THPT");
+        } else if (lower.contains("đại học") || normalized.contains("dai hoc") || lower.contains("sinh viên") || normalized.contains("sinh vien")) {
+            entities.put("level", "Đại học");
+        }
+
+        // 4. Extract Mode (Online vs Offline / Tại nhà)
+        if (lower.contains("online") || lower.contains("trực tuyến") || normalized.contains("truc tuyen") || normalized.contains("qua mang") || normalized.contains("zoom") || normalized.contains("meet")) {
+            entities.put("mode", "ONLINE");
+        } else if (lower.contains("tại nhà") || normalized.contains("tai nha") || lower.contains("offline") || lower.contains("trực tiếp") || normalized.contains("truc tiep")) {
+            entities.put("mode", "OFFLINE");
+        }
+
+        // 5. Extract Location
         if (lower.contains("cầu giấy") || normalized.contains("cau giay")) entities.put("location", "Cầu Giấy");
         else if (lower.contains("đống đa") || normalized.contains("dong da")) entities.put("location", "Đống Đa");
         else if (lower.contains("ba đình") || normalized.contains("ba dinh")) entities.put("location", "Ba Đình");
@@ -115,26 +141,26 @@ public class AiIntentService {
             }
         }
 
-        // 4. Extract Subject
-        if (lower.contains("tiếng việt") || lower.contains("môn tiếng việt") || normalized.contains("tieng viet") || normalized.contains("tiieng viet") || lower.contains("vietnamese")) {
+        // 6. Extract Subject
+        if (lower.contains("tiếng việt") || lower.contains("môn tiếng việt") || normalized.contains("tieng viet") || normalized.contains("tiieng viet") || lower.contains("vietnamese") || lower.contains("luyện chữ") || normalized.contains("luyen chu")) {
             entities.put("subject", "Tiếng Việt");
-        } else if (lower.contains("toán") || normalized.contains("toan") || lower.contains("math")) {
+        } else if (lower.contains("toán") || normalized.contains("toan") || lower.contains("math") || lower.contains("đại số") || lower.contains("hình học")) {
             entities.put("subject", "Toán");
         } else if (lower.contains("tiếng pháp") || lower.contains("môn pháp") || normalized.contains("tieng phap") || normalized.contains("mon phap") || lower.contains("french")) {
             entities.put("subject", "Tiếng Pháp");
-        } else if (lower.contains("tiếng trung") || lower.contains("tiếng hoa") || normalized.contains("tieng trung") || normalized.contains("chinese")) {
+        } else if (lower.contains("tiếng trung") || lower.contains("tiếng hoa") || normalized.contains("tieng trung") || normalized.contains("chinese") || lower.contains("hsk")) {
             entities.put("subject", "Tiếng Trung");
-        } else if (lower.contains("tiếng nhật") || normalized.contains("tieng nhat") || normalized.contains("japanese")) {
+        } else if (lower.contains("tiếng nhật") || normalized.contains("tieng nhat") || normalized.contains("japanese") || lower.contains("jlpt")) {
             entities.put("subject", "Tiếng Nhật");
-        } else if (lower.contains("tiếng hàn") || normalized.contains("tieng han") || normalized.contains("korean")) {
+        } else if (lower.contains("tiếng hàn") || normalized.contains("tieng han") || normalized.contains("korean") || lower.contains("topik")) {
             entities.put("subject", "Tiếng Hàn");
-        } else if (lower.contains("tiếng anh") || normalized.contains("tieng anh") || normalized.contains("ielts") || lower.contains("english") || lower.contains("môn anh") || normalized.contains("gia su anh") || normalized.contains("lop anh")) {
+        } else if (lower.contains("tiếng anh") || normalized.contains("tieng anh") || normalized.contains("ielts") || normalized.contains("toeic") || lower.contains("english") || lower.contains("môn anh") || normalized.contains("gia su anh") || normalized.contains("lop anh")) {
             entities.put("subject", "Anh");
         } else if (lower.contains("vật lý") || lower.contains("môn lý") || normalized.contains("vat ly") || lower.contains("physics") || normalized.contains("gia su ly") || normalized.contains("lop ly")) {
             entities.put("subject", "Lý");
         } else if (lower.contains("hóa học") || lower.contains("môn hóa") || normalized.contains("hoa hoc") || lower.contains("chemistry") || normalized.contains("gia su hoa") || normalized.contains("lop hoa") || (lower.contains("hóa") && !lower.contains("chuyển hóa") && !lower.contains("tài khóa"))) {
             entities.put("subject", "Hóa");
-        } else if (lower.contains("ngữ văn") || lower.contains("môn văn") || normalized.contains("ngu van") || normalized.contains("gia su van") || normalized.contains("lop van")) {
+        } else if (lower.contains("ngữ văn") || lower.contains("môn văn") || normalized.contains("ngu van") || normalized.contains("gia su van") || normalized.contains("lop van") || lower.contains("văn học")) {
             entities.put("subject", "Văn");
         } else if (lower.contains("sinh học") || lower.contains("môn sinh") || normalized.contains("sinh hoc") || normalized.contains("gia su sinh") || normalized.contains("lop sinh")) {
             entities.put("subject", "Sinh");
@@ -142,8 +168,10 @@ public class AiIntentService {
             entities.put("subject", "Sử");
         } else if (lower.contains("địa lý") || lower.contains("môn địa") || normalized.contains("dia ly") || normalized.contains("gia su dia") || normalized.contains("lop dia")) {
             entities.put("subject", "Địa");
-        } else if (lower.contains("tin học") || lower.contains("lập trình") || normalized.contains("tin hoc") || normalized.contains("lap trinh") || normalized.contains("coding") || lower.contains("python")) {
+        } else if (lower.contains("tin học") || lower.contains("lập trình") || normalized.contains("tin hoc") || normalized.contains("lap trinh") || normalized.contains("coding") || lower.contains("python") || lower.contains("scratch") || lower.contains("c++")) {
             entities.put("subject", "Tin học");
+        } else if (lower.contains("khoa học tự nhiên") || normalized.contains("khoa hoc tu nhien") || normalized.contains("khtn")) {
+            entities.put("subject", "KHTN");
         }
 
         return entities;

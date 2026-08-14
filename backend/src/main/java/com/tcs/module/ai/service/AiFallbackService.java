@@ -2,14 +2,15 @@ package com.tcs.module.ai.service;
 
 import com.tcs.module.ai.enums.AiDomain;
 import com.tcs.module.ai.enums.AiSubIntent;
+import com.tcs.module.ai.util.VietnameseTextNormalizer;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
- * 6-level fallback engine for the TCS AI Assistant.
- * Inspired by production chatbot patterns (Rasa handoff, MS CLU None intent, Dialogflow fallback).
+ * 6-level hierarchical fallback engine for the TCS AI Assistant.
+ * Granular slot-aware, context-sensitive clarification & actionable guidance.
  */
 @Service
 public class AiFallbackService {
@@ -48,8 +49,8 @@ public class AiFallbackService {
         AiSubIntent.GIBBERISH,
         "Tôi chưa hiểu rõ yêu cầu của bạn. Bạn có thể thử đặt câu hỏi như:\n" +
         "• *'Tìm cho tôi gia sư môn Toán lớp 12 khu vực Cầu Giấy dưới 250k'*\n" +
-        "• *'Làm sao để đăng ký làm gia sư?'*\n" +
-        "• *'Khi nào tiền học phí được giải ngân?'*",
+        "• *'Có lớp dạy Tiếng Việt nào đang mở không?'*\n" +
+        "• *'Làm sao để nạp tiền vào ví Escrow?'*",
 
         AiSubIntent.HUMAN_SUPPORT_REQUEST,
         "Bạn có thể gửi yêu cầu hỗ trợ trực tiếp tới đội ngũ quản trị viên TCS bằng cách tạo phiếu hỗ trợ tại mục /support/tickets hoặc liên hệ hotline hỗ trợ."
@@ -68,75 +69,143 @@ public class AiFallbackService {
     }
 
     /**
-     * Level 1: Clarification Fallback when intent is ambiguous.
+     * Level 1: Context-sensitive Clarification Fallback when intent is ambiguous.
      */
     public FallbackResult getLevel1Clarification(String originalQuery) {
+        String normalized = originalQuery != null ? VietnameseTextNormalizer.removeDiacritics(originalQuery.toLowerCase()) : "";
+
+        if (normalized.contains("tien") || normalized.contains("vi") || normalized.contains("nap") || normalized.contains("rut") || normalized.contains("escrow") || normalized.contains("phi")) {
+            return new FallbackResult(
+                1,
+                "Có vẻ bạn đang quan tâm đến vấn đề Tài chính & Thanh toán. Vui lòng chọn nội dung cụ thể bạn cần hỗ trợ:",
+                "/finance",
+                List.of(
+                    "Hướng dẫn nạp tiền ví qua QR SePay (/finance)",
+                    "Quy trình rút tiền về tài khoản ngân hàng (/finance)",
+                    "Chính sách bảo vệ học phí ký quỹ Escrow (/help)",
+                    "Chính sách hoàn tiền khi hủy lớp học (/help)"
+                )
+            );
+        }
+
+        if (normalized.contains("lop") || normalized.contains("gia su") || normalized.contains("hoc") || normalized.contains("day")) {
+            return new FallbackResult(
+                1,
+                "Tôi có thể hỗ trợ bạn tìm kiếm và kết nối lớp học. Vui lòng chọn hướng bạn muốn thực hiện:",
+                "/tim-gia-su",
+                List.of(
+                    "Tìm hồ sơ gia sư uy tín (/tim-gia-su)",
+                    "Xem danh sách lớp học đang mở (/lop-hoc)",
+                    "Đăng bài tạo lớp mới tìm gia sư (/tao-lop)",
+                    "Hướng dẫn quy trình đăng ký làm gia sư (/register)"
+                )
+            );
+        }
+
+        if (normalized.contains("khieu nai") || normalized.contains("tranh chap") || normalized.contains("bao cao") || normalized.contains("ticket") || normalized.contains("loi")) {
+            return new FallbackResult(
+                1,
+                "Bạn cần hỗ trợ xử lý sự cố hoặc khiếu nại? Vui lòng chọn nội dung bên dưới:",
+                "/support/tickets",
+                List.of(
+                    "Tạo phiếu yêu cầu hỗ trợ (Ticket) (/support/tickets)",
+                    "Báo cáo hành vi lách sàn / vi phạm quy định",
+                    "Quy trình mở tranh chấp lớp học",
+                    "Tra cứu thời gian cam kết phản hồi SLA"
+                )
+            );
+        }
+
         return new FallbackResult(
             1,
             "Tôi có thể hỗ trợ bạn theo các hướng sau. Vui lòng chọn nội dung bạn quan tâm:",
             null,
             List.of(
-                "Tìm gia sư theo môn và khu vực",
-                "Tìm lớp học đang tuyển gia sư",
-                "Hướng dẫn thanh toán / Rút tiền ví",
-                "Tạo ticket khiếu nại / Hỗ trợ"
+                "Tìm gia sư theo môn và khu vực (/tim-gia-su)",
+                "Tìm lớp học đang tuyển gia sư (/lop-hoc)",
+                "Hướng dẫn nạp tiền / Rút tiền ví (/finance)",
+                "Tạo ticket khiếu nại / Hỗ trợ (/support/tickets)"
             )
         );
     }
 
     /**
-     * Level 2: Missing Slot Prompt when required search parameters are missing.
+     * Level 2: Missing Slot Prompt with context-aware parameter suggestions.
      */
     public FallbackResult getLevel2MissingSlots(AiSubIntent subIntent, Set<String> missingSlots) {
         if (subIntent == AiSubIntent.FIND_TUTOR && missingSlots.contains("subject")) {
             return new FallbackResult(
                 2,
-                "Bạn muốn tìm gia sư cho **môn học nào**, **khối lớp mấy** và tại **khu vực nào** (hoặc học Online)?",
+                "Bạn muốn tìm gia sư cho **môn học nào** (ví dụ: Toán, Lý, Hóa, Tiếng Anh, Tiếng Việt...), **khối lớp mấy** và tại **khu vực nào** (hoặc học Online)?",
                 "/tim-gia-su",
-                List.of("Gia sư Toán 12", "Gia sư Tiếng Anh IELTS", "Gia sư Vật lý 10")
+                List.of("Gia sư Toán 12 Cầu Giấy", "Gia sư Tiếng Anh IELTS Online", "Gia sư Tiếng Việt Tiểu học", "Gia sư Vật lý 10")
             );
         }
         if (subIntent == AiSubIntent.FIND_CLASS && missingSlots.contains("subject")) {
             return new FallbackResult(
                 2,
-                "Bạn muốn tìm lớp dạy kèm cho **môn học nào** và tại **khu vực nào**?",
+                "Bạn muốn tìm lớp dạy kèm cho **môn học nào** và tại **khu vực nào** (hoặc lớp Online)?",
                 "/lop-hoc",
-                List.of("Lớp Toán đang mở", "Lớp Tiếng Anh đang mở", "Lớp Hóa đang mở")
+                List.of("Lớp Toán đang mở", "Lớp Tiếng Anh đang mở", "Lớp Tiếng Việt đang mở", "Lớp Hóa đang mở")
             );
         }
-        return new FallbackResult(2, "Vui lòng cung cấp thêm thông tin chi tiết để tôi hỗ trợ bạn chính xác nhất.", null, List.of());
+        return new FallbackResult(2, "Vui lòng cung cấp thêm thông tin chi tiết về môn học, khối lớp hoặc khu vực để tôi hỗ trợ bạn chính xác nhất.", null, List.of());
     }
 
     /**
-     * Level 3: Domain No-Data Fallback when database returns zero matched records.
+     * Level 3: Domain No-Data Fallback with helpful Call-To-Action (CTA).
      */
     public FallbackResult getLevel3NoData(AiSubIntent subIntent, Map<String, String> entities) {
+        String subject = entities.getOrDefault("subject", "");
+        String grade = entities.getOrDefault("grade", "");
+        String location = entities.getOrDefault("location", "");
+        String mode = entities.getOrDefault("mode", "");
+
         if (subIntent == AiSubIntent.FIND_TUTOR) {
-            String location = entities.getOrDefault("location", "");
-            String subject = entities.getOrDefault("subject", "");
+            StringBuilder criteria = new StringBuilder();
+            if (!subject.isEmpty()) criteria.append("môn ").append(subject).append(" ");
+            if (!grade.isEmpty()) criteria.append("lớp ").append(grade).append(" ");
+            if (!location.isEmpty()) criteria.append("tại ").append(location).append(" ");
+            if (!mode.isEmpty()) criteria.append("(").append(mode).append(") ");
+
             return new FallbackResult(
                 3,
                 "Hiện tại hệ thống chưa tìm thấy gia sư đã xác minh nào khớp hoàn toàn với tiêu chí " +
-                (subject.isEmpty() ? "" : "môn " + subject + " ") +
-                (location.isEmpty() ? "" : "tại " + location + " ") +
-                "của bạn. Bạn có thể thử điều chỉnh mức học phí, mở rộng khu vực hoặc đăng bài tìm gia sư tại /tao-lop để nhận hồ sơ ứng tuyển nhé.",
+                (criteria.length() > 0 ? criteria.toString().trim() : "tìm kiếm") +
+                " của bạn.\n\n" +
+                "👉 **Gợi ý dành cho bạn:**\n" +
+                "1. **Đăng bài tìm gia sư tại /tao-lop**: Chỉ mất 1 phút đăng bài, các gia sư phù hợp trên toàn hệ thống sẽ chủ động nộp đơn ứng tuyển.\n" +
+                "2. **Nới lỏng điều kiện lọc**: Thử tìm gia sư hình thức Online hoặc mở rộng khoảng học phí tại /tim-gia-su.",
                 "/tao-lop",
                 List.of("Đăng bài tìm gia sư (/tao-lop)", "Xem tất cả gia sư (/tim-gia-su)")
             );
         }
+
         if (subIntent == AiSubIntent.FIND_CLASS) {
+            StringBuilder criteria = new StringBuilder();
+            if (!subject.isEmpty()) criteria.append("môn ").append(subject).append(" ");
+            if (!grade.isEmpty()) criteria.append("lớp ").append(grade).append(" ");
+            if (!location.isEmpty()) criteria.append("tại ").append(location).append(" ");
+            if (!mode.isEmpty()) criteria.append("(").append(mode).append(") ");
+
             return new FallbackResult(
                 3,
-                "Hiện tại chưa có lớp học nào đang mở khớp với tiêu chí tìm kiếm của bạn. Bạn có thể theo dõi danh sách lớp mới tại mục /lop-hoc.",
+                "Hiện tại chưa có lớp học nào đang mở khớp với tiêu chí " +
+                (criteria.length() > 0 ? criteria.toString().trim() : "tìm kiếm") +
+                " của bạn.\n\n" +
+                "👉 **Gợi ý dành cho bạn:**\n" +
+                "1. Bạn có thể theo dõi danh sách các lớp học mới được cập nhật liên tục tại mục **/lop-hoc**.\n" +
+                "2. Nếu bạn là phụ huynh cần tìm gia sư, hãy đăng tin tạo lớp tại mục **/tao-lop**.",
                 "/lop-hoc",
-                List.of("Xem danh sách lớp học (/lop-hoc)")
+                List.of("Xem danh sách lớp học (/lop-hoc)", "Đăng bài tạo lớp mới (/tao-lop)")
             );
         }
+
         return new FallbackResult(
             3,
             "Hiện tại hệ thống chưa tìm thấy dữ liệu phù hợp với yêu cầu này. Vui lòng kiểm tra lại điều kiện lọc hoặc liên hệ bộ phận hỗ trợ.",
             null,
-            List.of()
+            List.of("Trung tâm trợ giúp (/help)", "Tạo ticket hỗ trợ (/support/tickets)")
         );
     }
 
