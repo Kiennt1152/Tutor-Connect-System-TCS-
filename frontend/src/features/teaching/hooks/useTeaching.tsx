@@ -3,7 +3,6 @@ import axios from 'axios';
 import { teachingApi } from '../api/teachingApi';
 import type {
   AssignmentResponse,
-  ExtraLessonPayload,
   LessonResponse,
   RescheduleLessonPayload,
   RescheduleRequestResponse,
@@ -131,17 +130,11 @@ export function useTeaching() {
             .then(() => ({ message: 'Đã gửi yêu cầu đổi lịch — chờ bên còn lại duyệt.' })),
         'Gửi yêu cầu đổi lịch thất bại.',
       ),
-    requestExtraLesson: (payload: ExtraLessonPayload) =>
-      run(
-        () =>
-          teachingApi
-            .requestExtraLesson(payload)
-            .then(() => ({ message: 'Đã gửi yêu cầu thêm buổi — chờ bên còn lại duyệt.' })),
-        'Gửi yêu cầu thêm buổi thất bại.',
-      ),
     decideRequest: (requestId: number, approve: boolean, note?: string) =>
       run(() => teachingApi.decideRequest(requestId, approve, note), 'Xử lý yêu cầu thất bại.'),
     cancelRequest: (requestId: number) =>
       run(() => teachingApi.cancelRequest(requestId), 'Thu hồi yêu cầu thất bại.'),
+    confirmCompletion: (classId: number) =>
+      run(() => teachingApi.confirmClassCompletion(classId), 'Hoàn thành lớp thất bại.'),
   };
 }

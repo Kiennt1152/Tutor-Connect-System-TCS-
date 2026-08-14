@@ -51,6 +51,7 @@ import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.Lesson;
+import com.tcs.module.marketplace.event.ClientReviewedClassEvent;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
@@ -1924,7 +1925,17 @@ public class ContractServiceImpl implements ContractService {
         Review saved = reviewRepository.save(review);
 
         recomputeTutorReputation(tutor, tutor.getUser().getUserId());
+
+        // Client đã đánh giá -> nếu gia sư đã yêu cầu hoàn thành, marketplace sẽ đóng lớp + giải ngân.
+        eventPublisher.publishEvent(new ClientReviewedClassEvent(tutoringClass.getClassId()));
         return toResponse(saved);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean hasClientReviewedClass(Long classId) {
+        return reviewRepository.existsByTutoringClass_ClassIdAndReviewType(
+                classId, ReviewType.CLIENT_TO_TUTOR);
     }
 
     @Override

@@ -701,6 +701,8 @@ export function ClassRequestForm({
         </label>
       </div>
 
+      {/* Chọn ngày cụ thể (lịch cá nhân) -> bỏ qua chu kỳ Tháng/Quý/Kỳ/Năm và số tháng học. */}
+      {isWeekly && (
       <div className="mkt-form__grid">
         <label className="mkt-field">
           <span className="mkt-field__label">Chọn thời gian học</span>
@@ -748,6 +750,7 @@ export function ClassRequestForm({
           </label>
         )}
       </div>
+      )}
 
       <div className="mkt-field">
         <span className="mkt-field__label">Kiểu lịch học</span>
@@ -1017,6 +1020,7 @@ export function ClassRequestForm({
                           <div key={idx} className="mkt-slot-row">
                             <input
                               type="date"
+                              lang="vi-VN"
                               className="mkt-slot-date"
                               aria-label="Ngày học"
                               min={today}

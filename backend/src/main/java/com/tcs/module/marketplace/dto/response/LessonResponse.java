@@ -27,4 +27,7 @@ public class LessonResponse {
     private LocalDateTime tutorCheckOutAt;
 
     private boolean canCheckInToday;
+
+    /** True khi lớp đã điểm danh buổi học cuối cùng — không cho đổi lịch nữa. */
+    private boolean rescheduleLocked;
 }

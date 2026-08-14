@@ -158,22 +158,27 @@
 .wtt-attend-menu__item--absent:hover {
   background: #fdecea;
 }
+/* Tô nền full màu theo trạng thái cho dễ phân biệt (vàng ≠ cam rõ rệt). */
 .wtt-chip--pending {
-  border-left-color: #ef6c00;
-  background: #fff8f0;
+  border-left-color: #e65100;
+  background: #ffb066;
 }
 .wtt-chip--done {
-  border-left-color: #2e7d32;
-  background: #f1f8f2;
+  border-left-color: #1b5e20;
+  background: #a5d6a7;
 }
 .wtt-chip--today {
-  border-left-color: #1565c0;
-  background: #eaf2fd;
-  box-shadow: 0 0 0 1px rgba(21, 101, 192, 0.18);
+  border-left-color: #0d47a1;
+  background: #90caf9;
+  box-shadow: 0 0 0 1px rgba(21, 101, 192, 0.25);
+}
+.wtt-chip--todaywait {
+  border-left-color: #f9a825;
+  background: #ffe14d;
 }
 .wtt-chip--absent {
-  border-left-color: #c62828;
-  background: #fdecea;
+  border-left-color: #b71c1c;
+  background: #ef9a9a;
 }
 .wtt-chip__subject {
   font-weight: 700;
@@ -203,10 +208,13 @@
   color: #2e7d32;
 }
 .wtt-chip__status--pending {
-  color: #ef6c00;
+  color: #6d2c00;
 }
 .wtt-chip__status--today {
-  color: #1565c0;
+  color: #0d47a1;
+}
+.wtt-chip__status--todaywait {
+  color: #7a5900;
 }
 .wtt-chip__status--absent {
   color: #c62828;
@@ -214,6 +222,32 @@
 .wtt-chip button {
   margin-top: 5px;
   width: 100%;
+}
+/* Nút bấm trong thẻ để màu xanh dương cho nổi bật trên nền màu của thẻ. */
+.wtt-chip .tcs-btn--primary {
+  background: #1565c0;
+  border-color: #1565c0;
+  color: #fff;
+}
+.wtt-chip .tcs-btn--primary:hover:not(:disabled) {
+  background: #0d47a1;
+  border-color: #0d47a1;
+}
+/* Nút khóa (chưa tới giờ điểm danh): xám đục, không mờ để khỏi lẫn màu nền thẻ. */
+.wtt-chip .tcs-btn--primary:disabled {
+  background: #cfd8e3;
+  border-color: #cfd8e3;
+  color: #7a8699;
+  opacity: 1;
+  cursor: not-allowed;
+}
+.wtt-chip .tcs-btn--ghost {
+  background: #fff;
+  border-color: #1565c0;
+  color: #1565c0;
+}
+.wtt-chip .tcs-btn--ghost:hover:not(:disabled) {
+  background: #eaf2fd;
 }
 .wtt-chip button.wtt-chip__info {
   margin-top: 0;
@@ -270,6 +304,9 @@
 }
 .wtt__dot--today {
   background: #1565c0;
+}
+.wtt__dot--todaywait {
+  background: #f5c518;
 }
 .wtt__dot--absent {
   background: #c62828;

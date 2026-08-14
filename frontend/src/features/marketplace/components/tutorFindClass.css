@@ -171,13 +171,40 @@
   white-space: nowrap;
 }
 .tfc-results__count:empty { display: none; }
+.tfc-results__hint { margin: -6px 0 16px; font-size: 13.5px; color: #5b6b7f; line-height: 1.5; }
+.tfc-results__hint strong { color: #12233b; }
 .tfc-notice { background: #e8f4ea; border: 1px solid #b6dcc0; color: #1b5e20; padding: 10px 14px; border-radius: 8px; font-size: 14px; margin-bottom: 14px; }
 .tfc-notice--warn { background: #fff5e6; border-color: #f2d19b; color: #8a5a00; }
 .tfc-notice--warn strong { color: #6b4500; }
 .tfc-state { background: #fff; border: 1px dashed #cfd8e3; border-radius: 12px; padding: 28px; text-align: center; color: #5b6b7f; }
 .tfc-state--error { border-color: #f0b7b2; color: #c62828; }
-/* Mỗi lớp một hàng, trải hết bề ngang — không xếp thẻ cạnh nhau theo hàng ngang. */
-.tfc-list { display: flex; flex-direction: column; gap: 14px; }
+/* 2 lớp / hàng (6 lớp / trang = 2 cột × 3 hàng). */
+.tfc-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  align-items: stretch;
+}
+.tfc-list .tfc-card { height: 100%; }
+
+/* Phân trang. */
+.tfc-pager {
+  display: flex; align-items: center; justify-content: center; flex-wrap: wrap;
+  gap: 8px; margin-top: 22px;
+}
+.tfc-pager__btn,
+.tfc-pager__num {
+  min-width: 38px; height: 38px; padding: 0 12px;
+  border: 1px solid #d8e0ec; background: #fff; color: #334155;
+  border-radius: 10px; font-size: 14px; font-weight: 600; cursor: pointer;
+  transition: background 0.14s ease, border-color 0.14s ease, color 0.14s ease;
+}
+.tfc-pager__btn:hover:not(:disabled),
+.tfc-pager__num:hover:not(.is-active) { border-color: #b7c6dc; background: #f5f8fc; }
+.tfc-pager__btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.tfc-pager__num.is-active {
+  background: #1565c0; border-color: #1565c0; color: #fff; cursor: default;
+}
 .tfc-card {
   display: flex; gap: 16px; background: #fff; border: 1px solid #e3e9f2;
   border-radius: 16px; padding: 18px;
@@ -330,6 +357,7 @@
 @media (max-width: 720px) {
   .tfc-form-grid { grid-template-columns: 1fr; }
   .tfc-priority { grid-template-columns: 1fr; }
+  .tfc-list { grid-template-columns: 1fr; }
   .tfc-subgrid { grid-template-columns: 1fr; }
   .tfc-subgrid__khuvuc,
   .tfc-subgrid__trinhdo,

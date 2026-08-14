@@ -92,6 +92,38 @@ public class LessonReminderService {
         }
     }
 
+    /**
+     * Gửi nhắc nhở NGAY cho một buổi học nếu buổi đó diễn ra hôm nay và chưa được nhắc.
+     * Dùng khi đổi lịch được duyệt và buổi được chuyển sang đúng ngày hôm nay — không phải
+     * chờ tới 00:00 hôm sau.
+     */
+    @Transactional
+    public void sendReminderIfToday(Lesson lesson) {
+        if (lesson == null || lesson.getLessonDate() == null) {
+            return;
+        }
+        if (!LocalDate.now().equals(lesson.getLessonDate())) {
+            return;
+        }
+        if (lesson.getAttendanceStatus() == AttendanceStatus.COMPLETED
+                || lesson.getAttendanceStatus() == AttendanceStatus.ABSENT) {
+            return;
+        }
+        if (lesson.getReminderSentAt() != null) {
+            return; // đã nhắc rồi, tránh trùng
+        }
+        try {
+            remindOne(lesson);
+            lesson.setReminderSentAt(LocalDateTime.now());
+            lessonRepository.save(lesson);
+            log.info("[LessonReminder] Da gui nhac nho ngay cho buoi id={} (doi lich sang hom nay)",
+                    lesson.getLessonId());
+        } catch (Exception ex) {
+            log.warn("[LessonReminder] Khong gui duoc nhac nho ngay lesson id={}: {}",
+                    lesson.getLessonId(), ex.getMessage());
+        }
+    }
+
     /** Xóa các thông báo nhắc nhở mà buổi học tương ứng không diễn ra hôm nay. */
     private void clearRemindersNotForToday(LocalDate today) {
         String staleFilter = "reference_type = :ref AND (reference_id IS NULL OR reference_id NOT IN "
