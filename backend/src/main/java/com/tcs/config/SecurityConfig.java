@@ -146,7 +146,6 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/marketplace/lessons/*/reschedule",
-                                "/api/marketplace/lessons/extra",
                                 "/api/marketplace/lessons/requests/*/decision",
                                 "/api/marketplace/lessons/requests/*/cancel")
                         .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR)

@@ -4,7 +4,6 @@ import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
-import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
@@ -41,11 +40,14 @@ public interface MarketplaceService {
     ClassTerminationResponse requestClassTermination(Long classId, CreateClassTerminationRequest request);
 
     /**
-     * UC "Xác nhận lớp đã hoàn thành": gia sư hoặc phụ huynh/học viên xác nhận lớp PRIVATE đã học xong.
-     * Khi cả hai bên đều xác nhận -> lớp chuyển COMPLETED và giải ngân escrow cho gia sư.
-     * Trả về thông báo phù hợp (đã ghi nhận / đã tất toán).
+     * UC "Hoàn thành lớp" (lớp PRIVATE): gia sư bấm hoàn thành.
+     * - Nếu học viên đã đánh giá gia sư -> đóng lớp ngay + giải ngân escrow.
+     * - Nếu chưa -> gửi thông báo mời học viên đánh giá; lớp đóng khi học viên đánh giá xong.
      */
     String confirmClassCompletion(Long classId);
+
+    /** Được gọi khi học viên đánh giá gia sư: nếu gia sư đã yêu cầu hoàn thành thì đóng lớp. */
+    void completeClassAfterClientReview(Long classId);
 
     /**
      * Đăng ký lớp đang mở: gia sư -> nộp đơn dạy; phụ huynh/học viên -> ghi danh.
@@ -88,8 +90,6 @@ public interface MarketplaceService {
     void markAttendance(Long lessonId, boolean present);
 
     RescheduleRequestResponse requestReschedule(Long lessonId, RescheduleLessonRequest request);
-
-    RescheduleRequestResponse requestExtraLesson(ExtraLessonRequest request);
 
     List<RescheduleRequestResponse> listMyRescheduleRequests();
 

@@ -86,6 +86,12 @@
   align-items: start;
 }
 
+.cboard-pagination {
+  display: flex;
+  justify-content: center;
+  margin-top: var(--space-lg);
+}
+
 @media (max-width: 720px) {
   .tcs-classboard .tcs-class-list,
   .cboard-grid {

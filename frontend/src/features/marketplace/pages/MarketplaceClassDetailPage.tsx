@@ -99,13 +99,13 @@ export default function MarketplaceClassDetailPage() {
     }
   };
 
-  const confirmCompletion = async () => {
+  const submitCompletion = async () => {
     if (!data) return;
     setCompleting(true);
     setCompleteMsg(null);
     try {
       const res = await marketplaceApi.confirmCompletion(data.classId);
-      setCompleteMsg({ tone: 'ok', text: res.data?.message ?? 'Đã ghi nhận xác nhận hoàn thành.' });
+      setCompleteMsg({ tone: 'ok', text: res.data?.message ?? 'Đã ghi nhận.' });
       load();
     } catch (err) {
       setCompleteMsg({ tone: 'error', text: extractError(err, 'Không xác nhận được. Vui lòng thử lại.') });
@@ -118,9 +118,8 @@ export default function MarketplaceClassDetailPage() {
   const isClient = role === 'CLIENT';
   const isTutor = role === 'TUTOR';
   const canRequestTermination = Boolean(data?.canRequestTermination);
-  const isCompleted = data?.status === 'COMPLETED';
-  const isCompletionParty = data?.completionAssignmentId != null;
-  const showCompletionCard = isCompletionParty || isCompleted;
+  const completionState = data?.completionState ?? 'NONE';
+  const showCompletionCard = completionState !== 'NONE';
 
   // Điều hướng cho học viên vị thành niên (child) — backend uỷ quyền hợp đồng/thanh toán cho phụ huynh.
   const { linkStatus: depLinkStatus } = useDependentLinkStatus(isClient);
@@ -307,43 +306,59 @@ export default function MarketplaceClassDetailPage() {
                   <div className="mk-enroll__head">
                     <span className="mk-enroll__title">Hoàn thành lớp</span>
                   </div>
-                  {isCompleted ? (
-                    <div className="mk-alert mk-alert--ok">
-                      Lớp đã được cả hai bên xác nhận hoàn thành. Học phí đã giải ngân cho gia sư.
+                  {completeMsg && completionState !== 'COMPLETED' ? (
+                    <div className={`mk-alert mk-alert--${completeMsg.tone === 'ok' ? 'ok' : 'error'}`}>
+                      {completeMsg.text}
                     </div>
-                  ) : (
+                  ) : null}
+
+                  {completionState === 'COMPLETED' ? (
+                    <div className="mk-alert mk-alert--ok">
+                      Lớp đã hoàn thành. Học phí đã được giải ngân cho gia sư.
+                    </div>
+                  ) : completionState === 'TUTOR_CAN_CONFIRM' ? (
                     <>
-                      {completeMsg ? (
-                        <div className={`mk-alert mk-alert--${completeMsg.tone === 'ok' ? 'ok' : 'error'}`}>
-                          {completeMsg.text}
-                        </div>
-                      ) : null}
-                      {data.completionPendingOther ? (
-                        <p className="mk-note">
-                          Bạn đã xác nhận hoàn thành. Đang chờ {isTutor ? 'phụ huynh/học viên' : 'gia sư'} xác nhận
-                          để hệ thống tất toán học phí.
-                        </p>
-                      ) : data.canConfirmCompletion ? (
-                        <>
-                          <p className="mk-note">
-                            Cả gia sư và phụ huynh/học viên cùng xác nhận thì lớp sẽ hoàn thành và học phí
-                            escrow được giải ngân cho gia sư.
-                          </p>
-                          <button
-                            className="mk-btn mk-btn--primary mk-btn--block"
-                            type="button"
-                            disabled={completing}
-                            onClick={confirmCompletion}
-                          >
-                            {completing ? 'Đang xử lý…' : 'Xác nhận lớp đã hoàn thành'}
-                          </button>
-                        </>
-                      ) : data.completionBlockedReason ? (
-                        <p className="mk-note">{data.completionBlockedReason}</p>
-                      ) : (
-                        <p className="mk-note">Chưa thể xác nhận hoàn thành lớp lúc này.</p>
-                      )}
+                      <p className="mk-note">
+                        Đánh dấu lớp đã hoàn thành và mời học viên đánh giá. Học phí escrow được giải ngân
+                        sau khi học viên đánh giá gia sư.
+                      </p>
+                      <button
+                        className="mk-btn mk-btn--primary mk-btn--block"
+                        type="button"
+                        disabled={completing}
+                        onClick={() => void submitCompletion()}
+                      >
+                        {completing ? 'Đang xử lý…' : 'Hoàn thành lớp'}
+                      </button>
                     </>
+                  ) : completionState === 'TUTOR_WAITING' ? (
+                    <p className="mk-note">
+                      Đã đánh dấu hoàn thành. Đang chờ học viên đánh giá gia sư để đóng lớp và tất toán học phí.
+                    </p>
+                  ) : completionState === 'TUTOR_BLOCKED' ? (
+                    <p className="mk-note">
+                      {data.completionBlockedReason ?? 'Chưa đủ điều kiện để hoàn thành lớp.'}
+                    </p>
+                  ) : completionState === 'CLIENT_WAITING_TUTOR' ? (
+                    <p className="mk-note">
+                      Gia sư chưa hoàn thành lớp. Khi gia sư đánh dấu hoàn thành, bạn sẽ được mời đánh giá tại đây.
+                    </p>
+                  ) : completionState === 'CLIENT_MUST_REVIEW' ? (
+                    <>
+                      <p className="mk-note">
+                        Gia sư đã đánh dấu lớp hoàn thành. Vui lòng đánh giá gia sư để hoàn tất lớp học —
+                        học phí sẽ được giải ngân cho gia sư sau khi bạn đánh giá.
+                      </p>
+                      <button
+                        className="mk-btn mk-btn--primary mk-btn--block"
+                        type="button"
+                        onClick={() => navigate(APP_ROUTES.feedback)}
+                      >
+                        Đánh giá gia sư
+                      </button>
+                    </>
+                  ) : (
+                    <p className="mk-note">Chưa thể hoàn thành lớp lúc này.</p>
                   )}
                 </div>
               ) : null}

@@ -224,7 +224,8 @@ function LessonChip({
         : isTodayLesson
           ? 'todaywait'
           : 'pending';
-  const canReschedule = onReschedule && lesson.attendanceStatus === 'PENDING';
+  const canReschedule =
+    onReschedule && lesson.attendanceStatus === 'PENDING' && !lesson.rescheduleLocked;
   const [attendOpen, setAttendOpen] = useState(false);
 
   const info = (

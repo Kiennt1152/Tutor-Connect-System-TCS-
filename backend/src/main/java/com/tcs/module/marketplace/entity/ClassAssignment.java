@@ -57,12 +57,16 @@ public class ClassAssignment {
     @Column(name = "client_signed_at")
     private LocalDateTime clientSignedAt;
 
-    // UC "Xác nhận lớp đã hoàn thành": mỗi bên xác nhận riêng; đủ cả hai -> tất toán.
+    // UC "Xác nhận lớp đã hoàn thành": gia sư yêu cầu -> client duyệt (hoàn thành) hoặc từ chối kèm lý do.
     @Column(name = "tutor_completed_at")
     private LocalDateTime tutorCompletedAt;
 
     @Column(name = "client_completed_at")
     private LocalDateTime clientCompletedAt;
+
+    // Lý do client báo "chưa hoàn thành"; gỡ (null) khi client chuyển sang xác nhận hoàn thành.
+    @Column(name = "client_reject_reason", length = 500)
+    private String clientRejectReason;
 
     @Column(name = "payment_method", length = 20)
     private String paymentMethod;

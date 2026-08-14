@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
+import { Pagination } from '../../../shared/components/Pagination';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import { OpenClassBoardCard } from '../../marketplace/components/OpenClassBoardCard';
 import type { CatalogOption, ClassResponse } from '../../marketplace/types/marketplaceTypes';
@@ -9,6 +10,8 @@ import './FindTutorPage.css';
 import '../../marketplace/pages/MarketplacePage.css';
 
 type Status = 'loading' | 'success' | 'error';
+
+const PAGE_SIZE = 6;
 
 /**
  * Danh sách lớp (/danh-sach-lop): tổng hợp mọi lớp do client đăng và đang mở.
@@ -19,6 +22,7 @@ export default function ClassBoardPage() {
   const [status, setStatus] = useState<Status>('loading');
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [subjects, setSubjects] = useState<CatalogOption[]>([]);
+  const [page, setPage] = useState(1);
 
   const reload = () => {
     setStatus('loading');
@@ -26,6 +30,7 @@ export default function ClassBoardPage() {
       .listOpenClasses()
       .then((data) => {
         setClasses(data);
+        setPage(1);
         setStatus('success');
       })
       .catch(() => setStatus('error'));
@@ -35,6 +40,17 @@ export default function ClassBoardPage() {
     reload();
     marketplaceApi.listSubjects().then(setSubjects).catch(() => setSubjects([]));
   }, []);
+
+  const totalPages = Math.max(1, Math.ceil(classes.length / PAGE_SIZE));
+  const pageClasses = useMemo(
+    () => classes.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [classes, page],
+  );
+
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   return (
     <div className="tcs-page tcs-classboard">
@@ -82,11 +98,23 @@ export default function ClassBoardPage() {
               <p className="tcs-empty">Hiện chưa có lớp học nào đang mở.</p>
             )}
             {status === 'success' && classes.length > 0 && (
-              <div className="cboard-grid">
-                {classes.map((c) => (
-                  <OpenClassBoardCard key={c.classId} c={c} subjects={subjects} />
-                ))}
-              </div>
+              <>
+                <div className="cboard-grid">
+                  {pageClasses.map((c) => (
+                    <OpenClassBoardCard key={c.classId} c={c} subjects={subjects} />
+                  ))}
+                </div>
+                {totalPages > 1 && (
+                  <div className="cboard-pagination">
+                    <Pagination
+                      current={page}
+                      totalPages={totalPages}
+                      onPageChange={goToPage}
+                      ariaLabel="Phân trang danh sách lớp"
+                    />
+                  </div>
+                )}
+              </>
             )}
           </div>
         </section>

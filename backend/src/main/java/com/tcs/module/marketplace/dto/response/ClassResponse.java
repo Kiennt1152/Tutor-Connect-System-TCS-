@@ -49,13 +49,15 @@ public class ClassResponse {
     private Integer completedSessions;
     private Long terminationAssignmentId;
     private Long terminationClassStudentId;
-    /** UC "Xác nhận lớp đã hoàn thành" (chỉ lớp PRIVATE 1 gia sư – 1 phụ huynh/học viên). */
+    /** UC "Hoàn thành lớp" (chỉ lớp PRIVATE 1 gia sư – 1 phụ huynh/học viên). */
     private Long completionAssignmentId;
-    /** True: người dùng hiện tại (gia sư hoặc phụ huynh/học viên) được phép bấm xác nhận hoàn thành. */
-    private boolean canConfirmCompletion;
-    /** True: người dùng hiện tại đã xác nhận, đang chờ bên còn lại xác nhận. */
-    private boolean completionPendingOther;
-    /** Lý do chưa cho xác nhận hoàn thành (vd: chưa điểm danh xong các buổi đã tới lịch). */
+    /**
+     * Trạng thái hoàn thành theo góc nhìn người dùng hiện tại:
+     * NONE, COMPLETED, TUTOR_CAN_CONFIRM, TUTOR_BLOCKED, TUTOR_WAITING,
+     * CLIENT_WAITING_TUTOR, CLIENT_MUST_REVIEW.
+     */
+    private String completionState;
+    /** Lý do gia sư chưa được phép hoàn thành (vd: chưa điểm danh buổi cuối). */
     private String completionBlockedReason;
     private List<ScheduleSlotResponse> schedule;
     private LocalDateTime createdAt;

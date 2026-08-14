@@ -145,7 +145,7 @@ export const marketplaceApi = {
     );
   },
 
-  /** UC "Xác nhận lớp đã hoàn thành": gia sư/phụ huynh mỗi bên xác nhận. */
+  /** UC "Hoàn thành lớp": gia sư bấm hoàn thành; lớp đóng sau khi học viên đánh giá gia sư. */
   confirmCompletion(classId: number) {
     return axiosClient.post<{ message: string }>(
       `${MARKETPLACE_API_BASE}/classes/${classId}/complete`,

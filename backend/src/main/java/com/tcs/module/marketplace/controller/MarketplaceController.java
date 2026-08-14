@@ -4,7 +4,6 @@ import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassRequest;
-import com.tcs.module.marketplace.dto.request.ExtraLessonRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
 import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
@@ -125,7 +124,7 @@ public class MarketplaceController {
         return marketplaceService.requestClassTermination(classId, request);
     }
 
-    /** UC "Xác nhận lớp đã hoàn thành": gia sư/phụ huynh mỗi bên xác nhận; đủ hai bên -> tất toán. */
+    /** UC "Hoàn thành lớp": gia sư bấm hoàn thành; lớp đóng sau khi học viên đánh giá gia sư. */
     @PostMapping("/classes/{classId}/complete")
     public Map<String, String> confirmClassCompletion(@PathVariable Long classId) {
         return Map.of("message", marketplaceService.confirmClassCompletion(classId));
@@ -241,12 +240,6 @@ public class MarketplaceController {
     public RescheduleRequestResponse requestReschedule(
             @PathVariable Long lessonId, @RequestBody RescheduleLessonRequest request) {
         return marketplaceService.requestReschedule(lessonId, request);
-    }
-
-    @PostMapping("/lessons/extra")
-    @ResponseStatus(HttpStatus.CREATED)
-    public RescheduleRequestResponse requestExtraLesson(@RequestBody ExtraLessonRequest request) {
-        return marketplaceService.requestExtraLesson(request);
     }
 
     @GetMapping("/lessons/requests")

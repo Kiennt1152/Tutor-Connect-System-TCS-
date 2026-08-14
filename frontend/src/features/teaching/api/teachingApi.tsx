@@ -2,7 +2,6 @@ import axiosClient from '../../../shared/api/axiosClient';
 import type {
   AssignmentResponse,
   ContractView,
-  ExtraLessonPayload,
   LessonResponse,
   RescheduleLessonPayload,
   RescheduleRequestResponse,
@@ -76,11 +75,6 @@ export const teachingApi = {
       .post<RescheduleRequestResponse>(`/marketplace/lessons/${lessonId}/reschedule`, payload)
       .then((r) => r.data),
 
-  requestExtraLesson: (payload: ExtraLessonPayload) =>
-    axiosClient
-      .post<RescheduleRequestResponse>('/marketplace/lessons/extra', payload)
-      .then((r) => r.data),
-
   listRescheduleRequests: () =>
     axiosClient
       .get<RescheduleRequestResponse[]>('/marketplace/lessons/requests')
@@ -99,7 +93,7 @@ export const teachingApi = {
       .post<{ message: string }>(`/marketplace/lessons/requests/${requestId}/cancel`)
       .then((r) => r.data),
 
-  /** UC "Xác nhận lớp đã hoàn thành": gia sư/phụ huynh mỗi bên xác nhận. */
+  /** UC "Hoàn thành lớp": gia sư bấm hoàn thành; lớp đóng sau khi học viên đánh giá gia sư. */
   confirmClassCompletion: (classId: number) =>
     axiosClient
       .post<{ message: string }>(`/marketplace/classes/${classId}/complete`)

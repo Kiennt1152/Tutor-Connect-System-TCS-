@@ -1,3 +1,6 @@
+import type { CompletionState } from '../../teaching/types/teachingTypes';
+
+export type { CompletionState };
 
 export type LessonMode = 'ONLINE' | 'OFFLINE' | 'HYBRID';
 export type RecurringType = 'DAILY' | 'WEEKLY' | 'ONCE';
@@ -349,8 +352,7 @@ export interface MarketplaceClass {
   terminationClassStudentId: number | null;
   /** UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE 1 gia sư – 1 phụ huynh/học viên). */
   completionAssignmentId: number | null;
-  canConfirmCompletion: boolean;
-  completionPendingOther: boolean;
+  completionState: CompletionState;
   completionBlockedReason: string | null;
   schedule: MarketplaceScheduleSlot[];
   createdAt: string;

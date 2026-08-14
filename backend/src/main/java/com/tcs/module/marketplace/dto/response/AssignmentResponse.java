@@ -33,7 +33,6 @@ public class AssignmentResponse {
 
     /** UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE). */
     private boolean classCompleted;
-    private boolean canConfirmCompletion;
-    private boolean completionPendingOther;
+    private String completionState;
     private String completionBlockedReason;
 }

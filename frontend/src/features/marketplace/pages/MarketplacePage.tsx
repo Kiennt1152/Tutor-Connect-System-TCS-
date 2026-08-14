@@ -590,7 +590,6 @@ function ClassTimetableCard({ classId }: { readonly classId: number }) {
       </div>
       {dialogLesson && (
         <LessonRequestDialog
-          mode="RESCHEDULE"
           lesson={dialogLesson}
           submitError={error}
           existingLessons={lessons}
