@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
+import axiosClient from '../api/axiosClient';
 import { FilePreviewModal } from './FilePreviewModal';
 import './FileThumbnail.css';
 
@@ -8,6 +9,12 @@ export interface FileThumbnailProps {
   readonly mimeType: string | null;
   readonly fileSize: number | null;
   readonly actions?: ReactNode;
+  /**
+   * MediaFile id. Bắt buộc với file riêng tư (CCCD, giấy tờ, hồ sơ xác minh):
+   * các file này nằm sau /api/files/private/{fileId} và cần JWT, mà thẻ <img>
+   * không gửi được header Authorization — nên phải tải qua axios rồi tạo blob URL.
+   */
+  readonly fileId?: number;
 }
 
 export function FileThumbnail({
@@ -16,10 +23,41 @@ export function FileThumbnail({
   mimeType,
   fileSize,
   actions,
+  fileId,
 }: FileThumbnailProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [hoverPreview, setHoverPreview] = useState(false);
-  const resolvedSrc = resolvePreviewSrc(src);
+  const [privateBlobUrl, setPrivateBlobUrl] = useState<string | null>(null);
+
+  const isPrivateFile = isPrivatePath(src);
+
+  // File riêng tư: tải kèm JWT qua axios, chuyển thành blob URL để <img>/preview dùng được.
+  useEffect(() => {
+    if (!isPrivateFile || fileId == null) {
+      setPrivateBlobUrl(null);
+      return;
+    }
+    let cancelled = false;
+    let objectUrl: string | null = null;
+    axiosClient
+      .get(`/files/private/${fileId}`, { responseType: 'blob' })
+      .then((res) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(res.data as Blob);
+        setPrivateBlobUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setPrivateBlobUrl(null);
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [isPrivateFile, fileId]);
+
+  // Với file riêng tư dùng blob đã xác thực; file công khai dùng URL trực tiếp.
+  const resolvedSrc =
+    isPrivateFile && fileId != null ? privateBlobUrl : resolvePreviewSrc(src);
 
   const isImage = mimeType?.startsWith('image/') ?? false;
   const isPdf = mimeType === 'application/pdf';
@@ -50,7 +88,11 @@ export function FileThumbnail({
         title={`Bấm để xem trước ${fileName}`}
       >
         {isImage ? (
-          <img className="ft-thumb" src={resolvedSrc} alt={fileName} loading="lazy" />
+          resolvedSrc ? (
+            <img className="ft-thumb" src={resolvedSrc} alt={fileName} loading="lazy" />
+          ) : (
+            <div className="ft-icon" aria-label="Đang tải ảnh">⏳</div>
+          )
         ) : (
           <div className="ft-icon">{isPdf ? '📕' : '📄'}</div>
         )}
@@ -71,7 +113,7 @@ export function FileThumbnail({
       {hoverPreview && (isImage || isPdf) && (
         <div className="ft-popover" role="tooltip">
           <div className="ft-popover__body">
-            {isImage ? (
+            {isImage && resolvedSrc ? (
               <img className="ft-popover__img" src={resolvedSrc} alt={fileName} />
             ) : (
               <div className="ft-popover__pdf">{fileName}</div>
@@ -85,13 +127,18 @@ export function FileThumbnail({
       )}
 
       <FilePreviewModal
-        src={resolvedSrc}
+        src={resolvedSrc ?? ''}
         fileName={fileName}
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
       />
     </div>
   );
+}
+
+/** File riêng tư (CCCD, giấy tờ, hồ sơ xác minh) nằm ở /uploads/private/ và cần JWT để xem. */
+function isPrivatePath(src: string): boolean {
+  return src.includes('/uploads/private/');
 }
 
 function resolvePreviewSrc(src: string) {

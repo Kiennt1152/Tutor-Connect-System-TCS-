@@ -665,6 +665,7 @@ public class DisputeServiceImpl implements DisputeService {
         refundRequest.setRequestedBy(requireCurrentAdmin());
         refundRequest.setBankName(RefundPayoutInfoCodec.normalize(payoutInfo.bankName()));
         refundRequest.setAccountNo(RefundPayoutInfoCodec.normalizeAccountNo(payoutInfo.accountNo()));
+        refundRequest.setAccountHolderName(RefundPayoutInfoCodec.normalize(payoutInfo.accountHolderName()));
         refundRequest.setReason(RefundPayoutInfoCodec.appendToReason(reason, payoutInfo));
         refundRequest.setAmount(refundAmount);
         refundRequest.setStatus(RefundRequestStatus.APPROVED);

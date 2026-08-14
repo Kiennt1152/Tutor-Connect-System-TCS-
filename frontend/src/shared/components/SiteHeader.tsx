@@ -153,6 +153,16 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                   {hasRole(role, 'CLIENT') ? 'Lịch học' : 'Lịch dạy'}
                 </Link>
               ) : null}
+              {hasRole(role, 'TUTOR') ? (
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header tcs-header__shortcut" to="/tutor/schedule">
+                  Lịch lớp trung tâm
+                </Link>
+              ) : null}
+              {hasRole(role, 'CLIENT') ? (
+                <Link className="tcs-btn tcs-btn--ghost tcs-btn--header tcs-header__shortcut" to="/client/schedule">
+                  Lịch lớp trung tâm
+                </Link>
+              ) : null}
               {showMessaging ? <MessageIcon /> : null}
               <NotificationBell enabled={!!user} />
               <div className="tcs-profile-menu">

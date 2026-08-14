@@ -38,15 +38,10 @@ const ISSUE_TYPE_LABELS: Record<ClassIssueType, string> = {
   OTHER: 'Khác',
 };
 
-const REQUESTED_ACTION_LABELS: Record<ClassIssueRequestedAction, string> = {
-  CONTINUE_CLASS: 'Tiếp tục lớp',
-  RESCHEDULE: 'Dời lịch/bù buổi',
-  REPLACE_TUTOR: 'Đổi gia sư',
-  REFUND_REVIEW: 'Xem xét hoàn tiền',
-  ESCALATE_DISPUTE: 'Chuyển thành tranh chấp',
-  TERMINATE_CLASS: 'Đề nghị chấm dứt lớp',
-  OTHER: 'Khác',
-};
+const REQUESTED_ACTION_OPTIONS: Array<[ClassIssueRequestedAction, string]> = [
+  ['ESCALATE_DISPUTE', 'Chuyển thành tranh chấp'],
+  ['TERMINATE_CLASS', 'Đề nghị chấm dứt lớp'],
+];
 
 const MAX_EVIDENCE_FILES = 5;
 const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
@@ -88,7 +83,7 @@ export function ClassIssueModal({
   const [issueType, setIssueType] = useState<ClassIssueType>('TUTOR_ABSENT');
   const [lessonRef, setLessonRef] = useState('');
   const [occurredAt, setOccurredAt] = useState('');
-  const [requestedAction, setRequestedAction] = useState<ClassIssueRequestedAction>('RESCHEDULE');
+  const [requestedAction, setRequestedAction] = useState<ClassIssueRequestedAction>('ESCALATE_DISPUTE');
   const [description, setDescription] = useState('');
   const [selectedBankCode, setSelectedBankCode] = useState('');
   const [bankPickerOpen, setBankPickerOpen] = useState(false);
@@ -105,10 +100,7 @@ export function ClassIssueModal({
     if (isClient) return true;
     return value !== 'PAYMENT_OR_REFUND';
   }) as Array<[ClassIssueType, string]>;
-  const availableRequestedActions = Object.entries(REQUESTED_ACTION_LABELS).filter(([value]) => {
-    if (isClient) return true;
-    return value !== 'REFUND_REVIEW';
-  }) as Array<[ClassIssueRequestedAction, string]>;
+  const availableRequestedActions = REQUESTED_ACTION_OPTIONS;
 
   if (!open) return null;
 
@@ -117,7 +109,7 @@ export function ClassIssueModal({
     setIssueType('TUTOR_ABSENT');
     setLessonRef('');
     setOccurredAt('');
-    setRequestedAction('RESCHEDULE');
+    setRequestedAction('ESCALATE_DISPUTE');
     setDescription('');
     setSelectedBankCode('');
     setBankPickerOpen(false);
@@ -382,6 +374,7 @@ export function ClassIssueModal({
                     <FileThumbnail
                       key={file.fileId}
                       src={file.fileUrl}
+                      fileId={file.fileId}
                       fileName={file.fileName}
                       mimeType={file.mimeType}
                       fileSize={file.fileSize}

@@ -5,6 +5,8 @@ import { VerificationHeader } from '../../../shared/components/VerificationHeade
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
 import { marketplaceApi } from '../api/marketplaceApi';
+import { APP_ROUTES } from '../../../shared/constants/routes';
+import { useDependentLinkStatus } from '../../profile/hooks/useDependentProfile';
 import { ChatButton } from '../../messaging/components/ChatButton';
 import { ClassTerminationModal } from '../components/ClassTerminationModal';
 import type { LessonMode, MarketplaceClass, RecurringType } from '../types/marketplaceTypes';
@@ -120,6 +122,18 @@ export default function MarketplaceClassDetailPage() {
   const isCompletionParty = data?.completionAssignmentId != null;
   const showCompletionCard = isCompletionParty || isCompleted;
 
+  // Điều hướng cho học viên vị thành niên (child) — backend uỷ quyền hợp đồng/thanh toán cho phụ huynh.
+  const { linkStatus: depLinkStatus } = useDependentLinkStatus(isClient);
+  const needsDob = isClient && Boolean(depLinkStatus?.dateOfBirthMissing);
+  const minorNeedsGuardian =
+    isClient &&
+    Boolean(depLinkStatus?.minorAccount) &&
+    Boolean(depLinkStatus?.guardianRequired) &&
+    !depLinkStatus?.guardianLinked;
+  const delegatedToParent =
+    isClient && Boolean(depLinkStatus?.legalProceduresDelegatedToParent);
+  const legalHolderName = depLinkStatus?.legalAccountHolderName;
+
   const isOpen = data?.status === 'OPEN';
   const sortedSchedule = data
     ? [...data.schedule].sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime))
@@ -218,8 +232,45 @@ export default function MarketplaceClassDetailPage() {
                     {regStatus === 'error' && (
                       <div className="mk-alert mk-alert--error">{regMessage}</div>
                     )}
-                    {isClient || isTutor ? (
+                    {isClient && needsDob ? (
+                      // Backend yêu cầu ngày sinh để xác định <18; thiếu -> điều hướng cập nhật hồ sơ.
+                      <div className="mk-alert mk-alert--warn" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <span>
+                          Vui lòng cập nhật <strong>ngày sinh</strong> trong hồ sơ trước khi đăng ký lớp.
+                        </span>
+                        <button
+                          className="mk-btn mk-btn--primary mk-btn--block"
+                          type="button"
+                          onClick={() => navigate(APP_ROUTES.profile)}
+                        >
+                          Cập nhật hồ sơ
+                        </button>
+                      </div>
+                    ) : isClient && minorNeedsGuardian ? (
+                      // Child (vị thành niên) chưa liên kết phụ huynh -> chặn + điều hướng liên kết.
+                      <div className="mk-alert mk-alert--warn" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <span>
+                          Tài khoản học sinh <strong>dưới 18 tuổi</strong> cần liên kết hồ sơ phụ huynh.
+                          Phụ huynh sẽ là người ký hợp đồng và thanh toán sau khi bạn đăng ký.
+                        </span>
+                        <button
+                          className="mk-btn mk-btn--primary mk-btn--block"
+                          type="button"
+                          onClick={() => navigate(APP_ROUTES.profileDependents)}
+                        >
+                          Liên kết hồ sơ phụ huynh
+                        </button>
+                      </div>
+                    ) : isClient || isTutor ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        {isClient && delegatedToParent && (
+                          // Child đã liên kết: cho đăng ký, nhưng phụ huynh mới là bên ký hợp đồng.
+                          <div className="mk-alert mk-alert--info">
+                            Bạn dưới 18 tuổi — sau khi đăng ký, hợp đồng sẽ được gửi cho phụ huynh
+                            {legalHolderName ? ` (${legalHolderName})` : ''} ký và thanh toán. Bạn chính
+                            thức vào lớp sau khi phụ huynh hoàn tất.
+                          </div>
+                        )}
                         <button
                           className="mk-btn mk-btn--primary mk-btn--block"
                           type="button"

@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useContractList } from '../hooks/useContract';
 import type { ContractApiResponse, ContractStatus, EscrowPaymentInfo } from '../types/contractTypes';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { useAuth } from '../../../shared/auth/AuthProvider';
+import { normalizeRole } from '../../../shared/auth/rbac';
 import './ContractPage.css';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
@@ -12,11 +14,6 @@ const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
   ACTIVE: { label: 'Đang hoạt động', cls: 'contract-status--active' },
   COMPLETED: { label: 'Hoàn thành', cls: 'contract-status--completed' },
   TERMINATED: { label: 'Đã chấm dứt', cls: 'contract-status--terminated' },
-};
-
-const SOURCE_LABEL: Record<'PRIVATE' | 'CENTER', string> = {
-  PRIVATE: 'Lớp riêng',
-  CENTER: 'Lớp trung tâm',
 };
 
 const ESCROW_STATUS_LABEL: Record<string, { label: string; cls: string }> = {
@@ -45,6 +42,11 @@ const formatCurrency = (value: number | string | null | undefined) => {
   }).format(amount);
 };
 
+const toAmount = (value: number | string | null | undefined) => {
+  const amount = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(amount) ? amount : 0;
+};
+
 const formatDateTime = (value: string | null | undefined) => {
   if (!value) return '—';
   const date = new Date(value);
@@ -68,56 +70,71 @@ const getEscrowLabel = (escrow: EscrowPaymentInfo | null | undefined) => {
 
 export default function ContractListPage() {
   const { contracts, loading, error, reload } = useContractList();
+  const { user } = useAuth();
+  const viewerRole = normalizeRole(user?.role);
   const escrowContracts = useMemo(
     () => contracts.filter((contract: ContractApiResponse) => contract.escrowPayment != null),
     [contracts],
   );
   const escrowSummary = useMemo(() => {
-    const pending = escrowContracts.filter((contract) => {
+    const pendingContracts = escrowContracts.filter((contract) => {
       const escrow = contract.escrowPayment;
       return escrow?.paymentStatus === 'PENDING' || escrow?.escrowStatus === 'PENDING';
-    }).length;
-    const active = escrowContracts.filter((contract) => {
+    });
+    const lockedContracts = escrowContracts.filter((contract) => {
       const status = contract.escrowPayment?.escrowStatus;
-      return status === 'FUNDED' || status === 'ON_HOLD';
-    }).length;
-    const finished = escrowContracts.filter((contract) => {
+      return status === 'FUNDED' || status === 'ON_HOLD' || status === 'DISPUTED';
+    });
+    const finishedContracts = escrowContracts.filter((contract) => {
       const status = contract.escrowPayment?.escrowStatus;
       return status === 'RELEASED' || status === 'REFUNDED';
-    }).length;
-    return { pending, active, finished };
+    });
+    const sum = (items: ContractApiResponse[]) =>
+      items.reduce((total, contract) => total + toAmount(contract.escrowPayment?.amount), 0);
+    return {
+      pending: pendingContracts.length,
+      locked: lockedContracts.length,
+      finished: finishedContracts.length,
+      totalAmount: sum(escrowContracts),
+      pendingAmount: sum(pendingContracts),
+      lockedAmount: sum(lockedContracts),
+      finishedAmount: sum(finishedContracts),
+    };
   }, [escrowContracts]);
 
   if (loading) {
     return (
-      <div className="tcs-page">
+      <div className="contract-shell">
         <HomeNavbar />
-        <div className="contract-page">
+        <main className="contract-page contract-page--list tcs-container">
           <div className="contract-loading">Đang tải hợp đồng...</div>
-        </div>
+        </main>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="tcs-page">
+      <div className="contract-shell">
         <HomeNavbar />
-        <div className="contract-page">
+        <main className="contract-page contract-page--list tcs-container">
           <div className="contract-error">{error}</div>
-          <button className="btn btn-primary" onClick={reload}>Thử lại</button>
-        </div>
+          <button className="tcs-btn tcs-btn--primary" type="button" onClick={reload}>Thử lại</button>
+        </main>
       </div>
     );
   }
 
   return (
-    <div className="tcs-page">
+    <div className="contract-shell">
       <HomeNavbar />
-      <div className="contract-page">
+      <main className="contract-page contract-page--list tcs-container">
         <div className="contract-header">
-          <h1>Hợp đồng của tôi</h1>
-          <button className="btn btn-outline" onClick={reload}>
+          <div>
+            <p className="contract-eyebrow">Hợp đồng</p>
+            <h1>Hợp đồng của tôi</h1>
+          </div>
+          <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reload}>
             Làm mới
           </button>
         </div>
@@ -146,7 +163,7 @@ export default function ContractListPage() {
                     <tr>
                       <th>Số HĐ</th>
                       <th>Lớp học</th>
-                      <th>Loại</th>
+                      <th>Người ký với</th>
                       <th>Phí</th>
                       <th>Trạng thái</th>
                       <th>Ngày tạo</th>
@@ -156,12 +173,20 @@ export default function ContractListPage() {
                   <tbody>
                     {contracts.map((c) => {
                       const st = STATUS_LABEL[c.status] ?? { label: c.status, cls: 'contract-status--draft' };
+                      // Chỉ hiện BÊN KIA mà mình ký cùng — ẩn chính người đang xem theo vai trò.
+                      const signers = [
+                        viewerRole !== 'CLIENT' ? c.clientName : null,
+                        viewerRole !== 'TUTOR' ? c.tutorName : null,
+                        viewerRole !== 'TUTOR_CENTER' ? c.centerName : null,
+                      ]
+                        .filter((n): n is string => Boolean(n))
+                        .join(' · ');
                       return (
                         <tr key={c.contractId}>
                           <td className="contract-no">{c.contractNo}</td>
-                          <td className="contract-table__title">{c.classTitle ?? c.clientName ?? '—'}</td>
-                          <td>{SOURCE_LABEL[c.sourceType ?? 'PRIVATE'] ?? c.sourceType ?? '—'}</td>
-                          <td>{formatCurrency(c.tuitionFee)}</td>
+                          <td className="contract-table__title">{c.classTitle ?? '—'}</td>
+                          <td>{signers || '—'}</td>
+                          <td>{formatCurrency(c.totalTuitionAmount ?? c.tuitionFee)}</td>
                           <td>
                             <span className={`contract-status ${st.cls}`}>{st.label}</span>
                           </td>
@@ -191,20 +216,24 @@ export default function ContractListPage() {
 
             <div className="contract-escrow-summary">
               <div className="contract-escrow-summary__item">
-                <span>Tổng escrow</span>
-                <strong>{escrowContracts.length}</strong>
+                <span>Tổng tiền escrow</span>
+                <strong>{formatCurrency(escrowSummary.totalAmount)}</strong>
+                <small>{escrowContracts.length} giao dịch</small>
               </div>
               <div className="contract-escrow-summary__item">
                 <span>Đang chờ</span>
-                <strong>{escrowSummary.pending}</strong>
+                <strong>{formatCurrency(escrowSummary.pendingAmount)}</strong>
+                <small>{escrowSummary.pending} giao dịch</small>
               </div>
               <div className="contract-escrow-summary__item">
-                <span>Đang giữ</span>
-                <strong>{escrowSummary.active}</strong>
+                <span>Đang khóa</span>
+                <strong>{formatCurrency(escrowSummary.lockedAmount)}</strong>
+                <small>{escrowSummary.locked} giao dịch</small>
               </div>
               <div className="contract-escrow-summary__item">
                 <span>Đã hoàn tất</span>
-                <strong>{escrowSummary.finished}</strong>
+                <strong>{formatCurrency(escrowSummary.finishedAmount)}</strong>
+                <small>{escrowSummary.finished} giao dịch</small>
               </div>
             </div>
 
@@ -223,7 +252,7 @@ export default function ContractListPage() {
                       <th>Escrow</th>
                       <th>Hợp đồng</th>
                       <th>Lớp học</th>
-                      <th>Số tiền</th>
+                      <th>Số tiền escrow</th>
                       <th>Escrow</th>
                       <th>Thanh toán</th>
                       <th>Cập nhật</th>
@@ -251,7 +280,7 @@ export default function ContractListPage() {
                           </td>
                           <td className="contract-table__title">{contract.contractNo}</td>
                           <td>{contract.classTitle ?? '—'}</td>
-                          <td>{formatCurrency(escrow.amount)}</td>
+                          <td className="contract-table__money">{formatCurrency(escrow.amount)}</td>
                           <td>
                             {escrowLabel ? (
                               <span className={`contract-status ${escrowLabel.cls}`}>{escrowLabel.label}</span>
@@ -281,7 +310,7 @@ export default function ContractListPage() {
             )}
           </section>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
+import { CenterSidebar } from '../components/CenterSidebar';
 import { ChatButton } from '../../messaging/components/ChatButton';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { LocationPicker } from '../components/LocationPicker';
@@ -460,6 +461,11 @@ export default function CenterPage() {
   const [verified, setVerified] = useState<boolean | null>(null);
 
   const [mode, setMode] = useState<'list' | 'form' | 'requests'>('list');
+  // Đồng bộ chế độ hiển thị theo route: /center/requests -> "Yêu cầu mở lớp", còn lại -> danh sách lớp.
+  const location = useLocation();
+  useEffect(() => {
+    setMode(location.pathname.endsWith('/requests') ? 'requests' : 'list');
+  }, [location.pathname]);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   // Ô điều khoản HĐ mặc định thu gọn; bấm để mở rộng khi cần xem/sửa.
@@ -508,6 +514,21 @@ export default function CenterPage() {
       .then((res) => setClasses(res.data))
       .catch((err) => setListError(extractError(err, 'Không tải được danh sách lớp học.')))
       .finally(() => setListLoading(false));
+  };
+
+  // Bước 13b/14: trung tâm xác nhận khóa học hoàn thành (sau khi gia sư đã xác nhận) -> tất toán + đóng lớp.
+  const [completingClassId, setCompletingClassId] = useState<number | null>(null);
+  const confirmCenterComplete = async (classId: number) => {
+    setCompletingClassId(classId);
+    setListError('');
+    try {
+      await centerApi.completeClass(classId);
+      reloadList();
+    } catch (err) {
+      setListError(extractError(err, 'Không xác nhận được hoàn thành lớp.'));
+    } finally {
+      setCompletingClassId(null);
+    }
   };
 
   const reloadRequests = () => {
@@ -917,43 +938,22 @@ export default function CenterPage() {
     <>
       <VerificationHeader />
       <div className="cc-bg">
+      <div className="cc-shell">
+      <CenterSidebar />
       <div className="cc-page">
       <header className="cc-header">
         <h1 className="cc-title">{pageTitle}</h1>
         {mode === 'list' ? (
           <div className="cc-row-actions">
-            <Link className="cc-btn cc-btn--ghost" to="/center/recruitment">
-              Tin tuyển gia sư
-            </Link>
-            <Link className="cc-btn cc-btn--ghost" to="/center/tutors">
-              Gia sư của trung tâm
-            </Link>
-            <Link className="cc-btn cc-btn--ghost" to="/center/contract-templates">
-              Mẫu hợp đồng
-            </Link>
-            <Link className="cc-btn cc-btn--ghost" to="/center/schedule">
-              Lịch hôm nay
-            </Link>
-            <Link className="cc-btn cc-btn--ghost" to="/center/reschedules">
-              Yêu cầu đổi lịch
-            </Link>
-            <Link className="cc-btn cc-btn--ghost" to={APP_ROUTES.centerReports}>
-              Báo cáo & tranh chấp
-            </Link>
-            <button className="cc-btn cc-btn--ghost" type="button" onClick={() => setMode('requests')}>
-              Yêu cầu mở lớp
-              {requests.filter((r) => r.status === 'PENDING').length > 0 &&
-                ` (${requests.filter((r) => r.status === 'PENDING').length})`}
-            </button>
             <button className="cc-btn cc-btn--primary" type="button" onClick={openCreate}>
               Tạo lớp mới
             </button>
           </div>
-        ) : (
+        ) : mode === 'form' ? (
           <button className="cc-btn cc-btn--ghost" type="button" onClick={backToList}>
             ← Quay lại danh sách
           </button>
-        )}
+        ) : null}
       </header>
 
       {mode === 'list' && (
@@ -1000,6 +1000,21 @@ export default function CenterPage() {
                       Xem chi tiết →
                     </button>
                   </div>
+                  {c.tutorCompletionConfirmed && c.status !== 'COMPLETED' && (
+                    <div className="cc-class-card__complete">
+                      <span>✅ Gia sư đã xác nhận hoàn thành khóa học.</span>
+                      <button
+                        className="cc-btn cc-btn--primary cc-btn--sm"
+                        type="button"
+                        disabled={completingClassId === c.classId}
+                        onClick={() => confirmCenterComplete(c.classId)}
+                      >
+                        {completingClassId === c.classId
+                          ? 'Đang xác nhận…'
+                          : 'Xác nhận & đóng lớp'}
+                      </button>
+                    </div>
+                  )}
                 </article>
               ))}
             </div>
@@ -1177,12 +1192,33 @@ export default function CenterPage() {
                                                       <button
                                                         type="button"
                                                         className="cc-reqapp__cert"
-                                                        onClick={() =>
-                                                          setCertPreview({
-                                                            src: cert.fileUrl,
-                                                            fileName: cert.fileName,
-                                                          })
-                                                        }
+                                                        onClick={async () => {
+                                                          // Chứng chỉ là file private -> tải kèm JWT rồi tạo blob URL.
+                                                          if (cert.fileId == null) {
+                                                            setCertPreview({
+                                                              src: cert.fileUrl,
+                                                              fileName: cert.fileName,
+                                                            });
+                                                            return;
+                                                          }
+                                                          try {
+                                                            const blob =
+                                                              await centerApi.getCertificateBlob(
+                                                                cert.fileId,
+                                                              );
+                                                            const url = URL.createObjectURL(blob);
+                                                            setCertPreview((prev) => {
+                                                              if (prev?.src.startsWith('blob:'))
+                                                                URL.revokeObjectURL(prev.src);
+                                                              return { src: url, fileName: cert.fileName };
+                                                            });
+                                                          } catch {
+                                                            setCertPreview({
+                                                              src: cert.fileUrl,
+                                                              fileName: cert.fileName,
+                                                            });
+                                                          }
+                                                        }}
                                                       >
                                                         {cert.mimeType?.startsWith('image/')
                                                           ? '🖼️'
@@ -2211,8 +2247,14 @@ export default function CenterPage() {
         src={certPreview?.src ?? ''}
         fileName={certPreview?.fileName ?? ''}
         isOpen={certPreview !== null}
-        onClose={() => setCertPreview(null)}
+        onClose={() =>
+          setCertPreview((prev) => {
+            if (prev?.src.startsWith('blob:')) URL.revokeObjectURL(prev.src);
+            return null;
+          })
+        }
       />
+      </div>
       </div>
       </div>
     </>

@@ -269,9 +269,10 @@
 
 /* ===== Class cards (Lớp học của tôi) ===== */
 .cc-class-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 16px;
+  align-items: start;
 }
 .cc-class-card {
   position: relative;
@@ -288,6 +289,21 @@
 .cc-class-card:hover {
   box-shadow: var(--shadow-md);
   border-color: var(--color-accent-border-hover);
+}
+.cc-class-card__complete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-success-light, #f0fdf4);
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 13px;
+  font-weight: 600;
 }
 /* Header row: title + key chips + status + detail button */
 .cc-class-card__header {

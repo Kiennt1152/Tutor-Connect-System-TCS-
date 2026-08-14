@@ -237,6 +237,7 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
         refundRequest.setAmount(hold.getAmount());
         refundRequest.setBankName(hold.getPayoutBankName());
         refundRequest.setAccountNo(hold.getPayoutAccountNo());
+        refundRequest.setAccountHolderName(hold.getPayoutAccountHolderName());
         refundRequest.setRefundReferenceCode("REFUND-CREQFEE-" + hold.getFeeHoldId());
         refundRequest.setTransferStatus("PENDING");
         refundRequest.setStatus(RefundRequestStatus.PENDING);

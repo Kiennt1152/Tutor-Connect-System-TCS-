@@ -49,6 +49,8 @@ export interface ContractView {
   numberOfSessions: number;
   subjectNames: string[] | null;
   tuitionFee: number | null;
+  totalTuitionAmount: number | string | null;
+  escrowAmount: number | string | null;
   clientName: string | null;
   clientPhone: string | null;
   clientAddress: string | null;

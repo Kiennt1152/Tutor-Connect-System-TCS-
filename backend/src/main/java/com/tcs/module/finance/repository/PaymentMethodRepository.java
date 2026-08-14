@@ -11,7 +11,7 @@ public interface PaymentMethodRepository extends JpaRepository<PaymentMethod, Lo
 
     List<PaymentMethod> findByWallet_WalletId(Long walletId);
 
-    List<PaymentMethod> findByWallet_WalletIdAndStatusOrderByPaymentMethodIdAsc(Long walletId, String status);
+    List<PaymentMethod> findByWallet_WalletIdAndStatusOrderByLastUsedAtDescPaymentMethodIdAsc(Long walletId, String status);
 
     Optional<PaymentMethod> findByPaymentMethodIdAndWallet_WalletIdAndStatus(
             Long paymentMethodId,

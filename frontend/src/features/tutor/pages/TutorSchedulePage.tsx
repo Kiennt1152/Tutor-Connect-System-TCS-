@@ -78,6 +78,7 @@ export default function TutorSchedulePage() {
   const openAttendance = (classId: number, dateIso: string) =>
     navigate(`/tutor/classes/${classId}/attendance?date=${dateIso}`);
 
+
   // Đổi lịch (báo ốm)
   const [reschedFor, setReschedFor] = useState<{ cls: ScheduleClass; date: string } | null>(null);
   const [newDate, setNewDate] = useState('');
@@ -221,6 +222,8 @@ export default function TutorSchedulePage() {
         </div>
 
         {error && <div className="cs-alert cs-alert--error">{error}</div>}
+
+        {error && <div className="cs-alert cs-alert--error">{error}</div>}
         {reschedOk && <div className="cs-alert cs-alert--ok">{reschedOk}</div>}
         {status === 'loading' && <div className="cs-state">Đang tải lịch…</div>}
 
@@ -265,29 +268,36 @@ export default function TutorSchedulePage() {
                           {c.handedOff ? (
                             <div className="tw-card__handed">🔁 {c.substituteNote}</div>
                           ) : (
-                            <div className="tw-card__actions">
-                              <ChatButton
-                                contextType="CLASS_ACTIVE"
-                                contextId={c.classId}
-                                label="Chat"
-                                size="sm"
-                              />
-                              <button
-                                className={`tw-btn${c.attendanceTaken ? ' tw-btn--done' : ''}`}
-                                type="button"
-                                onClick={() => openAttendance(c.classId, iso)}
-                              >
-                                {c.attendanceTaken ? '✓ Đã điểm danh' : 'Điểm danh'}
-                              </button>
-                              <button
-                                className="tw-btn tw-btn--icon"
-                                type="button"
-                                title="Báo bận/ốm buổi này"
-                                onClick={() => openSick(c, iso)}
-                              >
-                                🤒
-                              </button>
-                            </div>
+                            <>
+                              <div className="tw-card__actions">
+                                <ChatButton
+                                  contextType="CLASS_ACTIVE"
+                                  contextId={c.classId}
+                                  label="Chat"
+                                  size="sm"
+                                />
+                                <button
+                                  className={`tw-btn${c.attendanceTaken ? ' tw-btn--done' : ''}`}
+                                  type="button"
+                                  onClick={() => openAttendance(c.classId, iso)}
+                                >
+                                  {c.attendanceTaken ? '✓ Đã điểm danh' : 'Điểm danh'}
+                                </button>
+                                <button
+                                  className="tw-btn tw-btn--icon"
+                                  type="button"
+                                  title="Báo bận/ốm buổi này"
+                                  onClick={() => openSick(c, iso)}
+                                >
+                                  🤒
+                                </button>
+                              </div>
+                              {c.classCompleted ? (
+                                <div className="tw-complete-done">✓ Đã hoàn thành</div>
+                              ) : c.tutorCompletionConfirmed ? (
+                                <div className="tw-complete-done">⏳ Chờ trung tâm xác nhận</div>
+                              ) : null}
+                            </>
                           )}
                         </div>
                       ))

@@ -1,5 +1,8 @@
 package com.tcs.module.identity.controller;
 
+import com.tcs.module.identity.enums.VerificationDocumentType;
+import com.tcs.module.identity.enums.VerificationStatus;
+import com.tcs.module.identity.repository.VerificationDocumentRepository;
 import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.profile.repository.MediaFileRepository;
 import com.tcs.security.AuthHelper;
@@ -30,6 +33,7 @@ import org.springframework.web.server.ResponseStatusException;
 public class FileAccessController {
 
     private final MediaFileRepository mediaFileRepo;
+    private final VerificationDocumentRepository verificationDocumentRepo;
     private final AuthHelper authHelper;
 
     @Value("${tcs.file.storage.path:uploads}")
@@ -51,6 +55,33 @@ public class FileAccessController {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
         }
 
+        return serve(file);
+    }
+
+    /**
+     * Phục vụ file chứng chỉ (bằng cấp) của gia sư cho bất kỳ người dùng đã đăng nhập —
+     * để trung tâm/phụ huynh xem khi đánh giá gia sư ứng tuyển. An toàn vì chỉ phục vụ đúng
+     * file là tài liệu loại CERTIFICATE thuộc hồ sơ đã VERIFIED; CCCD và tài liệu chưa duyệt
+     * KHÔNG khớp điều kiện nên không thể lấy qua endpoint này.
+     */
+    @GetMapping("/api/files/certificate/{fileId}")
+    public ResponseEntity<Resource> getCertificateFile(@PathVariable Long fileId) {
+        authHelper.currentUserId(); // yêu cầu đã đăng nhập
+
+        boolean isVerifiedCertificate = verificationDocumentRepo
+                .existsByFile_FileIdAndDocumentTypeAndVerificationRequest_Status(
+                        fileId, VerificationDocumentType.CERTIFICATE, VerificationStatus.VERIFIED);
+        if (!isVerifiedCertificate) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Not a shareable certificate");
+        }
+
+        MediaFile file = mediaFileRepo.findById(fileId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
+
+        return serve(file);
+    }
+
+    private ResponseEntity<Resource> serve(MediaFile file) {
         try {
             // Extract stored filename from the fileUrl (e.g. "/uploads/private/uuid.pdf" → "private/uuid.pdf")
             String storedPath = file.getFileUrl().replaceFirst("^/uploads/", "");

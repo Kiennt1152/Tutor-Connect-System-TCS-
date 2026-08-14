@@ -5,6 +5,7 @@ import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -43,6 +44,20 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
             Long walletId,
             PaymentTransactionType type,
             BigDecimal amount,
+            LocalDateTime from,
+            LocalDateTime to);
+
+    List<PaymentTransaction> findByWallet_WalletIdAndTypeAndStatusAndCreatedAtBetweenOrderByCreatedAtAsc(
+            Long walletId,
+            PaymentTransactionType type,
+            PaymentTransactionStatus status,
+            LocalDateTime from,
+            LocalDateTime to);
+
+    List<PaymentTransaction> findByWallet_WalletIdAndTypeInAndStatusAndCreatedAtBetweenOrderByCreatedAtAsc(
+            Long walletId,
+            Collection<PaymentTransactionType> types,
+            PaymentTransactionStatus status,
             LocalDateTime from,
             LocalDateTime to);
 

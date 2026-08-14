@@ -42,6 +42,7 @@ export default function FinancePage() {
     fetchPaymentMethods,
     createPaymentMethod,
     updatePaymentMethod,
+    setDefaultPaymentMethod,
     deletePaymentMethod,
     createWithdrawal,
   } = useFinance();
@@ -162,6 +163,7 @@ export default function FinancePage() {
                   onLoad={fetchPaymentMethods}
                   onCreate={createPaymentMethod}
                   onUpdate={updatePaymentMethod}
+                  onSetDefault={setDefaultPaymentMethod}
                   onDelete={deletePaymentMethod}
                 />
 

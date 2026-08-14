@@ -18,6 +18,7 @@ interface Props {
   onLoad: () => Promise<void>;
   onCreate: (payload: PaymentMethodPayload) => Promise<PaymentMethodInfo>;
   onUpdate: (paymentMethodId: number, payload: PaymentMethodPayload) => Promise<PaymentMethodInfo>;
+  onSetDefault: (paymentMethodId: number) => Promise<PaymentMethodInfo>;
   onDelete: (paymentMethodId: number) => Promise<void>;
 }
 
@@ -35,6 +36,7 @@ export function PaymentMethodsPanel({
   onLoad,
   onCreate,
   onUpdate,
+  onSetDefault,
   onDelete,
 }: Props) {
   const [formOpen, setFormOpen] = useState(false);
@@ -45,6 +47,7 @@ export function PaymentMethodsPanel({
   const [accountHolderName, setAccountHolderName] = useState('');
   const [saving, setSaving] = useState(false);
   const [removingId, setRemovingId] = useState<number | null>(null);
+  const [defaultingId, setDefaultingId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
@@ -152,6 +155,22 @@ export function PaymentMethodsPanel({
     }
   }
 
+  async function handleSetDefault(method: PaymentMethodInfo) {
+    if (method.isDefault) return;
+
+    setDefaultingId(method.paymentMethodId);
+    setError(null);
+    setSuccess(null);
+    try {
+      await onSetDefault(method.paymentMethodId);
+      setSuccess('Đã đặt tài khoản nhận tiền mặc định.');
+    } catch (err: unknown) {
+      setError(getApiErrorMessage(err, 'Không thể đặt tài khoản mặc định.'));
+    } finally {
+      setDefaultingId(null);
+    }
+  }
+
   return (
     <section className="payment-methods">
       <div className="payment-methods__header">
@@ -234,6 +253,15 @@ export function PaymentMethodsPanel({
               </div>
               {method.isDefault && <span className="payment-method-item__default">Mặc định</span>}
               <div className="payment-method-item__actions">
+                {!method.isDefault && (
+                  <button
+                    className="btn-link"
+                    onClick={() => void handleSetDefault(method)}
+                    disabled={defaultingId === method.paymentMethodId}
+                  >
+                    {defaultingId === method.paymentMethodId ? 'Đang đặt' : 'Đặt mặc định'}
+                  </button>
+                )}
                 <button className="btn-link" onClick={() => openEditForm(method)}>
                   Sửa
                 </button>

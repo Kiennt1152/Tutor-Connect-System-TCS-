@@ -64,4 +64,7 @@ public class CenterClassResponse {
 
     // Danh sách học sinh đã ghi danh (ENROLLED) – dùng cho phần xem chi tiết.
     private List<StudentAttendanceResponse> students;
+
+    /** true nếu GIA SƯ đã xác nhận hoàn thành — trung tâm cần xác nhận để đóng lớp. */
+    private boolean tutorCompletionConfirmed;
 }

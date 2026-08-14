@@ -215,6 +215,15 @@ public class MarketplaceController {
         return marketplaceService.listMyLessons();
     }
 
+    @GetMapping("/center-schedule")
+    public List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getMyEnrolledSchedule(
+            @RequestParam(required = false)
+            @org.springframework.format.annotation.DateTimeFormat(
+                    iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE)
+            java.time.LocalDate date) {
+        return marketplaceService.getMyEnrolledSchedule(date);
+    }
+
     @PostMapping("/lessons/{lessonId}/checkin")
     public Map<String, String> checkInLesson(@PathVariable Long lessonId) {
         marketplaceService.checkInLesson(lessonId);
