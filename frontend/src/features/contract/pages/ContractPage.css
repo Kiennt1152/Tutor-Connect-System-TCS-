@@ -14,8 +14,13 @@
   max-width: 1120px;
 }
 
+.contract-page--list {
+  max-width: 1180px;
+}
+
 .contract-page-head,
-.contract-detail-head {
+.contract-detail-head,
+.contract-header {
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -24,7 +29,8 @@
 }
 
 .contract-page-head h1,
-.contract-detail-head h1 {
+.contract-detail-head h1,
+.contract-header h1 {
   margin: 0;
   color: var(--color-text-primary);
   font-size: var(--fs-h1);
@@ -47,7 +53,13 @@
   text-transform: uppercase;
 }
 
+.contract-header .tcs-btn {
+  flex-shrink: 0;
+}
+
 .contract-state,
+.contract-loading,
+.contract-error,
 .contract-empty,
 .contract-table-card,
 .contract-card {
@@ -57,14 +69,21 @@
   box-shadow: var(--shadow-sm);
 }
 
+.contract-loading,
+.contract-error,
 .contract-state {
   padding: var(--space-2xl);
   color: var(--color-text-secondary);
   text-align: center;
 }
 
+.contract-error,
 .contract-state--error {
   color: var(--color-error);
+}
+
+.contract-page--list .contract-error + .tcs-btn {
+  margin-top: var(--space-md);
 }
 
 .contract-empty {
@@ -89,6 +108,10 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-lg);
+}
+
+.contract-page--list .contract-section-stack {
+  gap: var(--space-xl);
 }
 
 .contract-table-card__head,
@@ -185,6 +208,18 @@
 .contract-escrow-summary__item strong {
   color: var(--color-text-primary);
   font-size: var(--fs-body-lg);
+}
+
+.contract-escrow-summary__item small {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+}
+
+.contract-table__money {
+  color: var(--color-primary-dark) !important;
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .contract-no {
@@ -724,7 +759,8 @@
 
 @media (max-width: 900px) {
   .contract-page-head,
-  .contract-detail-head {
+  .contract-detail-head,
+  .contract-header {
     align-items: stretch;
     flex-direction: column;
   }
@@ -752,7 +788,8 @@
   }
 
   .contract-page-head h1,
-  .contract-detail-head h1 {
+  .contract-detail-head h1,
+  .contract-header h1 {
     font-size: var(--fs-h2);
   }
 

@@ -76,6 +76,8 @@ export interface ContractResponse {
   classTitle: string | null;
   classType: string | null;
   tuitionFee: number | string | null;
+  totalTuitionAmount?: number | string | null;
+  escrowAmount?: number | string | null;
   lessonMode: string | null;
   numberOfSessions: number | null;
   tutor: ContractPartyInfo | null;
@@ -197,6 +199,8 @@ export interface Contract {
   classTitle: string | null;
   classType: string | null;
   tuitionFee: number | string | null;
+  totalTuitionAmount: number | string | null;
+  escrowAmount: number | string | null;
   lessonMode: string | null;
   numberOfSessions: number | null;
   tutor: ContractPartyInfo | null;

@@ -3,6 +3,7 @@ package com.tcs.module.finance.service;
 import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.entity.EscrowTransaction;
+import com.tcs.module.finance.entity.PaymentTransaction;
 
 /**
  * Seam 0.2 (chu: M3). Diem vao tai chinh cho M1/M2 va M4.
@@ -14,6 +15,10 @@ import com.tcs.module.finance.entity.EscrowTransaction;
 public interface EscrowService {
 
     EscrowTransaction lock(EscrowLockCommand command);
+
+    PaymentTransaction preparePayment(EscrowLockCommand command);
+
+    EscrowTransaction fundConfirmedPayment(PaymentTransaction payment);
 
     void apply(ReleaseInstruction instruction);
 

@@ -25,6 +25,8 @@ public class ContractViewResponse {
     private long numberOfSessions;
     private List<String> subjectNames;
     private BigDecimal tuitionFee;
+    private BigDecimal totalTuitionAmount;
+    private BigDecimal escrowAmount;
 
     private String clientName;
     private String clientPhone;

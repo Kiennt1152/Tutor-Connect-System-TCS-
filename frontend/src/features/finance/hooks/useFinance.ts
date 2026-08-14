@@ -173,6 +173,14 @@ export function useFinance() {
     return data;
   }, [fetchPaymentMethods]);
 
+  const setDefaultPaymentMethod = useCallback(async (
+    paymentMethodId: number
+  ): Promise<PaymentMethodInfo> => {
+    const data = await financeApi.setDefaultPaymentMethod(paymentMethodId);
+    await fetchPaymentMethods();
+    return data;
+  }, [fetchPaymentMethods]);
+
   const deletePaymentMethod = useCallback(async (
     paymentMethodId: number
   ): Promise<void> => {
@@ -214,6 +222,7 @@ export function useFinance() {
     fetchPaymentMethods,
     createPaymentMethod,
     updatePaymentMethod,
+    setDefaultPaymentMethod,
     deletePaymentMethod,
     createWithdrawal,
   };

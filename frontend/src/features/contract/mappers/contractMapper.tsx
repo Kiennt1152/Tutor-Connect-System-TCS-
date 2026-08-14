@@ -127,6 +127,8 @@ export function mapContract(response: ContractApiResponse): Contract {
     classTitle: response.classTitle ?? null,
     classType: response.classType ?? null,
     tuitionFee: response.tuitionFee ?? null,
+    totalTuitionAmount: response.totalTuitionAmount ?? null,
+    escrowAmount: response.escrowAmount ?? null,
     lessonMode: response.lessonMode ?? null,
     numberOfSessions: response.numberOfSessions ?? null,
     tutor: response.tutor ?? null,
