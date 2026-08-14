@@ -56,6 +56,7 @@ public class AiServiceImpl implements AiService {
     private final AiCapabilityRouter capabilityRouter;
     private final AiFallbackService fallbackService;
     private final AiHallucinationGuard hallucinationGuard;
+    private final OpenDomainHandler openDomainHandler;
 
     private final AiTicketContextProvider ticketContextProvider;
     private final AiAdminDashboardContextProvider dashboardContextProvider;
@@ -178,11 +179,46 @@ public class AiServiceImpl implements AiService {
                     .build();
         }
 
+        // 4.5. Open Domain Handling with Soft Steering
+        if (domain == AiDomain.OPEN_DOMAIN) {
+            OpenDomainHandler.OpenDomainResponse openResp = openDomainHandler.handle(subIntent, request.getMessage(), entities);
+            String fullContent = openResp.formatFullResponse();
+
+            AiChatMessage aiMsg = new AiChatMessage();
+            aiMsg.setSession(session);
+            aiMsg.setRole("assistant");
+            aiMsg.setContent(fullContent);
+            messageRepository.save(aiMsg);
+            sessionRepository.save(session);
+
+            return AiMessageResponse.builder()
+                    .messageId(aiMsg.getMessageId())
+                    .sessionId(session.getSessionId())
+                    .role("assistant")
+                    .content(fullContent)
+                    .createdAt(aiMsg.getCreatedAt())
+                    .intent(legacyIntent.name())
+                    .domain(domain.name())
+                    .subIntent(subIntent.name())
+                    .suggestedRoute(openResp.suggestedRoute())
+                    .clarificationOptions(openResp.ctaButtons())
+                    .answerMode("OPEN_DOMAIN")
+                    .confidenceScore(classification.confidence())
+                    .confidenceLevel("HIGH")
+                    .sourceCount(0)
+                    .groundingStatus("OPEN_DOMAIN")
+                    .sources(List.of())
+                    .referencedTutors(List.of())
+                    .referencedClasses(List.of())
+                    .referencedFaqs(List.of())
+                    .build();
+        }
+
         // 5. Context Retrieval (Database-first + Vector Retrieval)
         List<AiSourceResponse> allSources = new ArrayList<>();
         String lowerQuery = request.getMessage().toLowerCase();
 
-        if (domain != AiDomain.OUT_OF_SCOPE && domain != AiDomain.CONVERSATION_SAFETY) {
+        if (domain != AiDomain.OUT_OF_SCOPE && domain != AiDomain.CONVERSATION_SAFETY && domain != AiDomain.OPEN_DOMAIN) {
             if (subIntent == AiSubIntent.FIND_TUTOR || subIntent == AiSubIntent.FILTER_TUTOR) {
                 allSources.addAll(tutorSearchContextProvider.searchTutors(entities));
             } else if (subIntent == AiSubIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS) {

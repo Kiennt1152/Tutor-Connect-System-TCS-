@@ -129,6 +129,12 @@ public class AiCapabilityRouter {
             Set.of(), false, Set.of(), true, false,
             CardPolicy.NONE, GuardType.NONE, null,
             "Tôi là Trợ lý học tập AI của TCS. Hãy đặt câu hỏi về bài tập Toán, Tiếng Anh hoặc các môn học khác."
+        )),
+
+        Map.entry(AiDomain.OPEN_DOMAIN, new CapabilityPolicy(
+            Set.of(), false, Set.of(), true, false,
+            CardPolicy.NONE, GuardType.NONE, null,
+            "Tôi là Trợ lý AI của TCS, luôn sẵn sàng giải đáp thắc mắc và hỗ trợ bạn tìm kiếm gia sư / lớp học phù hợp."
         ))
     );
 

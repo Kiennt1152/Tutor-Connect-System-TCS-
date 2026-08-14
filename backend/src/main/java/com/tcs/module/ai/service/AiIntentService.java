@@ -174,6 +174,70 @@ public class AiIntentService {
             entities.put("subject", "KHTN");
         }
 
+        // 7. Extract Certification Level (IELTS, TOEIC, HSK, JLPT, TOPIK)
+        Pattern ieltsPattern = Pattern.compile("ielts\\s+(?:band\\s+)?([0-9]+(?:\\.[0-9]+)?)");
+        Matcher ieltsMatcher = ieltsPattern.matcher(lower);
+        if (ieltsMatcher.find()) {
+            entities.put("certLevel", "IELTS " + ieltsMatcher.group(1));
+            if (!entities.containsKey("subject")) entities.put("subject", "Anh");
+        }
+
+        Pattern toeicPattern = Pattern.compile("toeic\\s+([0-9]{3,4})");
+        Matcher toeicMatcher = toeicPattern.matcher(lower);
+        if (toeicMatcher.find()) {
+            entities.put("certLevel", "TOEIC " + toeicMatcher.group(1));
+            if (!entities.containsKey("subject")) entities.put("subject", "Anh");
+        }
+
+        if (lower.contains("hsk")) {
+            Pattern hskPattern = Pattern.compile("hsk\\s*([1-6])");
+            Matcher hskMatcher = hskPattern.matcher(lower);
+            if (hskMatcher.find()) {
+                entities.put("certLevel", "HSK " + hskMatcher.group(1));
+            } else {
+                entities.put("certLevel", "HSK");
+            }
+            if (!entities.containsKey("subject")) entities.put("subject", "Tiếng Trung");
+        }
+
+        if (lower.contains("jlpt") || lower.contains("n1") || lower.contains("n2") || lower.contains("n3") || lower.contains("n4") || lower.contains("n5")) {
+            Pattern jlptPattern = Pattern.compile("(?:jlpt\\s*)?(n[1-5])");
+            Matcher jlptMatcher = jlptPattern.matcher(lower);
+            if (jlptMatcher.find()) {
+                entities.put("certLevel", "JLPT " + jlptMatcher.group(1).toUpperCase());
+                if (!entities.containsKey("subject")) entities.put("subject", "Tiếng Nhật");
+            }
+        }
+
+        if (lower.contains("topik")) {
+            Pattern topikPattern = Pattern.compile("topik\\s*([1-6])");
+            Matcher topikMatcher = topikPattern.matcher(lower);
+            if (topikMatcher.find()) {
+                entities.put("certLevel", "TOPIK " + topikMatcher.group(1));
+            } else {
+                entities.put("certLevel", "TOPIK");
+            }
+            if (!entities.containsKey("subject")) entities.put("subject", "Tiếng Hàn");
+        }
+
+        // 8. Extract Programming Language (for Tin học subject)
+        if (lower.contains("python") || lower.contains("py")) {
+            entities.put("programmingLang", "Python");
+            if (!entities.containsKey("subject")) entities.put("subject", "Tin học");
+        } else if (lower.contains("scratch")) {
+            entities.put("programmingLang", "Scratch");
+            if (!entities.containsKey("subject")) entities.put("subject", "Tin học");
+        } else if (lower.contains("c++") || lower.contains("cpp")) {
+            entities.put("programmingLang", "C++");
+            if (!entities.containsKey("subject")) entities.put("subject", "Tin học");
+        } else if (lower.contains("java") && !lower.contains("javascript")) {
+            entities.put("programmingLang", "Java");
+            if (!entities.containsKey("subject")) entities.put("subject", "Tin học");
+        } else if (lower.contains("javascript") || lower.contains("js")) {
+            entities.put("programmingLang", "JavaScript");
+            if (!entities.containsKey("subject")) entities.put("subject", "Tin học");
+        }
+
         return entities;
     }
 

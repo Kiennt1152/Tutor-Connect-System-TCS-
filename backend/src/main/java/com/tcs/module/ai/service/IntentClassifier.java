@@ -11,6 +11,16 @@ import org.springframework.stereotype.Service;
 @Service
 public class IntentClassifier {
 
+    private final OpenDomainClassifier openDomainClassifier;
+
+    public IntentClassifier() {
+        this.openDomainClassifier = new OpenDomainClassifier();
+    }
+
+    public IntentClassifier(OpenDomainClassifier openDomainClassifier) {
+        this.openDomainClassifier = openDomainClassifier != null ? openDomainClassifier : new OpenDomainClassifier();
+    }
+
     public record IntentResult(AiIntent intent, double confidence) {}
 
     public record ClassificationDetail(
@@ -283,10 +293,22 @@ public class IntentClassifier {
             return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.FIND_TUTOR, AiIntent.FIND_TUTOR, 0.95, "/tim-gia-su");
         }
 
-        // 17. CATALOG_FAQ - GENERAL FALLBACK
+        // 17. OPEN_DOMAIN (Math, Weather, Time/Date, General Knowledge, Entertainment)
+        OpenDomainClassifier.OpenDomainResult openResult = openDomainClassifier.classifyOpen(message);
+        if (openResult.confidence() >= 0.7) {
+            return new ClassificationDetail(
+                AiDomain.OPEN_DOMAIN,
+                openResult.subIntent(),
+                AiIntent.OUT_OF_SCOPE,
+                openResult.confidence(),
+                null
+            );
+        }
+
+        // 18. CATALOG_FAQ - GENERAL FALLBACK
         if (containsAny(normalized,
-                "huong dan", "cach dung", "quy trinh", "chinh sach", "faq", "ho tro chung", "the nao",
-                "la gi", "vai tro", "tinh nang", "cac mon hoc")) {
+                "huong dan", "cach dung", "quy trinh", "chinh sach", "faq", "ho tro chung",
+                "tcs la gi", "vai tro", "tinh nang san", "cac mon hoc")) {
             return new ClassificationDetail(AiDomain.CATALOG_FAQ, AiSubIntent.FAQ_SEARCH, AiIntent.FAQ_SUPPORT, 0.9, "/help");
         }
 

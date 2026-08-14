@@ -116,6 +116,33 @@ public class AiFallbackService {
             );
         }
 
+        if (normalized.contains("bai tap") || normalized.contains("giai bai") || normalized.contains("luyen tap") || normalized.contains("kien thuc")) {
+            return new FallbackResult(
+                1,
+                "Bạn cần hỗ trợ giải đáp bài tập hoặc học tập? Tôi có thể giúp bạn:",
+                "/tim-gia-su",
+                List.of(
+                    "Tìm gia sư dạy kèm 1-1 (/tim-gia-su)",
+                    "Giải bài tập & trợ giảng cùng AI",
+                    "Xem danh sách lớp học đang mở (/lop-hoc)",
+                    "Trung tâm trợ giúp học tập (/help)"
+                )
+            );
+        }
+
+        if (normalized.contains("ngay") || normalized.contains("gio") || normalized.contains("thoi gian") || normalized.contains("lich")) {
+            return new FallbackResult(
+                1,
+                "Nếu bạn đang lên lịch học, TCS có thể giúp bạn kết nối gia sư linh hoạt thời gian:",
+                "/tim-gia-su",
+                List.of(
+                    "Tìm gia sư có lịch phù hợp (/tim-gia-su)",
+                    "Xem lịch dạy của gia sư (/tutor/schedule)",
+                    "Đăng bài tạo lớp theo khung giờ cụ thể (/tao-lop)"
+                )
+            );
+        }
+
         return new FallbackResult(
             1,
             "Tôi có thể hỗ trợ bạn theo các hướng sau. Vui lòng chọn nội dung bạn quan tâm:",
