@@ -260,7 +260,9 @@ export default function ContractDetailPage() {
   } | null>(null);
   const currentEscrowPayment = contract?.escrowPayment ?? null;
   const shouldAutoCheckEscrowPayment =
-    Boolean(currentEscrowPayment)
+    user?.role === 'CLIENT'
+    && Boolean(contract?.refundPayoutInfo)
+    && Boolean(currentEscrowPayment)
     && !isEscrowPaymentConfirmed(
       currentEscrowPayment?.paymentStatus,
       currentEscrowPayment?.escrowStatus,
@@ -480,6 +482,13 @@ export default function ContractDetailPage() {
     Boolean(visibleEscrowPayment)
     && !contract.refundPayoutInfo
     && isClient;
+  const clientCanViewEscrowPayment =
+    Boolean(visibleEscrowPayment)
+    && Boolean(contract.refundPayoutInfo)
+    && isClient;
+  const waitingForClientPayment =
+    Boolean(visibleEscrowPayment)
+    && !isClient;
   const classDetailUrl = contract.classId
     ? `/marketplace/classes/${contract.classId}${
         contract.classStudentId
@@ -644,8 +653,7 @@ export default function ContractDetailPage() {
             </div>
           </section>
 
-          {visibleEscrowPayment ? (
-            needsRefundPayoutInfo ? (
+          {needsRefundPayoutInfo ? (
               <section className="contract-card contract-escrow-card">
                 <div className="contract-card__head">
                   <h2>Thông tin nhận hoàn tiền</h2>
@@ -686,7 +694,7 @@ export default function ContractDetailPage() {
                   </button>
                 </div>
               </section>
-            ) : (
+          ) : clientCanViewEscrowPayment ? (
               <section className="contract-card contract-escrow-card">
                 <div className="contract-card__head">
                   <h2>Quét mã để thanh toán</h2>
@@ -764,7 +772,16 @@ export default function ContractDetailPage() {
                   </div>
                 </div>
               </section>
-            )
+          ) : waitingForClientPayment ? (
+            <section className="contract-card contract-escrow-card">
+              <div className="contract-card__head">
+                <h2>Thanh toán escrow</h2>
+                {escrowStatus ? <span className={`contract-status ${escrowStatus.cls}`}>{escrowStatus.label}</span> : null}
+              </div>
+              <p className="contract-muted">
+                Hệ thống đang chờ phụ huynh/học viên thanh toán escrow. Mã QR chỉ hiển thị với tài khoản thanh toán.
+              </p>
+            </section>
           ) : null}
 
           <section className="contract-card">
