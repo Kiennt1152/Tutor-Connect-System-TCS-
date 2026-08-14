@@ -56,6 +56,8 @@ export interface ContractView {
   tutorCccd: string | null;
   tutorSigned: boolean;
   clientSigned: boolean;
+  tutorSignedAt: string | null;
+  clientSignedAt: string | null;
   paymentMethod: PaymentMethod | null;
   myRole: 'CLIENT' | 'TUTOR';
   escrowPayment: EscrowPaymentInfo | null;

@@ -297,6 +297,8 @@ export default function TeachingPage() {
             mode="RESCHEDULE"
             lesson={dialog.lesson}
             onClose={() => setDialog(null)}
+            submitError={error}
+            existingLessons={lessons}
             onSubmit={(payload) => requestReschedule(dialog.lesson.lessonId, payload)}
           />
         )}
@@ -305,6 +307,8 @@ export default function TeachingPage() {
             mode="EXTRA"
             classes={classOptions}
             onClose={() => setDialog(null)}
+            submitError={error}
+            existingLessons={lessons}
             onSubmit={requestExtraLesson}
           />
         )}

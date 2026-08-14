@@ -194,6 +194,8 @@ export function restWeeksOf(form: ClassFormValues): number[] {
 }
 
 export function patternRepeats(form: ClassFormValues): number {
+  // Chọn ngày cụ thể: mỗi buổi là một buổi thực tế, không lặp -> chỉ tính đúng số buổi đã chọn.
+  if (form.scheduleMode !== 'WEEKLY') return 1;
   const weeks = weeksForCycle(form);
   const n = repeatWeeksOf(form);
   if (n <= 1) return weeks;

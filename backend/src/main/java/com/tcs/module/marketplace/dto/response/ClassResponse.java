@@ -51,6 +51,8 @@ public class ClassResponse {
     private Long terminationClassStudentId;
     private List<ScheduleSlotResponse> schedule;
     private LocalDateTime createdAt;
+    /** Hạn hiển thị (đăng lớp + 30 ngày); null nếu không tính hạn. Chỉ có với lớp OPEN. */
+    private LocalDateTime expiresAt;
     private Long applicationCount;
     private Long assignmentId;
 }

@@ -188,6 +188,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** Số ngày hiển thị lớp OPEN trước khi hết hạn và bị xóa. */
+    private static final long CLASS_DISPLAY_DAYS = 30;
+
     private static final SecureRandom SIGN_OTP_RANDOM = new SecureRandom();
     private static final int SIGN_OTP_EXPIRE_SECONDS = 30;
     private static final int SIGN_OTP_MAX_ATTEMPTS = 5;
@@ -348,6 +351,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             throw new ForbiddenException("Không có quyền đăng lớp này");
         }
         tutoringClass.setStatus(TutoringClassStatus.OPEN);
+        // Thời gian hiển thị 30 ngày kể từ lúc đăng; đăng lại sẽ làm mới hạn.
+        tutoringClass.setExpiresAt(java.time.LocalDateTime.now().plusDays(CLASS_DISPLAY_DAYS));
         TutoringClass saved = tutoringClassRepository.save(tutoringClass);
         auditLogService.record(userId, "PUBLISH_CLASS", "TutoringClass", saved.getClassId(), null, null);
         return toClassResponse(saved, null, null);
@@ -369,6 +374,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             throw new IllegalArgumentException("Lớp đã có gia sư ứng tuyển nên không thể gỡ đăng");
         }
         tutoringClass.setStatus(TutoringClassStatus.DRAFT);
+        tutoringClass.setExpiresAt(null); // Về nháp thì không tính hạn hiển thị nữa.
         return toClassResponse(tutoringClassRepository.save(tutoringClass));
     }
 
@@ -894,6 +900,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .tutorCccd(tutorCccd != null ? tutorCccd.getCccdNumber() : null)
                 .tutorSigned(assignment.getTutorSignedAt() != null)
                 .clientSigned(assignment.getClientSignedAt() != null)
+                .tutorSignedAt(assignment.getTutorSignedAt())
+                .clientSignedAt(assignment.getClientSignedAt())
                 .paymentMethod(assignment.getPaymentMethod())
                 .myRole(role)
                 .escrowPayment(toEscrowPaymentInfo(resolveAssignmentEscrow(assignment)))
@@ -1452,6 +1460,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             }
         }
         tutoringClass.setStatus(TutoringClassStatus.OPEN);
+        // Lớp mở lại sau khi gia sư từ chối -> làm mới hạn hiển thị 30 ngày.
+        tutoringClass.setExpiresAt(java.time.LocalDateTime.now().plusDays(CLASS_DISPLAY_DAYS));
         tutoringClassRepository.save(tutoringClass);
     }
 
@@ -1742,6 +1752,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             requireSlotFree(tutoringClass, lesson.getTutor(), date, start, end, lesson.getLessonId());
             lesson.setSlot(resolveSlot(tutoringClass, date, start, end, lesson.getSlot().getSubject()));
             lesson.setLessonDate(date);
+            // Đổi lịch được duyệt -> phát lại nhắc nhở vào 00:00 ngày học mới.
+            lesson.setReminderSentAt(null);
             lessonRepository.save(lesson);
         } else {
             Tutor tutor = activeTutorOf(tutoringClass);
@@ -3216,6 +3228,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                                 .build())
                         .toList())
                 .createdAt(c.getCreatedAt())
+                .expiresAt(c.getExpiresAt())
                 .applicationCount(tutorApplicationRepository.countByTutoringClass_ClassIdAndStatusNot(
                         c.getClassId(), TutorApplicationStatus.REJECTED))
                 .assignmentId(classAssignmentRepository

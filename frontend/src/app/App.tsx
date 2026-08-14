@@ -3,6 +3,7 @@ import HomePage from '../features/home/pages/HomePage';
 import FindTutorPage from '../features/home/pages/FindTutorPage';
 import PostTutorRequestPage from '../features/home/pages/PostTutorRequestPage';
 import FindClassPage from '../features/home/pages/FindClassPage';
+import ClassBoardPage from '../features/home/pages/ClassBoardPage';
 import TutorPublicProfilePage from '../features/home/pages/TutorPublicProfilePage';
 import TutorReviewsPage from '../features/home/pages/TutorReviewsPage';
 import LoginPage from '../features/identity/pages/LoginPage';
@@ -78,6 +79,7 @@ export default function App() {
           <Route path={APP_ROUTES.findTutor} element={<FindTutorPage />} />
           <Route path={APP_ROUTES.postTutorRequest} element={<PostTutorRequestPage />} />
           <Route path={APP_ROUTES.findClass} element={<FindClassPage />} />
+          <Route path={APP_ROUTES.classBoard} element={<ClassBoardPage />} />
           <Route path={APP_ROUTES.classFinder} element={<ClassFinderPage />} />
           <Route path={APP_ROUTES.tutorProfile} element={<TutorPublicProfilePage />} />
           <Route path={APP_ROUTES.tutorReviews} element={<TutorReviewsPage />} />

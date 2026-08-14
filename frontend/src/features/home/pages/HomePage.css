@@ -58,6 +58,38 @@
   gap: var(--space-md);
 }
 
+/* Trang /danh-sach-lop: tiêu đề icon + chữ cùng hàng, lớp xếp lưới 2 cột. */
+.tcs-classboard .tcs-find-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: clamp(20px, 2.4vw, 28px);
+  font-weight: 800;
+  line-height: 1.2;
+}
+.tcs-classboard .tcs-find-title__icon {
+  display: inline-flex;
+  font-size: 0.9em;
+  line-height: 1;
+}
+.tcs-classboard .tcs-find-title__text {
+  color: #0f172a;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
+
+.tcs-classboard .tcs-class-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+@media (max-width: 720px) {
+  .tcs-classboard .tcs-class-list {
+    grid-template-columns: 1fr;
+  }
+}
+
 .tcs-class-card {
   display: flex;
   flex-direction: column;

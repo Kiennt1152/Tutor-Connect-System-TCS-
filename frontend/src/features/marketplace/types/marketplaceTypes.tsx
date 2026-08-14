@@ -80,6 +80,8 @@ export interface ClassResponse {
   recurringType: RecurringType;
   status: ClassStatus;
   createdAt: string;
+  /** Hạn hiển thị (đăng lớp + 30 ngày); null nếu không tính hạn. Chỉ có với lớp OPEN. */
+  expiresAt: string | null;
   applicationCount: number | null;
   assignmentId: number | null;
 }
