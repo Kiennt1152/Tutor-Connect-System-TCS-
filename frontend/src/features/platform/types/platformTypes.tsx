@@ -567,6 +567,9 @@ export interface EscrowReviewApiResponse {
   paymentReferenceCode: string | null;
   payerUserId: number | null;
   payerEmail: string | null;
+  refundBankName: string | null;
+  refundAccountNoMasked: string | null;
+  refundAccountHolderName: string | null;
 }
 
 export interface ClassReviewApiResponse {

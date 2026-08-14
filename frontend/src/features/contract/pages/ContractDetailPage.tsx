@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
 import '../../finance/FinancePage.css';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { PaymentQrCountdown } from '../../../shared/components/PaymentQrCountdown';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { contractApi } from '../api/contractApi';
@@ -260,9 +261,7 @@ export default function ContractDetailPage() {
   } | null>(null);
   const currentEscrowPayment = contract?.escrowPayment ?? null;
   const shouldAutoCheckEscrowPayment =
-    user?.role === 'CLIENT'
-    && Boolean(contract?.refundPayoutInfo)
-    && Boolean(currentEscrowPayment)
+    Boolean(currentEscrowPayment)
     && !isEscrowPaymentConfirmed(
       currentEscrowPayment?.paymentStatus,
       currentEscrowPayment?.escrowStatus,
@@ -482,13 +481,6 @@ export default function ContractDetailPage() {
     Boolean(visibleEscrowPayment)
     && !contract.refundPayoutInfo
     && isClient;
-  const clientCanViewEscrowPayment =
-    Boolean(visibleEscrowPayment)
-    && Boolean(contract.refundPayoutInfo)
-    && isClient;
-  const waitingForClientPayment =
-    Boolean(visibleEscrowPayment)
-    && !isClient;
   const classDetailUrl = contract.classId
     ? `/marketplace/classes/${contract.classId}${
         contract.classStudentId
@@ -653,7 +645,8 @@ export default function ContractDetailPage() {
             </div>
           </section>
 
-          {needsRefundPayoutInfo ? (
+          {visibleEscrowPayment ? (
+            needsRefundPayoutInfo ? (
               <section className="contract-card contract-escrow-card">
                 <div className="contract-card__head">
                   <h2>Thông tin nhận hoàn tiền</h2>
@@ -694,7 +687,7 @@ export default function ContractDetailPage() {
                   </button>
                 </div>
               </section>
-          ) : clientCanViewEscrowPayment ? (
+            ) : (
               <section className="contract-card contract-escrow-card">
                 <div className="contract-card__head">
                   <h2>Quét mã để thanh toán</h2>
@@ -702,8 +695,19 @@ export default function ContractDetailPage() {
                 </div>
                 <div className="contract-escrow">
                   {visibleEscrowPayment.qrUrl ? (
-                    <div className="contract-escrow__qr">
-                      <img src={visibleEscrowPayment.qrUrl} alt="Mã QR thanh toán escrow" />
+                    <div className="contract-escrow__qr-wrap">
+                      <div className="contract-escrow__qr">
+                        <img src={visibleEscrowPayment.qrUrl} alt="Mã QR thanh toán escrow" />
+                      </div>
+                      <PaymentQrCountdown
+                        resetKey={
+                          visibleEscrowPayment.referenceCode
+                          ?? visibleEscrowPayment.transferContent
+                          ?? visibleEscrowPayment.qrUrl
+                        }
+                        label="Thời gian chuyển khoản còn lại"
+                        expiredLabel="Mã QR đã hết 5 phút hiển thị. Vui lòng tải lại trang nếu chưa chuyển khoản."
+                      />
                     </div>
                   ) : null}
                   <div className="contract-escrow__details">
@@ -772,16 +776,7 @@ export default function ContractDetailPage() {
                   </div>
                 </div>
               </section>
-          ) : waitingForClientPayment ? (
-            <section className="contract-card contract-escrow-card">
-              <div className="contract-card__head">
-                <h2>Thanh toán escrow</h2>
-                {escrowStatus ? <span className={`contract-status ${escrowStatus.cls}`}>{escrowStatus.label}</span> : null}
-              </div>
-              <p className="contract-muted">
-                Hệ thống đang chờ phụ huynh/học viên thanh toán escrow. Mã QR chỉ hiển thị với tài khoản thanh toán.
-              </p>
-            </section>
+            )
           ) : null}
 
           <section className="contract-card">

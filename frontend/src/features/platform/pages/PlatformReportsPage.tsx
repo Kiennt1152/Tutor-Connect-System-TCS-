@@ -41,11 +41,9 @@ import './PlatformReportsPage.css';
 
 const RESOLUTION_ACTION_OPTIONS: { value: DisputeResolutionAction; label: string }[] = [
   { value: 'CONTINUE_CLASS', label: 'Tiếp tục lớp' },
-  { value: 'TERMINATE_CLASS', label: 'Chấm dứt lớp và tất toán' },
   { value: 'APPROVE_FULL_REFUND', label: 'Hoàn tiền toàn phần' },
   { value: 'APPROVE_PARTIAL_REFUND', label: 'Hoàn tiền một phần' },
   { value: 'REJECT_REFUND', label: 'Từ chối hoàn tiền' },
-  { value: 'CLOSE_MUTUAL_AGREEMENT', label: 'Đóng theo thỏa thuận' },
   { value: 'REQUEST_MORE_EVIDENCE', label: 'Yêu cầu bổ sung bằng chứng' },
 ];
 
@@ -166,9 +164,11 @@ const normalizeAccountNo = (value: string) => value.trim().replace(/\s+/g, '');
 function hasExistingRefundPayoutInfo(detail: AdminDisputeReviewApiResponse) {
   const latestRefund = detail.latestRefundRequest;
   const termination = detail.terminationRequest;
+  const escrow = detail.escrow;
   return Boolean(
     (latestRefund?.bankName && latestRefund.accountNoMasked && latestRefund.accountHolderName)
-      || (termination?.bankName && termination.accountNoMasked && termination.accountHolderName),
+      || (termination?.bankName && termination.accountNoMasked && termination.accountHolderName)
+      || (escrow?.refundBankName && escrow.refundAccountNoMasked && escrow.refundAccountHolderName),
   );
 }
 
@@ -608,7 +608,7 @@ function ResolutionDecisionPanel({
   const hasSuggestion =
     typeof suggestion?.releaseAmount === 'number' &&
     typeof suggestion?.refundAmount === 'number';
-  const needsSplit = action === 'TERMINATE_CLASS' || action === 'APPROVE_PARTIAL_REFUND';
+  const needsSplit = action === 'APPROVE_PARTIAL_REFUND';
   const fullRefund = action === 'APPROVE_FULL_REFUND';
   const financialAction = needsSplit || fullRefund;
   const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
@@ -619,13 +619,13 @@ function ResolutionDecisionPanel({
 
   useEffect(() => {
     const defaultAction = detail.terminationRequest?.status === 'PENDING'
-      ? 'TERMINATE_CLASS'
+      ? 'APPROVE_PARTIAL_REFUND'
       : 'CONTINUE_CLASS';
     const amount = typeof detail.escrow?.amount === 'number'
       ? Math.trunc(detail.escrow.amount)
       : 0;
     setAction(defaultAction);
-    if (defaultAction === 'TERMINATE_CLASS' && hasSuggestion) {
+    if (defaultAction === 'APPROVE_PARTIAL_REFUND' && hasSuggestion) {
       setReleaseAmount(String(Math.trunc(suggestion.releaseAmount ?? 0)));
       setRefundAmount(String(Math.trunc(suggestion.refundAmount ?? 0)));
     } else {
@@ -667,15 +667,6 @@ function ResolutionDecisionPanel({
       setReleaseAmount(String(escrowAmount - refund));
       setRefundAmount(String(refund));
       return;
-    }
-    if (action === 'TERMINATE_CLASS') {
-      if (hasSuggestion) {
-        setReleaseAmount(String(Math.trunc(suggestion.releaseAmount ?? 0)));
-        setRefundAmount(String(Math.trunc(suggestion.refundAmount ?? 0)));
-        return;
-      }
-      setReleaseAmount(String(escrowAmount));
-      setRefundAmount('');
     }
   }, [action, escrowAmount, hasSuggestion, suggestion?.refundAmount, suggestion?.releaseAmount]);
 
@@ -1438,6 +1429,9 @@ function DisputeDetail({
           <InfoRow label="Mã tham chiếu" value={detail.escrow?.paymentReferenceCode} />
           <InfoRow label="Người thanh toán" value={detail.escrow?.payerEmail ?? detail.escrow?.payerUserId} />
           <InfoRow label="Khóa lúc" value={formatDateTime(detail.escrow?.depositedAt)} />
+          <InfoRow label="Ngân hàng hoàn tiền đã lưu" value={detail.escrow?.refundBankName ?? '—'} />
+          <InfoRow label="Tài khoản hoàn tiền đã lưu" value={detail.escrow?.refundAccountNoMasked ?? '—'} />
+          <InfoRow label="Chủ tài khoản hoàn tiền" value={detail.escrow?.refundAccountHolderName ?? '—'} />
         </div>
       </section>
 

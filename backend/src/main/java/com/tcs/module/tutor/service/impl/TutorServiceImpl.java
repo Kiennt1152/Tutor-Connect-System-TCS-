@@ -46,6 +46,7 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -439,7 +440,7 @@ public class TutorServiceImpl implements TutorService {
         // Gia sư chính, hoặc gia sư phụ đã được duyệt dạy thay hôm nay, mới được điểm danh.
         requireCanTeach(classId, d, tutor);
         int weekday = slotWeekday(d, arrivingReschedule(classId, d));
-        List<ScheduleSlot> slotsToday = slotsOn(classId, weekday);
+        List<ScheduleSlot> slotsToday = slotsForClassDate(tutoringClass, d, weekday);
         if (slotsToday.isEmpty()) {
             throw new IllegalArgumentException("Lớp không có buổi học vào ngày này");
         }
@@ -453,17 +454,10 @@ public class TutorServiceImpl implements TutorService {
 
         ScheduleSlot repSlot = slotsToday.get(0);
         int seq = sessionSequence(tutoringClass.getStartDate(), d);
-        Lesson lesson = lessonRepository
-                .findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(classId, repSlot.getSlotId(), seq)
-                .orElseGet(() -> {
-                    Lesson l = new Lesson();
-                    l.setTutoringClass(tutoringClass);
-                    l.setSlot(repSlot);
-                    l.setSequenceNo(seq);
-                    l.setTutor(tutor);
-                    l.setLessonDate(d);
-                    return lessonRepository.save(l);
-                });
+        Lesson existing = findLessonForDateAndSlot(tutoringClass, repSlot, seq, d);
+        Lesson lesson = existing != null
+                ? existing
+                : lessonRepository.save(newLesson(tutoringClass, repSlot, seq, tutor, d));
 
         LessonAttendance attendance = lessonAttendanceRepository
                 .findFirstByLesson_LessonIdAndClassStudent_ClassStudentId(lesson.getLessonId(), classStudentId)
@@ -533,7 +527,7 @@ public class TutorServiceImpl implements TutorService {
         LocalDate d = date != null ? date : LocalDate.now();
         requireCanTeach(classId, d, tutor);
         int weekday = slotWeekday(d, arrivingReschedule(classId, d));
-        List<ScheduleSlot> slotsToday = slotsOn(classId, weekday);
+        List<ScheduleSlot> slotsToday = slotsForClassDate(tutoringClass, d, weekday);
         if (slotsToday.isEmpty()) {
             throw new IllegalArgumentException("Lớp không có buổi học vào ngày này");
         }
@@ -541,9 +535,7 @@ public class TutorServiceImpl implements TutorService {
         int seq = sessionSequence(tutoringClass.getStartDate(), d);
 
         // Chỉ điểm danh MỘT LẦN: nếu buổi đã có điểm danh thì chặn.
-        Lesson existing = lessonRepository
-                .findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(classId, repSlot.getSlotId(), seq)
-                .orElse(null);
+        Lesson existing = findLessonForDateAndSlot(tutoringClass, repSlot, seq, d);
         if (existing != null
                 && !lessonAttendanceRepository.findByLesson_LessonId(existing.getLessonId()).isEmpty()) {
             throw new IllegalArgumentException("Buổi học này đã được điểm danh, không thể điểm danh lại");
@@ -660,12 +652,76 @@ public class TutorServiceImpl implements TutorService {
                 .toList();
     }
 
+    private List<ScheduleSlot> slotsForClassDate(TutoringClass c, LocalDate date, int weekday) {
+        if (c == null) {
+            return List.of();
+        }
+        if (c.getClassType() == ClassType.PRIVATE) {
+            List<ScheduleSlot> lessonSlots = lessonSlotsOnDate(c.getClassId(), date);
+            if (!lessonSlots.isEmpty()) {
+                return lessonSlots;
+            }
+        }
+        return slotsOn(c.getClassId(), weekday);
+    }
+
+    private List<ScheduleSlot> lessonSlotsOnDate(Long classId, LocalDate date) {
+        if (classId == null || date == null) {
+            return List.of();
+        }
+        Map<Long, ScheduleSlot> byId = new LinkedHashMap<>();
+        for (Lesson lesson : lessonRepository
+                .findByTutoringClass_ClassIdAndLessonDateOrderBySequenceNoAsc(classId, date)) {
+            ScheduleSlot slot = lesson.getSlot();
+            if (slot != null && slot.getSlotId() != null) {
+                byId.putIfAbsent(slot.getSlotId(), slot);
+            }
+        }
+        return byId.values().stream()
+                .sorted(Comparator.comparing(ScheduleSlot::getStartTime))
+                .toList();
+    }
+
+    private Lesson findLessonForDateAndSlot(
+            TutoringClass c, ScheduleSlot slot, int sequenceNo, LocalDate date) {
+        if (c == null || c.getClassId() == null || slot == null || slot.getSlotId() == null) {
+            return null;
+        }
+        Lesson bySequence = lessonRepository
+                .findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
+                        c.getClassId(), slot.getSlotId(), sequenceNo)
+                .orElse(null);
+        if (bySequence != null) {
+            return bySequence;
+        }
+        if (c.getClassType() != ClassType.PRIVATE || date == null) {
+            return null;
+        }
+        return lessonRepository.findByTutoringClass_ClassIdAndLessonDateOrderBySequenceNoAsc(
+                        c.getClassId(), date).stream()
+                .filter(lesson -> lesson.getSlot() != null
+                        && java.util.Objects.equals(lesson.getSlot().getSlotId(), slot.getSlotId()))
+                .findFirst()
+                .orElse(null);
+    }
+
     private int sessionSequence(LocalDate start, LocalDate date) {
+        if (start == null || date == null) {
+            return 0;
+        }
         return (int) Math.max(0, ChronoUnit.DAYS.between(start, date));
     }
 
     /** {@code date} có phải là NGÀY HỌC CUỐI CÙNG của lớp không (dựa trên lịch tuần + ngày kết thúc). */
     private boolean isLastScheduledSession(TutoringClass c, LocalDate date) {
+        if (c != null && c.getClassType() == ClassType.PRIVATE) {
+            List<Lesson> lessons = lessonRepository
+                    .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(c.getClassId());
+            if (!lessons.isEmpty()) {
+                Lesson last = lessons.get(lessons.size() - 1);
+                return java.util.Objects.equals(last.getLessonDate(), date);
+            }
+        }
         if (c.getStartDate() == null || c.getEndDate() == null) {
             return false;
         }
@@ -687,7 +743,7 @@ public class TutorServiceImpl implements TutorService {
 
     private CenterScheduleClassResponse buildScheduleItem(
             TutoringClass c, LocalDate date, int weekday, Tutor tutor) {
-        List<ScheduleSlot> slotsToday = slotsOn(c.getClassId(), weekday);
+        List<ScheduleSlot> slotsToday = slotsForClassDate(c, date, weekday);
         if (slotsToday.isEmpty()) {
             return null;
         }
@@ -698,12 +754,12 @@ public class TutorServiceImpl implements TutorService {
         Map<Long, String> attendanceByStudent = new HashMap<>();
         ScheduleSlot repSlot = slotsToday.get(0);
         int seq = sessionSequence(c.getStartDate(), date);
-        lessonRepository
-                .findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
-                        c.getClassId(), repSlot.getSlotId(), seq)
-                .ifPresent(lesson -> lessonAttendanceRepository.findByLesson_LessonId(lesson.getLessonId())
-                        .forEach(a -> attendanceByStudent.put(
-                                a.getClassStudent().getClassStudentId(), a.getStatus().name())));
+        Lesson lesson = findLessonForDateAndSlot(c, repSlot, seq, date);
+        if (lesson != null) {
+            lessonAttendanceRepository.findByLesson_LessonId(lesson.getLessonId())
+                    .forEach(a -> attendanceByStudent.put(
+                            a.getClassStudent().getClassStudentId(), a.getStatus().name()));
+        }
 
         List<StudentAttendanceResponse> studentItems = students.stream()
                 .map(s -> StudentAttendanceResponse.builder()

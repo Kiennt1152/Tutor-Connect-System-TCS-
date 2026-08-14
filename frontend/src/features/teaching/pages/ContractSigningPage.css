@@ -462,6 +462,25 @@
   background: #fff;
 }
 
+.ksign-escrow__qr-wrap {
+  flex: 0 0 150px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ksign-escrow__qr-wrap .ksign-escrow__qr {
+  flex: none;
+  width: 100%;
+}
+
+.ksign-escrow__qr-wrap .payment-qr-countdown {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .ksign-escrow__qr img {
   display: block;
   width: 100%;
@@ -575,6 +594,10 @@
     flex-direction: column;
   }
   .ksign-escrow__qr {
+    width: 100%;
+    max-width: 220px;
+  }
+  .ksign-escrow__qr-wrap {
     width: 100%;
     max-width: 220px;
   }

@@ -33,6 +33,8 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
 
     @Query("SELECT DISTINCT c FROM Contract c "
             + "LEFT JOIN c.assignment a "
+            + "LEFT JOIN a.tutor assignmentTutor "
+            + "LEFT JOIN assignmentTutor.user assignmentTutorUser "
             + "LEFT JOIN a.application app "
             + "LEFT JOIN app.tutor appTutor "
             + "LEFT JOIN appTutor.user appTutorUser "
@@ -48,10 +50,21 @@ public interface ContractRepository extends JpaRepository<Contract, Long> {
             + "LEFT JOIN cs.enrolledByUser csEnroller "
             + "LEFT JOIN cs.tutoringClass csClass "
             + "LEFT JOIN csClass.creator csCreator "
-            + "WHERE appTutorUser.userId = :userId OR tcCreator.userId = :userId "
+            + "WHERE assignmentTutorUser.userId = :userId "
+            + "OR appTutorUser.userId = :userId OR tcCreator.userId = :userId "
             + "OR raTutorUser.userId = :userId OR rpCenterUser.userId = :userId "
             + "OR csEnroller.userId = :userId OR csCreator.userId = :userId")
     List<Contract> findContractsByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT DISTINCT signature.contract FROM ContractSignature signature
+            LEFT JOIN signature.signer signer
+            WHERE signer.userId = :userId
+               OR (:email IS NOT NULL AND LOWER(signature.email) = LOWER(:email))
+            """)
+    List<Contract> findBySignatureParty(
+            @Param("userId") Long userId,
+            @Param("email") String email);
 
     @Query("""
             SELECT DISTINCT c FROM Contract c

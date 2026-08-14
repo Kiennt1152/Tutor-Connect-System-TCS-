@@ -1,5 +1,6 @@
 package com.tcs.module.marketplace.controller;
 
+import com.tcs.module.contract.dto.request.SaveRefundPayoutRequest;
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
@@ -207,6 +208,14 @@ public class MarketplaceController {
             @RequestBody(required = false) Map<String, String> body) {
         marketplaceService.saveContractTermsB(assignmentId, body != null ? body.get("termsB") : null);
         return Map.of("message", "Đã lưu điều khoản");
+    }
+
+    @PostMapping("/assignments/{assignmentId}/refund-payout")
+    public Map<String, String> saveAssignmentRefundPayoutInfo(
+            @PathVariable Long assignmentId,
+            @RequestBody SaveRefundPayoutRequest request) {
+        marketplaceService.saveAssignmentRefundPayoutInfo(assignmentId, request);
+        return Map.of("message", "Đã lưu tài khoản nhận hoàn tiền");
     }
 
     @GetMapping("/lessons/mine")
