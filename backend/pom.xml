@@ -35,6 +35,7 @@
         <db.username.default>root</db.username.default>
         <db.password.default></db.password.default>
         <lombok.version>1.18.46</lombok.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
     <dependencies>
         <dependency>

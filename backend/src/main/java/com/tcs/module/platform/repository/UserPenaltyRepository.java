@@ -20,10 +20,12 @@ public interface UserPenaltyRepository extends JpaRepository<UserPenalty, Long> 
     @Query("SELECT p FROM UserPenalty p WHERE (:userId IS NULL OR p.user.userId = :userId) " +
            "AND (:status IS NULL OR p.status = :status) " +
            "AND (:type IS NULL OR p.penaltyType = :type) " +
+           "AND (:sourceType IS NULL OR p.sourceType = :sourceType) " +
            "ORDER BY p.createdAt DESC")
     Page<UserPenalty> search(@Param("userId") Long userId, 
                              @Param("status") UserPenaltyStatus status, 
                              @Param("type") UserPenaltyType type, 
+                             @Param("sourceType") String sourceType, 
                              Pageable pageable);
 
     List<UserPenalty> findByUser_UserIdAndStatus(Long userId, UserPenaltyStatus status);

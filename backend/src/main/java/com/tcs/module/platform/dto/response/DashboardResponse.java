@@ -10,15 +10,16 @@ import lombok.Getter;
 public class DashboardResponse {
 
     private long totalUsers;
-    private long totalTutors;
     private long totalClasses;
-    private long activeClasses;
-    private long pendingVerifications;
-    private long openReports;
-    private long openTickets;
-    private long pendingWithdrawals;
-    private long openDisputes;
-    private BigDecimal totalRevenue;
-    private BigDecimal platformFeeRevenue;
+    
+    // 5 Zones of Command Center
+    private RiskSummaryResponse riskSummary;
+    private FinancialFlowResponse financialFlow;
+    private HealthMetricsResponse tutorHealth;
+    private HealthMetricsResponse centerHealth;
+    private HealthMetricsResponse classHealth;
+    private List<ActivityTimelineEntry> activityTimeline;
+    private List<TaskItemResponse> queuePreview;
+    
     private List<DashboardAlertResponse> alerts;
 }

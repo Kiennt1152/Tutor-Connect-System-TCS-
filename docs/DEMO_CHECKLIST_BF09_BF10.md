@@ -29,15 +29,19 @@ cd frontend && npm run dev
 - [ ] Demo search: type "thanh toán"
 - [ ] Highlight: Public access, no login required
 
-### 2. AI Chatbot (3 min)
+### 2. AI Chatbot (AI Trust & Recommendations) (4 min)
 - [ ] Show floating widget on any page
 - [ ] Ask: "Làm sao để tìm gia sư toán lớp 10?"
 - [ ] Show referenced tutors/classes
+- [ ] Highlight: AI trả lời đúng intent tìm gia sư/lớp
 - [ ] Navigate to `/ai-assistant` full page
 - [ ] Ask complex query about physics tutor + policy
 - [ ] Show rich cards (tutors, FAQ)
-- [ ] Demo session history
-- [ ] Delete session
+- [ ] Highlight: Metadata bar (Confidence Score, Level, Answer Mode, Nguồn RAG)
+- [ ] Demo câu hỏi ngoài phạm vi hoặc câu phổ thông ("1 + 1 bằng mấy?")
+- [ ] Highlight: AI fallback đúng, không ép RAG sai ngữ cảnh
+- [ ] Demo câu hỏi thiếu thông tin (hiển thị banner cảnh báo Confidence LOW)
+- [ ] Demo session history & delete session
 
 ### 3. User Support Tickets (3 min)
 - [ ] Login as student
@@ -71,11 +75,13 @@ cd frontend && npm run dev
 
 ## BF-10: Platform Administration Demo Flow
 
-### 6. Admin Dashboard (2 min)
+### 6. Admin Dashboard (Activity Timeline) (3 min)
 - [ ] Go to `/platform/dashboard`
-- [ ] Show KPI cards (users, classes, tickets, verifications)
-- [ ] Show alerts section
-- [ ] Highlight real-time metrics
+- [ ] Show KPI cards (users, classes, tickets, verifications, active users)
+- [ ] Show alerts and task queue sections
+- [ ] Highlight: Bảng Hoạt động (Activity Timeline) với dữ liệu growth realtime
+- [ ] Demo bộ lọc thời gian: chọn từ ngày, đến ngày, mức độ hiển thị (Ngày/Tuần)
+- [ ] Highlight: Biểu đồ/bảng cập nhật động theo filter
 
 ### 7. Platform Fees Config (2 min)
 - [ ] Go to `/platform/parameters`
@@ -93,33 +99,36 @@ cd frontend && npm run dev
 - [ ] Highlight diff viewer
 - [ ] Show another example: SystemParameter change
 
-### 9. Financial Reports (4 min)
+### 9. Financial Reports & Analytics (4 min)
 - [ ] Go to `/platform/analytics`
 - [ ] Show summary metrics (6-month):
   - Total revenue
   - Platform fee revenue
   - User growth
   - Conversion rates
-- [ ] Export Users CSV
-- [ ] Export Classes CSV
-- [ ] Export Revenue CSV
-- [ ] Open CSV files to show data
+- [ ] Highlight: Dòng tiền IN (Nạp/Phí) và OUT (Rút/Hoàn) được phân chia rõ ràng
+- [ ] Show: Bảng phân loại giao dịch Transaction Breakdown (hiển thị +/- rõ ràng)
+- [ ] Demo Export CSV Users & Classes
+- [ ] Demo Export CSV Cashflow & Transaction Breakdown (tính năng xuất file với Date Range)
+- [ ] Open CSV files to show exported data khớp với backend
 
 ---
 
 ## Key Talking Points
 
 ### BF-09 Highlights
-✅ **RAG AI Chatbot**: Retrieves tutors, classes, FAQ  
+✅ **AI Trust & RAG**: Intent classification, chấm điểm Confidence, Fallback fallback thông minh  
+✅ **Hỗ trợ minh bạch**: Hiển thị metadata bar và cảnh báo cho người dùng  
 ✅ **Support Tickets**: Category-based priority, SLA tracking  
 ✅ **Admin Queue**: Auto-assignment, SLA breach monitoring  
 ✅ **FAQ Management**: Published flag, audit logging
 
 ### BF-10 Highlights
-✅ **Real-time Dashboard**: Live metrics and alerts  
+✅ **Activity Timeline**: Filter linh hoạt theo thời gian, tính toán realtime biến động  
+✅ **Financial Flow**: Phân loại tiền IN/OUT minh bạch, Transaction Breakdown rõ ràng  
+✅ **CSV Export**: Xuất dữ liệu cashflow với bộ lọc ngày chính xác  
 ✅ **System Parameters**: Platform fee configuration  
-✅ **Audit Trail**: Full change history with JSON diff  
-✅ **Financial Reports**: 6-month analytics + CSV export
+✅ **Audit Trail**: Full change history với JSON diff
 
 ---
 

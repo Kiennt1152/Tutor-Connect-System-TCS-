@@ -28,4 +28,10 @@ public class AnalyticsSummaryResponse {
     double disputeRate;
     double contractCompletionRate;
     List<MonthlyMetricResponse> monthlyMetrics;
+    BigDecimal moneyIn;
+    BigDecimal moneyOut;
+    BigDecimal netMovement;
+    BigDecimal platformRevenue;
+    EscrowFlowResponse escrowFlow;
+    List<TransactionTypeBreakdown> transactionTypeBreakdown;
 }

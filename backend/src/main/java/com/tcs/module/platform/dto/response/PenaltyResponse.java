@@ -23,4 +23,7 @@ public class PenaltyResponse {
     String revokedReason;
     LocalDateTime createdAt;
     String issuedByName;
+    String sourceType;
+    Long sourceId;
+    String sourceTaskId;
 }

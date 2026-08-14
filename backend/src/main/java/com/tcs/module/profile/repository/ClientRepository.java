@@ -18,4 +18,7 @@ public interface ClientRepository extends JpaRepository<Client, Long> {
     List<Client> findByDateOfBirthAfter(LocalDate dateOfBirth);
 
     List<Client> findByUser_UserIdIn(Collection<Long> userIds);
+
+    @org.springframework.data.jpa.repository.Query("SELECT cl.user.userId FROM Client cl")
+    List<Long> findAllUserIds();
 }

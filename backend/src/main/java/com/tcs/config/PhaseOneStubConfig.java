@@ -17,12 +17,7 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class PhaseOneStubConfig {
 
-    /** 0.10: pha 1 chua co AI -> tra danh sach goi y rong. */
-    @Bean
-    @ConditionalOnMissingBean(RecommendationService.class)
-    public RecommendationService recommendationServiceStub() {
-        return classId -> List.of();
-    }
+
 
     /** 0.8: mock cong thanh toan - tu confirm de dev song song. */
     @Bean

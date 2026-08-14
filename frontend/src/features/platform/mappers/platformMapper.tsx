@@ -71,7 +71,6 @@ const formatDateTime = (value: string | null | undefined) => {
     minute: '2-digit',
   }).format(date);
 };
-
 const formatDate = (value: string | null | undefined) => {
   if (!value) return '—';
   const date = new Date(value);
@@ -96,6 +95,7 @@ export function mapDashboardResponse(response: DashboardApiResponse): PlatformDa
   return {
     totalUsers: response.totalUsers || 0,
     totalTutors: response.totalTutors || 0,
+    totalCenters: response.totalCenters || 0,
     totalClasses: response.totalClasses || 0,
     activeClasses: response.activeClasses || 0,
     pendingVerifications: response.pendingVerifications || 0,
@@ -111,6 +111,38 @@ export function mapDashboardResponse(response: DashboardApiResponse): PlatformDa
       message: a.message,
       actionUrl: a.actionUrl,
     })),
+    activeTutors: response.activeTutors || 0,
+    activeCenters: response.activeCenters || 0,
+    newTutors: response.newTutors || 0,
+    newCenters: response.newCenters || 0,
+    activeTutorRate: response.activeTutorRate || 0,
+    activeCenterRate: response.activeCenterRate || 0,
+    verifiedTutors: response.verifiedTutors || 0,
+    verifiedCenters: response.verifiedCenters || 0,
+    recentlyActiveTutors: response.recentlyActiveTutors || 0,
+    recentlyActiveCenters: response.recentlyActiveCenters || 0,
+    moneyIn: response.moneyIn || 0,
+    moneyOut: response.moneyOut || 0,
+    netMovement: response.netMovement || 0,
+    escrowHeld: response.escrowHeld || 0,
+    activityTimeline: response.activityTimeline || [],
+    riskSummary: response.riskSummary || {
+      highRiskTasks: 0, moneyAtRisk: 0, activeDisputes: 0, unresolvedReports: 0
+    },
+    financialFlow: response.financialFlow || {
+      moneyIn: 0, moneyOut: 0, netMovement: 0, escrowHeld: 0, platformFeeRevenue: 0,
+      deposits: 0, escrowDeposits: 0, withdrawals: 0, refunds: 0, openEscrowCount: 0, settledCount: 0, feeRate: 0
+    },
+    classHealth: response.classHealth || {
+      total: 0, active: 0, verified: 0, newCount: 0, activeRate: 0
+    },
+    tutorHealth: response.tutorHealth || {
+      total: 0, active: 0, verified: 0, newTutors: 0, activeRate: 0
+    },
+    centerHealth: response.centerHealth || {
+      total: 0, active: 0, verified: 0, newCenters: 0, activeRate: 0
+    },
+    queuePreview: response.queuePreview || [],
   };
 }
 
@@ -178,6 +210,7 @@ const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
   ABUSE: 'Lạm dụng',
   SPAM: 'Spam',
   INAPPROPRIATE: 'Nội dung không phù hợp',
+  PLATFORM_CIRCUMVENTION: 'Lách sàn nền tảng',
   OTHER: 'Khác',
 };
 

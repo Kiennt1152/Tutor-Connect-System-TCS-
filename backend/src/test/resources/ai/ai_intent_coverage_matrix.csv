@@ -1,0 +1,77 @@
+domain,subIntent,exampleQuery,expectedLegacyIntent,requiredRole,allowedSourceTypes,expectedRoute,expectedCardPolicy,fallbackType,requiresDbSource,negativeCase
+CONVERSATION_SAFETY,GREETING,xin chào,OUT_OF_SCOPE,ANY,NONE,,NONE,L0_FAST_PATH,false,hello tcs
+CONVERSATION_SAFETY,GOODBYE,tạm biệt bot,OUT_OF_SCOPE,ANY,NONE,,NONE,L0_FAST_PATH,false,bye
+CONVERSATION_SAFETY,THANKS,cảm ơn bạn,OUT_OF_SCOPE,ANY,NONE,,NONE,L0_FAST_PATH,false,thank you
+CONVERSATION_SAFETY,BOT_CAPABILITY_ASK,bạn làm được gì,FAQ_SUPPORT,ANY,FAQ,,FAQ_CARDS,L0_FAST_PATH,false,bot lam duoc gi
+CONVERSATION_SAFETY,SMALL_TALK,bạn là ai,OUT_OF_SCOPE,ANY,NONE,,NONE,L0_FAST_PATH,false,who are you
+CONVERSATION_SAFETY,PROFANITY_OR_FRUSTRATION,đm bot ngu,OUT_OF_SCOPE,ANY,NONE,,NONE,L0_FAST_PATH,false,vcl lua dao
+CONVERSATION_SAFETY,HUMAN_SUPPORT_REQUEST,cho tôi gặp người hỗ trợ,TICKET_SUPPORT,ANY,NONE,/support/tickets,TICKET_LINK_ONLY,L0_FAST_PATH,false,gap nhan vien cskh
+CONVERSATION_SAFETY,GIBBERISH,asdfghjklzxcv,OUT_OF_SCOPE,ANY,NONE,,NONE,L0_FAST_PATH,false,twyalk
+IDENTITY_AUTH,LOGIN_HELP,làm sao đăng nhập tài khoản,FAQ_SUPPORT,ANY,FAQ,/login,FAQ_CARDS,L1_CLARIFICATION,false,lam sao dang nhap
+IDENTITY_AUTH,REGISTER_HELP,hướng dẫn đăng ký tài khoản,FAQ_SUPPORT,ANY,FAQ,/register,FAQ_CARDS,L1_CLARIFICATION,false,huong dan dang ky
+IDENTITY_AUTH,PASSWORD_FORGOT_HELP,tôi quên mật khẩu rồi,FAQ_SUPPORT,ANY,FAQ,/forgot-password,FAQ_CARDS,L1_CLARIFICATION,false,reset password
+IDENTITY_AUTH,OTP_SEND_HELP,không nhận được mã OTP xác thực,FAQ_SUPPORT,ANY,FAQ,/login,FAQ_CARDS,L1_CLARIFICATION,false,ma xac thuc otp
+IDENTITY_AUTH,LOGIN_HELP,tài khoản bị khóa phải làm sao,FAQ_SUPPORT,ANY,FAQ,/login,FAQ_CARDS,L1_CLARIFICATION,false,tai khoan bi khoa
+PROFILE_GUARDIAN,PROFILE_UPDATE_HELP,cập nhật hồ sơ cá nhân,TUTOR_OPTIMIZATION,AUTHENTICATED,FAQ,/profile,FAQ_CARDS,L4_PERMISSION,false,cap nhat ho so
+PROFILE_GUARDIAN,PROFILE_UPDATE_HELP,tải ảnh đại diện avatar ở đâu,TUTOR_OPTIMIZATION,AUTHENTICATED,FAQ,/profile,FAQ_CARDS,L4_PERMISSION,false,tai avatar
+PROFILE_GUARDIAN,CHILD_PROFILE_CREATE,tạo hồ sơ con học viên,FAQ_SUPPORT,PARENT,FAQ,/profile,FAQ_CARDS,L4_PERMISSION,false,tao ho so con
+PROFILE_GUARDIAN,GUARDIAN_LINK_HELP,liên kết tài khoản phụ huynh,FAQ_SUPPORT,AUTHENTICATED,FAQ,/profile,FAQ_CARDS,L4_PERMISSION,false,lien ket phu huynh
+PROFILE_GUARDIAN,PROFILE_UPDATE_HELP,thêm kinh nghiệm dạy học của gia sư,TUTOR_OPTIMIZATION,TUTOR,FAQ,/profile,FAQ_CARDS,L4_PERMISSION,false,kinh nghiem day hoc
+VERIFICATION,TUTOR_VERIFICATION_HELP,quy trình xác minh gia sư,TUTOR_VERIFICATION,ANY,FAQ,/profile,FAQ_CARDS,L1_CLARIFICATION,false,quy trinh xac minh
+VERIFICATION,TUTOR_VERIFICATION_HELP,cần giấy tờ gì để duyệt hồ sơ gia sư,TUTOR_VERIFICATION,ANY,FAQ,/profile,FAQ_CARDS,L1_CLARIFICATION,false,giay to xac minh
+VERIFICATION,TUTOR_VERIFICATION_HELP,hồ sơ xác minh bị từ chối vì sao,TUTOR_VERIFICATION,ANY,FAQ,/profile,FAQ_CARDS,L1_CLARIFICATION,false,ho so bi tu choi
+VERIFICATION,TUTOR_VERIFICATION_HELP,xác minh hồ sơ trung tâm gia sư,TUTOR_VERIFICATION,ANY,FAQ,/profile,FAQ_CARDS,L1_CLARIFICATION,false,xac minh trung tam
+VERIFICATION,TUTOR_VERIFICATION_HELP,kiểm tra trạng thái xác minh,TUTOR_VERIFICATION,ANY,FAQ,/profile,FAQ_CARDS,L1_CLARIFICATION,false,trang thai duyet ho so
+MARKETPLACE,FIND_TUTOR,Tìm cho tôi gia sư môn Toán lớp 12 khu vực Cầu Giấy dưới 250k,FIND_TUTOR,ANY,TUTOR,/tim-gia-su,TUTOR_CARDS,L3_NO_DATA,true,tim gia su toan 12 cau giay
+MARKETPLACE,FIND_TUTOR,tìm gia sư tiếng anh giao tiếp,FIND_TUTOR,ANY,TUTOR,/tim-gia-su,TUTOR_CARDS,L3_NO_DATA,true,tim gia su tieng anh
+MARKETPLACE,FIND_TUTOR,thuê gia sư hóa lớp 11 đống đa,FIND_TUTOR,ANY,TUTOR,/tim-gia-su,TUTOR_CARDS,L3_NO_DATA,true,thue gia su hoa 11
+MARKETPLACE,FIND_CLASS,tìm lớp toán 10 đang mở,FIND_CLASS,ANY,CLASS,/lop-hoc,CLASS_CARDS,L3_NO_DATA,true,tim lop toan 10
+MARKETPLACE,FIND_CLASS,danh sách lớp học đang tuyển gia sư,FIND_CLASS,ANY,CLASS,/lop-hoc,CLASS_CARDS,L3_NO_DATA,true,danh sach lop dang mo
+MARKETPLACE,CREATE_CLASS,đăng bài tìm gia sư,CREATE_CLASS,PARENT,FAQ,/tao-lop,FAQ_CARDS,L1_CLARIFICATION,false,tao lop tim gia su
+MARKETPLACE,CREATE_CLASS,tạo yêu cầu học mới,CREATE_CLASS,PARENT,FAQ,/tao-lop,FAQ_CARDS,L1_CLARIFICATION,false,tao yeu cau hoc
+TUTOR_OPS,TUTOR_SCHEDULE_VIEW,xem lịch dạy của gia sư ở đâu,FAQ_SUPPORT,TUTOR,FAQ,/tutor/schedule,FAQ_CARDS,L4_PERMISSION,false,xem lich day gia su
+TUTOR_OPS,TUTOR_ATTENDANCE_MARK,điểm danh học viên sau buổi học,FAQ_SUPPORT,TUTOR,FAQ,/tutor/classes,FAQ_CARDS,L4_PERMISSION,false,diem danh hoc vien
+TUTOR_OPS,TUTOR_RESCHEDULE_REQUEST,xin dời lịch buổi học,FAQ_SUPPORT,TUTOR,FAQ,/tutor/schedule,FAQ_CARDS,L4_PERMISSION,false,xin doi lich day
+TUTOR_OPS,TUTOR_SUBSTITUTE_REQUEST,tìm gia sư dạy thay thế,FAQ_SUPPORT,TUTOR,FAQ,/tutor/classes,FAQ_CARDS,L4_PERMISSION,false,tim nguoi day thay
+TUTOR_OPS,TUTOR_SCHEDULE_VIEW,quy trình nhận lớp dạy kèm,FAQ_SUPPORT,TUTOR,FAQ,/tutor/schedule,FAQ_CARDS,L4_PERMISSION,false,nhan lop day
+CENTER_OPS,CENTER_TUTOR_MANAGEMENT,trung tâm quản lý gia sư ở đâu,CENTER_MANAGEMENT,TUTOR_CENTER,FAQ,/center,FAQ_CARDS,L4_PERMISSION,false,quan ly trung tam gia su
+CENTER_OPS,CENTER_TUTOR_MANAGEMENT,thành viên trung tâm gia sư,CENTER_MANAGEMENT,TUTOR_CENTER,FAQ,/center,FAQ_CARDS,L4_PERMISSION,false,thanh vien trung tam
+CENTER_OPS,CENTER_TUTOR_MANAGEMENT,đăng bài tuyển dụng gia sư cho trung tâm,CENTER_MANAGEMENT,TUTOR_CENTER,FAQ,/center,FAQ_CARDS,L4_PERMISSION,false,tao bai tuyen dung
+CENTER_OPS,CENTER_TUTOR_MANAGEMENT,duyệt gia sư vào trung tâm,CENTER_MANAGEMENT,TUTOR_CENTER,FAQ,/center,FAQ_CARDS,L4_PERMISSION,false,duyet gia su vao trung tam
+CENTER_OPS,CENTER_TUTOR_MANAGEMENT,báo cáo doanh thu trung tâm,CENTER_MANAGEMENT,TUTOR_CENTER,FAQ,/center,FAQ_CARDS,L4_PERMISSION,false,bao cao doanh thu trung tam
+FINANCE_WALLET,WALLET_VIEW,xem ví tiền của tôi,PAYMENT_SUPPORT,AUTHENTICATED,WALLET,/finance,FINANCE_LINK_ONLY,L4_PERMISSION,false,vi tien cua toi
+FINANCE_WALLET,WALLET_TOPUP,nạp tiền vào ví qua QR SePay,PAYMENT_SUPPORT,AUTHENTICATED,FAQ,/finance,FINANCE_LINK_ONLY,L1_CLARIFICATION,false,nap tien vao vi
+FINANCE_WALLET,WITHDRAWAL_REQUEST,yêu cầu rút tiền về tài khoản ngân hàng,PAYMENT_SUPPORT,AUTHENTICATED,FAQ,/finance,FINANCE_LINK_ONLY,L4_PERMISSION,false,rut tien ve ngan hang
+FINANCE_WALLET,ESCROW_EXPLAIN,escrow là gì,PAYMENT_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,tien escrow khi nao nhan duoc
+FINANCE_WALLET,PLATFORM_FEE_EXPLAIN,phí nền tảng là bao nhiêu,PAYMENT_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,phi san bao nhieu
+FINANCE_WALLET,REFUND_POLICY,chính sách hoàn tiền học phí,PAYMENT_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,chinh sach hoan tien
+FINANCE_WALLET,WALLET_VIEW,lương của tôi tháng này bao nhiêu,PAYMENT_SUPPORT,TUTOR,WALLET,/finance,FINANCE_LINK_ONLY,L4_PERMISSION,false,luong cua toi thang nay
+CONTRACT_REVIEW,CONTRACT_LIST_HELP,xem danh sách hợp đồng ở đâu,FAQ_SUPPORT,AUTHENTICATED,FAQ,/contracts,FAQ_CARDS,L4_PERMISSION,false,xem hop dong lop hoc
+CONTRACT_REVIEW,CONTRACT_SIGN_OTP,ký hợp đồng lớp học bằng mã OTP,FAQ_SUPPORT,AUTHENTICATED,FAQ,/contracts,FAQ_CARDS,L1_CLARIFICATION,false,ky hop dong bang otp
+CONTRACT_REVIEW,REVIEW_CREATE_HELP,đánh giá gia sư sau khóa học,FAQ_SUPPORT,PARENT,FAQ,/classes,FAQ_CARDS,L1_CLARIFICATION,false,danh gia gia su
+CONTRACT_REVIEW,REPUTATION_VIEW_HELP,độ uy tín gia sư tính thế nào,FAQ_SUPPORT,ANY,FAQ,/profile,FAQ_CARDS,L1_CLARIFICATION,false,uy tin gia su
+MESSAGING_TICKET,MESSAGING_OPEN_HELP,nhắn tin với gia sư ở đâu,FAQ_SUPPORT,AUTHENTICATED,FAQ,/chat,FAQ_CARDS,L1_CLARIFICATION,false,nhan tin voi phu huynh
+MESSAGING_TICKET,SUPPORT_TICKET_CREATE,hướng dẫn tạo ticket khiếu nại gia sư,TICKET_SUPPORT,AUTHENTICATED,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,tao ticket ho tro
+MESSAGING_TICKET,SUPPORT_TICKET_STATUS,kiểm tra trạng thái ticket hỗ trợ,TICKET_SUPPORT,AUTHENTICATED,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,kiem tra trang thai ticket
+MESSAGING_TICKET,SUPPORT_TICKET_SLA,thời gian phản hồi SLA của ticket là bao lâu,TICKET_SUPPORT,ANY,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,quy dinh sla phan hoi
+TRUST_SAFETY,REPORT_CIRCUMVENTION,Làm sao báo cáo gia sư lách sàn?,TICKET_SUPPORT,ANY,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,bao cao gia su lach san
+TRUST_SAFETY,REPORT_CIRCUMVENTION,tố cáo gia sư thu tiền ngoài sàn,TICKET_SUPPORT,ANY,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,to cao thu tien ngoai san
+TRUST_SAFETY,DISPUTE_OPEN_HELP,Khi nào nên mở tranh chấp lớp học?,TICKET_SUPPORT,AUTHENTICATED,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,khi nao nen mo tranh chap
+TRUST_SAFETY,DISPUTE_OPEN_HELP,tải bằng chứng tranh chấp lên hệ thống,TICKET_SUPPORT,AUTHENTICATED,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,tai bang chung tranh chap
+TRUST_SAFETY,PENALTY_EXPLAIN,tài khoản bị phạt cảnh cáo,TICKET_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,tai khoan bi phat
+TRUST_SAFETY,PENALTY_EXPLAIN,chế tài khi vi phạm quy định sàn,TICKET_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,quy dinh phat vi pham
+CATALOG_FAQ,FAQ_SEARCH,TCS là gì?,FAQ_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,tcs la gi
+CATALOG_FAQ,FAQ_SEARCH,hệ thống TCS hoạt động như thế nào,FAQ_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,he thong tcs hoat dong
+CATALOG_FAQ,FAQ_SEARCH,các vai trò trên nền tảng TCS,FAQ_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,cac vai tro tren tcs
+CATALOG_FAQ,FAQ_SEARCH,trung tâm trợ giúp ở đâu,FAQ_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,trung tam tro giup
+CATALOG_FAQ,FAQ_SEARCH,hệ thống hỗ trợ những môn học nào,FAQ_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,cac mon hoc tren tcs
+PLATFORM_ADMIN,ADMIN_REVENUE_REPORT,Xem báo cáo doanh thu nền tảng,ADMIN_DASHBOARD,PLATFORM_ADMIN,ADMIN_STATS,/platform/analytics,ADMIN_LINK_ONLY,L4_PERMISSION,false,xem bao cao doanh thu
+PLATFORM_ADMIN,ADMIN_DASHBOARD,bảng điều khiển quản trị admin dashboard,ADMIN_DASHBOARD,PLATFORM_ADMIN,ADMIN_STATS,/platform,ADMIN_LINK_ONLY,L4_PERMISSION,false,dashboard quan tri
+PLATFORM_ADMIN,ADMIN_DASHBOARD,xem báo cáo analytics vận hành,ADMIN_DASHBOARD,PLATFORM_ADMIN,ADMIN_STATS,/platform,ADMIN_LINK_ONLY,L4_PERMISSION,false,analytics van hanh
+PLATFORM_ADMIN,ADMIN_AUDIT_LOG,xem nhật ký hệ thống audit log,ADMIN_DASHBOARD,PLATFORM_ADMIN,ADMIN_STATS,/platform,ADMIN_LINK_ONLY,L4_PERMISSION,false,audit log he thong
+PLATFORM_ADMIN,ADMIN_AI_REINDEX,reindex ai knowledge base,ADMIN_DASHBOARD,PLATFORM_ADMIN,ADMIN_STATS,/platform/analytics,ADMIN_LINK_ONLY,L4_PERMISSION,false,reindex knowledge
+PLATFORM_ADMIN,PLATFORM_STATS,Hệ thống có bao nhiêu người dùng?,PLATFORM_STATS,ANY,PLATFORM_STATS,,NONE,L3_NO_DATA,true,he thong co bao nhieu nguoi dung
+PLATFORM_ADMIN,PLATFORM_STATS,có bao nhiêu gia sư trên hệ thống,PLATFORM_STATS,ANY,PLATFORM_STATS,,NONE,L3_NO_DATA,true,co bao nhieu gia su
+AI_TUTORING,AI_TUTORING_MATH,1+1 bằng mấy?,AI_TUTORING,ANY,NONE,,NONE,L1_CLARIFICATION,false,1 + 1
+AI_TUTORING,AI_TUTORING_MATH,giải phương trình bậc 2,AI_TUTORING,ANY,NONE,,NONE,L1_CLARIFICATION,false,giai phuong trinh
+AI_TUTORING,AI_TUTORING_MATH,giải thích thì hiện tại hoàn thành,AI_TUTORING,ANY,NONE,,NONE,L1_CLARIFICATION,false,ngu phap tieng anh

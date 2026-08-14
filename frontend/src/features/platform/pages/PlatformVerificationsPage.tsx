@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { AdminLayout } from '../components/AdminLayout';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
@@ -73,6 +74,9 @@ export default function PlatformVerificationsPage() {
   const { status: mutationStatus, errorMessage: mutationError, review, reset } =
     useReviewVerification();
 
+  const [searchParams] = useSearchParams();
+  const targetId = searchParams.get('id');
+
   const [selected, setSelected] = useState<VerificationRequestItem | null>(null);
   const [detail, setDetail] = useState<VerificationDetailApiResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -82,6 +86,15 @@ export default function PlatformVerificationsPage() {
   const [formError, setFormError] = useState('');
 
   const pendingCount = items.filter((item) => item.canReview).length;
+
+  useEffect(() => {
+    if (targetId && items.length > 0 && !selected) {
+      const match = items.find((item) => item.id === targetId);
+      if (match) {
+        void openDetail(match);
+      }
+    }
+  }, [items, targetId]);
 
   const closeModal = () => {
     setSelected(null);

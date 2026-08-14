@@ -87,4 +87,13 @@ public interface UserRepository extends JpaRepository<User, Long> {
             @Param("status") UserStatus status,
             @Param("keyword") String keyword,
             Pageable pageable);
+
+    long countByCreatedAtBetween(java.time.LocalDateTime from, java.time.LocalDateTime to);
+
+    java.util.List<User> findByCreatedAtBetween(java.time.LocalDateTime from, java.time.LocalDateTime to);
+
+    java.util.List<User> findByCreatedAtBetweenOrderByCreatedAtDesc(
+            java.time.LocalDateTime from, java.time.LocalDateTime to, org.springframework.data.domain.Pageable pageable);
+
+    long countByStatus(UserStatus status);
 }

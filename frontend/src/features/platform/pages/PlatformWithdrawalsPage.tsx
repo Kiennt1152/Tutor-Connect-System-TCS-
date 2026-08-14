@@ -1,5 +1,7 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
+import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { useWithdrawalDecision } from '../hooks/usePlatformMutations';
 import { useWithdrawalList } from '../hooks/useWithdrawalList';
 import type { WithdrawalRequestStatus } from '../types/platformTypes';
@@ -21,6 +23,9 @@ function formatCurrency(value: number) {
 }
 
 export default function PlatformWithdrawalsPage() {
+  const [searchParams] = useSearchParams();
+  const targetId = searchParams.get('id');
+
   const { status, data, filters, setFilters, reload, errorMessage: listErrorMessage } = useWithdrawalList({
     page: 0,
     size: 10,
@@ -109,6 +114,8 @@ export default function PlatformWithdrawalsPage() {
         </section>
       )}
 
+      <AdminTimeFilter showGranularity={false} />
+
       <div className="adm-card pw-card">
         <div className="adm-toolbar pw-toolbar">
           <select
@@ -179,7 +186,7 @@ export default function PlatformWithdrawalsPage() {
                     </tr>
                   ) : (
                     data.items.map((item) => (
-                      <tr key={item.id}>
+                      <tr key={item.id} style={{ backgroundColor: String(item.id) === String(targetId) ? '#fef3c7' : undefined }}>
                         <td className="pw-table__id">#{item.id}</td>
                         <td>
                           <div className="pw-user-cell">

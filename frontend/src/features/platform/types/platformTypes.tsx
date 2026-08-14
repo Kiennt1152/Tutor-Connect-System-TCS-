@@ -59,6 +59,37 @@ export interface UserListFilters {
   keyword?: string;
 }
 
+export interface EscrowFlowApi {
+  deposited: number;
+  released: number;
+  refunded: number;
+  held: number;
+  platformFee: number;
+}
+
+export interface TransactionTypeBreakdownApi {
+  type: string;
+  label: string;
+  count: number;
+  totalAmount: number;
+  direction: 'IN' | 'OUT';
+}
+
+export interface ActivityTimelineApi {
+  label: string;
+  newUsers: number;
+  newTutors: number;
+  newCenters: number;
+  newClasses: number;
+  newTickets: number;
+  activeTutors: number;
+  activeCenters: number;
+  moneyIn: number;
+  moneyOut: number;
+  netMovement: number;
+  platformFeeRevenue: number;
+}
+
 export interface DashboardAlertApiResponse {
   type: 'WARNING' | 'CRITICAL' | 'INFO';
   title: string;
@@ -69,6 +100,7 @@ export interface DashboardAlertApiResponse {
 export interface DashboardApiResponse {
   totalUsers: number;
   totalTutors: number;
+  totalCenters: number;
   totalClasses: number;
   activeClasses: number;
   pendingVerifications: number;
@@ -79,6 +111,63 @@ export interface DashboardApiResponse {
   totalRevenue: number;
   platformFeeRevenue: number;
   alerts: DashboardAlertApiResponse[];
+  activeTutors: number;
+  activeCenters: number;
+  verifiedTutors: number;
+  verifiedCenters: number;
+  newTutors: number;
+  newCenters: number;
+  recentlyActiveTutors: number;
+  recentlyActiveCenters: number;
+  activeTutorRate: number;
+  activeCenterRate: number;
+  moneyIn: number;
+  moneyOut: number;
+  netMovement: number;
+  escrowHeld: number;
+  activityTimeline?: ActivityTimelineApi[];
+  riskSummary?: {
+    highRiskTasks: number;
+    moneyAtRisk: number;
+    activeDisputes: number;
+    unresolvedReports: number;
+  };
+  financialFlow?: {
+    moneyIn: number;
+    moneyOut: number;
+    netMovement: number;
+    escrowHeld: number;
+    platformFeeRevenue: number;
+    deposits: number;
+    escrowDeposits: number;
+    withdrawals: number;
+    refunds: number;
+    openEscrowCount: number;
+    settledCount: number;
+    feeRate: number;
+  };
+  classHealth?: {
+    total: number;
+    active: number;
+    verified: number;
+    newCount: number;
+    activeRate: number;
+  };
+  tutorHealth?: {
+    total: number;
+    active: number;
+    verified: number;
+    newTutors: number;
+    activeRate: number;
+  };
+  centerHealth?: {
+    total: number;
+    active: number;
+    verified: number;
+    newCenters: number;
+    activeRate: number;
+  };
+  queuePreview?: TaskItemApiResponse[];
 }
 
 export interface DashboardAlert {
@@ -91,6 +180,7 @@ export interface DashboardAlert {
 export interface PlatformDashboard {
   totalUsers: number;
   totalTutors: number;
+  totalCenters: number;
   totalClasses: number;
   activeClasses: number;
   pendingVerifications: number;
@@ -101,6 +191,63 @@ export interface PlatformDashboard {
   totalRevenue: number;
   platformFeeRevenue: number;
   alerts: DashboardAlert[];
+  activeTutors: number;
+  activeCenters: number;
+  verifiedTutors: number;
+  verifiedCenters: number;
+  newTutors: number;
+  newCenters: number;
+  recentlyActiveTutors: number;
+  recentlyActiveCenters: number;
+  activeTutorRate: number;
+  activeCenterRate: number;
+  moneyIn: number;
+  moneyOut: number;
+  netMovement: number;
+  escrowHeld: number;
+  activityTimeline?: ActivityTimelineApi[];
+  riskSummary?: {
+    highRiskTasks: number;
+    moneyAtRisk: number;
+    activeDisputes: number;
+    unresolvedReports: number;
+  };
+  financialFlow?: {
+    moneyIn: number;
+    moneyOut: number;
+    netMovement: number;
+    escrowHeld: number;
+    platformFeeRevenue: number;
+    deposits: number;
+    escrowDeposits: number;
+    withdrawals: number;
+    refunds: number;
+    openEscrowCount: number;
+    settledCount: number;
+    feeRate: number;
+  };
+  classHealth?: {
+    total: number;
+    active: number;
+    verified: number;
+    newCount: number;
+    activeRate: number;
+  };
+  tutorHealth?: {
+    total: number;
+    active: number;
+    verified: number;
+    newTutors: number;
+    activeRate: number;
+  };
+  centerHealth?: {
+    total: number;
+    active: number;
+    verified: number;
+    newCenters: number;
+    activeRate: number;
+  };
+  queuePreview?: TaskItemApiResponse[];
 }
 
 export type VerificationStatus =
@@ -229,7 +376,7 @@ export interface VerificationDetailApiResponse {
 }
 
 export type ReportStatus = 'PENDING' | 'RESOLVED';
-export type ReportCategory = 'FRAUD' | 'ABUSE' | 'SPAM' | 'INAPPROPRIATE' | 'OTHER';
+export type ReportCategory = 'FRAUD' | 'ABUSE' | 'SPAM' | 'INAPPROPRIATE' | 'PLATFORM_CIRCUMVENTION' | 'OTHER';
 export type ReportTargetType = string;
 export type ClassIssueResolutionAction =
   | 'REQUEST_MORE_INFORMATION'
@@ -821,6 +968,9 @@ export interface PenaltyApiResponse {
   revokedReason: string | null;
   createdAt: string;
   issuedByName: string | null;
+  sourceType?: string;
+  sourceId?: number | string;
+  sourceTaskId?: string;
 }
 
 export interface PagePenaltyApiResponse {
@@ -838,6 +988,9 @@ export interface IssuePenaltyApiRequest {
   evidenceUrls?: string;
   restrictionDetails?: string;
   expiresAt?: string;
+  sourceType?: string;
+  sourceId?: number | string;
+  sourceTaskId?: string;
 }
 
 export interface RevokePenaltyApiRequest {
@@ -850,6 +1003,7 @@ export interface PenaltyFilters {
   status?: PenaltyStatus;
   type?: PenaltyType;
   userId?: number;
+  sourceType?: string;
 }
 
 /* ── Audit Logs ── */
@@ -896,6 +1050,10 @@ export interface TaskQueueSummaryApiResponse {
   pendingRefunds: number;
   openDisputes: number;
   totalPendingTasks: number;
+  byType?: Record<string, number>;
+  byPriority?: Record<string, number>;
+  overdueCount?: number;
+  moneyAtRisk?: number;
 }
 
 export type TaskQueueItemType = 'VERIFICATION' | 'REPORT' | 'SUPPORT_TICKET' | 'WITHDRAWAL' | 'REFUND_REQUEST' | 'DISPUTE';
@@ -908,9 +1066,18 @@ export interface TaskItemApiResponse {
   description: string;
   entityId: number;
   targetRoute: string;
+  targetQuery?: string;
   status: string;
   priority: TaskPriority;
   createdAt: string;
+  dueAt?: string;
+  slaBreached?: boolean;
+  assigneeName?: string;
+  riskReason?: string;
+  amount?: number;
+  currency?: string;
+  relatedEntityType?: string;
+  relatedEntityId?: string;
 }
 
 export interface PageTaskItemApiResponse {
@@ -923,8 +1090,25 @@ export interface PageTaskItemApiResponse {
 
 export interface TaskFilters {
   type?: string;
+  priority?: string;
+  slaBreached?: boolean;
   page: number;
   size: number;
+}
+
+export interface AiKnowledgeStatsApiResponse {
+  totalChunks: number;
+  bySourceType?: Record<string, number>;
+  withoutEmbedding?: number;
+  lastIndexedAt?: string;
+}
+
+export interface AiKnowledgeReindexApiResponse {
+  indexed: number;
+  updated: number;
+  unchanged: number;
+  skipped: number;
+  failed: number;
 }
 
 export interface ResolveReportApiRequest {
@@ -950,8 +1134,15 @@ export interface AnalyticsSummaryApiResponse {
   totalClasses: number;
   activeClasses: number;
   completedClasses: number;
+  newClasses: number;
   totalRevenue: number;
   platformFeeRevenue: number;
+  moneyIn?: number;
+  moneyOut?: number;
+  netMovement?: number;
+  platformRevenue?: number;
+  escrowFlow?: EscrowFlowApi;
+  transactionTypeBreakdown?: TransactionTypeBreakdownApi[];
   platformFeeRate: number;
   deposits: number;
   withdrawals: number;

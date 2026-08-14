@@ -422,6 +422,7 @@ public class MessagingServiceImpl implements MessagingService {
             case ABUSE -> "lăng mạ / xúc phạm";
             case SPAM -> "spam";
             case INAPPROPRIATE -> "nội dung không phù hợp";
+            case PLATFORM_CIRCUMVENTION -> "trốn phí nền tảng";
             case OTHER -> "lý do khác";
         };
     }
