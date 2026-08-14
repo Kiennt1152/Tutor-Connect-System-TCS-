@@ -15,6 +15,7 @@ interface Props {
 type TopupFlowStatus = 'form' | 'pending' | 'success' | 'expired' | 'failed';
 
 const PRESETS = [100000, 200000, 500000, 1000000];
+const QR_COUNTDOWN_MS = 5 * 60 * 1000;
 
 function formatMoney(value: number) {
   return new Intl.NumberFormat('vi-VN', {
@@ -44,6 +45,7 @@ export function DepositModal({
   const [flowStatus, setFlowStatus] = useState<TopupFlowStatus>('form');
   const [statusMessage, setStatusMessage] = useState<string | null>(null);
   const [remainingMs, setRemainingMs] = useState(0);
+  const [qrExpiresAtMs, setQrExpiresAtMs] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [checking, setChecking] = useState(false);
   const [simulating, setSimulating] = useState(false);
@@ -56,7 +58,7 @@ export function DepositModal({
     }
 
     const updateRemainingTime = () => {
-      const nextRemaining = Math.max(session.expiresAtMillis - Date.now(), 0);
+      const nextRemaining = Math.max(qrExpiresAtMs - Date.now(), 0);
       setRemainingMs(nextRemaining);
       if (nextRemaining <= 0) {
         setFlowStatus('expired');
@@ -67,7 +69,7 @@ export function DepositModal({
     updateRemainingTime();
     const timer = window.setInterval(updateRemainingTime, 1000);
     return () => window.clearInterval(timer);
-  }, [open, session, flowStatus]);
+  }, [open, session, flowStatus, qrExpiresAtMs]);
 
   useAutoPolling(
     async () => {
@@ -93,6 +95,7 @@ export function DepositModal({
     setFlowStatus('form');
     setStatusMessage(null);
     setRemainingMs(0);
+    setQrExpiresAtMs(0);
     setCopied(false);
     setError(null);
   }
@@ -145,7 +148,8 @@ export function DepositModal({
       });
       setSession(created);
       setFlowStatus('pending');
-      setRemainingMs(Math.max(created.expiresAtMillis - Date.now(), 0));
+      setQrExpiresAtMs(Date.now() + QR_COUNTDOWN_MS);
+      setRemainingMs(QR_COUNTDOWN_MS);
       setStatusMessage('Quét mã QR hoặc chuyển khoản đúng nội dung để hệ thống tự xác nhận.');
     } catch {
       setSession(null);

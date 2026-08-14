@@ -152,6 +152,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/marketplace/assignments/*/contract",
                                 "/api/marketplace/assignments/*/contract-terms",
+                                "/api/marketplace/assignments/*/refund-payout",
                                 "/api/marketplace/assignments/*/sign",
                                 "/api/marketplace/assignments/*/sign/request-otp")
                         .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR)

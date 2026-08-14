@@ -593,6 +593,13 @@
   margin-top: 2px;
 }
 
+.tx-row__note {
+  display: block;
+  margin-top: 4px;
+  color: var(--color-text-disabled);
+  font-size: 11px;
+}
+
 .tx-row__amount {
   font-weight: 700;
   font-size: var(--fs-body-sm);

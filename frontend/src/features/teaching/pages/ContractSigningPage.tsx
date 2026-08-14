@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { SiteHeader } from '../../home/components/SiteHeader';
+import { PaymentQrCountdown } from '../../../shared/components/PaymentQrCountdown';
 import { contractApi } from '../../contract/api/contractApi';
 import { BankPickerDialog, BankSelectField, findBankByName } from '../../finance/components/BankPicker';
 import '../../finance/FinancePage.css';
@@ -83,6 +84,12 @@ const isEscrowPaymentConfirmed = (
   || escrowStatus === 'RELEASED'
   || escrowStatus === 'REFUNDED';
 
+const maskAccountNo = (accountNo: string): string => {
+  const normalized = accountNo.trim().replace(/\s+/g, '');
+  if (normalized.length <= 4) return normalized;
+  return `${'*'.repeat(Math.max(4, normalized.length - 4))}${normalized.slice(-4)}`;
+};
+
 const copyText = async (value?: string | null) => {
   if (!value) return;
   await navigator.clipboard?.writeText(value);
@@ -138,6 +145,7 @@ export default function ContractSigningPage() {
   const [payoutDialogOpen, setPayoutDialogOpen] = useState(false);
   const [savingPayout, setSavingPayout] = useState(false);
   const [payoutMessage, setPayoutMessage] = useState('');
+  const [payoutSavedForPayment, setPayoutSavedForPayment] = useState(false);
   const today = new Date();
 
   useEffect(() => {
@@ -156,6 +164,7 @@ export default function ContractSigningPage() {
       .getAssignmentContract(assignmentId)
       .then((data) => {
         setContract(data);
+        setPayoutSavedForPayment(data.refundPayoutInfo != null);
         const extra = termsLines(data.termsB ?? '').filter((l) => !LOCKED_DEFAULT_LINES.has(l));
         setExtraTermsText(extra.join('\n'));
         setStatus('success');
@@ -170,6 +179,7 @@ export default function ContractSigningPage() {
     if (!contract) return;
     setPayoutMessage('');
     if (contract.refundPayoutInfo) {
+      setPayoutSavedForPayment(true);
       setPayoutBankName(contract.refundPayoutInfo.bankName ?? '');
       setPayoutAccountHolder(contract.refundPayoutInfo.accountHolderName ?? '');
       setPayoutAccountNo('');
@@ -217,15 +227,21 @@ export default function ContractSigningPage() {
   const combinedTermsLines = [...DEFAULT_TERMS_B_LINES, ...termsLines(extraTermsText)];
   const combinedTermsB = combinedTermsLines.join('\n');
   const selectedPayoutBank = findBankByName(payoutBankName);
+  const hasRefundPayoutForPayment = contract?.refundPayoutInfo != null || payoutSavedForPayment;
+  const clientNeedsPayoutBeforePayment =
+    bothSigned && isClient && !!visibleEscrowPayment && !hasRefundPayoutForPayment;
+  const clientCanViewEscrowPayment =
+    bothSigned && isClient && !!visibleEscrowPayment && hasRefundPayoutForPayment;
+  const tutorWaitingForClientPayment = bothSigned && isTutor && !!visibleEscrowPayment;
 
-  const showPaymentToast = (tone: 'success' | 'warning' | 'error', message: string, autoClose = true) => {
+  const showPaymentToast = useCallback((tone: 'success' | 'warning' | 'error', message: string, autoClose = true) => {
     setPaymentToast({ tone, message });
     if (autoClose) {
       window.setTimeout(() => setPaymentToast(null), 4200);
     }
-  };
+  }, []);
 
-  const handleCheckEscrowPaymentStatus = async () => {
+  const handleCheckEscrowPaymentStatus = useCallback(async (silentPending = false) => {
     if (!assignmentId || checkingPaymentStatus || paymentReloading) return;
     setCheckingPaymentStatus(true);
     try {
@@ -241,20 +257,40 @@ export default function ContractSigningPage() {
       const statusText = latestPayment?.paymentStatus
         ? PAYMENT_STATUS_LABEL[latestPayment.paymentStatus] ?? latestPayment.paymentStatus
         : 'chưa có giao dịch';
-      showPaymentToast(
-        'warning',
-        `Chưa xác nhận được thanh toán. Trạng thái hiện tại: ${statusText}.`,
-      );
+      if (!silentPending) {
+        showPaymentToast(
+          'warning',
+          `Chưa xác nhận được thanh toán. Trạng thái hiện tại: ${statusText}.`,
+        );
+      }
       setContract(latest);
     } catch (err) {
-      showPaymentToast('error', extractError(err));
+      if (!silentPending) {
+        showPaymentToast('error', extractError(err));
+      }
     } finally {
       setCheckingPaymentStatus(false);
     }
-  };
+  }, [assignmentId, checkingPaymentStatus, paymentReloading, showPaymentToast]);
+
+  useEffect(() => {
+    if (!clientCanViewEscrowPayment || checkingPaymentStatus || paymentReloading) return undefined;
+    const timer = window.setInterval(() => {
+      void handleCheckEscrowPaymentStatus(true);
+    }, 5000);
+    return () => window.clearInterval(timer);
+  }, [
+    clientCanViewEscrowPayment,
+    checkingPaymentStatus,
+    paymentReloading,
+    handleCheckEscrowPaymentStatus,
+  ]);
 
   async function handleSaveRefundPayout() {
-    if (!contract?.contractId) return;
+    if (!contract?.assignmentId) {
+      setPayoutMessage('Không tìm thấy mã phân công để lưu thông tin thanh toán.');
+      return;
+    }
     const normalizedAccountNo = payoutAccountNo.trim().replace(/\s+/g, '');
     if (!payoutBankName.trim() || !normalizedAccountNo || !payoutAccountHolder.trim()) {
       setPayoutMessage('Vui lòng chọn ngân hàng, nhập số tài khoản và tên chủ tài khoản.');
@@ -264,14 +300,38 @@ export default function ContractSigningPage() {
     setSavingPayout(true);
     setPayoutMessage('');
     try {
-      await contractApi.saveRefundPayoutInfo(contract.contractId, {
+      const optimisticPayout = {
+        bankName: payoutBankName.trim(),
+        accountNoMasked: maskAccountNo(normalizedAccountNo),
+        accountHolderName: payoutAccountHolder.trim(),
+      };
+      const payload = {
         bankName: payoutBankName.trim(),
         accountNo: normalizedAccountNo,
         accountHolderName: payoutAccountHolder.trim(),
-      });
-      const latest = await teachingApi.getAssignmentContract(assignmentId);
-      setContract(latest);
-      setPayoutMessage('Đã lưu thông tin nhận hoàn tiền.');
+      };
+      if (contract.contractId) {
+        await contractApi.saveRefundPayoutInfo(contract.contractId, payload);
+      } else {
+        await teachingApi.saveAssignmentRefundPayoutInfo(contract.assignmentId, payload);
+      }
+      setPayoutSavedForPayment(true);
+      setContract((current) => current
+        ? {
+          ...current,
+          refundPayoutInfo: optimisticPayout,
+        }
+        : current);
+      try {
+        const latest = await teachingApi.getAssignmentContract(assignmentId);
+        setContract({
+          ...latest,
+          refundPayoutInfo: latest.refundPayoutInfo ?? optimisticPayout,
+        });
+      } catch {
+        showPaymentToast('warning', 'Đã lưu tài khoản nhận hoàn tiền. Nếu trạng thái chưa mới, hãy tải lại trang.', true);
+      }
+      setPayoutMessage('');
     } catch (err) {
       setPayoutMessage(extractError(err));
     } finally {
@@ -670,8 +730,7 @@ export default function ContractSigningPage() {
                 </p>
               </div>
 
-              {bothSigned && visibleEscrowPayment ? (
-                contract.refundPayoutInfo == null && isClient ? (
+              {clientNeedsPayoutBeforePayment ? (
                   <div className="ksign-card ksign-paycard">
                     <div className="ksign-paycard__head">
                       <h3>Thông tin nhận hoàn tiền</h3>
@@ -723,7 +782,7 @@ export default function ContractSigningPage() {
                       </button>
                     </div>
                   </div>
-                ) : (
+              ) : clientCanViewEscrowPayment ? (
                   <div className="ksign-card ksign-paycard">
                     <div className="ksign-paycard__head">
                       <h3>Quét mã để thanh toán</h3>
@@ -734,8 +793,19 @@ export default function ContractSigningPage() {
 
                     <div className="ksign-escrow">
                       {visibleEscrowPayment.qrUrl ? (
-                        <div className="ksign-escrow__qr">
-                          <img src={visibleEscrowPayment.qrUrl} alt="Mã QR thanh toán escrow" />
+                        <div className="ksign-escrow__qr-wrap">
+                          <div className="ksign-escrow__qr">
+                            <img src={visibleEscrowPayment.qrUrl} alt="Mã QR thanh toán escrow" />
+                          </div>
+                          <PaymentQrCountdown
+                            resetKey={
+                              visibleEscrowPayment.referenceCode
+                              ?? visibleEscrowPayment.transferContent
+                              ?? visibleEscrowPayment.qrUrl
+                            }
+                            label="Thời gian chuyển khoản còn lại"
+                            expiredLabel="Mã QR đã hết 5 phút hiển thị. Vui lòng tải lại trang nếu chưa chuyển khoản."
+                          />
                         </div>
                       ) : null}
 
@@ -798,7 +868,7 @@ export default function ContractSigningPage() {
                           <button
                             type="button"
                             className="ksign-btn ksign-btn--primary ksign-btn--block"
-                            onClick={handleCheckEscrowPaymentStatus}
+                            onClick={() => void handleCheckEscrowPaymentStatus(false)}
                             disabled={checkingPaymentStatus || paymentReloading}
                           >
                             {checkingPaymentStatus || paymentReloading ? 'Đang quét...' : 'Quét trạng thái'}
@@ -807,7 +877,12 @@ export default function ContractSigningPage() {
                       </div>
                     </div>
                   </div>
-                )
+              ) : tutorWaitingForClientPayment ? (
+                <div className="ksign-card ksign-paycard">
+                  <p className="ksign-muted">
+                    Hợp đồng đã hoàn tất. Vui lòng chờ phụ huynh/học viên thanh toán escrow.
+                  </p>
+                </div>
               ) : bothSigned ? (
                 <div className="ksign-card ksign-paycard">
                   <p className="ksign-muted">Đang tạo lệnh thanh toán escrow…</p>

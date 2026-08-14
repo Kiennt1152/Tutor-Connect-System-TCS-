@@ -9,6 +9,7 @@ import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.exception.VerificationRequiredException;
+import com.tcs.module.contract.dto.request.SaveRefundPayoutRequest;
 import com.tcs.module.contract.dto.response.ContractResponse;
 import com.tcs.module.contract.entity.Contract;
 import com.tcs.module.contract.enums.ContractStatus;
@@ -919,7 +920,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .paymentMethod(assignment.getPaymentMethod())
                 .myRole(role)
                 .escrowPayment(toEscrowPaymentInfo(resolveAssignmentEscrow(assignment), resolveAssignmentEscrowPayment(assignment)))
-                .refundPayoutInfo(toRefundPayoutInfoView(contract))
+                .refundPayoutInfo(toRefundPayoutInfoView(contract, assignment))
                 .termsB(RefundPayoutInfoCodec.stripFromReason(assignment.getTermsB()))
                 .build();
     }
@@ -968,6 +969,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     private ContractResponse.RefundPayoutInfoView toRefundPayoutInfoView(Contract contract) {
+        return toRefundPayoutInfoView(contract, null);
+    }
+
+    private ContractResponse.RefundPayoutInfoView toRefundPayoutInfoView(
+            Contract contract,
+            ClassAssignment fallbackAssignment) {
         RefundPayoutInfo payoutInfo = null;
         if (contract != null) {
             if (contract.getClassStudent() != null) {
@@ -975,6 +982,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             } else if (contract.getAssignment() != null) {
                 payoutInfo = RefundPayoutInfoCodec.parseFromReason(contract.getAssignment().getTermsB());
             }
+        }
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo) && fallbackAssignment != null) {
+            payoutInfo = RefundPayoutInfoCodec.parseFromReason(fallbackAssignment.getTermsB());
         }
         if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
             return null;
@@ -1024,6 +1034,34 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     "Bạn cần cập nhật Căn cước công dân (CCCD) trong hồ sơ trước khi chỉnh điều khoản hợp đồng.");
         }
         assignment.setTermsB(StringUtils.hasText(termsB) ? termsB.trim() : null);
+        classAssignmentRepository.save(assignment);
+    }
+
+    @Override
+    @Transactional
+    public void saveAssignmentRefundPayoutInfo(Long assignmentId, SaveRefundPayoutRequest request) {
+        ClassAssignment assignment = classAssignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lời mời nhận lớp"));
+        TutoringClass c = requireAssignmentClass(assignment);
+        if (!"CLIENT".equals(contractRoleOf(assignment, c))) {
+            throw new ForbiddenException("Chỉ phụ huynh/học viên mới được lưu tài khoản nhận hoàn tiền");
+        }
+        if (assignment.getClientSignedAt() == null || assignment.getTutorSignedAt() == null) {
+            throw new IllegalArgumentException("Vui lòng hoàn tất ký hợp đồng trước khi lưu thông tin thanh toán");
+        }
+        if (assignment.getStatus() != ClassAssignmentStatus.PENDING) {
+            throw new IllegalArgumentException("Lớp đã được xử lý, không thể cập nhật thông tin thanh toán");
+        }
+
+        RefundPayoutInfo payoutInfo = new RefundPayoutInfo(
+                RefundPayoutInfoCodec.normalize(request != null ? request.getBankName() : null),
+                RefundPayoutInfoCodec.normalizeAccountNo(request != null ? request.getAccountNo() : null),
+                RefundPayoutInfoCodec.normalize(request != null ? request.getAccountHolderName() : null));
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            throw new IllegalArgumentException("Vui lòng nhập đầy đủ ngân hàng, số tài khoản và tên chủ tài khoản");
+        }
+
+        assignment.setTermsB(RefundPayoutInfoCodec.appendToReason(assignment.getTermsB(), payoutInfo));
         classAssignmentRepository.save(assignment);
     }
 

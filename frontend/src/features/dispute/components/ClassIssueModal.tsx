@@ -1,4 +1,4 @@
-import { type ChangeEvent, useState } from 'react';
+import { type ChangeEvent, useEffect, useState } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { disputeApi } from '../api/disputeApi';
@@ -43,6 +43,25 @@ const REQUESTED_ACTION_OPTIONS: Array<[ClassIssueRequestedAction, string]> = [
   ['TERMINATE_CLASS', 'Đề nghị chấm dứt lớp'],
 ];
 
+const CLIENT_ISSUE_TYPES: ClassIssueType[] = [
+  'TUTOR_ABSENT',
+  'TECHNICAL_ISSUE',
+  'INAPPROPRIATE_BEHAVIOR',
+  'SCHEDULE_CONFLICT',
+  'QUALITY_ISSUE',
+  'PAYMENT_OR_REFUND',
+  'OTHER',
+];
+
+const PROVIDER_ISSUE_TYPES: ClassIssueType[] = [
+  'CLIENT_ABSENT',
+  'TECHNICAL_ISSUE',
+  'INAPPROPRIATE_BEHAVIOR',
+  'SCHEDULE_CONFLICT',
+  'QUALITY_ISSUE',
+  'OTHER',
+];
+
 const MAX_EVIDENCE_FILES = 5;
 const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
 const EVIDENCE_IMAGE_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp']);
@@ -70,6 +89,14 @@ function needsRefundPayoutInfo(
     || requestedAction === 'TERMINATE_CLASS';
 }
 
+function issueTypesForRole(currentUserRole?: string | null) {
+  return currentUserRole === 'CLIENT' ? CLIENT_ISSUE_TYPES : PROVIDER_ISSUE_TYPES;
+}
+
+function defaultIssueTypeForRole(currentUserRole?: string | null): ClassIssueType {
+  return issueTypesForRole(currentUserRole)[0] ?? 'OTHER';
+}
+
 export function ClassIssueModal({
   open,
   classId,
@@ -79,7 +106,6 @@ export function ClassIssueModal({
   currentUserRole,
   onClose,
 }: ClassIssueModalProps) {
-  const isClient = currentUserRole === 'CLIENT';
   const [issueType, setIssueType] = useState<ClassIssueType>('TUTOR_ABSENT');
   const [lessonRef, setLessonRef] = useState('');
   const [occurredAt, setOccurredAt] = useState('');
@@ -96,17 +122,24 @@ export function ClassIssueModal({
   const [success, setSuccess] = useState<DisputeResponse | null>(null);
   const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
   const showRefundPayoutInfo = needsRefundPayoutInfo(issueType, requestedAction, currentUserRole);
-  const availableIssueTypes = Object.entries(ISSUE_TYPE_LABELS).filter(([value]) => {
-    if (isClient) return true;
-    return value !== 'PAYMENT_OR_REFUND';
-  }) as Array<[ClassIssueType, string]>;
+  const availableIssueTypes = issueTypesForRole(currentUserRole).map((value) => [
+    value,
+    ISSUE_TYPE_LABELS[value],
+  ]) as Array<[ClassIssueType, string]>;
   const availableRequestedActions = REQUESTED_ACTION_OPTIONS;
+
+  useEffect(() => {
+    const allowedTypes = issueTypesForRole(currentUserRole);
+    if (!allowedTypes.includes(issueType)) {
+      setIssueType(defaultIssueTypeForRole(currentUserRole));
+    }
+  }, [currentUserRole, issueType]);
 
   if (!open) return null;
 
   const resetAndClose = () => {
     if (submitting || uploadingEvidence) return;
-    setIssueType('TUTOR_ABSENT');
+    setIssueType(defaultIssueTypeForRole(currentUserRole));
     setLessonRef('');
     setOccurredAt('');
     setRequestedAction('ESCALATE_DISPUTE');

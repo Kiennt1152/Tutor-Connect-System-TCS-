@@ -1,0 +1,38 @@
+.payment-qr-countdown {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.4;
+}
+
+.payment-qr-countdown strong {
+  flex-shrink: 0;
+  min-width: 58px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: #ffedd5;
+  color: #c2410c;
+  font-family: var(--font-mono, 'JetBrains Mono', Consolas, monospace);
+  font-size: 12px;
+  text-align: center;
+}
+
+.payment-qr-countdown--expired {
+  border-color: #fecaca;
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.payment-qr-countdown--expired strong {
+  background: #fee2e2;
+  color: #991b1b;
+}

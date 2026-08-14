@@ -1465,6 +1465,7 @@ public class DisputeServiceImpl implements DisputeService {
 
         PaymentTransaction payment = escrow.getPayment();
         User payer = resolveEscrowPayerUser(escrow);
+        RefundPayoutInfo payoutInfo = toRefundPayoutInfo(escrow);
         return AdminDisputeReviewResponse.EscrowReviewInfo.builder()
                 .escrowId(escrow.getEscrowId())
                 .status(escrow.getStatus())
@@ -1479,6 +1480,15 @@ public class DisputeServiceImpl implements DisputeService {
                 .paymentReferenceCode(payment != null ? payment.getReferenceCode() : null)
                 .payerUserId(payer != null ? payer.getUserId() : fallbackPayerWalletId(escrow))
                 .payerEmail(payer != null ? payer.getEmail() : null)
+                .refundBankName(RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)
+                        ? RefundPayoutInfoCodec.normalize(payoutInfo.bankName())
+                        : null)
+                .refundAccountNoMasked(RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)
+                        ? RefundPayoutInfoCodec.maskAccountNo(payoutInfo.accountNo())
+                        : null)
+                .refundAccountHolderName(RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)
+                        ? RefundPayoutInfoCodec.normalize(payoutInfo.accountHolderName())
+                        : null)
                 .build();
     }
 
@@ -1738,6 +1748,11 @@ public class DisputeServiceImpl implements DisputeService {
             return fromTermination;
         }
 
+        RefundPayoutInfo fromEscrow = toRefundPayoutInfo(escrow);
+        if (RefundPayoutInfoCodec.hasCompletePayout(fromEscrow)) {
+            return fromEscrow;
+        }
+
         RefundPayoutInfo fromReport = toRefundPayoutInfo(dispute != null ? dispute.getReport() : null);
         if (RefundPayoutInfoCodec.hasCompletePayout(fromReport)) {
             return fromReport;
@@ -1785,6 +1800,19 @@ public class DisputeServiceImpl implements DisputeService {
             return null;
         }
         return RefundPayoutInfoCodec.parseFromReason(report.getDescription());
+    }
+
+    private RefundPayoutInfo toRefundPayoutInfo(EscrowTransaction escrow) {
+        if (escrow == null) {
+            return null;
+        }
+        if (escrow.getClassStudent() != null) {
+            return RefundPayoutInfoCodec.parseFromReason(escrow.getClassStudent().getNotes());
+        }
+        if (escrow.getAssignment() != null) {
+            return RefundPayoutInfoCodec.parseFromReason(escrow.getAssignment().getTermsB());
+        }
+        return null;
     }
 
     private boolean isBlank(String value) {

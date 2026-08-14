@@ -64,6 +64,9 @@ public class AdminDisputeReviewResponse {
         private String paymentReferenceCode;
         private Long payerUserId;
         private String payerEmail;
+        private String refundBankName;
+        private String refundAccountNoMasked;
+        private String refundAccountHolderName;
     }
 
     @Getter

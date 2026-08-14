@@ -4,6 +4,7 @@ import axios from 'axios';
 import { ClassIssueModal } from '../../dispute/components/ClassIssueModal';
 import '../../finance/FinancePage.css';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { PaymentQrCountdown } from '../../../shared/components/PaymentQrCountdown';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { contractApi } from '../api/contractApi';
@@ -694,8 +695,19 @@ export default function ContractDetailPage() {
                 </div>
                 <div className="contract-escrow">
                   {visibleEscrowPayment.qrUrl ? (
-                    <div className="contract-escrow__qr">
-                      <img src={visibleEscrowPayment.qrUrl} alt="Mã QR thanh toán escrow" />
+                    <div className="contract-escrow__qr-wrap">
+                      <div className="contract-escrow__qr">
+                        <img src={visibleEscrowPayment.qrUrl} alt="Mã QR thanh toán escrow" />
+                      </div>
+                      <PaymentQrCountdown
+                        resetKey={
+                          visibleEscrowPayment.referenceCode
+                          ?? visibleEscrowPayment.transferContent
+                          ?? visibleEscrowPayment.qrUrl
+                        }
+                        label="Thời gian chuyển khoản còn lại"
+                        expiredLabel="Mã QR đã hết 5 phút hiển thị. Vui lòng tải lại trang nếu chưa chuyển khoản."
+                      />
                     </div>
                   ) : null}
                   <div className="contract-escrow__details">
