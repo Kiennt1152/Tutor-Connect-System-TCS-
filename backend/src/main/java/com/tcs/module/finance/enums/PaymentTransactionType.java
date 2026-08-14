@@ -5,6 +5,5 @@ public enum PaymentTransactionType {
     WITHDRAWAL,
     REFUND,
     ESCROW_DEPOSIT,
-    ESCROW_RELEASE,
-    PLATFORM_FEE
+    ESCROW_RELEASE
 }

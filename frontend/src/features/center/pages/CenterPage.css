@@ -1497,6 +1497,56 @@
   font-size: 12px;
   color: var(--color-text-secondary);
 }
+.cc-request-fee {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  padding: 8px 10px;
+  border: 1px solid #dbe6f3;
+  border-radius: 10px;
+  background: #f8fbff;
+  font-size: 12px;
+}
+.cc-request-fee__amount {
+  font-weight: 800;
+  color: var(--color-text-primary);
+}
+.cc-request-fee__status,
+.cc-request-fee__ref {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 700;
+}
+.cc-request-fee__status--pending,
+.cc-request-fee__status--held {
+  background: #fff4e5;
+  color: #b45309;
+}
+.cc-request-fee__status--warning {
+  background: #fef3c7;
+  color: #92400e;
+}
+.cc-request-fee__status--released {
+  background: #e6f6ee;
+  color: #157347;
+}
+.cc-request-fee__status--refunded {
+  background: #e0ecff;
+  color: #1d4ed8;
+}
+.cc-request-fee__status--cancelled {
+  background: #eef1f6;
+  color: #5b6b7f;
+}
+.cc-request-fee__ref {
+  background: #eef2f7;
+  color: #43546a;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
 
 /* Tóm tắt yêu cầu (môn / lịch / ghi chú) dạng có cấu trúc */
 .cc-reqnote {

@@ -22,7 +22,6 @@ import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
-import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.messaging.entity.Notification;
 import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
@@ -35,7 +34,6 @@ import java.util.Optional;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -57,7 +55,6 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
     private final WalletService walletService;
     private final ClassRequestStore classRequestStore;
     private final UserRepository userRepository;
-    private final com.tcs.module.marketplace.repository.ClassStudentRepository classStudentRepository;
     private final PlatformAdminRepository platformAdminRepository;
     private final PaymentNotificationService paymentNotificationService;
     private final NotificationRepository notificationRepository;
@@ -439,32 +436,5 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
 
     private String buildReason(String reason) {
         return StringUtils.hasText(reason) ? reason.trim() : "Phí xử lý yêu cầu trung tâm";
-    }
-
-    @EventListener
-    @Transactional
-    public void onContractSigned(com.tcs.common.event.ContractSigned event) {
-        if (event == null || event.assignmentId() == null) {
-            if (event == null || event.classStudentId() == null) {
-                return;
-            }
-            classStudentRepository.findById(event.classStudentId())
-                    .map(ClassStudent::getTutoringClass)
-                    .map(tutoringClass -> tutoringClass != null ? tutoringClass.getClassId() : null)
-                    .flatMap(this::findHoldByClassId)
-                    .filter(hold -> hold.getStatus() == CenterRequestFeeStatus.HELD)
-                    .ifPresent(hold -> releaseInternal(hold, "Client đã ký hợp đồng"));
-            return;
-        }
-        feeHoldRepository.findFirstByAssignmentIdOrderByCreatedAtDesc(event.assignmentId())
-                .filter(hold -> hold.getStatus() == CenterRequestFeeStatus.HELD)
-                .ifPresent(hold -> releaseInternal(hold, "Client đã ký hợp đồng"));
-    }
-
-    private Optional<CenterRequestFeeHold> findHoldByClassId(Long classId) {
-        if (classId == null) {
-            return Optional.empty();
-        }
-        return feeHoldRepository.findFirstByClassIdOrderByCreatedAtDesc(classId);
     }
 }

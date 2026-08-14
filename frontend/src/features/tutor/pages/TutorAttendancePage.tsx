@@ -95,7 +95,7 @@ export default function TutorAttendancePage() {
     }
   };
 
-  // Bước 13a: gia sư xác nhận khóa học hoàn thành (ở buổi cuối) -> gửi cho trung tâm.
+  // Gia sư xác nhận khóa học hoàn thành ở buổi cuối.
   const [completing, setCompleting] = useState(false);
   const [completeMsg, setCompleteMsg] = useState('');
   const confirmCourseDone = async () => {
@@ -104,7 +104,7 @@ export default function TutorAttendancePage() {
     setSaveError('');
     try {
       const res = await tutorApi.confirmClassCompletion(data.classId);
-      setCompleteMsg(res.data?.message ?? 'Đã gửi xác nhận cho trung tâm.');
+      setCompleteMsg(res.data?.message ?? 'Đã ghi nhận xác nhận hoàn thành khóa học.');
       const s = await tutorApi.getSession(data.classId, date);
       setData(s.data);
     } catch (err) {
@@ -234,7 +234,7 @@ export default function TutorAttendancePage() {
                       <div className="cs-alert cs-alert--ok">✓ Khóa học đã hoàn thành.</div>
                     ) : data.tutorCompletionConfirmed ? (
                       <div className="cs-alert cs-alert--ok">
-                        ✓ Bạn đã xác nhận hoàn thành — chờ trung tâm xác nhận đóng lớp.
+                        ✓ Bạn đã xác nhận hoàn thành — chờ bên còn lại hoàn tất bước xác nhận.
                       </div>
                     ) : locked ? (
                       <>
@@ -244,7 +244,7 @@ export default function TutorAttendancePage() {
                           type="button"
                           disabled={completing}
                           onClick={confirmCourseDone}
-                          title="Buổi học cuối — xác nhận khóa học đã hoàn thành để gửi trung tâm duyệt đóng lớp"
+                          title="Buổi học cuối — xác nhận khóa học đã hoàn thành"
                         >
                           {completing ? 'Đang gửi…' : '✅ Xác nhận khóa học hoàn thành'}
                         </button>

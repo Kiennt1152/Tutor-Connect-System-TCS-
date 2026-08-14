@@ -14,6 +14,7 @@ import type { ReviewableAssignment } from '../../reviews/types/reviewTypes';
 import { useTeaching } from '../hooks/useTeaching';
 import { hhmmDisplay, toIsoDate } from '../../../shared/utils/format';
 import {
+  CLASS_STATUS_LABELS,
   REQUEST_STATUS_LABELS,
   REQUEST_TYPE_LABELS,
   type AssignmentResponse,
@@ -23,6 +24,25 @@ import {
 import './TeachingPage.css';
 
 const WEEKDAYS = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+const CLASS_STATUS_TONES: Record<string, string> = {
+  OPEN: 'info',
+  MATCHED: 'warning',
+  IN_PROGRESS: 'primary',
+  COMPLETED: 'success',
+  CANCELLED: 'muted',
+  DISPUTED: 'danger',
+  PENDING: 'warning',
+  CLOSED: 'muted',
+};
+
+function classStatusTone(status?: string | null): string {
+  return CLASS_STATUS_TONES[status ?? ''] ?? 'muted';
+}
+
+function classStatusLabel(status?: string | null): string {
+  return status ? (CLASS_STATUS_LABELS[status] ?? status) : 'Chưa rõ trạng thái';
+}
 
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
@@ -213,7 +233,16 @@ export default function TeachingPage() {
                   {active.map((a) => (
                     <li key={a.assignmentId} className="tch-class">
                       <div className="tch-class__info">
-                        <span className="tch-class__title">{a.classTitle}</span>
+                        <div className="tch-class__topline">
+                          <span className="tch-class__title">{a.classTitle}</span>
+                          <span
+                            className={`tch-class-status tch-class-status--${classStatusTone(
+                              a.classStatus,
+                            )}`}
+                          >
+                            {classStatusLabel(a.classStatus)}
+                          </span>
+                        </div>
                         <span className="tch-class__meta">
                           {isClient && a.tutorName ? `👩‍🏫 ${a.tutorName} · ` : ''}
                           {(a.subjectNames ?? []).join(', ') || '—'} · {a.lessonCount} buổi
@@ -542,7 +571,12 @@ function InviteCard({
             🗓️ Từ {formatDate(a.startDate)} đến {formatDate(a.endDate)}
           </p>
         )}
-        <span className="tch-badge tch-badge--pending">{badge}</span>
+        <div className="tch-invite__badges">
+          <span className="tch-badge tch-badge--pending">{badge}</span>
+          <span className={`tch-class-status tch-class-status--${classStatusTone(a.classStatus)}`}>
+            {classStatusLabel(a.classStatus)}
+          </span>
+        </div>
       </div>
       <div className="tch-invite__actions">
         {!iSigned && (

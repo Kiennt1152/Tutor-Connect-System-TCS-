@@ -4,6 +4,8 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -12,6 +14,7 @@ import com.tcs.common.event.EscrowFunded;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.module.contract.repository.ContractRepository;
+import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.catalog.repository.CategoryRepository;
 import com.tcs.module.catalog.repository.GradeRepository;
 import com.tcs.module.catalog.repository.LocationRepository;
@@ -20,6 +23,7 @@ import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
@@ -37,6 +41,7 @@ import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.ClassTerminationStatus;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.LessonAttendanceStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
@@ -99,10 +104,16 @@ class MarketplaceServiceImplTest {
     private ContractRepository contractRepository;
 
     @Mock
+    private ContractService contractService;
+
+    @Mock
     private EscrowTransactionRepository escrowTransactionRepository;
 
     @Mock
     private EscrowService escrowService;
+
+    @Mock
+    private CenterRequestFeeService centerRequestFeeService;
 
     @Mock
     private TutoringClassRepository tutoringClassRepository;
@@ -455,6 +466,38 @@ class MarketplaceServiceImplTest {
         }
         assertEquals("{1=140000}", parsed != null ? parsed.get("subjectFees").toString() : null);
         assertEquals("[1]", parsed != null ? parsed.get("subjectIds").toString() : null);
+    }
+
+    @Test
+    void confirmClassCompletionReleasesEscrowAndCenterRequestFeeWhenClientAlreadyReviewed() {
+        User clientUser = user(CLIENT_USER_ID);
+        User tutorUser = user(TUTOR_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.IN_PROGRESS);
+        tutoringClass.setClassType(ClassType.PRIVATE);
+        ClassAssignment assignment = assignment(tutoringClass, tutorUser);
+        List<Lesson> lessons = lessons(tutoringClass, assignment.getTutor(), 2, 2);
+        lessons.get(0).setLessonDate(LocalDate.now().minusDays(7));
+        lessons.get(1).setLessonDate(LocalDate.now());
+        EscrowTransaction escrow = escrow(91L, new BigDecimal("100000.00"));
+
+        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(userRepository.findById(TUTOR_USER_ID)).thenReturn(Optional.of(tutorUser));
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(classAssignmentRepository.findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(CLASS_ID))
+                .thenReturn(Optional.of(assignment));
+        when(lessonRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(lessons);
+        when(contractService.hasClientReviewedClass(CLASS_ID)).thenReturn(true);
+        when(escrowTransactionRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID))
+                .thenReturn(Optional.of(escrow));
+        when(contractRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID)).thenReturn(Optional.empty());
+
+        String message = marketplaceService.confirmClassCompletion(CLASS_ID);
+
+        assertEquals("Lớp đã hoàn thành. Học phí escrow đã được giải ngân cho gia sư.", message);
+        assertEquals(TutoringClassStatus.COMPLETED, tutoringClass.getStatus());
+        verify(escrowService).apply(any(ReleaseInstruction.class));
+        verify(centerRequestFeeService).releaseForFulfilledAssignment(eq(ASSIGNMENT_ID), anyString());
+        verify(tutoringClassRepository).save(tutoringClass);
     }
 
     @Test

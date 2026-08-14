@@ -58,8 +58,7 @@ public class TutorController {
 
     @PostMapping("/classes/{classId}/complete")
     public java.util.Map<String, String> confirmClassCompletion(@PathVariable Long classId) {
-        tutorService.confirmClassCompletion(classId);
-        return java.util.Map.of("message", "Đã xác nhận khóa học hoàn thành và tất toán học phí.");
+        return java.util.Map.of("message", tutorService.confirmClassCompletion(classId));
     }
 
     @PostMapping("/classes/{classId}/reschedule")

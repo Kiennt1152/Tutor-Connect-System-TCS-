@@ -50,6 +50,10 @@
   background: var(--color-primary-light);
   color: var(--color-primary);
 }
+.cdm__badge--class {
+  background: #e6f6ee;
+  color: #157347;
+}
 .cdm__x {
   border: 0;
   background: none;

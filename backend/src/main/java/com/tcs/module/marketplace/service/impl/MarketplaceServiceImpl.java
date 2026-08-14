@@ -1085,12 +1085,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     email,
                     "Mã OTP ký hợp đồng - HĐ-" + c.getClassId(),
                     buildSignOtpEmailHtml(otp.getCode()));
-        } catch (RuntimeException ex) {
-            if (mailEnabled) {
-                throw ex;
+            if (!mailEnabled) {
+                log.warn("[OTP-DEV] Mail dang tat. Ma OTP ky hop dong cho {} la: {}",
+                        email, otp.getCode());
             }
-            log.warn("[OTP-DEV] Khong gui duoc email OTP ({}). Ma OTP ky hop dong cho {} la: {}",
-                    ex.getMessage(), email, otp.getCode());
+        } catch (RuntimeException ex) {
+            log.warn("[OTP-DEV] Khong gui duoc email OTP (mailEnabled={}). Ly do: {}. Ma OTP ky hop dong cho {} la: {}",
+                    mailEnabled, ex.getMessage(), email, otp.getCode());
         }
     }
 
@@ -1690,6 +1691,21 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 user,
                 com.tcs.module.messaging.enums.NotificationType.CLASS,
                 "MARKETPLACE_CLASS_EVENT",
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                "TUTORING_CLASS",
+                classId);
+    }
+
+    private void sendReviewNotification(User user, String title, String content, Long classId) {
+        if (user == null) {
+            return;
+        }
+        notificationDispatchService.notifyUserFromTemplate(
+                user,
+                com.tcs.module.messaging.enums.NotificationType.REVIEW,
+                "MARKETPLACE_CLASS_REVIEW_REQUIRED",
                 Map.of("title", title, "content", content),
                 title,
                 content,
@@ -2363,6 +2379,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .assignmentId(assignment.getAssignmentId())
                 .classId(c.getClassId())
                 .classTitle(c.getTitle())
+                .classStatus(c.getStatus().name())
                 .clientName(c.getCreator().getEmail())
                 .tutorName(assignment.getTutor().getFullName())
                 .status(assignment.getStatus().name())
@@ -2590,7 +2607,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
 
         // Chưa đánh giá -> mời học viên đánh giá; lớp đóng khi học viên đánh giá xong.
-        sendClassNotification(
+        sendReviewNotification(
                 c.getCreator(),
                 "Vui lòng đánh giá gia sư để hoàn thành lớp",
                 "Gia sư đã đánh dấu lớp \"" + c.getTitle()
@@ -2643,6 +2660,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     BigDecimal.ZERO,
                     "Lớp \"" + c.getTitle() + "\" đã hoàn thành — giải ngân toàn bộ escrow cho gia sư."));
         }
+        releaseCenterRequestFeeIfAny(c, assignment);
 
         c.setStatus(TutoringClassStatus.COMPLETED);
         tutoringClassRepository.save(c);
@@ -2660,6 +2678,22 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 + "\" đã được cả hai bên xác nhận hoàn thành. Học phí đã được giải ngân cho gia sư.";
         sendClassNotification(assignment.getTutor().getUser(), "Lớp đã hoàn thành", content, c.getClassId());
         sendClassNotification(c.getCreator(), "Lớp đã hoàn thành", content, c.getClassId());
+    }
+
+    private void releaseCenterRequestFeeIfAny(TutoringClass c, ClassAssignment assignment) {
+        if (assignment == null || assignment.getAssignmentId() == null) {
+            return;
+        }
+        try {
+            centerRequestFeeService.releaseForFulfilledAssignment(
+                    assignment.getAssignmentId(),
+                    "Lớp \"" + c.getTitle() + "\" đã hoàn thành — giải ngân phí xử lý yêu cầu cho trung tâm.");
+        } catch (ResourceNotFoundException ex) {
+            log.debug("[CenterRequestFee] Lớp private {} không có phí xử lý yêu cầu trung tâm", c.getClassId());
+        } catch (RuntimeException ex) {
+            log.warn("[CenterRequestFee] Không giải ngân được phí xử lý yêu cầu cho assignment={}: {}",
+                    assignment.getAssignmentId(), ex.getMessage());
+        }
     }
 
     /**

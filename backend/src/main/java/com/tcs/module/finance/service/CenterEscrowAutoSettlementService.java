@@ -209,10 +209,20 @@ public class CenterEscrowAutoSettlementService {
         p.setDescription("Gia sư đã xác nhận hoàn thành khóa học");
         systemParameterRepository.save(p);
 
+        boolean autoSettled = trySettleCompletedCenterClass(classId);
+        if (autoSettled) {
+            clearTutorConfirmed(classId);
+        }
+
         if (c.getCreator() != null) {
-            String title = "Gia sư đã xác nhận hoàn thành khóa học";
-            String content = "Gia sư đã xác nhận lớp \"" + c.getTitle()
-                    + "\" hoàn thành. Vào xác nhận để tất toán học phí và đóng lớp.";
+            String title = autoSettled
+                    ? "Lớp đã hoàn thành và tất toán"
+                    : "Gia sư đã xác nhận hoàn thành khóa học";
+            String content = autoSettled
+                    ? "Lớp \"" + c.getTitle()
+                            + "\" đã đủ điều kiện hoàn thành. Hệ thống đã giải ngân escrow và đóng lớp."
+                    : "Gia sư đã xác nhận lớp \"" + c.getTitle()
+                            + "\" hoàn thành. Vào xác nhận để tất toán học phí và đóng lớp.";
             notificationDispatchService.notifyUserFromTemplate(
                     c.getCreator(),
                     NotificationType.CLASS,

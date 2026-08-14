@@ -42,6 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
+    private static final String PLATFORM_FEE_REFERENCE_PREFIX = "PLATFORM_FEE-";
 
     private static final int MAX_EXPORT_ROWS = 10_000;
     private static final int DEFAULT_EXPORT_DAYS = 90;
@@ -73,37 +74,36 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         long totalClasses = (fromDt != null && toDt != null)
                 ? tutoringClassRepository.countByCreatedAtBetween(fromDt, toDt)
                 : tutoringClassRepository.count();
-        
+
         long activeClasses = tutoringClassRepository.countByStatusIn(
                 List.of(TutoringClassStatus.IN_PROGRESS, TutoringClassStatus.OPEN, TutoringClassStatus.MATCHED)
         );
         long completedClasses = tutoringClassRepository.countByStatus(TutoringClassStatus.COMPLETED);
 
-        BigDecimal totalRevenue = paymentTransactionRepository.sumAmountByStatusAndTypeInAndCreatedAtBetween(
-                PaymentTransactionStatus.SUCCESS,
-                List.of(PaymentTransactionType.DEPOSIT, PaymentTransactionType.ESCROW_DEPOSIT),
-                fromDt, toDt
-        );
+        List<PaymentTransaction> allTransactions = paymentTransactionRepository.findAll().stream()
+                .filter(item -> inRange(item.getCreatedAt(), from, to)).toList();
+        BigDecimal totalRevenue = allTransactions.stream()
+                .filter(pt -> pt.getStatus() == PaymentTransactionStatus.SUCCESS
+                           && (pt.getType() == PaymentTransactionType.DEPOSIT
+                            || pt.getType() == PaymentTransactionType.ESCROW_DEPOSIT)
+                           && !isPlatformFeeTransaction(pt))
+                .map(PaymentTransaction::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        BigDecimal platformFeeRate = new BigDecimal("0.10");
+        BigDecimal platformFeeRate = new BigDecimal("0.02");
         Optional<SystemParameter> paramOpt = systemParameterRepository.findByParamKey("PLATFORM_FEE_RATE");
         if (paramOpt.isPresent() && paramOpt.get().getParamValue() != null) {
             try {
                 platformFeeRate = new BigDecimal(paramOpt.get().getParamValue().trim());
             } catch (Exception ignored) {}
         }
-        BigDecimal platformFeeRevenue = paymentTransactionRepository.sumAmountByStatusAndTypeAndCreatedAtBetween(
-                PaymentTransactionStatus.SUCCESS, PaymentTransactionType.PLATFORM_FEE, fromDt, toDt);
-        BigDecimal deposits = paymentTransactionRepository.sumAmountByStatusAndTypeAndCreatedAtBetween(
-                PaymentTransactionStatus.SUCCESS, PaymentTransactionType.DEPOSIT, fromDt, toDt);
-        BigDecimal withdrawals = paymentTransactionRepository.sumAmountByStatusAndTypeAndCreatedAtBetween(
-                PaymentTransactionStatus.SUCCESS, PaymentTransactionType.WITHDRAWAL, fromDt, toDt);
-        BigDecimal escrowDeposited = paymentTransactionRepository.sumAmountByStatusAndTypeAndCreatedAtBetween(
-                PaymentTransactionStatus.SUCCESS, PaymentTransactionType.ESCROW_DEPOSIT, fromDt, toDt);
-        BigDecimal escrowReleased = paymentTransactionRepository.sumAmountByStatusAndTypeAndCreatedAtBetween(
-                PaymentTransactionStatus.SUCCESS, PaymentTransactionType.ESCROW_RELEASE, fromDt, toDt);
-        BigDecimal escrowRefunded = paymentTransactionRepository.sumAmountByStatusAndTypeAndCreatedAtBetween(
-                PaymentTransactionStatus.SUCCESS, PaymentTransactionType.REFUND, fromDt, toDt);
+        BigDecimal platformFeeRevenue = sumPlatformFeeTransactions(allTransactions);
+        BigDecimal deposits = sumTransactions(allTransactions, PaymentTransactionType.DEPOSIT);
+        BigDecimal withdrawals = sumTransactions(allTransactions, PaymentTransactionType.WITHDRAWAL);
+        BigDecimal escrowDeposited = sumTransactions(allTransactions, PaymentTransactionType.ESCROW_DEPOSIT);
+        BigDecimal escrowReleased = sumTransactions(allTransactions, PaymentTransactionType.ESCROW_RELEASE);
+        BigDecimal escrowRefunded = sumTransactions(allTransactions, PaymentTransactionType.REFUND);
         BigDecimal escrowHeld = escrowDeposited
                 .subtract(escrowReleased)
                 .subtract(escrowRefunded)
@@ -132,15 +132,13 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
 
             long newUsers = userRepository.countByCreatedAtBetween(monthStart, monthEnd);
             long newClasses = tutoringClassRepository.countByCreatedAtBetween(monthStart, monthEnd);
-            BigDecimal revenue = paymentTransactionRepository.sumAmountByStatusAndTypeInAndCreatedAtBetween(
-                    PaymentTransactionStatus.SUCCESS,
-                    List.of(PaymentTransactionType.DEPOSIT, PaymentTransactionType.ESCROW_DEPOSIT),
-                    monthStart,
-                    monthEnd
-            );
-            
+            List<PaymentTransaction> monthTransactions =
+                    paymentTransactionRepository.findByCreatedAtBetween(monthStart, monthEnd);
+            BigDecimal revenue = sumTransactions(monthTransactions, PaymentTransactionType.DEPOSIT)
+                    .add(sumTransactions(monthTransactions, PaymentTransactionType.ESCROW_DEPOSIT));
+
             String label = "T" + ym.getMonthValue() + "/" + ym.getYear();
-            
+
             monthlyMetrics.add(MonthlyMetricResponse.builder()
                     .month(label)
                     .newUsers(newUsers)
@@ -166,13 +164,10 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         // --- Transaction Type Breakdown ---
         List<TransactionTypeBreakdown> breakdown = new ArrayList<>();
         for (PaymentTransactionType txType : PaymentTransactionType.values()) {
-            long count = paymentTransactionRepository.countByStatusAndTypeAndDateRange(
-                    PaymentTransactionStatus.SUCCESS, txType, fromDt, toDt);
-            BigDecimal sum = paymentTransactionRepository.sumAmountByStatusAndTypeAndCreatedAtBetween(
-                    PaymentTransactionStatus.SUCCESS, txType, fromDt, toDt);
-            boolean isMoneyIn = txType == PaymentTransactionType.DEPOSIT 
-                    || txType == PaymentTransactionType.ESCROW_DEPOSIT
-                    || txType == PaymentTransactionType.PLATFORM_FEE;
+            long count = countTransactions(allTransactions, txType);
+            BigDecimal sum = sumTransactions(allTransactions, txType);
+            boolean isMoneyIn = txType == PaymentTransactionType.DEPOSIT
+                    || txType == PaymentTransactionType.ESCROW_DEPOSIT;
             breakdown.add(TransactionTypeBreakdown.builder()
                     .type(txType.name())
                     .count((int) count)
@@ -180,6 +175,12 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                     .direction(isMoneyIn ? "IN" : "OUT")
                     .build());
         }
+        breakdown.add(TransactionTypeBreakdown.builder()
+                .type("PLATFORM_FEE")
+                .count((int) countPlatformFeeTransactions(allTransactions))
+                .totalAmount(platformFeeRevenue)
+                .direction("IN")
+                .build());
 
         return AnalyticsSummaryResponse.builder()
                 .totalUsers(totalUsers)
@@ -214,17 +215,17 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
     public byte[] exportCsv(String type, LocalDate from, LocalDate to) {
         StringBuilder sb = new StringBuilder();
         sb.append("\uFEFF");
-        
+
         // Default to last 90 days if date bounds not provided, preventing unbounded table dumps
-        LocalDateTime fromDt = from != null 
-                ? from.atStartOfDay() 
+        LocalDateTime fromDt = from != null
+                ? from.atStartOfDay()
                 : LocalDate.now().minusDays(DEFAULT_EXPORT_DAYS).atStartOfDay();
-        LocalDateTime toDt = to != null 
-                ? to.plusDays(1).atStartOfDay() 
+        LocalDateTime toDt = to != null
+                ? to.plusDays(1).atStartOfDay()
                 : LocalDate.now().plusDays(1).atStartOfDay();
-        
+
         Pageable exportLimit = PageRequest.of(0, MAX_EXPORT_ROWS);
-        
+
         if ("classes".equalsIgnoreCase(type)) {
             sb.append("ID,Tiêu đề,Môn học,Trạng thái,Học phí (VND),Ngày tạo\n");
             List<TutoringClass> classes = tutoringClassRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(
@@ -244,7 +245,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
             for (PaymentTransaction pt : transactions) {
                 sb.append(pt.getTransactionId()).append(",")
                   .append(escapeCsv(pt.getReferenceCode())).append(",")
-                  .append(pt.getType()).append(",")
+                  .append(displayTransactionType(pt)).append(",")
                   .append(pt.getAmount()).append(",")
                   .append(pt.getStatus()).append(",")
                   .append(pt.getCreatedAt()).append("\n");
@@ -260,8 +261,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                 daily.computeIfAbsent(day, k -> new BigDecimal[]{BigDecimal.ZERO, BigDecimal.ZERO});
                 BigDecimal amt = pt.getAmount() != null ? pt.getAmount() : BigDecimal.ZERO;
                 boolean isIn = pt.getType() == PaymentTransactionType.DEPOSIT
-                        || pt.getType() == PaymentTransactionType.ESCROW_DEPOSIT
-                        || pt.getType() == PaymentTransactionType.PLATFORM_FEE;
+                        || pt.getType() == PaymentTransactionType.ESCROW_DEPOSIT;
                 if (isIn) daily.get(day)[0] = daily.get(day)[0].add(amt);
                 else daily.get(day)[1] = daily.get(day)[1].add(amt);
             }
@@ -276,16 +276,25 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                     fromDt, toDt, exportLimit);
             for (PaymentTransactionType txType : PaymentTransactionType.values()) {
                 List<PaymentTransaction> filtered = allTransactions.stream()
-                        .filter(t -> t.getStatus() == PaymentTransactionStatus.SUCCESS && t.getType() == txType)
+                        .filter(t -> t.getStatus() == PaymentTransactionStatus.SUCCESS
+                                && t.getType() == txType
+                                && !isPlatformFeeTransaction(t))
                         .toList();
                 BigDecimal sum = filtered.stream().map(PaymentTransaction::getAmount)
                         .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
                 boolean isIn = txType == PaymentTransactionType.DEPOSIT
-                        || txType == PaymentTransactionType.ESCROW_DEPOSIT
-                        || txType == PaymentTransactionType.PLATFORM_FEE;
+                        || txType == PaymentTransactionType.ESCROW_DEPOSIT;
                 sb.append(txType.name()).append(",").append(isIn ? "IN" : "OUT").append(",")
                   .append(filtered.size()).append(",").append(sum).append("\n");
             }
+            List<PaymentTransaction> platformFeeTransactions = allTransactions.stream()
+                    .filter(t -> t.getStatus() == PaymentTransactionStatus.SUCCESS && isPlatformFeeTransaction(t))
+                    .toList();
+            BigDecimal platformFeeSum = platformFeeTransactions.stream().map(PaymentTransaction::getAmount)
+                    .filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
+            sb.append("PLATFORM_FEE,IN,")
+                    .append(platformFeeTransactions.size()).append(",")
+                    .append(platformFeeSum).append("\n");
         } else {
             sb.append("ID,Email,Số điện thoại,Trạng thái,Ngày tạo\n");
             List<User> users = userRepository.findByCreatedAtBetweenOrderByCreatedAtDesc(
@@ -301,11 +310,65 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
+    private BigDecimal sumTransactions(List<PaymentTransaction> transactions, PaymentTransactionType type) {
+        return transactions.stream()
+                .filter(item -> item.getStatus() == PaymentTransactionStatus.SUCCESS
+                        && item.getType() == type
+                        && !isPlatformFeeTransaction(item))
+                .map(PaymentTransaction::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private long countTransactions(List<PaymentTransaction> transactions, PaymentTransactionType type) {
+        return transactions.stream()
+                .filter(item -> item.getStatus() == PaymentTransactionStatus.SUCCESS
+                        && item.getType() == type
+                        && !isPlatformFeeTransaction(item))
+                .count();
+    }
+
+    private BigDecimal sumPlatformFeeTransactions(List<PaymentTransaction> transactions) {
+        return transactions.stream()
+                .filter(item -> item.getStatus() == PaymentTransactionStatus.SUCCESS
+                        && isPlatformFeeTransaction(item))
+                .map(PaymentTransaction::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    private long countPlatformFeeTransactions(List<PaymentTransaction> transactions) {
+        return transactions.stream()
+                .filter(item -> item.getStatus() == PaymentTransactionStatus.SUCCESS
+                        && isPlatformFeeTransaction(item))
+                .count();
+    }
+
+    private boolean isPlatformFeeTransaction(PaymentTransaction transaction) {
+        return transaction != null
+                && transaction.getReferenceCode() != null
+                && transaction.getReferenceCode().startsWith(PLATFORM_FEE_REFERENCE_PREFIX);
+    }
+
+    private boolean inRange(LocalDateTime value, LocalDate from, LocalDate to) {
+        if (value == null) return from == null && to == null;
+        return (from == null || !value.toLocalDate().isBefore(from))
+                && (to == null || !value.toLocalDate().isAfter(to));
+    }
+
+    private String displayTransactionType(PaymentTransaction transaction) {
+        return isPlatformFeeTransaction(transaction) ? "PLATFORM_FEE" : transaction.getType().name();
+    }
+
     private String escapeCsv(String val) {
         if (val == null) return "";
-        if (val.contains(",") || val.contains("\"") || val.contains("\n")) {
-            return "\"" + val.replace("\"", "\"\"") + "\"";
+        String clean = val.replace("\"", "\"\"");
+        if (!clean.isEmpty() && "=+-@\t".indexOf(clean.charAt(0)) >= 0) {
+            clean = "'" + clean;
         }
-        return val;
+        if (clean.contains(",") || clean.contains("\"") || clean.contains("\n") || clean.contains("\r")) {
+            return "\"" + clean + "\"";
+        }
+        return clean;
     }
 }
