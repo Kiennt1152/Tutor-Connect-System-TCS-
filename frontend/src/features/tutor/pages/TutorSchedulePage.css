@@ -165,8 +165,69 @@
 }
 .tw-card__actions {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 6px;
   margin-top: 2px;
+}
+/* Thẻ trong lịch tuần khá hẹp: cho ô Chat chiếm trọn 1 dòng riêng,
+   nút "Điểm danh" + 🤒 nằm dòng dưới -> không bị chèn lệch. */
+.tw-card__actions > .tcs-chat-btn {
+  flex: 1 1 100%;
+  justify-content: center;
+}
+
+/* Bước 13: nút xác nhận hoàn thành khóa học */
+.tw-complete-btn {
+  width: 100%;
+  margin-top: 6px;
+  padding: 7px 8px;
+  border-radius: var(--radius-md);
+  border: 1px solid #16a34a;
+  background: #16a34a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.tw-complete-btn:hover:not(:disabled) {
+  background: #15803d;
+}
+.tw-complete-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+/* Nhãn khi khóa học đã được xác nhận hoàn thành */
+.tw-complete-done {
+  width: 100%;
+  margin-top: 6px;
+  padding: 7px 8px;
+  border-radius: var(--radius-md);
+  background: var(--color-success-light, #f0fdf4);
+  border: 1px solid #bbf7d0;
+  color: #166534;
+  font-size: 12px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Thông báo trạng thái (lỗi / thành công) */
+.cs-alert {
+  margin: 8px 0;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 600;
+}
+.cs-alert--error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+.cs-alert--ok {
+  background: #f0fdf4;
+  color: #166534;
+  border: 1px solid #bbf7d0;
 }
 .tw-btn {
   flex: 1;

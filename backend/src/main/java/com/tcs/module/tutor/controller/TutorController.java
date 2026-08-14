@@ -56,6 +56,12 @@ public class TutorController {
         return tutorService.markAttendanceBatch(classId, date, request.getRecords());
     }
 
+    @PostMapping("/classes/{classId}/complete")
+    public java.util.Map<String, String> confirmClassCompletion(@PathVariable Long classId) {
+        tutorService.confirmClassCompletion(classId);
+        return java.util.Map.of("message", "Đã xác nhận khóa học hoàn thành và tất toán học phí.");
+    }
+
     @PostMapping("/classes/{classId}/reschedule")
     public RescheduleResponse requestReschedule(
             @PathVariable Long classId, @RequestBody RescheduleRequestBody request) {

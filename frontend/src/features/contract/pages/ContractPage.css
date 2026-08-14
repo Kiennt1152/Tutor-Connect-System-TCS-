@@ -416,6 +416,62 @@
   line-height: 1.7;
 }
 
+/* Thân hợp đồng dạng tờ A4 (dùng lại .ksign-doc của form ký lớp gia sư). */
+.contract-doc-wrap {
+  margin: 0 var(--space-lg) var(--space-lg);
+}
+.contract-doc-wrap > h3 {
+  margin: 0 0 var(--space-xs);
+  color: var(--color-text-primary);
+  font-size: var(--fs-body-md);
+}
+.cdoc__docno {
+  text-align: center;
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #475569;
+}
+.cdoc__party {
+  margin: 16px 0 4px;
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f2a4a;
+}
+.cdoc__li {
+  margin: 4px 0 4px 20px;
+  position: relative;
+}
+.cdoc__li::before {
+  content: '•';
+  position: absolute;
+  left: -14px;
+  color: #64748b;
+}
+
+/* Ký hợp đồng: checkbox đồng ý + đồng hồ đếm ngược OTP. */
+.contract-agree {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-primary);
+  line-height: 1.5;
+  cursor: pointer;
+}
+.contract-agree input {
+  margin-top: 3px;
+  flex: 0 0 auto;
+}
+.contract-otp-timer {
+  margin: 4px 0 0;
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+}
+.contract-otp-timer--expired {
+  color: var(--color-error, #991b1b);
+  font-weight: 600;
+}
+
 .contract-party-list,
 .contract-signature,
 .contract-sign-form {

@@ -601,6 +601,7 @@ function SlotField({
             <div key={file.fileId} className="verification-doc-item">
               <FileThumbnail
                 src={file.fileUrl}
+                fileId={file.fileId}
                 fileName={file.fileName}
                 mimeType={file.mimeType}
                 fileSize={file.fileSize}
@@ -775,6 +776,7 @@ function VerificationHistory({
                     <FileThumbnail
                       key={doc.documentId}
                       src={doc.fileUrl}
+                      fileId={doc.fileId}
                       fileName={doc.fileName}
                       mimeType={doc.mimeType}
                       fileSize={doc.fileSize}

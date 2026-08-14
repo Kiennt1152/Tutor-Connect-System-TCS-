@@ -1,9 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
-import { Link } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
-import { APP_ROUTES } from '../../../shared/constants/routes';
+import { CenterSidebar } from '../components/CenterSidebar';
 import { centerApi } from '../api/centerApi';
 import { useCenterReportList } from '../hooks/useCenterReportList';
 import { platformApi } from '../../platform/api/platformApi';
@@ -873,12 +872,13 @@ export default function CenterReportsPage() {
   return (
     <>
       <VerificationHeader />
+      <div className="cc-area-bg">
+      <div className="cc-shell">
+      <CenterSidebar />
+      <div className="cc-shell__main">
       <main className="center-report-page">
         <header className="center-report-header">
           <div>
-            <Link className="center-report-back" to={APP_ROUTES.center}>
-              Quay lại quản lý trung tâm
-            </Link>
             <h1>Báo cáo & tranh chấp trung tâm</h1>
             <p>
               Theo dõi sự cố, tranh chấp và yêu cầu hoàn tiền của các lớp trung tâm do bạn quản lý.
@@ -1036,6 +1036,9 @@ export default function CenterReportsPage() {
           </section>
         ) : null}
       </main>
+      </div>
+      </div>
+      </div>
     </>
   );
 }

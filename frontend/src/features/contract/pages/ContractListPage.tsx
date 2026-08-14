@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { useContractList } from '../hooks/useContract';
 import type { ContractApiResponse, ContractStatus, EscrowPaymentInfo } from '../types/contractTypes';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { useAuth } from '../../../shared/auth/AuthProvider';
+import { normalizeRole } from '../../../shared/auth/rbac';
 import './ContractPage.css';
 
 const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
@@ -12,11 +14,6 @@ const STATUS_LABEL: Record<ContractStatus, { label: string; cls: string }> = {
   ACTIVE: { label: 'Đang hoạt động', cls: 'contract-status--active' },
   COMPLETED: { label: 'Hoàn thành', cls: 'contract-status--completed' },
   TERMINATED: { label: 'Đã chấm dứt', cls: 'contract-status--terminated' },
-};
-
-const SOURCE_LABEL: Record<'PRIVATE' | 'CENTER', string> = {
-  PRIVATE: 'Lớp riêng',
-  CENTER: 'Lớp trung tâm',
 };
 
 const ESCROW_STATUS_LABEL: Record<string, { label: string; cls: string }> = {
@@ -73,6 +70,8 @@ const getEscrowLabel = (escrow: EscrowPaymentInfo | null | undefined) => {
 
 export default function ContractListPage() {
   const { contracts, loading, error, reload } = useContractList();
+  const { user } = useAuth();
+  const viewerRole = normalizeRole(user?.role);
   const escrowContracts = useMemo(
     () => contracts.filter((contract: ContractApiResponse) => contract.escrowPayment != null),
     [contracts],
@@ -164,7 +163,7 @@ export default function ContractListPage() {
                     <tr>
                       <th>Số HĐ</th>
                       <th>Lớp học</th>
-                      <th>Loại</th>
+                      <th>Người ký với</th>
                       <th>Phí</th>
                       <th>Trạng thái</th>
                       <th>Ngày tạo</th>
@@ -174,11 +173,19 @@ export default function ContractListPage() {
                   <tbody>
                     {contracts.map((c) => {
                       const st = STATUS_LABEL[c.status] ?? { label: c.status, cls: 'contract-status--draft' };
+                      // Chỉ hiện BÊN KIA mà mình ký cùng — ẩn chính người đang xem theo vai trò.
+                      const signers = [
+                        viewerRole !== 'CLIENT' ? c.clientName : null,
+                        viewerRole !== 'TUTOR' ? c.tutorName : null,
+                        viewerRole !== 'TUTOR_CENTER' ? c.centerName : null,
+                      ]
+                        .filter((n): n is string => Boolean(n))
+                        .join(' · ');
                       return (
                         <tr key={c.contractId}>
                           <td className="contract-no">{c.contractNo}</td>
-                          <td className="contract-table__title">{c.classTitle ?? c.clientName ?? '—'}</td>
-                          <td>{SOURCE_LABEL[c.sourceType ?? 'PRIVATE'] ?? c.sourceType ?? '—'}</td>
+                          <td className="contract-table__title">{c.classTitle ?? '—'}</td>
+                          <td>{signers || '—'}</td>
                           <td>{formatCurrency(c.totalTuitionAmount ?? c.tuitionFee)}</td>
                           <td>
                             <span className={`contract-status ${st.cls}`}>{st.label}</span>

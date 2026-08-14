@@ -381,6 +381,16 @@
   background: var(--color-error-light);
   color: #991b1b;
 }
+.mk-alert--info {
+  background: var(--color-info-light);
+  color: #075985;
+  line-height: 1.45;
+}
+.mk-alert--warn {
+  background: var(--color-warning-light);
+  color: #92400e;
+  line-height: 1.45;
+}
 
 .mk-btn {
   padding: 12px 16px;
