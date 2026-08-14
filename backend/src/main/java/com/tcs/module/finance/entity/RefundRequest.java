@@ -31,9 +31,13 @@ public class RefundRequest {
     @Column(name = "refund_id")
     private Long refundId;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "escrow_id", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "escrow_id")
     private EscrowTransaction escrowTransaction;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "center_request_fee_hold_id")
+    private CenterRequestFeeHold centerRequestFeeHold;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "requested_by", nullable = false)
@@ -50,6 +54,9 @@ public class RefundRequest {
 
     @Column(name = "account_no", length = 50)
     private String accountNo;
+
+    @Column(name = "account_holder_name", length = 150)
+    private String accountHolderName;
 
     @Column(name = "refund_reference_code", length = 100)
     private String refundReferenceCode;

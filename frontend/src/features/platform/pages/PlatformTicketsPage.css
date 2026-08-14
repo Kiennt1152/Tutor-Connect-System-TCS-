@@ -254,6 +254,16 @@
 }
 
 /* Ticket list table */
+.adm-ticket-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.adm-ticket-table {
+  min-width: 1180px;
+}
+
 .adm-ticket-filters {
   display: flex;
   gap: 0.5rem;

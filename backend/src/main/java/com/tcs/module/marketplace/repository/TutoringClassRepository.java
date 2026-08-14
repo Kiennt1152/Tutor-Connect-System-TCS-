@@ -13,4 +13,8 @@ public interface TutoringClassRepository extends JpaRepository<TutoringClass, Lo
     java.util.List<TutoringClass> findByCreator_UserId(Long userId);
 
     boolean existsByCategory_CategoryId(Long categoryId);
+
+    /** Lớp OPEN đã quá hạn hiển thị (expires_at < mốc truyền vào) -> cần dọn dẹp. */
+    java.util.List<TutoringClass> findByStatusAndExpiresAtBefore(
+            TutoringClassStatus status, java.time.LocalDateTime cutoff);
 }

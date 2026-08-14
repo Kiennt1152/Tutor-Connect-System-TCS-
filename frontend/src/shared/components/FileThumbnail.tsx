@@ -165,13 +165,12 @@ function resolvePreviewSrc(src: string) {
 function getBackendOrigin() {
   const configuredApiUrl = import.meta.env.VITE_API_URL as string | undefined;
 
-  if (configuredApiUrl && configuredApiUrl.startsWith('http://')) {
+  if (
+    configuredApiUrl &&
+    (configuredApiUrl.startsWith('http://') || configuredApiUrl.startsWith('https://'))
+  ) {
     return configuredApiUrl.replace(/\/api\/?$/, '');
   }
 
-  if (configuredApiUrl && configuredApiUrl.startsWith('https://')) {
-    return configuredApiUrl.replace(/\/api\/?$/, '');
-  }
-
-  return 'http://localhost:8080';
+  return window.location.origin;
 }

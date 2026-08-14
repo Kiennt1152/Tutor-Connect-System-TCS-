@@ -43,6 +43,7 @@ export function WithdrawalModal({
   const [selectedBankCode, setSelectedBankCode] = useState('');
   const [bankPickerOpen, setBankPickerOpen] = useState(false);
   const [accountNo, setAccountNo] = useState('');
+  const [accountHolderName, setAccountHolderName] = useState('');
   const [paymentMethodId, setPaymentMethodId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -63,6 +64,7 @@ export function WithdrawalModal({
     setSelectedBankCode('');
     setBankPickerOpen(false);
     setAccountNo('');
+    setAccountHolderName('');
     setPaymentMethodId('');
     setSubmitting(false);
     setSuccessMessage(null);
@@ -95,6 +97,10 @@ export function WithdrawalModal({
       setError('Vui lòng nhập số tài khoản nhận tiền');
       return;
     }
+    if (!useSavedMethod && accountHolderName.trim().length < 2) {
+      setError('Vui lòng nhập tên chủ tài khoản');
+      return;
+    }
 
     setSubmitting(true);
     setError(null);
@@ -106,6 +112,7 @@ export function WithdrawalModal({
         paymentMethodId: useSavedMethod ? Number(paymentMethodId) : undefined,
         bankName: useSavedMethod ? undefined : selectedBank?.name,
         accountNo: useSavedMethod ? undefined : accountNo.trim(),
+        accountHolderName: useSavedMethod ? undefined : accountHolderName.trim(),
       });
       setSuccessMessage(
         `Đã tạo yêu cầu rút ${formatMoney(response.amount)}. Vui lòng chờ quản trị viên xử lý.`
@@ -114,6 +121,7 @@ export function WithdrawalModal({
       setSelectedBankCode('');
       setBankPickerOpen(false);
       setAccountNo('');
+      setAccountHolderName('');
       setPaymentMethodId('');
     } catch (err: unknown) {
       setError(getApiErrorMessage(err, 'Không thể tạo yêu cầu rút tiền. Vui lòng thử lại.'));
@@ -209,6 +217,16 @@ export function WithdrawalModal({
                     placeholder="Nhập số tài khoản nhận tiền"
                     value={accountNo}
                     onChange={(event) => setAccountNo(event.target.value)}
+                  />
+
+                  <label className="form-label" htmlFor="withdraw-account-holder">Tên chủ tài khoản</label>
+                  <input
+                    id="withdraw-account-holder"
+                    type="text"
+                    className="form-input"
+                    placeholder="Nhập tên chủ tài khoản"
+                    value={accountHolderName}
+                    onChange={(event) => setAccountHolderName(event.target.value)}
                   />
 
                   <BankPickerDialog

@@ -41,6 +41,15 @@ public class WithdrawalRequest {
     @Column(name = "amount", precision = 15, scale = 2, nullable = false)
     private BigDecimal amount;
 
+    @Column(name = "bank_name", length = 100)
+    private String bankName;
+
+    @Column(name = "account_no", length = 50)
+    private String accountNo;
+
+    @Column(name = "account_holder_name", length = 150)
+    private String accountHolderName;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     private WithdrawalRequestStatus status = WithdrawalRequestStatus.PENDING;

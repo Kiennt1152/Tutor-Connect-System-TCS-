@@ -32,6 +32,7 @@ import type {
   ResolveClassIssueRequest,
   ResolveDisputeApiRequest,
   ResolveReportApiRequest,
+  ResolveReviewReportRequest,
   RevokePenaltyApiRequest,
   TaskFilters,
   TaskQueueSummaryApiResponse,
@@ -117,6 +118,13 @@ export const platformApi = {
 
   resolveClassIssue(reportId: string, payload: ResolveClassIssueRequest) {
     return axiosClient.patch<ReportApiResponse>(`${BASE}/reports/${reportId}/resolve`, payload);
+  },
+
+  resolveReviewReport(reportId: string, payload: ResolveReviewReportRequest) {
+    return axiosClient.patch<ReportApiResponse>(
+      `${BASE}/reports/${reportId}/resolve-review`,
+      payload,
+    );
   },
 
   resolveReport(reportId: number, payload: ResolveReportApiRequest) {
@@ -221,6 +229,12 @@ export const platformApi = {
 
   reviewCircumventionEvent(eventId: number, status: Exclude<CircumventionStatus, 'PENDING'>, note: string) {
     return axiosClient.patch<CircumventionEventApiResponse>(`${BASE}/circumvention-events/${eventId}`, { status, note });
+  },
+
+  getCircumventionConversation(eventId: number) {
+    return axiosClient.get<import('../types/platformTypes').CircumventionConversationApiResponse>(
+      `${BASE}/circumvention-events/${eventId}/conversation`,
+    );
   },
 
   getNotificationTemplates() {

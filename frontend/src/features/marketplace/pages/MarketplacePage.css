@@ -16,6 +16,12 @@
   margin-bottom: 24px;
   flex-wrap: wrap;
 }
+.mkt-header__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
 .mkt-eyebrow {
   font-size: 13px;
   font-weight: 600;
@@ -538,6 +544,33 @@
   align-items: center;
   justify-content: space-between;
 }
+.mkt-expiry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  border: 1px solid transparent;
+  font-variant-numeric: tabular-nums;
+}
+.mkt-expiry--ok {
+  color: #1b7a43;
+  background: #e7f6ec;
+  border-color: #b7e2c5;
+}
+.mkt-expiry--warn {
+  color: #b45309;
+  background: #fef3c7;
+  border-color: #fcd88a;
+}
+.mkt-expiry--expired {
+  color: #b91c1c;
+  background: #fee2e2;
+  border-color: #f5b5b5;
+}
 .mkt-class-card__id {
   font-size: 12px;
   color: #94a3b5;
@@ -822,6 +855,10 @@
 
 /* Badge trạng thái yêu cầu — dùng token semantic của project */
 .mkt-status--pending {
+  background: var(--color-warning-light);
+  color: #92400e;
+}
+.mkt-status--payment_pending {
   background: var(--color-warning-light);
   color: #92400e;
 }

@@ -4,6 +4,16 @@
   flex-wrap: wrap;
   margin-bottom: 24px;
 }
+
+.adm-audit-table-wrap {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.adm-audit-table {
+  min-width: 1120px;
+}
 .adm-audit-filters select,
 .adm-audit-filters input {
   padding: 8px 12px;

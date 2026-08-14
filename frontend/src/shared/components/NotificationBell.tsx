@@ -36,12 +36,16 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
       .catch((err) => console.error('Failed to load announcements:', err));
   }, []);
 
-  const historyReadCount = items.filter(
+  // Nhắc nhở buổi học là thông báo hệ thống (hiển thị suốt ngày có lịch), tách khỏi thông báo thường.
+  const reminderItems = items.filter((n) => n.referenceType === 'LESSON_REMINDER');
+  const regularItems = items.filter((n) => n.referenceType !== 'LESSON_REMINDER');
+
+  const historyReadCount = regularItems.filter(
     (n) => n.isRead && !openedIds.includes(n.notificationId),
   ).length;
   const visible = showRead
-    ? items
-    : items.filter((n) => !n.isRead || openedIds.includes(n.notificationId));
+    ? regularItems
+    : regularItems.filter((n) => !n.isRead || openedIds.includes(n.notificationId));
 
   function togglePanel() {
     if (!open) {
@@ -129,10 +133,19 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
           )}
 
           <div className="ntf__head ntf__head--system">Thông báo hệ thống</div>
-          {announcements.length === 0 ? (
+          {reminderItems.length === 0 && announcements.length === 0 ? (
             <div className="ntf__empty">Không có thông báo nào.</div>
           ) : (
             <ul className="ntf__list">
+              {reminderItems.map((n) => (
+                <li key={`rm-${n.notificationId}`} className="ntf__item-row">
+                  <div className="ntf__item">
+                    <div className="ntf__item-title">{n.title}</div>
+                    <div className="ntf__item-content">{n.content}</div>
+                    <div className="ntf__item-time">{timeAgo(n.createdAt)}</div>
+                  </div>
+                </li>
+              ))}
               {announcements.map((ann) => (
                 <li key={ann.announcementId} className="ntf__item-row">
                   <div className="ntf__item">

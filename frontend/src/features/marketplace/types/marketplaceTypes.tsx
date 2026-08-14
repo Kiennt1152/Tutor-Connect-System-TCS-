@@ -80,6 +80,8 @@ export interface ClassResponse {
   recurringType: RecurringType;
   status: ClassStatus;
   createdAt: string;
+  /** Hạn hiển thị (đăng lớp + 30 ngày); null nếu không tính hạn. Chỉ có với lớp OPEN. */
+  expiresAt: string | null;
   applicationCount: number | null;
   assignmentId: number | null;
 }
@@ -144,6 +146,7 @@ export interface ClassRequestPayload {
   title?: string;
   description?: string;
   detailsJson?: string;
+  refundPayoutInfo?: RefundPayoutInfoPayload | null;
   subjectId: number | null;
   gradeId: number | null;
   learningGoal?: string | null;
@@ -358,7 +361,48 @@ export interface CenterSummary {
   avatar: string | null;
 }
 
-export type ClassRequestStatus = 'PENDING' | 'SEARCHING' | 'ACCEPTED' | 'REJECTED';
+export type ClassRequestStatus =
+  | 'PAYMENT_PENDING'
+  | 'PENDING'
+  | 'SEARCHING'
+  | 'ACCEPTED'
+  | 'REJECTED'
+  | 'CANCELLED';
+export type CenterRequestFeeStatus =
+  | 'PENDING_PAYMENT'
+  | 'HELD'
+  | 'REFUND_REQUESTED'
+  | 'RELEASED'
+  | 'REFUNDED'
+  | 'CANCELLED';
+
+export interface RefundPayoutInfoPayload {
+  bankName: string;
+  accountNo: string;
+  accountHolderName: string;
+}
+
+export interface CenterRequestFeePayment {
+  requestId: string;
+  feeHoldId: number;
+  status: CenterRequestFeeStatus;
+  amount: number;
+  referenceCode: string;
+  bankName: string;
+  bankBin: string;
+  accountNumber: string;
+  accountName: string;
+  transferContent: string;
+  qrUrl: string;
+  classId: number | null;
+  assignmentId: number | null;
+  payoutBankName: string | null;
+  payoutAccountNoMasked: string | null;
+  payoutAccountHolderName: string | null;
+  paidAt: string | null;
+  releasedAt: string | null;
+  refundedAt: string | null;
+}
 
 /** Bằng cấp / chứng chỉ đã xác minh của gia sư (để phụ huynh xem trước khi chọn). */
 export interface CandidateCertificate {
@@ -398,6 +442,7 @@ export interface ClassRequest {
   candidates: CandidateTutor[];
   /** Tin tuyển dụng trung tâm đã đăng cho yêu cầu này (null = chưa đăng). */
   recruitmentPostId: number | null;
+  centerRequestFeePayment?: CenterRequestFeePayment | null;
 }
 
 export interface CreateClassRequestPayload {
@@ -406,4 +451,5 @@ export interface CreateClassRequestPayload {
   desiredBudget?: number | null;
   /** Nguyên payload form "tìm gia sư" (JSON). */
   detailsJson?: string;
+  refundPayoutInfo?: RefundPayoutInfoPayload | null;
 }

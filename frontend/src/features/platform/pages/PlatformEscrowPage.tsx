@@ -198,8 +198,8 @@ export default function PlatformEscrowPage() {
 
   return (
     <AdminLayout
-      title="Tất toán escrow"
-      subtitle="Thực hiện giải ngân, hoàn tiền toàn phần hoặc chia tiền theo quyết định xử lý."
+      title="Quản lý escrow"
+      subtitle="Theo dõi toàn bộ escrow trong hệ thống và thực hiện giải ngân hoặc hoàn tiền khi cần."
     >
       <AdminEscrowQueue onSelect={(item) => {
         setEscrowId(String(item.escrowId)); setEscrowAmount(String(item.amount));

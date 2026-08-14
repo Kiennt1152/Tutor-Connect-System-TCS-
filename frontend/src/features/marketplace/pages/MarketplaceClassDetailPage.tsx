@@ -9,7 +9,6 @@ import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useDependentLinkStatus } from '../../profile/hooks/useDependentProfile';
 import { ChatButton } from '../../messaging/components/ChatButton';
 import { ClassTerminationModal } from '../components/ClassTerminationModal';
-import { RefundRequestModal } from '../components/RefundRequestModal';
 import type { LessonMode, MarketplaceClass, RecurringType } from '../types/marketplaceTypes';
 import './MarketplacePage.css';
 
@@ -58,7 +57,6 @@ export default function MarketplaceClassDetailPage() {
   const [regMessage, setRegMessage] = useState('');
   const [terminationModalOpen, setTerminationModalOpen] = useState(false);
   const [issueModalOpen, setIssueModalOpen] = useState(false);
-  const [refundModalOpen, setRefundModalOpen] = useState(false);
 
   const load = useCallback(() => {
     if (!classId) return;
@@ -303,13 +301,6 @@ export default function MarketplaceClassDetailPage() {
                   >
                     Báo cáo sự cố
                   </button>
-                  <button
-                    className="mk-btn mk-btn--secondary mk-btn--block"
-                    type="button"
-                    onClick={() => setRefundModalOpen(true)}
-                  >
-                    Yêu cầu hoàn tiền
-                  </button>
                 </div>
               ) : null}
             </aside>
@@ -333,17 +324,8 @@ export default function MarketplaceClassDetailPage() {
           assignmentId={data.terminationAssignmentId}
           classStudentId={data.terminationClassStudentId}
           classTitle={data.title}
+          currentUserRole={role}
           onClose={() => setIssueModalOpen(false)}
-        />
-      ) : null}
-      {data ? (
-        <RefundRequestModal
-          open={refundModalOpen}
-          classTitle={data.title}
-          assignmentId={data.terminationAssignmentId}
-          classStudentId={data.terminationClassStudentId}
-          amountHint={data.tuitionFee}
-          onClose={() => setRefundModalOpen(false)}
         />
       ) : null}
     </>

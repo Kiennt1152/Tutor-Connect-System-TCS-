@@ -18,6 +18,7 @@ import com.tcs.module.messaging.service.MessagingService;
 import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
+import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.platform.enums.ReportCategory;
 import com.tcs.module.platform.enums.ReportTargetType;
 import com.tcs.module.profile.entity.PlatformAdmin;
@@ -120,6 +121,7 @@ public class MessagingServiceImpl implements MessagingService {
         }
         SupportTicket saved = supportTicketRepository.save(ticket);
         createTicketConversation(saved, user);
+        notifyAdminsNewSupportTicket(saved);
         return toResponse(saved);
     }
 
@@ -173,6 +175,28 @@ public class MessagingServiceImpl implements MessagingService {
         message.setContent(ticket.getDescription());
         message.setEvidenceUrls(ticket.getEvidenceUrls());
         ticketMessageRepository.save(message);
+    }
+
+    private void notifyAdminsNewSupportTicket(SupportTicket ticket) {
+        String content = String.format(
+                "%s vừa tạo yêu cầu hỗ trợ #%d: %s. Mức ưu tiên: %s.",
+                ticket.getUser().getEmail(), ticket.getTicketId(), ticket.getSubject(), ticket.getPriority());
+        platformAdminRepository.findAll().stream()
+                .map(PlatformAdmin::getUser)
+                .filter(adminUser -> adminUser.getStatus() == UserStatus.ACTIVE)
+                .forEach(adminUser -> notificationDispatchService.notifyUserFromTemplate(
+                        adminUser,
+                        NotificationType.SYSTEM,
+                        "SUPPORT_TICKET_CREATED",
+                        Map.of(
+                                "ticketId", ticket.getTicketId(),
+                                "userEmail", ticket.getUser().getEmail(),
+                                "subject", ticket.getSubject(),
+                                "priority", ticket.getPriority()),
+                        "Yêu cầu hỗ trợ mới #" + ticket.getTicketId(),
+                        content,
+                        TICKET_CONTEXT_TYPE,
+                        ticket.getTicketId()));
     }
 
     private SupportTicketResponse toResponse(SupportTicket ticket) {
@@ -360,9 +384,16 @@ public class MessagingServiceImpl implements MessagingService {
         if (admins.isEmpty()) {
             return;
         }
+        String reporterEmail = report.getReporter() != null ? report.getReporter().getEmail() : null;
         String content = String.format(
-                "Có báo cáo mới về %s (lý do: %s). Vào mục \"Nhận xét gia sư\" để kiểm tra.",
-                reportTargetLabel(report.getTargetType()), reportCategoryLabel(report.getCategory()));
+                "%s vừa báo cáo %s (lý do: %s). Vào mục \"%s\" để xử lý.",
+                StringUtils.hasText(reporterEmail) ? reporterEmail : "Một người dùng",
+                reportTargetLabel(report.getTargetType()),
+                reportCategoryLabel(report.getCategory()),
+                reportHandlingPageLabel(report.getTargetType()));
+        String title = report.getTargetType() == ReportTargetType.REVIEW
+                ? "Có nhận xét gia sư bị báo cáo"
+                : "Báo cáo mới cần kiểm duyệt";
         for (PlatformAdmin admin : admins) {
             notificationDispatchService.notifyUserFromTemplate(
                     admin.getUser(),
@@ -371,7 +402,7 @@ public class MessagingServiceImpl implements MessagingService {
                     Map.of(
                             "targetType", reportTargetLabel(report.getTargetType()),
                             "category", reportCategoryLabel(report.getCategory())),
-                    "Báo cáo mới cần kiểm duyệt",
+                    title,
                     content,
                     "REPORT",
                     report.getReportId());
@@ -387,6 +418,13 @@ public class MessagingServiceImpl implements MessagingService {
             case USER -> "một người dùng";
             case CLASS -> "một lớp học";
         };
+    }
+
+    private String reportHandlingPageLabel(ReportTargetType type) {
+        if (type == ReportTargetType.REVIEW) {
+            return "Báo cáo & tranh chấp > Báo cáo đánh giá";
+        }
+        return "Báo cáo & tranh chấp";
     }
 
     private String reportCategoryLabel(ReportCategory category) {

@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useState, type ClipboardEvent, type FormEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ClipboardEvent,
+  type FormEvent,
+  type ReactNode,
+} from 'react';
 import {
   BILLING_CYCLE_OPTIONS,
   DAY_OF_WEEK_OPTIONS,
@@ -45,6 +52,8 @@ interface ClassRequestFormProps {
   readonly error: string | null;
   readonly onSubmit: (payload: ClassRequestPayload) => void;
   readonly onCancel: () => void;
+  readonly submitLabel?: string;
+  readonly extraContent?: ReactNode;
   /**
    * Khi true: bỏ lưới môn cố định, phụ huynh TỰ ĐIỀN tên môn (kiểu ô "Khác").
    * Dùng cho luồng "nhờ trung tâm tìm gia sư" — trung tâm đọc tên môn tự do, không cần map danh mục.
@@ -165,6 +174,8 @@ export function ClassRequestForm({
   error,
   onSubmit,
   onCancel,
+  submitLabel,
+  extraContent,
   freeTextSubjects = false,
 }: ClassRequestFormProps) {
   const [form, setForm] = useState<ClassFormValues>(initial);
@@ -447,8 +458,9 @@ export function ClassRequestForm({
       : 'TERM';
   const repeats = patternRepeats(form);
   const cycleName = cycleLabelOf(form);
-  const cycleLabelDisplay = isMonth ? cycleName : cycle.short;
-  const cycleSuffix = `đ / ${isMonth ? cycleName : cycle.short}`;
+  // Chọn ngày cụ thể: tổng là số tiền cố định cho các buổi đã chọn, không theo chu kỳ.
+  const cycleLabelDisplay = !isWeekly ? 'các buổi đã chọn' : isMonth ? cycleName : cycle.short;
+  const cycleSuffix = !isWeekly ? 'đ' : `đ / ${isMonth ? cycleName : cycle.short}`;
   const perRepeatUnit = repeatWeeksOf(form) === 1 ? 'tuần' : 'tuần học';
   const studyWeeks = studyWeeksOf(form);
   const restWeeks = restWeeksOf(form);
@@ -1068,7 +1080,7 @@ export function ClassRequestForm({
                               <option value="">Đến…</option>
                               {endTimes.map((t) => (
                                 <option key={t} value={t}>
-                                  {fmtTime(t)}
+                                  {slot.start ? `${fmtTime(t)} (${durationLabel(slot.start, t)})` : fmtTime(t)}
                                 </option>
                               ))}
                             </select>
@@ -1104,9 +1116,17 @@ export function ClassRequestForm({
           {currency.format(total)} {cycleSuffix}
         </div>
         <span className="mkt-hint">
-          {hoursPerRepeat} giờ/{perRepeatUnit} · {form.slots.length} buổi/{perRepeatUnit} — Tổng:{' '}
-          {hoursPerRepeat * repeats} giờ · {form.slots.length * repeats} buổi ({repeats} tuần học
-          {repeatWeeksOf(form) > 1 ? ` trong ${weeksForCycle(form)} tuần` : ''}).
+          {isWeekly ? (
+            <>
+              {hoursPerRepeat} giờ/{perRepeatUnit} · {form.slots.length} buổi/{perRepeatUnit} — Tổng:{' '}
+              {hoursPerRepeat * repeats} giờ · {form.slots.length * repeats} buổi ({repeats} tuần học
+              {repeatWeeksOf(form) > 1 ? ` trong ${weeksForCycle(form)} tuần` : ''}).
+            </>
+          ) : (
+            <>
+              {form.slots.length} buổi đã chọn · Tổng {hoursPerRepeat} giờ (không lặp lịch).
+            </>
+          )}
         </span>
       </div>
 
@@ -1123,6 +1143,7 @@ export function ClassRequestForm({
       {conflicts.length > 0 && (
         <div className="mkt-alert mkt-alert--error">{conflicts.join('. ')}.</div>
       )}
+      {extraContent}
       {touched && slotErrors.length > 0 && (
         <div className="mkt-alert mkt-alert--error">{slotErrors.join('. ')}.</div>
       )}
@@ -1143,7 +1164,9 @@ export function ClassRequestForm({
           onClick={handleSubmit}
           disabled={submitting}
         >
-          {submitting ? 'Đang lưu…' : isEdit ? 'Lưu thay đổi' : 'Tạo lớp'}
+          {submitting
+            ? 'Đang lưu…'
+            : submitLabel ?? (isEdit ? 'Lưu thay đổi' : 'Tạo lớp')}
         </button>
       </div>
     </div>

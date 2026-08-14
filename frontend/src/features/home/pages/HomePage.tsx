@@ -166,26 +166,34 @@ export function ClassesSection({
   status,
   isAuthenticated,
   onRetry,
+  hideHeading = false,
 }: {
   classes: OpenClassItem[];
   status: 'loading' | 'success' | 'error';
   isAuthenticated: boolean;
   onRetry: () => void;
+  hideHeading?: boolean;
 }) {
   return (
     <section id="classes" className="tcs-section tcs-section--listing">
       <div className="tcs-container">
-        <div className="tcs-section-bar">
-          <div>
-            <h2 className="tcs-section-bar__title">Tìm lớp</h2>
-            <p className="tcs-section-bar__subtitle">
-              Các lớp học đang mở — học viên có thể đăng ký hoặc gia sư có thể ứng tuyển.
-            </p>
+        {(!hideHeading || (status === 'success' && classes.length > 0)) && (
+          <div className="tcs-section-bar">
+            {hideHeading ? (
+              <div />
+            ) : (
+              <div>
+                <h2 className="tcs-section-bar__title">Tìm lớp</h2>
+                <p className="tcs-section-bar__subtitle">
+                  Các lớp học đang mở — học viên có thể đăng ký hoặc gia sư có thể ứng tuyển.
+                </p>
+              </div>
+            )}
+            {status === 'success' && classes.length > 0 ? (
+              <span className="tcs-section-bar__count">{classes.length} lớp</span>
+            ) : null}
           </div>
-          {status === 'success' && classes.length > 0 ? (
-            <span className="tcs-section-bar__count">{classes.length} lớp</span>
-          ) : null}
-        </div>
+        )}
 
         {status === 'loading' && (
           <div className="tcs-search-results__state">

@@ -4,6 +4,12 @@ import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.messaging.entity.Message;
+import com.tcs.module.messaging.entity.ConversationParticipant;
+import com.tcs.module.messaging.repository.ConversationParticipantRepository;
+import com.tcs.module.messaging.repository.MessageRepository;
+import com.tcs.module.platform.dto.response.CircumventionConversationMessageResponse;
+import com.tcs.module.platform.dto.response.CircumventionConversationParticipantResponse;
+import com.tcs.module.platform.dto.response.CircumventionConversationResponse;
 import com.tcs.module.platform.dto.request.ReviewCircumventionRequest;
 import com.tcs.module.platform.dto.response.CircumventionEventResponse;
 import com.tcs.module.platform.dto.response.PageCircumventionEventResponse;
@@ -14,6 +20,8 @@ import com.tcs.module.platform.service.CircumventionService;
 import com.tcs.security.AuthHelper;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +41,8 @@ public class CircumventionServiceImpl implements CircumventionService {
             new Rule("SOCIAL", Pattern.compile("(?i)(?:zalo|telegram|facebook|fb|instagram)\\s*[:@-]?\\s*[A-Z0-9_.-]{3,}"), 65));
 
     private final CircumventionEventRepository repository;
+    private final MessageRepository messageRepository;
+    private final ConversationParticipantRepository conversationParticipantRepository;
     private final UserRepository userRepository;
     private final AuthHelper authHelper;
     private final AuditLogService auditLogService;
@@ -66,6 +76,50 @@ public class CircumventionServiceImpl implements CircumventionService {
         return PageCircumventionEventResponse.builder().content(result.map(this::toResponse).getContent())
                 .page(result.getNumber()).size(result.getSize()).totalElements(result.getTotalElements())
                 .totalPages(result.getTotalPages()).build();
+    }
+
+    @Override
+    @Transactional
+    public CircumventionConversationResponse getConversationEvidence(Long eventId) {
+        CircumventionEvent event = repository.findById(eventId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy sự kiện: " + eventId));
+        Long conversationId = event.getConversation().getConversationId();
+        Page<Message> messagePage = messageRepository.findByConversation_ConversationIdOrderBySentAtDesc(
+                conversationId, PageRequest.of(0, 100));
+        List<Message> orderedMessages = new ArrayList<>(messagePage.getContent());
+        Collections.reverse(orderedMessages);
+
+        List<CircumventionConversationParticipantResponse> participants = conversationParticipantRepository
+                .findByConversation_ConversationId(conversationId).stream()
+                .map(ConversationParticipant::getUser)
+                .map(user -> CircumventionConversationParticipantResponse.builder()
+                        .userId(user.getUserId())
+                        .email(user.getEmail())
+                        .build())
+                .toList();
+        List<CircumventionConversationMessageResponse> messages = orderedMessages.stream()
+                .map(message -> CircumventionConversationMessageResponse.builder()
+                        .messageId(message.getMessageId())
+                        .senderId(message.getSender().getUserId())
+                        .senderEmail(message.getSender().getEmail())
+                        .content(message.getContent())
+                        .sentAt(message.getSentAt())
+                        .flagged(message.getMessageId().equals(event.getMessage().getMessageId()))
+                        .build())
+                .toList();
+
+        auditLogService.record("VIEW_CIRCUMVENTION_CONVERSATION", "CircumventionEvent", eventId, null,
+                java.util.Map.of("conversationId", conversationId));
+        return CircumventionConversationResponse.builder()
+                .eventId(eventId)
+                .conversationId(conversationId)
+                .conversationType(event.getConversation().getType())
+                .conversationName(event.getConversation().getName())
+                .flaggedMessageId(event.getMessage().getMessageId())
+                .participants(participants)
+                .messages(messages)
+                .hasMore(messagePage.hasNext())
+                .build();
     }
 
     @Override

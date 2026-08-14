@@ -1,0 +1,58 @@
+.wallet-activation-prompt {
+  position: fixed;
+  inset: 0;
+  z-index: 1400;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.48);
+  backdrop-filter: blur(3px);
+}
+
+.wallet-activation-prompt__card {
+  width: min(440px, 100%);
+  border: 1px solid rgba(226, 232, 240, 0.95);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: 0 22px 60px rgba(15, 23, 42, 0.22);
+  padding: 28px;
+  color: #0f172a;
+}
+
+.wallet-activation-prompt__eyebrow {
+  margin: 0 0 8px;
+  color: #ea580c;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.wallet-activation-prompt__card h2 {
+  margin: 0;
+  font-size: 1.45rem;
+  line-height: 1.25;
+}
+
+.wallet-activation-prompt__card p:not(.wallet-activation-prompt__eyebrow) {
+  margin: 14px 0 0;
+  color: #475569;
+  font-size: 0.98rem;
+  line-height: 1.6;
+}
+
+.wallet-activation-prompt__action {
+  width: 100%;
+  margin-top: 22px;
+  justify-content: center;
+}
+
+@media (max-width: 560px) {
+  .wallet-activation-prompt {
+    padding: 16px;
+  }
+
+  .wallet-activation-prompt__card {
+    padding: 22px;
+  }
+}

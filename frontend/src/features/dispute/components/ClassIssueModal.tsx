@@ -23,6 +23,7 @@ type ClassIssueModalProps = {
   classTitle?: string | null;
   assignmentId?: number | null;
   classStudentId?: number | null;
+  currentUserRole?: string | null;
   onClose: () => void;
 };
 
@@ -61,7 +62,14 @@ function buildEvidenceUrls(files: EvidenceUploadResponse[]) {
   return files.map((file) => file.fileUrl).join('\n');
 }
 
-function needsRefundPayoutInfo(issueType: ClassIssueType, requestedAction: ClassIssueRequestedAction) {
+function needsRefundPayoutInfo(
+  issueType: ClassIssueType,
+  requestedAction: ClassIssueRequestedAction,
+  currentUserRole?: string | null,
+) {
+  if (currentUserRole !== 'CLIENT') {
+    return false;
+  }
   return issueType === 'PAYMENT_OR_REFUND'
     || requestedAction === 'REFUND_REVIEW'
     || requestedAction === 'TERMINATE_CLASS';
@@ -73,8 +81,10 @@ export function ClassIssueModal({
   classTitle,
   assignmentId,
   classStudentId,
+  currentUserRole,
   onClose,
 }: ClassIssueModalProps) {
+  const isClient = currentUserRole === 'CLIENT';
   const [issueType, setIssueType] = useState<ClassIssueType>('TUTOR_ABSENT');
   const [lessonRef, setLessonRef] = useState('');
   const [occurredAt, setOccurredAt] = useState('');
@@ -90,7 +100,15 @@ export function ClassIssueModal({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<DisputeResponse | null>(null);
   const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
-  const showRefundPayoutInfo = needsRefundPayoutInfo(issueType, requestedAction);
+  const showRefundPayoutInfo = needsRefundPayoutInfo(issueType, requestedAction, currentUserRole);
+  const availableIssueTypes = Object.entries(ISSUE_TYPE_LABELS).filter(([value]) => {
+    if (isClient) return true;
+    return value !== 'PAYMENT_OR_REFUND';
+  }) as Array<[ClassIssueType, string]>;
+  const availableRequestedActions = Object.entries(REQUESTED_ACTION_LABELS).filter(([value]) => {
+    if (isClient) return true;
+    return value !== 'REFUND_REVIEW';
+  }) as Array<[ClassIssueRequestedAction, string]>;
 
   if (!open) return null;
 
@@ -259,7 +277,7 @@ export function ClassIssueModal({
                   value={issueType}
                   onChange={(event) => setIssueType(event.target.value as ClassIssueType)}
                 >
-                  {Object.entries(ISSUE_TYPE_LABELS).map(([value, label]) => (
+                  {availableIssueTypes.map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>
@@ -293,7 +311,7 @@ export function ClassIssueModal({
                   value={requestedAction}
                   onChange={(event) => setRequestedAction(event.target.value as ClassIssueRequestedAction)}
                 >
-                  {Object.entries(REQUESTED_ACTION_LABELS).map(([value, label]) => (
+                  {availableRequestedActions.map(([value, label]) => (
                     <option key={value} value={value}>
                       {label}
                     </option>

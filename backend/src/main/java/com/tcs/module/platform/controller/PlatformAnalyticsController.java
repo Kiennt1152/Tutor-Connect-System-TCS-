@@ -39,7 +39,7 @@ public class PlatformAnalyticsController {
         }
         validateRange(from, to);
         byte[] csvData = analyticsService.exportCsv(type, from, to);
-        auditLogService.record("EXPORT_ANALYTICS", "AnalyticsExport", null, null,
+        auditLogService.record("EXPORT_ANALYTICS", "AnalyticsExport", 0L, null,
                 java.util.Map.of("type", type, "from", String.valueOf(from), "to", String.valueOf(to)));
         String filename = "tcs-analytics-" + type + "-" + LocalDate.now() + ".csv";
         return ResponseEntity.ok()

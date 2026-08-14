@@ -12,7 +12,7 @@ import { ReviewFormModal } from '../../reviews/components/ReviewFormModal';
 import { reviewApi } from '../../reviews/api/reviewApi';
 import type { ReviewableAssignment } from '../../reviews/types/reviewTypes';
 import { useTeaching } from '../hooks/useTeaching';
-import { hhmmDisplay } from '../../../shared/utils/format';
+import { hhmmDisplay, toIsoDate } from '../../../shared/utils/format';
 import {
   REQUEST_STATUS_LABELS,
   REQUEST_TYPE_LABELS,
@@ -93,6 +93,29 @@ export default function TeachingPage() {
   const historyRequests = requests.filter((r) => r.status !== 'PENDING');
   const classOptions = useMemo(() => classOptionsFrom(lessons), [lessons]);
   const pendingLessonIds = new Set(openRequests.flatMap((r) => r.lessonId ?? []));
+
+  // Quota đánh giá tính theo lớp: mỗi buổi đã diễn ra cho phép 1 đánh giá.
+  // Số đánh giá đã gửi được gán cho các buổi đã diễn ra sớm nhất của lớp đó.
+  const reviewedLessonIds = useMemo(() => {
+    const today = toIsoDate(new Date());
+    const ids = new Set<number>();
+    for (const a of reviewables) {
+      if (a.reviewsSubmitted <= 0) continue;
+      lessons
+        .filter(
+          (l) =>
+            l.classId === a.classId && l.lessonDate <= today && l.attendanceStatus !== 'ABSENT',
+        )
+        .sort((x, y) =>
+          x.lessonDate === y.lessonDate
+            ? x.sequenceNo - y.sequenceNo
+            : x.lessonDate.localeCompare(y.lessonDate),
+        )
+        .slice(0, a.reviewsSubmitted)
+        .forEach((l) => ids.add(l.lessonId));
+    }
+    return ids;
+  }, [reviewables, lessons]);
 
   const detailAssignment =
     detailClassId != null ? (assignments.find((a) => a.classId === detailClassId) ?? null) : null;
@@ -262,6 +285,7 @@ export default function TeachingPage() {
                   onOpenDetail={(lesson) => setDetailClassId(lesson.classId)}
                   onReview={isClient ? openReview : undefined}
                   pendingLessonIds={pendingLessonIds}
+                  reviewedLessonIds={reviewedLessonIds}
                 />
               )}
             </section>
@@ -273,6 +297,8 @@ export default function TeachingPage() {
             mode="RESCHEDULE"
             lesson={dialog.lesson}
             onClose={() => setDialog(null)}
+            submitError={error}
+            existingLessons={lessons}
             onSubmit={(payload) => requestReschedule(dialog.lesson.lessonId, payload)}
           />
         )}
@@ -281,6 +307,8 @@ export default function TeachingPage() {
             mode="EXTRA"
             classes={classOptions}
             onClose={() => setDialog(null)}
+            submitError={error}
+            existingLessons={lessons}
             onSubmit={requestExtraLesson}
           />
         )}
