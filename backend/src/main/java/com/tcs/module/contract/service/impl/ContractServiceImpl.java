@@ -170,7 +170,7 @@ public class ContractServiceImpl implements ContractService {
     }
 
     @Override
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ContractResponse> getMyContracts() {
         var principal = authHelper.requireAuthenticated();
         Long userId = principal.getUserId();
@@ -180,10 +180,83 @@ public class ContractServiceImpl implements ContractService {
         contracts.addAll(contractRepository.findByAssignment_Tutor_UserId(userId));
         contracts.addAll(contractRepository.findByAssignment_ClassCreator_UserId(userId));
         contracts.addAll(contractRepository.findByClassStudent_UserId(userId));
+        appendSignedPrivateAssignmentContracts(contracts, userId);
         // BF-03: thỏa thuận hợp tác center–gia sư (gia sư ký, trung tâm theo dõi).
         contracts.addAll(contractRepository.findByRecruitmentApplication_Tutor_UserId(userId));
         contracts.addAll(contractRepository.findByRecruitmentApplication_CenterUser_UserId(userId));
         return contracts.stream().map(this::toContractResponse).toList();
+    }
+
+    private void appendSignedPrivateAssignmentContracts(LinkedHashSet<Contract> contracts, Long userId) {
+        tutorRepository.findByUser_UserId(userId)
+                .ifPresent(tutor -> classAssignmentRepository
+                        .findByTutor_TutorIdOrderByAssignedDateDesc(tutor.getTutorId())
+                        .forEach(assignment -> appendSignedAssignmentContract(contracts, assignment)));
+        classAssignmentRepository.findByApplication_TutoringClass_Creator_UserIdOrderByAssignedDateDesc(userId)
+                .forEach(assignment -> appendSignedAssignmentContract(contracts, assignment));
+    }
+
+    private void appendSignedAssignmentContract(LinkedHashSet<Contract> contracts, ClassAssignment assignment) {
+        if (assignment == null
+                || assignment.getAssignmentId() == null
+                || assignment.getTutorSignedAt() == null
+                || assignment.getClientSignedAt() == null) {
+            return;
+        }
+        Contract contract = contractRepository.findByAssignment_AssignmentId(assignment.getAssignmentId())
+                .orElseGet(() -> generateForAssignment(assignment.getAssignmentId()));
+        LocalDateTime signedAt = latestTime(assignment.getClientSignedAt(), assignment.getTutorSignedAt());
+        contract.setStatus(ContractStatus.SIGNED);
+        contract.setSignedAt(signedAt);
+        contract.setConfirmedAt(signedAt);
+        Contract saved = contractRepository.save(contract);
+
+        TutoringClass tutoringClass = assignment.getApplication() != null
+                ? assignment.getApplication().getTutoringClass()
+                : null;
+        if (tutoringClass != null && tutoringClass.getCreator() != null) {
+            User creator = tutoringClass.getCreator();
+            PartyRole creatorRole = tutorCenterRepository.findByUser_UserId(creator.getUserId()).isPresent()
+                    ? PartyRole.CENTER
+                    : PartyRole.CLIENT;
+            syncSignedContractSignature(saved, creatorRole, creator, assignment.getClientSignedAt());
+        }
+        if (assignment.getTutor() != null && assignment.getTutor().getUser() != null) {
+            syncSignedContractSignature(saved, PartyRole.TUTOR, assignment.getTutor().getUser(), assignment.getTutorSignedAt());
+        }
+        contracts.add(saved);
+    }
+
+    private void syncSignedContractSignature(
+            Contract contract,
+            PartyRole partyRole,
+            User signer,
+            LocalDateTime signedAt) {
+        if (contract == null || signer == null || signedAt == null) {
+            return;
+        }
+        ContractSignature signature = contractSignatureRepository
+                .findByContractIdAndPartyRole(contract.getContractId(), partyRole)
+                .orElseGet(() -> createSignatureSlot(contract, partyRole, signer.getEmail()));
+        signature.setSigner(signer);
+        signature.setEmail(signer.getEmail());
+        signature.setSignedAt(signedAt);
+        signature.setSignatureStatus(ContractSignatureStatus.SIGNED);
+        signature.setSignatureData("MARKETPLACE_OTP_VERIFIED:" + signer.getEmail() + ":" + signedAt);
+        signature.setOtpCode(null);
+        signature.setOtpExpiresAt(null);
+        signature.setOtpAttempts(0);
+        contractSignatureRepository.save(signature);
+    }
+
+    private LocalDateTime latestTime(LocalDateTime first, LocalDateTime second) {
+        if (first == null) {
+            return second;
+        }
+        if (second == null) {
+            return first;
+        }
+        return first.isAfter(second) ? first : second;
     }
 
     @Override
