@@ -16,7 +16,6 @@ import { hhmmDisplay, toIsoDate } from '../../../shared/utils/format';
 import {
   CLASS_STATUS_LABELS,
   REQUEST_STATUS_LABELS,
-  REQUEST_TYPE_LABELS,
   type AssignmentResponse,
   type LessonResponse,
   type RescheduleRequestResponse,
@@ -111,8 +110,10 @@ export default function TeachingPage() {
   const invites = assignments.filter((a) => a.status === 'PENDING');
   const active = assignments.filter((a) => a.status === 'ACTIVE');
 
-  const openRequests = requests.filter((r) => r.status === 'PENDING');
-  const historyRequests = requests.filter((r) => r.status !== 'PENDING');
+  // Chỉ hiển thị yêu cầu đổi lịch (tính năng "thêm buổi" đã bỏ).
+  const rescheduleRequests = requests.filter((r) => r.requestType === 'RESCHEDULE');
+  const openRequests = rescheduleRequests.filter((r) => r.status === 'PENDING');
+  const historyRequests = rescheduleRequests.filter((r) => r.status !== 'PENDING');
   const pendingLessonIds = new Set(openRequests.flatMap((r) => r.lessonId ?? []));
 
   // Quota đánh giá tính theo lớp: mỗi buổi đã diễn ra cho phép 1 đánh giá.
@@ -270,7 +271,7 @@ export default function TeachingPage() {
             {(openRequests.length > 0 || historyRequests.length > 0) && (
               <section className="tch-card">
                 <h2>
-                  Yêu cầu đổi lịch / thêm buổi{' '}
+                  Yêu cầu đổi lịch{' '}
                   {openRequests.length > 0 && <span className="tch-count">{openRequests.length}</span>}
                 </h2>
                 <ul className="tch-reqs">
@@ -468,19 +469,18 @@ function RequestCard({
   readonly onReject?: () => void;
   readonly onCancel?: () => void;
 }) {
-  const isReschedule = r.requestType === 'RESCHEDULE';
   return (
     <li className={`tch-req tch-req--${r.status.toLowerCase()}`}>
       <div className="tch-req__body">
         <div className="tch-req__top">
-          <span className="tch-req__type">{REQUEST_TYPE_LABELS[r.requestType]}</span>
+          <span className="tch-req__type">Đổi lịch</span>
           <span className={`tch-badge tch-badge--${r.status.toLowerCase()}`}>
             {REQUEST_STATUS_LABELS[r.status]}
           </span>
         </div>
         <h3 className="tch-req__title">{r.classTitle}</h3>
         <p className="tch-req__when">
-          {isReschedule && r.oldDate ? (
+          {r.oldDate ? (
             <>
               <s>
                 {formatDate(r.oldDate)} ({hhmmDisplay(r.oldStartTime)}–{hhmmDisplay(r.oldEndTime)})
