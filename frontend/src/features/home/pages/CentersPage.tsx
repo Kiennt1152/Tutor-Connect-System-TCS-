@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { PaymentQrCountdown } from '../../../shared/components/PaymentQrCountdown';
 import { SiteFooter } from '../components/SiteFooter';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasRole } from '../../../shared/auth/rbac';
@@ -351,7 +352,18 @@ export default function CentersPage() {
                       </p>
                     </div>
                     <div className="cr-payment-step__body">
-                      <img src={paymentRequest.qrUrl} alt="QR thanh toán phí xử lý yêu cầu" />
+                      <div className="cr-payment-step__qr-wrap">
+                        <img src={paymentRequest.qrUrl} alt="QR thanh toán phí xử lý yêu cầu" />
+                        <PaymentQrCountdown
+                          resetKey={
+                            paymentRequest.requestId
+                            ?? paymentRequest.transferContent
+                            ?? paymentRequest.qrUrl
+                          }
+                          label="Thời gian chuyển khoản còn lại"
+                          expiredLabel="Mã QR đã hết 5 phút hiển thị. Vui lòng tạo lại yêu cầu nếu chưa chuyển khoản."
+                        />
+                      </div>
                       <div className="cr-payment-step__info">
                         <div>
                           <span>Số tiền</span>

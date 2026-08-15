@@ -13,6 +13,7 @@ public class AssignmentResponse {
     private Long assignmentId;
     private Long classId;
     private String classTitle;
+    private String classStatus;
     private String clientName;
     private String tutorName;
     private String status;

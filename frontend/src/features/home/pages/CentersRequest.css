@@ -456,6 +456,20 @@
   background: #fff;
 }
 
+.cr-payment-step__qr-wrap {
+  width: 160px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.cr-payment-step__qr-wrap .payment-qr-countdown {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+}
+
 .cr-payment-step__info {
   display: grid;
   gap: 8px;
@@ -595,6 +609,12 @@
   }
 
   .cr-payment-step__body img {
+    width: 100%;
+    max-width: 220px;
+    margin: 0 auto;
+  }
+
+  .cr-payment-step__qr-wrap {
     width: 100%;
     max-width: 220px;
     margin: 0 auto;

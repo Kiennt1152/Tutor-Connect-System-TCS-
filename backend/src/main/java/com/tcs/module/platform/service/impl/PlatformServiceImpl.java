@@ -111,6 +111,7 @@ public class PlatformServiceImpl implements PlatformService {
 
     private static final int MAX_PAGE_SIZE = 50;
     private static final int MIN_REJECT_NOTES_LENGTH = 10;
+    private static final String PLATFORM_FEE_REFERENCE_PREFIX = "PLATFORM_FEE-";
 
     private final UserRepository userRepository;
     private final PlatformAdminRepository platformAdminRepository;
@@ -1696,8 +1697,7 @@ public class PlatformServiceImpl implements PlatformService {
                     com.tcs.module.finance.enums.PaymentTransactionStatus.SUCCESS,
                     java.util.List.of(
                             com.tcs.module.finance.enums.PaymentTransactionType.DEPOSIT,
-                            com.tcs.module.finance.enums.PaymentTransactionType.ESCROW_DEPOSIT,
-                            com.tcs.module.finance.enums.PaymentTransactionType.PLATFORM_FEE
+                            com.tcs.module.finance.enums.PaymentTransactionType.ESCROW_DEPOSIT
                     ),
                     start,
                     end
@@ -1714,12 +1714,8 @@ public class PlatformServiceImpl implements PlatformService {
                     end
             );
 
-            java.math.BigDecimal platformFeeRevenue = paymentTransactionRepository.sumAmountByStatusAndTypeAndCreatedAtBetween(
-                    com.tcs.module.finance.enums.PaymentTransactionStatus.SUCCESS,
-                    com.tcs.module.finance.enums.PaymentTransactionType.PLATFORM_FEE,
-                    start,
-                    end
-            );
+            java.math.BigDecimal platformFeeRevenue = sumPlatformFeeRevenue(start, end);
+            moneyIn = moneyIn.add(platformFeeRevenue);
             
             java.math.BigDecimal netMovement = moneyIn.subtract(moneyOut);
             
@@ -1739,5 +1735,17 @@ public class PlatformServiceImpl implements PlatformService {
             }
         }
         return timeline;
+    }
+
+    private java.math.BigDecimal sumPlatformFeeRevenue(LocalDateTime start, LocalDateTime end) {
+        return paymentTransactionRepository.findByCreatedAtBetween(start, end).stream()
+                .filter(transaction -> transaction.getStatus()
+                        == com.tcs.module.finance.enums.PaymentTransactionStatus.SUCCESS)
+                .filter(transaction -> transaction.getReferenceCode() != null
+                        && transaction.getReferenceCode().startsWith(PLATFORM_FEE_REFERENCE_PREFIX))
+                .map(transaction -> transaction.getAmount() != null
+                        ? transaction.getAmount()
+                        : java.math.BigDecimal.ZERO)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
     }
 }

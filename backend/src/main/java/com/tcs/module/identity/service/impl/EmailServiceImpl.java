@@ -27,8 +27,15 @@ public class EmailServiceImpl implements EmailService {
     @Value("${app.mail.from-name}")
     private String fromName;
 
+    @Value("${app.mail.enabled:false}")
+    private boolean mailEnabled;
+
     @Override
     public void sendRegistrationOtp(String toEmail, String code, long expireMinutes) {
+        if (!mailEnabled) {
+            log.info("[EMAIL-DEV] OTP dang ky {} -> {} | hieu luc {} phut", toEmail, code, expireMinutes);
+            return;
+        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
@@ -56,6 +63,10 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendPasswordResetOtp(String toEmail, String code, long expireMinutes) {
+        if (!mailEnabled) {
+            log.info("[EMAIL-DEV] OTP dat lai mat khau {} -> {} | hieu luc {} phut", toEmail, code, expireMinutes);
+            return;
+        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
@@ -66,6 +77,11 @@ public class EmailServiceImpl implements EmailService {
             helper.setText(buildPasswordResetHtml(code, expireMinutes), true);
             mailSender.send(message);
             log.info("Da gui OTP dat lai mat khau toi email {}", toEmail);
+        } catch (MailAuthenticationException ex) {
+            log.error("Xac thuc SMTP that bai khi gui OTP dat lai mat khau toi {}: {}",
+                    toEmail, ex.getMessage());
+            throw new IllegalArgumentException(
+                    "Không gửi được mã OTP do App Password Gmail đã bị thu hồi hoặc không còn hợp lệ.");
         } catch (MessagingException | UnsupportedEncodingException | MailException ex) {
             log.error("Khong gui duoc email OTP dat lai mat khau toi {}: {}", toEmail, ex.getMessage());
             throw new IllegalArgumentException("Không gửi được email OTP. Vui lòng thử lại sau.");
@@ -74,6 +90,11 @@ public class EmailServiceImpl implements EmailService {
 
     @Override
     public void sendContractOtp(String toEmail, String otpCode, String contractNo, int expireMinutes) {
+        if (!mailEnabled) {
+            log.info("[EMAIL-DEV] OTP hop dong {} -> {} : {} | hieu luc {} phut",
+                    contractNo, toEmail, otpCode, expireMinutes);
+            return;
+        }
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(
@@ -86,6 +107,11 @@ public class EmailServiceImpl implements EmailService {
 
             mailSender.send(message);
             log.info("Da gui OTP ky hop dong {} toi email {}", contractNo, toEmail);
+        } catch (MailAuthenticationException ex) {
+            log.error("Xac thuc SMTP that bai khi gui OTP hop dong {} toi {}: {}",
+                    contractNo, toEmail, ex.getMessage());
+            throw new IllegalArgumentException(
+                    "Không gửi được mã OTP do App Password Gmail đã bị thu hồi hoặc không còn hợp lệ.");
         } catch (MessagingException | UnsupportedEncodingException | MailException ex) {
             log.error("Khong gui duoc email OTP hop dong toi {}: {}", toEmail, ex.getMessage());
             throw new IllegalArgumentException("Không gửi được email OTP. Vui lòng thử lại sau.");

@@ -42,6 +42,9 @@ export function TransactionRow({ transaction }: Props) {
         {transaction.referenceCode && (
           <span className="tx-row__ref">#{transaction.referenceCode}</span>
         )}
+        {transaction.type === 'ESCROW_RELEASE' && (
+          <span className="tx-row__note">Số tiền đã trừ phí nền tảng.</span>
+        )}
       </td>
       <td className={`tx-row__amount tx-row__amount--${isCredit ? 'credit' : 'debit'}`}>
         {isCredit ? '+' : '−'}{formatCurrency(transaction.amount)}

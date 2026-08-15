@@ -295,7 +295,7 @@ export default function TutorSchedulePage() {
                               {c.classCompleted ? (
                                 <div className="tw-complete-done">✓ Đã hoàn thành</div>
                               ) : c.tutorCompletionConfirmed ? (
-                                <div className="tw-complete-done">⏳ Chờ trung tâm xác nhận</div>
+                                <div className="tw-complete-done">⏳ Chờ bên còn lại xác nhận</div>
                               ) : null}
                             </>
                           )}

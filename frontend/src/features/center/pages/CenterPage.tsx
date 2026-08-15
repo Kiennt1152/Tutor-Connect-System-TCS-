@@ -231,6 +231,32 @@ function formatCurrency(value: number): string {
   return `${new Intl.NumberFormat('vi-VN').format(value)} đ`;
 }
 
+const CENTER_REQUEST_FEE_STATUS_LABELS: Record<string, string> = {
+  PENDING_PAYMENT: 'Chờ thanh toán phí',
+  HELD: 'Đang giữ phí',
+  REFUND_REQUESTED: 'Đang xử lý hoàn phí',
+  RELEASED: 'Đã giải ngân cho trung tâm',
+  REFUNDED: 'Đã hoàn phí',
+  CANCELLED: 'Đã hủy',
+};
+
+const CENTER_REQUEST_FEE_STATUS_TONES: Record<string, string> = {
+  PENDING_PAYMENT: 'pending',
+  HELD: 'held',
+  REFUND_REQUESTED: 'warning',
+  RELEASED: 'released',
+  REFUNDED: 'refunded',
+  CANCELLED: 'cancelled',
+};
+
+function centerRequestFeeStatusLabel(status?: string | null): string {
+  return status ? (CENTER_REQUEST_FEE_STATUS_LABELS[status] ?? status) : 'Chưa có phí xử lý';
+}
+
+function centerRequestFeeStatusTone(status?: string | null): string {
+  return CENTER_REQUEST_FEE_STATUS_TONES[status ?? ''] ?? 'pending';
+}
+
 function buildPayload(form: FormState): SaveClassRequest {
   const num = (v: string) => (v.trim() === '' ? null : Number(v));
   const gradeName = form.gradeChoice === GRADE_OTHER ? form.gradeCustom.trim() : form.gradeChoice;
@@ -1054,9 +1080,27 @@ export default function CenterPage() {
                         <span>👤 {r.clientName ?? '—'}</span>
                         {r.categoryName && <span>📚 {r.categoryName}</span>}
                         {r.desiredBudget != null && (
-                          <span>💰 {formatCurrency(r.desiredBudget)}đ</span>
+                          <span>💰 {formatCurrency(r.desiredBudget)}</span>
                         )}
                       </div>
+
+                      {r.centerRequestFeePayment && (
+                        <div className="cc-request-fee">
+                          <span className="cc-request-fee__amount">
+                            Phí xử lý: {formatCurrency(r.centerRequestFeePayment.amount)}
+                          </span>
+                          <span
+                            className={`cc-request-fee__status cc-request-fee__status--${centerRequestFeeStatusTone(
+                              r.centerRequestFeePayment.status,
+                            )}`}
+                          >
+                            {centerRequestFeeStatusLabel(r.centerRequestFeePayment.status)}
+                          </span>
+                          <span className="cc-request-fee__ref">
+                            {r.centerRequestFeePayment.referenceCode}
+                          </span>
+                        </div>
+                      )}
 
                       {r.status === 'SEARCHING' && (
                         <div className="cc-req-sources">

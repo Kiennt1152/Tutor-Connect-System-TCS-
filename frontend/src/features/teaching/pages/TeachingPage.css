@@ -120,6 +120,13 @@
   font-size: 13px;
   color: #5b6b7f;
 }
+.tch-invite__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 6px;
+}
 .tch-invite__actions {
   display: flex;
   gap: 8px;
@@ -140,8 +147,14 @@
 .tch-class__info {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 4px;
   min-width: 0;
+}
+.tch-class__topline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 .tch-class__title {
   font-weight: 600;
@@ -162,6 +175,42 @@
   color: #8592a3;
   white-space: nowrap;
   cursor: help;
+}
+
+.tch-class-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 22px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.tch-class-status--info {
+  background: #e8f2ff;
+  color: #1565c0;
+}
+.tch-class-status--warning {
+  background: #fff4e5;
+  color: #b45309;
+}
+.tch-class-status--primary {
+  background: #e0ecff;
+  color: #1d4ed8;
+}
+.tch-class-status--success {
+  background: #e6f6ee;
+  color: #157347;
+}
+.tch-class-status--danger {
+  background: #ffebee;
+  color: #c62828;
+}
+.tch-class-status--muted {
+  background: #eef1f6;
+  color: #5b6b7f;
 }
 
 .tch-badge {

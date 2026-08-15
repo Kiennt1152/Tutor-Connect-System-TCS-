@@ -172,8 +172,11 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional(readOnly = true)
     public List<ContractResponse> getMyContracts() {
-        Long userId = authHelper.currentUserId();
+        var principal = authHelper.requireAuthenticated();
+        Long userId = principal.getUserId();
         LinkedHashSet<Contract> contracts = new LinkedHashSet<>();
+        contracts.addAll(contractRepository.findContractsByUserId(userId));
+        contracts.addAll(contractRepository.findBySignatureParty(userId, principal.getEmail()));
         contracts.addAll(contractRepository.findByAssignment_Tutor_UserId(userId));
         contracts.addAll(contractRepository.findByAssignment_ClassCreator_UserId(userId));
         contracts.addAll(contractRepository.findByClassStudent_UserId(userId));
@@ -225,7 +228,6 @@ public class ContractServiceImpl implements ContractService {
             if (app.getRecruitmentPost().getCenter().getUser().getUserId().equals(userId)) {
                 return PartyRole.CENTER;
             }
-            return null;
         }
         if (contract.getClassStudent() != null) {
             ClassStudent cs = contract.getClassStudent();
@@ -237,7 +239,6 @@ public class ContractServiceImpl implements ContractService {
                 return tutorCenterRepository.findByUser_UserId(userId).isPresent()
                         ? PartyRole.CENTER : PartyRole.CLIENT;
             }
-            return null;
         }
         if (contract.getAssignment() != null) {
             ClassAssignment a = contract.getAssignment();
@@ -252,7 +253,9 @@ public class ContractServiceImpl implements ContractService {
                         ? PartyRole.CENTER : PartyRole.CLIENT;
             }
         }
-        return null;
+        return currentUserSignature(contract, userId)
+                .map(ContractSignature::getPartyRole)
+                .orElse(null);
     }
 
     @Override
@@ -965,8 +968,10 @@ public class ContractServiceImpl implements ContractService {
         // BF-03: thỏa thuận hợp tác center–gia sư (không gắn lớp/assignment).
         if (contract.getRecruitmentApplication() != null) {
             RecruitmentApplication app = contract.getRecruitmentApplication();
-            return app.getTutor().getUser().getUserId().equals(userId)
-                    || app.getRecruitmentPost().getCenter().getUser().getUserId().equals(userId);
+            if (app.getTutor().getUser().getUserId().equals(userId)
+                    || app.getRecruitmentPost().getCenter().getUser().getUserId().equals(userId)) {
+                return true;
+            }
         }
         if (contract.getAssignment() != null) {
             ClassAssignment assignment = contract.getAssignment();
@@ -976,10 +981,12 @@ public class ContractServiceImpl implements ContractService {
                 return true;
             }
             TutorApplication application = assignment.getApplication();
-            return application != null
+            if (application != null
                     && application.getTutoringClass() != null
                     && application.getTutoringClass().getCreator() != null
-                    && application.getTutoringClass().getCreator().getUserId().equals(userId);
+                    && application.getTutoringClass().getCreator().getUserId().equals(userId)) {
+                return true;
+            }
         }
 
         if (contract.getClassStudent() != null) {
@@ -990,10 +997,12 @@ public class ContractServiceImpl implements ContractService {
                     && tutoringClass.getCreator().getUserId().equals(userId);
             boolean isEnroller = classStudent.getEnrolledByUser() != null
                     && classStudent.getEnrolledByUser().getUserId().equals(userId);
-            return isCreator || isEnroller;
+            if (isCreator || isEnroller) {
+                return true;
+            }
         }
 
-        return false;
+        return currentUserSignature(contract, userId).isPresent();
     }
 
     private PartyRole resolvePartyRole(Contract contract) {
@@ -1007,7 +1016,6 @@ public class ContractServiceImpl implements ContractService {
             if (app.getRecruitmentPost().getCenter().getUser().getUserId().equals(currentUserId)) {
                 return PartyRole.CENTER;
             }
-            throw new ForbiddenException("Bạn không phải là bên liên quan đến hợp đồng này");
         }
 
         if (contract.getAssignment() != null) {
@@ -1044,7 +1052,27 @@ public class ContractServiceImpl implements ContractService {
             }
         }
 
-        throw new ForbiddenException("Bạn không phải là bên liên quan đến hợp đồng này");
+        return currentUserSignature(contract, currentUserId)
+                .map(ContractSignature::getPartyRole)
+                .orElseThrow(() -> new ForbiddenException("Bạn không phải là bên liên quan đến hợp đồng này"));
+    }
+
+    private Optional<ContractSignature> currentUserSignature(Contract contract, Long userId) {
+        if (contract == null || contract.getContractId() == null || userId == null) {
+            return Optional.empty();
+        }
+        String email = authHelper.requireAuthenticated().getEmail();
+        return contractSignatureRepository.findByContractId(contract.getContractId()).stream()
+                .filter(signature -> {
+                    boolean signerMatches = signature.getSigner() != null
+                            && signature.getSigner().getUserId() != null
+                            && signature.getSigner().getUserId().equals(userId);
+                    boolean emailMatches = StringUtils.hasText(email)
+                            && StringUtils.hasText(signature.getEmail())
+                            && signature.getEmail().trim().equalsIgnoreCase(email.trim());
+                    return signerMatches || emailMatches;
+                })
+                .findFirst();
     }
 
     private ContractSignature createSignatureSlot(Contract contract, PartyRole role, String email) {

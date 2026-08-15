@@ -152,6 +152,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/api/marketplace/assignments/*/contract",
                                 "/api/marketplace/assignments/*/contract-terms",
+                                "/api/marketplace/assignments/*/refund-payout",
                                 "/api/marketplace/assignments/*/sign",
                                 "/api/marketplace/assignments/*/sign/request-otp")
                         .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR)
@@ -164,6 +165,8 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/termination")
                         .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
+                        .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/*/complete")
+                        .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/marketplace/classes/**")
                         .hasRole(RbacConstants.CLIENT)
                         .requestMatchers("/api/marketplace/favorites/**")

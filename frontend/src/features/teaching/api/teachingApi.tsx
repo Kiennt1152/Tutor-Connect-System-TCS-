@@ -1,4 +1,5 @@
 import axiosClient from '../../../shared/api/axiosClient';
+import type { SaveRefundPayoutRequest } from '../../contract/types/contractTypes';
 import type {
   AssignmentResponse,
   ContractView,
@@ -48,6 +49,11 @@ export const teachingApi = {
       .post<{ message: string }>(`/marketplace/assignments/${assignmentId}/contract-terms`, {
         termsB,
       })
+      .then((r) => r.data),
+
+  saveAssignmentRefundPayoutInfo: (assignmentId: number, payload: SaveRefundPayoutRequest) =>
+    axiosClient
+      .post<{ message: string }>(`/marketplace/assignments/${assignmentId}/refund-payout`, payload)
       .then((r) => r.data),
 
   listMyLessons: () =>

@@ -1,5 +1,6 @@
 package com.tcs.module.marketplace.service;
 
+import com.tcs.module.contract.dto.request.SaveRefundPayoutRequest;
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
@@ -76,6 +77,8 @@ public interface MarketplaceService {
     void signAssignmentContract(Long assignmentId, String otp);
 
     void saveContractTermsB(Long assignmentId, String termsB);
+
+    void saveAssignmentRefundPayoutInfo(Long assignmentId, SaveRefundPayoutRequest request);
 
     List<LessonResponse> listMyLessons();
 

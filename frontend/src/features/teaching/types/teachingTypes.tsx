@@ -6,6 +6,16 @@ import type {
 
 export type AssignmentStatus = 'PENDING' | 'ACTIVE' | 'DECLINED' | 'TERMINATED';
 
+export type ClassStatus =
+  | 'OPEN'
+  | 'MATCHED'
+  | 'IN_PROGRESS'
+  | 'COMPLETED'
+  | 'CANCELLED'
+  | 'DISPUTED'
+  | 'PENDING'
+  | 'CLOSED';
+
 export type AttendanceStatus = 'PENDING' | 'COMPLETED' | 'ABSENT' | 'DISPUTED';
 
 /** Trạng thái "Hoàn thành lớp" theo góc nhìn người dùng hiện tại. */
@@ -22,6 +32,7 @@ export interface AssignmentResponse {
   assignmentId: number;
   classId: number;
   classTitle: string;
+  classStatus: ClassStatus | string;
   clientName: string;
   tutorName: string | null;
   status: AssignmentStatus;
@@ -156,6 +167,17 @@ export const ASSIGNMENT_STATUS_LABELS: Record<AssignmentStatus, string> = {
   ACTIVE: 'Đang dạy',
   DECLINED: 'Bạn đã từ chối',
   TERMINATED: 'Đã kết thúc',
+};
+
+export const CLASS_STATUS_LABELS: Record<string, string> = {
+  OPEN: 'Đang mở',
+  MATCHED: 'Đã ghép gia sư',
+  IN_PROGRESS: 'Đang diễn ra',
+  COMPLETED: 'Đã hoàn thành',
+  CANCELLED: 'Đã hủy',
+  DISPUTED: 'Đang tranh chấp',
+  PENDING: 'Đang chờ',
+  CLOSED: 'Đã đóng',
 };
 
 export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {

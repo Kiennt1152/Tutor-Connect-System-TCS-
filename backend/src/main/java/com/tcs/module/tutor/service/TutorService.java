@@ -39,5 +39,5 @@ public interface TutorService {
             Long classId, LocalDate date, List<MarkAttendanceRequest> records);
 
     /** Bước 13: gia sư phụ trách xác nhận khóa học đã hoàn thành -> tất toán + đóng lớp. */
-    void confirmClassCompletion(Long classId);
+    String confirmClassCompletion(Long classId);
 }
