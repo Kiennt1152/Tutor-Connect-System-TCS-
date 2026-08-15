@@ -105,7 +105,7 @@ public class AiHallucinationGuard {
      */
     public String guardFinanceResponse(String query, String userRole, Long userId, String fallbackMessage) {
         String lower = query != null ? query.toLowerCase() : "";
-        boolean isPersonal = lower.contains("của tôi") || lower.contains("lương của") || lower.contains("thu nhập của") || lower.contains("ví của");
+        boolean isPersonal = lower.contains("của tôi") || lower.contains("lương của tôi") || lower.contains("thu nhập của tôi") || lower.contains("ví của tôi") || lower.contains("tiền của tôi");
 
         if (isPersonal && (userId == null || (!"TUTOR".equals(userRole) && !"TUTOR_CENTER".equals(userRole)))) {
             log.warn("[HallucinationGuard] PAYMENT_SUPPORT: personal finance query without TUTOR login, using fallback");

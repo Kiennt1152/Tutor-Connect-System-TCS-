@@ -30,6 +30,7 @@ public class ConversationContextService {
     ) {}
 
     private final Map<Long, ConversationContext> sessionContexts = new ConcurrentHashMap<>();
+    private final Map<Long, Integer> fallbackCountMap = new ConcurrentHashMap<>();
     private static final Duration CONTEXT_TTL = Duration.ofMinutes(15);
 
     public void saveContext(Long sessionId, AiDomain domain, AiSubIntent subIntent, Map<String, String> entities, String query) {
@@ -107,7 +108,24 @@ public class ConversationContextService {
         return null;
     }
 
+    public int incrementFallbackCount(Long sessionId) {
+        if (sessionId == null) return 0;
+        return fallbackCountMap.merge(sessionId, 1, Integer::sum);
+    }
+
+    public void resetFallbackCount(Long sessionId) {
+        if (sessionId != null) {
+            fallbackCountMap.remove(sessionId);
+        }
+    }
+
+    public int getFallbackCount(Long sessionId) {
+        if (sessionId == null) return 0;
+        return fallbackCountMap.getOrDefault(sessionId, 0);
+    }
+
     public void clear() {
         sessionContexts.clear();
+        fallbackCountMap.clear();
     }
 }

@@ -39,7 +39,8 @@ public class OpenDomainClassifier {
         if (containsAny(normalized,
                 "hom nay la ngay", "hom nay ngay may", "hom nay thu may", "hom nay ngay bao nhieu", "ngay bao nhieu",
                 "bay gio la may gio", "may gio roi", "may gio", "gio hien tai", "ngay hien tai", "thoi gian hien tai",
-                "what time", "what date", "what day is today", "current time", "today's date", "time now")) {
+                "what time", "what date", "what day is today", "current time", "today's date", "time now") &&
+            !containsAny(normalized, "hoc may gio", "day may gio", "lop may gio", "buoi hoc", "gio hoc")) {
             Map<String, String> data = new HashMap<>();
             data.put("queryType", "TIME_DATE");
             return new OpenDomainResult(AiSubIntent.TIME_DATE_QUERY, 0.95, data);
@@ -48,40 +49,44 @@ public class OpenDomainClassifier {
         // 3. WEATHER_QUERY
         if (containsAny(normalized,
                 "thoi tiet", "du bao thoi tiet", "troi co mua khong", "troi mua", "troi nang", "nhiet do",
-                "weather", "weather forecast", "is it raining", "temperature today")) {
+                "weather", "weather forecast", "is it raining", "temperature today") &&
+            !containsAny(normalized, "gia su", "day", "lop", "hoc", "den nha", "buoi hoc")) {
             Map<String, String> data = new HashMap<>();
             data.put("location", extractWeatherLocation(lower, normalized));
             return new OpenDomainResult(AiSubIntent.WEATHER_QUERY, 0.9, data);
         }
 
-        // 4. DEFINITION_LOOKUP
-        if (containsAny(normalized, "nghia la gi", "dinh nghia", "khai niem", "la gi the", "nghia cua tu", "what is the meaning of", "definition of")) {
+        // 4. GENERAL_KNOWLEDGE (check before definition lookup so "Thủ đô của X là gì" is recognized as general knowledge)
+        if (containsAny(normalized,
+                "thu do cua", "thu do nuoc", "dan so", "dien tich", "ai la nguoi", "ai phat minh",
+                "vi sao", "tai sao lai", "nuoc nao", "o dau tren the gioi", "capital of", "who invented", "why is") &&
+            !containsAny(normalized, "gia su", "tai khoan", "tien", "ho so", "lop", "he thong", "bot", "san tcs")) {
+            Map<String, String> data = new HashMap<>();
+            data.put("question", query);
+            return new OpenDomainResult(AiSubIntent.GENERAL_KNOWLEDGE, 0.85, data);
+        }
+
+        // 5. DEFINITION_LOOKUP
+        if ((containsAny(normalized, "nghia la gi", "dinh nghia", "khai niem", "la gi the", "nghia cua tu", "what is the meaning of", "definition of") ||
+            Pattern.compile("^\\s*([a-zA-Z0-9_.-]+\\s*){1,4}\\s+la gi\\b").matcher(normalized).find()) &&
+            !containsAny(normalized, "thu do", "dan so", "dien tich", "ai la", "o dau", "nuoc nao")) {
             Map<String, String> data = new HashMap<>();
             data.put("term", query);
             return new OpenDomainResult(AiSubIntent.DEFINITION_LOOKUP, 0.9, data);
         }
 
-        // 5. ENTERTAINMENT
+        // 6. ENTERTAINMENT
         if (containsAny(normalized, "ke chuyen cuoi", "ke chuyen", "do vui", "lam tho", "hat mot bai", "tell me a joke", "tell a story", "riddle")) {
             Map<String, String> data = new HashMap<>();
             data.put("topic", query);
             return new OpenDomainResult(AiSubIntent.ENTERTAINMENT, 0.85, data);
         }
 
-        // 6. NEWS_CURRENT_EVENTS
+        // 7. NEWS_CURRENT_EVENTS
         if (containsAny(normalized, "tin tuc hom nay", "thoi su", "gia vang", "gia xang", "chung khoan", "tin tuc moi nhat", "latest news")) {
             Map<String, String> data = new HashMap<>();
             data.put("topic", query);
             return new OpenDomainResult(AiSubIntent.NEWS_CURRENT_EVENTS, 0.85, data);
-        }
-
-        // 7. GENERAL_KNOWLEDGE
-        if (containsAny(normalized,
-                "thu do cua", "thu do nuoc", "dan so", "dien tich", "ai la nguoi", "ai phat minh",
-                "vi sao", "tai sao lai", "nuoc nao", "o dau tren the gioi", "capital of", "who invented", "why is")) {
-            Map<String, String> data = new HashMap<>();
-            data.put("question", query);
-            return new OpenDomainResult(AiSubIntent.GENERAL_KNOWLEDGE, 0.85, data);
         }
 
         // Default: generic out of scope
@@ -101,6 +106,16 @@ public class OpenDomainClassifier {
         if (normalized.contains("da nang")) return "Đà Nẵng";
         if (normalized.contains("hai phong")) return "Hải Phòng";
         if (normalized.contains("can tho")) return "Cần Thơ";
+        if (normalized.contains("hue")) return "Huế";
+        if (normalized.contains("nha trang")) return "Nha Trang";
+        if (normalized.contains("quang ninh") || normalized.contains("ha long")) return "Quảng Ninh";
+        if (normalized.contains("nghe an") || normalized.contains("vinh")) return "Nghệ An";
+        if (normalized.contains("thanh hoa")) return "Thanh Hóa";
+        if (normalized.contains("binh duong")) return "Bình Dương";
+        if (normalized.contains("dong nai")) return "Đồng Nai";
+        if (normalized.contains("vung tau")) return "Vũng Tàu";
+        if (normalized.contains("da lat")) return "Đà Lạt";
+        if (normalized.contains("phu quoc")) return "Phú Quốc";
         return "khu vực của bạn";
     }
 

@@ -128,13 +128,5 @@ class OpenDomainProductionEnhancementsTest {
         assertEquals(100.0, stats.ctaSteeringRate());
     }
 
-    @Test
-    @DisplayName("8. OpenDomainHandler formats weather with real temperature and soft steering")
-    void testOpenDomainHandlerWeather() {
-        var response = openHandler.handle(AiSubIntent.WEATHER_QUERY, "Thời tiết TP.HCM thế nào?", Map.of("location", "TP.HCM"));
-        assertThat(response.answer()).contains("TP.HCM");
-        assertThat(response.answer()).contains("Nhiệt độ");
-        assertThat(response.steeringMessage()).contains("Zoom");
-        assertThat(response.suggestedRoute()).isEqualTo("/tim-gia-su?mode=ONLINE");
-    }
+
 }

@@ -325,6 +325,35 @@ public class AiCapabilityRouter {
             Set.of("ADMIN_STATS"), true, Set.of("PLATFORM_ADMIN"), true, false,
             CardPolicy.ADMIN_LINK_ONLY, GuardType.NONE, "/platform/analytics",
             "Tính năng reindex và thống kê tri thức AI chỉ dành cho Platform Admin tại /platform/analytics."
+        )),
+
+        // Marketplace Action Policies
+        Map.entry(AiSubIntent.APPLY_TO_CLASS, new CapabilityPolicy(
+            Set.of("FAQ"), true, Set.of("TUTOR"), true, false,
+            CardPolicy.FAQ_CARDS, GuardType.NONE, "/lop-hoc",
+            "Gia sư có thể ứng tuyển vào lớp học đang mở tại /lop-hoc."
+        )),
+
+        // Admin Policies with correct deep-links
+        Map.entry(AiSubIntent.ADMIN_VERIFICATION_QUEUE, new CapabilityPolicy(
+            Set.of("ADMIN_STATS"), true, Set.of("PLATFORM_ADMIN"), true, false,
+            CardPolicy.ADMIN_LINK_ONLY, GuardType.NONE, "/platform/verifications",
+            "Hàng đợi xác minh hồ sơ gia sư tại /platform/verifications."
+        )),
+        Map.entry(AiSubIntent.ADMIN_WITHDRAWAL_MANAGEMENT, new CapabilityPolicy(
+            Set.of("ADMIN_STATS"), true, Set.of("PLATFORM_ADMIN"), true, false,
+            CardPolicy.ADMIN_LINK_ONLY, GuardType.NONE, "/platform/withdrawals",
+            "Quản lý yêu cầu rút tiền tại /platform/withdrawals."
+        )),
+        Map.entry(AiSubIntent.ADMIN_DISPUTE_MANAGEMENT, new CapabilityPolicy(
+            Set.of("ADMIN_STATS"), true, Set.of("PLATFORM_ADMIN"), true, false,
+            CardPolicy.ADMIN_LINK_ONLY, GuardType.NONE, "/platform/disputes",
+            "Quản lý tranh chấp tại /platform/disputes."
+        )),
+        Map.entry(AiSubIntent.ADMIN_CSV_EXPORT, new CapabilityPolicy(
+            Set.of("ADMIN_STATS"), true, Set.of("PLATFORM_ADMIN"), true, false,
+            CardPolicy.ADMIN_LINK_ONLY, GuardType.NONE, "/platform",
+            "Xuất báo cáo CSV tại /platform."
         ))
     );
 

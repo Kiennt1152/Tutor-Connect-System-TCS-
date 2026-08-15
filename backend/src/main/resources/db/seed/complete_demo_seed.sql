@@ -23,10 +23,7 @@ INSERT INTO users (email, phone, password_hash, status, created_at, updated_at) 
 ('parent.tuan@tcs.vn', '0903334444', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 30 DAY), NOW()),
 ('tutor.le@gmail.com', '0903456789', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 50 DAY), NOW()),
 ('tutor.pham@gmail.com', '0904567890', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 45 DAY), NOW()),
-('tutor.math@tcs.vn', '0912111222', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 45 DAY), NOW()),
-('tutor.physics@tcs.vn', '0923222333', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 40 DAY), NOW()),
-('center.triangviet@gmail.com', '02838999999', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 60 DAY), NOW())
-ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash), status = 'ACTIVE', updated_at = NOW();
+
 
 -- --------------------------------------------------------------------
 -- 2. PLATFORM ADMINS
@@ -85,10 +82,7 @@ SELECT user_id, 'Nguyễn Văn Toán', 'MALE', '0912111222', 'Quận Cầu Giấ
 FROM users WHERE email = 'tutor.math@tcs.vn'
 ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), verification_status = 'VERIFIED';
 
-INSERT INTO tutors (user_id, full_name, gender, phone, address, experience_years, bio, hourly_rate, rating_avg, verification_status, created_at, updated_at)
-SELECT user_id, 'Trần Thị Lý', 'FEMALE', '0923222333', 'Quận Đống Đa, Hà Nội', 4, 'Gia sư Vật Lý cấp 3 và luyện thi học sinh giỏi', 220000.00, 4.85, 'VERIFIED', NOW(), NOW()
-FROM users WHERE email = 'tutor.physics@tcs.vn'
-ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), verification_status = 'VERIFIED';
+
 
 -- --------------------------------------------------------------------
 -- 5. TUTOR CENTERS

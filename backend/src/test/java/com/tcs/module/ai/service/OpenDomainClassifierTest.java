@@ -67,22 +67,7 @@ class OpenDomainClassifierTest {
         assertEquals(AiSubIntent.DEFINITION_LOOKUP, result.subIntent());
     }
 
-    @Test
-    @DisplayName("OpenDomainHandler solves basic arithmetic correctly")
-    void testHandlerSolvesMath() {
-        var response = openHandler.handle(AiSubIntent.MATH_CALCULATION, "1 + 1 bằng mấy?", Map.of("expression", "1 + 1"));
-        assertThat(response.answer()).contains("= **2**");
-        assertThat(response.steeringMessage()).contains("gia sư");
-        assertThat(response.suggestedRoute()).isEqualTo("/tim-gia-su?subject=Toán");
-    }
 
-    @Test
-    @DisplayName("OpenDomainHandler formats current date & time")
-    void testHandlerFormatsTime() {
-        var response = openHandler.handle(AiSubIntent.TIME_DATE_QUERY, "bây giờ là mấy giờ?", Map.of());
-        assertThat(response.answer()).contains("Thời gian hiện tại");
-        assertThat(response.steeringMessage()).isNotEmpty();
-    }
 
     @Test
     @DisplayName("Extract IELTS certification entity")

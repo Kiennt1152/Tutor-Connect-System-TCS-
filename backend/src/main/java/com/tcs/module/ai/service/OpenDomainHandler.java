@@ -82,25 +82,45 @@ public class OpenDomainHandler {
             responseCache.put(cacheKey, answer);
         }
 
-        String steering = "Nếu bạn có các dạng bài tập khó hơn cần giải thích phương pháp giải chi tiết, hoặc muốn tìm gia sư dạy kèm 1-1, hãy gửi yêu cầu cho tôi nhé!";
-        return new OpenDomainResponse(
-            answer,
-            steering,
-            "/tim-gia-su?subject=Toán",
-            List.of("Tìm gia sư Toán (/tim-gia-su)", "Xem lớp Toán đang mở (/lop-hoc)", "Tạo lớp tìm gia sư (/tao-lop)")
+        // Smart Steering: Only steer if it is complex math/algebra/calculus
+        boolean isComplexMath = expression != null && (
+            expression.contains("phương trình") || 
+            expression.contains("đạo hàm") ||
+            expression.contains("tích phân") ||
+            expression.contains("hệ phương trình") ||
+            expression.matches(".*[x|y|z].*[²³⁴].*") ||
+            expression.length() > 20
         );
+
+        if (isComplexMath) {
+            return new OpenDomainResponse(
+                answer,
+                "Nếu bạn cần giải thích chi tiết phương pháp giải, tôi sẵn sàng hướng dẫn từng bước. Hoặc bạn có thể tìm gia sư Toán để học sâu hơn.",
+                "/tim-gia-su?subject=Toán",
+                List.of("Tìm gia sư Toán (/tim-gia-su)", "Xem lớp Toán đang mở (/lop-hoc)", "Tạo lớp tìm gia sư (/tao-lop)")
+            );
+        } else {
+            // Simple arithmetic: NO STEERING, clean concise answer
+            return new OpenDomainResponse(
+                answer,
+                null,
+                null,
+                List.of()
+            );
+        }
     }
 
     public OpenDomainResponse handleTimeDate(String query) {
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter fmt = DateTimeFormatter.ofPattern("EEEE, 'ngày' dd/MM/yyyy, HH:mm", Locale.of("vi", "VN"));
-        String answer = "Thời gian hiện tại của hệ thống là: **" + now.format(fmt) + "**.";
-        String steering = "TCS có hơn 500+ gia sư sẵn sàng sắp xếp lịch dạy linh hoạt (buổi tối, cuối tuần, học tại nhà hoặc Online). Bạn có cần tìm gia sư hỗ trợ học tập không?";
+        String answer = "Thời gian hiện tại: **" + now.format(fmt) + "**.";
+        
+        // Pure time query: No unsolicited marketing
         return new OpenDomainResponse(
             answer,
-            steering,
-            "/tim-gia-su",
-            List.of("Tìm gia sư linh hoạt lịch (/tim-gia-su)", "Xem danh sách lớp học (/lop-hoc)", "Đăng bài tạo lớp (/tao-lop)")
+            null,
+            null,
+            List.of()
         );
     }
 
@@ -122,56 +142,67 @@ public class OpenDomainHandler {
             answer = "Để theo dõi thông tin thời tiết chính xác và mới nhất tại " + location + ", bạn có thể kiểm tra ứng dụng thời tiết trên điện thoại hoặc trang dự báo khí tượng thủy văn.";
         }
 
-        String steering = "Nếu thời tiết mưa gió bất tiện ra ngoài, bạn hoàn toàn có thể lựa chọn hình thức học Gia sư Online qua Zoom/Google Meet tiện lợi trên TCS!";
-        return new OpenDomainResponse(
-            answer,
-            steering,
-            "/tim-gia-su?mode=ONLINE",
-            List.of("Tìm gia sư Online (/tim-gia-su)", "Tìm gia sư tại nhà (/tim-gia-su)", "Đăng tin tạo lớp (/tao-lop)")
-        );
+        // Smart Steering: Only suggest online tutor when rainy or stormy
+        boolean isRainyOrBad = weatherOpt.isPresent() && 
+            (weatherOpt.get().condition().toLowerCase().contains("mưa") ||
+             weatherOpt.get().condition().toLowerCase().contains("rain") ||
+             weatherOpt.get().condition().toLowerCase().contains("bão"));
+
+        if (isRainyOrBad) {
+            return new OpenDomainResponse(
+                answer,
+                "Trời mưa có thể bạn muốn học online? TCS có gia sư dạy qua Zoom/Google Meet tiện lợi.",
+                "/tim-gia-su?mode=ONLINE",
+                List.of("Tìm gia sư Online (/tim-gia-su)")
+            );
+        } else {
+            // Fair weather: No steering
+            return new OpenDomainResponse(
+                answer,
+                null,
+                null,
+                List.of()
+            );
+        }
     }
 
     public OpenDomainResponse handleDefinition(String term) {
-        String answer = "Về khái niệm \"" + term + "\", bạn có thể tham khảo từ điển hoặc đặt câu hỏi chi tiết hơn để tôi giải thích theo từng góc độ học thuật.";
-        String steering = "TCS cung cấp trợ giảng AI học tập chuyên sâu và kết nối gia sư các môn học. Bạn có cần tìm gia sư hỗ trợ môn này không?";
+        String answer = "Về khái niệm \"" + term + "\", bạn có thể tham khảo từ điển học thuật hoặc gửi câu hỏi chi tiết hơn để tôi giải thích cụ thể.";
         return new OpenDomainResponse(
             answer,
-            steering,
-            "/tim-gia-su",
-            List.of("Tìm gia sư chuyên môn (/tim-gia-su)", "Trung tâm trợ giúp (/help)")
+            null,
+            null,
+            List.of()
         );
     }
 
     public OpenDomainResponse handleEntertainment(String topic) {
         String answer = "Chúc bạn có những phút giây thư giãn và học tập tràn đầy năng lượng cùng Tutor Connect System (TCS)!";
-        String steering = "Khi bạn sẵn sàng học tập hoặc cần tìm gia sư kèm cặp, đừng ngần ngại nhắn cho tôi nhé.";
         return new OpenDomainResponse(
             answer,
-            steering,
-            "/tim-gia-su",
-            List.of("Tìm gia sư uy tín (/tim-gia-su)", "Khám phá lớp học mới (/lop-hoc)")
+            null,
+            null,
+            List.of()
         );
     }
 
     public OpenDomainResponse handleNews(String topic) {
         String answer = "Bạn có thể theo dõi các trang tin tức thời sự chính thống để cập nhật thông tin nhanh nhất trong ngày.";
-        String steering = "Tại TCS, các thông báo và tin tức học tập mới nhất luôn được cập nhật liên tục tại bảng tin hệ thống.";
         return new OpenDomainResponse(
             answer,
-            steering,
-            "/help",
-            List.of("Xem tin tức & chính sách (/help)", "Tìm gia sư (/tim-gia-su)")
+            null,
+            null,
+            List.of()
         );
     }
 
     public OpenDomainResponse handleGeneralKnowledge(String query) {
-        String answer = "Tôi sẵn sàng hỗ trợ giải đáp các thắc mắc học tập và thông tin trên hệ thống.";
-        String steering = "TCS là nền tảng kết nối gia sư uy tín hàng đầu. Bạn có muốn tìm gia sư môn học nào hoặc đăng tin tìm lớp không?";
+        String answer = "Tôi sẵn sàng hỗ trợ giải đáp các thắc mắc học tập và thông tin kiến thức tự nhiên/xã hội.";
         return new OpenDomainResponse(
             answer,
-            steering,
-            "/tim-gia-su",
-            List.of("Tìm gia sư phù hợp (/tim-gia-su)", "Xem lớp học đang mở (/lop-hoc)")
+            null,
+            null,
+            List.of()
         );
     }
 
