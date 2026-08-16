@@ -10,6 +10,8 @@ import com.tcs.module.identity.dto.request.ChangePasswordRequest;
 import com.tcs.module.identity.dto.request.LoginRequest;
 import com.tcs.module.identity.dto.request.RegisterRequest;
 import com.tcs.module.identity.dto.request.ResetPasswordRequest;
+import com.tcs.module.identity.dto.request.GoogleCompleteRequest;
+import com.tcs.module.identity.dto.request.GoogleLoginRequest;
 import com.tcs.module.identity.dto.request.SendOtpRequest;
 import com.tcs.module.identity.dto.request.VerifyOtpRequest;
 import com.tcs.module.identity.dto.request.VerifyPasswordResetOtpRequest;
@@ -250,6 +252,26 @@ class IdentityServiceImplTest {
         assertEquals("Phiên xác thực email đã được sử dụng. Vui lòng xác thực lại email.", ex.getMessage());
     }
 
+    /** Sheet register - UTCID08 (B): phiên xác thực email đã hết hạn. */
+    @Test
+    void TC_UNIT_IdentityService_009b_register_verifiedTokenExpired() {
+        RegisterRequest req = new RegisterRequest();
+        req.setEmail("test@gmail.com");
+        req.setPassword("Password123");
+        req.setConfirmPassword("Password123");
+        req.setRole(UserRole.CLIENT);
+        req.setVerifiedEmailToken("valid-token");
+
+        EmailVerificationToken token = new EmailVerificationToken();
+        token.setEmail("test@gmail.com");
+        token.setExpiresAt(LocalDateTime.now().minusMinutes(1));
+
+        when(emailVerificationTokenRepository.findByToken("valid-token")).thenReturn(Optional.of(token));
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.register(req));
+        assertEquals("Phiên xác thực email đã hết hạn. Vui lòng xác thực lại email.", ex.getMessage());
+    }
+
     @Test
     void TC_UNIT_IdentityService_010_register_verifiedTokenEmailMismatch() {
         RegisterRequest req = new RegisterRequest();
@@ -363,6 +385,101 @@ class IdentityServiceImplTest {
         assertNotNull(otp.getConsumedAt());
         assertNotNull(res.getVerifiedEmailToken());
         verify(emailVerificationTokenRepository).save(any(EmailVerificationToken.class));
+    }
+
+    /** Sheet verifyOTP - UTCID02 (A): không tìm thấy bản ghi OTP chưa dùng. */
+    @Test
+    void TC_UNIT_IdentityService_014b_verifyOtp_recordNotFound() {
+        VerifyOtpRequest req = new VerifyOtpRequest();
+        req.setEmail("test@gmail.com");
+        req.setCode("123456");
+
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.REGISTRATION)).thenReturn(Optional.empty());
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.verifyOtp(req));
+        assertEquals("Mã xác thực không tồn tại. Vui lòng yêu cầu gửi lại mã.", ex.getMessage());
+    }
+
+    /** Sheet verifyOTP - UTCID04 (A): OTP sai, attempts = 0 -> còn lượt thử. */
+    @Test
+    void TC_UNIT_IdentityService_014c_verifyOtp_wrongCode_attempts0() {
+        VerifyOtpRequest req = new VerifyOtpRequest();
+        req.setEmail("test@gmail.com");
+        req.setCode("999999");
+
+        EmailOtp otp = new EmailOtp();
+        otp.setEmail("test@gmail.com");
+        otp.setCode("123456");
+        otp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        otp.setAttempts(0);
+
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.REGISTRATION)).thenReturn(Optional.of(otp));
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.verifyOtp(req));
+        assertEquals("Mã xác thực không đúng. Bạn còn 4 lần thử.", ex.getMessage());
+        assertEquals(1, otp.getAttempts());
+    }
+
+    /** Sheet verifyOTP - UTCID05 (B): OTP sai khi attempts = 3 -> lần thử thứ 4, còn 1 lượt. */
+    @Test
+    void TC_UNIT_IdentityService_014d_verifyOtp_wrongCode_lastRemainingAttempt() {
+        VerifyOtpRequest req = new VerifyOtpRequest();
+        req.setEmail("test@gmail.com");
+        req.setCode("999999");
+
+        EmailOtp otp = new EmailOtp();
+        otp.setEmail("test@gmail.com");
+        otp.setCode("123456");
+        otp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        otp.setAttempts(3);
+
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.REGISTRATION)).thenReturn(Optional.of(otp));
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.verifyOtp(req));
+        assertEquals("Mã xác thực không đúng. Bạn còn 1 lần thử.", ex.getMessage());
+    }
+
+    /** Sheet verifyOTP - UTCID06 (B): OTP sai khi attempts = 4 -> chạm ngưỡng 5, khoá mã. */
+    @Test
+    void TC_UNIT_IdentityService_014e_verifyOtp_wrongCode_reachesMaxAttempts() {
+        VerifyOtpRequest req = new VerifyOtpRequest();
+        req.setEmail("test@gmail.com");
+        req.setCode("999999");
+
+        EmailOtp otp = new EmailOtp();
+        otp.setEmail("test@gmail.com");
+        otp.setCode("123456");
+        otp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        otp.setAttempts(4);
+
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.REGISTRATION)).thenReturn(Optional.of(otp));
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.verifyOtp(req));
+        assertEquals("Bạn đã nhập sai quá số lần cho phép. Vui lòng yêu cầu mã mới.", ex.getMessage());
+    }
+
+    /** Sheet verifyOTP - UTCID07 (A): attempts đã vượt ngưỡng -> chặn ngay, không so mã. */
+    @Test
+    void TC_UNIT_IdentityService_014f_verifyOtp_alreadyOverMaxAttempts() {
+        VerifyOtpRequest req = new VerifyOtpRequest();
+        req.setEmail("test@gmail.com");
+        req.setCode("123456"); // đúng mã, nhưng đã vượt ngưỡng nên vẫn bị chặn
+
+        EmailOtp otp = new EmailOtp();
+        otp.setEmail("test@gmail.com");
+        otp.setCode("123456");
+        otp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        otp.setAttempts(5);
+
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.REGISTRATION)).thenReturn(Optional.of(otp));
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.verifyOtp(req));
+        assertEquals("Bạn đã nhập sai quá số lần cho phép. Vui lòng yêu cầu mã mới.", ex.getMessage());
     }
 
     @Test
@@ -516,6 +633,23 @@ class IdentityServiceImplTest {
     }
 
     @Test
+    /** Sheet login - UTCID05 (A): tài khoản đang bị tạm ngừng -> chặn trước khi kiểm mật khẩu. */
+    void TC_UNIT_IdentityService_020b_login_suspendedUser() {
+        LoginRequest req = new LoginRequest();
+        req.setEmail("test@gmail.com");
+        req.setPassword("Password123");
+
+        User user = new User();
+        user.setStatus(UserStatus.SUSPENDED);
+
+        when(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.of(user));
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.login(req));
+        assertEquals("Tài khoản của bạn đang bị tạm ngừng. Vui lòng liên hệ quản trị viên.", ex.getMessage());
+        verify(passwordEncoder, never()).matches(anyString(), anyString());
+    }
+
+    @Test
     void TC_UNIT_IdentityService_021_login_wrongPassword() {
         LoginRequest req = new LoginRequest();
         req.setEmail("test@gmail.com");
@@ -565,6 +699,80 @@ class IdentityServiceImplTest {
         assertEquals("Mật khẩu hiện tại không đúng", ex.getMessage());
     }
 
+    /** Sheet changePassword - UTCID01 (N): mật khẩu hiện tại đúng, mật khẩu mới hợp lệ và khác cũ. */
+    @Test
+    void TC_UNIT_IdentityService_023a_changePassword_happyPath() {
+        ChangePasswordRequest req = new ChangePasswordRequest();
+        req.setCurrentPassword("Old12345");
+        req.setNewPassword("New12345");
+
+        when(authHelper.currentUserId()).thenReturn(1L);
+        User user = new User();
+        user.setUserId(1L);
+        user.setPasswordHash("old-hash");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("Old12345", "old-hash")).thenReturn(true);
+        when(passwordEncoder.matches("New12345", "old-hash")).thenReturn(false);
+        when(passwordEncoder.encode("New12345")).thenReturn("new-hash");
+
+        identityService.changePassword(req);
+
+        assertEquals("new-hash", user.getPasswordHash());
+        verify(userRepository).save(user);
+    }
+
+    /** Sheet changePassword - UTCID03 (A): mật khẩu mới trùng mật khẩu hiện tại. */
+    @Test
+    void TC_UNIT_IdentityService_023b_changePassword_newSameAsCurrent() {
+        ChangePasswordRequest req = new ChangePasswordRequest();
+        req.setCurrentPassword("Old12345");
+        req.setNewPassword("Old12345");
+
+        when(authHelper.currentUserId()).thenReturn(1L);
+        User user = new User();
+        user.setPasswordHash("old-hash");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("Old12345", "old-hash")).thenReturn(true);
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.changePassword(req));
+        assertEquals("Mật khẩu mới phải khác mật khẩu hiện tại", ex.getMessage());
+        verify(userRepository, never()).save(any());
+    }
+
+    /** Sheet changePassword - UTCID04 (B): mật khẩu mới quá ngắn / thiếu số. */
+    @Test
+    void TC_UNIT_IdentityService_023c_changePassword_newPasswordInvalidFormat() {
+        ChangePasswordRequest req = new ChangePasswordRequest();
+        req.setCurrentPassword("Old12345");
+        req.setNewPassword("abc");
+
+        when(authHelper.currentUserId()).thenReturn(1L);
+        User user = new User();
+        user.setPasswordHash("old-hash");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("Old12345", "old-hash")).thenReturn(true);
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.changePassword(req));
+        assertEquals("Mật khẩu phải có ít nhất 8 ký tự, gồm cả chữ và số", ex.getMessage());
+    }
+
+    /** Sheet changePassword - UTCID05 (A): mật khẩu mới có ký tự có dấu (không thuộc ASCII). */
+    @Test
+    void TC_UNIT_IdentityService_023d_changePassword_newPasswordNonAscii() {
+        ChangePasswordRequest req = new ChangePasswordRequest();
+        req.setCurrentPassword("Old12345");
+        req.setNewPassword("MatKhau123á");
+
+        when(authHelper.currentUserId()).thenReturn(1L);
+        User user = new User();
+        user.setPasswordHash("old-hash");
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
+        when(passwordEncoder.matches("Old12345", "old-hash")).thenReturn(true);
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.changePassword(req));
+        assertEquals("Mật khẩu không được chứa ký tự có dấu hoặc ký tự không thuộc ASCII", ex.getMessage());
+    }
+
     @Test
     void TC_UNIT_IdentityService_024_resetPassword_tokenExpired() {
         ResetPasswordRequest req = new ResetPasswordRequest();
@@ -599,6 +807,101 @@ class IdentityServiceImplTest {
 
         Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.sendOtp(req, "127.0.0.1"));
         assertEquals("Quá nhiều yêu cầu, vui lòng thử lại sau.", ex.getMessage());
+        verify(emailService, never()).sendRegistrationOtp(anyString(), anyString(), anyLong());
+    }
+
+    /** Sheet sendOTP - UTCID01 (N): chưa gửi lần nào, chưa chạm giới hạn -> gửi mã thành công. */
+    @Test
+    void TC_UNIT_IdentityService_025a_sendOtp_happyPath() {
+        SendOtpRequest req = new SendOtpRequest();
+        req.setEmail("test@gmail.com");
+
+        when(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.empty());
+        when(emailOtpRepository.findFirstByEmailAndPurposeOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.REGISTRATION)).thenReturn(Optional.empty());
+        when(emailOtpRepository.countByEmailAndPurposeAndCreatedAtAfter(
+                eq("test@gmail.com"), eq(OtpPurpose.REGISTRATION), any(LocalDateTime.class))).thenReturn(0L);
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.REGISTRATION)).thenReturn(Optional.empty());
+
+        var res = identityService.sendOtp(req, "127.0.0.1");
+
+        assertEquals("test@gmail.com", res.getEmail());
+        verify(emailOtpRepository).save(any(EmailOtp.class));
+        verify(emailService).sendRegistrationOtp(eq("test@gmail.com"), anyString(), anyLong());
+    }
+
+    /** Sheet sendOTP - UTCID03 (B): đã gửi đủ 5 mã trong cửa sổ 6 phút -> chặn. */
+    @Test
+    void TC_UNIT_IdentityService_025b_sendOtp_emailWindowLimitReached() {
+        SendOtpRequest req = new SendOtpRequest();
+        req.setEmail("test@gmail.com");
+
+        EmailOtp lastOtp = new EmailOtp();
+        lastOtp.setLastSentAt(LocalDateTime.now().minusSeconds(120)); // đã qua cooldown
+
+        when(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.empty());
+        when(emailOtpRepository.findFirstByEmailAndPurposeOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.REGISTRATION)).thenReturn(Optional.of(lastOtp));
+        when(emailOtpRepository.countByEmailAndPurposeAndCreatedAtAfter(
+                eq("test@gmail.com"), eq(OtpPurpose.REGISTRATION), any(LocalDateTime.class))).thenReturn(5L);
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.sendOtp(req, "127.0.0.1"));
+        assertEquals("Quá nhiều yêu cầu, vui lòng thử lại sau.", ex.getMessage());
+        verify(emailService, never()).sendRegistrationOtp(anyString(), anyString(), anyLong());
+    }
+
+    /** Sheet sendOTP - UTCID04 (B): còn 4 mã trong cửa sổ (dưới ngưỡng 5) -> vẫn gửi được. */
+    @Test
+    void TC_UNIT_IdentityService_025c_sendOtp_justUnderWindowLimit() {
+        SendOtpRequest req = new SendOtpRequest();
+        req.setEmail("test@gmail.com");
+
+        EmailOtp lastOtp = new EmailOtp();
+        lastOtp.setLastSentAt(LocalDateTime.now().minusSeconds(120));
+
+        when(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.empty());
+        when(emailOtpRepository.findFirstByEmailAndPurposeOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.REGISTRATION)).thenReturn(Optional.of(lastOtp));
+        when(emailOtpRepository.countByEmailAndPurposeAndCreatedAtAfter(
+                eq("test@gmail.com"), eq(OtpPurpose.REGISTRATION), any(LocalDateTime.class))).thenReturn(4L);
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.REGISTRATION)).thenReturn(Optional.empty());
+
+        identityService.sendOtp(req, "127.0.0.1");
+
+        verify(emailService).sendRegistrationOtp(eq("test@gmail.com"), anyString(), anyLong());
+    }
+
+    /** Sheet sendOTP - UTCID05 (A): email đã có tài khoản -> không gửi mã. */
+    @Test
+    void TC_UNIT_IdentityService_025d_sendOtp_emailAlreadyRegistered() {
+        SendOtpRequest req = new SendOtpRequest();
+        req.setEmail("test@gmail.com");
+
+        User existing = new User();
+        existing.setEmail("test@gmail.com");
+        existing.setStatus(UserStatus.ACTIVE);
+        when(userRepository.findByEmail("test@gmail.com")).thenReturn(Optional.of(existing));
+
+        Exception ex = assertThrows(DuplicateEmailException.class, () -> identityService.sendOtp(req, "127.0.0.1"));
+        assertEquals("Email này đã được đăng ký", ex.getMessage());
+        verify(emailService, never()).sendRegistrationOtp(anyString(), anyString(), anyLong());
+    }
+
+    /** Sheet sendOTP - UTCID06 (A): email đã bị khóa -> không gửi mã. */
+    @Test
+    void TC_UNIT_IdentityService_025e_sendOtp_emailBanned() {
+        SendOtpRequest req = new SendOtpRequest();
+        req.setEmail("banned@gmail.com");
+
+        User banned = new User();
+        banned.setEmail("banned@gmail.com");
+        banned.setStatus(UserStatus.BANNED);
+        when(userRepository.findByEmail("banned@gmail.com")).thenReturn(Optional.of(banned));
+
+        Exception ex = assertThrows(DuplicateEmailException.class, () -> identityService.sendOtp(req, "127.0.0.1"));
+        assertEquals("Email này đã bị khóa và không thể đăng ký tài khoản mới.", ex.getMessage());
         verify(emailService, never()).sendRegistrationOtp(anyString(), anyString(), anyLong());
     }
     // =========================================================================================
@@ -691,5 +994,308 @@ class IdentityServiceImplTest {
 
         Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.verifyPasswordResetOtp(req, "127.0.0.1"));
         assertEquals("Bạn đã nhập sai quá số lần cho phép. Vui lòng yêu cầu mã mới", ex.getMessage());
+    }
+
+    /** Sheet resetPassword - UTCID02 (A): không tìm thấy bản ghi OTP đặt lại mật khẩu. */
+    @Test
+    void TC_UNIT_IdentityService_030a_verifyPasswordResetOtp_recordNotFound() {
+        VerifyPasswordResetOtpRequest req = new VerifyPasswordResetOtpRequest();
+        req.setEmail("test@gmail.com");
+        req.setCode("123456");
+
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.PASSWORD_RESET)).thenReturn(Optional.empty());
+
+        assertThrows(IllegalArgumentException.class,
+                () -> identityService.verifyPasswordResetOtp(req, "127.0.0.1"));
+    }
+
+    /** Sheet resetPassword - UTCID03 (B): OTP đặt lại mật khẩu đã hết hạn. */
+    @Test
+    void TC_UNIT_IdentityService_030b_verifyPasswordResetOtp_expired() {
+        VerifyPasswordResetOtpRequest req = new VerifyPasswordResetOtpRequest();
+        req.setEmail("test@gmail.com");
+        req.setCode("123456");
+
+        EmailOtp otp = new EmailOtp();
+        otp.setEmail("test@gmail.com");
+        otp.setCode("123456");
+        otp.setExpiresAt(LocalDateTime.now().minusMinutes(1));
+        otp.setAttempts(0);
+
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.PASSWORD_RESET)).thenReturn(Optional.of(otp));
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.verifyPasswordResetOtp(req, "127.0.0.1"));
+        assertEquals("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới", ex.getMessage());
+    }
+
+    /** Sheet resetPassword - UTCID05 (A): nhập sai OTP nhưng chưa chạm ngưỡng. */
+    @Test
+    void TC_UNIT_IdentityService_030c_verifyPasswordResetOtp_wrongCode() {
+        VerifyPasswordResetOtpRequest req = new VerifyPasswordResetOtpRequest();
+        req.setEmail("test@gmail.com");
+        req.setCode("999999");
+
+        EmailOtp otp = new EmailOtp();
+        otp.setEmail("test@gmail.com");
+        otp.setCode("123456");
+        otp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        otp.setAttempts(1);
+
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                "test@gmail.com", OtpPurpose.PASSWORD_RESET)).thenReturn(Optional.of(otp));
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.verifyPasswordResetOtp(req, "127.0.0.1"));
+        assertEquals("Mã OTP không đúng", ex.getMessage());
+        assertEquals(2, otp.getAttempts());
+    }
+
+    /** Sheet resetPassword - UTCID01 (N): token hợp lệ + mật khẩu mới hợp lệ -> đổi mật khẩu. */
+    @Test
+    void TC_UNIT_IdentityService_030d_resetPassword_happyPath() {
+        ResetPasswordRequest req = new ResetPasswordRequest();
+        req.setToken("reset-token");
+        req.setNewPassword("New12345");
+
+        User user = new User();
+        user.setUserId(1L);
+        user.setPasswordHash("old-hash");
+
+        PasswordResetToken token = new PasswordResetToken();
+        token.setToken("reset-token");
+        token.setUser(user);
+        token.setExpiresAt(LocalDateTime.now().plusMinutes(10));
+
+        when(passwordResetTokenRepository.findByToken("reset-token")).thenReturn(Optional.of(token));
+        when(passwordEncoder.encode("New12345")).thenReturn("new-hash");
+
+        identityService.resetPassword(req);
+
+        assertEquals("new-hash", user.getPasswordHash());
+        assertNotNull(token.getUsedAt(), "Token phải được đánh dấu đã dùng để không tái sử dụng");
+        verify(userRepository).save(user);
+    }
+
+    /** Sheet resetPassword - UTCID06 (A): token không tồn tại. */
+    @Test
+    void TC_UNIT_IdentityService_030e_resetPassword_tokenNotFound() {
+        ResetPasswordRequest req = new ResetPasswordRequest();
+        req.setToken("unknown-token");
+        req.setNewPassword("New12345");
+
+        when(passwordResetTokenRepository.findByToken("unknown-token")).thenReturn(Optional.empty());
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.resetPassword(req));
+        assertEquals("Token không hợp lệ", ex.getMessage());
+    }
+
+    // =========================================================================================
+    // SIGN IN BY GOOGLE (sheet signInByGoogle - UTCID01..05)
+    // =========================================================================================
+
+    /** Sheet signInByGoogle - UTCID01 (N): token hợp lệ, email đã có tài khoản ACTIVE -> đăng nhập. */
+    @Test
+    void TC_UNIT_IdentityService_030_googleLogin_happyPath() {
+        GoogleLoginRequest req = new GoogleLoginRequest();
+        req.setAccessToken("valid-google-token");
+
+        GoogleTokenVerifier.GooglePayload payload =
+                new GoogleTokenVerifier.GooglePayload("user@gmail.com", "User");
+
+        User user = new User();
+        user.setUserId(60L);
+        user.setEmail("user@gmail.com");
+        user.setStatus(UserStatus.ACTIVE);
+
+        when(googleTokenVerifier.verify("valid-google-token")).thenReturn(payload);
+        when(userRepository.findByEmail("user@gmail.com")).thenReturn(Optional.of(user));
+        when(platformMapper.resolveRole(any())).thenReturn(UserRole.CLIENT);
+        when(platformMapper.toUserListItem(any(), any()))
+                .thenReturn(UserListItemResponse.builder().displayName("User").build());
+        when(jwtService.generateToken(anyLong(), anyString(), any(), anyLong())).thenReturn("jwt-token");
+
+        var res = identityService.loginWithGoogle(req);
+
+        assertFalse(res.isNewUser());
+        verify(userRepository).save(user);
+    }
+
+    /** Sheet signInByGoogle - UTCID02 (N): email chưa có tài khoản -> trả cờ newUser để FE chuyển trang đăng ký. */
+    @Test
+    void TC_UNIT_IdentityService_031_googleLogin_newUserRedirectsToSignup() {
+        GoogleLoginRequest req = new GoogleLoginRequest();
+        req.setAccessToken("valid-google-token");
+
+        GoogleTokenVerifier.GooglePayload payload =
+                new GoogleTokenVerifier.GooglePayload("newone@gmail.com", "New One");
+
+        when(googleTokenVerifier.verify("valid-google-token")).thenReturn(payload);
+        when(userRepository.findByEmail("newone@gmail.com")).thenReturn(Optional.empty());
+
+        var res = identityService.loginWithGoogle(req);
+
+        assertTrue(res.isNewUser(), "Phải trả newUser=true để frontend chuyển sang trang đăng ký");
+        assertEquals("newone@gmail.com", res.getEmail());
+        verify(userRepository, never()).save(any());
+    }
+
+    /** Sheet signInByGoogle - UTCID03 (A): tài khoản đã bị khóa. */
+    @Test
+    void TC_UNIT_IdentityService_032_googleLogin_bannedUser() {
+        GoogleLoginRequest req = new GoogleLoginRequest();
+        req.setAccessToken("valid-google-token");
+
+        GoogleTokenVerifier.GooglePayload payload =
+                new GoogleTokenVerifier.GooglePayload("banned@gmail.com", "Banned");
+
+        User user = new User();
+        user.setEmail("banned@gmail.com");
+        user.setStatus(UserStatus.BANNED);
+
+        when(googleTokenVerifier.verify("valid-google-token")).thenReturn(payload);
+        when(userRepository.findByEmail("banned@gmail.com")).thenReturn(Optional.of(user));
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.loginWithGoogle(req));
+        assertEquals("Tài khoản của bạn đã bị khóa và không thể đăng nhập. Vui lòng liên hệ quản trị viên.",
+                ex.getMessage());
+        verify(userRepository, never()).save(any());
+    }
+
+    /** Sheet signInByGoogle - UTCID04 (A): token Google không hợp lệ. */
+    @Test
+    void TC_UNIT_IdentityService_033_googleLogin_invalidToken() {
+        GoogleLoginRequest req = new GoogleLoginRequest();
+        req.setAccessToken("bad-token");
+
+        when(googleTokenVerifier.verify("bad-token"))
+                .thenThrow(new IllegalArgumentException("Google token không hợp lệ hoặc đã hết hạn."));
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.loginWithGoogle(req));
+        assertEquals("Google token không hợp lệ hoặc đã hết hạn.", ex.getMessage());
+    }
+
+    /** Sheet signInByGoogle - UTCID05 (A): tài khoản đang bị tạm ngừng. */
+    @Test
+    void TC_UNIT_IdentityService_034_googleLogin_suspendedUser() {
+        GoogleLoginRequest req = new GoogleLoginRequest();
+        req.setAccessToken("valid-google-token");
+
+        GoogleTokenVerifier.GooglePayload payload =
+                new GoogleTokenVerifier.GooglePayload("suspended@gmail.com", "Suspended");
+
+        User user = new User();
+        user.setEmail("suspended@gmail.com");
+        user.setStatus(UserStatus.SUSPENDED);
+
+        when(googleTokenVerifier.verify("valid-google-token")).thenReturn(payload);
+        when(userRepository.findByEmail("suspended@gmail.com")).thenReturn(Optional.of(user));
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.loginWithGoogle(req));
+        assertEquals("Tài khoản của bạn đang bị tạm ngừng. Vui lòng liên hệ quản trị viên.", ex.getMessage());
+    }
+
+    // =========================================================================================
+    // SIGN UP BY GOOGLE (sheet signUpByGoogle - UTCID01..03)
+    // Test viết theo ĐẶC TẢ trong Report_5.1_UnitTest, không theo code, để phát hiện lệch spec.
+    // =========================================================================================
+
+    /**
+     * DEF-09. register() chan role == null bang thong bao "Vai tro dang ky khong hop le",
+     * nhung completeGoogleSignup() chi chan PLATFORM_ADMIN/UNKNOWN. Voi role = null,
+     * user duoc save truoc roi createBaselineProfile() switch tren enum null -> NullPointerException
+     * (HTTP 500) thay vi loi 400 co thong bao ro rang.
+     */
+    @Test
+    void TC_UNIT_IdentityService_027b_googleSignup_nullRole() {
+        GoogleCompleteRequest req = new GoogleCompleteRequest();
+        req.setAccessToken("valid-google-token");
+        req.setPhone("0123456789");
+        req.setRole(null);
+
+        when(googleTokenVerifier.verify("valid-google-token"))
+                .thenReturn(new GoogleTokenVerifier.GooglePayload("newuser@gmail.com", "New User"));
+        when(userRepository.findByEmail("newuser@gmail.com")).thenReturn(Optional.empty());
+        when(userRepository.existsByPhone("0123456789")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenAnswer(i -> {
+            User u = i.getArgument(0);
+            u.setUserId(51L);
+            return u;
+        });
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.completeGoogleSignup(req),
+                "role = null phai bi chan bang IllegalArgumentException nhu register(), "
+                        + "khong duoc de rot xuong NullPointerException");
+        assertEquals("Vai trò đăng ký không hợp lệ", ex.getMessage());
+    }
+
+    /** Sheet signUpByGoogle - UTCID01 (N): token hợp lệ, email & phone chưa tồn tại -> đăng ký thành công. */
+    @Test
+    void TC_UNIT_IdentityService_027_googleSignup_happyPath() {
+        GoogleCompleteRequest req = new GoogleCompleteRequest();
+        req.setAccessToken("valid-google-token");
+        req.setPhone("0123456789");
+        req.setRole(UserRole.CLIENT);
+
+        GoogleTokenVerifier.GooglePayload payload =
+                new GoogleTokenVerifier.GooglePayload("newuser@gmail.com", "New User");
+
+        when(googleTokenVerifier.verify("valid-google-token")).thenReturn(payload);
+        when(userRepository.findByEmail("newuser@gmail.com")).thenReturn(Optional.empty());
+        when(userRepository.existsByPhone("0123456789")).thenReturn(false);
+        when(userRepository.save(any(User.class))).thenAnswer(i -> {
+            User u = i.getArgument(0);
+            u.setUserId(50L);
+            return u;
+        });
+        when(platformMapper.resolveRole(any())).thenReturn(UserRole.CLIENT);
+        when(platformMapper.toUserListItem(any(), any()))
+                .thenReturn(UserListItemResponse.builder().displayName("New User").build());
+
+        identityService.completeGoogleSignup(req);
+
+        verify(userRepository).save(any(User.class));
+    }
+
+    /** Sheet signUpByGoogle - UTCID02 (A): token Google không hợp lệ. */
+    @Test
+    void TC_UNIT_IdentityService_028_googleSignup_invalidToken() {
+        GoogleCompleteRequest req = new GoogleCompleteRequest();
+        req.setAccessToken("bad-token");
+        req.setPhone("0123456789");
+        req.setRole(UserRole.CLIENT);
+
+        when(googleTokenVerifier.verify("bad-token"))
+                .thenThrow(new IllegalArgumentException("Google token không hợp lệ hoặc đã hết hạn."));
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.completeGoogleSignup(req));
+        assertEquals("Google token không hợp lệ hoặc đã hết hạn.", ex.getMessage());
+    }
+
+    /** Sheet signUpByGoogle - UTCID03 (A): số điện thoại đã thuộc email khác. */
+    @Test
+    void TC_UNIT_IdentityService_029_googleSignup_phoneAlreadyUsed() {
+        GoogleCompleteRequest req = new GoogleCompleteRequest();
+        req.setAccessToken("valid-google-token");
+        req.setPhone("0123456789");
+        req.setRole(UserRole.CLIENT);
+
+        GoogleTokenVerifier.GooglePayload payload =
+                new GoogleTokenVerifier.GooglePayload("newuser@gmail.com", "New User");
+
+        when(googleTokenVerifier.verify("valid-google-token")).thenReturn(payload);
+        when(userRepository.findByEmail("newuser@gmail.com")).thenReturn(Optional.empty());
+        when(userRepository.existsByPhone("0123456789")).thenReturn(true);
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.completeGoogleSignup(req));
+        assertEquals("Số điện thoại này đã được đăng kí bởi email khác", ex.getMessage());
     }
 }
