@@ -1,0 +1,105 @@
+.fee-settings-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 360px);
+  gap: var(--space-md);
+  align-items: start;
+}
+
+.fee-settings-card__hint,
+.fee-preview-card__hint {
+  margin: 6px 0 0;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  line-height: 1.5;
+}
+
+.fee-settings-link {
+  display: inline-flex;
+  margin-top: var(--space-sm);
+  color: var(--color-primary);
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.fee-settings-link:hover {
+  color: var(--color-primary-dark);
+}
+
+.fee-settings-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.fee-settings-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  max-width: 260px;
+}
+
+.fee-settings-input .adm-field {
+  min-width: 0;
+  flex: 1;
+}
+
+.fee-settings-input span {
+  color: var(--color-text-secondary);
+  font-weight: 700;
+}
+
+.fee-settings-note {
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-md);
+}
+
+.fee-settings-note strong {
+  color: var(--color-text-primary);
+}
+
+.fee-preview-card__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+  margin-top: var(--space-md);
+}
+
+.fee-preview-card__rows > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-md);
+  padding: var(--space-sm);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-3);
+}
+
+.fee-preview-card__rows span {
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+}
+
+.fee-preview-card__rows strong {
+  color: var(--color-text-primary);
+  text-align: right;
+}
+
+.fee-preview-card__highlight {
+  border-color: #86efac !important;
+  background: var(--color-success-light) !important;
+}
+
+.fee-preview-card__highlight strong {
+  color: #166534;
+}
+
+@media (max-width: 960px) {
+  .fee-settings-grid {
+    grid-template-columns: 1fr;
+  }
+}

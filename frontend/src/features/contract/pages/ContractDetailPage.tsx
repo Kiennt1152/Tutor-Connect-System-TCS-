@@ -616,35 +616,6 @@ export default function ContractDetailPage() {
             ) : null}
           </section>
 
-          <section className="contract-card">
-            <div className="contract-card__head">
-              <h2>Các bên ký</h2>
-            </div>
-            <div className="contract-party-list">
-              {contract.tutor ? (
-                <div className="contract-party">
-                  <span>Gia sư</span>
-                  <strong>{contract.tutor.fullName}</strong>
-                  <small>{contract.tutor.email}</small>
-                </div>
-              ) : null}
-              {contract.center ? (
-                <div className="contract-party">
-                  <span>Trung tâm</span>
-                  <strong>{contract.center.fullName}</strong>
-                  <small>{contract.center.email}</small>
-                </div>
-              ) : null}
-              {contract.client ? (
-                <div className="contract-party">
-                  <span>Phụ huynh / Học viên</span>
-                  <strong>{contract.client.fullName}</strong>
-                  <small>{contract.client.email}</small>
-                </div>
-              ) : null}
-            </div>
-          </section>
-
           {visibleEscrowPayment ? (
             needsRefundPayoutInfo ? (
               <section className="contract-card contract-escrow-card">
@@ -778,6 +749,35 @@ export default function ContractDetailPage() {
               </section>
             )
           ) : null}
+
+          <section className="contract-card">
+            <div className="contract-card__head">
+              <h2>Các bên ký</h2>
+            </div>
+            <div className="contract-party-list">
+              {contract.tutor ? (
+                <div className="contract-party">
+                  <span>Gia sư</span>
+                  <strong>{contract.tutor.fullName}</strong>
+                  <small>{contract.tutor.email}</small>
+                </div>
+              ) : null}
+              {contract.center ? (
+                <div className="contract-party">
+                  <span>Trung tâm</span>
+                  <strong>{contract.center.fullName}</strong>
+                  <small>{contract.center.email}</small>
+                </div>
+              ) : null}
+              {contract.client ? (
+                <div className="contract-party">
+                  <span>Phụ huynh / Học viên</span>
+                  <strong>{contract.client.fullName}</strong>
+                  <small>{contract.client.email}</small>
+                </div>
+              ) : null}
+            </div>
+          </section>
 
           <section className="contract-card">
             <div className="contract-card__head">
