@@ -297,26 +297,26 @@ ON DUPLICATE KEY UPDATE full_name = 'Quản Trị Viên Hệ Thống';
 -- PHẦN 4: 20 HỒ SƠ GIA SƯ ĐẦY ĐỦ MÔN (MẬT KHẨU: 123@123a)
 -- =====================================================================
 INSERT IGNORE INTO users (email, phone, password_hash, status, created_at, updated_at) VALUES
-    ('tutor.toan1@tcs.com', '0981000001', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.toan2@tcs.com', '0981000002', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.ly1@tcs.com', '0981000003', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.ly2@tcs.com', '0981000004', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.hoa1@tcs.com', '0981000005', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.hoa2@tcs.com', '0981000006', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.van1@tcs.com', '0981000007', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.van2@tcs.com', '0981000008', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.anh1@tcs.com', '0981000009', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.anh2@tcs.com', '0981000010', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.anh3@tcs.com', '0981000011', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.han1@tcs.com', '0981000012', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.han2@tcs.com', '0981000013', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.trung1@tcs.com', '0981000014', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.trung2@tcs.com', '0981000015', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.tin1@tcs.com', '0981000016', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.tin2@tcs.com', '0981000017', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.tieuhoc1@tcs.com', '0981000018', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.sinh1@tcs.com', '0981000019', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('tutor.sudia1@tcs.com', '0981000020', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW());
+    ('tutor.toan1@tcs.com', '0981000001', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.toan2@tcs.com', '0981000002', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.ly1@tcs.com', '0981000003', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.ly2@tcs.com', '0981000004', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.hoa1@tcs.com', '0981000005', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.hoa2@tcs.com', '0981000006', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.van1@tcs.com', '0981000007', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.van2@tcs.com', '0981000008', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.anh1@tcs.com', '0981000009', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.anh2@tcs.com', '0981000010', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.anh3@tcs.com', '0981000011', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.han1@tcs.com', '0981000012', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.han2@tcs.com', '0981000013', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.trung1@tcs.com', '0981000014', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.trung2@tcs.com', '0981000015', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.tin1@tcs.com', '0981000016', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.tin2@tcs.com', '0981000017', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.tieuhoc1@tcs.com', '0981000018', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.sinh1@tcs.com', '0981000019', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('tutor.sudia1@tcs.com', '0981000020', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW());
 
 -- 4.1 Toán 1 (Hà Nội - ĐH Sư Phạm - Cấp 3)
 INSERT INTO tutors (user_id, full_name, gender, phone, address, experience_years, bio, hourly_rate, rating_avg, verification_status, created_at, updated_at)
