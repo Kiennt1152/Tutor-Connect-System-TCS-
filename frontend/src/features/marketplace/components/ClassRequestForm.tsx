@@ -471,7 +471,6 @@ export function ClassRequestForm({
   const isOffline = form.lessonMode !== 'ONLINE';
   const today = new Date().toLocaleDateString('en-CA');
   const nowHm = new Date().toTimeString().slice(0, 5);
-  const todayDow = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][new Date().getDay()];
 
   const slotErrorSet = new Set<string>();
   form.slots.forEach((s) => {
@@ -483,10 +482,6 @@ export function ClassRequestForm({
       slotErrorSet.add(`${nm}: ngày học không được ở quá khứ`);
     } else if (!isWeekly && s.date === today && s.start <= nowHm) {
       slotErrorSet.add(`${nm}: giờ học hôm nay đã qua (phải sau ${nowHm})`);
-    } else if (isWeekly && s.day === todayDow && s.start <= nowHm) {
-      slotErrorSet.add(
-        `${nm}: buổi ${dayLabel(s.day)} ${s.start} đã qua giờ hôm nay — chọn thứ hoặc giờ khác`,
-      );
     } else if (s.end <= s.start) {
       slotErrorSet.add(`${nm}: giờ kết thúc phải sau giờ bắt đầu`);
     }

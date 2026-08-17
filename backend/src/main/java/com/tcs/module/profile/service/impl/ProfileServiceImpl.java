@@ -16,6 +16,8 @@ import com.tcs.module.profile.dto.request.LinkChildAccountRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
+import com.tcs.module.profile.dto.request.TutorCertificateRequest;
+import com.tcs.module.profile.dto.request.TutorEducationRequest;
 import com.tcs.module.profile.dto.request.TutorExperienceRequest;
 import com.tcs.module.profile.dto.request.UpdateChildProfileRequest;
 import com.tcs.module.profile.dto.request.UpdateProfileRequest;
@@ -23,6 +25,7 @@ import com.tcs.module.profile.dto.response.ChildProfileResponse;
 import com.tcs.module.profile.dto.response.DependentLinkStatusResponse;
 import com.tcs.module.profile.dto.response.GuardianProfileResponse;
 import com.tcs.module.profile.dto.response.ProfileResponse;
+import com.tcs.module.profile.dto.response.PublicTutorProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
 import com.tcs.module.profile.dto.response.TutorCertificateResponse;
 import com.tcs.module.profile.dto.response.TutorEducationResponse;
@@ -114,6 +117,36 @@ public class ProfileServiceImpl implements ProfileService {
     @Transactional(readOnly = true)
     public ProfileResponse getMyProfile() {
         return toProfileResponse(loadContext());
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public PublicTutorProfileResponse getPublicTutorProfile(Long tutorId) {
+        Tutor tutor = tutorRepository
+                .findById(tutorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy gia sư"));
+        Long id = tutor.getTutorId();
+        return PublicTutorProfileResponse.builder()
+                .tutorId(id)
+                .userId(tutor.getUser().getUserId())
+                .fullName(tutor.getFullName())
+                .avatarUrl(tutor.getAvatar())
+                .gender(tutor.getGender())
+                .bio(tutor.getBio())
+                .experienceYears(tutor.getExperienceYears())
+                .hourlyRate(tutor.getHourlyRate())
+                .ratingAvg(tutor.getRatingAvg())
+                .verificationStatus(tutor.getVerificationStatus())
+                .educations(tutorEducationRepository.findByTutor_TutorId(id).stream()
+                        .map(this::toEducationResponse)
+                        .toList())
+                .certificates(tutorCertificateRepository.findByTutor_TutorId(id).stream()
+                        .map(this::toCertificateResponse)
+                        .toList())
+                .experiences(tutorExperienceRepository.findByTutor_TutorId(id).stream()
+                        .map(this::toExperienceResponse)
+                        .toList())
+                .build();
     }
 
     @Override
@@ -437,6 +470,92 @@ public class ProfileServiceImpl implements ProfileService {
         tutorExperienceRepository.delete(exp);
         auditLogService.record(tutor.getUser().getUserId(), "DELETE_EXPERIENCE", "TutorExperience",
                 experienceId, null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TutorEducationResponse> getMyEducations() {
+        Tutor tutor = requireTutor(loadContext());
+        return tutorEducationRepository.findByTutor_TutorId(tutor.getTutorId()).stream()
+                .map(this::toEducationResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public TutorEducationResponse addEducation(TutorEducationRequest request) {
+        Tutor tutor = requireTutor(loadContext());
+        if (!StringUtils.hasText(request.getInstitution()) || !StringUtils.hasText(request.getDegree())) {
+            throw new IllegalArgumentException("Cơ sở đào tạo và bằng cấp là bắt buộc");
+        }
+        com.tcs.module.profile.entity.TutorEducation edu = new com.tcs.module.profile.entity.TutorEducation();
+        edu.setTutor(tutor);
+        edu.setInstitution(request.getInstitution());
+        edu.setDegree(request.getDegree());
+        edu.setFieldOfStudy(request.getFieldOfStudy());
+        edu.setStartYear(request.getStartYear());
+        edu.setEndYear(request.getEndYear());
+        com.tcs.module.profile.entity.TutorEducation saved = tutorEducationRepository.save(edu);
+        auditLogService.record(tutor.getUser().getUserId(), "ADD_EDUCATION", "TutorEducation",
+                saved.getEducationId(), null, request);
+        return toEducationResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteEducation(Long educationId) {
+        Tutor tutor = requireTutor(loadContext());
+        com.tcs.module.profile.entity.TutorEducation edu = tutorEducationRepository
+                .findById(educationId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy học vấn"));
+        if (!edu.getTutor().getTutorId().equals(tutor.getTutorId())) {
+            throw new ForbiddenException("Không có quyền xóa học vấn này");
+        }
+        tutorEducationRepository.delete(edu);
+        auditLogService.record(tutor.getUser().getUserId(), "DELETE_EDUCATION", "TutorEducation",
+                educationId, null, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TutorCertificateResponse> getMyCertificates() {
+        Tutor tutor = requireTutor(loadContext());
+        return tutorCertificateRepository.findByTutor_TutorId(tutor.getTutorId()).stream()
+                .map(this::toCertificateResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public TutorCertificateResponse addCertificate(TutorCertificateRequest request) {
+        Tutor tutor = requireTutor(loadContext());
+        if (!StringUtils.hasText(request.getName()) || !StringUtils.hasText(request.getIssuer())) {
+            throw new IllegalArgumentException("Tên chứng chỉ và nơi cấp là bắt buộc");
+        }
+        com.tcs.module.profile.entity.TutorCertificate cert = new com.tcs.module.profile.entity.TutorCertificate();
+        cert.setTutor(tutor);
+        cert.setName(request.getName());
+        cert.setIssuer(request.getIssuer());
+        cert.setIssueDate(request.getIssueDate());
+        com.tcs.module.profile.entity.TutorCertificate saved = tutorCertificateRepository.save(cert);
+        auditLogService.record(tutor.getUser().getUserId(), "ADD_CERTIFICATE", "TutorCertificate",
+                saved.getCertificateId(), null, request);
+        return toCertificateResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteCertificate(Long certificateId) {
+        Tutor tutor = requireTutor(loadContext());
+        com.tcs.module.profile.entity.TutorCertificate cert = tutorCertificateRepository
+                .findById(certificateId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy chứng chỉ"));
+        if (!cert.getTutor().getTutorId().equals(tutor.getTutorId())) {
+            throw new ForbiddenException("Không có quyền xóa chứng chỉ này");
+        }
+        tutorCertificateRepository.delete(cert);
+        auditLogService.record(tutor.getUser().getUserId(), "DELETE_CERTIFICATE", "TutorCertificate",
+                certificateId, null, null);
     }
 
     @Override

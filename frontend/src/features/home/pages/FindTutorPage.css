@@ -9,6 +9,99 @@
   margin-bottom: 16px;
 }
 
+/* Thanh tìm kiếm gia sư */
+.tcs-find-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.tcs-find-search__icon {
+  position: absolute;
+  left: 16px;
+  font-size: 16px;
+  pointer-events: none;
+  opacity: 0.7;
+}
+.tcs-find-search__input {
+  width: 100%;
+  padding: 13px 44px;
+  border-radius: 12px;
+  border: 1px solid #e3e9f2;
+  background: #fff;
+  font-size: 15px;
+  color: #12233b;
+  box-shadow: 0 2px 10px rgba(18, 35, 59, 0.05);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.tcs-find-search__input::placeholder {
+  color: #97a4b6;
+}
+.tcs-find-search__input:focus {
+  outline: none;
+  border-color: #ea5a1c;
+  box-shadow: 0 0 0 3px rgba(234, 90, 28, 0.14);
+}
+.tcs-find-search__clear {
+  position: absolute;
+  right: 12px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: #eef2f7;
+  color: #5b6b7f;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tcs-find-search__clear:hover {
+  background: #ea5a1c;
+  color: #fff;
+}
+
+/* Phân trang danh sách gia sư */
+.tcs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 28px;
+}
+.tcs-pagination__nav,
+.tcs-pagination__page {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #e3e9f2;
+  background: #fff;
+  color: #33465e;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.tcs-pagination__nav:hover:not(:disabled),
+.tcs-pagination__page:hover:not(.tcs-pagination__page--active) {
+  border-color: #ea5a1c;
+  color: #ea5a1c;
+}
+.tcs-pagination__nav:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.tcs-pagination__page--active {
+  background: linear-gradient(92deg, #ea5a1c 0%, #f08f34 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(234, 90, 28, 0.24);
+}
+
 .tcs-find-listbar {
   flex-wrap: wrap;
 }

@@ -93,6 +93,9 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.TUTOR_CENTER)
                         .requestMatchers(HttpMethod.GET, "/api/contract/reviews/**")
                         .permitAll()
+                        // Hồ sơ công khai của gia sư (trang /gia-su/:tutorId).
+                        .requestMatchers(HttpMethod.GET, "/api/profile/tutor/**")
+                        .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/payments/webhook")
                         .permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/finance/webhooks/**")
@@ -131,7 +134,11 @@ public class SecurityConfig {
 
                         .requestMatchers("/api/profile/children/**")
                         .hasRole(RbacConstants.CLIENT)
-                        .requestMatchers("/api/profile/experiences/**", "/api/profile/availability/**")
+                        .requestMatchers(
+                                "/api/profile/experiences/**",
+                                "/api/profile/educations/**",
+                                "/api/profile/certificates/**",
+                                "/api/profile/availability/**")
                         .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/profile/verification/submit")
                         .hasAnyRole(RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)

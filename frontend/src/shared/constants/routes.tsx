@@ -7,7 +7,7 @@ export const APP_ROUTES = {
   classBoard: '/danh-sach-lop',
   /** Trang "Tìm lớp phù hợp với bạn" — duyệt lớp đang mở để đăng ký (bản của center/class). */
   classFinder: '/lop-hoc',
-  tutorProfile: '/gia-su/:tutorId',
+  tutorProfile: '/gia-su/chi-tiet-gia-su/:tutorId',
   /** Trang "Đánh giá" công khai: danh sách toàn bộ gia sư kèm số sao để xem chi tiết đánh giá. */
   tutorReviews: '/danh-gia',
   teaching: '/lich-day',
@@ -58,4 +58,5 @@ export const APP_ROUTES = {
   forbidden: '/forbidden',
 } as const;
 
-export const tutorProfilePath = (tutorId: number | string) => `/gia-su/${tutorId}`;
+export const tutorProfilePath = (tutorId: number | string) =>
+  `/gia-su/chi-tiet-gia-su/${tutorId}`;

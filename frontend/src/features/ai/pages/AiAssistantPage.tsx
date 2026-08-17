@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { aiApi } from '../api/aiApi';
 import type { AiMessage, AiSession } from '../types/aiTypes';
-import { APP_ROUTES } from '../../../shared/constants/routes';
+import { APP_ROUTES, tutorProfilePath } from '../../../shared/constants/routes';
 import './AiAssistantPage.css';
 
 export default function AiAssistantPage() {
@@ -351,7 +351,7 @@ export default function AiAssistantPage() {
                               <button
                                 type="button"
                                 className="ai-mini-card-btn"
-                                onClick={() => navigate(t.tutorId ? `/gia-su/${t.tutorId}` : APP_ROUTES.findTutor)}
+                                onClick={() => navigate(t.tutorId ? tutorProfilePath(t.tutorId) : APP_ROUTES.findTutor)}
                               >
                                 Xem hồ sơ gia sư →
                               </button>

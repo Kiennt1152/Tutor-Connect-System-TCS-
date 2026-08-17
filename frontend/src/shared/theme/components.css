@@ -151,10 +151,20 @@
   font-weight: 600;
 }
 
+.tcs-listing-card__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 .tcs-listing-card__foot .tcs-btn {
   height: 36px;
   padding: 0 var(--space-md);
   font-size: var(--fs-body-sm);
+}
+
+.tcs-listing-card__review {
+  white-space: nowrap;
 }
 
 .tcs-listing-card--compact {
