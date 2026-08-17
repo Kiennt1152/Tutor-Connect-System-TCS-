@@ -483,7 +483,8 @@ class MarketplaceServiceImplTest {
         when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
         when(userRepository.findById(TUTOR_USER_ID)).thenReturn(Optional.of(tutorUser));
         when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
-        when(classAssignmentRepository.findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(CLASS_ID))
+        when(classAssignmentRepository.findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        CLASS_ID, ClassAssignmentStatus.ACTIVE))
                 .thenReturn(Optional.of(assignment));
         when(lessonRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(lessons);
         when(contractService.hasClientReviewedClass(CLASS_ID)).thenReturn(true);
@@ -497,6 +498,33 @@ class MarketplaceServiceImplTest {
         assertEquals(TutoringClassStatus.COMPLETED, tutoringClass.getStatus());
         verify(escrowService).apply(any(ReleaseInstruction.class));
         verify(centerRequestFeeService).releaseForFulfilledAssignment(eq(ASSIGNMENT_ID), anyString());
+        verify(tutoringClassRepository).save(tutoringClass);
+    }
+
+    @Test
+    void completeClassAfterClientReviewClosesPrivateClassWhenTutorAlreadyConfirmed() {
+        User clientUser = user(CLIENT_USER_ID);
+        User tutorUser = user(TUTOR_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.IN_PROGRESS);
+        tutoringClass.setClassType(ClassType.PRIVATE);
+        ClassAssignment assignment = assignment(tutoringClass, tutorUser);
+        assignment.setTutorCompletedAt(LocalDateTime.now().minusMinutes(10));
+        EscrowTransaction escrow = escrow(92L, new BigDecimal("100000.00"));
+
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(classAssignmentRepository.findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        CLASS_ID, ClassAssignmentStatus.ACTIVE))
+                .thenReturn(Optional.of(assignment));
+        when(escrowTransactionRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID))
+                .thenReturn(Optional.of(escrow));
+        when(contractRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID)).thenReturn(Optional.empty());
+
+        marketplaceService.completeClassAfterClientReview(CLASS_ID);
+
+        assertEquals(TutoringClassStatus.COMPLETED, tutoringClass.getStatus());
+        org.junit.jupiter.api.Assertions.assertNotNull(assignment.getClientCompletedAt());
+        verify(classAssignmentRepository).save(assignment);
+        verify(escrowService).apply(any(ReleaseInstruction.class));
         verify(tutoringClassRepository).save(tutoringClass);
     }
 

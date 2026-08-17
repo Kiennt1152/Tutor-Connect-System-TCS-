@@ -2,7 +2,6 @@ package com.tcs.module.identity.dto.response;
 
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.profile.enums.UserRole;
-import java.time.LocalDateTime;
 import lombok.Builder;
 import lombok.Getter;
 
@@ -17,4 +16,5 @@ public class AuthResponse {
     private String displayName;
     private UserStatus status;
     private boolean firstLogin;
+    private long tokenExpiresInSeconds;
 }

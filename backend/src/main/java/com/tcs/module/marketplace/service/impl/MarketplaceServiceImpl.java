@@ -2661,8 +2661,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             throw new IllegalArgumentException("Chức năng hoàn thành lớp chỉ áp dụng cho lớp gia sư riêng.");
         }
         ClassAssignment assignment = classAssignmentRepository
-                .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(classId)
-                .filter(a -> a.getStatus() == ClassAssignmentStatus.ACTIVE)
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
                 .orElseThrow(() -> new IllegalArgumentException("Lớp chưa có gia sư nhận, không thể hoàn thành."));
         String role = contractRoleOf(assignment, c); // ném lỗi nếu không phải gia sư/người tạo lớp
         if (!"TUTOR".equals(role)) {
@@ -2723,8 +2722,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return;
         }
         ClassAssignment assignment = classAssignmentRepository
-                .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(classId)
-                .filter(a -> a.getStatus() == ClassAssignmentStatus.ACTIVE)
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
                 .orElse(null);
         // Chỉ đóng khi gia sư đã yêu cầu hoàn thành trước đó.
         if (assignment == null || assignment.getTutorCompletedAt() == null
