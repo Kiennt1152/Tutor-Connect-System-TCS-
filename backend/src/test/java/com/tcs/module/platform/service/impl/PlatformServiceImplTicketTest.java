@@ -20,6 +20,7 @@ import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.security.AuthHelper;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +59,10 @@ class PlatformServiceImplTicketTest {
     private AuditLogService auditLogService;
     @Mock
     private AuthHelper authHelper;
+    @Mock
+    private com.tcs.module.marketplace.repository.TutoringClassRepository tutoringClassRepository;
+    @Mock
+    private com.tcs.module.platform.repository.ReportRepository reportRepository;
 
     @InjectMocks
     private PlatformServiceImpl platformService;
@@ -265,5 +270,253 @@ class PlatformServiceImplTicketTest {
         assertEquals(45000L, response.getResponseSlaMs());
         assertEquals(SupportTicketStatus.IN_PROGRESS, response.getStatus());
         assertEquals(platformAdmin.getAdminId(), response.getAssignedAdminId());
+    }
+
+    @Test
+    @DisplayName("mergeTicket: gộp ticket nguồn vào ticket đích thành công (BF09-TC03)")
+    void mergeTicket_Success() {
+        Long targetTicketId = 1L;
+        SupportTicket targetTicket = new SupportTicket();
+        targetTicket.setTicketId(targetTicketId);
+        targetTicket.setUser(ticketUser);
+        targetTicket.setSubject("Yêu cầu gốc");
+        targetTicket.setStatus(SupportTicketStatus.IN_PROGRESS);
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(supportTicketRepository.findById(targetTicketId)).thenReturn(Optional.of(targetTicket));
+        when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(i -> i.getArgument(0));
+
+        com.tcs.module.platform.dto.request.MergeTicketRequest request = new com.tcs.module.platform.dto.request.MergeTicketRequest();
+        request.setTargetTicketId(targetTicketId);
+        request.setReason("Trùng vấn đề nạp tiền");
+
+        SupportTicketDetailResponse response = platformService.mergeTicket(TICKET_ID, request);
+
+        assertNotNull(response);
+        assertEquals(SupportTicketStatus.CLOSED, ticket.getStatus());
+        assertNotNull(ticket.getClosedAt());
+
+        // Verify message was created in target ticket
+        ArgumentCaptor<TicketMessage> msgCaptor = ArgumentCaptor.forClass(TicketMessage.class);
+        verify(ticketMessageRepository).save(msgCaptor.capture());
+        TicketMessage savedMsg = msgCaptor.getValue();
+        assertEquals(targetTicket, savedMsg.getTicket());
+        assertTrue(savedMsg.getContent().contains("GỘP TICKET"));
+        assertTrue(savedMsg.getContent().contains(ticket.getSubject()));
+        assertTrue(savedMsg.getContent().contains("Trùng vấn đề nạp tiền"));
+
+        // Verify audit log
+        verify(auditLogService).record(eq("MERGE_TICKET"), eq("SupportTicket"), eq(TICKET_ID), any(), any());
+
+        // Verify notification
+        verify(notificationDispatchService).notifyUserFromTemplate(
+                eq(ticketUser), any(), eq("SUPPORT_TICKET_RESPONSE"), any(), any(), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+    }
+
+    @Test
+    @DisplayName("mergeTicket: từ chối khi gộp ticket vào chính nó")
+    void mergeTicket_RejectsSameTicket() {
+        com.tcs.module.platform.dto.request.MergeTicketRequest request = new com.tcs.module.platform.dto.request.MergeTicketRequest();
+        request.setTargetTicketId(TICKET_ID);
+
+        assertThrows(IllegalArgumentException.class, () -> platformService.mergeTicket(TICKET_ID, request));
+        verify(supportTicketRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("mergeTicket: từ chối khi gộp ticket của 2 người dùng khác nhau")
+    void mergeTicket_RejectsDifferentUsers() {
+        Long targetTicketId = 1L;
+        User otherUser = new User();
+        otherUser.setUserId(999L);
+        otherUser.setEmail("other@example.com");
+
+        SupportTicket targetTicket = new SupportTicket();
+        targetTicket.setTicketId(targetTicketId);
+        targetTicket.setUser(otherUser);
+        targetTicket.setStatus(SupportTicketStatus.OPEN);
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(supportTicketRepository.findById(targetTicketId)).thenReturn(Optional.of(targetTicket));
+
+        com.tcs.module.platform.dto.request.MergeTicketRequest request = new com.tcs.module.platform.dto.request.MergeTicketRequest();
+        request.setTargetTicketId(targetTicketId);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> platformService.mergeTicket(TICKET_ID, request));
+        assertEquals("Chỉ có thể gộp các ticket của cùng một người dùng", ex.getMessage());
+        verify(ticketMessageRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("mergeTicket: từ chối khi ticket đích đã bị đóng")
+    void mergeTicket_RejectsAlreadyClosedTargetTicket() {
+        Long targetTicketId = 1L;
+        SupportTicket targetTicket = new SupportTicket();
+        targetTicket.setTicketId(targetTicketId);
+        targetTicket.setUser(ticketUser);
+        targetTicket.setStatus(SupportTicketStatus.CLOSED);
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(supportTicketRepository.findById(targetTicketId)).thenReturn(Optional.of(targetTicket));
+
+        com.tcs.module.platform.dto.request.MergeTicketRequest request = new com.tcs.module.platform.dto.request.MergeTicketRequest();
+        request.setTargetTicketId(targetTicketId);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> platformService.mergeTicket(TICKET_ID, request));
+        assertEquals("Không thể gộp vào ticket đích đã bị đóng", ex.getMessage());
+        verify(ticketMessageRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("scanAndEscalateSlaBreaches: tự động nâng độ ưu tiên và gửi nhắc nhở khi quá hạn SLA (BF09-TC02)")
+    void scanAndEscalateSlaBreaches_Success() {
+        ticket.setPriority(SupportTicketPriority.LOW);
+        ticket.setSlaBreached(false);
+        ticket.setAssignedAdmin(platformAdmin);
+
+        when(supportTicketRepository.findBreachedCandidateTickets(any(), any()))
+                .thenReturn(List.of(ticket));
+        when(platformAdminRepository.findAll()).thenReturn(List.of(platformAdmin));
+
+        int count = platformService.scanAndEscalateSlaBreaches();
+
+        assertEquals(1, count);
+        assertTrue(ticket.getSlaBreached());
+        assertEquals(SupportTicketPriority.MEDIUM, ticket.getPriority());
+
+        // Verify save
+        verify(supportTicketRepository).save(ticket);
+
+        // Verify audit log
+        verify(auditLogService).record(
+                eq("SLA_BREACH_ESCALATION"), eq("SupportTicket"), eq(TICKET_ID), any(), any());
+
+        // Verify admin reminder notification
+        verify(notificationDispatchService).notifyUser(
+                eq(adminUser), any(), contains("Cảnh báo quá hạn SLA"), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+
+        // Verify user progress notification
+        verify(notificationDispatchService).notifyUser(
+                eq(ticketUser), any(), contains("Cập nhật tiến độ"), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+    }
+
+    @Test
+    @DisplayName("scanAndEscalateSlaBreaches: nâng HIGH lên URGENT và gửi broadcast khi chưa gán admin")
+    void scanAndEscalateSlaBreaches_HighToUrgentBroadcast() {
+        ticket.setPriority(SupportTicketPriority.HIGH);
+        ticket.setSlaBreached(false);
+        ticket.setAssignedAdmin(null);
+
+        when(supportTicketRepository.findBreachedCandidateTickets(any(), any()))
+                .thenReturn(List.of(ticket));
+        when(platformAdminRepository.findAll()).thenReturn(List.of(platformAdmin));
+
+        int count = platformService.scanAndEscalateSlaBreaches();
+
+        assertEquals(1, count);
+        assertTrue(ticket.getSlaBreached());
+        assertEquals(SupportTicketPriority.URGENT, ticket.getPriority());
+
+        // Verify admin broadcast notification
+        verify(notificationDispatchService).notifyUser(
+                eq(adminUser), any(), contains("Cảnh báo quá hạn SLA"), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+    }
+
+    @Test
+    @DisplayName("scanAndEscalateSlaBreaches: trả về 0 khi không có ticket nào quá hạn")
+    void scanAndEscalateSlaBreaches_NoBreaches() {
+        when(supportTicketRepository.findBreachedCandidateTickets(any(), any()))
+                .thenReturn(List.of());
+
+        int count = platformService.scanAndEscalateSlaBreaches();
+
+        assertEquals(0, count);
+        verify(supportTicketRepository, never()).save(any());
+        verify(notificationDispatchService, never()).notifyUser(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("redirectTicketToDispute: chuyển đổi category thành DISPUTE, nâng độ ưu tiên lên HIGH và gửi thông báo (BF09-TC07)")
+    void redirectTicketToDispute_Success() {
+        ticket.setCategory(SupportTicketCategory.INQUIRY);
+        ticket.setPriority(SupportTicketPriority.LOW);
+        ticket.setStatus(SupportTicketStatus.OPEN);
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(i -> i.getArgument(0));
+
+        com.tcs.module.platform.dto.request.RedirectDisputeRequest req = new com.tcs.module.platform.dto.request.RedirectDisputeRequest();
+        req.setNotes("Chuyển sang hòa giải lớp học");
+
+        SupportTicketDetailResponse res = platformService.redirectTicketToDispute(TICKET_ID, req);
+
+        assertNotNull(res);
+        assertEquals(SupportTicketCategory.DISPUTE, ticket.getCategory());
+        assertEquals(SupportTicketPriority.HIGH, ticket.getPriority());
+
+        // Verify message created
+        verify(ticketMessageRepository).save(any());
+
+        // Verify audit log
+        verify(auditLogService).record(eq("REDIRECT_TICKET_TO_DISPUTE"), eq("SupportTicket"), eq(TICKET_ID), any(), any());
+
+        // Verify user notified
+        verify(notificationDispatchService).notifyUserFromTemplate(
+                eq(ticketUser), any(), eq("SUPPORT_TICKET_RESPONSE"), any(), any(), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+    }
+
+    @Test
+    @DisplayName("redirectTicketToDispute: tạo bản ghi Report khi có targetClassId")
+    void redirectTicketToDispute_WithClassCreatesReport() {
+        Long classId = 99L;
+        com.tcs.module.marketplace.entity.TutoringClass tutoringClass = new com.tcs.module.marketplace.entity.TutoringClass();
+        tutoringClass.setClassId(classId);
+        tutoringClass.setTitle("Toán 12");
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(tutoringClassRepository.findById(classId)).thenReturn(Optional.of(tutoringClass));
+        when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(i -> i.getArgument(0));
+
+        com.tcs.module.platform.dto.request.RedirectDisputeRequest req = new com.tcs.module.platform.dto.request.RedirectDisputeRequest();
+        req.setTargetClassId(classId);
+        req.setNotes("Khiếu nại không hoàn tiền");
+
+        platformService.redirectTicketToDispute(TICKET_ID, req);
+
+        assertEquals(tutoringClass, ticket.getTargetClass());
+        verify(reportRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("redirectTicketToDispute: từ chối khi ticket đã bị đóng")
+    void redirectTicketToDispute_RejectsClosedTicket() {
+        ticket.setStatus(SupportTicketStatus.CLOSED);
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> platformService.redirectTicketToDispute(TICKET_ID, new com.tcs.module.platform.dto.request.RedirectDisputeRequest()));
+        assertEquals("Không thể chuyển tiếp ticket đã bị đóng", ex.getMessage());
+        verify(ticketMessageRepository, never()).save(any());
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -46,6 +47,12 @@ public class PlatformAnalyticsController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
                 .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
                 .body(csvData);
+    }
+
+    @PostMapping("/scheduled-reports/trigger")
+    public java.util.Map<String, Object> triggerScheduledReport() {
+        int count = analyticsService.generateScheduledDailyReport();
+        return java.util.Map.of("message", "Tạo báo cáo định kỳ tự động thành công", "count", count, "status", "SUCCESS");
     }
 
     private void validateRange(LocalDate from, LocalDate to) {
