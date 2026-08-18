@@ -264,7 +264,7 @@ public class AiServiceImpl implements AiService {
         List<AiSourceResponse> allSources = new ArrayList<>();
         String lowerQuery = request.getMessage().toLowerCase();
 
-        if (domain != AiDomain.CONVERSATION_SAFETY && domain != AiDomain.OPEN_DOMAIN) {
+        if (domain != AiDomain.CONVERSATION_SAFETY && domain != AiDomain.OPEN_DOMAIN && domain != AiDomain.OUT_OF_SCOPE) {
             // Unified Vector RAG retrieval: Always retrieve top semantic chunks across all knowledge
             List<AiRetrievalService.RetrievalResult> vectorResults = retrievalService.retrieve(rewritten.rewrittenQuery(), userRole, userId);
             List<AiSourceResponse> rerankedVectorResults = rerankService.rerank(vectorResults, new AiIntentService.IntentResultWithEntities(legacyIntent, classification.confidence(), entities), rewritten.rewrittenQuery());
@@ -289,6 +289,11 @@ public class AiServiceImpl implements AiService {
 
         // Deduplicate and keep top 4 sources
         allSources = deduplicateAndLimitSources(allSources, 4);
+
+        // Score Guard: Drop sources with finalScore below minimum relevance threshold.
+        // This prevents showing completely irrelevant FAQ/chunks for off-topic queries
+        // that somehow passed through the classifier (e.g. keyword fallback mode).
+        allSources.removeIf(s -> s.getFinalScore() < 0.60);
 
         // 6. Grounding Evaluation
         AiAnswerEvaluatorService.EvaluatedAnswer evaluation = evaluatorService.evaluate(legacyIntent, allSources);
@@ -321,6 +326,47 @@ public class AiServiceImpl implements AiService {
                     .confidenceLevel("NONE")
                     .sourceCount(0)
                     .groundingStatus("NO_RELEVANT_DATA")
+                    .sources(List.of())
+                    .referencedTutors(List.of())
+                    .referencedClasses(List.of())
+                    .referencedFaqs(List.of())
+                    .build();
+        }
+
+        // 6.6. OUT_OF_SCOPE Fallback: polite redirection when no relevant sources found
+        if (domain == AiDomain.OUT_OF_SCOPE && allSources.isEmpty()) {
+            String outOfScopeMsg = "Xin lỗi, câu hỏi này nằm ngoài phạm vi hỗ trợ của Trợ lý AI TCS. " +
+                    "Tôi có thể giúp bạn:\n" +
+                    "• 🔍 Tìm gia sư phù hợp\n" +
+                    "• 📚 Tìm lớp học đang tuyển\n" +
+                    "• ❓ Giải đáp chính sách hệ thống\n" +
+                    "• 💰 Hướng dẫn nạp/rút tiền\n\n" +
+                    "Bạn muốn tôi hỗ trợ điều gì?";
+
+            AiChatMessage aiMsg = new AiChatMessage();
+            aiMsg.setSession(session);
+            aiMsg.setRole("assistant");
+            aiMsg.setContent(outOfScopeMsg);
+            messageRepository.save(aiMsg);
+            sessionRepository.save(session);
+            conversationContextService.saveContext(session.getSessionId(), domain, subIntent, entities, request.getMessage());
+
+            return AiMessageResponse.builder()
+                    .messageId(aiMsg.getMessageId())
+                    .sessionId(session.getSessionId())
+                    .role("assistant")
+                    .content(outOfScopeMsg)
+                    .createdAt(aiMsg.getCreatedAt())
+                    .intent(legacyIntent.name())
+                    .domain(domain.name())
+                    .subIntent(subIntent.name())
+                    .suggestedRoute("/help")
+                    .clarificationOptions(List.of("Tìm gia sư (/tim-gia-su)", "Xem lớp học (/lop-hoc)", "Câu hỏi thường gặp (/help)"))
+                    .answerMode("FALLBACK_OUT_OF_SCOPE")
+                    .confidenceScore(0.0)
+                    .confidenceLevel("NONE")
+                    .sourceCount(0)
+                    .groundingStatus("OUT_OF_SCOPE")
                     .sources(List.of())
                     .referencedTutors(List.of())
                     .referencedClasses(List.of())
