@@ -38,8 +38,11 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
   const [closeNote, setCloseNote] = useState('');
   const [showClose, setShowClose] = useState(false);
   const [showMerge, setShowMerge] = useState(false);
+  const [showDisputeTransfer, setShowDisputeTransfer] = useState(false);
   const [targetTicketId, setTargetTicketId] = useState('');
   const [mergeReason, setMergeReason] = useState('');
+  const [disputeClassId, setDisputeClassId] = useState('');
+  const [disputeNotes, setDisputeNotes] = useState('');
   const [editCategory, setEditCategory] = useState<AdminTicketCategory | ''>('');
   const [editPriority, setEditPriority] = useState<AdminTicketPriority | ''>('');
   const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState(false);
@@ -50,8 +53,11 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
     setCloseNote('');
     setShowClose(false);
     setShowMerge(false);
+    setShowDisputeTransfer(false);
     setTargetTicketId('');
     setMergeReason('');
+    setDisputeClassId('');
+    setDisputeNotes('');
     reload();
     onUpdated();
   };
@@ -73,6 +79,14 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
     void mutations.mergeTicket(ticketId, {
       targetTicketId: targetIdNum,
       reason: mergeReason.trim() || undefined,
+    });
+  };
+
+  const handleRedirectDispute = () => {
+    const classIdNum = disputeClassId.trim() ? parseInt(disputeClassId.trim(), 10) : undefined;
+    void mutations.redirectTicketToDispute(ticketId, {
+      targetClassId: classIdNum && !isNaN(classIdNum) ? classIdNum : undefined,
+      notes: disputeNotes.trim() || undefined,
     });
   };
 
@@ -125,10 +139,16 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
             setShowClose={setShowClose}
             showMerge={showMerge}
             setShowMerge={setShowMerge}
+            showDisputeTransfer={showDisputeTransfer}
+            setShowDisputeTransfer={setShowDisputeTransfer}
             targetTicketId={targetTicketId}
             setTargetTicketId={setTargetTicketId}
             mergeReason={mergeReason}
             setMergeReason={setMergeReason}
+            disputeClassId={disputeClassId}
+            setDisputeClassId={setDisputeClassId}
+            disputeNotes={disputeNotes}
+            setDisputeNotes={setDisputeNotes}
             isTerminated={isTerminated}
             editCategory={editCategory || detail.category}
             setEditCategory={setEditCategory}
@@ -143,6 +163,7 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
             onUpdate={handleUpdate}
             onCloseTicket={handleClose}
             onMergeTicket={handleMerge}
+            onRedirectDispute={handleRedirectDispute}
           />
         )}
         {detail && (
@@ -178,10 +199,16 @@ type ContentProps = {
   setShowClose: (v: boolean) => void;
   showMerge: boolean;
   setShowMerge: (v: boolean) => void;
+  showDisputeTransfer: boolean;
+  setShowDisputeTransfer: (v: boolean) => void;
   targetTicketId: string;
   setTargetTicketId: (v: string) => void;
   mergeReason: string;
   setMergeReason: (v: string) => void;
+  disputeClassId: string;
+  setDisputeClassId: (v: string) => void;
+  disputeNotes: string;
+  setDisputeNotes: (v: string) => void;
   isTerminated: boolean;
   editCategory: AdminTicketCategory | '';
   setEditCategory: (value: AdminTicketCategory) => void;
@@ -196,6 +223,7 @@ type ContentProps = {
   onUpdate: () => void;
   onCloseTicket: (s: 'RESOLVED' | 'CLOSED') => void;
   onMergeTicket: () => void;
+  onRedirectDispute: () => void;
 };
 
 function TicketDetailContent({
@@ -208,10 +236,16 @@ function TicketDetailContent({
   setShowClose,
   showMerge,
   setShowMerge,
+  showDisputeTransfer,
+  setShowDisputeTransfer,
   targetTicketId,
   setTargetTicketId,
   mergeReason,
   setMergeReason,
+  disputeClassId,
+  setDisputeClassId,
+  disputeNotes,
+  setDisputeNotes,
   isTerminated,
   editCategory,
   setEditCategory,
@@ -226,6 +260,7 @@ function TicketDetailContent({
   onUpdate,
   onCloseTicket,
   onMergeTicket,
+  onRedirectDispute,
 }: ContentProps) {
   return (
     <>
@@ -238,6 +273,16 @@ function TicketDetailContent({
             <span className="tcs-badge" style={{ background: '#f0f4f8', color: '#4a5568' }}>
               {detail.categoryLabel}
             </span>
+            {detail.category === 'DISPUTE' && (
+              <a
+                href="/platform/reports"
+                className="tcs-badge"
+                style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', textDecoration: 'none', fontWeight: 600 }}
+                title="Mở trang Xử lý Báo cáo & Tranh chấp"
+              >
+                Mở trang Báo cáo & Tranh chấp
+              </a>
+            )}
             {detail.slaBreached && (
               <span className="tcs-badge" style={{ background: '#fee2e2', color: '#dc2626', fontWeight: 600 }}>
                 Quá hạn SLA
@@ -426,6 +471,50 @@ function TicketDetailContent({
               </div>
             )}
 
+            {showDisputeTransfer && (
+              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginTop: '0.75rem' }}>
+                <div style={{ fontWeight: 600, color: '#92400e', marginBottom: '6px', fontSize: '0.9rem' }}>
+                  Chuyển tiếp sang luồng Tranh chấp & Báo cáo sự cố (BF-08)
+                </div>
+                <p style={{ fontSize: '0.8rem', color: '#b45309', marginBottom: '8px' }}>
+                  Ticket sẽ được cập nhật sang danh mục DISPUTE, nâng mức ưu tiên lên HIGH và tự động tạo báo cáo sự cố trong trang /platform/reports.
+                </p>
+                <input
+                  type="number"
+                  placeholder="Mã lớp học liên quan (tùy chọn)..."
+                  value={disputeClassId}
+                  onChange={(e) => setDisputeClassId(e.target.value)}
+                  style={{ width: '100%', marginBottom: '8px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                />
+                <textarea
+                  className="adm-ticket-respond__textarea"
+                  placeholder="Ghi chú bàn giao chuyển tiếp sang BF-08 (tùy chọn)..."
+                  value={disputeNotes}
+                  onChange={(e) => setDisputeNotes(e.target.value)}
+                  rows={2}
+                  maxLength={500}
+                />
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--primary"
+                    style={{ background: '#d97706' }}
+                    onClick={onRedirectDispute}
+                    disabled={mutStatus === 'loading'}
+                  >
+                    {mutStatus === 'loading' ? 'Đang chuyển...' : 'Xác nhận chuyển sang BF-08'}
+                  </button>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost"
+                    onClick={() => setShowDisputeTransfer(false)}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            )}
+
             {mutError && (
               <div className="adm-ticket-respond__error">{mutError}</div>
             )}
@@ -439,7 +528,7 @@ function TicketDetailContent({
               >
                 {mutStatus === 'loading' ? 'Đang gửi...' : 'Gửi phản hồi'}
               </button>
-              {!showClose && !showMerge && (
+              {!showClose && !showMerge && !showDisputeTransfer && (
                 <>
                   <button
                     type="button"
@@ -447,6 +536,7 @@ function TicketDetailContent({
                     onClick={() => {
                       setShowClose(true);
                       setShowMerge(false);
+                      setShowDisputeTransfer(false);
                     }}
                   >
                     Đóng ticket
@@ -458,10 +548,24 @@ function TicketDetailContent({
                     onClick={() => {
                       setShowMerge(true);
                       setShowClose(false);
+                      setShowDisputeTransfer(false);
                     }}
                     title="Gộp ticket trùng lặp vào một ticket gốc"
                   >
                     Gộp Ticket
+                  </button>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost"
+                    style={{ borderColor: '#d97706', color: '#b45309' }}
+                    onClick={() => {
+                      setShowDisputeTransfer(true);
+                      setShowClose(false);
+                      setShowMerge(false);
+                    }}
+                    title="Chuyển ticket này sang luồng Xử lý Tranh chấp BF-08"
+                  >
+                    Chuyển sang Tranh chấp (BF-08)
                   </button>
                 </>
               )}

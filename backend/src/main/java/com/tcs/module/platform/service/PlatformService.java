@@ -82,4 +82,7 @@ public interface PlatformService {
 
     /** Quét, tự động nâng độ ưu tiên và gửi nhắc nhở cho các ticket quá hạn SLA (BF09-TC02). */
     int scanAndEscalateSlaBreaches();
+
+    /** Admin chuyển tiếp ticket hỗ trợ sang luồng xử lý tranh chấp BF-08 (BF09-TC07). */
+    SupportTicketDetailResponse redirectTicketToDispute(Long ticketId, com.tcs.module.platform.dto.request.RedirectDisputeRequest request);
 }

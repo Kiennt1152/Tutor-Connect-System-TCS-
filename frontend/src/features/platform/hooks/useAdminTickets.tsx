@@ -114,10 +114,16 @@ export function useTicketMutations(onSuccess: () => void) {
     [run],
   );
 
+  const redirectTicketToDispute = useCallback(
+    (ticketId: string, payload: { targetClassId?: number; notes?: string }) =>
+      run(() => platformApi.redirectTicketToDispute(ticketId, payload)),
+    [run],
+  );
+
   const reset = useCallback(() => {
     setStatus('idle');
     setErrorMessage(null);
   }, []);
 
-  return { status, errorMessage, respond, updateTicket, closeTicket, mergeTicket, reset };
+  return { status, errorMessage, respond, updateTicket, closeTicket, mergeTicket, redirectTicketToDispute, reset };
 }

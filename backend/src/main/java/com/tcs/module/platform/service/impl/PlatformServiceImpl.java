@@ -1246,6 +1246,88 @@ public class PlatformServiceImpl implements PlatformService {
         };
     }
 
+    @Override
+    @Transactional
+    public SupportTicketDetailResponse redirectTicketToDispute(
+            Long ticketId, com.tcs.module.platform.dto.request.RedirectDisputeRequest request) {
+        SupportTicket ticket = findTicketOrThrow(ticketId);
+        PlatformAdmin admin = currentAdminOrThrow();
+
+        if (ticket.getStatus() == SupportTicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Không thể chuyển tiếp ticket đã bị đóng");
+        }
+
+        // 1. Nếu có targetClassId, kiểm tra lớp học
+        com.tcs.module.marketplace.entity.TutoringClass tutoringClass = null;
+        if (request != null && request.getTargetClassId() != null) {
+            tutoringClass = tutoringClassRepository.findById(request.getTargetClassId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học liên quan"));
+            ticket.setTargetClass(tutoringClass);
+        } else if (ticket.getTargetClass() != null) {
+            tutoringClass = ticket.getTargetClass();
+        }
+
+        // 2. Cập nhật phân loại sang DISPUTE và nâng độ ưu tiên lên tối thiểu HIGH
+        ticket.setCategory(SupportTicketCategory.DISPUTE);
+        if (ticket.getPriority() == SupportTicketPriority.LOW || ticket.getPriority() == SupportTicketPriority.MEDIUM) {
+            ticket.setPriority(SupportTicketPriority.HIGH);
+        }
+        if (ticket.getAssignedAdmin() == null) {
+            ticket.setAssignedAdmin(admin);
+        }
+
+        // 3. Tạo tin nhắn ghi nhận chuyển tiếp luồng
+        String notes = request != null && StringUtils.hasText(request.getNotes()) ? request.getNotes().trim() : "";
+        TicketMessage transferMessage = new TicketMessage();
+        transferMessage.setTicket(ticket);
+        transferMessage.setSender(admin.getUser());
+        transferMessage.setIsFromAdmin(true);
+        StringBuilder msgBuilder = new StringBuilder();
+        msgBuilder.append("[HỆ THỐNG - CHUYỂN TRANH CHẤP]\n")
+                .append("Yêu cầu này đã được chuyển sang luồng Xử lý Tranh chấp & Báo cáo sự cố (BF-08).");
+        if (tutoringClass != null) {
+            msgBuilder.append("\nLớp học liên quan: #").append(tutoringClass.getClassId()).append(" - ").append(tutoringClass.getTitle());
+        }
+        if (StringUtils.hasText(notes)) {
+            msgBuilder.append("\nGhi chú: ").append(notes);
+        }
+        transferMessage.setContent(msgBuilder.toString());
+        ticketMessageRepository.save(transferMessage);
+
+        // 4. Nếu có lớp học, tạo một bản ghi Report dạng CLASS để hiển thị trên /platform/reports
+        if (tutoringClass != null) {
+            com.tcs.module.platform.entity.Report report = new com.tcs.module.platform.entity.Report();
+            report.setReporter(ticket.getUser());
+            report.setTargetType(com.tcs.module.platform.enums.ReportTargetType.CLASS);
+            report.setTargetId(tutoringClass.getClassId());
+            report.setCategory(com.tcs.module.platform.enums.ReportCategory.OTHER);
+            report.setDescription("[Chuyển từ Ticket #" + ticketId + "] " + ticket.getSubject() + ": " + ticket.getDescription() + (StringUtils.hasText(notes) ? " (Ghi chú: " + notes + ")" : ""));
+            report.setStatus(com.tcs.module.platform.enums.ReportStatus.PENDING);
+            reportRepository.save(report);
+        }
+
+        SupportTicket saved = supportTicketRepository.save(ticket);
+
+        // 5. Ghi Audit Log
+        Map<String, Object> newMeta = new java.util.HashMap<>();
+        newMeta.put("category", SupportTicketCategory.DISPUTE);
+        newMeta.put("targetClassId", tutoringClass != null ? tutoringClass.getClassId() : 0);
+        newMeta.put("notes", notes);
+        auditLogService.record(
+                "REDIRECT_TICKET_TO_DISPUTE",
+                "SupportTicket",
+                ticketId,
+                Map.of("oldCategory", ticket.getCategory()),
+                newMeta);
+
+        // 6. Gửi thông báo đến người dùng
+        String userContent = "Yêu cầu hỗ trợ #" + ticketId + " của bạn đã được chuyển sang bộ phận Xử lý Tranh chấp (BF-08) để giải quyết theo quy chế nền tảng."
+                + (StringUtils.hasText(notes) ? " Ghi chú: " + notes : "");
+        notifyUserOfTicketResponse(saved, userContent);
+
+        return toTicketDetail(saved);
+    }
+
     private SupportTicket findTicketOrThrow(Long ticketId) {
         return supportTicketRepository
                 .findById(ticketId)

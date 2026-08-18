@@ -169,6 +169,12 @@ public class PlatformController {
         return platformService.mergeTicket(ticketId, request);
     }
 
+    @PostMapping("/tickets/{ticketId}/redirect-dispute")
+    public SupportTicketDetailResponse redirectTicketToDispute(
+            @PathVariable Long ticketId, @RequestBody com.tcs.module.platform.dto.request.RedirectDisputeRequest request) {
+        return platformService.redirectTicketToDispute(ticketId, request);
+    }
+
     @PostMapping("/tickets/sla/scan")
     public java.util.Map<String, Object> triggerSlaScan() {
         int count = platformService.scanAndEscalateSlaBreaches();

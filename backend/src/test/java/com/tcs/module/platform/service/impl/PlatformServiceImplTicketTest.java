@@ -59,6 +59,10 @@ class PlatformServiceImplTicketTest {
     private AuditLogService auditLogService;
     @Mock
     private AuthHelper authHelper;
+    @Mock
+    private com.tcs.module.marketplace.repository.TutoringClassRepository tutoringClassRepository;
+    @Mock
+    private com.tcs.module.platform.repository.ReportRepository reportRepository;
 
     @InjectMocks
     private PlatformServiceImpl platformService;
@@ -440,5 +444,79 @@ class PlatformServiceImplTicketTest {
         assertEquals(0, count);
         verify(supportTicketRepository, never()).save(any());
         verify(notificationDispatchService, never()).notifyUser(any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @DisplayName("redirectTicketToDispute: chuyển đổi category thành DISPUTE, nâng độ ưu tiên lên HIGH và gửi thông báo (BF09-TC07)")
+    void redirectTicketToDispute_Success() {
+        ticket.setCategory(SupportTicketCategory.INQUIRY);
+        ticket.setPriority(SupportTicketPriority.LOW);
+        ticket.setStatus(SupportTicketStatus.OPEN);
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(i -> i.getArgument(0));
+
+        com.tcs.module.platform.dto.request.RedirectDisputeRequest req = new com.tcs.module.platform.dto.request.RedirectDisputeRequest();
+        req.setNotes("Chuyển sang hòa giải lớp học");
+
+        SupportTicketDetailResponse res = platformService.redirectTicketToDispute(TICKET_ID, req);
+
+        assertNotNull(res);
+        assertEquals(SupportTicketCategory.DISPUTE, ticket.getCategory());
+        assertEquals(SupportTicketPriority.HIGH, ticket.getPriority());
+
+        // Verify message created
+        verify(ticketMessageRepository).save(any());
+
+        // Verify audit log
+        verify(auditLogService).record(eq("REDIRECT_TICKET_TO_DISPUTE"), eq("SupportTicket"), eq(TICKET_ID), any(), any());
+
+        // Verify user notified
+        verify(notificationDispatchService).notifyUserFromTemplate(
+                eq(ticketUser), any(), eq("SUPPORT_TICKET_RESPONSE"), any(), any(), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+    }
+
+    @Test
+    @DisplayName("redirectTicketToDispute: tạo bản ghi Report khi có targetClassId")
+    void redirectTicketToDispute_WithClassCreatesReport() {
+        Long classId = 99L;
+        com.tcs.module.marketplace.entity.TutoringClass tutoringClass = new com.tcs.module.marketplace.entity.TutoringClass();
+        tutoringClass.setClassId(classId);
+        tutoringClass.setTitle("Toán 12");
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(tutoringClassRepository.findById(classId)).thenReturn(Optional.of(tutoringClass));
+        when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(i -> i.getArgument(0));
+
+        com.tcs.module.platform.dto.request.RedirectDisputeRequest req = new com.tcs.module.platform.dto.request.RedirectDisputeRequest();
+        req.setTargetClassId(classId);
+        req.setNotes("Khiếu nại không hoàn tiền");
+
+        platformService.redirectTicketToDispute(TICKET_ID, req);
+
+        assertEquals(tutoringClass, ticket.getTargetClass());
+        verify(reportRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("redirectTicketToDispute: từ chối khi ticket đã bị đóng")
+    void redirectTicketToDispute_RejectsClosedTicket() {
+        ticket.setStatus(SupportTicketStatus.CLOSED);
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> platformService.redirectTicketToDispute(TICKET_ID, new com.tcs.module.platform.dto.request.RedirectDisputeRequest()));
+        assertEquals("Không thể chuyển tiếp ticket đã bị đóng", ex.getMessage());
+        verify(ticketMessageRepository, never()).save(any());
     }
 }

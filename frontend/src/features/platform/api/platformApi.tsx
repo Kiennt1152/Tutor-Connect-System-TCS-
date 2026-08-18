@@ -212,6 +212,10 @@ export const platformApi = {
     return axiosClient.post<AdminTicketDetailApiResponse>(`${BASE}/tickets/${ticketId}/merge`, payload);
   },
 
+  redirectTicketToDispute(ticketId: string, payload: { targetClassId?: number; notes?: string }) {
+    return axiosClient.post<AdminTicketDetailApiResponse>(`${BASE}/tickets/${ticketId}/redirect-dispute`, payload);
+  },
+
   getAnnouncements() {
     return axiosClient.get<AnnouncementApiResponse[]>(`${BASE}/announcements`);
   },
