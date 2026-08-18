@@ -12,6 +12,8 @@ import lombok.Getter;
 public class AdminWithdrawalResponse {
 
     private Long withdrawalId;
+    private Long refundId;
+    private String requestType;
     private Long walletId;
     private String requesterEmail;
     private BigDecimal amount;
