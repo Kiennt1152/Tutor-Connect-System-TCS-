@@ -38,7 +38,14 @@ export function TutorListingCard({
           <div className="tcs-listing-card__avatar">{initials(tutor.fullName) || 'GS'}</div>
           <div className="tcs-listing-card__identity">
             <h3 className="tcs-listing-card__name">{tutor.fullName}</h3>
-            <span className="tcs-listing-card__badge">Gia sư</span>
+            <div className="tcs-listing-card__badges">
+              <span className="tcs-listing-card__badge">Gia sư</span>
+              {tutor.verificationStatus === 'VERIFIED' ? (
+                <span className="tcs-listing-card__badge tcs-listing-card__badge--verified" title="Hồ sơ đã được xác minh">
+                  ✓ Đã xác minh
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
         {showPrice ? (

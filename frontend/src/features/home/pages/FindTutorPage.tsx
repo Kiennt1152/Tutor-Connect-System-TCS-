@@ -57,7 +57,7 @@ export default function FindTutorPage() {
           <div className="tcs-container">
             <div className="tcs-find-topbar">
               <Link className="tcs-find-myreq tcs-find-myreq--lg" to={APP_ROUTES.postTutorRequest}>
-                📝 Đăng yêu cầu tìm gia sư
+                Đăng yêu cầu tìm gia sư
               </Link>
             </div>
 

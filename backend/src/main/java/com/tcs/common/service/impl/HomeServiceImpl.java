@@ -101,6 +101,8 @@ public class HomeServiceImpl implements HomeService {
                 .hourlyRate(tutor.getHourlyRate())
                 .ratingAvg(tutor.getRatingAvg())
                 .experienceYears(tutor.getExperienceYears())
+                .verificationStatus(
+                        tutor.getVerificationStatus() != null ? tutor.getVerificationStatus().name() : null)
                 .build();
     }
 

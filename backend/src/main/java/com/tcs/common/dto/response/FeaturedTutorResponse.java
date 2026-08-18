@@ -20,4 +20,5 @@ public class FeaturedTutorResponse {
     private BigDecimal hourlyRate;
     private BigDecimal ratingAvg;
     private Integer experienceYears;
+    private String verificationStatus;
 }

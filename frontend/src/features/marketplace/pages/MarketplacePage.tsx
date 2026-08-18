@@ -212,7 +212,7 @@ export default function MarketplacePage() {
             {mode.kind === 'list' && isClient && (
               <div className="mkt-header__actions">
                 <Link className="mkt-btn mkt-btn--ghost" to={APP_ROUTES.classBoard}>
-                  📋 Danh sách tin đã đăng
+                  Danh sách tin đã đăng
                 </Link>
                 <Link className="mkt-btn mkt-btn--primary" to={APP_ROUTES.postTutorRequest}>
                   Tạo tin mới

@@ -146,6 +146,12 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+/* Tiêu đề chữ đen thuần (bỏ gradient) — dùng cho trang Đăng yêu cầu tìm gia sư */
+.tcs-find-title__text--plain {
+  color: #0f172a;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
 
 .tcs-find-subtitle {
   margin: 0 auto;

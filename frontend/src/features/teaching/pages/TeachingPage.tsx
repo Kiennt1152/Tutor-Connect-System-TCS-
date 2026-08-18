@@ -126,7 +126,7 @@ export default function TeachingPage() {
       lessons
         .filter(
           (l) =>
-            l.classId === a.classId && l.lessonDate <= today && l.attendanceStatus !== 'ABSENT',
+            l.classId === a.classId && l.lessonDate <= today && l.attendanceStatus === 'COMPLETED',
         )
         .sort((x, y) =>
           x.lessonDate === y.lessonDate

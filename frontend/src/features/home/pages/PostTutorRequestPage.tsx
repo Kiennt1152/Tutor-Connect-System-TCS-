@@ -66,7 +66,7 @@ export default function PostTutorRequestPage() {
             <div className="tcs-find-hero__intro">
               <h1 className="tcs-find-title">
                 <span className="tcs-find-title__icon">🎓</span>
-                <span className="tcs-find-title__text">Đăng yêu cầu tìm gia sư</span>
+                <span className="tcs-find-title__text tcs-find-title__text--plain">Đăng yêu cầu tìm gia sư</span>
               </h1>
               <p className="tcs-find-subtitle">
                 Điền thông tin nhu cầu học tập của bạn — môn học, mục tiêu, hình thức, học phí. Gia sư

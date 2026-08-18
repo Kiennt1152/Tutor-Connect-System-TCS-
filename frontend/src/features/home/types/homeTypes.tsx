@@ -52,6 +52,7 @@ export interface FeaturedTutor {
   hourlyRate: number;
   ratingAvg: number;
   experienceYears: number;
+  verificationStatus: string | null;
 }
 
 export interface HomeData {

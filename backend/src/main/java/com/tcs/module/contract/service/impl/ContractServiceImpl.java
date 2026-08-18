@@ -2182,10 +2182,12 @@ public class ContractServiceImpl implements ContractService {
 
     private List<LocalDate> occurredLessonDates(Long classId) {
         LocalDate today = LocalDate.now();
+        // Chỉ buổi ĐÃ ĐIỂM DANH (COMPLETED) mới cho đánh giá gia sư.
+        // Buổi vắng (ABSENT) và buổi chưa điểm danh (PENDING) không tính vào quota đánh giá.
         return lessonRepository
                 .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(classId).stream()
                 .filter(l -> !l.getLessonDate().isAfter(today))
-                .filter(l -> l.getAttendanceStatus() != AttendanceStatus.ABSENT)
+                .filter(l -> l.getAttendanceStatus() == AttendanceStatus.COMPLETED)
                 .map(Lesson::getLessonDate)
                 .sorted()
                 .toList();

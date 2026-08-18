@@ -149,32 +149,37 @@ public class LessonReminderService {
                 ? lesson.getSlot().getStartTime().format(HM) : "";
         String endTime = lesson.getSlot() != null && lesson.getSlot().getEndTime() != null
                 ? lesson.getSlot().getEndTime().format(HM) : "";
+        String timePart = startTime.isEmpty() ? "" : " lúc " + startTime + " - " + endTime;
+        Long lessonId = lesson.getLessonId();
 
+        // Gia sư: nhắc "buổi dạy".
+        Tutor tutor = lesson.getTutor();
+        if (tutor != null && tutor.getUser() != null) {
+            notifyRole(tutor.getUser(), "dạy", subjectName, timePart, startTime, endTime,
+                    classTitle, lessonId);
+        }
+        // Người học (người tạo lớp): nhắc "buổi học".
+        User client = cls != null ? cls.getCreator() : null;
+        if (client != null) {
+            notifyRole(client, "học", subjectName, timePart, startTime, endTime,
+                    classTitle, lessonId);
+        }
+    }
+
+    /** Gửi nhắc nhở với từ ngữ theo vai trò: gia sư = "dạy", người học = "học". */
+    private void notifyRole(User user, String activity, String subjectName, String timePart,
+            String startTime, String endTime, String classTitle, Long lessonId) {
+        String title = "Nhắc nhở buổi " + activity + " hôm nay";
+        String content = "Hôm nay bạn có buổi " + activity + " môn " + subjectName + timePart
+                + " (lớp \"" + classTitle + "\"). Vui lòng chuẩn bị và tham gia đúng giờ.";
         Map<String, Object> vars = Map.of(
+                "activity", activity,
                 "subjectName", subjectName,
                 "startTime", startTime,
                 "endTime", endTime,
                 "classTitle", classTitle);
-        String title = "Nhắc nhở buổi học hôm nay";
-        String content = "Hôm nay bạn có buổi học môn " + subjectName
-                + (startTime.isEmpty() ? "" : " lúc " + startTime + " - " + endTime)
-                + " (lớp \"" + classTitle + "\"). Vui lòng chuẩn bị và tham gia đúng giờ.";
-
-        Long lessonId = lesson.getLessonId();
-
-        // Gửi cho gia sư
-        Tutor tutor = lesson.getTutor();
-        if (tutor != null && tutor.getUser() != null) {
-            notificationDispatchService.notifyUserFromTemplate(
-                    tutor.getUser(), NotificationType.SYSTEM, "LESSON_REMINDER",
-                    vars, title, content, REF_TYPE, lessonId);
-        }
-        // Gửi cho người học (người tạo lớp)
-        User client = cls != null ? cls.getCreator() : null;
-        if (client != null) {
-            notificationDispatchService.notifyUserFromTemplate(
-                    client, NotificationType.SYSTEM, "LESSON_REMINDER",
-                    vars, title, content, REF_TYPE, lessonId);
-        }
+        notificationDispatchService.notifyUserFromTemplate(
+                user, NotificationType.SYSTEM, "LESSON_REMINDER",
+                vars, title, content, REF_TYPE, lessonId);
     }
 }
