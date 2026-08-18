@@ -71,6 +71,50 @@ class PaymentReconciliationServiceTest {
     }
 
     @Test
+    void expirePendingEscrowDepositsCancelsExpiredClassEscrowTransactions() {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 10, 10, 0);
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setType(PaymentTransactionType.ESCROW_DEPOSIT);
+        tx.setStatus(PaymentTransactionStatus.PENDING);
+        tx.setReferenceCode("ESCROW-A7");
+
+        when(paymentTransactionRepository.findByTypeAndStatusAndCreatedAtBefore(
+                PaymentTransactionType.ESCROW_DEPOSIT,
+                PaymentTransactionStatus.PENDING,
+                now.minusMinutes(15)))
+                .thenReturn(List.of(tx));
+
+        int changed = service.expirePendingEscrowDeposits(now);
+
+        assertEquals(1, changed);
+        assertEquals(PaymentTransactionStatus.CANCELLED, tx.getStatus());
+        assertEquals(now, tx.getProcessedAt());
+        assertNotNull(tx.getFailureReason());
+        verify(paymentTransactionRepository).saveAll(List.of(tx));
+    }
+
+    @Test
+    void expirePendingEscrowDepositsSkipsCenterRequestFeePayments() {
+        LocalDateTime now = LocalDateTime.of(2026, 7, 10, 10, 0);
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setType(PaymentTransactionType.ESCROW_DEPOSIT);
+        tx.setStatus(PaymentTransactionStatus.PENDING);
+        tx.setReferenceCode("CENTERREQ-ABC12345");
+
+        when(paymentTransactionRepository.findByTypeAndStatusAndCreatedAtBefore(
+                PaymentTransactionType.ESCROW_DEPOSIT,
+                PaymentTransactionStatus.PENDING,
+                now.minusMinutes(15)))
+                .thenReturn(List.of(tx));
+
+        int changed = service.expirePendingEscrowDeposits(now);
+
+        assertEquals(0, changed);
+        assertEquals(PaymentTransactionStatus.PENDING, tx.getStatus());
+        verify(paymentTransactionRepository).saveAll(List.of());
+    }
+
+    @Test
     void refundStaleWithdrawalsCancelsTransactionAndRefundsLockedFunds() {
         LocalDateTime now = LocalDateTime.of(2026, 7, 10, 10, 0);
         BigDecimal amount = new BigDecimal("100000.00");

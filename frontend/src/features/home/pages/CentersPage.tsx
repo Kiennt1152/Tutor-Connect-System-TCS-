@@ -8,6 +8,7 @@ import { hasRole } from '../../../shared/auth/rbac';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import type {
+  ClassRequest,
   CenterRequestFeePayment,
   CenterSummary,
   ClassRequestPayload,
@@ -55,6 +56,8 @@ export default function CentersPage() {
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [centersLoading, setCentersLoading] = useState(true);
+  const [myRequests, setMyRequests] = useState<ClassRequest[]>([]);
+  const [myRequestsLoading, setMyRequestsLoading] = useState(false);
 
   useEffect(() => {
     marketplaceApi
@@ -63,6 +66,26 @@ export default function CentersPage() {
       .catch(() => setCenters([]))
       .finally(() => setCentersLoading(false));
   }, []);
+
+  const loadMyRequests = async () => {
+    if (!isClient) return;
+    setMyRequestsLoading(true);
+    try {
+      setMyRequests(await marketplaceApi.getMyClassRequests());
+    } catch {
+      setMyRequests([]);
+    } finally {
+      setMyRequestsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isClient) return;
+    marketplaceApi
+      .getMyClassRequests()
+      .then((requests) => setMyRequests(requests))
+      .catch(() => setMyRequests([]));
+  }, [isClient]);
 
   // ----- Modal gửi yêu cầu (dùng lại form "tìm gia sư" cho rõ ràng) -----
   const { subjects, grades } = useTutorRequestForm();
@@ -193,6 +216,7 @@ export default function CentersPage() {
         setTarget(null);
         setNotice('Đã gửi yêu cầu nhờ trung tâm tìm gia sư. Theo dõi ở trang “Yêu cầu của tôi”.');
       }
+      void loadMyRequests();
       window.setTimeout(() => setNotice(''), 6000);
     } catch (err) {
       setModalError(extractError(err, 'Không gửi được yêu cầu.'));
@@ -206,6 +230,14 @@ export default function CentersPage() {
     setPayoutPickerOpen(false);
   };
 
+  const openPaymentFromRequest = (request: ClassRequest) => {
+    if (!request.centerRequestFeePayment) return;
+    setTarget(null);
+    setPaymentRequest(request.centerRequestFeePayment);
+    setModalError('');
+    setCheckingPayment(false);
+  };
+
   const checkPaymentStatus = async () => {
     if (!paymentRequest) return;
     setCheckingPayment(true);
@@ -215,6 +247,7 @@ export default function CentersPage() {
       const current = requests.find((item) => item.requestId === paymentRequest.requestId);
       const latestPayment = current?.centerRequestFeePayment ?? paymentRequest;
       setPaymentRequest(latestPayment);
+      setMyRequests(requests);
       if (current && current.status !== 'PAYMENT_PENDING') {
         setNotice('Thanh toán thành công. Yêu cầu đã được gửi tới trung tâm.');
         window.setTimeout(() => setNotice(''), 6000);
@@ -303,20 +336,107 @@ export default function CentersPage() {
                 ))}
               </div>
             )}
+
+            {isClient && (
+              <>
+                <div className="tcs-section-bar cr-requests-bar">
+                  <div>
+                    <h2 className="tcs-recruit__title">Yêu cầu của tôi</h2>
+                    <p className="tcs-section-bar__subtitle">
+                      Theo dõi yêu cầu đã gửi và tiếp tục thanh toán nếu bạn chưa hoàn tất.
+                    </p>
+                  </div>
+                  <Link className="tcs-btn tcs-btn--ghost tcs-btn--sm" to={APP_ROUTES.marketplace}>
+                    Xem đầy đủ
+                  </Link>
+                </div>
+
+                {myRequestsLoading ? (
+                  <div className="tcs-search-results__state">
+                    <span className="tcs-spinner" aria-hidden="true" />
+                    Đang tải yêu cầu của bạn...
+                  </div>
+                ) : myRequests.length === 0 ? (
+                  <p className="tcs-empty">
+                    Bạn chưa gửi yêu cầu nào. Khi tạo yêu cầu, thông tin thanh toán sẽ được lưu tại
+                    đây để bạn có thể quay lại sau.
+                  </p>
+                ) : (
+                  <div className="cr-req-list">
+                    {myRequests.map((request) => {
+                      const payment = request.centerRequestFeePayment;
+                      const isPaymentPending = payment?.status === 'PENDING_PAYMENT';
+                      return (
+                        <article
+                          key={request.requestId}
+                          className={`cr-req${isPaymentPending ? ' cr-req--payment' : ''}`}
+                        >
+                          <div className="cr-req__main">
+                            <p className="cr-req__note">{request.note}</p>
+                            <div className="cr-req__meta">
+                              Gửi tới: <strong>{request.centerName ?? 'Trung tâm'}</strong>
+                              {' · Mã yêu cầu: '}
+                              <strong>{request.requestId}</strong>
+                            </div>
+                            {isPaymentPending && payment && (
+                              <div className="cr-req__payment">
+                                <div>
+                                  <strong>Yêu cầu đang chờ thanh toán phí xử lý</strong>
+                                  <span>
+                                    Số tiền: <b>{formatMoney(payment.amount)}</b>. Bạn có thể đóng
+                                    trang và quay lại đây để mở lại mã QR.
+                                  </span>
+                                </div>
+                                <button
+                                  type="button"
+                                  className="tcs-btn tcs-btn--market tcs-btn--sm"
+                                  onClick={() => openPaymentFromRequest(request)}
+                                >
+                                  Mở QR thanh toán
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          <span className={`cr-badge cr-badge--${request.status.toLowerCase()}`}>
+                            {request.status === 'PAYMENT_PENDING'
+                              ? 'Chờ thanh toán'
+                              : request.status === 'PENDING'
+                                ? 'Đang chờ'
+                                : request.status === 'SEARCHING'
+                                  ? 'Đang tìm gia sư'
+                                  : request.status === 'ACCEPTED'
+                                    ? 'Đã chấp nhận'
+                                    : request.status === 'REJECTED'
+                                      ? 'Đã từ chối'
+                                      : 'Đã hủy'}
+                          </span>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
+              </>
+            )}
           </div>
         </section>
       </main>
 
       {/* Modal gửi yêu cầu mở lớp — dùng lại form "tìm gia sư" cho đầy đủ thông tin */}
-      {target && (
+      {(target || paymentRequest) && (
         <div className="cr-overlay" role="dialog" aria-modal="true" onClick={closeModal}>
           <div
             className="cr-modal"
             style={{ maxHeight: '88vh', overflowY: 'auto', maxWidth: 720 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="cr-modal__title">Nhờ trung tâm tìm gia sư</h3>
-            <p className="cr-modal__subtitle">Gửi tới: {target.companyName}</p>
+            <h3 className="cr-modal__title">
+              {paymentRequest ? 'Thanh toán phí xử lý yêu cầu' : 'Nhờ trung tâm tìm gia sư'}
+            </h3>
+            <p className="cr-modal__subtitle">
+              {paymentRequest
+                ? 'Mở lại mã QR của yêu cầu đang chờ thanh toán.'
+                : `Gửi tới: ${target?.companyName ?? ''}`}
+            </p>
 
             {modalError && <p className="cr-modal__error">{modalError}</p>}
 
@@ -431,7 +551,7 @@ export default function CentersPage() {
                   </div>
                 )}
               </div>
-            ) : (
+            ) : target ? (
               <>
                 <ClassRequestForm
                   initial={emptyForm()}
@@ -493,7 +613,7 @@ export default function CentersPage() {
                   onClose={() => setPayoutPickerOpen(false)}
                 />
               </>
-            )}
+            ) : null}
           </div>
         </div>
       )}
