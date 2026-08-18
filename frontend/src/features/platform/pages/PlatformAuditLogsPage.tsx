@@ -17,6 +17,9 @@ const ACTION_LABELS: Record<string, string> = {
   APPLY_CLASS: 'Ứng tuyển lớp học',
   UPDATE_PROFILE: 'Cập nhật hồ sơ',
   SUBMIT_VERIFICATION: 'Nộp hồ sơ xác minh',
+  MERGE_TICKET: 'Gộp ticket',
+  SLA_BREACH_ESCALATION: 'Nâng cấp SLA',
+  REDIRECT_TICKET_TO_DISPUTE: 'Chuyển sang tranh chấp',
 };
 
 const ACTION_TONES: Record<string, string> = {
@@ -31,6 +34,9 @@ const ACTION_TONES: Record<string, string> = {
   APPLY_CLASS: 'warning',
   UPDATE_PROFILE: 'update',
   SUBMIT_VERIFICATION: 'warning',
+  MERGE_TICKET: 'update',
+  SLA_BREACH_ESCALATION: 'warning',
+  REDIRECT_TICKET_TO_DISPUTE: 'warning',
 };
 
 const JsonDisplay = ({ value }: { value: string | null }) => {

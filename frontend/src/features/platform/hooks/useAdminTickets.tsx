@@ -108,10 +108,22 @@ export function useTicketMutations(onSuccess: () => void) {
     [run],
   );
 
+  const mergeTicket = useCallback(
+    (ticketId: string, payload: { targetTicketId: number; reason?: string }) =>
+      run(() => platformApi.mergeTicket(ticketId, payload)),
+    [run],
+  );
+
+  const redirectTicketToDispute = useCallback(
+    (ticketId: string, payload: { targetClassId?: number; notes?: string }) =>
+      run(() => platformApi.redirectTicketToDispute(ticketId, payload)),
+    [run],
+  );
+
   const reset = useCallback(() => {
     setStatus('idle');
     setErrorMessage(null);
   }, []);
 
-  return { status, errorMessage, respond, updateTicket, closeTicket, reset };
+  return { status, errorMessage, respond, updateTicket, closeTicket, mergeTicket, redirectTicketToDispute, reset };
 }

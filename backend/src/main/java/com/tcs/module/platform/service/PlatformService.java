@@ -76,4 +76,13 @@ public interface PlatformService {
 
     /** Admin đóng ticket (RESOLVED hoặc CLOSED). */
     SupportTicketDetailResponse closeTicket(Long ticketId, CloseTicketRequest request);
+
+    /** Admin gộp ticket trùng vào ticket chính (BF09-TC03). */
+    SupportTicketDetailResponse mergeTicket(Long sourceTicketId, com.tcs.module.platform.dto.request.MergeTicketRequest request);
+
+    /** Quét, tự động nâng độ ưu tiên và gửi nhắc nhở cho các ticket quá hạn SLA (BF09-TC02). */
+    int scanAndEscalateSlaBreaches();
+
+    /** Admin chuyển tiếp ticket hỗ trợ sang luồng xử lý tranh chấp BF-08 (BF09-TC07). */
+    SupportTicketDetailResponse redirectTicketToDispute(Long ticketId, com.tcs.module.platform.dto.request.RedirectDisputeRequest request);
 }
