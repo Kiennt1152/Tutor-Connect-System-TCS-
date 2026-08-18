@@ -72,6 +72,6 @@ PLATFORM_ADMIN,ADMIN_AUDIT_LOG,xem nhật ký hệ thống audit log,ADMIN_DASHB
 PLATFORM_ADMIN,ADMIN_AI_REINDEX,reindex ai knowledge base,ADMIN_DASHBOARD,PLATFORM_ADMIN,ADMIN_STATS,/platform/analytics,ADMIN_LINK_ONLY,L4_PERMISSION,false,reindex knowledge
 PLATFORM_ADMIN,PLATFORM_STATS,Hệ thống có bao nhiêu người dùng?,PLATFORM_STATS,ANY,PLATFORM_STATS,,NONE,L3_NO_DATA,true,he thong co bao nhieu nguoi dung
 PLATFORM_ADMIN,PLATFORM_STATS,có bao nhiêu gia sư trên hệ thống,PLATFORM_STATS,ANY,PLATFORM_STATS,,NONE,L3_NO_DATA,true,co bao nhieu gia su
-AI_TUTORING,AI_TUTORING_MATH,1+1 bằng mấy?,AI_TUTORING,ANY,NONE,,NONE,L1_CLARIFICATION,false,1 + 1
 AI_TUTORING,AI_TUTORING_MATH,giải phương trình bậc 2,AI_TUTORING,ANY,NONE,,NONE,L1_CLARIFICATION,false,giai phuong trinh
-AI_TUTORING,AI_TUTORING_MATH,giải thích thì hiện tại hoàn thành,AI_TUTORING,ANY,NONE,,NONE,L1_CLARIFICATION,false,ngu phap tieng anh
+AI_TUTORING,AI_TUTORING_ENGLISH,giải thích thì hiện tại hoàn thành,AI_TUTORING,ANY,NONE,,NONE,L1_CLARIFICATION,false,ngu phap tieng anh
+AI_TUTORING,AI_TUTORING_SCIENCE,định lý pitago phát biểu thế nào,AI_TUTORING,ANY,NONE,,NONE,L1_CLARIFICATION,false,cong thuc tinh van toc

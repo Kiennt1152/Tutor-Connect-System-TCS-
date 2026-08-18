@@ -162,4 +162,22 @@ public class PlatformController {
             @PathVariable Long ticketId, @Valid @RequestBody CloseTicketRequest request) {
         return platformService.closeTicket(ticketId, request);
     }
+
+    @PostMapping("/tickets/{ticketId}/merge")
+    public SupportTicketDetailResponse mergeTicket(
+            @PathVariable Long ticketId, @Valid @RequestBody com.tcs.module.platform.dto.request.MergeTicketRequest request) {
+        return platformService.mergeTicket(ticketId, request);
+    }
+
+    @PostMapping("/tickets/{ticketId}/redirect-dispute")
+    public SupportTicketDetailResponse redirectTicketToDispute(
+            @PathVariable Long ticketId, @RequestBody com.tcs.module.platform.dto.request.RedirectDisputeRequest request) {
+        return platformService.redirectTicketToDispute(ticketId, request);
+    }
+
+    @PostMapping("/tickets/sla/scan")
+    public java.util.Map<String, Object> triggerSlaScan() {
+        int count = platformService.scanAndEscalateSlaBreaches();
+        return java.util.Map.of("message", "Quét SLA hoàn tất", "escalatedCount", count);
+    }
 }

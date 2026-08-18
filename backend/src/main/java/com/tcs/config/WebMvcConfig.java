@@ -2,6 +2,7 @@ package com.tcs.config;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -13,8 +14,15 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @Configuration
 public class WebMvcConfig implements WebMvcConfigurer {
 
-    @Value("${tcs.file.storage.path:uploads}")
-    private String storagePath;
+    private final String storagePath;
+    private final MaintenanceModeInterceptor maintenanceModeInterceptor;
+
+    public WebMvcConfig(
+            @Value("${tcs.file.storage.path:uploads}") String storagePath,
+            MaintenanceModeInterceptor maintenanceModeInterceptor) {
+        this.storagePath = storagePath;
+        this.maintenanceModeInterceptor = maintenanceModeInterceptor;
+    }
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
@@ -22,4 +30,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
         String publicPath = storagePath.startsWith("file:") ? storagePath : "file:" + storagePath + "/public/";
         registry.addResourceHandler("/uploads/public/**").addResourceLocations(publicPath);
     }
-}
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(maintenanceModeInterceptor);
+    }
+}

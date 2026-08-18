@@ -98,6 +98,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -105,6 +106,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PlatformServiceImpl implements PlatformService {
@@ -1088,6 +1090,241 @@ public class PlatformServiceImpl implements PlatformService {
                         ? "Yêu cầu hỗ trợ của bạn đã được giải quyết."
                         : "Yêu cầu hỗ trợ của bạn đã được đóng.");
         notifyUserOfTicketResponse(saved, note);
+        return toTicketDetail(saved);
+    }
+
+    @Override
+    @Transactional
+    public SupportTicketDetailResponse mergeTicket(
+            Long sourceTicketId, com.tcs.module.platform.dto.request.MergeTicketRequest request) {
+        if (request == null || request.getTargetTicketId() == null) {
+            throw new IllegalArgumentException("Mã ticket đích cần gộp là bắt buộc");
+        }
+        if (sourceTicketId.equals(request.getTargetTicketId())) {
+            throw new IllegalArgumentException("Không thể gộp ticket vào chính nó");
+        }
+
+        SupportTicket sourceTicket = findTicketOrThrow(sourceTicketId);
+        SupportTicket targetTicket = findTicketOrThrow(request.getTargetTicketId());
+        PlatformAdmin admin = currentAdminOrThrow();
+
+        if (!sourceTicket.getUser().getUserId().equals(targetTicket.getUser().getUserId())) {
+            throw new IllegalArgumentException("Chỉ có thể gộp các ticket của cùng một người dùng");
+        }
+        if (sourceTicket.getStatus() == SupportTicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Ticket nguồn đã được đóng trước đó");
+        }
+        if (targetTicket.getStatus() == SupportTicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Không thể gộp vào ticket đích đã bị đóng");
+        }
+
+        // 1. Tạo tin nhắn ghi nhận việc gộp vào Ticket đích
+        TicketMessage mergeNotice = new TicketMessage();
+        mergeNotice.setTicket(targetTicket);
+        mergeNotice.setSender(admin.getUser());
+        mergeNotice.setIsFromAdmin(true);
+        StringBuilder noticeBuilder = new StringBuilder();
+        noticeBuilder.append("[HỆ THỐNG - GỘP TICKET]\n")
+                .append("Đã gộp nội dung từ Ticket #").append(sourceTicketId)
+                .append(" (").append(sourceTicket.getSubject()).append("):\n")
+                .append(sourceTicket.getDescription());
+        if (StringUtils.hasText(request.getReason())) {
+            noticeBuilder.append("\n\nLý do gộp: ").append(request.getReason());
+        }
+        mergeNotice.setContent(noticeBuilder.toString());
+        ticketMessageRepository.save(mergeNotice);
+
+        // 2. Chuyển trạng thái Ticket nguồn sang CLOSED
+        SupportTicketStatus oldStatus = sourceTicket.getStatus();
+        sourceTicket.setStatus(SupportTicketStatus.CLOSED);
+        LocalDateTime now = LocalDateTime.now();
+        sourceTicket.setClosedAt(now);
+        if (sourceTicket.getResolvedAt() == null) {
+            sourceTicket.setResolvedAt(now);
+        }
+        SupportTicket savedSource = supportTicketRepository.save(sourceTicket);
+
+        // 3. Ghi audit log
+        Map<String, Object> newMeta = new java.util.HashMap<>();
+        newMeta.put("newStatus", SupportTicketStatus.CLOSED);
+        newMeta.put("targetTicketId", request.getTargetTicketId());
+        newMeta.put("reason", request.getReason() == null ? "" : request.getReason());
+        auditLogService.record("MERGE_TICKET", "SupportTicket", sourceTicketId,
+                Map.of("oldStatus", oldStatus), newMeta);
+
+        // 4. Gửi thông báo cho người dùng
+        String notificationNote = "Yêu cầu hỗ trợ #" + sourceTicketId + " của bạn đã được gộp vào Ticket #"
+                + request.getTargetTicketId() + " để xử lý tập trung."
+                + (StringUtils.hasText(request.getReason()) ? " Lý do: " + request.getReason() : "");
+        notifyUserOfTicketResponse(savedSource, notificationNote);
+
+        return toTicketDetail(savedSource);
+    }
+
+    @Override
+    @Transactional
+    public int scanAndEscalateSlaBreaches() {
+        LocalDateTime now = LocalDateTime.now();
+        List<SupportTicketStatus> excludedStatuses = List.of(SupportTicketStatus.RESOLVED, SupportTicketStatus.CLOSED);
+        List<SupportTicket> breachedCandidates = supportTicketRepository.findBreachedCandidateTickets(excludedStatuses, now);
+
+        if (breachedCandidates.isEmpty()) {
+            return 0;
+        }
+
+        log.info("SLA Scanner: phát hiện {} tickets quá hạn SLA", breachedCandidates.size());
+        List<PlatformAdmin> allAdmins = platformAdminRepository.findAll();
+
+        for (SupportTicket ticket : breachedCandidates) {
+            SupportTicketPriority oldPriority = ticket.getPriority();
+            SupportTicketPriority newPriority = escalatePriority(oldPriority);
+
+            ticket.setSlaBreached(true);
+            ticket.setPriority(newPriority);
+            supportTicketRepository.save(ticket);
+
+            // Ghi audit log
+            auditLogService.record(
+                    "SLA_BREACH_ESCALATION",
+                    "SupportTicket",
+                    ticket.getTicketId(),
+                    Map.of("oldPriority", oldPriority, "slaBreached", false),
+                    Map.of("newPriority", newPriority, "slaBreached", true));
+
+            // Gửi thông báo nhắc nhở đến Admin
+            String adminTitle = "Cảnh báo quá hạn SLA Ticket #" + ticket.getTicketId();
+            String adminContent = "Yêu cầu hỗ trợ #" + ticket.getTicketId() + " (" + ticket.getSubject()
+                    + ") đã quá hạn phản hồi. Hệ thống đã tự động nâng độ ưu tiên lên " + newPriority + ". Vui lòng kiểm tra và xử lý gấp.";
+
+            if (ticket.getAssignedAdmin() != null && ticket.getAssignedAdmin().getUser() != null) {
+                notificationDispatchService.notifyUser(
+                        ticket.getAssignedAdmin().getUser(),
+                        NotificationType.SYSTEM,
+                        adminTitle,
+                        adminContent,
+                        "SUPPORT_TICKET",
+                        ticket.getTicketId());
+            } else {
+                for (PlatformAdmin admin : allAdmins) {
+                    if (admin.getUser() != null) {
+                        notificationDispatchService.notifyUser(
+                                admin.getUser(),
+                                NotificationType.SYSTEM,
+                                adminTitle,
+                                adminContent,
+                                "SUPPORT_TICKET",
+                                ticket.getTicketId());
+                    }
+                }
+            }
+
+            // Gửi thông báo cập nhật tiến độ cho người dùng
+            if (ticket.getUser() != null) {
+                String userTitle = "Cập nhật tiến độ: Yêu cầu hỗ trợ #" + ticket.getTicketId();
+                String userContent = "Yêu cầu hỗ trợ #" + ticket.getTicketId()
+                        + " của bạn đang được hệ thống nâng mức độ ưu tiên lên " + newPriority
+                        + " để xử lý khẩn cấp. TCS thành thật xin lỗi vì sự chậm trễ này.";
+                notificationDispatchService.notifyUser(
+                        ticket.getUser(),
+                        NotificationType.SYSTEM,
+                        userTitle,
+                        userContent,
+                        "SUPPORT_TICKET",
+                        ticket.getTicketId());
+            }
+        }
+
+        return breachedCandidates.size();
+    }
+
+    private SupportTicketPriority escalatePriority(SupportTicketPriority current) {
+        if (current == null) return SupportTicketPriority.HIGH;
+        return switch (current) {
+            case LOW -> SupportTicketPriority.MEDIUM;
+            case MEDIUM -> SupportTicketPriority.HIGH;
+            case HIGH, URGENT -> SupportTicketPriority.URGENT;
+        };
+    }
+
+    @Override
+    @Transactional
+    public SupportTicketDetailResponse redirectTicketToDispute(
+            Long ticketId, com.tcs.module.platform.dto.request.RedirectDisputeRequest request) {
+        SupportTicket ticket = findTicketOrThrow(ticketId);
+        PlatformAdmin admin = currentAdminOrThrow();
+
+        if (ticket.getStatus() == SupportTicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Không thể chuyển tiếp ticket đã bị đóng");
+        }
+
+        // 1. Nếu có targetClassId, kiểm tra lớp học
+        com.tcs.module.marketplace.entity.TutoringClass tutoringClass = null;
+        if (request != null && request.getTargetClassId() != null) {
+            tutoringClass = tutoringClassRepository.findById(request.getTargetClassId())
+                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học liên quan"));
+            ticket.setTargetClass(tutoringClass);
+        } else if (ticket.getTargetClass() != null) {
+            tutoringClass = ticket.getTargetClass();
+        }
+
+        // 2. Cập nhật phân loại sang DISPUTE và nâng độ ưu tiên lên tối thiểu HIGH
+        ticket.setCategory(SupportTicketCategory.DISPUTE);
+        if (ticket.getPriority() == SupportTicketPriority.LOW || ticket.getPriority() == SupportTicketPriority.MEDIUM) {
+            ticket.setPriority(SupportTicketPriority.HIGH);
+        }
+        if (ticket.getAssignedAdmin() == null) {
+            ticket.setAssignedAdmin(admin);
+        }
+
+        // 3. Tạo tin nhắn ghi nhận chuyển tiếp luồng
+        String notes = request != null && StringUtils.hasText(request.getNotes()) ? request.getNotes().trim() : "";
+        TicketMessage transferMessage = new TicketMessage();
+        transferMessage.setTicket(ticket);
+        transferMessage.setSender(admin.getUser());
+        transferMessage.setIsFromAdmin(true);
+        StringBuilder msgBuilder = new StringBuilder();
+        msgBuilder.append("[HỆ THỐNG - CHUYỂN TRANH CHẤP]\n")
+                .append("Yêu cầu này đã được chuyển sang luồng Xử lý Tranh chấp & Báo cáo sự cố (BF-08).");
+        if (tutoringClass != null) {
+            msgBuilder.append("\nLớp học liên quan: #").append(tutoringClass.getClassId()).append(" - ").append(tutoringClass.getTitle());
+        }
+        if (StringUtils.hasText(notes)) {
+            msgBuilder.append("\nGhi chú: ").append(notes);
+        }
+        transferMessage.setContent(msgBuilder.toString());
+        ticketMessageRepository.save(transferMessage);
+
+        // 4. Nếu có lớp học, tạo một bản ghi Report dạng CLASS để hiển thị trên /platform/reports
+        if (tutoringClass != null) {
+            com.tcs.module.platform.entity.Report report = new com.tcs.module.platform.entity.Report();
+            report.setReporter(ticket.getUser());
+            report.setTargetType(com.tcs.module.platform.enums.ReportTargetType.CLASS);
+            report.setTargetId(tutoringClass.getClassId());
+            report.setCategory(com.tcs.module.platform.enums.ReportCategory.OTHER);
+            report.setDescription("[Chuyển từ Ticket #" + ticketId + "] " + ticket.getSubject() + ": " + ticket.getDescription() + (StringUtils.hasText(notes) ? " (Ghi chú: " + notes + ")" : ""));
+            report.setStatus(com.tcs.module.platform.enums.ReportStatus.PENDING);
+            reportRepository.save(report);
+        }
+
+        SupportTicket saved = supportTicketRepository.save(ticket);
+
+        // 5. Ghi Audit Log
+        Map<String, Object> newMeta = new java.util.HashMap<>();
+        newMeta.put("category", SupportTicketCategory.DISPUTE);
+        newMeta.put("targetClassId", tutoringClass != null ? tutoringClass.getClassId() : 0);
+        newMeta.put("notes", notes);
+        auditLogService.record(
+                "REDIRECT_TICKET_TO_DISPUTE",
+                "SupportTicket",
+                ticketId,
+                Map.of("oldCategory", ticket.getCategory()),
+                newMeta);
+
+        // 6. Gửi thông báo đến người dùng
+        String userContent = "Yêu cầu hỗ trợ #" + ticketId + " của bạn đã được chuyển sang bộ phận Xử lý Tranh chấp (BF-08) để giải quyết theo quy chế nền tảng."
+                + (StringUtils.hasText(notes) ? " Ghi chú: " + notes : "");
+        notifyUserOfTicketResponse(saved, userContent);
+
         return toTicketDetail(saved);
     }
 

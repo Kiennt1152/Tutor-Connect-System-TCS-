@@ -6,4 +6,5 @@ import java.time.LocalDate;
 public interface PlatformAnalyticsService {
     AnalyticsSummaryResponse getSummary(LocalDate from, LocalDate to);
     byte[] exportCsv(String type, LocalDate from, LocalDate to);
+    int generateScheduledDailyReport();
 }

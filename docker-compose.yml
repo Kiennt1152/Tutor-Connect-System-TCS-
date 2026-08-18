@@ -5,7 +5,7 @@ services:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-12345}
       MYSQL_DATABASE: tutorconnectsystem
     ports:
-      - "3306:3306"
+      - "${MYSQL_PORT:-33060}:3306"
     volumes:
       - mysql_data:/var/lib/mysql
     healthcheck:
@@ -20,7 +20,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "8080:8080"
+      - "${BACKEND_PORT:-8081}:8080"
     environment:
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/tutorconnectsystem?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
@@ -32,6 +32,10 @@ services:
       CEREBRAS_API_KEY: ${CEREBRAS_API_KEY}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       AI_CHAT_PROVIDER_ORDER: ${AI_CHAT_PROVIDER_ORDER:-groq,cerebras,deepseek,gemini}
+      MAIL_ENABLED: ${MAIL_ENABLED:-true}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
     volumes:
       - uploads_data:/app/uploads
     depends_on:
@@ -44,7 +48,7 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT:-80}:80"
     depends_on:
       - backend
 

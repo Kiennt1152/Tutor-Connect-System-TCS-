@@ -12,6 +12,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,15 +52,12 @@ public class AiTutorSearchContextProvider {
         for (Tutor t : activeTutors) {
             String bio = t.getBio() != null ? t.getBio() : "";
             String address = t.getAddress() != null ? t.getAddress() : "";
-            String name = t.getFullName() != null ? t.getFullName() : "";
             String bioNorm = VietnameseTextNormalizer.normalize(bio);
             String addressNorm = VietnameseTextNormalizer.normalize(address);
-            String nameNorm = VietnameseTextNormalizer.normalize(name);
-            String allTextNorm = nameNorm + " " + bioNorm + " " + addressNorm;
 
-            // 1. Mandatory Hard Filter: Subject
+            // 1. Mandatory Hard Filter: Subject (matched against bio/specialization ONLY, NOT tutor's personal name)
             if (subject != null && !subject.isBlank()) {
-                if (!matchesSubject(allTextNorm, subject)) {
+                if (!matchesSubject(bioNorm, subject)) {
                     continue; // Skip tutors not teaching the requested subject
                 }
             }
@@ -82,7 +80,7 @@ public class AiTutorSearchContextProvider {
             int score = 50;
             if (grade != null && !grade.isBlank()) {
                 String gNorm = VietnameseTextNormalizer.normalize(grade);
-                if (allTextNorm.contains("lop " + gNorm) || allTextNorm.contains("toan " + gNorm) || allTextNorm.contains(gNorm)) {
+                if (bioNorm.contains("lop " + gNorm) || bioNorm.contains(gNorm)) {
                     score += 20;
                 }
             }
@@ -132,23 +130,41 @@ public class AiTutorSearchContextProvider {
         return results;
     }
 
-    private boolean matchesSubject(String allTextNorm, String subject) {
+    private boolean matchesSubject(String bioNorm, String subject) {
+        if (bioNorm == null || bioNorm.isBlank() || subject == null || subject.isBlank()) return false;
         String sNorm = VietnameseTextNormalizer.normalize(subject);
-        if (allTextNorm.contains(sNorm)) return true;
 
-        // Subject alias mappings
         return switch (sNorm) {
-            case "toan", "toan hoc" -> allTextNorm.contains("toan") || allTextNorm.contains("math");
-            case "ly", "vat ly" -> allTextNorm.contains("vat ly") || allTextNorm.contains("ly") || allTextNorm.contains("physics");
-            case "hoa", "hoa hoc" -> allTextNorm.contains("hoa") || allTextNorm.contains("chemistry");
-            case "anh", "tieng anh", "ngoai ngu" -> allTextNorm.contains("tieng anh") || allTextNorm.contains("ielts") || allTextNorm.contains("toeic") || allTextNorm.contains("english") || allTextNorm.contains("anh");
-            case "van", "ngu van" -> allTextNorm.contains("van") || allTextNorm.contains("ngu van") || allTextNorm.contains("literature");
-            case "tin", "tin hoc", "lap trinh" -> allTextNorm.contains("tin") || allTextNorm.contains("lap trinh") || allTextNorm.contains("scratch") || allTextNorm.contains("python") || allTextNorm.contains("coding");
-            case "sinh", "sinh hoc" -> allTextNorm.contains("sinh") || allTextNorm.contains("biology");
-            case "su", "lich su" -> allTextNorm.contains("lich su") || allTextNorm.contains("su");
-            case "dia", "dia ly" -> allTextNorm.contains("dia ly") || allTextNorm.contains("dia");
-            default -> false;
+            case "toan", "toan hoc" -> containsWordOrPhrase(bioNorm, "toan", "toan hoc", "giai tich", "hinh hoc", "dai so", "math", "khoi a", "khoi a1", "khoi b", "khoi d");
+            case "ly", "vat ly" -> containsWordOrPhrase(bioNorm, "vat ly", "mon ly", "day ly", "gia su ly", "physics", "khoi a", "khoi a1");
+            case "hoa", "hoa hoc" -> containsWordOrPhrase(bioNorm, "hoa hoc", "mon hoa", "day hoa", "gia su hoa", "chemistry", "khoi a", "khoi b");
+            case "anh", "tieng anh", "ngoai ngu" -> containsWordOrPhrase(bioNorm, "tieng anh", "anh van", "ielts", "toeic", "toefl", "english", "mon anh", "day anh", "gia su anh", "khoi d", "khoi a1");
+            case "van", "ngu van", "van hoc" -> containsWordOrPhrase(bioNorm, "ngu van", "van hoc", "mon van", "day van", "gia su van", "khoi d", "khoi c", "chuyen van", "van cap 2", "van cap 3", "van 10", "van 11", "van 12", "van 9", "van 8", "van 7", "van 6");
+            case "tin", "tin hoc", "lap trinh" -> containsWordOrPhrase(bioNorm, "tin hoc", "lap trinh", "scratch", "python", "java", "c++", "coding", "mon tin", "day tin", "gia su tin");
+            case "sinh", "sinh hoc" -> containsWordOrPhrase(bioNorm, "sinh hoc", "mon sinh", "day sinh", "gia su sinh", "biology", "khoi b");
+            case "su", "lich su" -> containsWordOrPhrase(bioNorm, "lich su", "mon su", "day su", "gia su su", "khoi c");
+            case "dia", "dia ly" -> containsWordOrPhrase(bioNorm, "dia ly", "mon dia", "day dia", "gia su dia", "khoi c");
+            case "gdcd" -> containsWordOrPhrase(bioNorm, "gdcd", "giao duc cong dan", "kinh te va phap luat");
+            case "tieng phap", "phap" -> containsWordOrPhrase(bioNorm, "tieng phap", "delf", "dalf", "french");
+            case "tieng nhat", "nhat" -> containsWordOrPhrase(bioNorm, "tieng nhat", "jlpt", "japanese");
+            case "tieng trung", "trung" -> containsWordOrPhrase(bioNorm, "tieng trung", "hsk", "chinese");
+            case "tieng han", "han" -> containsWordOrPhrase(bioNorm, "tieng han", "topik", "korean");
+            default -> containsWordOrPhrase(bioNorm, sNorm);
         };
+    }
+
+    private boolean containsWordOrPhrase(String text, String... candidates) {
+        for (String c : candidates) {
+            String norm = VietnameseTextNormalizer.normalize(c);
+            if (norm.contains(" ")) {
+                if (text.contains(norm)) return true;
+            } else {
+                if (Pattern.compile("\\b" + Pattern.quote(norm) + "\\b").matcher(text).find()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     private boolean matchesLocation(String locationTextNorm, String location) {
