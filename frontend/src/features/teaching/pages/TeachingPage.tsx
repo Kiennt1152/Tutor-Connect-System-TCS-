@@ -428,6 +428,10 @@ function CompletionCell({
   readonly onTutorConfirm: () => void;
   readonly onClientReview: () => void;
 }) {
+  // Lớp đã hoàn thành thì không bao giờ hiện nút đánh giá, kể cả khi completionState chưa cập nhật kịp
+  if (a.classStatus === 'COMPLETED') {
+    return <span className="tch-badge tch-badge--done">✓ Đã hoàn thành</span>;
+  }
   switch (a.completionState) {
     case 'COMPLETED':
       return <span className="tch-badge tch-badge--done">✓ Đã hoàn thành</span>;

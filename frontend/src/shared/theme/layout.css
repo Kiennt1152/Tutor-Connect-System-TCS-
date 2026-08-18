@@ -35,7 +35,7 @@
   flex: 1;
   justify-content: center;
   gap: var(--space-lg);
-  color: var(--color-text-secondary);
+  color: var(--color-text-primary);
   font-weight: 500;
   font-size: var(--fs-body-md);
 }

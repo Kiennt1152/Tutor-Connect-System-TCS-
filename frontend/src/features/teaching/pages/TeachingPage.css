@@ -38,7 +38,7 @@
   min-width: 20px;
   padding: 1px 7px;
   margin-left: 4px;
-  background: #1565c0;
+  background: #ea580c;
   color: #fff;
   border-radius: 999px;
   font-size: 12px;
@@ -99,7 +99,7 @@
   padding: 14px;
   background: #f7f9fc;
   border: 1px solid #e3e9f2;
-  border-left: 4px solid #1565c0;
+  border-left: 4px solid #ea580c;
   border-radius: 10px;
 }
 .tch-invite__title {
@@ -189,16 +189,16 @@
   white-space: nowrap;
 }
 .tch-class-status--info {
-  background: #e8f2ff;
-  color: #1565c0;
+  background: #fff7ed;
+  color: #ea580c;
 }
 .tch-class-status--warning {
   background: #fff4e5;
   color: #b45309;
 }
 .tch-class-status--primary {
-  background: #e0ecff;
-  color: #1d4ed8;
+  background: #ffedd5;
+  color: #c2410c;
 }
 .tch-class-status--success {
   background: #e6f6ee;
@@ -244,11 +244,11 @@
   font-size: 12px;
 }
 .tch-btn--primary {
-  background: #1565c0;
+  background: #ea580c;
   color: #fff;
 }
 .tch-btn--primary:hover {
-  background: #0f4c9a;
+  background: #c2410c;
 }
 .tch-btn--success {
   background: #2e7d32;
@@ -263,8 +263,8 @@
   border-color: #cfd8e3;
 }
 .tch-btn--ghost:hover {
-  border-color: #1565c0;
-  color: #1565c0;
+  border-color: #ea580c;
+  color: #ea580c;
 }
 
 
@@ -328,7 +328,7 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
-  color: #2f6fed;
+  color: #ea580c;
 }
 .tch-req__title {
   margin: 0 0 4px;

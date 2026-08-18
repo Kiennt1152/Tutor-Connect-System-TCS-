@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
-import { Pagination } from '../../../shared/components/Pagination';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import { OpenClassBoardCard } from '../../marketplace/components/OpenClassBoardCard';
 import type { CatalogOption, ClassResponse } from '../../marketplace/types/marketplaceTypes';
@@ -105,14 +104,35 @@ export default function ClassBoardPage() {
                   ))}
                 </div>
                 {totalPages > 1 && (
-                  <div className="cboard-pagination">
-                    <Pagination
-                      current={page}
-                      totalPages={totalPages}
-                      onPageChange={goToPage}
-                      ariaLabel="Phân trang danh sách lớp"
-                    />
-                  </div>
+                  <nav className="mkt-pagination" aria-label="Phân trang danh sách lớp">
+                    <button
+                      type="button"
+                      className="mkt-pagination__nav"
+                      onClick={() => goToPage(Math.max(1, page - 1))}
+                      disabled={page === 1}
+                    >
+                      ← Trước
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`mkt-pagination__page${p === page ? ' mkt-pagination__page--active' : ''}`}
+                        onClick={() => goToPage(p)}
+                        aria-current={p === page ? 'page' : undefined}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="mkt-pagination__nav"
+                      onClick={() => goToPage(Math.min(totalPages, page + 1))}
+                      disabled={page === totalPages}
+                    >
+                      Sau →
+                    </button>
+                  </nav>
                 )}
               </>
             )}

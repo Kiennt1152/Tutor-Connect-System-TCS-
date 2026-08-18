@@ -642,14 +642,20 @@
 }
 .mkt-class-card__actions {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: auto;
   padding-top: 6px;
 }
 .mkt-class-card__actions .mkt-btn {
-  flex: 1;
-  padding: 8px 12px;
+  flex: 1 1 auto;
+  padding: 9px 12px;
   text-align: center;
+  white-space: nowrap;
+}
+/* Nút chính (Xem chi tiết / Đăng lớp) luôn chiếm trọn 1 hàng riêng cho gọn mắt */
+.mkt-class-card__actions .mkt-btn--primary {
+  flex: 1 1 100%;
 }
 
 .mkt-status {
