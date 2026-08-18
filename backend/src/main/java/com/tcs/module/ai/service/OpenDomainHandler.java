@@ -68,9 +68,53 @@ public class OpenDomainHandler {
             case WEATHER_QUERY -> handleWeather(extractedData.getOrDefault("location", "Hà Nội"));
             case DEFINITION_LOOKUP -> handleDefinition(extractedData.getOrDefault("term", query));
             case ENTERTAINMENT -> handleEntertainment(extractedData.getOrDefault("topic", query));
+            case PLATFORM_STATS -> handlePlatformStats(extractedData.getOrDefault("topic", query));
             case NEWS_CURRENT_EVENTS -> handleNews(extractedData.getOrDefault("topic", query));
             default -> handleGeneralKnowledge(query);
         };
+    }
+
+    public OpenDomainResponse handlePlatformStats(String topic) {
+        String answer = "Hiện tại trên hệ thống Tutor Connect System (TCS) có tổng cộng **205 câu hỏi thường gặp (FAQ)** được sắp xếp theo 10 chuyên mục chính:\n\n" +
+                "1. 👤 **Tài khoản & Hồ sơ** (`AUTH_PROFILE`)\n" +
+                "2. 🛡️ **Xác minh danh tính & Bằng cấp** (`VERIFICATION`)\n" +
+                "3. 📚 **Thị trường tìm lớp & Gia sư** (`MARKETPLACE`)\n" +
+                "4. 📝 **Hợp đồng điện tử & Ký OTP** (`CONTRACT`)\n" +
+                "5. 💰 **Thanh toán & Ký quỹ Escrow** (`PAYMENT_ESCROW`)\n" +
+                "6. ⚖️ **Khiếu nại, Báo cáo & Hoàn tiền** (`REFUND_DISPUTE`)\n" +
+                "7. ⭐ **Đánh giá & Uy tín** (`REVIEW_REPUTATION`)\n" +
+                "8. 🏢 **Trung tâm gia sư** (`CENTER_WORKFORCE`)\n" +
+                "9. 💬 **Tin nhắn & Ticket hỗ trợ** (`SUPPORT_TICKET`)\n" +
+                "10. ⚙️ **Quản trị & Cấu hình nền tảng** (`PLATFORM_ADMIN`)";
+
+        return new OpenDomainResponse(
+            answer,
+            "Bạn có thể tra cứu chi tiết toàn bộ các câu hỏi tại mục Trợ giúp.",
+            "/help",
+            List.of("Xem toàn bộ FAQ (/help)", "Tìm gia sư (/tim-gia-su)", "Xem lớp học (/lop-hoc)")
+        );
+    }
+
+    public OpenDomainResponse handleEntertainment(String topic) {
+        String norm = topic != null ? VietnameseTextNormalizer.removeDiacritics(topic.toLowerCase(Locale.ROOT)) : "";
+        String answer;
+
+        if (norm.contains("dep trai") || norm.contains("xinh") || norm.contains("dep gai") || norm.contains("co dep khong") || norm.contains("dep khong")) {
+            answer = "Chắc chắn rồi! Bạn luôn tự tin và tỏa sáng theo phong cách riêng của mình. Hãy luôn giữ tinh thần vui vẻ, tích cực và đồng hành cùng TCS nhé! 😊";
+        } else if (norm.contains("nguoi yeu") || norm.contains("yeu bot") || norm.contains("yeu ban")) {
+            answer = "Tôi là Trợ lý AI nên hiện tại 'tình yêu' lớn nhất của tôi là đồng hành học tập và giúp bạn kết nối gia sư chất lượng nhất! 😄";
+        } else if (norm.contains("thong minh") || norm.contains("gioi qua") || norm.contains("hay qua") || norm.contains("khen")) {
+            answer = "Cảm ơn bạn rất nhiều! Lời khen của bạn là động lực lớn để tôi không ngừng hoàn thiện và hỗ trợ bạn tốt hơn mỗi ngày. ✨";
+        } else {
+            answer = "Chúc bạn có những phút giây thư giãn và trải nghiệm học tập tràn đầy cảm hứng cùng Tutor Connect System (TCS)!";
+        }
+
+        return new OpenDomainResponse(
+            answer,
+            null,
+            null,
+            List.of()
+        );
     }
 
     public OpenDomainResponse handleMath(String expression) {

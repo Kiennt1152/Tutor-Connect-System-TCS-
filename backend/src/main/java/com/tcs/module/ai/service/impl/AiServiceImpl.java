@@ -480,10 +480,10 @@ public class AiServiceImpl implements AiService {
             return "Tôi là Trợ lý học tập TCS. Hãy gửi câu hỏi hoặc bài tập chi tiết để tôi hỗ trợ hướng dẫn phương pháp giải nhé.";
         }
 
-        // Fallback directly to top FAQ / Knowledge source snippet if available
+        // Fallback directly to top FAQ / Knowledge source snippet ONLY if high confidence (>= 0.65)
         if (sources != null && !sources.isEmpty()) {
             for (AiSourceResponse s : sources) {
-                if ("FAQ".equals(s.getSourceType()) || "POLICY".equals(s.getSourceType()) || "SYSTEM_DOC".equals(s.getSourceType()) || "TUTOR".equals(s.getSourceType()) || "CLASS".equals(s.getSourceType())) {
+                if (s.getFinalScore() >= 0.65 && ("FAQ".equals(s.getSourceType()) || "POLICY".equals(s.getSourceType()) || "SYSTEM_DOC".equals(s.getSourceType()) || "TUTOR".equals(s.getSourceType()) || "CLASS".equals(s.getSourceType()))) {
                     if (s.getSnippet() != null && !s.getSnippet().isBlank()) {
                         return s.getSnippet();
                     }
@@ -491,7 +491,7 @@ public class AiServiceImpl implements AiService {
             }
         }
 
-        return "Hệ thống AI hiện đang bận hoặc quá tải kết nối. Bạn vui lòng thử lại sau giây lát hoặc truy cập mục /help để xem hướng dẫn trực tiếp.";
+        return "Xin chào! Tôi là Trợ lý AI của Tutor Connect System (TCS). Tôi có thể hỗ trợ bạn tìm kiếm gia sư, tham khảo lớp học, tra cứu học phí và giải đáp các quy định của hệ thống. Bạn có câu hỏi nào cụ thể về gia sư hoặc lớp học không ạ?";
     }
 
     @Override
