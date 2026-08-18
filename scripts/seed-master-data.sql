@@ -482,11 +482,11 @@ FROM users u WHERE u.email = 'tutor.sudia1@tcs.com'
 -- PHẦN 5: 5 TÀI KHOẢN PHỤ HUYNH & 30 LỚP HỌC MỞ (OPEN)
 -- =====================================================================
 INSERT IGNORE INTO users (email, phone, password_hash, status, created_at, updated_at) VALUES
-    ('client.hanoi1@tcs.com', '0971000001', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('client.hanoi2@tcs.com', '0971000002', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('client.hcm1@tcs.com', '0971000003', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('client.hcm2@tcs.com', '0971000004', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW()),
-    ('client.danang1@tcs.com', '0971000005', '$2a$10$7EqJtq98hPqEX7fNZaFWoOhi5VpU/8.s8aA7.Q2.bQjFp5hE3aH2u', 'ACTIVE', NOW(), NOW());
+    ('client.hanoi1@tcs.com', '0971000001', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('client.hanoi2@tcs.com', '0971000002', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('client.hcm1@tcs.com', '0971000003', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('client.hcm2@tcs.com', '0971000004', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW()),
+    ('client.danang1@tcs.com', '0971000005', '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPKW', 'ACTIVE', NOW(), NOW());
 
 INSERT IGNORE INTO clients (user_id, full_name, phone, address)
 SELECT u.user_id, 'Phụ Huynh Lê Thu Trang', u.phone, 'Số 25 Hoàng Quốc Việt, Cầu Giấy, Hà Nội'
