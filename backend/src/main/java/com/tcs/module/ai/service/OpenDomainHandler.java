@@ -1,6 +1,7 @@
 package com.tcs.module.ai.service;
 
 import com.tcs.module.ai.enums.AiSubIntent;
+import com.tcs.module.ai.util.VietnameseTextNormalizer;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -212,16 +213,6 @@ public class OpenDomainHandler {
 
     public OpenDomainResponse handleDefinition(String term) {
         String answer = "Về khái niệm \"" + term + "\", bạn có thể tham khảo từ điển học thuật hoặc gửi câu hỏi chi tiết hơn để tôi giải thích cụ thể.";
-        return new OpenDomainResponse(
-            answer,
-            null,
-            null,
-            List.of()
-        );
-    }
-
-    public OpenDomainResponse handleEntertainment(String topic) {
-        String answer = "Chúc bạn có những phút giây thư giãn và học tập tràn đầy năng lượng cùng Tutor Connect System (TCS)!";
         return new OpenDomainResponse(
             answer,
             null,

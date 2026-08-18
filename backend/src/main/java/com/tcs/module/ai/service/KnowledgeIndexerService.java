@@ -42,7 +42,6 @@ public class KnowledgeIndexerService {
     private java.time.LocalDateTime lastReindexTime = null;
     private static final int REINDEX_COOLDOWN_MINUTES = 1;
 
-    @Transactional
     public Map<String, Integer> reindexAll() {
         if (lastReindexTime != null) {
             long minutesSince = java.time.Duration.between(lastReindexTime, java.time.LocalDateTime.now()).toMinutes();
