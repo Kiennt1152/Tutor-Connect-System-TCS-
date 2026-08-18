@@ -19,6 +19,7 @@ import PlatformReviewsPage from '../features/platform/pages/PlatformReviewsPage'
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import PlatformWithdrawalsPage from '../features/platform/pages/PlatformWithdrawalsPage';
+import PlatformFeeSettingsPage from '../features/platform/pages/PlatformFeeSettingsPage';
 import PlatformTicketsPage from '../features/platform/pages/PlatformTicketsPage';
 import PlatformFaqPage from '../features/platform/pages/PlatformFaqPage';
 import PlatformParametersPage from '../features/platform/pages/PlatformParametersPage';
@@ -391,6 +392,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
                 <PlatformWithdrawalsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformFeeSettings}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformFeeSettingsPage />
               </ProtectedRoute>
             }
           />

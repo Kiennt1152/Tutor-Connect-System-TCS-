@@ -39,6 +39,9 @@
   .ksign-grid {
     grid-template-columns: 1fr;
   }
+  .ksign-side {
+    position: static;
+  }
 }
 
 .ksign-doc {
@@ -205,7 +208,10 @@
 
 .ksign-side {
   position: sticky;
-  top: 16px;
+  top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 .ksign-card {
   background: #fff;
@@ -411,7 +417,8 @@
 }
 
 .ksign-paycard {
-  margin-top: 14px;
+  order: -1;
+  margin-top: 0;
 }
 
 .ksign-paycard__head {
@@ -450,12 +457,15 @@
 
 .ksign-escrow {
   display: flex;
+  flex-direction: column;
   gap: 12px;
-  align-items: flex-start;
+  align-items: stretch;
 }
 
 .ksign-escrow__qr {
-  flex: 0 0 124px;
+  flex: none;
+  width: 100%;
+  aspect-ratio: 1;
   padding: 8px;
   border: 1px solid #dbe4ef;
   border-radius: 12px;
@@ -463,8 +473,9 @@
 }
 
 .ksign-escrow__qr-wrap {
-  flex: 0 0 150px;
-  min-width: 0;
+  width: min(100%, 210px);
+  min-width: 180px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -484,7 +495,8 @@
 .ksign-escrow__qr img {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
 }
 
 .ksign-escrow__details {
@@ -502,8 +514,8 @@
 }
 
 .ksign-escrow__row {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: minmax(96px, 0.9fr) minmax(0, 1fr);
   gap: 12px;
   padding: 8px 0;
   border-bottom: 1px solid #eef2f7;
@@ -515,7 +527,8 @@
 .ksign-escrow__row strong {
   color: #12233b;
   text-align: right;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .ksign-escrow__code {
@@ -542,7 +555,8 @@
   background: #f8fbff;
   font-family: 'JetBrains Mono', Consolas, monospace;
   font-size: 13px;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: anywhere;
 }
 .ksign-escrow__code button {
   border: 1px solid #d7dfea;
@@ -595,11 +609,11 @@
   }
   .ksign-escrow__qr {
     width: 100%;
-    max-width: 220px;
   }
   .ksign-escrow__qr-wrap {
     width: 100%;
     max-width: 220px;
+    min-width: 0;
   }
   .ksign-toast {
     left: 16px;
