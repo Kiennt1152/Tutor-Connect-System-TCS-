@@ -305,6 +305,7 @@ public class EscrowServiceImpl implements EscrowService {
         BigDecimal feeRate = resolvePlatformFeeRate();
         BigDecimal platformFee = grossAmount.multiply(feeRate).setScale(2, RoundingMode.HALF_UP);
         BigDecimal netAmount = grossAmount.subtract(platformFee);
+        String feeSummary = formatPlatformFeeSummary(feeRate, platformFee);
         Long beneficiaryUserId = beneficiaryUserId(escrow);
         if (netAmount.compareTo(BigDecimal.ZERO) > 0) {
             walletService.credit(beneficiaryUserId, netAmount, reference);
@@ -316,7 +317,8 @@ public class EscrowServiceImpl implements EscrowService {
         tx.setType(PaymentTransactionType.ESCROW_RELEASE);
         tx.setStatus(PaymentTransactionStatus.SUCCESS);
         tx.setAmount(netAmount);
-        tx.setDescription(buildSettlementDescription("Giải ngân escrow", reason));
+        tx.setDescription(buildSettlementDescription("Giải ngân escrow", reason)
+                + " (đã trừ " + feeSummary + ")");
         tx.setReferenceCode(reference);
         tx.setProcessedAt(LocalDateTime.now());
         paymentTransactionRepository.save(tx);
@@ -325,7 +327,7 @@ public class EscrowServiceImpl implements EscrowService {
                 beneficiaryUserId,
                 "Đã nhận tiền từ escrow",
                 "Ví của bạn đã được cộng " + formatAmount(netAmount) + " từ tất toán escrow #"
-                        + escrow.getEscrowId() + " sau phí nền tảng " + formatAmount(platformFee) + ".",
+                        + escrow.getEscrowId() + " sau khi trừ " + feeSummary + ".",
                 "ESCROW",
                 escrow.getEscrowId());
     }
@@ -345,7 +347,7 @@ public class EscrowServiceImpl implements EscrowService {
         feeTransaction.setStatus(PaymentTransactionStatus.SUCCESS);
         feeTransaction.setAmount(fee);
         feeTransaction.setDescription("Phí nền tảng escrow #" + escrow.getEscrowId()
-                + " (" + feeRate.multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%)");
+                + " (" + formatRatePercent(feeRate) + " = " + formatAmount(fee) + ")");
         feeTransaction.setReferenceCode(reference);
         feeTransaction.setProcessedAt(LocalDateTime.now());
         paymentTransactionRepository.save(feeTransaction);
@@ -369,6 +371,17 @@ public class EscrowServiceImpl implements EscrowService {
                     }
                 })
                 .orElse(fallback);
+    }
+
+    private String formatPlatformFeeSummary(BigDecimal feeRate, BigDecimal fee) {
+        return "phí nền tảng " + formatRatePercent(feeRate) + " = " + formatAmount(fee);
+    }
+
+    private String formatRatePercent(BigDecimal feeRate) {
+        if (feeRate == null) {
+            return "0%";
+        }
+        return feeRate.multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%";
     }
 
     private void refundToPayer(

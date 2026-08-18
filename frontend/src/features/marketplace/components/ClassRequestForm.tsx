@@ -40,6 +40,7 @@ import {
   totalHoursPerRepeat,
   weeksForCycle,
 } from '../mappers/marketplaceMapper';
+import { FALLBACK_GRADES } from '../constants/catalogFallback';
 import { LocationPicker, type LocationValue } from '../../center/components/LocationPicker';
 import '../pages/MarketplacePage.css';
 
@@ -154,6 +155,8 @@ const UNIVERSITY_ENTRANCE_SUBJECTS = [
   'Địa lý',
 ];
 
+const SCHOOL_GRADE_PATTERN = /^Lớp ([1-9]|1[0-2])$/;
+
 function gradeMatchesSubjects(gradeName: string, subjectNames: string[]): boolean {
   const isCert = gradeName.toLowerCase().includes('chứng chỉ');
   const isUniversity = gradeName.includes('Đại học');
@@ -225,11 +228,20 @@ export function ClassRequestForm({
   const isWeekly = form.scheduleMode === 'WEEKLY';
   const knownSubjectNames = form.subjectIds.filter((id) => !isOtherSubject(id)).map(subjName);
   const hasUnknownSubject = form.subjectIds.some(isOtherSubject);
+  const gradeOptions = useMemo(() => {
+    const seen = new Set<string>();
+    return [...grades, ...FALLBACK_GRADES.filter((g) => SCHOOL_GRADE_PATTERN.test(g.name))].filter((g) => {
+      const key = g.name.trim().toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [grades]);
   // Môn tự-điền (nhờ trung tâm) hoặc có môn "khác" -> không lọc, hiện đầy đủ danh sách lớp.
   const visibleGrades =
     freeTextSubjects || hasUnknownSubject
-      ? grades
-      : grades.filter((g) => gradeMatchesSubjects(g.name, knownSubjectNames));
+      ? gradeOptions
+      : gradeOptions.filter((g) => gradeMatchesSubjects(g.name, knownSubjectNames));
   function handleGradeChange(gradeId: string) {
     setForm((prev) => ({ ...prev, gradeId }));
   }

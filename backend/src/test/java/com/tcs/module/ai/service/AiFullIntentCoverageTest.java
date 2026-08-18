@@ -469,21 +469,21 @@ class AiFullIntentCoverageTest {
 
         @ParameterizedTest
         @CsvSource({
-            "'1+1 bằng mấy?', AI_TUTORING_MATH",
-            "'2 + 2', AI_TUTORING_MATH",
-            "'10 * 5', AI_TUTORING_MATH",
-            "'100 / 4', AI_TUTORING_MATH",
             "'giải phương trình bậc 2', AI_TUTORING_MATH",
             "'hướng dẫn làm bài tập toán hình', AI_TUTORING_MATH",
-            "'giải thích thì hiện tại hoàn thành', AI_TUTORING_MATH",
-            "'ngữ pháp tiếng anh cơ bản', AI_TUTORING_MATH",
-            "'lập kế hoạch học ielts 7.0', AI_TUTORING_MATH",
-            "'định lý pitago phát biểu thế nào', AI_TUTORING_MATH",
-            "'công thức tính vận tốc', AI_TUTORING_MATH",
             "'giai phuong trinh', AI_TUTORING_MATH",
             "'bai tap toan 12', AI_TUTORING_MATH",
-            "'ngu phap tieng anh', AI_TUTORING_MATH",
-            "'ke hoach hoc tap', AI_TUTORING_MATH"
+            "'giải thích thì hiện tại hoàn thành', AI_TUTORING_ENGLISH",
+            "'ngữ pháp tiếng anh cơ bản', AI_TUTORING_ENGLISH",
+            "'ngu phap tieng anh', AI_TUTORING_ENGLISH",
+            "'lập kế hoạch học ielts 7.0', AI_TUTORING_STUDY_PLAN",
+            "'ke hoach hoc tap', AI_TUTORING_STUDY_PLAN",
+            "'luyện tập ôn thi đại học', AI_TUTORING_STUDY_PLAN",
+            "'định lý pitago phát biểu thế nào', AI_TUTORING_SCIENCE",
+            "'công thức tính vận tốc', AI_TUTORING_SCIENCE",
+            "'bài tập vật lý 10', AI_TUTORING_SCIENCE",
+            "'hướng dẫn lập trình python cơ bản', AI_TUTORING_CODE",
+            "'debug code java', AI_TUTORING_CODE"
         })
         void shouldClassifyAiTutoring(String query, AiSubIntent expectedSubIntent) {
             var detail = classifier.classifyDetailed(query);

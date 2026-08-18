@@ -117,18 +117,27 @@ export function SiteHeader({ active }: SiteHeaderProps) {
             <Link
               key={link.key}
               to={link.to}
-              className={active === link.key ? 'tcs-header__nav-link--active' : undefined}
+              className={[
+                'tcs-header__nav-link',
+                active === link.key ? 'tcs-header__nav-link--active' : '',
+              ].filter(Boolean).join(' ')}
             >
               {link.label}
             </Link>
           ))}
           {showHomeAnchors && (
             <>
-              <a href="/#news">Tin tức</a>
+              <a className="tcs-header__nav-link tcs-header__nav-link--secondary" href="/#news">
+                Tin tức
+              </a>
               {/* "Đánh giá" mở trang riêng /danh-gia (danh sách gia sư + số sao). */}
               <Link
                 to={APP_ROUTES.tutorReviews}
-                className={active === 'reviews' ? 'tcs-header__nav-link--active' : undefined}
+                className={[
+                  'tcs-header__nav-link',
+                  'tcs-header__nav-link--secondary',
+                  active === 'reviews' ? 'tcs-header__nav-link--active' : '',
+                ].filter(Boolean).join(' ')}
               >
                 Đánh giá
               </Link>

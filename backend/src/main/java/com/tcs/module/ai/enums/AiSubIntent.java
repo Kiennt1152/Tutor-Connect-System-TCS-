@@ -220,7 +220,16 @@ public enum AiSubIntent {
     AI_TUTORING_EXPLAIN_CONCEPT,
     AI_TUTORING_HOMEWORK_POLICY,
 
-    // O. Out of Scope
+    // O. Open Domain & General Queries
+    MATH_CALCULATION,
+    TIME_DATE_QUERY,
+    WEATHER_QUERY,
+    GENERAL_KNOWLEDGE,
+    ENTERTAINMENT,
+    DEFINITION_LOOKUP,
+    NEWS_CURRENT_EVENTS,
+
+    // P. Out of Scope
     OUT_OF_SCOPE,
     PLATFORM_STATS
 }

@@ -61,6 +61,7 @@ import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
+import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.security.AuthHelper;
@@ -99,6 +100,7 @@ public class FinanceServiceImpl implements FinanceService {
     private static final int TOPUP_TTL_MINUTES = 15;
     private static final int WITHDRAWAL_MATCH_WINDOW_MINUTES = 5;
     private static final int PAYOUT_COOLDOWN_HOURS = 24;
+    private static final int CENTER_PAYOUT_COOLDOWN_MINUTES = 5;
     private static final int PAYOUT_CHANGE_REVIEW_HOURS = 72;
     private static final int FAST_TOPUP_WITHDRAWAL_HOURS = 24;
     private static final int INFLOW_AGGREGATION_REVIEW_HOURS = 72;
@@ -129,6 +131,7 @@ public class FinanceServiceImpl implements FinanceService {
     private final DisputeRepository disputeRepository;
     private final UserRepository userRepository;
     private final PlatformAdminRepository platformAdminRepository;
+    private final TutorCenterRepository tutorCenterRepository;
     private final EscrowService escrowService;
     private final CenterRequestFeeService centerRequestFeeService;
     private final PaymentNotificationService paymentNotificationService;
@@ -2198,7 +2201,7 @@ public class FinanceServiceImpl implements FinanceService {
         }
         method.setLastUsedAt(usedAt);
         if (method.getCooldownUntil() == null) {
-            method.setCooldownUntil(usedAt.plusHours(PAYOUT_COOLDOWN_HOURS));
+            method.setCooldownUntil(payoutCooldownUntil(method, usedAt));
         }
         paymentMethodRepository.save(method);
     }
@@ -2308,8 +2311,7 @@ public class FinanceServiceImpl implements FinanceService {
         if (referenceTime == null) {
             return;
         }
-        long ageHours = ChronoUnit.HOURS.between(referenceTime, LocalDateTime.now());
-        if (ageHours < PAYOUT_COOLDOWN_HOURS) {
+        if (isWithinPayoutCooldown(method, referenceTime, LocalDateTime.now())) {
             String owner = method.getWallet() != null && method.getWallet().getUser() != null
                     ? method.getWallet().getUser().getEmail()
                     : "không rõ";
@@ -2342,9 +2344,7 @@ public class FinanceServiceImpl implements FinanceService {
         if (withdrawal == null || paymentMethod == null) {
             return;
         }
-        boolean newMethod = paymentMethod.getCreatedAt() != null
-                && ChronoUnit.HOURS.between(paymentMethod.getCreatedAt(), withdrawal.getRequestedAt())
-                < PAYOUT_COOLDOWN_HOURS;
+        boolean newMethod = isWithinPayoutCooldown(paymentMethod, paymentMethod.getCreatedAt(), withdrawal.getRequestedAt());
         if (!newMethod) {
             return;
         }
@@ -2409,7 +2409,34 @@ public class FinanceServiceImpl implements FinanceService {
             return;
         }
         LocalDateTime verifiedAt = method.getVerifiedAt() != null ? method.getVerifiedAt() : LocalDateTime.now();
-        method.setCooldownUntil(verifiedAt.plusHours(PAYOUT_COOLDOWN_HOURS));
+        method.setCooldownUntil(payoutCooldownUntil(method, verifiedAt));
+    }
+
+    private LocalDateTime payoutCooldownUntil(PaymentMethod method, LocalDateTime from) {
+        if (isCenterPayoutMethod(method)) {
+            return from.plusMinutes(CENTER_PAYOUT_COOLDOWN_MINUTES);
+        }
+        return from.plusHours(PAYOUT_COOLDOWN_HOURS);
+    }
+
+    private boolean isWithinPayoutCooldown(PaymentMethod method, LocalDateTime referenceTime, LocalDateTime checkedAt) {
+        if (referenceTime == null || checkedAt == null) {
+            return false;
+        }
+        return ChronoUnit.MINUTES.between(referenceTime, checkedAt) < payoutCooldownMinutes(method);
+    }
+
+    private long payoutCooldownMinutes(PaymentMethod method) {
+        return isCenterPayoutMethod(method)
+                ? CENTER_PAYOUT_COOLDOWN_MINUTES
+                : PAYOUT_COOLDOWN_HOURS * 60L;
+    }
+
+    private boolean isCenterPayoutMethod(PaymentMethod method) {
+        Wallet wallet = method != null ? method.getWallet() : null;
+        User owner = wallet != null ? wallet.getUser() : null;
+        Long ownerId = owner != null ? owner.getUserId() : null;
+        return ownerId != null && tutorCenterRepository.findByUser_UserId(ownerId).isPresent();
     }
 
     private String lastFour(String accountNo) {

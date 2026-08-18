@@ -45,6 +45,7 @@ export const APP_ROUTES = {
   platformReports: '/platform/reports',
   platformEscrows: '/platform/escrows',
   platformWithdrawals: '/platform/withdrawals',
+  platformFeeSettings: '/platform/fees',
   platformReviews: '/platform/reviews',
   platformTickets: '/platform/tickets',
   platformFaq: '/platform/faq',

@@ -213,8 +213,8 @@ function LessonChip({
   const done = lesson.attendanceStatus === 'COMPLETED';
   const absent = lesson.attendanceStatus === 'ABSENT';
   const isTodayLesson = lesson.lessonDate === toIsoDate(new Date());
-  // done=xanh lá · absent=đỏ · today(đang tới giờ điểm danh)=xanh dương ·
-  // todaywait(hôm nay nhưng chưa tới giờ)=vàng · pending(lịch tương lai)=cam.
+  // done=xanh lá · absent=đỏ · today(đúng ngày học)=xanh dương ·
+  // todaywait(hôm nay nhưng backend chưa cho điểm danh)=vàng · pending(lịch tương lai)=cam.
   const tone = done
     ? 'done'
     : absent
@@ -271,7 +271,7 @@ function LessonChip({
             title={
               lesson.canCheckInToday
                 ? undefined
-                : `Chỉ điểm danh được từ giờ bắt đầu buổi học (${hhmmDisplay(lesson.startTime)}) đến hết ngày hôm đó`
+                : 'Chỉ điểm danh được trong đúng ngày diễn ra buổi học'
             }
           >
             Điểm danh

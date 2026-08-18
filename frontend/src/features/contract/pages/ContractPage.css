@@ -369,6 +369,12 @@
   color: #166534;
 }
 
+.contract-escrow-card {
+  position: sticky;
+  top: 96px;
+  align-self: start;
+}
+
 .contract-info-list {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -513,14 +519,14 @@
 }
 
 .contract-escrow {
-  display: grid;
-  grid-template-columns: 156px minmax(0, 1fr);
+  display: flex;
+  flex-direction: column;
   gap: var(--space-md);
   padding: var(--space-lg);
 }
 
 .contract-escrow__qr {
-  width: 156px;
+  width: 100%;
   aspect-ratio: 1;
   display: flex;
   align-items: center;
@@ -533,8 +539,9 @@
 }
 
 .contract-escrow__qr-wrap {
-  width: 156px;
+  width: min(100%, 210px);
   min-width: 0;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: var(--space-sm);
@@ -560,9 +567,9 @@
 }
 
 .contract-escrow__row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(110px, 0.9fr) minmax(0, 1fr);
   align-items: flex-start;
-  justify-content: space-between;
   gap: var(--space-md);
   padding-bottom: var(--space-xs);
   border-bottom: 1px solid var(--color-border);
@@ -581,7 +588,8 @@
   color: var(--color-text-primary);
   font-size: var(--fs-body-sm);
   text-align: right;
-  overflow-wrap: anywhere;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .contract-escrow__code {
@@ -606,6 +614,7 @@
   color: var(--color-text-primary);
   font-family: var(--font-mono);
   font-size: 12px;
+  word-break: normal;
   overflow-wrap: anywhere;
 }
 
@@ -841,6 +850,10 @@
 
   .contract-detail-grid {
     grid-template-columns: 1fr;
+  }
+
+  .contract-escrow-card {
+    position: static;
   }
 
   .contract-card--wide {

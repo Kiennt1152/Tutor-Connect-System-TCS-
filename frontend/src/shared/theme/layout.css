@@ -22,22 +22,39 @@
   box-shadow: var(--shadow-sm);
 }
 
+.tcs-header > .tcs-container {
+  max-width: 1480px;
+}
+
 .tcs-header__inner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 64px;
-  gap: var(--space-md);
+  gap: clamp(8px, 1.2vw, var(--space-md));
+  min-width: 0;
+}
+
+.tcs-header__inner > .app-logo {
+  flex: 0 0 auto;
 }
 
 .tcs-header__nav {
   display: flex;
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   justify-content: center;
-  gap: var(--space-lg);
-  color: var(--color-text-primary);
+  gap: clamp(12px, 1.7vw, var(--space-lg));
+  color: var(--color-text-secondary);
   font-weight: 500;
   font-size: var(--fs-body-md);
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.tcs-header__nav a {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .tcs-header__nav a:hover {
@@ -47,8 +64,18 @@
 .tcs-header__actions {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  flex-shrink: 0;
+  gap: clamp(6px, 0.8vw, var(--space-sm));
+  min-width: 0;
+  flex: 0 1 auto;
+  flex-wrap: nowrap;
+}
+
+.tcs-header__actions > * {
+  flex: 0 0 auto;
+}
+
+.tcs-header__shortcut {
+  white-space: nowrap;
 }
 
 .tcs-home-profile-btn {
@@ -114,6 +141,19 @@
   font-size: 13px;
   font-weight: 800;
   line-height: 1;
+}
+
+@media (max-width: 1120px) {
+  .tcs-home-profile-btn {
+    width: 38px;
+    height: 38px;
+  }
+
+  .tcs-home-profile-btn__avatar {
+    width: 34px;
+    height: 34px;
+    font-size: 11px;
+  }
 }
 
 .tcs-profile-menu {
@@ -354,12 +394,33 @@
     padding: 0 var(--space-lg);
   }
 
+  .tcs-header__nav {
+    gap: 12px;
+    font-size: var(--fs-body-sm);
+  }
+
+  .tcs-header__inner > .app-logo .app-logo__text {
+    font-size: 15px;
+  }
+
   .tcs-footer__grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1280px) {
+  .tcs-header__nav-link--secondary {
+    display: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .tcs-header__inner > .app-logo .app-logo__text {
+    display: none;
+  }
+}
+
+@media (max-width: 900px) {
   .tcs-header__nav {
     display: none;
   }
@@ -367,7 +428,9 @@
   .tcs-header__shortcut {
     display: none;
   }
+}
 
+@media (max-width: 768px) {
   .tcs-home-profile-btn__label {
     display: none;
   }
