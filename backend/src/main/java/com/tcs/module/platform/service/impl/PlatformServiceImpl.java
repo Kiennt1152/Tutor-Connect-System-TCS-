@@ -98,6 +98,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -105,6 +106,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class PlatformServiceImpl implements PlatformService {
@@ -1157,6 +1159,91 @@ public class PlatformServiceImpl implements PlatformService {
         notifyUserOfTicketResponse(savedSource, notificationNote);
 
         return toTicketDetail(savedSource);
+    }
+
+    @Override
+    @Transactional
+    public int scanAndEscalateSlaBreaches() {
+        LocalDateTime now = LocalDateTime.now();
+        List<SupportTicketStatus> excludedStatuses = List.of(SupportTicketStatus.RESOLVED, SupportTicketStatus.CLOSED);
+        List<SupportTicket> breachedCandidates = supportTicketRepository.findBreachedCandidateTickets(excludedStatuses, now);
+
+        if (breachedCandidates.isEmpty()) {
+            return 0;
+        }
+
+        log.info("SLA Scanner: phát hiện {} tickets quá hạn SLA", breachedCandidates.size());
+        List<PlatformAdmin> allAdmins = platformAdminRepository.findAll();
+
+        for (SupportTicket ticket : breachedCandidates) {
+            SupportTicketPriority oldPriority = ticket.getPriority();
+            SupportTicketPriority newPriority = escalatePriority(oldPriority);
+
+            ticket.setSlaBreached(true);
+            ticket.setPriority(newPriority);
+            supportTicketRepository.save(ticket);
+
+            // Ghi audit log
+            auditLogService.record(
+                    "SLA_BREACH_ESCALATION",
+                    "SupportTicket",
+                    ticket.getTicketId(),
+                    Map.of("oldPriority", oldPriority, "slaBreached", false),
+                    Map.of("newPriority", newPriority, "slaBreached", true));
+
+            // Gửi thông báo nhắc nhở đến Admin
+            String adminTitle = "Cảnh báo quá hạn SLA Ticket #" + ticket.getTicketId();
+            String adminContent = "Yêu cầu hỗ trợ #" + ticket.getTicketId() + " (" + ticket.getSubject()
+                    + ") đã quá hạn phản hồi. Hệ thống đã tự động nâng độ ưu tiên lên " + newPriority + ". Vui lòng kiểm tra và xử lý gấp.";
+
+            if (ticket.getAssignedAdmin() != null && ticket.getAssignedAdmin().getUser() != null) {
+                notificationDispatchService.notifyUser(
+                        ticket.getAssignedAdmin().getUser(),
+                        NotificationType.SYSTEM,
+                        adminTitle,
+                        adminContent,
+                        "SUPPORT_TICKET",
+                        ticket.getTicketId());
+            } else {
+                for (PlatformAdmin admin : allAdmins) {
+                    if (admin.getUser() != null) {
+                        notificationDispatchService.notifyUser(
+                                admin.getUser(),
+                                NotificationType.SYSTEM,
+                                adminTitle,
+                                adminContent,
+                                "SUPPORT_TICKET",
+                                ticket.getTicketId());
+                    }
+                }
+            }
+
+            // Gửi thông báo cập nhật tiến độ cho người dùng
+            if (ticket.getUser() != null) {
+                String userTitle = "Cập nhật tiến độ: Yêu cầu hỗ trợ #" + ticket.getTicketId();
+                String userContent = "Yêu cầu hỗ trợ #" + ticket.getTicketId()
+                        + " của bạn đang được hệ thống nâng mức độ ưu tiên lên " + newPriority
+                        + " để xử lý khẩn cấp. TCS thành thật xin lỗi vì sự chậm trễ này.";
+                notificationDispatchService.notifyUser(
+                        ticket.getUser(),
+                        NotificationType.SYSTEM,
+                        userTitle,
+                        userContent,
+                        "SUPPORT_TICKET",
+                        ticket.getTicketId());
+            }
+        }
+
+        return breachedCandidates.size();
+    }
+
+    private SupportTicketPriority escalatePriority(SupportTicketPriority current) {
+        if (current == null) return SupportTicketPriority.HIGH;
+        return switch (current) {
+            case LOW -> SupportTicketPriority.MEDIUM;
+            case MEDIUM -> SupportTicketPriority.HIGH;
+            case HIGH, URGENT -> SupportTicketPriority.URGENT;
+        };
     }
 
     private SupportTicket findTicketOrThrow(Long ticketId) {

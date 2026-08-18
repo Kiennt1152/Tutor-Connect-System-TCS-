@@ -79,4 +79,7 @@ public interface PlatformService {
 
     /** Admin gộp ticket trùng vào ticket chính (BF09-TC03). */
     SupportTicketDetailResponse mergeTicket(Long sourceTicketId, com.tcs.module.platform.dto.request.MergeTicketRequest request);
+
+    /** Quét, tự động nâng độ ưu tiên và gửi nhắc nhở cho các ticket quá hạn SLA (BF09-TC02). */
+    int scanAndEscalateSlaBreaches();
 }

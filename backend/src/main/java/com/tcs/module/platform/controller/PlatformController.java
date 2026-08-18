@@ -168,4 +168,10 @@ public class PlatformController {
             @PathVariable Long ticketId, @Valid @RequestBody com.tcs.module.platform.dto.request.MergeTicketRequest request) {
         return platformService.mergeTicket(ticketId, request);
     }
+
+    @PostMapping("/tickets/sla/scan")
+    public java.util.Map<String, Object> triggerSlaScan() {
+        int count = platformService.scanAndEscalateSlaBreaches();
+        return java.util.Map.of("message", "Quét SLA hoàn tất", "escalatedCount", count);
+    }
 }

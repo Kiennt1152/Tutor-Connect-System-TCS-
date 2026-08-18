@@ -20,6 +20,7 @@ import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.security.AuthHelper;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -371,5 +372,73 @@ class PlatformServiceImplTicketTest {
                 () -> platformService.mergeTicket(TICKET_ID, request));
         assertEquals("Không thể gộp vào ticket đích đã bị đóng", ex.getMessage());
         verify(ticketMessageRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("scanAndEscalateSlaBreaches: tự động nâng độ ưu tiên và gửi nhắc nhở khi quá hạn SLA (BF09-TC02)")
+    void scanAndEscalateSlaBreaches_Success() {
+        ticket.setPriority(SupportTicketPriority.LOW);
+        ticket.setSlaBreached(false);
+        ticket.setAssignedAdmin(platformAdmin);
+
+        when(supportTicketRepository.findBreachedCandidateTickets(any(), any()))
+                .thenReturn(List.of(ticket));
+        when(platformAdminRepository.findAll()).thenReturn(List.of(platformAdmin));
+
+        int count = platformService.scanAndEscalateSlaBreaches();
+
+        assertEquals(1, count);
+        assertTrue(ticket.getSlaBreached());
+        assertEquals(SupportTicketPriority.MEDIUM, ticket.getPriority());
+
+        // Verify save
+        verify(supportTicketRepository).save(ticket);
+
+        // Verify audit log
+        verify(auditLogService).record(
+                eq("SLA_BREACH_ESCALATION"), eq("SupportTicket"), eq(TICKET_ID), any(), any());
+
+        // Verify admin reminder notification
+        verify(notificationDispatchService).notifyUser(
+                eq(adminUser), any(), contains("Cảnh báo quá hạn SLA"), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+
+        // Verify user progress notification
+        verify(notificationDispatchService).notifyUser(
+                eq(ticketUser), any(), contains("Cập nhật tiến độ"), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+    }
+
+    @Test
+    @DisplayName("scanAndEscalateSlaBreaches: nâng HIGH lên URGENT và gửi broadcast khi chưa gán admin")
+    void scanAndEscalateSlaBreaches_HighToUrgentBroadcast() {
+        ticket.setPriority(SupportTicketPriority.HIGH);
+        ticket.setSlaBreached(false);
+        ticket.setAssignedAdmin(null);
+
+        when(supportTicketRepository.findBreachedCandidateTickets(any(), any()))
+                .thenReturn(List.of(ticket));
+        when(platformAdminRepository.findAll()).thenReturn(List.of(platformAdmin));
+
+        int count = platformService.scanAndEscalateSlaBreaches();
+
+        assertEquals(1, count);
+        assertTrue(ticket.getSlaBreached());
+        assertEquals(SupportTicketPriority.URGENT, ticket.getPriority());
+
+        // Verify admin broadcast notification
+        verify(notificationDispatchService).notifyUser(
+                eq(adminUser), any(), contains("Cảnh báo quá hạn SLA"), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+    }
+
+    @Test
+    @DisplayName("scanAndEscalateSlaBreaches: trả về 0 khi không có ticket nào quá hạn")
+    void scanAndEscalateSlaBreaches_NoBreaches() {
+        when(supportTicketRepository.findBreachedCandidateTickets(any(), any()))
+                .thenReturn(List.of());
+
+        int count = platformService.scanAndEscalateSlaBreaches();
+
+        assertEquals(0, count);
+        verify(supportTicketRepository, never()).save(any());
+        verify(notificationDispatchService, never()).notifyUser(any(), any(), any(), any(), any(), any());
     }
 }
