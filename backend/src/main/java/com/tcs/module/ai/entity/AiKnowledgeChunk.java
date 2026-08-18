@@ -97,4 +97,67 @@ public class AiKnowledgeChunk {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public Long getChunkId() { return chunkId; }
+    public void setChunkId(Long chunkId) { this.chunkId = chunkId; }
+
+    public KnowledgeSourceType getSourceType() { return sourceType; }
+    public void setSourceType(KnowledgeSourceType sourceType) { this.sourceType = sourceType; }
+
+    public String getSourceId() { return sourceId; }
+    public void setSourceId(String sourceId) { this.sourceId = sourceId; }
+
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+
+    public String getContent() { return content; }
+    public void setContent(String content) { this.content = content; }
+
+    public String getMetadataJson() { return metadataJson; }
+    public void setMetadataJson(String metadataJson) { this.metadataJson = metadataJson; }
+
+    public String getEmbeddingJson() { return embeddingJson; }
+    public void setEmbeddingJson(String embeddingJson) { this.embeddingJson = embeddingJson; }
+
+    public String getEmbeddingModel() { return embeddingModel; }
+    public void setEmbeddingModel(String embeddingModel) { this.embeddingModel = embeddingModel; }
+
+    public String getContentHash() { return contentHash; }
+    public void setContentHash(String contentHash) { this.contentHash = contentHash; }
+
+    public Boolean getActive() { return active; }
+    public void setActive(Boolean active) { this.active = active; }
+
+    public String getVisibility() { return visibility; }
+    public void setVisibility(String visibility) { this.visibility = visibility; }
+
+    public String getMinRole() { return minRole; }
+    public void setMinRole(String minRole) { this.minRole = minRole; }
+
+    public Long getOwnerUserId() { return ownerUserId; }
+    public void setOwnerUserId(Long ownerUserId) { this.ownerUserId = ownerUserId; }
+
+    public String getSourceStatus() { return sourceStatus; }
+    public void setSourceStatus(String sourceStatus) { this.sourceStatus = sourceStatus; }
+
+    public LocalDateTime getSourceUpdatedAt() { return sourceUpdatedAt; }
+    public void setSourceUpdatedAt(LocalDateTime sourceUpdatedAt) { this.sourceUpdatedAt = sourceUpdatedAt; }
+
+    public LocalDateTime getLastIndexedAt() { return lastIndexedAt; }
+    public void setLastIndexedAt(LocalDateTime lastIndexedAt) { this.lastIndexedAt = lastIndexedAt; }
+
+    public Double getQualityScore() { return qualityScore; }
+    public void setQualityScore(Double qualityScore) { this.qualityScore = qualityScore; }
+
+    public Integer getTokenCount() { return tokenCount; }
+    public void setTokenCount(Integer tokenCount) { this.tokenCount = tokenCount; }
+
+    public String getLocale() { return locale; }
+    public void setLocale(String locale) { this.locale = locale; }
+
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

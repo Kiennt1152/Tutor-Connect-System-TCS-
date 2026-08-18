@@ -87,4 +87,9 @@ public class Tutor {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public String getFullName() { return fullName; }
+    public String getPhone() { return phone; }
+    public Long getTutorId() { return tutorId; }
+    public User getUser() { return user; }
 }
