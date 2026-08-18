@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class AiHallucinationGuard {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AiHallucinationGuard.class);
+
     private static final Set<String> FAKE_PATTERNS = Set.of(
         "gia sư a", "gia sư b", "gia sư c",
         "lớp học a", "lớp học b", "lớp học c",

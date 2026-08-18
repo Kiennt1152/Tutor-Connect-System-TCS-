@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class EmbeddingService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EmbeddingService.class);
+
     private final ObjectMapper objectMapper;
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))

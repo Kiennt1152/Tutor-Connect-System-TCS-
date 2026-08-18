@@ -59,7 +59,7 @@ public class Client {
     @JoinColumn(name = "location_id")
     private Location location;
 
-    @Column(name = "avatar_url", length = 255)
+    @Column(name = "avatar_url", length = 500)
     private String avatarUrl;
 
     @CreationTimestamp
@@ -69,4 +69,9 @@ public class Client {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public String getFullName() { return fullName; }
+    public String getPhone() { return phone; }
+    public Long getClientId() { return clientId; }
+    public User getUser() { return user; }
 }

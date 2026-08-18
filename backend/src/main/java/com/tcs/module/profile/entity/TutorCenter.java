@@ -71,4 +71,9 @@ public class TutorCenter {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public String getCompanyName() { return companyName; }
+    public String getPhone() { return phone; }
+    public Long getCenterId() { return centerId; }
+    public User getUser() { return user; }
 }
