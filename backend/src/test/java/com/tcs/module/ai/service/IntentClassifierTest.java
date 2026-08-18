@@ -27,7 +27,7 @@ class IntentClassifierTest {
         "'Làm sao báo cáo gia sư lách sàn?', TICKET_SUPPORT",
         "'Khi nào nên mở tranh chấp lớp học?', TICKET_SUPPORT",
         "'xem lương gia sư của tôi như nào', PAYMENT_SUPPORT",
-        "'1+1 bằng mấy?', AI_TUTORING",
+        "'giải phương trình bậc 2', AI_TUTORING",
         "'TCS là gì?', FAQ_SUPPORT"
     })
     void shouldClassifyVietnameseWithDiacritics(String message, AiIntent expected) {
@@ -41,7 +41,9 @@ class IntentClassifierTest {
     @CsvSource({
         "'tim gia su toan lop 12 cau giay duoi 250k', FIND_TUTOR",
         "'co bao nhieu nguoi dung tren he thong', PLATFORM_STATS",
-        "'bao cao doanh thu dashboard', ADMIN_DASHBOARD"
+        "'bao cao doanh thu dashboard', ADMIN_DASHBOARD",
+        "'co lop day tiieng viet khong', FIND_CLASS",
+        "'co lop toan khong', FIND_CLASS"
     })
     void shouldClassifyVietnameseWithoutDiacritics(String message, AiIntent expected) {
         var result = classifier.classify(message);

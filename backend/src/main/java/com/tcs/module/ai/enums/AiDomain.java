@@ -1,7 +1,7 @@
 package com.tcs.module.ai.enums;
 
 /**
- * 14 business domains covering the entire Tutor Connect System (TCS).
+ * 15 business domains covering the entire Tutor Connect System (TCS) plus Open Domain.
  */
 public enum AiDomain {
     CONVERSATION_SAFETY,   // Chào hỏi, cảm ơn, chửi tục, gõ rác, yêu cầu gặp người
@@ -18,5 +18,6 @@ public enum AiDomain {
     CATALOG_FAQ,           // FAQ, chính sách nền tảng, môn học, khối lớp, hỗ trợ chung
     PLATFORM_ADMIN,        // Dashboard admin, báo cáo doanh thu, duyệt queue, audit log
     AI_TUTORING,           // Trợ giảng giải bài, học tập, giải thích khái niệm
+    OPEN_DOMAIN,           // Tri thức phổ thông, toán học, ngày giờ, thời tiết, giải trí
     OUT_OF_SCOPE           // Ngoài phạm vi hệ thống
 }

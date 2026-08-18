@@ -275,7 +275,7 @@ public class ContractServiceImpl implements ContractService {
                 .orElseGet(() -> createSignatureSlot(contract, role, authHelper.requireAuthenticated().getEmail()));
 
         if (signature.getSignatureStatus() == ContractSignatureStatus.SIGNED) {
-            throw new IllegalStateException("Bạn đã ký hợp đồng này rồi");
+                throw new IllegalStateException("Bạn đã ký hợp đồng này rồi");
         }
 
         String otp = generateOtp();
@@ -1023,7 +1023,7 @@ public class ContractServiceImpl implements ContractService {
             if (assignment.getTutor() != null
                     && assignment.getTutor().getUser() != null
                     && assignment.getTutor().getUser().getUserId().equals(currentUserId)) {
-                return PartyRole.TUTOR;
+            return PartyRole.TUTOR;
             }
             TutorApplication application = assignment.getApplication();
             if (application != null
@@ -1046,7 +1046,7 @@ public class ContractServiceImpl implements ContractService {
             if (tutoringClass != null
                     && tutoringClass.getCreator() != null
                     && tutoringClass.getCreator().getUserId().equals(currentUserId)) {
-                return tutorCenterRepository.findByUser_UserId(currentUserId).isPresent()
+            return tutorCenterRepository.findByUser_UserId(currentUserId).isPresent()
                         ? PartyRole.CENTER
                         : PartyRole.CLIENT;
             }
@@ -1508,10 +1508,10 @@ public class ContractServiceImpl implements ContractService {
         if (contract.getRecruitmentApplication() != null) {
             RecruitmentApplication app = contract.getRecruitmentApplication();
             Tutor tutor = app.getTutor();
-            if (tutor != null) {
-                builder.tutorId(tutor.getUser().getUserId());
-                builder.tutorName(tutor.getFullName());
-                builder.tutorEmail(tutor.getUser().getEmail());
+                    if (tutor != null) {
+                        builder.tutorId(tutor.getUser().getUserId());
+                        builder.tutorName(tutor.getFullName());
+                        builder.tutorEmail(tutor.getUser().getEmail());
             }
             RecruitmentPost post = app.getRecruitmentPost();
             if (post != null && post.getCenter() != null) {
@@ -1531,9 +1531,9 @@ public class ContractServiceImpl implements ContractService {
                 if (cls.getCreator() != null) {
                     tutorCenterRepository.findByUser_UserId(cls.getCreator().getUserId())
                             .ifPresent(center -> {
-                                builder.centerId(center.getCenterId());
-                                builder.centerName(center.getCompanyName());
-                                builder.centerEmail(center.getUser().getEmail());
+                            builder.centerId(center.getCenterId());
+                            builder.centerName(center.getCompanyName());
+                            builder.centerEmail(center.getUser().getEmail());
                             });
                 }
             }
@@ -1878,9 +1878,9 @@ public class ContractServiceImpl implements ContractService {
             return "Bên ký";
         }
         return switch (role) {
-            case CLIENT -> "Học viên / Phụ huynh";
-            case TUTOR -> "Gia sư";
-            case CENTER -> "Trung tâm";
+                            case CLIENT -> "Học viên / Phụ huynh";
+                            case TUTOR -> "Gia sư";
+                            case CENTER -> "Trung tâm";
         };
     }
 

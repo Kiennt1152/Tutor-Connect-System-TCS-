@@ -8,6 +8,7 @@ import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import java.math.BigDecimal;
 import java.util.*;
+import java.util.regex.Pattern;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -47,18 +48,18 @@ public class AiClassSearchContextProvider {
             String addressNorm = VietnameseTextNormalizer.normalize(c.getAddress() != null ? c.getAddress() : "");
             String subjectNameNorm = c.getSubject() != null ? VietnameseTextNormalizer.normalize(c.getSubject().getSubjectName()) : "";
             String gradeNameNorm = c.getGrade() != null ? VietnameseTextNormalizer.normalize(c.getGrade().getGradeName()) : "";
-            String allTextNorm = titleNorm + " " + descNorm + " " + addressNorm + " " + subjectNameNorm + " " + gradeNameNorm;
+            String academicTextNorm = titleNorm + " " + descNorm + " " + subjectNameNorm + " " + gradeNameNorm;
 
-            // 1. Mandatory Hard Filter: Subject
+            // 1. Mandatory Hard Filter: Subject (matched against academic text only, NOT address)
             if (normSubject != null && !normSubject.isBlank()) {
-                if (!matchesSubject(allTextNorm, normSubject)) {
+                if (!matchesSubject(academicTextNorm, normSubject)) {
                     continue; // Skip classes not teaching the requested subject
                 }
             }
 
             // 2. Mandatory Hard Filter: Grade
             if (normGrade != null && !normGrade.isBlank()) {
-                if (!allTextNorm.contains("lop " + normGrade) && !allTextNorm.contains(normGrade) && !gradeNameNorm.contains(normGrade)) {
+                if (!academicTextNorm.contains("lop " + normGrade) && !academicTextNorm.contains(normGrade) && !gradeNameNorm.contains(normGrade)) {
                     continue; // Skip classes not for the requested grade
                 }
             }
@@ -119,18 +120,33 @@ public class AiClassSearchContextProvider {
         return results;
     }
 
-    private boolean matchesSubject(String allTextNorm, String sNorm) {
-        if (allTextNorm.contains(sNorm)) return true;
+    private boolean matchesSubject(String text, String sNorm) {
         return switch (sNorm) {
-            case "toan", "toan hoc" -> allTextNorm.contains("toan") || allTextNorm.contains("math");
-            case "ly", "vat ly" -> allTextNorm.contains("vat ly") || allTextNorm.contains("ly") || allTextNorm.contains("physics");
-            case "hoa", "hoa hoc" -> allTextNorm.contains("hoa") || allTextNorm.contains("chemistry");
-            case "anh", "tieng anh", "ngoai ngu" -> allTextNorm.contains("tieng anh") || allTextNorm.contains("ielts") || allTextNorm.contains("english") || allTextNorm.contains("anh");
-            case "van", "ngu van" -> allTextNorm.contains("van") || allTextNorm.contains("ngu van");
-            case "tin", "tin hoc", "lap trinh" -> allTextNorm.contains("tin") || allTextNorm.contains("lap trinh") || allTextNorm.contains("python");
-            case "sinh", "sinh hoc" -> allTextNorm.contains("sinh");
-            default -> false;
+            case "toan", "toan hoc" -> containsWordOrPhrase(text, "toan", "toan hoc", "giai tich", "hinh hoc", "dai so", "math", "khoi a", "khoi a1", "khoi b", "khoi d");
+            case "ly", "vat ly" -> containsWordOrPhrase(text, "vat ly", "mon ly", "day ly", "physics", "khoi a", "khoi a1");
+            case "hoa", "hoa hoc" -> containsWordOrPhrase(text, "hoa hoc", "mon hoa", "day hoa", "chemistry", "khoi a", "khoi b");
+            case "anh", "tieng anh", "ngoai ngu" -> containsWordOrPhrase(text, "tieng anh", "anh van", "ielts", "toeic", "toefl", "english", "mon anh", "day anh", "khoi d", "khoi a1");
+            case "van", "ngu van", "van hoc" -> containsWordOrPhrase(text, "ngu van", "van hoc", "mon van", "day van", "khoi d", "khoi c", "chuyen van", "van cap 2", "van cap 3");
+            case "tin", "tin hoc", "lap trinh" -> containsWordOrPhrase(text, "tin hoc", "lap trinh", "scratch", "python", "java", "c++", "coding", "mon tin", "day tin");
+            case "sinh", "sinh hoc" -> containsWordOrPhrase(text, "sinh hoc", "mon sinh", "day sinh", "biology", "khoi b");
+            case "su", "lich su" -> containsWordOrPhrase(text, "lich su", "mon su", "day su", "khoi c");
+            case "dia", "dia ly" -> containsWordOrPhrase(text, "dia ly", "mon dia", "day dia", "khoi c");
+            default -> containsWordOrPhrase(text, sNorm);
         };
+    }
+
+    private boolean containsWordOrPhrase(String text, String... candidates) {
+        for (String c : candidates) {
+            String norm = VietnameseTextNormalizer.normalize(c);
+            if (norm.contains(" ")) {
+                if (text.contains(norm)) return true;
+            } else {
+                if (Pattern.compile("\\b" + Pattern.quote(norm) + "\\b").matcher(text).find()) {
+                    return true;
+                }
+            }
+        }
+        return false;
     }
 
     public String renderDeterministicAnswer(List<ClassReferenceDto> classes) {

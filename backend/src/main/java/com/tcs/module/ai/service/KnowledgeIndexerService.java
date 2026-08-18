@@ -6,12 +6,15 @@ import com.tcs.module.ai.enums.KnowledgeSourceType;
 import com.tcs.module.ai.repository.AiKnowledgeChunkRepository;
 import com.tcs.module.catalog.entity.FaqEntry;
 import com.tcs.module.catalog.repository.FaqEntryRepository;
+import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.profile.entity.Tutor;
+import com.tcs.module.profile.repository.TutorCertificateRepository;
+import com.tcs.module.profile.repository.TutorEducationRepository;
+import com.tcs.module.profile.repository.TutorExperienceRepository;
 import com.tcs.module.profile.repository.TutorRepository;
-import com.tcs.module.identity.enums.UserStatus;
 import java.security.MessageDigest;
 import java.util.HashMap;
 import java.util.List;
@@ -28,9 +31,12 @@ import org.springframework.transaction.annotation.Transactional;
 public class KnowledgeIndexerService {
 
     private final AiKnowledgeChunkRepository chunkRepository;
-    private final FaqEntryRepository faqRepository;
+    private final FaqEntryRepository faqEntryRepository;
     private final TutorRepository tutorRepository;
-    private final TutoringClassRepository classRepository;
+    private final TutoringClassRepository tutoringClassRepository;
+    private final TutorCertificateRepository certificateRepository;
+    private final TutorEducationRepository educationRepository;
+    private final TutorExperienceRepository experienceRepository;
     private final EmbeddingService embeddingService;
     private final ObjectMapper objectMapper;
     private java.time.LocalDateTime lastReindexTime = null;
@@ -58,7 +64,7 @@ public class KnowledgeIndexerService {
         stats.put("failed", 0);
 
         // 1. FAQ
-        List<FaqEntry> faqs = faqRepository.findByPublishedTrueOrderBySortOrderAscFaqIdAsc();
+        List<FaqEntry> faqs = faqEntryRepository.findByPublishedTrueOrderBySortOrderAscFaqIdAsc();
         for (FaqEntry faq : faqs) {
             String content = String.format(
                 "FAQ Câu hỏi: %s\nTrả lời: %s\nChuyên mục: %s",
@@ -78,86 +84,117 @@ public class KnowledgeIndexerService {
                 .filter(t -> t.getUser() != null && t.getUser().getStatus() == UserStatus.ACTIVE)
                 .toList();
         for (Tutor tutor : tutors) {
+            StringBuilder extraInfo = new StringBuilder();
+
             String content = String.format(
-                    "Gia sư: %s\nKhu vực: %s\nHọc phí: %s\nRating: %s\nKinh nghiệm: %s năm\nTrạng thái xác minh: %s\nGiới thiệu: %s", 
+                    "Gia sư: %s\nGiới tính: %s\nKhu vực: %s\nHọc phí: %s\nRating: %s\nKinh nghiệm: %s năm\nTrạng thái xác minh: %s\nGiới thiệu: %s%s", 
                     tutor.getFullName(),
+                    tutor.getGender() != null ? tutor.getGender().name() : "Không rõ",
                     tutor.getAddress() != null ? tutor.getAddress() : "Không rõ",
                     tutor.getHourlyRate() != null ? tutor.getHourlyRate() : "Thỏa thuận",
                     tutor.getRatingAvg() != null ? tutor.getRatingAvg() : "Chưa có",
                     tutor.getExperienceYears() != null ? tutor.getExperienceYears() : 0,
                     tutor.getVerificationStatus() == com.tcs.module.profile.enums.ProfileVerificationStatus.VERIFIED ? "Đã xác minh" : "Chưa xác minh",
-                    tutor.getBio() != null ? tutor.getBio() : "");
-            
+                    tutor.getBio() != null ? tutor.getBio() : "",
+                    extraInfo.toString()
+            );
+
             Map<String, Object> meta = new HashMap<>();
-            meta.put("area", tutor.getAddress());
-            meta.put("fee", tutor.getHourlyRate());
+            meta.put("tutorId", tutor.getTutorId());
+            meta.put("fullName", tutor.getFullName());
+            meta.put("hourlyRate", tutor.getHourlyRate());
             meta.put("ratingAvg", tutor.getRatingAvg());
-            meta.put("experienceYears", tutor.getExperienceYears());
+            meta.put("address", tutor.getAddress());
             meta.put("verified", tutor.getVerificationStatus() == com.tcs.module.profile.enums.ProfileVerificationStatus.VERIFIED);
-            
+            meta.put("bio", tutor.getBio());
+
             indexChunk(KnowledgeSourceType.TUTOR, String.valueOf(tutor.getTutorId()), tutor.getFullName(), content, meta, stats);
         }
 
         // 3. Classes (Only OPEN)
-        List<TutoringClass> classes = classRepository.findByStatus(TutoringClassStatus.OPEN);
-        for (TutoringClass cls : classes) {
+        List<TutoringClass> classes = tutoringClassRepository.findByStatus(TutoringClassStatus.OPEN);
+        for (TutoringClass c : classes) {
             String content = String.format(
-                    "Lớp học: %s\nMôn học: %s\nKhu vực: %s\nHọc phí: %s\nTrạng thái: %s\nMô tả: %s", 
-                    cls.getTitle(),
-                    cls.getSubject() != null ? cls.getSubject().getSubjectName() : "Không rõ",
-                    cls.getAddress() != null ? cls.getAddress() : "Online",
-                    cls.getTuitionFee() != null ? cls.getTuitionFee() : "Thỏa thuận",
-                    cls.getStatus(),
-                    cls.getDescription() != null ? cls.getDescription() : "");
-            
+                    "Lớp học: %s\nMôn học: %s\nKhối lớp: %s\nHọc phí: %s\nĐịa điểm: %s\nYêu cầu: %s\nMô tả chi tiết: %s",
+                    c.getTitle(),
+                    c.getSubject() != null ? c.getSubject().getSubjectName() : "Không rõ",
+                    c.getGrade() != null ? c.getGrade().getGradeName() : "Không rõ",
+                    c.getTuitionFee() != null ? c.getTuitionFee() : "Thỏa thuận",
+                    c.getAddress() != null ? c.getAddress() : "Không rõ",
+                    c.getLearningGoal() != null ? c.getLearningGoal() : "Không có",
+                    c.getDescription() != null ? c.getDescription() : ""
+            );
+
             Map<String, Object> meta = new HashMap<>();
-            meta.put("subject", cls.getSubject() != null ? cls.getSubject().getSubjectName() : "");
-            meta.put("area", cls.getAddress());
-            meta.put("fee", cls.getTuitionFee());
-            meta.put("status", cls.getStatus());
-            
-            indexChunk(KnowledgeSourceType.CLASS, String.valueOf(cls.getClassId()), cls.getTitle(), content, meta, stats);
+            meta.put("classId", c.getClassId());
+            meta.put("title", c.getTitle());
+            meta.put("subject", c.getSubject() != null ? c.getSubject().getSubjectName() : "");
+            meta.put("grade", c.getGrade() != null ? c.getGrade().getGradeName() : "");
+            meta.put("tuitionFee", c.getTuitionFee());
+            meta.put("address", c.getAddress());
+
+            indexChunk(KnowledgeSourceType.CLASS, String.valueOf(c.getClassId()), c.getTitle(), content, meta, stats);
         }
 
-        // 4. System Documents (SYSTEM_DOC)
-        indexChunk(KnowledgeSourceType.SYSTEM_DOC, "SYSTEM_OVERVIEW", 
-                "Giới thiệu hệ thống Tutor Connect System (TCS)",
-                "Tutor Connect System (TCS) là nền tảng công nghệ kết nối trực tiếp, thông minh và an toàn giữa phụ huynh/học viên có nhu cầu học kèm và gia sư hoặc trung tâm gia sư uy tín. TCS tích hợp thanh toán ký quỹ Escrow bảo vệ tài chính 2 bên, tự động phân luồng xử lý tranh chấp và hỗ trợ học tập qua Trợ lý AI.",
-                Map.of("category", "GENERAL", "tags", "tcs,he_thong,gioi_thieu"), stats);
+        // 4. Core System Policies
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_ESCROW_AND_FEES",
+                "Chính sách Ký quỹ Escrow và Phí sàn 10%",
+                "Quy định Ký quỹ Escrow và Phí nền tảng:\n" +
+                "- Khi phụ huynh đồng ý thuê gia sư, số tiền học phí sẽ được nạp và tạm khóa trong tài khoản ký quỹ Escrow nhằm đảm bảo quyền lợi.\n" +
+                "- Hệ thống chỉ giải ngân học phí cho gia sư sau khi học viên/phụ huynh xác nhận hoàn thành buổi học hoặc khóa học thành công.\n" +
+                "- Phí sàn (Platform Fee): TCS thu 10% trên tổng giá trị hợp đồng khi giải ngân Escrow cho gia sư/trung tâm để duy trì hệ thống.",
+                Map.of("category", "PAYMENT", "feeRate", 0.10, "tags", "escrow,phi_san,thanh_toan,sepay,nap_tien"), stats);
 
-        indexChunk(KnowledgeSourceType.SYSTEM_DOC, "SYSTEM_ROLES", 
-                "Các vai trò và quyền hạn trong hệ thống TCS",
-                "Hệ thống TCS hỗ trợ 4 nhóm vai trò chính:\n" +
-                "1. Phụ huynh / Học viên (CLIENT): Đăng tin tuyển gia sư, tìm kiếm gia sư theo môn học/khu vực/giá, nạp tiền ví, đặt cọc ký quỹ Escrow, đánh giá lớp học và gửi khiếu nại tranh chấp.\n" +
-                "2. Gia sư (TUTOR): Đăng ký hồ sơ, tải bằng cấp chứng chỉ để xác minh (VERIFIED), ứng tuyển nhận lớp, dạy học và nhận tiền giải ngân từ Escrow về ví sau khi hoàn thành.\n" +
-                "3. Trung tâm gia sư (TUTOR_CENTER): Đăng ký giấy phép kinh doanh, quản lý danh sách gia sư trực thuộc và phân phối lớp học.\n" +
-                "4. Quản trị viên (PLATFORM_ADMIN): Kiểm duyệt hồ sơ xác minh, xử lý báo cáo vi phạm, giải quyết tranh chấp Escrow, ra quyết định phạt vi phạm và giám sát chỉ số vận hành toàn sàn.",
-                Map.of("category", "ROLES", "tags", "vai_tro,phu_huynh,gia_su,admin"), stats);
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_WITHDRAWAL",
+                "Chính sách Rút tiền từ ví TCS về tài khoản ngân hàng",
+                "Quy định Rút tiền (Withdrawal):\n" +
+                "- Người dùng (Gia sư, Trung tâm) có số dư khả dụng có thể gửi yêu cầu rút tiền tại /finance.\n" +
+                "- Hệ thống xử lý lệnh rút tiền tự động hoặc qua duyệt của Admin trong vòng 12 - 24 giờ.\n" +
+                "- Số tiền rút tối thiểu: 50.000 VNĐ. Tài khoản ngân hàng nhận tiền phải trùng khớp tên với thông tin xác minh danh tính.",
+                Map.of("category", "PAYMENT", "tags", "rut_tien,ngan_hang,vi_tien,withdrawal"), stats);
 
-        // 5. System Policies (POLICY)
-        indexChunk(KnowledgeSourceType.POLICY, "POLICY_ESCROW_AND_FEES", 
-                "Chính sách Ký quỹ Escrow và Phí nền tảng 10%",
-                "Chính sách Ký quỹ và Phí sàn TCS:\n" +
-                "- Khi phụ huynh đồng ý thuê gia sư, số tiền học phí sẽ được nạp và tạm khóa trong tài khoản ký quỹ (Escrow Transaction) của hệ thống TCS nhằm bảo vệ quyền lợi cả 2 bên.\n" +
-                "- Nền tảng thu phí hoa hồng 10% (Platform Fee Rate = 10%) trên mỗi giao dịch lớp học thành công. Phí này được tự động khấu trừ khi Admin hoặc hệ thống giải ngân từ Escrow cho Gia sư.\n" +
-                "- Gia sư chỉ nhận được tiền giải ngân sau khi buổi học hoặc khóa học được xác nhận hoàn tất thỏa đáng.",
-                Map.of("category", "PAYMENT", "feeRate", 0.10, "tags", "escrow,phi_san,thanh_toan"), stats);
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_CONTRACT_OTP",
+                "Quy định Hợp đồng dịch vụ điện tử 3 bên và Ký hợp đồng bằng mã OTP",
+                "Quy trình ký Hợp đồng học tập điện tử:\n" +
+                "- Khi phụ huynh và gia sư thống nhất mức phí và lịch học, hệ thống tạo Hợp đồng dịch vụ điện tử 3 bên (Phụ huynh - Gia sư - Sàn TCS) tại /contracts.\n" +
+                "- Hai bên thực hiện ký hợp đồng trực tuyến bằng cách nhập mã xác thực OTP gửi về số điện thoại/email đăng ký.\n" +
+                "- Hợp đồng có giá trị pháp lý ràng buộc về quyền lợi, nghĩa vụ, lịch dạy, mức học phí và điều khoản bồi thường khi vi phạm.",
+                Map.of("category", "CONTRACT", "tags", "hop_dong,ky_otp,hop_dong_dien_tu,contracts"), stats);
 
         indexChunk(KnowledgeSourceType.POLICY, "POLICY_REFUND_AND_DISPUTE", 
                 "Chính sách Hoàn tiền và Giải quyết tranh chấp",
                 "Quy trình Hoàn tiền (Refund) và Giải quyết tranh chấp (Dispute):\n" +
                 "- Hủy lớp học trước 24 giờ kể từ lịch học: Học viên được hoàn trả 100% số tiền đặt cọc trong Escrow về ví.\n" +
                 "- Hủy lớp học trước 12 giờ: Học viên được hoàn 50% tiền cọc, 50% còn lại bồi thường cho gia sư.\n" +
-                "- Sau khi lớp học đã bắt đầu hoặc phát sinh khiếu nại (gia sư vắng mặt không phép, dạy sai cam kết, gian lận): Các bên có quyền mở Tranh chấp (Dispute). Admin sẽ xem xét chứng cứ và ra quyết định phân bổ 100% Escrow (hoàn tiền cho học viên, giải ngân cho gia sư, hoặc chia tỷ lệ).",
-                Map.of("category", "DISPUTE", "tags", "hoan_tien,tranh_chap,refund,dispute"), stats);
+                "- Sau khi lớp học đã bắt đầu hoặc phát sinh khiếu nại (gia sư vắng mặt không phép, dạy sai cam kết, gian lận): Các bên có quyền mở Tranh chấp (Dispute) tại /support/tickets. Admin sẽ xem xét chứng cứ trong 48 giờ và ra quyết định phân bổ 100% Escrow (hoàn tiền cho học viên, giải ngân cho gia sư, hoặc chia tỷ lệ bồi hoàn).",
+                Map.of("category", "DISPUTE", "tags", "hoan_tien,tranh_chap,refund,dispute,khieu_nai"), stats);
+
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_REPUTATION_AND_REVIEWS",
+                "Cách tính Điểm uy tín gia sư và Đánh giá sau khóa học",
+                "Hệ thống Đánh giá & Điểm uy tín (Reputation Score):\n" +
+                "- Điểm uy tín khởi điểm của gia sư: 100 điểm.\n" +
+                "- Cộng điểm uy tín: Hoàn thành lớp học đúng hạn (+5 điểm), nhận đánh giá 5 sao từ phụ huynh (+2 điểm), xác minh CCCD/bằng cấp đầy đủ (+10 điểm).\n" +
+                "- Trừ điểm uy tín: Hủy lớp sát giờ không lý do chính đáng (-15 điểm), bị cảnh cáo vi phạm quy chế sàn (-20 điểm), bị xử thua tranh chấp (-30 điểm).\n" +
+                "- Gia sư có điểm uy tín cao (>90 điểm) và rating >= 4.8 sẽ nhận huy hiệu 'Gia sư Uy tín' và được đẩy lên đầu trang tìm kiếm /tim-gia-su.",
+                Map.of("category", "REPUTATION", "tags", "uy_tin,reputation,danh_gia,rating,diem_uy_tin"), stats);
 
         indexChunk(KnowledgeSourceType.POLICY, "POLICY_CIRCUMVENTION_PREVENTION", 
                 "Chính sách Phòng chống Lách sàn và Xử phạt vi phạm",
                 "Quy định Chống Lách sàn (Platform Circumvention):\n" +
                 "- Nghiêm cấm mọi hành vi gia sư, trung tâm hoặc học viên chủ động gạ gẫm, chia sẻ thông tin liên lạc riêng (SĐT, Zalo, STK ngân hàng) nhằm giao dịch ngoài sàn để trốn phí nền tảng 10%.\n" +
-                "- Hệ thống tự động phát hiện và nhận báo cáo vi phạm lách sàn (Report Category: PLATFORM_CIRCUMVENTION / FRAUD).\n" +
+                "- Hệ thống tự động phát hiện và nhận báo cáo vi phạm lách sàn tại /support/tickets (Report Category: PLATFORM_CIRCUMVENTION / FRAUD).\n" +
                 "- Mức xử phạt: Cảnh cáo lần đầu (Warning), phạt trừ tiền ví, đình chỉ tài khoản tạm thời (Suspension) hoặc Khóa tài khoản vĩnh viễn (Ban) và phong tỏa số dư ví đối với các trường hợp cố tình tái phạm nghiêm trọng.",
-                Map.of("category", "PENALTY", "tags", "lach_san,xu_phat,circumvention,gian_lan"), stats);
+                Map.of("category", "PENALTY", "tags", "lach_san,xu_phat,circumvention,gian_lan,to_cao"), stats);
+
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_SUPPORT_TICKETS_SLA",
+                "Chính sách Hỗ trợ khách hàng, Gửi Ticket khiếu nại và Cam kết SLA",
+                "Quy định Tiếp nhận & Xử lý Ticket hỗ trợ tại /support/tickets:\n" +
+                "- Người dùng có thể tạo Ticket để yêu cầu hỗ trợ tài khoản, nạp/rút tiền, báo cáo sự cố kỹ thuật hoặc tranh chấp lớp học.\n" +
+                "- Cam kết thời gian phản hồi SLA:\n" +
+                "  + Mức độ Khẩn cấp (CRITICAL - ví dụ lỗi nạp tiền, sự cố an toàn): Phản hồi trong vòng 2 - 4 giờ.\n" +
+                "  + Mức độ Cao (HIGH - ví dụ tranh chấp lớp học): Phản hồi trong vòng 12 - 24 giờ.\n" +
+                "  + Mức độ Thường (NORMAL - câu hỏi chung, góp ý): Phản hồi trong vòng 24 - 48 giờ làm việc.",
+                Map.of("category", "TICKETS", "tags", "ticket,sla,ho_tro,cskh,khieu_nai"), stats);
         
         log.info("Finished AI Knowledge Reindexing. Stats: {}", stats);
         return stats;
@@ -216,12 +253,13 @@ public class KnowledgeIndexerService {
         chunk.setContentHash(hash);
         chunk.setLastIndexedAt(java.time.LocalDateTime.now());
         chunk.setTokenCount(content.length() / 4);
-        chunk.setQualityScore(0.9);
         
         try {
             if (metadata != null) {
                 chunk.setMetadataJson(objectMapper.writeValueAsString(metadata));
             }
+            chunk.setQualityScore(calculateQualityScore(chunk));
+
             Optional<double[]> vectorOpt = embeddingService.getEmbedding(content);
             if (vectorOpt.isPresent()) {
                 chunk.setEmbeddingJson(objectMapper.writeValueAsString(vectorOpt.get()));
@@ -259,5 +297,47 @@ public class KnowledgeIndexerService {
         } catch (Exception ex) {
             throw new RuntimeException(ex);
         }
+    }
+
+    public double calculateQualityScore(AiKnowledgeChunk chunk) {
+        double score = 0.5; // Base score
+        
+        // Metadata richness & Verification status
+        if (chunk.getMetadataJson() != null && !chunk.getMetadataJson().isBlank()) {
+            score += 0.12;
+            try {
+                com.fasterxml.jackson.databind.JsonNode meta = objectMapper.readTree(chunk.getMetadataJson());
+                boolean isVerified = meta.has("verified") && meta.get("verified").asBoolean(false);
+                if (isVerified) {
+                    score += 0.08; // High priority trust bonus
+                    if (meta.has("ratingAvg") && meta.get("ratingAvg").asDouble(0.0) >= 4.8) {
+                        score += 0.05; // Super tutor bonus
+                    }
+                }
+            } catch (Exception ignored) {}
+        }
+        
+        // Content length is optimal (200-800 chars)
+        int contentLen = chunk.getContent() != null ? chunk.getContent().length() : 0;
+        if (contentLen >= 200 && contentLen <= 800) {
+            score += 0.15;
+        } else if (contentLen > 100) {
+            score += 0.05;
+        }
+        
+        // Has clear title
+        if (chunk.getTitle() != null && chunk.getTitle().length() >= 10) {
+            score += 0.05;
+        }
+        
+        // Recent data (updated within 90 days)
+        if (chunk.getSourceUpdatedAt() != null) {
+            long daysSinceUpdate = java.time.Duration.between(chunk.getSourceUpdatedAt(), java.time.LocalDateTime.now()).toDays();
+            if (daysSinceUpdate <= 90) {
+                score += 0.05;
+            }
+        }
+        
+        return Math.min(1.0, score);
     }
 }
