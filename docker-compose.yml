@@ -2,6 +2,7 @@ services:
   mysql:
     image: mysql:8.0
     environment:
+      TZ: Asia/Ho_Chi_Minh
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD:-12345}
       MYSQL_DATABASE: tutorconnectsystem
     ports:
@@ -22,6 +23,7 @@ services:
     ports:
       - "${BACKEND_PORT:-8081}:8080"
     environment:
+      TZ: Asia/Ho_Chi_Minh
       SPRING_DATASOURCE_URL: jdbc:mysql://mysql:3306/tutorconnectsystem?useSSL=false&serverTimezone=Asia/Ho_Chi_Minh&allowPublicKeyRetrieval=true
       SPRING_DATASOURCE_USERNAME: root
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-12345}
