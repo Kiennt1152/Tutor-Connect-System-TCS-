@@ -188,10 +188,10 @@ export default function CentersPage() {
       });
       if (response.centerRequestFeePayment) {
         setPaymentRequest(response.centerRequestFeePayment);
-        setNotice('Đã tạo mã thanh toán phí xử lý. Vui lòng chuyển khoản và quét trạng thái.');
+        setNotice('Đã tạo mã thanh toán phí xử lý. Nếu đóng màn hình, vào Yêu cầu của tôi (/sua-lop) để mở lại QR.');
       } else {
         setTarget(null);
-        setNotice('Đã gửi yêu cầu nhờ trung tâm tìm gia sư. Theo dõi ở trang “Yêu cầu của tôi”.');
+        setNotice('Đã gửi yêu cầu nhờ trung tâm tìm gia sư. Theo dõi ở trang “Yêu cầu của tôi” (/sua-lop).');
       }
       window.setTimeout(() => setNotice(''), 6000);
     } catch (err) {
@@ -236,7 +236,7 @@ export default function CentersPage() {
           <span className="cr-toast__icon" aria-hidden="true">✓</span>
           <span className="cr-toast__msg">{notice}</span>
           <Link className="cr-toast__link" to={APP_ROUTES.marketplace}>
-            Xem
+            Yêu cầu của tôi
           </Link>
           <button
             type="button"
@@ -303,20 +303,41 @@ export default function CentersPage() {
                 ))}
               </div>
             )}
+
+            {isClient && (
+              <div className="cr-request-tip">
+                <div>
+                  <strong>Đã có yêu cầu đang xử lý?</strong>
+                  <span>
+                    Vào <b>Yêu cầu của tôi</b> (/sua-lop) để xem lại QR thanh toán và trạng thái
+                    các yêu cầu đã gửi.
+                  </span>
+                </div>
+                <Link className="tcs-btn tcs-btn--market tcs-btn--sm" to={APP_ROUTES.marketplace}>
+                  Xem yêu cầu của tôi
+                </Link>
+              </div>
+            )}
           </div>
         </section>
       </main>
 
       {/* Modal gửi yêu cầu mở lớp — dùng lại form "tìm gia sư" cho đầy đủ thông tin */}
-      {target && (
+      {(target || paymentRequest) && (
         <div className="cr-overlay" role="dialog" aria-modal="true" onClick={closeModal}>
           <div
             className="cr-modal"
             style={{ maxHeight: '88vh', overflowY: 'auto', maxWidth: 720 }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="cr-modal__title">Nhờ trung tâm tìm gia sư</h3>
-            <p className="cr-modal__subtitle">Gửi tới: {target.companyName}</p>
+            <h3 className="cr-modal__title">
+              {paymentRequest ? 'Thanh toán phí xử lý yêu cầu' : 'Nhờ trung tâm tìm gia sư'}
+            </h3>
+            <p className="cr-modal__subtitle">
+              {paymentRequest
+                ? 'Mở lại mã QR của yêu cầu đang chờ thanh toán.'
+                : `Gửi tới: ${target?.companyName ?? ''}`}
+            </p>
 
             {modalError && <p className="cr-modal__error">{modalError}</p>}
 
@@ -431,7 +452,7 @@ export default function CentersPage() {
                   </div>
                 )}
               </div>
-            ) : (
+            ) : target ? (
               <>
                 <ClassRequestForm
                   initial={emptyForm()}
@@ -493,7 +514,7 @@ export default function CentersPage() {
                   onClose={() => setPayoutPickerOpen(false)}
                 />
               </>
-            )}
+            ) : null}
           </div>
         </div>
       )}

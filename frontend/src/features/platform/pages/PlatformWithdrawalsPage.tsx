@@ -124,8 +124,8 @@ export default function PlatformWithdrawalsPage() {
 
   return (
     <AdminLayout
-      title="Yêu cầu rút tiền"
-      subtitle="Theo dõi yêu cầu rút tiền và trạng thái đối soát tự động từ SePay."
+      title="Yêu cầu chuyển tiền"
+      subtitle="Theo dõi yêu cầu rút tiền và hoàn tiền cần chuyển khoản ra ngoài."
     >
       {data && (
         <section className="pw-summary" aria-label="Tổng quan yêu cầu rút tiền">
@@ -200,6 +200,7 @@ export default function PlatformWithdrawalsPage() {
                 <thead>
                   <tr>
                     <th>ID</th>
+                    <th>Loại</th>
                     <th>Người yêu cầu</th>
                     <th>Số tiền</th>
                     <th>Tài khoản nhận</th>
@@ -212,16 +213,21 @@ export default function PlatformWithdrawalsPage() {
                 <tbody>
                   {data.items.length === 0 ? (
                     <tr>
-                      <td colSpan={8}>Chưa có yêu cầu rút tiền nào.</td>
+                      <td colSpan={9}>Chưa có yêu cầu chuyển tiền nào.</td>
                     </tr>
                   ) : (
                     data.items.map((item) => (
                       <tr key={item.id} style={{ backgroundColor: String(item.id) === String(targetId) ? '#fef3c7' : undefined }}>
-                        <td className="pw-table__id">#{item.id}</td>
+                        <td className="pw-table__id">#{item.displayId}</td>
+                        <td>
+                          <span className={`pw-type-pill pw-type-pill--${item.requestType.toLowerCase()}`}>
+                            {item.requestTypeLabel}
+                          </span>
+                        </td>
                         <td>
                           <div className="pw-user-cell">
                             <strong>{item.requester}</strong>
-                            <span>Ví #{item.walletId}</span>
+                            <span>{item.requestType === 'REFUND' ? 'Người nhận hoàn tiền' : `Ví #${item.walletId}`}</span>
                           </div>
                         </td>
                         <td className="pw-table__amount">{item.amount}</td>
@@ -279,7 +285,7 @@ export default function PlatformWithdrawalsPage() {
                                 className="tcs-btn tcs-btn--primary pw-action-btn"
                                 type="button"
                                 disabled={decisionStatus === 'loading'}
-                                onClick={() => handleApprove(item.id)}
+                                onClick={() => handleApprove(String(item.raw.withdrawalId))}
                               >
                                 Duyệt
                               </button>
@@ -289,7 +295,7 @@ export default function PlatformWithdrawalsPage() {
                                 className="tcs-btn tcs-btn--ghost pw-action-btn"
                                 type="button"
                                 disabled={decisionStatus === 'loading'}
-                                onClick={() => openDecisionDialog('reject', item.id, 'Từ chối yêu cầu rút tiền')}
+                                onClick={() => openDecisionDialog('reject', String(item.raw.withdrawalId), 'Từ chối yêu cầu rút tiền')}
                               >
                                 Từ chối
                               </button>
@@ -300,7 +306,7 @@ export default function PlatformWithdrawalsPage() {
                                 type="button"
                                 disabled={decisionStatus === 'loading'}
                                 onClick={() =>
-                                  openDecisionDialog('transferFailed', item.id, 'Báo lỗi chuyển khoản')
+                                  openDecisionDialog('transferFailed', String(item.raw.withdrawalId), 'Báo lỗi chuyển khoản')
                                 }
                               >
                                 Báo lỗi chuyển

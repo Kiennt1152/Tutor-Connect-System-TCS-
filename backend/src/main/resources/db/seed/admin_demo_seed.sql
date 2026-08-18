@@ -61,7 +61,7 @@ ON DUPLICATE KEY UPDATE company_name = 'Trung Tâm Gia Sư Trí Việt';
 -- STEP 2: Dashboard KPIs & System Parameters
 -- ---------------------------------------------------------
 INSERT INTO system_parameters (param_key, param_value, description) VALUES 
-('PLATFORM_FEE_RATE', '0.10', 'Phí nền tảng (10%)'),
+('PLATFORM_FEE_RATE', '0.02', 'Phí nền tảng (2%)'),
 ('MAX_TUTOR_APPLICATIONS', '5', 'Số lượng ứng tuyển tối đa per class'),
 ('ESCROW_HOLD_DAYS', '7', 'Số ngày tạm giữ tiền ký quỹ'),
 ('AUTO_CLOSE_TICKET_DAYS', '3', 'Tự động đóng phiếu hỗ trợ sau 3 ngày không phản hồi')
@@ -98,7 +98,7 @@ ON DUPLICATE KEY UPDATE status = 'ACTIVE';
 
 INSERT INTO faq_entries (question, answer, category, sort_order, is_published, created_at) VALUES
 ('Quy trình kiểm duyệt hồ sơ gia sư mất bao lâu?', 'Đội ngũ hỗ trợ sẽ xem xét và phản hồi hồ sơ xác minh gia sư trong vòng 24 - 48 giờ làm việc.', 'GIA_SU', 1, 1, NOW()),
-('Phí dịch vụ của hệ thống được tính như thế nào?', 'Hệ thống áp dụng phí nền tảng 10% trên mỗi hợp đồng lớp học được hoàn thành thành công.', 'THANH_TOAN', 2, 1, NOW()),
+('Phí dịch vụ của hệ thống được tính như thế nào?', 'Hệ thống áp dụng phí nền tảng 2% trên mỗi hợp đồng lớp học được hoàn thành thành công.', 'THANH_TOAN', 2, 1, NOW()),
 ('Tôi có thể nộp yêu cầu khiếu nại ở đâu?', 'Bạn có thể vào mục Trung tâm hỗ trợ và nhấn "Tạo yêu cầu hỗ trợ" để gửi phiếu cho bộ phận chăm sóc khách hàng.', 'CHUNG', 3, 1, NOW())
 ON DUPLICATE KEY UPDATE sort_order = sort_order;
 
@@ -122,8 +122,8 @@ SELECT
     'UPDATE_SYSTEM_PARAMETER',
     'SystemParameter',
     1,
-    '{"PLATFORM_FEE_RATE": "0.08"}',
-    '{"PLATFORM_FEE_RATE": "0.10"}',
+    '{"PLATFORM_FEE_RATE": "0.01"}',
+    '{"PLATFORM_FEE_RATE": "0.02"}',
     '127.0.0.1',
     NOW();
 

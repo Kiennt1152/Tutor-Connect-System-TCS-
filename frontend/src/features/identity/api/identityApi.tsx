@@ -82,8 +82,16 @@ export const identityApi = {
   },
 };
 
-export function persistAuth(response: Pick<AuthResponse, 'accessToken' | 'userId' | 'email' | 'role' | 'displayName'>) {
+export function persistAuth(
+  response: Pick<AuthResponse, 'accessToken' | 'userId' | 'email' | 'role' | 'displayName'> & {
+    tokenExpiresInSeconds?: number;
+  },
+) {
   authStorage.setToken(response.accessToken);
+  const expiresInSeconds = response.tokenExpiresInSeconds;
+  if (typeof expiresInSeconds === 'number' && expiresInSeconds > 0) {
+    authStorage.setSessionExpiresAt(Date.now() + expiresInSeconds * 1000);
+  }
   authStorage.setUser({
     userId: response.userId,
     email: response.email,

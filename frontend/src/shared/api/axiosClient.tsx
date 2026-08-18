@@ -13,8 +13,32 @@ const axiosClient = axios.create({
   timeout: 15000,
 });
 
+function isAuthEndpoint(url: string) {
+  return (
+    url.includes('/identity/login') ||
+    url.includes('/identity/register') ||
+    url.includes('/identity/password/')
+  );
+}
+
+function redirectToExpiredSession() {
+  const path = window.location.pathname;
+  if (path === APP_ROUTES.login || isRedirectingToLogin) {
+    return;
+  }
+  isRedirectingToLogin = true;
+  authStorage.clearAll();
+  const next = encodeURIComponent(window.location.pathname + window.location.search);
+  window.location.assign(`${APP_ROUTES.login}?session=expired&next=${next}`);
+}
+
 axiosClient.interceptors.request.use((config) => {
+  const requestUrl = config.url ?? '';
   const token = authStorage.getToken();
+  if (token && !isAuthEndpoint(requestUrl) && authStorage.isSessionExpired()) {
+    redirectToExpiredSession();
+    return Promise.reject(new Error('Phiên đăng nhập đã hết hạn.'));
+  }
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
@@ -30,19 +54,11 @@ axiosClient.interceptors.response.use(
     const path = window.location.pathname;
     const requestUrl = error.config?.url ?? '';
 
-    const isAuthEndpoint =
-      requestUrl.includes('/identity/login') ||
-      requestUrl.includes('/identity/register') ||
-      requestUrl.includes('/identity/password/');
-
-    if (status === 401 && !isAuthEndpoint && path !== APP_ROUTES.login && !isRedirectingToLogin) {
-      isRedirectingToLogin = true;
-      authStorage.clearAll();
-      const next = encodeURIComponent(window.location.pathname + window.location.search);
-      window.location.assign(`${APP_ROUTES.login}?session=expired&next=${next}`);
+    if (status === 401 && !isAuthEndpoint(requestUrl) && path !== APP_ROUTES.login && !isRedirectingToLogin) {
+      redirectToExpiredSession();
     }
 
-    if (status === 403 && !isAuthEndpoint && path !== APP_ROUTES.forbidden) {
+    if (status === 403 && !isAuthEndpoint(requestUrl) && path !== APP_ROUTES.forbidden) {
       window.location.assign(APP_ROUTES.forbidden);
     }
 

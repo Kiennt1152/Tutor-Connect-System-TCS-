@@ -22,6 +22,20 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
 
     Optional<PaymentTransaction> findByExternalTransactionId(String externalTransactionId);
 
+    @Query("SELECT pt FROM PaymentTransaction pt " +
+            "WHERE pt.type = :type AND pt.status = :status " +
+            "AND (pt.referenceCode = :baseReference OR pt.referenceCode LIKE CONCAT(:baseReference, '-%')) " +
+            "ORDER BY pt.createdAt DESC, pt.transactionId DESC")
+    List<PaymentTransaction> findEscrowReferenceFamilyByTypeAndStatus(
+            @Param("baseReference") String baseReference,
+            @Param("type") PaymentTransactionType type,
+            @Param("status") PaymentTransactionStatus status);
+
+    @Query("SELECT pt FROM PaymentTransaction pt " +
+            "WHERE pt.referenceCode = :baseReference OR pt.referenceCode LIKE CONCAT(:baseReference, '-%') " +
+            "ORDER BY pt.createdAt DESC, pt.transactionId DESC")
+    List<PaymentTransaction> findEscrowReferenceFamily(@Param("baseReference") String baseReference);
+
     List<PaymentTransaction> findByTypeAndStatusAndAmount(
             PaymentTransactionType type,
             PaymentTransactionStatus status,

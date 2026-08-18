@@ -127,7 +127,7 @@ ON DUPLICATE KEY UPDATE available_balance = 3000000.00, status = 'ACTIVE';
 -- 7. THIẾT LẬP THAM SỐ HỆ THỐNG & FAQS
 -- --------------------------------------------------------------------
 INSERT INTO system_parameters (param_key, param_value, description) VALUES 
-('PLATFORM_FEE_RATE', '0.10', 'Phí nền tảng (10%)'),
+('PLATFORM_FEE_RATE', '0.02', 'Phí nền tảng (2%)'),
 ('MAX_TUTOR_APPLICATIONS', '5', 'Số lượng ứng tuyển tối đa per class'),
 ('ESCROW_HOLD_DAYS', '7', 'Số ngày tạm giữ tiền ký quỹ'),
 ('AUTO_CLOSE_TICKET_DAYS', '3', 'Tự động đóng phiếu hỗ trợ sau 3 ngày không phản hồi')
@@ -136,7 +136,7 @@ ON DUPLICATE KEY UPDATE param_value = VALUES(param_value);
 INSERT IGNORE INTO faq_entries (faq_id, question, answer, category, sort_order, is_published) VALUES
 (1, 'Làm sao để tìm gia sư phù hợp?', 'Bạn có thể sử dụng bộ lọc theo môn học, cấp độ, khu vực và mức giá. Hệ thống AI sẽ đề xuất các gia sư phù hợp nhất với yêu cầu của bạn.', 'GENERAL', 1, 1),
 (2, 'Chính sách hoàn tiền như thế nào?', 'Hoàn 100% nếu hủy trước 24h, 50% nếu hủy trước 12h. Sau khi lớp bắt đầu không được hoàn tiền trừ trường hợp tranh chấp có cơ sở.', 'PAYMENT', 2, 1),
-(3, 'Phí nền tảng là bao nhiêu?', 'Nền tảng thu 10% phí trên mỗi giao dịch thành công. Phí này được tự động trừ khi giải ngân từ escrow cho gia sư.', 'PAYMENT', 3, 1);
+(3, 'Phí nền tảng là bao nhiêu?', 'Nền tảng thu 2% phí trên mỗi giao dịch thành công. Phí này được tự động trừ khi giải ngân từ escrow cho gia sư.', 'PAYMENT', 3, 1);
 
 
 -- --------------------------------------------------------------------
@@ -170,7 +170,7 @@ ON DUPLICATE KEY UPDATE status = 'OPEN';
 -- 9. BÁO CÁO VI PHẠM (REPORTS)
 -- --------------------------------------------------------------------
 INSERT INTO reports (reporter_id, target_type, target_id, category, description, status, created_at)
-SELECT (SELECT user_id FROM users WHERE email = 'haehuynh35@gmail.com' LIMIT 1), 'USER', (SELECT user_id FROM users WHERE email = 'minhduc101dz@gmail.com' LIMIT 1), 'FRAUD', 'Gia sư đề nghị chuyển khoản ngoài để né tránh phí dịch vụ nền tảng 10%', 'PENDING', DATE_SUB(NOW(), INTERVAL 2 DAY)
+SELECT (SELECT user_id FROM users WHERE email = 'haehuynh35@gmail.com' LIMIT 1), 'USER', (SELECT user_id FROM users WHERE email = 'minhduc101dz@gmail.com' LIMIT 1), 'FRAUD', 'Gia sư đề nghị chuyển khoản ngoài để né tránh phí dịch vụ nền tảng 2%', 'PENDING', DATE_SUB(NOW(), INTERVAL 2 DAY)
 ON DUPLICATE KEY UPDATE status = 'PENDING';
 
 INSERT INTO reports (reporter_id, target_type, target_id, category, description, status, created_at)

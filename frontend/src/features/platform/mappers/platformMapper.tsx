@@ -336,8 +336,13 @@ export function mapReportItem(item: ReportApiResponse): ReportItem {
 }
 
 export function mapAdminWithdrawalItem(item: AdminWithdrawalApiResponse): AdminWithdrawalItem {
+  const requestType = item.requestType === 'REFUND' ? 'REFUND' : 'WITHDRAWAL';
+  const requestId = requestType === 'REFUND' ? item.refundId : item.withdrawalId;
   return {
-    id: String(item.withdrawalId),
+    id: `${requestType}-${requestId ?? 'unknown'}`,
+    displayId: requestId ? String(requestId) : '—',
+    requestType,
+    requestTypeLabel: requestType === 'REFUND' ? 'Hoàn tiền' : 'Rút tiền',
     walletId: item.walletId ? String(item.walletId) : '—',
     requester: item.requesterEmail?.trim() || (item.walletId ? `Ví #${item.walletId}` : '—'),
     amount: formatCurrency(item.amount),
@@ -358,9 +363,9 @@ export function mapAdminWithdrawalItem(item: AdminWithdrawalApiResponse): AdminW
       : '—',
     requestedAt: formatDateTime(item.requestedAt),
     processedAt: formatDateTime(item.processedAt),
-    canApprove: item.status === 'PENDING',
-    canReject: item.status === 'PENDING' || item.status === 'APPROVED',
-    canMarkTransferFailed: item.status === 'APPROVED',
+    canApprove: requestType === 'WITHDRAWAL' && item.status === 'PENDING',
+    canReject: requestType === 'WITHDRAWAL' && (item.status === 'PENDING' || item.status === 'APPROVED'),
+    canMarkTransferFailed: requestType === 'WITHDRAWAL' && item.status === 'APPROVED',
     raw: item,
   };
 }

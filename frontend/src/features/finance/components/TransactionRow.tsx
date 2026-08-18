@@ -11,8 +11,7 @@ export function TransactionRow({ transaction }: Props) {
   const isCredit =
     transaction.type === 'DEPOSIT' ||
     transaction.type === 'REFUND' ||
-    transaction.type === 'ESCROW_RELEASE' ||
-    transaction.type === 'PLATFORM_FEE';
+    transaction.type === 'ESCROW_RELEASE';
   const typeTone = isCredit ? 'credit' : 'debit';
   const typeInitial = {
     DEPOSIT: 'N',

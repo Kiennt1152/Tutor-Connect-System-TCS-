@@ -27,6 +27,8 @@ public class PaymentReconciliationService {
     private static final int WITHDRAWAL_STALE_HOURS = 48;
     private static final int WITHDRAWAL_MATCH_WINDOW_MINUTES = 5;
     private static final String TOPUP_EXPIRED_REASON = "Phiên nạp tiền đã hết hạn, chưa ghi nhận thanh toán.";
+    private static final String ESCROW_PAYMENT_EXPIRED_REASON =
+            "Phiên thanh toán escrow đã hết hạn, vui lòng tạo mã QR thanh toán mới.";
     private static final String WITHDRAWAL_STALE_REASON =
             "Yêu cầu rút tiền quá thời gian xử lý, hệ thống đã hoàn lại số dư khả dụng.";
 
@@ -42,12 +44,14 @@ public class PaymentReconciliationService {
     public void reconcilePendingPayments() {
         LocalDateTime now = LocalDateTime.now();
         int expiredTopups = expirePendingTopups(now);
+        int expiredEscrowPayments = expirePendingEscrowDeposits(now);
         int refundedWithdrawals = refundStaleWithdrawals(now);
 
-        if (expiredTopups > 0 || refundedWithdrawals > 0) {
+        if (expiredTopups > 0 || expiredEscrowPayments > 0 || refundedWithdrawals > 0) {
             log.info(
-                    "Đối soát thanh toán: đã hủy {} phiên nạp hết hạn, hoàn {} yêu cầu rút quá hạn",
+                    "Đối soát thanh toán: đã hủy {} phiên nạp hết hạn, hủy {} phiên thanh toán escrow hết hạn, hoàn {} yêu cầu rút quá hạn",
                     expiredTopups,
+                    expiredEscrowPayments,
                     refundedWithdrawals);
         }
     }
@@ -72,6 +76,32 @@ public class PaymentReconciliationService {
         });
         paymentTransactionRepository.saveAll(expiredTopups);
         return expiredTopups.size();
+    }
+
+    int expirePendingEscrowDeposits(LocalDateTime now) {
+        LocalDateTime cutoff = now.minusMinutes(TOPUP_TTL_MINUTES);
+        List<PaymentTransaction> expiredEscrowPayments = paymentTransactionRepository
+                .findByTypeAndStatusAndCreatedAtBefore(
+                        PaymentTransactionType.ESCROW_DEPOSIT,
+                        PaymentTransactionStatus.PENDING,
+                        cutoff)
+                .stream()
+                .filter(this::isClassEscrowPayment)
+                .toList();
+
+        expiredEscrowPayments.forEach(tx -> {
+            tx.setStatus(PaymentTransactionStatus.CANCELLED);
+            tx.setProcessedAt(now);
+            tx.setFailureReason(ESCROW_PAYMENT_EXPIRED_REASON);
+            notifyWalletOwner(
+                    tx.getWallet(),
+                    "Phiên thanh toán escrow đã hết hạn",
+                    ESCROW_PAYMENT_EXPIRED_REASON,
+                    "PAYMENT_TRANSACTION",
+                    tx.getTransactionId());
+        });
+        paymentTransactionRepository.saveAll(expiredEscrowPayments);
+        return expiredEscrowPayments.size();
     }
 
     int refundStaleWithdrawals(LocalDateTime now) {
@@ -138,6 +168,11 @@ public class PaymentReconciliationService {
                                 to);
 
         return candidates.size() == 1 ? candidates.get(0) : null;
+    }
+
+    private boolean isClassEscrowPayment(PaymentTransaction tx) {
+        String reference = tx.getReferenceCode();
+        return reference != null && (reference.startsWith("ESCROW-A") || reference.startsWith("ESCROW-CS"));
     }
 
     private void notifyWalletOwner(
