@@ -37,6 +37,9 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
   const [replyText, setReplyText] = useState('');
   const [closeNote, setCloseNote] = useState('');
   const [showClose, setShowClose] = useState(false);
+  const [showMerge, setShowMerge] = useState(false);
+  const [targetTicketId, setTargetTicketId] = useState('');
+  const [mergeReason, setMergeReason] = useState('');
   const [editCategory, setEditCategory] = useState<AdminTicketCategory | ''>('');
   const [editPriority, setEditPriority] = useState<AdminTicketPriority | ''>('');
   const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState(false);
@@ -46,6 +49,9 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
     setReplyText('');
     setCloseNote('');
     setShowClose(false);
+    setShowMerge(false);
+    setTargetTicketId('');
+    setMergeReason('');
     reload();
     onUpdated();
   };
@@ -59,6 +65,15 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
 
   const handleClose = (closeStatus: 'RESOLVED' | 'CLOSED') => {
     void mutations.closeTicket(ticketId, { status: closeStatus, adminNotes: closeNote.trim() || undefined });
+  };
+
+  const handleMerge = () => {
+    const targetIdNum = parseInt(targetTicketId.trim(), 10);
+    if (isNaN(targetIdNum) || targetIdNum <= 0) return;
+    void mutations.mergeTicket(ticketId, {
+      targetTicketId: targetIdNum,
+      reason: mergeReason.trim() || undefined,
+    });
   };
 
   const handleUpdate = () => {
@@ -108,6 +123,12 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
             setCloseNote={setCloseNote}
             showClose={showClose}
             setShowClose={setShowClose}
+            showMerge={showMerge}
+            setShowMerge={setShowMerge}
+            targetTicketId={targetTicketId}
+            setTargetTicketId={setTargetTicketId}
+            mergeReason={mergeReason}
+            setMergeReason={setMergeReason}
             isTerminated={isTerminated}
             editCategory={editCategory || detail.category}
             setEditCategory={setEditCategory}
@@ -121,6 +142,7 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
             onRespond={handleRespond}
             onUpdate={handleUpdate}
             onCloseTicket={handleClose}
+            onMergeTicket={handleMerge}
           />
         )}
         {detail && (
@@ -154,6 +176,12 @@ type ContentProps = {
   setCloseNote: (v: string) => void;
   showClose: boolean;
   setShowClose: (v: boolean) => void;
+  showMerge: boolean;
+  setShowMerge: (v: boolean) => void;
+  targetTicketId: string;
+  setTargetTicketId: (v: string) => void;
+  mergeReason: string;
+  setMergeReason: (v: string) => void;
   isTerminated: boolean;
   editCategory: AdminTicketCategory | '';
   setEditCategory: (value: AdminTicketCategory) => void;
@@ -167,6 +195,7 @@ type ContentProps = {
   onRespond: () => void;
   onUpdate: () => void;
   onCloseTicket: (s: 'RESOLVED' | 'CLOSED') => void;
+  onMergeTicket: () => void;
 };
 
 function TicketDetailContent({
@@ -177,6 +206,12 @@ function TicketDetailContent({
   setCloseNote,
   showClose,
   setShowClose,
+  showMerge,
+  setShowMerge,
+  targetTicketId,
+  setTargetTicketId,
+  mergeReason,
+  setMergeReason,
   isTerminated,
   editCategory,
   setEditCategory,
@@ -190,6 +225,7 @@ function TicketDetailContent({
   onRespond,
   onUpdate,
   onCloseTicket,
+  onMergeTicket,
 }: ContentProps) {
   return (
     <>
@@ -204,7 +240,7 @@ function TicketDetailContent({
             </span>
             {detail.slaBreached && (
               <span className="tcs-badge" style={{ background: '#fee2e2', color: '#dc2626', fontWeight: 600 }}>
-                🚨 Quá hạn SLA
+                Quá hạn SLA
               </span>
             )}
             <button
@@ -214,7 +250,7 @@ function TicketDetailContent({
               onClick={onOpenPenaltyModal}
               title="Tạo quyết định xử phạt liên quan đến ticket này"
             >
-              ⚖️ Tạo xử phạt
+              Tạo xử phạt
             </button>
           </div>
         </div>
@@ -323,7 +359,7 @@ function TicketDetailContent({
         {!isTerminated && (
           <div className="adm-ticket-respond">
             <div className="adm-ticket-modal__section-title" style={{ marginBottom: '0.5rem' }}>
-              Phản hồi
+              Phản hồi & Xử lý
             </div>
             <textarea
               className="adm-ticket-respond__textarea"
@@ -337,13 +373,57 @@ function TicketDetailContent({
             {showClose && (
               <textarea
                 className="adm-ticket-respond__textarea"
-                placeholder="Ghi chú đóng ticket (tùy chọn)..."
+                placeholder="Ghi chú đóng / từ chối ticket (tùy chọn)..."
                 value={closeNote}
                 onChange={(e) => setCloseNote(e.target.value)}
                 rows={2}
                 maxLength={1000}
                 style={{ marginTop: '0.5rem' }}
               />
+            )}
+
+            {showMerge && (
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px', marginTop: '0.75rem' }}>
+                <div style={{ fontWeight: 600, color: '#1e40af', marginBottom: '6px', fontSize: '0.9rem' }}>
+                  Gộp Ticket trùng lặp (Merge Ticket)
+                </div>
+                <p style={{ fontSize: '0.8rem', color: '#3b82f6', marginBottom: '8px' }}>
+                  Ticket #{detail.id} sẽ được đóng với trạng thái CLOSED và toàn bộ nội dung sẽ được gộp vào Ticket đích.
+                </p>
+                <input
+                  type="number"
+                  placeholder="Nhập mã Ticket gốc cần gộp vào (ví dụ: 1)..."
+                  value={targetTicketId}
+                  onChange={(e) => setTargetTicketId(e.target.value)}
+                  style={{ width: '100%', marginBottom: '8px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                />
+                <textarea
+                  className="adm-ticket-respond__textarea"
+                  placeholder="Lý do gộp ticket (tùy chọn)..."
+                  value={mergeReason}
+                  onChange={(e) => setMergeReason(e.target.value)}
+                  rows={2}
+                  maxLength={500}
+                />
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--primary"
+                    style={{ background: '#2563eb' }}
+                    onClick={onMergeTicket}
+                    disabled={mutStatus === 'loading' || !targetTicketId.trim()}
+                  >
+                    {mutStatus === 'loading' ? 'Đang gộp...' : 'Xác nhận gộp Ticket'}
+                  </button>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost"
+                    onClick={() => setShowMerge(false)}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
             )}
 
             {mutError && (
@@ -359,14 +439,31 @@ function TicketDetailContent({
               >
                 {mutStatus === 'loading' ? 'Đang gửi...' : 'Gửi phản hồi'}
               </button>
-              {!showClose && (
-                <button
-                  type="button"
-                  className="tcs-btn tcs-btn--ghost"
-                  onClick={() => setShowClose(true)}
-                >
-                  Đóng ticket
-                </button>
+              {!showClose && !showMerge && (
+                <>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost"
+                    onClick={() => {
+                      setShowClose(true);
+                      setShowMerge(false);
+                    }}
+                  >
+                    Đóng ticket
+                  </button>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost"
+                    style={{ borderColor: '#3b82f6', color: '#2563eb' }}
+                    onClick={() => {
+                      setShowMerge(true);
+                      setShowClose(false);
+                    }}
+                    title="Gộp ticket trùng lặp vào một ticket gốc"
+                  >
+                    Gộp Ticket
+                  </button>
+                </>
               )}
               {showClose && (
                 <>
@@ -386,7 +483,7 @@ function TicketDetailContent({
                     onClick={() => onCloseTicket('CLOSED')}
                     disabled={mutStatus === 'loading'}
                   >
-                    Đóng (không giải quyết)
+                    Đóng (Từ chối)
                   </button>
                   <button type="button" className="tcs-btn tcs-btn--ghost" onClick={() => setShowClose(false)}>
                     Hủy

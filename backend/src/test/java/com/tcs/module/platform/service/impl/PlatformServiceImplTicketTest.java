@@ -266,4 +266,110 @@ class PlatformServiceImplTicketTest {
         assertEquals(SupportTicketStatus.IN_PROGRESS, response.getStatus());
         assertEquals(platformAdmin.getAdminId(), response.getAssignedAdminId());
     }
+
+    @Test
+    @DisplayName("mergeTicket: gộp ticket nguồn vào ticket đích thành công (BF09-TC03)")
+    void mergeTicket_Success() {
+        Long targetTicketId = 1L;
+        SupportTicket targetTicket = new SupportTicket();
+        targetTicket.setTicketId(targetTicketId);
+        targetTicket.setUser(ticketUser);
+        targetTicket.setSubject("Yêu cầu gốc");
+        targetTicket.setStatus(SupportTicketStatus.IN_PROGRESS);
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(supportTicketRepository.findById(targetTicketId)).thenReturn(Optional.of(targetTicket));
+        when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(i -> i.getArgument(0));
+
+        com.tcs.module.platform.dto.request.MergeTicketRequest request = new com.tcs.module.platform.dto.request.MergeTicketRequest();
+        request.setTargetTicketId(targetTicketId);
+        request.setReason("Trùng vấn đề nạp tiền");
+
+        SupportTicketDetailResponse response = platformService.mergeTicket(TICKET_ID, request);
+
+        assertNotNull(response);
+        assertEquals(SupportTicketStatus.CLOSED, ticket.getStatus());
+        assertNotNull(ticket.getClosedAt());
+
+        // Verify message was created in target ticket
+        ArgumentCaptor<TicketMessage> msgCaptor = ArgumentCaptor.forClass(TicketMessage.class);
+        verify(ticketMessageRepository).save(msgCaptor.capture());
+        TicketMessage savedMsg = msgCaptor.getValue();
+        assertEquals(targetTicket, savedMsg.getTicket());
+        assertTrue(savedMsg.getContent().contains("GỘP TICKET"));
+        assertTrue(savedMsg.getContent().contains(ticket.getSubject()));
+        assertTrue(savedMsg.getContent().contains("Trùng vấn đề nạp tiền"));
+
+        // Verify audit log
+        verify(auditLogService).record(eq("MERGE_TICKET"), eq("SupportTicket"), eq(TICKET_ID), any(), any());
+
+        // Verify notification
+        verify(notificationDispatchService).notifyUserFromTemplate(
+                eq(ticketUser), any(), eq("SUPPORT_TICKET_RESPONSE"), any(), any(), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+    }
+
+    @Test
+    @DisplayName("mergeTicket: từ chối khi gộp ticket vào chính nó")
+    void mergeTicket_RejectsSameTicket() {
+        com.tcs.module.platform.dto.request.MergeTicketRequest request = new com.tcs.module.platform.dto.request.MergeTicketRequest();
+        request.setTargetTicketId(TICKET_ID);
+
+        assertThrows(IllegalArgumentException.class, () -> platformService.mergeTicket(TICKET_ID, request));
+        verify(supportTicketRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("mergeTicket: từ chối khi gộp ticket của 2 người dùng khác nhau")
+    void mergeTicket_RejectsDifferentUsers() {
+        Long targetTicketId = 1L;
+        User otherUser = new User();
+        otherUser.setUserId(999L);
+        otherUser.setEmail("other@example.com");
+
+        SupportTicket targetTicket = new SupportTicket();
+        targetTicket.setTicketId(targetTicketId);
+        targetTicket.setUser(otherUser);
+        targetTicket.setStatus(SupportTicketStatus.OPEN);
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(supportTicketRepository.findById(targetTicketId)).thenReturn(Optional.of(targetTicket));
+
+        com.tcs.module.platform.dto.request.MergeTicketRequest request = new com.tcs.module.platform.dto.request.MergeTicketRequest();
+        request.setTargetTicketId(targetTicketId);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> platformService.mergeTicket(TICKET_ID, request));
+        assertEquals("Chỉ có thể gộp các ticket của cùng một người dùng", ex.getMessage());
+        verify(ticketMessageRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("mergeTicket: từ chối khi ticket đích đã bị đóng")
+    void mergeTicket_RejectsAlreadyClosedTargetTicket() {
+        Long targetTicketId = 1L;
+        SupportTicket targetTicket = new SupportTicket();
+        targetTicket.setTicketId(targetTicketId);
+        targetTicket.setUser(ticketUser);
+        targetTicket.setStatus(SupportTicketStatus.CLOSED);
+
+        com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(adminUser, UserRole.PLATFORM_ADMIN);
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN)).thenReturn(principal);
+        when(platformAdminRepository.findByUser_UserId(ADMIN_USER_ID)).thenReturn(Optional.of(platformAdmin));
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(supportTicketRepository.findById(targetTicketId)).thenReturn(Optional.of(targetTicket));
+
+        com.tcs.module.platform.dto.request.MergeTicketRequest request = new com.tcs.module.platform.dto.request.MergeTicketRequest();
+        request.setTargetTicketId(targetTicketId);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> platformService.mergeTicket(TICKET_ID, request));
+        assertEquals("Không thể gộp vào ticket đích đã bị đóng", ex.getMessage());
+        verify(ticketMessageRepository, never()).save(any());
+    }
 }

@@ -76,4 +76,7 @@ public interface PlatformService {
 
     /** Admin đóng ticket (RESOLVED hoặc CLOSED). */
     SupportTicketDetailResponse closeTicket(Long ticketId, CloseTicketRequest request);
+
+    /** Admin gộp ticket trùng vào ticket chính (BF09-TC03). */
+    SupportTicketDetailResponse mergeTicket(Long sourceTicketId, com.tcs.module.platform.dto.request.MergeTicketRequest request);
 }

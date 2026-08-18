@@ -162,4 +162,10 @@ public class PlatformController {
             @PathVariable Long ticketId, @Valid @RequestBody CloseTicketRequest request) {
         return platformService.closeTicket(ticketId, request);
     }
+
+    @PostMapping("/tickets/{ticketId}/merge")
+    public SupportTicketDetailResponse mergeTicket(
+            @PathVariable Long ticketId, @Valid @RequestBody com.tcs.module.platform.dto.request.MergeTicketRequest request) {
+        return platformService.mergeTicket(ticketId, request);
+    }
 }

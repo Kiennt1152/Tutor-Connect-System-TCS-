@@ -208,6 +208,10 @@ export const platformApi = {
     return axiosClient.patch<AdminTicketDetailApiResponse>(`${BASE}/tickets/${ticketId}/status`, payload);
   },
 
+  mergeTicket(ticketId: string, payload: { targetTicketId: number; reason?: string }) {
+    return axiosClient.post<AdminTicketDetailApiResponse>(`${BASE}/tickets/${ticketId}/merge`, payload);
+  },
+
   getAnnouncements() {
     return axiosClient.get<AnnouncementApiResponse[]>(`${BASE}/announcements`);
   },

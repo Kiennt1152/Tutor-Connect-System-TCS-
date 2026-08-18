@@ -1091,6 +1091,74 @@ public class PlatformServiceImpl implements PlatformService {
         return toTicketDetail(saved);
     }
 
+    @Override
+    @Transactional
+    public SupportTicketDetailResponse mergeTicket(
+            Long sourceTicketId, com.tcs.module.platform.dto.request.MergeTicketRequest request) {
+        if (request == null || request.getTargetTicketId() == null) {
+            throw new IllegalArgumentException("Mã ticket đích cần gộp là bắt buộc");
+        }
+        if (sourceTicketId.equals(request.getTargetTicketId())) {
+            throw new IllegalArgumentException("Không thể gộp ticket vào chính nó");
+        }
+
+        SupportTicket sourceTicket = findTicketOrThrow(sourceTicketId);
+        SupportTicket targetTicket = findTicketOrThrow(request.getTargetTicketId());
+        PlatformAdmin admin = currentAdminOrThrow();
+
+        if (!sourceTicket.getUser().getUserId().equals(targetTicket.getUser().getUserId())) {
+            throw new IllegalArgumentException("Chỉ có thể gộp các ticket của cùng một người dùng");
+        }
+        if (sourceTicket.getStatus() == SupportTicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Ticket nguồn đã được đóng trước đó");
+        }
+        if (targetTicket.getStatus() == SupportTicketStatus.CLOSED) {
+            throw new IllegalArgumentException("Không thể gộp vào ticket đích đã bị đóng");
+        }
+
+        // 1. Tạo tin nhắn ghi nhận việc gộp vào Ticket đích
+        TicketMessage mergeNotice = new TicketMessage();
+        mergeNotice.setTicket(targetTicket);
+        mergeNotice.setSender(admin.getUser());
+        mergeNotice.setIsFromAdmin(true);
+        StringBuilder noticeBuilder = new StringBuilder();
+        noticeBuilder.append("[HỆ THỐNG - GỘP TICKET]\n")
+                .append("Đã gộp nội dung từ Ticket #").append(sourceTicketId)
+                .append(" (").append(sourceTicket.getSubject()).append("):\n")
+                .append(sourceTicket.getDescription());
+        if (StringUtils.hasText(request.getReason())) {
+            noticeBuilder.append("\n\nLý do gộp: ").append(request.getReason());
+        }
+        mergeNotice.setContent(noticeBuilder.toString());
+        ticketMessageRepository.save(mergeNotice);
+
+        // 2. Chuyển trạng thái Ticket nguồn sang CLOSED
+        SupportTicketStatus oldStatus = sourceTicket.getStatus();
+        sourceTicket.setStatus(SupportTicketStatus.CLOSED);
+        LocalDateTime now = LocalDateTime.now();
+        sourceTicket.setClosedAt(now);
+        if (sourceTicket.getResolvedAt() == null) {
+            sourceTicket.setResolvedAt(now);
+        }
+        SupportTicket savedSource = supportTicketRepository.save(sourceTicket);
+
+        // 3. Ghi audit log
+        Map<String, Object> newMeta = new java.util.HashMap<>();
+        newMeta.put("newStatus", SupportTicketStatus.CLOSED);
+        newMeta.put("targetTicketId", request.getTargetTicketId());
+        newMeta.put("reason", request.getReason() == null ? "" : request.getReason());
+        auditLogService.record("MERGE_TICKET", "SupportTicket", sourceTicketId,
+                Map.of("oldStatus", oldStatus), newMeta);
+
+        // 4. Gửi thông báo cho người dùng
+        String notificationNote = "Yêu cầu hỗ trợ #" + sourceTicketId + " của bạn đã được gộp vào Ticket #"
+                + request.getTargetTicketId() + " để xử lý tập trung."
+                + (StringUtils.hasText(request.getReason()) ? " Lý do: " + request.getReason() : "");
+        notifyUserOfTicketResponse(savedSource, notificationNote);
+
+        return toTicketDetail(savedSource);
+    }
+
     private SupportTicket findTicketOrThrow(Long ticketId) {
         return supportTicketRepository
                 .findById(ticketId)
