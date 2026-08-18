@@ -486,7 +486,9 @@ export interface ReportItem {
 }
 
 export interface AdminWithdrawalApiResponse {
-  withdrawalId: number;
+  withdrawalId: number | null;
+  refundId?: number | null;
+  requestType?: 'WITHDRAWAL' | 'REFUND' | string | null;
   walletId: number | null;
   requesterEmail: string | null;
   amount: number;
@@ -515,6 +517,9 @@ export interface PageAdminWithdrawalApiResponse {
 
 export interface AdminWithdrawalItem {
   id: string;
+  displayId: string;
+  requestType: 'WITHDRAWAL' | 'REFUND';
+  requestTypeLabel: string;
   walletId: string;
   requester: string;
   amount: string;

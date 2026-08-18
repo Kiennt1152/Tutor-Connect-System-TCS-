@@ -510,9 +510,11 @@ export default function ProfilePage() {
               </Link>
             </>
           )}
-          <p className="profile-hint">
-            <Link to={APP_ROUTES.verification}>Xem chi tiết hồ sơ xác minh</Link>
-          </p>
+          <div className="profile-verification-actions">
+            <Link to={APP_ROUTES.verification} className="btn-secondary-link profile-verification-detail-link">
+              Xem chi tiết hồ sơ xác minh
+            </Link>
+          </div>
         </section>
       )}
 

@@ -23,8 +23,10 @@ import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
@@ -61,6 +63,7 @@ import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.module.profile.dto.CccdInfoDto;
 import com.tcs.module.profile.service.CccdService;
 import com.tcs.module.profile.entity.Tutor;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
@@ -108,6 +111,9 @@ class MarketplaceServiceImplTest {
 
     @Mock
     private EscrowTransactionRepository escrowTransactionRepository;
+
+    @Mock
+    private WalletRepository walletRepository;
 
     @Mock
     private EscrowService escrowService;
@@ -162,6 +168,27 @@ class MarketplaceServiceImplTest {
 
     @InjectMocks
     private MarketplaceServiceImpl marketplaceService;
+
+    @Test
+    void applyToClassRejectsVerifiedTutorWithoutWallet() {
+        User tutorUser = user(TUTOR_USER_ID);
+        Tutor tutor = tutor(tutorUser);
+        tutor.setVerificationStatus(ProfileVerificationStatus.VERIFIED);
+
+        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(tutor));
+        when(walletRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> marketplaceService.applyToClass(CLASS_ID, new ApplyClassRequest()));
+
+        assertEquals(
+                "Bạn cần tạo ví trước khi tiếp tục. Vui lòng vào Ví của tôi để tạo ví.",
+                ex.getMessage());
+        verify(tutoringClassRepository, never()).findById(CLASS_ID);
+        verify(tutorApplicationRepository, never()).save(any());
+    }
 
     @Test
     void requestClassTerminationAutoSettlesPrivateClassByCompletedSessions() {
@@ -483,7 +510,8 @@ class MarketplaceServiceImplTest {
         when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
         when(userRepository.findById(TUTOR_USER_ID)).thenReturn(Optional.of(tutorUser));
         when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
-        when(classAssignmentRepository.findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(CLASS_ID))
+        when(classAssignmentRepository.findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        CLASS_ID, ClassAssignmentStatus.ACTIVE))
                 .thenReturn(Optional.of(assignment));
         when(lessonRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(lessons);
         when(contractService.hasClientReviewedClass(CLASS_ID)).thenReturn(true);
@@ -497,6 +525,33 @@ class MarketplaceServiceImplTest {
         assertEquals(TutoringClassStatus.COMPLETED, tutoringClass.getStatus());
         verify(escrowService).apply(any(ReleaseInstruction.class));
         verify(centerRequestFeeService).releaseForFulfilledAssignment(eq(ASSIGNMENT_ID), anyString());
+        verify(tutoringClassRepository).save(tutoringClass);
+    }
+
+    @Test
+    void completeClassAfterClientReviewClosesPrivateClassWhenTutorAlreadyConfirmed() {
+        User clientUser = user(CLIENT_USER_ID);
+        User tutorUser = user(TUTOR_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.IN_PROGRESS);
+        tutoringClass.setClassType(ClassType.PRIVATE);
+        ClassAssignment assignment = assignment(tutoringClass, tutorUser);
+        assignment.setTutorCompletedAt(LocalDateTime.now().minusMinutes(10));
+        EscrowTransaction escrow = escrow(92L, new BigDecimal("100000.00"));
+
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(classAssignmentRepository.findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        CLASS_ID, ClassAssignmentStatus.ACTIVE))
+                .thenReturn(Optional.of(assignment));
+        when(escrowTransactionRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID))
+                .thenReturn(Optional.of(escrow));
+        when(contractRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID)).thenReturn(Optional.empty());
+
+        marketplaceService.completeClassAfterClientReview(CLASS_ID);
+
+        assertEquals(TutoringClassStatus.COMPLETED, tutoringClass.getStatus());
+        org.junit.jupiter.api.Assertions.assertNotNull(assignment.getClientCompletedAt());
+        verify(classAssignmentRepository).save(assignment);
+        verify(escrowService).apply(any(ReleaseInstruction.class));
         verify(tutoringClassRepository).save(tutoringClass);
     }
 

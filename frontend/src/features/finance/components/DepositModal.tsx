@@ -9,7 +9,6 @@ import { useAutoPolling } from '../../../shared/hooks/useAutoPolling';
 interface Props {
   onCreateTopup: (payload: DepositPayload) => Promise<TopupSessionInfo>;
   onCheckTopupStatus: (reference: string) => Promise<TopupStatusInfo>;
-  onSimulateTopupSuccess: (reference: string) => Promise<TopupStatusInfo>;
 }
 
 type TopupFlowStatus = 'form' | 'pending' | 'success' | 'expired' | 'failed';
@@ -35,7 +34,6 @@ function formatCountdown(ms: number) {
 export function DepositModal({
   onCreateTopup,
   onCheckTopupStatus,
-  onSimulateTopupSuccess,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [amount, setAmount] = useState('');
@@ -48,7 +46,6 @@ export function DepositModal({
   const [qrExpiresAtMs, setQrExpiresAtMs] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [checking, setChecking] = useState(false);
-  const [simulating, setSimulating] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -101,7 +98,7 @@ export function DepositModal({
   }
 
   function handleClose() {
-    if (submitting || simulating) {
+    if (submitting) {
       return;
     }
     setOpen(false);
@@ -209,23 +206,6 @@ export function DepositModal({
     }
   }
 
-  async function handleSimulateSuccess() {
-    if (!session || simulating) {
-      return;
-    }
-    setSimulating(true);
-    setError(null);
-
-    try {
-      const data = await onSimulateTopupSuccess(session.reference);
-      applyTopupStatus(data, true);
-    } catch {
-      setError('Không thể xác nhận demo. Vui lòng thử lại.');
-    } finally {
-      setSimulating(false);
-    }
-  }
-
   async function handleRefreshQr() {
     const nextAmount = session?.amount || Number(amount);
     if (!nextAmount || nextAmount <= 0) {
@@ -257,9 +237,7 @@ export function DepositModal({
           <div className="modal modal--topup" onClick={(e) => e.stopPropagation()}>
             <div className="modal__header">
               <h2>Nạp tiền vào ví</h2>
-              {!submitting && !simulating && (
-                <button className="modal__close" onClick={handleClose}>×</button>
-              )}
+              {!submitting && <button className="modal__close" onClick={handleClose}>×</button>}
             </div>
 
             {!session ? (
@@ -386,13 +364,6 @@ export function DepositModal({
                         disabled={checking}
                       >
                         {checking ? 'Đang kiểm tra…' : 'Kiểm tra'}
-                      </button>
-                      <button
-                        className="btn btn--primary"
-                        onClick={handleSimulateSuccess}
-                        disabled={simulating}
-                      >
-                        {simulating ? 'Đang xác nhận…' : 'Xác nhận demo'}
                       </button>
                     </>
                   )}

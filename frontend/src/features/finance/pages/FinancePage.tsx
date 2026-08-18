@@ -36,7 +36,6 @@ export default function FinancePage() {
     fetchTransactionsPage,
     createTopup,
     checkTopupStatus,
-    simulateTopupSuccess,
     paymentMethods,
     paymentMethodsLoading,
     fetchPaymentMethods,
@@ -142,7 +141,6 @@ export default function FinancePage() {
                   <DepositModal
                     onCreateTopup={createTopup}
                     onCheckTopupStatus={checkTopupStatus}
-                    onSimulateTopupSuccess={simulateTopupSuccess}
                   />
                 ) : null}
                 <WithdrawalModal

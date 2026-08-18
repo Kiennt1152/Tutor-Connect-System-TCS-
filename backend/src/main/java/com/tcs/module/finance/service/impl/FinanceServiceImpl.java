@@ -99,7 +99,6 @@ public class FinanceServiceImpl implements FinanceService {
     private static final int MAX_PAGE_SIZE = 100;
     private static final int TOPUP_TTL_MINUTES = 15;
     private static final int WITHDRAWAL_MATCH_WINDOW_MINUTES = 5;
-    private static final int PAYOUT_COOLDOWN_HOURS = 24;
     private static final int CENTER_PAYOUT_COOLDOWN_MINUTES = 5;
     private static final int PAYOUT_CHANGE_REVIEW_HOURS = 72;
     private static final int FAST_TOPUP_WITHDRAWAL_HOURS = 24;
@@ -638,20 +637,46 @@ public class FinanceServiceImpl implements FinanceService {
         authHelper.requireRole(UserRole.PLATFORM_ADMIN);
 
         WithdrawalRequestStatus statusFilter = parseWithdrawalStatus(status);
-        Pageable pageable = PageRequest.of(normalizePage(page), normalizeSize(size));
-        Page<WithdrawalRequest> withdrawalPage =
-                withdrawalRequestRepository.findAdminPage(statusFilter, pageable);
+        int normalizedPage = normalizePage(page);
+        int normalizedSize = normalizeSize(size);
 
-        List<AdminWithdrawalResponse> content = withdrawalPage.getContent().stream()
+        List<AdminWithdrawalResponse> allRequests = new ArrayList<>();
+        allRequests.addAll(withdrawalRequestRepository.findAdminList(statusFilter).stream()
                 .map(withdrawal -> toAdminWithdrawalResponse(withdrawal, findWithdrawalTransaction(withdrawal)))
-                .toList();
+                .toList());
+        allRequests.addAll(refundRequestRepository.findAllByOrderByRequestedAtDesc().stream()
+                .filter(this::isRefundTransferRequest)
+                .map(this::toAdminRefundTransferResponse)
+                .filter(refund -> statusFilter == null || refund.getStatus() == statusFilter)
+                .toList());
+
+        allRequests.sort((left, right) -> {
+            LocalDateTime leftTime = left.getRequestedAt();
+            LocalDateTime rightTime = right.getRequestedAt();
+            if (leftTime == null && rightTime == null) {
+                return 0;
+            }
+            if (leftTime == null) {
+                return 1;
+            }
+            if (rightTime == null) {
+                return -1;
+            }
+            return rightTime.compareTo(leftTime);
+        });
+
+        int total = allRequests.size();
+        int fromIndex = Math.min(normalizedPage * normalizedSize, total);
+        int toIndex = Math.min(fromIndex + normalizedSize, total);
+        List<AdminWithdrawalResponse> content = allRequests.subList(fromIndex, toIndex);
+        int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / normalizedSize);
 
         return AdminWithdrawalPageResponse.builder()
                 .content(content)
-                .page(withdrawalPage.getNumber())
-                .size(withdrawalPage.getSize())
-                .totalPages(withdrawalPage.getTotalPages())
-                .totalElements(withdrawalPage.getTotalElements())
+                .page(normalizedPage)
+                .size(normalizedSize)
+                .totalPages(totalPages)
+                .totalElements(total)
                 .build();
     }
 
@@ -2179,6 +2204,9 @@ public class FinanceServiceImpl implements FinanceService {
         if (isBlank(paymentMethod.getAccountHolderName())) {
             throw new BusinessException("Vui lòng cập nhật tên chủ tài khoản nhận tiền trước khi rút tiền");
         }
+        if (!isCenterPayoutMethod(paymentMethod)) {
+            return;
+        }
         LocalDateTime cooldownUntil = paymentMethod.getCooldownUntil();
         if (cooldownUntil != null && LocalDateTime.now().isBefore(cooldownUntil)) {
             throw new BusinessException("Tài khoản nhận tiền mới cần chờ một thời gian trước khi rút tiền");
@@ -2200,7 +2228,7 @@ public class FinanceServiceImpl implements FinanceService {
             return;
         }
         method.setLastUsedAt(usedAt);
-        if (method.getCooldownUntil() == null) {
+        if (isCenterPayoutMethod(method) && method.getCooldownUntil() == null) {
             method.setCooldownUntil(payoutCooldownUntil(method, usedAt));
         }
         paymentMethodRepository.save(method);
@@ -2294,7 +2322,7 @@ public class FinanceServiceImpl implements FinanceService {
                 .accountNoMasked(maskAccountNo(method.getAccountNo()))
                 .isDefault(isDefault)
                 .verifiedAt(method.getVerifiedAt())
-                .cooldownUntil(method.getCooldownUntil())
+                .cooldownUntil(isCenterPayoutMethod(method) ? method.getCooldownUntil() : null)
                 .lastUsedAt(method.getLastUsedAt())
                 .createdAt(method.getCreatedAt())
                 .updatedAt(method.getUpdatedAt())
@@ -2302,7 +2330,7 @@ public class FinanceServiceImpl implements FinanceService {
     }
 
     private void maybeWarnAnomalousPaymentMethod(PaymentMethod method) {
-        if (method == null) {
+        if (method == null || !isCenterPayoutMethod(method)) {
             return;
         }
         LocalDateTime referenceTime = method.getVerifiedAt() != null
@@ -2341,7 +2369,7 @@ public class FinanceServiceImpl implements FinanceService {
     }
 
     private void maybeWarnSuspiciousWithdrawal(WithdrawalRequest withdrawal, PaymentMethod paymentMethod) {
-        if (withdrawal == null || paymentMethod == null) {
+        if (withdrawal == null || paymentMethod == null || !isCenterPayoutMethod(paymentMethod)) {
             return;
         }
         boolean newMethod = isWithinPayoutCooldown(paymentMethod, paymentMethod.getCreatedAt(), withdrawal.getRequestedAt());
@@ -2408,6 +2436,10 @@ public class FinanceServiceImpl implements FinanceService {
         if (method == null) {
             return;
         }
+        if (!isCenterPayoutMethod(method)) {
+            method.setCooldownUntil(null);
+            return;
+        }
         LocalDateTime verifiedAt = method.getVerifiedAt() != null ? method.getVerifiedAt() : LocalDateTime.now();
         method.setCooldownUntil(payoutCooldownUntil(method, verifiedAt));
     }
@@ -2416,20 +2448,19 @@ public class FinanceServiceImpl implements FinanceService {
         if (isCenterPayoutMethod(method)) {
             return from.plusMinutes(CENTER_PAYOUT_COOLDOWN_MINUTES);
         }
-        return from.plusHours(PAYOUT_COOLDOWN_HOURS);
+        return null;
     }
 
     private boolean isWithinPayoutCooldown(PaymentMethod method, LocalDateTime referenceTime, LocalDateTime checkedAt) {
         if (referenceTime == null || checkedAt == null) {
             return false;
         }
-        return ChronoUnit.MINUTES.between(referenceTime, checkedAt) < payoutCooldownMinutes(method);
+        long cooldownMinutes = payoutCooldownMinutes(method);
+        return cooldownMinutes > 0 && ChronoUnit.MINUTES.between(referenceTime, checkedAt) < cooldownMinutes;
     }
 
     private long payoutCooldownMinutes(PaymentMethod method) {
-        return isCenterPayoutMethod(method)
-                ? CENTER_PAYOUT_COOLDOWN_MINUTES
-                : PAYOUT_COOLDOWN_HOURS * 60L;
+        return isCenterPayoutMethod(method) ? CENTER_PAYOUT_COOLDOWN_MINUTES : 0L;
     }
 
     private boolean isCenterPayoutMethod(PaymentMethod method) {
@@ -2478,6 +2509,8 @@ public class FinanceServiceImpl implements FinanceService {
         PaymentMethod paymentMethod = withdrawal.getPaymentMethod();
         return AdminWithdrawalResponse.builder()
                 .withdrawalId(withdrawal.getWithdrawalId())
+                .refundId(null)
+                .requestType("WITHDRAWAL")
                 .walletId(wallet != null ? wallet.getWalletId() : null)
                 .requesterEmail(wallet != null && wallet.getUser() != null ? wallet.getUser().getEmail() : null)
                 .amount(withdrawal.getAmount())
@@ -2497,6 +2530,102 @@ public class FinanceServiceImpl implements FinanceService {
                 .processedAt(withdrawal.getProcessedAt())
                 .failureReason(withdrawal.getFailureReason())
                 .build();
+    }
+
+    private AdminWithdrawalResponse toAdminRefundTransferResponse(RefundRequest refundRequest) {
+        PaymentTransaction tx = findRefundTransaction(refundRequest);
+        PaymentTransactionStatus transactionStatus = tx != null
+                ? tx.getStatus()
+                : refundTransferPaymentStatus(refundRequest);
+        return AdminWithdrawalResponse.builder()
+                .withdrawalId(null)
+                .refundId(refundRequest.getRefundId())
+                .requestType("REFUND")
+                .walletId(null)
+                .requesterEmail(refundRecipientEmail(refundRequest))
+                .amount(refundRequest.getAmount())
+                .status(refundTransferWithdrawalStatus(refundRequest))
+                .paymentMethodId(null)
+                .bankName(refundRequest.getBankName())
+                .accountNo(refundRequest.getAccountNo())
+                .accountNoMasked(maskAccountNo(refundRequest.getAccountNo()))
+                .accountHolderName(refundRequest.getAccountHolderName())
+                .transactionId(tx != null ? tx.getTransactionId() : null)
+                .transactionStatus(transactionStatus)
+                .referenceCode(refundRequest.getRefundReferenceCode())
+                .externalTransactionId(tx != null ? tx.getExternalTransactionId() : null)
+                .requestedAt(refundRequest.getProcessedAt() != null
+                        ? refundRequest.getProcessedAt()
+                        : refundRequest.getRequestedAt())
+                .processedAt(refundRequest.getTransferProcessedAt())
+                .failureReason(null)
+                .build();
+    }
+
+    private boolean isRefundTransferRequest(RefundRequest refundRequest) {
+        return refundRequest != null
+                && amountOrZero(refundRequest.getAmount()).compareTo(BigDecimal.ZERO) > 0
+                && !isBlank(refundRequest.getRefundReferenceCode())
+                && refundRequest.getStatus() != RefundRequestStatus.REJECTED
+                && !isBlank(refundRequest.getBankName())
+                && !isBlank(refundRequest.getAccountNo())
+                && !isBlank(refundRequest.getAccountHolderName());
+    }
+
+    private PaymentTransaction findRefundTransaction(RefundRequest refundRequest) {
+        if (refundRequest == null || isBlank(refundRequest.getRefundReferenceCode())) {
+            return null;
+        }
+        return paymentTransactionRepository.findByReferenceCode(refundRequest.getRefundReferenceCode()).orElse(null);
+    }
+
+    private WithdrawalRequestStatus refundTransferWithdrawalStatus(RefundRequest refundRequest) {
+        String transferStatus = refundRequest.getTransferStatus();
+        if ("SUCCESS".equalsIgnoreCase(transferStatus)) {
+            return WithdrawalRequestStatus.COMPLETED;
+        }
+        if ("FAILED".equalsIgnoreCase(transferStatus) || "CANCELLED".equalsIgnoreCase(transferStatus)) {
+            return WithdrawalRequestStatus.REJECTED;
+        }
+        return WithdrawalRequestStatus.APPROVED;
+    }
+
+    private PaymentTransactionStatus refundTransferPaymentStatus(RefundRequest refundRequest) {
+        String transferStatus = refundRequest != null ? refundRequest.getTransferStatus() : null;
+        if ("SUCCESS".equalsIgnoreCase(transferStatus)) {
+            return PaymentTransactionStatus.SUCCESS;
+        }
+        if ("FAILED".equalsIgnoreCase(transferStatus)) {
+            return PaymentTransactionStatus.FAILED;
+        }
+        if ("CANCELLED".equalsIgnoreCase(transferStatus)) {
+            return PaymentTransactionStatus.CANCELLED;
+        }
+        return PaymentTransactionStatus.PENDING;
+    }
+
+    private String refundRecipientEmail(RefundRequest refundRequest) {
+        if (refundRequest == null) {
+            return null;
+        }
+        if (refundRequest.getCenterRequestFeeHold() != null
+                && refundRequest.getCenterRequestFeeHold().getClientUserId() != null) {
+            return userRepository.findById(refundRequest.getCenterRequestFeeHold().getClientUserId())
+                    .map(User::getEmail)
+                    .orElseGet(() -> requestedByEmail(refundRequest));
+        }
+        Long payerUserId = safeEscrowPayerUserId(refundRequest.getEscrowTransaction());
+        if (payerUserId != null) {
+            return userRepository.findById(payerUserId)
+                    .map(User::getEmail)
+                    .orElseGet(() -> requestedByEmail(refundRequest));
+        }
+        return requestedByEmail(refundRequest);
+    }
+
+    private String requestedByEmail(RefundRequest refundRequest) {
+        User requestedBy = refundRequest != null ? refundRequest.getRequestedBy() : null;
+        return requestedBy != null ? requestedBy.getEmail() : null;
     }
 
     private WithdrawalResponse toWithdrawalResponse(

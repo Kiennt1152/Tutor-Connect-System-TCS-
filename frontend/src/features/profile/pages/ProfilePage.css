@@ -233,6 +233,34 @@
 .btn-primary-link:hover {
   background: var(--color-primary-dark);
 }
+.btn-secondary-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1.15rem;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-body-md);
+  font-weight: 700;
+  color: var(--color-primary);
+  background: var(--color-surface-2);
+  border: 1px solid var(--color-border-strong);
+  text-decoration: none;
+  box-shadow: var(--shadow-xs);
+}
+.btn-secondary-link:hover {
+  color: var(--color-white);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+.profile-verification-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+.profile-verification-detail-link {
+  width: fit-content;
+}
 .btn-secondary {
   background: var(--color-surface-2);
   border-color: var(--color-border-strong);
