@@ -4,6 +4,7 @@ import axios from 'axios';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { PaymentQrCountdown } from '../../../shared/components/PaymentQrCountdown';
 import { SiteFooter } from '../../home/components/SiteFooter';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { useMarketplace } from '../hooks/useMarketplace';
@@ -20,6 +21,7 @@ import type { LessonResponse } from '../../teaching/types/teachingTypes';
 import { classToForm, emptyForm } from '../mappers/marketplaceMapper';
 import {
   CLASS_STATUS_LABELS,
+  type CenterRequestFeePayment,
   isOtherSubject,
   type CatalogOption,
   type ClassFormValues,
@@ -31,6 +33,11 @@ import {
 import './MarketplacePage.css';
 
 const currency = new Intl.NumberFormat('vi-VN');
+
+function formatMoney(value: number | null | undefined): string {
+  if (typeof value !== 'number') return '—';
+  return `${currency.format(value)} đ`;
+}
 
 // Nhãn trạng thái yêu cầu "nhờ trung tâm tìm".
 const REQ_STATUS_LABEL: Record<ClassRequestStatus, string> = {
@@ -82,6 +89,9 @@ export default function MarketplacePage() {
   >(null);
   const [chooseBusy, setChooseBusy] = useState(false);
   const [reqNotice, setReqNotice] = useState('');
+  const [paymentRequest, setPaymentRequest] = useState<CenterRequestFeePayment | null>(null);
+  const [checkingPayment, setCheckingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState('');
   // Gia sư đang mở xem chứng chỉ (khoá theo requestId:tutorId) + xem trước file.
   const [candCertsOpen, setCandCertsOpen] = useState<string | null>(null);
   const [candPreview, setCandPreview] = useState<{ src: string; fileName: string } | null>(null);
@@ -101,6 +111,45 @@ export default function MarketplacePage() {
       /* bỏ qua */
     }
   };
+  const openPaymentFromRequest = (request: ClassRequest) => {
+    if (!request.centerRequestFeePayment) {
+      setPaymentError('Không tìm thấy thông tin thanh toán của yêu cầu này.');
+      return;
+    }
+    setPaymentRequest(request.centerRequestFeePayment);
+    setPaymentError('');
+    setCheckingPayment(false);
+  };
+
+  const closePaymentModal = () => {
+    setPaymentRequest(null);
+    setPaymentError('');
+    setCheckingPayment(false);
+  };
+
+  const checkPaymentStatus = async () => {
+    if (!paymentRequest) return;
+    setCheckingPayment(true);
+    setPaymentError('');
+    try {
+      const requests = await marketplaceApi.getMyClassRequests();
+      const current = requests.find((item) => item.requestId === paymentRequest.requestId);
+      const latestPayment = current?.centerRequestFeePayment ?? paymentRequest;
+      setCenterRequests(requests);
+      setPaymentRequest(latestPayment);
+      if (current && current.status !== 'PAYMENT_PENDING') {
+        setReqNotice('Thanh toán thành công. Yêu cầu đã được gửi tới trung tâm.');
+        window.setTimeout(() => setReqNotice(''), 6000);
+      } else if (latestPayment.status === 'PENDING_PAYMENT') {
+        setPaymentError('Chưa ghi nhận thanh toán. Vui lòng kiểm tra lại sau vài giây.');
+      }
+    } catch (err) {
+      setPaymentError(extractError(err));
+    } finally {
+      setCheckingPayment(false);
+    }
+  };
+
   // Phụ huynh chọn 1 gia sư đề cử -> xác nhận (ConfirmDialog) rồi materialize.
   const confirmChooseTutor = async () => {
     if (!chooseTarget) return;
@@ -289,124 +338,150 @@ export default function MarketplacePage() {
                 </div>
               ) : (
                 <div className="mkt-req-list">
-                  {centerRequests.map((r) => (
-                    <div key={r.requestId} className="mkt-req-card">
-                      <div className="mkt-req-card__main">
-                        <p className="mkt-req-card__note">{r.note}</p>
-                        <div className="mkt-req-card__meta">
-                          <span>
-                            Gửi tới: <b>{r.centerName ?? '—'}</b>
-                          </span>
-                          {r.desiredBudget != null && (
+                  {centerRequests.map((r) => {
+                    const payment = r.centerRequestFeePayment;
+                    const isPaymentPending =
+                      r.status === 'PAYMENT_PENDING' && payment?.status === 'PENDING_PAYMENT';
+                    return (
+                      <div
+                        key={r.requestId}
+                        className={`mkt-req-card${isPaymentPending ? ' mkt-req-card--payment' : ''}`}
+                      >
+                        <div className="mkt-req-card__main">
+                          <p className="mkt-req-card__note">{r.note}</p>
+                          <div className="mkt-req-card__meta">
                             <span>
-                              Ngân sách: <b>{currency.format(r.desiredBudget)}đ</b>
+                              Gửi tới: <b>{r.centerName ?? '—'}</b>
                             </span>
+                            {r.desiredBudget != null && (
+                              <span>
+                                Ngân sách: <b>{currency.format(r.desiredBudget)}đ</b>
+                              </span>
+                            )}
+                            {r.status === 'REJECTED' && r.reason && (
+                              <span className="mkt-req-card__reason">Lý do: {r.reason}</span>
+                            )}
+                          </div>
+                          {isPaymentPending && payment && (
+                            <div className="mkt-req-card__payment">
+                              <div>
+                                <strong>Đang chờ thanh toán phí xử lý</strong>
+                                <span>
+                                  Số tiền: <b>{formatMoney(payment.amount)}</b>. Bạn có thể đóng
+                                  trang và quay lại đây để mở lại mã QR.
+                                </span>
+                              </div>
+                              <button
+                                type="button"
+                                className="mkt-btn mkt-btn--primary mkt-btn--sm"
+                                onClick={() => openPaymentFromRequest(r)}
+                              >
+                                Mở QR thanh toán
+                              </button>
+                            </div>
                           )}
-                          {r.status === 'REJECTED' && r.reason && (
-                            <span className="mkt-req-card__reason">Lý do: {r.reason}</span>
+                          {r.status !== 'ACCEPTED' && r.candidates && r.candidates.length > 0 && (
+                            <div className="mkt-req-cands">
+                              <span className="mkt-req-cands__label">
+                                Gia sư trung tâm đề cử — chọn 1:
+                              </span>
+                              {r.candidates.map((c) => {
+                                const key = `${r.requestId}:${c.tutorId}`;
+                                const open = candCertsOpen === key;
+                                const certCount = c.certificates?.length ?? 0;
+                                return (
+                                  <div key={c.tutorId} className="mkt-req-cand">
+                                    <div className="mkt-req-cand__row">
+                                      <div className="mkt-req-cand__id">
+                                        <span className="mkt-req-cand__name">{c.fullName}</span>
+                                        <span className="mkt-req-cand__meta">
+                                          {c.experienceYears != null && `${c.experienceYears} năm KN`}
+                                          {c.ratingAvg != null && ` · ⭐ ${c.ratingAvg}`}
+                                        </span>
+                                      </div>
+                                      <div className="mkt-req-cand__btns">
+                                        <button
+                                          type="button"
+                                          className="mkt-btn mkt-btn--ghost mkt-btn--sm"
+                                          aria-expanded={open}
+                                          onClick={() => setCandCertsOpen(open ? null : key)}
+                                        >
+                                          {open
+                                            ? 'Ẩn hồ sơ ▲'
+                                            : `Xem hồ sơ${certCount ? ` · ${certCount} chứng chỉ` : ''} ▼`}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          className="mkt-btn mkt-btn--primary mkt-btn--sm"
+                                          onClick={() =>
+                                            setChooseTarget({
+                                              requestId: r.requestId,
+                                              tutorId: c.tutorId,
+                                              tutorName: c.fullName,
+                                            })
+                                          }
+                                        >
+                                          Chọn
+                                        </button>
+                                      </div>
+                                    </div>
+                                    {open && (
+                                      <div className="mkt-req-cand__certs">
+                                        {certCount > 0 ? (
+                                          <>
+                                            <span className="mkt-req-cand__certs-label">
+                                              📜 Bằng cấp / chứng chỉ đã xác minh
+                                            </span>
+                                            <ul className="mkt-req-cand__certs-list">
+                                              {c.certificates!.map((cert) => (
+                                                <li key={cert.fileUrl}>
+                                                  <button
+                                                    type="button"
+                                                    className="mkt-req-cand__cert"
+                                                    onClick={() =>
+                                                      setCandPreview({
+                                                        src: cert.fileUrl,
+                                                        fileName: cert.fileName,
+                                                      })
+                                                    }
+                                                  >
+                                                    {cert.mimeType?.startsWith('image/') ? '🖼️' : '📄'}{' '}
+                                                    {cert.fileName}
+                                                  </button>
+                                                </li>
+                                              ))}
+                                            </ul>
+                                          </>
+                                        ) : (
+                                          <span className="mkt-req-cand__certs-empty">
+                                            Gia sư chưa có chứng chỉ đã xác minh.
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })}
+                            </div>
                           )}
                         </div>
-                        {r.status !== 'ACCEPTED' && r.candidates && r.candidates.length > 0 && (
-                          <div className="mkt-req-cands">
-                            <span className="mkt-req-cands__label">
-                              Gia sư trung tâm đề cử — chọn 1:
-                            </span>
-                            {r.candidates.map((c) => {
-                              const key = `${r.requestId}:${c.tutorId}`;
-                              const open = candCertsOpen === key;
-                              const certCount = c.certificates?.length ?? 0;
-                              return (
-                                <div key={c.tutorId} className="mkt-req-cand">
-                                  <div className="mkt-req-cand__row">
-                                    <div className="mkt-req-cand__id">
-                                      <span className="mkt-req-cand__name">{c.fullName}</span>
-                                      <span className="mkt-req-cand__meta">
-                                        {c.experienceYears != null && `${c.experienceYears} năm KN`}
-                                        {c.ratingAvg != null && ` · ⭐ ${c.ratingAvg}`}
-                                      </span>
-                                    </div>
-                                    <div className="mkt-req-cand__btns">
-                                      <button
-                                        type="button"
-                                        className="mkt-btn mkt-btn--ghost mkt-btn--sm"
-                                        aria-expanded={open}
-                                        onClick={() => setCandCertsOpen(open ? null : key)}
-                                      >
-                                        {open
-                                          ? 'Ẩn hồ sơ ▲'
-                                          : `Xem hồ sơ${certCount ? ` · ${certCount} chứng chỉ` : ''} ▼`}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="mkt-btn mkt-btn--primary mkt-btn--sm"
-                                        onClick={() =>
-                                          setChooseTarget({
-                                            requestId: r.requestId,
-                                            tutorId: c.tutorId,
-                                            tutorName: c.fullName,
-                                          })
-                                        }
-                                      >
-                                        Chọn
-                                      </button>
-                                    </div>
-                                  </div>
-                                  {open && (
-                                    <div className="mkt-req-cand__certs">
-                                      {certCount > 0 ? (
-                                        <>
-                                          <span className="mkt-req-cand__certs-label">
-                                            📜 Bằng cấp / chứng chỉ đã xác minh
-                                          </span>
-                                          <ul className="mkt-req-cand__certs-list">
-                                            {c.certificates!.map((cert) => (
-                                              <li key={cert.fileUrl}>
-                                                <button
-                                                  type="button"
-                                                  className="mkt-req-cand__cert"
-                                                  onClick={() =>
-                                                    setCandPreview({
-                                                      src: cert.fileUrl,
-                                                      fileName: cert.fileName,
-                                                    })
-                                                  }
-                                                >
-                                                  {cert.mimeType?.startsWith('image/') ? '🖼️' : '📄'}{' '}
-                                                  {cert.fileName}
-                                                </button>
-                                              </li>
-                                            ))}
-                                          </ul>
-                                        </>
-                                      ) : (
-                                        <span className="mkt-req-cand__certs-empty">
-                                          Gia sư chưa có chứng chỉ đã xác minh.
-                                        </span>
-                                      )}
-                                    </div>
-                                  )}
-                                </div>
-                              );
-                            })}
+                        <span className={`mkt-status mkt-status--${r.status.toLowerCase()}`}>
+                          {REQ_STATUS_LABEL[r.status]}
+                        </span>
+                        {r.status === 'PAYMENT_PENDING' && (
+                          <div className="mkt-req-card__actions">
+                            <button
+                              type="button"
+                              className="mkt-btn mkt-btn--ghost mkt-btn--sm"
+                              onClick={() => cancelCenterRequest(r.requestId)}
+                            >
+                              Hủy
+                            </button>
                           </div>
                         )}
                       </div>
-                      <span className={`mkt-status mkt-status--${r.status.toLowerCase()}`}>
-                        {REQ_STATUS_LABEL[r.status]}
-                      </span>
-                      {r.status === 'PAYMENT_PENDING' && (
-                        <div className="mkt-req-card__actions">
-                          <button
-                            type="button"
-                            className="mkt-btn mkt-btn--ghost mkt-btn--sm"
-                            onClick={() => cancelCenterRequest(r.requestId)}
-                          >
-                            Hủy
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </>
@@ -462,6 +537,99 @@ export default function MarketplacePage() {
         isOpen={candPreview !== null}
         onClose={() => setCandPreview(null)}
       />
+
+      {paymentRequest && (
+        <div className="mkt-payment-overlay" role="dialog" aria-modal="true" onClick={closePaymentModal}>
+          <div className="mkt-payment-modal" onClick={(event) => event.stopPropagation()}>
+            <div className="mkt-payment-modal__top">
+              <div>
+                <span>Phí xử lý yêu cầu trung tâm</span>
+                <h3>Quét mã để thanh toán</h3>
+              </div>
+              <button
+                type="button"
+                className="mkt-payment-modal__close"
+                aria-label="Đóng mã thanh toán"
+                onClick={closePaymentModal}
+              >
+                ×
+              </button>
+            </div>
+
+            {paymentError && <p className="mkt-payment-modal__error">{paymentError}</p>}
+
+            {paymentRequest.status === 'PENDING_PAYMENT' ? (
+              <>
+                <p className="mkt-payment-modal__hint">
+                  Sau khi SePay ghi nhận thanh toán, yêu cầu mới được gửi vào danh sách xử lý của
+                  trung tâm.
+                </p>
+                <div className="mkt-payment-modal__body">
+                  <div className="mkt-payment-modal__qr">
+                    <img src={paymentRequest.qrUrl} alt="QR thanh toán phí xử lý yêu cầu" />
+                    <PaymentQrCountdown
+                      resetKey={
+                        paymentRequest.requestId
+                        ?? paymentRequest.transferContent
+                        ?? paymentRequest.qrUrl
+                      }
+                      label="Thời gian chuyển khoản còn lại"
+                      expiredLabel="Mã QR đã hết 5 phút hiển thị. Vui lòng tạo lại yêu cầu nếu chưa chuyển khoản."
+                    />
+                  </div>
+                  <div className="mkt-payment-modal__info">
+                    <div>
+                      <span>Số tiền</span>
+                      <strong>{formatMoney(paymentRequest.amount)}</strong>
+                    </div>
+                    <div>
+                      <span>Ngân hàng</span>
+                      <strong>{paymentRequest.bankName}</strong>
+                    </div>
+                    <div>
+                      <span>Số tài khoản</span>
+                      <strong>{paymentRequest.accountNumber}</strong>
+                    </div>
+                    <div>
+                      <span>Nội dung chuyển khoản</span>
+                      <strong>{paymentRequest.transferContent}</strong>
+                    </div>
+                    <button
+                      type="button"
+                      className="mkt-btn mkt-btn--ghost mkt-btn--sm"
+                      onClick={() => navigator.clipboard?.writeText(paymentRequest.transferContent)}
+                    >
+                      Sao chép nội dung
+                    </button>
+                  </div>
+                </div>
+                <div className="mkt-payment-modal__actions">
+                  <button type="button" className="mkt-btn mkt-btn--ghost" onClick={closePaymentModal}>
+                    Đóng
+                  </button>
+                  <button
+                    type="button"
+                    className="mkt-btn mkt-btn--primary"
+                    onClick={checkPaymentStatus}
+                    disabled={checkingPayment}
+                  >
+                    {checkingPayment ? 'Đang quét…' : 'Quét trạng thái'}
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div className="mkt-payment-modal__success">
+                <span>✓</span>
+                <h3>Thanh toán đã được ghi nhận</h3>
+                <p>Yêu cầu đã được gửi tới trung tâm để xử lý.</p>
+                <button type="button" className="mkt-btn mkt-btn--primary" onClick={closePaymentModal}>
+                  Đóng
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

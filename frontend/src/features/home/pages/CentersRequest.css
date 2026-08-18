@@ -40,6 +40,41 @@
   margin-top: 8px;
 }
 
+.cr-request-tip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 16px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fffaf5;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.cr-request-tip > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cr-request-tip strong {
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.cr-request-tip span {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.cr-request-tip b {
+  color: #c2410c;
+}
+
 /* Danh sách yêu cầu của tôi */
 .cr-req-list {
   display: flex;

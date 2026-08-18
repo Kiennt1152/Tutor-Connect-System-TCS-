@@ -5,7 +5,7 @@ USE tutorconnectsystem;
 
 -- 1. System Parameters
 INSERT INTO system_parameters (parameter_key, parameter_value, description, data_type, is_active, created_at) VALUES 
-('PLATFORM_FEE_RATE', '0.10', 'Phí nền tảng (10%)', 'DECIMAL', 1, NOW()),
+('PLATFORM_FEE_RATE', '0.02', 'Phí nền tảng (2%)', 'DECIMAL', 1, NOW()),
 ('MAX_TUTOR_APPLICATIONS', '5', 'Số lượng ứng tuyển tối đa', 'INTEGER', 1, NOW()),
 ('ESCROW_HOLD_DAYS', '7', 'Số ngày tạm giữ tiền ký quỹ', 'INTEGER', 1, NOW()),
 ('AUTO_CLOSE_TICKET_DAYS', '3', 'Tự động đóng phiếu hỗ trợ sau 3 ngày không phản hồi', 'INTEGER', 1, NOW())
@@ -36,7 +36,7 @@ ON DUPLICATE KEY UPDATE full_name = VALUES(full_name);
 -- 3. FAQ Entries
 INSERT INTO faq_entries (question, answer, category, sort_order, is_published, created_at) VALUES
 ('Làm sao để đăng ký làm gia sư?', 'Bạn cần tạo tài khoản, cập nhật hồ sơ và gửi yêu cầu xác thực.', 'GIA_SU', 1, 1, NOW()),
-('Phí nền tảng là bao nhiêu?', 'Phí nền tảng hiện tại là 10% trên mỗi giao dịch thành công.', 'THANH_TOAN', 2, 1, NOW()),
+('Phí nền tảng là bao nhiêu?', 'Phí nền tảng hiện tại là 2% trên mỗi giao dịch thành công.', 'THANH_TOAN', 2, 1, NOW()),
 ('Làm sao để tìm gia sư?', 'Sử dụng công cụ tìm kiếm trên trang chủ để lọc gia sư theo môn học và khu vực.', 'PHU_HUYNH', 3, 1, NOW()),
 ('Tôi có thể hủy lớp không?', 'Có, bạn có thể hủy trước 24h mà không mất phí.', 'CHUNG', 4, 1, NOW()),
 ('Bao lâu thì nhận được tiền?', 'Tiền sẽ được cộng vào ví trong vòng 24h sau khi hoàn thành buổi học.', 'THANH_TOAN', 5, 1, NOW()),

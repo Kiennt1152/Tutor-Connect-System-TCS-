@@ -8,7 +8,6 @@ import { hasRole } from '../../../shared/auth/rbac';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import type {
-  ClassRequest,
   CenterRequestFeePayment,
   CenterSummary,
   ClassRequestPayload,
@@ -56,8 +55,6 @@ export default function CentersPage() {
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [centersLoading, setCentersLoading] = useState(true);
-  const [myRequests, setMyRequests] = useState<ClassRequest[]>([]);
-  const [myRequestsLoading, setMyRequestsLoading] = useState(false);
 
   useEffect(() => {
     marketplaceApi
@@ -66,26 +63,6 @@ export default function CentersPage() {
       .catch(() => setCenters([]))
       .finally(() => setCentersLoading(false));
   }, []);
-
-  const loadMyRequests = async () => {
-    if (!isClient) return;
-    setMyRequestsLoading(true);
-    try {
-      setMyRequests(await marketplaceApi.getMyClassRequests());
-    } catch {
-      setMyRequests([]);
-    } finally {
-      setMyRequestsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (!isClient) return;
-    marketplaceApi
-      .getMyClassRequests()
-      .then((requests) => setMyRequests(requests))
-      .catch(() => setMyRequests([]));
-  }, [isClient]);
 
   // ----- Modal gửi yêu cầu (dùng lại form "tìm gia sư" cho rõ ràng) -----
   const { subjects, grades } = useTutorRequestForm();
@@ -211,12 +188,11 @@ export default function CentersPage() {
       });
       if (response.centerRequestFeePayment) {
         setPaymentRequest(response.centerRequestFeePayment);
-        setNotice('Đã tạo mã thanh toán phí xử lý. Vui lòng chuyển khoản và quét trạng thái.');
+        setNotice('Đã tạo mã thanh toán phí xử lý. Nếu đóng màn hình, vào Yêu cầu của tôi (/sua-lop) để mở lại QR.');
       } else {
         setTarget(null);
-        setNotice('Đã gửi yêu cầu nhờ trung tâm tìm gia sư. Theo dõi ở trang “Yêu cầu của tôi”.');
+        setNotice('Đã gửi yêu cầu nhờ trung tâm tìm gia sư. Theo dõi ở trang “Yêu cầu của tôi” (/sua-lop).');
       }
-      void loadMyRequests();
       window.setTimeout(() => setNotice(''), 6000);
     } catch (err) {
       setModalError(extractError(err, 'Không gửi được yêu cầu.'));
@@ -230,14 +206,6 @@ export default function CentersPage() {
     setPayoutPickerOpen(false);
   };
 
-  const openPaymentFromRequest = (request: ClassRequest) => {
-    if (!request.centerRequestFeePayment) return;
-    setTarget(null);
-    setPaymentRequest(request.centerRequestFeePayment);
-    setModalError('');
-    setCheckingPayment(false);
-  };
-
   const checkPaymentStatus = async () => {
     if (!paymentRequest) return;
     setCheckingPayment(true);
@@ -247,7 +215,6 @@ export default function CentersPage() {
       const current = requests.find((item) => item.requestId === paymentRequest.requestId);
       const latestPayment = current?.centerRequestFeePayment ?? paymentRequest;
       setPaymentRequest(latestPayment);
-      setMyRequests(requests);
       if (current && current.status !== 'PAYMENT_PENDING') {
         setNotice('Thanh toán thành công. Yêu cầu đã được gửi tới trung tâm.');
         window.setTimeout(() => setNotice(''), 6000);
@@ -269,7 +236,7 @@ export default function CentersPage() {
           <span className="cr-toast__icon" aria-hidden="true">✓</span>
           <span className="cr-toast__msg">{notice}</span>
           <Link className="cr-toast__link" to={APP_ROUTES.marketplace}>
-            Xem
+            Yêu cầu của tôi
           </Link>
           <button
             type="button"
@@ -338,84 +305,18 @@ export default function CentersPage() {
             )}
 
             {isClient && (
-              <>
-                <div className="tcs-section-bar cr-requests-bar">
-                  <div>
-                    <h2 className="tcs-recruit__title">Yêu cầu của tôi</h2>
-                    <p className="tcs-section-bar__subtitle">
-                      Theo dõi yêu cầu đã gửi và tiếp tục thanh toán nếu bạn chưa hoàn tất.
-                    </p>
-                  </div>
-                  <Link className="tcs-btn tcs-btn--ghost tcs-btn--sm" to={APP_ROUTES.marketplace}>
-                    Xem đầy đủ
-                  </Link>
+              <div className="cr-request-tip">
+                <div>
+                  <strong>Đã có yêu cầu đang xử lý?</strong>
+                  <span>
+                    Vào <b>Yêu cầu của tôi</b> (/sua-lop) để xem lại QR thanh toán và trạng thái
+                    các yêu cầu đã gửi.
+                  </span>
                 </div>
-
-                {myRequestsLoading ? (
-                  <div className="tcs-search-results__state">
-                    <span className="tcs-spinner" aria-hidden="true" />
-                    Đang tải yêu cầu của bạn...
-                  </div>
-                ) : myRequests.length === 0 ? (
-                  <p className="tcs-empty">
-                    Bạn chưa gửi yêu cầu nào. Khi tạo yêu cầu, thông tin thanh toán sẽ được lưu tại
-                    đây để bạn có thể quay lại sau.
-                  </p>
-                ) : (
-                  <div className="cr-req-list">
-                    {myRequests.map((request) => {
-                      const payment = request.centerRequestFeePayment;
-                      const isPaymentPending = payment?.status === 'PENDING_PAYMENT';
-                      return (
-                        <article
-                          key={request.requestId}
-                          className={`cr-req${isPaymentPending ? ' cr-req--payment' : ''}`}
-                        >
-                          <div className="cr-req__main">
-                            <p className="cr-req__note">{request.note}</p>
-                            <div className="cr-req__meta">
-                              Gửi tới: <strong>{request.centerName ?? 'Trung tâm'}</strong>
-                              {' · Mã yêu cầu: '}
-                              <strong>{request.requestId}</strong>
-                            </div>
-                            {isPaymentPending && payment && (
-                              <div className="cr-req__payment">
-                                <div>
-                                  <strong>Yêu cầu đang chờ thanh toán phí xử lý</strong>
-                                  <span>
-                                    Số tiền: <b>{formatMoney(payment.amount)}</b>. Bạn có thể đóng
-                                    trang và quay lại đây để mở lại mã QR.
-                                  </span>
-                                </div>
-                                <button
-                                  type="button"
-                                  className="tcs-btn tcs-btn--market tcs-btn--sm"
-                                  onClick={() => openPaymentFromRequest(request)}
-                                >
-                                  Mở QR thanh toán
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                          <span className={`cr-badge cr-badge--${request.status.toLowerCase()}`}>
-                            {request.status === 'PAYMENT_PENDING'
-                              ? 'Chờ thanh toán'
-                              : request.status === 'PENDING'
-                                ? 'Đang chờ'
-                                : request.status === 'SEARCHING'
-                                  ? 'Đang tìm gia sư'
-                                  : request.status === 'ACCEPTED'
-                                    ? 'Đã chấp nhận'
-                                    : request.status === 'REJECTED'
-                                      ? 'Đã từ chối'
-                                      : 'Đã hủy'}
-                          </span>
-                        </article>
-                      );
-                    })}
-                  </div>
-                )}
-              </>
+                <Link className="tcs-btn tcs-btn--market tcs-btn--sm" to={APP_ROUTES.marketplace}>
+                  Xem yêu cầu của tôi
+                </Link>
+              </div>
             )}
           </div>
         </section>

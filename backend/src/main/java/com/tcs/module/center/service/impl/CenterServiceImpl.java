@@ -1,6 +1,7 @@
 package com.tcs.module.center.service.impl;
 
 import com.tcs.exception.ForbiddenException;
+import com.tcs.exception.BusinessException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.exception.VerificationRequiredException;
 import com.tcs.module.catalog.entity.Category;
@@ -54,7 +55,9 @@ import com.tcs.module.finance.dto.response.CenterRequestFeePaymentResponse;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.enums.CenterRequestFeeStatus;
+import com.tcs.module.finance.enums.WalletStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
@@ -147,6 +150,7 @@ public class CenterServiceImpl implements CenterService {
     private final LessonRepository lessonRepository;
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
+    private final WalletRepository walletRepository;
     private final EscrowService escrowService;
     private final CenterRequestFeeService centerRequestFeeService;
     private final RescheduleService rescheduleService;
@@ -218,6 +222,7 @@ public class CenterServiceImpl implements CenterService {
             throw new VerificationRequiredException(
                     "Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển.");
         }
+        requireActiveWallet(tutor.getUser().getUserId());
         RecruitmentPost post = findPost(recruitmentId);
         if (post.getStatus() != RecruitmentPostStatus.ACTIVE) {
             throw new IllegalArgumentException("Tin tuyển dụng chưa mở hoặc đã đóng");
@@ -1959,6 +1964,7 @@ public class CenterServiceImpl implements CenterService {
             throw new VerificationRequiredException(
                     "Trung tâm của bạn cần được xác minh trước khi thực hiện thao tác này.");
         }
+        requireActiveWallet(center.getUser().getUserId());
     }
 
     private Tutor requireTutor() {
@@ -1966,6 +1972,16 @@ public class CenterServiceImpl implements CenterService {
         return tutorRepository
                 .findByUser_UserId(authHelper.currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ gia sư"));
+    }
+
+    private void requireActiveWallet(Long userId) {
+        boolean walletReady = walletRepository.findByUser_UserId(userId)
+                .filter(wallet -> wallet.getStatus() == WalletStatus.ACTIVE)
+                .isPresent();
+        if (!walletReady) {
+            throw new BusinessException(
+                    "Bạn cần tạo ví trước khi tiếp tục. Vui lòng vào Ví của tôi để tạo ví.");
+        }
     }
 
     /** Chỉ trung tâm sở hữu tin mới được thao tác. */

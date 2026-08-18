@@ -115,7 +115,7 @@ ON DUPLICATE KEY UPDATE available_balance = 5000000.00, status = 'ACTIVE';
 -- 7. SYSTEM PARAMETERS & FAQS
 -- --------------------------------------------------------------------
 INSERT INTO system_parameters (param_key, param_value, description) VALUES 
-('PLATFORM_FEE_RATE', '0.10', 'Phí nền tảng (10%)'),
+('PLATFORM_FEE_RATE', '0.02', 'Phí nền tảng (2%)'),
 ('MAX_TUTOR_APPLICATIONS', '5', 'Số lượng ứng tuyển tối đa per class'),
 ('ESCROW_HOLD_DAYS', '7', 'Số ngày tạm giữ tiền ký quỹ'),
 ('AUTO_CLOSE_TICKET_DAYS', '3', 'Tự động đóng phiếu hỗ trợ sau 3 ngày không phản hồi')
@@ -241,14 +241,14 @@ INSERT IGNORE INTO faq_entries (faq_id, question, answer, category, sort_order, 
 -- 6. FINANCE_ESCROW (96 to 125)
 -- =========================================================================
 (96, 'Cơ chế ký quỹ Escrow trên TCS hoạt động như thế nào?', 'Khi phụ huynh chọn gia sư, học phí được giữ an toàn tại tài khoản Escrow của TCS. Tiền chỉ được giải ngân cho gia sư sau khi các buổi học hoàn thành đúng cam kết.', 'FINANCE_ESCROW', 96, 1),
-(97, 'Phí nền tảng (Platform Fee) của TCS là bao nhiêu?', 'TCS áp dụng mức phí sàn cố định 10% trên giá trị hợp đồng thành công để duy trì vận hành hệ thống, bảo vệ ký quỹ và chăm sóc khách hàng 24/7.', 'FINANCE_ESCROW', 97, 1),
+(97, 'Phí nền tảng (Platform Fee) của TCS là bao nhiêu?', 'TCS áp dụng mức phí sàn cố định 2% trên giá trị hợp đồng thành công để duy trì vận hành hệ thống, bảo vệ ký quỹ và chăm sóc khách hàng 24/7.', 'FINANCE_ESCROW', 97, 1),
 (98, 'Làm sao nạp tiền vào ví bằng mã QR SePay tự động?', 'Vào /finance, chọn "Nạp tiền", nhập số tiền cần nạp, hệ thống sẽ tạo mã VietQR SePay tự động. Bạn chỉ cần quét mã trên App ngân hàng để tiền vào ví tức thì.', 'FINANCE_ESCROW', 98, 1),
 (99, 'Gia sư rút tiền về tài khoản ngân hàng như thế nào?', 'Vào mục /finance, chọn "Rút tiền", nhập số tài khoản ngân hàng thụ hưởng, tên chủ tài khoản và số tiền cần rút (tối thiểu 50.000 ₫) rồi bấm Xác nhận.', 'FINANCE_ESCROW', 99, 1),
 (100, 'Thời gian xử lý yêu cầu rút tiền mất bao lâu?', 'Hệ thống đối soát và chuyển tiền tự động trong vòng 1–4 giờ làm việc. Tối đa không quá 24 giờ kể từ khi lệnh rút được tạo.', 'FINANCE_ESCROW', 100, 1),
 (101, 'Xem lịch sử giao dịch và biến động số dư ở đâu?', 'Tại mục /finance/history hiển thị đầy đủ nhật ký nạp tiền, trừ tiền cọc Escrow, nhận học phí giải ngân và các khoản phí dịch vụ.', 'FINANCE_ESCROW', 101, 1),
 (102, 'Chính sách hoàn tiền học phí (Refund Policy) như thế nào?', 'Nếu lớp học bị hủy trước khi bắt đầu, phụ huynh được hoàn 100% tiền Escrow. Nếu hủy giữa chừng, tiền hoàn được tính theo tỷ lệ các buổi chưa học.', 'FINANCE_ESCROW', 102, 1),
 (103, 'Vì sao số dư trong ví bị tạm giữ (Held / Frozen)?', 'Số dư bị tạm giữ khi đang nằm trong hợp đồng lớp học đang diễn ra hoặc tài khoản đang có lệnh rút tiền chờ ngân hàng xử lý.', 'FINANCE_ESCROW', 103, 1),
-(104, 'Gia sư xem tổng thu nhập tháng này ở đâu?', 'Tại /finance hiển thị thẻ "Thu nhập tháng hiện tại", thống kê số tiền thực nhận sau khi đã trừ phí nền tảng 10%.', 'FINANCE_ESCROW', 104, 1),
+(104, 'Gia sư xem tổng thu nhập tháng này ở đâu?', 'Tại /finance hiển thị thẻ "Thu nhập tháng hiện tại", thống kê số tiền thực nhận sau khi đã trừ phí nền tảng 2%.', 'FINANCE_ESCROW', 104, 1),
 (105, 'Nạp tiền bằng chuyển khoản ngân hàng có mất phí không?', 'TCS không thu bất kỳ khoản phí nạp tiền nào. Bạn được miễn phí nạp 100% qua cổng chuyển khoản VietQR SePay.', 'FINANCE_ESCROW', 105, 1),
 (106, 'Rút tiền về ngân hàng có bị giới hạn số lần trong ngày không?', 'Mỗi tài khoản được thực hiện tối đa 3 lệnh rút tiền/ngày với tổng hạn mức rút không vượt quá 50.000.000 ₫/ngày.', 'FINANCE_ESCROW', 106, 1),
 (107, 'Làm gì khi nạp tiền thành công mà số dư ví chưa cập nhật?', 'Hệ thống SePay tự động cộng tiền trong 30 giây. Nếu mạng ngân hàng chậm, bạn gửi ảnh biên lai chuyển tiền tại /support/tickets để nhân viên hỗ trợ cộng ngay.', 'FINANCE_ESCROW', 107, 1),
@@ -457,7 +457,7 @@ SET @demo_escrow_id = (SELECT escrow_id FROM escrow_transactions WHERE payment_i
 -- 12. REPORTS (Circumvention & Abuse)
 -- --------------------------------------------------------------------
 INSERT INTO reports (reporter_id, target_type, target_id, category, description, status, created_at)
-VALUES (@client_user_id, 'USER', @tutor_user_id, 'FRAUD', 'Gia sư đề nghị chuyển khoản ngoài để né tránh phí dịch vụ nền tảng 10%', 'PENDING', DATE_SUB(NOW(), INTERVAL 2 DAY))
+VALUES (@client_user_id, 'USER', @tutor_user_id, 'FRAUD', 'Gia sư đề nghị chuyển khoản ngoài để né tránh phí dịch vụ nền tảng 2%', 'PENDING', DATE_SUB(NOW(), INTERVAL 2 DAY))
 ON DUPLICATE KEY UPDATE status = 'PENDING';
 
 SET @demo_report_id = (SELECT report_id FROM reports WHERE reporter_id = @client_user_id AND target_id = @tutor_user_id LIMIT 1);

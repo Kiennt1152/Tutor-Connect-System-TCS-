@@ -23,8 +23,10 @@ import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
@@ -61,6 +63,7 @@ import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.module.profile.dto.CccdInfoDto;
 import com.tcs.module.profile.service.CccdService;
 import com.tcs.module.profile.entity.Tutor;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
@@ -108,6 +111,9 @@ class MarketplaceServiceImplTest {
 
     @Mock
     private EscrowTransactionRepository escrowTransactionRepository;
+
+    @Mock
+    private WalletRepository walletRepository;
 
     @Mock
     private EscrowService escrowService;
@@ -162,6 +168,27 @@ class MarketplaceServiceImplTest {
 
     @InjectMocks
     private MarketplaceServiceImpl marketplaceService;
+
+    @Test
+    void applyToClassRejectsVerifiedTutorWithoutWallet() {
+        User tutorUser = user(TUTOR_USER_ID);
+        Tutor tutor = tutor(tutorUser);
+        tutor.setVerificationStatus(ProfileVerificationStatus.VERIFIED);
+
+        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(tutor));
+        when(walletRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.empty());
+
+        BusinessException ex = assertThrows(
+                BusinessException.class,
+                () -> marketplaceService.applyToClass(CLASS_ID, new ApplyClassRequest()));
+
+        assertEquals(
+                "Bạn cần tạo ví trước khi tiếp tục. Vui lòng vào Ví của tôi để tạo ví.",
+                ex.getMessage());
+        verify(tutoringClassRepository, never()).findById(CLASS_ID);
+        verify(tutorApplicationRepository, never()).save(any());
+    }
 
     @Test
     void requestClassTerminationAutoSettlesPrivateClassByCompletedSessions() {
