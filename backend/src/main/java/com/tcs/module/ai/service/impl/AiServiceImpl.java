@@ -56,6 +56,11 @@ public class AiServiceImpl implements AiService {
     private final AiCapabilityRouter capabilityRouter;
     private final AiFallbackService fallbackService;
     private final AiHallucinationGuard hallucinationGuard;
+    private final OpenDomainHandler openDomainHandler;
+    private final ContentSafetyFilter contentSafetyFilter;
+    private final OpenDomainRateLimiter openDomainRateLimiter;
+    private final ConversationContextService conversationContextService;
+    private final OpenDomainAnalytics openDomainAnalytics;
 
     private final AiTicketContextProvider ticketContextProvider;
     private final AiAdminDashboardContextProvider dashboardContextProvider;
@@ -99,6 +104,41 @@ public class AiServiceImpl implements AiService {
         userMsg.setContent(request.getMessage());
         messageRepository.save(userMsg);
 
+        // 0. Content Safety & Crisis Fast-Path Filter
+        ContentSafetyFilter.SafetyCheckResult safetyCheck = contentSafetyFilter.checkQuery(request.getMessage());
+        if (!safetyCheck.isSafe()) {
+            AiChatMessage aiMsg = new AiChatMessage();
+            aiMsg.setSession(session);
+            aiMsg.setRole("assistant");
+            aiMsg.setContent(safetyCheck.suggestedResponse());
+            messageRepository.save(aiMsg);
+            sessionRepository.save(session);
+
+            return AiMessageResponse.builder()
+                    .messageId(aiMsg.getMessageId())
+                    .sessionId(session.getSessionId())
+                    .role("assistant")
+                    .content(safetyCheck.suggestedResponse())
+                    .createdAt(aiMsg.getCreatedAt())
+                    .intent(AiIntent.OUT_OF_SCOPE.name())
+                    .domain(AiDomain.CONVERSATION_SAFETY.name())
+                    .subIntent(AiSubIntent.OUT_OF_SCOPE.name())
+                    .suggestedRoute("/help")
+                    .clarificationOptions(safetyCheck.isCrisis()
+                        ? List.of("Tổng đài Trẻ em (111)", "Đường dây nóng Sức khỏe Tâm thần (1800 599 920)", "Trung tâm trợ giúp (/help)")
+                        : List.of("Tìm gia sư uy tín (/tim-gia-su)", "Quy tắc cộng đồng (/help)"))
+                    .answerMode("SAFETY_FILTER")
+                    .confidenceScore(1.0)
+                    .confidenceLevel("HIGH")
+                    .sourceCount(0)
+                    .groundingStatus("SAFETY_FILTERED")
+                    .sources(List.of())
+                    .referencedTutors(List.of())
+                    .referencedClasses(List.of())
+                    .referencedFaqs(List.of())
+                    .build();
+        }
+
         List<AiChatMessage> history = contextService.getHistory(session.getSessionId());
 
         // 1. 3-Tier Classification (Domain -> SubIntent -> Entities)
@@ -109,7 +149,7 @@ public class AiServiceImpl implements AiService {
         Map<String, String> entities = classification.entities();
         String suggestedRoute = classification.suggestedRoute();
 
-        // 2. Fast-Path Level 0 Safety & Conversational Fallback (Deterministic, no LLM)
+        // 2. Safety & Conversational fast-path (Level 0)
         AiFallbackService.FallbackResult safetyResult = fallbackService.checkLevel0Safety(subIntent);
         if (safetyResult != null) {
             AiChatMessage aiMsg = new AiChatMessage();
@@ -136,6 +176,9 @@ public class AiServiceImpl implements AiService {
                     .sourceCount(0)
                     .groundingStatus("GROUNDED")
                     .sources(List.of())
+                    .referencedTutors(List.of())
+                    .referencedClasses(List.of())
+                    .referencedFaqs(List.of())
                     .build();
         }
 
@@ -175,140 +218,190 @@ public class AiServiceImpl implements AiService {
                     .sourceCount(0)
                     .groundingStatus("PERMISSION_RESTRICTED")
                     .sources(List.of())
+                    .referencedTutors(List.of())
+                    .referencedClasses(List.of())
+                    .referencedFaqs(List.of())
                     .build();
         }
 
-        // 5. Context Retrieval (Database-first + Vector Retrieval)
+        // 4.5. Fast-Path Open Domain & Knowledge Handling (Deterministic, Clean, Conditional Steering)
+        if (domain == AiDomain.OPEN_DOMAIN) {
+            OpenDomainHandler.OpenDomainResponse openResp = openDomainHandler.handle(subIntent, request.getMessage(), entities);
+            String fullText = openResp.formatFullResponse();
+            
+            AiChatMessage aiMsg = new AiChatMessage();
+            aiMsg.setSession(session);
+            aiMsg.setRole("assistant");
+            aiMsg.setContent(fullText);
+            messageRepository.save(aiMsg);
+            sessionRepository.save(session);
+            conversationContextService.saveContext(session.getSessionId(), domain, subIntent, entities, request.getMessage());
+
+            return AiMessageResponse.builder()
+                    .messageId(aiMsg.getMessageId())
+                    .sessionId(session.getSessionId())
+                    .role("assistant")
+                    .content(fullText)
+                    .createdAt(aiMsg.getCreatedAt())
+                    .intent(legacyIntent.name())
+                    .domain(domain.name())
+                    .subIntent(subIntent.name())
+                    .suggestedRoute(openResp.suggestedRoute())
+                    .clarificationOptions(openResp.ctaButtons())
+                    .answerMode("DIRECT_OPEN_DOMAIN")
+                    .confidenceScore(1.0)
+                    .confidenceLevel("HIGH")
+                    .sourceCount(0)
+                    .groundingStatus("GROUNDED")
+                    .sources(List.of())
+                    .referencedTutors(List.of())
+                    .referencedClasses(List.of())
+                    .referencedFaqs(List.of())
+                    .build();
+        }
+
+        // 5. Context Retrieval (Unified Vector RAG + Database Providers)
         List<AiSourceResponse> allSources = new ArrayList<>();
         String lowerQuery = request.getMessage().toLowerCase();
 
-        if (domain != AiDomain.OUT_OF_SCOPE && domain != AiDomain.CONVERSATION_SAFETY) {
-            if (subIntent == AiSubIntent.FIND_TUTOR || subIntent == AiSubIntent.FILTER_TUTOR) {
+        if (domain != AiDomain.CONVERSATION_SAFETY && domain != AiDomain.OPEN_DOMAIN) {
+            // Unified Vector RAG retrieval: Always retrieve top semantic chunks across all knowledge
+            List<AiRetrievalService.RetrievalResult> vectorResults = retrievalService.retrieve(rewritten.rewrittenQuery(), userRole, userId);
+            List<AiSourceResponse> rerankedVectorResults = rerankService.rerank(vectorResults, new AiIntentService.IntentResultWithEntities(legacyIntent, classification.confidence(), entities), rewritten.rewrittenQuery());
+            allSources.addAll(rerankedVectorResults);
+
+            if ((subIntent == AiSubIntent.FIND_TUTOR || subIntent == AiSubIntent.FILTER_TUTOR) && allSources.stream().noneMatch(s -> "TUTOR".equals(s.getSourceType()))) {
                 allSources.addAll(tutorSearchContextProvider.searchTutors(entities));
-            } else if (subIntent == AiSubIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS) {
+            } else if ((subIntent == AiSubIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS) && allSources.stream().noneMatch(s -> "CLASS".equals(s.getSourceType()))) {
                 allSources.addAll(classSearchContextProvider.searchClasses(entities));
             } else if (subIntent == AiSubIntent.PLATFORM_STATS) {
                 allSources.addAll(platformStatsContextProvider.getPlatformStats());
             } else if (domain == AiDomain.PLATFORM_ADMIN) {
                 allSources.addAll(dashboardContextProvider.getDashboardContext(userRole));
             } else if (domain == AiDomain.FINANCE_WALLET) {
-                if (lowerQuery.contains("lương") || lowerQuery.contains("thu nhập") || lowerQuery.contains("tiền kiếm được") || lowerQuery.contains("ví của")) {
+                if (lowerQuery.contains("lương của tôi") || lowerQuery.contains("thu nhập của tôi") || lowerQuery.contains("tiền kiếm được của tôi") || lowerQuery.contains("ví của tôi") || lowerQuery.contains("số dư của tôi")) {
                     allSources.addAll(tutorFinanceContextProvider.getTutorFinanceContext(userRole, userId));
                 }
             } else if (domain == AiDomain.MESSAGING_TICKET || domain == AiDomain.TRUST_SAFETY) {
                 allSources.addAll(ticketContextProvider.getTicketContext(userRole, userId));
             }
-
-            // Vector retrieval for broad domain queries
-            if (subIntent != AiSubIntent.PLATFORM_STATS && domain != AiDomain.PLATFORM_ADMIN &&
-                subIntent != AiSubIntent.FIND_TUTOR && subIntent != AiSubIntent.FIND_CLASS) {
-                List<AiRetrievalService.RetrievalResult> vectorResults = retrievalService.retrieve(rewritten.rewrittenQuery(), userRole, userId);
-                List<AiSourceResponse> rerankedVectorResults = rerankService.rerank(vectorResults, new AiIntentService.IntentResultWithEntities(legacyIntent, classification.confidence(), entities), rewritten.rewrittenQuery());
-                allSources.addAll(rerankedVectorResults);
-            }
         }
 
-        // Deduplicate and keep top 3 sources
-        allSources = deduplicateAndLimitSources(allSources, 3);
+        // Deduplicate and keep top 4 sources
+        allSources = deduplicateAndLimitSources(allSources, 4);
 
         // 6. Grounding Evaluation
         AiAnswerEvaluatorService.EvaluatedAnswer evaluation = evaluatorService.evaluate(legacyIntent, allSources);
 
-        // 7. Answer Generation (Deterministic vs LLM)
+        // 6.5. Enhanced No-Data Fallback when zero matching semantic candidates found
+        if (allSources.isEmpty() && (subIntent == AiSubIntent.FIND_TUTOR || subIntent == AiSubIntent.FILTER_TUTOR || subIntent == AiSubIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS)) {
+            AiFallbackService.FallbackResult noDataFallback = fallbackService.getLevel3EnhancedNoData(subIntent, entities);
+            
+            AiChatMessage aiMsg = new AiChatMessage();
+            aiMsg.setSession(session);
+            aiMsg.setRole("assistant");
+            aiMsg.setContent(noDataFallback.message());
+            messageRepository.save(aiMsg);
+            sessionRepository.save(session);
+            conversationContextService.saveContext(session.getSessionId(), domain, subIntent, entities, request.getMessage());
+
+            return AiMessageResponse.builder()
+                    .messageId(aiMsg.getMessageId())
+                    .sessionId(session.getSessionId())
+                    .role("assistant")
+                    .content(noDataFallback.message())
+                    .createdAt(aiMsg.getCreatedAt())
+                    .intent(legacyIntent.name())
+                    .domain(domain.name())
+                    .subIntent(subIntent.name())
+                    .suggestedRoute(noDataFallback.suggestedRoute())
+                    .clarificationOptions(noDataFallback.clarificationOptions())
+                    .answerMode("FALLBACK_NO_DATA")
+                    .confidenceScore(0.0)
+                    .confidenceLevel("NONE")
+                    .sourceCount(0)
+                    .groundingStatus("NO_RELEVANT_DATA")
+                    .sources(List.of())
+                    .referencedTutors(List.of())
+                    .referencedClasses(List.of())
+                    .referencedFaqs(List.of())
+                    .build();
+        }
+
+        // 7. Answer Generation (Natural LLM Generation with Grounding)
         String aiResponseText = null;
         List<TutorReferenceDto> tutors = new ArrayList<>();
         List<ClassReferenceDto> classes = new ArrayList<>();
         List<FaqReferenceDto> faqs = new ArrayList<>();
 
-        // Populate Reference Cards
-        if (subIntent == AiSubIntent.FIND_TUTOR || subIntent == AiSubIntent.FILTER_TUTOR) {
+        // Populate UI cards dynamically from high-confidence vector sources (>= 0.65)
+        if (domain != AiDomain.OPEN_DOMAIN && domain != AiDomain.CONVERSATION_SAFETY) {
+            Set<Long> addedTutorIds = new HashSet<>();
+            Set<Long> addedClassIds = new HashSet<>();
+            Set<Long> addedFaqIds = new HashSet<>();
+
             for (AiSourceResponse s : allSources) {
-                if ("TUTOR".equals(s.getSourceType()) && tutors.size() < 3) {
+                if (s.getFinalScore() < 0.65) continue;
+
+                if ("TUTOR".equals(s.getSourceType()) && (subIntent == AiSubIntent.FIND_TUTOR || subIntent == AiSubIntent.FILTER_TUTOR) && tutors.size() < 3) {
                     try {
                         Long tId = Long.parseLong(s.getSourceId());
-                        tutorRepository.findById(tId).ifPresent(t -> tutors.add(
-                            TutorReferenceDto.builder()
-                                .tutorId(t.getTutorId())
-                                .fullName(t.getFullName())
-                                .avatarUrl(t.getAvatar())
-                                .title(t.getBio() != null && t.getBio().length() > 60 ? t.getBio().substring(0, 60) + "..." : t.getBio())
-                                .hourlyRate(t.getHourlyRate())
-                                .averageRating(t.getRatingAvg() != null ? t.getRatingAvg().doubleValue() : 5.0)
-                                .teachingAreas(t.getAddress())
-                                .build()
-                        ));
+                        if (addedTutorIds.add(tId)) {
+                            tutorRepository.findById(tId).ifPresent(t -> tutors.add(
+                                TutorReferenceDto.builder()
+                                    .tutorId(t.getTutorId())
+                                    .fullName(t.getFullName())
+                                    .avatarUrl(t.getAvatar())
+                                    .title(t.getBio() != null && t.getBio().length() > 60 ? t.getBio().substring(0, 60) + "..." : t.getBio())
+                                    .hourlyRate(t.getHourlyRate())
+                                    .averageRating(t.getRatingAvg() != null ? t.getRatingAvg().doubleValue() : 5.0)
+                                    .teachingAreas(t.getAddress())
+                                    .build()
+                            ));
+                        }
                     } catch (NumberFormatException ignored) {}
-                }
-            }
-            // Deterministic Answer for Tutor Search
-            aiResponseText = tutorSearchContextProvider.renderDeterministicAnswer(tutors);
-            if (tutors.isEmpty()) {
-                aiResponseText = fallbackService.getLevel3NoData(AiSubIntent.FIND_TUTOR, entities).message();
-            }
-        } else if (subIntent == AiSubIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS) {
-            for (AiSourceResponse s : allSources) {
-                if ("CLASS".equals(s.getSourceType()) && classes.size() < 3) {
+                } else if ("CLASS".equals(s.getSourceType()) && (subIntent == AiSubIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS) && classes.size() < 3) {
                     try {
                         Long cId = Long.parseLong(s.getSourceId());
-                        tutoringClassRepository.findById(cId).ifPresent(c -> classes.add(
-                            ClassReferenceDto.builder()
-                                .classId(c.getClassId())
-                                .title(c.getTitle())
-                                .subjectName(c.getSubject() != null ? c.getSubject().getSubjectName() : null)
-                                .gradeLevelName(c.getGrade() != null ? c.getGrade().getGradeName() : null)
-                                .tuitionFee(c.getTuitionFee())
-                                .location(c.getAddress())
-                                .status(c.getStatus() != null ? c.getStatus().name() : "OPEN")
-                                .build()
-                        ));
+                        if (addedClassIds.add(cId)) {
+                            tutoringClassRepository.findById(cId).ifPresent(c -> classes.add(
+                                ClassReferenceDto.builder()
+                                    .classId(c.getClassId())
+                                    .title(c.getTitle())
+                                    .subjectName(c.getSubject() != null ? c.getSubject().getSubjectName() : null)
+                                    .gradeLevelName(c.getGrade() != null ? c.getGrade().getGradeName() : null)
+                                    .tuitionFee(c.getTuitionFee())
+                                    .location(c.getAddress())
+                                    .status(c.getStatus() != null ? c.getStatus().name() : "OPEN")
+                                    .build()
+                            ));
+                        }
+                    } catch (NumberFormatException ignored) {}
+                } else if ("FAQ".equals(s.getSourceType()) && (domain == AiDomain.CATALOG_FAQ || subIntent == AiSubIntent.FAQ_SEARCH) && faqs.size() < 3) {
+                    try {
+                        Long fId = Long.parseLong(s.getSourceId());
+                        if (addedFaqIds.add(fId)) {
+                            faqs.add(FaqReferenceDto.builder()
+                                    .faqId(fId)
+                                    .question(s.getTitle())
+                                    .build());
+                        }
                     } catch (NumberFormatException ignored) {}
                 }
             }
-            // Deterministic Answer for Class Search
-            aiResponseText = classSearchContextProvider.renderDeterministicAnswer(classes);
-            if (classes.isEmpty()) {
-                aiResponseText = fallbackService.getLevel3NoData(AiSubIntent.FIND_CLASS, entities).message();
-            }
-        } else if (subIntent == AiSubIntent.PLATFORM_STATS) {
-            if (!allSources.isEmpty()) {
-                aiResponseText = allSources.get(0).getSnippet();
-            } else {
-                aiResponseText = "Hiện tại không thể truy xuất thống kê hệ thống. Vui lòng thử lại sau.";
-            }
-        } else if (domain == AiDomain.FINANCE_WALLET) {
-            boolean isPersonal = lowerQuery.contains("của tôi") || lowerQuery.contains("lương của") || lowerQuery.contains("thu nhập của") || lowerQuery.contains("ví của");
+        }
+
+        if (domain == AiDomain.FINANCE_WALLET) {
+            boolean isPersonal = lowerQuery.contains("của tôi") || lowerQuery.contains("lương của tôi") || lowerQuery.contains("thu nhập của tôi") || lowerQuery.contains("ví của tôi") || lowerQuery.contains("tiền của tôi");
             if (isPersonal && (userId == null || (!"TUTOR".equals(userRole) && !"TUTOR_CENTER".equals(userRole)))) {
                 aiResponseText = fallbackService.getLevel4AuthRoleRequired("Gia sư hoặc Trung tâm gia sư", "/finance").message();
             }
         }
 
-        // Call LLM only if not already deterministically answered
+        // Call LLM for natural, intelligent RAG response synthesis
         if (aiResponseText == null) {
             String finalPrompt = promptBuilderService.buildPrompt(rewritten.rewrittenQuery(), legacyIntent, userRole, allSources);
             aiResponseText = callLlm(finalPrompt, history, evaluation.answerMode(), legacyIntent, allSources);
-        }
-
-        // Populate FAQs for non-admin/stats domains
-        if (policy.cardPolicy() == AiCapabilityRouter.CardPolicy.FAQ_CARDS) {
-            for (AiSourceResponse s : allSources) {
-                if ("FAQ".equals(s.getSourceType()) && faqs.size() < 3) {
-                    try {
-                        faqs.add(FaqReferenceDto.builder()
-                                .faqId(Long.parseLong(s.getSourceId()))
-                                .question(s.getTitle())
-                                .build());
-                    } catch (NumberFormatException ignored) {}
-                }
-            }
-        }
-
-        // 8. Post-Generation Hallucination Guard
-        if (subIntent == AiSubIntent.FIND_TUTOR) {
-            aiResponseText = hallucinationGuard.guardTutorResponse(aiResponseText, tutors, policy.fallbackMessage());
-        } else if (subIntent == AiSubIntent.FIND_CLASS) {
-            aiResponseText = hallucinationGuard.guardClassResponse(aiResponseText, classes, policy.fallbackMessage());
-        } else if (subIntent == AiSubIntent.PLATFORM_STATS) {
-            aiResponseText = hallucinationGuard.guardStatsResponse(aiResponseText, allSources, policy.fallbackMessage());
         }
 
         AiChatMessage aiMsg = new AiChatMessage();
@@ -322,6 +415,7 @@ public class AiServiceImpl implements AiService {
 
         messageRepository.save(aiMsg);
         sessionRepository.save(session);
+        conversationContextService.saveContext(session.getSessionId(), domain, subIntent, entities, request.getMessage());
 
         return AiMessageResponse.builder()
                 .messageId(aiMsg.getMessageId())
@@ -389,7 +483,7 @@ public class AiServiceImpl implements AiService {
         // Fallback directly to top FAQ / Knowledge source snippet if available
         if (sources != null && !sources.isEmpty()) {
             for (AiSourceResponse s : sources) {
-                if ("FAQ".equals(s.getSourceType()) || "POLICY".equals(s.getSourceType()) || "SYSTEM_DOC".equals(s.getSourceType())) {
+                if ("FAQ".equals(s.getSourceType()) || "POLICY".equals(s.getSourceType()) || "SYSTEM_DOC".equals(s.getSourceType()) || "TUTOR".equals(s.getSourceType()) || "CLASS".equals(s.getSourceType())) {
                     if (s.getSnippet() != null && !s.getSnippet().isBlank()) {
                         return s.getSnippet();
                     }
@@ -418,11 +512,11 @@ public class AiServiceImpl implements AiService {
         List<AiChatMessage> msgs = messageRepository.findBySession_SessionIdOrderByCreatedAtAsc(sessionId);
         return msgs.stream().map(m -> {
             AiMessageResponse.AiMessageResponseBuilder builder = AiMessageResponse.builder()
-                    .messageId(m.getMessageId())
-                    .sessionId(sessionId)
-                    .role(m.getRole())
-                    .content(m.getContent())
-                    .createdAt(m.getCreatedAt());
+                .messageId(m.getMessageId())
+                .sessionId(sessionId)
+                .role(m.getRole())
+                .content(m.getContent())
+                .createdAt(m.getCreatedAt());
 
             // Hydrate tutor references
             if (m.getReferencedTutorIds() != null && !m.getReferencedTutorIds().isBlank()) {

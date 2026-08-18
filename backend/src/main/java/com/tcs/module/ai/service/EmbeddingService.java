@@ -11,6 +11,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,10 +27,22 @@ public class EmbeddingService {
             .connectTimeout(Duration.ofSeconds(10))
             .build();
 
+    private final Map<String, double[]> embeddingCache = new ConcurrentHashMap<>();
+    private static final int MAX_CACHE_SIZE = 1000;
+
     @Value("${ai.gemini.api-key:}")
     private String geminiApiKey;
 
     public Optional<double[]> getEmbedding(String text) {
+        if (text == null || text.isBlank()) {
+            return Optional.empty();
+        }
+
+        String cacheKey = text.trim();
+        if (embeddingCache.containsKey(cacheKey)) {
+            return Optional.of(embeddingCache.get(cacheKey));
+        }
+
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
             log.warn("Gemini API key is not configured. Skipping embedding.");
             return Optional.empty();
@@ -38,7 +51,7 @@ public class EmbeddingService {
         try {
             String url = "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=" + geminiApiKey;
             
-            String reqBody = buildEmbeddingPayload(text);
+            String reqBody = buildEmbeddingPayload(cacheKey);
 
             HttpRequest request = HttpRequest.newBuilder()
                     .uri(URI.create(url))
@@ -56,6 +69,10 @@ public class EmbeddingService {
                     for (int i = 0; i < values.size(); i++) {
                         embedding[i] = values.get(i).asDouble();
                     }
+                    if (embeddingCache.size() > MAX_CACHE_SIZE) {
+                        embeddingCache.clear();
+                    }
+                    embeddingCache.put(cacheKey, embedding);
                     return Optional.of(embedding);
                 }
             } else {

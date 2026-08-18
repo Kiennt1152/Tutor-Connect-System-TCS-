@@ -110,7 +110,7 @@ export interface LessonResponse {
   rescheduleLocked: boolean;
 }
 
-export type RescheduleRequestType = 'RESCHEDULE' | 'EXTRA';
+export type RescheduleRequestType = 'RESCHEDULE';
 
 export type RescheduleRequestStatus = 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
 
@@ -149,11 +149,6 @@ export interface RescheduleLessonPayload {
   newEndTime: string;
   reason?: string;
 }
-
-export const REQUEST_TYPE_LABELS: Record<RescheduleRequestType, string> = {
-  RESCHEDULE: 'Đổi lịch',
-  EXTRA: 'Thêm buổi',
-};
 
 export const REQUEST_STATUS_LABELS: Record<RescheduleRequestStatus, string> = {
   PENDING: 'Chờ duyệt',
