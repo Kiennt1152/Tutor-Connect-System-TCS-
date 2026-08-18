@@ -509,6 +509,28 @@
   color: #b91c1c;
   font-size: 12px;
 }
+.mkt-subj-errors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 6px;
+}
+/* Bảng tổng hợp lỗi cuối trang — liệt kê mọi mục bắt buộc còn thiếu */
+.mkt-alert--summary {
+  border: 1px solid #f5b5ae;
+  background: #fdecea;
+}
+.mkt-alert__list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mkt-alert__list li {
+  font-size: 13px;
+  line-height: 1.4;
+}
 .mkt-alert--info {
   background: var(--color-primary-xlight);
   color: var(--color-primary);

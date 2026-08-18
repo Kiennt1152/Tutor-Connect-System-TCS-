@@ -149,8 +149,7 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
         </button>
 
         <header className="cdm__head">
-          <span className="cdm__id">Ứng tuyển lớp</span>
-          <h2 className="cdm__title">{target.title}</h2>
+          <h2 className="cdm__title cdm__title--center">{target.title}</h2>
         </header>
 
         <div className="cdm__body">
@@ -242,7 +241,7 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
           <section className="cdm-section">
             <h3>Học phí đề xuất theo môn</h3>
             <p className="apl-rates__intro">
-              Lớp này gồm {subjectIds.length} môn — <strong>tích chọn môn bạn muốn dạy</strong> và báo
+              Gồm {subjectIds.length} môn — <strong>tích chọn môn bạn muốn dạy</strong> và báo
               giá cho môn đó.
             </p>
             <ul className="apl-rates">

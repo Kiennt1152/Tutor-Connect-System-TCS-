@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { useAuth } from '../../../shared/auth/AuthProvider';
@@ -39,12 +40,12 @@ function TutorFindClassPage() {
       <main>
         <section className="tcs-home-hero tcs-find-hero">
           <div className="tcs-container">
-            <div className="tcs-find-hero__intro">
-              <h1 className="tcs-find-title">
-                <span className="tcs-find-title__icon">🎓</span>
-                <span className="tcs-find-title__text">Tìm lớp phù hợp</span>
+            <div className="tcs-find-hero__intro tcs-find-hero__intro--left">
+              <Link className="tcs-find-back" to="/">← Trang chủ</Link>
+              <h1 className="tcs-find-title tcs-find-title--left">
+                <span className="tcs-find-title__text tcs-find-title__text--plain">Tìm yêu cầu giảng dạy</span>
               </h1>
-              <p className="tcs-find-subtitle">
+              <p className="tcs-find-subtitle tcs-find-subtitle--sm">
                 Cho biết bạn muốn dạy môn gì, ở đâu, mức học phí bao nhiêu — hệ thống tự chấm điểm
                 và xếp hạng các lớp đang mở để bạn dễ chọn lớp nhận dạy.
               </p>

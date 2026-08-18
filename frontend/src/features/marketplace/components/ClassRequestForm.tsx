@@ -874,6 +874,17 @@ export function ClassRequestForm({
                     <span className="mkt-subj-fee__unit">đ/giờ</span>
                   </span>
                 </div>
+                {touched && (() => {
+                  const fee = Number(form.subjectFees[sid]);
+                  if (fee > 0 && fee >= FEE_PER_HOUR_MIN) return null;
+                  return (
+                    <span className="mkt-field__error">
+                      {!(fee > 0)
+                        ? 'Nhập học phí/giờ'
+                        : `Học phí/giờ tối thiểu ${currency.format(FEE_PER_HOUR_MIN)}đ`}
+                    </span>
+                  );
+                })()}
                 {isWeekly ? (
                   (() => {
                     const allTimes = buildTimeSlots('06:00', '23:30');
@@ -1115,6 +1126,9 @@ export function ClassRequestForm({
                     </button>
                   </>
                 )}
+                {touched && !form.slots.some((s) => s.subjectId === sid) && (
+                  <span className="mkt-field__error">Chưa chọn buổi học nào cho môn này</span>
+                )}
               </div>
             ))}
           </div>
@@ -1155,8 +1169,21 @@ export function ClassRequestForm({
         <div className="mkt-alert mkt-alert--error">{conflicts.join('. ')}.</div>
       )}
       {extraContent}
-      {touched && slotErrors.length > 0 && (
-        <div className="mkt-alert mkt-alert--error">{slotErrors.join('. ')}.</div>
+      {touched && (missing.length > 0 || slotErrors.length > 0 || conflicts.length > 0) && (
+        <div className="mkt-alert mkt-alert--error mkt-alert--summary">
+          <strong>⚠️ Vui lòng hoàn tất các mục bắt buộc (*) còn thiếu:</strong>
+          <ul className="mkt-alert__list">
+            {missing.map((m) => (
+              <li key={`miss-${m}`}>Thiếu: {m}</li>
+            ))}
+            {slotErrors.map((m) => (
+              <li key={`slot-${m}`}>{m}</li>
+            ))}
+            {conflicts.map((m) => (
+              <li key={`conf-${m}`}>{m}</li>
+            ))}
+          </ul>
+        </div>
       )}
       {error && <div className="mkt-alert mkt-alert--error">{error}</div>}
 

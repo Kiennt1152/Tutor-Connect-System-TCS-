@@ -2,7 +2,7 @@ export const APP_ROUTES = {
   home: '/',
   findTutor: '/tim-gia-su',
   postTutorRequest: '/dang-yeu-cau-tim-gia-su',
-  findClass: '/tim-lop',
+  findClass: '/tim-yeu-cau-giang-day',
   /** Bảng tổng hợp mọi lớp client đăng (đang mở). Ký hợp đồng xong -> lớp kích hoạt, tự gỡ khỏi đây. */
   classBoard: '/sua-lop/danh-sach-tin-da-dang',
   /** Trang "Tìm lớp phù hợp với bạn" — duyệt lớp đang mở để đăng ký (bản của center/class). */
@@ -28,7 +28,7 @@ export const APP_ROUTES = {
   /** Trang công khai giới thiệu trung tâm + tin tuyển gia sư (khác /center là trang quản lý). */
   centers: '/centers',
   recruitment: '/recruitment',
-  marketplace: '/sua-lop',
+  marketplace: '/yeu-cau-tim-gia-su-cua-toi',
   contract: '/contract',
   guardianApprovals: '/profile/guardian/approvals',
   messaging: '/messaging',

@@ -272,6 +272,8 @@
 .cdm__head { padding: 22px 24px 14px; border-bottom: 1px solid #eef2f7; }
 .cdm__id { font-size: 12px; font-weight: 600; color: #ea580c; text-transform: uppercase; letter-spacing: 0.04em; }
 .cdm__title { margin: 4px 40px 0 0; font-size: 20px; color: #12233b; }
+/* Tiêu đề căn giữa (modal ứng tuyển, đã bỏ nhãn "Ứng tuyển lớp") */
+.cdm__title--center { margin: 0 40px; text-align: center; }
 .cdm__body { padding: 18px 24px; overflow-y: auto; }
 .cdm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; margin: 0 0 18px; }
 .cdm-grid__full { grid-column: 1 / -1; }
@@ -318,7 +320,10 @@
 .apl-field > span { font-size: 13px; font-weight: 600; color: #12233b; }
 .apl-field input, .apl-field textarea { border: 1px solid #cfd8e3; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-family: inherit; }
 .apl-field input:focus, .apl-field textarea:focus { outline: none; border-color: #ea580c; }
-.apl-error { margin: 8px 0 0; color: #c62828; font-size: 13px; font-weight: 500; }
+.apl-error { margin: 0; color: #c62828; font-size: 13px; font-weight: 500; }
+/* Bỏ khoảng trống thừa giữa ô "Lời nhắn" và cảnh báo cuối modal */
+.cdm__body > .cdm-section:last-of-type { margin-bottom: 8px; }
+.cdm__body > .cdm-section:last-of-type .apl-field { margin-bottom: 0; }
 
 /* Học phí đề xuất theo từng môn của lớp. */
 .apl-rates__intro { margin: 0 0 10px; font-size: 13px; color: #5b6b7f; }

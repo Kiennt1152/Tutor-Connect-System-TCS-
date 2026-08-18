@@ -48,7 +48,7 @@ function HomeHeroSection({
   const firstName = displayName?.trim().split(/\s+/)[0] || displayName;
   const showSearch = !isAuthenticated || hasAnyRole(role, MARKETPLACE_HOME_ROLES);
   const isTutor = hasRole(role, 'TUTOR');
-  const subjectLinkTarget = isTutor ? '/tim-lop' : '#find-tutor';
+  const subjectLinkTarget = isTutor ? '/tim-yeu-cau-giang-day' : '#find-tutor';
 
   return (
     <section className="tcs-home-hero">

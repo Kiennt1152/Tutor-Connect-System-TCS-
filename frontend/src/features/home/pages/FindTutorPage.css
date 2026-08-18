@@ -109,10 +109,20 @@
   font-size: 1.15rem;
 }
 
-.tcs-find-myreq--lg {
-  padding: 14px 30px;
-  font-size: 16px;
-  border-radius: 14px;
+/* Nút "Đăng yêu cầu tìm gia sư" — dạng khối cam đặc, cỡ giống nút "Tạo tin mới" (ảnh 1).
+   Dùng selector kép để thắng độ ưu tiên với .tcs-find-myreq (khai báo sau trong file). */
+.tcs-find-myreq.tcs-find-myreq--lg {
+  padding: 10px 20px;
+  font-size: 14px;
+  border-radius: 9px;
+  background: var(--color-primary);
+  box-shadow: none;
+}
+.tcs-find-myreq.tcs-find-myreq--lg:hover {
+  background: var(--color-primary-dark);
+  filter: none;
+  transform: none;
+  box-shadow: none;
 }
 
 .tcs-find-hero__intro {
@@ -159,6 +169,61 @@
   font-size: 16px;
   line-height: 1.6;
   color: #5b6b7f;
+}
+
+/* Bố cục canh trái giống trang "Tin tuyển gia sư" (ảnh 2) */
+.tcs-find-hero__intro--left {
+  max-width: 780px;
+  margin: 0 0 28px;
+  text-align: left;
+}
+.tcs-find-title--left {
+  justify-content: flex-start;
+  font-size: clamp(26px, 3.6vw, 34px);
+}
+.tcs-find-subtitle--sm {
+  margin: 0;
+  max-width: 640px;
+  font-size: 14px;
+  color: #6b7280;
+}
+/* Mô tả canh trái ngang hàng với tiêu đề (không bị auto-center thụt vào) */
+.tcs-find-hero__intro--left .tcs-find-subtitle {
+  margin-left: 0;
+  margin-right: auto;
+  max-width: 760px;
+}
+/* Cỡ chữ nhỏ như trang "Yêu cầu tìm gia sư của tôi" (ảnh 2) */
+.tcs-find-title--compact {
+  font-size: 26px;
+}
+.tcs-find-subtitle--compact {
+  font-size: 14px;
+}
+/* Breadcrumb "← Trang chủ" */
+.tcs-find-back {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: #ea5a1c;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.tcs-find-back:hover {
+  text-decoration: underline;
+}
+/* Biến thể nút có khung viền */
+.tcs-find-back--btn {
+  padding: 8px 16px;
+  border: 1px solid #f0c6ab;
+  border-radius: 9px;
+  background: #fff;
+  text-decoration: none;
+}
+.tcs-find-back--btn:hover {
+  text-decoration: none;
+  background: #fff6f0;
+  border-color: var(--color-primary);
 }
 
 /* Chip điểm nổi bật */

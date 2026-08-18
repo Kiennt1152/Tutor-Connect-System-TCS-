@@ -63,20 +63,18 @@ export default function PostTutorRequestPage() {
       <main>
         <section className="tcs-home-hero tcs-find-hero">
           <div className="tcs-container">
+            <Link className="tcs-find-back tcs-find-back--btn" to={APP_ROUTES.findTutor}>
+              ← Quay lại danh sách gia sư
+            </Link>
             <div className="tcs-find-hero__intro">
-              <h1 className="tcs-find-title">
+              <h1 className="tcs-find-title tcs-find-title--compact">
                 <span className="tcs-find-title__icon">🎓</span>
                 <span className="tcs-find-title__text tcs-find-title__text--plain">Đăng yêu cầu tìm gia sư</span>
               </h1>
-              <p className="tcs-find-subtitle">
+              <p className="tcs-find-subtitle tcs-find-subtitle--compact">
                 Điền thông tin nhu cầu học tập của bạn — môn học, mục tiêu, hình thức, học phí. Gia sư
                 phù hợp sẽ nhận được yêu cầu và liên hệ với bạn.
               </p>
-              <div className="tcs-find-actions">
-                <Link className="tcs-btn tcs-btn--ghost tcs-btn--sm" to={APP_ROUTES.findTutor}>
-                  ← Quay lại danh sách gia sư
-                </Link>
-              </div>
             </div>
 
             <div className="tcs-find-form-card">
