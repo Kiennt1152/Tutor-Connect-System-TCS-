@@ -6,6 +6,8 @@ interface Props {
 }
 
 export function TransactionRow({ transaction }: Props) {
+  const description = transaction.description ?? '—';
+  const hasPlatformFeeDetail = description.toLowerCase().includes('phí nền tảng');
   const isCredit =
     transaction.type === 'DEPOSIT' ||
     transaction.type === 'REFUND' ||
@@ -38,12 +40,12 @@ export function TransactionRow({ transaction }: Props) {
         </span>
       </td>
       <td className="tx-row__desc">
-        {transaction.description ?? '—'}
+        {description}
         {transaction.referenceCode && (
           <span className="tx-row__ref">#{transaction.referenceCode}</span>
         )}
-        {transaction.type === 'ESCROW_RELEASE' && (
-          <span className="tx-row__note">Số tiền đã trừ phí nền tảng.</span>
+        {transaction.type === 'ESCROW_RELEASE' && !hasPlatformFeeDetail && (
+          <span className="tx-row__note">Số tiền hiển thị là khoản thực nhận sau khi trừ phí nền tảng.</span>
         )}
       </td>
       <td className={`tx-row__amount tx-row__amount--${isCredit ? 'credit' : 'debit'}`}>

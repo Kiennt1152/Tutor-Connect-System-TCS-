@@ -53,6 +53,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: APP_ROUTES.platformReports, label: 'Báo cáo & tranh chấp', icon: 'flag' },
       { to: APP_ROUTES.platformEscrows, label: 'Giao dịch escrow', icon: 'wallet' },
       { to: APP_ROUTES.platformWithdrawals, label: 'Rút tiền', icon: 'wallet' },
+      { to: APP_ROUTES.platformFeeSettings, label: 'Cấu hình phí', icon: 'wallet' },
       { to: APP_ROUTES.platformReviews, label: 'Nhận xét gia sư', icon: 'star' },
       { to: APP_ROUTES.platformTickets, label: 'Yêu cầu hỗ trợ', icon: 'message' },
       { to: APP_ROUTES.platformFaq, label: 'Quản lý FAQ', icon: 'help' },
@@ -117,6 +118,12 @@ export const ADMIN_QUICK_ACTIONS: AdminModule[] = [
     title: 'Quản lý rút tiền',
     description: 'Theo dõi yêu cầu rút tiền và xác nhận giao dịch đã chuyển.',
     to: APP_ROUTES.platformWithdrawals,
+  },
+  {
+    icon: 'wallet',
+    title: 'Cấu hình phí nền tảng',
+    description: 'Điều chỉnh tỷ lệ phí áp dụng khi giải ngân escrow và phí xử lý trung tâm.',
+    to: APP_ROUTES.platformFeeSettings,
   },
 ];
 

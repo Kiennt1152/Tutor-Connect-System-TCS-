@@ -12,8 +12,12 @@ import com.tcs.exception.VerificationRequiredException;
 import com.tcs.module.contract.dto.request.SaveRefundPayoutRequest;
 import com.tcs.module.contract.dto.response.ContractResponse;
 import com.tcs.module.contract.entity.Contract;
+import com.tcs.module.contract.entity.ContractSignature;
+import com.tcs.module.contract.enums.ContractSignatureStatus;
 import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
+import com.tcs.module.contract.repository.ContractSignatureRepository;
+import com.tcs.module.contract.enums.PartyRole;
 import com.tcs.module.finance.dto.EscrowLockCommand;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.dto.RefundPayoutInfo;
@@ -169,6 +173,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final ClientLegalAccountService clientLegalAccountService;
     private final TutorRepository tutorRepository;
     private final ContractRepository contractRepository;
+    private final ContractSignatureRepository contractSignatureRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final EscrowService escrowService;
@@ -1187,6 +1192,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (assignment.getTutorSignedAt() != null && assignment.getClientSignedAt() != null) {
             assignment.setPaymentMethod(resolvePrivatePaymentMethod(c));
             classAssignmentRepository.save(assignment);
+            ensurePrivateContractSnapshot(assignment, c);
             ensurePrivateEscrowPayment(assignment, c);
             if ("TUTOR".equals(role)) {
                 notifyClientContractPaymentReady(c);
@@ -1231,6 +1237,59 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 content,
                 "TUTORING_CLASS",
                 c.getClassId());
+    }
+
+    private Contract ensurePrivateContractSnapshot(ClassAssignment assignment, TutoringClass tutoringClass) {
+        Contract contract = contractRepository.findByAssignment_AssignmentId(assignment.getAssignmentId())
+                .orElseGet(() -> contractService.generateForAssignment(assignment.getAssignmentId()));
+        LocalDateTime signedAt = latestTime(assignment.getClientSignedAt(), assignment.getTutorSignedAt());
+        contract.setStatus(ContractStatus.SIGNED);
+        contract.setSignedAt(signedAt);
+        contract.setConfirmedAt(signedAt);
+        contract = contractRepository.save(contract);
+
+        syncPrivateContractSignature(contract, PartyRole.CLIENT, tutoringClass.getCreator(), assignment.getClientSignedAt());
+        if (assignment.getTutor() != null) {
+            syncPrivateContractSignature(contract, PartyRole.TUTOR, assignment.getTutor().getUser(), assignment.getTutorSignedAt());
+        }
+        return contract;
+    }
+
+    private void syncPrivateContractSignature(
+            Contract contract,
+            PartyRole partyRole,
+            User signer,
+            LocalDateTime signedAt) {
+        if (contract == null || contract.getContractId() == null || signer == null || signedAt == null) {
+            return;
+        }
+        ContractSignature signature = contractSignatureRepository
+                .findByContractIdAndPartyRole(contract.getContractId(), partyRole)
+                .orElseGet(() -> {
+                    ContractSignature created = new ContractSignature();
+                    created.setContract(contract);
+                    created.setPartyRole(partyRole);
+                    return created;
+                });
+        signature.setSigner(signer);
+        signature.setEmail(signer.getEmail());
+        signature.setSignedAt(signedAt);
+        signature.setSignatureStatus(ContractSignatureStatus.SIGNED);
+        signature.setSignatureData("MARKETPLACE_OTP_VERIFIED:" + signer.getEmail() + ":" + signedAt);
+        signature.setOtpCode(null);
+        signature.setOtpExpiresAt(null);
+        signature.setOtpAttempts(0);
+        contractSignatureRepository.save(signature);
+    }
+
+    private LocalDateTime latestTime(LocalDateTime first, LocalDateTime second) {
+        if (first == null) {
+            return second;
+        }
+        if (second == null) {
+            return first;
+        }
+        return first.isAfter(second) ? first : second;
     }
 
     private void ensurePrivateEscrowPayment(ClassAssignment assignment, TutoringClass tutoringClass) {
@@ -1712,13 +1771,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     "Chỉ điểm danh được trong ngày diễn ra buổi học ("
                             + lesson.getLessonDate() + "). Hôm nay là " + today + ".");
         }
-        // Chỉ điểm danh được từ đúng giờ bắt đầu slot đến hết ngày hôm đó.
-        LocalTime start = lesson.getSlot().getStartTime();
-        if (start != null && LocalTime.now().isBefore(start)) {
-            throw new IllegalArgumentException(
-                    "Chỉ điểm danh được từ giờ bắt đầu buổi học ("
-                            + start + ") đến hết ngày hôm nay.");
-        }
+        // Lớp private cho phép gia sư điểm danh bất cứ lúc nào trong đúng ngày học.
     }
 
     private void sendClassNotification(User user, String title, String content, Long classId) {
@@ -2453,11 +2506,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .attendanceStatus(lesson.getAttendanceStatus().name())
                 .tutorCheckInAt(lesson.getTutorCheckInAt())
                 .tutorCheckOutAt(lesson.getTutorCheckOutAt())
-                // Chỉ điểm danh được từ đúng giờ bắt đầu slot đến hết ngày hôm đó
-                // (vd slot 18:00 -> chỉ điểm danh 18:00–23:59, không điểm danh buổi sáng).
-                .canCheckInToday(
-                        today.equals(lesson.getLessonDate())
-                                && !LocalTime.now().isBefore(slot.getStartTime()))
+                .canCheckInToday(today.equals(lesson.getLessonDate()))
                 .rescheduleLocked(rescheduleLocked)
                 .build();
     }

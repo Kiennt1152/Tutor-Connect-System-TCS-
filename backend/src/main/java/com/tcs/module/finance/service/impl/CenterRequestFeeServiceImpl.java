@@ -3,6 +3,7 @@ package com.tcs.module.finance.service.impl;
 import com.tcs.common.classrequest.ClassRequestStore;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.module.catalog.repository.SystemParameterRepository;
 import com.tcs.module.finance.dto.RefundPayoutInfo;
 import com.tcs.module.finance.dto.response.CenterRequestFeePaymentResponse;
 import com.tcs.module.finance.entity.CenterRequestFeeHold;
@@ -47,7 +48,8 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
     private static final String BANK_BIN = "970423";
     private static final String ACCOUNT_NUMBER = "02660559201";
     private static final String ACCOUNT_NAME = "TUTOR CONNECT SYSTEM";
-    private static final BigDecimal FEE_RATE = new BigDecimal("0.02");
+    private static final BigDecimal DEFAULT_FEE_RATE = new BigDecimal("0.02");
+    private static final String PLATFORM_FEE_RATE_KEY = "PLATFORM_FEE_RATE";
 
     private final CenterRequestFeeHoldRepository feeHoldRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
@@ -58,6 +60,7 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
     private final PlatformAdminRepository platformAdminRepository;
     private final PaymentNotificationService paymentNotificationService;
     private final NotificationRepository notificationRepository;
+    private final SystemParameterRepository systemParameterRepository;
 
     @Override
     @Transactional
@@ -80,7 +83,8 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
 
         RefundPayoutInfo resolvedPayoutInfo = normalizePayoutInfo(payoutInfo);
         BigDecimal baseAmount = amountOrZero(projectedEscrowAmount);
-        BigDecimal feeAmount = baseAmount.multiply(FEE_RATE).setScale(0, RoundingMode.HALF_UP);
+        BigDecimal feeRate = resolvePlatformFeeRate();
+        BigDecimal feeAmount = baseAmount.multiply(feeRate).setScale(0, RoundingMode.HALF_UP);
         if (feeAmount.compareTo(BigDecimal.ZERO) <= 0) {
             feeAmount = BigDecimal.ONE;
         }
@@ -91,7 +95,8 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
         payment.setType(PaymentTransactionType.ESCROW_DEPOSIT);
         payment.setStatus(PaymentTransactionStatus.PENDING);
         payment.setAmount(feeAmount);
-        payment.setDescription("Chờ thanh toán phí xử lý yêu cầu trung tâm");
+        payment.setDescription("Chờ thanh toán phí xử lý yêu cầu trung tâm ("
+                + formatRatePercent(feeRate) + " học phí dự kiến)");
         payment.setReferenceCode(referenceCode);
         payment = paymentTransactionRepository.save(payment);
 
@@ -356,6 +361,29 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
 
     private BigDecimal amountOrZero(BigDecimal amount) {
         return amount != null ? amount : BigDecimal.ZERO;
+    }
+
+    private BigDecimal resolvePlatformFeeRate() {
+        return systemParameterRepository.findByParamKey(PLATFORM_FEE_RATE_KEY)
+                .map(parameter -> {
+                    try {
+                        BigDecimal parsed = new BigDecimal(parameter.getParamValue().trim());
+                        return parsed.compareTo(BigDecimal.ZERO) >= 0
+                                && parsed.compareTo(new BigDecimal("0.50")) <= 0
+                                ? parsed
+                                : DEFAULT_FEE_RATE;
+                    } catch (RuntimeException exception) {
+                        return DEFAULT_FEE_RATE;
+                    }
+                })
+                .orElse(DEFAULT_FEE_RATE);
+    }
+
+    private String formatRatePercent(BigDecimal feeRate) {
+        if (feeRate == null) {
+            return "0%";
+        }
+        return feeRate.multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%";
     }
 
     private User resolveCenterUser(Long centerUserId) {
