@@ -58,7 +58,7 @@
   gap: var(--space-md);
 }
 
-/* Trang /danh-sach-lop: tiêu đề icon + chữ cùng hàng, lớp xếp lưới 2 cột. */
+/* Trang /danh-sach-tin-da-dang: tiêu đề icon + chữ cùng hàng, lớp xếp lưới 2 cột. */
 .tcs-classboard .tcs-find-title {
   display: flex;
   align-items: center;

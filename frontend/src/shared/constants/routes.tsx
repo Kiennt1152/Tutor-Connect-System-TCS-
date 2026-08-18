@@ -4,7 +4,7 @@ export const APP_ROUTES = {
   postTutorRequest: '/dang-yeu-cau-tim-gia-su',
   findClass: '/tim-lop',
   /** Bảng tổng hợp mọi lớp client đăng (đang mở). Ký hợp đồng xong -> lớp kích hoạt, tự gỡ khỏi đây. */
-  classBoard: '/danh-sach-lop',
+  classBoard: '/sua-lop/danh-sach-tin-da-dang',
   /** Trang "Tìm lớp phù hợp với bạn" — duyệt lớp đang mở để đăng ký (bản của center/class). */
   classFinder: '/lop-hoc',
   tutorProfile: '/gia-su/chi-tiet-gia-su/:tutorId',

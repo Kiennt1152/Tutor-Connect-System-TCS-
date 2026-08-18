@@ -13,7 +13,7 @@ type Status = 'loading' | 'success' | 'error';
 const PAGE_SIZE = 6;
 
 /**
- * Danh sách lớp (/danh-sach-lop): tổng hợp mọi lớp do client đăng và đang mở.
+ * Danh sách lớp (/danh-sach-tin-da-dang): tổng hợp mọi lớp do client đăng và đang mở.
  * Khi hai bên ký thỏa thuận hợp đồng xong -> lớp được kích hoạt (rời trạng thái OPEN)
  * nên tự động biến mất khỏi danh sách này. Dùng lại thẻ lớp giống màn "Yêu cầu của tôi".
  */
@@ -59,8 +59,7 @@ export default function ClassBoardPage() {
           <div className="tcs-container">
             <div className="tcs-hero__panel">
               <h1 className="tcs-find-title" style={{ marginBottom: 0 }}>
-                <span className="tcs-find-title__icon">📋</span>
-                <span className="tcs-find-title__text">Danh sách lớp đã đăng</span>
+                <span className="tcs-find-title__text">Danh sách tin đã đăng</span>
               </h1>
             </div>
           </div>
