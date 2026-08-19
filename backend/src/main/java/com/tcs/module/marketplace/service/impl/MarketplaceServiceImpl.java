@@ -165,6 +165,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private static final String ESCROW_ACCOUNT_NUMBER = "02660559201";
     private static final String ESCROW_ACCOUNT_NAME = "TUTOR CONNECT SYSTEM";
     private static final String PRIVATE_ESCROW_REF_PREFIX = "ESCROW-A";
+    /**
+     * referenceType cho thông báo về hợp đồng. Tách khỏi "TUTORING_CLASS" vì chuông
+     * điều hướng theo referenceType: việc cần làm ở đây là ký / thanh toán hợp đồng,
+     * không phải xem lịch dạy.
+     */
+    private static final String CONTRACT_CONTEXT_TYPE = "CONTRACT";
 
     private final AuthHelper authHelper;
     private final UserRepository userRepository;
@@ -185,6 +191,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final LessonRepository lessonRepository;
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final ScheduleSlotRepository scheduleSlotRepository;
+    private final com.tcs.module.marketplace.service.RescheduleService rescheduleService;
     private final FavoriteTutorRepository favoriteTutorRepository;
     private final CategoryRepository categoryRepository;
     private final SubjectRepository subjectRepository;
@@ -1210,7 +1217,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return;
         }
         String content = "Phụ huynh/học sinh đã ký hợp đồng lớp \"" + c.getTitle()
-                + "\". Vui lòng vào mục Lịch dạy để ký xác nhận và bắt đầu lớp.";
+                + "\". Vui lòng mở mục Hợp đồng để ký xác nhận và bắt đầu lớp.";
         notificationDispatchService.notifyUserFromTemplate(
                 assignment.getTutor().getUser(),
                 com.tcs.module.messaging.enums.NotificationType.APPLICATION,
@@ -1218,7 +1225,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 Map.of("classTitle", c.getTitle()),
                 "Bên A đã ký hợp đồng — mời bạn ký",
                 content,
-                "TUTORING_CLASS",
+                CONTRACT_CONTEXT_TYPE,
                 c.getClassId());
     }
 
@@ -1227,15 +1234,15 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return;
         }
         String content = "Hợp đồng lớp \"" + c.getTitle()
-                + "\" đã được ký xong. Vui lòng vào mục Lịch học/Hợp đồng để quét mã thanh toán escrow.";
+                + "\" đã được ký xong. Vui lòng mở mục Hợp đồng để quét mã thanh toán ký quỹ.";
         notificationDispatchService.notifyUserFromTemplate(
                 c.getCreator(),
                 com.tcs.module.messaging.enums.NotificationType.APPLICATION,
                 "MARKETPLACE_ESCROW_PAYMENT_READY",
                 Map.of("classTitle", c.getTitle()),
-                "Hợp đồng đã hoàn tất — vui lòng thanh toán escrow",
+                "Hợp đồng đã hoàn tất — vui lòng thanh toán ký quỹ",
                 content,
-                "TUTORING_CLASS",
+                CONTRACT_CONTEXT_TYPE,
                 c.getClassId());
     }
 
@@ -1645,30 +1652,89 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             studentsByClass.computeIfAbsent(c.getClassId(), k -> new ArrayList<>()).add(cs);
         }
 
+        // Buổi đã được duyệt dời: bỏ khỏi ngày gốc, hiện ở ngày mới — giống hệt cách
+        // màn lịch của trung tâm dựng, để học sinh và trung tâm không nhìn thấy hai lịch khác nhau.
+        List<com.tcs.module.marketplace.dto.RescheduleEntry> approvedMoves =
+                rescheduleService.listApprovedByClassIds(classes.keySet());
+        Set<Long> movedAway = approvedMoves.stream()
+                .filter(e -> e.originalDate().equals(d))
+                .map(com.tcs.module.marketplace.dto.RescheduleEntry::classId)
+                .collect(Collectors.toSet());
+
         List<CenterScheduleClassResponse> result = new ArrayList<>();
         for (TutoringClass c : classes.values()) {
             if (c.getStartDate() == null || c.getEndDate() == null
-                    || d.isBefore(c.getStartDate()) || d.isAfter(c.getEndDate())) {
+                    || d.isBefore(c.getStartDate()) || d.isAfter(c.getEndDate())
+                    || movedAway.contains(c.getClassId())) {
                 continue;
             }
+            CenterScheduleClassResponse item = buildEnrolledScheduleItem(c, d, weekday, studentsByClass);
+            if (item != null) {
+                result.add(item);
+            }
+        }
+
+        // Buổi được dời TỚI ngày này: lấy khung tiết theo thứ của ngày GỐC, rồi ghi đè giờ mới.
+        for (com.tcs.module.marketplace.dto.RescheduleEntry e : approvedMoves) {
+            if (!e.newDate().equals(d)) {
+                continue;
+            }
+            TutoringClass c = classes.get(e.classId());
+            if (c == null) {
+                continue;
+            }
+            CenterScheduleClassResponse item = buildEnrolledScheduleItem(
+                    c, d, e.originalDate().getDayOfWeek().getValue(), studentsByClass);
+            if (item != null) {
+                if (e.newStartTime() != null && e.newEndTime() != null) {
+                    item.setSlots(List.of(
+                            com.tcs.module.center.dto.response.ScheduleSlotResponse.builder()
+                                    .dayOfWeek(d.getDayOfWeek().getValue())
+                                    .startTime(e.newStartTime())
+                                    .endTime(e.newEndTime())
+                                    .build()));
+                }
+                item.setRescheduled(true);
+                item.setRescheduleNote("Dời từ " + e.originalDate().format(SCHEDULE_DAY_MONTH));
+                result.add(item);
+            }
+        }
+        return result;
+    }
+
+    private static final DateTimeFormatter SCHEDULE_DAY_MONTH = DateTimeFormatter.ofPattern("dd/MM");
+
+    /** Dựng một dòng lịch của lớp trung tâm cho học viên đang xem. Null nếu ngày đó lớp không có tiết. */
+    private CenterScheduleClassResponse buildEnrolledScheduleItem(
+            TutoringClass c, LocalDate d, int weekday, Map<Long, List<ClassStudent>> studentsByClass) {
             List<ScheduleSlot> slotsToday = scheduleSlotRepository
                     .findByTutoringClass_ClassId(c.getClassId()).stream()
                     .filter(s -> s.getDayOfWeek() != null && s.getDayOfWeek() == weekday)
                     .sorted(Comparator.comparing(ScheduleSlot::getStartTime))
                     .toList();
             if (slotsToday.isEmpty()) {
-                continue;
+                return null;
             }
 
             Map<Long, String> attendanceByStudent = new HashMap<>();
+            // Tra buổi học theo NGÀY trước: lesson_date là dữ liệu buổi tự lưu, không phải thứ
+            // được dựng lại. Cách cũ chỉ dò theo (slot, sequenceNo) — hai bên phải tính ra y hệt
+            // nhau mới khớp, lệch một chút là học viên không thấy điểm danh dù gia sư đã điểm.
             ScheduleSlot repSlot = slotsToday.get(0);
             int seq = (int) Math.max(0, ChronoUnit.DAYS.between(c.getStartDate(), d));
-            lessonRepository
-                    .findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
-                            c.getClassId(), repSlot.getSlotId(), seq)
-                    .ifPresent(lesson -> lessonAttendanceRepository.findByLesson_LessonId(lesson.getLessonId())
-                            .forEach(a -> attendanceByStudent.put(
-                                    a.getClassStudent().getClassStudentId(), a.getStatus().name())));
+            Lesson lesson = lessonRepository
+                    .findByTutoringClass_ClassIdAndLessonDateOrderBySequenceNoAsc(c.getClassId(), d)
+                    .stream()
+                    .findFirst()
+                    .orElseGet(() -> lessonRepository
+                            .findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
+                                    c.getClassId(), repSlot.getSlotId(), seq)
+                            .orElse(null));
+            if (lesson != null) {
+                lessonAttendanceRepository.findByLesson_LessonId(lesson.getLessonId())
+                        .forEach(a -> attendanceByStudent.put(
+                                a.getClassStudent().getClassStudentId(), a.getStatus().name()));
+            }
 
             String tutorName = classAssignmentRepository
                     .findFirstByApplication_TutoringClass_ClassIdAndStatus(
@@ -1695,7 +1761,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                             .build())
                     .toList();
 
-            result.add(CenterScheduleClassResponse.builder()
+            return CenterScheduleClassResponse.builder()
                     .classId(c.getClassId())
                     .title(c.getTitle())
                     .subjectName(c.getSubject() != null ? c.getSubject().getSubjectName() : null)
@@ -1707,9 +1773,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     .students(studentItems)
                     .attendanceTaken(!attendanceByStudent.isEmpty())
                     .classCompleted(c.getStatus() == TutoringClassStatus.COMPLETED)
-                    .build());
-        }
-        return result;
+                    .build();
     }
 
     @Override
@@ -1786,6 +1850,26 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 title,
                 content,
                 "TUTORING_CLASS",
+                classId);
+    }
+
+    /**
+     * Thông báo mà việc cần làm nằm ở HỢP ĐỒNG (ký, thanh toán ký quỹ), không phải ở lớp.
+     * Khác {@link #sendClassNotification} đúng ở referenceType — chuông điều hướng theo trường
+     * này, nên dùng "TUTORING_CLASS" sẽ đẩy người dùng sang Lịch học thay vì trang Hợp đồng.
+     */
+    private void sendContractNotification(User user, String title, String content, Long classId) {
+        if (user == null) {
+            return;
+        }
+        notificationDispatchService.notifyUserFromTemplate(
+                user,
+                com.tcs.module.messaging.enums.NotificationType.CLASS,
+                "MARKETPLACE_CLASS_EVENT",
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                CONTRACT_CONTEXT_TYPE,
                 classId);
     }
 
@@ -2912,14 +2996,14 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     ? tutoringClass.getTitle() : "lớp học";
             if (legal.isDelegatedToParent()) {
                 // Người học là child; người ký hợp đồng + thanh toán là phụ huynh (payer).
-                sendClassNotification(
+                sendContractNotification(
                         payer,
                         "Con bạn vừa đăng ký lớp — cần ký hợp đồng",
                         client.getFullName() + " đã đăng ký lớp \"" + enrollClassTitle
                                 + "\". Vui lòng vào mục Hợp đồng để ký và thanh toán để "
                                 + client.getFullName() + " chính thức vào lớp.",
                         classId);
-                sendClassNotification(
+                sendContractNotification(
                         user,
                         "Đã ghi nhận đăng ký — chờ phụ huynh ký",
                         "Bạn đã đăng ký lớp \"" + enrollClassTitle + "\". Hợp đồng đã gửi cho phụ huynh"
@@ -2927,7 +3011,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                                 + " ký và thanh toán. Bạn vào lớp sau khi phụ huynh hoàn tất.",
                         classId);
             } else {
-                sendClassNotification(
+                sendContractNotification(
                         payer,
                         "Cần ký hợp đồng lớp học",
                         "Bạn đã đăng ký lớp \"" + enrollClassTitle
@@ -3623,6 +3707,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         TerminationTarget terminationTarget = canRequestTerminationTarget(c, assignmentId, classStudentId);
         RefundPolicy refundPolicy = resolveClassRefundPolicy(c, terminationTarget);
         CompletionView completion = resolveCompletionView(c);
+        // Gia sư đang thực dạy = phân công ACTIVE (cùng luật với màn quản lý lớp của trung tâm).
+        Tutor activeTutor = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                .map(ClassAssignment::getTutor)
+                .orElse(null);
         return ClassResponse.builder()
                 .classId(c.getClassId())
                 .title(c.getTitle())
@@ -3681,6 +3771,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                         .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(c.getClassId())
                         .map(ClassAssignment::getAssignmentId)
                         .orElse(null))
+                .assignedTutorId(activeTutor != null ? activeTutor.getTutorId() : null)
+                .assignedTutorName(activeTutor != null ? activeTutor.getFullName() : null)
                 .build();
     }
 

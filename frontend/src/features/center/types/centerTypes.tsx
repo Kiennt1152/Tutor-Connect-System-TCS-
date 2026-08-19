@@ -32,6 +32,8 @@ export interface RecruitmentPost {
   provinceName: string | null;
   wardName: string | null;
   addressDetail: string | null;
+  /** true khi bạn đã thuộc đội ngũ gia sư của trung tâm này — không được ứng tuyển. */
+  alreadyCenterTutor?: boolean;
   status: RecruitmentPostStatus;
   publishedAt: string | null;
   /** Mốc tin hết hạn hiển thị (30 ngày kể từ lúc đăng), null khi tin chưa đăng. */

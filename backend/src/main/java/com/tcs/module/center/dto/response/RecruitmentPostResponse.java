@@ -36,6 +36,12 @@ public class RecruitmentPostResponse {
     private String wardName;
     private String addressDetail;
 
+    /**
+     * true khi gia sư đang xem đã thuộc đội ngũ của trung tâm này — không được ứng tuyển.
+     * Luôn false ở các màn không phải gia sư xem (trung tâm quản lý tin của mình).
+     */
+    private boolean alreadyCenterTutor;
+
     private RecruitmentPostStatus status;
     private LocalDateTime publishedAt;
     /**

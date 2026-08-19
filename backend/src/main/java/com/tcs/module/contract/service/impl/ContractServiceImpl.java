@@ -1804,18 +1804,7 @@ public class ContractServiceImpl implements ContractService {
             Contract contract) {
         if (contract.getAssignment() != null) {
             ClassAssignment assignment = contract.getAssignment();
-            Tutor tutor = assignment.getTutor();
-            if (tutor != null && tutor.getUser() != null) {
-                builder.tutorId(tutor.getUser().getUserId())
-                        .tutorName(tutor.getFullName())
-                        .tutorEmail(tutor.getUser().getEmail())
-                        .tutor(ContractResponse.PartyInfo.builder()
-                                .userId(tutor.getUser().getUserId())
-                                .fullName(tutor.getFullName())
-                                .email(tutor.getUser().getEmail())
-                                .phone(tutor.getPhone())
-                                .build());
-            }
+            fillTutorParty(builder, assignment.getTutor());
 
             TutoringClass tutoringClass = assignment.getApplication() != null
                     ? assignment.getApplication().getTutoringClass()
@@ -1824,6 +1813,19 @@ public class ContractServiceImpl implements ContractService {
                 fillClassFields(builder, tutoringClass);
                 fillPrivateContractAmounts(builder, tutoringClass, assignment);
                 fillCreatorParty(builder, tutoringClass.getCreator());
+            }
+            return;
+        }
+
+        // Hợp đồng hợp tác trung tâm <-> gia sư (sinh từ đơn ứng tuyển tin tuyển dụng).
+        // Loại này không có assignment lẫn classStudent, nên trước đây rơi khỏi cả hai
+        // nhánh dưới và trả về không bên nào -> mục "Các bên ký" trống trơn.
+        if (contract.getRecruitmentApplication() != null) {
+            RecruitmentApplication application = contract.getRecruitmentApplication();
+            fillTutorParty(builder, application.getTutor());
+            RecruitmentPost post = application.getRecruitmentPost();
+            if (post != null) {
+                fillCenterParty(builder, post.getCenter());
             }
             return;
         }
@@ -1861,22 +1863,43 @@ public class ContractServiceImpl implements ContractService {
                 .escrowAmount(escrowAmount);
     }
 
+    private void fillTutorParty(ContractResponse.ContractResponseBuilder builder, Tutor tutor) {
+        if (tutor == null || tutor.getUser() == null) {
+            return;
+        }
+        builder.tutorId(tutor.getUser().getUserId())
+                .tutorName(tutor.getFullName())
+                .tutorEmail(tutor.getUser().getEmail())
+                .tutor(ContractResponse.PartyInfo.builder()
+                        .userId(tutor.getUser().getUserId())
+                        .fullName(tutor.getFullName())
+                        .email(tutor.getUser().getEmail())
+                        .phone(tutor.getPhone())
+                        .build());
+    }
+
+    private void fillCenterParty(ContractResponse.ContractResponseBuilder builder, TutorCenter center) {
+        if (center == null || center.getUser() == null) {
+            return;
+        }
+        builder.centerId(center.getCenterId())
+                .centerName(center.getCompanyName())
+                .centerEmail(center.getUser().getEmail())
+                .center(ContractResponse.PartyInfo.builder()
+                        .userId(center.getUser().getUserId())
+                        .fullName(center.getCompanyName())
+                        .email(center.getUser().getEmail())
+                        .phone(center.getPhone())
+                        .build());
+    }
+
     private void fillCreatorParty(ContractResponse.ContractResponseBuilder builder, User creator) {
         if (creator == null) {
             return;
         }
         Optional<TutorCenter> centerOpt = tutorCenterRepository.findByUser_UserId(creator.getUserId());
         if (centerOpt.isPresent()) {
-            TutorCenter center = centerOpt.get();
-            builder.centerId(center.getCenterId())
-                    .centerName(center.getCompanyName())
-                    .centerEmail(center.getUser().getEmail())
-                    .center(ContractResponse.PartyInfo.builder()
-                            .userId(center.getUser().getUserId())
-                            .fullName(center.getCompanyName())
-                            .email(center.getUser().getEmail())
-                            .phone(center.getPhone())
-                            .build());
+            fillCenterParty(builder, centerOpt.get());
             return;
         }
         fillClientParty(builder, creator);

@@ -87,6 +87,9 @@ export interface ClassResponse {
   expiresAt: string | null;
   applicationCount: number | null;
   assignmentId: number | null;
+  /** Gia sư đang dạy lớp (phân công ACTIVE), null khi lớp chưa ghép gia sư. */
+  assignedTutorId?: number | null;
+  assignedTutorName?: string | null;
 }
 
 export interface ApplicantResponse {
@@ -327,6 +330,9 @@ export interface MarketplaceClass {
   description: string | null;
   creatorId: number;
   creatorName: string | null;
+  /** Gia sư đang dạy lớp (phân công ACTIVE), null khi lớp chưa ghép gia sư. */
+  assignedTutorId?: number | null;
+  assignedTutorName?: string | null;
   subjectId: number | null;
   subjectName: string | null;
   gradeId: number | null;

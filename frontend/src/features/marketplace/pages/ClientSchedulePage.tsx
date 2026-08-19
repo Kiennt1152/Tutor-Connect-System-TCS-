@@ -20,6 +20,12 @@ const ATT_LABELS: Record<string, string> = {
   EXCUSED: 'Có phép',
 };
 
+const ATT_ICONS: Record<string, string> = {
+  PRESENT: '✅',
+  ABSENT: '❌',
+  EXCUSED: '📄',
+};
+
 function toISO(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
     d.getDate(),
@@ -150,7 +156,9 @@ export default function ClientSchedulePage() {
                         sessions.map((c) => (
                           <div
                             className={`tw-card${c.classCompleted ? ' tw-card--done' : ''}`}
-                            key={c.classId}
+                            // Một lớp có thể xuất hiện 2 lần trong tuần khi buổi được dời:
+                            // classId thôi không đủ làm khoá.
+                            key={`${c.classId}-${c.rescheduled ? 'r' : 'n'}`}
                           >
                             <div className="tw-card__time">
                               {c.slots
@@ -162,20 +170,31 @@ export default function ClientSchedulePage() {
                               {c.subjectName && <span className="tw-chip">{c.subjectName}</span>}
                               {c.gradeName && <span className="tw-chip">{c.gradeName}</span>}
                               <span className="tw-chip">{LESSON_MODE_LABELS[c.lessonMode]}</span>
+                              {c.rescheduled && (
+                                <span className="tw-chip tw-chip--resched">🔄 {c.rescheduleNote}</span>
+                              )}
                             </div>
                             {c.assignedTutorName && (
                               <div className="tw-card__meta">👩‍🏫 GV: {c.assignedTutorName}</div>
                             )}
                             {c.students && c.students.length > 0 && (
                               <div className="tw-card__meta">
-                                {c.students
-                                  .map(
-                                    (s) =>
-                                      `${s.studentName}${
-                                        s.status ? ` — ${ATT_LABELS[s.status] ?? s.status}` : ''
-                                      }`,
-                                  )
-                                  .join('; ')}
+                                {/* Nêu rõ cả khi CHƯA điểm danh — trước đây không có trạng thái
+                                    thì chỉ hiện tên, người học không biết đã được điểm hay chưa. */}
+                                {c.students.map((s) => (
+                                  <div key={s.classStudentId} className="cs-att-row">
+                                    <span>{s.studentName}</span>
+                                    <span
+                                      className={`cs-att cs-att--${
+                                        s.status ? s.status.toLowerCase() : 'pending'
+                                      }`}
+                                    >
+                                      {s.status
+                                        ? `${ATT_ICONS[s.status] ?? ''} ${ATT_LABELS[s.status] ?? s.status}`
+                                        : '⏳ Chưa điểm danh'}
+                                    </span>
+                                  </div>
+                                ))}
                               </div>
                             )}
                             {c.classCompleted && (

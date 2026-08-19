@@ -196,7 +196,11 @@ public class SecurityConfig {
                         .requestMatchers("/api/tutor/**")
                         .hasRole(RbacConstants.TUTOR)
 
+                        // Hai POST của GIA SƯ phải đứng TRƯỚC catch-all TUTOR_CENTER bên dưới,
+                        // vì matcher xét theo thứ tự — khớp cái nào trước thì dùng cái đó.
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/*/apply")
+                        .hasRole(RbacConstants.TUTOR)
+                        .requestMatchers(HttpMethod.POST, "/api/center/recruitment/applications/*/withdraw")
                         .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/center/recruitment/**")
                         .hasRole(RbacConstants.TUTOR_CENTER)

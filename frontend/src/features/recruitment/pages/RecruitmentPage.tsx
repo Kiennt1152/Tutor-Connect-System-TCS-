@@ -233,16 +233,29 @@ export default function RecruitmentPage() {
 
                       <div className="rc-card__foot">
                         <span className="rc-count">
-                          {applied ? '✓ Bạn đã ứng tuyển tin này' : ''}
+                          {p.alreadyCenterTutor
+                            ? '🏫 Bạn đã là gia sư của trung tâm này'
+                            : applied
+                              ? '✓ Bạn đã ứng tuyển tin này'
+                              : ''}
                         </span>
                         <div className="rc-actions">
                           <button
                             className="rc-btn rc-btn--primary"
                             type="button"
-                            disabled={applied}
+                            disabled={applied || p.alreadyCenterTutor}
+                            title={
+                              p.alreadyCenterTutor
+                                ? 'Bạn đã thuộc đội ngũ của trung tâm này nên không cần ứng tuyển'
+                                : undefined
+                            }
                             onClick={() => openApply(p)}
                           >
-                            {applied ? 'Đã ứng tuyển' : 'Ứng tuyển'}
+                            {p.alreadyCenterTutor
+                              ? 'Đã trong đội ngũ'
+                              : applied
+                                ? 'Đã ứng tuyển'
+                                : 'Ứng tuyển'}
                           </button>
                         </div>
                       </div>

@@ -52,11 +52,13 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class TutorServiceImpl implements TutorService {
 
     private final AuthHelper authHelper;
@@ -71,6 +73,10 @@ public class TutorServiceImpl implements TutorService {
     private final SubstitutionService substitutionService;
     private final CenterEscrowAutoSettlementService centerEscrowAutoSettlementService;
     private final MarketplaceService marketplaceService;
+    private final com.tcs.module.messaging.service.NotificationDispatchService notificationDispatchService;
+
+    /** referenceType thông báo yêu cầu đổi lịch — chuông dẫn về trang duyệt tương ứng vai trò. */
+    private static final String RESCHEDULE_CONTEXT_TYPE = "RESCHEDULE";
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -233,7 +239,40 @@ public class TutorServiceImpl implements TutorService {
         }
         RescheduleEntry entry = rescheduleService.request(
                 classId, original, next, start, end, tutor.getTutorId(), body.getReason());
+        notifyCenterRescheduleRequested(c, tutor, original, next, body.getReason());
         return toRescheduleResponse(entry, c, tutor.getFullName());
+    }
+
+    /**
+     * Báo trung tâm có yêu cầu đổi lịch mới. Trước đây yêu cầu chỉ được ghi xuống DB nên
+     * trung tâm phải tự mở trang "Yêu cầu đổi lịch" mới biết.
+     *
+     * <p>Lỗi gửi thông báo chỉ ghi log — không được làm hỏng yêu cầu đổi lịch đã lưu.
+     */
+    private void notifyCenterRescheduleRequested(
+            TutoringClass c, Tutor tutor, LocalDate original, LocalDate next, String reason) {
+        if (c == null || c.getCreator() == null) {
+            return;
+        }
+        String tutorName = tutor != null && tutor.getFullName() != null
+                ? tutor.getFullName() : "Gia sư";
+        String content = tutorName + " xin dời buổi ngày " + original.format(D_MM)
+                + " sang " + next.format(D_MM) + " ở lớp \"" + c.getTitle() + "\""
+                + (reason != null && !reason.isBlank() ? ". Lý do: " + reason : "")
+                + ". Vào mục Yêu cầu đổi lịch để duyệt.";
+        try {
+            notificationDispatchService.notifyUserFromTemplate(
+                    c.getCreator(),
+                    com.tcs.module.messaging.enums.NotificationType.CLASS,
+                    "CENTER_RESCHEDULE_REQUESTED",
+                    Map.of("tutorName", tutorName, "classTitle", c.getTitle()),
+                    "Yêu cầu đổi lịch buổi học",
+                    content,
+                    RESCHEDULE_CONTEXT_TYPE,
+                    c.getClassId());
+        } catch (Exception e) {
+            log.error("Khong gui duoc thong bao yeu cau doi lich: classId={}", c.getClassId(), e);
+        }
     }
 
     /** Các buổi dạy (khoảng giờ) của gia sư trong một ngày có bị trùng với [start,end] không. */
@@ -722,8 +761,20 @@ public class TutorServiceImpl implements TutorService {
                 return java.util.Objects.equals(last.getLessonDate(), date);
             }
         }
+        LocalDate last = lastSessionDate(c);
+        return last != null && last.equals(date);
+    }
+
+    /**
+     * Ngày học CUỐI CÙNG thật sự của lớp: lịch tuần trong [startDate, endDate],
+     * TRỪ buổi đã được duyệt dời đi, CỘNG buổi được dời tới.
+     *
+     * <p>Trước đây chỉ dò ngược lịch tuần từ endDate nên khi buổi cuối bị dời sang ngày khác,
+     * ngày mới không còn được coi là buổi cuối — gia sư điểm danh xong không thấy nút đóng lớp.
+     */
+    private LocalDate lastSessionDate(TutoringClass c) {
         if (c.getStartDate() == null || c.getEndDate() == null) {
-            return false;
+            return null;
         }
         java.util.Set<Integer> slotDays = scheduleSlotRepository
                 .findByTutoringClass_ClassId(c.getClassId()).stream()
@@ -731,14 +782,27 @@ public class TutorServiceImpl implements TutorService {
                 .filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toSet());
         if (slotDays.isEmpty()) {
-            return false;
+            return null;
         }
-        for (LocalDate d = c.getEndDate(); !d.isBefore(c.getStartDate()); d = d.minusDays(1)) {
-            if (slotDays.contains(d.getDayOfWeek().getValue())) {
-                return d.equals(date);
+        List<RescheduleEntry> approved =
+                rescheduleService.listApprovedByClassIds(List.of(c.getClassId()));
+        java.util.Set<LocalDate> movedAway = approved.stream()
+                .map(RescheduleEntry::originalDate)
+                .collect(java.util.stream.Collectors.toSet());
+
+        LocalDate last = null;
+        for (LocalDate d = c.getStartDate(); !d.isAfter(c.getEndDate()); d = d.plusDays(1)) {
+            if (slotDays.contains(d.getDayOfWeek().getValue()) && !movedAway.contains(d)) {
+                last = d;
             }
         }
-        return false;
+        // Buổi dời tới có thể rơi sau mọi buổi còn lại (kể cả sau endDate).
+        for (RescheduleEntry e : approved) {
+            if (last == null || e.newDate().isAfter(last)) {
+                last = e.newDate();
+            }
+        }
+        return last;
     }
 
     private CenterScheduleClassResponse buildScheduleItem(
