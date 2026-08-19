@@ -1953,7 +1953,8 @@ public class DisputeServiceImpl implements DisputeService {
     private void notifyDisputeCreated(Dispute dispute) {
         notifyPlatformAdmins(
                 "Có tranh chấp mới cần xem xét",
-                "Tranh chấp #" + dispute.getDisputeId() + " vừa được tạo và escrow liên quan đã được tạm giữ.",
+                "Tranh chấp #" + dispute.getDisputeId()
+                        + " vừa được tạo và khoản ký quỹ liên quan đã được tạm giữ.",
                 dispute);
     }
 

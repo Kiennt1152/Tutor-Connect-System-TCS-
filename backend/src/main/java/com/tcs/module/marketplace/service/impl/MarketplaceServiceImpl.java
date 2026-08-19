@@ -1231,13 +1231,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return;
         }
         String content = "Hợp đồng lớp \"" + c.getTitle()
-                + "\" đã được ký xong. Vui lòng vào mục Lịch học/Hợp đồng để quét mã thanh toán escrow.";
+                + "\" đã được ký xong. Vui lòng vào mục Lịch học/Hợp đồng để quét mã thanh toán ký quỹ.";
         notificationDispatchService.notifyUserFromTemplate(
                 c.getCreator(),
                 com.tcs.module.messaging.enums.NotificationType.APPLICATION,
                 "MARKETPLACE_ESCROW_PAYMENT_READY",
                 Map.of("classTitle", c.getTitle()),
-                "Hợp đồng đã hoàn tất — vui lòng thanh toán escrow",
+                "Hợp đồng đã hoàn tất - vui lòng thanh toán ký quỹ",
                 content,
                 "TUTORING_CLASS",
                 c.getClassId());
@@ -1834,6 +1834,108 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                                     + "\" sau khi phụ huynh hoàn tất ký hợp đồng và thanh toán.",
                             tutoringClass.getClassId()));
         }
+    }
+
+    private void notifyClassTerminationSubmitted(
+            ClassTerminationRequest termination,
+            TutoringClass tutoringClass,
+            TerminationTarget target) {
+
+        if (termination == null || tutoringClass == null) {
+            return;
+        }
+        String classTitle = classNotificationTitle(tutoringClass);
+        sendClassNotification(
+                termination.getRequestedBy(),
+                "Đã gửi yêu cầu chấm dứt sớm",
+                "Yêu cầu chấm dứt sớm lớp \"" + classTitle
+                        + "\" đã được ghi nhận. Khoản ký quỹ liên quan đang được giữ để chờ xử lý.",
+                tutoringClass.getClassId());
+
+        notifyOtherTerminationUsers(
+                termination,
+                tutoringClass,
+                target,
+                "Có yêu cầu chấm dứt sớm lớp",
+                "Lớp \"" + classTitle
+                        + "\" vừa có yêu cầu chấm dứt sớm. Khoản ký quỹ liên quan đang được giữ để chờ xử lý.");
+    }
+
+    private void notifyClassTerminationCompleted(
+            ClassTerminationRequest termination,
+            TutoringClass tutoringClass,
+            TerminationTarget target) {
+
+        if (termination == null || tutoringClass == null) {
+            return;
+        }
+        String classTitle = classNotificationTitle(tutoringClass);
+        sendClassNotification(
+                termination.getRequestedBy(),
+                "Lớp đã chấm dứt sớm",
+                "Yêu cầu chấm dứt sớm lớp \"" + classTitle
+                        + "\" đã được xử lý. Khoản ký quỹ liên quan đã được tất toán theo quy tắc của hệ thống.",
+                tutoringClass.getClassId());
+
+        notifyOtherTerminationUsers(
+                termination,
+                tutoringClass,
+                target,
+                "Lớp đã chấm dứt sớm",
+                "Lớp \"" + classTitle
+                        + "\" đã chấm dứt sớm. Khoản ký quỹ liên quan đã được tất toán theo quy tắc của hệ thống.");
+    }
+
+    private void notifyOtherTerminationUsers(
+            ClassTerminationRequest termination,
+            TutoringClass tutoringClass,
+            TerminationTarget target,
+            String title,
+            String content) {
+
+        Long requesterId = termination.getRequestedBy() != null ? termination.getRequestedBy().getUserId() : null;
+        for (User user : classTerminationNotificationRecipients(termination, tutoringClass, target)) {
+            if (user == null || Objects.equals(user.getUserId(), requesterId)) {
+                continue;
+            }
+            sendClassNotification(user, title, content, tutoringClass.getClassId());
+        }
+    }
+
+    private List<User> classTerminationNotificationRecipients(
+            ClassTerminationRequest termination,
+            TutoringClass tutoringClass,
+            TerminationTarget target) {
+
+        List<User> users = new ArrayList<>();
+        Set<Long> seenUserIds = new LinkedHashSet<>();
+        addTerminationNotificationUser(users, seenUserIds, termination.getRequestedBy());
+        addTerminationNotificationUser(users, seenUserIds, tutoringClass.getCreator());
+        if (tutoringClass.getCenter() != null) {
+            addTerminationNotificationUser(users, seenUserIds, tutoringClass.getCenter().getUser());
+        }
+        if (target != null && target.assignment() != null && target.assignment().getTutor() != null) {
+            addTerminationNotificationUser(users, seenUserIds, target.assignment().getTutor().getUser());
+        }
+        if (target != null && target.classStudent() != null) {
+            addTerminationNotificationUser(users, seenUserIds, target.classStudent().getEnrolledByUser());
+        }
+        return users;
+    }
+
+    private void addTerminationNotificationUser(List<User> users, Set<Long> seenUserIds, User user) {
+        if (user == null || user.getUserId() == null || seenUserIds.contains(user.getUserId())) {
+            return;
+        }
+        seenUserIds.add(user.getUserId());
+        users.add(user);
+    }
+
+    private String classNotificationTitle(TutoringClass tutoringClass) {
+        if (tutoringClass != null && StringUtils.hasText(tutoringClass.getTitle())) {
+            return tutoringClass.getTitle();
+        }
+        return "lớp học";
     }
 
     private User classCounterpart(TutoringClass tc, User me) {
@@ -2632,7 +2734,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             termination.setStatus(ClassTerminationStatus.PENDING);
             tutoringClass.setStatus(TutoringClassStatus.DISPUTED);
             tutoringClassRepository.save(tutoringClass);
-            return toTerminationResponse(classTerminationRequestRepository.save(termination), tutoringClass);
+            ClassTerminationRequest savedTermination = classTerminationRequestRepository.save(termination);
+            notifyClassTerminationSubmitted(savedTermination, tutoringClass, target);
+            return toTerminationResponse(savedTermination, tutoringClass);
         }
 
         SettlementSplit settlement = calculateEarlyTerminationSettlement(tutoringClass, target, escrow);
@@ -2651,7 +2755,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         tutoringClass.setStatus(TutoringClassStatus.CANCELLED);
         tutoringClassRepository.save(tutoringClass);
 
-        return toTerminationResponse(classTerminationRequestRepository.save(termination), tutoringClass);
+        ClassTerminationRequest savedTermination = classTerminationRequestRepository.save(termination);
+        notifyClassTerminationCompleted(savedTermination, tutoringClass, target);
+        return toTerminationResponse(savedTermination, tutoringClass);
     }
 
     // ===== UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE: 1 gia sư – 1 phụ huynh/học viên) =====
@@ -2693,7 +2799,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             assignment.setClientCompletedAt(LocalDateTime.now());
             classAssignmentRepository.save(assignment);
             finalizeClassCompletion(c, assignment);
-            return "Lớp đã hoàn thành. Học phí escrow đã được giải ngân cho gia sư.";
+            return "Lớp đã hoàn thành. Học phí ký quỹ đã được giải ngân cho gia sư.";
         }
 
         // Chưa đánh giá -> mời học viên đánh giá; lớp đóng khi học viên đánh giá xong.
@@ -2747,7 +2853,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     escrow.getEscrowId(),
                     escrow.getAmount(),
                     BigDecimal.ZERO,
-                    "Lớp \"" + c.getTitle() + "\" đã hoàn thành — giải ngân toàn bộ escrow cho gia sư."));
+                    "Lớp \"" + c.getTitle() + "\" đã hoàn thành - giải ngân toàn bộ khoản ký quỹ cho gia sư."));
         }
         releaseCenterRequestFeeIfAny(c, assignment);
 

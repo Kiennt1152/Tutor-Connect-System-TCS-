@@ -521,7 +521,7 @@ class MarketplaceServiceImplTest {
 
         String message = marketplaceService.confirmClassCompletion(CLASS_ID);
 
-        assertEquals("Lớp đã hoàn thành. Học phí escrow đã được giải ngân cho gia sư.", message);
+        assertEquals("Lớp đã hoàn thành. Học phí ký quỹ đã được giải ngân cho gia sư.", message);
         assertEquals(TutoringClassStatus.COMPLETED, tutoringClass.getStatus());
         verify(escrowService).apply(any(ReleaseInstruction.class));
         verify(centerRequestFeeService).releaseForFulfilledAssignment(eq(ASSIGNMENT_ID), anyString());

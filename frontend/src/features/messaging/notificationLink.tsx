@@ -25,6 +25,10 @@ export function notificationLink(
     return isAdmin ? APP_ROUTES.platformReports : APP_ROUTES.help;
   }
 
+  if (n.referenceType === 'DISPUTE') {
+    return isAdmin ? APP_ROUTES.platformReports : APP_ROUTES.contract;
+  }
+
   if (n.referenceType === 'VERIFICATION_REQUEST') {
     return isAdmin ? APP_ROUTES.platformVerifications : APP_ROUTES.verification;
   }
@@ -33,6 +37,10 @@ export function notificationLink(
     if (isAdmin) return APP_ROUTES.platformWithdrawals;
     if (role === 'CLIENT') return APP_ROUTES.contract;
     return APP_ROUTES.finance;
+  }
+
+  if (n.referenceType === 'WITHDRAWAL') {
+    return isAdmin ? APP_ROUTES.platformWithdrawals : APP_ROUTES.finance;
   }
 
   if (n.referenceType === 'WITHDRAWAL_REQUEST') {

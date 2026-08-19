@@ -24,8 +24,8 @@ export function statusLabel(type: Transaction['type']): string {
     DEPOSIT: 'Nạp tiền',
     WITHDRAWAL: 'Rút tiền',
     REFUND: 'Hoàn tiền',
-    ESCROW_DEPOSIT: 'Đặt cọc Escrow',
-    ESCROW_RELEASE: 'Giải ngân Escrow',
+    ESCROW_DEPOSIT: 'Đặt cọc ký quỹ',
+    ESCROW_RELEASE: 'Giải ngân ký quỹ',
     PLATFORM_FEE: 'Phí nền tảng',
   };
   return map[type] ?? type;
