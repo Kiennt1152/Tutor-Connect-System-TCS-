@@ -235,7 +235,9 @@ export default function PlatformWithdrawalsPage() {
                           <div className="pw-bank-cell">
                             <strong>{item.bankName}</strong>
                             <div className="pw-bank-row">
-                              <span>
+                              <span className="pw-bank-row__account" title={visibleAccountIds[item.id] && item.raw.accountNo
+                                ? item.raw.accountNo
+                                : item.accountNoMasked}>
                                 {visibleAccountIds[item.id] && item.raw.accountNo
                                   ? item.raw.accountNo
                                   : item.accountNoMasked}
