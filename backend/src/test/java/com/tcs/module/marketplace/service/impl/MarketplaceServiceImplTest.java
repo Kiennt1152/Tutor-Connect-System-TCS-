@@ -22,7 +22,9 @@ import com.tcs.module.catalog.repository.SubjectRepository;
 import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.service.EscrowService;
@@ -59,6 +61,9 @@ import com.tcs.module.messaging.enums.NotificationStatus;
 import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.messaging.service.NotificationDispatchService;
+import com.tcs.module.platform.enums.ReportStatus;
+import com.tcs.module.platform.enums.ReportTargetType;
+import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.module.profile.dto.CccdInfoDto;
 import com.tcs.module.profile.service.CccdService;
@@ -114,6 +119,15 @@ class MarketplaceServiceImplTest {
 
     @Mock
     private WalletRepository walletRepository;
+
+    @Mock
+    private ReportRepository reportRepository;
+
+    @Mock
+    private DisputeRepository disputeRepository;
+
+    @Mock
+    private RefundRequestRepository refundRequestRepository;
 
     @Mock
     private EscrowService escrowService;
@@ -553,6 +567,110 @@ class MarketplaceServiceImplTest {
         verify(classAssignmentRepository).save(assignment);
         verify(escrowService).apply(any(ReleaseInstruction.class));
         verify(tutoringClassRepository).save(tutoringClass);
+    }
+
+    @Test
+    void checkOutLessonAutoReleasesPrivateFirstMonthEscrowWhenNoBlockingIssue() {
+        User clientUser = user(CLIENT_USER_ID);
+        User tutorUser = user(TUTOR_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.IN_PROGRESS);
+        tutoringClass.setClassType(ClassType.PRIVATE);
+        tutoringClass.setStartDate(LocalDate.now().minusDays(10));
+        tutoringClass.setEndDate(LocalDate.now().plusMonths(2));
+        ClassAssignment assignment = assignment(tutoringClass, tutorUser);
+        List<Lesson> lessons = lessons(tutoringClass, assignment.getTutor(), 3, 2);
+        lessons.get(0).setLessonDate(LocalDate.now().minusDays(7));
+        lessons.get(1).setLessonDate(LocalDate.now().minusDays(3));
+        lessons.get(2).setLessonDate(LocalDate.now());
+        lessons.get(2).setTutorCheckInAt(LocalDateTime.now().minusMinutes(40));
+        EscrowTransaction escrow = escrow(93L, new BigDecimal("100000.00"));
+
+        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(assignment.getTutor()));
+        when(lessonRepository.findById(lessons.get(2).getLessonId())).thenReturn(Optional.of(lessons.get(2)));
+        when(lessonRepository.save(any(Lesson.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(classAssignmentRepository.findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        CLASS_ID, ClassAssignmentStatus.ACTIVE))
+                .thenReturn(Optional.of(assignment));
+        when(escrowTransactionRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID))
+                .thenReturn(Optional.of(escrow));
+        when(lessonRepository.findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(CLASS_ID))
+                .thenReturn(lessons);
+        when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                        ASSIGNMENT_ID, ClassTerminationStatus.PENDING))
+                .thenReturn(false);
+        when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                        ASSIGNMENT_ID, ClassTerminationStatus.APPROVED))
+                .thenReturn(false);
+
+        marketplaceService.checkOutLesson(lessons.get(2).getLessonId());
+
+        assertEquals(AttendanceStatus.COMPLETED, lessons.get(2).getAttendanceStatus());
+        ArgumentCaptor<ReleaseInstruction> instructionCaptor = ArgumentCaptor.forClass(ReleaseInstruction.class);
+        verify(escrowService).apply(instructionCaptor.capture());
+        ReleaseInstruction instruction = instructionCaptor.getValue();
+        assertEquals(93L, instruction.escrowId());
+        assertEquals(new BigDecimal("100000.00"), instruction.releaseToBeneficiary());
+        assertEquals(BigDecimal.ZERO, instruction.refundToPayer());
+        assertEquals(
+                "Đã hoàn tất đủ buổi của tháng đầu, giải ngân khoản ký quỹ cho gia sư.",
+                instruction.reason());
+        verify(notificationDispatchService).notifyUserFromTemplate(
+                eq(assignment.getTutor().getUser()),
+                eq(NotificationType.CLASS),
+                eq("MARKETPLACE_CLASS_EVENT"),
+                any(),
+                eq("Ký quỹ tháng đầu đã được giải ngân"),
+                anyString(),
+                eq("TUTORING_CLASS"),
+                eq(CLASS_ID));
+        verify(notificationDispatchService).notifyUserFromTemplate(
+                eq(clientUser),
+                eq(NotificationType.CLASS),
+                eq("MARKETPLACE_CLASS_EVENT"),
+                any(),
+                eq("Ký quỹ tháng đầu đã được giải ngân"),
+                anyString(),
+                eq("TUTORING_CLASS"),
+                eq(CLASS_ID));
+    }
+
+    @Test
+    void checkOutLessonDoesNotReleasePrivateFirstMonthEscrowWhenClassHasPendingReport() {
+        User clientUser = user(CLIENT_USER_ID);
+        User tutorUser = user(TUTOR_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.IN_PROGRESS);
+        tutoringClass.setClassType(ClassType.PRIVATE);
+        tutoringClass.setStartDate(LocalDate.now().minusDays(10));
+        tutoringClass.setEndDate(LocalDate.now().plusMonths(2));
+        ClassAssignment assignment = assignment(tutoringClass, tutorUser);
+        List<Lesson> lessons = lessons(tutoringClass, assignment.getTutor(), 3, 2);
+        lessons.get(0).setLessonDate(LocalDate.now().minusDays(7));
+        lessons.get(1).setLessonDate(LocalDate.now().minusDays(3));
+        lessons.get(2).setLessonDate(LocalDate.now());
+        lessons.get(2).setTutorCheckInAt(LocalDateTime.now().minusMinutes(40));
+        EscrowTransaction escrow = escrow(94L, new BigDecimal("100000.00"));
+
+        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(assignment.getTutor()));
+        when(lessonRepository.findById(lessons.get(2).getLessonId())).thenReturn(Optional.of(lessons.get(2)));
+        when(lessonRepository.save(any(Lesson.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(classAssignmentRepository.findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        CLASS_ID, ClassAssignmentStatus.ACTIVE))
+                .thenReturn(Optional.of(assignment));
+        when(escrowTransactionRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID))
+                .thenReturn(Optional.of(escrow));
+        when(reportRepository.existsByTargetTypeAndTargetIdAndStatus(
+                ReportTargetType.CLASS,
+                CLASS_ID,
+                ReportStatus.PENDING)).thenReturn(true);
+
+        marketplaceService.checkOutLesson(lessons.get(2).getLessonId());
+
+        assertEquals(AttendanceStatus.COMPLETED, lessons.get(2).getAttendanceStatus());
+        verify(escrowService, never()).apply(any());
+        verify(notificationDispatchService, never()).notifyUserFromTemplate(
+                any(), any(), any(), any(), any(), any(), any(), any());
     }
 
     @Test

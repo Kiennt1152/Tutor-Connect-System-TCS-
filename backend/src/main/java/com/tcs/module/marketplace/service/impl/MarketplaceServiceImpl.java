@@ -25,9 +25,13 @@ import com.tcs.module.finance.dto.response.CenterRequestFeePaymentResponse;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.enums.DisputeStatus;
+import com.tcs.module.finance.enums.RefundRequestStatus;
 import com.tcs.module.finance.enums.WalletStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
+import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.CenterRequestFeeService;
@@ -97,6 +101,9 @@ import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.MarketplaceService;
 import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.platform.service.PenaltyAccessService;
+import com.tcs.module.platform.enums.ReportStatus;
+import com.tcs.module.platform.enums.ReportTargetType;
+import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.dto.CccdInfoDto;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
@@ -179,6 +186,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final WalletRepository walletRepository;
+    private final ReportRepository reportRepository;
+    private final DisputeRepository disputeRepository;
+    private final RefundRequestRepository refundRequestRepository;
     private final EscrowService escrowService;
     private final TutoringClassRepository tutoringClassRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
@@ -1745,6 +1755,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         lesson.setTutorCheckOutAt(LocalDateTime.now());
         lesson.setAttendanceStatus(AttendanceStatus.COMPLETED);
         lessonRepository.save(lesson);
+        maybeAutoReleasePrivateFirstMonthEscrow(lesson);
     }
 
     @Override
@@ -1766,6 +1777,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             lesson.setAttendanceStatus(AttendanceStatus.ABSENT);
         }
         lessonRepository.save(lesson);
+        if (present) {
+            maybeAutoReleasePrivateFirstMonthEscrow(lesson);
+        }
     }
 
     private void requireLessonIsToday(Lesson lesson) {
@@ -1806,6 +1820,116 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 content,
                 "TUTORING_CLASS",
                 classId);
+    }
+
+    private void maybeAutoReleasePrivateFirstMonthEscrow(Lesson lesson) {
+        if (lesson == null || lesson.getTutoringClass() == null) {
+            return;
+        }
+        TutoringClass tutoringClass = lesson.getTutoringClass();
+        if (tutoringClass.getClassId() == null
+                || tutoringClass.getClassType() != ClassType.PRIVATE
+                || tutoringClass.getStartDate() == null
+                || tutoringClass.getStatus() != TutoringClassStatus.IN_PROGRESS) {
+            return;
+        }
+
+        ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        tutoringClass.getClassId(), ClassAssignmentStatus.ACTIVE)
+                .orElse(null);
+        if (assignment == null || assignment.getAssignmentId() == null) {
+            return;
+        }
+
+        EscrowTransaction escrow = escrowTransactionRepository
+                .findByAssignment_AssignmentId(assignment.getAssignmentId())
+                .orElse(null);
+        if (escrow == null || escrow.getStatus() != EscrowStatus.FUNDED) {
+            return;
+        }
+
+        if (!isPrivateFirstMonthEscrowReadyForRelease(tutoringClass, assignment, escrow)) {
+            return;
+        }
+
+        escrowService.apply(new ReleaseInstruction(
+                escrow.getEscrowId(),
+                escrow.getAmount(),
+                BigDecimal.ZERO,
+                "Đã hoàn tất đủ buổi của tháng đầu, giải ngân khoản ký quỹ cho gia sư."));
+
+        String title = "Ký quỹ tháng đầu đã được giải ngân";
+        String content = "Lớp \"" + tutoringClass.getTitle()
+                + "\" đã hoàn thành đủ buổi của tháng đầu và không có khiếu nại đang xử lý. "
+                + "Hệ thống đã giải ngân khoản ký quỹ tháng đầu cho gia sư.";
+        sendClassNotification(assignment.getTutor().getUser(), title, content, tutoringClass.getClassId());
+        sendClassNotification(tutoringClass.getCreator(), title, content, tutoringClass.getClassId());
+    }
+
+    private boolean isPrivateFirstMonthEscrowReadyForRelease(
+            TutoringClass tutoringClass,
+            ClassAssignment assignment,
+            EscrowTransaction escrow) {
+        if (tutoringClass == null
+                || assignment == null
+                || escrow == null
+                || tutoringClass.getClassId() == null
+                || assignment.getAssignmentId() == null
+                || escrow.getEscrowId() == null) {
+            return false;
+        }
+        if (tutoringClass.getStatus() == TutoringClassStatus.DISPUTED
+                || tutoringClass.getStatus() == TutoringClassStatus.CANCELLED
+                || tutoringClass.getStatus() == TutoringClassStatus.COMPLETED) {
+            return false;
+        }
+
+        if (reportRepository.existsByTargetTypeAndTargetIdAndStatus(
+                ReportTargetType.CLASS,
+                tutoringClass.getClassId(),
+                ReportStatus.PENDING)) {
+            return false;
+        }
+        if (classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                assignment.getAssignmentId(), ClassTerminationStatus.PENDING)
+                || classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                        assignment.getAssignmentId(), ClassTerminationStatus.APPROVED)) {
+            return false;
+        }
+        if (escrow.getStatus() == EscrowStatus.DISPUTED || escrow.getStatus() == EscrowStatus.ON_HOLD) {
+            return false;
+        }
+        if (disputeRepository.existsByEscrowTransaction_EscrowIdAndStatusNot(
+                escrow.getEscrowId(), DisputeStatus.RESOLVED)
+                || refundRequestRepository.existsByEscrowTransaction_EscrowIdAndStatus(
+                        escrow.getEscrowId(), RefundRequestStatus.PENDING)
+                || refundRequestRepository.existsByEscrowTransaction_EscrowIdAndStatus(
+                        escrow.getEscrowId(), RefundRequestStatus.APPROVED)) {
+            return false;
+        }
+
+        List<Lesson> lessons = lessonRepository
+                .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(tutoringClass.getClassId());
+        if (lessons.isEmpty()) {
+            return false;
+        }
+
+        LocalDate firstMonthEndExclusive = tutoringClass.getStartDate().plusMonths(1);
+        boolean hasFirstMonthLesson = false;
+        for (Lesson currentLesson : lessons) {
+            LocalDate lessonDate = currentLesson.getLessonDate();
+            if (lessonDate == null
+                    || lessonDate.isBefore(tutoringClass.getStartDate())
+                    || !lessonDate.isBefore(firstMonthEndExclusive)) {
+                continue;
+            }
+            hasFirstMonthLesson = true;
+            if (currentLesson.getAttendanceStatus() != AttendanceStatus.COMPLETED) {
+                return false;
+            }
+        }
+        return hasFirstMonthLesson;
     }
 
     private void notifyStudentEnrollmentSuccess(ClassStudent classStudent) {
