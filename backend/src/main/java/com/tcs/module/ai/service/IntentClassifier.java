@@ -61,6 +61,25 @@ public class IntentClassifier {
         }
 
         // =========================================================================
+        // TIER 1.5: EARLY OPEN-DOMAIN FAST-PATH (Chitchat, Entertainment, Math, Weather)
+        // For pure non-business queries, route to OpenDomain immediately to prevent
+        // false-positive RAG/Vector search returning irrelevant FAQ chunks.
+        // Guard: Only triggers when query has NO business-related keywords.
+        // =========================================================================
+        if (!containsBusinessKeyword(normalized)) {
+            OpenDomainClassifier.OpenDomainResult earlyOpen = openDomainClassifier.classifyOpen(message);
+            if (earlyOpen.confidence() >= 0.70) {
+                return new ClassificationDetail(
+                    AiDomain.OPEN_DOMAIN,
+                    earlyOpen.subIntent(),
+                    AiIntent.OUT_OF_SCOPE,
+                    earlyOpen.confidence(),
+                    null
+                );
+            }
+        }
+
+        // =========================================================================
         // TIER 2: BUSINESS DOMAIN & SUB-INTENT MATCHING (Priority Ordered)
         // =========================================================================
 
@@ -486,5 +505,42 @@ public class IntentClassifier {
             }
         }
         return false;
+    }
+
+    /**
+     * Returns true if the normalized query contains ANY business-domain keyword
+     * related to tutoring, classes, finance, accounts, contracts, tickets, etc.
+     * Used by Tier 1.5 to guard the early OpenDomain fast-path: only pure
+     * chitchat/entertainment queries (with zero business keywords) should
+     * short-circuit to OpenDomain before Tier 2 business matching.
+     */
+    private boolean containsBusinessKeyword(String normalized) {
+        return containsAny(normalized,
+            // Tutoring & Education
+            "gia su", "giao vien", "day kem", "lop hoc", "khoa hoc",
+            "hoc phi", "hoc vien", "phu huynh", "hoc sinh", "day hoc",
+            "mon hoc", "toan", "ly", "hoa", "van", "anh", "tin hoc",
+            "ielts", "toeic", "tieng anh", "tieng nhat", "tieng han", "tieng trung",
+            // Account & Auth
+            "tai khoan", "dang nhap", "dang ky", "mat khau", "otp",
+            "email", "xac thuc", "quen mat khau",
+            // Profile & Verification
+            "ho so", "xac minh", "bang cap", "cccd", "chung chi",
+            "can cuoc", "avatar", "profile",
+            // Contracts & Classes
+            "hop dong", "ky hop dong", "escrow", "ky quy", "diem danh",
+            "lich day", "buoi hoc", "ung tuyen", "lop",
+            // Finance
+            "nap tien", "rut tien", "vi tien", "thanh toan", "phi san",
+            "hoa don", "chuyen khoan", "ngan hang", "so du",
+            // Support & Safety
+            "ticket", "khieu nai", "tranh chap", "ho tro", "bao cao",
+            "gian lan", "lach san", "vi pham",
+            // Platform & System
+            "admin", "platform", "dashboard", "thong ke", "doanh thu",
+            "trung tam", "san tcs", "tcs", "he thong",
+            // Marketplace search
+            "tim gia su", "thue gia su", "tutor", "class",
+            "finance", "login", "register", "contract", "support");
     }
 }

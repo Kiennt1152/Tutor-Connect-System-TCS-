@@ -36,7 +36,7 @@
         <db.url.default>jdbc:mysql://localhost:3306/tutorconnectsystem?useSSL=false&amp;serverTimezone=UTC&amp;allowPublicKeyRetrieval=true</db.url.default>
         <db.username.default>root</db.username.default>
         <db.password.default></db.password.default>
-        <lombok.version>1.18.46</lombok.version>
+        <lombok.version>1.18.36</lombok.version>
     </properties>
     <dependencies>
         <dependency>

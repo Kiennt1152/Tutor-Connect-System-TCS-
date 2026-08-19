@@ -33,6 +33,15 @@ public class EmbeddingService {
     @Value("${ai.gemini.api-key:}")
     private String geminiApiKey;
 
+    @Value("${ai.gemini.embedding-model:gemini-embedding-001}")
+    private String configuredEmbeddingModel;
+
+    private static final List<String> CANDIDATE_MODELS = List.of(
+        "gemini-embedding-001",
+        "embedding-001",
+        "text-embedding-004"
+    );
+
     public Optional<double[]> getEmbedding(String text) {
         if (text == null || text.isBlank()) {
             return Optional.empty();
@@ -48,45 +57,59 @@ public class EmbeddingService {
             return Optional.empty();
         }
 
-        try {
-            String url = "https://generativelanguage.googleapis.com/v1beta/models/text-embedding-004:embedContent?key=" + geminiApiKey;
-            
-            String reqBody = buildEmbeddingPayload(cacheKey);
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create(url))
-                    .header("Content-Type", "application/json")
-                    .POST(HttpRequest.BodyPublishers.ofString(reqBody, StandardCharsets.UTF_8))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-            
-            if (response.statusCode() == 200) {
-                JsonNode root = objectMapper.readTree(response.body());
-                JsonNode values = root.path("embedding").path("values");
-                if (values.isArray()) {
-                    double[] embedding = new double[values.size()];
-                    for (int i = 0; i < values.size(); i++) {
-                        embedding[i] = values.get(i).asDouble();
-                    }
-                    if (embeddingCache.size() > MAX_CACHE_SIZE) {
-                        embeddingCache.clear();
-                    }
-                    embeddingCache.put(cacheKey, embedding);
-                    return Optional.of(embedding);
-                }
-            } else {
-                log.error("Gemini embedding API failed with status {}: {}", response.statusCode(), response.body());
-            }
-        } catch (Exception e) {
-            log.error("Failed to generate embedding", e);
+        List<String> modelsToTry = new java.util.ArrayList<>();
+        if (configuredEmbeddingModel != null && !configuredEmbeddingModel.isBlank()) {
+            modelsToTry.add(configuredEmbeddingModel.trim());
         }
+        for (String m : CANDIDATE_MODELS) {
+            if (!modelsToTry.contains(m)) {
+                modelsToTry.add(m);
+            }
+        }
+
+        for (String modelName : modelsToTry) {
+            try {
+                String url = "https://generativelanguage.googleapis.com/v1beta/models/" + modelName + ":embedContent?key=" + geminiApiKey;
+                String reqBody = buildEmbeddingPayload(modelName, cacheKey);
+
+                HttpRequest request = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .header("Content-Type", "application/json")
+                        .POST(HttpRequest.BodyPublishers.ofString(reqBody, StandardCharsets.UTF_8))
+                        .build();
+
+                HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
+
+                if (response.statusCode() == 200) {
+                    JsonNode root = objectMapper.readTree(response.body());
+                    JsonNode values = root.path("embedding").path("values");
+                    if (values.isArray()) {
+                        double[] embedding = new double[values.size()];
+                        for (int i = 0; i < values.size(); i++) {
+                            embedding[i] = values.get(i).asDouble();
+                        }
+                        if (embeddingCache.size() > MAX_CACHE_SIZE) {
+                            embeddingCache.clear();
+                        }
+                        embeddingCache.put(cacheKey, embedding);
+                        return Optional.of(embedding);
+                    }
+                } else if (response.statusCode() == 404) {
+                    log.warn("Gemini embedding model '{}' not found (404), trying fallback...", modelName);
+                } else {
+                    log.error("Gemini embedding API with model '{}' failed with status {}: {}", modelName, response.statusCode(), response.body());
+                }
+            } catch (Exception e) {
+                log.error("Failed to generate embedding with model '{}': {}", modelName, e.getMessage());
+            }
+        }
+
         return Optional.empty();
     }
 
-    private String buildEmbeddingPayload(String text) throws Exception {
+    private String buildEmbeddingPayload(String modelName, String text) throws Exception {
         Map<String, Object> payload = Map.of(
-            "model", "models/text-embedding-004",
+            "model", "models/" + modelName,
             "content", Map.of(
                 "parts", List.of(
                     Map.of("text", text)
