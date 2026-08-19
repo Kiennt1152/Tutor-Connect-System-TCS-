@@ -14,7 +14,7 @@ import { ConfirmDialog } from '../components/ConfirmDialog';
 import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
 import { WeeklyTimetable } from '../../teaching/components/WeeklyTimetable';
 import { LessonRequestDialog } from '../../teaching/components/LessonRequestDialog';
-import { ExpiryBadge } from '../components/ExpiryBadge';
+import { ExpiryBadge } from '../../../shared/components/ExpiryBadge';
 import { useTeaching } from '../../teaching/hooks/useTeaching';
 import type { LessonResponse } from '../../teaching/types/teachingTypes';
 import { classToForm, emptyForm } from '../mappers/marketplaceMapper';
@@ -84,7 +84,11 @@ export default function MarketplacePage() {
   const [reqNotice, setReqNotice] = useState('');
   // Gia sư đang mở xem chứng chỉ (khoá theo requestId:tutorId) + xem trước file.
   const [candCertsOpen, setCandCertsOpen] = useState<string | null>(null);
-  const [candPreview, setCandPreview] = useState<{ src: string; fileName: string } | null>(null);
+  const [candPreview, setCandPreview] = useState<{
+    src: string;
+    fileName: string;
+    mimeType?: string | null;
+  } | null>(null);
   useEffect(() => {
     if (!isClient) return;
     marketplaceApi
@@ -368,6 +372,7 @@ export default function MarketplacePage() {
                                                     setCandPreview({
                                                       src: cert.fileUrl,
                                                       fileName: cert.fileName,
+                                                      mimeType: cert.mimeType,
                                                     })
                                                   }
                                                 >
@@ -459,6 +464,7 @@ export default function MarketplacePage() {
       <FilePreviewModal
         src={candPreview?.src ?? ''}
         fileName={candPreview?.fileName ?? ''}
+        mimeType={candPreview?.mimeType}
         isOpen={candPreview !== null}
         onClose={() => setCandPreview(null)}
       />
@@ -644,10 +650,6 @@ function fullAddressOf(form: ClassFormValues, c: ClassResponse): string {
   return parts.join(', ') || c.address || '';
 }
 
-/**
- * Badge đếm ngược thời gian hiển thị lớp OPEN (30 ngày), cập nhật mỗi giây.
- * Hiển thị dạng "Còn Xd HH:MM:SS". Hết hạn -> lớp sẽ bị hệ thống tự xóa (job định kỳ).
- */
 function ClassList({
   status,
   classes,

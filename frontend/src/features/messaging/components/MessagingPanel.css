@@ -284,6 +284,16 @@
   margin-bottom: 0.4rem;
 }
 
+.ticket-detail__evidence {
+  margin-top: 0.9rem;
+}
+
+.ticket-detail__evidence-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 /* Conversation */
 .ticket-conv {
   padding: 1rem 1.5rem;

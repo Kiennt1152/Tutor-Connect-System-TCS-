@@ -5,6 +5,7 @@ import { centerApi } from '../api/centerApi';
 import { LocationPicker } from '../components/LocationPicker';
 import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { ExpiryBadge } from '../../../shared/components/ExpiryBadge';
 import { CenterSidebar } from '../components/CenterSidebar';
 import { ChatButton } from '../../messaging/components/ChatButton';
 import { APP_ROUTES } from '../../../shared/constants/routes';
@@ -322,7 +323,11 @@ export default function CenterRecruitmentPage() {
   const toggleCerts = (appId: number) =>
     setCertsOpenId((prev) => (prev === appId ? null : appId));
   // Xem trước file chứng chỉ ngay trong trang (không nhảy sang tab khác).
-  const [preview, setPreview] = useState<{ src: string; fileName: string } | null>(null);
+  const [preview, setPreview] = useState<{
+    src: string;
+    fileName: string;
+    mimeType?: string | null;
+  } | null>(null);
 
   // BF-03: duyệt -> chọn mẫu hợp đồng (loại tuyển dụng) để gửi gia sư ký.
   const [recruitTemplates, setRecruitTemplates] = useState<ContractTemplate[]>([]);
@@ -437,6 +442,13 @@ export default function CenterRecruitmentPage() {
                       <h2 className="rc-card__title">{p.title}</h2>
                       <div className="rc-chips">
                         <span className={`rc-status rc-status--${st.cls}`}>{st.label}</span>
+                        {p.status === 'ACTIVE' && p.expiresAt && (
+                          <ExpiryBadge
+                            expiresAt={p.expiresAt}
+                            expiredLabel="Hết hạn hiển thị"
+                            title={`Tin hiển thị đến ${new Date(p.expiresAt).toLocaleString('vi-VN')}. Quá hạn tin tự gỡ về nháp, bạn có thể đăng lại.`}
+                          />
+                        )}
                         {p.classId != null && (
                           <span className="rc-chip rc-chip--class">
                             🎓 Lớp: {p.classTitle ?? `#${p.classId}`}
@@ -727,7 +739,11 @@ export default function CenterRecruitmentPage() {
                                         onClick={async () => {
                                           // Chứng chỉ là file private -> tải kèm JWT rồi tạo blob URL.
                                           if (cert.fileId == null) {
-                                            setPreview({ src: cert.fileUrl, fileName: cert.fileName });
+                                            setPreview({
+                                              src: cert.fileUrl,
+                                              fileName: cert.fileName,
+                                              mimeType: cert.mimeType,
+                                            });
                                             return;
                                           }
                                           try {
@@ -736,10 +752,18 @@ export default function CenterRecruitmentPage() {
                                             setPreview((prev) => {
                                               if (prev?.src.startsWith('blob:'))
                                                 URL.revokeObjectURL(prev.src);
-                                              return { src: url, fileName: cert.fileName };
+                                              return {
+                                                src: url,
+                                                fileName: cert.fileName,
+                                                mimeType: cert.mimeType ?? blob.type,
+                                              };
                                             });
                                           } catch {
-                                            setPreview({ src: cert.fileUrl, fileName: cert.fileName });
+                                            setPreview({
+                                              src: cert.fileUrl,
+                                              fileName: cert.fileName,
+                                              mimeType: cert.mimeType,
+                                            });
                                           }
                                         }}
                                       >
@@ -896,6 +920,7 @@ export default function CenterRecruitmentPage() {
       <FilePreviewModal
         src={preview?.src ?? ''}
         fileName={preview?.fileName ?? ''}
+        mimeType={preview?.mimeType}
         isOpen={preview !== null}
         onClose={() =>
           setPreview((prev) => {

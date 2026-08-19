@@ -83,6 +83,7 @@ import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
+import com.tcs.util.EvidenceUrls;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -1154,6 +1155,7 @@ public class PlatformServiceImpl implements PlatformService {
                 .subject(ticket.getSubject())
                 .description(ticket.getDescription())
                 .evidenceUrls(ticket.getEvidenceUrls())
+                .evidenceUrlList(parseEvidenceUrls(ticket.getEvidenceUrls()))
                 .priority(ticket.getPriority())
                 .status(ticket.getStatus())
                 .resolvedAt(ticket.getResolvedAt())
@@ -1526,13 +1528,7 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     private List<String> parseEvidenceUrls(String evidenceUrls) {
-        if (!StringUtils.hasText(evidenceUrls)) {
-            return List.of();
-        }
-        return java.util.Arrays.stream(evidenceUrls.split("[\\r\\n,;]+"))
-                .map(String::trim)
-                .filter(StringUtils::hasText)
-                .toList();
+        return EvidenceUrls.parse(evidenceUrls);
     }
 
     private ClassReportContext resolveClassReportContext(Report report) {

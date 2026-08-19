@@ -34,6 +34,8 @@ export interface RecruitmentPost {
   addressDetail: string | null;
   status: RecruitmentPostStatus;
   publishedAt: string | null;
+  /** Mốc tin hết hạn hiển thị (30 ngày kể từ lúc đăng), null khi tin chưa đăng. */
+  expiresAt?: string | null;
   closedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -202,6 +204,14 @@ export interface ClassResponse {
   maxStudents: number | null;
   minStudents: number | null;
   enrolledCount: number;
+  /** BF-04: hạn ghi danh (30 ngày kể từ lúc đăng tải), null khi lớp chưa mở ghi danh. */
+  enrollmentDeadline?: string | null;
+  /** Mốc ghi danh thực sự đóng — dùng cho đồng hồ đếm ngược. */
+  enrollmentExpiresAt?: string | null;
+  /** Backend quyết định: false ngay khi có học sinh đăng ký, kể cả đang chờ ký hợp đồng. */
+  editable?: boolean;
+  /** Lý do lớp bị khoá sửa, null khi còn sửa được. */
+  editLockReason?: string | null;
   /** EXTERNAL = yêu cầu ngoài (đã có học sinh); SELF = trung tâm tự tạo. */
   originType: string | null;
   /** Mẫu hợp đồng học viên đã chọn cho lớp (đổ lại form khi sửa). */

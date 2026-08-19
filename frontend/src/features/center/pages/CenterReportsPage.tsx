@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
-import { FileThumbnail } from '../../../shared/components/FileThumbnail';
+import { EvidencePreviewList as SharedEvidencePreviewList } from '../../../shared/components/EvidencePreviewList';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { CenterSidebar } from '../components/CenterSidebar';
 import { centerApi } from '../api/centerApi';
@@ -112,53 +112,15 @@ function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
+/** Bọc component dùng chung, giữ nguyên các class riêng của trang này. */
 function EvidencePreviewList({ urls }: { urls: string[] }) {
-  if (urls.length === 0) {
-    return <p className="center-report-muted">Chưa có bằng chứng đính kèm.</p>;
-  }
-
   return (
-    <div className="center-report-links">
-      {urls.map((url, index) => {
-        const mimeType = evidenceMimeType(url);
-        if (!mimeType) {
-          return (
-            <a href={url} target="_blank" rel="noreferrer" key={url}>
-              {url}
-            </a>
-          );
-        }
-        return (
-          <FileThumbnail
-            key={url}
-            src={url}
-            fileName={evidenceFileName(url, index)}
-            mimeType={mimeType}
-            fileSize={null}
-          />
-        );
-      })}
-    </div>
+    <SharedEvidencePreviewList
+      urls={urls}
+      className="center-report-links"
+      emptyClassName="center-report-muted"
+    />
   );
-}
-
-function evidenceMimeType(url: string) {
-  const normalized = url.split(/[?#]/)[0].toLowerCase();
-  if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg')) return 'image/jpeg';
-  if (normalized.endsWith('.png')) return 'image/png';
-  if (normalized.endsWith('.webp')) return 'image/webp';
-  return null;
-}
-
-function evidenceFileName(url: string, index: number) {
-  const path = url.split(/[?#]/)[0];
-  const rawFileName = path.split('/').filter(Boolean).pop();
-  if (!rawFileName) return `Bằng chứng ${index + 1}`;
-  try {
-    return decodeURIComponent(rawFileName);
-  } catch {
-    return rawFileName;
-  }
 }
 
 function EmptyState({ children }: { children: ReactNode }) {

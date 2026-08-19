@@ -21,6 +21,15 @@ export function notificationLink(
     return role === 'TUTOR_CENTER' ? APP_ROUTES.center : APP_ROUTES.marketplace;
   }
 
+  // Hồ sơ xác minh: admin mở thẳng hồ sơ cần duyệt (trang tự bung chi tiết theo ?id=),
+  // người nộp thì về trang xác minh của chính mình.
+  if (n.referenceType === 'VERIFICATION_REQUEST') {
+    if (!isAdmin) return APP_ROUTES.verification;
+    return n.referenceId
+      ? `${APP_ROUTES.platformVerifications}?id=${n.referenceId}`
+      : APP_ROUTES.platformVerifications;
+  }
+
   if (n.referenceType === 'REPORT') {
     return isAdmin ? APP_ROUTES.platformReports : APP_ROUTES.help;
   }

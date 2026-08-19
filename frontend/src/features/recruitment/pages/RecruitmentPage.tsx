@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { centerApi } from '../../center/api/centerApi';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
+import { ExpiryBadge } from '../../../shared/components/ExpiryBadge';
 import { ChatButton } from '../../messaging/components/ChatButton';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import type {
@@ -200,6 +201,13 @@ export default function RecruitmentPage() {
                             <span className="rc-chip">👤 {p.maxPositions} vị trí</span>
                             {!!p.requiredExperience && (
                               <span className="rc-chip">🎓 ≥ {p.requiredExperience} năm KN</span>
+                            )}
+                            {p.expiresAt && (
+                              <ExpiryBadge
+                                expiresAt={p.expiresAt}
+                                expiredLabel="Đã hết hạn nhận đơn"
+                                title={`Tin nhận đơn đến ${new Date(p.expiresAt).toLocaleString('vi-VN')}. Quá hạn trung tâm sẽ phải đăng lại.`}
+                              />
                             )}
                           </div>
                         </div>

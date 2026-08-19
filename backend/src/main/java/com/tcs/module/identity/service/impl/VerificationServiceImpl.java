@@ -10,6 +10,7 @@ import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.entity.VerificationDocument;
 import com.tcs.module.identity.entity.VerificationHistory;
 import com.tcs.module.identity.entity.VerificationRequest;
+import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.enums.VerificationDocumentType;
 import com.tcs.module.identity.enums.VerificationType;
@@ -24,7 +25,9 @@ import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
+import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.repository.MediaFileRepository;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
@@ -49,6 +52,9 @@ public class VerificationServiceImpl implements VerificationService {
      */
     private static final boolean REVIEW_FLOW_ENABLED = false;
 
+    /** referenceType của thông báo hồ sơ xác minh — frontend dùng để mở đúng hồ sơ. */
+    private static final String VERIFICATION_CONTEXT_TYPE = "VERIFICATION_REQUEST";
+
     private final VerificationRequestRepository verificationRequestRepository;
     private final VerificationDocumentRepository verificationDocumentRepository;
     private final VerificationHistoryRepository verificationHistoryRepository;
@@ -56,6 +62,7 @@ public class VerificationServiceImpl implements VerificationService {
     private final UserRepository userRepository;
     private final TutorRepository tutorRepository;
     private final TutorCenterRepository tutorCenterRepository;
+    private final PlatformAdminRepository platformAdminRepository;
     private final VerificationMapper verificationMapper;
     private final AuthHelper authHelper;
     private final AuditLogService auditLogService;
@@ -136,6 +143,8 @@ public class VerificationServiceImpl implements VerificationService {
 
         recordHistory(saved, null, VerificationStatus.SUBMITTED, user);
 
+        notifyAdminsNewVerification(saved, user, role);
+
         auditLogService.record(userId, "SUBMIT_VERIFICATION", "VerificationRequest", saved.getVerificationId(),
                 null, Map.of("verificationType", request.getVerificationType().name()));
 
@@ -143,6 +152,47 @@ public class VerificationServiceImpl implements VerificationService {
                 userId, request.getVerificationType(), saved.getVerificationId());
 
         return getVerificationById(saved.getVerificationId());
+    }
+
+    private static String verificationTypeLabel(VerificationType type) {
+        return type == VerificationType.TUTOR_CENTER_LICENSE
+                ? "giấy phép trung tâm"
+                : "hồ sơ & chứng chỉ gia sư";
+    }
+
+    /**
+     * Báo cho mọi quản trị viên đang hoạt động rằng có hồ sơ xác minh mới cần duyệt.
+     * Dùng {@link NotificationType#VERIFICATION} để chuông của admin dẫn thẳng tới trang
+     * Xác minh, kèm referenceId để mở đúng hồ sơ vừa nộp.
+     *
+     * <p>Lỗi khi gửi thông báo chỉ được ghi log, không ném ra ngoài: hồ sơ và tài liệu
+     * người dùng vừa nộp quan trọng hơn, không được rollback vì chuông admin hỏng.
+     */
+    private void notifyAdminsNewVerification(VerificationRequest saved, User submitter, UserRole role) {
+        String typeLabel = verificationTypeLabel(saved.getVerificationType());
+        String content = String.format("%s vừa nộp %s, đang chờ duyệt.",
+                submitter.getEmail(), typeLabel);
+        try {
+            platformAdminRepository.findAll().stream()
+                    .map(PlatformAdmin::getUser)
+                    .filter(adminUser -> adminUser.getStatus() == UserStatus.ACTIVE)
+                    .forEach(adminUser -> notificationDispatchService.notifyUserFromTemplate(
+                            adminUser,
+                            NotificationType.VERIFICATION,
+                            "VERIFICATION_SUBMITTED_ADMIN",
+                            Map.of(
+                                    "verificationId", saved.getVerificationId(),
+                                    "userEmail", submitter.getEmail(),
+                                    "userRole", role.name(),
+                                    "verificationType", typeLabel),
+                            "Hồ sơ xác minh mới #" + saved.getVerificationId(),
+                            content,
+                            VERIFICATION_CONTEXT_TYPE,
+                            saved.getVerificationId()));
+        } catch (Exception e) {
+            log.error("Khong gui duoc thong bao ho so xac minh moi: verificationId={}",
+                    saved.getVerificationId(), e);
+        }
     }
 
     @Override

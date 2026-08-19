@@ -753,15 +753,9 @@ public class CenterServiceImpl implements CenterService {
         requireCenter();
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass); // BR-07 / AF-04
-        // BR-06 / AF-03: chỉ được sửa khi lớp ở trạng thái DRAFT hoặc OPEN.
-        if (tutoringClass.getStatus() != TutoringClassStatus.DRAFT
-                && tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
-            throw new IllegalArgumentException("Lớp học này không thể chỉnh sửa nữa.");
-        }
-        // Cho phép sửa lớp đến khi có học viên đăng ký; có người đăng ký rồi thì khoá sửa.
-        if (classStudentRepository.existsByTutoringClass_ClassId(classId)) {
-            throw new IllegalArgumentException(
-                    "Đã có học viên đăng ký, không thể chỉnh sửa lớp nữa.");
+        String editLockReason = classEditLockReason(tutoringClass);
+        if (editLockReason != null) {
+            throw new IllegalArgumentException(editLockReason);
         }
         validate(request, false);
         applyFields(tutoringClass, request);
@@ -1860,7 +1854,26 @@ public class CenterServiceImpl implements CenterService {
         });
     }
 
+    /**
+     * BR-06 / AF-03: lý do lớp không còn được sửa thông tin, trả null nếu vẫn sửa được.
+     * Dùng chung cho {@code updateClass} (chặn ở server) và {@code toClassResponse}
+     * (ẩn nút Sửa trên giao diện) để hai bên không bao giờ lệch điều kiện.
+     */
+    private String classEditLockReason(TutoringClass c) {
+        if (c.getStatus() != TutoringClassStatus.DRAFT
+                && c.getStatus() != TutoringClassStatus.OPEN) {
+            return "Lớp học này không thể chỉnh sửa nữa.";
+        }
+        // Đã có học sinh đăng ký (kể cả đang chờ ký hợp đồng) thì khoá sửa: hợp đồng học viên
+        // và khoản ký quỹ đã sinh theo thông tin lớp, sửa sau sẽ lệch với cam kết đã gửi đi.
+        if (classStudentRepository.existsByTutoringClass_ClassId(c.getClassId())) {
+            return "Đã có học viên đăng ký, không thể chỉnh sửa lớp nữa.";
+        }
+        return null;
+    }
+
     private CenterClassResponse toClassResponse(TutoringClass c) {
+        String editLockReason = classEditLockReason(c);
         ClassAssignment assignment = classAssignmentRepository
                 .findFirstByApplication_TutoringClass_ClassIdAndStatus(c.getClassId(), ClassAssignmentStatus.ACTIVE)
                 .orElse(null);
@@ -1912,6 +1925,14 @@ public class CenterServiceImpl implements CenterService {
                 .maxStudents(c.getMaxStudents())
                 .minStudents(c.getMinStudents())
                 .enrolledCount(students.size())
+                .enrollmentDeadline(c.getEnrollmentDeadline())
+                // Bộ lịch đóng lớp khi enrollmentDeadline < hôm nay, tức là ghi danh còn mở
+                // đến hết ngày đó -> mốc đếm ngược là 00:00 của ngày kế tiếp.
+                .enrollmentExpiresAt(c.getEnrollmentDeadline() == null
+                        ? null
+                        : c.getEnrollmentDeadline().plusDays(1).atStartOfDay())
+                .editable(editLockReason == null)
+                .editLockReason(editLockReason)
                 .originType(findClassOrigin(c.getClassId()))
                 .contractTemplateId(findClassTemplateId(c.getClassId()))
                 .contractContent(findClassTerms(c.getClassId()))
@@ -2170,6 +2191,11 @@ public class CenterServiceImpl implements CenterService {
                 .addressDetail(location != null ? location.getAddressLine() : null)
                 .status(post.getStatus())
                 .publishedAt(post.getPublishedAt())
+                // Cùng mốc mà autoRevertStalePosts() dùng để gỡ tin về nháp, nên đồng hồ
+                // đếm ngược ở giao diện không lệch với thời điểm tin thực sự hết hạn.
+                .expiresAt(post.getPublishedAt() == null
+                        ? null
+                        : post.getPublishedAt().plusDays(RECRUIT_MAX_ACTIVE_DAYS))
                 .closedAt(post.getClosedAt())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())

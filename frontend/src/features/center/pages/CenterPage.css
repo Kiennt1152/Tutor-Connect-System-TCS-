@@ -652,6 +652,14 @@
   font-size: 18px;
   font-weight: 700;
 }
+/* Hàng nhãn dưới tiêu đề modal: trạng thái lớp + đồng hồ đếm ngược ghi danh. */
+.cc-modal__badges {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
 .cc-modal__sub {
   margin: 4px 0 0;
   color: var(--color-text-secondary);

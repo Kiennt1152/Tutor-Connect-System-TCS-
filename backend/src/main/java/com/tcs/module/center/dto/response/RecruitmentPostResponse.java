@@ -38,6 +38,11 @@ public class RecruitmentPostResponse {
 
     private RecruitmentPostStatus status;
     private LocalDateTime publishedAt;
+    /**
+     * Mốc tin hết hạn hiển thị: 30 ngày kể từ {@code publishedAt}. Quá hạn tin tự gỡ
+     * về nháp. Null khi tin chưa đăng. Dùng cho đồng hồ đếm ngược ở giao diện.
+     */
+    private LocalDateTime expiresAt;
     private LocalDateTime closedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
