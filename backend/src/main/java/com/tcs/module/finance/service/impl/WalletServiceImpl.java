@@ -255,6 +255,9 @@ public class WalletServiceImpl implements WalletService {
         if (ref.startsWith("ESCROW_RELEASE")) {
             return "ESCROW_RELEASE";
         }
+        if (ref.startsWith("PLATFORM_FEE")) {
+            return "PLATFORM_FEE";
+        }
         if (ref.startsWith("REFUND")) {
             return "REFUND";
         }

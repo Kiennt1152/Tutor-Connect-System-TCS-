@@ -6,6 +6,7 @@ import com.tcs.module.identity.repository.VerificationDocumentRepository;
 import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.profile.repository.MediaFileRepository;
 import com.tcs.security.AuthHelper;
+import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +18,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -41,20 +43,20 @@ public class FileAccessController {
 
     @GetMapping("/api/files/private/{fileId}")
     public ResponseEntity<Resource> getPrivateFile(@PathVariable Long fileId) {
-        Long userId = authHelper.currentUserId();
-
         MediaFile file = mediaFileRepo.findById(fileId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
 
-        // Only the file owner or a platform admin may access private files.
-        boolean isOwner = file.getUploadedBy() != null
-                && file.getUploadedBy().getUserId().equals(userId);
-        boolean isAdmin = authHelper.hasRole("PLATFORM_ADMIN");
+        authorizePrivateFile(file);
+        return serve(file);
+    }
 
-        if (!isOwner && !isAdmin) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
-        }
+    @GetMapping("/api/files/private/by-url")
+    public ResponseEntity<Resource> getPrivateFileByUrl(@RequestParam("url") String fileUrl) {
+        String normalizedUrl = normalizePrivateFileUrl(fileUrl);
+        MediaFile file = mediaFileRepo.findFirstByFileUrl(normalizedUrl)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "File not found"));
 
+        authorizePrivateFile(file);
         return serve(file);
     }
 
@@ -100,5 +102,44 @@ public class FileAccessController {
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR, "Failed to read file");
         }
+    }
+
+    private void authorizePrivateFile(MediaFile file) {
+        Long userId = authHelper.currentUserId();
+
+        // Only the file owner or a platform admin may access private files.
+        boolean isOwner = file.getUploadedBy() != null
+                && file.getUploadedBy().getUserId().equals(userId);
+        boolean isAdmin = authHelper.hasRole("PLATFORM_ADMIN");
+
+        if (!isOwner && !isAdmin) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        }
+    }
+
+    private String normalizePrivateFileUrl(String rawUrl) {
+        if (rawUrl == null || rawUrl.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing file URL");
+        }
+
+        String url = rawUrl.trim();
+        try {
+            if (url.startsWith("http://") || url.startsWith("https://")) {
+                url = URI.create(url).getPath();
+            }
+        } catch (IllegalArgumentException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid file URL");
+        }
+
+        int queryIndex = url.indexOf('?');
+        if (queryIndex >= 0) {
+            url = url.substring(0, queryIndex);
+        }
+
+        if (!url.startsWith("/uploads/private/")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only private upload URLs are supported");
+        }
+
+        return url;
     }
 }

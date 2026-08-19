@@ -24,7 +24,9 @@ import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
+import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.repository.MediaFileRepository;
+import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
@@ -44,10 +46,10 @@ import org.springframework.transaction.annotation.Transactional;
 public class VerificationServiceImpl implements VerificationService {
 
     /**
-     * Review flow (start-review + review + sync status) is currently disabled.
-     * Re-enable after the verification review flow is ready to ship.
+     * Review flow (start-review + review + sync status) is enabled so the
+     * platform admin can approve updated verification documents.
      */
-    private static final boolean REVIEW_FLOW_ENABLED = false;
+    private static final boolean REVIEW_FLOW_ENABLED = true;
 
     private final VerificationRequestRepository verificationRequestRepository;
     private final VerificationDocumentRepository verificationDocumentRepository;
@@ -60,6 +62,7 @@ public class VerificationServiceImpl implements VerificationService {
     private final AuthHelper authHelper;
     private final AuditLogService auditLogService;
     private final NotificationDispatchService notificationDispatchService;
+    private final PlatformAdminRepository platformAdminRepository;
 
     @Override
     @Transactional
@@ -88,8 +91,7 @@ public class VerificationServiceImpl implements VerificationService {
                     .findByUser_UserIdOrderBySubmittedAtDesc(userId).stream()
                     .filter(v -> v.getVerificationType() == request.getVerificationType())
                     .filter(v -> v.getStatus() == VerificationStatus.SUBMITTED
-                            || v.getStatus() == VerificationStatus.UNDER_REVIEW
-                            || v.getStatus() == VerificationStatus.VERIFIED)
+                            || v.getStatus() == VerificationStatus.UNDER_REVIEW)
                     .toList();
             String detail = existing.isEmpty()
                     ? ""
@@ -138,6 +140,8 @@ public class VerificationServiceImpl implements VerificationService {
 
         auditLogService.record(userId, "SUBMIT_VERIFICATION", "VerificationRequest", saved.getVerificationId(),
                 null, Map.of("verificationType", request.getVerificationType().name()));
+
+        notifyVerificationAdmins(saved, role);
 
         log.info("Verification submitted: userId={}, type={}, verificationId={}",
                 userId, request.getVerificationType(), saved.getVerificationId());
@@ -249,6 +253,9 @@ public class VerificationServiceImpl implements VerificationService {
 
         VerificationRequest saved = verificationRequestRepository.save(verification);
         recordHistory(saved, oldStatus, newStatus, admin);
+        if (newStatus == VerificationStatus.VERIFIED) {
+            rejectPreviousVerifiedRequests(saved, admin);
+        }
         syncProfileStatus(saved.getUser().getUserId(), newStatus);
         sendResultNotification(saved, newStatus);
 
@@ -309,7 +316,7 @@ public class VerificationServiceImpl implements VerificationService {
         return !verificationRequestRepository.existsByUser_UserIdAndVerificationTypeAndStatusIn(
                 userId,
                 verificationType,
-                List.of(VerificationStatus.SUBMITTED, VerificationStatus.UNDER_REVIEW, VerificationStatus.VERIFIED)
+                List.of(VerificationStatus.SUBMITTED, VerificationStatus.UNDER_REVIEW)
         );
     }
 
@@ -336,6 +343,41 @@ public class VerificationServiceImpl implements VerificationService {
         history.setNewStatus(newStatus.name());
         history.setChangedByUser(changedBy);
         verificationHistoryRepository.save(history);
+    }
+
+    private void rejectPreviousVerifiedRequests(VerificationRequest approvedRequest, User admin) {
+        if (approvedRequest.getUser() == null || approvedRequest.getVerificationType() == null) {
+            return;
+        }
+        List<VerificationRequest> previousVerifiedRequests = verificationRequestRepository
+                .findByUser_UserIdOrderBySubmittedAtDesc(approvedRequest.getUser().getUserId())
+                .stream()
+                .filter(v -> !v.getVerificationId().equals(approvedRequest.getVerificationId()))
+                .filter(v -> v.getVerificationType() == approvedRequest.getVerificationType())
+                .filter(v -> v.getStatus() == VerificationStatus.VERIFIED)
+                .toList();
+
+        if (previousVerifiedRequests.isEmpty()) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (VerificationRequest previous : previousVerifiedRequests) {
+            VerificationStatus oldStatus = previous.getStatus();
+            previous.setStatus(VerificationStatus.REJECTED);
+            previous.setReviewedAt(now);
+            previous.setAdminNotes(buildSupersededNote(approvedRequest.getVerificationId(), previous.getAdminNotes()));
+            verificationRequestRepository.save(previous);
+            recordHistory(previous, oldStatus, VerificationStatus.REJECTED, admin);
+        }
+    }
+
+    private String buildSupersededNote(Long currentVerificationId, String existingNote) {
+        String supersededNote = "Hồ sơ này đã được thay thế bởi hồ sơ xác minh mới #" + currentVerificationId;
+        if (existingNote == null || existingNote.isBlank()) {
+            return supersededNote;
+        }
+        return existingNote + "\n" + supersededNote;
     }
 
     private void syncProfileStatus(Long userId, VerificationStatus status) {
@@ -381,6 +423,57 @@ public class VerificationServiceImpl implements VerificationService {
                 content,
                 "VERIFICATION_REQUEST",
                 request.getVerificationId());
+    }
+
+    private void notifyVerificationAdmins(VerificationRequest request, UserRole requesterRole) {
+        try {
+            List<PlatformAdmin> admins = platformAdminRepository.findAll();
+            if (admins == null || admins.isEmpty()) {
+                return;
+            }
+
+            String requesterEmail = request.getUser() != null && request.getUser().getEmail() != null
+                    ? request.getUser().getEmail()
+                    : "người dùng";
+            String roleLabel = verificationRequesterRoleLabel(requesterRole);
+            String typeLabel = verificationTypeLabel(request.getVerificationType());
+            String content = roleLabel + " " + requesterEmail
+                    + " vừa gửi " + typeLabel
+                    + " #" + request.getVerificationId()
+                    + ". Vui lòng kiểm tra trong hàng đợi xác minh.";
+
+            for (PlatformAdmin admin : admins) {
+                if (admin == null || admin.getUser() == null) {
+                    continue;
+                }
+                notificationDispatchService.notifyUser(
+                        admin.getUser(),
+                        NotificationType.VERIFICATION,
+                        "Có hồ sơ xác minh mới",
+                        content,
+                        "VERIFICATION_REQUEST",
+                        request.getVerificationId());
+            }
+        } catch (RuntimeException e) {
+            log.warn("Không gửi được thông báo hồ sơ xác minh mới cho admin: verificationId={}",
+                    request.getVerificationId(), e);
+        }
+    }
+
+    private String verificationRequesterRoleLabel(UserRole role) {
+        return switch (role) {
+            case CLIENT -> "Phụ huynh/Học viên";
+            case TUTOR -> "Gia sư";
+            case TUTOR_CENTER -> "Trung tâm";
+            default -> "Người dùng";
+        };
+    }
+
+    private String verificationTypeLabel(VerificationType type) {
+        if (type == VerificationType.TUTOR_CENTER_LICENSE) {
+            return "hồ sơ xác minh trung tâm";
+        }
+        return "hồ sơ xác minh danh tính";
     }
 
     private void guardReviewFlow() {
