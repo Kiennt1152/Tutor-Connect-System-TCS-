@@ -105,7 +105,7 @@ export function SiteHeader({ active }: SiteHeaderProps) {
   const isAdmin = hasRole(role, 'PLATFORM_ADMIN');
 
   const navLinks = buildNavLinks(role);
-  // Chỉ hiển thị hai mục trang chủ (Tin tức/Đánh giá) cho khách & phụ huynh.
+  // Chỉ hiển thị mục "Đánh giá" trên thanh điều hướng cho khách & phụ huynh.
   const showHomeAnchors = isGuest || hasRole(role, 'CLIENT');
 
   return (
@@ -127,9 +127,6 @@ export function SiteHeader({ active }: SiteHeaderProps) {
           ))}
           {showHomeAnchors && (
             <>
-              <a className="tcs-header__nav-link tcs-header__nav-link--secondary" href="/#news">
-                Tin tức
-              </a>
               {/* "Đánh giá" mở trang riêng /danh-gia (danh sách gia sư + số sao). */}
               <Link
                 to={APP_ROUTES.tutorReviews}

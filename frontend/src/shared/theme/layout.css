@@ -10,7 +10,8 @@
   width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: 0 var(--space-xl);
+  /* Lề co theo bề rộng màn: máy nhỏ vẫn đủ thoáng, màn rộng thì không phí chỗ. */
+  padding: 0 clamp(16px, 1.8vw, 24px);
 }
 
 .tcs-header {

@@ -236,10 +236,6 @@
   border-bottom: 1px solid var(--color-border);
 }
 
-.tcs-section--news {
-  background: var(--color-surface-3);
-}
-
 .tcs-promo--inline {
   margin-bottom: var(--space-lg);
 }
@@ -347,48 +343,6 @@
   color: var(--color-primary-dark);
   font-size: var(--fs-body-sm);
   font-weight: 600;
-}
-
-.tcs-news-grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-md);
-}
-
-.tcs-news-card {
-  padding: var(--space-lg);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background: var(--color-surface-2);
-  box-shadow: var(--shadow-sm);
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.tcs-news-card:hover {
-  border-color: var(--color-accent-border-hover);
-  box-shadow: var(--shadow-md);
-}
-
-.tcs-news-card__date {
-  display: block;
-  margin-bottom: var(--space-sm);
-  font-size: var(--fs-body-sm);
-  color: var(--color-text-secondary);
-}
-
-.tcs-news-card__title {
-  margin: 0 0 var(--space-sm);
-  font-size: var(--fs-h4);
-  font-weight: 700;
-  color: var(--color-text-primary);
-  line-height: 1.35;
-}
-
-.tcs-news-card__excerpt {
-  margin: 0;
-  font-size: var(--fs-body-sm);
-  color: var(--color-text-secondary);
-  line-height: 1.55;
 }
 
 .tcs-hero__panel {
@@ -520,9 +474,7 @@
   .tcs-grid--steps {
     grid-template-columns: repeat(2, 1fr);
   }
-
-  .tcs-center-grid,
-  .tcs-news-grid {
+.tcs-center-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
@@ -539,9 +491,7 @@
   .tcs-grid--steps {
     grid-template-columns: 1fr;
   }
-
-  .tcs-center-grid,
-  .tcs-news-grid {
+.tcs-center-grid {
     grid-template-columns: 1fr;
   }
 
@@ -569,4 +519,896 @@
   font-size: 11px;
   font-weight: 700;
   line-height: 1;
+}
+
+/* =====================================================================
+   Lớp trau chuốt giao diện trang chủ
+   Chỉ animate transform/opacity để không gây reflow khi cuộn.
+   ===================================================================== */
+
+/* ---------- 1. Hero: một dải cam chuyển mượt, không chồng lớp ----------
+   Trước đây tôi xếp nhiều radial-gradient lên nhau nên nền bị loang thành từng mảng.
+   Nay chỉ còn MỘT dải chuyển theo chiều dọc với nhiều điểm dừng gần nhau, cộng một
+   lớp phủ dịch chuyển rất chậm để nền không chết cứng mà vẫn liền mạch. */
+.tcs-home-hero {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(
+    177deg,
+    #ffe4c9 0%,
+    #ffedd5 18%,
+    #fff3e6 36%,
+    #fff7ed 54%,
+    #fffaf4 72%,
+    var(--color-surface-1) 100%
+  );
+}
+
+/* Lớp phủ trôi ngang cực chậm — cùng hệ cam, độ trong suốt thấp nên chỉ thấy
+   màu "thở" nhè nhẹ chứ không thành vệt hay đốm. */
+.tcs-home-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    100deg,
+    rgba(255, 255, 255, 0) 0%,
+    rgba(255, 237, 213, 0.55) 26%,
+    rgba(253, 186, 116, 0.18) 50%,
+    rgba(255, 237, 213, 0.55) 74%,
+    rgba(255, 255, 255, 0) 100%
+  );
+  background-size: 260% 100%;
+  animation: tcs-wash 26s ease-in-out infinite alternate;
+}
+
+@keyframes tcs-wash {
+  from { background-position: 0% 50%; }
+  to   { background-position: 100% 50%; }
+}
+
+.tcs-home-hero > .tcs-container {
+  position: relative;
+  z-index: 1;
+}
+
+.tcs-hero__panel {
+  position: relative;
+}
+
+.tcs-hero__intro,
+.tcs-hero__panel > .tcs-search-block {
+  position: relative;
+  z-index: 1;
+}
+
+/* Hero xuất hiện ngay khi vào trang */
+.tcs-hero__intro > * {
+  animation: tcs-rise 0.55s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.tcs-hero__intro > *:nth-child(2) { animation-delay: 70ms; }
+.tcs-hero__intro > *:nth-child(3) { animation-delay: 140ms; }
+.tcs-hero__intro > *:nth-child(4) { animation-delay: 210ms; }
+
+@keyframes tcs-rise {
+  from { opacity: 0; transform: translate3d(0, 14px, 0); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Chip môn học nảy nhẹ khi rê chuột */
+.tcs-hero__subjects .tcs-chip {
+  transition: transform 0.18s cubic-bezier(0.22, 1, 0.36, 1),
+              background-color 0.18s ease, border-color 0.18s ease;
+}
+.tcs-hero__subjects .tcs-chip:hover {
+  transform: translateY(-2px);
+  border-color: var(--color-accent-border-hover);
+}
+
+/* ---------- 2. Hiện dần khi cuộn tới ---------- */
+[data-reveal] {
+  opacity: 0;
+  transform: translate3d(0, 18px, 0);
+  transition: opacity 0.5s ease, transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: opacity, transform;
+}
+[data-reveal].is-visible {
+  opacity: 1;
+  transform: none;
+  will-change: auto;
+}
+/* Thẻ trong danh sách hiện lệch nhau tạo nhịp */
+[data-reveal] .tcs-listing-grid > *,
+[data-reveal] .tcs-class-list > *,
+[data-reveal] .tcs-center-grid > * {
+  opacity: 0;
+  transform: translate3d(0, 12px, 0);
+  transition: opacity 0.45s ease, transform 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+}
+[data-reveal].is-visible .tcs-listing-grid > *,
+[data-reveal].is-visible .tcs-class-list > *,
+[data-reveal].is-visible .tcs-center-grid > * {
+  opacity: 1;
+  transform: none;
+}
+[data-reveal].is-visible :is(.tcs-listing-grid, .tcs-class-list, .tcs-center-grid) > *:nth-child(1) { transition-delay: 0ms; }
+[data-reveal].is-visible :is(.tcs-listing-grid, .tcs-class-list, .tcs-center-grid) > *:nth-child(2) { transition-delay: 60ms; }
+[data-reveal].is-visible :is(.tcs-listing-grid, .tcs-class-list, .tcs-center-grid) > *:nth-child(3) { transition-delay: 120ms; }
+[data-reveal].is-visible :is(.tcs-listing-grid, .tcs-class-list, .tcs-center-grid) > *:nth-child(4) { transition-delay: 180ms; }
+[data-reveal].is-visible :is(.tcs-listing-grid, .tcs-class-list, .tcs-center-grid) > *:nth-child(5) { transition-delay: 240ms; }
+[data-reveal].is-visible :is(.tcs-listing-grid, .tcs-class-list, .tcs-center-grid) > *:nth-child(n + 6) { transition-delay: 300ms; }
+/* ---------- 3. Thẻ nổi khối khi rê chuột ---------- */
+.tcs-listing-card,
+.tcs-class-card,
+.tcs-center-card {
+  transition: transform 0.25s cubic-bezier(0.22, 1, 0.36, 1),
+              box-shadow 0.25s ease, border-color 0.2s ease;
+}
+.tcs-listing-card:hover,
+.tcs-class-card:hover,
+.tcs-center-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.11);
+  border-color: var(--color-accent-border-hover);
+}
+
+.tcs-listing-card__avatar {
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tcs-listing-card:hover .tcs-listing-card__avatar {
+  transform: scale(1.07);
+}
+
+/* Vệt sáng chạy ngang mép trên thẻ gia sư khi rê chuột */
+.tcs-listing-card {
+  position: relative;
+  overflow: hidden;
+}
+.tcs-listing-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--color-primary-dark), var(--color-primary) 55%, #fdba74);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.tcs-listing-card:hover::before {
+  transform: scaleX(1);
+}
+
+/* ---------- 4. Khung xương lúc tải ---------- */
+.tcs-skel {
+  display: block;
+  background: linear-gradient(90deg, #eef2f7 25%, #f8fafc 37%, #eef2f7 63%);
+  background-size: 400% 100%;
+  animation: tcs-shimmer 1.4s ease infinite;
+  border-radius: var(--radius-sm, 6px);
+  height: 12px;
+  margin-bottom: 8px;
+}
+.tcs-skel--title { height: 22px; width: 190px; margin-bottom: 12px; }
+.tcs-skel--line  { height: 11px; }
+.tcs-skel--avatar { width: 52px; height: 52px; border-radius: 50%; margin: 0; flex: none; }
+.tcs-skel--chip  { height: 22px; width: 74px; border-radius: 999px; margin: 0; }
+
+@keyframes tcs-shimmer {
+  0%   { background-position: 100% 0; }
+  100% { background-position: -100% 0; }
+}
+
+.tcs-skel-card {
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+}
+.tcs-skel-card__top {
+  display: flex;
+  gap: var(--space-md);
+  align-items: center;
+  margin-bottom: var(--space-md);
+}
+.tcs-skel-card__ident { flex: 1; }
+.tcs-skel-card__chips {
+  display: flex;
+  gap: 8px;
+  margin-top: var(--space-md);
+}
+
+.tcs-visually-hidden {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- 5. Tôn trọng thiết lập giảm chuyển động ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .tcs-home-hero::before,
+  .tcs-hero__panel::after { animation: none; }
+
+  .tcs-hero__intro > *,
+  .tcs-skel { animation: none; }
+
+  [data-reveal],
+  [data-reveal] :is(.tcs-listing-grid, .tcs-class-list, .tcs-center-grid) > * {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  .tcs-listing-card:hover,
+  .tcs-class-card:hover,
+  .tcs-center-card:hover { transform: none; }
+}
+
+/* Khi in: không được để nội dung ở opacity 0 */
+@media print {
+  [data-reveal],
+  [data-reveal] :is(.tcs-listing-grid, .tcs-class-list, .tcs-center-grid) > * {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+/* Lưới an toàn: hiện ngay không qua transition, dùng khi IntersectionObserver
+   không hoạt động (tab ẩn, trình duyệt cũ, công cụ chụp ảnh tự động). */
+[data-reveal].tcs-reveal-instant,
+[data-reveal].tcs-reveal-instant :is(.tcs-listing-grid, .tcs-class-list, .tcs-center-grid) > * {
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+}
+
+/* =====================================================================
+   Lớp hiệu ứng nâng cao — toàn bộ dùng hệ cam thương hiệu
+   ===================================================================== */
+
+/* Đã bỏ lớp "cực quang" 3 khối radial ở đây: chồng nhiều vùng sáng lên nhau làm
+   nền hiện thành từng mảng loang. Chuyển động của nền giờ do một dải phủ duy nhất
+   ở .tcs-home-hero::before đảm nhiệm — mượt và liền màu. */
+
+/* Đường viền dưới hero chuyển dần thay vì cắt ngang bằng một nét đậm */
+.tcs-home-hero {
+  border-bottom: 0;
+}
+.tcs-home-hero::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 96px;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0) 0%, var(--color-surface-1) 100%);
+}
+
+/* ---------- Tiêu đề hero: vệt sáng cam quét qua một lần ---------- */
+@supports ((-webkit-background-clip: text) or (background-clip: text)) {
+  .tcs-hero__title {
+    background-image: linear-gradient(
+      100deg,
+      var(--color-text-primary) 0%,
+      var(--color-text-primary) 42%,
+      var(--color-primary) 50%,
+      var(--color-text-primary) 58%,
+      var(--color-text-primary) 100%
+    );
+    background-size: 280% 100%;
+    background-position: 100% 0;
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: tcs-title-shine 2.2s cubic-bezier(0.4, 0, 0.2, 1) 0.35s 1 both;
+  }
+}
+
+@keyframes tcs-title-shine {
+  from { background-position: 100% 0; }
+  to   { background-position: 0 0; }
+}
+
+/* ---------- Ô tìm kiếm: viền sáng cam xoay khi đang nhập ---------- */
+.tcs-search {
+  position: relative;
+}
+.tcs-search::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: inherit;
+  padding: 2px;
+  background: conic-gradient(
+    from var(--tcs-ring-angle, 0deg),
+    transparent 0deg,
+    var(--color-primary) 70deg,
+    #fdba74 130deg,
+    transparent 200deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+.tcs-search:focus-within::before {
+  opacity: 1;
+  animation: tcs-ring-spin 2.4s linear infinite;
+}
+
+@property --tcs-ring-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes tcs-ring-spin {
+  to { --tcs-ring-angle: 360deg; }
+}
+
+/* ---------- Đèn rọi cam đi theo con trỏ trên thẻ ---------- */
+.tcs-listing-card::after,
+.tcs-class-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.28s ease;
+  background: radial-gradient(
+    240px circle at var(--tcs-mx, 50%) var(--tcs-my, 50%),
+    rgba(234, 88, 12, 0.13) 0%,
+    rgba(234, 88, 12, 0.05) 35%,
+    transparent 65%
+  );
+}
+.tcs-class-card { position: relative; overflow: hidden; }
+.tcs-listing-card:hover::after,
+.tcs-class-card:hover::after { opacity: 1; }
+
+/* ---------- Gạch chân cam vẽ ra ở tiêu đề mục ---------- */
+.tcs-section-bar__title {
+  position: relative;
+  display: inline-block;
+  padding-bottom: 6px;
+}
+.tcs-section-bar__title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  width: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--color-primary), #fdba74);
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
+}
+[data-reveal].is-visible .tcs-section-bar__title::after { transform: scaleX(1); }
+.tcs-reveal-instant .tcs-section-bar__title::after { transform: scaleX(1); transition: none; }
+
+/* ---------- Chip môn học bật lên lần lượt ---------- */
+.tcs-hero__subjects .tcs-chip {
+  animation: tcs-chip-pop 0.42s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+.tcs-hero__subjects .tcs-chip:nth-child(1) { animation-delay: 0.30s; }
+.tcs-hero__subjects .tcs-chip:nth-child(2) { animation-delay: 0.36s; }
+.tcs-hero__subjects .tcs-chip:nth-child(3) { animation-delay: 0.42s; }
+.tcs-hero__subjects .tcs-chip:nth-child(4) { animation-delay: 0.48s; }
+.tcs-hero__subjects .tcs-chip:nth-child(5) { animation-delay: 0.54s; }
+.tcs-hero__subjects .tcs-chip:nth-child(n + 6) { animation-delay: 0.60s; }
+
+@keyframes tcs-chip-pop {
+  from { opacity: 0; transform: translate3d(0, 8px, 0) scale(0.94); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ---------- Nhịp thở nhẹ ở con số thống kê ---------- */
+.tcs-stat__value {
+  background: linear-gradient(180deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* ---------- Tôn trọng giảm chuyển động ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .tcs-home-hero::after,
+  .tcs-hero__subjects .tcs-chip,
+  .tcs-search:focus-within::before { animation: none; }
+
+  .tcs-hero__title {
+    animation: none;
+    background-image: none;
+    -webkit-text-fill-color: var(--color-text-primary);
+  }
+
+  .tcs-section-bar__title::after { transform: scaleX(1); transition: none; }
+
+  .tcs-listing-card::after,
+  .tcs-class-card::after { display: none; }
+}
+
+/* Chế độ tương phản cao của hệ điều hành: chữ tô bằng gradient sẽ mất hút,
+   nên trả lại màu chữ đặc cho tiêu đề và con số. */
+@media (forced-colors: active) {
+  .tcs-hero__title,
+  .tcs-stat__value {
+    background-image: none;
+    -webkit-text-fill-color: currentColor;
+    animation: none;
+  }
+  .tcs-search::before,
+  .tcs-listing-card::after,
+  .tcs-class-card::after,
+  .tcs-home-hero::before { display: none; }
+}
+
+/* =====================================================================
+   Bố cục hero mới: dồn về giữa, ô tìm kiếm là tâm điểm
+   ===================================================================== */
+.tcs-home-hero {
+  padding-bottom: 0;
+}
+
+.tcs-hero__panel {
+  grid-template-columns: 1fr;
+  justify-items: center;
+  gap: var(--space-lg);
+  max-width: 860px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.tcs-hero__intro {
+  padding-top: 0;
+  max-width: 720px;
+}
+
+.tcs-hero__title {
+  font-size: clamp(30px, 4.6vw, 50px);
+  line-height: 1.12;
+  letter-spacing: -0.025em;
+  margin-bottom: var(--space-md);
+}
+
+.tcs-hero__subtitle {
+  font-size: clamp(15px, 1.5vw, 18px);
+  max-width: 620px;
+  margin: 0 auto;
+}
+
+.tcs-hero__stats {
+  justify-content: center;
+  gap: clamp(var(--space-lg), 6vw, var(--space-2xl));
+  margin-top: var(--space-lg);
+}
+
+.tcs-stat { align-items: center; }
+
+.tcs-hero__panel > .tcs-search-block {
+  width: 100%;
+  max-width: 760px;
+}
+
+.tcs-hero__subjects {
+  text-align: center;
+  border-top: 0;
+  padding-top: 0;
+  margin-top: var(--space-md);
+}
+.tcs-hero__subjects .tcs-chips {
+  justify-content: center;
+}
+
+@media (max-width: 720px) {
+  .tcs-hero__title { font-size: clamp(26px, 7vw, 34px); }
+  .tcs-hero__stats { gap: var(--space-lg); }
+}
+
+/* =====================================================================
+   Hero v2: chữ trái — ảnh phải, gọn chiều cao hơn
+   (đè lên khối "hero căn giữa" ở trên)
+   ===================================================================== */
+.tcs-home-hero {
+  padding-top: var(--space-lg);
+}
+
+.tcs-hero__panel {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr);
+  align-items: center;
+  justify-items: stretch;
+  gap: clamp(var(--space-lg), 4vw, var(--space-2xl));
+  max-width: none;
+  margin: 0;
+  text-align: left;
+}
+
+.tcs-hero__intro {
+  max-width: 560px;
+  text-align: left;
+}
+
+/* Nhỏ lại so với bản trước (50px -> 40px) */
+.tcs-hero__title {
+  font-size: clamp(27px, 3.3vw, 40px);
+  line-height: 1.14;
+  margin-bottom: var(--space-sm);
+}
+
+.tcs-hero__subtitle {
+  font-size: clamp(14px, 1.15vw, 16px);
+  max-width: 500px;
+  margin: 0;
+}
+
+.tcs-hero__stats {
+  justify-content: flex-start;
+  gap: var(--space-xl);
+  margin-top: var(--space-md);
+}
+.tcs-stat { align-items: flex-start; }
+.tcs-stat__value { font-size: var(--fs-h3); }
+
+.tcs-hero__search-row {
+  margin-top: var(--space-lg);
+}
+.tcs-hero__search-row .tcs-search-block {
+  max-width: none;
+}
+
+.tcs-hero__subjects {
+  text-align: left;
+  margin-top: var(--space-md);
+}
+.tcs-hero__subjects .tcs-chips { justify-content: flex-start; }
+
+/* ---------- Khung ảnh chuyển cảnh ---------- */
+.tcs-hero-media {
+  position: relative;
+}
+
+.tcs-hero-media__frame {
+  position: relative;
+  aspect-ratio: 16 / 10;
+  border-radius: 20px;
+  overflow: hidden;
+  background: var(--color-primary-light);
+  box-shadow: 0 18px 44px rgba(124, 45, 18, 0.16);
+}
+
+.tcs-hero-media__img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transform: scale(1.06);
+  transition: opacity 1.1s ease;
+}
+
+.tcs-hero-media__img.is-active {
+  opacity: 1;
+  /* Phóng chậm suốt thời gian ảnh hiển thị — hiệu ứng Ken Burns */
+  animation: tcs-kenburns 6.5s ease-out forwards;
+}
+
+@keyframes tcs-kenburns {
+  from { transform: scale(1.02); }
+  to   { transform: scale(1.09); }
+}
+
+/* Lớp cam nhạt kéo ảnh về tông thương hiệu */
+.tcs-hero-media__tint {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(124, 45, 18, 0) 45%, rgba(124, 45, 18, 0.38) 100%),
+    linear-gradient(120deg, rgba(234, 88, 12, 0.16) 0%, rgba(234, 88, 12, 0) 55%);
+}
+
+.tcs-hero-media__dots {
+  position: absolute;
+  left: 16px;
+  bottom: 14px;
+  display: flex;
+  gap: 7px;
+  z-index: 1;
+}
+
+.tcs-hero-media__dot {
+  width: 8px;
+  height: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+.tcs-hero-media__dot.is-active {
+  width: 22px;
+  background: var(--color-white);
+}
+
+@media (max-width: 900px) {
+  .tcs-hero__panel {
+    grid-template-columns: 1fr;
+  }
+  .tcs-hero-media { order: -1; }
+  .tcs-hero-media__frame { aspect-ratio: 16 / 9; }
+  .tcs-hero__intro { max-width: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tcs-hero-media__img.is-active { animation: none; transform: none; }
+  .tcs-hero-media__img { transition: none; }
+}
+
+/* ---------- Thu gọn chiều cao phần trên ---------- */
+.tcs-home-hero {
+  padding-top: var(--space-md);
+}
+
+.tcs-hero-media__frame {
+  aspect-ratio: 16 / 9;
+}
+
+.tcs-hero__search-row {
+  margin-top: var(--space-md);
+}
+
+/* ---------- Ô tìm kiếm gọn, nằm ngay dưới đoạn chào ở cột trái ---------- */
+.tcs-hero__col {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  min-width: 0;
+}
+
+.tcs-hero__search-row {
+  margin-top: 0;
+  max-width: 520px;
+}
+
+/* Nhỏ lại: bớt padding, bo nhẹ hơn, đổ bóng dịu */
+.tcs-hero__search-row .tcs-search {
+  padding: 14px;
+  gap: 10px;
+  border-radius: 14px;
+  box-shadow: 0 6px 18px rgba(15, 23, 42, 0.07);
+}
+
+.tcs-hero__search-row .tcs-search__fields {
+  gap: 10px;
+}
+
+.tcs-hero__search-row .tcs-search__label {
+  font-size: var(--fs-label);
+}
+
+.tcs-hero__search-row .tcs-search__field {
+  height: 38px;
+  font-size: var(--fs-body-sm);
+}
+
+/* Nút không kéo hết chiều ngang nữa — vừa đủ chữ, nằm bên phải */
+.tcs-hero__search-row .tcs-search__btn {
+  width: auto;
+  min-width: 132px;
+  height: 38px;
+  align-self: flex-end;
+  padding: 0 var(--space-lg);
+  font-size: var(--fs-body-sm);
+}
+
+@media (max-width: 900px) {
+  .tcs-hero__search-row { max-width: none; }
+}
+
+@media (max-width: 560px) {
+  .tcs-hero__search-row .tcs-search__fields { grid-template-columns: 1fr; }
+  .tcs-hero__search-row .tcs-search__btn { width: 100%; align-self: stretch; }
+}
+
+/* ---------- Ô tìm kiếm: dồn tất cả về một hàng cho gọn ---------- */
+.tcs-hero__search-row .tcs-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 10px;
+  padding: 14px;
+}
+
+/* Bỏ lớp bọc trung gian để hai ô nhập trở thành ô lưới trực tiếp,
+   nhờ vậy nút nằm cùng hàng thay vì bị đẩy xuống dòng riêng. */
+.tcs-hero__search-row .tcs-search__fields {
+  display: contents;
+}
+
+.tcs-hero__search-row .tcs-search__label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+
+.tcs-hero__search-row .tcs-search__btn {
+  width: auto;
+  min-width: 112px;
+  height: 38px;
+  align-self: end;
+  padding: 0 var(--space-md);
+  font-size: var(--fs-body-sm);
+  white-space: nowrap;
+}
+
+@media (max-width: 620px) {
+  .tcs-hero__search-row .tcs-search {
+    grid-template-columns: 1fr;
+  }
+  .tcs-hero__search-row .tcs-search__btn {
+    width: 100%;
+    margin-top: 2px;
+  }
+}
+
+/* ---------- Cân lại hai cột: chữ gọn bên trái, ảnh rộng hơn ---------- */
+.tcs-hero__panel {
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+}
+
+.tcs-hero__intro {
+  max-width: 100%;
+}
+
+.tcs-hero__subtitle {
+  max-width: 100%;
+}
+
+/* Ô tìm kiếm bám theo bề rộng cột trái, không đặt bề rộng cứng nữa */
+.tcs-hero__search-row {
+  max-width: 100%;
+}
+
+/* Cột trái hẹp lại thì nút dễ bị bóp — cho ô nhập co được và nút giữ nguyên cỡ */
+.tcs-hero__search-row .tcs-search {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+}
+
+@media (max-width: 1080px) {
+  /* Chỗ này cột trái đã khá hẹp: cho ô nhập xuống 2 dòng thay vì bóp nát */
+  .tcs-hero__search-row .tcs-search {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+  .tcs-hero__search-row .tcs-search__btn {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+@media (max-width: 900px) {
+  .tcs-hero__panel { grid-template-columns: 1fr; }
+}
+
+/* ---------- Khung ảnh: giữ bề ngang, hạ chiều cao ---------- */
+.tcs-hero-media__frame {
+  aspect-ratio: 2 / 1;
+}
+
+/* Cắt ảnh lệch lên trên một chút để khỏi mất mặt người khi khung thấp lại */
+.tcs-hero-media__img {
+  object-position: center 38%;
+}
+
+@media (max-width: 900px) {
+  .tcs-hero-media__frame { aspect-ratio: 16 / 9; }
+}
+
+/* Hạ chiều cao ảnh thêm một bậc nữa */
+.tcs-hero-media__frame {
+  aspect-ratio: 2.4 / 1;
+}
+.tcs-hero-media__img {
+  object-position: center 34%;
+}
+
+/* ---------- Giữ mặt người khi khung ảnh dẹt ----------
+   Ảnh gốc 3:2 ép vào khung 2.4:1 nên bị xén ~176px chiều cao. Canh giữa sẽ ăn mất
+   phần đầu của người đứng phía sau. Neo vào mép trên: phần bị cắt dồn hết xuống dưới
+   (mặt bàn, ghế) — chỗ không quan trọng. */
+.tcs-hero-media__img {
+  object-position: center top;
+  /* Phóng Ken Burns cũng nở xuống dưới thay vì nở đều ra hai phía */
+  transform-origin: center top;
+}
+
+/* =====================================================================
+   Thẻ gia sư ở mục "Tìm gia sư": nhỏ và gọn hơn
+   Chỉ áp trong mục này để không ảnh hưởng thẻ ở trang kết quả tìm kiếm.
+   ===================================================================== */
+
+/* Nhiều cột hơn thay vì 2 thẻ to chiếm hết bề ngang */
+.tcs-section--tutors .tcs-listing-grid {
+  grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+  gap: 14px;
+}
+
+.tcs-section--tutors .tcs-listing-card {
+  gap: 10px;
+  padding: 14px;
+  border-radius: 14px;
+}
+
+/* Đầu thẻ */
+.tcs-section--tutors .tcs-listing-card__top {
+  gap: 10px;
+}
+.tcs-section--tutors .tcs-listing-card__profile {
+  gap: 10px;
+}
+.tcs-section--tutors .tcs-listing-card__avatar {
+  width: 40px;
+  height: 40px;
+  font-size: var(--fs-body-sm);
+}
+.tcs-section--tutors .tcs-listing-card__name {
+  font-size: var(--fs-body-lg);
+}
+.tcs-section--tutors .tcs-listing-card__badge {
+  margin-top: 2px;
+  padding: 1px 7px;
+}
+.tcs-section--tutors .tcs-listing-card__price-value {
+  font-size: var(--fs-h4);
+}
+.tcs-section--tutors .tcs-listing-card__price-unit {
+  font-size: var(--fs-badge);
+}
+
+/* Ba dòng thông tin: bỏ viền đứt trên/dưới, thu khoảng cách */
+.tcs-section--tutors .tcs-listing-card__meta {
+  gap: 3px;
+  padding: 8px 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 0;
+}
+.tcs-section--tutors .tcs-listing-card__row {
+  gap: var(--space-sm);
+  font-size: var(--fs-body-sm);
+  line-height: 1.45;
+}
+
+/* Mô tả gọn còn 2 dòng */
+.tcs-section--tutors .tcs-listing-card__bio {
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  line-height: 1.45;
+}
+
+/* Chân thẻ */
+.tcs-section--tutors .tcs-listing-card__status {
+  padding: 3px 9px;
+  font-size: var(--fs-badge);
+}
+.tcs-section--tutors .tcs-listing-card__foot .tcs-btn {
+  height: 32px;
+  padding: 0 12px;
+  font-size: var(--fs-body-sm);
+}
+
+@media (max-width: 640px) {
+  .tcs-section--tutors .tcs-listing-grid {
+    grid-template-columns: 1fr;
+  }
 }
