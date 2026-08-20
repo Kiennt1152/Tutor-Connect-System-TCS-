@@ -46,6 +46,8 @@ import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.enums.OtpPurpose;
 import com.tcs.module.identity.repository.EmailOtpRepository;
 import com.tcs.module.identity.repository.UserRepository;
+import com.tcs.module.identity.service.OtpService;
+import com.tcs.module.identity.service.OtpVerifyPolicy;
 import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
 import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
 import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
@@ -110,7 +112,6 @@ import com.tcs.module.profile.service.ClientLegalAccountService;
 import com.tcs.security.AuthHelper;
 import com.tcs.security.UserPrincipal;
 import java.math.BigDecimal;
-import java.security.SecureRandom;
 import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -203,6 +204,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final ContractService contractService;
     private final LessonReminderService lessonReminderService;
     private final EmailOtpRepository emailOtpRepository;
+    private final OtpService otpService;
     private final com.tcs.module.notification.service.EmailService contractEmailService;
     private final org.springframework.context.ApplicationEventPublisher eventPublisher;
     private final ObjectMapper objectMapper = new ObjectMapper();
@@ -210,8 +212,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     /** Số ngày hiển thị lớp OPEN trước khi hết hạn và bị xóa. */
     private static final long CLASS_DISPLAY_DAYS = 30;
 
-    private static final SecureRandom SIGN_OTP_RANDOM = new SecureRandom();
-    private static final int SIGN_OTP_EXPIRE_SECONDS = 30;
+    private static final int SIGN_OTP_EXPIRE_SECONDS = 300;
     private static final int SIGN_OTP_MAX_ATTEMPTS = 5;
     private static final int SIGN_OTP_LOCK_MINUTES = 5;
 
@@ -236,6 +237,39 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         List<TutoringClass> classes =
                 status != null ? tutoringClassRepository.findByStatus(status) : tutoringClassRepository.findAll();
         return classes.stream().map(c -> toClassResponse(c, null, null)).toList();
+    }
+
+    /**
+     * Danh sách tin hiển thị ở bảng "Danh sách tin đã đăng".
+     *
+     * <p>Tin chỉ được gỡ xuống khi thủ tục nhận lớp đã HOÀN TẤT: hai bên ký xong hợp đồng VÀ
+     * khoản cọc (học phí tháng đầu) đã vào escrow. Vì vậy ngoài lớp đang mở (OPEN), danh sách còn
+     * giữ lại lớp đã chọn gia sư (MATCHED) nhưng chưa ký đủ / chưa chuyển cọc.</p>
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassResponse> listBoardClasses() {
+        return tutoringClassRepository
+                .findByStatusIn(List.of(TutoringClassStatus.OPEN, TutoringClassStatus.MATCHED)).stream()
+                .filter(c -> c.getStatus() == TutoringClassStatus.OPEN || !handoverCompleted(c))
+                .map(c -> toClassResponse(c, null, null))
+                .toList();
+    }
+
+    /** Hai bên đã ký hợp đồng và tiền cọc đã nằm trong escrow hay chưa. */
+    private boolean handoverCompleted(TutoringClass c) {
+        ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(c.getClassId())
+                .orElse(null);
+        if (assignment == null
+                || assignment.getTutorSignedAt() == null
+                || assignment.getClientSignedAt() == null) {
+            return false;
+        }
+        return escrowTransactionRepository
+                .findByAssignment_AssignmentId(assignment.getAssignmentId())
+                .filter(e -> e.getStatus() != EscrowStatus.PENDING)
+                .isPresent();
     }
 
     @Override
@@ -420,6 +454,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     "Bạn đã ứng tuyển lớp này rồi. Mỗi lớp chỉ nộp được một đơn.");
         }
         Map<String, BigDecimal> rates = resolveProposedRates(request, tutoringClass);
+
+        // Không cho nộp đơn khi lịch lớp chồng giờ với buổi dạy sẵn có của chính gia sư này.
+        // Chỉ tính các buổi CHƯA kết thúc — qua giờ buổi cũ là gia sư ứng tuyển lại được.
+        String conflict = scheduleConflictOf(
+                tutoringClass, tutor, rates.isEmpty() ? null : rates.keySet());
+        if (conflict != null) {
+            throw new IllegalArgumentException("Bạn đã có lịch dạy " + conflict
+                    + " trùng với lịch của lớp này nên chưa thể ứng tuyển."
+                    + " Sau khi buổi dạy đó kết thúc, bạn có thể ứng tuyển lại.");
+        }
 
         TutorApplication application = existing != null ? existing : new TutorApplication();
         application.setTutoringClass(tutoringClass);
@@ -635,6 +679,18 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                             : TutorApplicationStatus.REJECTED);
             app.setReviewedAt(LocalDateTime.now());
         }
+        // Chặn trùng lịch NGAY TẠI ĐÂY — lúc chưa có hợp đồng và chưa ai chuyển tiền. Nếu để lọt
+        // xuống bước kích hoạt lớp (sau khi đã nạp escrow) thì lỗi sẽ làm hỏng cả giao dịch nạp tiền.
+        Map<String, BigDecimal> chosenRates = readRates(chosen.getProposedRatesJson());
+        String conflict = scheduleConflictOf(
+                tutoringClass,
+                chosen.getTutor(),
+                chosenRates == null || chosenRates.isEmpty() ? null : chosenRates.keySet());
+        if (conflict != null) {
+            throw new IllegalArgumentException("Gia sư này đã bận dạy " + conflict
+                    + ", trùng với lịch của lớp. Vui lòng chọn gia sư khác hoặc đổi lịch lớp.");
+        }
+
         applyTutorRatesToClass(tutoringClass, chosen);
         tutoringClass.setStatus(TutoringClassStatus.MATCHED);
         tutoringClassRepository.save(tutoringClass);
@@ -868,9 +924,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
     private void activateAssignment(ClassAssignment assignment) {
         TutoringClass tutoringClass = assignment.getApplication().getTutoringClass();
+        generateSchedule(tutoringClass, assignment.getTutor(), acceptedSubjectKeys(assignment));
         assignment.setStatus(ClassAssignmentStatus.ACTIVE);
         classAssignmentRepository.save(assignment);
-        generateSchedule(tutoringClass, assignment.getTutor(), acceptedSubjectKeys(assignment));
         tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
         tutoringClassRepository.save(tutoringClass);
     }
@@ -1113,20 +1169,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                         }
                     }
                 });
-        emailOtpRepository
-                .findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(email, OtpPurpose.CONTRACT_SIGNING)
-                .ifPresent(prev -> {
-                    prev.setConsumedAt(LocalDateTime.now());
-                    emailOtpRepository.save(prev);
-                });
-        EmailOtp otp = new EmailOtp();
-        otp.setEmail(email);
-        otp.setCode(String.format("%06d", SIGN_OTP_RANDOM.nextInt(1_000_000)));
-        otp.setPurpose(OtpPurpose.CONTRACT_SIGNING);
-        otp.setExpiresAt(LocalDateTime.now().plusSeconds(SIGN_OTP_EXPIRE_SECONDS));
-        otp.setAttempts(0);
-        otp.setLastSentAt(LocalDateTime.now());
-        emailOtpRepository.save(otp);
+        EmailOtp otp = otpService.issue(
+                email, OtpPurpose.CONTRACT_SIGNING, 6, Duration.ofSeconds(SIGN_OTP_EXPIRE_SECONDS));
         try {
             contractEmailService.sendEmail(
                     email,
@@ -1155,7 +1199,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                       <span style="display:inline-block;font-size:32px;font-weight:700;letter-spacing:8px;\
                 color:#1565c0;background:#eff6ff;padding:14px 24px;border-radius:12px">%s</span>
                     </div>
-                    <p style="margin:0 0 8px;color:#dc2626;font-weight:600">Mã chỉ có hiệu lực trong 30 giây.</p>
+                    <p style="margin:0 0 8px;color:#dc2626;font-weight:600">Mã chỉ có hiệu lực trong 5 phút.</p>
                     <p style="margin:0;color:#64748b">Nếu hết hạn, hãy bấm "Gửi lại mã" để nhận mã mới. Không chia sẻ mã cho bất kỳ ai.</p>
                   </div>
                 </div>
@@ -1280,9 +1324,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         signature.setSignedAt(signedAt);
         signature.setSignatureStatus(ContractSignatureStatus.SIGNED);
         signature.setSignatureData("MARKETPLACE_OTP_VERIFIED:" + signer.getEmail() + ":" + signedAt);
-        signature.setOtpCode(null);
-        signature.setOtpExpiresAt(null);
-        signature.setOtpAttempts(0);
         contractSignatureRepository.save(signature);
     }
 
@@ -1481,33 +1522,23 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     private void verifySignOtp(String email, String code) {
-        if (!StringUtils.hasText(code)) {
-            throw new IllegalArgumentException("Vui lòng nhập mã OTP đã gửi tới email của bạn.");
-        }
-        EmailOtp otp = emailOtpRepository
-                .findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(email, OtpPurpose.CONTRACT_SIGNING)
-                .orElseThrow(() -> new IllegalArgumentException("Mã OTP không tồn tại. Vui lòng bấm gửi lại mã."));
-        if (otp.isExpired()) {
-            throw new IllegalArgumentException("Mã OTP đã hết hạn. Vui lòng bấm gửi lại mã.");
-        }
-        if (otp.getAttempts() >= SIGN_OTP_MAX_ATTEMPTS) {
-            throw new IllegalArgumentException("Bạn đã nhập sai mã quá " + SIGN_OTP_MAX_ATTEMPTS
-                    + " lần. Vui lòng đợi " + SIGN_OTP_LOCK_MINUTES + " phút rồi gửi lại mã.");
-        }
-        if (!otp.getCode().equals(code.trim())) {
-            otp.setAttempts(otp.getAttempts() + 1);
-            if (otp.getAttempts() >= SIGN_OTP_MAX_ATTEMPTS) {
-                otp.setConsumedAt(LocalDateTime.now());
-            }
-            emailOtpRepository.save(otp);
-            int remaining = SIGN_OTP_MAX_ATTEMPTS - otp.getAttempts();
-            throw new IllegalArgumentException(remaining > 0
-                    ? "Mã OTP không đúng. Bạn còn " + remaining + " lần thử."
-                    : "Bạn đã nhập sai mã quá " + SIGN_OTP_MAX_ATTEMPTS + " lần. Vui lòng đợi "
-                            + SIGN_OTP_LOCK_MINUTES + " phút rồi gửi lại mã.");
-        }
-        otp.setConsumedAt(LocalDateTime.now());
-        emailOtpRepository.save(otp);
+        otpService.verify(email, OtpPurpose.CONTRACT_SIGNING, code, signOtpVerifyPolicy());
+    }
+
+    /** Cấu hình xác minh OTP ký hợp đồng (marketplace) — giữ nguyên thông báo & hành vi khoá cũ. */
+    private OtpVerifyPolicy signOtpVerifyPolicy() {
+        return OtpVerifyPolicy.builder()
+                .maxAttempts(SIGN_OTP_MAX_ATTEMPTS)
+                .lockOnMaxAttempts(true)
+                .throwMaxOnReach(true)
+                .showRemaining(true)
+                .missingMessage("Vui lòng nhập mã OTP đã gửi tới email của bạn.")
+                .notFoundMessage("Mã OTP không tồn tại. Vui lòng bấm gửi lại mã.")
+                .expiredMessage("Mã OTP đã hết hạn. Vui lòng bấm gửi lại mã.")
+                .maxAttemptsMessage("Bạn đã nhập sai mã quá " + SIGN_OTP_MAX_ATTEMPTS
+                        + " lần. Vui lòng đợi " + SIGN_OTP_LOCK_MINUTES + " phút rồi gửi lại mã.")
+                .wrongRemainingTemplate("Mã OTP không đúng. Bạn còn %d lần thử.")
+                .build();
     }
 
     private TutoringClass requireAssignmentClass(ClassAssignment assignment) {
@@ -2238,8 +2269,23 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return;
         }
 
-        List<Map.Entry<LocalDate, SlotSpec>> occurrences = expandOccurrences(form, specs, tutoringClass);
-        requireNoScheduleConflict(tutoringClass, tutor, occurrences);
+        // Buổi đã trôi qua trước khi gia sư nhận lớp thì không sinh: chiều thứ 5 mới nhận lớp thì
+        // ca sáng thứ 5 tuần này bỏ qua, buổi đầu tiên rơi vào sáng thứ 5 tuần sau. Nhờ vậy cũng
+        // không phát sinh buổi "ma" để điểm danh ngược về quá khứ.
+        List<Map.Entry<LocalDate, SlotSpec>> occurrences = upcomingOnly(
+                expandOccurrences(form, specs, tutoringClass));
+        if (occurrences.isEmpty()) {
+            return;
+        }
+        // Tới bước này hai bên đã ký và tiền cọc đã vào escrow -> KHÔNG được ném ngoại lệ nữa,
+        // nếu không giao dịch webhook SePay sẽ rollback và khách coi như chuyển khoản mất trắng.
+        // Trùng lịch chỉ cảnh báo để gia sư vào "Đổi lịch buổi học" xử lý.
+        String conflict = findScheduleConflict(tutoringClass, tutor, occurrences);
+        if (conflict != null) {
+            log.warn("[Schedule] Lop {} bi trung lich khi kich hoat: trung {}",
+                    tutoringClass.getClassId(), conflict);
+            notifyScheduleOverlap(tutoringClass, tutor, conflict);
+        }
 
         Map<SlotSpec, ScheduleSlot> slotRows = new LinkedHashMap<>();
         for (SlotSpec spec : specs) {
@@ -2268,14 +2314,30 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         lessonRepository.saveAll(lessons);
     }
 
-    private void requireNoScheduleConflict(
+    /** Bỏ các buổi đã kết thúc tính tới thời điểm hiện tại; giữ nguyên thứ tự. */
+    private List<Map.Entry<LocalDate, SlotSpec>> upcomingOnly(
+            List<Map.Entry<LocalDate, SlotSpec>> occurrences) {
+        LocalDateTime now = LocalDateTime.now();
+        return occurrences.stream()
+                .filter(o -> o.getKey().atTime(o.getValue().end()).isAfter(now))
+                .toList();
+    }
+
+    /** Thông báo trùng lịch đầu tiên tìm được, hoặc {@code null} nếu lịch sạch. */
+    private String findScheduleConflict(
             TutoringClass tutoringClass, Tutor tutor, List<Map.Entry<LocalDate, SlotSpec>> occurrences) {
         Long classId = tutoringClass.getClassId();
         Collection<Lesson> existing = busyLessonsOf(tutoringClass, tutor);
 
+        LocalDateTime now = LocalDateTime.now();
+
         for (Map.Entry<LocalDate, SlotSpec> occurrence : occurrences) {
             LocalDate date = occurrence.getKey();
             SlotSpec spec = occurrence.getValue();
+            // Buổi của lớp mới đã trôi qua thì không còn tranh chấp giờ với ai nữa.
+            if (!date.atTime(spec.end()).isAfter(now)) {
+                continue;
+            }
             for (Lesson lesson : existing) {
                 if (lesson.getTutoringClass().getClassId().equals(classId)
                         || !date.equals(lesson.getLessonDate())) {
@@ -2283,14 +2345,52 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 }
                 LocalTime otherStart = lesson.getSlot().getStartTime();
                 LocalTime otherEnd = lesson.getSlot().getEndTime();
+                // Buổi cũ đã dạy xong thì thôi — qua giờ đó là gia sư rảnh trở lại.
+                if (!lesson.getLessonDate().atTime(otherEnd).isAfter(now)) {
+                    continue;
+                }
                 if (overlaps(spec.start(), spec.end(), otherStart, otherEnd)) {
-                    throw new IllegalArgumentException(
-                            "Lịch bị trùng với lớp \"" + lesson.getTutoringClass().getTitle() + "\" vào "
-                                    + date + " (" + otherStart + "–" + otherEnd
-                                    + "). Vui lòng điều chỉnh lịch trước khi nhận lớp.");
+                    return "lớp \"" + lesson.getTutoringClass().getTitle() + "\" vào "
+                            + date + " (" + otherStart + "–" + otherEnd + ")";
                 }
             }
         }
+        return null;
+    }
+
+    /**
+     * Mô tả buổi dạy sẵn có của gia sư đang chồng giờ với lịch lớp này, hoặc {@code null} nếu rảnh.
+     * Dùng khi gia sư ứng tuyển và khi khách chọn gia sư — cả hai đều xảy ra trước lúc có hợp đồng.
+     */
+    private String scheduleConflictOf(
+            TutoringClass tutoringClass, Tutor tutor, java.util.Set<String> subjectKeys) {
+        if (tutor == null) {
+            return null;
+        }
+        JsonNode form = readTree(filterDetailsToSubjects(tutoringClass.getDetailsJson(), subjectKeys));
+        List<SlotSpec> specs = slotSpecs(form);
+        if (specs.isEmpty() || tutoringClass.getStartDate() == null || tutoringClass.getEndDate() == null) {
+            return null;
+        }
+        return findScheduleConflict(tutoringClass, tutor, expandOccurrences(form, specs, tutoringClass));
+    }
+
+    /** Lớp đã kích hoạt nhưng có buổi chồng giờ — báo gia sư vào đổi lịch. */
+    private void notifyScheduleOverlap(TutoringClass tutoringClass, Tutor tutor, String detail) {
+        if (tutor == null || tutor.getUser() == null) {
+            return;
+        }
+        String content = "Lớp \"" + tutoringClass.getTitle() + "\" đã bắt đầu nhưng có buổi chồng giờ với "
+                + detail + ". Vui lòng vào Lịch dạy cá nhân để đổi lịch buổi bị trùng.";
+        notificationDispatchService.notifyUserFromTemplate(
+                tutor.getUser(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "MARKETPLACE_SCHEDULE_OVERLAP",
+                Map.of("classTitle", tutoringClass.getTitle()),
+                "Lớp mới có buổi trùng lịch — cần đổi lịch",
+                content,
+                "TUTORING_CLASS",
+                tutoringClass.getClassId());
     }
 
     private record SlotSpec(Integer dayOfWeek, LocalTime start, LocalTime end, Long subjectId) {}
@@ -2773,16 +2873,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (assignment == null || assignment.getAssignmentId() == null) {
             return;
         }
-        try {
-            centerRequestFeeService.releaseForFulfilledAssignment(
-                    assignment.getAssignmentId(),
-                    "Lớp \"" + c.getTitle() + "\" đã hoàn thành — giải ngân phí xử lý yêu cầu cho trung tâm.");
-        } catch (ResourceNotFoundException ex) {
-            log.debug("[CenterRequestFee] Lớp private {} không có phí xử lý yêu cầu trung tâm", c.getClassId());
-        } catch (RuntimeException ex) {
-            log.warn("[CenterRequestFee] Không giải ngân được phí xử lý yêu cầu cho assignment={}: {}",
-                    assignment.getAssignmentId(), ex.getMessage());
-        }
+        // Lớp không đến từ yêu cầu nhờ trung tâm sẽ được bỏ qua lặng lẽ bên trong service.
+        // KHÔNG bọc try/catch ở đây: service chạy chung giao dịch, nuốt lỗi chỉ khiến giao dịch bị
+        // đánh dấu rollback-only rồi thất bại lúc commit với thông báo khó hiểu.
+        centerRequestFeeService.releaseForFulfilledAssignment(
+                assignment.getAssignmentId(),
+                "Lớp \"" + c.getTitle() + "\" đã hoàn thành — giải ngân phí xử lý yêu cầu cho trung tâm.");
     }
 
     /**

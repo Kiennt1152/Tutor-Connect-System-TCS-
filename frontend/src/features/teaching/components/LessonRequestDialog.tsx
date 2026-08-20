@@ -88,6 +88,34 @@ export function LessonRequestDialog({
     [startTime, durationMin],
   );
 
+  // Các khung giờ đã có buổi học trong NGÀY đang chọn -> dùng để khoá lựa chọn bị trùng.
+  const busyRanges = useMemo(
+    () =>
+      (existingLessons ?? [])
+        .filter((l) => l.lessonId !== lesson.lessonId && l.lessonDate === date)
+        .map((l) => ({
+          start: hhmm(l.startTime),
+          end: hhmm(l.endTime),
+          title: l.classTitle,
+        })),
+    [existingLessons, lesson.lessonId, date],
+  );
+
+  /** Buổi bắt đầu lúc t (dài durationMin) có đè lên buổi nào không. */
+  const clashAt = useMemo(
+    () => (t: string) => {
+      const end = minutesToHhmm(toMinutes(t) + durationMin);
+      return busyRanges.find((b) => t < b.end && b.start < end) ?? null;
+    },
+    [busyRanges, durationMin],
+  );
+
+  // Giờ còn trống (không trùng buổi nào) — chỉ những giờ này mới chọn được.
+  const freeStartOptions = useMemo(
+    () => startOptions.filter((t) => !clashAt(t)),
+    [startOptions, clashAt],
+  );
+
   // Cảnh báo trùng lịch ngay khi chọn ngày/giờ (không đợi bấm gửi).
   const conflict = useMemo(() => {
     if (!date || !startTime || !endTime || startTime >= endTime) return null;
@@ -103,12 +131,12 @@ export function LessonRequestDialog({
       : null;
   }, [date, startTime, endTime, existingLessons, lesson.lessonId]);
 
-  // Nếu giờ bắt đầu hiện tại không còn hợp lệ (đổi buổi/ngày), chọn giờ hợp lệ đầu tiên.
+  // Nếu giờ bắt đầu hiện tại không hợp lệ hoặc bị trùng (đổi buổi/ngày), chọn giờ trống đầu tiên.
   useEffect(() => {
-    if (startOptions.length > 0 && !startOptions.includes(startTime)) {
-      setStartTime(startOptions[0]);
+    if (freeStartOptions.length > 0 && !freeStartOptions.includes(startTime)) {
+      setStartTime(freeStartOptions[0]);
     }
-  }, [startOptions, startTime]);
+  }, [freeStartOptions, startTime]);
 
   function changeSession(value: string) {
     const preset = SESSION_OPTIONS.find((o) => o.value === value) ?? SESSION_OPTIONS[0];
@@ -212,6 +240,10 @@ export function LessonRequestDialog({
               Buổi {sess.label} không đủ chỗ cho buổi học dài {durationLabel(durationMin)} — chọn buổi
               khác hoặc ngày khác.
             </p>
+          ) : freeStartOptions.length === 0 ? (
+            <p className="lrd__err">
+              Buổi {sess.label} ngày {date} đã kín lịch — chọn buổi khác hoặc ngày khác.
+            </p>
           ) : (
             <div className="lrd__row">
               <label className="tcs-field">
@@ -224,11 +256,15 @@ export function LessonRequestDialog({
                     setLocalError(null);
                   }}
                 >
-                  {startOptions.map((t) => (
-                    <option key={t} value={t}>
-                      {hhmmDisplay(t)}
-                    </option>
-                  ))}
+                  {startOptions.map((t) => {
+                    const clash = clashAt(t);
+                    return (
+                      <option key={t} value={t} disabled={!!clash}>
+                        {hhmmDisplay(t)}
+                        {clash ? ' — đã có buổi học' : ''}
+                      </option>
+                    );
+                  })}
                 </select>
               </label>
               <label className="tcs-field">

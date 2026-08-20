@@ -24,6 +24,9 @@ public interface MarketplaceService {
 
     List<ClassResponse> listClasses(TutoringClassStatus status);
 
+    /** Tin cho bảng "Danh sách tin đã đăng": còn hiển thị tới khi ký xong hợp đồng và đã chuyển cọc. */
+    List<ClassResponse> listBoardClasses();
+
     ClassResponse getClass(Long classId, Long assignmentId, Long classStudentId);
 
     List<ClassResponse> listMyClasses();

@@ -14,6 +14,8 @@ public interface TutoringClassRepository extends JpaRepository<TutoringClass, Lo
 
     List<TutoringClass> findByStatus(TutoringClassStatus status);
 
+    List<TutoringClass> findByStatusIn(java.util.Collection<TutoringClassStatus> statuses);
+
     List<TutoringClass> findByCreator_UserId(Long userId);
 
     boolean existsByCategory_CategoryId(Long categoryId);

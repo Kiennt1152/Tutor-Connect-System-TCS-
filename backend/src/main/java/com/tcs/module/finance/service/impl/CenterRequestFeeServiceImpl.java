@@ -193,17 +193,25 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
         releaseInternal(hold, reason);
     }
 
+    /**
+     * Giải ngân phí xử lý yêu cầu khi lớp hoàn thành. Đây là tác vụ PHỤ và chỉ áp dụng cho lớp
+     * sinh ra từ yêu cầu nhờ trung tâm tìm gia sư — lớp phụ huynh tự đăng không có khoản phí này.
+     *
+     * <p>Vì vậy các trường hợp "không áp dụng" (không có khoản phí, hoặc khoản phí chưa/không còn ở
+     * trạng thái giữ) đều trả về lặng lẽ. KHÔNG được ném ngoại lệ: phương thức chạy chung giao dịch
+     * với luồng hoàn thành lớp, nếu ném thì Spring đánh dấu giao dịch rollback-only và toàn bộ việc
+     * hoàn thành lớp bị huỷ khi commit ("Transaction silently rolled back...").</p>
+     */
     @Override
     @Transactional
     public void releaseForFulfilledAssignment(Long assignmentId, String reason) {
         CenterRequestFeeHold hold = feeHoldRepository.findFirstByAssignmentIdOrderByCreatedAtDesc(assignmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phí xử lý yêu cầu trung tâm"));
-        if (hold.getStatus() == CenterRequestFeeStatus.RELEASED
-                || hold.getStatus() == CenterRequestFeeStatus.REFUNDED) {
-            return;
+                .orElse(null);
+        if (hold == null) {
+            return; // Lớp không đến từ yêu cầu nhờ trung tâm -> không có phí để giải ngân.
         }
         if (hold.getStatus() != CenterRequestFeeStatus.HELD) {
-            throw new BusinessException("Phí xử lý yêu cầu chưa sẵn sàng để giải ngân");
+            return; // Đã giải ngân/hoàn tiền, hoặc chưa thanh toán -> bỏ qua.
         }
         releaseInternal(hold, reason);
     }

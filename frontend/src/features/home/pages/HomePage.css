@@ -62,6 +62,8 @@
 .tcs-classboard .tcs-find-title {
   display: flex;
   align-items: center;
+  /* Ghi đè canh giữa của .tcs-find-title để tiêu đề thẳng hàng với nội dung bên dưới. */
+  justify-content: flex-start;
   gap: 10px;
   font-size: clamp(20px, 2.4vw, 28px);
   font-weight: 800;
@@ -76,6 +78,24 @@
   color: #0f172a;
   background: none;
   -webkit-text-fill-color: currentColor;
+}
+
+/* Thu hẹp khoảng trống giữa tiêu đề trang và lưới tin (chỉ áp cho trang này). */
+.tcs-classboard .tcs-home-hero {
+  padding: var(--space-lg) 0 var(--space-md);
+}
+.tcs-classboard .tcs-section--listing {
+  padding: var(--space-md) 0 var(--space-xl);
+}
+/* Số lượng tin: khung viền cam, đứng cùng hàng ngay sau tiêu đề. */
+.cboard-count {
+  display: inline-block;
+  padding: 6px 16px;
+  border: 1px solid var(--color-primary);
+  border-radius: 9px;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-primary);
 }
 
 .tcs-classboard .tcs-class-list,

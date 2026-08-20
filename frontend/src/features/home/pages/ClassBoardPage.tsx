@@ -13,9 +13,10 @@ type Status = 'loading' | 'success' | 'error';
 const PAGE_SIZE = 6;
 
 /**
- * Danh sách lớp (/danh-sach-tin-da-dang): tổng hợp mọi lớp do client đăng và đang mở.
- * Khi hai bên ký thỏa thuận hợp đồng xong -> lớp được kích hoạt (rời trạng thái OPEN)
- * nên tự động biến mất khỏi danh sách này. Dùng lại thẻ lớp giống màn "Yêu cầu của tôi".
+ * Danh sách lớp (/danh-sach-tin-da-dang): tổng hợp tin do client đăng.
+ * Tin chỉ được gỡ khỏi danh sách khi hai bên ĐÃ KÝ XONG hợp đồng VÀ đã chuyển khoản tiền cọc
+ * (học phí tháng đầu) vào escrow; trước đó lớp vẫn hiển thị dù đã chọn được gia sư.
+ * Dùng lại thẻ lớp giống màn "Yêu cầu của tôi".
  */
 export default function ClassBoardPage() {
   const [status, setStatus] = useState<Status>('loading');
@@ -26,7 +27,7 @@ export default function ClassBoardPage() {
   const reload = () => {
     setStatus('loading');
     marketplaceApi
-      .listOpenClasses()
+      .listBoardClasses()
       .then((data) => {
         setClasses(data);
         setPage(1);
@@ -60,6 +61,9 @@ export default function ClassBoardPage() {
             <div className="tcs-hero__panel">
               <h1 className="tcs-find-title" style={{ marginBottom: 0 }}>
                 <span className="tcs-find-title__text">Danh sách tin đã đăng</span>
+                {status === 'success' && classes.length > 0 && (
+                  <span className="cboard-count">{classes.length} tin</span>
+                )}
               </h1>
             </div>
           </div>
@@ -67,13 +71,6 @@ export default function ClassBoardPage() {
 
         <section className="tcs-section tcs-section--listing">
           <div className="tcs-container">
-            {status === 'success' && classes.length > 0 && (
-              <div className="tcs-section-bar">
-                <div />
-                <span className="tcs-section-bar__count">{classes.length} lớp</span>
-              </div>
-            )}
-
             {status === 'loading' && (
               <div className="tcs-search-results__state">
                 <span className="tcs-spinner" aria-hidden="true" />

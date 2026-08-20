@@ -130,8 +130,10 @@ export default function ContractSigningPage() {
   const [otpSent, setOtpSent] = useState(false);
   const [otp, setOtp] = useState('');
   const [otpRequesting, setOtpRequesting] = useState(false);
-  const [otpMsg, setOtpMsg] = useState('');
-  const [secondsLeft, setSecondsLeft] = useState(0);
+  // OTP giống luồng đăng ký: thông báo có loại (lỗi/thông tin), khoá khi sai quá số lần, cooldown gửi lại.
+  const [otpMsg, setOtpMsg] = useState<{ type: 'error' | 'info'; text: string } | null>(null);
+  const [otpLocked, setOtpLocked] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
   const [agreedTermsB, setAgreedTermsB] = useState(false);
   const [checkingPaymentStatus, setCheckingPaymentStatus] = useState(false);
   const [paymentReloading, setPaymentReloading] = useState(false);
@@ -149,10 +151,10 @@ export default function ContractSigningPage() {
   const today = new Date();
 
   useEffect(() => {
-    if (!otpSent || secondsLeft <= 0) return;
-    const t = setTimeout(() => setSecondsLeft((s) => Math.max(0, s - 1)), 1000);
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown((s) => Math.max(0, s - 1)), 1000);
     return () => clearTimeout(t);
-  }, [otpSent, secondsLeft]);
+  }, [cooldown]);
 
   useEffect(() => {
     if (!assignmentId) {
@@ -221,6 +223,18 @@ export default function ContractSigningPage() {
   const alreadySignedByMe = isTutor ? contract?.tutorSigned : contract?.clientSigned;
   const bothSigned = !!contract?.tutorSigned && !!contract?.clientSigned;
   const myCccdMissing = isTutor ? !contract?.tutorCccd : !contract?.clientCccd;
+
+  // Hai bên đã ký xong -> cả gia sư lẫn phụ huynh đều thấy "Hợp đồng đã hoàn tất";
+  // chỉ câu nhắc phía sau là khác nhau theo vai trò và tình trạng escrow.
+  const escrowConfirmed =
+    !!escrowPayment && isEscrowPaymentConfirmed(escrowPayment.paymentStatus, escrowPayment.escrowStatus);
+  const escrowDoneNote = escrowConfirmed
+    ? 'Thanh toán escrow đã được xác nhận, hệ thống sẽ kích hoạt lớp.'
+    : isTutor
+      ? 'Đang chờ phụ huynh/học sinh thanh toán escrow.'
+      : escrowPayment
+        ? 'Vui lòng quét mã để thanh toán escrow.'
+        : 'Đang tạo lệnh thanh toán escrow.';
 
   const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
 
@@ -365,10 +379,11 @@ export default function ContractSigningPage() {
       await teachingApi.requestSignOtp(contract.assignmentId);
       setOtpSent(true);
       setOtp('');
-      setSecondsLeft(30);
-      setOtpMsg('Mã OTP đã được gửi tới email của bạn. Mã có hiệu lực trong 30 giây.');
+      setOtpLocked(false);
+      setCooldown(60);
+      setOtpMsg({ type: 'info', text: 'Mã OTP đã được gửi tới email của bạn. Mã có hiệu lực trong 5 phút.' });
     } catch (err) {
-      setError(extractError(err));
+      setOtpMsg({ type: 'error', text: extractError(err) });
     } finally {
       setOtpRequesting(false);
     }
@@ -376,12 +391,12 @@ export default function ContractSigningPage() {
 
   async function handleSign() {
     if (!contract) return;
-    if (otp.trim().length < 6) {
-      setError('Vui lòng nhập mã OTP gồm 6 số đã gửi tới email của bạn.');
+    if (otp.trim().length !== 6) {
+      setOtpMsg({ type: 'error', text: 'Vui lòng nhập mã OTP gồm 6 số đã gửi tới email của bạn.' });
       return;
     }
     setSubmitting(true);
-    setError(null);
+    setOtpMsg(null);
     try {
       await teachingApi.signAssignmentContract(contract.assignmentId, otp.trim());
       // Ký xong -> tải lại hợp đồng ngay tại chỗ để văn bản phản ánh "Đã ký"
@@ -390,9 +405,12 @@ export default function ContractSigningPage() {
       setContract(updated);
       setOtpSent(false);
       setOtp('');
-      setOtpMsg('');
+      setOtpMsg(null);
     } catch (err) {
-      setError(extractError(err));
+      const text = extractError(err);
+      // Sai/hết lượt quá số lần -> khoá ô như luồng đăng ký.
+      if (text.includes('quá')) setOtpLocked(true);
+      setOtpMsg({ type: 'error', text });
     } finally {
       setSubmitting(false);
     }
@@ -616,30 +634,30 @@ export default function ContractSigningPage() {
               <div className="ksign-card">
                 <h3>Xác nhận &amp; ký</h3>
                 <p className="ksign-muted">
-                  Bạn ký với tư cách <b>{isTutor ? 'Gia sư (Bên B)' : 'Phụ huynh/Học sinh (Bên A)'}</b>.
+                  Bạn ký với tư cách <b>{isTutor ? 'Bên B (Gia sư)' : 'Bên A (Phụ huynh/Học sinh)'}</b>.
                 </p>
 
                 {error && <div className="ksign-alert ksign-alert--err">{error}</div>}
+                {otpMsg && (
+                  <div
+                    className={`ksign-alert ${otpMsg.type === 'error' ? 'ksign-alert--err' : 'ksign-alert--ok'}`}
+                  >
+                    {otpMsg.text}
+                  </div>
+                )}
 
                 {bothSigned ? (
-                  escrowPayment ? (
-                    isEscrowPaymentConfirmed(
-                      escrowPayment.paymentStatus,
-                      escrowPayment.escrowStatus,
-                    ) ? (
-                      <div className="ksign-alert ksign-alert--ok">
-                        Thanh toán escrow đã được xác nhận. Hệ thống sẽ kích hoạt lớp.
-                      </div>
-                    ) : (
-                      <div className="ksign-alert ksign-alert--ok">
-                        Hợp đồng đã hoàn tất. Vui lòng quét mã để thanh toán escrow.
-                      </div>
-                    )
-                  ) : (
+                  <>
                     <div className="ksign-alert ksign-alert--ok">
-                      Hợp đồng đã hoàn tất. Đang tạo lệnh thanh toán escrow.
+                      <b>Hợp đồng đã hoàn tất.</b> {escrowDoneNote}
                     </div>
-                  )
+                    <Link
+                      to={APP_ROUTES.teaching}
+                      className="ksign-btn ksign-btn--primary ksign-btn--block ksign-btn--link"
+                    >
+                      Xem {isTutor ? 'lịch dạy' : 'lịch học'} cá nhân →
+                    </Link>
+                  </>
                 ) : alreadySignedByMe ? (
                   <div className="ksign-alert ksign-alert--ok">
                     Bạn đã ký. Đang chờ {isTutor ? 'phụ huynh' : 'gia sư'} ký để hoàn tất.
@@ -662,9 +680,7 @@ export default function ContractSigningPage() {
                         checked={agreedTermsB}
                         onChange={(e) => setAgreedTermsB(e.target.checked)}
                       />
-                      <span>
-                        Tôi đã đọc và đồng ý với <b>Điều 4 – Nghĩa vụ của Bên B</b> trong hợp đồng.
-                      </span>
+                      <span>Tôi đã đọc và đồng ý với điều khoản trong hợp đồng.</span>
                     </label>
                     <button
                       type="button"
@@ -676,13 +692,12 @@ export default function ContractSigningPage() {
                     </button>
                     {!agreedTermsB && (
                       <p className="ksign-note">
-                        Vui lòng xem kỹ và tích xác nhận Điều 4 để được gửi mã OTP.
+                        Vui lòng xem kỹ và tích xác nhận điều khoản để được gửi mã OTP.
                       </p>
                     )}
                   </>
                 ) : (
                   <div className="ksign-otp">
-                    {otpMsg && <div className="ksign-alert ksign-alert--ok">{otpMsg}</div>}
                     <label className="ksign-otp__label" htmlFor="ksign-otp-input">
                       Nhập mã OTP (6 số) gửi tới email của bạn
                     </label>
@@ -693,23 +708,14 @@ export default function ContractSigningPage() {
                       autoComplete="one-time-code"
                       maxLength={6}
                       value={otp}
-                      disabled={secondsLeft <= 0}
+                      disabled={otpLocked}
                       onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
                       placeholder="______"
                     />
-                    {secondsLeft > 0 ? (
-                      <p className="ksign-otp__timer">
-                        Mã hết hạn sau: <b>{secondsLeft}s</b>
-                      </p>
-                    ) : (
-                      <p className="ksign-otp__timer ksign-otp__timer--exp">
-                        Mã đã hết hạn. Vui lòng bấm "Gửi lại mã".
-                      </p>
-                    )}
                     <button
                       type="button"
                       className="ksign-btn ksign-btn--primary ksign-btn--block"
-                      disabled={submitting || otp.trim().length < 6 || secondsLeft <= 0}
+                      disabled={submitting || otp.trim().length !== 6 || otpLocked}
                       onClick={handleSign}
                     >
                       {submitting ? 'Đang ký…' : 'Xác nhận & ký hợp đồng'}
@@ -717,17 +723,23 @@ export default function ContractSigningPage() {
                     <button
                       type="button"
                       className="ksign-btn ksign-btn--ghost ksign-btn--block"
-                      disabled={otpRequesting}
+                      disabled={otpRequesting || cooldown > 0}
                       onClick={handleRequestOtp}
                     >
-                      {otpRequesting ? 'Đang gửi…' : 'Gửi lại mã'}
+                      {otpRequesting
+                        ? 'Đang gửi…'
+                        : cooldown > 0
+                          ? `Gửi lại mã (${cooldown}s)`
+                          : 'Gửi lại mã'}
                     </button>
                   </div>
                 )}
 
-                <p className="ksign-note">
-                  Khi cả hai bên ký xong, hệ thống chuyển sang bước thanh toán escrow.
-                </p>
+                {!bothSigned && (
+                  <p className="ksign-note">
+                    Khi cả hai bên ký xong, hệ thống chuyển sang bước thanh toán escrow.
+                  </p>
+                )}
               </div>
 
               {clientNeedsPayoutBeforePayment ? (

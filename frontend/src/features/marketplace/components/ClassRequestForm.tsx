@@ -86,8 +86,8 @@ function emptySlot(subjectId: string): ScheduleSlot {
   return { subjectId, day: '', date: '', session: '', start: '', end: '' };
 }
 
-const WEEKLY_DEFAULT_START = '18:00';
-const WEEKLY_DEFAULT_END = '20:00';
+const WEEKLY_DEFAULT_START = '06:00';
+const WEEKLY_DEFAULT_END = '08:00';
 
 function sessionFromStart(start: string): string {
   if (!start) return '';

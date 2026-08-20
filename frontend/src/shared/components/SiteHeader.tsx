@@ -50,7 +50,7 @@ function buildNavLinks(role: UserRole): NavLinkItem[] {
   // Gia sư: tìm lớp để dạy + tin tuyển dụng của trung tâm.
   if (role === 'TUTOR') {
     return [
-      { key: 'find-class-tutor', label: 'Tìm lớp dạy', to: APP_ROUTES.findClass },
+      { key: 'find-class-tutor', label: 'Tìm yêu cầu giảng dạy', to: APP_ROUTES.findClass },
       { key: 'recruitment', label: 'Tin tuyển dụng', to: APP_ROUTES.recruitment },
       { key: 'centers', label: 'Trung tâm', to: APP_ROUTES.centers },
     ];
@@ -159,7 +159,7 @@ export function SiteHeader({ active }: SiteHeaderProps) {
               ) : null}
               {showTeaching ? (
                 <Link className="tcs-btn tcs-btn--ghost tcs-btn--header tcs-header__shortcut" to={APP_ROUTES.teaching}>
-                  {hasRole(role, 'CLIENT') ? 'Lịch học' : 'Lịch dạy'}
+                  {hasRole(role, 'CLIENT') ? 'Lịch học cá nhân' : 'Lịch dạy cá nhân'}
                 </Link>
               ) : null}
               {hasRole(role, 'TUTOR') ? (

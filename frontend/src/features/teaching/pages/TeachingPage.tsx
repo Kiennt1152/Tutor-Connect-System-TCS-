@@ -151,7 +151,7 @@ export default function TeachingPage() {
       <SiteHeader />
       <main className="tcs-container tch-main">
         <div className="tch-heading">
-          <h1>{isClient ? 'Lịch học của tôi' : 'Lịch dạy của tôi'}</h1>
+          <h1>{isClient ? 'Lịch học cá nhân' : 'Lịch dạy cá nhân'}</h1>
           <p>
             {isClient
               ? 'Theo dõi thời khóa biểu các lớp bạn đã đăng, sau khi gia sư nhận lớp.'
@@ -444,7 +444,7 @@ function CompletionCell({
     case 'TUTOR_BLOCKED':
       return (
         <span className="tch-class__hint" title={a.completionBlockedReason ?? undefined}>
-          ⏳ Chưa đủ điều kiện hoàn thành
+          Chưa đủ điều kiện hoàn thành
         </span>
       );
     case 'TUTOR_WAITING':

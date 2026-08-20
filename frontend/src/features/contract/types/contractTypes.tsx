@@ -103,9 +103,6 @@ export interface ContractSignatureApiResponse {
   signerEmail: string | null;
   signatureStatus: ContractSignatureStatus;
   signedAt: string | null;
-  otpExpiresAt: string | null;
-  remainingOtpAttempts: number;
-  isOtpExpired: boolean;
   isCurrentUser: boolean;
 }
 
@@ -224,9 +221,6 @@ export interface ContractSignature {
   signatureStatus: ContractSignatureStatus;
   signatureStatusLabel: string;
   signedAt: string | null;
-  otpExpiresAt: string | null;
-  remainingOtpAttempts: number;
-  isOtpExpired: boolean;
 }
 
 export interface ContractSignatureList {

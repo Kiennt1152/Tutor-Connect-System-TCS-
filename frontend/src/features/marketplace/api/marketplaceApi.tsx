@@ -42,6 +42,13 @@ export const marketplaceApi = {
       .get<ClassResponse[]>('/marketplace/classes', { params: { status: 'OPEN' } })
       .then((r) => r.data),
 
+  /**
+   * Tin cho bảng "Danh sách tin đã đăng": gồm lớp đang mở VÀ lớp đã chọn gia sư nhưng
+   * chưa ký xong hợp đồng / chưa chuyển cọc — tin chỉ bị gỡ khi cả hai việc đó hoàn tất.
+   */
+  listBoardClasses: () =>
+    axiosClient.get<ClassResponse[]>('/marketplace/classes/board').then((r) => r.data),
+
   applyToClass: (
     classId: number,
     payload: { proposedRates: Record<string, number>; coverLetter?: string },

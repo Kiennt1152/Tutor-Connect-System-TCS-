@@ -46,6 +46,11 @@ public class MarketplaceController {
         return marketplaceService.listClasses(status);
     }
 
+    @GetMapping("/classes/board")
+    public List<ClassResponse> listBoardClasses() {
+        return marketplaceService.listBoardClasses();
+    }
+
     @GetMapping("/classes/mine")
     public List<ClassResponse> listMyClasses() {
         return marketplaceService.listMyClasses();

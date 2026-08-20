@@ -600,3 +600,22 @@
     align-items: flex-start;
   }
 }
+
+/* Nút đánh giá gia sư trên thẻ lớp ở "Lịch lớp trung tâm" (phía phụ huynh/học viên). */
+.cs-review-btn {
+  margin-top: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid #ea5a1c;
+  background: #fff;
+  color: #ea5a1c;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cs-review-btn:hover {
+  background: #ea5a1c;
+  color: #fff;
+}

@@ -44,9 +44,12 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
       .catch(() => setStatus('error'));
   }, [classId]);
 
-  const visibleApplicants =
-    target.status === 'OPEN' ? applicants.filter((a) => a.status !== 'REJECTED') : applicants;
-  const alreadyChosen = visibleApplicants.some((a) => a.status === 'ACCEPTED');
+  // Khi đã chọn gia sư: chỉ hiển thị đúng gia sư đó, ẩn hẳn các ứng viên còn lại (không hiện mờ).
+  const acceptedApplicant = applicants.find((a) => a.status === 'ACCEPTED');
+  const visibleApplicants = acceptedApplicant
+    ? [acceptedApplicant]
+    : applicants.filter((a) => a.status !== 'REJECTED');
+  const alreadyChosen = !!acceptedApplicant;
   const recommended = visibleApplicants.filter((a) => a.recommended);
   const tutorAccepted = target.status === 'IN_PROGRESS';
 
@@ -107,21 +110,23 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
 
       {status === 'success' && visibleApplicants.length > 0 && (
         <>
-          {/* Giải thích AI + Top 5 gợi ý */}
-          <div className="apm-ai">
-            <div className="apm-ai__badge">AI</div>
-            <p className="apm-ai__text">
-              Trợ lý AI đã xếp hạng {visibleApplicants.length} ứng viên theo{' '}
-              <strong>đánh giá, kinh nghiệm, mức phí và trạng thái xác minh</strong>.
-              {recommended.length > 0 && (
-                <>
-                  {' '}
-                  <strong>Top {recommended.length}</strong> phù hợp nhất được đánh dấu ⭐ để bạn dễ
-                  chọn.
-                </>
-              )}
-            </p>
-          </div>
+          {/* Giải thích AI + Top 5 gợi ý — ẩn khi đã chọn gia sư (chỉ còn 1 người). */}
+          {!alreadyChosen && (
+            <div className="apm-ai">
+              <div className="apm-ai__badge">AI</div>
+              <p className="apm-ai__text">
+                Trợ lý AI đã xếp hạng {visibleApplicants.length} ứng viên theo{' '}
+                <strong>đánh giá, kinh nghiệm, mức phí và trạng thái xác minh</strong>.
+                {recommended.length > 0 && (
+                  <>
+                    {' '}
+                    <strong>Top {recommended.length}</strong> phù hợp nhất được đánh dấu ⭐ để bạn dễ
+                    chọn.
+                  </>
+                )}
+              </p>
+            </div>
+          )}
 
           <div className="apm-list">
             {visibleApplicants.map((a, idx) => (
@@ -131,7 +136,7 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
                 subjectName={subjectName}
                 classSubjectIds={classSubjectIds}
                 tutorAccepted={tutorAccepted}
-                rank={a.recommended ? idx + 1 : null}
+                rank={!alreadyChosen && a.recommended ? idx + 1 : null}
                 choosing={choosingId === a.applicationId}
                 rejecting={rejectingId === a.applicationId}
                 disabled={alreadyChosen || choosingId != null || rejectingId != null}

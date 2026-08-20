@@ -38,7 +38,7 @@ export function ExpiryBadge({ expiresAt }: { readonly expiresAt: string }) {
       className={`mkt-expiry mkt-expiry--${tone}`}
       title={`Lớp chỉ hiển thị đến ${new Date(expiresAt).toLocaleString('vi-VN')}. Hết hạn sẽ tự bị xóa nếu chưa ký hợp đồng.`}
     >
-      ⏳ {label}
+      {label}
     </span>
   );
 }

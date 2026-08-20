@@ -27,6 +27,7 @@ import com.tcs.module.identity.repository.EmailVerificationTokenRepository;
 import com.tcs.module.identity.repository.PasswordResetTokenRepository;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.identity.service.EmailService;
+import com.tcs.module.identity.service.OtpService;
 import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.mapper.UserProfileBundle;
 import com.tcs.module.platform.dto.response.UserListItemResponse;
@@ -90,6 +91,7 @@ class IdentityServiceImplTest {
 
     @BeforeEach
     void setUp() {
+        ReflectionTestUtils.setField(identityService, "otpService", new OtpService(emailOtpRepository));
         ReflectionTestUtils.setField(identityService, "otpLength", 6);
         ReflectionTestUtils.setField(identityService, "otpExpirationMinutes", 5);
         ReflectionTestUtils.setField(identityService, "maxAttempts", 5);

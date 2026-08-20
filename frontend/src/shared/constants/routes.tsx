@@ -10,8 +10,8 @@ export const APP_ROUTES = {
   tutorProfile: '/gia-su/chi-tiet-gia-su/:tutorId',
   /** Trang "Đánh giá" công khai: danh sách toàn bộ gia sư kèm số sao để xem chi tiết đánh giá. */
   tutorReviews: '/danh-gia',
-  teaching: '/lich-day',
-  signContract: '/lich-day/ki-hop-dong',
+  teaching: '/lich-ca-nhan',
+  signContract: '/lich-ca-nhan/ki-hop-dong',
   login: '/login',
   register: '/register',
   forgotPassword: '/forgot-password',

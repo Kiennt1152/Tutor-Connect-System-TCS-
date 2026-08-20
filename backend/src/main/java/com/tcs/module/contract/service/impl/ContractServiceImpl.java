@@ -48,11 +48,17 @@ import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
+import com.tcs.module.identity.entity.EmailOtp;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.identity.enums.OtpPurpose;
 import com.tcs.module.identity.repository.UserRepository;
+import com.tcs.module.identity.service.OtpService;
+import com.tcs.module.identity.service.OtpVerifyPolicy;
 import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.event.ClientReviewedClassEvent;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
+import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
+import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
 import com.tcs.module.marketplace.repository.LessonRepository;
@@ -87,7 +93,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
-import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalTime;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -116,7 +122,6 @@ public class ContractServiceImpl implements ContractService {
     private static final int CONTRACT_EXPIRY_DAYS = 7;
     /** BF-03: thỏa thuận hợp tác chưa ký sẽ hết hiệu lực sau 48 giờ. */
     private static final int COOPERATION_EXPIRY_HOURS = 48;
-    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final String ESCROW_BANK_NAME = "TPBank";
     private static final String ESCROW_BANK_BIN = "970423";
     private static final String ESCROW_ACCOUNT_NUMBER = "02660559201";
@@ -141,6 +146,7 @@ public class ContractServiceImpl implements ContractService {
     private final ClientRepository clientRepository;
     private final TutorCenterRepository tutorCenterRepository;
     private final EmailService emailService;
+    private final OtpService otpService;
     private final EscrowService escrowService;
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
@@ -243,9 +249,6 @@ public class ContractServiceImpl implements ContractService {
         signature.setSignedAt(signedAt);
         signature.setSignatureStatus(ContractSignatureStatus.SIGNED);
         signature.setSignatureData("MARKETPLACE_OTP_VERIFIED:" + signer.getEmail() + ":" + signedAt);
-        signature.setOtpCode(null);
-        signature.setOtpExpiresAt(null);
-        signature.setOtpAttempts(0);
         contractSignatureRepository.save(signature);
     }
 
@@ -351,13 +354,13 @@ public class ContractServiceImpl implements ContractService {
                 throw new IllegalStateException("Bạn đã ký hợp đồng này rồi");
         }
 
-        String otp = generateOtp();
-        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(OTP_EXPIRY_MINUTES);
         String recipientEmail = authHelper.requireAuthenticated().getEmail();
+        // OtpService sinh + lưu mã ở email_otps (dùng chung với đăng ký / ký hợp đồng marketplace).
+        EmailOtp otpEntity = otpService.issue(
+                recipientEmail, OtpPurpose.CONTRACT_SIGNING, OTP_LENGTH, Duration.ofMinutes(OTP_EXPIRY_MINUTES));
+        String otp = otpEntity.getCode();
 
-        signature.setOtpCode(otp);
-        signature.setOtpExpiresAt(expiresAt);
-        signature.setOtpAttempts(0);
+        // Mã + hạn dùng + số lần nhập sai nằm hoàn toàn ở email_otps, chữ ký không giữ gì về OTP.
         signature.setEmail(recipientEmail);
         contractSignatureRepository.save(signature);
 
@@ -412,24 +415,15 @@ public class ContractServiceImpl implements ContractService {
             throw new IllegalStateException("Bạn đã ký hợp đồng này rồi");
         }
 
-        if (signature.getOtpAttempts() >= OTP_MAX_ATTEMPTS) {
+        String signerEmail = authHelper.requireAuthenticated().getEmail();
+        try {
+            otpService.verify(signerEmail, OtpPurpose.CONTRACT_SIGNING,
+                    request.getOtpCode(), contractOtpVerifyPolicy());
+        } catch (OtpService.OtpExpiredException | OtpService.OtpMaxAttemptsException e) {
+            // Hết hạn / hết lượt: đánh dấu ô ký EXPIRED như hành vi cũ rồi ném lại.
             signature.setSignatureStatus(ContractSignatureStatus.EXPIRED);
             contractSignatureRepository.save(signature);
-            throw new IllegalStateException("Đã vượt quá số lần thử. Vui lòng yêu cầu mã mới.");
-        }
-
-        if (signature.getOtpExpiresAt() == null
-                || signature.getOtpExpiresAt().isBefore(LocalDateTime.now())) {
-            signature.setSignatureStatus(ContractSignatureStatus.EXPIRED);
-            contractSignatureRepository.save(signature);
-            throw new IllegalStateException("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.");
-        }
-
-        if (!signature.getOtpCode().equals(request.getOtpCode().trim())) {
-            signature.setOtpAttempts(signature.getOtpAttempts() + 1);
-            contractSignatureRepository.save(signature);
-            int remaining = Math.max(0, OTP_MAX_ATTEMPTS - signature.getOtpAttempts());
-            throw new IllegalArgumentException("Mã OTP không đúng. Còn " + remaining + " lần thử.");
+            throw e;
         }
 
         User signer = userRepository.findById(authHelper.currentUserId())
@@ -439,8 +433,6 @@ public class ContractServiceImpl implements ContractService {
         signature.setSignedAt(LocalDateTime.now());
         signature.setSignatureData("OTP_VERIFIED:" + signer.getEmail() + ":"
                 + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-        signature.setOtpCode(null);
-        signature.setOtpExpiresAt(null);
         contractSignatureRepository.save(signature);
 
         if (isFullySigned(contractId)) {
@@ -932,7 +924,6 @@ public class ContractServiceImpl implements ContractService {
         sig.setPartyRole(role);
         sig.setEmail(email);
         sig.setSignatureStatus(ContractSignatureStatus.PENDING);
-        sig.setOtpAttempts(0);
         contractSignatureRepository.save(sig);
     }
 
@@ -948,7 +939,6 @@ public class ContractServiceImpl implements ContractService {
         sig.setSignatureData("CENTER_PRESIGNED:"
                 + (centerUser != null ? centerUser.getEmail() : "")
                 + ":" + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
-        sig.setOtpAttempts(0);
         contractSignatureRepository.save(sig);
     }
 
@@ -1154,7 +1144,6 @@ public class ContractServiceImpl implements ContractService {
         signature.setPartyRole(role);
         signature.setEmail(email);
         signature.setSignatureStatus(ContractSignatureStatus.PENDING);
-        signature.setOtpAttempts(0);
         return signature;
     }
 
@@ -1236,10 +1225,17 @@ public class ContractServiceImpl implements ContractService {
                 tutoringClass.getTuitionFee());
     }
 
-    private String generateOtp() {
-        int otp = SECURE_RANDOM.nextInt((int) Math.pow(10, OTP_LENGTH - 1) * 9)
-                + (int) Math.pow(10, OTP_LENGTH - 1);
-        return String.valueOf(otp);
+    /** Cấu hình xác minh OTP ký hợp đồng trung tâm — giữ nguyên thông báo & hành vi cũ. */
+    private OtpVerifyPolicy contractOtpVerifyPolicy() {
+        return OtpVerifyPolicy.builder()
+                .maxAttempts(OTP_MAX_ATTEMPTS)
+                .showRemaining(true)
+                .missingMessage("Mã OTP là bắt buộc")
+                .notFoundMessage("Mã OTP không tồn tại. Vui lòng yêu cầu mã mới.")
+                .expiredMessage("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.")
+                .maxAttemptsMessage("Đã vượt quá số lần thử. Vui lòng yêu cầu mã mới.")
+                .wrongRemainingTemplate("Mã OTP không đúng. Còn %d lần thử.")
+                .build();
     }
 
     private String generateContractNo() {
@@ -1900,7 +1896,6 @@ public class ContractServiceImpl implements ContractService {
 
     private ContractSignatureResponse toSignatureResponse(
             ContractSignature signature, Long viewerId, PartyRole viewerRole) {
-        Integer attempts = signature.getOtpAttempts() != null ? signature.getOtpAttempts() : 0;
         // "Của tôi" = ô ký do chính người xem đã ký (khớp signer) HOẶC ô còn chờ ký thuộc đúng
         // vai trò của người xem (signer chưa có nhưng party trùng vai trò).
         boolean mine = (signature.getSigner() != null && viewerId != null
@@ -1913,10 +1908,6 @@ public class ContractServiceImpl implements ContractService {
                 .partyLabel(partyLabel(signature.getPartyRole()))
                 .signatureStatus(signature.getSignatureStatus())
                 .signedAt(signature.getSignedAt())
-                .otpExpiresAt(signature.getOtpExpiresAt())
-                .remainingOtpAttempts(Math.max(0, OTP_MAX_ATTEMPTS - attempts))
-                .isOtpExpired(signature.getOtpExpiresAt() != null
-                        && signature.getOtpExpiresAt().isBefore(LocalDateTime.now()))
                 .isCurrentUser(mine)
                 .signerName(resolveSignatureName(signature))
                 .signerEmail(signature.getSigner() != null
@@ -1983,10 +1974,10 @@ public class ContractServiceImpl implements ContractService {
         TutoringClass tutoringClass = assignment.getApplication() != null
                 ? assignment.getApplication().getTutoringClass()
                 : null;
-        if (tutoringClass == null || tutoringClass.getCreator() == null
-                || !tutoringClass.getCreator().getUserId().equals(clientId)) {
+        if (tutoringClass == null) {
             throw new BusinessException("Bạn chỉ có thể đánh giá lớp học của mình");
         }
+        requireReviewerOfClass(tutoringClass, clientId);
 
         // Điều kiện: đã có buổi diễn ra và chưa vượt số lượt đánh giá cho phép.
         List<LocalDate> occurred = occurredLessonDates(tutoringClass.getClassId());
@@ -2126,8 +2117,10 @@ public class ContractServiceImpl implements ContractService {
     private TutorReputationResponse buildReputation(Tutor tutor) {
         Long tutorUserId = tutor.getUser().getUserId();
 
-        List<Review> visible = reviewRepository.findByReviewee_UserIdAndReviewTypeAndStatus(
-                tutorUserId, ReviewType.CLIENT_TO_TUTOR, ReviewStatus.VISIBLE);
+        // Hồ sơ công khai chỉ tính ĐÁNH GIÁ CUỐI của mỗi lớp: khách đánh giá theo từng buổi trong
+        // suốt lớp học, nhưng bản mới nhất mới là kết luận về lớp đó.
+        List<Review> visible = finalReviewPerClass(reviewRepository.findByReviewee_UserIdAndReviewTypeAndStatus(
+                tutorUserId, ReviewType.CLIENT_TO_TUTOR, ReviewStatus.VISIBLE));
 
         Map<Integer, Integer> distribution = new LinkedHashMap<>();
         for (int star = 5; star >= 1; star--) {
@@ -2162,6 +2155,42 @@ public class ContractServiceImpl implements ContractService {
                 .criteriaAverages(criteriaAverages(visible))
                 .reviews(reviews)
                 .build();
+    }
+
+    /**
+     * Gom đánh giá về đúng MỘT bản cho mỗi cặp (lớp, người đánh giá) — bản có thời điểm tạo mới
+     * nhất, gọi là "đánh giá final" của lớp đó. Khách có thể đánh giá sau từng buổi học, nhưng
+     * hồ sơ gia sư chỉ phản ánh kết luận cuối cùng cho mỗi lớp.
+     */
+    private List<Review> finalReviewPerClass(List<Review> reviews) {
+        Map<String, Review> latest = new LinkedHashMap<>();
+        for (Review r : reviews) {
+            Long classId = r.getTutoringClass() != null ? r.getTutoringClass().getClassId() : null;
+            Long reviewerId = r.getReviewer() != null ? r.getReviewer().getUserId() : null;
+            // Không xác định được lớp thì giữ riêng từng bản, không gộp nhầm với lớp khác.
+            String key = classId == null ? "review#" + r.getReviewId() : classId + "#" + reviewerId;
+            Review current = latest.get(key);
+            if (current == null || isNewerReview(r, current)) {
+                latest.put(key, r);
+            }
+        }
+        return List.copyOf(latest.values());
+    }
+
+    /** Bản nào được tạo sau; createdAt bằng nhau thì lấy reviewId lớn hơn. */
+    private boolean isNewerReview(Review candidate, Review current) {
+        LocalDateTime a = candidate.getCreatedAt();
+        LocalDateTime b = current.getCreatedAt();
+        if (a == null || b == null) {
+            return a != null;
+        }
+        int cmp = a.compareTo(b);
+        if (cmp != 0) {
+            return cmp > 0;
+        }
+        return candidate.getReviewId() != null
+                && current.getReviewId() != null
+                && candidate.getReviewId() > current.getReviewId();
     }
 
     private List<TutorReputationResponse.CriterionAverage> criteriaAverages(List<Review> reviews) {
@@ -2209,8 +2238,26 @@ public class ContractServiceImpl implements ContractService {
                         .filter(r -> r.getReviewType() == ReviewType.CLIENT_TO_TUTOR)
                         .collect(Collectors.groupingBy(r -> r.getAssignment().getAssignmentId()));
 
-        return classAssignmentRepository
-                .findByApplication_TutoringClass_Creator_UserId(clientId).stream()
+        // Lớp khách tự đăng + lớp trung tâm khách đã ghi danh (gia sư của lớp trung tâm cũng
+        // được gán qua ClassAssignment nên hai luồng dùng chung phần còn lại).
+        Map<Long, ClassAssignment> assignments = new LinkedHashMap<>();
+        classAssignmentRepository.findByApplication_TutoringClass_Creator_UserId(clientId)
+                .forEach(a -> assignments.put(a.getAssignmentId(), a));
+        classStudentRepository
+                .findByEnrolledByUser_UserIdAndStatus(clientId, ClassStudentStatus.ENROLLED).stream()
+                .map(ClassStudent::getTutoringClass)
+                .filter(java.util.Objects::nonNull)
+                // Lấy phân công mới nhất chứ không chỉ ACTIVE: sau khi tất toán, phân công chuyển
+                // TERMINATED nhưng khách vẫn phải xem/sửa được đánh giá của lớp đã học xong.
+                .map(c -> classAssignmentRepository
+                        .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(c.getClassId())
+                        .orElse(null))
+                .filter(java.util.Objects::nonNull)
+                .filter(a -> a.getStatus() != ClassAssignmentStatus.DECLINED
+                        && a.getStatus() != ClassAssignmentStatus.PENDING)
+                .forEach(a -> assignments.putIfAbsent(a.getAssignmentId(), a));
+
+        return assignments.values().stream()
                 .filter(a -> a.getApplication() != null
                         && a.getApplication().getTutoringClass() != null)
                 .map(a -> {
@@ -2260,15 +2307,42 @@ public class ContractServiceImpl implements ContractService {
 
     private List<LocalDate> occurredLessonDates(Long classId) {
         LocalDate today = LocalDate.now();
-        // Chỉ buổi ĐÃ ĐIỂM DANH (COMPLETED) mới cho đánh giá gia sư.
-        // Buổi vắng (ABSENT) và buổi chưa điểm danh (PENDING) không tính vào quota đánh giá.
-        return lessonRepository
+        List<Lesson> lessons = lessonRepository
                 .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(classId).stream()
                 .filter(l -> !l.getLessonDate().isAfter(today))
-                .filter(l -> l.getAttendanceStatus() == AttendanceStatus.COMPLETED)
+                .toList();
+        if (lessons.isEmpty()) {
+            return List.of();
+        }
+        // Lớp trung tâm điểm danh theo TỪNG HỌC VIÊN (bảng lesson_attendances) nên
+        // lesson.attendance_status vẫn là PENDING — phải nhận diện buổi đã dạy qua bản ghi điểm danh.
+        Set<Long> attendedLessonIds = lessonAttendanceRepository
+                .findByLesson_LessonIdIn(lessons.stream().map(Lesson::getLessonId).toList()).stream()
+                .map(a -> a.getLesson().getLessonId())
+                .collect(Collectors.toSet());
+
+        // Lớp cá nhân: chỉ buổi ĐÃ ĐIỂM DANH (COMPLETED) mới cho đánh giá gia sư.
+        // Buổi vắng (ABSENT) và buổi chưa điểm danh (PENDING) không tính vào quota đánh giá.
+        return lessons.stream()
+                .filter(l -> l.getAttendanceStatus() == AttendanceStatus.COMPLETED
+                        || attendedLessonIds.contains(l.getLessonId()))
                 .map(Lesson::getLessonDate)
                 .sorted()
                 .toList();
+    }
+
+    /**
+     * Khách được đánh giá lớp do chính mình đăng (lớp cá nhân) HOẶC lớp của trung tâm mà mình đã
+     * ghi danh cho con/bản thân — hai luồng dùng chung một bộ tiêu chí và cùng quota theo buổi học.
+     */
+    private void requireReviewerOfClass(TutoringClass tutoringClass, Long clientId) {
+        boolean owner = tutoringClass.getCreator() != null
+                && tutoringClass.getCreator().getUserId().equals(clientId);
+        boolean enrolled = classStudentRepository
+                .existsByTutoringClass_ClassIdAndEnrolledByUser_UserId(tutoringClass.getClassId(), clientId);
+        if (!owner && !enrolled) {
+            throw new BusinessException("Bạn chỉ có thể đánh giá lớp học của mình");
+        }
     }
 
     private boolean isReviewOverdue(List<Review> reviews, List<LocalDate> occurred) {
@@ -2319,8 +2393,10 @@ public class ContractServiceImpl implements ContractService {
     }
 
     private void recomputeTutorReputation(Tutor tutor, Long tutorUserId) {
-        List<Review> visible = reviewRepository.findByReviewee_UserIdAndReviewTypeAndStatus(
-                tutorUserId, ReviewType.CLIENT_TO_TUTOR, ReviewStatus.VISIBLE);
+        // Điểm trung bình cũng chỉ dựa trên đánh giá cuối của từng lớp, để một lớp được đánh giá
+        // nhiều buổi không lấn át lớp chỉ đánh giá một lần.
+        List<Review> visible = finalReviewPerClass(reviewRepository.findByReviewee_UserIdAndReviewTypeAndStatus(
+                tutorUserId, ReviewType.CLIENT_TO_TUTOR, ReviewStatus.VISIBLE));
         double average = visible.isEmpty()
                 ? 0d
                 : visible.stream()

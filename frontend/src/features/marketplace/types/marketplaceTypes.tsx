@@ -227,8 +227,8 @@ export const SESSION_OPTIONS: readonly {
   start: string;
   end: string;
 }[] = [
-  { value: 'Sáng', label: 'Sáng (6h–12h)', min: '06:00', max: '12:00', start: '08:00', end: '10:00' },
-  { value: 'Chiều', label: 'Chiều (12h–18h)', min: '12:00', max: '18:00', start: '14:00', end: '16:00' },
+  { value: 'Sáng', label: 'Sáng (6h–12h)', min: '06:00', max: '12:00', start: '06:00', end: '08:00' },
+  { value: 'Chiều', label: 'Chiều (12h–18h)', min: '12:00', max: '18:00', start: '12:00', end: '14:00' },
   { value: 'Tối', label: 'Tối (18h–0h)', min: '18:00', max: '23:59', start: '18:00', end: '20:00' },
 ];
 
