@@ -433,16 +433,22 @@ class EscrowServiceImplTest {
         escrowService.apply(new ReleaseInstruction(15L, amount, BigDecimal.ZERO, "Hoàn thành lớp"));
 
         verify(walletService).releaseLockedFunds(PAYER_ID, amount, "ESCROW_RELEASE-15");
-        verify(walletService).credit(TUTOR_USER_ID, new BigDecimal("450000.00"), "ESCROW_RELEASE-15");
-        verify(walletService).credit(99L, new BigDecimal("50000.00"), "PLATFORM_FEE-15");
-        verify(paymentTransactionRepository, times(2)).save(paymentCaptor.capture());
+        verify(walletService).credit(TUTOR_USER_ID, amount, "ESCROW_RELEASE-15");
+        verify(walletService).debit(TUTOR_USER_ID, new BigDecimal("50000.00"), "PLATFORM_FEE-15");
+        verify(walletService).credit(99L, new BigDecimal("50000.00"), "PLATFORM_FEE-INCOME-15");
+        verify(paymentTransactionRepository, times(3)).save(paymentCaptor.capture());
         PaymentTransaction release = paymentCaptor.getAllValues().get(0);
-        PaymentTransaction fee = paymentCaptor.getAllValues().get(1);
+        PaymentTransaction feeDebit = paymentCaptor.getAllValues().get(1);
+        PaymentTransaction feeIncome = paymentCaptor.getAllValues().get(2);
         assertEquals(PaymentTransactionType.ESCROW_RELEASE, release.getType());
-        assertEquals(new BigDecimal("450000.00"), release.getAmount());
-        assertEquals(PaymentTransactionType.DEPOSIT, fee.getType());
-        assertEquals(new BigDecimal("50000.00"), fee.getAmount());
-        assertEquals("PLATFORM_FEE-15", fee.getReferenceCode());
+        assertEquals(amount, release.getAmount());
+        assertEquals(PaymentTransactionType.PLATFORM_FEE, feeDebit.getType());
+        assertEquals(new BigDecimal("50000.00"), feeDebit.getAmount());
+        assertEquals("PLATFORM_FEE-15", feeDebit.getReferenceCode());
+        assertSame(tutorWallet, feeDebit.getWallet());
+        assertEquals(PaymentTransactionType.DEPOSIT, feeIncome.getType());
+        assertEquals(new BigDecimal("50000.00"), feeIncome.getAmount());
+        assertEquals("PLATFORM_FEE-INCOME-15", feeIncome.getReferenceCode());
     }
 
     @Test

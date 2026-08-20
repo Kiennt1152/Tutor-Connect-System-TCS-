@@ -25,9 +25,13 @@ import com.tcs.module.finance.dto.response.CenterRequestFeePaymentResponse;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.enums.DisputeStatus;
+import com.tcs.module.finance.enums.RefundRequestStatus;
 import com.tcs.module.finance.enums.WalletStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
+import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.CenterRequestFeeService;
@@ -97,6 +101,9 @@ import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.marketplace.service.MarketplaceService;
 import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.platform.service.PenaltyAccessService;
+import com.tcs.module.platform.enums.ReportStatus;
+import com.tcs.module.platform.enums.ReportTargetType;
+import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.dto.CccdInfoDto;
 import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
@@ -185,6 +192,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
     private final WalletRepository walletRepository;
+    private final ReportRepository reportRepository;
+    private final DisputeRepository disputeRepository;
+    private final RefundRequestRepository refundRequestRepository;
     private final EscrowService escrowService;
     private final TutoringClassRepository tutoringClassRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
@@ -1244,7 +1254,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 com.tcs.module.messaging.enums.NotificationType.APPLICATION,
                 "MARKETPLACE_ESCROW_PAYMENT_READY",
                 Map.of("classTitle", c.getTitle()),
-                "Hợp đồng đã hoàn tất — vui lòng thanh toán ký quỹ",
+                "Hợp đồng đã hoàn tất - vui lòng thanh toán ký quỹ",
                 content,
                 CONTRACT_CONTEXT_TYPE,
                 c.getClassId());
@@ -1809,6 +1819,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         lesson.setTutorCheckOutAt(LocalDateTime.now());
         lesson.setAttendanceStatus(AttendanceStatus.COMPLETED);
         lessonRepository.save(lesson);
+        maybeAutoReleasePrivateFirstMonthEscrow(lesson);
     }
 
     @Override
@@ -1830,6 +1841,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             lesson.setAttendanceStatus(AttendanceStatus.ABSENT);
         }
         lessonRepository.save(lesson);
+        if (present) {
+            maybeAutoReleasePrivateFirstMonthEscrow(lesson);
+        }
     }
 
     private void requireLessonIsToday(Lesson lesson) {
@@ -1892,6 +1906,116 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 classId);
     }
 
+    private void maybeAutoReleasePrivateFirstMonthEscrow(Lesson lesson) {
+        if (lesson == null || lesson.getTutoringClass() == null) {
+            return;
+        }
+        TutoringClass tutoringClass = lesson.getTutoringClass();
+        if (tutoringClass.getClassId() == null
+                || tutoringClass.getClassType() != ClassType.PRIVATE
+                || tutoringClass.getStartDate() == null
+                || tutoringClass.getStatus() != TutoringClassStatus.IN_PROGRESS) {
+            return;
+        }
+
+        ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                        tutoringClass.getClassId(), ClassAssignmentStatus.ACTIVE)
+                .orElse(null);
+        if (assignment == null || assignment.getAssignmentId() == null) {
+            return;
+        }
+
+        EscrowTransaction escrow = escrowTransactionRepository
+                .findByAssignment_AssignmentId(assignment.getAssignmentId())
+                .orElse(null);
+        if (escrow == null || escrow.getStatus() != EscrowStatus.FUNDED) {
+            return;
+        }
+
+        if (!isPrivateFirstMonthEscrowReadyForRelease(tutoringClass, assignment, escrow)) {
+            return;
+        }
+
+        escrowService.apply(new ReleaseInstruction(
+                escrow.getEscrowId(),
+                escrow.getAmount(),
+                BigDecimal.ZERO,
+                "Đã hoàn tất đủ buổi của tháng đầu, giải ngân khoản ký quỹ cho gia sư."));
+
+        String title = "Ký quỹ tháng đầu đã được giải ngân";
+        String content = "Lớp \"" + tutoringClass.getTitle()
+                + "\" đã hoàn thành đủ buổi của tháng đầu và không có khiếu nại đang xử lý. "
+                + "Hệ thống đã giải ngân khoản ký quỹ tháng đầu cho gia sư.";
+        sendClassNotification(assignment.getTutor().getUser(), title, content, tutoringClass.getClassId());
+        sendClassNotification(tutoringClass.getCreator(), title, content, tutoringClass.getClassId());
+    }
+
+    private boolean isPrivateFirstMonthEscrowReadyForRelease(
+            TutoringClass tutoringClass,
+            ClassAssignment assignment,
+            EscrowTransaction escrow) {
+        if (tutoringClass == null
+                || assignment == null
+                || escrow == null
+                || tutoringClass.getClassId() == null
+                || assignment.getAssignmentId() == null
+                || escrow.getEscrowId() == null) {
+            return false;
+        }
+        if (tutoringClass.getStatus() == TutoringClassStatus.DISPUTED
+                || tutoringClass.getStatus() == TutoringClassStatus.CANCELLED
+                || tutoringClass.getStatus() == TutoringClassStatus.COMPLETED) {
+            return false;
+        }
+
+        if (reportRepository.existsByTargetTypeAndTargetIdAndStatus(
+                ReportTargetType.CLASS,
+                tutoringClass.getClassId(),
+                ReportStatus.PENDING)) {
+            return false;
+        }
+        if (classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                assignment.getAssignmentId(), ClassTerminationStatus.PENDING)
+                || classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                        assignment.getAssignmentId(), ClassTerminationStatus.APPROVED)) {
+            return false;
+        }
+        if (escrow.getStatus() == EscrowStatus.DISPUTED || escrow.getStatus() == EscrowStatus.ON_HOLD) {
+            return false;
+        }
+        if (disputeRepository.existsByEscrowTransaction_EscrowIdAndStatusNot(
+                escrow.getEscrowId(), DisputeStatus.RESOLVED)
+                || refundRequestRepository.existsByEscrowTransaction_EscrowIdAndStatus(
+                        escrow.getEscrowId(), RefundRequestStatus.PENDING)
+                || refundRequestRepository.existsByEscrowTransaction_EscrowIdAndStatus(
+                        escrow.getEscrowId(), RefundRequestStatus.APPROVED)) {
+            return false;
+        }
+
+        List<Lesson> lessons = lessonRepository
+                .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(tutoringClass.getClassId());
+        if (lessons.isEmpty()) {
+            return false;
+        }
+
+        LocalDate firstMonthEndExclusive = tutoringClass.getStartDate().plusMonths(1);
+        boolean hasFirstMonthLesson = false;
+        for (Lesson currentLesson : lessons) {
+            LocalDate lessonDate = currentLesson.getLessonDate();
+            if (lessonDate == null
+                    || lessonDate.isBefore(tutoringClass.getStartDate())
+                    || !lessonDate.isBefore(firstMonthEndExclusive)) {
+                continue;
+            }
+            hasFirstMonthLesson = true;
+            if (currentLesson.getAttendanceStatus() != AttendanceStatus.COMPLETED) {
+                return false;
+            }
+        }
+        return hasFirstMonthLesson;
+    }
+
     private void notifyStudentEnrollmentSuccess(ClassStudent classStudent) {
         if (classStudent == null || classStudent.getEnrolledByUser() == null || classStudent.getTutoringClass() == null) {
             return;
@@ -1918,6 +2042,108 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                                     + "\" sau khi phụ huynh hoàn tất ký hợp đồng và thanh toán.",
                             tutoringClass.getClassId()));
         }
+    }
+
+    private void notifyClassTerminationSubmitted(
+            ClassTerminationRequest termination,
+            TutoringClass tutoringClass,
+            TerminationTarget target) {
+
+        if (termination == null || tutoringClass == null) {
+            return;
+        }
+        String classTitle = classNotificationTitle(tutoringClass);
+        sendClassNotification(
+                termination.getRequestedBy(),
+                "Đã gửi yêu cầu chấm dứt sớm",
+                "Yêu cầu chấm dứt sớm lớp \"" + classTitle
+                        + "\" đã được ghi nhận. Khoản ký quỹ liên quan đang được giữ để chờ xử lý.",
+                tutoringClass.getClassId());
+
+        notifyOtherTerminationUsers(
+                termination,
+                tutoringClass,
+                target,
+                "Có yêu cầu chấm dứt sớm lớp",
+                "Lớp \"" + classTitle
+                        + "\" vừa có yêu cầu chấm dứt sớm. Khoản ký quỹ liên quan đang được giữ để chờ xử lý.");
+    }
+
+    private void notifyClassTerminationCompleted(
+            ClassTerminationRequest termination,
+            TutoringClass tutoringClass,
+            TerminationTarget target) {
+
+        if (termination == null || tutoringClass == null) {
+            return;
+        }
+        String classTitle = classNotificationTitle(tutoringClass);
+        sendClassNotification(
+                termination.getRequestedBy(),
+                "Lớp đã chấm dứt sớm",
+                "Yêu cầu chấm dứt sớm lớp \"" + classTitle
+                        + "\" đã được xử lý. Khoản ký quỹ liên quan đã được tất toán theo quy tắc của hệ thống.",
+                tutoringClass.getClassId());
+
+        notifyOtherTerminationUsers(
+                termination,
+                tutoringClass,
+                target,
+                "Lớp đã chấm dứt sớm",
+                "Lớp \"" + classTitle
+                        + "\" đã chấm dứt sớm. Khoản ký quỹ liên quan đã được tất toán theo quy tắc của hệ thống.");
+    }
+
+    private void notifyOtherTerminationUsers(
+            ClassTerminationRequest termination,
+            TutoringClass tutoringClass,
+            TerminationTarget target,
+            String title,
+            String content) {
+
+        Long requesterId = termination.getRequestedBy() != null ? termination.getRequestedBy().getUserId() : null;
+        for (User user : classTerminationNotificationRecipients(termination, tutoringClass, target)) {
+            if (user == null || Objects.equals(user.getUserId(), requesterId)) {
+                continue;
+            }
+            sendClassNotification(user, title, content, tutoringClass.getClassId());
+        }
+    }
+
+    private List<User> classTerminationNotificationRecipients(
+            ClassTerminationRequest termination,
+            TutoringClass tutoringClass,
+            TerminationTarget target) {
+
+        List<User> users = new ArrayList<>();
+        Set<Long> seenUserIds = new LinkedHashSet<>();
+        addTerminationNotificationUser(users, seenUserIds, termination.getRequestedBy());
+        addTerminationNotificationUser(users, seenUserIds, tutoringClass.getCreator());
+        if (tutoringClass.getCenter() != null) {
+            addTerminationNotificationUser(users, seenUserIds, tutoringClass.getCenter().getUser());
+        }
+        if (target != null && target.assignment() != null && target.assignment().getTutor() != null) {
+            addTerminationNotificationUser(users, seenUserIds, target.assignment().getTutor().getUser());
+        }
+        if (target != null && target.classStudent() != null) {
+            addTerminationNotificationUser(users, seenUserIds, target.classStudent().getEnrolledByUser());
+        }
+        return users;
+    }
+
+    private void addTerminationNotificationUser(List<User> users, Set<Long> seenUserIds, User user) {
+        if (user == null || user.getUserId() == null || seenUserIds.contains(user.getUserId())) {
+            return;
+        }
+        seenUserIds.add(user.getUserId());
+        users.add(user);
+    }
+
+    private String classNotificationTitle(TutoringClass tutoringClass) {
+        if (tutoringClass != null && StringUtils.hasText(tutoringClass.getTitle())) {
+            return tutoringClass.getTitle();
+        }
+        return "lớp học";
     }
 
     private User classCounterpart(TutoringClass tc, User me) {
@@ -2716,7 +2942,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             termination.setStatus(ClassTerminationStatus.PENDING);
             tutoringClass.setStatus(TutoringClassStatus.DISPUTED);
             tutoringClassRepository.save(tutoringClass);
-            return toTerminationResponse(classTerminationRequestRepository.save(termination), tutoringClass);
+            ClassTerminationRequest savedTermination = classTerminationRequestRepository.save(termination);
+            notifyClassTerminationSubmitted(savedTermination, tutoringClass, target);
+            return toTerminationResponse(savedTermination, tutoringClass);
         }
 
         SettlementSplit settlement = calculateEarlyTerminationSettlement(tutoringClass, target, escrow);
@@ -2735,7 +2963,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         tutoringClass.setStatus(TutoringClassStatus.CANCELLED);
         tutoringClassRepository.save(tutoringClass);
 
-        return toTerminationResponse(classTerminationRequestRepository.save(termination), tutoringClass);
+        ClassTerminationRequest savedTermination = classTerminationRequestRepository.save(termination);
+        notifyClassTerminationCompleted(savedTermination, tutoringClass, target);
+        return toTerminationResponse(savedTermination, tutoringClass);
     }
 
     // ===== UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE: 1 gia sư – 1 phụ huynh/học viên) =====
@@ -2777,7 +3007,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             assignment.setClientCompletedAt(LocalDateTime.now());
             classAssignmentRepository.save(assignment);
             finalizeClassCompletion(c, assignment);
-            return "Lớp đã hoàn thành. Học phí escrow đã được giải ngân cho gia sư.";
+            return "Lớp đã hoàn thành. Học phí ký quỹ đã được giải ngân cho gia sư.";
         }
 
         // Chưa đánh giá -> mời học viên đánh giá; lớp đóng khi học viên đánh giá xong.
@@ -2831,7 +3061,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     escrow.getEscrowId(),
                     escrow.getAmount(),
                     BigDecimal.ZERO,
-                    "Lớp \"" + c.getTitle() + "\" đã hoàn thành — giải ngân toàn bộ escrow cho gia sư."));
+                    "Lớp \"" + c.getTitle() + "\" đã hoàn thành - giải ngân toàn bộ khoản ký quỹ cho gia sư."));
         }
         releaseCenterRequestFeeIfAny(c, assignment);
 

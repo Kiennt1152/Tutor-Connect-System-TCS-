@@ -281,13 +281,13 @@ public class FinanceServiceImpl implements FinanceService {
             if (centerRequestFeePayment) {
                 centerRequestFeeService.completeIncomingPayment(matchedEscrow, externalTransactionId);
             } else {
-                completeEscrowPayment(matchedEscrow, externalTransactionId, "Đã ghi nhận học phí SePay vào escrow.");
+                completeEscrowPayment(matchedEscrow, externalTransactionId, "Đã ghi nhận học phí SePay vào ký quỹ.");
             }
             return PaymentWebhookResponse.builder()
                     .status("success")
                     .message(centerRequestFeePayment
                             ? "Đã ghi nhận phí xử lý yêu cầu trung tâm"
-                            : "Đã ghi nhận học phí SePay vào escrow")
+                            : "Đã ghi nhận học phí SePay vào ký quỹ")
                     .reference(matchedEscrow.getReferenceCode())
                     .build();
         }
@@ -296,7 +296,7 @@ public class FinanceServiceImpl implements FinanceService {
         if (matched == null) {
             return PaymentWebhookResponse.builder()
                     .status("ignored")
-                    .message("Không tìm thấy giao dịch nạp tiền/escrow khớp số tiền, nội dung và tài khoản")
+                    .message("Không tìm thấy giao dịch nạp tiền/ký quỹ khớp số tiền, nội dung và tài khoản")
                     .build();
         }
 
@@ -346,7 +346,7 @@ public class FinanceServiceImpl implements FinanceService {
                 completeOutgoingRefund(
                         refundTx,
                         externalTransactionId,
-                        "Hoàn tiền escrow đã được xác nhận qua SePay");
+                        "Hoàn tiền ký quỹ đã được xác nhận qua SePay");
                 return PaymentWebhookResponse.builder()
                         .status("success")
                         .message("Đã xác nhận giao dịch hoàn tiền từ SePay")
@@ -1296,15 +1296,17 @@ public class FinanceServiceImpl implements FinanceService {
         TutoringClass tutoringClass = resolveTutoringClass(savedEscrow);
         paymentNotificationService.notifyPayment(
                 payerUserId,
-                "Thanh toán escrow thành công",
-                "Học phí " + formatAmount(savedEscrow.getAmount()) + " đã được ghi nhận vào escrow.",
+                "Thanh toán ký quỹ thành công",
+                "Học phí " + formatAmount(savedEscrow.getAmount())
+                        + " đã được ghi nhận là khoản ký quỹ của lớp học.",
                 "ESCROW",
                 savedEscrow.getEscrowId());
         paymentNotificationService.notifyPayment(
                 beneficiaryUserId,
-                "Escrow đã được nạp",
-                "Escrow #" + savedEscrow.getEscrowId() + " đã nhận "
-                        + formatAmount(savedEscrow.getAmount()) + ".",
+                "Có khoản ký quỹ mới",
+                "Lớp học liên quan vừa phát sinh khoản ký quỹ "
+                        + formatAmount(savedEscrow.getAmount())
+                        + ". Bạn có thể theo dõi trong danh sách hợp đồng.",
                 "ESCROW",
                 savedEscrow.getEscrowId());
         eventPublisher.publishEvent(new EscrowFunded(

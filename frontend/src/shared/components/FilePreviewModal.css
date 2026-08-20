@@ -38,8 +38,9 @@
   animation: fpm-zoom-in 0.2s ease;
 }
 
+/* 1280px lấy theo main: PDF giấy phép nhiều chữ, khung hẹp phải cuộn ngang mới đọc được. */
 .fpm-dialog--pdf {
-  width: min(1100px, 100%);
+  width: min(1280px, 100%);
 }
 
 @keyframes fpm-zoom-in {
