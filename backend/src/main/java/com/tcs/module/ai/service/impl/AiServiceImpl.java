@@ -114,6 +114,17 @@ public class AiServiceImpl implements AiService {
             messageRepository.save(aiMsg);
             sessionRepository.save(session);
 
+            List<String> options;
+            String suggestedRoute = "/help";
+            if (safetyCheck.isCrisis()) {
+                options = List.of("Tổng đài Trẻ em (111)", "Đường dây nóng Sức khỏe Tâm thần (1800 599 920)", "Trung tâm trợ giúp (/help)");
+            } else if ("PRIVACY_AND_ACCESS_RESTRICTED".equals(safetyCheck.reason())) {
+                options = List.of("Quản lý người dùng (/platform/users)", "Bảng điều khiển Quản trị (/platform/analytics)", "Chính sách bảo mật (/help)");
+                suggestedRoute = "/platform/users";
+            } else {
+                options = List.of("Tìm gia sư uy tín (/tim-gia-su)", "Quy tắc cộng đồng (/help)");
+            }
+
             return AiMessageResponse.builder()
                     .messageId(aiMsg.getMessageId())
                     .sessionId(session.getSessionId())
@@ -123,10 +134,8 @@ public class AiServiceImpl implements AiService {
                     .intent(AiIntent.OUT_OF_SCOPE.name())
                     .domain(AiDomain.CONVERSATION_SAFETY.name())
                     .subIntent(AiSubIntent.OUT_OF_SCOPE.name())
-                    .suggestedRoute("/help")
-                    .clarificationOptions(safetyCheck.isCrisis()
-                        ? List.of("Tổng đài Trẻ em (111)", "Đường dây nóng Sức khỏe Tâm thần (1800 599 920)", "Trung tâm trợ giúp (/help)")
-                        : List.of("Tìm gia sư uy tín (/tim-gia-su)", "Quy tắc cộng đồng (/help)"))
+                    .suggestedRoute(suggestedRoute)
+                    .clarificationOptions(options)
                     .answerMode("SAFETY_FILTER")
                     .confidenceScore(1.0)
                     .confidenceLevel("HIGH")

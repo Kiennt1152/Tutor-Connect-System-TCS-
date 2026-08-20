@@ -18,7 +18,7 @@ public class OpenDomainClassifier {
         Map<String, String> extractedData
     ) {}
 
-    private static final Pattern BASIC_MATH_PATTERN = Pattern.compile("(?i)(\\d+\\s*[+\\-*/÷×^%x]\\s*\\d+|\\b(\\d+)\\s*(cộng|trừ|nhân|chia|mu|luy thua)\\s*(\\d+)|bằng mấy|bang may|=\\s*\\?|equals|giải phương trình|giai phuong trinh|solve equation)");
+    private static final Pattern BASIC_MATH_PATTERN = Pattern.compile("(?i)(\\d+\\s*[+\\-*/÷×^%x]\\s*\\d+|\\b(\\d+)\\s*(cộng|trừ|nhân|chia|mu|luy thua)\\s*(\\d+)|bằng mấy|bang may|=\\s*\\?|equals)");
 
     public OpenDomainResult classifyOpen(String query) {
         if (query == null || query.isBlank()) {
@@ -28,8 +28,8 @@ public class OpenDomainClassifier {
         String lower = query.toLowerCase(Locale.ROOT).trim();
         String normalized = VietnameseTextNormalizer.removeDiacritics(lower);
 
-        // 1. MATH_CALCULATION (highest priority for arithmetic & equations)
-        if (isMathExpression(lower, normalized)) {
+        // 1. MATH_CALCULATION (highest priority for arithmetic)
+        if (isMathExpression(lower, normalized) && !containsAny(normalized, "phuong trinh", "dinh ly", "cong thuc", "vat ly", "hoa hoc", "sinh hoc")) {
             Map<String, String> data = new HashMap<>();
             data.put("expression", query);
             return new OpenDomainResult(AiSubIntent.MATH_CALCULATION, 0.95, data);
@@ -60,7 +60,7 @@ public class OpenDomainClassifier {
         if (containsAny(normalized,
                 "thu do cua", "thu do nuoc", "dan so", "dien tich", "ai la nguoi", "ai phat minh",
                 "vi sao", "tai sao lai", "nuoc nao", "o dau tren the gioi", "capital of", "who invented", "why is") &&
-            !containsAny(normalized, "gia su", "tai khoan", "tien", "ho so", "lop", "he thong", "bot", "san tcs")) {
+            !containsAny(normalized, "gia su", "tai khoan", "tien", "ho so", "lop", "he thong", "bot", "san tcs", "review", "danh gia", "hop dong", "otp", "ticket", "khieu nai", "tranh chap", "rut tien", "nap tien", "phuong trinh", "bai tap")) {
             Map<String, String> data = new HashMap<>();
             data.put("question", query);
             return new OpenDomainResult(AiSubIntent.GENERAL_KNOWLEDGE, 0.85, data);
@@ -69,7 +69,7 @@ public class OpenDomainClassifier {
         // 5. DEFINITION_LOOKUP
         if ((containsAny(normalized, "nghia la gi", "dinh nghia", "khai niem", "la gi the", "nghia cua tu", "what is the meaning of", "definition of") ||
             Pattern.compile("^\\s*([a-zA-Z0-9_.-]+\\s*){1,4}\\s+la gi\\b").matcher(normalized).find()) &&
-            !containsAny(normalized, "thu do", "dan so", "dien tich", "ai la", "o dau", "nuoc nao")) {
+            !containsAny(normalized, "thu do", "dan so", "dien tich", "ai la", "o dau", "nuoc nao", "review", "danh gia", "hop dong", "otp", "ticket", "khieu nai", "tranh chap", "escrow", "gia su", "tcs", "he thong")) {
             Map<String, String> data = new HashMap<>();
             data.put("term", query);
             return new OpenDomainResult(AiSubIntent.DEFINITION_LOOKUP, 0.9, data);
