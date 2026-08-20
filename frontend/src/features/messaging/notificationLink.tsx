@@ -25,6 +25,37 @@ export function notificationLink(
     return isAdmin ? APP_ROUTES.platformReports : APP_ROUTES.help;
   }
 
+  if (n.referenceType === 'DISPUTE') {
+    return isAdmin ? APP_ROUTES.platformReports : APP_ROUTES.contract;
+  }
+
+  if (n.referenceType === 'VERIFICATION_REQUEST') {
+    return isAdmin ? APP_ROUTES.platformVerifications : APP_ROUTES.verification;
+  }
+
+  if (n.referenceType === 'REFUND_REQUEST') {
+    if (isAdmin) return APP_ROUTES.platformWithdrawals;
+    if (role === 'CLIENT') return APP_ROUTES.contract;
+    return APP_ROUTES.finance;
+  }
+
+  if (n.referenceType === 'WITHDRAWAL') {
+    return isAdmin ? APP_ROUTES.platformWithdrawals : APP_ROUTES.finance;
+  }
+
+  if (n.referenceType === 'WITHDRAWAL_REQUEST') {
+    return isAdmin ? APP_ROUTES.platformWithdrawals : APP_ROUTES.finance;
+  }
+
+  if (n.referenceType === 'ESCROW') {
+    if (isAdmin) return APP_ROUTES.platformEscrows;
+    return APP_ROUTES.contract;
+  }
+
+  if (n.referenceType === 'PAYMENT_TRANSACTION') {
+    return role === 'CLIENT' ? APP_ROUTES.contract : APP_ROUTES.finance;
+  }
+
   switch (n.type) {
     case 'REPORT':
       return isAdmin ? APP_ROUTES.platformReports : APP_ROUTES.help;
@@ -47,7 +78,7 @@ export function notificationLink(
         : APP_ROUTES.messaging;
 
     case 'PAYMENT':
-      return APP_ROUTES.finance;
+      return role === 'CLIENT' ? APP_ROUTES.contract : APP_ROUTES.finance;
 
     default:
       return null;

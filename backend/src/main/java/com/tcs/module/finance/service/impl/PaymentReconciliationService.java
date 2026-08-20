@@ -28,7 +28,7 @@ public class PaymentReconciliationService {
     private static final int WITHDRAWAL_MATCH_WINDOW_MINUTES = 5;
     private static final String TOPUP_EXPIRED_REASON = "Phiên nạp tiền đã hết hạn, chưa ghi nhận thanh toán.";
     private static final String ESCROW_PAYMENT_EXPIRED_REASON =
-            "Phiên thanh toán escrow đã hết hạn, vui lòng tạo mã QR thanh toán mới.";
+            "Phiên thanh toán ký quỹ đã hết hạn, vui lòng tạo mã QR thanh toán mới.";
     private static final String WITHDRAWAL_STALE_REASON =
             "Yêu cầu rút tiền quá thời gian xử lý, hệ thống đã hoàn lại số dư khả dụng.";
 
@@ -49,7 +49,7 @@ public class PaymentReconciliationService {
 
         if (expiredTopups > 0 || expiredEscrowPayments > 0 || refundedWithdrawals > 0) {
             log.info(
-                    "Đối soát thanh toán: đã hủy {} phiên nạp hết hạn, hủy {} phiên thanh toán escrow hết hạn, hoàn {} yêu cầu rút quá hạn",
+                    "Đối soát thanh toán: đã hủy {} phiên nạp hết hạn, hủy {} phiên thanh toán ký quỹ hết hạn, hoàn {} yêu cầu rút quá hạn",
                     expiredTopups,
                     expiredEscrowPayments,
                     refundedWithdrawals);
@@ -95,7 +95,7 @@ public class PaymentReconciliationService {
             tx.setFailureReason(ESCROW_PAYMENT_EXPIRED_REASON);
             notifyWalletOwner(
                     tx.getWallet(),
-                    "Phiên thanh toán escrow đã hết hạn",
+                    "Phiên thanh toán ký quỹ đã hết hạn",
                     ESCROW_PAYMENT_EXPIRED_REASON,
                     "PAYMENT_TRANSACTION",
                     tx.getTransactionId());

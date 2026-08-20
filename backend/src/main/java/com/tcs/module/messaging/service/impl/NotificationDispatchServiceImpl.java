@@ -37,8 +37,8 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
         Notification notification = new Notification();
         notification.setUser(user);
         notification.setType(type);
-        notification.setTitle(title);
-        notification.setContent(content);
+        notification.setTitle(normalizeUserFacingText(title));
+        notification.setContent(normalizeUserFacingText(content));
         notification.setReferenceType(referenceType);
         notification.setReferenceId(referenceId);
         notification.setStatus(NotificationStatus.SENT);
@@ -89,5 +89,22 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
                 .renderEnabled(templateCode, variables)
                 .orElse(new NotificationTemplateService.RenderedTemplate(fallbackTitle, fallbackContent));
         notifyUser(user, type, rendered.title(), rendered.content(), referenceType, referenceId);
+    }
+
+    private String normalizeUserFacingText(String value) {
+        if (value == null || value.isBlank()) {
+            return value;
+        }
+
+        return value
+                .replaceAll("\\bEscrow\\b(?!-)", "Khoản ký quỹ")
+                .replaceAll("\\bescrow\\b(?!-)", "khoản ký quỹ")
+                .replaceAll("\\bESCROW\\b(?!-)", "khoản ký quỹ")
+                .replaceAll("\\bDispute\\b(?!-)", "Tranh chấp")
+                .replaceAll("\\bdispute\\b(?!-)", "tranh chấp")
+                .replaceAll("\\bDISPUTE\\b(?!-)", "tranh chấp")
+                .replaceAll("\\bCancel\\b(?!-)", "Chấm dứt")
+                .replaceAll("\\bcancel\\b(?!-)", "chấm dứt")
+                .replaceAll("\\bCANCEL\\b(?!-)", "chấm dứt");
     }
 }
