@@ -40,6 +40,41 @@
   margin-top: 8px;
 }
 
+.cr-request-tip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 24px;
+  padding: 16px 18px;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fffaf5;
+  box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
+}
+
+.cr-request-tip > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cr-request-tip strong {
+  font-size: 15px;
+  color: #0f172a;
+}
+
+.cr-request-tip span {
+  font-size: 13px;
+  color: #64748b;
+  line-height: 1.45;
+}
+
+.cr-request-tip b {
+  color: #c2410c;
+}
+
 /* Danh sách yêu cầu của tôi */
 .cr-req-list {
   display: flex;
@@ -75,6 +110,50 @@
   color: #94a3b8;
 }
 
+.cr-req--payment {
+  border-color: #fed7aa;
+  background: #fffaf5;
+}
+
+.cr-req__meta strong {
+  color: #475569;
+  font-weight: 700;
+}
+
+.cr-req__payment {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #fdba74;
+  border-radius: 10px;
+  background: #fff7ed;
+}
+
+.cr-req__payment > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.cr-req__payment strong {
+  color: #9a3412;
+  font-size: 13px;
+}
+
+.cr-req__payment span {
+  color: #7c2d12;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.cr-req__payment b {
+  color: #c2410c;
+}
+
 .cr-badge {
   display: inline-block;
   padding: 2px 10px;
@@ -93,6 +172,14 @@
 .cr-badge--rejected {
   background: #fee2e2;
   color: #991b1b;
+}
+.cr-badge--searching {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+.cr-badge--cancelled {
+  background: #f1f5f9;
+  color: #475569;
 }
 
 /* Modal */
@@ -588,6 +675,11 @@
 }
 
 @media (max-width: 720px) {
+  .cr-req__payment {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
   .cr-payout__grid,
   .cr-payment-step__body {
     grid-template-columns: 1fr;

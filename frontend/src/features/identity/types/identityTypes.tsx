@@ -26,6 +26,7 @@ export type AuthResponse = {
   displayName: string;
   status: string;
   firstLogin: boolean;
+  tokenExpiresInSeconds: number;
 };
 
 /**
@@ -42,6 +43,7 @@ export type GoogleLoginResponse = {
   role?: UserRole;
   displayName?: string;
   status?: string;
+  tokenExpiresInSeconds?: number;
 };
 
 // ---- UC-01 Register Account (OTP qua email) ----

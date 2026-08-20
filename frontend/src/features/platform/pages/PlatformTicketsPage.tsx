@@ -37,6 +37,12 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
   const [replyText, setReplyText] = useState('');
   const [closeNote, setCloseNote] = useState('');
   const [showClose, setShowClose] = useState(false);
+  const [showMerge, setShowMerge] = useState(false);
+  const [showDisputeTransfer, setShowDisputeTransfer] = useState(false);
+  const [targetTicketId, setTargetTicketId] = useState('');
+  const [mergeReason, setMergeReason] = useState('');
+  const [disputeClassId, setDisputeClassId] = useState('');
+  const [disputeNotes, setDisputeNotes] = useState('');
   const [editCategory, setEditCategory] = useState<AdminTicketCategory | ''>('');
   const [editPriority, setEditPriority] = useState<AdminTicketPriority | ''>('');
   const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState(false);
@@ -46,6 +52,12 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
     setReplyText('');
     setCloseNote('');
     setShowClose(false);
+    setShowMerge(false);
+    setShowDisputeTransfer(false);
+    setTargetTicketId('');
+    setMergeReason('');
+    setDisputeClassId('');
+    setDisputeNotes('');
     reload();
     onUpdated();
   };
@@ -59,6 +71,23 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
 
   const handleClose = (closeStatus: 'RESOLVED' | 'CLOSED') => {
     void mutations.closeTicket(ticketId, { status: closeStatus, adminNotes: closeNote.trim() || undefined });
+  };
+
+  const handleMerge = () => {
+    const targetIdNum = parseInt(targetTicketId.trim(), 10);
+    if (isNaN(targetIdNum) || targetIdNum <= 0) return;
+    void mutations.mergeTicket(ticketId, {
+      targetTicketId: targetIdNum,
+      reason: mergeReason.trim() || undefined,
+    });
+  };
+
+  const handleRedirectDispute = () => {
+    const classIdNum = disputeClassId.trim() ? parseInt(disputeClassId.trim(), 10) : undefined;
+    void mutations.redirectTicketToDispute(ticketId, {
+      targetClassId: classIdNum && !isNaN(classIdNum) ? classIdNum : undefined,
+      notes: disputeNotes.trim() || undefined,
+    });
   };
 
   const handleUpdate = () => {
@@ -108,6 +137,18 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
             setCloseNote={setCloseNote}
             showClose={showClose}
             setShowClose={setShowClose}
+            showMerge={showMerge}
+            setShowMerge={setShowMerge}
+            showDisputeTransfer={showDisputeTransfer}
+            setShowDisputeTransfer={setShowDisputeTransfer}
+            targetTicketId={targetTicketId}
+            setTargetTicketId={setTargetTicketId}
+            mergeReason={mergeReason}
+            setMergeReason={setMergeReason}
+            disputeClassId={disputeClassId}
+            setDisputeClassId={setDisputeClassId}
+            disputeNotes={disputeNotes}
+            setDisputeNotes={setDisputeNotes}
             isTerminated={isTerminated}
             editCategory={editCategory || detail.category}
             setEditCategory={setEditCategory}
@@ -121,6 +162,8 @@ function TicketDetailModal({ ticketId, onClose, onUpdated }: TicketModalProps) {
             onRespond={handleRespond}
             onUpdate={handleUpdate}
             onCloseTicket={handleClose}
+            onMergeTicket={handleMerge}
+            onRedirectDispute={handleRedirectDispute}
           />
         )}
         {detail && (
@@ -154,6 +197,18 @@ type ContentProps = {
   setCloseNote: (v: string) => void;
   showClose: boolean;
   setShowClose: (v: boolean) => void;
+  showMerge: boolean;
+  setShowMerge: (v: boolean) => void;
+  showDisputeTransfer: boolean;
+  setShowDisputeTransfer: (v: boolean) => void;
+  targetTicketId: string;
+  setTargetTicketId: (v: string) => void;
+  mergeReason: string;
+  setMergeReason: (v: string) => void;
+  disputeClassId: string;
+  setDisputeClassId: (v: string) => void;
+  disputeNotes: string;
+  setDisputeNotes: (v: string) => void;
   isTerminated: boolean;
   editCategory: AdminTicketCategory | '';
   setEditCategory: (value: AdminTicketCategory) => void;
@@ -167,6 +222,8 @@ type ContentProps = {
   onRespond: () => void;
   onUpdate: () => void;
   onCloseTicket: (s: 'RESOLVED' | 'CLOSED') => void;
+  onMergeTicket: () => void;
+  onRedirectDispute: () => void;
 };
 
 function TicketDetailContent({
@@ -177,6 +234,18 @@ function TicketDetailContent({
   setCloseNote,
   showClose,
   setShowClose,
+  showMerge,
+  setShowMerge,
+  showDisputeTransfer,
+  setShowDisputeTransfer,
+  targetTicketId,
+  setTargetTicketId,
+  mergeReason,
+  setMergeReason,
+  disputeClassId,
+  setDisputeClassId,
+  disputeNotes,
+  setDisputeNotes,
   isTerminated,
   editCategory,
   setEditCategory,
@@ -190,6 +259,8 @@ function TicketDetailContent({
   onRespond,
   onUpdate,
   onCloseTicket,
+  onMergeTicket,
+  onRedirectDispute,
 }: ContentProps) {
   return (
     <>
@@ -202,9 +273,19 @@ function TicketDetailContent({
             <span className="tcs-badge" style={{ background: '#f0f4f8', color: '#4a5568' }}>
               {detail.categoryLabel}
             </span>
+            {detail.category === 'DISPUTE' && (
+              <a
+                href="/platform/reports"
+                className="tcs-badge"
+                style={{ background: '#fef3c7', color: '#92400e', border: '1px solid #fcd34d', textDecoration: 'none', fontWeight: 600 }}
+                title="Mở trang Xử lý Báo cáo & Tranh chấp"
+              >
+                Mở trang Báo cáo & Tranh chấp
+              </a>
+            )}
             {detail.slaBreached && (
               <span className="tcs-badge" style={{ background: '#fee2e2', color: '#dc2626', fontWeight: 600 }}>
-                🚨 Quá hạn SLA
+                Quá hạn SLA
               </span>
             )}
             <button
@@ -214,7 +295,7 @@ function TicketDetailContent({
               onClick={onOpenPenaltyModal}
               title="Tạo quyết định xử phạt liên quan đến ticket này"
             >
-              ⚖️ Tạo xử phạt
+              Tạo xử phạt
             </button>
           </div>
         </div>
@@ -323,7 +404,7 @@ function TicketDetailContent({
         {!isTerminated && (
           <div className="adm-ticket-respond">
             <div className="adm-ticket-modal__section-title" style={{ marginBottom: '0.5rem' }}>
-              Phản hồi
+              Phản hồi & Xử lý
             </div>
             <textarea
               className="adm-ticket-respond__textarea"
@@ -337,13 +418,101 @@ function TicketDetailContent({
             {showClose && (
               <textarea
                 className="adm-ticket-respond__textarea"
-                placeholder="Ghi chú đóng ticket (tùy chọn)..."
+                placeholder="Ghi chú đóng / từ chối ticket (tùy chọn)..."
                 value={closeNote}
                 onChange={(e) => setCloseNote(e.target.value)}
                 rows={2}
                 maxLength={1000}
                 style={{ marginTop: '0.5rem' }}
               />
+            )}
+
+            {showMerge && (
+              <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '8px', padding: '12px', marginTop: '0.75rem' }}>
+                <div style={{ fontWeight: 600, color: '#1e40af', marginBottom: '6px', fontSize: '0.9rem' }}>
+                  Gộp Ticket trùng lặp (Merge Ticket)
+                </div>
+                <p style={{ fontSize: '0.8rem', color: '#3b82f6', marginBottom: '8px' }}>
+                  Ticket #{detail.id} sẽ được đóng với trạng thái CLOSED và toàn bộ nội dung sẽ được gộp vào Ticket đích.
+                </p>
+                <input
+                  type="number"
+                  placeholder="Nhập mã Ticket gốc cần gộp vào (ví dụ: 1)..."
+                  value={targetTicketId}
+                  onChange={(e) => setTargetTicketId(e.target.value)}
+                  style={{ width: '100%', marginBottom: '8px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                />
+                <textarea
+                  className="adm-ticket-respond__textarea"
+                  placeholder="Lý do gộp ticket (tùy chọn)..."
+                  value={mergeReason}
+                  onChange={(e) => setMergeReason(e.target.value)}
+                  rows={2}
+                  maxLength={500}
+                />
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--primary"
+                    style={{ background: '#2563eb' }}
+                    onClick={onMergeTicket}
+                    disabled={mutStatus === 'loading' || !targetTicketId.trim()}
+                  >
+                    {mutStatus === 'loading' ? 'Đang gộp...' : 'Xác nhận gộp Ticket'}
+                  </button>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost"
+                    onClick={() => setShowMerge(false)}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {showDisputeTransfer && (
+              <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginTop: '0.75rem' }}>
+                <div style={{ fontWeight: 600, color: '#92400e', marginBottom: '6px', fontSize: '0.9rem' }}>
+                  Chuyển tiếp sang luồng Tranh chấp & Báo cáo sự cố (BF-08)
+                </div>
+                <p style={{ fontSize: '0.8rem', color: '#b45309', marginBottom: '8px' }}>
+                  Ticket sẽ được cập nhật sang danh mục DISPUTE, nâng mức ưu tiên lên HIGH và tự động tạo báo cáo sự cố trong trang /platform/reports.
+                </p>
+                <input
+                  type="number"
+                  placeholder="Mã lớp học liên quan (tùy chọn)..."
+                  value={disputeClassId}
+                  onChange={(e) => setDisputeClassId(e.target.value)}
+                  style={{ width: '100%', marginBottom: '8px', padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
+                />
+                <textarea
+                  className="adm-ticket-respond__textarea"
+                  placeholder="Ghi chú bàn giao chuyển tiếp sang BF-08 (tùy chọn)..."
+                  value={disputeNotes}
+                  onChange={(e) => setDisputeNotes(e.target.value)}
+                  rows={2}
+                  maxLength={500}
+                />
+                <div style={{ display: 'flex', gap: '8px', marginTop: '8px' }}>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--primary"
+                    style={{ background: '#d97706' }}
+                    onClick={onRedirectDispute}
+                    disabled={mutStatus === 'loading'}
+                  >
+                    {mutStatus === 'loading' ? 'Đang chuyển...' : 'Xác nhận chuyển sang BF-08'}
+                  </button>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost"
+                    onClick={() => setShowDisputeTransfer(false)}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
             )}
 
             {mutError && (
@@ -359,14 +528,46 @@ function TicketDetailContent({
               >
                 {mutStatus === 'loading' ? 'Đang gửi...' : 'Gửi phản hồi'}
               </button>
-              {!showClose && (
-                <button
-                  type="button"
-                  className="tcs-btn tcs-btn--ghost"
-                  onClick={() => setShowClose(true)}
-                >
-                  Đóng ticket
-                </button>
+              {!showClose && !showMerge && !showDisputeTransfer && (
+                <>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost"
+                    onClick={() => {
+                      setShowClose(true);
+                      setShowMerge(false);
+                      setShowDisputeTransfer(false);
+                    }}
+                  >
+                    Đóng ticket
+                  </button>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost"
+                    style={{ borderColor: '#3b82f6', color: '#2563eb' }}
+                    onClick={() => {
+                      setShowMerge(true);
+                      setShowClose(false);
+                      setShowDisputeTransfer(false);
+                    }}
+                    title="Gộp ticket trùng lặp vào một ticket gốc"
+                  >
+                    Gộp Ticket
+                  </button>
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost"
+                    style={{ borderColor: '#d97706', color: '#b45309' }}
+                    onClick={() => {
+                      setShowDisputeTransfer(true);
+                      setShowClose(false);
+                      setShowMerge(false);
+                    }}
+                    title="Chuyển ticket này sang luồng Xử lý Tranh chấp BF-08"
+                  >
+                    Chuyển sang Tranh chấp (BF-08)
+                  </button>
+                </>
               )}
               {showClose && (
                 <>
@@ -386,7 +587,7 @@ function TicketDetailContent({
                     onClick={() => onCloseTicket('CLOSED')}
                     disabled={mutStatus === 'loading'}
                   >
-                    Đóng (không giải quyết)
+                    Đóng (Từ chối)
                   </button>
                   <button type="button" className="tcs-btn tcs-btn--ghost" onClick={() => setShowClose(false)}>
                     Hủy

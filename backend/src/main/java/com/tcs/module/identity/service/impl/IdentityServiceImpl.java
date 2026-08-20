@@ -117,6 +117,9 @@ public class IdentityServiceImpl implements IdentityService {
     @Value("${app.verified-token.expiration-minutes:15}")
     private long tokenExpirationMinutes;
 
+    @Value("${app.jwt.expiration-ms}")
+    private long jwtExpirationMs;
+
     // ============================================================ Send OTP
 
     @Override
@@ -693,6 +696,7 @@ public class IdentityServiceImpl implements IdentityService {
                 .role(platformMapper.resolveRole(profiles))
                 .displayName(platformMapper.toUserListItem(user, profiles).getDisplayName())
                 .status(user.getStatus())
+                .tokenExpiresInSeconds(jwtExpiresInSeconds())
                 .build();
     }
 
@@ -705,6 +709,11 @@ public class IdentityServiceImpl implements IdentityService {
                 .role(platformMapper.resolveRole(profiles))
                 .displayName(platformMapper.toUserListItem(user, profiles).getDisplayName())
                 .status(user.getStatus())
+                .tokenExpiresInSeconds(jwtExpiresInSeconds())
                 .build();
+    }
+
+    private long jwtExpiresInSeconds() {
+        return Math.max(1L, Duration.ofMillis(jwtExpirationMs).toSeconds());
     }
 }

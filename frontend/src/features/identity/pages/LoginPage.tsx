@@ -112,12 +112,16 @@ export default function LoginPage() {
   const { login, loginWithGoogle, completeGoogleSignup, isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const from = (location.state as { from?: string } | null)?.from ?? '/';
+  const searchParams = new URLSearchParams(location.search);
+  const nextParam = searchParams.get('next');
+  const safeNext = nextParam && nextParam.startsWith('/') ? nextParam : '/';
+  const from = (location.state as { from?: string } | null)?.from ?? safeNext;
+  const sessionExpired = searchParams.get('session') === 'expired';
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(sessionExpired ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : '');
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const tokenClientRef = useRef<TokenClient | null>(null);

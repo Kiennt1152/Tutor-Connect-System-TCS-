@@ -42,18 +42,23 @@
   width: 82px;
 }
 
-.pw-table th:nth-child(3),
-.pw-table td:nth-child(3) {
+.pw-table th:nth-child(2),
+.pw-table td:nth-child(2) {
+  width: 118px;
+}
+
+.pw-table th:nth-child(4),
+.pw-table td:nth-child(4) {
   width: 170px;
 }
 
-.pw-table th:nth-child(6),
-.pw-table td:nth-child(6) {
+.pw-table th:nth-child(7),
+.pw-table td:nth-child(7) {
   width: 120px;
 }
 
-.pw-table th:nth-child(8),
-.pw-table td:nth-child(8) {
+.pw-table th:nth-child(9),
+.pw-table td:nth-child(9) {
   width: 190px;
 }
 
@@ -65,6 +70,29 @@
 .pw-table__amount {
   font-weight: 700;
   color: var(--color-primary);
+}
+
+.pw-type-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 82px;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-body-sm);
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.pw-type-pill--withdrawal {
+  color: #9a3412;
+  background: #ffedd5;
+}
+
+.pw-type-pill--refund {
+  color: #075985;
+  background: #e0f2fe;
 }
 
 .pw-user-cell,

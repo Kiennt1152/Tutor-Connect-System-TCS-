@@ -57,6 +57,22 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
     private final DisputeRepository disputeRepository;
     private final ContractRepository contractRepository;
     private final SystemParameterRepository systemParameterRepository;
+    private final com.tcs.module.platform.service.AuditLogService auditLogService;
+
+    @Override
+    @Transactional
+    public int generateScheduledDailyReport() {
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        AnalyticsSummaryResponse summary = getSummary(yesterday, LocalDate.now());
+        java.util.Map<String, Object> meta = new java.util.HashMap<>();
+        meta.put("reportDate", String.valueOf(yesterday));
+        meta.put("totalUsers", summary.getTotalUsers());
+        meta.put("totalClasses", summary.getTotalClasses());
+        meta.put("totalRevenue", summary.getPlatformRevenue() != null ? summary.getPlatformRevenue().toString() : "0");
+        meta.put("activeEscrow", summary.getEscrowHeld() != null ? summary.getEscrowHeld().toString() : "0");
+        auditLogService.record("SCHEDULED_REPORT_GENERATION", "ScheduledAnalyticsReport", 0L, null, meta);
+        return 1;
+    }
 
     @Override
     public AnalyticsSummaryResponse getSummary(LocalDate from, LocalDate to) {

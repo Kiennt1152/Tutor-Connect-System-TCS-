@@ -52,4 +52,13 @@ public interface WithdrawalRequestRepository extends JpaRepository<WithdrawalReq
     Page<WithdrawalRequest> findAdminPage(
             @Param("status") WithdrawalRequestStatus status,
             Pageable pageable);
+
+    @Query("""
+            SELECT wr FROM WithdrawalRequest wr
+            JOIN FETCH wr.wallet w
+            JOIN FETCH w.user u
+            JOIN FETCH wr.paymentMethod pm
+            WHERE (:status IS NULL OR wr.status = :status)
+            """)
+    List<WithdrawalRequest> findAdminList(@Param("status") WithdrawalRequestStatus status);
 }

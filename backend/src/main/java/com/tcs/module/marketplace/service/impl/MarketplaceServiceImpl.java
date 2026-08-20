@@ -25,8 +25,10 @@ import com.tcs.module.finance.dto.response.CenterRequestFeePaymentResponse;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.enums.WalletStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
+import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
@@ -182,6 +184,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final ContractSignatureRepository contractSignatureRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final PaymentTransactionRepository paymentTransactionRepository;
+    private final WalletRepository walletRepository;
     private final EscrowService escrowService;
     private final TutoringClassRepository tutoringClassRepository;
     private final ClassAssignmentRepository classAssignmentRepository;
@@ -411,6 +414,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             throw new VerificationRequiredException(
                     "Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển vào lớp.");
         }
+        requireActiveWallet(tutor.getUser().getUserId());
         TutoringClass tutoringClass = findClass(classId);
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Lớp không mở đơn ứng tuyển");
@@ -2745,8 +2749,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             throw new IllegalArgumentException("Chức năng hoàn thành lớp chỉ áp dụng cho lớp gia sư riêng.");
         }
         ClassAssignment assignment = classAssignmentRepository
-                .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(classId)
-                .filter(a -> a.getStatus() == ClassAssignmentStatus.ACTIVE)
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
                 .orElseThrow(() -> new IllegalArgumentException("Lớp chưa có gia sư nhận, không thể hoàn thành."));
         String role = contractRoleOf(assignment, c); // ném lỗi nếu không phải gia sư/người tạo lớp
         if (!"TUTOR".equals(role)) {
@@ -2807,8 +2810,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return;
         }
         ClassAssignment assignment = classAssignmentRepository
-                .findFirstByApplication_TutoringClass_ClassIdOrderByAssignedDateDesc(classId)
-                .filter(a -> a.getStatus() == ClassAssignmentStatus.ACTIVE)
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(classId, ClassAssignmentStatus.ACTIVE)
                 .orElse(null);
         // Chỉ đóng khi gia sư đã yêu cầu hoàn thành trước đó.
         if (assignment == null || assignment.getTutorCompletedAt() == null
@@ -3661,6 +3663,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return tutorRepository
                 .findByUser_UserId(authHelper.currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ gia sư"));
+    }
+
+    private void requireActiveWallet(Long userId) {
+        boolean walletReady = walletRepository.findByUser_UserId(userId)
+                .filter(wallet -> wallet.getStatus() == WalletStatus.ACTIVE)
+                .isPresent();
+        if (!walletReady) {
+            throw new BusinessException(
+                    "Bạn cần tạo ví trước khi tiếp tục. Vui lòng vào Ví của tôi để tạo ví.");
+        }
     }
 
     private Category resolveCategory(Long id) {

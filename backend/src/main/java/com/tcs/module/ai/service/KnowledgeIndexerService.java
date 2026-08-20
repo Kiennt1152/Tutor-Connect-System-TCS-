@@ -40,9 +40,8 @@ public class KnowledgeIndexerService {
     private final EmbeddingService embeddingService;
     private final ObjectMapper objectMapper;
     private java.time.LocalDateTime lastReindexTime = null;
-    private static final int REINDEX_COOLDOWN_MINUTES = 5;
+    private static final int REINDEX_COOLDOWN_MINUTES = 1;
 
-    @Transactional
     public Map<String, Integer> reindexAll() {
         if (lastReindexTime != null) {
             long minutesSince = java.time.Duration.between(lastReindexTime, java.time.LocalDateTime.now()).toMinutes();

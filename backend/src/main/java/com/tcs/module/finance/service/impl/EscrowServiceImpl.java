@@ -34,6 +34,8 @@ import com.tcs.module.profile.repository.PlatformAdminRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -67,7 +69,7 @@ public class EscrowServiceImpl implements EscrowService {
         String reference = command.assignmentId() != null
                 ? PRIVATE_REF_PREFIX + command.assignmentId()
                 : CENTER_REF_PREFIX + command.classStudentId();
-        PaymentTransaction payment = paymentTransactionRepository.findByReferenceCode(reference)
+        PaymentTransaction payment = findLatestEscrowPayment(reference, PaymentTransactionStatus.SUCCESS)
                 .orElseThrow(() -> new BusinessException("Chưa có giao dịch thanh toán escrow"));
         return fundConfirmedPayment(payment);
     }
@@ -197,11 +199,13 @@ public class EscrowServiceImpl implements EscrowService {
                 .orElseGet(() -> {
                     classAssignmentRepository.findById(command.assignmentId())
                             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phân công lớp"));
-                    String reference = PRIVATE_REF_PREFIX + command.assignmentId();
-                    return paymentTransactionRepository.findByReferenceCode(reference)
+                    String baseReference = PRIVATE_REF_PREFIX + command.assignmentId();
+                    return findLatestEscrowPayment(baseReference, PaymentTransactionStatus.PENDING)
                             .map(payment -> reuseOrUpdatePendingPayment(payment, command))
                             .orElseGet(() -> {
-                                PaymentTransaction payment = createEscrowPayment(command, reference);
+                                PaymentTransaction payment = createEscrowPayment(
+                                        command,
+                                        nextEscrowPaymentReference(baseReference));
                                 log.info("[Escrow] Đã tạo lệnh thanh toán escrow cho assignment={} amount={}",
                                         command.assignmentId(), command.amount());
                                 return payment;
@@ -215,11 +219,13 @@ public class EscrowServiceImpl implements EscrowService {
                 .orElseGet(() -> {
                     classStudentRepository.findById(command.classStudentId())
                             .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ghi danh học viên"));
-                    String reference = CENTER_REF_PREFIX + command.classStudentId();
-                    return paymentTransactionRepository.findByReferenceCode(reference)
+                    String baseReference = CENTER_REF_PREFIX + command.classStudentId();
+                    return findLatestEscrowPayment(baseReference, PaymentTransactionStatus.PENDING)
                             .map(payment -> reuseOrUpdatePendingPayment(payment, command))
                             .orElseGet(() -> {
-                                PaymentTransaction payment = createEscrowPayment(command, reference);
+                                PaymentTransaction payment = createEscrowPayment(
+                                        command,
+                                        nextEscrowPaymentReference(baseReference));
                                 log.info("[Escrow] Đã tạo lệnh thanh toán escrow cho ghi danh={} amount={}",
                                         command.classStudentId(), command.amount());
                                 return payment;
@@ -247,6 +253,27 @@ public class EscrowServiceImpl implements EscrowService {
             return paymentTransactionRepository.save(payment);
         }
         return payment;
+    }
+
+    private java.util.Optional<PaymentTransaction> findLatestEscrowPayment(
+            String baseReference,
+            PaymentTransactionStatus status) {
+
+        return paymentTransactionRepository
+                .findEscrowReferenceFamilyByTypeAndStatus(
+                        baseReference,
+                        PaymentTransactionType.ESCROW_DEPOSIT,
+                        status)
+                .stream()
+                .findFirst();
+    }
+
+    private String nextEscrowPaymentReference(String baseReference) {
+        List<PaymentTransaction> history = paymentTransactionRepository.findEscrowReferenceFamily(baseReference);
+        if (history.isEmpty()) {
+            return baseReference;
+        }
+        return baseReference + "-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
     private EscrowTransaction createFundedEscrow(PaymentTransaction payment) {
@@ -283,7 +310,12 @@ public class EscrowServiceImpl implements EscrowService {
 
     private Long parseReferenceId(String reference, String prefix) {
         try {
-            return Long.valueOf(reference.substring(prefix.length()));
+            String idPart = reference.substring(prefix.length());
+            int sessionSeparator = idPart.indexOf('-');
+            if (sessionSeparator >= 0) {
+                idPart = idPart.substring(0, sessionSeparator);
+            }
+            return Long.valueOf(idPart);
         } catch (RuntimeException exception) {
             throw new BusinessException("Mã giao dịch escrow không hợp lệ");
         }

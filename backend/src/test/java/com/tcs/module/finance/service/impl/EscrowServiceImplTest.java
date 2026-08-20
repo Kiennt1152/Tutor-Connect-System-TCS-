@@ -1,8 +1,10 @@
 package com.tcs.module.finance.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -118,7 +120,12 @@ class EscrowServiceImplTest {
 
         when(escrowTransactionRepository.findByAssignment_AssignmentId(7L)).thenReturn(Optional.empty());
         when(classAssignmentRepository.findById(7L)).thenReturn(Optional.of(assignment));
-        when(paymentTransactionRepository.findByReferenceCode("ESCROW-A7")).thenReturn(Optional.empty());
+        when(paymentTransactionRepository.findEscrowReferenceFamilyByTypeAndStatus(
+                "ESCROW-A7",
+                PaymentTransactionType.ESCROW_DEPOSIT,
+                PaymentTransactionStatus.PENDING))
+                .thenReturn(java.util.List.of());
+        when(paymentTransactionRepository.findEscrowReferenceFamily("ESCROW-A7")).thenReturn(java.util.List.of());
         when(walletService.getSystemEscrowWallet()).thenReturn(wallet);
         when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -144,7 +151,12 @@ class EscrowServiceImplTest {
 
         when(escrowTransactionRepository.findByClassStudent_ClassStudentId(9L)).thenReturn(Optional.empty());
         when(classStudentRepository.findById(9L)).thenReturn(Optional.of(classStudent));
-        when(paymentTransactionRepository.findByReferenceCode("ESCROW-CS9")).thenReturn(Optional.empty());
+        when(paymentTransactionRepository.findEscrowReferenceFamilyByTypeAndStatus(
+                "ESCROW-CS9",
+                PaymentTransactionType.ESCROW_DEPOSIT,
+                PaymentTransactionStatus.PENDING))
+                .thenReturn(java.util.List.of());
+        when(paymentTransactionRepository.findEscrowReferenceFamily("ESCROW-CS9")).thenReturn(java.util.List.of());
         when(walletService.getSystemEscrowWallet()).thenReturn(wallet);
         when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
@@ -173,6 +185,36 @@ class EscrowServiceImplTest {
         verify(walletService, never()).lockFunds(any(), any(), any());
         verify(paymentTransactionRepository, never()).save(any());
         verify(escrowTransactionRepository, never()).save(any());
+    }
+
+    @Test
+    void preparePaymentCreatesNewSessionReferenceWhenPreviousEscrowPaymentWasCancelled() {
+        BigDecimal amount = new BigDecimal("500000.00");
+        Wallet wallet = wallet(999L);
+        ClassAssignment assignment = new ClassAssignment();
+        assignment.setAssignmentId(7L);
+        PaymentTransaction cancelledPayment = new PaymentTransaction();
+        cancelledPayment.setReferenceCode("ESCROW-A7");
+        cancelledPayment.setType(PaymentTransactionType.ESCROW_DEPOSIT);
+        cancelledPayment.setStatus(PaymentTransactionStatus.CANCELLED);
+
+        when(escrowTransactionRepository.findByAssignment_AssignmentId(7L)).thenReturn(Optional.empty());
+        when(classAssignmentRepository.findById(7L)).thenReturn(Optional.of(assignment));
+        when(paymentTransactionRepository.findEscrowReferenceFamilyByTypeAndStatus(
+                "ESCROW-A7",
+                PaymentTransactionType.ESCROW_DEPOSIT,
+                PaymentTransactionStatus.PENDING))
+                .thenReturn(java.util.List.of());
+        when(paymentTransactionRepository.findEscrowReferenceFamily("ESCROW-A7"))
+                .thenReturn(java.util.List.of(cancelledPayment));
+        when(walletService.getSystemEscrowWallet()).thenReturn(wallet);
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PaymentTransaction result = escrowService.preparePayment(new EscrowLockCommand(PAYER_ID, amount, 7L, null));
+
+        assertTrue(result.getReferenceCode().startsWith("ESCROW-A7-"));
+        assertNotEquals("ESCROW-A7", result.getReferenceCode());
+        assertEquals(PaymentTransactionStatus.PENDING, result.getStatus());
     }
 
     @Test

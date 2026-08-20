@@ -208,6 +208,14 @@ export const platformApi = {
     return axiosClient.patch<AdminTicketDetailApiResponse>(`${BASE}/tickets/${ticketId}/status`, payload);
   },
 
+  mergeTicket(ticketId: string, payload: { targetTicketId: number; reason?: string }) {
+    return axiosClient.post<AdminTicketDetailApiResponse>(`${BASE}/tickets/${ticketId}/merge`, payload);
+  },
+
+  redirectTicketToDispute(ticketId: string, payload: { targetClassId?: number; notes?: string }) {
+    return axiosClient.post<AdminTicketDetailApiResponse>(`${BASE}/tickets/${ticketId}/redirect-dispute`, payload);
+  },
+
   getAnnouncements() {
     return axiosClient.get<AnnouncementApiResponse[]>(`${BASE}/announcements`);
   },
@@ -317,7 +325,9 @@ export const platformApi = {
   },
 
   reindexAiKnowledge() {
-    return axiosClient.post<AiKnowledgeReindexApiResponse>(`${BASE}/ai/reindex`);
+    return axiosClient.post<AiKnowledgeReindexApiResponse>(`${BASE}/ai/reindex`, {}, {
+      timeout: 180000,
+    });
   },
 
   getAnalyticsSummary(from?: string, to?: string) {

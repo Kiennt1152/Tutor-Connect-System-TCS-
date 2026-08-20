@@ -2119,6 +2119,11 @@ public class ContractServiceImpl implements ContractService {
         Tutor tutor = review.getAssignment().getTutor();
         recomputeTutorReputation(tutor, review.getReviewee().getUserId());
 
+        TutoringClass tutoringClass = review.getTutoringClass();
+        if (tutoringClass != null) {
+            eventPublisher.publishEvent(new ClientReviewedClassEvent(tutoringClass.getClassId()));
+        }
+
         return toResponse(saved);
     }
 

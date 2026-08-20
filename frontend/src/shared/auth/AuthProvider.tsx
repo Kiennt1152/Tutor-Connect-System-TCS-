@@ -24,11 +24,16 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<StoredUser | null>(() => authStorage.getUser());
-  const [authLoading, setAuthLoading] = useState(() => !!authStorage.getToken());
+  const [authLoading, setAuthLoading] = useState(() => {
+    const token = authStorage.getToken();
+    return !!token && !authStorage.isSessionExpired();
+  });
 
   useEffect(() => {
     const token = authStorage.getToken();
-    if (!token) {
+    if (!token || authStorage.isSessionExpired()) {
+      authStorage.clearAll();
+      setUser(null);
       setAuthLoading(false);
       return;
     }
@@ -63,6 +68,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
+  useEffect(() => {
+    if (!user) {
+      return;
+    }
+    const expiresAt = authStorage.getSessionExpiresAt();
+    if (!expiresAt) {
+      return;
+    }
+    const delay = Math.max(0, expiresAt - Date.now());
+    const timer = window.setTimeout(() => {
+      authStorage.clearAll();
+      setUser(null);
+    }, delay);
+    return () => window.clearTimeout(timer);
+  }, [user]);
+
   const login = useCallback(async (body: LoginRequest) => {
     const response = await identityApi.login(body);
     persistAuth(response);
@@ -73,7 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loginWithGoogle = useCallback(async (body: GoogleLoginRequest) => {
     const response = await identityApi.loginWithGoogle(body);
     if (!response.newUser) {
-      persistAuth(response as Required<Pick<GoogleLoginResponse, 'accessToken' | 'userId' | 'email' | 'role' | 'displayName'>>);
+      persistAuth(response as Required<Pick<GoogleLoginResponse, 'accessToken' | 'userId' | 'email' | 'role' | 'displayName' | 'tokenExpiresInSeconds'>>);
       setUser(authStorage.getUser());
     }
     return response;
@@ -81,7 +102,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const completeGoogleSignup = useCallback(async (body: GoogleCompleteRequest) => {
     const response = await identityApi.completeGoogleSignup(body);
-    persistAuth(response as Required<Pick<GoogleLoginResponse, 'accessToken' | 'userId' | 'email' | 'role' | 'displayName'>>);
+    persistAuth(response as Required<Pick<GoogleLoginResponse, 'accessToken' | 'userId' | 'email' | 'role' | 'displayName' | 'tokenExpiresInSeconds'>>);
     setUser(authStorage.getUser());
     return response;
   }, []);

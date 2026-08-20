@@ -91,4 +91,14 @@ public class SupportTicket {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public Long getTicketId() { return ticketId; }
+    public User getUser() { return user; }
+    public String getSubject() { return subject; }
+    public String getDescription() { return description; }
+    public SupportTicketCategory getCategory() { return category; }
+    public SupportTicketPriority getPriority() { return priority; }
+    public SupportTicketStatus getStatus() { return status; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

@@ -9,11 +9,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-@RequiredArgsConstructor
 public class AiIntentService {
 
     public record IntentResultWithEntities(
@@ -32,6 +31,17 @@ public class AiIntentService {
     ) {}
 
     private final IntentClassifier intentClassifier;
+    private final LlmIntentClassifierService llmIntentClassifierService;
+
+    public AiIntentService(IntentClassifier intentClassifier) {
+        this(intentClassifier, null);
+    }
+
+    @Autowired
+    public AiIntentService(IntentClassifier intentClassifier, @Autowired(required = false) LlmIntentClassifierService llmIntentClassifierService) {
+        this.intentClassifier = intentClassifier;
+        this.llmIntentClassifierService = llmIntentClassifierService;
+    }
 
     public IntentResultWithEntities classify(String message) {
         DetailedIntentResult detailed = classifyAndExtractDetailed(message);
@@ -44,6 +54,19 @@ public class AiIntentService {
 
     public DetailedIntentResult classifyAndExtractDetailed(String message) {
         IntentClassifier.ClassificationDetail detail = intentClassifier.classifyDetailed(message);
+
+        // HYBRID INTENT CLASSIFICATION:
+        // When keyword classifier is uncertain (confidence < 0.85 or OUT_OF_SCOPE),
+        // fallback to LLM Semantic Intent Classifier to understand creative/informal user phrasing.
+        if (detail.confidence() < 0.85 || detail.domain() == AiDomain.OUT_OF_SCOPE) {
+            if (llmIntentClassifierService != null) {
+                IntentClassifier.ClassificationDetail llmDetail = llmIntentClassifierService.classifyWithLlm(message);
+                if (llmDetail != null && llmDetail.confidence() >= 0.70) {
+                    detail = llmDetail;
+                }
+            }
+        }
+
         Map<String, String> entities = extractEntities(message);
         return new DetailedIntentResult(
             detail.domain(),

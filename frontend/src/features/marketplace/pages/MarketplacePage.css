@@ -701,6 +701,10 @@
   box-shadow: 0 4px 14px rgba(15, 23, 42, 0.04);
   transition: box-shadow 0.15s, border-color 0.15s;
 }
+.mkt-req-card--payment {
+  border-color: #fdba74;
+  background: #fffaf5;
+}
 .mkt-req-card:hover {
   border-color: var(--color-accent-border-hover);
   box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
@@ -733,6 +737,35 @@
 }
 .mkt-req-card__reason {
   color: var(--color-error);
+}
+.mkt-req-card__payment {
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid #fdba74;
+  border-radius: 12px;
+  background: #fff7ed;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.mkt-req-card__payment > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.mkt-req-card__payment strong {
+  color: #9a3412;
+  font-size: 13px;
+}
+.mkt-req-card__payment span {
+  color: #7c2d12;
+  font-size: 12px;
+  line-height: 1.45;
+}
+.mkt-req-card__payment b {
+  color: #c2410c;
 }
 .mkt-req-card__actions {
   flex-shrink: 0;
@@ -863,12 +896,190 @@
   font-weight: 600;
 }
 
+.mkt-payment-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.mkt-payment-modal {
+  width: min(760px, 100%);
+  max-height: min(88vh, 860px);
+  overflow-y: auto;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 24px 64px rgba(15, 23, 42, 0.24);
+  padding: 22px;
+}
+
+.mkt-payment-modal__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.mkt-payment-modal__top span {
+  display: block;
+  color: var(--color-primary);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.mkt-payment-modal__top h3 {
+  margin: 4px 0 0;
+  color: #12233b;
+  font-size: 20px;
+}
+
+.mkt-payment-modal__close {
+  width: 34px;
+  height: 34px;
+  border: none;
+  border-radius: 999px;
+  background: #f1f5f9;
+  color: #334155;
+  cursor: pointer;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.mkt-payment-modal__close:hover {
+  background: #e2e8f0;
+}
+
+.mkt-payment-modal__error {
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 13px;
+}
+
+.mkt-payment-modal__hint {
+  margin: 0 0 16px;
+  color: #5b6b7f;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.mkt-payment-modal__body {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.mkt-payment-modal__qr {
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mkt-payment-modal__qr img {
+  width: 180px;
+  height: 180px;
+  object-fit: contain;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  background: #fff;
+}
+
+.mkt-payment-modal__qr .payment-qr-countdown {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.mkt-payment-modal__info {
+  display: grid;
+  gap: 10px;
+}
+
+.mkt-payment-modal__info div {
+  display: grid;
+  grid-template-columns: 132px minmax(0, 1fr);
+  gap: 8px;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed #dbe3ee;
+}
+
+.mkt-payment-modal__info span {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.mkt-payment-modal__info strong {
+  color: #0f172a;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.mkt-payment-modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.mkt-payment-modal__success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  text-align: center;
+  padding: 20px 10px 8px;
+}
+
+.mkt-payment-modal__success span {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--color-success-light);
+  color: var(--color-success);
+  font-weight: 800;
+  font-size: 18px;
+}
+
 @media (max-width: 560px) {
   .mkt-req-card {
     flex-wrap: wrap;
   }
   .mkt-req-card__main {
     flex-basis: 100%;
+  }
+  .mkt-req-card__payment {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .mkt-payment-modal__body {
+    grid-template-columns: 1fr;
+  }
+  .mkt-payment-modal__qr {
+    width: 100%;
+  }
+  .mkt-payment-modal__qr img {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+  .mkt-payment-modal__actions {
+    flex-direction: column-reverse;
+  }
+  .mkt-payment-modal__actions .mkt-btn {
+    width: 100%;
   }
 }
 

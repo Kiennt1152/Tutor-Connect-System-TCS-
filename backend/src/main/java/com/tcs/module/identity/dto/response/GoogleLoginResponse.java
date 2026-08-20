@@ -23,4 +23,5 @@ public class GoogleLoginResponse {
     private UserRole role;
     private String displayName;
     private UserStatus status;
+    private Long tokenExpiresInSeconds;
 }

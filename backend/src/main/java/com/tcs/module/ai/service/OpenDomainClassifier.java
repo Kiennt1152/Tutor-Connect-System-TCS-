@@ -75,14 +75,24 @@ public class OpenDomainClassifier {
             return new OpenDomainResult(AiSubIntent.DEFINITION_LOOKUP, 0.9, data);
         }
 
-        // 6. ENTERTAINMENT
-        if (containsAny(normalized, "ke chuyen cuoi", "ke chuyen", "do vui", "lam tho", "hat mot bai", "tell me a joke", "tell a story", "riddle")) {
+        // 6. ENTERTAINMENT & CASUAL CHITCHAT (Compliments, fun questions, small talk)
+        if (containsAny(normalized,
+                "dep trai", "xinh gai", "xinh dep", "co dep khong", "dep khong", "co xinh khong", "xinh khong",
+                "thong minh khong", "co nguoi yeu chua", "nguoi yeu", "yeu bot", "yeu ban", "khen", "ban gioi qua", "ban hay qua",
+                "ke chuyen cuoi", "ke chuyen", "do vui", "lam tho", "hat mot bai", "tell me a joke", "tell a story", "riddle")) {
             Map<String, String> data = new HashMap<>();
             data.put("topic", query);
-            return new OpenDomainResult(AiSubIntent.ENTERTAINMENT, 0.85, data);
+            return new OpenDomainResult(AiSubIntent.ENTERTAINMENT, 0.95, data);
         }
 
-        // 7. NEWS_CURRENT_EVENTS
+        // 7. PLATFORM_STATS & FAQ COUNT
+        if (containsAny(normalized, "bao nhieu cau faq", "bao nhieu faq", "so luong faq", "tong so faq", "co bao nhieu faq", "bao nhieu cau hoi thuong gap", "tong so cau hoi thuong gap")) {
+            Map<String, String> data = new HashMap<>();
+            data.put("topic", "FAQ_STATS");
+            return new OpenDomainResult(AiSubIntent.PLATFORM_STATS, 0.95, data);
+        }
+
+        // 8. NEWS_CURRENT_EVENTS
         if (containsAny(normalized, "tin tuc hom nay", "thoi su", "gia vang", "gia xang", "chung khoan", "tin tuc moi nhat", "latest news")) {
             Map<String, String> data = new HashMap<>();
             data.put("topic", query);
