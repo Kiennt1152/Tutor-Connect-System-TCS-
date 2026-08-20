@@ -9,6 +9,7 @@ export function mapTutorSearchItem(item: TutorSearchApiResponse): TutorSearchIte
     hourlyRate: Number(item.hourlyRate),
     ratingAvg: Number(item.ratingAvg),
     experienceYears: item.experienceYears,
+    verificationStatus: item.verificationStatus ?? null,
   };
 }
 
@@ -21,5 +22,6 @@ export function tutorSearchToFeatured(tutor: TutorSearchItem): FeaturedTutor {
     hourlyRate: tutor.hourlyRate,
     ratingAvg: tutor.ratingAvg,
     experienceYears: tutor.experienceYears,
+    verificationStatus: tutor.verificationStatus,
   };
 }

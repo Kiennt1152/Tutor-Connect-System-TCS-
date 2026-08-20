@@ -16,6 +16,7 @@ export type TutorSearchItem = {
   hourlyRate: number;
   ratingAvg: number;
   experienceYears: number;
+  verificationStatus: string | null;
 };
 
 export type TutorSearchParams = {
