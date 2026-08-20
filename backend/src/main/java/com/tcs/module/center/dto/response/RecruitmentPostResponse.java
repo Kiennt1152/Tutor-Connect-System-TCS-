@@ -36,8 +36,19 @@ public class RecruitmentPostResponse {
     private String wardName;
     private String addressDetail;
 
+    /**
+     * true khi gia sư đang xem đã thuộc đội ngũ của trung tâm này — không được ứng tuyển.
+     * Luôn false ở các màn không phải gia sư xem (trung tâm quản lý tin của mình).
+     */
+    private boolean alreadyCenterTutor;
+
     private RecruitmentPostStatus status;
     private LocalDateTime publishedAt;
+    /**
+     * Mốc tin hết hạn hiển thị: 30 ngày kể từ {@code publishedAt}. Quá hạn tin tự gỡ
+     * về nháp. Null khi tin chưa đăng. Dùng cho đồng hồ đếm ngược ở giao diện.
+     */
+    private LocalDateTime expiresAt;
     private LocalDateTime closedAt;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

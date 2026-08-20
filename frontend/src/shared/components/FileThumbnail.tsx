@@ -144,6 +144,7 @@ export function FileThumbnail({
       <FilePreviewModal
         src={resolvedSrc ?? ''}
         fileName={fileName}
+        mimeType={mimeType}
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
       />

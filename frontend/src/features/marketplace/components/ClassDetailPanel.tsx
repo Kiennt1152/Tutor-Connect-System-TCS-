@@ -93,6 +93,10 @@ export function ClassDetailPanel({ raw, subjects, grades }: Props) {
           <dt>Yêu cầu gia sư</dt>
           <dd>{tutorRequirement || '—'}</dd>
         </div>
+        <div>
+          <dt>Gia sư đang dạy</dt>
+          <dd>{raw.assignedTutorName || 'Chưa có gia sư nhận lớp'}</dd>
+        </div>
         <div className="cdm-grid__full">
           <dt>Địa điểm</dt>
           <dd>{form.lessonMode === 'ONLINE' ? 'Học Online' : fullAddress || raw.address || '—'}</dd>

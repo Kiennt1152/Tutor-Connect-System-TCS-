@@ -193,6 +193,10 @@ export default function MarketplaceClassDetailPage() {
                     <dt>Người tạo</dt>
                     <dd>{data.creatorName ?? '—'}</dd>
                   </div>
+                  <div>
+                    <dt>Gia sư đang dạy</dt>
+                    <dd>{data.assignedTutorName || 'Chưa có gia sư nhận lớp'}</dd>
+                  </div>
                 </dl>
               </div>
 

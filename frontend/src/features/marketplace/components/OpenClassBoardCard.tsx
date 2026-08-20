@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { classToForm } from '../mappers/marketplaceMapper';
-import { ExpiryBadge } from './ExpiryBadge';
+import { ExpiryBadge } from '../../../shared/components/ExpiryBadge';
 import {
   CLASS_STATUS_LABELS,
   isOtherSubject,

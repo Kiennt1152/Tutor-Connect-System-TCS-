@@ -609,28 +609,13 @@
   font-weight: 800;
 }
 
-@media (prefers-color-scheme: dark) {
-  .cr-card,
-  .cr-req,
-  .cr-modal {
-    background: #1e293b;
-    border-color: #334155;
-  }
-  .cr-card__name,
-  .cr-req__note,
-  .cr-modal__title {
-    color: #f1f5f9;
-  }
-  .cr-card__desc {
-    color: #cbd5e1;
-  }
-  .cr-input,
-  .cr-textarea {
-    background: #0f172a;
-    border-color: #475569;
-    color: #f1f5f9;
-  }
-}
+/*
+ * Đã bỏ khối @media (prefers-color-scheme: dark) ở đây.
+ * Toàn bộ ứng dụng chỉ có một bộ token màu sáng (shared/theme/tokens.css) và không
+ * file nào khác khai báo dark mode. Riêng màn này tự đổi nền sang #1e293b khi trình
+ * duyệt để theme tối, dẫn tới form nền đen lẫn với chữ trong khi phần còn lại vẫn sáng.
+ * Muốn hỗ trợ dark mode thì phải khai báo bộ token dark ở tokens.css để mọi màn cùng đổi.
+ */
 
 /* Toast thông báo trong app (thay cho alert trình duyệt) */
 .cr-toast {

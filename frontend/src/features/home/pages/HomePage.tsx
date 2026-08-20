@@ -11,19 +11,18 @@ import { TutorListingCard } from '../components/TutorListingCard';
 import { ClassListingCard } from '../components/ClassListingCard';
 import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
 import { useOpenClasses } from '../hooks/useOpenClasses';
+import { useReveal } from '../hooks/useReveal';
+import { useCardSpotlight } from '../hooks/useCardSpotlight';
+import { CountUp } from '../components/CountUp';
+import { TutorListSkeleton } from '../components/HomeSkeleton';
+import { HeroSlideshow } from '../components/HeroSlideshow';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import type { CenterSummary } from '../../marketplace/types/marketplaceTypes';
-import {
-  HOME_NEWS,
-} from '../config/homeContent';
 import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
 import type { OpenClassItem } from '../types/openClassTypes';
 import type { OpenClassesStatus } from '../hooks/useOpenClasses';
 import AdminHomePage from './AdminHomePage';
 import './HomePage.css';
-
-const currency = (value: number) =>
-  new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(value);
 
 const MARKETPLACE_HOME_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'UNKNOWN'];
 
@@ -54,37 +53,43 @@ function HomeHeroSection({
     <section className="tcs-home-hero">
       <div className="tcs-container">
         <div className="tcs-hero__panel">
-          <div className="tcs-hero__intro">
-            {isAuthenticated && copy ? (
-              <>
-                <p className="tcs-hero__eyebrow">{copy.eyebrow}</p>
-                <h1 className="tcs-hero__title">Xin chào, {firstName}</h1>
-                <p className="tcs-hero__subtitle">{copy.subtitle}</p>
-              </>
-            ) : (
-              <>
-                <h1 className="tcs-hero__title">Kết nối gia sư uy tín</h1>
-                <p className="tcs-hero__subtitle">
-                  Tìm gia sư theo môn học và khu vực — quy trình minh bạch, thanh toán an toàn qua ký
-                  quỹ.
-                </p>
-                <HeroStats data={data} />
-              </>
-            )}
+          <div className="tcs-hero__col">
+            <div className="tcs-hero__intro">
+              {isAuthenticated && copy ? (
+                <>
+                  <p className="tcs-hero__eyebrow">{copy.eyebrow}</p>
+                  <h1 className="tcs-hero__title">Xin chào, {firstName}</h1>
+                  <p className="tcs-hero__subtitle">{copy.subtitle}</p>
+                </>
+              ) : (
+                <>
+                  <h1 className="tcs-hero__title">Kết nối gia sư uy tín</h1>
+                  <p className="tcs-hero__subtitle">
+                    Tìm gia sư theo môn học và khu vực — quy trình minh bạch, thanh toán an toàn qua
+                    ký quỹ.
+                  </p>
+                  <HeroStats data={data} />
+                </>
+              )}
+            </div>
+
+            {showSearch ? (
+              <div className="tcs-hero__search-row">
+                {isTutor ? (
+                  <ClassSearchBlock
+                    subjects={subjects}
+                    classes={openClasses}
+                    classesStatus={classesStatus}
+                    isAuthenticated={isAuthenticated}
+                  />
+                ) : (
+                  <TutorSearchBlock subjects={subjects} isAuthenticated={isAuthenticated} />
+                )}
+              </div>
+            ) : null}
           </div>
 
-          {showSearch ? (
-            isTutor ? (
-              <ClassSearchBlock
-                subjects={subjects}
-                classes={openClasses}
-                classesStatus={classesStatus}
-                isAuthenticated={isAuthenticated}
-              />
-            ) : (
-              <TutorSearchBlock subjects={subjects} isAuthenticated={isAuthenticated} />
-            )
-          ) : null}
+          <HeroSlideshow />
         </div>
 
         {subjects.length > 0 ? (
@@ -114,7 +119,7 @@ function TutorListSection({
   isAuthenticated: boolean;
 }) {
   return (
-    <section id="find-tutor" className="tcs-section tcs-section--tutors">
+    <section id="find-tutor" className="tcs-section tcs-section--tutors" data-reveal>
       <div className="tcs-container">
         <div className="tcs-section-bar">
           <div>
@@ -123,9 +128,6 @@ function TutorListSection({
               Lọc theo môn học, khu vực và xem gia sư phù hợp ngay trên nền tảng.
             </p>
           </div>
-          {tutors.length > 0 ? (
-            <span className="tcs-section-bar__count">{tutors.length} gia sư</span>
-          ) : null}
         </div>
 
         {tutors.length === 0 ? (
@@ -146,15 +148,21 @@ function HeroStats({ data }: { data: HomeData | null }) {
   return (
     <div className="tcs-hero__stats">
       <div className="tcs-stat">
-        <span className="tcs-stat__value">{data ? currency(data.totalTutors) : '—'}</span>
+        <span className="tcs-stat__value">
+          <CountUp value={data ? data.totalTutors : null} />
+        </span>
         <span className="tcs-stat__label">Gia sư</span>
       </div>
       <div className="tcs-stat">
-        <span className="tcs-stat__value">{data ? currency(data.totalSubjects) : '—'}</span>
+        <span className="tcs-stat__value">
+          <CountUp value={data ? data.totalSubjects : null} />
+        </span>
         <span className="tcs-stat__label">Môn học</span>
       </div>
       <div className="tcs-stat">
-        <span className="tcs-stat__value">{data ? currency(data.totalClasses) : '—'}</span>
+        <span className="tcs-stat__value">
+          <CountUp value={data ? data.totalClasses : null} />
+        </span>
         <span className="tcs-stat__label">Lớp học</span>
       </div>
     </div>
@@ -175,7 +183,7 @@ export function ClassesSection({
   hideHeading?: boolean;
 }) {
   return (
-    <section id="classes" className="tcs-section tcs-section--listing">
+    <section id="classes" className="tcs-section tcs-section--listing" data-reveal>
       <div className="tcs-container">
         {(!hideHeading || (status === 'success' && classes.length > 0)) && (
           <div className="tcs-section-bar">
@@ -257,7 +265,7 @@ function CentersSection() {
   const featured = centers.slice(0, 3);
 
   return (
-    <section id="centers" className="tcs-section tcs-section--centers">
+    <section id="centers" className="tcs-section tcs-section--centers" data-reveal>
       <div className="tcs-container">
         <div className="tcs-section-bar">
           <div>
@@ -299,41 +307,6 @@ function CentersSection() {
   );
 }
 
-function NewsSection() {
-  return (
-    <section id="news" className="tcs-section tcs-section--news">
-      <div className="tcs-container">
-        <div className="tcs-section-bar">
-          <div>
-            <h2 className="tcs-section-bar__title">Tin tức</h2>
-            <p className="tcs-section-bar__subtitle">
-              Cập nhật mới về giáo dục, gia sư và hoạt động trên nền tảng.
-            </p>
-          </div>
-        </div>
-        <div className="tcs-news-grid">
-          {HOME_NEWS.map((item) => (
-            <article key={item.id} className="tcs-news-card">
-              <time className="tcs-news-card__date">{item.date}</time>
-              <h3 className="tcs-news-card__title">{item.title}</h3>
-              <p className="tcs-news-card__excerpt">{item.excerpt}</p>
-            </article>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function LoadingState() {
-  return (
-    <div className="tcs-state">
-      <div className="tcs-spinner" aria-hidden />
-      <p>Đang tải dữ liệu trang chủ…</p>
-    </div>
-  );
-}
-
 function ErrorState({ onRetry }: { onRetry: () => void }) {
   return (
     <div className="tcs-state">
@@ -359,6 +332,10 @@ function HomePage() {
     [status, data],
   );
 
+  // Quét lại các section mỗi khi dữ liệu đổi, vì phần lớn chỉ được render sau khi tải xong.
+  useReveal([status, classesStatus, data]);
+  useCardSpotlight();
+
   if (hasRole(user?.role, 'PLATFORM_ADMIN')) {
     return <AdminHomePage />;
   }
@@ -380,7 +357,7 @@ function HomePage() {
           role={isAuthenticated ? role : undefined}
         />
 
-        {status === 'loading' && <LoadingState />}
+        {status === 'loading' && <TutorListSkeleton />}
         {status === 'error' && <ErrorState onRetry={reload} />}
 
         {status === 'success' && (
@@ -399,7 +376,6 @@ function HomePage() {
         )}
 
         <CentersSection />
-        <NewsSection />
       </main>
       <SiteFooter />
     </div>

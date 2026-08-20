@@ -1,6 +1,7 @@
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
+import { EvidencePreviewList as SharedEvidencePreviewList } from '../../../shared/components/EvidencePreviewList';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { disputeApi } from '../../dispute/api/disputeApi';
 import type { EvidenceUploadResponse } from '../../dispute/types/disputeTypes';
@@ -471,63 +472,21 @@ function InfoRow({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function EvidencePreviewList({
-  urls,
-  emptyText,
-}: {
-  urls: string[];
-  emptyText: string;
-}) {
-  if (urls.length === 0) {
-    return <p className="pd-muted">{emptyText}</p>;
-  }
-
+/** Bọc component dùng chung, giữ nguyên các class riêng của trang này. */
+function EvidencePreviewList({ urls, emptyText }: { urls: string[]; emptyText: string }) {
   return (
-    <div className="pd-evidence-list">
-      {urls.map((url, index) => {
-        const mimeType = evidenceMimeType(url);
-        if (!mimeType) {
-          return (
-            <a key={url} className="pd-evidence-link" href={url} target="_blank" rel="noreferrer">
-              {url}
-            </a>
-          );
-        }
-        return (
-          <FileThumbnail
-            key={url}
-            src={url}
-            fileName={evidenceFileName(url, index)}
-            mimeType={mimeType}
-            fileSize={null}
-          />
-        );
-      })}
-    </div>
+    <SharedEvidencePreviewList
+      urls={urls}
+      emptyText={emptyText}
+      className="pd-evidence-list"
+      emptyClassName="pd-muted"
+      linkClassName="pd-evidence-link"
+    />
   );
 }
 
 function buildUploadedEvidenceUrls(files: EvidenceUploadResponse[]) {
   return files.map((file) => file.fileUrl).join('\n');
-}
-
-function evidenceMimeType(url: string) {
-  const normalized = url.split(/[?#]/)[0].toLowerCase();
-  if (normalized.endsWith('.jpg') || normalized.endsWith('.jpeg')) return 'image/jpeg';
-  if (normalized.endsWith('.png')) return 'image/png';
-  if (normalized.endsWith('.webp')) return 'image/webp';
-  return null;
-}
-
-function evidenceFileName(url: string, index: number) {
-  const path = url.split(/[?#]/)[0];
-  const rawFileName = path.split('/').filter(Boolean).pop();
-  if (!rawFileName) return `Bằng chứng ${index + 1}`;
-  try {
-    return decodeURIComponent(rawFileName);
-  } catch {
-    return rawFileName;
-  }
 }
 
 function AutomationState({ detail }: { detail: AdminDisputeReviewApiResponse }) {

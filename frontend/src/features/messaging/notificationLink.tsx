@@ -21,6 +21,39 @@ export function notificationLink(
     return role === 'TUTOR_CENTER' ? APP_ROUTES.center : APP_ROUTES.marketplace;
   }
 
+  // Đổi lịch buổi học: trung tâm về trang duyệt, gia sư về lịch lớp trung tâm của mình.
+  if (n.referenceType === 'RESCHEDULE') {
+    if (role === 'TUTOR_CENTER') return APP_ROUTES.centerReschedules;
+    if (role === 'TUTOR') return APP_ROUTES.tutorSchedule;
+    if (role === 'CLIENT') return APP_ROUTES.clientSchedule;
+    return null;
+  }
+
+  // Lớp của TRUNG TÂM có lịch riêng theo vai trò, không dùng chung màn Lịch dạy
+  // của lớp cá nhân (route đó chỉ cho TUTOR/CLIENT — trung tâm vào sẽ bị chặn 403).
+  if (n.referenceType === 'CENTER_CLASS') {
+    if (role === 'TUTOR') return APP_ROUTES.tutorSchedule;
+    if (role === 'CLIENT') return APP_ROUTES.clientSchedule;
+    if (role === 'TUTOR_CENTER') return APP_ROUTES.center;
+    return null;
+  }
+
+  // Hợp đồng: việc cần làm là ký hoặc thanh toán ký quỹ, phải về trang Hợp đồng.
+  // referenceId ở đây là classId (lúc gửi thông báo chưa chắc đã có hợp đồng),
+  // nên chỉ mở danh sách chứ không ghép thành /contract/{id}.
+  if (n.referenceType === 'CONTRACT') {
+    return APP_ROUTES.contract;
+  }
+
+  // Hồ sơ xác minh: admin mở thẳng hồ sơ cần duyệt (trang tự bung chi tiết theo ?id=),
+  // người nộp thì về trang xác minh của chính mình.
+  if (n.referenceType === 'VERIFICATION_REQUEST') {
+    if (!isAdmin) return APP_ROUTES.verification;
+    return n.referenceId
+      ? `${APP_ROUTES.platformVerifications}?id=${n.referenceId}`
+      : APP_ROUTES.platformVerifications;
+  }
+
   if (n.referenceType === 'REPORT') {
     return isAdmin ? APP_ROUTES.platformReports : APP_ROUTES.help;
   }

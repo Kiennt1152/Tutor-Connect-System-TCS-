@@ -350,7 +350,34 @@
 }
 
 .contract-card--wide {
-  grid-row: span 2;
+  grid-column: 1;
+}
+
+/**
+ * Cột phải bám theo khung hình: văn bản hợp đồng bên trái rất dài, nếu để cột phải
+ * cuộn theo thì mất "Trạng thái ký" và nút ký ngay khi đọc tới giữa hợp đồng.
+ * `align-self: start` là bắt buộc — không có nó ô sẽ bị kéo cao bằng cả hàng và
+ * sticky không còn khoảng nào để bám.
+ */
+.contract-detail-side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-lg);
+  min-width: 0;
+  position: sticky;
+  top: 96px;
+  align-self: start;
+  /* Cột dài hơn màn hình thì tự cuộn bên trong thay vì bị cắt mất phần dưới. */
+  max-height: calc(100vh - 112px);
+  overflow-y: auto;
+  /* Chừa chỗ cho viền/bóng của thẻ con khỏi bị cắt khi vùng cuộn kích hoạt. */
+  padding: 2px;
+  margin: -2px;
+}
+
+/* Không cho thẻ con co lại khi cột chạm max-height — phải cuộn, không phải bóp méo. */
+.contract-detail-side > * {
+  flex-shrink: 0;
 }
 
 .contract-card--accent {
@@ -369,11 +396,7 @@
   color: #166534;
 }
 
-.contract-escrow-card {
-  position: sticky;
-  top: 96px;
-  align-self: start;
-}
+/* Không sticky riêng nữa: thẻ này nằm trong .contract-detail-side vốn đã bám khung hình. */
 
 .contract-info-list {
   display: grid;
@@ -852,12 +875,17 @@
     grid-template-columns: 1fr;
   }
 
-  .contract-escrow-card {
+  /* Một cột: cột phải xếp thẳng xuống dưới, bám khung hình không còn ý nghĩa. */
+  .contract-detail-side {
     position: static;
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    margin: 0;
   }
 
   .contract-card--wide {
-    grid-row: auto;
+    grid-column: auto;
   }
 
   .contract-escrow-summary {

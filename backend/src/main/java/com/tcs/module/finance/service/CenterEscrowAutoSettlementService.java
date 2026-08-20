@@ -65,6 +65,8 @@ public class CenterEscrowAutoSettlementService {
     private final NotificationDispatchService notificationDispatchService;
 
     private static final String TUTOR_DONE_KEY_PREFIX = "classtutorcompleted:";
+    /** referenceType thông báo lớp của trung tâm — trùng với CenterServiceImpl. */
+    private static final String CENTER_CLASS_CONTEXT_TYPE = "CENTER_CLASS";
 
     @Transactional
     public boolean trySettleCompletedCenterClass(Long classId) {
@@ -230,7 +232,9 @@ public class CenterEscrowAutoSettlementService {
                     java.util.Map.of("title", title, "content", content),
                     title,
                     content,
-                    "TUTORING_CLASS",
+                    // Người nhận là TRUNG TÂM: "TUTORING_CLASS" đẩy họ sang /lich-day vốn chỉ
+                    // cho TUTOR/CLIENT -> 403. Việc cần làm nằm ở trang quản lý lớp của trung tâm.
+                    CENTER_CLASS_CONTEXT_TYPE,
                     classId);
         }
     }

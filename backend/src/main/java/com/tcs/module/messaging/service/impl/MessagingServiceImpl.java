@@ -35,6 +35,7 @@ import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.platform.repository.SupportTicketRepository;
 import com.tcs.module.platform.repository.TicketMessageRepository;
 import com.tcs.security.AuthHelper;
+import com.tcs.util.EvidenceUrls;
 import java.time.LocalDateTime;
 import java.util.EnumMap;
 import java.util.List;
@@ -237,6 +238,7 @@ public class MessagingServiceImpl implements MessagingService {
                 .subject(ticket.getSubject())
                 .description(ticket.getDescription())
                 .evidenceUrls(ticket.getEvidenceUrls())
+                .evidenceUrlList(EvidenceUrls.parse(ticket.getEvidenceUrls()))
                 .priority(ticket.getPriority())
                 .status(ticket.getStatus())
                 .resolvedAt(ticket.getResolvedAt())

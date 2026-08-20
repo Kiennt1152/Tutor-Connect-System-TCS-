@@ -43,6 +43,20 @@ public class CenterClassResponse {
     private Integer minStudents;
     /** Số học sinh đã ghi danh (ENROLLED) — để hiển thị tiến độ & điều kiện kích hoạt. */
     private long enrolledCount;
+    /** BF-04: hạn ghi danh, 30 ngày kể từ lúc đăng tải. Null khi lớp chưa mở ghi danh. */
+    private LocalDate enrollmentDeadline;
+    /**
+     * Mốc ghi danh thực sự đóng, dùng cho đồng hồ đếm ngược ở giao diện.
+     * Bằng hết ngày {@code enrollmentDeadline} — khớp đúng thời điểm bộ lịch tự đóng lớp.
+     */
+    private LocalDateTime enrollmentExpiresAt;
+    /**
+     * BR-06 / AF-03: true nếu trung tâm còn được sửa thông tin lớp.
+     * Thành false ngay khi có học sinh đăng ký (kể cả đang chờ ký hợp đồng).
+     */
+    private boolean editable;
+    /** Lý do lớp bị khoá sửa, null khi {@code editable = true}. */
+    private String editLockReason;
     /** Loại lớp: EXTERNAL (yêu cầu ngoài) / SELF (tự tạo). */
     private String originType;
     /** Mẫu hợp đồng học viên đã chọn cho lớp (để đổ lại form khi sửa). */

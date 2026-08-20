@@ -616,6 +616,8 @@ export default function ContractDetailPage() {
             ) : null}
           </section>
 
+          {/* Cột phải bám theo khung hình khi cuộn văn bản hợp đồng dài. */}
+          <aside className="contract-detail-side">
           {visibleEscrowPayment ? (
             needsRefundPayoutInfo ? (
               <section className="contract-card contract-escrow-card">
@@ -755,6 +757,11 @@ export default function ContractDetailPage() {
               <h2>Các bên ký</h2>
             </div>
             <div className="contract-party-list">
+              {!contract.tutor && !contract.center && !contract.client ? (
+                <p className="contract-muted">
+                  Chưa xác định được các bên của hợp đồng này.
+                </p>
+              ) : null}
               {contract.tutor ? (
                 <div className="contract-party">
                   <span>Gia sư</span>
@@ -940,6 +947,7 @@ export default function ContractDetailPage() {
               <p>Hợp đồng đã đủ chữ ký và có hiệu lực.</p>
             </section>
           ) : null}
+          </aside>
         </div>
       </main>
 

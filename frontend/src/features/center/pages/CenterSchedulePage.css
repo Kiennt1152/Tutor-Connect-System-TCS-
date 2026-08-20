@@ -311,6 +311,15 @@
   background: var(--color-surface-3);
   color: var(--color-text-secondary);
 }
+/*
+ * Trong ô .cs-meta__item (flex CỘT), `margin-left: auto` ở trên đẩy pill sang mép phải cột
+ * nên nó lệch hẳn khỏi nhãn "ĐIỂM DANH". Ở đây pill phải thẳng hàng trái với nhãn,
+ * giống hai ô "Gia sư" và "Sĩ số" bên cạnh.
+ */
+.cs-meta__item .cs-attstate {
+  margin-left: 0;
+  align-self: flex-start;
+}
 .cs-attbadge {
   flex: 0 0 auto;
   font-size: 13px;
@@ -600,3 +609,21 @@
     align-items: flex-start;
   }
 }
+
+/* Trạng thái điểm danh trên thẻ lịch của học viên (ClientSchedulePage). */
+.cs-att-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 0;
+}
+.cs-att {
+  flex-shrink: 0;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.cs-att--present { color: #1b7a43; }
+.cs-att--absent { color: #b91c1c; }
+.cs-att--excused { color: #b45309; }
+.cs-att--pending { color: #94a3b5; font-weight: 500; }

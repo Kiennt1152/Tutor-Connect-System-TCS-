@@ -94,6 +94,7 @@ export function mapTicketDetail(item: SupportTicketDetailApiResponse): SupportTi
     ...mapTicketItem(item),
     description: item.description,
     evidenceUrls: item.evidenceUrls,
+    evidenceUrlList: item.evidenceUrlList ?? [],
     assignedAdminId: item.assignedAdminId != null ? String(item.assignedAdminId) : null,
     messages: item.messages.map(mapTicketMessage),
   };
