@@ -62,4 +62,20 @@ public class UserPrincipal implements UserDetails {
     public boolean isEnabled() {
         return enabled;
     }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
+    public UserRole getRole() {
+        return role;
+    }
+
+    public long getTokenVersion() {
+        return tokenVersion;
+    }
 }

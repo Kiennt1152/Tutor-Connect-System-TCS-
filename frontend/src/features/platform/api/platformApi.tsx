@@ -325,7 +325,9 @@ export const platformApi = {
   },
 
   reindexAiKnowledge() {
-    return axiosClient.post<AiKnowledgeReindexApiResponse>(`${BASE}/ai/reindex`);
+    return axiosClient.post<AiKnowledgeReindexApiResponse>(`${BASE}/ai/reindex`, {}, {
+      timeout: 180000,
+    });
   },
 
   getAnalyticsSummary(from?: string, to?: string) {

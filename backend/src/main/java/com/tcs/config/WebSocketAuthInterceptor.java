@@ -30,6 +30,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
     private final CustomUserDetailsService userDetailsService;
     private final ConversationParticipantRepository conversationParticipantRepository;
 
+
     @Override
     public Message<?> preSend(Message<?> message, MessageChannel channel) {
         StompHeaderAccessor accessor =
@@ -37,8 +38,14 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
         if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
             String authHeader = accessor.getFirstNativeHeader(HttpHeaders.AUTHORIZATION);
-            if (authHeader != null && authHeader.startsWith("Bearer ")) {
-                String token = authHeader.substring(7);
+            if (authHeader == null) {
+                authHeader = accessor.getFirstNativeHeader("authorization");
+            }
+            if (authHeader == null) {
+                authHeader = accessor.getPasscode();
+            }
+            if (authHeader != null) {
+                String token = authHeader.startsWith("Bearer ") ? authHeader.substring(7) : authHeader;
                 try {
                     var claims = jwtService.parseClaims(token);
                     String email = claims.get("email", String.class);

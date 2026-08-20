@@ -2,7 +2,7 @@
 FROM eclipse-temurin:21-jdk-alpine AS builder
 WORKDIR /build
 COPY backend/ .
-RUN chmod +x mvnw && ./mvnw clean package -DskipTests -q
+RUN sed -i 's/\r$//' mvnw && chmod +x mvnw && ./mvnw clean package -DskipTests
 
 # ---- Runtime stage ----
 FROM eclipse-temurin:21-jre-alpine
