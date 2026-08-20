@@ -28,36 +28,49 @@ export function FileThumbnail({
   const [modalOpen, setModalOpen] = useState(false);
   const [hoverPreview, setHoverPreview] = useState(false);
   const [privateBlobUrl, setPrivateBlobUrl] = useState<string | null>(null);
+  const [privateLoadFailed, setPrivateLoadFailed] = useState(false);
 
   const isPrivateFile = isPrivatePath(src);
 
   // File riêng tư: tải kèm JWT qua axios, chuyển thành blob URL để <img>/preview dùng được.
   useEffect(() => {
-    if (!isPrivateFile || fileId == null) {
+    if (!isPrivateFile) {
       setPrivateBlobUrl(null);
+      setPrivateLoadFailed(false);
       return;
     }
     let cancelled = false;
     let objectUrl: string | null = null;
-    axiosClient
-      .get(`/files/private/${fileId}`, { responseType: 'blob' })
+    setPrivateLoadFailed(false);
+
+    const request = fileId != null
+      ? axiosClient.get(`/files/private/${fileId}`, { responseType: 'blob' })
+      : axiosClient.get('/files/private/by-url', {
+        params: { url: src },
+        responseType: 'blob',
+      });
+
+    request
       .then((res) => {
         if (cancelled) return;
         objectUrl = URL.createObjectURL(res.data as Blob);
         setPrivateBlobUrl(objectUrl);
       })
       .catch(() => {
-        if (!cancelled) setPrivateBlobUrl(null);
+        if (!cancelled) {
+          setPrivateBlobUrl(null);
+          setPrivateLoadFailed(true);
+        }
       });
     return () => {
       cancelled = true;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [isPrivateFile, fileId]);
+  }, [isPrivateFile, fileId, src]);
 
   // Với file riêng tư dùng blob đã xác thực; file công khai dùng URL trực tiếp.
   const resolvedSrc =
-    isPrivateFile && fileId != null ? privateBlobUrl : resolvePreviewSrc(src);
+    isPrivateFile ? privateBlobUrl : resolvePreviewSrc(src);
 
   const isImage = mimeType?.startsWith('image/') ?? false;
   const isPdf = mimeType === 'application/pdf';
@@ -90,6 +103,8 @@ export function FileThumbnail({
         {isImage ? (
           resolvedSrc ? (
             <img className="ft-thumb" src={resolvedSrc} alt={fileName} loading="lazy" />
+          ) : privateLoadFailed ? (
+            <div className="ft-icon" aria-label="Không tải được ảnh">!</div>
           ) : (
             <div className="ft-icon" aria-label="Đang tải ảnh">⏳</div>
           )
@@ -129,6 +144,7 @@ export function FileThumbnail({
       <FilePreviewModal
         src={resolvedSrc ?? ''}
         fileName={fileName}
+        mimeType={mimeType}
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
       />

@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react';
+import { EvidencePreviewList } from '../../../shared/components/EvidencePreviewList';
 import type { SupportTicketCategory, SupportTicketPriority } from '../types/messagingTypes';
 import { useCreateTicket, useTicketDetail, useTicketList, useTicketMutations } from '../hooks/useMessaging';
 import './MessagingPanel.css';
@@ -267,10 +268,16 @@ function TicketDetailPanel({ ticketId, onBack }: TicketDetailProps) {
       <div className="ticket-detail__description">
         <div className="ticket-detail__description-label">Mô tả</div>
         {detail.description}
-        {detail.evidenceUrls && (
-          <p style={{ marginTop: '0.5rem', fontSize: '0.83rem', color: '#718096' }}>
-            Bằng chứng: {detail.evidenceUrls}
-          </p>
+        {detail.evidenceUrlList.length > 0 && (
+          <div className="ticket-detail__evidence">
+            <div className="ticket-detail__description-label">
+              Bằng chứng ({detail.evidenceUrlList.length}) — bấm ảnh để xem đầy đủ
+            </div>
+            <EvidencePreviewList
+              urls={detail.evidenceUrlList}
+              className="ticket-detail__evidence-list"
+            />
+          </div>
         )}
       </div>
 

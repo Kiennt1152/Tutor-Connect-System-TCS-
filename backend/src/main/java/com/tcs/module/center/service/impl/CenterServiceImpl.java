@@ -181,6 +181,16 @@ public class CenterServiceImpl implements CenterService {
 
     // ===================== Tin tuyển gia sư — phía gia sư / công khai =====================
 
+    /**
+     * referenceType cho thông báo về LỚP CỦA TRUNG TÂM. Tách khỏi "TUTORING_CLASS" vì lớp
+     * trung tâm có trang lịch riêng theo vai trò (/tutor/schedule, /client/schedule) và trang
+     * quản lý riêng của trung tâm — không dùng chung màn Lịch dạy của lớp cá nhân.
+     */
+    private static final String CENTER_CLASS_CONTEXT_TYPE = "CENTER_CLASS";
+
+    /** referenceType thông báo yêu cầu đổi lịch — trùng với TutorServiceImpl. */
+    private static final String RESCHEDULE_CONTEXT_TYPE = "RESCHEDULE";
+
     /** Tin tuyển dụng đăng quá số ngày này sẽ tự động gỡ về nháp. */
     private static final int RECRUIT_MAX_ACTIVE_DAYS = 30;
     /** Số ngày mở ghi danh cho lớp tự tạo (BF-04 bước 5). */
@@ -205,11 +215,40 @@ public class CenterServiceImpl implements CenterService {
     @Transactional
     public List<RecruitmentPostResponse> listOpenRecruitmentPosts() {
         autoRevertStalePosts();
+        // Giải một lần rồi truyền xuống, tránh truy vấn hồ sơ gia sư lặp cho từng tin.
+        Long viewerTutorId = currentTutorIdOrNull();
         return recruitmentPostRepository
                 .findByStatusOrderByPublishedAtDesc(RecruitmentPostStatus.ACTIVE)
                 .stream()
-                .map(this::toResponse)
+                .map(post -> toResponse(post, viewerTutorId))
                 .toList();
+    }
+
+    /** Hồ sơ gia sư của người đang đăng nhập, null nếu chưa đăng nhập hoặc không phải gia sư. */
+    private Long currentTutorIdOrNull() {
+        // Phải dùng bản OrNull: đây là endpoint công khai, currentUserId() sẽ ném 401 với khách.
+        Long userId = authHelper.currentUserIdOrNull();
+        if (userId == null) {
+            return null;
+        }
+        return tutorRepository.findByUser_UserId(userId)
+                .map(Tutor::getTutorId)
+                .orElse(null);
+    }
+
+    /**
+     * Gia sư còn nằm trong đội ngũ của trung tâm hay không.
+     * ACTIVE và INACTIVE ("Tạm ngưng") đều tính là còn thuộc trung tâm;
+     * chỉ TERMINATED ("Đã gỡ") mới được ứng tuyển lại.
+     */
+    private boolean isCenterTutor(TutorCenter center, Long tutorId) {
+        if (center == null || tutorId == null) {
+            return false;
+        }
+        return membershipRepository
+                .findFirstByCenter_CenterIdAndTutor_TutorId(center.getCenterId(), tutorId)
+                .filter(m -> m.getStatus() != CenterTutorMembershipStatus.TERMINATED)
+                .isPresent();
     }
 
     @Override
@@ -226,6 +265,11 @@ public class CenterServiceImpl implements CenterService {
         RecruitmentPost post = findPost(recruitmentId);
         if (post.getStatus() != RecruitmentPostStatus.ACTIVE) {
             throw new IllegalArgumentException("Tin tuyển dụng chưa mở hoặc đã đóng");
+        }
+        // Đã nằm trong đội ngũ của chính trung tâm này thì không ứng tuyển lại.
+        if (isCenterTutor(post.getCenter(), tutor.getTutorId())) {
+            throw new IllegalArgumentException(
+                    "Bạn đã là gia sư của trung tâm này nên không cần ứng tuyển tin của họ.");
         }
         // Mỗi gia sư chỉ nộp một đơn cho mỗi tin.
         recruitmentApplicationRepository
@@ -758,15 +802,9 @@ public class CenterServiceImpl implements CenterService {
         requireCenter();
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass); // BR-07 / AF-04
-        // BR-06 / AF-03: chỉ được sửa khi lớp ở trạng thái DRAFT hoặc OPEN.
-        if (tutoringClass.getStatus() != TutoringClassStatus.DRAFT
-                && tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
-            throw new IllegalArgumentException("Lớp học này không thể chỉnh sửa nữa.");
-        }
-        // Cho phép sửa lớp đến khi có học viên đăng ký; có người đăng ký rồi thì khoá sửa.
-        if (classStudentRepository.existsByTutoringClass_ClassId(classId)) {
-            throw new IllegalArgumentException(
-                    "Đã có học viên đăng ký, không thể chỉnh sửa lớp nữa.");
+        String editLockReason = classEditLockReason(tutoringClass);
+        if (editLockReason != null) {
+            throw new IllegalArgumentException(editLockReason);
         }
         validate(request, false);
         applyFields(tutoringClass, request);
@@ -903,7 +941,7 @@ public class CenterServiceImpl implements CenterService {
                 Map.of("title", title, "content", content),
                 title,
                 content,
-                "TUTORING_CLASS",
+                CENTER_CLASS_CONTEXT_TYPE,
                 classId);
     }
 
@@ -1228,9 +1266,83 @@ public class CenterServiceImpl implements CenterService {
         requireOwner(c); // chỉ trung tâm sở hữu lớp mới được duyệt
         RescheduleEntry entry =
                 rescheduleService.decide(body.getClassId(), body.getOriginalDate(), body.isApprove());
+        notifyTutorRescheduleDecided(c, entry, body.isApprove());
+        if (body.isApprove()) {
+            notifyStudentsRescheduleApproved(c, entry);
+        }
         auditLogService.record(authHelper.currentUserId(), "DECIDE_RESCHEDULE", "TutoringClass", body.getClassId(),
                 null, body);
         return toRescheduleResponse(entry, c);
+    }
+
+    /**
+     * Báo lại cho gia sư đã xin đổi lịch biết trung tâm duyệt hay từ chối.
+     * Lỗi gửi thông báo chỉ ghi log — quyết định đã lưu không được rollback vì chuông.
+     */
+    private void notifyTutorRescheduleDecided(TutoringClass c, RescheduleEntry entry, boolean approved) {
+        if (entry == null || entry.tutorId() == null) {
+            return;
+        }
+        com.tcs.module.identity.entity.User tutorUser = tutorRepository.findById(entry.tutorId())
+                .map(Tutor::getUser)
+                .orElse(null);
+        if (tutorUser == null) {
+            return;
+        }
+        String verb = approved ? "được duyệt" : "bị từ chối";
+        String title = "Yêu cầu đổi lịch " + verb;
+        String content = "Yêu cầu dời buổi ngày " + entry.originalDate().format(D_MM)
+                + " ở lớp \"" + c.getTitle() + "\" đã " + verb
+                + (approved ? ". Lịch mới: " + entry.newDate().format(D_MM) + "." : ".");
+        try {
+            notificationDispatchService.notifyUserFromTemplate(
+                    tutorUser,
+                    com.tcs.module.messaging.enums.NotificationType.CLASS,
+                    "CENTER_RESCHEDULE_DECIDED",
+                    Map.of("title", title, "content", content),
+                    title,
+                    content,
+                    RESCHEDULE_CONTEXT_TYPE,
+                    c.getClassId());
+        } catch (Exception e) {
+            log.error("Khong gui duoc thong bao ket qua doi lich: classId={}", c.getClassId(), e);
+        }
+    }
+
+    /**
+     * Báo học viên đang theo lớp biết buổi học đã đổi ngày. Trước đây chỉ trung tâm và gia sư
+     * biết, học viên vẫn thấy lịch cũ và đi học nhầm buổi.
+     */
+    private void notifyStudentsRescheduleApproved(TutoringClass c, RescheduleEntry entry) {
+        if (entry == null) {
+            return;
+        }
+        String time = entry.newStartTime() != null && entry.newEndTime() != null
+                ? " (" + entry.newStartTime() + "–" + entry.newEndTime() + ")"
+                : "";
+        String title = "Buổi học đã đổi lịch";
+        String content = "Buổi ngày " + entry.originalDate().format(D_MM) + " của lớp \""
+                + c.getTitle() + "\" đã dời sang " + entry.newDate().format(D_MM) + time
+                + ". Xem mục Lịch lớp trung tâm để biết chi tiết.";
+        try {
+            for (ClassStudent s : classStudentRepository.findByTutoringClass_ClassIdAndStatus(
+                    c.getClassId(), ClassStudentStatus.ENROLLED)) {
+                if (s.getEnrolledByUser() == null) {
+                    continue;
+                }
+                notificationDispatchService.notifyUserFromTemplate(
+                        s.getEnrolledByUser(),
+                        com.tcs.module.messaging.enums.NotificationType.CLASS,
+                        "CENTER_RESCHEDULE_APPLIED",
+                        Map.of("title", title, "content", content),
+                        title,
+                        content,
+                        CENTER_CLASS_CONTEXT_TYPE,
+                        c.getClassId());
+            }
+        } catch (Exception e) {
+            log.error("Khong gui duoc thong bao doi lich cho hoc vien: classId={}", c.getClassId(), e);
+        }
     }
 
     // ===================== Duyệt yêu cầu dạy thay =====================
@@ -1865,7 +1977,26 @@ public class CenterServiceImpl implements CenterService {
         });
     }
 
+    /**
+     * BR-06 / AF-03: lý do lớp không còn được sửa thông tin, trả null nếu vẫn sửa được.
+     * Dùng chung cho {@code updateClass} (chặn ở server) và {@code toClassResponse}
+     * (ẩn nút Sửa trên giao diện) để hai bên không bao giờ lệch điều kiện.
+     */
+    private String classEditLockReason(TutoringClass c) {
+        if (c.getStatus() != TutoringClassStatus.DRAFT
+                && c.getStatus() != TutoringClassStatus.OPEN) {
+            return "Lớp học này không thể chỉnh sửa nữa.";
+        }
+        // Đã có học sinh đăng ký (kể cả đang chờ ký hợp đồng) thì khoá sửa: hợp đồng học viên
+        // và khoản ký quỹ đã sinh theo thông tin lớp, sửa sau sẽ lệch với cam kết đã gửi đi.
+        if (classStudentRepository.existsByTutoringClass_ClassId(c.getClassId())) {
+            return "Đã có học viên đăng ký, không thể chỉnh sửa lớp nữa.";
+        }
+        return null;
+    }
+
     private CenterClassResponse toClassResponse(TutoringClass c) {
+        String editLockReason = classEditLockReason(c);
         ClassAssignment assignment = classAssignmentRepository
                 .findFirstByApplication_TutoringClass_ClassIdAndStatus(c.getClassId(), ClassAssignmentStatus.ACTIVE)
                 .orElse(null);
@@ -1917,6 +2048,14 @@ public class CenterServiceImpl implements CenterService {
                 .maxStudents(c.getMaxStudents())
                 .minStudents(c.getMinStudents())
                 .enrolledCount(students.size())
+                .enrollmentDeadline(c.getEnrollmentDeadline())
+                // Bộ lịch đóng lớp khi enrollmentDeadline < hôm nay, tức là ghi danh còn mở
+                // đến hết ngày đó -> mốc đếm ngược là 00:00 của ngày kế tiếp.
+                .enrollmentExpiresAt(c.getEnrollmentDeadline() == null
+                        ? null
+                        : c.getEnrollmentDeadline().plusDays(1).atStartOfDay())
+                .editable(editLockReason == null)
+                .editLockReason(editLockReason)
                 .originType(findClassOrigin(c.getClassId()))
                 .contractTemplateId(findClassTemplateId(c.getClassId()))
                 .contractContent(findClassTerms(c.getClassId()))
@@ -2159,6 +2298,10 @@ public class CenterServiceImpl implements CenterService {
     }
 
     private RecruitmentPostResponse toResponse(RecruitmentPost post) {
+        return toResponse(post, null);
+    }
+
+    private RecruitmentPostResponse toResponse(RecruitmentPost post, Long viewerTutorId) {
         Location location = post.getLocation();
         Subject subject = post.getSubject();
         TutoringClass linked = findPostClassId(post.getRecruitmentId())
@@ -2184,8 +2327,14 @@ public class CenterServiceImpl implements CenterService {
                         ? location.getProvince().getProvinceName() : null)
                 .wardName(location != null ? location.getWardName() : null)
                 .addressDetail(location != null ? location.getAddressLine() : null)
+                .alreadyCenterTutor(isCenterTutor(post.getCenter(), viewerTutorId))
                 .status(post.getStatus())
                 .publishedAt(post.getPublishedAt())
+                // Cùng mốc mà autoRevertStalePosts() dùng để gỡ tin về nháp, nên đồng hồ
+                // đếm ngược ở giao diện không lệch với thời điểm tin thực sự hết hạn.
+                .expiresAt(post.getPublishedAt() == null
+                        ? null
+                        : post.getPublishedAt().plusDays(RECRUIT_MAX_ACTIVE_DAYS))
                 .closedAt(post.getClosedAt())
                 .createdAt(post.getCreatedAt())
                 .updatedAt(post.getUpdatedAt())

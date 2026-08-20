@@ -65,4 +65,12 @@ public class ClassResponse {
     private LocalDateTime expiresAt;
     private Long applicationCount;
     private Long assignmentId;
+
+    /**
+     * Gia sư đang dạy lớp (phân công ACTIVE). Null khi lớp chưa ghép được gia sư.
+     * Lấy theo trạng thái ACTIVE chứ không theo {@code assignmentId} ở trên — trường đó
+     * là phân công mới nhất, có thể đã bị từ chối hoặc hủy.
+     */
+    private Long assignedTutorId;
+    private String assignedTutorName;
 }

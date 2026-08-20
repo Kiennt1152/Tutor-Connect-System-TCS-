@@ -19,27 +19,6 @@ export const HOME_TESTIMONIALS = [
   },
 ];
 
-export const HOME_NEWS = [
-  {
-    id: '1',
-    title: 'Quy trình ký quỹ minh bạch trên Tutor Connect System',
-    excerpt: 'Thanh toán an toàn cho học viên, gia sư và trung tâm qua hệ thống ký quỹ tích hợp.',
-    date: '20/06/2026',
-  },
-  {
-    id: '2',
-    title: 'Mở rộng danh mục môn học phổ biến',
-    excerpt: 'Cập nhật thêm Toán, Tiếng Anh, Vật lý và các môn THCS — THPT trên nền tảng.',
-    date: '15/06/2026',
-  },
-  {
-    id: '3',
-    title: 'Hướng dẫn đăng ký gia sư và trung tâm đối tác',
-    excerpt: 'Các bước xác minh hồ sơ, thiết lập tài khoản và bắt đầu kết nối lớp học.',
-    date: '10/06/2026',
-  },
-];
-
 import { APP_ROUTES } from '../../../shared/constants/routes';
 
 export const FOOTER_LINKS = [
@@ -54,8 +33,6 @@ export const FOOTER_LINKS = [
   {
     title: 'Cộng đồng',
     links: [
-      // Trỏ về mục trên trang chủ kèm "/" để hoạt động từ mọi trang.
-      { label: 'Tin tức', href: '/#news' },
       { label: 'Đánh giá', href: APP_ROUTES.tutorReviews },
       { label: 'Trợ giúp', href: APP_ROUTES.help },
     ],

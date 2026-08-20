@@ -3,7 +3,7 @@ import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { platformApi } from '../api/platformApi';
 import type { AdminEscrowApiResponse, EscrowStatus } from '../types/platformTypes';
 
-export function AdminEscrowQueue({ onSelect }: { onSelect: (item: AdminEscrowApiResponse) => void }) {
+export function AdminEscrowQueue() {
   const [items, setItems] = useState<AdminEscrowApiResponse[]>([]);
   const [status, setStatus] = useState<'' | EscrowStatus>('');
   const [keyword, setKeyword] = useState('');
@@ -23,9 +23,9 @@ export function AdminEscrowQueue({ onSelect }: { onSelect: (item: AdminEscrowApi
       <select className="adm-field" value={status} onChange={(e) => setStatus(e.target.value as '' | EscrowStatus)}><option value="">Tất cả trạng thái</option>{['PENDING','FUNDED','ON_HOLD','DISPUTED','RELEASED','REFUNDED'].map((value) => <option key={value}>{value}</option>)}</select>
       <button className="tcs-btn tcs-btn--ghost" type="button" onClick={() => void load()}>Làm mới</button></div>
     {error && <div className="adm-alert adm-alert--error">{error}</div>}
-    <div className="adm-table-wrap"><table className="adm-table"><thead><tr><th>Escrow</th><th>Tham chiếu</th><th>Người trả</th><th>Người nhận</th><th>Số tiền</th><th>Trạng thái</th><th /></tr></thead><tbody>
-      {items.length === 0 && <tr><td colSpan={7}>Không có escrow phù hợp.</td></tr>}
-      {items.map((item) => <tr key={item.escrowId}><td>#{item.escrowId}</td><td>{item.referenceCode ?? '—'}</td><td>{item.payerEmail}</td><td>{item.beneficiaryEmail ?? '—'}</td><td>{item.amount.toLocaleString('vi-VN')} VND</td><td>{item.status}</td><td><button className="tcs-btn tcs-btn--ghost tcs-btn--badge" type="button" onClick={() => onSelect(item)}>Xử lý</button></td></tr>)}
+    <div className="adm-table-wrap"><table className="adm-table"><thead><tr><th>Escrow</th><th>Tham chiếu</th><th>Người trả</th><th>Người nhận</th><th>Số tiền</th><th>Trạng thái</th></tr></thead><tbody>
+      {items.length === 0 && <tr><td colSpan={6}>Không có escrow phù hợp.</td></tr>}
+      {items.map((item) => <tr key={item.escrowId}><td>#{item.escrowId}</td><td>{item.referenceCode ?? '—'}</td><td>{item.payerEmail}</td><td>{item.beneficiaryEmail ?? '—'}</td><td>{item.amount.toLocaleString('vi-VN')} VND</td><td>{item.status}</td></tr>)}
     </tbody></table></div>
   </section>;
 }

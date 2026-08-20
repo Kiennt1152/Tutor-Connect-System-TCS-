@@ -25,6 +25,8 @@ export interface SupportTicketApiResponse {
   subject: string;
   description: string;
   evidenceUrls: string | null;
+  /** evidenceUrls đã được backend tách thành từng file. */
+  evidenceUrlList?: string[];
   priority: SupportTicketPriority;
   status: SupportTicketStatus;
   resolvedAt: string | null;
@@ -124,6 +126,7 @@ export interface TicketMessage {
 export interface SupportTicketDetail extends SupportTicketItem {
   description: string;
   evidenceUrls: string | null;
+  evidenceUrlList: string[];
   assignedAdminId: string | null;
   messages: TicketMessage[];
 }

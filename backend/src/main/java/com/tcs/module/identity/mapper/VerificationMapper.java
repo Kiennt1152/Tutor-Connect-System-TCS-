@@ -57,6 +57,7 @@ public class VerificationMapper {
     }
 
     private boolean isResubmittable(VerificationStatus status) {
-        return status == VerificationStatus.REJECTED;
+        return status == VerificationStatus.VERIFIED
+                || status == VerificationStatus.REJECTED;
     }
 }

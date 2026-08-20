@@ -11,6 +11,10 @@ export const APP_ROUTES = {
   /** Trang "Đánh giá" công khai: danh sách toàn bộ gia sư kèm số sao để xem chi tiết đánh giá. */
   tutorReviews: '/danh-gia',
   teaching: '/lich-ca-nhan',
+  /** Lịch lớp TRUNG TÂM — tách riêng khỏi `teaching` (lịch lớp cá nhân). */
+  tutorSchedule: '/tutor/schedule',
+  clientSchedule: '/client/schedule',
+  centerReschedules: '/center/reschedules',
   signContract: '/lich-ca-nhan/ki-hop-dong',
   login: '/login',
   register: '/register',

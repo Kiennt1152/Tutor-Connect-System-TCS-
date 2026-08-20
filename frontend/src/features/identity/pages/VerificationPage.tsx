@@ -69,7 +69,8 @@ interface SlotFieldProps {
 
 interface DoneViewProps {
   readonly latest: Verification | null | undefined;
-  readonly hasActiveRequest: boolean;
+  readonly hasPendingRequest: boolean;
+  readonly hasVerifiedRequest: boolean;
   readonly onStartNew: () => void;
 }
 
@@ -148,16 +149,34 @@ export default function VerificationPage() {
 
   const latest = verifications[0] ?? null;
 
-  const hasActiveRequest = useMemo(
+  const hasPendingRequest = useMemo(
     () =>
       verifications.some(
         (v) =>
           v.status === 'SUBMITTED' ||
-          v.status === 'UNDER_REVIEW' ||
-          v.status === 'VERIFIED',
+          v.status === 'UNDER_REVIEW',
       ),
     [verifications],
   );
+  const hasVerifiedRequest = useMemo(
+    () => verifications.some((v) => v.status === 'VERIFIED'),
+    [verifications],
+  );
+  const doneCardTitle = useMemo(() => {
+    if (step !== 'done') {
+      return 'Nộp giấy tờ';
+    }
+    if (latest?.status === 'VERIFIED') {
+      return 'Hồ sơ đã xác minh';
+    }
+    if (latest?.status === 'SUBMITTED' || latest?.status === 'UNDER_REVIEW') {
+      return 'Đang chờ xét duyệt';
+    }
+    if (latest?.status === 'REJECTED') {
+      return hasVerifiedRequest ? 'Cập nhật chứng từ' : 'Hồ sơ bị từ chối';
+    }
+    return 'Đã gửi yêu cầu xác minh';
+  }, [hasVerifiedRequest, latest?.status, step]);
 
   // Đồng bộ step với trạng thái thực của backend khi load lần đầu:
   // - Đã có active request từ DB -> DoneView (không hiện form upload)
@@ -169,20 +188,20 @@ export default function VerificationPage() {
     if (status !== 'success' || hasInteracted) {
       return;
     }
-    setStep(hasActiveRequest ? 'done' : 'upload');
-  }, [hasActiveRequest, hasInteracted, status]);
+    setStep(hasPendingRequest || hasVerifiedRequest ? 'done' : 'upload');
+  }, [hasInteracted, hasPendingRequest, hasVerifiedRequest, status]);
 
   // Khi user vừa cancel xong (active request biến mất trong session) -> quay lại upload
   useEffect(() => {
     if (!hasInteracted || status !== 'success') {
       return;
     }
-    if (!hasActiveRequest && step === 'done') {
+    if (!hasPendingRequest && !hasVerifiedRequest && step === 'done') {
       setStep('upload');
       setUploadedFiles([]);
       setSubmitError(null);
     }
-  }, [hasActiveRequest, hasInteracted, step, status]);
+  }, [hasInteracted, hasPendingRequest, hasVerifiedRequest, step, status]);
 
   async function handleFileUpload(slot: DocumentSlotConfig, file: File) {
     setUploadError(null);
@@ -288,6 +307,7 @@ export default function VerificationPage() {
     setStep('upload');
     setUploadedFiles([]);
     setSubmitError(null);
+    setCccdConfirmed(false);
     setHasInteracted(true);
   }
 
@@ -325,7 +345,7 @@ export default function VerificationPage() {
             <div className="verification-card">
               <div className="verification-card__head">
                 <h2 className="verification-card__title">
-                  {step === 'done' ? 'Đã gửi yêu cầu xác minh' : 'Nộp giấy tờ'}
+                  {doneCardTitle}
                 </h2>
                 {step === 'done' && (
                   <button
@@ -342,7 +362,8 @@ export default function VerificationPage() {
                 {step === 'done' ? (
                   <DoneView
                     latest={latest}
-                    hasActiveRequest={hasActiveRequest}
+                    hasPendingRequest={hasPendingRequest}
+                    hasVerifiedRequest={hasVerifiedRequest}
                     onStartNew={startResubmit}
                   />
                 ) : (
@@ -392,7 +413,7 @@ export default function VerificationPage() {
                   </>
                 )}
 
-                {step === 'done' && latest?.status === 'REJECTED' && !hasActiveRequest && (
+                {step === 'done' && latest?.status === 'REJECTED' && !hasPendingRequest && !hasVerifiedRequest && (
                   <button
                     className="verification-btn verification-btn--primary"
                     type="button"
@@ -429,7 +450,12 @@ export default function VerificationPage() {
   );
 }
 
-function DoneView({ latest, hasActiveRequest, onStartNew }: DoneViewProps) {
+function DoneView({
+  latest,
+  hasPendingRequest,
+  hasVerifiedRequest,
+  onStartNew,
+}: DoneViewProps) {
   if (!latest) {
     return <div className="verification-empty">Chưa có yêu cầu xác minh nào.</div>;
   }
@@ -439,11 +465,23 @@ function DoneView({ latest, hasActiveRequest, onStartNew }: DoneViewProps) {
   const submittedLabel = latest.submittedAt
     ? new Date(latest.submittedAt).toLocaleString()
     : '';
+  const canUpdate =
+    !hasPendingRequest && (hasVerifiedRequest || latest.status === 'REJECTED');
+  const actionLabel =
+    hasVerifiedRequest || latest.status === 'VERIFIED'
+      ? 'Cập nhật chứng từ'
+      : 'Gửi lại yêu cầu xác minh mới';
+  const bannerText =
+    latest.status === 'SUBMITTED' || latest.status === 'UNDER_REVIEW'
+      ? 'Yêu cầu xác minh của bạn đã được gửi và đang chờ quản trị viên xét duyệt.'
+      : hasVerifiedRequest || latest.status === 'VERIFIED'
+        ? 'Tài khoản của bạn đã được xác minh. Bạn có thể cập nhật chứng từ khi cần.'
+        : 'Hồ sơ trước đó đã bị từ chối. Bạn có thể gửi lại hồ sơ mới.';
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
       <div className="verification-alert verification-alert--info">
-        Yêu cầu xác minh của bạn đã được gửi và đang chờ quản trị viên xét duyệt.
+        {bannerText}
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span
@@ -462,14 +500,14 @@ function DoneView({ latest, hasActiveRequest, onStartNew }: DoneViewProps) {
       <p style={{ fontSize: 14, color: '#555', margin: 0 }}>
         Bạn sẽ nhận được thông báo ngay khi quản trị viên hoàn tất xét duyệt hồ sơ.
       </p>
-      {!hasActiveRequest && (
+      {canUpdate && (
         <button
           className="verification-btn verification-btn--primary"
           type="button"
           style={{ alignSelf: 'flex-start' }}
           onClick={onStartNew}
         >
-          Gửi yêu cầu xác minh mới
+          {actionLabel}
         </button>
       )}
     </div>

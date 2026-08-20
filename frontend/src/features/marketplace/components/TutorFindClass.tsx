@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react
 import { marketplaceApi } from '../api/marketplaceApi';
 import { ClassDetailModal } from './ClassDetailModal';
 import { ApplyClassModal } from './ApplyClassModal';
-import { ExpiryBadge } from './ExpiryBadge';
+import { ExpiryBadge } from '../../../shared/components/ExpiryBadge';
 import { FormulaExplainer } from './FormulaExplainer';
 import { FALLBACK_SUBJECTS, FALLBACK_GRADES } from '../constants/catalogFallback';
 import {

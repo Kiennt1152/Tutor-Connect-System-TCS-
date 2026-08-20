@@ -15,8 +15,8 @@ const TX_TYPES = [
   { value: 'DEPOSIT', label: 'Nạp tiền' },
   { value: 'WITHDRAWAL', label: 'Rút tiền' },
   { value: 'REFUND', label: 'Hoàn tiền' },
-  { value: 'ESCROW_DEPOSIT', label: 'Đặt cọc Escrow' },
-  { value: 'ESCROW_RELEASE', label: 'Giải ngân Escrow' },
+  { value: 'ESCROW_DEPOSIT', label: 'Đặt cọc ký quỹ' },
+  { value: 'ESCROW_RELEASE', label: 'Giải ngân ký quỹ' },
   { value: 'PLATFORM_FEE', label: 'Phí nền tảng' },
 ];
 

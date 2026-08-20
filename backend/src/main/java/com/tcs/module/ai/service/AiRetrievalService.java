@@ -67,13 +67,17 @@ public class AiRetrievalService {
         return results;
     }
 
+    private static final Set<String> STOP_WORDS = Set.of(
+        "gia", "su", "cho", "toi", "can", "tim", "co", "khong", "la", "gi", "cua", "duoc", "cac", "nhung", "va", "hay", "the", "nao", "o", "dau", "may", "bao", "nhieu", "mot", "hai", "ban"
+    );
+
     private List<String> extractKeywords(String text) {
         if (text == null) return List.of();
         String cleaned = text.toLowerCase(Locale.ROOT)
                 .replaceAll("[^a-z0-9à-ỹ\\s]", " ")
                 .trim();
         return Arrays.stream(cleaned.split("\\s+"))
-                .filter(w -> w.length() >= 2)
+                .filter(w -> w.length() >= 2 && !STOP_WORDS.contains(w))
                 .toList();
     }
 
@@ -88,9 +92,6 @@ public class AiRetrievalService {
         int titleBonus = 0;
         
         for (String kw : keywords) {
-            if ("gia".equals(kw) || "su".equals(kw) || "cho".equals(kw) || "toi".equals(kw) || "can".equals(kw) || "tim".equals(kw)) {
-                continue;
-            }
             boolean matched = false;
             if (textContainsWord(title, kw)) {
                 matched = true;
@@ -108,8 +109,9 @@ public class AiRetrievalService {
             }
         }
 
+        if (matchCount == 0) return 0.0;
         double ratio = (double) matchCount / Math.max(1, keywords.size());
-        double score = (ratio * 0.65) + Math.min(0.35, titleBonus * 0.08);
+        double score = (ratio * 0.70) + Math.min(0.30, titleBonus * 0.10);
         return Math.min(1.0, score);
     }
 

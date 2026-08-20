@@ -33,6 +33,22 @@ public class AuthHelper {
     }
 
     /**
+     * Id người dùng hiện tại, hoặc null nếu chưa đăng nhập.
+     *
+     * <p>Dùng cho endpoint công khai muốn cá nhân hóa thêm khi có đăng nhập
+     * (ví dụ danh sách tin tuyển dụng ai cũng xem được, nhưng gia sư đã đăng nhập
+     * thì đánh dấu tin của trung tâm mình đã thuộc). Khác {@link #currentUserId()}
+     * ở chỗ không ném {@code UnauthorizedException} với khách.
+     */
+    public Long currentUserIdOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal principal)) {
+            return null;
+        }
+        return principal.getUserId();
+    }
+
+    /**
      * Returns true if the currently authenticated user has the given role name
      * (e.g. "PLATFORM_ADMIN", "TUTOR", "CLIENT", "TUTOR_CENTER").
      */

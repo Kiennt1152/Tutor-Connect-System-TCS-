@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
+import { ExpiryBadge } from '../../../shared/components/ExpiryBadge';
 import { CenterSidebar } from '../components/CenterSidebar';
 import { ChatButton } from '../../messaging/components/ChatButton';
 import { APP_ROUTES } from '../../../shared/constants/routes';
@@ -510,7 +511,11 @@ export default function CenterPage() {
   const [decidingAppId, setDecidingAppId] = useState<number | null>(null);
   // Đơn đang mở xem hồ sơ + xem trước file chứng chỉ.
   const [certsOpenId, setCertsOpenId] = useState<number | null>(null);
-  const [certPreview, setCertPreview] = useState<{ src: string; fileName: string } | null>(null);
+  const [certPreview, setCertPreview] = useState<{
+    src: string;
+    fileName: string;
+    mimeType?: string | null;
+  } | null>(null);
   // Xác nhận "không tìm được gia sư" (đóng yêu cầu + báo phụ huynh) — inline, không dùng popup trình duyệt.
   const [giveUpId, setGiveUpId] = useState<string | null>(null);
   const [giveUpBusy, setGiveUpBusy] = useState(false);
@@ -944,7 +949,32 @@ export default function CenterPage() {
       <span className="cc-error">{errors.fields[key]}</span>
     ) : null;
 
-  const canEditStatus = (status: ClassStatus) => status === 'DRAFT' || status === 'OPEN';
+  // BR-06 / AF-03: backend là nguồn quyết định (cờ `editable`). Chỉ suy luận tại chỗ
+  // khi phản hồi chưa có cờ đó, để giao diện không bao giờ mở nút Sửa rộng hơn server.
+  /**
+   * BF-04: lớp đã đăng tải chỉ mở ghi danh 30 ngày. Quá hạn mà đủ sĩ số tối thiểu thì
+   * tự đóng ghi danh, thiếu sĩ số thì lớp bị hủy và hoàn tiền cho học viên đã đóng.
+   */
+  const enrollmentCountdown = (c: ClassResponse) => {
+    if (c.status !== 'OPEN' || !c.enrollmentExpiresAt) return null;
+    const lastDay = c.enrollmentDeadline
+      ? new Date(c.enrollmentDeadline).toLocaleDateString('vi-VN')
+      : null;
+    return (
+      <ExpiryBadge
+        expiresAt={c.enrollmentExpiresAt}
+        expiredLabel="Hết hạn ghi danh"
+        title={
+          (lastDay ? `Ghi danh mở đến hết ngày ${lastDay}. ` : '') +
+          'Quá hạn: đủ sĩ số tối thiểu thì lớp tự đóng ghi danh, ' +
+          'thiếu sĩ số thì lớp bị hủy và hoàn tiền cho học viên đã thanh toán.'
+        }
+      />
+    );
+  };
+
+  const canEditClass = (c: ClassResponse) =>
+    c.editable ?? ((c.status === 'DRAFT' || c.status === 'OPEN') && c.enrolledCount === 0);
 
   const pageTitle = useMemo(
     () =>
@@ -1018,6 +1048,7 @@ export default function CenterPage() {
                     <span className={`cc-badge cc-badge--${c.status.toLowerCase()}`}>
                       {STATUS_LABELS[c.status]}
                     </span>
+                    {enrollmentCountdown(c)}
                     <button
                       className="cc-btn cc-btn--soft cc-btn--sm cc-class-card__detailbtn"
                       type="button"
@@ -1242,6 +1273,7 @@ export default function CenterPage() {
                                                             setCertPreview({
                                                               src: cert.fileUrl,
                                                               fileName: cert.fileName,
+                                                              mimeType: cert.mimeType,
                                                             });
                                                             return;
                                                           }
@@ -1254,12 +1286,17 @@ export default function CenterPage() {
                                                             setCertPreview((prev) => {
                                                               if (prev?.src.startsWith('blob:'))
                                                                 URL.revokeObjectURL(prev.src);
-                                                              return { src: url, fileName: cert.fileName };
+                                                              return {
+                                                                src: url,
+                                                                fileName: cert.fileName,
+                                                                mimeType: cert.mimeType ?? blob.type,
+                                                              };
                                                             });
                                                           } catch {
                                                             setCertPreview({
                                                               src: cert.fileUrl,
                                                               fileName: cert.fileName,
+                                                              mimeType: cert.mimeType,
                                                             });
                                                           }
                                                         }}
@@ -1832,8 +1869,11 @@ export default function CenterPage() {
                   {detailLoading ? 'Chi tiết lớp học' : detailData.title}
                 </h2>
                 {!detailLoading && (
-                  <span className={`cc-badge cc-badge--${detailData.status.toLowerCase()}`}>
-                    {STATUS_LABELS[detailData.status]}
+                  <span className="cc-modal__badges">
+                    <span className={`cc-badge cc-badge--${detailData.status.toLowerCase()}`}>
+                      {STATUS_LABELS[detailData.status]}
+                    </span>
+                    {enrollmentCountdown(detailData)}
                   </span>
                 )}
               </div>
@@ -2068,7 +2108,7 @@ export default function CenterPage() {
                   )}
 
                   <div className="cc-detail__foot">
-                    {canEditStatus(detailData.status) && (
+                    {canEditClass(detailData) ? (
                       <button
                         className="cc-btn cc-btn--ghost"
                         type="button"
@@ -2076,7 +2116,13 @@ export default function CenterPage() {
                       >
                         Sửa lớp học
                       </button>
-                    )}
+                    ) : detailData.status === 'DRAFT' || detailData.status === 'OPEN' ? (
+                      <p className="cc-muted">
+                        🔒{' '}
+                        {detailData.editLockReason ??
+                          'Đã có học viên đăng ký, không thể chỉnh sửa lớp nữa.'}
+                      </p>
+                    ) : null}
                     {/* Chỉ lớp "theo yêu cầu" mới đăng tin tuyển; và ẩn khi đã có gia sư. */}
                     {detailData.originType === 'EXTERNAL' && !detailData.assignedTutorId && (
                       <button
@@ -2290,6 +2336,7 @@ export default function CenterPage() {
       <FilePreviewModal
         src={certPreview?.src ?? ''}
         fileName={certPreview?.fileName ?? ''}
+        mimeType={certPreview?.mimeType}
         isOpen={certPreview !== null}
         onClose={() =>
           setCertPreview((prev) => {

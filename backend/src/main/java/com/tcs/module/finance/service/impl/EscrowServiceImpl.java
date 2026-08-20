@@ -239,7 +239,7 @@ public class EscrowServiceImpl implements EscrowService {
         tx.setType(PaymentTransactionType.ESCROW_DEPOSIT);
         tx.setStatus(PaymentTransactionStatus.PENDING);
         tx.setAmount(command.amount());
-        tx.setDescription("Chờ client chuyển khoản học phí vào escrow");
+        tx.setDescription("Chờ khách hàng chuyển khoản học phí vào ký quỹ");
         tx.setReferenceCode(reference);
         return paymentTransactionRepository.save(tx);
     }
@@ -336,41 +336,63 @@ public class EscrowServiceImpl implements EscrowService {
 
         BigDecimal feeRate = resolvePlatformFeeRate();
         BigDecimal platformFee = grossAmount.multiply(feeRate).setScale(2, RoundingMode.HALF_UP);
-        BigDecimal netAmount = grossAmount.subtract(platformFee);
         String feeSummary = formatPlatformFeeSummary(feeRate, platformFee);
         Long beneficiaryUserId = beneficiaryUserId(escrow);
-        if (netAmount.compareTo(BigDecimal.ZERO) > 0) {
-            walletService.credit(beneficiaryUserId, netAmount, reference);
-        }
         Wallet beneficiaryWallet = walletService.getOrCreate(beneficiaryUserId);
+        walletService.credit(beneficiaryUserId, grossAmount, reference);
 
         PaymentTransaction tx = new PaymentTransaction();
         tx.setWallet(beneficiaryWallet);
         tx.setType(PaymentTransactionType.ESCROW_RELEASE);
         tx.setStatus(PaymentTransactionStatus.SUCCESS);
-        tx.setAmount(netAmount);
-        tx.setDescription(buildSettlementDescription("Giải ngân escrow", reason)
-                + " (đã trừ " + feeSummary + ")");
+        tx.setAmount(grossAmount);
+        tx.setDescription(buildSettlementDescription("Giải ngân khoản ký quỹ trước phí nền tảng", reason));
         tx.setReferenceCode(reference);
         tx.setProcessedAt(LocalDateTime.now());
         paymentTransactionRepository.save(tx);
-        recordPlatformFee(escrow, platformFee, feeRate);
+        chargePlatformFee(beneficiaryUserId, beneficiaryWallet, escrow, platformFee, feeRate);
         paymentNotificationService.notifyPayment(
                 beneficiaryUserId,
-                "Đã nhận tiền từ escrow",
-                "Ví của bạn đã được cộng " + formatAmount(netAmount) + " từ tất toán escrow #"
-                        + escrow.getEscrowId() + " sau khi trừ " + feeSummary + ".",
+                "Đã nhận tiền giải ngân",
+                "Ví của bạn đã nhận " + formatAmount(grossAmount) + " từ khoản ký quỹ #"
+                        + escrow.getEscrowId()
+                        + (platformFee.compareTo(BigDecimal.ZERO) > 0
+                                ? " và đã trừ " + feeSummary + "."
+                                : "."),
                 "ESCROW",
                 escrow.getEscrowId());
     }
 
-    private void recordPlatformFee(EscrowTransaction escrow, BigDecimal fee, BigDecimal feeRate) {
+    private void chargePlatformFee(
+            Long beneficiaryUserId,
+            Wallet beneficiaryWallet,
+            EscrowTransaction escrow,
+            BigDecimal fee,
+            BigDecimal feeRate) {
         if (fee.compareTo(BigDecimal.ZERO) <= 0) {
             return;
         }
+        String reference = "PLATFORM_FEE-" + escrow.getEscrowId();
+        walletService.debit(beneficiaryUserId, fee, reference);
+
+        PaymentTransaction feeDebitTransaction = new PaymentTransaction();
+        feeDebitTransaction.setWallet(beneficiaryWallet);
+        feeDebitTransaction.setType(PaymentTransactionType.PLATFORM_FEE);
+        feeDebitTransaction.setStatus(PaymentTransactionStatus.SUCCESS);
+        feeDebitTransaction.setAmount(fee);
+        feeDebitTransaction.setDescription("Trừ phí nền tảng khoản ký quỹ #" + escrow.getEscrowId()
+                + " (" + formatRatePercent(feeRate) + " = " + formatAmount(fee) + ")");
+        feeDebitTransaction.setReferenceCode(reference);
+        feeDebitTransaction.setProcessedAt(LocalDateTime.now());
+        paymentTransactionRepository.save(feeDebitTransaction);
+
+        recordPlatformFeeIncome(escrow, fee, feeRate);
+    }
+
+    private void recordPlatformFeeIncome(EscrowTransaction escrow, BigDecimal fee, BigDecimal feeRate) {
         Wallet platformWallet = walletService.getSystemEscrowWallet();
         Long platformUserId = platformWallet.getUser().getUserId();
-        String reference = "PLATFORM_FEE-" + escrow.getEscrowId();
+        String reference = "PLATFORM_FEE-INCOME-" + escrow.getEscrowId();
         walletService.credit(platformUserId, fee, reference);
 
         PaymentTransaction feeTransaction = new PaymentTransaction();
@@ -378,7 +400,7 @@ public class EscrowServiceImpl implements EscrowService {
         feeTransaction.setType(PaymentTransactionType.DEPOSIT);
         feeTransaction.setStatus(PaymentTransactionStatus.SUCCESS);
         feeTransaction.setAmount(fee);
-        feeTransaction.setDescription("Phí nền tảng escrow #" + escrow.getEscrowId()
+        feeTransaction.setDescription("Thu phí nền tảng khoản ký quỹ #" + escrow.getEscrowId()
                 + " (" + formatRatePercent(feeRate) + " = " + formatAmount(fee) + ")");
         feeTransaction.setReferenceCode(reference);
         feeTransaction.setProcessedAt(LocalDateTime.now());
@@ -433,7 +455,7 @@ public class EscrowServiceImpl implements EscrowService {
             tx.setType(PaymentTransactionType.REFUND);
             tx.setStatus(PaymentTransactionStatus.SUCCESS);
             tx.setAmount(amount);
-            tx.setDescription(buildSettlementDescription("Hoàn tiền escrow", reason));
+            tx.setDescription(buildSettlementDescription("Hoàn tiền từ khoản ký quỹ", reason));
             tx.setReferenceCode(reference);
             tx.setProcessedAt(LocalDateTime.now());
             paymentTransactionRepository.save(tx);
@@ -444,7 +466,7 @@ public class EscrowServiceImpl implements EscrowService {
             tx.setStatus(PaymentTransactionStatus.PENDING);
             tx.setAmount(amount);
             tx.setDescription(buildSettlementDescription(
-                    "Chờ chuyển khoản hoàn tiền escrow cho người thanh toán",
+                    "Chờ chuyển khoản hoàn tiền ký quỹ cho người thanh toán",
                     reason));
             tx.setReferenceCode(reference);
             paymentTransactionRepository.save(tx);
@@ -452,10 +474,11 @@ public class EscrowServiceImpl implements EscrowService {
         }
         paymentNotificationService.notifyPayment(
                 payerUserId,
-                refundedToWallet ? "Hoàn tiền escrow thành công" : "Hoàn tiền escrow đang xử lý",
+                refundedToWallet ? "Hoàn tiền ký quỹ thành công" : "Hoàn tiền ký quỹ đang xử lý",
                 refundedToWallet
-                        ? "Ví của bạn đã được hoàn " + formatAmount(amount) + " từ escrow #" + escrow.getEscrowId() + "."
-                        : "Yêu cầu hoàn " + formatAmount(amount) + " từ escrow #" + escrow.getEscrowId()
+                        ? "Ví của bạn đã được hoàn " + formatAmount(amount)
+                                + " từ khoản ký quỹ #" + escrow.getEscrowId() + "."
+                        : "Yêu cầu hoàn " + formatAmount(amount) + " từ khoản ký quỹ #" + escrow.getEscrowId()
                                 + " đã được ghi nhận. TCS sẽ chuyển khoản về tài khoản nhận tiền của bạn.",
                 "ESCROW",
                 escrow.getEscrowId());
@@ -529,7 +552,7 @@ public class EscrowServiceImpl implements EscrowService {
         refundRequest.setAccountNo(RefundPayoutInfoCodec.normalizeAccountNo(resolvedPayoutInfo.accountNo()));
         refundRequest.setAccountHolderName(RefundPayoutInfoCodec.normalize(resolvedPayoutInfo.accountHolderName()));
         refundRequest.setReason(RefundPayoutInfoCodec.appendToReason(
-                buildSettlementDescription("Hoàn tiền tự động từ tất toán escrow", reason),
+                buildSettlementDescription("Hoàn tiền tự động từ tất toán ký quỹ", reason),
                 resolvedPayoutInfo));
         refundRequest.setRefundReferenceCode(reference);
         refundRequest.setTransferStatus("PENDING");
@@ -552,7 +575,7 @@ public class EscrowServiceImpl implements EscrowService {
                     admin.getUser(),
                     "Có yêu cầu hoàn tiền mới",
                     "Yêu cầu hoàn " + formatAmount(refundRequest.getAmount())
-                            + " từ escrow #" + refundRequest.getEscrowTransaction().getEscrowId()
+                            + " từ khoản ký quỹ #" + refundRequest.getEscrowTransaction().getEscrowId()
                             + " đang chờ chuyển khoản.",
                     "REFUND_REQUEST",
                     refundRequest.getRefundId());

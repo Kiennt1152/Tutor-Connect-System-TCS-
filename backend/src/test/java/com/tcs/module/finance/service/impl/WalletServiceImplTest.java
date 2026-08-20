@@ -413,4 +413,137 @@ class WalletServiceImplTest {
                     walletService.createTopup(USER_ID, new BigDecimal("-1")));
         }
     }
+
+    // ─── các nhánh biên còn thiếu so với bảng quyết định ───────────────────
+
+    @Nested
+    @DisplayName("boundary & guard cases missing from the decision tables")
+    class BoundaryGaps {
+
+        private Wallet suspended() {
+            activeWallet.setStatus(WalletStatus.SUSPENDED);
+            return activeWallet;
+        }
+
+        // ---- walletDebit ----
+
+        @Test
+        @DisplayName("debit UTCID02 (B) - rút đúng bằng toàn bộ số dư -> về 0, vẫn hợp lệ")
+        void debitExactlyWholeBalance() {
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+            when(walletRepository.save(any(Wallet.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            walletService.debit(USER_ID, new BigDecimal("100000.00"), "TRANSFER-1");
+
+            assertEquals(0, activeWallet.getAvailableBalance().compareTo(BigDecimal.ZERO));
+            verify(financialJournalRepository).save(journalCaptor.capture());
+            assertEquals(JournalEntryType.DEBIT, journalCaptor.getValue().getEntryType());
+            assertEquals(0, journalCaptor.getValue().getBalanceAfter().compareTo(BigDecimal.ZERO));
+        }
+
+        @Test
+        @DisplayName("debit UTCID04 (A) - amount = null -> 'Số tiền ghi nợ phải lớn hơn 0'")
+        void debitNullAmount() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.debit(USER_ID, null, "TRANSFER-1"));
+            assertEquals("Số tiền ghi nợ phải lớn hơn 0", ex.getMessage());
+            verify(walletRepository, never()).findByUser_UserId(anyLong());
+        }
+
+        // ---- walletCredit ----
+
+        @Test
+        @DisplayName("credit UTCID03 (A) - amount = null -> 'Số tiền ghi có phải lớn hơn 0'")
+        void creditNullAmount() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.credit(USER_ID, null, "TRANSFER-1"));
+            assertEquals("Số tiền ghi có phải lớn hơn 0", ex.getMessage());
+        }
+
+        // ---- walletLockFunds ----
+
+        @Test
+        @DisplayName("lockFunds UTCID02 (B) - khóa đúng toàn bộ số dư khả dụng -> available về 0")
+        void lockExactlyWholeAvailable() {
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+            when(walletRepository.save(any(Wallet.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            Wallet result = walletService.lockFunds(USER_ID, new BigDecimal("100000.00"), "ESCROW_LOCK-A1");
+
+            assertEquals(0, result.getAvailableBalance().compareTo(BigDecimal.ZERO));
+            assertEquals(new BigDecimal("100000.00"), result.getFrozenBalance());
+        }
+
+        @Test
+        @DisplayName("lockFunds UTCID03 (B) - amount = 0 -> 'Số tiền khóa escrow phải lớn hơn 0'")
+        void lockZeroAmount() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.lockFunds(USER_ID, BigDecimal.ZERO, "ESCROW_LOCK-A1"));
+            assertEquals("Số tiền khóa escrow phải lớn hơn 0", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("lockFunds UTCID04 (A) - chưa có ví -> 'Không tìm thấy ví cho người dùng này'")
+        void lockWalletNotFound() {
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.empty());
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.lockFunds(USER_ID, new BigDecimal("1000.00"), "ESCROW_LOCK-A1"));
+            assertEquals("Không tìm thấy ví cho người dùng này", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("lockFunds UTCID05 (A) - ví bị tạm ngưng -> 'Ví không ở trạng thái hoạt động'")
+        void lockWalletNotActive() {
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(suspended()));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.lockFunds(USER_ID, new BigDecimal("1000.00"), "ESCROW_LOCK-A1"));
+            assertEquals("Ví không ở trạng thái hoạt động", ex.getMessage());
+        }
+
+        // ---- walletReleaseLocked ----
+
+        @Test
+        @DisplayName("releaseLocked UTCID02 (B) - giải ngân đúng toàn bộ frozen -> frozen về 0")
+        void releaseExactlyWholeFrozen() {
+            activeWallet.setFrozenBalance(new BigDecimal("40000.00"));
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+            when(walletRepository.save(any(Wallet.class))).thenAnswer(inv -> inv.getArgument(0));
+
+            Wallet result = walletService.releaseLockedFunds(USER_ID, new BigDecimal("40000.00"), "ESCROW_RELEASE-1");
+
+            assertEquals(0, result.getFrozenBalance().compareTo(BigDecimal.ZERO));
+            assertEquals(new BigDecimal("100000.00"), result.getAvailableBalance());
+        }
+
+        @Test
+        @DisplayName("releaseLocked UTCID03 (B) - amount = 0 -> 'Số tiền giải ngân escrow phải lớn hơn 0'")
+        void releaseZeroAmount() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.releaseLockedFunds(USER_ID, BigDecimal.ZERO, "ESCROW_RELEASE-1"));
+            assertEquals("Số tiền giải ngân escrow phải lớn hơn 0", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("releaseLocked UTCID04 (A) - chưa có ví -> 'Không tìm thấy ví cho người dùng này'")
+        void releaseWalletNotFound() {
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.empty());
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.releaseLockedFunds(USER_ID, new BigDecimal("1000.00"), "ESCROW_RELEASE-1"));
+            assertEquals("Không tìm thấy ví cho người dùng này", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("releaseLocked UTCID05 (A) - ví bị tạm ngưng -> 'Ví không ở trạng thái hoạt động'")
+        void releaseWalletNotActive() {
+            activeWallet.setFrozenBalance(new BigDecimal("40000.00"));
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(suspended()));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.releaseLockedFunds(USER_ID, new BigDecimal("1000.00"), "ESCROW_RELEASE-1"));
+            assertEquals("Ví không ở trạng thái hoạt động", ex.getMessage());
+        }
+    }
 }

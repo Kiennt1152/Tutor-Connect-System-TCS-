@@ -20,6 +20,8 @@ public class SupportTicketDetailResponse {
     private String subject;
     private String description;
     private String evidenceUrls;
+    /** {@code evidenceUrls} đã tách thành từng file, để giao diện hiện ảnh xem trước. */
+    private List<String> evidenceUrlList;
     private SupportTicketPriority priority;
     private SupportTicketStatus status;
     private LocalDateTime resolvedAt;

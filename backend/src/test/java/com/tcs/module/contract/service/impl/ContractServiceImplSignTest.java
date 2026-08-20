@@ -1,0 +1,336 @@
+package com.tcs.module.contract.service.impl;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.tcs.exception.ForbiddenException;
+import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.module.catalog.repository.SystemParameterRepository;
+import com.tcs.module.center.entity.RecruitmentApplication;
+import com.tcs.module.center.entity.RecruitmentPost;
+import com.tcs.module.center.repository.RecruitmentApplicationRepository;
+import com.tcs.module.contract.dto.request.SignWithOtpRequest;
+import com.tcs.module.contract.entity.Contract;
+import com.tcs.module.contract.entity.ContractSignature;
+import com.tcs.module.contract.enums.ContractSignatureStatus;
+import com.tcs.module.contract.enums.ContractStatus;
+import com.tcs.module.contract.enums.PartyRole;
+import com.tcs.module.contract.repository.ContractRepository;
+import com.tcs.module.contract.repository.ContractSignatureRepository;
+import com.tcs.module.contract.repository.ContractTemplateRepository;
+import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.PaymentTransactionRepository;
+import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.identity.entity.EmailOtp;
+import com.tcs.module.identity.entity.User;
+import com.tcs.module.identity.enums.OtpPurpose;
+import com.tcs.module.identity.repository.EmailOtpRepository;
+import com.tcs.module.identity.service.OtpService;
+import com.tcs.module.identity.repository.UserRepository;
+import com.tcs.module.identity.service.EmailService;
+import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
+import com.tcs.module.marketplace.repository.ClassStudentRepository;
+import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
+import com.tcs.module.marketplace.repository.LessonRepository;
+import com.tcs.module.contract.repository.ReputationHistoryRepository;
+import com.tcs.module.profile.entity.Client;
+import com.tcs.module.profile.entity.Tutor;
+import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.profile.repository.ClientRepository;
+import com.tcs.module.profile.repository.TutorCenterRepository;
+import com.tcs.module.profile.repository.TutorRepository;
+import com.tcs.module.profile.service.CccdService;
+import com.tcs.module.contract.repository.ReviewRepository;
+import com.tcs.module.profile.enums.UserRole;
+import com.tcs.security.AuthHelper;
+import com.tcs.security.UserPrincipal;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Nested;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
+import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
+
+/**
+ * Unit test module Contract — ký hợp đồng bằng OTP (dùng chung cho BF-03/04/05).
+ * Bám bộ test case trong Report_5.1_UnitTest: các sheet sendOtp1, signWithOtp, sign, getMyContract.
+ */
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class ContractServiceImplSignTest {
+
+    private static final Long TUTOR_USER_ID = 200L;
+    private static final Long CENTER_USER_ID = 100L;
+    private static final Long STRANGER_USER_ID = 999L;
+    private static final Long CONTRACT_ID = 900L;
+    private static final String TUTOR_EMAIL = "tutor@tcs.local";
+
+    @Mock private AuthHelper authHelper;
+    @Mock private ContractRepository contractRepository;
+    @Mock private ContractSignatureRepository contractSignatureRepository;
+    @Mock private ContractTemplateRepository contractTemplateRepository;
+    @Mock private ClassAssignmentRepository classAssignmentRepository;
+    @Mock private ClassStudentRepository classStudentRepository;
+    @Mock private UserRepository userRepository;
+    @Mock private TutorRepository tutorRepository;
+    @Mock private ClientRepository clientRepository;
+    @Mock private TutorCenterRepository tutorCenterRepository;
+    @Mock private EmailService emailService;
+    @Mock private EscrowService escrowService;
+    @Mock private EscrowTransactionRepository escrowTransactionRepository;
+    @Mock private PaymentTransactionRepository paymentTransactionRepository;
+    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private ReviewRepository reviewRepository;
+    @Mock private RecruitmentApplicationRepository recruitmentApplicationRepository;
+    @Mock private SystemParameterRepository systemParameterRepository;
+    @Mock private ReputationHistoryRepository reputationHistoryRepository;
+    @Mock private LessonRepository lessonRepository;
+    @Mock private LessonAttendanceRepository lessonAttendanceRepository;
+    @Mock private CccdService cccdService;
+    @Mock private EmailOtpRepository emailOtpRepository;
+
+    @InjectMocks private ContractServiceImpl service;
+
+    private Contract contract;
+    private ContractSignature tutorSignature;
+    /** Mã OTP ký hợp đồng nay nằm ở bảng email_otps chứ không còn trên contract_signatures. */
+    private EmailOtp activeOtp;
+
+    @BeforeEach
+    void setUp() {
+        // OTP dùng chung một service duy nhất; test dựng service thật trên repository giả.
+        ReflectionTestUtils.setField(service, "otpService", new OtpService(emailOtpRepository));
+
+        User tutorUser = new User();
+        tutorUser.setUserId(TUTOR_USER_ID);
+        tutorUser.setEmail(TUTOR_EMAIL);
+        Tutor tutor = new Tutor();
+        tutor.setTutorId(20L);
+        tutor.setUser(tutorUser);
+
+        User centerUser = new User();
+        centerUser.setUserId(CENTER_USER_ID);
+        TutorCenter center = new TutorCenter();
+        center.setCenterId(1L);
+        center.setUser(centerUser);
+
+        RecruitmentPost post = new RecruitmentPost();
+        post.setRecruitmentId(300L);
+        post.setCenter(center);
+
+        RecruitmentApplication app = new RecruitmentApplication();
+        app.setRecruitmentAppId(400L);
+        app.setTutor(tutor);
+        app.setRecruitmentPost(post);
+
+        contract = new Contract();
+        contract.setContractId(CONTRACT_ID);
+        contract.setContractNo("HD-001");
+        contract.setStatus(ContractStatus.PENDING);
+        contract.setRecruitmentApplication(app);
+
+        tutorSignature = new ContractSignature();
+        tutorSignature.setContract(contract);
+        tutorSignature.setPartyRole(PartyRole.TUTOR);
+        tutorSignature.setSignatureStatus(ContractSignatureStatus.PENDING);
+        activeOtp = new EmailOtp();
+        activeOtp.setEmail(TUTOR_EMAIL);
+        activeOtp.setPurpose(OtpPurpose.CONTRACT_SIGNING);
+        activeOtp.setCode("123456");
+        activeOtp.setAttempts(0);
+        activeOtp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                        anyString(), any(OtpPurpose.class)))
+                .thenReturn(Optional.of(activeOtp));
+
+        // Mặc định: đăng nhập bằng gia sư, CCCD đầy đủ, không phải trẻ vị thành niên.
+        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(authHelper.requireAuthenticated())
+                .thenReturn(new UserPrincipal(tutorUser, UserRole.TUTOR));
+        when(cccdService.isComplete(anyLong())).thenReturn(true);
+        when(clientRepository.findByUser_UserId(anyLong())).thenReturn(Optional.empty());
+        when(contractRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+        when(contractSignatureRepository.findByContractIdAndPartyRole(CONTRACT_ID, PartyRole.TUTOR))
+                .thenReturn(Optional.of(tutorSignature));
+    }
+
+    private SignWithOtpRequest otp(String code) {
+        SignWithOtpRequest r = new SignWithOtpRequest();
+        r.setOtpCode(code);
+        return r;
+    }
+
+    // ===================================================================
+    //  Sheet: signWithOtp
+    // ===================================================================
+    @Nested
+    @DisplayName("signWithOtp")
+    class SignWithOtp {
+
+        @Test
+        @DisplayName("UTCID01 (A) - OTP rỗng -> 'Mã OTP là bắt buộc'")
+        void utcid01_blankOtp() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.signWithOtp(CONTRACT_ID, otp("")));
+            assertEquals("Mã OTP là bắt buộc", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - OTP null -> 'Mã OTP là bắt buộc'")
+        void utcid02_nullOtp() {
+            assertThrows(IllegalArgumentException.class, () -> service.signWithOtp(CONTRACT_ID, otp(null)));
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - Người ký chưa hoàn thành CCCD -> chặn ký")
+        void utcid03_cccdIncomplete() {
+            when(cccdService.isComplete(TUTOR_USER_ID)).thenReturn(false);
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> service.signWithOtp(CONTRACT_ID, otp("123456")));
+            assertTrue(ex.getMessage().contains("CCCD"), "Thông báo phải nhắc hoàn thành CCCD: " + ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - Tài khoản dưới 18 tuổi -> không được tự ký")
+        void utcid04_minorCannotSign() {
+            Client minor = new Client();
+            minor.setDateOfBirth(LocalDate.now().minusYears(15));
+            when(clientRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(minor));
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> service.signWithOtp(CONTRACT_ID, otp("123456")));
+            assertTrue(ex.getMessage().contains("dưới 18 tuổi"),
+                    "Phải chặn minor tự ký: " + ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Hợp đồng đã SIGNED -> 'Hợp đồng không ở trạng thái chờ ký'")
+        void utcid05_contractNotPending() {
+            contract.setStatus(ContractStatus.SIGNED);
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> service.signWithOtp(CONTRACT_ID, otp("123456")));
+            assertEquals("Hợp đồng không ở trạng thái chờ ký", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - Vai trò này đã ký rồi -> 'Bạn đã ký hợp đồng này rồi'")
+        void utcid06_alreadySigned() {
+            tutorSignature.setSignatureStatus(ContractSignatureStatus.SIGNED);
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> service.signWithOtp(CONTRACT_ID, otp("123456")));
+            assertEquals("Bạn đã ký hợp đồng này rồi", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID07 (A) - OTP đã hết hạn -> yêu cầu mã mới")
+        void utcid07_otpExpired() {
+            activeOtp.setExpiresAt(LocalDateTime.now().minusMinutes(1));
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> service.signWithOtp(CONTRACT_ID, otp("123456")));
+            assertEquals("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới.", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID08 (A) - OTP sai -> báo số lần thử còn lại")
+        void utcid08_wrongOtp() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.signWithOtp(CONTRACT_ID, otp("000000")));
+            assertTrue(ex.getMessage().startsWith("Mã OTP không đúng"),
+                    "Phải báo sai OTP kèm số lần còn lại: " + ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID09 (A) - Chưa gửi OTP cho vai trò này -> ResourceNotFoundException")
+        void utcid09_noSignatureRow() {
+            when(contractSignatureRepository.findByContractIdAndPartyRole(CONTRACT_ID, PartyRole.TUTOR))
+                    .thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.signWithOtp(CONTRACT_ID, otp("123456")));
+            assertEquals("Chưa gửi mã OTP cho vai trò này", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID10 (A) - Hợp đồng không tồn tại -> ResourceNotFoundException")
+        void utcid10_contractNotFound() {
+            when(contractRepository.findById(CONTRACT_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.signWithOtp(CONTRACT_ID, otp("123456")));
+            assertEquals("Không tìm thấy hợp đồng", ex.getMessage());
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: sendOtp1 (ContractService.sendOtp)
+    // ===================================================================
+    @Nested
+    @DisplayName("sendOtp")
+    class SendOtp {
+
+        @Test
+        @DisplayName("UTCID01 (A) - Hợp đồng đã SIGNED -> 'Hợp đồng không ở trạng thái chờ ký'")
+        void utcid01_contractNotPending() {
+            contract.setStatus(ContractStatus.SIGNED);
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> service.sendOtp(CONTRACT_ID));
+            assertEquals("Hợp đồng không ở trạng thái chờ ký", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - Vai trò đã ký rồi -> 'Bạn đã ký hợp đồng này rồi'")
+        void utcid02_alreadySigned() {
+            tutorSignature.setSignatureStatus(ContractSignatureStatus.SIGNED);
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> service.sendOtp(CONTRACT_ID));
+            assertEquals("Bạn đã ký hợp đồng này rồi", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - Hợp đồng không tồn tại -> ResourceNotFoundException")
+        void utcid03_contractNotFound() {
+            when(contractRepository.findById(CONTRACT_ID)).thenReturn(Optional.empty());
+
+            assertThrows(ResourceNotFoundException.class, () -> service.sendOtp(CONTRACT_ID));
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: sign (ký thay người khác)
+    // ===================================================================
+    @Nested
+    @DisplayName("sign")
+    class Sign {
+
+        @Test
+        @DisplayName("UTCID01 (A) - Ký thay user khác -> 'Không thể ký thay người dùng khác'")
+        void utcid01_cannotSignForOthers() {
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.sign(CONTRACT_ID, "123456", STRANGER_USER_ID));
+            assertEquals("Không thể ký thay người dùng khác", ex.getMessage());
+            verify(contractSignatureRepository, never()).save(any());
+        }
+    }
+}

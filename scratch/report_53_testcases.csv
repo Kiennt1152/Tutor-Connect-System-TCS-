@@ -1,0 +1,107 @@
+﻿"Sheet","WorkflowTitle","TC_ID","Description","Procedure","Expected","Precondition","Round1","Tester"
+"Workflow Name1","Onboarding & Xác minh Gia sư","ST-TUT-01","Hành trình gia sư từ đăng ký đến được duyệt xác minh","1. Đăng ký tài khoản gia sư + xác thực OTP email.
+2. Đăng nhập, cập nhật hồ sơ, thêm kinh nghiệm & lịch rảnh.
+3. Upload bằng cấp, nộp hồ sơ xác minh.
+4. Admin duyệt hồ sơ (APPROVED).
+5. Gia sư ứng tuyển thử một lớp OPEN.","- Tài khoản ACTIVE; hồ sơ đầy đủ.
+- Hồ sơ xác minh chuyển APPROVED, trạng thái gia sư 'đã xác minh'.
+- Gia sư ứng tuyển lớp thành công (không còn bị chặn).","Hệ thống có sẵn danh mục môn học; có lớp OPEN để thử.","Pending",""
+"Workflow Name1","Onboarding & Xác minh Gia sư","ST-TUT-02","Hồ sơ bị từ chối rồi nộp lại được duyệt","1. Gia sư nộp hồ sơ.
+2. Admin từ chối kèm lý do ≥10 ký tự.
+3. Gia sư chỉnh sửa và nộp lại.
+4. Admin duyệt.","- Lần 1: REJECTED kèm lý do; gia sư nhận thông báo.
+- Nộp lại được chấp nhận; lần 2 APPROVED.","Gia sư đã có tài khoản ACTIVE.","Pending",""
+"Workflow Name1","Onboarding & Xác minh Gia sư","ST-TUT-03","Kiểm soát quyền: gia sư chưa xác minh không nhận lớp","1. Gia sư mới (chưa xác minh) cố ứng tuyển lớp và ứng tuyển tin tuyển dụng trung tâm.","- Bị chặn với yêu cầu xác minh (VerificationRequired) ở cả hai luồng.","Gia sư chưa xác minh; có lớp OPEN và tin tuyển dụng.","Pending",""
+"Workflow Name2","Onboarding Phụ huynh & Tìm gia sư","ST-PAR-01","Phụ huynh đăng ký và tìm gia sư phù hợp","1. Đăng ký tài khoản phụ huynh + xác thực OTP.
+2. Tạo hồ sơ con.
+3. Tìm kiếm gia sư theo môn/khu vực.
+4. Thêm gia sư vào yêu thích, xem hồ sơ & đánh giá.","- Tài khoản ACTIVE, hồ sơ con được tạo.
+- Kết quả tìm kiếm đúng bộ lọc; danh sách yêu thích lưu lại.","Có dữ liệu gia sư đã xác minh trong hệ thống.","Pending",""
+"Workflow Name2","Onboarding Phụ huynh & Tìm gia sư","ST-PAR-02","Tư vấn qua trợ lý AI (RAG)","1. Người dùng mở chatbot, hỏi tìm gia sư/lớp theo môn.
+2. Gửi thêm câu hỏi trong cùng phiên.
+3. Xem lại lịch sử phiên, xóa phiên.","- AI trả lời có tham chiếu gia sư/lớp/FAQ thật (RAG); nếu LLM lỗi vẫn có fallback.
+- Phiên & tin nhắn lưu và tải lại đúng; xóa phiên thành công.","Có dữ liệu gia sư/lớp/FAQ để RAG tham chiếu.","Pending",""
+"Workflow Name3","Đăng lớp & Tuyển chọn Gia sư","ST-CLS-01","Từ tạo lớp đến chọn gia sư và sinh hợp đồng","1. Phụ huynh tạo lớp (DRAFT) rồi publish.
+2. Nhiều gia sư ứng tuyển với học phí đề xuất.
+3. Chủ lớp xem danh sách ứng viên, hồ sơ & đánh giá.
+4. Chọn 1 gia sư; từ chối các ứng viên còn lại (có lý do).","- Lớp hiển thị OPEN công khai.
+- Ứng viên xuất hiện đầy đủ.
+- Sinh Assignment cho gia sư được chọn + hợp đồng chờ ký; ứng viên khác được thông báo từ chối.","Phụ huynh & gia sư đã xác minh; có môn học.","Pending",""
+"Workflow Name3","Đăng lớp & Tuyển chọn Gia sư","ST-CLS-02","Gỡ đăng lớp: hợp lệ và bị chặn","1. Gỡ đăng lớp OPEN chưa có ứng tuyển → thành công.
+2. Gỡ đăng lớp đã có ứng tuyển → bị chặn.","- Trường hợp 1: lớp về DRAFT.
+- Trường hợp 2: chặn 'Lớp đã có gia sư ứng tuyển nên không thể gỡ đăng'.","Có lớp OPEN ở cả hai tình huống.","Pending",""
+"Workflow Name3","Đăng lớp & Tuyển chọn Gia sư","ST-CLS-03","Yêu cầu chấm dứt lớp sớm","1. Chủ lớp gửi yêu cầu chấm dứt lớp đang diễn ra (lý do, ngày hiệu lực tương lai).
+2. Gửi lần 2 khi đang có yêu cầu chờ.","- Lần 1: tạo yêu cầu chấm dứt (chờ xử lý).
+- Lần 2: bị chặn 'Lớp học đã có yêu cầu chấm dứt sớm đang chờ xử lý'.","Lớp đang diễn ra.","Pending",""
+"Workflow Name4","Ký Hợp đồng điện tử (OTP)","ST-CON-01","Hai bên ký OTP đến khi hợp đồng hoàn tất","1. Hệ thống sinh hợp đồng sau khi chốt gia sư.
+2. Bên A yêu cầu OTP → nhận email → ký.
+3. Bên B yêu cầu OTP → nhận email → ký.","- Ghi nhận chữ ký từng bên.
+- Khi đủ 2 bên: hợp đồng FULLY_SIGNED, phát sự kiện ContractSigned → khóa escrow.","Đã có Assignment/ghi danh cần ký hợp đồng.","Pending",""
+"Workflow Name4","Ký Hợp đồng điện tử (OTP)","ST-CON-02","Ký sai OTP / OTP hết hạn","1. Ký với OTP sai nhiều lần.
+2. Ký với OTP đã hết hạn.
+3. Yêu cầu mã mới và ký lại đúng.","- Báo còn N lần thử; vượt ngưỡng → yêu cầu mã mới.
+- OTP hết hạn bị từ chối; sau khi lấy mã mới ký thành công.","Hợp đồng đang chờ ký.","Pending",""
+"Workflow Name4","Ký Hợp đồng điện tử (OTP)","ST-CON-03","Bảo mật: bên thứ ba không thể xem/ký hợp đồng","1. User không liên quan cố xem chi tiết và ký hợp đồng.","- Bị 403: không có quyền xem / không thể ký thay người khác.","Hợp đồng tồn tại giữa hai bên khác.","Pending",""
+"Workflow Name5","Thanh toán Ký quỹ End-to-End","ST-PAY-01","Nạp → khóa escrow → học → giải ngân → rút","1. Phụ huynh nạp tiền qua cổng SePay (webhook xác nhận).
+2. Ký hợp đồng → escrow khóa tiền.
+3. Lớp kích hoạt, học và hoàn tất.
+4. Hệ thống tất toán, giải ngân cho gia sư.
+5. Gia sư tạo yêu cầu rút, admin duyệt.","- Số dư ví phụ huynh tăng sau nạp.
+- Escrow FUNDED (available→frozen); lớp active.
+- Sau hoàn tất: tiền chuyển vào ví gia sư (journal đúng).
+- Rút tiền APPROVED, số dư gia sư giảm tương ứng.","Ví các bên ACTIVE; có lớp cần thanh toán.","Pending",""
+"Workflow Name5","Thanh toán Ký quỹ End-to-End","ST-PAY-02","Idempotent webhook SePay","1. Gửi webhook nạp tiền cho một reference.
+2. Gửi lại webhook trùng reference.","- Lần 1 cộng tiền, topup COMPLETED.
+- Lần 2 không tạo giao dịch mới, số dư không đổi.","Có lệnh nạp pending với reference.","Pending",""
+"Workflow Name5","Thanh toán Ký quỹ End-to-End","ST-PAY-03","Chặn giao dịch không hợp lệ","1. Rút tiền vượt số dư khả dụng.
+2. Nạp/rút số tiền ≤ 0.","- Bị chặn với thông báo phù hợp (số dư không đủ / số tiền phải > 0).
+- Không thay đổi số dư.","Ví có số dư xác định.","Pending",""
+"Workflow Name6","Vòng đời Buổi học","ST-LES-01","Điểm danh xuyên suốt đến khi hoàn tất lớp","1. Gia sư check-in đầu buổi, check-out cuối buổi cho từng buổi.
+2. Điểm danh học sinh mỗi buổi.
+3. Hoàn tất đủ số buổi của lớp.","- Trạng thái từng buổi cập nhật đúng (in/out).
+- Điểm danh học sinh lưu chính xác.
+- Lớp chuyển hoàn tất khi đủ buổi → sẵn sàng tất toán.","Lớp đang hoạt động, có lịch buổi.","Pending",""
+"Workflow Name6","Vòng đời Buổi học","ST-LES-02","Đổi lịch và thêm buổi phát sinh","1. Gia sư/phụ huynh yêu cầu đổi lịch một buổi.
+2. Bên còn lại duyệt.
+3. Yêu cầu thêm buổi (lý do hợp lệ) và duyệt.","- Lịch buổi cập nhật sau khi duyệt; không trùng buổi khác.
+- Buổi thêm được tạo.
+- Chặn khi đang có yêu cầu chờ / ngày quá khứ / giờ không hợp lệ.","Buổi chưa có yêu cầu đổi lịch chờ.","Pending",""
+"Workflow Name6","Vòng đời Buổi học","ST-LES-03","Nhờ dạy thay có duyệt","1. Gia sư nhờ dạy thay một buổi.
+2. Trung tâm/quản lý duyệt và gán gia sư phụ.","- Tạo yêu cầu dạy thay; sau duyệt gán gia sư phụ cho buổi.
+- Chặn buổi quá khứ / không thuộc lớp.","Có gia sư phụ và buổi từ hôm nay trở đi.","Pending",""
+"Workflow Name7","Tranh chấp, Báo cáo & Hoàn tiền","ST-DIS-01","Tranh chấp → tạm giữ → hoàn một phần","1. Phụ huynh tạo tranh chấp cho lớp đang có escrow khóa.
+2. Admin xem và xử lý (hoàn một phần > 0).
+3. Kiểm tra ví các bên.","- Dispute OPEN; escrow ON_HOLD.
+- Sau xử lý: RESOLVED, giải ngân + hoàn tiền về ví client đúng số; journal đầy đủ.","Có escrow đang khóa của lớp.","Pending",""
+"Workflow Name7","Tranh chấp, Báo cáo & Hoàn tiền","ST-DIS-02","Khiếu nại/mở lại tranh chấp đã xử lý","1. Đúng chủ thể gửi khiếu nại cho tranh chấp đã RESOLVED.
+2. Người không có quyền cũng thử khiếu nại.","- Đúng chủ thể: chuyển trạng thái khiếu nại/mở lại.
+- Người không có quyền: bị 403.","Có tranh chấp đã RESOLVED.","Pending",""
+"Workflow Name7","Tranh chấp, Báo cáo & Hoàn tiền","ST-DIS-03","Báo cáo sự cố lớp → chuyển thành tranh chấp","1. Người dùng tạo báo cáo sự cố lớp.
+2. Admin xử lý, chuyển thành tranh chấp từ escrow còn hiệu lực.","- Tạo Report; admin chuyển thành Dispute.
+- Nếu lớp nhiều escrow: yêu cầu chỉ định escrow cụ thể.","Có báo cáo sự cố chưa xử lý + escrow còn hiệu lực.","Pending",""
+"Workflow Name8","Đánh giá & Uy tín Gia sư","ST-REV-01","Đánh giá → cập nhật uy tín → phản hồi","1. Học viên đánh giá gia sư (rating 1..5, nhiều tiêu chí) sau khi hoàn tất buổi.
+2. Xem uy tín gia sư cập nhật và hiển thị công khai.
+3. Gia sư phản hồi đánh giá; học viên chỉnh sửa đánh giá của mình.","- Tạo Review; điểm uy tín/ratingAvg gia sư được tính lại và hiển thị.
+- Gia sư phản hồi được lưu; sửa đánh giá thành công (rating hợp lệ).
+- Chặn đánh giá/sửa không đúng chủ thể hoặc rating ngoài 1..5.","Có phân công/buổi đã hoàn tất chưa đánh giá.","Pending",""
+"Workflow Name9","Luồng Trung tâm","ST-CEN-01","Từ tuyển gia sư đến vận hành lớp trung tâm","1. Trung tâm đăng tin tuyển dụng → gia sư ứng tuyển → duyệt đơn.
+2. Trung tâm tạo lớp (dữ liệu hợp lệ) → publish.
+3. Gán gia sư chính/phụ → mở tuyển sinh.
+4. Học viên ghi danh; gia sư điểm danh buổi.","- Tin OPEN, đơn ứng tuyển được duyệt (chặn trùng/chưa xác minh).
+- Lớp DRAFT→mở tuyển sinh; gán gia sư đúng (chặn trùng lịch).
+- Ghi danh & điểm danh hoạt động đúng.","Trung tâm đã xác minh; có gia sư đã xác minh.","Pending",""
+"Workflow Name9","Luồng Trung tâm","ST-CEN-02","Phụ huynh gửi yêu cầu mở lớp tới trung tâm","1. Phụ huynh gửi yêu cầu tới trung tâm đã xác minh.
+2. Trung tâm chấp nhận (tạo lớp) hoặc từ chối.
+3. Phụ huynh hủy yêu cầu đang chờ.","- Tạo ClassRequest PENDING (chặn khi trung tâm chưa xác minh/nội dung trống/quá nhiều yêu cầu).
+- Chấp nhận → tạo lớp; từ chối/hủy cập nhật trạng thái đúng.","Phụ huynh & trung tâm hợp lệ.","Pending",""
+"Workflow Name10","Quản trị Hệ thống, Hỗ trợ & Bảo mật","ST-ADM-01","Admin quản lý người dùng & hình phạt","1. Admin xem danh sách người dùng, khóa/mở tài khoản.
+2. Ra hình phạt (cấm tạm thời) cho vi phạm, sau đó thu hồi.","- Trạng thái tài khoản cập nhật (chặn đổi trạng thái tài khoản admin/không hợp lệ).
+- Hình phạt ACTIVE rồi REVOKED đúng luồng.","Đăng nhập admin; có user thường.","Pending",""
+"Workflow Name10","Quản trị Hệ thống, Hỗ trợ & Bảo mật","ST-ADM-02","Hỗ trợ: ticket, chat & thông báo","1. User tạo ticket hỗ trợ → admin phản hồi → đóng (RESOLVED).
+2. User mở lại ticket.
+3. User & admin chat trực tiếp; user đọc thông báo.","- Ticket tạo/phản hồi/đóng/mở lại đúng trạng thái.
+- Chat gửi/đọc được; chặn tự chat với chính mình & gửi khi không tham gia.
+- Thông báo hiển thị và đánh dấu đã đọc.","Có user và admin.","Pending",""
+"Workflow Name10","Quản trị Hệ thống, Hỗ trợ & Bảo mật","ST-ADM-03","Bảo mật: kiểm soát phân quyền theo vai trò","1. User thường gọi các API dành cho admin (duyệt xác minh, hình phạt, quản lý user).
+2. Truy cập tài nguyên của người khác (hợp đồng, ticket, thông báo).","- Tất cả bị 403/Forbidden theo vai trò.
+- Không rò rỉ dữ liệu chéo giữa người dùng.","Có tài khoản user thường và dữ liệu của người khác.","Pending",""
