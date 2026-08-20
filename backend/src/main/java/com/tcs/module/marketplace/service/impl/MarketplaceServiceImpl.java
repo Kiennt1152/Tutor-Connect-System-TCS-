@@ -2920,7 +2920,10 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .attendanceStatus(lesson.getAttendanceStatus().name())
                 .tutorCheckInAt(lesson.getTutorCheckInAt())
                 .tutorCheckOutAt(lesson.getTutorCheckOutAt())
-                .canCheckInToday(today.equals(lesson.getLessonDate()))
+                // Chỉ mở điểm danh từ giờ bắt đầu slot đến hết ngày hôm đó (khớp requireLessonIsToday).
+                .canCheckInToday(today.equals(lesson.getLessonDate())
+                        && (slot.getStartTime() == null
+                                || !LocalTime.now().isBefore(slot.getStartTime())))
                 .rescheduleLocked(rescheduleLocked)
                 .build();
     }
