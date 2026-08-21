@@ -7,6 +7,8 @@ import com.tcs.module.profile.dto.request.LinkChildAccountRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
+import com.tcs.module.profile.dto.request.TutorCertificateRequest;
+import com.tcs.module.profile.dto.request.TutorEducationRequest;
 import com.tcs.module.profile.dto.request.TutorExperienceRequest;
 import com.tcs.module.profile.dto.request.UpdateChildProfileRequest;
 import com.tcs.module.profile.dto.request.UpdateProfileRequest;
@@ -14,7 +16,10 @@ import com.tcs.module.profile.dto.response.ChildProfileResponse;
 import com.tcs.module.profile.dto.response.DependentLinkStatusResponse;
 import com.tcs.module.profile.dto.response.GuardianProfileResponse;
 import com.tcs.module.profile.dto.response.ProfileResponse;
+import com.tcs.module.profile.dto.response.PublicTutorProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
+import com.tcs.module.profile.dto.response.TutorCertificateResponse;
+import com.tcs.module.profile.dto.response.TutorEducationResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
 import com.tcs.module.profile.service.ProfileService;
 import jakarta.validation.Valid;
@@ -46,6 +51,12 @@ public class ProfileController {
     @GetMapping("/me")
     public ProfileResponse getMyProfile() {
         return profileService.getMyProfile();
+    }
+
+    /** Công khai: hồ sơ chi tiết của một gia sư (trang /gia-su/:tutorId). */
+    @GetMapping("/tutor/{tutorId}")
+    public PublicTutorProfileResponse getPublicTutorProfile(@PathVariable Long tutorId) {
+        return profileService.getPublicTutorProfile(tutorId);
     }
 
     @PutMapping("/me")
@@ -121,6 +132,40 @@ public class ProfileController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteExperience(@PathVariable Long experienceId) {
         profileService.deleteExperience(experienceId);
+    }
+
+    @GetMapping("/educations")
+    public List<TutorEducationResponse> getMyEducations() {
+        return profileService.getMyEducations();
+    }
+
+    @PostMapping("/educations")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TutorEducationResponse addEducation(@RequestBody TutorEducationRequest request) {
+        return profileService.addEducation(request);
+    }
+
+    @DeleteMapping("/educations/{educationId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteEducation(@PathVariable Long educationId) {
+        profileService.deleteEducation(educationId);
+    }
+
+    @GetMapping("/certificates")
+    public List<TutorCertificateResponse> getMyCertificates() {
+        return profileService.getMyCertificates();
+    }
+
+    @PostMapping("/certificates")
+    @ResponseStatus(HttpStatus.CREATED)
+    public TutorCertificateResponse addCertificate(@RequestBody TutorCertificateRequest request) {
+        return profileService.addCertificate(request);
+    }
+
+    @DeleteMapping("/certificates/{certificateId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteCertificate(@PathVariable Long certificateId) {
+        profileService.deleteCertificate(certificateId);
     }
 
     @GetMapping("/availability")

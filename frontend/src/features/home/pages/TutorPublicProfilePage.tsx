@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { StarRating } from '../../reviews/components/StarRating';
 import { CriteriaBreakdown } from '../../reviews/components/CriteriaBreakdown';
 import { reviewApi } from '../../reviews/api/reviewApi';
 import type { ReviewResponse, TutorReputation } from '../../reviews/types/reviewTypes';
+import { tutorProfileApi } from '../api/tutorProfileApi';
+import type { PublicTutorProfile } from '../types/homeTypes';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import './TutorPublicProfilePage.css';
 
@@ -39,17 +41,35 @@ const STAR_ROWS = [5, 4, 3, 2, 1] as const;
 
 type StarFilter = number | 'all';
 
+type ProfileTab = 'profile' | 'reviews';
+
 export default function TutorPublicProfilePage() {
   const { tutorId } = useParams<{ tutorId: string }>();
+  const location = useLocation();
   const [data, setData] = useState<TutorReputation | null>(null);
+  const [profile, setProfile] = useState<PublicTutorProfile | null>(null);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [error, setError] = useState('');
   const [starFilter, setStarFilter] = useState<StarFilter>('all');
+  // Tab mặc định do nút bấm quyết định (truyền qua router state) — URL giữ nguyên cho cả 2 nút.
+  const initialTab: ProfileTab =
+    (location.state as { tab?: ProfileTab } | null)?.tab === 'reviews' ? 'reviews' : 'profile';
+  const [tab, setTab] = useState<ProfileTab>(initialTab);
+
+  // Đổi tab khi điều hướng lại trang bằng nút khác (router state thay đổi).
+  useEffect(() => {
+    setTab(initialTab);
+  }, [initialTab]);
 
   const load = useCallback(() => {
     if (!tutorId) return;
     setStatus('loading');
     setStarFilter('all');
+    // Hồ sơ chi tiết (học vấn, chứng chỉ, kinh nghiệm) tải song song, không chặn phần đánh giá.
+    tutorProfileApi
+      .getPublicProfile(tutorId)
+      .then((res) => setProfile(res.data))
+      .catch(() => setProfile(null));
     reviewApi
       .getTutorReputation(tutorId)
       .then((res) => {
@@ -87,19 +107,49 @@ export default function TutorPublicProfilePage() {
         {status === 'success' && data ? (
           <>
             <ProfileHeader data={data} />
-            <div className="tp-grid">
-              <ReputationSummary
-                data={data}
-                activeStar={starFilter}
-                onSelectStar={setStarFilter}
-              />
-              <ReviewsList
-                reviews={data.reviews}
-                distribution={data.ratingDistribution}
-                activeStar={starFilter}
-                onSelectStar={setStarFilter}
-              />
+
+            <div className="tp-tabs" role="tablist">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'profile'}
+                className={`tp-tab${tab === 'profile' ? ' tp-tab--active' : ''}`}
+                onClick={() => setTab('profile')}
+              >
+                Thông tin hồ sơ
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === 'reviews'}
+                className={`tp-tab${tab === 'reviews' ? ' tp-tab--active' : ''}`}
+                onClick={() => setTab('reviews')}
+              >
+                Đánh giá &amp; danh tiếng ({data.totalReviews})
+              </button>
             </div>
+
+            {tab === 'profile' ? (
+              profile ? (
+                <ProfileInfo profile={profile} />
+              ) : (
+                <p className="tp-muted">Đang tải thông tin hồ sơ…</p>
+              )
+            ) : (
+              <div className="tp-grid">
+                <ReputationSummary
+                  data={data}
+                  activeStar={starFilter}
+                  onSelectStar={setStarFilter}
+                />
+                <ReviewsList
+                  reviews={data.reviews}
+                  distribution={data.ratingDistribution}
+                  activeStar={starFilter}
+                  onSelectStar={setStarFilter}
+                />
+              </div>
+            )}
           </>
         ) : null}
       </main>
@@ -131,6 +181,98 @@ function ProfileHeader({ data }: { readonly data: TutorReputation }) {
         {data.bio?.trim() ? <p className="tp-header__bio">{data.bio.trim()}</p> : null}
       </div>
     </header>
+  );
+}
+
+function yearRange(start: number | null, end: number | null): string {
+  if (!start && !end) return '';
+  return `${start ?? '?'} – ${end ?? 'nay'}`;
+}
+
+function dateRange(start: string | null, end: string | null): string {
+  if (!start && !end) return '';
+  return `${start ? formatDate(start) : '?'} – ${end ? formatDate(end) : 'nay'}`;
+}
+
+function ProfileInfo({ profile }: { readonly profile: PublicTutorProfile }) {
+  const { experiences, educations, certificates } = profile;
+  const isEmpty =
+    experiences.length === 0 && educations.length === 0 && certificates.length === 0;
+
+  return (
+    <section id="chi-tiet-gia-su" className="tp-card tp-profile">
+      <h2 className="tp-card__title">Thông tin hồ sơ</h2>
+
+      {isEmpty ? (
+        <p className="tp-muted">Gia sư chưa cập nhật học vấn, chứng chỉ hay kinh nghiệm.</p>
+      ) : null}
+
+      {experiences.length > 0 ? (
+        <div className="tp-profile__block">
+          <h3 className="tp-profile__subtitle">💼 Kinh nghiệm</h3>
+          <ul className="tp-profile__list">
+            {experiences.map((exp) => (
+              <li key={exp.experienceId} className="tp-profile__item">
+                <div className="tp-profile__item-head">
+                  <span className="tp-profile__item-title">{exp.role || 'Vị trí'}</span>
+                  {dateRange(exp.startDate, exp.endDate) ? (
+                    <span className="tp-profile__item-meta">{dateRange(exp.startDate, exp.endDate)}</span>
+                  ) : null}
+                </div>
+                {exp.organization ? (
+                  <div className="tp-profile__item-sub">{exp.organization}</div>
+                ) : null}
+                {exp.description ? (
+                  <p className="tp-profile__item-desc">{exp.description}</p>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {educations.length > 0 ? (
+        <div className="tp-profile__block">
+          <h3 className="tp-profile__subtitle">🎓 Học vấn</h3>
+          <ul className="tp-profile__list">
+            {educations.map((edu) => (
+              <li key={edu.educationId} className="tp-profile__item">
+                <div className="tp-profile__item-head">
+                  <span className="tp-profile__item-title">{edu.institution || 'Cơ sở đào tạo'}</span>
+                  {yearRange(edu.startYear, edu.endYear) ? (
+                    <span className="tp-profile__item-meta">{yearRange(edu.startYear, edu.endYear)}</span>
+                  ) : null}
+                </div>
+                {(edu.degree || edu.fieldOfStudy) ? (
+                  <div className="tp-profile__item-sub">
+                    {[edu.degree, edu.fieldOfStudy].filter(Boolean).join(' · ')}
+                  </div>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {certificates.length > 0 ? (
+        <div className="tp-profile__block">
+          <h3 className="tp-profile__subtitle">📜 Chứng chỉ</h3>
+          <ul className="tp-profile__list">
+            {certificates.map((cert) => (
+              <li key={cert.certificateId} className="tp-profile__item">
+                <div className="tp-profile__item-head">
+                  <span className="tp-profile__item-title">{cert.name || 'Chứng chỉ'}</span>
+                  {cert.issueDate ? (
+                    <span className="tp-profile__item-meta">{formatDate(cert.issueDate)}</span>
+                  ) : null}
+                </div>
+                {cert.issuer ? <div className="tp-profile__item-sub">{cert.issuer}</div> : null}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

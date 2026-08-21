@@ -52,15 +52,6 @@ public class ContractSignature {
     @Column(name = "signature_data", columnDefinition = "TEXT")
     private String signatureData;
 
-    @Column(name = "otp_code", length = 6)
-    private String otpCode;
-
-    @Column(name = "otp_expires_at")
-    private LocalDateTime otpExpiresAt;
-
-    @Column(name = "otp_attempts", nullable = false)
-    private Integer otpAttempts = 0;
-
     @Enumerated(EnumType.STRING)
     @Column(name = "signature_status", length = 20, nullable = false)
     private ContractSignatureStatus signatureStatus = ContractSignatureStatus.PENDING;

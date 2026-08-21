@@ -38,7 +38,14 @@ export function TutorListingCard({
           <div className="tcs-listing-card__avatar">{initials(tutor.fullName) || 'GS'}</div>
           <div className="tcs-listing-card__identity">
             <h3 className="tcs-listing-card__name">{tutor.fullName}</h3>
-            <span className="tcs-listing-card__badge">Gia sư</span>
+            <div className="tcs-listing-card__badges">
+              <span className="tcs-listing-card__badge">Gia sư</span>
+              {tutor.verificationStatus === 'VERIFIED' ? (
+                <span className="tcs-listing-card__badge tcs-listing-card__badge--verified" title="Hồ sơ đã được xác minh">
+                  ✓ Đã xác minh
+                </span>
+              ) : null}
+            </div>
           </div>
         </div>
         {showPrice ? (
@@ -72,9 +79,22 @@ export function TutorListingCard({
 
       <div className="tcs-listing-card__foot">
         <span className="tcs-listing-card__status">Sẵn sàng nhận lớp</span>
-        <Link className="tcs-btn tcs-btn--market" to={tutorProfilePath(tutor.id)}>
-          Xem hồ sơ
-        </Link>
+        <div className="tcs-listing-card__actions">
+          <Link
+            className="tcs-btn tcs-btn--ghost tcs-listing-card__review"
+            to={tutorProfilePath(tutor.id)}
+            state={{ tab: 'reviews' }}
+          >
+            Xem đánh giá
+          </Link>
+          <Link
+            className="tcs-btn tcs-btn--market"
+            to={tutorProfilePath(tutor.id)}
+            state={{ tab: 'profile' }}
+          >
+            Xem hồ sơ
+          </Link>
+        </div>
       </div>
     </article>
   );

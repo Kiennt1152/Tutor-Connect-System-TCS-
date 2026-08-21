@@ -12,6 +12,8 @@ const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undef
 const GSI_SRC = 'https://accounts.google.com/gsi/client';
 // Dau so di dong VN theo nha mang (loai 095, 054, 050... khong ton tai). Chap nhan ca dang 0... va +84...
 const PHONE_REGEX = /^(0|\+84)(3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-46-9])\d{7}$/;
+// Kiem tra dinh dang email co ban truoc khi goi API (tranh loi "must be a well-formed email address").
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const ROLE_OPTIONS: { value: RegisterRole; label: string }[] = [
   { value: 'CLIENT', label: 'Học viên / Phụ huynh' },
@@ -211,6 +213,25 @@ export default function LoginPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError('');
+    // Kiem tra truoc khi goi API: tranh loi "must not be blank" tho tu backend.
+    const emailBlank = !email.trim();
+    const passwordBlank = !password.trim();
+    if (emailBlank && passwordBlank) {
+      setError('Vui lòng nhập email và mật khẩu');
+      return;
+    }
+    if (emailBlank) {
+      setError('Vui lòng nhập email');
+      return;
+    }
+    if (passwordBlank) {
+      setError('Vui lòng nhập mật khẩu');
+      return;
+    }
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setError('Email không đúng định dạng');
+      return;
+    }
     setLoading(true);
     try {
       const response = await login({ email, password });

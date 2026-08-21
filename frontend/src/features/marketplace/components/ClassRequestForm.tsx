@@ -86,8 +86,8 @@ function emptySlot(subjectId: string): ScheduleSlot {
   return { subjectId, day: '', date: '', session: '', start: '', end: '' };
 }
 
-const WEEKLY_DEFAULT_START = '18:00';
-const WEEKLY_DEFAULT_END = '20:00';
+const WEEKLY_DEFAULT_START = '06:00';
+const WEEKLY_DEFAULT_END = '08:00';
 
 function sessionFromStart(start: string): string {
   if (!start) return '';
@@ -483,7 +483,6 @@ export function ClassRequestForm({
   const isOffline = form.lessonMode !== 'ONLINE';
   const today = new Date().toLocaleDateString('en-CA');
   const nowHm = new Date().toTimeString().slice(0, 5);
-  const todayDow = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'][new Date().getDay()];
 
   const slotErrorSet = new Set<string>();
   form.slots.forEach((s) => {
@@ -495,10 +494,6 @@ export function ClassRequestForm({
       slotErrorSet.add(`${nm}: ngày học không được ở quá khứ`);
     } else if (!isWeekly && s.date === today && s.start <= nowHm) {
       slotErrorSet.add(`${nm}: giờ học hôm nay đã qua (phải sau ${nowHm})`);
-    } else if (isWeekly && s.day === todayDow && s.start <= nowHm) {
-      slotErrorSet.add(
-        `${nm}: buổi ${dayLabel(s.day)} ${s.start} đã qua giờ hôm nay — chọn thứ hoặc giờ khác`,
-      );
     } else if (s.end <= s.start) {
       slotErrorSet.add(`${nm}: giờ kết thúc phải sau giờ bắt đầu`);
     }
@@ -879,6 +874,17 @@ export function ClassRequestForm({
                     <span className="mkt-subj-fee__unit">đ/giờ</span>
                   </span>
                 </div>
+                {touched && (() => {
+                  const fee = Number(form.subjectFees[sid]);
+                  if (fee > 0 && fee >= FEE_PER_HOUR_MIN) return null;
+                  return (
+                    <span className="mkt-field__error">
+                      {!(fee > 0)
+                        ? 'Nhập học phí/giờ'
+                        : `Học phí/giờ tối thiểu ${currency.format(FEE_PER_HOUR_MIN)}đ`}
+                    </span>
+                  );
+                })()}
                 {isWeekly ? (
                   (() => {
                     const allTimes = buildTimeSlots('06:00', '23:30');
@@ -1120,6 +1126,9 @@ export function ClassRequestForm({
                     </button>
                   </>
                 )}
+                {touched && !form.slots.some((s) => s.subjectId === sid) && (
+                  <span className="mkt-field__error">Chưa chọn buổi học nào cho môn này</span>
+                )}
               </div>
             ))}
           </div>
@@ -1160,8 +1169,21 @@ export function ClassRequestForm({
         <div className="mkt-alert mkt-alert--error">{conflicts.join('. ')}.</div>
       )}
       {extraContent}
-      {touched && slotErrors.length > 0 && (
-        <div className="mkt-alert mkt-alert--error">{slotErrors.join('. ')}.</div>
+      {touched && (missing.length > 0 || slotErrors.length > 0 || conflicts.length > 0) && (
+        <div className="mkt-alert mkt-alert--error mkt-alert--summary">
+          <strong>⚠️ Vui lòng hoàn tất các mục bắt buộc (*) còn thiếu:</strong>
+          <ul className="mkt-alert__list">
+            {missing.map((m) => (
+              <li key={`miss-${m}`}>Thiếu: {m}</li>
+            ))}
+            {slotErrors.map((m) => (
+              <li key={`slot-${m}`}>{m}</li>
+            ))}
+            {conflicts.map((m) => (
+              <li key={`conf-${m}`}>{m}</li>
+            ))}
+          </ul>
+        </div>
       )}
       {error && <div className="mkt-alert mkt-alert--error">{error}</div>}
 

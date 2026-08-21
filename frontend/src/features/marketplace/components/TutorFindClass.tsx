@@ -91,6 +91,11 @@ function parseSmartQuery(
   }
   aliasPairs.sort((a, b) => b.kw.length - a.kw.length);
   let scan = q;
+  // Loại cụm "yêu cầu GS" / "mục tiêu" (vd "sinh viên", "giáo viên") trước khi dò môn,
+  // tránh "sinh viên" bị nhận nhầm thành môn "Sinh học" (alias 'sinh').
+  for (const { kw } of [...REQ_KEYWORDS, ...GOAL_KEYWORDS]) {
+    scan = scan.replace(new RegExp(`\\b${kw}\\b`, 'g'), '  ');
+  }
   for (const { id, kw } of aliasPairs) {
     if (scan.includes(` ${kw} `)) {
       subjectIds.add(id);
@@ -158,7 +163,11 @@ function parseSmartQuery(
       .replace(/\d{2,4}\s*k(?![a-z])/g, ' ')
       .replace(/\d[\d.,]{4,}/g, ' ')
       .replace(/\b(online|offline|truc tiep|truc tuyen|tai nha|tai nguoi hoc|dai hoc|vao 10)\b/g, ' ')
+      // Bỏ tiền tố hành chính/khu vực để tên tỉnh không bị hiểu nhầm thành "môn khác"
+      .replace(/\b(tinh|thanh pho|tp|quan|huyen|phuong|xa|thi xa|khu vuc|khu vc|khu)\b/g, ' ')
       .replace(/\b(mon|tim|gia su|giasu|day|hoc phi|hoc|gio|vnd|dong|luyen thi|thi|o|tai|can|lop|khoi)\b/g, ' ')
+      // Từ nối / nhãn tiêu chí (không phải tên môn): "yêu cầu là sinh viên" -> không tạo "môn khác"
+      .replace(/\b(yeu cau|muc tieu|yeu|cau|la|vien|gia su)\b/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();
     if (s.length >= 2) otherSubjectText = s;
@@ -302,9 +311,15 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     if (queryMode === 'ONLINE') out = out.filter((r) => r.parsed.lessonMode === 'ONLINE');
     if (queryMode === 'OFFLINE') out = out.filter((r) => r.parsed.lessonMode !== 'ONLINE');
     if (provinceId) {
-      out = out.filter(
-        (r) => r.parsed.lessonMode === 'ONLINE' || r.parsed.provinceId === provinceId,
-      );
+      // Lớp thường chỉ lưu TÊN tỉnh (provinceId rỗng) -> so khớp theo tên đã chuẩn hóa, id chỉ là dự phòng.
+      const stripPrefix = (s: string) => normalize(s).replace(/^(tp|thanh pho|tinh)\s+/, '');
+      const want = stripPrefix(provinceName(provinceId));
+      out = out.filter((r) => {
+        if (r.parsed.lessonMode === 'ONLINE') return true;
+        if (r.parsed.provinceId && r.parsed.provinceId === provinceId) return true;
+        const got = stripPrefix(r.parsed.provinceName ?? '');
+        return !!got && got === want;
+      });
     }
     if (goalKeys.length > 0) {
       out = out.filter((r) => {
@@ -319,7 +334,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
       });
     }
     return out;
-  }, [classes, activeCriteria, selectedIds, gradeIds, provinceId, queryMode, goalKeys, reqKeys, otherText]);
+  }, [classes, activeCriteria, selectedIds, gradeIds, provinceId, queryMode, goalKeys, reqKeys, otherText, provinceName]);
 
   // Phân trang: 6 lớp / trang (2 cột × 3 hàng); lớp thứ 7 nhảy sang trang 2.
   const pageCount = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
@@ -443,7 +458,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
             )}
           </div>
           <button type="submit" className="tfc-btn tfc-btn--primary tfc-search__btn">
-            Tìm lớp
+            Tìm
           </button>
         </div>
 
@@ -460,7 +475,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
 
         <aside className={`tfc-panel${searched ? '' : ' is-locked'}`}>
         <div className="tfc-panel__head">
-          <h2 className="tfc-panel__title">Mức độ ưu tiên khi tìm lớp</h2>
+          <h2 className="tfc-panel__title">Mức độ ưu tiên khi tìm</h2>
           <button
             type="button"
             className="tfc-formula-btn"
@@ -478,7 +493,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
             </>
           ) : (
             <>
-              Bấm <strong>Tìm lớp</strong> trước, rồi mới chỉnh được mức ưu tiên.
+              Bấm <strong>Tìm</strong> trước, rồi mới chỉnh được mức ưu tiên.
             </>
           )}
         </p>
@@ -512,7 +527,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
 
       <section className="tfc-results" id="tfc-results">
         <header className="tfc-results__head">
-          <h2>{searched ? 'Lớp phù hợp với bạn' : 'Tất cả lớp đang mở'}</h2>
+          <h2>{searched ? 'Yêu cầu phù hợp với bạn' : 'Tất cả tin tìm gia sư đã đăng'}</h2>
           <span className="tfc-results__count">
             {status === 'success'
               ? searched && selectedIds.length > 0
@@ -741,7 +756,7 @@ function ClassCard({
             disabled={applied}
             onClick={onApply}
           >
-            {applied ? '✓ Đã ứng tuyển' : 'Ứng tuyển nhận lớp'}
+            {applied ? '✓ Đã ứng tuyển' : 'Ứng tuyển'}
           </button>
         </div>
       </div>

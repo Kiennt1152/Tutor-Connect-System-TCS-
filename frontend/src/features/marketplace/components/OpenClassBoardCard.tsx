@@ -16,7 +16,7 @@ interface Props {
 }
 
 /**
- * Thẻ lớp hiển thị ở màn "Danh sách lớp đã đăng" (/danh-sach-lop) — dùng lại giao diện
+ * Thẻ lớp hiển thị ở màn "Danh sách tin đã đăng" (/danh-sach-tin-da-dang) — dùng lại giao diện
  * thẻ lớp của màn "Yêu cầu của tôi" (mkt-class-card): trạng thái + đếm ngược 30 ngày,
  * tiêu đề, lớp/hình thức, các môn & học phí/giờ, mục tiêu, địa điểm. Chỉ để xem (không có
  * nút quản lý của chủ lớp).

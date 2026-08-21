@@ -7,6 +7,8 @@ import com.tcs.module.profile.dto.request.LinkChildAccountRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
+import com.tcs.module.profile.dto.request.TutorCertificateRequest;
+import com.tcs.module.profile.dto.request.TutorEducationRequest;
 import com.tcs.module.profile.dto.request.TutorExperienceRequest;
 import com.tcs.module.profile.dto.request.UpdateChildProfileRequest;
 import com.tcs.module.profile.dto.request.UpdateProfileRequest;
@@ -14,7 +16,10 @@ import com.tcs.module.profile.dto.response.ChildProfileResponse;
 import com.tcs.module.profile.dto.response.DependentLinkStatusResponse;
 import com.tcs.module.profile.dto.response.GuardianProfileResponse;
 import com.tcs.module.profile.dto.response.ProfileResponse;
+import com.tcs.module.profile.dto.response.PublicTutorProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
+import com.tcs.module.profile.dto.response.TutorCertificateResponse;
+import com.tcs.module.profile.dto.response.TutorEducationResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
 import java.util.List;
 import org.springframework.web.multipart.MultipartFile;
@@ -22,6 +27,9 @@ import org.springframework.web.multipart.MultipartFile;
 public interface ProfileService {
 
     ProfileResponse getMyProfile();
+
+    /** Hồ sơ công khai của một gia sư (theo tutorId) — dùng cho trang /gia-su/:tutorId. */
+    PublicTutorProfileResponse getPublicTutorProfile(Long tutorId);
 
     ProfileResponse updateMyProfile(UpdateProfileRequest request);
 
@@ -50,6 +58,18 @@ public interface ProfileService {
     TutorExperienceResponse addExperience(TutorExperienceRequest request);
 
     void deleteExperience(Long experienceId);
+
+    List<TutorEducationResponse> getMyEducations();
+
+    TutorEducationResponse addEducation(TutorEducationRequest request);
+
+    void deleteEducation(Long educationId);
+
+    List<TutorCertificateResponse> getMyCertificates();
+
+    TutorCertificateResponse addCertificate(TutorCertificateRequest request);
+
+    void deleteCertificate(Long certificateId);
 
     List<TutorAvailabilityResponse> getMyAvailability();
 

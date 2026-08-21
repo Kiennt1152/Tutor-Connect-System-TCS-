@@ -2,20 +2,20 @@ export const APP_ROUTES = {
   home: '/',
   findTutor: '/tim-gia-su',
   postTutorRequest: '/dang-yeu-cau-tim-gia-su',
-  findClass: '/tim-lop',
+  findClass: '/tim-yeu-cau-giang-day',
   /** Bảng tổng hợp mọi lớp client đăng (đang mở). Ký hợp đồng xong -> lớp kích hoạt, tự gỡ khỏi đây. */
-  classBoard: '/danh-sach-lop',
+  classBoard: '/sua-lop/danh-sach-tin-da-dang',
   /** Trang "Tìm lớp phù hợp với bạn" — duyệt lớp đang mở để đăng ký (bản của center/class). */
   classFinder: '/lop-hoc',
-  tutorProfile: '/gia-su/:tutorId',
+  tutorProfile: '/gia-su/chi-tiet-gia-su/:tutorId',
   /** Trang "Đánh giá" công khai: danh sách toàn bộ gia sư kèm số sao để xem chi tiết đánh giá. */
   tutorReviews: '/danh-gia',
-  teaching: '/lich-day',
+  teaching: '/lich-ca-nhan',
   /** Lịch lớp TRUNG TÂM — tách riêng khỏi `teaching` (lịch lớp cá nhân). */
   tutorSchedule: '/tutor/schedule',
   clientSchedule: '/client/schedule',
   centerReschedules: '/center/reschedules',
-  signContract: '/lich-day/ki-hop-dong',
+  signContract: '/lich-ca-nhan/ki-hop-dong',
   login: '/login',
   register: '/register',
   forgotPassword: '/forgot-password',
@@ -32,7 +32,7 @@ export const APP_ROUTES = {
   /** Trang công khai giới thiệu trung tâm + tin tuyển gia sư (khác /center là trang quản lý). */
   centers: '/centers',
   recruitment: '/recruitment',
-  marketplace: '/sua-lop',
+  marketplace: '/yeu-cau-tim-gia-su-cua-toi',
   contract: '/contract',
   guardianApprovals: '/profile/guardian/approvals',
   messaging: '/messaging',
@@ -63,4 +63,5 @@ export const APP_ROUTES = {
   forbidden: '/forbidden',
 } as const;
 
-export const tutorProfilePath = (tutorId: number | string) => `/gia-su/${tutorId}`;
+export const tutorProfilePath = (tutorId: number | string) =>
+  `/gia-su/chi-tiet-gia-su/${tutorId}`;

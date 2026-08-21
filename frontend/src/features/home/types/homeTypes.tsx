@@ -3,6 +3,47 @@ export interface SubjectItem {
   name: string;
 }
 
+export interface TutorEducation {
+  educationId: number;
+  institution: string | null;
+  degree: string | null;
+  fieldOfStudy: string | null;
+  startYear: number | null;
+  endYear: number | null;
+}
+
+export interface TutorCertificate {
+  certificateId: number;
+  name: string | null;
+  issuer: string | null;
+  issueDate: string | null;
+}
+
+export interface TutorExperienceItem {
+  experienceId: number;
+  role: string | null;
+  organization: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  description: string | null;
+}
+
+export interface PublicTutorProfile {
+  tutorId: number;
+  userId: number;
+  fullName: string;
+  avatarUrl: string | null;
+  gender: string | null;
+  bio: string | null;
+  experienceYears: number | null;
+  hourlyRate: number | null;
+  ratingAvg: number | null;
+  verificationStatus: string | null;
+  educations: TutorEducation[];
+  certificates: TutorCertificate[];
+  experiences: TutorExperienceItem[];
+}
+
 export interface FeaturedTutor {
   id: string;
   fullName: string;
@@ -11,6 +52,7 @@ export interface FeaturedTutor {
   hourlyRate: number;
   ratingAvg: number;
   experienceYears: number;
+  verificationStatus: string | null;
 }
 
 export interface HomeData {

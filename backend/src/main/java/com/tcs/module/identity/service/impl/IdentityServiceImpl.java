@@ -31,6 +31,8 @@ import com.tcs.module.identity.repository.PasswordResetTokenRepository;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.identity.service.EmailService;
 import com.tcs.module.identity.service.IdentityService;
+import com.tcs.module.identity.service.OtpService;
+import com.tcs.module.identity.service.OtpVerifyPolicy;
 import com.tcs.module.platform.mapper.PlatformMapper;
 import com.tcs.module.platform.mapper.UserProfileBundle;
 import com.tcs.module.platform.service.AuditLogService;
@@ -84,6 +86,7 @@ public class IdentityServiceImpl implements IdentityService {
     private final TutorCenterRepository tutorCenterRepository;
     private final PasswordResetTokenRepository passwordResetTokenRepository;
     private final EmailOtpRepository emailOtpRepository;
+    private final OtpService otpService;
     private final EmailVerificationTokenRepository emailVerificationTokenRepository;
     private final EmailService emailService;
     private final PasswordEncoder passwordEncoder;
@@ -152,22 +155,9 @@ public class IdentityServiceImpl implements IdentityService {
             throw new IllegalArgumentException(RATE_LIMIT_MESSAGE);
         }
 
-        // AF-03: gui ma moi lam vo hieu ma cu chua dung.
-        emailOtpRepository
-                .findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(email, OtpPurpose.REGISTRATION)
-                .ifPresent(prev -> {
-                    prev.setConsumedAt(LocalDateTime.now());
-                    emailOtpRepository.save(prev);
-                });
-
-        EmailOtp otp = new EmailOtp();
-        otp.setEmail(email);
-        otp.setCode(generateOtpCode());
-        otp.setPurpose(OtpPurpose.REGISTRATION);
-        otp.setExpiresAt(LocalDateTime.now().plusMinutes(otpExpirationMinutes));
-        otp.setAttempts(0);
-        otp.setLastSentAt(LocalDateTime.now());
-        emailOtpRepository.save(otp);
+        // AF-03: OtpService lo viec vo hieu ma cu chua dung + sinh ma moi.
+        EmailOtp otp = otpService.issue(
+                email, OtpPurpose.REGISTRATION, otpLength, Duration.ofMinutes(otpExpirationMinutes));
 
         emailService.sendRegistrationOtp(email, otp.getCode(), otpExpirationMinutes);
 
@@ -186,31 +176,7 @@ public class IdentityServiceImpl implements IdentityService {
     public VerifyOtpResponse verifyOtp(VerifyOtpRequest request) {
         String email = normalizeEmail(request.getEmail());
 
-        EmailOtp otp = emailOtpRepository
-                .findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(email, OtpPurpose.REGISTRATION)
-                .orElseThrow(() -> new IllegalArgumentException(
-                        "Mã xác thực không tồn tại. Vui lòng yêu cầu gửi lại mã."));
-
-        if (otp.isExpired()) {
-            throw new IllegalArgumentException("Mã xác thực đã hết hạn. Vui lòng yêu cầu gửi lại mã.");
-        }
-        if (otp.getAttempts() >= maxAttempts) {
-            throw new IllegalArgumentException(
-                    "Bạn đã nhập sai quá số lần cho phép. Vui lòng yêu cầu mã mới.");
-        }
-        if (!otp.getCode().equals(request.getCode().trim())) {
-            otp.setAttempts(otp.getAttempts() + 1);
-            emailOtpRepository.save(otp);
-            if (otp.getAttempts() >= maxAttempts) {
-                throw new IllegalArgumentException(
-                        "Bạn đã nhập sai quá số lần cho phép. Vui lòng yêu cầu mã mới.");
-            }
-            int remaining = maxAttempts - otp.getAttempts();
-            throw new IllegalArgumentException("Mã xác thực không đúng. Bạn còn " + remaining + " lần thử.");
-        }
-
-        otp.setConsumedAt(LocalDateTime.now());
-        emailOtpRepository.save(otp);
+        otpService.verify(email, OtpPurpose.REGISTRATION, request.getCode(), registrationVerifyPolicy());
 
         EmailVerificationToken token = new EmailVerificationToken();
         token.setToken(generateOpaqueToken());
@@ -485,15 +451,8 @@ public class IdentityServiceImpl implements IdentityService {
             throw new IllegalArgumentException(RATE_LIMIT_MESSAGE);
         }
 
-        EmailOtp otp = new EmailOtp();
-        otp.setEmail(email);
-        otp.setCode(generateOtpCode());
-        otp.setPurpose(OtpPurpose.PASSWORD_RESET);
-        otp.setExpiresAt(LocalDateTime.now().plusMinutes(otpExpirationMinutes));
-        otp.setAttempts(0);
-        otp.setLastSentAt(LocalDateTime.now());
-
-        emailOtpRepository.save(otp);
+        EmailOtp otp = otpService.issue(
+                email, OtpPurpose.PASSWORD_RESET, otpLength, Duration.ofMinutes(otpExpirationMinutes));
         emailService.sendPasswordResetOtp(email, otp.getCode(), otpExpirationMinutes);
 
         return PasswordResetOtpResponse.builder()
@@ -513,25 +472,10 @@ public class IdentityServiceImpl implements IdentityService {
             throw new IllegalArgumentException(RATE_LIMIT_MESSAGE);
         }
 
-        EmailOtp otp = emailOtpRepository
-                .findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(email, OtpPurpose.PASSWORD_RESET)
-                .orElseThrow(() -> new IllegalArgumentException("Mã OTP không tồn tại hoặc đã hết hạn"));
-        if (otp.isExpired()) {
-            throw new IllegalArgumentException("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới");
-        }
-        if (otp.getAttempts() >= maxAttempts) {
-            throw new IllegalArgumentException("Bạn đã nhập sai quá số lần cho phép. Vui lòng yêu cầu mã mới");
-        }
-        if (!otp.getCode().equals(request.getCode().trim())) {
-            otp.setAttempts(otp.getAttempts() + 1);
-            emailOtpRepository.save(otp);
-            throw new IllegalArgumentException("Mã OTP không đúng");
-        }
+        otpService.verify(email, OtpPurpose.PASSWORD_RESET, request.getCode(), passwordResetVerifyPolicy());
 
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new IllegalArgumentException("Mã OTP không hợp lệ"));
-        otp.setConsumedAt(LocalDateTime.now());
-        emailOtpRepository.save(otp);
 
         PasswordResetToken token = new PasswordResetToken();
         token.setUser(user);
@@ -622,9 +566,31 @@ public class IdentityServiceImpl implements IdentityService {
         }
     }
 
-    private String generateOtpCode() {
-        int bound = (int) Math.pow(10, otpLength);
-        return String.format("%0" + otpLength + "d", RANDOM.nextInt(bound));
+    /** Cấu hình xác minh OTP đăng ký — giữ nguyên thông báo & hành vi cũ. */
+    private OtpVerifyPolicy registrationVerifyPolicy() {
+        return OtpVerifyPolicy.builder()
+                .maxAttempts(maxAttempts)
+                .throwMaxOnReach(true)
+                .showRemaining(true)
+                .missingMessage("Mã xác thực không tồn tại. Vui lòng yêu cầu gửi lại mã.")
+                .notFoundMessage("Mã xác thực không tồn tại. Vui lòng yêu cầu gửi lại mã.")
+                .expiredMessage("Mã xác thực đã hết hạn. Vui lòng yêu cầu gửi lại mã.")
+                .maxAttemptsMessage("Bạn đã nhập sai quá số lần cho phép. Vui lòng yêu cầu mã mới.")
+                .wrongRemainingTemplate("Mã xác thực không đúng. Bạn còn %d lần thử.")
+                .build();
+    }
+
+    /** Cấu hình xác minh OTP quên mật khẩu — giữ nguyên thông báo & hành vi cũ. */
+    private OtpVerifyPolicy passwordResetVerifyPolicy() {
+        return OtpVerifyPolicy.builder()
+                .maxAttempts(maxAttempts)
+                .showRemaining(false)
+                .missingMessage("Mã OTP không tồn tại hoặc đã hết hạn")
+                .notFoundMessage("Mã OTP không tồn tại hoặc đã hết hạn")
+                .expiredMessage("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới")
+                .maxAttemptsMessage("Bạn đã nhập sai quá số lần cho phép. Vui lòng yêu cầu mã mới")
+                .wrongMessage("Mã OTP không đúng")
+                .build();
     }
 
     private String generateOpaqueToken() {

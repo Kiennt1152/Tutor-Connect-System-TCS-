@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -27,7 +28,11 @@ import com.tcs.module.contract.repository.ContractTemplateRepository;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.service.EscrowService;
+import com.tcs.module.identity.entity.EmailOtp;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.identity.enums.OtpPurpose;
+import com.tcs.module.identity.repository.EmailOtpRepository;
+import com.tcs.module.identity.service.OtpService;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.identity.service.EmailService;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
@@ -43,7 +48,9 @@ import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.service.CccdService;
 import com.tcs.module.contract.repository.ReviewRepository;
+import com.tcs.module.profile.enums.UserRole;
 import com.tcs.security.AuthHelper;
+import com.tcs.security.UserPrincipal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Optional;
@@ -58,6 +65,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.test.util.ReflectionTestUtils;
 
 /**
  * Unit test module Contract — ký hợp đồng bằng OTP (dùng chung cho BF-03/04/05).
@@ -71,6 +79,7 @@ class ContractServiceImplSignTest {
     private static final Long CENTER_USER_ID = 100L;
     private static final Long STRANGER_USER_ID = 999L;
     private static final Long CONTRACT_ID = 900L;
+    private static final String TUTOR_EMAIL = "tutor@tcs.local";
 
     @Mock private AuthHelper authHelper;
     @Mock private ContractRepository contractRepository;
@@ -94,16 +103,23 @@ class ContractServiceImplSignTest {
     @Mock private LessonRepository lessonRepository;
     @Mock private LessonAttendanceRepository lessonAttendanceRepository;
     @Mock private CccdService cccdService;
+    @Mock private EmailOtpRepository emailOtpRepository;
 
     @InjectMocks private ContractServiceImpl service;
 
     private Contract contract;
     private ContractSignature tutorSignature;
+    /** Mã OTP ký hợp đồng nay nằm ở bảng email_otps chứ không còn trên contract_signatures. */
+    private EmailOtp activeOtp;
 
     @BeforeEach
     void setUp() {
+        // OTP dùng chung một service duy nhất; test dựng service thật trên repository giả.
+        ReflectionTestUtils.setField(service, "otpService", new OtpService(emailOtpRepository));
+
         User tutorUser = new User();
         tutorUser.setUserId(TUTOR_USER_ID);
+        tutorUser.setEmail(TUTOR_EMAIL);
         Tutor tutor = new Tutor();
         tutor.setTutorId(20L);
         tutor.setUser(tutorUser);
@@ -133,12 +149,20 @@ class ContractServiceImplSignTest {
         tutorSignature.setContract(contract);
         tutorSignature.setPartyRole(PartyRole.TUTOR);
         tutorSignature.setSignatureStatus(ContractSignatureStatus.PENDING);
-        tutorSignature.setOtpCode("123456");
-        tutorSignature.setOtpAttempts(0);
-        tutorSignature.setOtpExpiresAt(LocalDateTime.now().plusMinutes(5));
+        activeOtp = new EmailOtp();
+        activeOtp.setEmail(TUTOR_EMAIL);
+        activeOtp.setPurpose(OtpPurpose.CONTRACT_SIGNING);
+        activeOtp.setCode("123456");
+        activeOtp.setAttempts(0);
+        activeOtp.setExpiresAt(LocalDateTime.now().plusMinutes(5));
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                        anyString(), any(OtpPurpose.class)))
+                .thenReturn(Optional.of(activeOtp));
 
         // Mặc định: đăng nhập bằng gia sư, CCCD đầy đủ, không phải trẻ vị thành niên.
         when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(authHelper.requireAuthenticated())
+                .thenReturn(new UserPrincipal(tutorUser, UserRole.TUTOR));
         when(cccdService.isComplete(anyLong())).thenReturn(true);
         when(clientRepository.findByUser_UserId(anyLong())).thenReturn(Optional.empty());
         when(contractRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
@@ -219,7 +243,7 @@ class ContractServiceImplSignTest {
         @Test
         @DisplayName("UTCID07 (A) - OTP đã hết hạn -> yêu cầu mã mới")
         void utcid07_otpExpired() {
-            tutorSignature.setOtpExpiresAt(LocalDateTime.now().minusMinutes(1));
+            activeOtp.setExpiresAt(LocalDateTime.now().minusMinutes(1));
 
             IllegalStateException ex = assertThrows(IllegalStateException.class,
                     () -> service.signWithOtp(CONTRACT_ID, otp("123456")));

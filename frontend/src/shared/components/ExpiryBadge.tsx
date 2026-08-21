@@ -51,7 +51,7 @@ export function ExpiryBadge({ expiresAt, title, expiredLabel = 'Đã hết hạn
         `Lớp chỉ hiển thị đến ${new Date(expiresAt).toLocaleString('vi-VN')}. Hết hạn sẽ tự bị xóa nếu chưa ký hợp đồng.`
       }
     >
-      ⏳ {label}
+      {label}
     </span>
   );
 }

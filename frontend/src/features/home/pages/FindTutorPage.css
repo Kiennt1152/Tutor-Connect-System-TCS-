@@ -9,6 +9,99 @@
   margin-bottom: 16px;
 }
 
+/* Thanh tìm kiếm gia sư */
+.tcs-find-search {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+.tcs-find-search__icon {
+  position: absolute;
+  left: 16px;
+  font-size: 16px;
+  pointer-events: none;
+  opacity: 0.7;
+}
+.tcs-find-search__input {
+  width: 100%;
+  padding: 13px 44px;
+  border-radius: 12px;
+  border: 1px solid #e3e9f2;
+  background: #fff;
+  font-size: 15px;
+  color: #12233b;
+  box-shadow: 0 2px 10px rgba(18, 35, 59, 0.05);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.tcs-find-search__input::placeholder {
+  color: #97a4b6;
+}
+.tcs-find-search__input:focus {
+  outline: none;
+  border-color: #ea5a1c;
+  box-shadow: 0 0 0 3px rgba(234, 90, 28, 0.14);
+}
+.tcs-find-search__clear {
+  position: absolute;
+  right: 12px;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: #eef2f7;
+  color: #5b6b7f;
+  font-size: 13px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.tcs-find-search__clear:hover {
+  background: #ea5a1c;
+  color: #fff;
+}
+
+/* Phân trang danh sách gia sư */
+.tcs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 28px;
+}
+.tcs-pagination__nav,
+.tcs-pagination__page {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #e3e9f2;
+  background: #fff;
+  color: #33465e;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.tcs-pagination__nav:hover:not(:disabled),
+.tcs-pagination__page:hover:not(.tcs-pagination__page--active) {
+  border-color: #ea5a1c;
+  color: #ea5a1c;
+}
+.tcs-pagination__nav:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.tcs-pagination__page--active {
+  background: linear-gradient(92deg, #ea5a1c 0%, #f08f34 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(234, 90, 28, 0.24);
+}
+
 .tcs-find-listbar {
   flex-wrap: wrap;
 }
@@ -16,10 +109,20 @@
   font-size: 1.15rem;
 }
 
-.tcs-find-myreq--lg {
-  padding: 14px 30px;
-  font-size: 16px;
-  border-radius: 14px;
+/* Nút "Đăng yêu cầu tìm gia sư" — dạng khối cam đặc, cỡ giống nút "Tạo tin mới" (ảnh 1).
+   Dùng selector kép để thắng độ ưu tiên với .tcs-find-myreq (khai báo sau trong file). */
+.tcs-find-myreq.tcs-find-myreq--lg {
+  padding: 10px 20px;
+  font-size: 14px;
+  border-radius: 9px;
+  background: var(--color-primary);
+  box-shadow: none;
+}
+.tcs-find-myreq.tcs-find-myreq--lg:hover {
+  background: var(--color-primary-dark);
+  filter: none;
+  transform: none;
+  box-shadow: none;
 }
 
 .tcs-find-hero__intro {
@@ -53,6 +156,12 @@
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+/* Tiêu đề chữ đen thuần (bỏ gradient) — dùng cho trang Đăng yêu cầu tìm gia sư */
+.tcs-find-title__text--plain {
+  color: #0f172a;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+}
 
 .tcs-find-subtitle {
   margin: 0 auto;
@@ -60,6 +169,61 @@
   font-size: 16px;
   line-height: 1.6;
   color: #5b6b7f;
+}
+
+/* Bố cục canh trái giống trang "Tin tuyển gia sư" (ảnh 2) */
+.tcs-find-hero__intro--left {
+  max-width: 780px;
+  margin: 0 0 28px;
+  text-align: left;
+}
+.tcs-find-title--left {
+  justify-content: flex-start;
+  font-size: clamp(26px, 3.6vw, 34px);
+}
+.tcs-find-subtitle--sm {
+  margin: 0;
+  max-width: 640px;
+  font-size: 14px;
+  color: #6b7280;
+}
+/* Mô tả canh trái ngang hàng với tiêu đề (không bị auto-center thụt vào) */
+.tcs-find-hero__intro--left .tcs-find-subtitle {
+  margin-left: 0;
+  margin-right: auto;
+  max-width: 760px;
+}
+/* Cỡ chữ nhỏ như trang "Yêu cầu tìm gia sư của tôi" (ảnh 2) */
+.tcs-find-title--compact {
+  font-size: 26px;
+}
+.tcs-find-subtitle--compact {
+  font-size: 14px;
+}
+/* Breadcrumb "← Trang chủ" */
+.tcs-find-back {
+  display: inline-block;
+  margin-bottom: 10px;
+  color: #ea5a1c;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+.tcs-find-back:hover {
+  text-decoration: underline;
+}
+/* Biến thể nút có khung viền */
+.tcs-find-back--btn {
+  padding: 8px 16px;
+  border: 1px solid #f0c6ab;
+  border-radius: 9px;
+  background: #fff;
+  text-decoration: none;
+}
+.tcs-find-back--btn:hover {
+  text-decoration: none;
+  background: #fff6f0;
+  border-color: var(--color-primary);
 }
 
 /* Chip điểm nổi bật */

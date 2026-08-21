@@ -126,7 +126,7 @@ export default function TeachingPage() {
       lessons
         .filter(
           (l) =>
-            l.classId === a.classId && l.lessonDate <= today && l.attendanceStatus !== 'ABSENT',
+            l.classId === a.classId && l.lessonDate <= today && l.attendanceStatus === 'COMPLETED',
         )
         .sort((x, y) =>
           x.lessonDate === y.lessonDate
@@ -151,7 +151,7 @@ export default function TeachingPage() {
       <SiteHeader />
       <main className="tcs-container tch-main">
         <div className="tch-heading">
-          <h1>{isClient ? 'Lịch học của tôi' : 'Lịch dạy của tôi'}</h1>
+          <h1>{isClient ? 'Lịch học cá nhân' : 'Lịch dạy cá nhân'}</h1>
           <p>
             {isClient
               ? 'Theo dõi thời khóa biểu các lớp bạn đã đăng, sau khi gia sư nhận lớp.'
@@ -428,6 +428,10 @@ function CompletionCell({
   readonly onTutorConfirm: () => void;
   readonly onClientReview: () => void;
 }) {
+  // Lớp đã hoàn thành thì không bao giờ hiện nút đánh giá, kể cả khi completionState chưa cập nhật kịp
+  if (a.classStatus === 'COMPLETED') {
+    return <span className="tch-badge tch-badge--done">✓ Đã hoàn thành</span>;
+  }
   switch (a.completionState) {
     case 'COMPLETED':
       return <span className="tch-badge tch-badge--done">✓ Đã hoàn thành</span>;
@@ -440,7 +444,7 @@ function CompletionCell({
     case 'TUTOR_BLOCKED':
       return (
         <span className="tch-class__hint" title={a.completionBlockedReason ?? undefined}>
-          ⏳ Chưa đủ điều kiện hoàn thành
+          Chưa đủ điều kiện hoàn thành
         </span>
       );
     case 'TUTOR_WAITING':

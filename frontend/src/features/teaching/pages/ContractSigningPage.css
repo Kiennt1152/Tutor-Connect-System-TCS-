@@ -29,19 +29,13 @@
   color: #b91c1c;
 }
 
+/* Hợp đồng canh giữa màn hình, panel "Xác nhận & ký" xếp ngay bên dưới. */
 .ksign-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 340px;
+  display: flex;
+  flex-direction: column;
   gap: 20px;
-  align-items: start;
-}
-@media (max-width: 900px) {
-  .ksign-grid {
-    grid-template-columns: 1fr;
-  }
-  .ksign-side {
-    position: static;
-  }
+  max-width: 860px;
+  margin: 0 auto;
 }
 
 .ksign-doc {
@@ -207,8 +201,6 @@
 }
 
 .ksign-side {
-  position: sticky;
-  top: 88px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -349,8 +341,11 @@
   border-color: #cfd8e3;
 }
 .ksign-btn--primary {
-  background: #1565c0;
+  background: #ea5a1c;
   color: #fff;
+}
+.ksign-btn--primary:hover:not(:disabled) {
+  background: #d24e15;
 }
 .ksign-btn--primary:disabled {
   opacity: 0.6;
@@ -620,4 +615,11 @@
     right: 16px;
     max-width: none;
   }
+}
+
+/* Nút điều hướng dùng thẻ <Link> nhưng trông như nút — cần tự canh giữa vì <a> là inline. */
+.ksign-btn--link {
+  display: block;
+  text-align: center;
+  text-decoration: none;
 }

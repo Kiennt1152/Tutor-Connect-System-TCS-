@@ -36,7 +36,6 @@ export function TutorDetailModal({ applicant: a, subjectName, onClose }: Props) 
 
         <header className="cdm__head">
           <span className="cdm__id">Hồ sơ gia sư</span>
-          <h2 className="cdm__title">{fullName}</h2>
         </header>
 
         <div className="cdm__body">

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../shared/auth/AuthProvider';
@@ -27,6 +27,7 @@ import {
   type ClassFormValues,
   type ClassRequest,
   type ClassRequestStatus,
+  type ClassStatus,
   type ClassRequestPayload,
   type ClassResponse,
 } from '../types/marketplaceTypes';
@@ -255,7 +256,6 @@ export default function MarketplacePage() {
         <div className="tcs-container mkt-container">
           <header className="mkt-header">
             <div>
-              <span className="mkt-eyebrow">Lớp học gia sư</span>
               <h1 className="mkt-title">Yêu cầu tìm gia sư của tôi</h1>
               <p className="mkt-subtitle">
                 Đăng nhu cầu tìm gia sư cho con em bạn — chọn môn, lớp, mục tiêu, học phí. Gia sư
@@ -265,10 +265,10 @@ export default function MarketplacePage() {
             {mode.kind === 'list' && isClient && (
               <div className="mkt-header__actions">
                 <Link className="mkt-btn mkt-btn--ghost" to={APP_ROUTES.classBoard}>
-                  📋 Danh sách lớp đã đăng
+                  Danh sách tin đã đăng
                 </Link>
                 <Link className="mkt-btn mkt-btn--primary" to={APP_ROUTES.postTutorRequest}>
-                  + Tạo lớp mới
+                  Tạo tin mới
                 </Link>
               </div>
             )}
@@ -314,7 +314,7 @@ export default function MarketplacePage() {
               <div className="mkt-section-head mkt-section-head--first">
                 <h2>Yêu cầu tự tìm</h2>
               </div>
-              <p className="mkt-section-desc">Lớp bạn tự đăng để gia sư ứng tuyển trực tiếp.</p>
+              <p className="mkt-section-desc">Tin bạn tự đăng để gia sư ứng tuyển trực tiếp.</p>
               <ClassList
                 status={status}
                 classes={classes}
@@ -827,6 +827,44 @@ function ClassList({
   onUnpublish,
   onOpenDetail,
 }: ClassListProps) {
+  const PAGE_SIZE = 6;
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<ClassStatus | 'ALL'>('ALL');
+
+  // Tin mới nhất lên đầu (theo createdAt giảm dần, fallback classId).
+  const sorted = useMemo(
+    () =>
+      [...classes].sort((a, b) => {
+        const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+        const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+        if (tb !== ta) return tb - ta;
+        return b.classId - a.classId;
+      }),
+    [classes],
+  );
+
+  // Các tab lọc trạng thái: "Tất cả" + mỗi trạng thái đang có (theo thứ tự vòng đời), kèm số đếm.
+  const statusTabs = useMemo(() => {
+    const order = Object.keys(CLASS_STATUS_LABELS) as ClassStatus[];
+    const counts = new Map<ClassStatus, number>();
+    for (const c of sorted) counts.set(c.status, (counts.get(c.status) ?? 0) + 1);
+    return order.filter((s) => counts.has(s)).map((s) => ({ status: s, count: counts.get(s) ?? 0 }));
+  }, [sorted]);
+
+  const filtered = useMemo(
+    () => (statusFilter === 'ALL' ? sorted : sorted.filter((c) => c.status === statusFilter)),
+    [sorted, statusFilter],
+  );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  // Về trang 1 khi đổi bộ lọc hoặc số lượng tin đổi (thêm/xóa).
+  useEffect(() => {
+    setPage(1);
+  }, [classes.length, statusFilter]);
+
   if (status === 'loading') {
     return <div className="mkt-state">Đang tải danh sách lớp…</div>;
   }
@@ -836,14 +874,42 @@ function ClassList({
   if (classes.length === 0) {
     return (
       <div className="mkt-empty">
-        Bạn chưa có lớp nào. Nhấn <strong>“Tạo lớp mới”</strong> để đăng yêu cầu tìm gia sư đầu tiên.
+        Bạn chưa có tin nào. Nhấn <strong>“Tạo tin mới”</strong> để đăng yêu cầu tìm gia sư đầu tiên.
       </div>
     );
   }
 
   return (
+    <>
+    <div className="mkt-filter" role="tablist" aria-label="Lọc theo trạng thái">
+      <button
+        type="button"
+        role="tab"
+        aria-selected={statusFilter === 'ALL'}
+        className={`mkt-filter__tab${statusFilter === 'ALL' ? ' mkt-filter__tab--active' : ''}`}
+        onClick={() => setStatusFilter('ALL')}
+      >
+        Tất cả ({sorted.length})
+      </button>
+      {statusTabs.map(({ status: s, count }) => (
+        <button
+          key={s}
+          type="button"
+          role="tab"
+          aria-selected={statusFilter === s}
+          className={`mkt-filter__tab${statusFilter === s ? ' mkt-filter__tab--active' : ''}`}
+          onClick={() => setStatusFilter(s)}
+        >
+          {CLASS_STATUS_LABELS[s]} ({count})
+        </button>
+      ))}
+    </div>
+
+    {pageItems.length === 0 ? (
+      <div className="mkt-empty">Không có tin nào ở trạng thái này.</div>
+    ) : (
     <div className="mkt-grid">
-      {classes.map((c) => {
+      {pageItems.map((c) => {
         const form = classToForm(c);
         const subjectRows = subjectRowsOf(form, c, subjects);
         const isOnline = c.lessonMode === 'ONLINE';
@@ -934,6 +1000,40 @@ function ClassList({
         );
       })}
     </div>
+    )}
+
+    {totalPages > 1 && (
+      <nav className="mkt-pagination" aria-label="Phân trang tin đã đăng">
+        <button
+          type="button"
+          className="mkt-pagination__nav"
+          onClick={() => setPage((p) => Math.max(1, p - 1))}
+          disabled={currentPage === 1}
+        >
+          ← Trước
+        </button>
+        {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+          <button
+            key={p}
+            type="button"
+            className={`mkt-pagination__page${p === currentPage ? ' mkt-pagination__page--active' : ''}`}
+            onClick={() => setPage(p)}
+            aria-current={p === currentPage ? 'page' : undefined}
+          >
+            {p}
+          </button>
+        ))}
+        <button
+          type="button"
+          className="mkt-pagination__nav"
+          onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+          disabled={currentPage === totalPages}
+        >
+          Sau →
+        </button>
+      </nav>
+    )}
+    </>
   );
 }
 

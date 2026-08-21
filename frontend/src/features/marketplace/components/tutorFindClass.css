@@ -20,11 +20,11 @@
 .tfc-panel__title { margin: 0 0 6px; font-size: 17px; font-weight: 800; color: #12233b; }
 /* Nút mở popup công thức — thay cho khối <details> nằm chình ình trong panel trước đây. */
 .tfc-formula-btn {
-  flex: 0 0 auto; border: 1px solid #cfd8e3; background: #f7f9fc; color: #1565c0;
+  flex: 0 0 auto; border: 1px solid #cfd8e3; background: #f7f9fc; color: #ea580c;
   border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
-.tfc-formula-btn:hover { border-color: #1565c0; background: #eef5fd; }
+.tfc-formula-btn:hover { border-color: #ea580c; background: #fff7ed; }
 .tfc-formula-modal { max-width: 560px; padding: 24px; }
 .tfc-formula-modal__title { margin: 0 0 14px; font-size: 18px; font-weight: 800; color: #12233b; }
 .tfc-panel__desc { margin: 0 0 16px; font-size: 12.5px; line-height: 1.55; color: #5b6b7f; }
@@ -59,7 +59,7 @@
   color: #12233b;
   background: #fff;
 }
-.tfc-search__input:focus { outline: none; border-color: #1565c0; box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12); }
+.tfc-search__input:focus { outline: none; border-color: #ea580c; box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12); }
 .tfc-search__clear {
   position: absolute; right: 10px; width: 24px; height: 24px; border: none;
   border-radius: 6px; background: #eef2f7; color: #5b6b7f; cursor: pointer; font-size: 12px;
@@ -76,8 +76,8 @@
 .tfc-search__understood .tfc-search__chips-label { min-width: 0; font-size: 12.5px; color: #8592a3; }
 .tfc-search__understood { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .tfc-search__tag {
-  font-size: 12px; font-weight: 600; color: #1565c0;
-  background: #eef5fd; border: 1px solid #d6e6fa; border-radius: 999px; padding: 3px 10px;
+  font-size: 12px; font-weight: 600; color: #ea580c;
+  background: #fff7ed; border: 1px solid #ffedd5; border-radius: 999px; padding: 3px 10px;
 }
 
 /* Lưới field: 2 cột trên desktop; field lớn (chip/lịch/ưu tiên) chiếm cả hàng. */
@@ -123,7 +123,7 @@
   width: 100%; padding: 10px 12px; border: 1px solid #cfd8e3; border-radius: 9px;
   font-size: 14px; color: #12233b; background: #fff;
 }
-.tfc-input:focus { outline: none; border-color: #1565c0; box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12); }
+.tfc-input:focus { outline: none; border-color: #ea580c; box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12); }
 .tfc-input--stack { margin-top: 8px; }
 .tfc-input:disabled { background: #f2f4f7; color: #94a3b5; cursor: not-allowed; }
 .tfc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -131,8 +131,8 @@
   border: 1px solid #cfd8e3; background: #fff; color: #43546a; border-radius: 999px;
   padding: 5px 12px; font-size: 13px; cursor: pointer; transition: all 0.15s;
 }
-.tfc-chip:hover { border-color: #1565c0; }
-.tfc-chip.is-on { background: #1565c0; border-color: #1565c0; color: #fff; }
+.tfc-chip:hover { border-color: #ea580c; }
+.tfc-chip.is-on { background: #ea580c; border-color: #ea580c; color: #fff; }
 .tfc-check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: #43546a; cursor: pointer; }
 .tfc-check--top { margin-top: 0; margin-bottom: 10px; }
 .tfc-avail table { width: 100%; border-collapse: collapse; }
@@ -142,18 +142,18 @@
 .tfc-avail td { padding: 3px; text-align: center; }
 .tfc-avail__cell {
   width: 100px; max-width: 100%; height: 26px; border: 1px solid #cfd8e3; background: #f7f9fc;
-  border-radius: 6px; cursor: pointer; color: #1565c0; font-weight: 700; font-size: 13px;
+  border-radius: 6px; cursor: pointer; color: #ea580c; font-weight: 700; font-size: 13px;
   display: inline-block; padding: 0; line-height: 24px;
 }
-.tfc-avail__cell:hover { border-color: #1565c0; }
-.tfc-avail__cell.is-on { background: #1565c0; border-color: #1565c0; color: #fff; }
+.tfc-avail__cell:hover { border-color: #ea580c; }
+.tfc-avail__cell.is-on { background: #ea580c; border-color: #ea580c; color: #fff; }
 .tfc-weight-intro { margin: 0 0 10px; font-size: 12px; line-height: 1.45; color: #5b6b7f; }
 .tfc-weight-legend { color: #8592a3; font-size: 11.5px; }
 .tfc-weight { margin-bottom: 2px; }
 .tfc-weight__head { display: flex; justify-content: space-between; font-size: 13px; color: #12233b; margin-bottom: 0; }
-.tfc-weight__val { font-weight: 700; color: #1565c0; white-space: nowrap; }
+.tfc-weight__val { font-weight: 700; color: #ea580c; white-space: nowrap; }
 .tfc-weight__val.is-zero { color: #94a3b5; }
-.tfc-weight input[type="range"] { width: 100%; height: 18px; margin: 0; accent-color: #1565c0; }
+.tfc-weight input[type="range"] { width: 100%; height: 18px; margin: 0; accent-color: #ea580c; }
 .tfc-weight__scale { display: flex; justify-content: space-between; font-size: 10.5px; color: #b0bac6; margin-top: -2px; }
 .tfc-results__head {
   display: flex; align-items: center; gap: 12px; justify-content: space-between;
@@ -203,7 +203,7 @@
 .tfc-pager__num:hover:not(.is-active) { border-color: #b7c6dc; background: #f5f8fc; }
 .tfc-pager__btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .tfc-pager__num.is-active {
-  background: #1565c0; border-color: #1565c0; color: #fff; cursor: default;
+  background: #ea580c; border-color: #ea580c; color: #fff; cursor: default;
 }
 .tfc-card {
   display: flex; gap: 16px; background: #fff; border: 1px solid #e3e9f2;
@@ -213,7 +213,7 @@
 }
 .tfc-card:hover {
   transform: translateY(-2px);
-  border-color: #c9dcf3;
+  border-color: #ffedd5;
   box-shadow: 0 14px 30px rgba(18, 35, 59, 0.1);
 }
 .tfc-score {
@@ -249,10 +249,10 @@
   margin-top: auto; padding-top: 14px; border-top: 1px solid #f0f4f9;
 }
 .tfc-btn { border: none; border-radius: 8px; padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
-.tfc-btn--primary { background: #1565c0; color: #fff; }
-.tfc-btn--primary:hover:not(:disabled) { background: #0d47a1; }
-.tfc-btn--ghost { background: #fff; color: #1565c0; border: 1px solid #cfd8e3; }
-.tfc-btn--ghost:hover:not(:disabled) { border-color: #1565c0; background: #f2f7fd; }
+.tfc-btn--primary { background: #ea580c; color: #fff; }
+.tfc-btn--primary:hover:not(:disabled) { background: #c2410c; }
+.tfc-btn--ghost { background: #fff; color: #ea580c; border: 1px solid #cfd8e3; }
+.tfc-btn--ghost:hover:not(:disabled) { border-color: #ea580c; background: #fff7ed; }
 .tfc-btn:disabled { opacity: 0.6; cursor: default; }
 
 /* ============ Modal chi tiết lớp ============ */
@@ -270,8 +270,10 @@
 }
 .cdm__close:hover { background: #e0e6ee; }
 .cdm__head { padding: 22px 24px 14px; border-bottom: 1px solid #eef2f7; }
-.cdm__id { font-size: 12px; font-weight: 600; color: #1565c0; text-transform: uppercase; letter-spacing: 0.04em; }
+.cdm__id { font-size: 12px; font-weight: 600; color: #ea580c; text-transform: uppercase; letter-spacing: 0.04em; }
 .cdm__title { margin: 4px 40px 0 0; font-size: 20px; color: #12233b; }
+/* Tiêu đề căn giữa (modal ứng tuyển, đã bỏ nhãn "Ứng tuyển lớp") */
+.cdm__title--center { margin: 0 40px; text-align: center; }
 .cdm__body { padding: 18px 24px; overflow-y: auto; }
 .cdm-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 20px; margin: 0 0 18px; }
 .cdm-grid__full { grid-column: 1 / -1; }
@@ -283,24 +285,24 @@
 .cdm-subj-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .cdm-subj-list li { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 12px; background: #f7f9fc; border-radius: 8px; font-size: 14px; }
 .cdm-subj-list__name { color: #12233b; font-weight: 600; }
-.cdm-subj-list__fee { color: #1565c0; font-weight: 600; white-space: nowrap; }
+.cdm-subj-list__fee { color: #ea580c; font-weight: 600; white-space: nowrap; }
 .cdm-subj-list__fee em { color: #8592a3; font-weight: 400; font-style: normal; }
 .cdm-schedule { display: flex; flex-direction: column; gap: 12px; }
-.cdm-schedule__group { border-left: 3px solid #1565c0; padding-left: 12px; }
+.cdm-schedule__group { border-left: 3px solid #ea580c; padding-left: 12px; }
 .cdm-schedule__subj { font-weight: 600; color: #12233b; margin-bottom: 4px; font-size: 14px; }
 .cdm-schedule__group ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 3px; }
 .cdm-schedule__group li { font-size: 13px; color: #43546a; }
 .cdm-note { margin: 0; font-size: 14px; color: #43546a; line-height: 1.5; }
-.cdm-budget { display: flex; align-items: baseline; gap: 10px; padding: 14px 16px; background: #eef5fd; border-radius: 10px; margin-top: 4px; }
+.cdm-budget { display: flex; align-items: baseline; gap: 10px; padding: 14px 16px; background: #fff7ed; border-radius: 10px; margin-top: 4px; }
 .cdm-budget span { font-size: 13px; color: #43546a; }
-.cdm-budget strong { font-size: 20px; color: #0d47a1; }
+.cdm-budget strong { font-size: 20px; color: #c2410c; }
 .cdm-budget small { color: #8592a3; }
 .cdm__foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid #eef2f7; }
 
 /* ===== Form ứng tuyển (hồ sơ gia sư) ===== */
 .apl-intro { margin: 0 0 14px; font-size: 13px; line-height: 1.5; color: #5b6b7f; }
 .apl-card { display: flex; gap: 14px; padding: 14px; background: #f7f9fc; border: 1px solid #e3e9f2; border-radius: 12px; margin-bottom: 6px; }
-.apl-card__avatar { flex: 0 0 64px; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #1565c0; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; }
+.apl-card__avatar { flex: 0 0 64px; width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #ea580c; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700; }
 .apl-card__avatar img { width: 100%; height: 100%; object-fit: cover; }
 .apl-card__head { min-width: 0; }
 .apl-card__name { margin: 0; font-size: 18px; font-weight: 800; text-transform: uppercase; color: #12233b; }
@@ -308,17 +310,20 @@
 .apl-card__sub { display: flex; flex-wrap: wrap; gap: 6px 14px; margin-top: 8px; font-size: 13px; color: #43546a; }
 .apl-card__addr { margin: 8px 0 0; font-size: 13px; color: #43546a; }
 .apl-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.apl-list > li { padding-left: 12px; border-left: 3px solid #1565c0; }
+.apl-list > li { padding-left: 12px; border-left: 3px solid #ea580c; }
 .apl-list > li > strong { color: #12233b; font-size: 14px; }
 .apl-list__meta { font-size: 13px; color: #5b6b7f; margin-top: 2px; }
 .apl-chips { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
-.apl-chip { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: #eef5fd; border-radius: 10px; font-size: 13px; font-weight: 600; color: #12233b; }
+.apl-chip { display: flex; flex-direction: column; gap: 2px; padding: 8px 12px; background: #fff7ed; border-radius: 10px; font-size: 13px; font-weight: 600; color: #12233b; }
 .apl-chip__issuer { font-size: 12px; font-weight: 400; color: #5b6b7f; }
 .apl-field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
 .apl-field > span { font-size: 13px; font-weight: 600; color: #12233b; }
 .apl-field input, .apl-field textarea { border: 1px solid #cfd8e3; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-family: inherit; }
-.apl-field input:focus, .apl-field textarea:focus { outline: none; border-color: #1565c0; }
-.apl-error { margin: 8px 0 0; color: #c62828; font-size: 13px; font-weight: 500; }
+.apl-field input:focus, .apl-field textarea:focus { outline: none; border-color: #ea580c; }
+.apl-error { margin: 0; color: #c62828; font-size: 13px; font-weight: 500; }
+/* Bỏ khoảng trống thừa giữa ô "Lời nhắn" và cảnh báo cuối modal */
+.cdm__body > .cdm-section:last-of-type { margin-bottom: 8px; }
+.cdm__body > .cdm-section:last-of-type .apl-field { margin-bottom: 0; }
 
 /* Học phí đề xuất theo từng môn của lớp. */
 .apl-rates__intro { margin: 0 0 10px; font-size: 13px; color: #5b6b7f; }
@@ -335,7 +340,7 @@
   flex: 1; min-width: 0; border: 1px solid #cfd8e3; border-radius: 8px;
   padding: 9px 12px; font-size: 14px; font-family: inherit; background: #fff;
 }
-.apl-rate__input input:focus { outline: none; border-color: #1565c0; box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12); }
+.apl-rate__input input:focus { outline: none; border-color: #ea580c; box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12); }
 .apl-rate__unit { flex: 0 0 auto; font-size: 13px; color: #5b6b7f; }
 .apl-rate__over { color: #ef6c00; }
 .apl-rate-errors { margin: 10px 0 0; padding-left: 18px; color: #c62828; font-size: 13px; }

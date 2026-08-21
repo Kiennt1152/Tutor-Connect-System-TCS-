@@ -16,7 +16,10 @@
   width: 100%;
   max-width: 460px;
   max-height: 90vh;
-  overflow-y: auto;
+  /* Cắt theo bo góc để thanh cuộn không làm vuông góc bên phải. */
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background: var(--color-surface-2);
   border-radius: var(--radius-lg);
   border: 1px solid var(--color-border);
@@ -66,6 +69,10 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
+  /* Chỉ phần form cuộn; đầu popup và dòng "Hiện tại" luôn hiển thị. */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
 }
 
 .lrd__row {

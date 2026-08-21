@@ -52,7 +52,7 @@ export function ClassDetailModal({
               disabled={applied || applying}
               onClick={onApply}
             >
-              {applied ? '✓ Đã ứng tuyển' : applying ? 'Đang gửi…' : 'Ứng tuyển nhận lớp'}
+              {applied ? '✓ Đã ứng tuyển' : applying ? 'Đang gửi…' : 'Ứng tuyển'}
             </button>
           )}
         </footer>

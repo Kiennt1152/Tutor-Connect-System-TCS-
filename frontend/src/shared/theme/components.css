@@ -62,15 +62,27 @@
   text-overflow: ellipsis;
 }
 
+.tcs-listing-card__badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+}
+
 .tcs-listing-card__badge {
   display: inline-flex;
-  margin-top: 4px;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
   background: var(--color-surface-3);
   font-size: var(--fs-badge);
   font-weight: 600;
   color: var(--color-text-secondary);
+}
+
+.tcs-listing-card__badge--verified {
+  background: #e6f6ee;
+  color: #157347;
 }
 
 .tcs-listing-card__price {
@@ -151,10 +163,20 @@
   font-weight: 600;
 }
 
+.tcs-listing-card__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-sm);
+}
+
 .tcs-listing-card__foot .tcs-btn {
   height: 36px;
   padding: 0 var(--space-md);
   font-size: var(--fs-body-sm);
+}
+
+.tcs-listing-card__review {
+  white-space: nowrap;
 }
 
 .tcs-listing-card--compact {

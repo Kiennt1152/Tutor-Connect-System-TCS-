@@ -71,9 +71,6 @@ export function mapContractSignature(
     signatureStatusLabel:
       SIGNATURE_STATUS_LABELS[sig.signatureStatus] ?? sig.signatureStatus,
     signedAt: sig.signedAt ? formatDateTime(sig.signedAt) : null,
-    otpExpiresAt: sig.otpExpiresAt ? formatDateTime(sig.otpExpiresAt) : null,
-    remainingOtpAttempts: sig.remainingOtpAttempts,
-    isOtpExpired: sig.isOtpExpired,
   };
 }
 

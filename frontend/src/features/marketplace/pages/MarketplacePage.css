@@ -509,6 +509,28 @@
   color: #b91c1c;
   font-size: 12px;
 }
+.mkt-subj-errors {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin-top: 6px;
+}
+/* Bảng tổng hợp lỗi cuối trang — liệt kê mọi mục bắt buộc còn thiếu */
+.mkt-alert--summary {
+  border: 1px solid #f5b5ae;
+  background: #fdecea;
+}
+.mkt-alert__list {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.mkt-alert__list li {
+  font-size: 13px;
+  line-height: 1.4;
+}
 .mkt-alert--info {
   background: var(--color-primary-xlight);
   color: var(--color-primary);
@@ -616,14 +638,20 @@
 }
 .mkt-class-card__actions {
   display: flex;
-  gap: 10px;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: auto;
   padding-top: 6px;
 }
 .mkt-class-card__actions .mkt-btn {
-  flex: 1;
-  padding: 8px 12px;
+  flex: 1 1 auto;
+  padding: 9px 12px;
   text-align: center;
+  white-space: nowrap;
+}
+/* Nút chính (Xem chi tiết / Đăng lớp) luôn chiếm trọn 1 hàng riêng cho gọn mắt */
+.mkt-class-card__actions .mkt-btn--primary {
+  flex: 1 1 100%;
 }
 
 .mkt-status {
@@ -1349,4 +1377,72 @@
   line-height: 1;
   color: var(--color-text-secondary);
   padding: 0 2px;
+}
+
+/* Phân trang danh sách tin đã đăng */
+.mkt-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 24px 0 8px;
+}
+.mkt-pagination__nav,
+.mkt-pagination__page {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #e3e9f2;
+  background: #fff;
+  color: #33465e;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.mkt-pagination__nav:hover:not(:disabled),
+.mkt-pagination__page:hover:not(.mkt-pagination__page--active) {
+  border-color: #ea5a1c;
+  color: #ea5a1c;
+}
+.mkt-pagination__nav:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.mkt-pagination__page--active {
+  background: linear-gradient(92deg, #ea5a1c 0%, #f08f34 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(234, 90, 28, 0.24);
+}
+
+/* Bộ lọc trạng thái tin đã đăng */
+.mkt-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 14px 0 18px;
+}
+.mkt-filter__tab {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid #e3e9f2;
+  background: #fff;
+  color: #33465e;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.mkt-filter__tab:hover:not(.mkt-filter__tab--active) {
+  border-color: #ea5a1c;
+  color: #ea5a1c;
+}
+.mkt-filter__tab--active {
+  background: linear-gradient(92deg, #ea5a1c 0%, #f08f34 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(234, 90, 28, 0.24);
 }

@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import axios from 'axios';
 import axiosClient from '../../../shared/api/axiosClient';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
+import { ReviewFormModal } from '../../reviews/components/ReviewFormModal';
+import { reviewApi } from '../../reviews/api/reviewApi';
+import type { ReviewableAssignment } from '../../reviews/types/reviewTypes';
 import type { LessonMode, ScheduleClass } from '../../center/types/centerTypes';
 import '../../center/pages/CenterSchedulePage.css';
 import '../../tutor/pages/TutorSchedulePage.css';
@@ -54,6 +57,34 @@ export default function ClientSchedulePage() {
   const [week, setWeek] = useState<ScheduleClass[][]>([[], [], [], [], [], [], []]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [error, setError] = useState('');
+  // Đánh giá gia sư lớp trung tâm — dùng chung API/quota với lịch học cá nhân.
+  const [reviewables, setReviewables] = useState<ReviewableAssignment[]>([]);
+  const [activeReview, setActiveReview] = useState<ReviewableAssignment | null>(null);
+  const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+
+  const loadReviewables = useCallback(() => {
+    reviewApi
+      .getReviewable()
+      .then((r) => setReviewables(r.data))
+      .catch(() => setReviewables([]));
+  }, []);
+
+  useEffect(() => {
+    loadReviewables();
+  }, [loadReviewables]);
+
+  function openReview(classId: number) {
+    const match = reviewables.find((a) => a.classId === classId);
+    if (!match) {
+      setReviewNotice('Chưa có buổi học nào được điểm danh để đánh giá gia sư.');
+      return;
+    }
+    if (!match.reviewable) {
+      setReviewNotice('Bạn đã đánh giá đủ số buổi đã diễn ra của lớp này.');
+      return;
+    }
+    setActiveReview(match);
+  }
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
@@ -136,6 +167,7 @@ export default function ClientSchedulePage() {
           </div>
 
           {error && <div className="cs-alert cs-alert--error">{error}</div>}
+          {reviewNotice && <div className="cs-alert">{reviewNotice}</div>}
           {status === 'loading' && <div className="cs-state">Đang tải lịch…</div>}
 
           {status === 'success' && (
@@ -200,6 +232,15 @@ export default function ClientSchedulePage() {
                             {c.classCompleted && (
                               <div className="tw-card__meta">✓ Đã hoàn thành</div>
                             )}
+                            {c.assignedTutorName && (
+                              <button
+                                type="button"
+                                className="cs-review-btn"
+                                onClick={() => openReview(c.classId)}
+                              >
+                                Đánh giá gia sư
+                              </button>
+                            )}
                           </div>
                         ))
                       )}
@@ -211,6 +252,17 @@ export default function ClientSchedulePage() {
           )}
         </div>
       </div>
+
+      {activeReview && (
+        <ReviewFormModal
+          assignment={activeReview}
+          onClose={() => setActiveReview(null)}
+          onSubmitted={() => {
+            setActiveReview(null);
+            loadReviewables();
+          }}
+        />
+      )}
     </>
   );
 }
