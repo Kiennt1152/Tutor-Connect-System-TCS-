@@ -92,7 +92,12 @@ import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
+import com.tcs.module.identity.entity.User;
+import com.tcs.module.profile.entity.Client;
+import com.tcs.util.Csv;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.Objects;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
@@ -134,6 +139,7 @@ public class CenterServiceImpl implements CenterService {
     private final CenterTutorMembershipRepository membershipRepository;
     private final TutorCenterRepository tutorCenterRepository;
     private final TutorRepository tutorRepository;
+    private final com.tcs.module.profile.repository.ClientRepository clientRepository;
     private final SubjectRepository subjectRepository;
     private final LocationRepository locationRepository;
     private final ProvinceRepository provinceRepository;
@@ -165,6 +171,9 @@ public class CenterServiceImpl implements CenterService {
     private final com.tcs.module.messaging.service.NotificationDispatchService notificationDispatchService;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
+    /** Định dạng ngày trong file xuất danh sách học viên (UC-20). */
+    private static final DateTimeFormatter D_MM_YYYY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+    private static final DateTimeFormatter D_MM_YYYY_HM = DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     /** Liên kết tin tuyển dụng -> lớp, lưu trong system_parameters để khỏi cần cột/migration mới. */
     private static final String RECRUIT_CLASS_PREFIX = "recruitclass:"; // recruitclass:{recruitmentId} -> classId
@@ -770,6 +779,75 @@ public class CenterServiceImpl implements CenterService {
         TutoringClass tutoringClass = findClass(classId);
         requireOwner(tutoringClass); // BR-07 / AF-04
         return toClassResponse(tutoringClass);
+    }
+
+    /** Nhãn tiếng Việt cho trạng thái học viên trong file xuất. */
+    private static String studentStatusLabel(ClassStudentStatus status) {
+        if (status == null) {
+            return "";
+        }
+        return switch (status) {
+            case PENDING_SIGNATURE -> "Chờ ký hợp đồng";
+            case ENROLLED -> "Đang học";
+            case DROPPED -> "Đã nghỉ";
+            case COMPLETED -> "Đã hoàn thành";
+        };
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public byte[] exportClassStudents(Long classId) {
+        requireCenter();
+        TutoringClass tutoringClass = findClass(classId);
+        requireOwner(tutoringClass); // chỉ trung tâm sở hữu lớp mới xuất được
+
+        List<ClassStudent> students =
+                classStudentRepository.findByTutoringClass_ClassIdOrderByEnrolledAtAsc(classId);
+
+        // Tên người ghi danh nằm ở hồ sơ Client (bảng users chỉ có email). Nạp một lượt
+        // theo danh sách userId thay vì tra từng dòng.
+        Set<Long> enrollerIds = students.stream()
+                .map(ClassStudent::getEnrolledByUser)
+                .filter(Objects::nonNull)
+                .map(User::getUserId)
+                .collect(Collectors.toSet());
+        Map<Long, String> enrollerNames = enrollerIds.isEmpty()
+                ? Map.of()
+                : clientRepository.findByUser_UserIdIn(enrollerIds).stream()
+                        .filter(cl -> cl.getUser() != null && cl.getFullName() != null)
+                        .collect(Collectors.toMap(cl -> cl.getUser().getUserId(), Client::getFullName,
+                                (a, b) -> a));
+
+        StringBuilder sb = new StringBuilder();
+        sb.append(Csv.BOM);
+        // Vài dòng đầu ghi bối cảnh lớp để file rời khỏi hệ thống vẫn biết là của lớp nào.
+        sb.append("Lớp,").append(Csv.escape(tutoringClass.getTitle())).append('\n');
+        sb.append("Môn học,").append(Csv.escape(tutoringClass.getSubject() != null
+                ? tutoringClass.getSubject().getSubjectName() : "")).append('\n');
+        sb.append("Ngày xuất,").append(LocalDate.now().format(D_MM_YYYY)).append('\n');
+        sb.append("Tổng số học viên,").append(students.size()).append("\n\n");
+
+        sb.append("STT,Họ và tên,Số điện thoại,Email,Người ghi danh,Email người ghi danh,")
+                .append("Trạng thái,Ngày ghi danh\n");
+        int index = 1;
+        for (ClassStudent s : students) {
+            User enroller = s.getEnrolledByUser();
+            sb.append(index++).append(',')
+                    .append(Csv.escape(s.getStudentName())).append(',')
+                    // Ép chuỗi cho số điện thoại: Excel tự cắt số 0 đầu nếu coi là số.
+                    .append(Csv.escape(s.getStudentPhone() != null ? "'" + s.getStudentPhone() : "")).append(',')
+                    .append(Csv.escape(s.getStudentEmail())).append(',')
+                    .append(Csv.escape(enroller != null
+                            ? enrollerNames.getOrDefault(enroller.getUserId(), "") : "")).append(',')
+                    .append(Csv.escape(enroller != null ? enroller.getEmail() : "")).append(',')
+                    .append(Csv.escape(studentStatusLabel(s.getStatus()))).append(',')
+                    .append(s.getEnrolledAt() != null ? s.getEnrolledAt().format(D_MM_YYYY_HM) : "")
+                    .append('\n');
+        }
+
+        auditLogService.record(authHelper.currentUserId(), "EXPORT_CLASS_STUDENTS", "TutoringClass",
+                classId, null, Map.of("studentCount", students.size()));
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
     }
 
     @Override

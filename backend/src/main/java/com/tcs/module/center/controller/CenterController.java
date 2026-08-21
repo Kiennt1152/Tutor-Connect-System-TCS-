@@ -26,7 +26,10 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -139,6 +142,18 @@ public class CenterController {
     @GetMapping("/classes/{classId}")
     public CenterClassResponse getMyClass(@PathVariable Long classId) {
         return centerService.getMyClass(classId);
+    }
+
+    /** UC-20: tải danh sách học viên của lớp về dạng file mở được bằng Excel. */
+    @GetMapping("/classes/{classId}/students/export")
+    public ResponseEntity<byte[]> exportClassStudents(@PathVariable Long classId) {
+        byte[] data = centerService.exportClassStudents(classId);
+        String filename = "danh-sach-hoc-vien-lop-" + classId + "-"
+                + java.time.LocalDate.now() + ".csv";
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(data);
     }
 
     @PostMapping("/classes")

@@ -21,6 +21,9 @@ public interface ClassStudentRepository extends JpaRepository<ClassStudent, Long
 
     List<ClassStudent> findByTutoringClass_ClassIdAndStatus(Long classId, ClassStudentStatus status);
 
+    /** Toàn bộ học viên của lớp (mọi trạng thái) theo thứ tự ghi danh — dùng cho xuất danh sách. */
+    List<ClassStudent> findByTutoringClass_ClassIdOrderByEnrolledAtAsc(Long classId);
+
     /** Các học viên do một người dùng (phụ huynh) ghi danh — để client xem lịch học lớp đã đăng ký. */
     List<ClassStudent> findByEnrolledByUser_UserIdAndStatus(Long userId, ClassStudentStatus status);
 

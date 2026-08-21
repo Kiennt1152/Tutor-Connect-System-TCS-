@@ -79,6 +79,12 @@ public interface CenterService {
 
     CenterClassResponse getMyClass(Long classId);
 
+    /**
+     * UC-20: xuất danh sách học viên của một lớp ra file mở được bằng Excel.
+     * Chỉ trung tâm sở hữu lớp mới xuất được.
+     */
+    byte[] exportClassStudents(Long classId);
+
     CenterClassResponse createClass(SaveClassRequest request);
 
     CenterClassResponse updateClass(Long classId, SaveClassRequest request);
