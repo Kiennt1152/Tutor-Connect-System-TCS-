@@ -6,21 +6,32 @@ import {
   type ClassResponse,
 } from '../types/marketplaceTypes';
 
-export type TutorLevel = 'NONE' | 'STUDENT' | 'CERTIFIED' | 'TEACHER';
+/** Bỏ dấu + hạ chữ thường. Lớp do khách đăng chỉ lưu TÊN tỉnh/phường (không lưu id), nên
+ *  mọi phép so địa danh đều phải đi qua đây. */
+export const normalizeName = (s: string | null | undefined): string =>
+  (s ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+    .replace(/đ/g, 'd')
+    .replace(/\s+/g, ' ')
+    .trim();
 
-export const TUTOR_LEVEL_OPTIONS: readonly { value: TutorLevel; label: string; rank: number }[] = [
-  { value: 'NONE', label: 'Chưa có bằng cấp cụ thể', rank: 0 },
-  { value: 'STUDENT', label: 'Sinh viên', rank: 1 },
-  { value: 'CERTIFIED', label: 'Có chứng chỉ / bằng cấp', rank: 2 },
-  { value: 'TEACHER', label: 'Giáo viên', rank: 3 },
-];
+/** "Thành phố Hà Nội", "TP Hà Nội" và "Hà Nội" phải coi là một. */
+export const provinceKey = (s: string | null | undefined): string =>
+  normalizeName(s).replace(/^(tp|thanh pho|tinh)\s+/, '');
+
+/** "Phường Cầu Giấy", "Quận Cầu Giấy" và "Cầu Giấy" phải coi là một — dữ liệu cũ lưu
+ *  quận/huyện, dữ liệu mới lưu phường/xã. */
+export const wardKey = (s: string | null | undefined): string =>
+  normalizeName(s).replace(/^(phuong|xa|thi tran|thi xa|quan|huyen|tx|tp|thanh pho)\s+/, '');
 
 export interface MatchWeights {
-  subject: number; // Ws
-  location: number; // Wl
-  salary: number; // Wp
-  schedule: number; // Wt
-  experience: number; // We
+  subject: number; // Ws — môn học
+  location: number; // Wl — địa điểm
+  salary: number; // Wp — học phí
+  schedule: number; // Wt — lịch học
+  grade: number; // We — khối lớp
 }
 
 export interface AvailabilitySlot {
@@ -28,15 +39,16 @@ export interface AvailabilitySlot {
   session: string; // 'Sáng' | 'Chiều' | 'Tối'
 }
 
+/** Tiêu chí gia sư đặt ra. Mỗi trường ở đây soi vào đúng một trường trong tin lớp học. */
 export interface TutorCriteria {
-  subjectIds: string[];
-  gradeIds: string[];
-  provinceId: string;
-  districtId: string;
-  onlineOnly: boolean;
-  expectedFee: string;
-  availability: AvailabilitySlot[];
-  level: TutorLevel;
+  subjectIds: string[]; // -> S : đối chiếu subjectIds của lớp
+  otherSubjectText: string; // -> S : môn ngoài danh mục, so theo tên
+  gradeIds: string[]; // -> E : đối chiếu gradeId của lớp
+  provinceName: string; // -> L : đối chiếu provinceName của lớp
+  wardName: string; // -> L : đối chiếu wardName (hoặc districtName) của lớp
+  onlineOnly: boolean; // -> L : chỉ nhận lớp online
+  expectedFee: string; // -> P : đối chiếu subjectFees của lớp
+  availability: AvailabilitySlot[]; // -> T : đối chiếu slots của lớp
   weights: MatchWeights;
 }
 
@@ -45,33 +57,21 @@ export const DEFAULT_WEIGHTS: MatchWeights = {
   location: 3,
   salary: 3,
   schedule: 4,
-  experience: 2,
+  grade: 2,
 };
 
 export function emptyCriteria(): TutorCriteria {
   return {
     subjectIds: [],
+    otherSubjectText: '',
     gradeIds: [],
-    provinceId: '',
-    districtId: '',
+    provinceName: '',
+    wardName: '',
     onlineOnly: false,
     expectedFee: '',
     availability: [],
-    level: 'STUDENT',
     weights: { ...DEFAULT_WEIGHTS },
   };
-}
-
-function requiredLevelRank(tutorRequirement: string | null | undefined): number {
-  const s = (tutorRequirement ?? '').toLowerCase();
-  if (s.includes('giáo viên')) return 3;
-  if (s.includes('chứng chỉ') || s.includes('bằng cấp')) return 2;
-  if (s.includes('sinh viên')) return 1;
-  return 0; // "Không yêu cầu cụ thể" hoặc trống
-}
-
-function levelRank(level: TutorLevel): number {
-  return TUTOR_LEVEL_OPTIONS.find((o) => o.value === level)?.rank ?? 0;
 }
 
 function weekdayCode(dateStr: string): string {
@@ -91,6 +91,7 @@ export interface ParsedClass {
   provinceName: string;
   districtId: string;
   districtName: string;
+  wardName: string;
   lessonMode: string;
   slots: ClassFormValues['slots'];
   scheduleMode: ClassFormValues['scheduleMode'];
@@ -134,6 +135,7 @@ export function parseClass(raw: ClassResponse): ParsedClass {
       provinceName: form.provinceName ?? '',
       districtId: form.districtId ?? '',
       districtName: form.districtName ?? '',
+      wardName: form.wardName ?? '',
       lessonMode: form.lessonMode ?? raw.lessonMode,
       slots: form.slots ?? [],
       scheduleMode: form.scheduleMode ?? 'WEEKLY',
@@ -160,6 +162,7 @@ export function parseClass(raw: ClassResponse): ParsedClass {
     provinceName: '',
     districtId: '',
     districtName: '',
+    wardName: '',
     lessonMode: raw.lessonMode,
     slots: [],
     scheduleMode: 'WEEKLY',
@@ -176,7 +179,7 @@ export interface MatchBreakdown {
   location: number;
   salary: number;
   schedule: number;
-  experience: number;
+  grade: number;
   score: number;
 }
 
@@ -185,56 +188,86 @@ export interface MatchResult {
   breakdown: MatchBreakdown;
 }
 
+function otherSubjectMatches(classText: string, wanted: string): boolean {
+  const a = normalizeName(classText);
+  const b = normalizeName(wanted);
+  if (!a || !b) return false;
+  return a.includes(b) || b.includes(a);
+}
+
+/**
+ * S — Môn học. Tỉ lệ môn mà LỚP đang cần và gia sư dạy được.
+ * Lớp cần Toán + Văn + Anh, gia sư tìm "toán văn" -> 2/3; tìm đủ 3 môn -> 1.
+ * Khối lớp KHÔNG tính ở đây nữa (đã tách sang tiêu chí E).
+ */
 function scoreSubject(pc: ParsedClass, c: TutorCriteria): number {
-  if (c.subjectIds.length === 0) return 0; // gia sư chưa chọn môn → không thể khớp
-  const classSubjects = pc.subjectIds;
-  let overlap: number;
-  if (classSubjects.length === 0) {
-    overlap = pc.hasOtherSubject ? 0.5 : 0; // lớp chỉ có môn "Khác" → trung tính
-  } else {
-    const matched = classSubjects.filter((id) => c.subjectIds.includes(id)).length;
-    overlap = matched / classSubjects.length;
+  const wantsOther = c.otherSubjectText.trim() !== '';
+  if (c.subjectIds.length === 0 && !wantsOther) return 1; // không lọc theo môn -> bỏ qua tiêu chí
+
+  const totalNeeded = pc.subjectIds.length + (pc.hasOtherSubject ? 1 : 0);
+  if (totalNeeded === 0) return 0.5; // lớp không ghi môn -> trung tính
+
+  let matched = pc.subjectIds.filter((id) => c.subjectIds.includes(id)).length;
+  if (pc.hasOtherSubject && wantsOther && otherSubjectMatches(pc.subjectOther, c.otherSubjectText)) {
+    matched += 1;
   }
-  if (overlap === 0) return 0;
-  const gradeOk = c.gradeIds.length === 0 || (pc.gradeId ? c.gradeIds.includes(pc.gradeId) : true);
-  return overlap * (gradeOk ? 1 : 0.5);
+  return matched / totalNeeded;
 }
 
+/**
+ * E — Khối lớp. Chính là ô "Lớp" mà khách chọn khi đăng tin (Lớp 1..12,
+ * Luyện thi chứng chỉ, Luyện thi Đại học): trùng thì trọn điểm, khác thì 0.
+ */
+function scoreGrade(pc: ParsedClass, c: TutorCriteria): number {
+  if (c.gradeIds.length === 0) return 1; // gia sư không kén khối
+  if (!pc.gradeId) return 0.5; // tin không ghi khối -> trung tính
+  return c.gradeIds.includes(pc.gradeId) ? 1 : 0;
+}
+
+/**
+ * L — Địa điểm. So theo TÊN tỉnh trước (khác tỉnh là không match), rồi mới xét
+ * phường/xã. Dữ liệu cũ lưu quận/huyện nên lấy wardName trước, thiếu thì dùng districtName.
+ */
 function scoreLocation(pc: ParsedClass, c: TutorCriteria): number {
-  if (pc.lessonMode === 'ONLINE') return 1;
-  if (c.onlineOnly) return 0; // gia sư chỉ dạy online mà lớp offline
-  if (!pc.provinceId || !c.provinceId) return 0.5; // thiếu dữ liệu vị trí → trung tính
-  if (pc.provinceId !== c.provinceId) return 0.2; // khác tỉnh
-  if (c.districtId && pc.districtId) {
-    return c.districtId === pc.districtId ? 1 : 0.6;
-  }
-  return 1; // cùng tỉnh, không đủ dữ liệu huyện → coi như khớp
+  if (pc.lessonMode === 'ONLINE') return 1; // học online thì ở đâu cũng dạy được
+  if (c.onlineOnly) return 0; // gia sư chỉ nhận online mà lớp lại offline
+  const wantProvince = provinceKey(c.provinceName);
+  if (!wantProvince) return 1; // gia sư không kén nơi dạy -> bỏ qua tiêu chí
+  const gotProvince = provinceKey(pc.provinceName);
+  if (!gotProvince) return 0.5; // tin không ghi tỉnh -> trung tính
+  if (gotProvince !== wantProvince) return 0; // khác tỉnh -> không match
+
+  const wantWard = wardKey(c.wardName);
+  if (!wantWard) return 1; // chỉ chọn tới cấp tỉnh
+  const gotWard = wardKey(pc.wardName || pc.districtName);
+  if (!gotWard) return 0.7; // tin chỉ ghi tới tỉnh
+  return gotWard === wantWard ? 1 : 0.5; // cùng tỉnh khác phường vẫn còn đi lại được
 }
 
+/**
+ * P — Học phí. Đối chiếu mức mong muốn của gia sư với học phí cao nhất trong tin.
+ * Đạt hoặc vượt là match trọn điểm; thiếu bao nhiêu trừ theo tỉ lệ bấy nhiêu.
+ */
 function scoreSalary(pc: ParsedClass, c: TutorCriteria): number {
   const expected = Number(c.expectedFee) || 0;
-  if (expected <= 0) return 1; // không đặt kỳ vọng
-  if (pc.feePerHour <= 0) return 0.5; // lớp không ghi học phí
+  if (expected <= 0) return 1; // không đặt kỳ vọng -> bỏ qua tiêu chí
+  if (pc.feePerHour <= 0) return 0.5; // tin không ghi học phí -> trung tính
   return Math.min(1, pc.feePerHour / expected);
 }
 
+/**
+ * T — Lịch học. Tỉ lệ buổi trong tin rơi vào khung giờ gia sư khai rảnh.
+ * Lịch CUSTOM ghi theo ngày nên phải suy ra thứ trước khi so.
+ */
 function scoreSchedule(pc: ParsedClass, c: TutorCriteria): number {
-  if (c.availability.length === 0) return 1; // gia sư linh hoạt
+  if (c.availability.length === 0) return 1; // gia sư linh hoạt -> bỏ qua tiêu chí
   const required = pc.slots
     .map((s) => ({ day: pc.scheduleMode === 'CUSTOM' ? weekdayCode(s.date) : s.day, session: s.session }))
     .filter((s) => s.day && s.session);
-  if (required.length === 0) return 1; // lớp chưa có lịch cụ thể
+  if (required.length === 0) return 0.5; // tin chưa ghi lịch -> trung tính
   const has = (day: string, session: string) =>
     c.availability.some((a) => a.day === day && a.session === session);
-  const matched = required.filter((s) => has(s.day, s.session)).length;
-  return matched / required.length;
-}
-
-function scoreExperience(pc: ParsedClass, c: TutorCriteria): number {
-  const req = requiredLevelRank(pc.tutorRequirement);
-  if (req === 0) return 1; // lớp không yêu cầu cụ thể
-  const have = levelRank(c.level);
-  return have >= req ? 1 : have / req;
+  return required.filter((s) => has(s.day, s.session)).length / required.length;
 }
 
 export function scoreClass(pc: ParsedClass, c: TutorCriteria): MatchBreakdown {
@@ -242,13 +275,12 @@ export function scoreClass(pc: ParsedClass, c: TutorCriteria): MatchBreakdown {
   const L = scoreLocation(pc, c);
   const P = scoreSalary(pc, c);
   const T = scoreSchedule(pc, c);
-  const E = scoreExperience(pc, c);
+  const E = scoreGrade(pc, c);
   const w = c.weights;
-  const wSum = w.subject + w.location + w.salary + w.schedule + w.experience;
-  const weighted =
-    w.subject * S + w.location * L + w.salary * P + w.schedule * T + w.experience * E;
+  const wSum = w.subject + w.location + w.salary + w.schedule + w.grade;
+  const weighted = w.subject * S + w.location * L + w.salary * P + w.schedule * T + w.grade * E;
   const score = wSum > 0 ? (weighted / wSum) * 100 : ((S + L + P + T + E) / 5) * 100;
-  return { subject: S, location: L, salary: P, schedule: T, experience: E, score };
+  return { subject: S, location: L, salary: P, schedule: T, grade: E, score };
 }
 
 export function rankClasses(classes: ClassResponse[], c: TutorCriteria): MatchResult[] {
@@ -264,9 +296,21 @@ export function rankClasses(classes: ClassResponse[], c: TutorCriteria): MatchRe
 }
 
 export const CRITERIA_LABELS: readonly { key: keyof MatchBreakdown; label: string; short: string }[] = [
-  { key: 'subject', label: 'Môn & lớp', short: 'S' },
+  { key: 'subject', label: 'Môn học', short: 'S' },
   { key: 'location', label: 'Địa điểm', short: 'L' },
   { key: 'salary', label: 'Học phí', short: 'P' },
   { key: 'schedule', label: 'Lịch học', short: 'T' },
-  { key: 'experience', label: 'Trình độ', short: 'E' },
+  { key: 'grade', label: 'Khối lớp', short: 'E' },
 ];
+
+export const WEEKDAYS: readonly { code: string; label: string }[] = [
+  { code: 'T2', label: 'T2' },
+  { code: 'T3', label: 'T3' },
+  { code: 'T4', label: 'T4' },
+  { code: 'T5', label: 'T5' },
+  { code: 'T6', label: 'T6' },
+  { code: 'T7', label: 'T7' },
+  { code: 'CN', label: 'CN' },
+];
+
+export const SESSIONS: readonly string[] = ['Sáng', 'Chiều', 'Tối'];

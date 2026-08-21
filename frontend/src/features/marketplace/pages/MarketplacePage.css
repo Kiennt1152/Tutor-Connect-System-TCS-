@@ -546,10 +546,22 @@
   border-radius: 14px;
 }
 
+/* Mỗi trang 6 tin xếp 3 cột x 2 hàng. Cố định số cột thay vì auto-fill để màn rộng
+   không tự nhét thành 4 cột (khi đó hàng dưới chỉ còn 2 tin, nhìn lệch). */
 .mkt-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+}
+@media (max-width: 1024px) {
+  .mkt-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .mkt-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .mkt-class-card {
   background: #fff;

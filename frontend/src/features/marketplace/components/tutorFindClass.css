@@ -375,3 +375,186 @@
   /* Màn hẹp: nhãn câu hỏi xuống dòng riêng, chip trải hết bề ngang. */
   .tfc-search__chips-label { min-width: 100%; }
 }
+
+/* ---- Bộ tiêu chí chấm điểm (E / L / P / T) --------------------------------
+   Mỗi ô ở đây soi vào một trường trong tin khách đăng; bỏ trống = không kén. */
+.tfc-criteria {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 900px) {
+  .tfc-criteria { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .tfc-criteria { grid-template-columns: 1fr; }
+}
+
+.tfc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tfc-field__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.tfc-field__control {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid #d7dde5;
+  border-radius: 9px;
+  background: #fff;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.tfc-field__control:focus {
+  outline: none;
+  border-color: #f26522;
+  box-shadow: 0 0 0 3px rgba(242, 101, 34, 0.15);
+}
+
+.tfc-field__control:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+/* ---- Lưới "buổi bạn rảnh" (7 thứ × 3 buổi) -> tiêu chí T ---------------- */
+.tfc-avail { margin-bottom: 18px; }
+
+.tfc-avail__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.tfc-avail__clear {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 13px;
+  color: #f26522;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.tfc-avail__grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 4px;
+  table-layout: fixed;
+}
+
+.tfc-avail__grid th {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-align: center;
+  padding: 2px 0;
+}
+
+.tfc-avail__grid th[scope='row'] {
+  text-align: left;
+  width: 56px;
+}
+
+.tfc-avail__cell {
+  width: 100%;
+  min-height: 30px;
+  border: 1px solid #d7dde5;
+  border-radius: 7px;
+  background: #fff;
+  color: #fff;
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.tfc-avail__cell:hover:not(:disabled) { border-color: #f26522; }
+
+.tfc-avail__cell.is-on {
+  background: #f26522;
+  border-color: #f26522;
+}
+
+.tfc-avail__cell:disabled {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+  cursor: not-allowed;
+}
+
+.tfc-avail__cell.is-on:disabled { background: #fbc7a8; border-color: #fbc7a8; }
+
+/* ---- Nút mở/đóng bộ thanh trượt trọng số ------------------------------------
+   Đóng = chấm trung bình cộng, mở = chấm theo mức ưu tiên tự kéo. Nhãn phụ nói
+   rõ đang ở chế độ nào để gia sư không phải đoán. */
+.tfc-panel__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 14px;
+  border: 1px solid #cfd8e3;
+  border-radius: 12px;
+  background: #f7f9fc;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.tfc-panel__toggle:hover:not(:disabled) {
+  border-color: #ea580c;
+  background: #fff7ed;
+}
+
+.tfc-panel__toggle.is-open {
+  border-color: #ea580c;
+  background: #fff7ed;
+  box-shadow: 0 0 0 3px rgba(242, 101, 34, 0.12);
+}
+
+/* Tiêu đề nằm trong nút nên bỏ khoảng đệm dưới của <h2> cũ, không thì nút bị lệch. */
+.tfc-panel__toggle .tfc-panel__title { margin: 0; }
+
+.tfc-panel__toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.tfc-panel__toggle-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+.tfc-panel__toggle.is-open .tfc-panel__toggle-hint {
+  color: #b8461a;
+  background: #fdece2;
+}
+
+.tfc-panel__caret {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+@media (max-width: 640px) {
+  .tfc-panel__toggle { flex-wrap: wrap; gap: 6px; }
+  .tfc-panel__toggle-hint { white-space: normal; }
+}

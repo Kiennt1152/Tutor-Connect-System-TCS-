@@ -2,11 +2,11 @@ import type { MatchWeights } from '../matching/tutorMatching';
 import './formulaExplainer.css';
 
 const LEGEND: { short: string; label: string }[] = [
-  { short: 'S', label: 'Môn & lớp' },
+  { short: 'S', label: 'Môn học' },
   { short: 'L', label: 'Địa điểm' },
   { short: 'P', label: 'Học phí' },
   { short: 'T', label: 'Lịch học' },
-  { short: 'E', label: 'Trình độ' },
+  { short: 'E', label: 'Khối lớp' },
 ];
 
 interface Props {
@@ -17,7 +17,7 @@ interface Props {
 
 export function FormulaExplainer({ weights, defaultOpen = true, bare = false }: Props) {
   const wSum =
-    weights.subject + weights.location + weights.salary + weights.schedule + weights.experience;
+    weights.subject + weights.location + weights.salary + weights.schedule + weights.grade;
 
   const body = (
     <div className="fx__body">

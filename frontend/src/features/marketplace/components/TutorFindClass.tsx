@@ -11,8 +11,11 @@ import {
   type ClassResponse,
 } from '../types/marketplaceTypes';
 import {
+  SESSIONS,
+  WEEKDAYS,
   emptyCriteria,
   rankClasses,
+  type AvailabilitySlot,
   type MatchResult,
   type MatchWeights,
   type TutorCriteria,
@@ -20,11 +23,11 @@ import {
 import './tutorFindClass.css';
 
 const WEIGHT_LABELS: { key: keyof MatchWeights; label: string; hint: string }[] = [
-  { key: 'subject', label: 'Môn & lớp (S)', hint: 'Đúng môn, đúng khối lớp bạn dạy' },
-  { key: 'location', label: 'Địa điểm (L)', hint: 'Gần bạn / học online' },
-  { key: 'salary', label: 'Học phí (P)', hint: 'Đạt mức bạn mong muốn' },
-  { key: 'schedule', label: 'Lịch học (T)', hint: 'Trùng khung giờ bạn rảnh' },
-  { key: 'experience', label: 'Trình độ (E)', hint: 'Phù hợp yêu cầu bằng cấp' },
+  { key: 'subject', label: 'Môn học (S)', hint: 'Tỉ lệ môn của lớp mà bạn dạy được' },
+  { key: 'location', label: 'Địa điểm (L)', hint: 'Đúng tỉnh, đúng phường/xã bạn chọn' },
+  { key: 'salary', label: 'Học phí (P)', hint: 'Lớp trả đủ mức bạn mong muốn' },
+  { key: 'schedule', label: 'Lịch học (T)', hint: 'Buổi học rơi vào khung giờ bạn rảnh' },
+  { key: 'grade', label: 'Khối lớp (E)', hint: 'Đúng khối lớp ghi trong tin' },
 ];
 
 const WEIGHT_SCALE = ['Bỏ qua', 'Rất thấp', 'Thấp', 'Vừa', 'Cao', 'Rất cao'];
@@ -64,12 +67,80 @@ const REQ_KEYWORDS: { kw: string; label: string }[] = [
 interface QueryFilters {
   subjectIds: string[];
   gradeIds: string[];
-  provinceId: string;
+  provinceName: string;
   expectedFee: string;
+  availability: AvailabilitySlot[];
   lessonMode: '' | 'ONLINE' | 'OFFLINE';
   goalKeywords: string[];
   reqKeywords: string[];
   otherSubjectText: string;
+}
+
+const dayCodeOf = (w: string): string =>
+  /^t[2-7]$/.test(w) ? w.toUpperCase() : w === 'cn' ? 'CN' : '';
+
+const sessionOf = (w: string): string =>
+  w === 'sang' ? 'Sáng' : w === 'chieu' ? 'Chiều' : w === 'toi' ? 'Tối' : '';
+
+/**
+ * Bóc lịch rảnh từ câu tìm: "sáng T3", "thứ 5 tối", "chủ nhật", "buổi chiều"…
+ *
+ * Thứ và buổi đứng cạnh nhau thì ghép thành một khung giờ. Còn lẻ:
+ * chỉ có thứ -> lấy cả 3 buổi của thứ đó; chỉ có buổi -> lấy buổi đó của cả 7 thứ.
+ *
+ * Riêng "tối" phải đi kèm thứ (hoặc viết "buổi tối") mới tính, vì bỏ dấu xong nó
+ * trùng đại từ "tôi" — câu "tôi muốn dạy toán" mà nhận thành buổi Tối là sai.
+ */
+function parseAvailabilityQuery(q: string): AvailabilitySlot[] {
+  const words = q
+    .replace(/\bthu\s*([2-7])\b/g, ' t$1 ')
+    .replace(/\bchu nhat\b/g, ' cn ')
+    .replace(/\bbuoi\b/g, ' ')
+    .split(/\s+/)
+    .filter(Boolean);
+
+  const pairs: AvailabilitySlot[] = [];
+  const used = new Array<boolean>(words.length).fill(false);
+  for (let i = 0; i < words.length - 1; i += 1) {
+    if (used[i]) continue;
+    const a = words[i];
+    const b = words[i + 1];
+    const session = sessionOf(a) || sessionOf(b);
+    const day = dayCodeOf(a) || dayCodeOf(b);
+    if (session && day && (sessionOf(a) ? dayCodeOf(b) : dayCodeOf(a))) {
+      pairs.push({ day, session });
+      used[i] = true;
+      used[i + 1] = true;
+      i += 1;
+    }
+  }
+
+  const allowLooseEvening = /\bbuoi toi\b/.test(q);
+  const looseDays = new Set<string>();
+  const looseSessions = new Set<string>();
+  words.forEach((w, i) => {
+    if (used[i]) return;
+    const day = dayCodeOf(w);
+    if (day) {
+      looseDays.add(day);
+      return;
+    }
+    const session = sessionOf(w);
+    if (session && (session !== 'Tối' || allowLooseEvening)) looseSessions.add(session);
+  });
+
+  const out = [...pairs];
+  for (const day of looseDays) for (const session of SESSIONS) out.push({ day, session });
+  for (const session of looseSessions) {
+    for (const d of WEEKDAYS) out.push({ day: d.code, session });
+  }
+  const seen = new Set<string>();
+  return out.filter((s) => {
+    const key = `${s.day}|${s.session}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function parseSmartQuery(
@@ -121,14 +192,16 @@ function parseSmartQuery(
     if (g) gradeIds.add(String(g.id));
   }
 
-  let provinceId = '';
+  let provinceName = '';
+  let provinceCore = '';
   const cands = provinces
-    .map((p) => ({ id: String(p.id), core: normalize(p.name).replace(/^(tp|thanh pho|tinh)\s+/, '') }))
+    .map((p) => ({ name: p.name, core: normalize(p.name).replace(/^(tp|thanh pho|tinh)\s+/, '') }))
     .filter((p) => p.core.length >= 3)
     .sort((a, b) => b.core.length - a.core.length);
   for (const p of cands) {
     if (q.includes(` ${p.core} `)) {
-      provinceId = p.id;
+      provinceName = p.name;
+      provinceCore = p.core;
       break;
     }
   }
@@ -151,18 +224,20 @@ function parseSmartQuery(
 
   const goalKeywords = GOAL_KEYWORDS.filter((g) => q.includes(g.kw)).map((g) => g.kw);
   const reqKeywords = REQ_KEYWORDS.filter((g) => q.includes(g.kw)).map((g) => g.kw);
+  const availability = parseAvailabilityQuery(q);
 
   let otherSubjectText = '';
   if (subjectIds.size === 0) {
     let s = q;
-    const pc = cands.find((c) => c.id === provinceId)?.core;
-    if (pc) s = s.split(pc).join(' ');
+    if (provinceCore) s = s.split(provinceCore).join(' ');
     for (const kw of [...goalKeywords, ...reqKeywords]) s = s.split(kw).join(' ');
     s = s
       .replace(/(?:lop|khoi)\s*\d{1,2}/g, ' ')
       .replace(/\d{2,4}\s*k(?![a-z])/g, ' ')
       .replace(/\d[\d.,]{4,}/g, ' ')
       .replace(/\b(online|offline|truc tiep|truc tuyen|tai nha|tai nguoi hoc|dai hoc|vao 10)\b/g, ' ')
+      // Thứ + buổi đã thành lịch rảnh rồi, để sót lại sẽ bị hiểu nhầm thành "môn khác"
+      .replace(/\b(thu\s*[2-7]|t[2-7]|chu nhat|cn|buoi|sang|chieu|toi)\b/g, ' ')
       // Bỏ tiền tố hành chính/khu vực để tên tỉnh không bị hiểu nhầm thành "môn khác"
       .replace(/\b(tinh|thanh pho|tp|quan|huyen|phuong|xa|thi xa|khu vuc|khu vc|khu)\b/g, ' ')
       .replace(/\b(mon|tim|gia su|giasu|day|hoc phi|hoc|gio|vnd|dong|luyen thi|thi|o|tai|can|lop|khoi)\b/g, ' ')
@@ -176,8 +251,9 @@ function parseSmartQuery(
   return {
     subjectIds: [...subjectIds],
     gradeIds: [...gradeIds],
-    provinceId,
+    provinceName,
     expectedFee,
+    availability,
     lessonMode,
     goalKeywords,
     reqKeywords,
@@ -202,14 +278,20 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const [query, setQuery] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [gradeIds, setGradeIds] = useState<string[]>([]);
-  const [provinceId, setProvinceId] = useState('');
+  const [provinceName, setProvinceName] = useState('');
+  const [wardName, setWardName] = useState('');
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([]);
   const [queryFee, setQueryFee] = useState('');
+  /** Mức trong hồ sơ — chỉ dùng làm gợi ý cho ô học phí, không phải giá trị mặc định. */
+  const [profileFee, setProfileFee] = useState('');
   const [queryMode, setQueryMode] = useState<QueryFilters['lessonMode']>('');
   const [goalKeys, setGoalKeys] = useState<string[]>([]);
   const [reqKeys, setReqKeys] = useState<string[]>([]);
   const [otherText, setOtherText] = useState('');
   const [searched, setSearched] = useState(false);
   const [showFormula, setShowFormula] = useState(false);
+  /** Panel trọng số đóng = chấm trung bình cộng 5 tiêu chí; mở mới dùng mức tự kéo. */
+  const [showWeights, setShowWeights] = useState(false);
   const [page, setPage] = useState(1);
 
   const loadClasses = useCallback((silent = false) => {
@@ -253,7 +335,9 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
       .getMyTutorProfile()
       .then((p) => {
         if (!alive || !p.hourlyRate) return;
-        setCriteria((c) => ({ ...c, expectedFee: String(Math.round(Number(p.hourlyRate))) }));
+        // Chỉ GỢI Ý mức trong hồ sơ (đổ vào placeholder), KHÔNG tự điền thành giá trị:
+        // tự điền thì tiêu chí P âm thầm trừ điểm dù gia sư chưa hề khai mức nào.
+        setProfileFee(String(Math.round(Number(p.hourlyRate))));
       })
       .catch(() => {
       });
@@ -279,21 +363,40 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     const m = new Map(effGrades.map((g) => [String(g.id), g.name]));
     return (id: string) => m.get(id) ?? '';
   }, [effGrades]);
-  const provinceName = useMemo(() => {
-    const m = new Map(provinces.map((p) => [String(p.id), p.name]));
-    return (id: string) => m.get(id) ?? '';
-  }, [provinces]);
+  // Chưa mở panel -> mọi tiêu chí ngang nhau, tức là trung bình cộng đơn thuần.
+  const effectiveWeights = useMemo<MatchWeights>(
+    () =>
+      showWeights
+        ? criteria.weights
+        : { subject: 1, location: 1, salary: 1, schedule: 1, grade: 1 },
+    [showWeights, criteria.weights],
+  );
 
-  const activeCriteria = useMemo(
+  const activeCriteria = useMemo<TutorCriteria>(
     () => ({
       ...criteria,
+      weights: effectiveWeights,
       subjectIds: selectedIds,
+      otherSubjectText: otherText,
       gradeIds,
-      provinceId,
-      expectedFee: queryFee || criteria.expectedFee,
+      provinceName,
+      wardName,
+      availability,
+      expectedFee: queryFee,
       onlineOnly: queryMode === 'ONLINE',
     }),
-    [criteria, selectedIds, gradeIds, provinceId, queryFee, queryMode],
+    [
+      criteria,
+      effectiveWeights,
+      selectedIds,
+      otherText,
+      gradeIds,
+      provinceName,
+      wardName,
+      availability,
+      queryFee,
+      queryMode,
+    ],
   );
 
   const results = useMemo(() => {
@@ -304,23 +407,10 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     } else if (otherText) {
       out = out.filter((r) => r.parsed.hasOtherSubject);
     }
-    if (gradeIds.length > 0) {
-      const wanted = new Set(gradeIds);
-      out = out.filter((r) => wanted.has(r.parsed.gradeId));
-    }
+    // Khối lớp (E) và địa điểm (L) KHÔNG lọc cứng nữa: lọc cứng thì mọi lớp còn lại đều
+    // khớp 100%, hai tiêu chí đó coi như bị vô hiệu. Để chúng chấm điểm và tự tụt hạng.
     if (queryMode === 'ONLINE') out = out.filter((r) => r.parsed.lessonMode === 'ONLINE');
     if (queryMode === 'OFFLINE') out = out.filter((r) => r.parsed.lessonMode !== 'ONLINE');
-    if (provinceId) {
-      // Lớp thường chỉ lưu TÊN tỉnh (provinceId rỗng) -> so khớp theo tên đã chuẩn hóa, id chỉ là dự phòng.
-      const stripPrefix = (s: string) => normalize(s).replace(/^(tp|thanh pho|tinh)\s+/, '');
-      const want = stripPrefix(provinceName(provinceId));
-      out = out.filter((r) => {
-        if (r.parsed.lessonMode === 'ONLINE') return true;
-        if (r.parsed.provinceId && r.parsed.provinceId === provinceId) return true;
-        const got = stripPrefix(r.parsed.provinceName ?? '');
-        return !!got && got === want;
-      });
-    }
     if (goalKeys.length > 0) {
       out = out.filter((r) => {
         const g = normalize(r.parsed.learningGoal ?? '');
@@ -334,7 +424,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
       });
     }
     return out;
-  }, [classes, activeCriteria, selectedIds, gradeIds, provinceId, queryMode, goalKeys, reqKeys, otherText, provinceName]);
+  }, [classes, activeCriteria, selectedIds, queryMode, goalKeys, reqKeys, otherText]);
 
   // Phân trang: 6 lớp / trang (2 cột × 3 hàng); lớp thứ 7 nhảy sang trang 2.
   const pageCount = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
@@ -343,14 +433,13 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   // Kết quả đổi (tìm mới / lọc khác) -> quay về trang 1.
   useEffect(() => {
     setPage(1);
-  }, [selectedIds, gradeIds, provinceId, queryMode, queryFee, goalKeys, reqKeys, otherText]);
+  }, [selectedIds, gradeIds, provinceName, wardName, availability, queryMode, queryFee, goalKeys, reqKeys, otherText]);
 
   useEffect(() => {
     if (!query.trim()) {
+      // Chỉ xoá thứ do câu tìm sinh ra. Khối lớp / địa điểm / học phí / lịch rảnh có ô
+      // chọn riêng bên dưới nên phải giữ nguyên, xoá hết là gia sư mất lựa chọn vừa đặt.
       setSelectedIds([]);
-      setGradeIds([]);
-      setProvinceId('');
-      setQueryFee('');
       setQueryMode('');
       setGoalKeys([]);
       setReqKeys([]);
@@ -359,13 +448,18 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     }
     const f = parseSmartQuery(query, effSubjects, effGrades, provinces);
     setSelectedIds(f.subjectIds);
-    setGradeIds(f.gradeIds);
-    setProvinceId(f.provinceId);
-    setQueryFee(f.expectedFee);
     setQueryMode(f.lessonMode);
     setGoalKeys(f.goalKeywords);
     setReqKeys(f.reqKeywords);
     setOtherText(f.otherSubjectText);
+    // Câu tìm chỉ điền hộ khi thực sự nhận ra; không nhận ra thì giữ lựa chọn hiện tại.
+    if (f.gradeIds.length > 0) setGradeIds(f.gradeIds);
+    if (f.provinceName) {
+      setProvinceName(f.provinceName);
+      setWardName('');
+    }
+    if (f.expectedFee) setQueryFee(f.expectedFee);
+    if (f.availability.length > 0) setAvailability(f.availability);
     setSearched(true);
   }, [query, effSubjects, effGrades, provinces]);
 
@@ -374,7 +468,14 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const understoodTags = [
     ...selectedIds.map((id) => ({ kind: 'Môn', label: subjectName(id) })),
     ...gradeIds.map((id) => ({ kind: 'Khối', label: gradeName(id) })),
-    ...(provinceId ? [{ kind: 'Tỉnh', label: provinceName(provinceId) }] : []),
+    ...(provinceName ? [{ kind: 'Tỉnh', label: provinceName }] : []),
+    ...(wardName ? [{ kind: 'Phường/Xã', label: wardName }] : []),
+    // Ít khung thì kể tên ra ("Sáng T3") cho gia sư đối chiếu; nhiều quá thì gộp số lượng.
+    ...(availability.length > 0
+      ? availability.length <= 4
+        ? availability.map((a) => ({ kind: 'Rảnh', label: `${a.session} ${a.day}` }))
+        : [{ kind: 'Rảnh', label: `${availability.length} khung giờ` }]
+      : []),
     ...(queryMode
       ? [{ kind: 'Hình thức', label: queryMode === 'ONLINE' ? 'Online' : 'Trực tiếp (offline)' }]
       : []),
@@ -392,7 +493,9 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const hasFilter =
     selectedIds.length > 0 ||
     gradeIds.length > 0 ||
-    provinceId !== '' ||
+    provinceName !== '' ||
+    wardName !== '' ||
+    availability.length > 0 ||
     queryFee !== '' ||
     queryMode !== '' ||
     goalKeys.length > 0 ||
@@ -412,7 +515,9 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     setQuery('');
     setSelectedIds([]);
     setGradeIds([]);
-    setProvinceId('');
+    setProvinceName('');
+    setWardName('');
+    setAvailability([]);
     setQueryFee('');
     setQueryMode('');
     setGoalKeys([]);
@@ -475,7 +580,23 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
 
         <aside className={`tfc-panel${searched ? '' : ' is-locked'}`}>
         <div className="tfc-panel__head">
-          <h2 className="tfc-panel__title">Mức độ ưu tiên khi tìm</h2>
+          {/* Nút này vừa mở/đóng bộ thanh trượt, vừa quyết định cách chấm: đóng thì 5 tiêu
+              chí ngang nhau (trung bình cộng), mở mới ăn theo mức ưu tiên tự kéo. */}
+          <button
+            type="button"
+            className={`tfc-panel__toggle${showWeights ? ' is-open' : ''}`}
+            disabled={!searched}
+            aria-expanded={showWeights}
+            onClick={() => setShowWeights((v) => !v)}
+          >
+            <span className="tfc-panel__title">Mức độ ưu tiên khi tìm</span>
+            <span className="tfc-panel__toggle-hint">
+              {showWeights ? 'đang theo mức bạn kéo' : 'đang tính trung bình 5 tiêu chí'}
+            </span>
+            <span className="tfc-panel__caret" aria-hidden>
+              {showWeights ? '▲' : '▼'}
+            </span>
+          </button>
           <button
             type="button"
             className="tfc-formula-btn"
@@ -485,19 +606,27 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
             Cách tính ?
           </button>
         </div>
-        <p className="tfc-panel__desc">
-          {searched ? (
-            <>
-              Kéo để chọn tiêu chí <strong>quan trọng hơn</strong> khi xếp hạng lớp ·{' '}
-              <span className="tfc-weight-legend">0 = bỏ qua · 5 = ưu tiên cao nhất</span>
-            </>
-          ) : (
-            <>
-              Bấm <strong>Tìm</strong> trước, rồi mới chỉnh được mức ưu tiên.
-            </>
-          )}
-        </p>
+        {showWeights && (
+          <p className="tfc-panel__desc">
+            {searched ? (
+              <>
+                Kéo để chọn tiêu chí <strong>quan trọng hơn</strong> khi xếp hạng lớp ·{' '}
+                <span className="tfc-weight-legend">0 = bỏ qua · 5 = ưu tiên cao nhất</span>
+              </>
+            ) : (
+              <>
+                Bấm <strong>Tìm</strong> trước, rồi mới chỉnh được mức ưu tiên.
+              </>
+            )}
+          </p>
+        )}
 
+        {/* Bộ ô nhập tiêu chí (khối lớp / tỉnh + phường / học phí / lưới rảnh) đã ẩn.
+            Bốn tiêu chí đó giờ chỉ đặt qua câu tìm — parseSmartQuery bóc ra rồi hiện lại
+            ở hàng thẻ "Đã hiểu". Muốn bật lại thì trả khối JSX này về, state và CSS
+            (.tfc-criteria / .tfc-avail) vẫn còn nguyên. */}
+
+        {showWeights && (
         <div className="tfc-weight-list">
           {WEIGHT_LABELS.map((w) => {
             const v = criteria.weights[w.key];
@@ -522,6 +651,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
             );
           })}
         </div>
+        )}
         </aside>
       </form>
 
@@ -615,7 +745,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
               ✕
             </button>
             <h3 className="tfc-formula-modal__title">Cách tính độ phù hợp</h3>
-            <FormulaExplainer weights={criteria.weights} bare />
+            <FormulaExplainer weights={effectiveWeights} bare />
           </div>
         </div>
       )}
@@ -635,7 +765,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
         <ApplyClassModal
           target={applyTarget}
           subjects={effSubjects}
-          defaultRate={Number(criteria.expectedFee) || undefined}
+          defaultRate={Number(queryFee || profileFee) || undefined}
           onClose={() => setApplyTarget(null)}
           onSubmitted={handleApplied}
         />
