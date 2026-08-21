@@ -179,21 +179,42 @@ class MessagingServiceImplTest {
     }
 
     @Test
-    @DisplayName("reopenSupportTicket: chỉ thành công khi ticket là RESOLVED hoặc CLOSED")
+    @DisplayName("reopenSupportTicket: chỉ thành công khi ticket là RESOLVED hoặc CLOSED, lưu message và gửi thông báo cho admin & user")
     void reopenSupportTicket_Success() {
         ticket.setStatus(SupportTicketStatus.RESOLVED);
+
+        User activeAdminUser = new User();
+        activeAdminUser.setUserId(200L); activeAdminUser.setEmail("admin@example.com"); activeAdminUser.setStatus(UserStatus.ACTIVE);
+        PlatformAdmin activeAdmin = new PlatformAdmin(); activeAdmin.setUser(activeAdminUser);
 
         when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
         when(authHelper.currentUserId()).thenReturn(USER_ID);
         when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(i -> i.getArgument(0));
+        when(platformAdminRepository.findAll()).thenReturn(List.of(activeAdmin));
 
-        SupportTicketDetailResponse response = messagingService.reopenSupportTicket(TICKET_ID);
+        ReplyTicketRequest req = new ReplyTicketRequest();
+        req.setContent("Vấn đề vẫn chưa được khắc phục triệt để");
+
+        SupportTicketDetailResponse response = messagingService.reopenSupportTicket(TICKET_ID, req);
 
         assertNotNull(response);
         assertEquals(SupportTicketStatus.OPEN, ticket.getStatus());
         assertNotNull(ticket.getDueAt());
         assertEquals(false, ticket.getSlaBreached());
         assertNull(ticket.getResolvedAt());
+
+        // Verify ticket message saved
+        verify(ticketMessageRepository, times(1)).save(any(TicketMessage.class));
+
+        // Verify admin notification
+        verify(notificationDispatchService).notifyUserFromTemplate(
+                eq(activeAdminUser), eq(NotificationType.SYSTEM), eq("SUPPORT_TICKET_REOPENED"),
+                any(Map.class), eq("Yêu cầu hỗ trợ #1 đã được mở lại"), anyString(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+
+        // Verify user notification
+        verify(notificationDispatchService).notifyUserFromTemplate(
+                eq(user), eq(NotificationType.SYSTEM), eq("SUPPORT_TICKET_REOPENED_USER"),
+                any(Map.class), eq("Yêu cầu hỗ trợ #1 đã mở lại"), anyString(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
     }
 
     @Test

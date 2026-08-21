@@ -43,6 +43,57 @@ public class IntentClassifier {
         return new IntentResult(detail.legacyIntent(), detail.confidence());
     }
 
+    public ClassificationDetail checkFastPath(String message) {
+        if (message == null || message.trim().isEmpty()) {
+            return null;
+        }
+        String trimmed = message.trim();
+        String lower = trimmed.toLowerCase(Locale.ROOT);
+        String normalized = VietnameseTextNormalizer.normalize(lower);
+        normalized = expandTeencode(normalized);
+
+        String[] words = normalized.split("\\s+");
+        if (words.length > 4) {
+            return null; // Fast path is strictly for ultra-short exact conversational tokens
+        }
+
+        // GREETING
+        if (normalized.equals("xin chao") || normalized.equals("chao bot") || normalized.equals("hello") ||
+            normalized.equals("hi bot") || normalized.equals("hey") || normalized.equals("alo") ||
+            normalized.equals("chao em") || normalized.equals("chao anh") || normalized.equals("hi tcs") ||
+            normalized.equals("chao ban") || normalized.equals("chao") || normalized.equals("hi") ||
+            normalized.equals("hello tcs")) {
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.GREETING, AiIntent.OUT_OF_SCOPE, 1.0, null);
+        }
+
+        // GOODBYE
+        if (normalized.equals("tam biet") || normalized.equals("bye") || normalized.equals("bye bot") ||
+            normalized.equals("hen gap lai") || normalized.equals("bai bai") || normalized.equals("goodbye")) {
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.GOODBYE, AiIntent.OUT_OF_SCOPE, 1.0, null);
+        }
+
+        // THANKS
+        if (normalized.equals("cam on") || normalized.equals("thank you") || normalized.equals("thanks") ||
+            normalized.equals("tks") || normalized.equals("cam on bot") || normalized.equals("cam on nha") ||
+            normalized.equals("cam on ban nhe") || normalized.equals("cam on ban")) {
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.THANKS, AiIntent.OUT_OF_SCOPE, 1.0, null);
+        }
+
+        // SMALL_TALK
+        if (normalized.equals("ban la ai") || normalized.equals("may la ai") || normalized.equals("who are you") ||
+            normalized.equals("ban ten gi") || normalized.equals("bot la ai")) {
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.SMALL_TALK, AiIntent.OUT_OF_SCOPE, 1.0, null);
+        }
+
+        // BOT_CAPABILITY_ASK
+        if (normalized.equals("ban lam duoc gi") || normalized.equals("bot lam duoc gi") ||
+            normalized.equals("chuc nang cua bot") || normalized.equals("ban co the lam gi")) {
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.BOT_CAPABILITY_ASK, AiIntent.FAQ_SUPPORT, 1.0, null);
+        }
+
+        return null;
+    }
+
     public ClassificationDetail classifyDetailed(String message) {
         if (message == null || message.trim().isEmpty()) {
             return new ClassificationDetail(AiDomain.OUT_OF_SCOPE, AiSubIntent.OUT_OF_SCOPE, AiIntent.OUT_OF_SCOPE, 0.3, null);
@@ -298,7 +349,8 @@ public class IntentClassifier {
         // 11. CATALOG_FAQ - SPECIFIC QUESTIONS (Before Marketplace to prevent "khối lớp nào" or "quy trình kết nối" matching class search)
         if (containsAny(normalized,
                 "trung tam tro giup", "tro giup o dau", "mon hoc nao", "khoi lop nao", "co nhung khoi lop", "khu vuc nao", "quy trinh ket noi",
-                "gioi thieu ve tcs", "tcs la gi", "he thong tcs hoat dong", "cac vai tro", "chinh sach nen tang", "cac mon hoc tren tcs", "huong dan su dung tcs", "chinh sach bao mat")) {
+                "gioi thieu ve tcs", "tcs la gi", "he thong tcs hoat dong", "he thong hoat dong", "hoat dong nhu the nao", "hoat dong ra sao", "mo hinh hoat dong", "he thong ket noi",
+                "cac vai tro", "chinh sach nen tang", "cac mon hoc tren tcs", "huong dan su dung tcs", "chinh sach bao mat")) {
             return new ClassificationDetail(AiDomain.CATALOG_FAQ, AiSubIntent.FAQ_SEARCH, AiIntent.FAQ_SUPPORT, 0.9, "/help");
         }
 

@@ -59,9 +59,11 @@ public class GeminiChatClient implements AiChatProviderClient {
                     )
             ));
 
+            long effectiveTimeout = request.timeoutMs() > 0 ? request.timeoutMs() : 15000L;
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl + (baseUrl.endsWith("/") ? "" : "/") + "models/" + model + ":generateContent?key=" + apiKey))
                     .header("Content-Type", "application/json")
+                    .timeout(Duration.ofMillis(effectiveTimeout))
                     .POST(HttpRequest.BodyPublishers.ofString(payload, StandardCharsets.UTF_8))
                     .build();
 

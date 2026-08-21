@@ -65,8 +65,10 @@ public class MessagingController {
     }
 
     @PostMapping("/support-tickets/{ticketId}/reopen")
-    public SupportTicketDetailResponse reopenSupportTicket(@PathVariable Long ticketId) {
-        return messagingService.reopenSupportTicket(ticketId);
+    public SupportTicketDetailResponse reopenSupportTicket(
+            @PathVariable Long ticketId,
+            @RequestBody(required = false) com.tcs.module.messaging.dto.request.ReplyTicketRequest request) {
+        return messagingService.reopenSupportTicket(ticketId, request);
     }
 
     @PostMapping("/reports")

@@ -454,18 +454,18 @@ export function buildReviewVerificationPayload(
 /* ── Support Ticket mappers ── */
 
 const TICKET_CATEGORY_LABELS: Record<AdminTicketCategory, string> = {
-  DISPUTE: 'Tranh chap',
-  SYSTEM_ERROR: 'Loi he thong',
-  REPORT_USER: 'Bao cao nguoi dung',
-  BUG_REPORT: 'Loi phan mem',
-  INQUIRY: 'Cau hoi chung',
+  DISPUTE: 'Tranh chấp',
+  SYSTEM_ERROR: 'Lỗi hệ thống',
+  REPORT_USER: 'Báo cáo người dùng',
+  BUG_REPORT: 'Lỗi phần mềm',
+  INQUIRY: 'Câu hỏi chung',
 };
 
 const TICKET_PRIORITY_LABELS: Record<AdminTicketPriority, string> = {
-  LOW: 'Thap',
-  MEDIUM: 'Trung binh',
+  LOW: 'Thấp',
+  MEDIUM: 'Trung bình',
   HIGH: 'Cao',
-  URGENT: 'Khan cap',
+  URGENT: 'Khẩn cấp',
 };
 
 const TICKET_PRIORITY_TONES: Record<AdminTicketPriority, 'low' | 'medium' | 'high' | 'urgent'> = {
@@ -476,11 +476,11 @@ const TICKET_PRIORITY_TONES: Record<AdminTicketPriority, 'low' | 'medium' | 'hig
 };
 
 const TICKET_STATUS_LABELS: Record<AdminTicketStatus, string> = {
-  OPEN: 'Cho xu ly',
-  IN_PROGRESS: 'Dang xu ly',
-  IN_REVIEW: 'Cho phan hoi',
-  RESOLVED: 'Da giai quyet',
-  CLOSED: 'Da dong',
+  OPEN: 'Chờ xử lý',
+  IN_PROGRESS: 'Đang xử lý',
+  IN_REVIEW: 'Chờ phản hồi',
+  RESOLVED: 'Đã giải quyết',
+  CLOSED: 'Đã đóng',
 };
 
 const TICKET_STATUS_TONES: Record<AdminTicketStatus, 'open' | 'active' | 'review' | 'done'> = {

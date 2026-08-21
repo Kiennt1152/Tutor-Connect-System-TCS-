@@ -134,7 +134,7 @@ export default function PlatformDashboardPage() {
             </div>
             <div className="adm-welcome-card__actions">
               <Link className="adm-btn-solid" to={APP_ROUTES.platformTasks}>
-                Mở Priority Inbox →
+                Mở hàng chờ công việc →
               </Link>
               <Link className="adm-btn-outline" to={APP_ROUTES.platformReports}>
                 Xử lý Khiếu nại & Tranh chấp

@@ -383,10 +383,30 @@
   white-space: nowrap;
 }
 
-.adm-table__notes {
-  max-width: 240px;
+.adm-table--faq {
+  min-width: 620px;
+}
+
+.adm-table__question {
+  min-width: 200px;
+  max-width: 360px;
+}
+
+.adm-table__question-text {
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1.45;
   white-space: normal;
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+.adm-table__notes {
+  min-width: 140px;
+  max-width: 280px;
+  white-space: normal;
+  word-break: normal;
+  overflow-wrap: break-word;
   color: var(--color-text-secondary);
   font-size: var(--fs-body-sm);
 }
@@ -395,7 +415,8 @@
   margin-top: 2px;
   color: var(--color-text-secondary);
   font-size: var(--fs-body-sm);
-  word-break: break-word;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .adm-summary-row {

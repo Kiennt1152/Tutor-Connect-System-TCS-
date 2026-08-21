@@ -113,16 +113,16 @@ export default function PlatformFaqPage() {
 
           {status === 'success' && (
             <div className="adm-table-wrap">
-              <table className="adm-table">
+              <table className="adm-table adm-table--faq">
                 <thead>
                   <tr>
-                    <th>ID</th>
-                    <th>Câu hỏi</th>
+                    <th style={{ width: '45px' }}>ID</th>
+                    <th style={{ minWidth: '180px' }}>Câu hỏi</th>
                     <th>Danh mục</th>
-                    <th>Thứ tự</th>
+                    <th style={{ width: '65px', textAlign: 'center' }}>Thứ tự</th>
                     <th>Trạng thái</th>
                     <th>Cập nhật</th>
-                    <th>Thao tác</th>
+                    <th style={{ width: '110px' }}>Thao tác</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -134,15 +134,21 @@ export default function PlatformFaqPage() {
                     items.map((faq) => (
                       <tr key={faq.faqId}>
                         <td>{faq.faqId}</td>
-                        <td className="adm-table__notes">{faq.question}</td>
-                        <td>{faq.category || '—'}</td>
-                        <td>{faq.sortOrder}</td>
+                        <td className="adm-table__question">
+                          <div className="adm-table__question-text">{faq.question}</div>
+                        </td>
+                        <td>
+                          <span className="tcs-badge" style={{ background: '#f1f5f9', color: '#475569', fontWeight: 600 }}>
+                            {faq.category || '—'}
+                          </span>
+                        </td>
+                        <td style={{ textAlign: 'center' }}>{faq.sortOrder}</td>
                         <td className="adm-table__badge">
                           <span className={faq.published ? 'tcs-badge tcs-badge--active' : 'tcs-badge tcs-badge--suspended'}>
                             {faq.published ? 'Đã xuất bản' : 'Bản nháp'}
                           </span>
                         </td>
-                        <td>{formatDateTime(faq.updatedAt)}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>{formatDateTime(faq.updatedAt)}</td>
                         <td className="adm-table__actions">
                           <div className="adm-row-actions">
                             <button className="tcs-btn tcs-btn--ghost tcs-btn--badge" type="button" onClick={() => selectFaq(faq)}>

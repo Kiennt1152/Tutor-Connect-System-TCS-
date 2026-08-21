@@ -1,6 +1,9 @@
 package com.tcs.module.ai.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tcs.exception.ForbiddenException;
+import com.tcs.exception.RateLimitExceededException;
+import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.ai.dto.request.ChatRequest;
 import com.tcs.module.ai.dto.response.*;
 import com.tcs.module.ai.entity.AiChatMessage;
@@ -20,6 +23,7 @@ import com.tcs.module.catalog.repository.FaqEntryRepository;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
@@ -28,6 +32,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -72,6 +77,9 @@ public class AiServiceImpl implements AiService {
     private final com.tcs.module.ai.service.provider.AiProviderRouter aiProviderRouter;
     private final ObjectMapper objectMapper;
 
+    @Value("${ai.provider.max-output-tokens:700}")
+    private int maxOutputTokens = 700;
+
     @Override
     @Transactional
     public AiMessageResponse chat(ChatRequest request, Long userId) {
@@ -87,12 +95,6 @@ public class AiServiceImpl implements AiService {
                 userRole = "CLIENT";
             } else {
                 userRole = "USER";
-            }
-        } else if (request.getUserRole() != null && !request.getUserRole().isBlank()) {
-            if ("PLATFORM_ADMIN".equalsIgnoreCase(request.getUserRole())) {
-                userRole = "GUEST"; // Disallow unauthenticated admin spoofing
-            } else {
-                userRole = request.getUserRole().toUpperCase();
             }
         }
 
@@ -151,12 +153,18 @@ public class AiServiceImpl implements AiService {
         List<AiChatMessage> history = contextService.getHistory(session.getSessionId());
 
         // 1. 3-Tier Classification (Domain -> SubIntent -> Entities)
-        AiIntentService.DetailedIntentResult classification = intentService.classifyAndExtractDetailed(request.getMessage());
+        AiIntentService.DetailedIntentResult classification = intentService.classifyAndExtractDetailed(
+            request.getMessage(), session.getSessionId(), userId);
         AiDomain domain = classification.domain();
         AiSubIntent subIntent = classification.subIntent();
         AiIntent legacyIntent = classification.legacyIntent();
         Map<String, String> entities = classification.entities();
         String suggestedRoute = classification.suggestedRoute();
+
+        // 1.5 Rate Limiting Guard: Enforce per-user / per-session rate limit
+        if (!openDomainRateLimiter.allowRequest(userId, session.getSessionId(), subIntent)) {
+            throw new RateLimitExceededException("Bạn đang gửi yêu cầu quá nhanh. Vui lòng chờ 1 phút trước khi tiếp tục.");
+        }
 
         // 2. Safety & Conversational fast-path (Level 0)
         AiFallbackService.FallbackResult safetyResult = fallbackService.checkLevel0Safety(subIntent);
@@ -269,89 +277,9 @@ public class AiServiceImpl implements AiService {
                     .build();
         }
 
-        // 5. Context Retrieval (Unified Vector RAG + Database Providers)
-        List<AiSourceResponse> allSources = new ArrayList<>();
-        String lowerQuery = request.getMessage().toLowerCase();
-
-        if (domain != AiDomain.CONVERSATION_SAFETY && domain != AiDomain.OPEN_DOMAIN && domain != AiDomain.OUT_OF_SCOPE) {
-            // Unified Vector RAG retrieval: Always retrieve top semantic chunks across all knowledge
-            List<AiRetrievalService.RetrievalResult> vectorResults = retrievalService.retrieve(rewritten.rewrittenQuery(), userRole, userId);
-            List<AiSourceResponse> rerankedVectorResults = rerankService.rerank(vectorResults, new AiIntentService.IntentResultWithEntities(legacyIntent, classification.confidence(), entities), rewritten.rewrittenQuery());
-            allSources.addAll(rerankedVectorResults);
-
-            if ((subIntent == AiSubIntent.FIND_TUTOR || subIntent == AiSubIntent.FILTER_TUTOR) && allSources.stream().noneMatch(s -> "TUTOR".equals(s.getSourceType()))) {
-                allSources.addAll(tutorSearchContextProvider.searchTutors(entities));
-            } else if ((subIntent == AiSubIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS) && allSources.stream().noneMatch(s -> "CLASS".equals(s.getSourceType()))) {
-                allSources.addAll(classSearchContextProvider.searchClasses(entities));
-            } else if (subIntent == AiSubIntent.PLATFORM_STATS) {
-                allSources.addAll(platformStatsContextProvider.getPlatformStats());
-            } else if (domain == AiDomain.PLATFORM_ADMIN) {
-                allSources.addAll(dashboardContextProvider.getDashboardContext(userRole));
-            } else if (domain == AiDomain.FINANCE_WALLET) {
-                if (lowerQuery.contains("lương của tôi") || lowerQuery.contains("thu nhập của tôi") || lowerQuery.contains("tiền kiếm được của tôi") || lowerQuery.contains("ví của tôi") || lowerQuery.contains("số dư của tôi")) {
-                    allSources.addAll(tutorFinanceContextProvider.getTutorFinanceContext(userRole, userId));
-                }
-            } else if (domain == AiDomain.MESSAGING_TICKET || domain == AiDomain.TRUST_SAFETY) {
-                allSources.addAll(ticketContextProvider.getTicketContext(userRole, userId));
-            }
-        }
-
-        // Deduplicate and keep top 4 sources
-        allSources = deduplicateAndLimitSources(allSources, 4);
-
-        // Score Guard: Drop sources with finalScore below minimum relevance threshold.
-        // This prevents showing completely irrelevant FAQ/chunks for off-topic queries
-        // that somehow passed through the classifier (e.g. keyword fallback mode).
-        allSources.removeIf(s -> s.getFinalScore() < 0.60);
-
-        // 6. Grounding Evaluation
-        AiAnswerEvaluatorService.EvaluatedAnswer evaluation = evaluatorService.evaluate(legacyIntent, allSources);
-
-        // 6.5. Enhanced No-Data Fallback when zero matching semantic candidates found
-        if (allSources.isEmpty() && (subIntent == AiSubIntent.FIND_TUTOR || subIntent == AiSubIntent.FILTER_TUTOR || subIntent == AiSubIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS)) {
-            AiFallbackService.FallbackResult noDataFallback = fallbackService.getLevel3EnhancedNoData(subIntent, entities);
-            
-            AiChatMessage aiMsg = new AiChatMessage();
-            aiMsg.setSession(session);
-            aiMsg.setRole("assistant");
-            aiMsg.setContent(noDataFallback.message());
-            messageRepository.save(aiMsg);
-            sessionRepository.save(session);
-            conversationContextService.saveContext(session.getSessionId(), domain, subIntent, entities, request.getMessage());
-
-            return AiMessageResponse.builder()
-                    .messageId(aiMsg.getMessageId())
-                    .sessionId(session.getSessionId())
-                    .role("assistant")
-                    .content(noDataFallback.message())
-                    .createdAt(aiMsg.getCreatedAt())
-                    .intent(legacyIntent.name())
-                    .domain(domain.name())
-                    .subIntent(subIntent.name())
-                    .suggestedRoute(noDataFallback.suggestedRoute())
-                    .clarificationOptions(noDataFallback.clarificationOptions())
-                    .answerMode("FALLBACK_NO_DATA")
-                    .confidenceScore(0.0)
-                    .confidenceLevel("NONE")
-                    .sourceCount(0)
-                    .groundingStatus("NO_RELEVANT_DATA")
-                    .sources(List.of())
-                    .referencedTutors(List.of())
-                    .referencedClasses(List.of())
-                    .referencedFaqs(List.of())
-                    .build();
-        }
-
-        // 6.6. OUT_OF_SCOPE Fallback: polite redirection when no relevant sources found
-        if (domain == AiDomain.OUT_OF_SCOPE && allSources.isEmpty()) {
-            String outOfScopeMsg = "Xin lỗi, câu hỏi này nằm ngoài phạm vi hỗ trợ của Trợ lý AI TCS. " +
-                    "Tôi có thể giúp bạn:\n" +
-                    "• 🔍 Tìm gia sư phù hợp\n" +
-                    "• 📚 Tìm lớp học đang tuyển\n" +
-                    "• ❓ Giải đáp chính sách hệ thống\n" +
-                    "• 💰 Hướng dẫn nạp/rút tiền\n\n" +
-                    "Bạn muốn tôi hỗ trợ điều gì?";
-
+        // 4.6. Out-of-Scope Gating
+        if (domain == AiDomain.OUT_OF_SCOPE) {
+            String outOfScopeMsg = "Xin lỗi, câu hỏi này nằm ngoài phạm vi hỗ trợ của hệ thống TCS. Tôi có thể giúp bạn tìm gia sư, tìm lớp học, giải đáp quy trình nạp/rút học phí hoặc hướng dẫn quy định trên hệ thống.";
             AiChatMessage aiMsg = new AiChatMessage();
             aiMsg.setSession(session);
             aiMsg.setRole("assistant");
@@ -382,6 +310,48 @@ public class AiServiceImpl implements AiService {
                     .referencedFaqs(List.of())
                     .build();
         }
+
+        // 5. Context Retrieval (Unified Vector RAG + Database Providers)
+        List<AiSourceResponse> allSources = new ArrayList<>();
+        String lowerQuery = request.getMessage().toLowerCase();
+        boolean retrievalUnavailable = false;
+
+        if (domain != AiDomain.CONVERSATION_SAFETY && domain != AiDomain.OPEN_DOMAIN && domain != AiDomain.OUT_OF_SCOPE) {
+            try {
+                // Unified Vector RAG retrieval: Always retrieve top semantic chunks across all knowledge
+                List<AiRetrievalService.RetrievalResult> vectorResults = retrievalService.retrieve(rewritten.rewrittenQuery(), userRole, userId);
+                List<AiSourceResponse> rerankedVectorResults = rerankService.rerank(vectorResults, new AiIntentService.IntentResultWithEntities(legacyIntent, classification.confidence(), entities), rewritten.rewrittenQuery());
+                allSources.addAll(rerankedVectorResults);
+
+                if ((subIntent == AiSubIntent.FIND_TUTOR || subIntent == AiSubIntent.FILTER_TUTOR) && allSources.stream().noneMatch(s -> "TUTOR".equals(s.getSourceType()))) {
+                    allSources.addAll(tutorSearchContextProvider.searchTutors(entities));
+                } else if ((subIntent == AiSubIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS) && allSources.stream().noneMatch(s -> "CLASS".equals(s.getSourceType()))) {
+                    allSources.addAll(classSearchContextProvider.searchClasses(entities));
+                } else if (subIntent == AiSubIntent.PLATFORM_STATS) {
+                    allSources.addAll(platformStatsContextProvider.getPlatformStats());
+                } else if (domain == AiDomain.PLATFORM_ADMIN) {
+                    allSources.addAll(dashboardContextProvider.getDashboardContext(userRole));
+                } else if (domain == AiDomain.FINANCE_WALLET) {
+                    if (lowerQuery.contains("lương của tôi") || lowerQuery.contains("thu nhập của tôi") || lowerQuery.contains("tiền kiếm được của tôi") || lowerQuery.contains("ví của tôi") || lowerQuery.contains("số dư của tôi")) {
+                        allSources.addAll(tutorFinanceContextProvider.getTutorFinanceContext(userRole, userId));
+                    }
+                } else if (domain == AiDomain.MESSAGING_TICKET || domain == AiDomain.TRUST_SAFETY) {
+                    allSources.addAll(ticketContextProvider.getTicketContext(userRole, userId));
+                }
+            } catch (Exception e) {
+                log.warn("AI Context Retrieval failed: {}", e.getMessage());
+                retrievalUnavailable = true;
+            }
+        }
+
+        // Deduplicate and keep top 4 sources
+        allSources = deduplicateAndLimitSources(allSources, 4);
+
+        // Score Guard: Drop sources with finalScore below minimum relevance threshold.
+        allSources.removeIf(s -> s.getFinalScore() < 0.60);
+
+        // 6. Grounding Evaluation
+        AiAnswerEvaluatorService.EvaluatedAnswer evaluation = evaluatorService.evaluate(legacyIntent, allSources);
 
         // 7. Answer Generation (Natural LLM Generation with Grounding)
         String aiResponseText = null;
@@ -436,10 +406,11 @@ public class AiServiceImpl implements AiService {
                     try {
                         Long fId = Long.parseLong(s.getSourceId());
                         if (addedFaqIds.add(fId)) {
-                            faqs.add(FaqReferenceDto.builder()
-                                    .faqId(fId)
-                                    .question(s.getTitle())
-                                    .build());
+                            faqEntryRepository.findById(fId).ifPresent(f -> faqs.add(
+                                    FaqReferenceDto.builder()
+                                            .faqId(f.getFaqId())
+                                            .question(f.getQuestion())
+                                            .build()));
                         }
                     } catch (NumberFormatException ignored) {}
                 }
@@ -455,8 +426,22 @@ public class AiServiceImpl implements AiService {
 
         // Call LLM for natural, intelligent RAG response synthesis
         if (aiResponseText == null) {
-            String finalPrompt = promptBuilderService.buildPrompt(rewritten.rewrittenQuery(), legacyIntent, userRole, allSources);
+            String finalPrompt = promptBuilderService.buildPrompt(request.getMessage(), rewritten.rewrittenQuery(), legacyIntent, userRole, allSources, retrievalUnavailable);
             aiResponseText = callLlm(finalPrompt, history, evaluation.answerMode(), legacyIntent, allSources);
+        }
+
+        // Apply Hallucination Guard to prevent fake names, classes, or false stats
+        if (subIntent == AiSubIntent.FIND_TUTOR || subIntent == AiSubIntent.FILTER_TUTOR) {
+            aiResponseText = hallucinationGuard.guardTutorResponse(aiResponseText, tutors, fallbackService.getLevel3NoData(subIntent, entities).message());
+        } else if (subIntent == AiSubIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS) {
+            aiResponseText = hallucinationGuard.guardClassResponse(aiResponseText, classes, fallbackService.getLevel3NoData(subIntent, entities).message());
+        } else if (subIntent == AiSubIntent.PLATFORM_STATS) {
+            aiResponseText = hallucinationGuard.guardStatsResponse(aiResponseText, allSources, fallbackService.getLevel3NoData(subIntent, entities).message());
+        } else if (domain == AiDomain.FINANCE_WALLET) {
+            String financeGuardResult = hallucinationGuard.guardFinanceResponse(request.getMessage(), userRole, userId, fallbackService.getLevel4AuthRoleRequired("Gia sư hoặc Trung tâm gia sư", "/finance").message());
+            if (financeGuardResult != null) {
+                aiResponseText = financeGuardResult;
+            }
         }
 
         AiChatMessage aiMsg = new AiChatMessage();
@@ -515,7 +500,7 @@ public class AiServiceImpl implements AiService {
             var chatReq = new com.tcs.module.ai.service.provider.AiProviderChatRequest(
                 "Bạn là Trợ lý AI của hệ thống kết nối gia sư Tutor Connect System (TCS). Trả lời ngắn gọn, chính xác, thân thiện bằng tiếng Việt.",
                 prompt,
-                1000,
+                maxOutputTokens,
                 0.3
             );
             var resp = aiProviderRouter.chat(chatReq);
@@ -552,6 +537,9 @@ public class AiServiceImpl implements AiService {
     @Override
     @Transactional(readOnly = true)
     public List<AiSessionResponse> getUserSessions(Long userId) {
+        if (userId == null) {
+            return List.of();
+        }
         List<AiChatSession> sessions = sessionRepository.findByUserIdOrderByUpdatedAtDesc(userId);
         return sessions.stream().map(s -> AiSessionResponse.builder()
                 .sessionId(s.getSessionId())
@@ -564,7 +552,67 @@ public class AiServiceImpl implements AiService {
     @Override
     @Transactional(readOnly = true)
     public List<AiMessageResponse> getSessionMessages(Long sessionId, Long userId) {
+        if (sessionId == null) {
+            return List.of();
+        }
+        AiChatSession session = sessionRepository.findById(sessionId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phiên hội thoại"));
+
+        if (session.getUserId() != null) {
+            if (userId == null || !session.getUserId().equals(userId)) {
+                throw new ForbiddenException("Bạn không có quyền truy cập phiên hội thoại này");
+            }
+        }
+
         List<AiChatMessage> msgs = messageRepository.findBySession_SessionIdOrderByCreatedAtAsc(sessionId);
+        if (msgs.isEmpty()) {
+            return List.of();
+        }
+
+        // Collect all IDs in batch to eliminate N+1 queries
+        Set<Long> tutorIds = new HashSet<>();
+        Set<Long> classIds = new HashSet<>();
+        Set<Long> faqIds = new HashSet<>();
+
+        for (AiChatMessage m : msgs) {
+            if (m.getReferencedTutorIds() != null && !m.getReferencedTutorIds().isBlank()) {
+                for (String idStr : m.getReferencedTutorIds().split(",")) {
+                    try {
+                        tutorIds.add(Long.parseLong(idStr.trim()));
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+            if (m.getReferencedClassIds() != null && !m.getReferencedClassIds().isBlank()) {
+                for (String idStr : m.getReferencedClassIds().split(",")) {
+                    try {
+                        classIds.add(Long.parseLong(idStr.trim()));
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+            if (m.getReferencedFaqIds() != null && !m.getReferencedFaqIds().isBlank()) {
+                for (String idStr : m.getReferencedFaqIds().split(",")) {
+                    try {
+                        faqIds.add(Long.parseLong(idStr.trim()));
+                    } catch (NumberFormatException ignored) {}
+                }
+            }
+        }
+
+        Map<Long, Tutor> tutorMap = tutorIds.isEmpty()
+            ? Map.of()
+            : tutorRepository.findAllById(tutorIds).stream()
+                .collect(Collectors.toMap(Tutor::getTutorId, t -> t, (a, b) -> a));
+
+        Map<Long, TutoringClass> classMap = classIds.isEmpty()
+            ? Map.of()
+            : tutoringClassRepository.findAllById(classIds).stream()
+                .collect(Collectors.toMap(TutoringClass::getClassId, c -> c, (a, b) -> a));
+
+        Map<Long, FaqEntry> faqMap = faqIds.isEmpty()
+            ? Map.of()
+            : faqEntryRepository.findAllById(faqIds).stream()
+                .collect(Collectors.toMap(FaqEntry::getFaqId, f -> f, (a, b) -> a));
+
         return msgs.stream().map(m -> {
             AiMessageResponse.AiMessageResponseBuilder builder = AiMessageResponse.builder()
                 .messageId(m.getMessageId())
@@ -573,14 +621,15 @@ public class AiServiceImpl implements AiService {
                 .content(m.getContent())
                 .createdAt(m.getCreatedAt());
 
-            // Hydrate tutor references
+            // Hydrate tutor references preserving order
             if (m.getReferencedTutorIds() != null && !m.getReferencedTutorIds().isBlank()) {
                 List<TutorReferenceDto> tutors = new ArrayList<>();
                 for (String idStr : m.getReferencedTutorIds().split(",")) {
                     try {
                         Long tutorId = Long.parseLong(idStr.trim());
-                        tutorRepository.findById(tutorId).ifPresent(t -> tutors.add(
-                            TutorReferenceDto.builder()
+                        Tutor t = tutorMap.get(tutorId);
+                        if (t != null) {
+                            tutors.add(TutorReferenceDto.builder()
                                 .tutorId(t.getTutorId())
                                 .fullName(t.getFullName())
                                 .avatarUrl(t.getAvatar())
@@ -588,8 +637,8 @@ public class AiServiceImpl implements AiService {
                                 .hourlyRate(t.getHourlyRate())
                                 .averageRating(t.getRatingAvg() != null ? t.getRatingAvg().doubleValue() : 5.0)
                                 .teachingAreas(t.getAddress())
-                                .build()
-                        ));
+                                .build());
+                        }
                     } catch (NumberFormatException ignored) {}
                 }
                 if (!tutors.isEmpty()) {
@@ -598,14 +647,15 @@ public class AiServiceImpl implements AiService {
                 }
             }
 
-            // Hydrate class references
+            // Hydrate class references preserving order
             if (m.getReferencedClassIds() != null && !m.getReferencedClassIds().isBlank()) {
                 List<ClassReferenceDto> classes = new ArrayList<>();
                 for (String idStr : m.getReferencedClassIds().split(",")) {
                     try {
                         Long classId = Long.parseLong(idStr.trim());
-                        tutoringClassRepository.findById(classId).ifPresent(c -> classes.add(
-                            ClassReferenceDto.builder()
+                        TutoringClass c = classMap.get(classId);
+                        if (c != null) {
+                            classes.add(ClassReferenceDto.builder()
                                 .classId(c.getClassId())
                                 .title(c.getTitle())
                                 .subjectName(c.getSubject() != null ? c.getSubject().getSubjectName() : null)
@@ -613,8 +663,8 @@ public class AiServiceImpl implements AiService {
                                 .tuitionFee(c.getTuitionFee())
                                 .location(c.getAddress())
                                 .status(c.getStatus() != null ? c.getStatus().name() : "OPEN")
-                                .build()
-                        ));
+                                .build());
+                        }
                     } catch (NumberFormatException ignored) {}
                 }
                 if (!classes.isEmpty()) {
@@ -623,20 +673,21 @@ public class AiServiceImpl implements AiService {
                 }
             }
 
-            // Hydrate FAQ references
+            // Hydrate FAQ references preserving order
             if (m.getReferencedFaqIds() != null && !m.getReferencedFaqIds().isBlank()) {
                 List<FaqReferenceDto> faqs = new ArrayList<>();
                 for (String idStr : m.getReferencedFaqIds().split(",")) {
                     try {
                         Long faqId = Long.parseLong(idStr.trim());
-                        faqEntryRepository.findById(faqId).ifPresent(f -> faqs.add(
-                            FaqReferenceDto.builder()
+                        FaqEntry f = faqMap.get(faqId);
+                        if (f != null) {
+                            faqs.add(FaqReferenceDto.builder()
                                 .faqId(f.getFaqId())
                                 .question(f.getQuestion())
                                 .answer(f.getAnswer())
                                 .category(f.getCategory())
-                                .build()
-                        ));
+                                .build());
+                        }
                     } catch (NumberFormatException ignored) {}
                 }
                 if (!faqs.isEmpty()) builder.referencedFaqs(faqs);
@@ -649,13 +700,37 @@ public class AiServiceImpl implements AiService {
     @Override
     @Transactional
     public void deleteSession(Long sessionId, Long userId) {
+        if (sessionId == null) return;
+        AiChatSession session = sessionRepository.findById(sessionId)
+            .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phiên hội thoại"));
+
+        if (session.getUserId() != null) {
+            if (userId == null || !session.getUserId().equals(userId)) {
+                throw new ForbiddenException("Bạn không có quyền xóa phiên hội thoại này");
+            }
+        }
+
         messageRepository.deleteBySession_SessionId(sessionId);
-        sessionRepository.deleteById(sessionId);
+        sessionRepository.delete(session);
     }
 
     private AiChatSession getOrCreateSession(Long sessionId, Long userId, String initialMsg) {
         if (sessionId != null) {
-            return sessionRepository.findById(sessionId).orElseGet(() -> createSession(userId, initialMsg));
+            Optional<AiChatSession> opt = sessionRepository.findById(sessionId);
+            if (opt.isPresent()) {
+                AiChatSession session = opt.get();
+                if (session.getUserId() == null) {
+                    if (userId != null) {
+                        session.setUserId(userId);
+                        return sessionRepository.save(session);
+                    }
+                    return session;
+                } else if (session.getUserId().equals(userId)) {
+                    return session;
+                }
+                // Session belongs to another user: isolate and spawn a new session for current user
+                return createSession(userId, initialMsg);
+            }
         }
         return createSession(userId, initialMsg);
     }

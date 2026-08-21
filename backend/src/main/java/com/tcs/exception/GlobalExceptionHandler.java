@@ -92,6 +92,15 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
     }
 
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<Map<String, String>> handleRateLimit(RateLimitExceededException exception) {
+        Map<String, String> body = new HashMap<>();
+        body.put("message", exception.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", "60")
+                .body(body);
+    }
+
     @ExceptionHandler(VerificationRequiredException.class)
     public ResponseEntity<Map<String, String>> handleVerificationRequired(
             VerificationRequiredException exception) {

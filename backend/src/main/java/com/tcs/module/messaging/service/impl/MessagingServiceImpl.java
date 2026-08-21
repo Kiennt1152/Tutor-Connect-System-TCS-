@@ -306,6 +306,12 @@ public class MessagingServiceImpl implements MessagingService {
     @Override
     @Transactional
     public SupportTicketDetailResponse reopenSupportTicket(Long ticketId) {
+        return reopenSupportTicket(ticketId, null);
+    }
+
+    @Override
+    @Transactional
+    public SupportTicketDetailResponse reopenSupportTicket(Long ticketId, ReplyTicketRequest request) {
         SupportTicket ticket = supportTicketRepository
                 .findById(ticketId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy yêu cầu hỗ trợ"));
@@ -323,9 +329,69 @@ public class MessagingServiceImpl implements MessagingService {
         ticket.setClosedAt(null);
         ticket.setDueAt(java.time.LocalDateTime.now().plusHours(calculateSlaHours(ticket.getPriority())));
         ticket.setSlaBreached(false);
-        supportTicketRepository.save(ticket);
+        SupportTicket saved = supportTicketRepository.save(ticket);
 
-        return toDetailResponse(ticket);
+        // 1. Lưu tin nhắn ghi nhận việc mở lại ticket trong cuộc hội thoại
+        String userReason = request != null && StringUtils.hasText(request.getContent()) ? request.getContent().trim() : null;
+        TicketMessage reopenMessage = new TicketMessage();
+        reopenMessage.setTicket(saved);
+        reopenMessage.setSender(saved.getUser());
+        reopenMessage.setIsFromAdmin(false);
+        reopenMessage.setContent(userReason != null ? "[Mở lại yêu cầu hỗ trợ] " + userReason : "[HỆ THỐNG] Người dùng đã mở lại yêu cầu hỗ trợ.");
+        if (request != null && request.getEvidenceUrls() != null) {
+            reopenMessage.setEvidenceUrls(request.getEvidenceUrls());
+        }
+        ticketMessageRepository.save(reopenMessage);
+
+        // 2. Gửi thông báo đến Quản trị viên (Platform Admins)
+        notifyAdminsTicketReopened(saved, userReason);
+
+        // 3. Gửi thông báo xác nhận đến Người dùng
+        notifyUserTicketReopened(saved);
+
+        return toDetailResponse(saved);
+    }
+
+    private void notifyAdminsTicketReopened(SupportTicket ticket, String reason) {
+        String reasonSuffix = StringUtils.hasText(reason) ? " Lý do: " + reason : "";
+        String content = String.format(
+                "Người dùng %s đã mở lại yêu cầu hỗ trợ #%d: %s.%s",
+                ticket.getUser().getEmail(), ticket.getTicketId(), ticket.getSubject(), reasonSuffix);
+
+        platformAdminRepository.findAll().stream()
+                .map(PlatformAdmin::getUser)
+                .filter(adminUser -> adminUser != null && adminUser.getStatus() == UserStatus.ACTIVE)
+                .forEach(adminUser -> notificationDispatchService.notifyUserFromTemplate(
+                        adminUser,
+                        NotificationType.SYSTEM,
+                        "SUPPORT_TICKET_REOPENED",
+                        Map.of(
+                                "ticketId", ticket.getTicketId(),
+                                "userEmail", ticket.getUser().getEmail(),
+                                "subject", ticket.getSubject(),
+                                "priority", ticket.getPriority(),
+                                "reason", reason != null ? reason : ""),
+                        "Yêu cầu hỗ trợ #" + ticket.getTicketId() + " đã được mở lại",
+                        content,
+                        TICKET_CONTEXT_TYPE,
+                        ticket.getTicketId()));
+    }
+
+    private void notifyUserTicketReopened(SupportTicket ticket) {
+        String content = String.format(
+                "Yêu cầu hỗ trợ #%d \"%s\" của bạn đã được mở lại thành công. Đội ngũ quản trị viên sẽ tiếp tục hỗ trợ bạn.",
+                ticket.getTicketId(), ticket.getSubject());
+        notificationDispatchService.notifyUserFromTemplate(
+                ticket.getUser(),
+                NotificationType.SYSTEM,
+                "SUPPORT_TICKET_REOPENED_USER",
+                Map.of(
+                        "ticketId", ticket.getTicketId(),
+                        "subject", ticket.getSubject()),
+                "Yêu cầu hỗ trợ #" + ticket.getTicketId() + " đã mở lại",
+                content,
+                TICKET_CONTEXT_TYPE,
+                ticket.getTicketId());
     }
 
     @Override

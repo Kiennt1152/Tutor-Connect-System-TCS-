@@ -295,49 +295,78 @@ function TicketDetailPanel({ ticketId, onBack }: TicketDetailProps) {
       </div>
 
       {detail.status !== 'CLOSED' && detail.status !== 'RESOLVED' && (
-        <div className="ticket-conv" style={{ marginTop: '1rem' }}>
-          <p className="ticket-conv__title">Gửi phản hồi</p>
+        <div className="ticket-reply-card">
+          <div className="ticket-reply-card__title">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+            Gửi phản hồi
+          </div>
           <textarea
-            className="create-ticket__textarea"
-            placeholder="Nhập nội dung phản hồi..."
+            className="ticket-reply-card__textarea"
+            placeholder="Nhập nội dung phản hồi cho quản trị viên..."
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             rows={3}
           />
           {mutations.errorMessage && <p className="create-ticket__error">{mutations.errorMessage}</p>}
-          <button
-            type="button"
-            className="tcs-btn tcs-btn--primary"
-            style={{ marginTop: '0.5rem' }}
-            onClick={handleReply}
-            disabled={mutations.status === 'loading' || !replyText.trim()}
-          >
-            {mutations.status === 'loading' ? 'Đang gửi...' : 'Gửi'}
-          </button>
+          <div className="ticket-reply-card__actions">
+            <button
+              type="button"
+              className="tcs-btn tcs-btn--primary"
+              onClick={handleReply}
+              disabled={mutations.status === 'loading' || !replyText.trim()}
+            >
+              {mutations.status === 'loading' ? 'Đang gửi...' : 'Gửi phản hồi'}
+            </button>
+          </div>
         </div>
       )}
 
       {(detail.status === 'CLOSED' || detail.status === 'RESOLVED') && (
-        <div className="ticket-conv" style={{ marginTop: '1rem', padding: '1rem', background: '#fff5f5', borderRadius: '8px' }}>
-          <p className="ticket-conv__title" style={{ color: '#c53030' }}>Yêu cầu này đã được đóng</p>
-          <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>Bạn có thể mở lại yêu cầu nếu vấn đề chưa được giải quyết.</p>
+        <div className="ticket-reopen-card">
+          <div className="ticket-reopen-card__banner">
+            <div className="ticket-reopen-card__icon">
+              {detail.status === 'RESOLVED' ? (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                  <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#64748b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                </svg>
+              )}
+            </div>
+            <div>
+              <p className="ticket-reopen-card__status-title">
+                {detail.status === 'RESOLVED' ? 'Yêu cầu hỗ trợ đã được giải quyết' : 'Yêu cầu hỗ trợ đã đóng'}
+              </p>
+              <p className="ticket-reopen-card__status-desc">
+                Nếu vấn đề của bạn vẫn chưa được giải quyết thỏa đáng, bạn có thể nhập lý do bên dưới để mở lại ticket.
+              </p>
+            </div>
+          </div>
           <textarea
-            className="create-ticket__textarea"
-            placeholder="Lý do mở lại..."
+            className="ticket-reopen-card__textarea"
+            placeholder="Nhập lý do hoặc thông tin bổ sung để mở lại yêu cầu..."
             value={replyText}
             onChange={(e) => setReplyText(e.target.value)}
             rows={2}
           />
           {mutations.errorMessage && <p className="create-ticket__error">{mutations.errorMessage}</p>}
-          <button
-            type="button"
-            className="tcs-btn tcs-btn--primary"
-            style={{ marginTop: '0.5rem', background: '#e53e3e' }}
-            onClick={handleReopen}
-            disabled={mutations.status === 'loading' || !replyText.trim()}
-          >
-            {mutations.status === 'loading' ? 'Đang xử lý...' : 'Mở lại yêu cầu'}
-          </button>
+          <div className="ticket-reopen-card__actions">
+            <button
+              type="button"
+              className="tcs-btn tcs-btn--primary"
+              style={{ background: '#2563eb' }}
+              onClick={handleReopen}
+              disabled={mutations.status === 'loading' || !replyText.trim()}
+            >
+              {mutations.status === 'loading' ? 'Đang xử lý...' : 'Mở lại yêu cầu'}
+            </button>
+          </div>
         </div>
       )}
     </div>
