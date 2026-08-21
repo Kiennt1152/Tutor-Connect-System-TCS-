@@ -18,10 +18,13 @@ public class AiProviderRouter {
     private String providerOrderConfig;
     
     @Value("${ai.provider.cooldown-seconds:60}")
-    private long cooldownSeconds;
+    private long cooldownSeconds = 60L;
     
     @Value("${ai.provider.timeout-ms:15000}")
-    private long timeoutMs;
+    private long timeoutMs = 15000L;
+
+    @Value("${ai.provider.total-generation-deadline-ms:20000}")
+    private long totalGenerationDeadlineMs = 20000L;
 
     // Gemini
     @Value("${ai.gemini.api-key:}")
@@ -77,7 +80,7 @@ public class AiProviderRouter {
         if (providerOrderConfig != null && !providerOrderConfig.isBlank()) {
             for (String p : providerOrderConfig.split(",")) {
                 String name = p.trim().toLowerCase();
-                if (providers.containsKey(name)) {
+                if (providers.containsKey(name) && !executionOrder.contains(name)) {
                     executionOrder.add(name);
                 }
             }
@@ -91,11 +94,50 @@ public class AiProviderRouter {
         log.info("AI Chat Provider Route Order: {}", executionOrder);
     }
 
+    public void registerProvider(String name, AiChatProviderClient client) {
+        providers.put(name.toLowerCase(), client);
+        if (!executionOrder.contains(name.toLowerCase())) {
+            executionOrder.add(name.toLowerCase());
+        }
+    }
+
+    public void setExecutionOrder(List<String> order) {
+        this.executionOrder = new ArrayList<>(order);
+    }
+
+    public void setTotalGenerationDeadlineMs(long deadlineMs) {
+        this.totalGenerationDeadlineMs = deadlineMs;
+    }
+
+    public long getTotalGenerationDeadlineMs() {
+        return this.totalGenerationDeadlineMs;
+    }
+
+    public void resetHealthState() {
+        providerCooldowns.clear();
+        providerDisabled.clear();
+    }
+
+    public boolean isProviderInCooldown(String providerName) {
+        Long until = providerCooldowns.get(providerName.toLowerCase());
+        return until != null && System.currentTimeMillis() < until;
+    }
+
     public AiProviderChatResponse chat(AiProviderChatRequest request) {
-        long now = System.currentTimeMillis();
+        long startTime = System.currentTimeMillis();
         
         for (String providerName : executionOrder) {
+            long now = System.currentTimeMillis();
+            long elapsed = now - startTime;
+            long remainingBudget = totalGenerationDeadlineMs - elapsed;
+
+            if (remainingBudget <= 0) {
+                log.warn("Total generation deadline reached ({}ms). Stopping provider failover after {}ms.", totalGenerationDeadlineMs, elapsed);
+                break;
+            }
+
             AiChatProviderClient client = providers.get(providerName);
+            if (client == null) continue;
             
             if (!client.isConfigured()) {
                 log.debug("Provider {} is not configured (missing key). Skipping.", providerName);
@@ -113,8 +155,19 @@ public class AiProviderRouter {
                 continue;
             }
             
-            log.info("Routing chat request to provider: {}", providerName);
-            AiProviderChatResponse response = client.chat(request);
+            long clientBaseTimeout = request.timeoutMs() > 0 ? request.timeoutMs() : timeoutMs;
+            long effectiveTimeout = Math.min(clientBaseTimeout, remainingBudget);
+
+            AiProviderChatRequest boundedRequest = new AiProviderChatRequest(
+                request.systemPrompt(),
+                request.userPrompt(),
+                request.maxOutputTokens(),
+                request.temperature(),
+                effectiveTimeout
+            );
+
+            log.info("Routing chat request to provider: {} with timeout {}ms (remaining budget: {}ms)", providerName, effectiveTimeout, remainingBudget);
+            AiProviderChatResponse response = client.chat(boundedRequest);
             
             if (response.statusCode() == 200 && response.content() != null && !response.content().isBlank()) {
                 return response;
@@ -126,14 +179,14 @@ public class AiProviderRouter {
                 providerDisabled.put(providerName, true);
             } else if (response.statusCode() == 429) {
                 log.warn("Provider {} rate limited (429). Setting cooldown for {} seconds.", providerName, cooldownSeconds);
-                providerCooldowns.put(providerName, now + (cooldownSeconds * 1000));
+                providerCooldowns.put(providerName, System.currentTimeMillis() + (cooldownSeconds * 1000));
             } else {
                 log.warn("Provider {} failed with status {}. Setting short cooldown.", providerName, response.statusCode());
-                providerCooldowns.put(providerName, now + (15000)); // 15s cooldown for 5xx
+                providerCooldowns.put(providerName, System.currentTimeMillis() + 15000L); // 15s cooldown for 5xx/timeout
             }
         }
         
-        log.error("All AI providers failed or are in cooldown/disabled.");
+        log.error("All AI providers failed, expired deadline, or are in cooldown/disabled.");
         return null;
     }
 }

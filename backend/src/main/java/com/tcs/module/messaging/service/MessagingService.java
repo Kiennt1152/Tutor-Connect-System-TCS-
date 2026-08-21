@@ -28,5 +28,7 @@ public interface MessagingService {
 
     SupportTicketDetailResponse reopenSupportTicket(Long ticketId);
 
+    SupportTicketDetailResponse reopenSupportTicket(Long ticketId, ReplyTicketRequest request);
+
     ReportResponse createReport(CreateReportRequest request);
 }

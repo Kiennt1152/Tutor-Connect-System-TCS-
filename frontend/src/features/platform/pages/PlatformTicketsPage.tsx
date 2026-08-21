@@ -262,6 +262,9 @@ function TicketDetailContent({
   onMergeTicket,
   onRedirectDispute,
 }: ContentProps) {
+  const currentCategory = editCategory || detail.category;
+  const isDispute = currentCategory === 'DISPUTE';
+
   return (
     <>
       <div className="adm-ticket-modal__header">
@@ -474,7 +477,7 @@ function TicketDetailContent({
             {showDisputeTransfer && (
               <div style={{ background: '#fffbeb', border: '1px solid #fde68a', borderRadius: '8px', padding: '12px', marginTop: '0.75rem' }}>
                 <div style={{ fontWeight: 600, color: '#92400e', marginBottom: '6px', fontSize: '0.9rem' }}>
-                  Chuyển tiếp sang luồng Tranh chấp & Báo cáo sự cố (BF-08)
+                  Chuyển tiếp sang luồng Tranh chấp & Báo cáo sự cố
                 </div>
                 <p style={{ fontSize: '0.8rem', color: '#b45309', marginBottom: '8px' }}>
                   Ticket sẽ được cập nhật sang danh mục DISPUTE, nâng mức ưu tiên lên HIGH và tự động tạo báo cáo sự cố trong trang /platform/reports.
@@ -488,7 +491,7 @@ function TicketDetailContent({
                 />
                 <textarea
                   className="adm-ticket-respond__textarea"
-                  placeholder="Ghi chú bàn giao chuyển tiếp sang BF-08 (tùy chọn)..."
+                  placeholder="Ghi chú bàn giao chuyển tiếp sang Tranh chấp (tùy chọn)..."
                   value={disputeNotes}
                   onChange={(e) => setDisputeNotes(e.target.value)}
                   rows={2}
@@ -502,7 +505,7 @@ function TicketDetailContent({
                     onClick={onRedirectDispute}
                     disabled={mutStatus === 'loading'}
                   >
-                    {mutStatus === 'loading' ? 'Đang chuyển...' : 'Xác nhận chuyển sang BF-08'}
+                    {mutStatus === 'loading' ? 'Đang chuyển...' : 'Xác nhận sang tranh chấp'}
                   </button>
                   <button
                     type="button"
@@ -557,15 +560,20 @@ function TicketDetailContent({
                   <button
                     type="button"
                     className="tcs-btn tcs-btn--ghost"
-                    style={{ borderColor: '#d97706', color: '#b45309' }}
+                    style={{
+                      borderColor: isDispute ? '#d97706' : '#cbd5e1',
+                      color: isDispute ? '#b45309' : '#94a3b8',
+                      cursor: isDispute ? 'pointer' : 'not-allowed',
+                    }}
+                    disabled={!isDispute || mutStatus === 'loading'}
                     onClick={() => {
                       setShowDisputeTransfer(true);
                       setShowClose(false);
                       setShowMerge(false);
                     }}
-                    title="Chuyển ticket này sang luồng Xử lý Tranh chấp BF-08"
+                    title={isDispute ? 'Chuyển ticket này sang luồng Xử lý Tranh chấp' : 'Chỉ khả dụng khi ticket thuộc danh mục Tranh chấp'}
                   >
-                    Chuyển sang Tranh chấp (BF-08)
+                    Chuyển sang Tranh chấp
                   </button>
                 </>
               )}

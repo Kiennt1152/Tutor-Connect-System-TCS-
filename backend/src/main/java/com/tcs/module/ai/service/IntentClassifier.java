@@ -43,14 +43,78 @@ public class IntentClassifier {
         return new IntentResult(detail.legacyIntent(), detail.confidence());
     }
 
+    public ClassificationDetail checkFastPath(String message) {
+        if (message == null || message.trim().isEmpty()) {
+            return null;
+        }
+        String trimmed = message.trim();
+        String lower = trimmed.toLowerCase(Locale.ROOT);
+        String normalized = VietnameseTextNormalizer.normalize(lower);
+        normalized = expandTeencode(normalized);
+
+        String[] words = normalized.split("\\s+");
+        if (words.length > 4) {
+            return null; // Fast path is strictly for ultra-short exact conversational tokens
+        }
+
+        // GREETING
+        if (normalized.equals("xin chao") || normalized.equals("chao bot") || normalized.equals("hello") ||
+            normalized.equals("hi bot") || normalized.equals("hey") || normalized.equals("alo") ||
+            normalized.equals("chao em") || normalized.equals("chao anh") || normalized.equals("hi tcs") ||
+            normalized.equals("chao ban") || normalized.equals("chao") || normalized.equals("hi") ||
+            normalized.equals("hello tcs")) {
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.GREETING, AiIntent.OUT_OF_SCOPE, 1.0, null);
+        }
+
+        // GOODBYE
+        if (normalized.equals("tam biet") || normalized.equals("bye") || normalized.equals("bye bot") ||
+            normalized.equals("hen gap lai") || normalized.equals("bai bai") || normalized.equals("goodbye")) {
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.GOODBYE, AiIntent.OUT_OF_SCOPE, 1.0, null);
+        }
+
+        // THANKS
+        if (normalized.equals("cam on") || normalized.equals("thank you") || normalized.equals("thanks") ||
+            normalized.equals("tks") || normalized.equals("cam on bot") || normalized.equals("cam on nha") ||
+            normalized.equals("cam on ban nhe") || normalized.equals("cam on ban")) {
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.THANKS, AiIntent.OUT_OF_SCOPE, 1.0, null);
+        }
+
+        // SMALL_TALK
+        if (normalized.equals("ban la ai") || normalized.equals("may la ai") || normalized.equals("who are you") ||
+            normalized.equals("ban ten gi") || normalized.equals("bot la ai")) {
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.SMALL_TALK, AiIntent.OUT_OF_SCOPE, 1.0, null);
+        }
+
+        // BOT_CAPABILITY_ASK
+        if (normalized.equals("ban lam duoc gi") || normalized.equals("bot lam duoc gi") ||
+            normalized.equals("chuc nang cua bot") || normalized.equals("ban co the lam gi")) {
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.BOT_CAPABILITY_ASK, AiIntent.FAQ_SUPPORT, 1.0, null);
+        }
+
+        return null;
+    }
+
     public ClassificationDetail classifyDetailed(String message) {
         if (message == null || message.trim().isEmpty()) {
             return new ClassificationDetail(AiDomain.OUT_OF_SCOPE, AiSubIntent.OUT_OF_SCOPE, AiIntent.OUT_OF_SCOPE, 0.3, null);
         }
 
         String lower = message.trim().toLowerCase(Locale.ROOT);
-        String normalized = VietnameseTextNormalizer.normalize(lower);
+        // Preprocess hypothetical markers in accented text before normalization to avoid collision with 'gia sư' (tutor)
+        String preProcessed = lower
+                .replaceAll("\\bgiả sử\\b", "gia_dinh_hypo")
+                .replaceAll("\\bgiả thiết\\b", "gia_dinh_hypo")
+                .replaceAll("\\bgiả định\\b", "gia_dinh_hypo")
+                .replaceAll("\\bgiả dụ\\b", "gia_dinh_hypo")
+                .replaceAll("\\bví dụ giả sử\\b", "gia_dinh_hypo");
+
+        String normalized = VietnameseTextNormalizer.normalize(preProcessed);
         normalized = expandTeencode(normalized);
+        // Also handle unaccented hypothetical phrasing patterns
+        normalized = normalized
+                .replaceAll("\\bgia su\\s+(la|nhu|toi|minh|em|neu|co|ban|he thong|admin|user)\\b", "gia_dinh_hypo $1")
+                .replaceAll("\\bvi du\\s+gia su\\b", "vi du gia_dinh_hypo")
+                .replaceAll("\\b(gia thiet|gia dinh|gia du)\\b", "gia_dinh_hypo");
 
         // =========================================================================
         // TIER 1: CONVERSATION & SAFETY FAST-PATH (Deterministic Level 0)
@@ -69,10 +133,16 @@ public class IntentClassifier {
         if (!containsBusinessKeyword(normalized)) {
             OpenDomainClassifier.OpenDomainResult earlyOpen = openDomainClassifier.classifyOpen(message);
             if (earlyOpen.confidence() >= 0.70) {
+                AiIntent legacyIntent = AiIntent.OUT_OF_SCOPE;
+                if (earlyOpen.subIntent() == AiSubIntent.MATH_CALCULATION) {
+                    legacyIntent = AiIntent.AI_TUTORING;
+                } else if (earlyOpen.subIntent() == AiSubIntent.PLATFORM_STATS) {
+                    legacyIntent = AiIntent.PLATFORM_STATS;
+                }
                 return new ClassificationDetail(
                     AiDomain.OPEN_DOMAIN,
                     earlyOpen.subIntent(),
-                    AiIntent.OUT_OF_SCOPE,
+                    legacyIntent,
                     earlyOpen.confidence(),
                     null
                 );
@@ -279,7 +349,8 @@ public class IntentClassifier {
         // 11. CATALOG_FAQ - SPECIFIC QUESTIONS (Before Marketplace to prevent "khối lớp nào" or "quy trình kết nối" matching class search)
         if (containsAny(normalized,
                 "trung tam tro giup", "tro giup o dau", "mon hoc nao", "khoi lop nao", "co nhung khoi lop", "khu vuc nao", "quy trinh ket noi",
-                "gioi thieu ve tcs", "tcs la gi", "he thong tcs hoat dong", "cac vai tro", "chinh sach nen tang", "cac mon hoc tren tcs", "huong dan su dung tcs", "chinh sach bao mat")) {
+                "gioi thieu ve tcs", "tcs la gi", "he thong tcs hoat dong", "he thong hoat dong", "hoat dong nhu the nao", "hoat dong ra sao", "mo hinh hoat dong", "he thong ket noi",
+                "cac vai tro", "chinh sach nen tang", "cac mon hoc tren tcs", "huong dan su dung tcs", "chinh sach bao mat")) {
             return new ClassificationDetail(AiDomain.CATALOG_FAQ, AiSubIntent.FAQ_SEARCH, AiIntent.FAQ_SUPPORT, 0.9, "/help");
         }
 
@@ -341,7 +412,7 @@ public class IntentClassifier {
 
         boolean hasSearchKeyword = containsAny(normalized,
                 "tim", "thue", "can", "kiem", "cho toi", "gioi thieu", "mon", "toan", "ly", "hoa", "anh", "van", "tin", "sinh", "su", "dia",
-                "ielts", "toeic", "tieng anh", "ngoai ngu", "he thong", "giao tiep",
+                "ielts", "toeic", "tieng anh", "ngoai ngu", "giao tiep",
                 "khu vuc", "cau giay", "dong da", "ba dinh", "ha noi", "hcm", "sai gon", "da nang",
                 "hoc phi", "duoi", "khoang", "k/buoi", "vnd", "luyen thi", "find", "looking", "near", "day kem", "tai nha", "1 kem 1", "online");
 
@@ -357,10 +428,16 @@ public class IntentClassifier {
         // 17. OPEN_DOMAIN (Math, Weather, Time/Date, General Knowledge, Entertainment)
         OpenDomainClassifier.OpenDomainResult openResult = openDomainClassifier.classifyOpen(message);
         if (openResult.confidence() >= 0.7) {
+            AiIntent legacyIntent = AiIntent.OUT_OF_SCOPE;
+            if (openResult.subIntent() == AiSubIntent.MATH_CALCULATION) {
+                legacyIntent = AiIntent.AI_TUTORING;
+            } else if (openResult.subIntent() == AiSubIntent.PLATFORM_STATS) {
+                legacyIntent = AiIntent.PLATFORM_STATS;
+            }
             return new ClassificationDetail(
                 AiDomain.OPEN_DOMAIN,
                 openResult.subIntent(),
-                AiIntent.OUT_OF_SCOPE,
+                legacyIntent,
                 openResult.confidence(),
                 null
             );
@@ -391,6 +468,7 @@ public class IntentClassifier {
         result = result.replaceAll("(?<![0-9])\\bko\\b", "khong");
         result = result.replaceAll("(?<![0-9])\\bdc\\b", "duoc");
         result = result.replaceAll("\\bgiasu\\b", "gia su");
+        result = result.replaceAll("\\bgs\\b", "gia su");
         result = result.replaceAll("\\bhocphi\\b", "hoc phi");
         result = result.replaceAll("\\bdaykem\\b", "day kem");
         result = result.replaceAll("\\btimlop\\b", "tim lop");
@@ -398,13 +476,30 @@ public class IntentClassifier {
     }
 
     private boolean hasBusinessIntent(String text) {
-        return containsAny(text,
+        String normalized = VietnameseTextNormalizer.normalize(text);
+        return containsAny(normalized,
             "gia su", "gs", "lop", "tim", "can", "thue", "nap tien", "rut tien",
-            "escrow", "hop dong", "dang ky", "hoc", "day", "toan", "ly", "hoa",
-            "anh", "van", "ticket", "ho tro", "khieu nai", "tranh chap", "bao cao");
+            "hoc phi", "mon toan", "mon ly", "mon hoa", "mon anh", "mon van",
+            "ticket", "tranh chap", "khiem nai", "dang ky", "dang nhap", "doi mat khau",
+            "bao nhieu nguoi dung", "thong ke", "doanh thu", "dashboard", "ho so");
     }
 
     private ClassificationDetail checkConversationSafety(String lower, String normalized) {
+        // PRIVACY & UNAUTHORIZED DATA EXFILTRATION / ADMIN SPOOFING
+        if (containsAny(normalized,
+                "lay danh sach acc", "lay tat ca acc", "lay toan bo acc", "danh sach acc", "tat ca acc",
+                "lay danh sach user", "lay tat ca user", "lay toan bo user", "danh sach user", "tat ca user",
+                "lay danh sach tai khoan", "lay tat ca tai khoan", "lay toan bo tai khoan", "danh sach tai khoan",
+                "lay danh sach nguoi dung", "lay tat ca nguoi dung", "lay toan bo nguoi dung", "danh sach nguoi dung",
+                "dump database", "dump user", "dump acc", "xuat toan bo database", "lay database",
+                "danh sach mat khau", "xem mat khau", "lay mat khau", "danh sach email",
+                "export all users", "get all users", "list all accounts", "dump all accounts") ||
+            ((containsAny(normalized, "admin", "quan tri vien") || lower.contains("admin")) &&
+             (containsAny(lower, "giả sử", "giả vờ", "đóng vai", "coi như") || containsAny(normalized, "gia_dinh_hypo", "dong vai", "gia vo", "coi nhu")) &&
+             containsAny(normalized, "acc", "user", "tai khoan", "nguoi dung", "database", "mat khau", "du lieu", "danh sach", "thong tin", "tat ca"))) {
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.OUT_OF_SCOPE, AiIntent.OUT_OF_SCOPE, 1.0, "/platform/users");
+        }
+
         // GREETING
         if (normalized.equals("xin chao") || normalized.equals("chao bot") || normalized.equals("hello") ||
             normalized.equals("hi bot") || normalized.equals("hey") || normalized.equals("alo") ||

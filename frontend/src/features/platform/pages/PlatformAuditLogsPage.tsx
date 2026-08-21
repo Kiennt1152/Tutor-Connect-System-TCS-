@@ -6,38 +6,194 @@ import type { AuditLogApiResponse, AuditLogFilters } from '../types/platformType
 import './PlatformAuditLogsPage.css';
 
 const ACTION_LABELS: Record<string, string> = {
-  UPDATE_USER_STATUS: 'Cập nhật trạng thái',
+  // Authentication & Session
+  LOGIN: 'Đăng nhập',
+  LOGOUT: 'Đăng xuất',
+  REGISTER: 'Đăng ký tài khoản',
+
+  // Analytics & Exports
+  EXPORT_ANALYTICS: 'Xuất báo cáo phân tích',
+  SCHEDULED_REPORT_GENERATION: 'Tạo báo cáo định kỳ',
+
+  // Users & Verification
+  UPDATE_USER_STATUS: 'Cập nhật trạng thái người dùng',
+  UPDATE_PROFILE: 'Cập nhật hồ sơ',
+  SUBMIT_VERIFICATION: 'Nộp hồ sơ xác minh',
   REVIEW_VERIFICATION: 'Duyệt xác minh',
+  CANCEL_VERIFICATION: 'Hủy hồ sơ xác minh',
+
+  // Penalties
   ISSUE_PENALTY: 'Tạo xử phạt',
   REVOKE_PENALTY: 'Thu hồi xử phạt',
+
+  // Announcements
   CREATE_ANNOUNCEMENT: 'Tạo thông báo',
   UPDATE_ANNOUNCEMENT: 'Sửa thông báo',
   DELETE_ANNOUNCEMENT: 'Xóa thông báo',
+
+  // Classes & Marketplace
   CREATE_CLASS: 'Tạo lớp học',
+  UPDATE_CLASS: 'Sửa lớp học',
+  PUBLISH_CLASS: 'Đăng lớp học',
   APPLY_CLASS: 'Ứng tuyển lớp học',
-  UPDATE_PROFILE: 'Cập nhật hồ sơ',
-  SUBMIT_VERIFICATION: 'Nộp hồ sơ xác minh',
+  REGISTER_CLASS: 'Ghi danh lớp học',
+  ADD_FAVORITE_TUTOR: 'Thêm gia sư yêu thích',
+  REMOVE_FAVORITE_TUTOR: 'Bỏ gia sư yêu thích',
+
+  // Center Operations
+  CREATE_CENTER_CLASS: 'Tạo lớp trung tâm',
+  UPDATE_CENTER_CLASS: 'Sửa lớp trung tâm',
+  PUBLISH_RECRUITMENT_POST: 'Đăng tuyển dụng',
+  POST_RECRUITMENT_FOR_REQUEST: 'Đăng tuyển theo yêu cầu',
+  UNASSIGN_TUTOR: 'Hủy gán gia sư',
+  ASSIGN_ASSISTANT: 'Gán trợ giảng',
+  UNASSIGN_ASSISTANT: 'Hủy gán trợ giảng',
+  DECIDE_RESCHEDULE: 'Duyệt dời lịch',
+  DECIDE_SUBSTITUTION: 'Duyệt dạy thay',
+
+  // FAQ & Catalog
+  CREATE_FAQ: 'Tạo FAQ',
+  UPDATE_FAQ: 'Sửa FAQ',
+  DELETE_FAQ: 'Xóa FAQ',
+  CREATE_CATEGORY: 'Tạo danh mục',
+  UPDATE_CATEGORY: 'Sửa danh mục',
+  DELETE_CATEGORY: 'Xóa danh mục',
+  CREATE_SYSTEM_PARAMETER: 'Tạo tham số',
+  UPDATE_SYSTEM_PARAMETER: 'Sửa tham số',
+  DELETE_SYSTEM_PARAMETER: 'Xóa tham số',
+
+  // Notification Templates
+  CREATE_NOTIFICATION_TEMPLATE: 'Tạo mẫu thông báo',
+  UPDATE_NOTIFICATION_TEMPLATE: 'Sửa mẫu thông báo',
+  DISABLE_NOTIFICATION_TEMPLATE: 'Vô hiệu mẫu thông báo',
+
+  // Support Tickets
+  RESPOND_TICKET: 'Phản hồi ticket',
+  CLOSE_TICKET: 'Đóng ticket',
+  UPDATE_TICKET: 'Cập nhật ticket',
   MERGE_TICKET: 'Gộp ticket',
   SLA_BREACH_ESCALATION: 'Nâng cấp SLA',
   REDIRECT_TICKET_TO_DISPUTE: 'Chuyển sang tranh chấp',
+
+  // Reports & Disputes & Reviews
+  CREATE_REPORT: 'Tạo báo cáo',
+  RESOLVE_REPORT: 'Xử lý báo cáo',
+  VIEW_CIRCUMVENTION_CONVERSATION: 'Xem hội thoại lách sàn',
+  REVIEW_CIRCUMVENTION: 'Xử lý lách sàn',
+  VERIFY_REVIEW: 'Duyệt đánh giá',
+  REJECT_REVIEW: 'Từ chối đánh giá',
+  DELETE_REVIEW: 'Xóa đánh giá',
+  CREATE_DISPUTE: 'Tạo tranh chấp',
+  RESOLVE_DISPUTE: 'Xử lý tranh chấp',
+
+  // Financial Controls
+  UPDATE_FEE_RATE: 'Cập nhật phí sàn',
+  UPDATE_REFUND_POLICY: 'Cập nhật chính sách hoàn tiền',
+  UPDATE_WITHDRAWAL_CONTROLS: 'Cập nhật kiểm soát rút tiền',
 };
 
 const ACTION_TONES: Record<string, string> = {
-  UPDATE_USER_STATUS: 'update',
+  // Positive / Review / Success (Green)
   REVIEW_VERIFICATION: 'review',
-  ISSUE_PENALTY: 'danger',
-  REVOKE_PENALTY: 'warning',
-  CREATE_ANNOUNCEMENT: 'create',
-  UPDATE_ANNOUNCEMENT: 'update',
-  DELETE_ANNOUNCEMENT: 'danger',
+  VERIFY_REVIEW: 'review',
+  RESOLVE_REPORT: 'review',
+  RESOLVE_DISPUTE: 'review',
+  DECIDE_RESCHEDULE: 'review',
+  DECIDE_SUBSTITUTION: 'review',
+
+  // Create / Add / Register / Login (Teal / Cyan)
   CREATE_CLASS: 'create',
-  APPLY_CLASS: 'warning',
+  CREATE_CENTER_CLASS: 'create',
+  CREATE_ANNOUNCEMENT: 'create',
+  CREATE_FAQ: 'create',
+  CREATE_CATEGORY: 'create',
+  CREATE_SYSTEM_PARAMETER: 'create',
+  CREATE_NOTIFICATION_TEMPLATE: 'create',
+  CREATE_REPORT: 'create',
+  CREATE_DISPUTE: 'create',
+  PUBLISH_CLASS: 'create',
+  PUBLISH_RECRUITMENT_POST: 'create',
+  POST_RECRUITMENT_FOR_REQUEST: 'create',
+  REGISTER_CLASS: 'create',
+  REGISTER: 'create',
+  LOGIN: 'create',
+  ADD_FAVORITE_TUTOR: 'create',
+  ASSIGN_ASSISTANT: 'create',
+
+  // Update / Edit / Modify / Export (Blue)
+  UPDATE_USER_STATUS: 'update',
   UPDATE_PROFILE: 'update',
-  SUBMIT_VERIFICATION: 'warning',
+  UPDATE_ANNOUNCEMENT: 'update',
+  UPDATE_CLASS: 'update',
+  UPDATE_CENTER_CLASS: 'update',
+  UPDATE_FAQ: 'update',
+  UPDATE_CATEGORY: 'update',
+  UPDATE_SYSTEM_PARAMETER: 'update',
+  UPDATE_NOTIFICATION_TEMPLATE: 'update',
+  UPDATE_TICKET: 'update',
+  RESPOND_TICKET: 'update',
+  CLOSE_TICKET: 'update',
   MERGE_TICKET: 'update',
+  EXPORT_ANALYTICS: 'update',
+  SCHEDULED_REPORT_GENERATION: 'update',
+  UPDATE_FEE_RATE: 'update',
+  UPDATE_REFUND_POLICY: 'update',
+  UPDATE_WITHDRAWAL_CONTROLS: 'update',
+  LOGOUT: 'update',
+
+  // Warnings / Escalation / In-Progress (Amber / Orange)
+  APPLY_CLASS: 'warning',
+  SUBMIT_VERIFICATION: 'warning',
+  REVOKE_PENALTY: 'warning',
   SLA_BREACH_ESCALATION: 'warning',
   REDIRECT_TICKET_TO_DISPUTE: 'warning',
+  VIEW_CIRCUMVENTION_CONVERSATION: 'warning',
+  REVIEW_CIRCUMVENTION: 'warning',
+
+  // Danger / Deletion / Penalty (Red)
+  ISSUE_PENALTY: 'danger',
+  DELETE_ANNOUNCEMENT: 'danger',
+  DELETE_FAQ: 'danger',
+  DELETE_CATEGORY: 'danger',
+  DELETE_SYSTEM_PARAMETER: 'danger',
+  DELETE_REVIEW: 'danger',
+  REJECT_REVIEW: 'danger',
+  CANCEL_VERIFICATION: 'danger',
+  DISABLE_NOTIFICATION_TEMPLATE: 'danger',
+  UNASSIGN_TUTOR: 'danger',
+  UNASSIGN_ASSISTANT: 'danger',
+  REMOVE_FAVORITE_TUTOR: 'danger',
 };
+
+function getActionLabel(action: string): string {
+  if (ACTION_LABELS[action]) return ACTION_LABELS[action];
+  return action
+    .toLowerCase()
+    .split('_')
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function getActionTone(action: string): string {
+  if (ACTION_TONES[action]) return ACTION_TONES[action];
+  const upper = action.toUpperCase();
+  if (upper.includes('DELETE') || upper.includes('REVOKE') || upper.includes('REJECT') || upper.includes('CANCEL') || upper.includes('DISABLE')) {
+    return 'danger';
+  }
+  if (upper.includes('REVIEW') || upper.includes('RESOLVE') || upper.includes('VERIFY') || upper.includes('APPROVE')) {
+    return 'review';
+  }
+  if (upper.includes('CREATE') || upper.includes('REGISTER') || upper.includes('PUBLISH') || upper.includes('ADD') || upper.includes('LOGIN')) {
+    return 'create';
+  }
+  if (upper.includes('SLA') || upper.includes('DISPUTE') || upper.includes('REPORT') || upper.includes('WARNING')) {
+    return 'warning';
+  }
+  if (upper.includes('UPDATE') || upper.includes('EXPORT') || upper.includes('RESPOND') || upper.includes('EDIT')) {
+    return 'update';
+  }
+  return 'default';
+}
 
 const JsonDisplay = ({ value }: { value: string | null }) => {
   const [expanded, setExpanded] = useState(false);
@@ -197,8 +353,8 @@ export default function PlatformAuditLogsPage() {
               </tr>
             ) : (
               logs.map((log) => {
-                const tone = ACTION_TONES[log.action] || 'default';
-                const label = ACTION_LABELS[log.action] || log.action;
+                const tone = getActionTone(log.action);
+                const label = getActionLabel(log.action);
                 return (
                   <tr key={log.auditId}>
                     <td>#{log.auditId}</td>

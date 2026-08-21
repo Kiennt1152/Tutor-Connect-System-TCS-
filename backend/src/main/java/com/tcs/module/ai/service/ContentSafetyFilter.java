@@ -27,6 +27,27 @@ public class ContentSafetyFilter {
         "suicide", "self harm", "kill myself", "tram cam muon chet"
     );
 
+    private static final Set<String> PRIVACY_DATA_EXFILTRATION_PATTERNS = Set.of(
+        "danh sach acc", "danh sach user", "danh sach tai khoan", "danh sach nguoi dung",
+        "tat ca acc", "tat ca user", "tat ca tai khoan", "tat ca nguoi dung",
+        "toan bo acc", "toan bo user", "toan bo tai khoan", "toan bo nguoi dung",
+        "lay tat ca acc", "lay danh sach acc", "lay toan bo acc", "lay tat ca user",
+        "lay danh sach user", "lay toan bo user", "lay tat ca tai khoan", "lay danh sach tai khoan",
+        "lay toan bo tai khoan", "lay tat ca nguoi dung", "lay danh sach nguoi dung",
+        "dump database", "dump user", "dump acc", "xuat toan bo database", "lay database",
+        "danh sach mat khau", "xem mat khau", "lay mat khau", "danh sach email",
+        "export all users", "get all users", "list all accounts", "dump all accounts"
+    );
+
+    private static final Set<String> ROLEPLAY_ADMIN_PATTERNS = Set.of(
+        "gia su toi la admin", "gia su minh la admin", "gia su em la admin",
+        "gia su la admin", "dong vai admin", "dong vai quan tri vien",
+        "gia vo la admin", "gia vo lam admin", "coi nhu toi la admin",
+        "coi nhu minh la admin", "neu toi la admin", "neu minh la admin",
+        "toi la admin he thong hay", "toi la admin hay cho toi", "toi la admin hay dua",
+        "act as admin", "pretend you are admin", "assume i am admin"
+    );
+
     public SafetyCheckResult checkQuery(String query) {
         if (query == null || query.isBlank()) {
             return new SafetyCheckResult(true, null, null, false);
@@ -57,6 +78,38 @@ public class ContentSafetyFilter {
             }
         }
 
+        // 3. Check Privacy, Data Protection & Admin Roleplay Injection
+        boolean isDataExfiltration = containsAny(normalized, PRIVACY_DATA_EXFILTRATION_PATTERNS);
+        boolean isRoleplayAdmin = containsAny(normalized, ROLEPLAY_ADMIN_PATTERNS);
+
+        if (isDataExfiltration || isRoleplayAdmin) {
+            if (isDataExfiltration || containsAny(normalized, "acc", "user", "tai khoan", "nguoi dung", "database", "mat khau", "du lieu", "danh sach", "thong tin")) {
+                String privacyMessage = "Vì lý do bảo mật thông tin và quyền riêng tư theo chính sách của TCS, " +
+                        "Trợ lý AI không được phép truy xuất hoặc cung cấp danh sách tài khoản, mật khẩu hay dữ liệu cá nhân của người dùng trên hệ thống.\n\n" +
+                        "🔒 **Dành cho Quản trị viên (Platform Admin):**\n" +
+                        "• Nếu bạn là Quản trị viên có thẩm quyền, vui lòng đăng nhập tài khoản Quản trị và truy cập trực tiếp vào [Quản lý Người dùng](/platform/users) hoặc [Bảng điều khiển Quản trị](/platform/analytics).\n" +
+                        "• Mọi thao tác tra cứu và quản lý dữ liệu cần được thực hiện trực tiếp trên giao diện quản trị với phiên xác thực hợp lệ theo quy định phân quyền (RBAC).";
+                return new SafetyCheckResult(false, "PRIVACY_AND_ACCESS_RESTRICTED", privacyMessage, false);
+            }
+        }
+
         return new SafetyCheckResult(true, null, null, false);
+    }
+
+    private boolean containsAny(String text, Set<String> patterns) {
+        for (String p : patterns) {
+            if (text.contains(p)) {
+                return true;
+            }
+        }
+        return false;
+    }
+    private boolean containsAny(String text, String... patterns) {
+        for (String p : patterns) {
+            if (text.contains(p)) {
+                return true;
+            }
+        }
+        return false;
     }
 }

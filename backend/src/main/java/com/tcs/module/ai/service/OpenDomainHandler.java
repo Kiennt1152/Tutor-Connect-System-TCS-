@@ -2,26 +2,27 @@ package com.tcs.module.ai.service;
 
 import com.tcs.module.ai.enums.AiSubIntent;
 import com.tcs.module.ai.util.VietnameseTextNormalizer;
-import java.time.Duration;
-import java.time.Instant;
+import com.tcs.module.catalog.repository.FaqEntryRepository;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
-@RequiredArgsConstructor
 public class OpenDomainHandler {
 
     private final WeatherService weatherService;
     private final ContentSafetyFilter contentSafetyFilter;
+    private final FaqEntryRepository faqEntryRepository;
 
     public record OpenDomainResponse(
         String answer,
@@ -38,11 +39,50 @@ public class OpenDomainHandler {
     }
 
     private static final Pattern SIMPLE_ARITHMETIC = Pattern.compile("([0-9]+(?:\\.[0-9]+)?)\\s*([+\\-*/÷×^%])\\s*([0-9]+(?:\\.[0-9]+)?)");
-    private final Map<String, String> responseCache = new ConcurrentHashMap<>();
+    
+    // Bounded LRU Cache with TTL to prevent memory leaks and serve fresh answers
+    private static final int MAX_CACHE_SIZE = 500;
+    private static final long CACHE_TTL_MS = 3600_000L; // 1 hour
+
+    private record CacheEntry(String value, long expiresAt) {}
+
+    private final Map<String, CacheEntry> responseCache = new LinkedHashMap<>(16, 0.75f, true) {
+        @Override
+        protected boolean removeEldestEntry(Map.Entry<String, CacheEntry> eldest) {
+            return size() > MAX_CACHE_SIZE;
+        }
+    };
 
     public OpenDomainHandler() {
-        this.weatherService = new WeatherService();
-        this.contentSafetyFilter = new ContentSafetyFilter();
+        this(new WeatherService(), new ContentSafetyFilter(), null);
+    }
+
+    public OpenDomainHandler(WeatherService weatherService, ContentSafetyFilter contentSafetyFilter) {
+        this(weatherService, contentSafetyFilter, null);
+    }
+
+    @Autowired
+    public OpenDomainHandler(
+            @Autowired(required = false) WeatherService weatherService,
+            @Autowired(required = false) ContentSafetyFilter contentSafetyFilter,
+            @Autowired(required = false) FaqEntryRepository faqEntryRepository) {
+        this.weatherService = weatherService != null ? weatherService : new WeatherService();
+        this.contentSafetyFilter = contentSafetyFilter != null ? contentSafetyFilter : new ContentSafetyFilter();
+        this.faqEntryRepository = faqEntryRepository;
+    }
+
+    private synchronized String getCachedResponse(String key) {
+        CacheEntry entry = responseCache.get(key);
+        if (entry == null) return null;
+        if (System.currentTimeMillis() > entry.expiresAt()) {
+            responseCache.remove(key);
+            return null;
+        }
+        return entry.value();
+    }
+
+    private synchronized void putCachedResponse(String key, String value) {
+        responseCache.put(key, new CacheEntry(value, System.currentTimeMillis() + CACHE_TTL_MS));
     }
 
     public OpenDomainResponse handle(AiSubIntent subIntent, String query, Map<String, String> extractedData) {
@@ -76,7 +116,16 @@ public class OpenDomainHandler {
     }
 
     public OpenDomainResponse handlePlatformStats(String topic) {
-        String answer = "Hiện tại trên hệ thống Tutor Connect System (TCS) có tổng cộng **205 câu hỏi thường gặp (FAQ)** được sắp xếp theo 10 chuyên mục chính:\n\n" +
+        long count = 0;
+        if (faqEntryRepository != null) {
+            try {
+                count = faqEntryRepository.count();
+            } catch (Exception e) {
+                log.warn("Failed to fetch dynamic FAQ count: {}", e.getMessage());
+            }
+        }
+        String countStr = count > 0 ? String.valueOf(count) : "hơn 200";
+        String answer = String.format("Hiện tại trên hệ thống Tutor Connect System (TCS) có tổng cộng **%s câu hỏi thường gặp (FAQ)** được sắp xếp theo 10 chuyên mục chính:\n\n" +
                 "1. 👤 **Tài khoản & Hồ sơ** (`AUTH_PROFILE`)\n" +
                 "2. 🛡️ **Xác minh danh tính & Bằng cấp** (`VERIFICATION`)\n" +
                 "3. 📚 **Thị trường tìm lớp & Gia sư** (`MARKETPLACE`)\n" +
@@ -86,7 +135,7 @@ public class OpenDomainHandler {
                 "7. ⭐ **Đánh giá & Uy tín** (`REVIEW_REPUTATION`)\n" +
                 "8. 🏢 **Trung tâm gia sư** (`CENTER_WORKFORCE`)\n" +
                 "9. 💬 **Tin nhắn & Ticket hỗ trợ** (`SUPPORT_TICKET`)\n" +
-                "10. ⚙️ **Quản trị & Cấu hình nền tảng** (`PLATFORM_ADMIN`)";
+                "10. ⚙️ **Quản trị & Cấu hình nền tảng** (`PLATFORM_ADMIN`)", countStr);
 
         return new OpenDomainResponse(
             answer,
@@ -120,11 +169,11 @@ public class OpenDomainHandler {
 
     public OpenDomainResponse handleMath(String expression) {
         String cacheKey = "math:" + (expression != null ? expression.trim().toLowerCase() : "");
-        String cachedAnswer = responseCache.get(cacheKey);
+        String cachedAnswer = getCachedResponse(cacheKey);
 
         String answer = (cachedAnswer != null) ? cachedAnswer : computeSimpleMath(expression);
         if (cachedAnswer == null && expression != null) {
-            responseCache.put(cacheKey, answer);
+            putCachedResponse(cacheKey, answer);
         }
 
         // Smart Steering: Only steer if it is complex math/algebra/calculus

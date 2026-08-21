@@ -55,10 +55,12 @@ public abstract class OpenAiCompatibleChatClient implements AiChatProviderClient
                     "max_tokens", request.maxOutputTokens()
             ));
 
+            long effectiveTimeout = request.timeoutMs() > 0 ? request.timeoutMs() : 15000L;
             HttpRequest req = HttpRequest.newBuilder()
                     .uri(URI.create(baseUrl + (baseUrl.endsWith("/") ? "" : "/") + "chat/completions"))
                     .header("Authorization", "Bearer " + apiKey)
                     .header("Content-Type", "application/json")
+                    .timeout(Duration.ofMillis(effectiveTimeout))
                     .POST(HttpRequest.BodyPublishers.ofString(payload, StandardCharsets.UTF_8))
                     .build();
 

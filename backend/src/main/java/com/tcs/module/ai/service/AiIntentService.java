@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+@lombok.extern.slf4j.Slf4j
 @Service
 public class AiIntentService {
 
@@ -33,6 +34,15 @@ public class AiIntentService {
     private final IntentClassifier intentClassifier;
     private final LlmIntentClassifierService llmIntentClassifierService;
 
+    @org.springframework.beans.factory.annotation.Value("${ai.semantic-first.enabled:false}")
+    private boolean semanticFirstEnabled = false;
+
+    @org.springframework.beans.factory.annotation.Value("${ai.semantic-first.rollout-percent:0}")
+    private int rolloutPercent = 0;
+
+    @org.springframework.beans.factory.annotation.Value("${ai.semantic-first.min-confidence:0.70}")
+    private double minConfidence = 0.70;
+
     public AiIntentService(IntentClassifier intentClassifier) {
         this(intentClassifier, null);
     }
@@ -43,8 +53,44 @@ public class AiIntentService {
         this.llmIntentClassifierService = llmIntentClassifierService;
     }
 
+    public void setSemanticFirstEnabled(boolean enabled) {
+        this.semanticFirstEnabled = enabled;
+    }
+
+    public boolean isSemanticFirstEnabled() {
+        return this.semanticFirstEnabled;
+    }
+
+    public void setRolloutPercent(int rolloutPercent) {
+        this.rolloutPercent = rolloutPercent;
+    }
+
+    public int getRolloutPercent() {
+        return this.rolloutPercent;
+    }
+
+    public void setMinConfidence(double minConfidence) {
+        this.minConfidence = minConfidence;
+    }
+
+    public double getMinConfidence() {
+        return this.minConfidence;
+    }
+
+    public boolean isSemanticFirstEligible(Long sessionId, Long userId) {
+        if (!semanticFirstEnabled) return false;
+        if (rolloutPercent <= 0) return false;
+        if (rolloutPercent >= 100) return true;
+
+        String key = (userId != null) ? ("U_" + userId) : (sessionId != null ? ("S_" + sessionId) : null);
+        if (key == null) return false; // Anonymous without session stays on deterministic legacy path
+
+        int bucket = (key.hashCode() & 0x7fffffff) % 100;
+        return bucket < rolloutPercent;
+    }
+
     public IntentResultWithEntities classify(String message) {
-        DetailedIntentResult detailed = classifyAndExtractDetailed(message);
+        DetailedIntentResult detailed = classifyAndExtractDetailed(message, null, null);
         return new IntentResultWithEntities(detailed.legacyIntent(), detailed.confidence(), detailed.entities());
     }
 
@@ -53,18 +99,53 @@ public class AiIntentService {
     }
 
     public DetailedIntentResult classifyAndExtractDetailed(String message) {
-        IntentClassifier.ClassificationDetail detail = intentClassifier.classifyDetailed(message);
+        return classifyAndExtractDetailed(message, null, null);
+    }
 
-        // HYBRID INTENT CLASSIFICATION:
-        // When keyword classifier is uncertain (confidence < 0.85 or OUT_OF_SCOPE),
-        // fallback to LLM Semantic Intent Classifier to understand creative/informal user phrasing.
-        if (detail.confidence() < 0.85 || detail.domain() == AiDomain.OUT_OF_SCOPE) {
-            if (llmIntentClassifierService != null) {
-                IntentClassifier.ClassificationDetail llmDetail = llmIntentClassifierService.classifyWithLlm(message);
-                if (llmDetail != null && llmDetail.confidence() >= 0.70) {
+    public DetailedIntentResult classifyAndExtractDetailed(String message, Long sessionId, Long userId) {
+        if (message == null || message.trim().isEmpty()) {
+            return new DetailedIntentResult(
+                AiDomain.OUT_OF_SCOPE,
+                AiSubIntent.OUT_OF_SCOPE,
+                AiIntent.OUT_OF_SCOPE,
+                0.0,
+                Map.of(),
+                null
+            );
+        }
+
+        boolean useSemanticFirst = isSemanticFirstEligible(sessionId, userId);
+        IntentClassifier.ClassificationDetail detail;
+
+        if (useSemanticFirst && llmIntentClassifierService != null) {
+            // =========================================================================
+            // SEMANTIC-FIRST ROUTING POLICY
+            // 1. Check ultra-narrow fast path (< 4 words exact greetings / safety)
+            // 2. Call LLM Semantic Intent Classifier for all other queries
+            // 3. Fallback to Keyword Classifier only if LLM fails / timeouts / low confidence
+            // =========================================================================
+            IntentClassifier.ClassificationDetail fastPath = intentClassifier.checkFastPath(message);
+            if (fastPath != null) {
+                detail = fastPath;
+            } else {
+                IntentClassifier.ClassificationDetail llmDetail = null;
+                try {
+                    llmDetail = llmIntentClassifierService.classifyWithLlm(message);
+                } catch (Exception e) {
+                    log.warn("LLM Intent Classifier invocation failed: {}", e.getMessage());
+                }
+
+                if (llmDetail != null && llmDetail.confidence() >= minConfidence) {
                     detail = llmDetail;
+                } else {
+                    detail = intentClassifier.classifyDetailed(message); // KEYWORD_FALLBACK
                 }
             }
+        } else {
+            // =========================================================================
+            // DETERMINISTIC KEYWORD ROUTING (Semantic-First Disabled / Kill Switch)
+            // =========================================================================
+            detail = intentClassifier.classifyDetailed(message);
         }
 
         Map<String, String> entities = extractEntities(message);

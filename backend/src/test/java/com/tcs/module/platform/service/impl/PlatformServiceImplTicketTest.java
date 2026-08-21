@@ -501,7 +501,14 @@ class PlatformServiceImplTicketTest {
         platformService.redirectTicketToDispute(TICKET_ID, req);
 
         assertEquals(tutoringClass, ticket.getTargetClass());
-        verify(reportRepository).save(any());
+        org.mockito.ArgumentCaptor<com.tcs.module.platform.entity.Report> reportCaptor = org.mockito.ArgumentCaptor.forClass(com.tcs.module.platform.entity.Report.class);
+        verify(reportRepository).save(reportCaptor.capture());
+        com.tcs.module.platform.entity.Report savedReport = reportCaptor.getValue();
+        assertNotNull(savedReport);
+        assertEquals(com.tcs.module.platform.enums.ReportCategory.OTHER, savedReport.getCategory());
+        assertEquals(com.tcs.module.platform.enums.ReportTargetType.CLASS, savedReport.getTargetType());
+        assertEquals(classId, savedReport.getTargetId());
+        assertEquals(com.tcs.module.platform.enums.ReportStatus.PENDING, savedReport.getStatus());
     }
 
     @Test
