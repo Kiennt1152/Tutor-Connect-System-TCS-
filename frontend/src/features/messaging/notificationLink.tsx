@@ -82,7 +82,9 @@ export function notificationLink(
 
   if (n.referenceType === 'ESCROW') {
     if (isAdmin) return APP_ROUTES.platformEscrows;
-    return APP_ROUTES.contract;
+    if (role === 'CLIENT') return APP_ROUTES.contract;
+    if (role === 'TUTOR' || role === 'TUTOR_CENTER') return APP_ROUTES.finance;
+    return APP_ROUTES.finance;
   }
 
   if (n.referenceType === 'PAYMENT_TRANSACTION') {

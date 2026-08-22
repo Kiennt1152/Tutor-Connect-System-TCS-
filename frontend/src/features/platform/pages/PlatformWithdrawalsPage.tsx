@@ -226,14 +226,16 @@ export default function PlatformWithdrawalsPage() {
                         </td>
                         <td>
                           <div className="pw-user-cell">
-                            <strong>{item.requester}</strong>
-                            <span>{item.requestType === 'REFUND' ? 'Người nhận hoàn tiền' : `Ví #${item.walletId}`}</span>
+                            <strong title={item.requester}>{item.requester}</strong>
+                            <span title={item.requestType === 'REFUND' ? 'Người nhận hoàn tiền' : `Ví #${item.walletId}`}>
+                              {item.requestType === 'REFUND' ? 'Người nhận hoàn tiền' : `Ví #${item.walletId}`}
+                            </span>
                           </div>
                         </td>
                         <td className="pw-table__amount">{item.amount}</td>
                         <td>
                           <div className="pw-bank-cell">
-                            <strong>{item.bankName}</strong>
+                            <strong title={item.bankName}>{item.bankName}</strong>
                             <div className="pw-bank-row">
                               <span className="pw-bank-row__account" title={visibleAccountIds[item.id] && item.raw.accountNo
                                 ? item.raw.accountNo
@@ -260,7 +262,7 @@ export default function PlatformWithdrawalsPage() {
                                 <VisibilityIcon hidden={!!visibleAccountIds[item.id]} />
                               </button>
                             </div>
-                            <span className="pw-bank-cell__holder">
+                            <span className="pw-bank-cell__holder" title={item.accountHolderName || '—'}>
                               {item.accountHolderName || '—'}
                             </span>
                           </div>

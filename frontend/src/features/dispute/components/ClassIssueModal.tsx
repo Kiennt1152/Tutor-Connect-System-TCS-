@@ -38,6 +38,20 @@ const ISSUE_TYPE_LABELS: Record<ClassIssueType, string> = {
   OTHER: 'Khác',
 };
 
+const ESCROW_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Đang chờ',
+  FUNDED: 'Đã nạp',
+  RELEASED: 'Đã giải ngân',
+  REFUNDED: 'Đã hoàn tiền',
+  ON_HOLD: 'Đang giữ',
+  DISPUTED: 'Đang tranh chấp',
+};
+
+function formatEscrowStatus(status?: string | null) {
+  if (!status) return '—';
+  return ESCROW_STATUS_LABELS[status] ?? status;
+}
+
 const REQUESTED_ACTION_OPTIONS: Array<[ClassIssueRequestedAction, string]> = [
   ['ESCALATE_DISPUTE', 'Chuyển thành tranh chấp'],
   ['TERMINATE_CLASS', 'Đề nghị chấm dứt lớp'],
@@ -285,8 +299,8 @@ export function ClassIssueModal({
               {success.escalatedToDispute && success.disputeId ? (
                 <p>
                   Mã báo cáo #{success.reportId}, mã tranh chấp #{success.disputeId}. Escrow liên quan
-                  đã được chuyển sang trạng thái {success.escrowStatus}. Admin sẽ thấy hồ sơ trong mục
-                  Tranh chấp và Báo cáo sự cố lớp.
+                  đã được chuyển sang trạng thái {formatEscrowStatus(success.escrowStatus)}. Admin sẽ
+                  thấy hồ sơ trong mục Tranh chấp và Báo cáo sự cố lớp.
                 </p>
               ) : (
                 <p>

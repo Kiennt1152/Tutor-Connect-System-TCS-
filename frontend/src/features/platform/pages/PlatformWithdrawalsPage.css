@@ -47,9 +47,24 @@
   width: 118px;
 }
 
+.pw-table th:nth-child(3),
+.pw-table td:nth-child(3) {
+  width: 190px;
+}
+
 .pw-table th:nth-child(4),
 .pw-table td:nth-child(4) {
-  width: 170px;
+  width: 140px;
+}
+
+.pw-table th:nth-child(5),
+.pw-table td:nth-child(5) {
+  width: 240px;
+}
+
+.pw-table th:nth-child(6),
+.pw-table td:nth-child(6) {
+  width: 180px;
 }
 
 .pw-table th:nth-child(7),
@@ -57,9 +72,19 @@
   width: 120px;
 }
 
+.pw-table th:nth-child(8),
+.pw-table td:nth-child(8) {
+  width: 150px;
+}
+
 .pw-table th:nth-child(9),
 .pw-table td:nth-child(9) {
   width: 190px;
+}
+
+.pw-table {
+  table-layout: fixed;
+  min-width: 1360px;
 }
 
 .pw-table__id,
@@ -102,6 +127,7 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  min-width: 0;
   text-align: left;
 }
 
@@ -115,14 +141,21 @@
 .pw-bank-row__account {
   min-width: 0;
   flex: 1 1 auto;
-  overflow-wrap: anywhere;
-  word-break: break-word;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+  font-variant-numeric: tabular-nums;
 }
 
 .pw-user-cell strong,
 .pw-bank-cell strong {
   color: var(--color-text-primary);
   font-size: var(--fs-body-md);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pw-user-cell span,
@@ -132,10 +165,13 @@
 .pw-time-cell small {
   color: var(--color-text-secondary);
   font-size: var(--fs-body-sm);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pw-bank-cell__holder {
-  word-break: break-word;
+  display: block;
 }
 
 .pw-account-toggle {
