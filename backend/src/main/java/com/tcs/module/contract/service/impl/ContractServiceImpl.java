@@ -186,35 +186,37 @@ public class ContractServiceImpl implements ContractService {
         contracts.addAll(contractRepository.findByAssignment_Tutor_UserId(userId));
         contracts.addAll(contractRepository.findByAssignment_ClassCreator_UserId(userId));
         contracts.addAll(contractRepository.findByClassStudent_UserId(userId));
-        appendSignedPrivateAssignmentContracts(contracts, userId);
+        appendVisiblePrivateAssignmentContracts(contracts, userId);
         // BF-03: thỏa thuận hợp tác center–gia sư (gia sư ký, trung tâm theo dõi).
         contracts.addAll(contractRepository.findByRecruitmentApplication_Tutor_UserId(userId));
         contracts.addAll(contractRepository.findByRecruitmentApplication_CenterUser_UserId(userId));
         return contracts.stream().map(this::toContractResponse).toList();
     }
 
-    private void appendSignedPrivateAssignmentContracts(LinkedHashSet<Contract> contracts, Long userId) {
+    private void appendVisiblePrivateAssignmentContracts(LinkedHashSet<Contract> contracts, Long userId) {
         tutorRepository.findByUser_UserId(userId)
                 .ifPresent(tutor -> classAssignmentRepository
                         .findByTutor_TutorIdOrderByAssignedDateDesc(tutor.getTutorId())
-                        .forEach(assignment -> appendSignedAssignmentContract(contracts, assignment)));
+                        .forEach(assignment -> appendVisibleAssignmentContract(contracts, assignment)));
         classAssignmentRepository.findByApplication_TutoringClass_Creator_UserIdOrderByAssignedDateDesc(userId)
-                .forEach(assignment -> appendSignedAssignmentContract(contracts, assignment));
+                .forEach(assignment -> appendVisibleAssignmentContract(contracts, assignment));
     }
 
-    private void appendSignedAssignmentContract(LinkedHashSet<Contract> contracts, ClassAssignment assignment) {
+    private void appendVisibleAssignmentContract(LinkedHashSet<Contract> contracts, ClassAssignment assignment) {
         if (assignment == null
                 || assignment.getAssignmentId() == null
-                || assignment.getTutorSignedAt() == null
                 || assignment.getClientSignedAt() == null) {
             return;
         }
         Contract contract = contractRepository.findByAssignment_AssignmentId(assignment.getAssignmentId())
                 .orElseGet(() -> generateForAssignment(assignment.getAssignmentId()));
         LocalDateTime signedAt = latestTime(assignment.getClientSignedAt(), assignment.getTutorSignedAt());
-        contract.setStatus(ContractStatus.SIGNED);
-        contract.setSignedAt(signedAt);
-        contract.setConfirmedAt(signedAt);
+        boolean fullySigned = assignment.getClientSignedAt() != null && assignment.getTutorSignedAt() != null;
+        if (fullySigned && (contract.getStatus() == ContractStatus.PENDING || contract.getStatus() == ContractStatus.DRAFT)) {
+            contract.setStatus(ContractStatus.SIGNED);
+            contract.setSignedAt(signedAt);
+            contract.setConfirmedAt(signedAt);
+        }
         Contract saved = contractRepository.save(contract);
 
         TutoringClass tutoringClass = assignment.getApplication() != null
@@ -429,17 +431,19 @@ public class ContractServiceImpl implements ContractService {
 
         User signer = userRepository.findById(authHelper.currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+        LocalDateTime signedAt = LocalDateTime.now();
         signature.setSigner(signer);
         signature.setSignatureStatus(ContractSignatureStatus.SIGNED);
-        signature.setSignedAt(LocalDateTime.now());
+        signature.setSignedAt(signedAt);
         signature.setSignatureData("OTP_VERIFIED:" + signer.getEmail() + ":"
-                + LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
+                + signedAt.format(DateTimeFormatter.ISO_LOCAL_DATE_TIME));
         contractSignatureRepository.save(signature);
+        syncAssignmentSignedAt(contract, role, signedAt);
 
         if (isFullySigned(contractId)) {
             contract.setStatus(ContractStatus.SIGNED);
-            contract.setSignedAt(LocalDateTime.now());
-            contract.setConfirmedAt(LocalDateTime.now());
+            contract.setSignedAt(signedAt);
+            contract.setConfirmedAt(signedAt);
             contractRepository.save(contract);
             // main: khóa escrow + phát ContractSigned (đánh giá/uy tín/tất toán).
             publishContractSigned(contract);
@@ -466,6 +470,25 @@ public class ContractServiceImpl implements ContractService {
         SignWithOtpRequest otpRequest = new SignWithOtpRequest();
         otpRequest.setOtpCode(request.getOtpCode());
         return signWithOtp(contractId, otpRequest);
+    }
+
+    private void syncAssignmentSignedAt(Contract contract, PartyRole role, LocalDateTime signedAt) {
+        if (contract == null || contract.getAssignment() == null || role == null || signedAt == null) {
+            return;
+        }
+        ClassAssignment assignment = contract.getAssignment();
+        boolean changed = false;
+        if (role == PartyRole.TUTOR && assignment.getTutorSignedAt() == null) {
+            assignment.setTutorSignedAt(signedAt);
+            changed = true;
+        } else if ((role == PartyRole.CLIENT || role == PartyRole.CENTER)
+                && assignment.getClientSignedAt() == null) {
+            assignment.setClientSignedAt(signedAt);
+            changed = true;
+        }
+        if (changed) {
+            classAssignmentRepository.save(assignment);
+        }
     }
 
     @Override

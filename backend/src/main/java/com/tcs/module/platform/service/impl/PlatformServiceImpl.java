@@ -396,6 +396,9 @@ public class PlatformServiceImpl implements PlatformService {
         auditLogService.record("REVIEW_VERIFICATION", "VerificationRequest", verificationId, null, java.util.Map.of("status", request.getStatus(), "notes", request.getAdminNotes() != null ? request.getAdminNotes() : ""));
 
         recordVerificationHistory(saved, oldStatus, request.getStatus(), adminId);
+        if (request.getStatus() == VerificationStatus.VERIFIED) {
+            deactivatePreviousVerifiedRequests(saved, adminId);
+        }
         if (request.getStatus() == VerificationStatus.VERIFIED
                 || request.getStatus() == VerificationStatus.REJECTED) {
             ProfileVerificationStatus profileStatus = request.getStatus() == VerificationStatus.VERIFIED
@@ -413,6 +416,51 @@ public class PlatformServiceImpl implements PlatformService {
             sendVerificationNotification(saved, request.getStatus());
         }
         return toVerificationResponse(saved);
+    }
+
+    private void deactivatePreviousVerifiedRequests(VerificationRequest approvedRequest, Long adminId) {
+        if (approvedRequest == null
+                || approvedRequest.getVerificationId() == null
+                || approvedRequest.getUser() == null
+                || approvedRequest.getUser().getUserId() == null
+                || approvedRequest.getVerificationType() == null) {
+            return;
+        }
+
+        List<VerificationRequest> previousVerifiedRequests = verificationRequestRepository
+                .findByUser_UserIdOrderBySubmittedAtDesc(approvedRequest.getUser().getUserId())
+                .stream()
+                .filter(v -> v.getVerificationId() != null
+                        && !v.getVerificationId().equals(approvedRequest.getVerificationId()))
+                .filter(v -> v.getVerificationType() == approvedRequest.getVerificationType())
+                .filter(v -> v.getStatus() == VerificationStatus.VERIFIED)
+                .toList();
+
+        if (previousVerifiedRequests.isEmpty()) {
+            return;
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        for (VerificationRequest previous : previousVerifiedRequests) {
+            VerificationStatus oldStatus = previous.getStatus();
+            previous.setStatus(VerificationStatus.REJECTED);
+            previous.setReviewedAt(now);
+            previous.setAdminNotes(buildSupersededVerificationNote(
+                    approvedRequest.getVerificationId(),
+                    previous.getAdminNotes()));
+            previous.setRejectionReason(previous.getAdminNotes());
+            verificationRequestRepository.save(previous);
+            recordVerificationHistory(previous, oldStatus, VerificationStatus.REJECTED, adminId);
+        }
+    }
+
+    private String buildSupersededVerificationNote(Long approvedVerificationId, String existingNote) {
+        String supersededNote = "Hồ sơ này đã được vô hiệu vì đã có hồ sơ xác minh mới #"
+                + approvedVerificationId + " được duyệt.";
+        if (!StringUtils.hasText(existingNote)) {
+            return supersededNote;
+        }
+        return existingNote + "\n" + supersededNote;
     }
 
     private void recordVerificationHistory(VerificationRequest request,

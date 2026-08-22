@@ -112,6 +112,21 @@ function verificationTypeLabel(
   return 'Gia sư';
 }
 
+function isSupersededVerification(verification: Verification): boolean {
+  if (verification.status !== 'REJECTED') {
+    return false;
+  }
+  const text = `${verification.adminNotes ?? ''} ${verification.rejectionReason ?? ''}`.toLowerCase();
+  return text.includes('vô hiệu') || text.includes('thay thế bởi hồ sơ xác minh mới');
+}
+
+function displayVerificationStatus(verification: Verification) {
+  if (isSupersededVerification(verification)) {
+    return { label: 'Đã vô hiệu', variant: 'warn' };
+  }
+  return mapVerificationStatus(verification.status);
+}
+
 export default function VerificationPage() {
   const { user } = useAuth();
   // Thông báo khi bị điều hướng tới đây (VD: bấm ứng tuyển nhưng chưa xác minh).
@@ -460,7 +475,7 @@ function DoneView({
     return <div className="verification-empty">Chưa có yêu cầu xác minh nào.</div>;
   }
 
-  const statusInfo = mapVerificationStatus(latest.status);
+  const statusInfo = displayVerificationStatus(latest);
   const palette = getPalette(statusInfo.variant);
   const submittedLabel = latest.submittedAt
     ? new Date(latest.submittedAt).toLocaleString()
@@ -492,7 +507,7 @@ function DoneView({
         </span>
         <span style={{ fontSize: 13, color: '#666' }}>{submittedLabel}</span>
       </div>
-      {latest.rejectionReason && (
+      {latest.rejectionReason && !isSupersededVerification(latest) && (
         <div className="verification-alert verification-alert--error">
           <strong>Lý do từ chối:</strong> {latest.rejectionReason}
         </div>
@@ -751,7 +766,7 @@ function VerificationHistory({
   return (
     <ul className="verification-history-list">
       {verifications.map((v) => {
-        const info = mapVerificationStatus(v.status);
+        const info = displayVerificationStatus(v);
         const palette = getPalette(info.variant);
         const submittedLabel = v.submittedAt
           ? new Date(v.submittedAt).toLocaleString()
@@ -798,7 +813,7 @@ function VerificationHistory({
               <div className="verification-history-item__date">
                 {submittedLabel}
               </div>
-              {v.rejectionReason && (
+              {v.rejectionReason && !isSupersededVerification(v) && (
                 <div className="verification-history-item__reason">
                   Lý do từ chối: {v.rejectionReason}
                 </div>
