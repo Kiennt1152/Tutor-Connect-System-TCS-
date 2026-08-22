@@ -13,13 +13,15 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Only serve public uploads (avatars) as static resources.
-        // Private files (CCCD, licenses) are served through FileAccessController with auth.
-        String absolutePath = java.nio.file.Paths.get(storagePath, "public").toAbsolutePath().normalize().toUri().toString();
+        String absolutePath = java.nio.file.Paths.get(storagePath).toAbsolutePath().normalize().toUri().toString();
         if (!absolutePath.endsWith("/")) {
             absolutePath = absolutePath + "/";
         }
-        registry.addResourceHandler("/uploads/public/**")
+        registry.addResourceHandler("/uploads/**")
                 .addResourceLocations(absolutePath);
+        registry.addResourceHandler("/uploads/public/**")
+                .addResourceLocations(absolutePath + "public/");
+        registry.addResourceHandler("/uploads/avatars/**")
+                .addResourceLocations(absolutePath + "avatars/");
     }
 }

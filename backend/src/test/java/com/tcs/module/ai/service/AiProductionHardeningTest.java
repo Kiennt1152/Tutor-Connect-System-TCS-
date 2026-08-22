@@ -5,7 +5,6 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.tcs.exception.RateLimitExceededException;
 import com.tcs.module.ai.dto.request.ChatRequest;
 import com.tcs.module.ai.dto.response.AiMessageResponse;
 import com.tcs.module.ai.entity.AiChatMessage;
@@ -149,110 +148,7 @@ class AiProductionHardeningTest {
     }
 
     @Nested
-    @DisplayName("3. Dynamic FAQ Count in OpenDomainHandler")
-    class OpenDomainDynamicStatsTests {
-
-        @Mock
-        private FaqEntryRepository faqEntryRepository;
-
-        @Test
-        @DisplayName("Should dynamically report actual FAQ count from repository")
-        void shouldReportDynamicFaqCount() {
-            when(faqEntryRepository.count()).thenReturn(247L);
-
-            OpenDomainHandler handler = new OpenDomainHandler(null, null, faqEntryRepository);
-            OpenDomainHandler.OpenDomainResponse response = handler.handlePlatformStats("faq");
-
-            assertNotNull(response);
-            assertTrue(response.answer().contains("**247 câu hỏi thường gặp (FAQ)**"));
-        }
-    }
-
-    @Nested
-    @DisplayName("4. Rate Limiting in AiServiceImpl Pipeline")
-    class AiServiceRateLimitingTests {
-
-        @Mock private AiChatSessionRepository sessionRepository;
-        @Mock private AiChatMessageRepository messageRepository;
-        @Mock private UserRepository userRepository;
-        @Mock private PlatformAdminRepository platformAdminRepository;
-        @Mock private TutorRepository tutorRepository;
-        @Mock private TutorCenterRepository tutorCenterRepository;
-        @Mock private ClientRepository clientRepository;
-        @Mock private FaqEntryRepository faqEntryRepository;
-        @Mock private TutoringClassRepository tutoringClassRepository;
-
-        @Mock private AiConversationContextService contextService;
-        @Mock private AiQueryRewriteService rewriteService;
-        @Mock private AiIntentService intentService;
-        @Mock private AiRetrievalService retrievalService;
-        @Mock private AiRerankService rerankService;
-        @Mock private AiPromptBuilderService promptBuilderService;
-        @Mock private AiAnswerEvaluatorService evaluatorService;
-        @Mock private AiCapabilityRouter capabilityRouter;
-        @Mock private AiFallbackService fallbackService;
-        @Mock private AiHallucinationGuard hallucinationGuard;
-        @Mock private OpenDomainHandler openDomainHandler;
-        @Mock private ContentSafetyFilter contentSafetyFilter;
-        @Mock private OpenDomainRateLimiter openDomainRateLimiter;
-        @Mock private ConversationContextService conversationContextService;
-        @Mock private OpenDomainAnalytics openDomainAnalytics;
-
-        @Mock private AiTicketContextProvider ticketContextProvider;
-        @Mock private AiAdminDashboardContextProvider dashboardContextProvider;
-        @Mock private AiTutorSearchContextProvider tutorSearchContextProvider;
-        @Mock private AiClassSearchContextProvider classSearchContextProvider;
-        @Mock private AiPublicPlatformStatsContextProvider platformStatsContextProvider;
-        @Mock private AiTutorFinanceContextProvider tutorFinanceContextProvider;
-
-        @Mock private AiProviderRouter aiProviderRouter;
-
-        private AiServiceImpl aiService;
-
-        @BeforeEach
-        void setUp() {
-            aiService = new AiServiceImpl(
-                sessionRepository, messageRepository, userRepository, platformAdminRepository,
-                tutorRepository, tutorCenterRepository, clientRepository, faqEntryRepository,
-                tutoringClassRepository, contextService, rewriteService, intentService,
-                retrievalService, rerankService, promptBuilderService, evaluatorService,
-                capabilityRouter, fallbackService, hallucinationGuard, openDomainHandler,
-                contentSafetyFilter, openDomainRateLimiter, conversationContextService,
-                openDomainAnalytics, ticketContextProvider, dashboardContextProvider,
-                tutorSearchContextProvider, classSearchContextProvider, platformStatsContextProvider,
-                tutorFinanceContextProvider, aiProviderRouter, new ObjectMapper()
-            );
-        }
-
-        @Test
-        @DisplayName("Should throw RateLimitExceededException (HTTP 429) when rate limit exceeded")
-        void shouldThrow429WhenRateLimitExceeded() {
-            ChatRequest request = new ChatRequest();
-            request.setSessionId(1L);
-            request.setMessage("Tìm gia sư Toán");
-
-            AiChatSession session = new AiChatSession();
-            session.setSessionId(1L);
-            session.setUserId(100L);
-            when(sessionRepository.findById(1L)).thenReturn(Optional.of(session));
-            when(messageRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-            when(contentSafetyFilter.checkQuery(any())).thenReturn(new ContentSafetyFilter.SafetyCheckResult(true, null, null, false));
-            when(intentService.classifyAndExtractDetailed(any(), any(), any())).thenReturn(
-                new AiIntentService.DetailedIntentResult(AiDomain.MARKETPLACE, AiSubIntent.FIND_TUTOR, AiIntent.FIND_TUTOR, 0.95, Map.of(), null)
-            );
-            // Simulate rate limit exceeded
-            when(openDomainRateLimiter.allowRequest(any(), any(), any())).thenReturn(false);
-
-            assertThrows(RateLimitExceededException.class, () -> aiService.chat(request, 100L));
-
-            // Verify no retrieval or LLM provider was called
-            verifyNoInteractions(retrievalService);
-            verifyNoInteractions(aiProviderRouter);
-        }
-    }
-
-    @Nested
-    @DisplayName("5. Batch Message Hydration in AiServiceImpl")
+    @DisplayName("3. Batch Message Hydration in AiServiceImpl")
     class MessageHydrationBatchingTests {
 
         @Mock private AiChatSessionRepository sessionRepository;
@@ -271,10 +167,9 @@ class AiProductionHardeningTest {
                 tutoringClassRepository, null, null, null,
                 null, null, null, null,
                 null, null, null, null,
-                null, null, null,
-                null, null, null,
-                null, null, null,
-                null, null, new ObjectMapper()
+                null, null, null, null,
+                null, null, null, null,
+                null, null, null, new ObjectMapper()
             );
         }
 

@@ -2,7 +2,6 @@ package com.tcs.module.ai.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tcs.exception.ForbiddenException;
-import com.tcs.exception.RateLimitExceededException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.ai.dto.request.ChatRequest;
 import com.tcs.module.ai.dto.response.*;
@@ -36,6 +35,20 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Implementation of the AI Assistant and Intelligent RAG Retrieval Service.
+ * <p>
+ * Core Architecture & Features:
+ * <ul>
+ *   <li>RAG Pipeline: Query rewriting, semantic retrieval against FAQ & Domain entities, and contextual reranking.</li>
+ *   <li>Intent Classification: Categorizing user queries into policy guidance, tutor matching, or class discovery.</li>
+ *   <li>Hallucination Guard & Safety Filtering: Strict groundedness verification before returning LLM responses.</li>
+ *   <li>Multi-turn Contextual Memory: Maintaining conversation session state with tenant isolation.</li>
+ * </ul>
+ *
+ * @see com.tcs.module.ai.service.AiService
+ * @see com.tcs.module.ai.entity.AiChatSession
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -61,11 +74,11 @@ public class AiServiceImpl implements AiService {
     private final AiCapabilityRouter capabilityRouter;
     private final AiFallbackService fallbackService;
     private final AiHallucinationGuard hallucinationGuard;
-    private final OpenDomainHandler openDomainHandler;
     private final ContentSafetyFilter contentSafetyFilter;
-    private final OpenDomainRateLimiter openDomainRateLimiter;
     private final ConversationContextService conversationContextService;
-    private final OpenDomainAnalytics openDomainAnalytics;
+    private final AiSemanticCacheService semanticCacheService;
+    private final TcsSynonymService synonymService;
+    private final UserPreferenceService userPreferenceService;
 
     private final AiTicketContextProvider ticketContextProvider;
     private final AiAdminDashboardContextProvider dashboardContextProvider;
@@ -152,19 +165,65 @@ public class AiServiceImpl implements AiService {
 
         List<AiChatMessage> history = contextService.getHistory(session.getSessionId());
 
+        // 0.5. Query Expansion with TCS Synonyms
+        String expandedQuery = synonymService.expandQuery(request.getMessage());
+        String normalizedQuery = synonymService.normalizeQuery(request.getMessage());
+        log.debug("Query expansion: original='{}', expanded='{}', normalized='{}'", 
+                  request.getMessage(), expandedQuery, normalizedQuery);
+
+        // 0.6. Semantic Cache Check (before expensive LLM calls)
+        Optional<AiSemanticCacheService.CachedResponse> cachedResponse = 
+            semanticCacheService.get(request.getMessage(), userRole, null);
+        
+        if (cachedResponse.isPresent()) {
+            AiSemanticCacheService.CachedResponse cache = cachedResponse.get();
+            
+            AiChatMessage aiMsg = new AiChatMessage();
+            aiMsg.setSession(session);
+            aiMsg.setRole("assistant");
+            aiMsg.setContent(cache.content());
+            aiMsg.setReferencedTutorIds(cache.referencedTutorIds());
+            aiMsg.setReferencedClassIds(cache.referencedClassIds());
+            aiMsg.setReferencedFaqIds(cache.referencedFaqIds());
+            messageRepository.save(aiMsg);
+            sessionRepository.save(session);
+            
+            log.info("Returned cached response for query: '{}'", request.getMessage());
+            
+            return AiMessageResponse.builder()
+                    .messageId(aiMsg.getMessageId())
+                    .sessionId(session.getSessionId())
+                    .role("assistant")
+                    .content(cache.content())
+                    .createdAt(aiMsg.getCreatedAt())
+                    .intent(cache.intent())
+                    .domain(cache.domain())
+                    .subIntent(cache.subIntent())
+                    .answerMode("CACHED")
+                    .confidenceScore(cache.confidenceScore() != null ? cache.confidenceScore() : 1.0)
+                    .confidenceLevel("HIGH")
+                    .sourceCount(cache.sourceCount() != null ? cache.sourceCount() : 0)
+                    .groundingStatus("CACHED")
+                    .sources(List.of())
+                    .referencedTutors(List.of())
+                    .referencedClasses(List.of())
+                    .referencedFaqs(List.of())
+                    .build();
+        }
+
         // 1. 3-Tier Classification (Domain -> SubIntent -> Entities)
         AiIntentService.DetailedIntentResult classification = intentService.classifyAndExtractDetailed(
-            request.getMessage(), session.getSessionId(), userId);
+            expandedQuery, session.getSessionId(), userId);
         AiDomain domain = classification.domain();
         AiSubIntent subIntent = classification.subIntent();
         AiIntent legacyIntent = classification.legacyIntent();
         Map<String, String> entities = classification.entities();
+        if (userId != null) {
+            userPreferenceService.updateFromInteraction(userId, entities, request.getMessage());
+            entities = userPreferenceService.enrichWithPreferences(userId, entities);
+        }
         String suggestedRoute = classification.suggestedRoute();
 
-        // 1.5 Rate Limiting Guard: Enforce per-user / per-session rate limit
-        if (!openDomainRateLimiter.allowRequest(userId, session.getSessionId(), subIntent)) {
-            throw new RateLimitExceededException("Bạn đang gửi yêu cầu quá nhanh. Vui lòng chờ 1 phút trước khi tiếp tục.");
-        }
 
         // 2. Safety & Conversational fast-path (Level 0)
         AiFallbackService.FallbackResult safetyResult = fallbackService.checkLevel0Safety(subIntent);
@@ -200,7 +259,7 @@ public class AiServiceImpl implements AiService {
         }
 
         // 3. Query Rewriting for follow-up conversational context
-        AiQueryRewriteService.RewriteResult rewritten = rewriteService.rewriteQuery(history, request.getMessage(), legacyIntent);
+        AiQueryRewriteService.RewriteResult rewritten = rewriteService.rewriteQuery(history, expandedQuery, legacyIntent);
         log.info("AI role={}, domain={}, subIntent={}, entities={}, rewrittenQuery={}",
                 userRole, domain, subIntent, entities, rewritten.rewrittenQuery());
 
@@ -241,45 +300,10 @@ public class AiServiceImpl implements AiService {
                     .build();
         }
 
-        // 4.5. Fast-Path Open Domain & Knowledge Handling (Deterministic, Clean, Conditional Steering)
-        if (domain == AiDomain.OPEN_DOMAIN) {
-            OpenDomainHandler.OpenDomainResponse openResp = openDomainHandler.handle(subIntent, request.getMessage(), entities);
-            String fullText = openResp.formatFullResponse();
-            
-            AiChatMessage aiMsg = new AiChatMessage();
-            aiMsg.setSession(session);
-            aiMsg.setRole("assistant");
-            aiMsg.setContent(fullText);
-            messageRepository.save(aiMsg);
-            sessionRepository.save(session);
-            conversationContextService.saveContext(session.getSessionId(), domain, subIntent, entities, request.getMessage());
 
-            return AiMessageResponse.builder()
-                    .messageId(aiMsg.getMessageId())
-                    .sessionId(session.getSessionId())
-                    .role("assistant")
-                    .content(fullText)
-                    .createdAt(aiMsg.getCreatedAt())
-                    .intent(legacyIntent.name())
-                    .domain(domain.name())
-                    .subIntent(subIntent.name())
-                    .suggestedRoute(openResp.suggestedRoute())
-                    .clarificationOptions(openResp.ctaButtons())
-                    .answerMode("DIRECT_OPEN_DOMAIN")
-                    .confidenceScore(1.0)
-                    .confidenceLevel("HIGH")
-                    .sourceCount(0)
-                    .groundingStatus("GROUNDED")
-                    .sources(List.of())
-                    .referencedTutors(List.of())
-                    .referencedClasses(List.of())
-                    .referencedFaqs(List.of())
-                    .build();
-        }
-
-        // 4.6. Out-of-Scope Gating
+        // 4.5. Out-of-Scope Gating (includes former Open Domain queries)
         if (domain == AiDomain.OUT_OF_SCOPE) {
-            String outOfScopeMsg = "Xin lỗi, câu hỏi này nằm ngoài phạm vi hỗ trợ của hệ thống TCS. Tôi có thể giúp bạn tìm gia sư, tìm lớp học, giải đáp quy trình nạp/rút học phí hoặc hướng dẫn quy định trên hệ thống.";
+            String outOfScopeMsg = "Xin lỗi, tôi chỉ hỗ trợ các câu hỏi liên quan đến hệ thống Tutor Connect System (TCS) như: tìm gia sư, tìm lớp học, quy trình thanh toán, hợp đồng, và các chính sách nền tảng. Câu hỏi này nằm ngoài phạm vi hỗ trợ của tôi.";
             AiChatMessage aiMsg = new AiChatMessage();
             aiMsg.setSession(session);
             aiMsg.setRole("assistant");
@@ -316,7 +340,7 @@ public class AiServiceImpl implements AiService {
         String lowerQuery = request.getMessage().toLowerCase();
         boolean retrievalUnavailable = false;
 
-        if (domain != AiDomain.CONVERSATION_SAFETY && domain != AiDomain.OPEN_DOMAIN && domain != AiDomain.OUT_OF_SCOPE) {
+        if (domain != AiDomain.CONVERSATION_SAFETY && domain != AiDomain.OUT_OF_SCOPE) {
             try {
                 // Unified Vector RAG retrieval: Always retrieve top semantic chunks across all knowledge
                 List<AiRetrievalService.RetrievalResult> vectorResults = retrievalService.retrieve(rewritten.rewrittenQuery(), userRole, userId);
@@ -360,7 +384,7 @@ public class AiServiceImpl implements AiService {
         List<FaqReferenceDto> faqs = new ArrayList<>();
 
         // Populate UI cards dynamically from high-confidence vector sources (>= 0.65)
-        if (domain != AiDomain.OPEN_DOMAIN && domain != AiDomain.CONVERSATION_SAFETY) {
+        if (domain != AiDomain.CONVERSATION_SAFETY) {
             Set<Long> addedTutorIds = new HashSet<>();
             Set<Long> addedClassIds = new HashSet<>();
             Set<Long> addedFaqIds = new HashSet<>();
@@ -452,10 +476,46 @@ public class AiServiceImpl implements AiService {
         if (!tutors.isEmpty()) aiMsg.setReferencedTutorIds(tutors.stream().map(t -> String.valueOf(t.getTutorId())).collect(Collectors.joining(",")));
         if (!classes.isEmpty()) aiMsg.setReferencedClassIds(classes.stream().map(c -> String.valueOf(c.getClassId())).collect(Collectors.joining(",")));
         if (!faqs.isEmpty()) aiMsg.setReferencedFaqIds(faqs.stream().map(f -> String.valueOf(f.getFaqId())).collect(Collectors.joining(",")));
-
         messageRepository.save(aiMsg);
         sessionRepository.save(session);
-        conversationContextService.saveContext(session.getSessionId(), domain, subIntent, entities, request.getMessage());
+
+        List<Long> tutorIdList = tutors.stream().map(TutorReferenceDto::getTutorId).filter(Objects::nonNull).toList();
+        List<Long> classIdList = classes.stream().map(ClassReferenceDto::getClassId).filter(Objects::nonNull).toList();
+        List<Long> faqIdList = faqs.stream().map(FaqReferenceDto::getFaqId).filter(Objects::nonNull).toList();
+        conversationContextService.saveContext(
+            session.getSessionId(),
+            domain,
+            subIntent,
+            entities,
+            request.getMessage(),
+            tutorIdList,
+            classIdList,
+            faqIdList,
+            entities.getOrDefault("subject", null)
+        );
+
+        // Store in cache for future similar queries (only for high-confidence, grounded responses)
+        if (evaluation.confidenceScore() >= 0.70 && 
+            !"FALLBACK".equals(evaluation.answerMode()) && 
+            !"SAFETY_FILTER".equals(evaluation.answerMode()) &&
+            domain != AiDomain.OUT_OF_SCOPE) {
+            
+            semanticCacheService.put(
+                request.getMessage(),
+                normalizedQuery,
+                aiResponseText,
+                legacyIntent.name(),
+                domain.name(),
+                subIntent.name(),
+                evaluation.confidenceScore(),
+                evaluation.sourceCount(),
+                !tutors.isEmpty() ? tutors.stream().map(t -> String.valueOf(t.getTutorId())).collect(Collectors.joining(",")) : null,
+                !classes.isEmpty() ? classes.stream().map(c -> String.valueOf(c.getClassId())).collect(Collectors.joining(",")) : null,
+                !faqs.isEmpty() ? faqs.stream().map(f -> String.valueOf(f.getFaqId())).collect(Collectors.joining(",")) : null,
+                userRole,
+                null
+            );
+        }
 
         return AiMessageResponse.builder()
                 .messageId(aiMsg.getMessageId())
@@ -498,7 +558,23 @@ public class AiServiceImpl implements AiService {
     private String callLlm(String prompt, List<AiChatMessage> history, String answerMode, AiIntent intent, List<AiSourceResponse> sources) {
         try {
             var chatReq = new com.tcs.module.ai.service.provider.AiProviderChatRequest(
-                "Bạn là Trợ lý AI của hệ thống kết nối gia sư Tutor Connect System (TCS). Trả lời ngắn gọn, chính xác, thân thiện bằng tiếng Việt.",
+                """
+                Bạn là Trợ lý AI của hệ thống kết nối gia sư Tutor Connect System (TCS).
+                
+                QUY TẮC QUAN TRỌNG:
+                1. Trả lời PHẢI dựa 100% trên Context được cung cấp
+                2. KHÔNG BAO GIỜ bịa tên người, số liệu, hoặc thông tin không có trong Context
+                3. Nếu Context không đủ thông tin → Nói rõ "Tôi không tìm thấy thông tin về..."
+                4. Khi trích dẫn thông tin → Cite nguồn một cách tự nhiên (VD: "Theo chính sách của TCS...")
+                5. Trả lời ngắn gọn, chính xác, thân thiện bằng tiếng Việt
+                
+                VÍ DỤ TỐT:
+                "Phí nền tảng TCS là 10% học phí, được khấu trừ tự động từ mỗi thanh toán."
+                
+                VÍ DỤ XẤU (CẤM):
+                "Tôi nghĩ phí khoảng 8-12%..." ❌
+                "Gia sư Nguyễn Văn A rất giỏi..." ❌ (nếu không có trong Context)
+                """,
                 prompt,
                 maxOutputTokens,
                 0.3
@@ -509,15 +585,6 @@ public class AiServiceImpl implements AiService {
             }
         } catch (Exception e) {
             log.warn("AI chat LLM invocation failed across providers: {}", e.getMessage());
-        }
-
-        // If it is AI tutoring, don't return random platform FAQ snippets
-        if (intent == AiIntent.AI_TUTORING) {
-            String norm = prompt.toLowerCase();
-            if (norm.contains("1+1") || norm.contains("1 + 1")) {
-                return "1 + 1 = 2.";
-            }
-            return "Tôi là Trợ lý học tập TCS. Hãy gửi câu hỏi hoặc bài tập chi tiết để tôi hỗ trợ hướng dẫn phương pháp giải nhé.";
         }
 
         // Fallback directly to top FAQ / Knowledge source snippet ONLY if high confidence (>= 0.65)

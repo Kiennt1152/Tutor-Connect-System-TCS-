@@ -64,11 +64,11 @@ class AiSecurityAndTenancyTest {
     @Mock private AiCapabilityRouter capabilityRouter;
     @Mock private AiFallbackService fallbackService;
     @Mock private AiHallucinationGuard hallucinationGuard;
-    @Mock private OpenDomainHandler openDomainHandler;
     @Mock private ContentSafetyFilter contentSafetyFilter;
-    @Mock private OpenDomainRateLimiter openDomainRateLimiter;
     @Mock private ConversationContextService conversationContextService;
-    @Mock private OpenDomainAnalytics openDomainAnalytics;
+    @Mock private AiSemanticCacheService semanticCacheService;
+    @Mock private TcsSynonymService synonymService;
+    @Mock private UserPreferenceService userPreferenceService;
     @Mock private AiTicketContextProvider ticketContextProvider;
     @Mock private AiAdminDashboardContextProvider dashboardContextProvider;
     @Mock private AiTutorSearchContextProvider tutorSearchContextProvider;
@@ -83,19 +83,26 @@ class AiSecurityAndTenancyTest {
     @BeforeEach
     void setUp() {
         realPromptBuilderService = new AiPromptBuilderService();
+        
+        // Mock synonym service to return original query (passthrough) - lenient for tests that don't call chat()
+        lenient().when(synonymService.expandQuery(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(synonymService.normalizeQuery(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        
+        // Mock semantic cache to always miss (empty) - lenient for tests that don't call chat()
+        lenient().when(semanticCacheService.get(anyString(), anyString(), any())).thenReturn(Optional.empty());
+        
         aiService = new AiServiceImpl(
             sessionRepository, messageRepository, userRepository,
             platformAdminRepository, tutorRepository, tutorCenterRepository,
             clientRepository, faqEntryRepository, tutoringClassRepository,
             contextService, rewriteService, intentService, retrievalService, rerankService,
             promptBuilderService, evaluatorService, capabilityRouter, fallbackService,
-            hallucinationGuard, openDomainHandler, contentSafetyFilter, openDomainRateLimiter,
-            conversationContextService, openDomainAnalytics, ticketContextProvider,
-            dashboardContextProvider, tutorSearchContextProvider, classSearchContextProvider,
-            platformStatsContextProvider, tutorFinanceContextProvider,
+            hallucinationGuard, contentSafetyFilter, conversationContextService,
+            semanticCacheService, synonymService, userPreferenceService,
+            ticketContextProvider, dashboardContextProvider, tutorSearchContextProvider,
+            classSearchContextProvider, platformStatsContextProvider, tutorFinanceContextProvider,
             aiProviderRouter, new ObjectMapper()
         );
-        lenient().when(openDomainRateLimiter.allowRequest(any(), any(), any())).thenReturn(true);
     }
 
     @Test

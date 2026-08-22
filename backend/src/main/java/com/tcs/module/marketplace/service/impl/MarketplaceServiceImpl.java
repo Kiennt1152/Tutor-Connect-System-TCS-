@@ -165,6 +165,20 @@ import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import org.springframework.util.StringUtils;
 
+/**
+ * Implementation of the Marketplace and Class Lifecycle Management Service.
+ * <p>
+ * Core Responsibilities:
+ * <ul>
+ *   <li>BF-02 (On-Demand Private Class Lifecycle): Creation, publishing, applicant review, tutor selection, and status transitions.</li>
+ *   <li>BF-04 & BF-05 (Center Curriculum & On-Request Classes): Enrollment management, student linking, and timetable generation.</li>
+ *   <li>Lesson Lifecycle: Check-in, check-out, rescheduling requests, and attendance confirmation.</li>
+ *   <li>Smart Search & Dynamic Matchmaking (FT-09, FT-17): Granular filtering by location, subject, fee, and candidate availability.</li>
+ * </ul>
+ *
+ * @see com.tcs.module.marketplace.service.MarketplaceService
+ * @see com.tcs.module.marketplace.entity.TutoringClass
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

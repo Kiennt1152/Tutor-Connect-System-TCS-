@@ -8,6 +8,20 @@ import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBr
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
+/**
+ * Real-time WebSocket and STOMP Protocol Configuration.
+ * <p>
+ * Implements real-time messaging for internal chat (FT-18) and real-time notifications (FT-19).
+ * Features:
+ * <ul>
+ *   <li>SockJS fallback endpoint at <code>/ws</code>.</li>
+ *   <li>Simple in-memory message broker routing to <code>/topic</code> (broadcasts) and <code>/queue</code> (user-specific).</li>
+ *   <li>STOMP heartbeat monitoring (10s interval) for proactive connection liveness.</li>
+ *   <li>Inbound channel authentication interceptor validating JWT tokens on STOMP CONNECT frame.</li>
+ * </ul>
+ *
+ * @see com.tcs.config.WebSocketAuthInterceptor
+ */
 @Configuration
 @EnableWebSocketMessageBroker
 @RequiredArgsConstructor

@@ -111,6 +111,20 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * Implementation of E-Contract Lifecycle and Reputation Management Service.
+ * <p>
+ * Core Responsibilities:
+ * <ul>
+ *   <li>Auto Contract Generation (FT-24): Generating legally structured e-contracts from templates with dynamic metadata.</li>
+ *   <li>Multi-Party Digital Signing: Two-factor OTP signature verification with 5-minute expiry and rate limiting.</li>
+ *   <li>Cooperation Agreements (BF-03): Managing center-tutor employment contracts and automated 48-hour expiration.</li>
+ *   <li>Review & Reputation Engine (BF-07): Multi-criteria reviews, response threads, and dynamic tutor rating calculation.</li>
+ * </ul>
+ *
+ * @see com.tcs.module.contract.service.ContractService
+ * @see com.tcs.module.contract.entity.Contract
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

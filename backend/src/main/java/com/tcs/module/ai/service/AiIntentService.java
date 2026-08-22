@@ -32,61 +32,16 @@ public class AiIntentService {
     ) {}
 
     private final IntentClassifier intentClassifier;
-    private final LlmIntentClassifierService llmIntentClassifierService;
-
-    @org.springframework.beans.factory.annotation.Value("${ai.semantic-first.enabled:false}")
-    private boolean semanticFirstEnabled = false;
-
-    @org.springframework.beans.factory.annotation.Value("${ai.semantic-first.rollout-percent:0}")
-    private int rolloutPercent = 0;
-
-    @org.springframework.beans.factory.annotation.Value("${ai.semantic-first.min-confidence:0.70}")
-    private double minConfidence = 0.70;
+    private final ConfidenceCalibrator confidenceCalibrator;
 
     public AiIntentService(IntentClassifier intentClassifier) {
-        this(intentClassifier, null);
+        this(intentClassifier, new ConfidenceCalibrator());
     }
 
     @Autowired
-    public AiIntentService(IntentClassifier intentClassifier, @Autowired(required = false) LlmIntentClassifierService llmIntentClassifierService) {
-        this.intentClassifier = intentClassifier;
-        this.llmIntentClassifierService = llmIntentClassifierService;
-    }
-
-    public void setSemanticFirstEnabled(boolean enabled) {
-        this.semanticFirstEnabled = enabled;
-    }
-
-    public boolean isSemanticFirstEnabled() {
-        return this.semanticFirstEnabled;
-    }
-
-    public void setRolloutPercent(int rolloutPercent) {
-        this.rolloutPercent = rolloutPercent;
-    }
-
-    public int getRolloutPercent() {
-        return this.rolloutPercent;
-    }
-
-    public void setMinConfidence(double minConfidence) {
-        this.minConfidence = minConfidence;
-    }
-
-    public double getMinConfidence() {
-        return this.minConfidence;
-    }
-
-    public boolean isSemanticFirstEligible(Long sessionId, Long userId) {
-        if (!semanticFirstEnabled) return false;
-        if (rolloutPercent <= 0) return false;
-        if (rolloutPercent >= 100) return true;
-
-        String key = (userId != null) ? ("U_" + userId) : (sessionId != null ? ("S_" + sessionId) : null);
-        if (key == null) return false; // Anonymous without session stays on deterministic legacy path
-
-        int bucket = (key.hashCode() & 0x7fffffff) % 100;
-        return bucket < rolloutPercent;
+    public AiIntentService(IntentClassifier intentClassifier, ConfidenceCalibrator confidenceCalibrator) {
+        this.intentClassifier = intentClassifier != null ? intentClassifier : new IntentClassifier();
+        this.confidenceCalibrator = confidenceCalibrator != null ? confidenceCalibrator : new ConfidenceCalibrator();
     }
 
     public IntentResultWithEntities classify(String message) {
@@ -114,46 +69,21 @@ public class AiIntentService {
             );
         }
 
-        boolean useSemanticFirst = isSemanticFirstEligible(sessionId, userId);
-        IntentClassifier.ClassificationDetail detail;
-
-        if (useSemanticFirst && llmIntentClassifierService != null) {
-            // =========================================================================
-            // SEMANTIC-FIRST ROUTING POLICY
-            // 1. Check ultra-narrow fast path (< 4 words exact greetings / safety)
-            // 2. Call LLM Semantic Intent Classifier for all other queries
-            // 3. Fallback to Keyword Classifier only if LLM fails / timeouts / low confidence
-            // =========================================================================
-            IntentClassifier.ClassificationDetail fastPath = intentClassifier.checkFastPath(message);
-            if (fastPath != null) {
-                detail = fastPath;
-            } else {
-                IntentClassifier.ClassificationDetail llmDetail = null;
-                try {
-                    llmDetail = llmIntentClassifierService.classifyWithLlm(message);
-                } catch (Exception e) {
-                    log.warn("LLM Intent Classifier invocation failed: {}", e.getMessage());
-                }
-
-                if (llmDetail != null && llmDetail.confidence() >= minConfidence) {
-                    detail = llmDetail;
-                } else {
-                    detail = intentClassifier.classifyDetailed(message); // KEYWORD_FALLBACK
-                }
-            }
-        } else {
-            // =========================================================================
-            // DETERMINISTIC KEYWORD ROUTING (Semantic-First Disabled / Kill Switch)
-            // =========================================================================
-            detail = intentClassifier.classifyDetailed(message);
-        }
-
+        IntentClassifier.ClassificationDetail detail = intentClassifier.classifyDetailed(message);
         Map<String, String> entities = extractEntities(message);
+        double calibratedConfidence = confidenceCalibrator.calibrate(
+            detail.confidence(),
+            detail.domain(),
+            detail.subIntent(),
+            entities,
+            message
+        );
+
         return new DetailedIntentResult(
             detail.domain(),
             detail.subIntent(),
             detail.legacyIntent(),
-            detail.confidence(),
+            calibratedConfidence,
             entities,
             detail.suggestedRoute()
         );

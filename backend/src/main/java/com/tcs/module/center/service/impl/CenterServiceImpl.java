@@ -123,6 +123,20 @@ import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import org.springframework.context.event.EventListener;
 
+/**
+ * Implementation of the Tutor Center B2B Operations and Recruitment Service.
+ * <p>
+ * Core Responsibilities:
+ * <ul>
+ *   <li>BF-03 (Tutor Recruitment for Center Workforce): Publishing recruitment posts, reviewing tutor applications, and hiring.</li>
+ *   <li>BF-04 (Center Curriculum Class Lifecycle): Creating fixed curriculum classes, timetable slotting, and student bulk imports.</li>
+ *   <li>Tutor Roster & Membership (FT-49): Maintaining internal tutor database, assignment eligibility, and replacement workflows.</li>
+ *   <li>Attendance & Substitution Management: Recording lesson attendance, handling rescheduling, and assigning substitute tutors.</li>
+ * </ul>
+ *
+ * @see com.tcs.module.center.service.CenterService
+ * @see com.tcs.module.center.entity.RecruitmentPost
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
