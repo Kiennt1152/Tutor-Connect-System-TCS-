@@ -18,7 +18,16 @@ public class IntentClassifier {
         "hcmus", "ussh", "uet", "bktp", "uit", "tdtu"
     );
 
-    public IntentClassifier() {}
+    private final FewShotIntentClassifier fewShotIntentClassifier;
+
+    public IntentClassifier() {
+        this(new FewShotIntentClassifier());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public IntentClassifier(FewShotIntentClassifier fewShotIntentClassifier) {
+        this.fewShotIntentClassifier = fewShotIntentClassifier != null ? fewShotIntentClassifier : new FewShotIntentClassifier();
+    }
 
     public record IntentResult(AiIntent intent, double confidence) {}
 

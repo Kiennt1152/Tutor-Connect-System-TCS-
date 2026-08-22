@@ -66,6 +66,9 @@ class AiSecurityAndTenancyTest {
     @Mock private AiHallucinationGuard hallucinationGuard;
     @Mock private ContentSafetyFilter contentSafetyFilter;
     @Mock private ConversationContextService conversationContextService;
+    @Mock private AiSemanticCacheService semanticCacheService;
+    @Mock private TcsSynonymService synonymService;
+    @Mock private UserPreferenceService userPreferenceService;
     @Mock private AiTicketContextProvider ticketContextProvider;
     @Mock private AiAdminDashboardContextProvider dashboardContextProvider;
     @Mock private AiTutorSearchContextProvider tutorSearchContextProvider;
@@ -80,6 +83,14 @@ class AiSecurityAndTenancyTest {
     @BeforeEach
     void setUp() {
         realPromptBuilderService = new AiPromptBuilderService();
+        
+        // Mock synonym service to return original query (passthrough) - lenient for tests that don't call chat()
+        lenient().when(synonymService.expandQuery(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        lenient().when(synonymService.normalizeQuery(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
+        
+        // Mock semantic cache to always miss (empty) - lenient for tests that don't call chat()
+        lenient().when(semanticCacheService.get(anyString(), anyString(), any())).thenReturn(Optional.empty());
+        
         aiService = new AiServiceImpl(
             sessionRepository, messageRepository, userRepository,
             platformAdminRepository, tutorRepository, tutorCenterRepository,
@@ -87,6 +98,7 @@ class AiSecurityAndTenancyTest {
             contextService, rewriteService, intentService, retrievalService, rerankService,
             promptBuilderService, evaluatorService, capabilityRouter, fallbackService,
             hallucinationGuard, contentSafetyFilter, conversationContextService,
+            semanticCacheService, synonymService, userPreferenceService,
             ticketContextProvider, dashboardContextProvider, tutorSearchContextProvider,
             classSearchContextProvider, platformStatsContextProvider, tutorFinanceContextProvider,
             aiProviderRouter, new ObjectMapper()

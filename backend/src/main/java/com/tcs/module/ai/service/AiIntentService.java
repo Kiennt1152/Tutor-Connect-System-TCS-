@@ -32,9 +32,16 @@ public class AiIntentService {
     ) {}
 
     private final IntentClassifier intentClassifier;
+    private final ConfidenceCalibrator confidenceCalibrator;
 
     public AiIntentService(IntentClassifier intentClassifier) {
+        this(intentClassifier, new ConfidenceCalibrator());
+    }
+
+    @Autowired
+    public AiIntentService(IntentClassifier intentClassifier, ConfidenceCalibrator confidenceCalibrator) {
         this.intentClassifier = intentClassifier != null ? intentClassifier : new IntentClassifier();
+        this.confidenceCalibrator = confidenceCalibrator != null ? confidenceCalibrator : new ConfidenceCalibrator();
     }
 
     public IntentResultWithEntities classify(String message) {
@@ -64,11 +71,19 @@ public class AiIntentService {
 
         IntentClassifier.ClassificationDetail detail = intentClassifier.classifyDetailed(message);
         Map<String, String> entities = extractEntities(message);
+        double calibratedConfidence = confidenceCalibrator.calibrate(
+            detail.confidence(),
+            detail.domain(),
+            detail.subIntent(),
+            entities,
+            message
+        );
+
         return new DetailedIntentResult(
             detail.domain(),
             detail.subIntent(),
             detail.legacyIntent(),
-            detail.confidence(),
+            calibratedConfidence,
             entities,
             detail.suggestedRoute()
         );

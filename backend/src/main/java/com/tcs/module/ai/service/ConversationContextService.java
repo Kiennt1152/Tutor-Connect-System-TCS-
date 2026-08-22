@@ -5,9 +5,7 @@ import com.tcs.module.ai.enums.AiSubIntent;
 import com.tcs.module.ai.util.VietnameseTextNormalizer;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 
@@ -19,6 +17,11 @@ public class ConversationContextService {
         AiSubIntent lastSubIntent,
         Map<String, String> lastEntities,
         String lastQuery,
+        List<Long> mentionedTutorIds,
+        List<Long> mentionedClassIds,
+        List<Long> mentionedFaqIds,
+        Map<String, Integer> topicFrequency,
+        String userGoal,
         Instant lastUpdated
     ) {}
 
@@ -34,9 +37,71 @@ public class ConversationContextService {
     private static final Duration CONTEXT_TTL = Duration.ofMinutes(15);
 
     public void saveContext(Long sessionId, AiDomain domain, AiSubIntent subIntent, Map<String, String> entities, String query) {
+        saveContext(sessionId, domain, subIntent, entities, query, null, null, null, null);
+    }
+
+    public void saveContext(
+        Long sessionId,
+        AiDomain domain,
+        AiSubIntent subIntent,
+        Map<String, String> entities,
+        String query,
+        List<Long> tutorIds,
+        List<Long> classIds,
+        List<Long> faqIds,
+        String userGoal
+    ) {
         if (sessionId == null) return;
+
+        ConversationContext existing = getContext(sessionId);
         Map<String, String> safeEntities = entities != null ? new HashMap<>(entities) : new HashMap<>();
-        sessionContexts.put(sessionId, new ConversationContext(domain, subIntent, safeEntities, query, Instant.now()));
+        
+        List<Long> accumulatedTutors = new ArrayList<>(existing != null ? existing.mentionedTutorIds() : List.of());
+        if (tutorIds != null) {
+            for (Long tid : tutorIds) {
+                if (!accumulatedTutors.contains(tid)) accumulatedTutors.add(tid);
+            }
+        }
+
+        List<Long> accumulatedClasses = new ArrayList<>(existing != null ? existing.mentionedClassIds() : List.of());
+        if (classIds != null) {
+            for (Long cid : classIds) {
+                if (!accumulatedClasses.contains(cid)) accumulatedClasses.add(cid);
+            }
+        }
+
+        List<Long> accumulatedFaqs = new ArrayList<>(existing != null ? existing.mentionedFaqIds() : List.of());
+        if (faqIds != null) {
+            for (Long fid : faqIds) {
+                if (!accumulatedFaqs.contains(fid)) accumulatedFaqs.add(fid);
+            }
+        }
+
+        Map<String, Integer> freqMap = new HashMap<>(existing != null ? existing.topicFrequency() : Map.of());
+        if (subIntent != null) {
+            freqMap.put(subIntent.name(), freqMap.getOrDefault(subIntent.name(), 0) + 1);
+        }
+        if (safeEntities.containsKey("subject")) {
+            String sub = safeEntities.get("subject");
+            freqMap.put("SUBJECT_" + sub, freqMap.getOrDefault("SUBJECT_" + sub, 0) + 1);
+        }
+
+        String effectiveGoal = userGoal != null && !userGoal.isBlank()
+            ? userGoal
+            : (existing != null ? existing.userGoal() : null);
+
+        sessionContexts.put(sessionId, new ConversationContext(
+            domain,
+            subIntent,
+            safeEntities,
+            query,
+            accumulatedTutors,
+            accumulatedClasses,
+            accumulatedFaqs,
+            freqMap,
+            effectiveGoal,
+            Instant.now()
+        ));
     }
 
     public ConversationContext getContext(Long sessionId) {
@@ -62,7 +127,9 @@ public class ConversationContextService {
 
         boolean isFollowUpPattern = normalized.startsWith("con ") || normalized.startsWith("the con ") ||
                 normalized.startsWith("vay con ") || normalized.contains("thi sao") ||
-                normalized.contains("con o ") || normalized.contains("the o ") || normalized.contains("con tai ");
+                normalized.contains("con o ") || normalized.contains("the o ") || normalized.contains("con tai ") ||
+                normalized.contains("thay do") || normalized.contains("gia su do") || normalized.contains("lop do") ||
+                normalized.contains("thay khac") || normalized.contains("nguoi khac");
 
         if (!isFollowUpPattern) {
             return new FollowUpResolution(false, null, null, currentEntities);
@@ -73,27 +140,20 @@ public class ConversationContextService {
             mergedEntities.putAll(currentEntities);
         }
 
+        // Attach referenced tutor or class id if available
+        if (!ctx.mentionedTutorIds().isEmpty() && !mergedEntities.containsKey("tutorId")) {
+            mergedEntities.put("lastMentionedTutorId", String.valueOf(ctx.mentionedTutorIds().get(ctx.mentionedTutorIds().size() - 1)));
+        }
+        if (!ctx.mentionedClassIds().isEmpty() && !mergedEntities.containsKey("classId")) {
+            mergedEntities.put("lastMentionedClassId", String.valueOf(ctx.mentionedClassIds().get(ctx.mentionedClassIds().size() - 1)));
+        }
 
-        // Case 1: Inherit Marketplace Tutor or Class Search
-        if (ctx.lastDomain() == AiDomain.MARKETPLACE) {
+        // Inherit Marketplace or Domain search
+        if (ctx.lastDomain() == AiDomain.MARKETPLACE || ctx.lastDomain() == AiDomain.FINANCE_WALLET || ctx.lastDomain() == AiDomain.CONTRACT_REVIEW) {
             return new FollowUpResolution(true, ctx.lastDomain(), ctx.lastSubIntent(), mergedEntities);
         }
 
-
         return new FollowUpResolution(false, null, null, currentEntities);
-    }
-
-    private String extractLocation(String lower, String normalized) {
-        if (normalized.contains("ha noi")) return "Hà Nội";
-        if (normalized.contains("ho chi minh") || normalized.contains("hcm") || normalized.contains("sai gon")) return "TP.HCM";
-        if (normalized.contains("da nang")) return "Đà Nẵng";
-        if (normalized.contains("hai phong")) return "Hải Phòng";
-        if (normalized.contains("can tho")) return "Cần Thơ";
-        if (normalized.contains("hue")) return "Huế";
-        if (normalized.contains("nha trang")) return "Nha Trang";
-        if (normalized.contains("binh duong")) return "Bình Dương";
-        if (normalized.contains("dong nai")) return "Đồng Nai";
-        return null;
     }
 
     public int incrementFallbackCount(Long sessionId) {

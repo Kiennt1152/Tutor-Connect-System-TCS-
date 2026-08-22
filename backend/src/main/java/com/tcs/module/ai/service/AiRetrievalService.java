@@ -4,20 +4,31 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tcs.module.ai.entity.AiKnowledgeChunk;
 import com.tcs.module.ai.repository.AiKnowledgeChunkRepository;
 import java.util.*;
-import java.util.regex.Pattern;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class AiRetrievalService {
 
     private final AiKnowledgeChunkRepository chunkRepository;
     private final EmbeddingService embeddingService;
     private final AiPermissionFilterService permissionFilterService;
     private final ObjectMapper objectMapper;
+    private final Bm25Scorer bm25Scorer;
+
+    public AiRetrievalService(AiKnowledgeChunkRepository chunkRepository, EmbeddingService embeddingService, AiPermissionFilterService permissionFilterService, ObjectMapper objectMapper) {
+        this(chunkRepository, embeddingService, permissionFilterService, objectMapper, new Bm25Scorer());
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public AiRetrievalService(AiKnowledgeChunkRepository chunkRepository, EmbeddingService embeddingService, AiPermissionFilterService permissionFilterService, ObjectMapper objectMapper, Bm25Scorer bm25Scorer) {
+        this.chunkRepository = chunkRepository;
+        this.embeddingService = embeddingService;
+        this.permissionFilterService = permissionFilterService;
+        this.objectMapper = objectMapper;
+        this.bm25Scorer = bm25Scorer != null ? bm25Scorer : new Bm25Scorer();
+    }
 
     public record RetrievalResult(AiKnowledgeChunk chunk, double cosineSimilarity) {}
 
@@ -28,13 +39,19 @@ public class AiRetrievalService {
 
         List<RetrievalResult> results = new ArrayList<>();
         List<AiKnowledgeChunk> allChunks = chunkRepository.findByActiveTrue();
+        if (allChunks.isEmpty()) {
+            return List.of();
+        }
 
-        // 1. Vector Cosine Similarity Search (Primary Dense Vector Engine)
+        // Precompute BM25 Corpus Statistics
+        Bm25Scorer.CorpusStats corpusStats = bm25Scorer.buildStats(allChunks);
+
+        // 1. Vector Cosine Similarity Search (Dense Vector Engine)
         Optional<double[]> queryVectorOpt = Optional.empty();
         try {
             queryVectorOpt = embeddingService.getEmbedding(query);
         } catch (Exception e) {
-            log.warn("Vector retrieval error, proceeding with fallback: {}", e.getMessage());
+            log.warn("Vector retrieval error, proceeding with hybrid BM25 fallback: {}", e.getMessage());
         }
 
         boolean hasQueryVector = queryVectorOpt.isPresent();
@@ -45,82 +62,43 @@ public class AiRetrievalService {
                 continue;
             }
 
-            double score = 0.0;
+            double bm25Score = bm25Scorer.score(query, chunk, corpusStats);
+            double vectorScore = 0.0;
+            boolean hasVector = false;
+
             if (hasQueryVector && chunk.getEmbeddingJson() != null && !chunk.getEmbeddingJson().isBlank()) {
                 try {
                     double[] chunkVector = objectMapper.readValue(chunk.getEmbeddingJson(), double[].class);
-                    score = cosineSimilarity(queryVector, chunkVector);
+                    vectorScore = cosineSimilarity(queryVector, chunkVector);
+                    hasVector = true;
                 } catch (Exception ignored) {}
-            } else {
-                // Fallback for offline/test environments without Gemini API key
-                score = calculateKeywordScore(extractKeywords(query), chunk);
             }
 
-            // Relevance Gating: 0.50 for dense vectors, 0.25 for keyword fallback
-            double threshold = (hasQueryVector && chunk.getEmbeddingJson() != null && !chunk.getEmbeddingJson().isBlank()) ? 0.50 : 0.25;
-            if (score >= threshold) {
-                results.add(new RetrievalResult(chunk, score));
+            double hybridScore;
+            double threshold;
+
+            if (hasVector) {
+                // Dense Vector primary semantic similarity + BM25 keyword enhancement
+                hybridScore = Math.max(vectorScore, (vectorScore * 0.70) + (bm25Score * 0.30));
+
+                // Exact keyword match boost
+                if (bm25Score >= 0.50) {
+                    hybridScore = Math.min(1.0, hybridScore + 0.05);
+                }
+                threshold = 0.48;
+            } else {
+                // Fallback for offline/test environments without Gemini API key: Pure BM25
+                hybridScore = bm25Score;
+                threshold = 0.18;
+            }
+
+            if (hybridScore >= threshold) {
+                results.add(new RetrievalResult(chunk, hybridScore));
             }
         }
 
         results.sort((a, b) -> Double.compare(b.cosineSimilarity(), a.cosineSimilarity()));
         return results;
-    }
-
-    private static final Set<String> STOP_WORDS = Set.of(
-        "gia", "su", "cho", "toi", "can", "tim", "co", "khong", "la", "gi", "cua", "duoc", "cac", "nhung", "va", "hay", "the", "nao", "o", "dau", "may", "bao", "nhieu", "mot", "hai", "ban"
-    );
-
-    private List<String> extractKeywords(String text) {
-        if (text == null) return List.of();
-        String cleaned = text.toLowerCase(Locale.ROOT)
-                .replaceAll("[^a-z0-9à-ỹ\\s]", " ")
-                .trim();
-        return Arrays.stream(cleaned.split("\\s+"))
-                .filter(w -> w.length() >= 2 && !STOP_WORDS.contains(w))
-                .toList();
-    }
-
-    private double calculateKeywordScore(List<String> keywords, AiKnowledgeChunk chunk) {
-        if (keywords.isEmpty()) return 0.0;
-        
-        String title = chunk.getTitle() != null ? chunk.getTitle().toLowerCase(Locale.ROOT) : "";
-        String content = chunk.getContent() != null ? chunk.getContent().toLowerCase(Locale.ROOT) : "";
-        String metadata = chunk.getMetadataJson() != null ? chunk.getMetadataJson().toLowerCase(Locale.ROOT) : "";
-        
-        int matchCount = 0;
-        int titleBonus = 0;
-        
-        for (String kw : keywords) {
-            boolean matched = false;
-            if (textContainsWord(title, kw)) {
-                matched = true;
-                titleBonus += 2;
-            }
-            if (textContainsWord(content, kw)) {
-                matched = true;
-            }
-            if (textContainsWord(metadata, kw)) {
-                matched = true;
-                titleBonus++;
-            }
-            if (matched) {
-                matchCount++;
-            }
-        }
-
-        if (matchCount == 0) return 0.0;
-        double ratio = (double) matchCount / Math.max(1, keywords.size());
-        double score = (ratio * 0.70) + Math.min(0.30, titleBonus * 0.10);
-        return Math.min(1.0, score);
-    }
-
-    private boolean textContainsWord(String text, String kw) {
-        if (text == null || kw == null || text.isBlank() || kw.isBlank()) return false;
-        if (kw.length() <= 4) {
-            return Pattern.compile("\\b" + Pattern.quote(kw) + "\\b", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CHARACTER_CLASS).matcher(text).find();
-        }
-        return text.contains(kw);
     }
 
     private double cosineSimilarity(double[] v1, double[] v2) {

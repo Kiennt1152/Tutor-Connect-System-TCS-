@@ -64,6 +64,7 @@ public class AiServiceImpl implements AiService {
     private final ConversationContextService conversationContextService;
     private final AiSemanticCacheService semanticCacheService;
     private final TcsSynonymService synonymService;
+    private final UserPreferenceService userPreferenceService;
 
     private final AiTicketContextProvider ticketContextProvider;
     private final AiAdminDashboardContextProvider dashboardContextProvider;
@@ -203,6 +204,10 @@ public class AiServiceImpl implements AiService {
         AiSubIntent subIntent = classification.subIntent();
         AiIntent legacyIntent = classification.legacyIntent();
         Map<String, String> entities = classification.entities();
+        if (userId != null) {
+            userPreferenceService.updateFromInteraction(userId, entities, request.getMessage());
+            entities = userPreferenceService.enrichWithPreferences(userId, entities);
+        }
         String suggestedRoute = classification.suggestedRoute();
 
 
@@ -240,7 +245,7 @@ public class AiServiceImpl implements AiService {
         }
 
         // 3. Query Rewriting for follow-up conversational context
-        AiQueryRewriteService.RewriteResult rewritten = rewriteService.rewriteQuery(history, request.getMessage(), legacyIntent);
+        AiQueryRewriteService.RewriteResult rewritten = rewriteService.rewriteQuery(history, expandedQuery, legacyIntent);
         log.info("AI role={}, domain={}, subIntent={}, entities={}, rewrittenQuery={}",
                 userRole, domain, subIntent, entities, rewritten.rewrittenQuery());
 
@@ -457,10 +462,46 @@ public class AiServiceImpl implements AiService {
         if (!tutors.isEmpty()) aiMsg.setReferencedTutorIds(tutors.stream().map(t -> String.valueOf(t.getTutorId())).collect(Collectors.joining(",")));
         if (!classes.isEmpty()) aiMsg.setReferencedClassIds(classes.stream().map(c -> String.valueOf(c.getClassId())).collect(Collectors.joining(",")));
         if (!faqs.isEmpty()) aiMsg.setReferencedFaqIds(faqs.stream().map(f -> String.valueOf(f.getFaqId())).collect(Collectors.joining(",")));
-
         messageRepository.save(aiMsg);
         sessionRepository.save(session);
-        conversationContextService.saveContext(session.getSessionId(), domain, subIntent, entities, request.getMessage());
+
+        List<Long> tutorIdList = tutors.stream().map(TutorReferenceDto::getTutorId).filter(Objects::nonNull).toList();
+        List<Long> classIdList = classes.stream().map(ClassReferenceDto::getClassId).filter(Objects::nonNull).toList();
+        List<Long> faqIdList = faqs.stream().map(FaqReferenceDto::getFaqId).filter(Objects::nonNull).toList();
+        conversationContextService.saveContext(
+            session.getSessionId(),
+            domain,
+            subIntent,
+            entities,
+            request.getMessage(),
+            tutorIdList,
+            classIdList,
+            faqIdList,
+            entities.getOrDefault("subject", null)
+        );
+
+        // Store in cache for future similar queries (only for high-confidence, grounded responses)
+        if (evaluation.confidenceScore() >= 0.70 && 
+            !"FALLBACK".equals(evaluation.answerMode()) && 
+            !"SAFETY_FILTER".equals(evaluation.answerMode()) &&
+            domain != AiDomain.OUT_OF_SCOPE) {
+            
+            semanticCacheService.put(
+                request.getMessage(),
+                normalizedQuery,
+                aiResponseText,
+                legacyIntent.name(),
+                domain.name(),
+                subIntent.name(),
+                evaluation.confidenceScore(),
+                evaluation.sourceCount(),
+                !tutors.isEmpty() ? tutors.stream().map(t -> String.valueOf(t.getTutorId())).collect(Collectors.joining(",")) : null,
+                !classes.isEmpty() ? classes.stream().map(c -> String.valueOf(c.getClassId())).collect(Collectors.joining(",")) : null,
+                !faqs.isEmpty() ? faqs.stream().map(f -> String.valueOf(f.getFaqId())).collect(Collectors.joining(",")) : null,
+                userRole,
+                null
+            );
+        }
 
         return AiMessageResponse.builder()
                 .messageId(aiMsg.getMessageId())
@@ -503,7 +544,23 @@ public class AiServiceImpl implements AiService {
     private String callLlm(String prompt, List<AiChatMessage> history, String answerMode, AiIntent intent, List<AiSourceResponse> sources) {
         try {
             var chatReq = new com.tcs.module.ai.service.provider.AiProviderChatRequest(
-                "Bạn là Trợ lý AI của hệ thống kết nối gia sư Tutor Connect System (TCS). Trả lời ngắn gọn, chính xác, thân thiện bằng tiếng Việt.",
+                """
+                Bạn là Trợ lý AI của hệ thống kết nối gia sư Tutor Connect System (TCS).
+                
+                QUY TẮC QUAN TRỌNG:
+                1. Trả lời PHẢI dựa 100% trên Context được cung cấp
+                2. KHÔNG BAO GIỜ bịa tên người, số liệu, hoặc thông tin không có trong Context
+                3. Nếu Context không đủ thông tin → Nói rõ "Tôi không tìm thấy thông tin về..."
+                4. Khi trích dẫn thông tin → Cite nguồn một cách tự nhiên (VD: "Theo chính sách của TCS...")
+                5. Trả lời ngắn gọn, chính xác, thân thiện bằng tiếng Việt
+                
+                VÍ DỤ TỐT:
+                "Phí nền tảng TCS là 10% học phí, được khấu trừ tự động từ mỗi thanh toán."
+                
+                VÍ DỤ XẤU (CẤM):
+                "Tôi nghĩ phí khoảng 8-12%..." ❌
+                "Gia sư Nguyễn Văn A rất giỏi..." ❌ (nếu không có trong Context)
+                """,
                 prompt,
                 maxOutputTokens,
                 0.3
