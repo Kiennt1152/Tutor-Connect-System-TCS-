@@ -464,31 +464,31 @@ class AiFullIntentCoverageTest {
     }
 
     @Nested
-    @DisplayName("14. AI Tutoring Tests (15 cases)")
+    @DisplayName("14. Out-of-Scope Tutoring Tests (15 cases)")
     class AiTutoringTests {
 
         @ParameterizedTest
         @CsvSource({
-            "'giải phương trình bậc 2', AI_TUTORING_MATH",
-            "'hướng dẫn làm bài tập toán hình', AI_TUTORING_MATH",
-            "'giai phuong trinh', AI_TUTORING_MATH",
-            "'bai tap toan 12', AI_TUTORING_MATH",
-            "'giải thích thì hiện tại hoàn thành', AI_TUTORING_ENGLISH",
-            "'ngữ pháp tiếng anh cơ bản', AI_TUTORING_ENGLISH",
-            "'ngu phap tieng anh', AI_TUTORING_ENGLISH",
-            "'lập kế hoạch học ielts 7.0', AI_TUTORING_STUDY_PLAN",
-            "'ke hoach hoc tap', AI_TUTORING_STUDY_PLAN",
-            "'luyện tập ôn thi đại học', AI_TUTORING_STUDY_PLAN",
-            "'định lý pitago phát biểu thế nào', AI_TUTORING_SCIENCE",
-            "'công thức tính vận tốc', AI_TUTORING_SCIENCE",
-            "'bài tập vật lý 10', AI_TUTORING_SCIENCE",
-            "'hướng dẫn lập trình python cơ bản', AI_TUTORING_CODE",
-            "'debug code java', AI_TUTORING_CODE"
+            "'giải phương trình bậc 2'",
+            "'hướng dẫn làm bài tập toán hình'",
+            "'giai phuong trinh'",
+            "'bai tap toan 12'",
+            "'giải thích thì hiện tại hoàn thành'",
+            "'ngữ pháp tiếng anh cơ bản'",
+            "'ngu phap tieng anh'",
+            "'lập kế hoạch học ielts 7.0'",
+            "'ke hoach hoc tap'",
+            "'luyện tập ôn thi đại học'",
+            "'định lý pitago phát biểu thế nào'",
+            "'công thức tính vận tốc'",
+            "'bài tập vật lý 10'",
+            "'hướng dẫn lập trình python cơ bản'",
+            "'debug code java'"
         })
-        void shouldClassifyAiTutoring(String query, AiSubIntent expectedSubIntent) {
+        void shouldClassifyAiTutoringAsOutOfScope(String query) {
             var detail = classifier.classifyDetailed(query);
-            assertThat(detail.domain()).isEqualTo(AiDomain.AI_TUTORING);
-            assertThat(detail.subIntent()).isEqualTo(expectedSubIntent);
+            assertThat(detail.domain()).isEqualTo(AiDomain.OUT_OF_SCOPE);
+            assertThat(detail.subIntent()).isEqualTo(AiSubIntent.OUT_OF_SCOPE);
         }
     }
 }

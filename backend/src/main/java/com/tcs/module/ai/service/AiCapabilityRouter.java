@@ -123,18 +123,6 @@ public class AiCapabilityRouter {
             Set.of("ADMIN_STATS", "SYSTEM_DOC"), true, Set.of("PLATFORM_ADMIN"), true, false,
             CardPolicy.ADMIN_LINK_ONLY, GuardType.STATS_NUMBER_GUARD, "/platform",
             "Trang quản trị và báo cáo doanh thu dành riêng cho Platform Admin tại /platform."
-        )),
-
-        Map.entry(AiDomain.AI_TUTORING, new CapabilityPolicy(
-            Set.of(), false, Set.of(), true, false,
-            CardPolicy.NONE, GuardType.NONE, null,
-            "Tôi là Trợ lý học tập AI của TCS. Hãy đặt câu hỏi về bài tập Toán, Tiếng Anh hoặc các môn học khác."
-        )),
-
-        Map.entry(AiDomain.OPEN_DOMAIN, new CapabilityPolicy(
-            Set.of(), false, Set.of(), true, false,
-            CardPolicy.NONE, GuardType.NONE, null,
-            "Tôi là Trợ lý AI của TCS, luôn sẵn sàng giải đáp thắc mắc và hỗ trợ bạn tìm kiếm gia sư / lớp học phù hợp."
         ))
     );
 
@@ -371,7 +359,6 @@ public class AiCapabilityRouter {
             case TUTOR_OPTIMIZATION -> DOMAIN_POLICIES.get(AiDomain.PROFILE_GUARDIAN);
             case CENTER_MANAGEMENT -> DOMAIN_POLICIES.get(AiDomain.CENTER_OPS);
             case FAQ_SUPPORT -> DOMAIN_POLICIES.get(AiDomain.CATALOG_FAQ);
-            case AI_TUTORING -> DOMAIN_POLICIES.get(AiDomain.AI_TUTORING);
             case OUT_OF_SCOPE -> DEFAULT_OUT_OF_SCOPE_POLICY;
         };
     }

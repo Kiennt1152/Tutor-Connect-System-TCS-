@@ -18,15 +18,7 @@ public class IntentClassifier {
         "hcmus", "ussh", "uet", "bktp", "uit", "tdtu"
     );
 
-    private final OpenDomainClassifier openDomainClassifier;
-
-    public IntentClassifier() {
-        this.openDomainClassifier = new OpenDomainClassifier();
-    }
-
-    public IntentClassifier(OpenDomainClassifier openDomainClassifier) {
-        this.openDomainClassifier = openDomainClassifier != null ? openDomainClassifier : new OpenDomainClassifier();
-    }
+    public IntentClassifier() {}
 
     public record IntentResult(AiIntent intent, double confidence) {}
 
@@ -124,30 +116,6 @@ public class IntentClassifier {
             return safetyDetail;
         }
 
-        // =========================================================================
-        // TIER 1.5: EARLY OPEN-DOMAIN FAST-PATH (Chitchat, Entertainment, Math, Weather)
-        // For pure non-business queries, route to OpenDomain immediately to prevent
-        // false-positive RAG/Vector search returning irrelevant FAQ chunks.
-        // Guard: Only triggers when query has NO business-related keywords.
-        // =========================================================================
-        if (!containsBusinessKeyword(normalized)) {
-            OpenDomainClassifier.OpenDomainResult earlyOpen = openDomainClassifier.classifyOpen(message);
-            if (earlyOpen.confidence() >= 0.70) {
-                AiIntent legacyIntent = AiIntent.OUT_OF_SCOPE;
-                if (earlyOpen.subIntent() == AiSubIntent.MATH_CALCULATION) {
-                    legacyIntent = AiIntent.AI_TUTORING;
-                } else if (earlyOpen.subIntent() == AiSubIntent.PLATFORM_STATS) {
-                    legacyIntent = AiIntent.PLATFORM_STATS;
-                }
-                return new ClassificationDetail(
-                    AiDomain.OPEN_DOMAIN,
-                    earlyOpen.subIntent(),
-                    legacyIntent,
-                    earlyOpen.confidence(),
-                    null
-                );
-            }
-        }
 
         // =========================================================================
         // TIER 2: BUSINESS DOMAIN & SUB-INTENT MATCHING (Priority Ordered)
@@ -373,35 +341,10 @@ public class IntentClassifier {
             return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.FIND_CLASS, AiIntent.FIND_CLASS, 0.9, "/lop-hoc");
         }
 
-        // 14. SIMPLE ARITHMETIC → OPEN_DOMAIN (before AI_TUTORING)
+        // 14. Simple arithmetic → OUT_OF_SCOPE (not supported)
         if (Pattern.compile("[0-9]+\\s*[+\\-*/]\\s*[0-9]+").matcher(lower).find() &&
             !containsAny(normalized, "giai bai", "bai tap", "huong dan", "phuong trinh", "dinh ly", "cong thuc")) {
-            return new ClassificationDetail(AiDomain.OPEN_DOMAIN, AiSubIntent.MATH_CALCULATION, AiIntent.OUT_OF_SCOPE, 0.95, null);
-        }
-
-        // 15. AI_TUTORING (Math, Science, English learning, study plan, code)
-        if (!containsAny(normalized, "tim gia su", "can gia su", "thue gia su", "tim thay", "tim co", "gia su day", "giao vien day", "tim nguoi day", "day kem", "can tim gia su", "co ai day", "ai day") &&
-            (containsAny(normalized,
-                "giai bai", "huong dan lam bai", "phuong trinh", "bai tap", "ngu phap", "giai phuong trinh",
-                "luyen tap", "ke hoach hoc", "bang may", "dinh ly", "cong thuc", "van toc", "thi hien tai", "thi qua khu", "giai thich thi",
-                "lap trinh", "coding", "python", "java", "c++", "javascript", "debug", "code", "viet code",
-                "vat ly", "hoa hoc", "sinh hoc", "physics", "chemistry", "biology",
-                "solve math", "solve equation", "grammar check", "explain grammar", "math problem", "solve") ||
-            ((lower.contains("+") || lower.contains("-") || lower.contains("*") || lower.contains("/")) &&
-             Pattern.compile("[0-9]+\\s*[+\\-*/]\\s*[0-9]+").matcher(lower).find()))) {
-            if (containsAny(normalized, "ke hoach hoc", "lo trinh", "study plan", "ke hoach hoc tap", "on thi dai hoc", "luyen tap")) {
-                return new ClassificationDetail(AiDomain.AI_TUTORING, AiSubIntent.AI_TUTORING_STUDY_PLAN, AiIntent.AI_TUTORING, 0.9, null);
-            }
-            if (containsAny(normalized, "ngu phap", "grammar", "vocabulary", "thi hien tai", "thi qua khu", "giai thich thi", "grammar check", "explain grammar")) {
-                return new ClassificationDetail(AiDomain.AI_TUTORING, AiSubIntent.AI_TUTORING_ENGLISH, AiIntent.AI_TUTORING, 0.9, null);
-            }
-            if (containsAny(normalized, "vat ly", "hoa hoc", "sinh hoc", "physics", "chemistry", "biology", "dinh ly", "cong thuc", "van toc", "pitago")) {
-                return new ClassificationDetail(AiDomain.AI_TUTORING, AiSubIntent.AI_TUTORING_SCIENCE, AiIntent.AI_TUTORING, 0.9, null);
-            }
-            if (containsAny(normalized, "lap trinh", "coding", "python", "java", "c++", "javascript", "debug", "code", "viet code")) {
-                return new ClassificationDetail(AiDomain.AI_TUTORING, AiSubIntent.AI_TUTORING_CODE, AiIntent.AI_TUTORING, 0.9, null);
-            }
-            return new ClassificationDetail(AiDomain.AI_TUTORING, AiSubIntent.AI_TUTORING_MATH, AiIntent.AI_TUTORING, 0.9, null);
+            return new ClassificationDetail(AiDomain.OUT_OF_SCOPE, AiSubIntent.OUT_OF_SCOPE, AiIntent.OUT_OF_SCOPE, 0.95, null);
         }
 
         // 16. MARKETPLACE - FIND TUTOR
@@ -425,27 +368,10 @@ public class IntentClassifier {
             return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.FIND_TUTOR, AiIntent.FIND_TUTOR, 0.95, "/tim-gia-su");
         }
 
-        // 17. OPEN_DOMAIN (Math, Weather, Time/Date, General Knowledge, Entertainment)
-        OpenDomainClassifier.OpenDomainResult openResult = openDomainClassifier.classifyOpen(message);
-        if (openResult.confidence() >= 0.7) {
-            AiIntent legacyIntent = AiIntent.OUT_OF_SCOPE;
-            if (openResult.subIntent() == AiSubIntent.MATH_CALCULATION) {
-                legacyIntent = AiIntent.AI_TUTORING;
-            } else if (openResult.subIntent() == AiSubIntent.PLATFORM_STATS) {
-                legacyIntent = AiIntent.PLATFORM_STATS;
-            }
-            return new ClassificationDetail(
-                AiDomain.OPEN_DOMAIN,
-                openResult.subIntent(),
-                legacyIntent,
-                openResult.confidence(),
-                null
-            );
-        }
 
         // 18. CATALOG_FAQ - GENERAL FALLBACK
         if (containsAny(normalized,
-                "huong dan", "cach dung", "quy trinh", "chinh sach", "faq", "ho tro chung",
+                "huong dan su dung", "huong dan tcs", "huong dan he thong", "cach dung", "quy trinh", "chinh sach", "faq", "ho tro chung",
                 "tcs la gi", "vai tro", "tinh nang san", "cac mon hoc")) {
             return new ClassificationDetail(AiDomain.CATALOG_FAQ, AiSubIntent.FAQ_SEARCH, AiIntent.FAQ_SUPPORT, 0.9, "/help");
         }
@@ -602,40 +528,5 @@ public class IntentClassifier {
         return false;
     }
 
-    /**
-     * Returns true if the normalized query contains ANY business-domain keyword
-     * related to tutoring, classes, finance, accounts, contracts, tickets, etc.
-     * Used by Tier 1.5 to guard the early OpenDomain fast-path: only pure
-     * chitchat/entertainment queries (with zero business keywords) should
-     * short-circuit to OpenDomain before Tier 2 business matching.
-     */
-    private boolean containsBusinessKeyword(String normalized) {
-        return containsAny(normalized,
-            // Tutoring & Education
-            "gia su", "giao vien", "day kem", "lop hoc", "khoa hoc",
-            "hoc phi", "hoc vien", "phu huynh", "hoc sinh", "day hoc",
-            "mon hoc", "toan", "ly", "hoa", "van", "anh", "tin hoc",
-            "ielts", "toeic", "tieng anh", "tieng nhat", "tieng han", "tieng trung",
-            // Account & Auth
-            "tai khoan", "dang nhap", "dang ky", "mat khau", "otp",
-            "email", "xac thuc", "quen mat khau",
-            // Profile & Verification
-            "ho so", "xac minh", "bang cap", "cccd", "chung chi",
-            "can cuoc", "avatar", "profile",
-            // Contracts & Classes
-            "hop dong", "ky hop dong", "escrow", "ky quy", "diem danh",
-            "lich day", "buoi hoc", "ung tuyen", "lop",
-            // Finance
-            "nap tien", "rut tien", "vi tien", "thanh toan", "phi san",
-            "hoa don", "chuyen khoan", "ngan hang", "so du",
-            // Support & Safety
-            "ticket", "khieu nai", "tranh chap", "ho tro", "bao cao",
-            "gian lan", "lach san", "vi pham",
-            // Platform & System
-            "admin", "platform", "dashboard", "thong ke", "doanh thu",
-            "trung tam", "san tcs", "tcs", "he thong",
-            // Marketplace search
-            "tim gia su", "thue gia su", "tutor", "class",
-            "finance", "login", "register", "contract", "support");
-    }
+
 }

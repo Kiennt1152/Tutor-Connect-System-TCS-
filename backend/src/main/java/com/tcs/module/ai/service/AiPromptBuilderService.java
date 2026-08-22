@@ -81,7 +81,7 @@ public class AiPromptBuilderService {
                 sb.append(s.getSnippet()).append("\n");
             }
             sb.append("------------------------------------------\n\n");
-        } else if (intent != AiIntent.OUT_OF_SCOPE && intent != AiIntent.AI_TUTORING) {
+        } else if (intent != AiIntent.OUT_OF_SCOPE) {
             sb.append("--- DỮ LIỆU THỰC TẾ HỆ THỐNG (CONTEXT) ---\n");
             sb.append("Không có dữ liệu đối sánh phù hợp trong cơ sở dữ liệu.\n");
             sb.append("------------------------------------------\n\n");

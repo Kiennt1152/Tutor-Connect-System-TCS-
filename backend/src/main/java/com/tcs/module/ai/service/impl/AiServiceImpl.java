@@ -2,7 +2,6 @@ package com.tcs.module.ai.service.impl;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tcs.exception.ForbiddenException;
-import com.tcs.exception.RateLimitExceededException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.ai.dto.request.ChatRequest;
 import com.tcs.module.ai.dto.response.*;
@@ -61,11 +60,10 @@ public class AiServiceImpl implements AiService {
     private final AiCapabilityRouter capabilityRouter;
     private final AiFallbackService fallbackService;
     private final AiHallucinationGuard hallucinationGuard;
-    private final OpenDomainHandler openDomainHandler;
     private final ContentSafetyFilter contentSafetyFilter;
-    private final OpenDomainRateLimiter openDomainRateLimiter;
     private final ConversationContextService conversationContextService;
-    private final OpenDomainAnalytics openDomainAnalytics;
+    private final AiSemanticCacheService semanticCacheService;
+    private final TcsSynonymService synonymService;
 
     private final AiTicketContextProvider ticketContextProvider;
     private final AiAdminDashboardContextProvider dashboardContextProvider;
@@ -152,19 +150,61 @@ public class AiServiceImpl implements AiService {
 
         List<AiChatMessage> history = contextService.getHistory(session.getSessionId());
 
+        // 0.5. Query Expansion with TCS Synonyms
+        String expandedQuery = synonymService.expandQuery(request.getMessage());
+        String normalizedQuery = synonymService.normalizeQuery(request.getMessage());
+        log.debug("Query expansion: original='{}', expanded='{}', normalized='{}'", 
+                  request.getMessage(), expandedQuery, normalizedQuery);
+
+        // 0.6. Semantic Cache Check (before expensive LLM calls)
+        Optional<AiSemanticCacheService.CachedResponse> cachedResponse = 
+            semanticCacheService.get(request.getMessage(), userRole, null);
+        
+        if (cachedResponse.isPresent()) {
+            AiSemanticCacheService.CachedResponse cache = cachedResponse.get();
+            
+            AiChatMessage aiMsg = new AiChatMessage();
+            aiMsg.setSession(session);
+            aiMsg.setRole("assistant");
+            aiMsg.setContent(cache.content());
+            aiMsg.setReferencedTutorIds(cache.referencedTutorIds());
+            aiMsg.setReferencedClassIds(cache.referencedClassIds());
+            aiMsg.setReferencedFaqIds(cache.referencedFaqIds());
+            messageRepository.save(aiMsg);
+            sessionRepository.save(session);
+            
+            log.info("Returned cached response for query: '{}'", request.getMessage());
+            
+            return AiMessageResponse.builder()
+                    .messageId(aiMsg.getMessageId())
+                    .sessionId(session.getSessionId())
+                    .role("assistant")
+                    .content(cache.content())
+                    .createdAt(aiMsg.getCreatedAt())
+                    .intent(cache.intent())
+                    .domain(cache.domain())
+                    .subIntent(cache.subIntent())
+                    .answerMode("CACHED")
+                    .confidenceScore(cache.confidenceScore() != null ? cache.confidenceScore() : 1.0)
+                    .confidenceLevel("HIGH")
+                    .sourceCount(cache.sourceCount() != null ? cache.sourceCount() : 0)
+                    .groundingStatus("CACHED")
+                    .sources(List.of())
+                    .referencedTutors(List.of())
+                    .referencedClasses(List.of())
+                    .referencedFaqs(List.of())
+                    .build();
+        }
+
         // 1. 3-Tier Classification (Domain -> SubIntent -> Entities)
         AiIntentService.DetailedIntentResult classification = intentService.classifyAndExtractDetailed(
-            request.getMessage(), session.getSessionId(), userId);
+            expandedQuery, session.getSessionId(), userId);
         AiDomain domain = classification.domain();
         AiSubIntent subIntent = classification.subIntent();
         AiIntent legacyIntent = classification.legacyIntent();
         Map<String, String> entities = classification.entities();
         String suggestedRoute = classification.suggestedRoute();
 
-        // 1.5 Rate Limiting Guard: Enforce per-user / per-session rate limit
-        if (!openDomainRateLimiter.allowRequest(userId, session.getSessionId(), subIntent)) {
-            throw new RateLimitExceededException("Bạn đang gửi yêu cầu quá nhanh. Vui lòng chờ 1 phút trước khi tiếp tục.");
-        }
 
         // 2. Safety & Conversational fast-path (Level 0)
         AiFallbackService.FallbackResult safetyResult = fallbackService.checkLevel0Safety(subIntent);
@@ -241,45 +281,10 @@ public class AiServiceImpl implements AiService {
                     .build();
         }
 
-        // 4.5. Fast-Path Open Domain & Knowledge Handling (Deterministic, Clean, Conditional Steering)
-        if (domain == AiDomain.OPEN_DOMAIN) {
-            OpenDomainHandler.OpenDomainResponse openResp = openDomainHandler.handle(subIntent, request.getMessage(), entities);
-            String fullText = openResp.formatFullResponse();
-            
-            AiChatMessage aiMsg = new AiChatMessage();
-            aiMsg.setSession(session);
-            aiMsg.setRole("assistant");
-            aiMsg.setContent(fullText);
-            messageRepository.save(aiMsg);
-            sessionRepository.save(session);
-            conversationContextService.saveContext(session.getSessionId(), domain, subIntent, entities, request.getMessage());
 
-            return AiMessageResponse.builder()
-                    .messageId(aiMsg.getMessageId())
-                    .sessionId(session.getSessionId())
-                    .role("assistant")
-                    .content(fullText)
-                    .createdAt(aiMsg.getCreatedAt())
-                    .intent(legacyIntent.name())
-                    .domain(domain.name())
-                    .subIntent(subIntent.name())
-                    .suggestedRoute(openResp.suggestedRoute())
-                    .clarificationOptions(openResp.ctaButtons())
-                    .answerMode("DIRECT_OPEN_DOMAIN")
-                    .confidenceScore(1.0)
-                    .confidenceLevel("HIGH")
-                    .sourceCount(0)
-                    .groundingStatus("GROUNDED")
-                    .sources(List.of())
-                    .referencedTutors(List.of())
-                    .referencedClasses(List.of())
-                    .referencedFaqs(List.of())
-                    .build();
-        }
-
-        // 4.6. Out-of-Scope Gating
+        // 4.5. Out-of-Scope Gating (includes former Open Domain queries)
         if (domain == AiDomain.OUT_OF_SCOPE) {
-            String outOfScopeMsg = "Xin lỗi, câu hỏi này nằm ngoài phạm vi hỗ trợ của hệ thống TCS. Tôi có thể giúp bạn tìm gia sư, tìm lớp học, giải đáp quy trình nạp/rút học phí hoặc hướng dẫn quy định trên hệ thống.";
+            String outOfScopeMsg = "Xin lỗi, tôi chỉ hỗ trợ các câu hỏi liên quan đến hệ thống Tutor Connect System (TCS) như: tìm gia sư, tìm lớp học, quy trình thanh toán, hợp đồng, và các chính sách nền tảng. Câu hỏi này nằm ngoài phạm vi hỗ trợ của tôi.";
             AiChatMessage aiMsg = new AiChatMessage();
             aiMsg.setSession(session);
             aiMsg.setRole("assistant");
@@ -316,7 +321,7 @@ public class AiServiceImpl implements AiService {
         String lowerQuery = request.getMessage().toLowerCase();
         boolean retrievalUnavailable = false;
 
-        if (domain != AiDomain.CONVERSATION_SAFETY && domain != AiDomain.OPEN_DOMAIN && domain != AiDomain.OUT_OF_SCOPE) {
+        if (domain != AiDomain.CONVERSATION_SAFETY && domain != AiDomain.OUT_OF_SCOPE) {
             try {
                 // Unified Vector RAG retrieval: Always retrieve top semantic chunks across all knowledge
                 List<AiRetrievalService.RetrievalResult> vectorResults = retrievalService.retrieve(rewritten.rewrittenQuery(), userRole, userId);
@@ -360,7 +365,7 @@ public class AiServiceImpl implements AiService {
         List<FaqReferenceDto> faqs = new ArrayList<>();
 
         // Populate UI cards dynamically from high-confidence vector sources (>= 0.65)
-        if (domain != AiDomain.OPEN_DOMAIN && domain != AiDomain.CONVERSATION_SAFETY) {
+        if (domain != AiDomain.CONVERSATION_SAFETY) {
             Set<Long> addedTutorIds = new HashSet<>();
             Set<Long> addedClassIds = new HashSet<>();
             Set<Long> addedFaqIds = new HashSet<>();
@@ -509,15 +514,6 @@ public class AiServiceImpl implements AiService {
             }
         } catch (Exception e) {
             log.warn("AI chat LLM invocation failed across providers: {}", e.getMessage());
-        }
-
-        // If it is AI tutoring, don't return random platform FAQ snippets
-        if (intent == AiIntent.AI_TUTORING) {
-            String norm = prompt.toLowerCase();
-            if (norm.contains("1+1") || norm.contains("1 + 1")) {
-                return "1 + 1 = 2.";
-            }
-            return "Tôi là Trợ lý học tập TCS. Hãy gửi câu hỏi hoặc bài tập chi tiết để tôi hỗ trợ hướng dẫn phương pháp giải nhé.";
         }
 
         // Fallback directly to top FAQ / Knowledge source snippet ONLY if high confidence (>= 0.65)

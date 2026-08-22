@@ -73,24 +73,12 @@ public class ConversationContextService {
             mergedEntities.putAll(currentEntities);
         }
 
-        // Case 1: Inherit Weather Query with new location
-        if (ctx.lastSubIntent() == AiSubIntent.WEATHER_QUERY) {
-            String newLocation = extractLocation(lower, normalized);
-            if (newLocation != null) {
-                mergedEntities.put("location", newLocation);
-            }
-            return new FollowUpResolution(true, AiDomain.OPEN_DOMAIN, AiSubIntent.WEATHER_QUERY, mergedEntities);
-        }
 
-        // Case 2: Inherit Marketplace Tutor or Class Search
+        // Case 1: Inherit Marketplace Tutor or Class Search
         if (ctx.lastDomain() == AiDomain.MARKETPLACE) {
             return new FollowUpResolution(true, ctx.lastDomain(), ctx.lastSubIntent(), mergedEntities);
         }
 
-        // Case 3: Inherit General Open Domain
-        if (ctx.lastDomain() == AiDomain.OPEN_DOMAIN) {
-            return new FollowUpResolution(true, ctx.lastDomain(), ctx.lastSubIntent(), mergedEntities);
-        }
 
         return new FollowUpResolution(false, null, null, currentEntities);
     }

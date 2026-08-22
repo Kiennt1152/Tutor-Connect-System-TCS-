@@ -64,11 +64,8 @@ class AiSecurityAndTenancyTest {
     @Mock private AiCapabilityRouter capabilityRouter;
     @Mock private AiFallbackService fallbackService;
     @Mock private AiHallucinationGuard hallucinationGuard;
-    @Mock private OpenDomainHandler openDomainHandler;
     @Mock private ContentSafetyFilter contentSafetyFilter;
-    @Mock private OpenDomainRateLimiter openDomainRateLimiter;
     @Mock private ConversationContextService conversationContextService;
-    @Mock private OpenDomainAnalytics openDomainAnalytics;
     @Mock private AiTicketContextProvider ticketContextProvider;
     @Mock private AiAdminDashboardContextProvider dashboardContextProvider;
     @Mock private AiTutorSearchContextProvider tutorSearchContextProvider;
@@ -89,13 +86,11 @@ class AiSecurityAndTenancyTest {
             clientRepository, faqEntryRepository, tutoringClassRepository,
             contextService, rewriteService, intentService, retrievalService, rerankService,
             promptBuilderService, evaluatorService, capabilityRouter, fallbackService,
-            hallucinationGuard, openDomainHandler, contentSafetyFilter, openDomainRateLimiter,
-            conversationContextService, openDomainAnalytics, ticketContextProvider,
-            dashboardContextProvider, tutorSearchContextProvider, classSearchContextProvider,
-            platformStatsContextProvider, tutorFinanceContextProvider,
+            hallucinationGuard, contentSafetyFilter, conversationContextService,
+            ticketContextProvider, dashboardContextProvider, tutorSearchContextProvider,
+            classSearchContextProvider, platformStatsContextProvider, tutorFinanceContextProvider,
             aiProviderRouter, new ObjectMapper()
         );
-        lenient().when(openDomainRateLimiter.allowRequest(any(), any(), any())).thenReturn(true);
     }
 
     @Test

@@ -41,7 +41,7 @@ public class AiFallbackService {
         "1. **Tìm gia sư & Lớp học**: Tìm gia sư theo môn, lớp, học phí và khu vực (/tim-gia-su, /lop-hoc).\n" +
         "2. **Tài chính & Escrow**: Hướng dẫn nạp ví, rút tiền, giải ngân ký quỹ và chính sách hoàn tiền (/finance).\n" +
         "3. **Hỗ trợ & Khiếu nại**: Hướng dẫn tạo ticket, báo cáo lách sàn hoặc mở tranh chấp (/support/tickets).\n" +
-        "4. **Trợ giảng học tập**: Hướng dẫn giải bài tập và ôn luyện kiến thức.",
+        "4. **Chính sách & Quy trình**: Giải đáp các quy định, hợp đồng, phí sàn, và chính sách nền tảng (/help).",
 
         AiSubIntent.PROFANITY_OR_FRUSTRATION,
         "TCS luôn hướng tới môi trường giao tiếp văn minh và tôn trọng lẫn nhau. Nếu bạn đang gặp sự cố hoặc bức xúc về dịch vụ, vui lòng mô tả chi tiết vấn đề để tôi hỗ trợ hoặc chuyển tiếp đội ngũ quản trị viên xử lý ngay nhé.",
@@ -162,13 +162,12 @@ public class AiFallbackService {
         if (normalized.contains("bai tap") || normalized.contains("giai bai") || normalized.contains("luyen tap") || normalized.contains("kien thuc")) {
             return new FallbackResult(
                 1,
-                "Bạn cần hỗ trợ giải đáp bài tập hoặc học tập? Tôi có thể giúp bạn:",
+                "Câu hỏi này nằm ngoài phạm vi hỗ trợ của tôi. Tuy nhiên, tôi có thể giúp bạn tìm gia sư dạy kèm phù hợp:",
                 "/tim-gia-su",
                 List.of(
                     "Tìm gia sư dạy kèm 1-1 (/tim-gia-su)",
-                    "Giải bài tập & trợ giảng cùng AI",
                     "Xem danh sách lớp học đang mở (/lop-hoc)",
-                    "Trung tâm trợ giúp học tập (/help)"
+                    "Trung tâm trợ giúp (/help)"
                 )
             );
         }

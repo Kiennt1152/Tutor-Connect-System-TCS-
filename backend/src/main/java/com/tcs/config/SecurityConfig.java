@@ -37,7 +37,7 @@ public class SecurityConfig {
                         // --- Public ---
                         .requestMatchers(
                                 "/error",
-                                "/uploads/public/**",
+                                "/uploads/**",
                                 "/api/home",
                                 "/api/home/announcements",
                                 "/api/identity/login",

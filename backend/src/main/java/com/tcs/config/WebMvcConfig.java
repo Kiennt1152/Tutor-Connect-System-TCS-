@@ -26,9 +26,13 @@ public class WebMvcConfig implements WebMvcConfigurer {
 
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        // Only serve public uploads (avatars). Private files are behind /api/files/private/{id}.
-        String publicPath = storagePath.startsWith("file:") ? storagePath : "file:" + storagePath + "/public/";
-        registry.addResourceHandler("/uploads/public/**").addResourceLocations(publicPath);
+        String basePath = java.nio.file.Paths.get(storagePath).toAbsolutePath().normalize().toUri().toString();
+        if (!basePath.endsWith("/")) {
+            basePath += "/";
+        }
+        registry.addResourceHandler("/uploads/**").addResourceLocations(basePath);
+        registry.addResourceHandler("/uploads/public/**").addResourceLocations(basePath + "public/");
+        registry.addResourceHandler("/uploads/avatars/**").addResourceLocations(basePath + "avatars/");
     }
 
     @Override
