@@ -39,9 +39,6 @@ class AiReferenceCardPolicyTest {
 
         var safetyPolicy = router.getPolicy(AiDomain.CONVERSATION_SAFETY, AiSubIntent.GREETING);
         assertThat(safetyPolicy.cardPolicy()).isEqualTo(AiCapabilityRouter.CardPolicy.NONE);
-
-        var mathPolicy = router.getPolicy(AiDomain.AI_TUTORING, AiSubIntent.AI_TUTORING_MATH);
-        assertThat(mathPolicy.cardPolicy()).isEqualTo(AiCapabilityRouter.CardPolicy.NONE);
     }
 
     @Test

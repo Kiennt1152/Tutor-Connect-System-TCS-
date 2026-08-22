@@ -199,7 +199,8 @@ class AiHardenedIntegrationTest {
         assertThat(r2.subIntent()).isEqualTo(AiSubIntent.FIND_TUTOR);
 
         var r3 = classifier.classifyDetailed("solve equation 2x + 5 = 11");
-        assertThat(r3.domain()).isEqualTo(AiDomain.AI_TUTORING);
+        assertThat(r3.domain()).isEqualTo(AiDomain.OUT_OF_SCOPE);
+        assertThat(r3.subIntent()).isEqualTo(AiSubIntent.OUT_OF_SCOPE);
 
         // Slang / Teencode
         var r4 = classifier.classifyDetailed("tim gs toan");

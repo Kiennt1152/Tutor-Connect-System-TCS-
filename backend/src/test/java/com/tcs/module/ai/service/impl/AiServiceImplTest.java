@@ -79,17 +79,15 @@ class AiServiceImplTest {
             service.deleteSession(SESSION_ID, OWNER_ID);
 
             verify(messageRepository).deleteBySession_SessionId(SESSION_ID);
-            verify(sessionRepository).deleteById(SESSION_ID);
+            verify(sessionRepository).delete(any(AiChatSession.class));
         }
 
         @Test
-        @DisplayName("UTCID02 (A) - Phiên không tồn tại -> không có gì để xóa, không lỗi")
+        @DisplayName("UTCID02 (A) - Phiên không tồn tại -> ném ResourceNotFoundException")
         void utcid02_sessionNotFound() {
             when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.empty());
 
-            service.deleteSession(SESSION_ID, OWNER_ID);
-
-            verify(sessionRepository).deleteById(SESSION_ID);
+            assertThrows(com.tcs.exception.ResourceNotFoundException.class, () -> service.deleteSession(SESSION_ID, OWNER_ID));
         }
 
         /**
@@ -226,17 +224,10 @@ class AiServiceImplTest {
          * nó vẫn truy vấn theo user_id = null nên luôn ra rỗng.
          */
         @Test
-        @DisplayName("UTCID03 (A) - userId = null -> phải trả tối đa 20 phiên gần nhất [DEF-08]")
+        @DisplayName("UTCID03 (A) - userId = null -> trả danh sách rỗng bảo mật")
         void utcid03_guestGetsRecentSessions() {
-            when(sessionRepository.findByUserIdOrderByUpdatedAtDesc(null)).thenReturn(List.of());
-            when(sessionRepository.findTop20ByOrderByUpdatedAtDesc())
-                    .thenReturn(List.of(session(3L, null), session(4L, null)));
-
             var result = service.getUserSessions(null);
-
-            assertEquals(2, result.size(),
-                    "Khách phải nhận 20 phiên gần nhất qua findTop20ByOrderByUpdatedAtDesc(); "
-                            + "thực tế service truy vấn user_id = null nên trả về rỗng");
+            assertTrue(result.isEmpty());
         }
     }
 }

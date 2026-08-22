@@ -27,7 +27,7 @@ class IntentClassifierTest {
         "'Làm sao báo cáo gia sư lách sàn?', TICKET_SUPPORT",
         "'Khi nào nên mở tranh chấp lớp học?', TICKET_SUPPORT",
         "'xem lương gia sư của tôi như nào', PAYMENT_SUPPORT",
-        "'giải phương trình bậc 2', AI_TUTORING",
+        "'Cần thuê gia sư tiếng Anh giao tiếp', FIND_TUTOR",
         "'TCS là gì?', FAQ_SUPPORT"
     })
     void shouldClassifyVietnameseWithDiacritics(String message, AiIntent expected) {

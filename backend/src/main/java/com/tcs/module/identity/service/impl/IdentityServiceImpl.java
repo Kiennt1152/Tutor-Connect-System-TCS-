@@ -58,11 +58,26 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Implementation of User Identity, Authentication, and Lifecycle Service.
+ * <p>
+ * Core Responsibilities:
+ * <ul>
+ *   <li>BF-01 (User Registration & Onboarding): OTP email verification, rate-limited dispatch, and secure BCrypt password hashing.</li>
+ *   <li>Authentication: JWT token issuance, session claim embedding, and Google OAuth 2.0 federation.</li>
+ *   <li>Account Security: Failed login attempt throttling (NFR-SEC08), password reset workflows, and audit logging.</li>
+ * </ul>
+ *
+ * @see com.tcs.module.identity.service.IdentityService
+ * @see com.tcs.module.identity.entity.User
+ */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class IdentityServiceImpl implements IdentityService {
