@@ -95,6 +95,7 @@ function needsRefundPayoutInfo(
   requestedAction: ClassIssueRequestedAction,
   currentUserRole?: string | null,
 ) {
+  // Only the paying client can provide refund payout details; tutor and center do not pay the class escrow.
   if (currentUserRole !== 'CLIENT') {
     return false;
   }
@@ -104,6 +105,7 @@ function needsRefundPayoutInfo(
 }
 
 function issueTypesForRole(currentUserRole?: string | null) {
+  // Prevent provider-side users from reporting themselves as absent.
   return currentUserRole === 'CLIENT' ? CLIENT_ISSUE_TYPES : PROVIDER_ISSUE_TYPES;
 }
 
@@ -212,6 +214,7 @@ export function ClassIssueModal({
   };
 
   const handleSubmit = async () => {
+    // Submitting can create a plain class report or escalate it to a money-impacting dispute.
     setError('');
     if (uploadingEvidence) {
       setError('Vui lòng chờ tải ảnh bằng chứng xong trước khi gửi báo cáo.');

@@ -103,6 +103,7 @@ export default function PlatformWithdrawalsPage() {
   };
 
   const submitDecision = async () => {
+    // Reject and transfer-failed both return locked money to the requester, but with different audit meaning.
     if (!decisionDialog) return;
     const reason = decisionReason.trim();
     const payload = reason ? { reason } : {};
@@ -116,6 +117,7 @@ export default function PlatformWithdrawalsPage() {
   };
 
   const toggleAccountVisibility = (withdrawalId: string) => {
+    // Bank account numbers stay masked by default and are revealed per row only when admin needs to transfer.
     setVisibleAccountIds((current) => ({
       ...current,
       [withdrawalId]: !current[withdrawalId],
@@ -127,6 +129,7 @@ export default function PlatformWithdrawalsPage() {
       title="Yêu cầu chuyển tiền"
       subtitle="Theo dõi yêu cầu rút tiền và hoàn tiền cần chuyển khoản ra ngoài."
     >
+      {/* This page intentionally merges withdrawals and refund transfers so admin has one transfer queue. */}
       {data && (
         <section className="pw-summary" aria-label="Tổng quan yêu cầu rút tiền">
           <article className="pw-summary-card pw-summary-card--warn">

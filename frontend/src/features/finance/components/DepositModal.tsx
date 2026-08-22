@@ -74,6 +74,7 @@ export function DepositModal({
         return;
       }
       try {
+        // Poll every few seconds so a successful bank transfer updates the modal without manual refresh.
         const data = await onCheckTopupStatus(session.reference);
         applyTopupStatus(data, false);
       } catch {
@@ -106,6 +107,7 @@ export function DepositModal({
   }
 
   function applyTopupStatus(data: TopupStatusInfo, manualCheck: boolean) {
+    // Manual checks and auto polling both flow through this status mapper.
     const normalized = data.status.toUpperCase();
 
     if (normalized === 'SUCCESS') {
@@ -133,6 +135,7 @@ export function DepositModal({
   }
 
   async function createSession(parsedAmount: number) {
+    // One QR session maps to one pending backend transaction and one transfer reference.
     setSubmitting(true);
     setError(null);
     setStatusMessage(null);

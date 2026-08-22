@@ -31,12 +31,14 @@ public class VerificationController {
     private final FileStorageService fileStorageService;
     private final AuthHelper authHelper;
 
+    // User uploads evidence files first, then submits a verification request with the returned file IDs.
     @PostMapping("/upload")
     public ResponseEntity<FileUploadResponse> uploadFile(@RequestParam("file") MultipartFile file) {
         Long userId = authHelper.currentUserId();
         return ResponseEntity.ok(fileStorageService.uploadFile(file, userId));
     }
 
+    // Create a new verification request from uploaded documents.
     @PostMapping("/submit")
     public ResponseEntity<VerificationResponse> submitVerification(
             @Valid @RequestBody VerificationRequestDto request
@@ -44,6 +46,7 @@ public class VerificationController {
         return ResponseEntity.ok(verificationService.submitVerification(request));
     }
 
+    // Only pending self-submitted verification requests can be cancelled by the owner.
     @DeleteMapping("/{verificationId}")
     public ResponseEntity<Void> cancelVerification(@PathVariable Long verificationId) {
         verificationService.cancelVerification(verificationId);
@@ -72,11 +75,13 @@ public class VerificationController {
         return ResponseEntity.ok(verificationService.getVerificationsByStatus(status));
     }
 
+    // Admin opens a submitted request before making the final approval / rejection decision.
     @PostMapping("/{verificationId}/start-review")
     public ResponseEntity<VerificationResponse> startReview(@PathVariable Long verificationId) {
         return ResponseEntity.ok(verificationService.startReview(verificationId));
     }
 
+    // Admin review endpoint for approving or rejecting verification evidence.
     @PostMapping("/{verificationId}/review")
     public ResponseEntity<VerificationResponse> reviewVerification(
             @PathVariable Long verificationId,
@@ -85,6 +90,7 @@ public class VerificationController {
         return ResponseEntity.ok(verificationService.reviewVerification(verificationId, decision));
     }
 
+    // Queue used by the admin verification screen.
     @GetMapping("/moderation-queue")
     public ResponseEntity<List<VerificationResponse>> getModerationQueue() {
         return ResponseEntity.ok(verificationService.getModerationQueue());

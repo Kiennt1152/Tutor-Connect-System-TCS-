@@ -178,6 +178,7 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional
     public List<ContractResponse> getMyContracts() {
+        // Collect every contract relation so client, tutor, and center see the same business state from /contract.
         var principal = authHelper.requireAuthenticated();
         Long userId = principal.getUserId();
         LinkedHashSet<Contract> contracts = new LinkedHashSet<>();
@@ -208,6 +209,7 @@ public class ContractServiceImpl implements ContractService {
                 || assignment.getClientSignedAt() == null) {
             return;
         }
+        // Private-class contracts become visible after the client signs, even if the tutor has not signed yet.
         Contract contract = contractRepository.findByAssignment_AssignmentId(assignment.getAssignmentId())
                 .orElseGet(() -> generateForAssignment(assignment.getAssignmentId()));
         LocalDateTime signedAt = latestTime(assignment.getClientSignedAt(), assignment.getTutorSignedAt());
@@ -396,6 +398,7 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional
     public ContractResponse signWithOtp(Long contractId, SignWithOtpRequest request) {
+        // OTP signing is the handoff point to later payment, escrow, and class-activation events.
         if (request.getOtpCode() == null || request.getOtpCode().isBlank()) {
             throw new IllegalArgumentException("Mã OTP là bắt buộc");
         }
@@ -494,6 +497,7 @@ public class ContractServiceImpl implements ContractService {
     @Override
     @Transactional
     public ContractResponse saveRefundPayoutInfo(Long contractId, SaveRefundPayoutRequest request) {
+        // Clients save refund payout information after signing and before paying the escrow QR.
         if (request == null) {
             throw new IllegalArgumentException("Thiếu thông tin tài khoản nhận hoàn tiền");
         }

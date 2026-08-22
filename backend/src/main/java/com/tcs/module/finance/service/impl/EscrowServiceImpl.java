@@ -65,6 +65,7 @@ public class EscrowServiceImpl implements EscrowService {
     @Override
     @Transactional
     public EscrowTransaction lock(EscrowLockCommand command) {
+        // Lock only after a successful escrow payment already exists; this prevents unpaid contracts from creating escrow.
         validateCommand(command);
         String reference = command.assignmentId() != null
                 ? PRIVATE_REF_PREFIX + command.assignmentId()
@@ -77,6 +78,7 @@ public class EscrowServiceImpl implements EscrowService {
     @Override
     @Transactional
     public PaymentTransaction preparePayment(EscrowLockCommand command) {
+        // Prepare the QR payment transaction. The actual escrow row is created later by fundConfirmedPayment().
         validateCommand(command);
         if (command.assignmentId() != null) {
             return preparePrivatePayment(command);
@@ -87,6 +89,7 @@ public class EscrowServiceImpl implements EscrowService {
     @Override
     @Transactional
     public EscrowTransaction fundConfirmedPayment(PaymentTransaction payment) {
+        // Idempotent conversion from successful payment to funded escrow, used by SePay webhook retries.
         if (payment == null || payment.getTransactionId() == null) {
             throw new BusinessException("Thiếu giao dịch thanh toán escrow");
         }
@@ -100,6 +103,7 @@ public class EscrowServiceImpl implements EscrowService {
     @Override
     @Transactional
     public void apply(ReleaseInstruction instruction) {
+        // Settlement must consume the full escrow amount through release + refund so money never stays ambiguous.
         validateReleaseInstruction(instruction);
 
         EscrowTransaction escrow = escrowTransactionRepository.findById(instruction.escrowId())
@@ -169,6 +173,7 @@ public class EscrowServiceImpl implements EscrowService {
     @Override
     @Transactional
     public EscrowTransaction holdForDispute(Long escrowId, String reason) {
+        // Any dispute / early-termination review freezes the escrow from automatic settlement.
         if (escrowId == null) {
             throw new BusinessException("Thiếu escrow cần tạm giữ");
         }

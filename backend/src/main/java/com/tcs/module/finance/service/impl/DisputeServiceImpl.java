@@ -108,6 +108,7 @@ public class DisputeServiceImpl implements DisputeService {
     @Override
     @Transactional
     public DisputeResponse createDispute(CreateDisputeRequest request) {
+        // Direct dispute path: report is created and the related escrow is immediately held for review.
         if (request == null) {
             throw new IllegalArgumentException("Thiếu thông tin tranh chấp");
         }
@@ -144,6 +145,7 @@ public class DisputeServiceImpl implements DisputeService {
     @Override
     @Transactional
     public DisputeResponse createClassIssue(CreateClassIssueRequest request) {
+        // Class issue path: start as a report; only requested actions that affect money escalate to a dispute.
         if (request == null) {
             throw new IllegalArgumentException("Thiếu thông tin báo cáo lớp học");
         }
@@ -230,6 +232,7 @@ public class DisputeServiceImpl implements DisputeService {
     @Override
     @Transactional
     public AdminDisputeReviewResponse resolveDispute(Long disputeId, ResolveDisputeRequest request) {
+        // Admin / center review decides whether class continues or escrow is settled with a release/refund split.
         UserPrincipal reviewer = authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
         if (disputeId == null) {
             throw new IllegalArgumentException("disputeId là bắt buộc");
@@ -577,6 +580,7 @@ public class DisputeServiceImpl implements DisputeService {
             RefundPayoutInfo submittedPayoutInfo,
             boolean defaultToProRata) {
 
+        // This method is the money boundary for BF08: every resolved money dispute must fully allocate escrow.
         EscrowTransaction escrow = requireEscrow(dispute);
         SettlementAmounts settlementAmounts = resolveSettlementAmounts(
                 dispute,

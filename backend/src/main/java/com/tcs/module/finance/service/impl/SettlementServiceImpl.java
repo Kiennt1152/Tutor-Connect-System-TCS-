@@ -61,6 +61,7 @@ public class SettlementServiceImpl implements SettlementService {
     @Override
     @Transactional
     public void execute(ReleaseInstruction instruction) {
+        // Generic settlement entry point used by internal flows once a release/refund split has been decided.
         if (instruction == null) {
             throw new BusinessException("Thiếu chỉ dẫn tất toán");
         }
@@ -70,6 +71,7 @@ public class SettlementServiceImpl implements SettlementService {
     @Override
     @Transactional
     public RefundExecutionResponse executeRefund(ExecuteRefundRequest request) {
+        // Admin-only manual refund path: settle escrow and close the related early-termination objects.
         authHelper.requireRole(UserRole.PLATFORM_ADMIN);
         validateRefundRequest(request);
 

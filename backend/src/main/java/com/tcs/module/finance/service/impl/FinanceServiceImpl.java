@@ -192,6 +192,7 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public TopupSessionResponse createTopup(DepositRequest request) {
+        // Create a QR payment session first; the wallet is credited only after the incoming webhook matches it.
         validateTopupAmount(request);
         Long userId = requireCenterWalletUserId();
         Wallet wallet = walletService.getRequired(userId);
@@ -250,6 +251,7 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public PaymentWebhookResponse handleSepayIncomingWebhook(SepayWebhookRequest request) {
+        // Incoming SePay events can confirm wallet top-ups, escrow payments, or center-request fee payments.
         if (isInvalidWebhookRequest(request)) {
             return PaymentWebhookResponse.builder()
                     .status("error")
@@ -311,6 +313,7 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public PaymentWebhookResponse handleSepayOutgoingWebhook(SepayWebhookRequest request) {
+        // Outgoing SePay events confirm manual bank transfers for withdrawals and approved refunds.
         if (isInvalidWebhookRequest(request)) {
             return PaymentWebhookResponse.builder()
                     .status("error")
@@ -386,6 +389,7 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public PaymentMethodResponse createPaymentMethod(PaymentMethodRequest request) {
+        // Payout methods are saved before withdrawal so admin can transfer to a verified bank account.
         PaymentMethodData data = validatePaymentMethodRequest(request);
         Wallet wallet = currentWallet();
         List<PaymentMethod> activeMethods = activePaymentMethods(wallet);
@@ -471,6 +475,7 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public WithdrawalResponse createWithdrawal(CreateWithdrawalRequest request) {
+        // Freeze available balance immediately; approve / reject / webhook later decides the final wallet movement.
         validateWithdrawalRequest(request);
 
         Long userId = requireEarningWalletUserId();
@@ -683,6 +688,7 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public RefundRequestResponse createRefundRequest(CreateRefundRequest request) {
+        // Refund requests keep a snapshot of payout data and move the related escrow into a review state.
         validateCreateRefundRequest(request);
         Long userId = authHelper.currentUserId();
         User requester = userRepository.findById(userId)
@@ -751,6 +757,7 @@ public class FinanceServiceImpl implements FinanceService {
     @Override
     @Transactional
     public RefundRequestResponse approveRefundRequest(Long refundId, RefundDecisionRequest request) {
+        // Approving a refund settles the escrow split: release to beneficiary and refund to payer.
         UserPrincipal reviewer = authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
         RefundRequest refundRequest = requirePendingRefund(refundId);
         requireCanReviewRefundRequest(reviewer, refundRequest);

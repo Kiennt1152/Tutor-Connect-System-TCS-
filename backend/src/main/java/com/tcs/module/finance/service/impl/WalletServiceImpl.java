@@ -26,11 +26,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Seam 0.3 (chu: M3). Implement WalletService interface.
- * - getOrCreate : lazy-init wallet when user accesses finance features.
- * - balance      : return BigDecimal balance.
- * - credit/debit : update available balance + write FinancialJournal.
- * - createTopup  : delegate to PaymentGateway (stub in phase 1).
+ * Wallet balance service.
+ * Available balance is money the user can use or withdraw.
+ * Frozen balance is money locked for withdrawal / escrow-like operations until the flow is completed.
  */
 @Service
 @RequiredArgsConstructor
@@ -72,6 +70,7 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @Transactional
     public Wallet getSystemEscrowWallet() {
+        // The first platform admin wallet acts as the system holding wallet for QR payments and escrow funding.
         PlatformAdmin admin = platformAdminRepository.findAll().stream()
                 .filter(item -> item.getUser() != null && item.getUser().getUserId() != null)
                 .findFirst()
@@ -127,6 +126,7 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @Transactional
     public Wallet lockFunds(Long userId, BigDecimal amount, String ref) {
+        // Locking moves money from available to frozen so it cannot be withdrawn twice.
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("Số tiền khóa escrow phải lớn hơn 0");
         }
@@ -166,6 +166,7 @@ public class WalletServiceImpl implements WalletService {
     @Override
     @Transactional
     public Wallet refundLockedFunds(Long userId, BigDecimal amount, String ref) {
+        // Refund returns previously frozen money to available balance and records a credit journal entry.
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("Số tiền hoàn escrow phải lớn hơn 0");
         }
