@@ -21,3 +21,6 @@ backend/uploads/*
 
 # Log file sinh ra khi chạy local — KHÔNG commit
 backend/*.log
+
+# SonarQube temporary scan artifacts
+.scannerwork/

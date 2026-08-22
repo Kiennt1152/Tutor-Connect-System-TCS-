@@ -35,6 +35,20 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Implementation of the AI Assistant and Intelligent RAG Retrieval Service.
+ * <p>
+ * Core Architecture & Features:
+ * <ul>
+ *   <li>RAG Pipeline: Query rewriting, semantic retrieval against FAQ & Domain entities, and contextual reranking.</li>
+ *   <li>Intent Classification: Categorizing user queries into policy guidance, tutor matching, or class discovery.</li>
+ *   <li>Hallucination Guard & Safety Filtering: Strict groundedness verification before returning LLM responses.</li>
+ *   <li>Multi-turn Contextual Memory: Maintaining conversation session state with tenant isolation.</li>
+ * </ul>
+ *
+ * @see com.tcs.module.ai.service.AiService
+ * @see com.tcs.module.ai.entity.AiChatSession
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

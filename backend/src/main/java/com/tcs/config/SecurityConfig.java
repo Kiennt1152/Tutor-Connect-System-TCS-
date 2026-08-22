@@ -15,6 +15,22 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
+/**
+ * Security Configuration for Tutor Connect System (TCS).
+ * <p>
+ * Implements stateless JWT authentication, CORS policies, and Role-Based Access Control (RBAC)
+ * across 4 core actors: Platform Admin, Client, Tutor, and Tutor Center.
+ * <p>
+ * Architectural Rules:
+ * <ul>
+ *   <li>Stateless Session Management (CSRF disabled, SessionCreationPolicy.STATELESS).</li>
+ *   <li>JWT filter execution before UsernamePasswordAuthenticationFilter.</li>
+ *   <li>Explicit role-guarding per endpoint matching PRD §6.2 and TDS §4 Security Specifications.</li>
+ * </ul>
+ *
+ * @see com.tcs.config.RbacConstants
+ * @see com.tcs.security.JwtAuthenticationFilter
+ */
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
@@ -26,6 +42,13 @@ public class SecurityConfig {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
+    /**
+     * Configures the HTTP security filter chain and authorization rules.
+     *
+     * @param http the {@link HttpSecurity} builder
+     * @return the configured {@link SecurityFilterChain}
+     * @throws Exception if an error occurs during security chain configuration
+     */
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)

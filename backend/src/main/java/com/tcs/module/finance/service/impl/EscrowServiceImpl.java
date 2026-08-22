@@ -41,6 +41,20 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * Implementation of the Smart Escrow Wallet and Multi-party Settlement Service.
+ * <p>
+ * Core Responsibilities:
+ * <ul>
+ *   <li>BF-06 (Wallet & Payment): Locking tuition funds into escrow upon enrollment or assignment.</li>
+ *   <li>BF-08 (Dispute & Settlement): Releasing escrow funds to tutor/center upon class completion or refunding client upon approved dispute.</li>
+ *   <li>Multi-party Fee Deduction: Computing platform commission fee dynamically based on system parameters.</li>
+ *   <li>Audit Logging & Financial Journaling: Ensuring strict ledger reconciliation with zero negative balance guarantee (NFR-COM01).</li>
+ * </ul>
+ *
+ * @see com.tcs.module.finance.service.EscrowService
+ * @see com.tcs.module.finance.entity.EscrowTransaction
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
