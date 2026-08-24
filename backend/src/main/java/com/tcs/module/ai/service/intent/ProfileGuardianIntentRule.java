@@ -27,7 +27,8 @@ public class ProfileGuardianIntentRule implements IntentRule {
         }
 
         if (containsAny(normalized,
-                "ho so ca nhan", "cap nhat ho so", "tai anh dai dien", "avatar", "quet can cuoc cong dan", "cccd",
+                "ho so ca nhan", "cap nhat ho so", "tai anh dai dien", "doi anh dai dien", "anh dai dien", "avatar", "doi avatar", "anh ca nhan", "thay anh dai dien",
+                "quet can cuoc cong dan", "cccd",
                 "kinh nghiem day hoc", "lich ranh", "viet bio", "chinh sua thong tin lien he", "cap nhat ho so gia su", "them lich ranh") &&
             !containsAny(normalized, "xac minh", "duyet", "tim gia su", "thue gia su", "can gia su")) {
             return new ClassificationDetail(AiDomain.PROFILE_GUARDIAN, AiSubIntent.PROFILE_UPDATE_HELP, AiIntent.FAQ_SUPPORT, 0.9, "/profile");

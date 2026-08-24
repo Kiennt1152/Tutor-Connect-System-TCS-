@@ -97,7 +97,7 @@ public class AiDiverseScenariosSuiteTest {
                 "4. Vận hành & Hợp đồng",
                 "Trung tâm gia sư tuyển dụng và quản lý đội ngũ gia sư thế nào?",
                 "Quy trình tuyển dụng và quản lý gia sư trung tâm",
-                null, "CENTER_OPS", "CENTER_TUTOR_MANAGEMENT"
+                null, "CENTER_OPS", "CENTER_RECRUITMENT_POST"
             ),
             new ScenarioCase(
                 "4. Vận hành & Hợp đồng",

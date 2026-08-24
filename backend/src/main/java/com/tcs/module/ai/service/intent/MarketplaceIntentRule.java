@@ -19,18 +19,28 @@ public class MarketplaceIntentRule implements IntentRule {
 
     @Override
     public ClassificationDetail classify(String normalized, String lower) {
-        // CREATE CLASS
+        // 1. APPLY TO CLASS (TUTOR APPLICATION) - High Priority
         if (containsAny(normalized,
-                "dang bai tim gia su", "tao yeu cau hoc moi", "tao lop tim nguoi day", "dang tin tim gia su", "tao lop tim gia su", "tao lop", "dang bai", "tao yeu cau hoc")) {
+                "ung tuyen nhu the nao", "ung tuyen nhu nao", "cach ung tuyen", "huong dan ung tuyen",
+                "lam sao de ung tuyen", "gia su ung tuyen", "ung tuyen nhan lop", "ung tuyen lop day",
+                "nop don ung tuyen", "cach nhan lop day", "quy trinh ung tuyen", "nop ho so nhan lop",
+                "gia su nop ho so", "nop don", "nop ho so", "cach ung tuyen lop day kem", "ung tuyen lop day kem", "ung tuyen lop")) {
+            return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.APPLY_TO_CLASS, AiIntent.FAQ_SUPPORT, 0.95, "/lop-hoc");
+        }
+
+        // 2. CREATE CLASS (POST A REQUEST) - Priority over finding existing tutor
+        if (containsAny(normalized,
+                "dang bai tim gia su", "tao yeu cau hoc moi", "tao lop tim nguoi day", "dang tin tim gia su", "tao lop tim gia su",
+                "tao lop", "dang bai", "tao yeu cau hoc", "tao bai dang", "dang tin", "dang tin tim", "dang bai tim", "tao bai dang tim gia su", "tao yeu cau tim gia su")) {
             return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.CREATE_CLASS, AiIntent.CREATE_CLASS, 0.95, "/tao-lop");
         }
 
-        // FIND CLASS
+        // 3. FIND CLASS
         boolean hasTutorKeyword = containsAny(normalized,
                 "gia su", "tutor", "thay giao", "co giao", "thay co", "giao vien", "nguoi day", "day kem", "gs", "tim thay", "tim co");
 
         if (containsAny(normalized,
-                "tim lop", "lop hoc dang mo", "lop dang mo", "khoa hoc", "dang ky lop", "danh sach lop", "ung tuyen lop", "chon gia su ung tuyen", "day kem hoa",
+                "tim lop", "lop hoc dang mo", "lop dang mo", "khoa hoc", "dang ky lop", "danh sach lop", "chon gia su ung tuyen", "day kem hoa",
                 "tim lop toan", "tim lop ly", "tim lop hoa", "tim lop anh", "tim lop van", "tim lop su", "tim lop dia", "tim lop sinh", "tim lop tin", "tim lop tieng",
                 "co lop nao", "co lop toan nao", "co lop toan ko", "co lop toan khong", "co lop day tiieng viet khong", "co lop day tieng", "co lop day", "co lop", "tim lop hoc", "lop hoc tieng", "lop day tieng", "lop day toan",
                 "find class", "find classes", "find math classes", "open classes", "math classes open", "classes near me", "search classes", "can tim lop") ||
@@ -44,19 +54,12 @@ public class MarketplaceIntentRule implements IntentRule {
             return new ClassificationDetail(AiDomain.OUT_OF_SCOPE, AiSubIntent.OUT_OF_SCOPE, AiIntent.OUT_OF_SCOPE, 0.95, null);
         }
 
-        // APPLY TO CLASS (TUTOR APPLICATION)
-        if (containsAny(normalized,
-                "ung tuyen nhu the nao", "ung tuyen nhu nao", "cach ung tuyen", "huong dan ung tuyen",
-                "lam sao de ung tuyen", "gia su ung tuyen", "ung tuyen nhan lop", "ung tuyen lop day",
-                "nop don ung tuyen", "cach nhan lop day", "quy trinh ung tuyen")) {
-            return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.APPLY_TO_CLASS, AiIntent.FAQ_SUPPORT, 0.95, "/lop-hoc");
-        }
-
-        // FIND TUTOR
+        // 4. FIND TUTOR
         boolean hasExclusion = containsAny(normalized,
                 "luong", "tra luong", "nhan luong", "tra trong bao lau", "bao lau", "bao gio", "giai ngan", "quy dinh", "bao nhieu phan tram",
                 "diem uy tin", "xac minh", "duyet ho so", "cccd", "bang cap", "hoan tien", "tranh chap", "to cao", "ung tuyen", "cach nhan lop",
-                "khieu nai", "hop dong", "ky hop dong", "rut tien", "phi san", "phi nen tang", "chuyen khoan rieng", "ngoai san", "bao cao", "lich day", "doi gio");
+                "khieu nai", "hop dong", "ky hop dong", "rut tien", "phi san", "phi nen tang", "chuyen khoan rieng", "ngoai san", "bao cao", "lich day", "doi gio",
+                "dang tin", "dang bai", "tao lop", "tao bai dang");
 
         boolean hasSearchKeyword = containsAny(normalized,
                 "tim", "thue", "can", "kiem", "cho toi", "gioi thieu", "mon", "toan", "ly", "hoa", "anh", "van", "tin", "sinh", "su", "dia",

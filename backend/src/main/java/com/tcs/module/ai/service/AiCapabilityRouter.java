@@ -342,6 +342,18 @@ public class AiCapabilityRouter {
             Set.of("ADMIN_STATS"), true, Set.of("PLATFORM_ADMIN"), true, false,
             CardPolicy.ADMIN_LINK_ONLY, GuardType.NONE, "/platform",
             "Xuất báo cáo dữ liệu CSV tại bảng điều khiển Quản trị viên."
+        )),
+
+        // Center Ops Policies
+        Map.entry(AiSubIntent.CENTER_TUTOR_MANAGEMENT, new CapabilityPolicy(
+            Set.of("FAQ", "CENTER"), true, Set.of("TUTOR_CENTER", "PLATFORM_ADMIN"), true, false,
+            CardPolicy.FAQ_CARDS, GuardType.NONE, "/center",
+            "Chức năng quản lý gia sư trực thuộc dành cho Quản trị viên Trung tâm tại trang 'Quản lý Trung tâm'."
+        )),
+        Map.entry(AiSubIntent.CENTER_RECRUITMENT_POST, new CapabilityPolicy(
+            Set.of("FAQ", "CENTER"), true, Set.of("TUTOR_CENTER", "PLATFORM_ADMIN"), true, false,
+            CardPolicy.FAQ_CARDS, GuardType.NONE, "/center/recruitment",
+            "Chức năng đăng bài tuyển dụng gia sư dành cho Trung tâm tại mục 'Tuyển dụng của Trung tâm'."
         ))
     );
 

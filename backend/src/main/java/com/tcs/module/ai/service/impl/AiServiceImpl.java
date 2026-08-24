@@ -121,8 +121,9 @@ public class AiServiceImpl implements AiService {
         }
 
         // 1. 3-Tier Classification
+        String classificationQuery = followUpExpandedQuery != null ? followUpExpandedQuery : request.getMessage();
         AiIntentService.DetailedIntentResult classification = intentService.classifyAndExtractDetailed(
-            expandedQuery, session.getSessionId(), userId);
+            classificationQuery, session.getSessionId(), userId);
         AiDomain domain = classification.domain();
         AiSubIntent subIntent = classification.subIntent();
         AiIntent legacyIntent = classification.legacyIntent();

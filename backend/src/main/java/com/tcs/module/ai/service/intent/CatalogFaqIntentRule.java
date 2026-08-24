@@ -28,7 +28,7 @@ public class CatalogFaqIntentRule implements IntentRule {
                 "trung tam tro giup", "tro giup o dau", "mon hoc nao", "khoi lop nao", "co nhung khoi lop", "khu vuc nao", "quy trinh ket noi",
                 "gioi thieu ve tcs", "tcs la gi", "he thong tcs hoat dong", "he thong hoat dong", "hoat dong nhu the nao", "hoat dong ra sao", "mo hinh hoat dong", "he thong ket noi",
                 "cac vai tro", "chinh sach nen tang", "cac mon hoc tren tcs", "huong dan su dung tcs", "chinh sach bao mat",
-                "huong dan su dung", "huong dan tcs", "huong dan he thong", "cach dung", "quy trinh", "chinh sach", "faq", "ho tro chung",
+                "huong dan su dung", "huong dan tcs", "huong dan he thong", "cach dung", "quy trinh chung", "chinh sach chung", "faq", "ho tro chung",
                 "vai tro", "tinh nang san", "cac mon hoc")) {
             return new ClassificationDetail(AiDomain.CATALOG_FAQ, AiSubIntent.FAQ_SEARCH, AiIntent.FAQ_SUPPORT, 0.9, "/help");
         }

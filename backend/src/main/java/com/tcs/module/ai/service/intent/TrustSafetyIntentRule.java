@@ -26,7 +26,8 @@ public class TrustSafetyIntentRule implements IntentRule {
             return new ClassificationDetail(AiDomain.TRUST_SAFETY, AiSubIntent.DISPUTE_OPEN_HELP, AiIntent.TICKET_SUPPORT, 0.95, "/support/tickets");
         }
 
-        if (containsAny(normalized, "bi phat", "phat canh cao", "che tai khi vi pham", "tru diem uy tin", "tai khoan bi phat", "quy dinh phat vi pham")) {
+        if (containsAny(normalized, "bi phat", "phat canh cao", "che tai khi vi pham", "tru diem uy tin", "tai khoan bi phat", "quy dinh phat vi pham",
+                "xu phat", "quy dinh xu phat", "vi pham quy che", "che tai xu phat", "quy che san", "quy dinh xu ly vi pham", "che tai")) {
             return new ClassificationDetail(AiDomain.TRUST_SAFETY, AiSubIntent.PENALTY_EXPLAIN, AiIntent.TICKET_SUPPORT, 0.95, "/help");
         }
 

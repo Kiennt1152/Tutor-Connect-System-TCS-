@@ -30,7 +30,9 @@ public class TutorOpsIntentRule implements IntentRule {
             return new ClassificationDetail(AiDomain.TUTOR_OPS, AiSubIntent.TUTOR_SUBSTITUTE_REQUEST, AiIntent.FAQ_SUPPORT, 0.95, "/tutor/classes");
         }
 
-        if (containsAny(normalized, "xem lich day", "quy trinh nhan lop day kem", "lich day tuan nay", "lich day gia su", "lich day", "lich day cua gia su", "nhan lop day", "nhan lop")) {
+        if (containsAny(normalized, "xem lich day", "lich day tuan nay", "lich day gia su", "lich day", "lich day cua gia su",
+                "thoi khoa bieu", "thoi khoa bieu day", "thoi gian bieu", "lich giang day", "thoi gian day", "xem thoi khoa bieu",
+                "quy trinh nhan lop day kem", "nhan lop day")) {
             return new ClassificationDetail(AiDomain.TUTOR_OPS, AiSubIntent.TUTOR_SCHEDULE_VIEW, AiIntent.FAQ_SUPPORT, 0.9, "/tutor/schedule");
         }
 
