@@ -102,6 +102,7 @@ export default function FinancePage() {
           </p>
         </div>
 
+        {/* Missing-wallet state is isolated so tutor / center must create a receiving wallet before using finance tools. */}
         {walletError && !showWalletSetup && (
           <div className="alert alert--error">
             {walletError}
@@ -130,6 +131,7 @@ export default function FinancePage() {
           </section>
         ) : (
           <>
+            {/* Balance and role-based actions: centers can top up, both tutor and center can withdraw. */}
             <div className="finance-page__balance-row">
               {wallet ? (
                 <WalletBalanceCard wallet={wallet} loading={walletLoading} />
@@ -165,6 +167,7 @@ export default function FinancePage() {
                   onDelete={deletePaymentMethod}
                 />
 
+                {/* Transaction history combines wallet top-up, withdrawal, escrow settlement, refund, and platform fee rows. */}
                 <section className="finance-page__transactions">
                   <h2>Lịch sử giao dịch</h2>
 

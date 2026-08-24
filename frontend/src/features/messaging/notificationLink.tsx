@@ -8,6 +8,13 @@ export function notificationLink(
   const isAdmin = role === 'PLATFORM_ADMIN';
   const isClientSide = role === 'CLIENT' || role === 'TUTOR_CENTER';
 
+  const classScheduleRoute = () => {
+    if (role === 'TUTOR_CENTER') return APP_ROUTES.centerSchedule;
+    if (role === 'TUTOR') return APP_ROUTES.tutorSchedule;
+    if (role === 'CLIENT') return APP_ROUTES.clientSchedule;
+    return null;
+  };
+
   if (n.referenceType === 'SUPPORT_TICKET') {
     if (!n.referenceId) return isAdmin ? APP_ROUTES.platformTickets : APP_ROUTES.messagingTickets;
     return isAdmin ? `${APP_ROUTES.platformTickets}?ticket=${n.referenceId}` : APP_ROUTES.messagingTickets;
@@ -21,12 +28,22 @@ export function notificationLink(
     return role === 'TUTOR_CENTER' ? APP_ROUTES.center : APP_ROUTES.marketplace;
   }
 
+  if (n.referenceType === 'CLASS_REQUEST_FEE') {
+    if (role === 'TUTOR_CENTER') return '/center/requests';
+    if (role === 'CLIENT') return APP_ROUTES.marketplace;
+    return isAdmin ? APP_ROUTES.platformWithdrawals : null;
+  }
+
   // Đổi lịch buổi học: trung tâm về trang duyệt, gia sư về lịch lớp trung tâm của mình.
   if (n.referenceType === 'RESCHEDULE') {
     if (role === 'TUTOR_CENTER') return APP_ROUTES.centerReschedules;
     if (role === 'TUTOR') return APP_ROUTES.tutorSchedule;
     if (role === 'CLIENT') return APP_ROUTES.clientSchedule;
     return null;
+  }
+
+  if (n.referenceType === 'LESSON_REMINDER') {
+    return classScheduleRoute();
   }
 
   // Lớp của TRUNG TÂM có lịch riêng theo vai trò, không dùng chung màn Lịch dạy
@@ -55,15 +72,15 @@ export function notificationLink(
   }
 
   if (n.referenceType === 'REPORT') {
-    return isAdmin ? APP_ROUTES.platformReports : APP_ROUTES.help;
+    if (isAdmin) return APP_ROUTES.platformReports;
+    if (role === 'TUTOR_CENTER') return APP_ROUTES.centerReports;
+    return APP_ROUTES.contract;
   }
 
   if (n.referenceType === 'DISPUTE') {
-    return isAdmin ? APP_ROUTES.platformReports : APP_ROUTES.contract;
-  }
-
-  if (n.referenceType === 'VERIFICATION_REQUEST') {
-    return isAdmin ? APP_ROUTES.platformVerifications : APP_ROUTES.verification;
+    if (isAdmin) return APP_ROUTES.platformReports;
+    if (role === 'TUTOR_CENTER') return APP_ROUTES.centerReports;
+    return APP_ROUTES.contract;
   }
 
   if (n.referenceType === 'REFUND_REQUEST') {
@@ -82,7 +99,9 @@ export function notificationLink(
 
   if (n.referenceType === 'ESCROW') {
     if (isAdmin) return APP_ROUTES.platformEscrows;
-    return APP_ROUTES.contract;
+    if (role === 'CLIENT') return APP_ROUTES.contract;
+    if (role === 'TUTOR' || role === 'TUTOR_CENTER') return APP_ROUTES.finance;
+    return APP_ROUTES.finance;
   }
 
   if (n.referenceType === 'PAYMENT_TRANSACTION') {

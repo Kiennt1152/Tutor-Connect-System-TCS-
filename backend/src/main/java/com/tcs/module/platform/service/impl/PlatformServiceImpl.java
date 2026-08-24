@@ -347,6 +347,7 @@ public class PlatformServiceImpl implements PlatformService {
     @Override
     @Transactional
     public VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request) {
+        // Platform admin finalizes a verification request and synchronizes the profile status used by the app.
         if (request.getStatus() == null) {
             throw new IllegalArgumentException("Trạng thái xác minh không được để trống");
         }
@@ -396,6 +397,9 @@ public class PlatformServiceImpl implements PlatformService {
         auditLogService.record("REVIEW_VERIFICATION", "VerificationRequest", verificationId, null, java.util.Map.of("status", request.getStatus(), "notes", request.getAdminNotes() != null ? request.getAdminNotes() : ""));
 
         recordVerificationHistory(saved, oldStatus, request.getStatus(), adminId);
+        if (request.getStatus() == VerificationStatus.VERIFIED) {
+            deactivatePreviousVerifiedRequests(saved, adminId);
+        }
         if (request.getStatus() == VerificationStatus.VERIFIED
                 || request.getStatus() == VerificationStatus.REJECTED) {
             ProfileVerificationStatus profileStatus = request.getStatus() == VerificationStatus.VERIFIED
@@ -413,6 +417,52 @@ public class PlatformServiceImpl implements PlatformService {
             sendVerificationNotification(saved, request.getStatus());
         }
         return toVerificationResponse(saved);
+    }
+
+    private void deactivatePreviousVerifiedRequests(VerificationRequest approvedRequest, Long adminId) {
+        if (approvedRequest == null
+                || approvedRequest.getVerificationId() == null
+                || approvedRequest.getUser() == null
+                || approvedRequest.getUser().getUserId() == null
+                || approvedRequest.getVerificationType() == null) {
+            return;
+        }
+
+        List<VerificationRequest> previousVerifiedRequests = verificationRequestRepository
+                .findByUser_UserIdOrderBySubmittedAtDesc(approvedRequest.getUser().getUserId())
+                .stream()
+                .filter(v -> v.getVerificationId() != null
+                        && !v.getVerificationId().equals(approvedRequest.getVerificationId()))
+                .filter(v -> v.getVerificationType() == approvedRequest.getVerificationType())
+                .filter(v -> v.getStatus() == VerificationStatus.VERIFIED)
+                .toList();
+
+        if (previousVerifiedRequests.isEmpty()) {
+            return;
+        }
+
+        // A newly approved request supersedes older approved evidence of the same type for the same user.
+        LocalDateTime now = LocalDateTime.now();
+        for (VerificationRequest previous : previousVerifiedRequests) {
+            VerificationStatus oldStatus = previous.getStatus();
+            previous.setStatus(VerificationStatus.REJECTED);
+            previous.setReviewedAt(now);
+            previous.setAdminNotes(buildSupersededVerificationNote(
+                    approvedRequest.getVerificationId(),
+                    previous.getAdminNotes()));
+            previous.setRejectionReason(previous.getAdminNotes());
+            verificationRequestRepository.save(previous);
+            recordVerificationHistory(previous, oldStatus, VerificationStatus.REJECTED, adminId);
+        }
+    }
+
+    private String buildSupersededVerificationNote(Long approvedVerificationId, String existingNote) {
+        String supersededNote = "Hồ sơ này đã được vô hiệu vì đã có hồ sơ xác minh mới #"
+                + approvedVerificationId + " được duyệt.";
+        if (!StringUtils.hasText(existingNote)) {
+            return supersededNote;
+        }
+        return existingNote + "\n" + supersededNote;
     }
 
     private void recordVerificationHistory(VerificationRequest request,
@@ -584,6 +634,7 @@ public class PlatformServiceImpl implements PlatformService {
     @Override
     @Transactional
     public ReportResponse resolveClassIssue(Long reportId, ResolveClassIssueRequest request) {
+        // Admin handles a class issue report and may keep it as a report or escalate it into a dispute.
         authHelper.requireRole(UserRole.PLATFORM_ADMIN);
         if (reportId == null) {
             throw new IllegalArgumentException("reportId là bắt buộc");
@@ -1456,6 +1507,7 @@ public class PlatformServiceImpl implements PlatformService {
             ClassIssueResolutionAction action,
             String notes) {
 
+        // When the admin escalates, the report is promoted to a dispute and the linked escrow is held.
         Dispute existing = disputeRepository.findByReport_ReportId(report.getReportId()).orElse(null);
         if (existing != null) {
             return existing;

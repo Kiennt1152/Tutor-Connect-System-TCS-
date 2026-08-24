@@ -37,8 +37,10 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
   }, []);
 
   // Nhắc nhở buổi học là thông báo hệ thống (hiển thị suốt ngày có lịch), tách khỏi thông báo thường.
-  const reminderItems = items.filter((n) => n.referenceType === 'LESSON_REMINDER');
-  const regularItems = items.filter((n) => n.referenceType !== 'LESSON_REMINDER');
+  const isLessonReminder = (n: NotificationItem) =>
+    n.referenceType === 'LESSON_REMINDER' || n.referenceType === 'CLASS_ACTIVE';
+  const reminderItems = items.filter(isLessonReminder);
+  const regularItems = items.filter((n) => !isLessonReminder(n));
 
   const historyReadCount = regularItems.filter(
     (n) => n.isRead && !openedIds.includes(n.notificationId),

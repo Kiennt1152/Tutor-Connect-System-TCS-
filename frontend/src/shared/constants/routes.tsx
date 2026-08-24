@@ -29,6 +29,7 @@ export const APP_ROUTES = {
   verification: '/identity/verification',
   center: '/center',
   centerReports: '/center/reports',
+  centerSchedule: '/center/schedule',
   /** Trang công khai giới thiệu trung tâm + tin tuyển gia sư (khác /center là trang quản lý). */
   centers: '/centers',
   recruitment: '/recruitment',

@@ -44,6 +44,7 @@ export function ClassTerminationModal({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<ClassTerminationResponse | null>(null);
   const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
+  const needsPayoutInfo = Boolean(assignmentId || classStudentId);
 
   if (!open) return null;
 
@@ -72,15 +73,15 @@ export function ClassTerminationModal({
       return;
     }
     const normalizedAccountNo = accountNo.trim().replace(/\s+/g, '');
-    if (!selectedBank) {
+    if (needsPayoutInfo && !selectedBank) {
       setError('Vui lòng chọn ngân hàng nhận hoàn tiền.');
       return;
     }
-    if (!/^[A-Za-z0-9]{4,50}$/.test(normalizedAccountNo)) {
+    if (needsPayoutInfo && !/^[A-Za-z0-9]{4,50}$/.test(normalizedAccountNo)) {
       setError('Số tài khoản chỉ gồm chữ/số và dài từ 4 đến 50 ký tự.');
       return;
     }
-    if (accountHolderName.trim().length < 2) {
+    if (needsPayoutInfo && accountHolderName.trim().length < 2) {
       setError('Vui lòng nhập tên chủ tài khoản nhận hoàn tiền.');
       return;
     }
@@ -92,9 +93,9 @@ export function ClassTerminationModal({
         classStudentId: classStudentId ?? undefined,
         reason: reason.trim(),
         effectiveDate: effectiveDate || undefined,
-        bankName: selectedBank.name,
-        accountNo: normalizedAccountNo,
-        accountHolderName: accountHolderName.trim().replace(/\s+/g, ' '),
+        bankName: needsPayoutInfo ? selectedBank?.name : undefined,
+        accountNo: needsPayoutInfo ? normalizedAccountNo : undefined,
+        accountHolderName: needsPayoutInfo ? accountHolderName.trim().replace(/\s+/g, ' ') : undefined,
       });
       setSuccess(result);
     } catch (err) {
@@ -162,36 +163,44 @@ export function ClassTerminationModal({
                 />
               </label>
 
-              <div className="termination-field">
-                <span>Ngân hàng nhận hoàn tiền</span>
-                <BankSelectField
-                  id="termination-bank-field"
-                  selectedBank={selectedBank}
-                  onOpen={() => setBankPickerOpen(true)}
-                />
-              </div>
+              {needsPayoutInfo ? (
+                <>
+                  <div className="termination-field">
+                    <span>Ngân hàng nhận hoàn tiền</span>
+                    <BankSelectField
+                      id="termination-bank-field"
+                      selectedBank={selectedBank}
+                      onOpen={() => setBankPickerOpen(true)}
+                    />
+                  </div>
 
-              <label className="termination-field">
-                <span>Số tài khoản nhận hoàn tiền</span>
-                <input
-                  type="text"
-                  inputMode="text"
-                  value={accountNo}
-                  onChange={(event) => setAccountNo(event.target.value)}
-                  placeholder="Nhập số tài khoản"
-                />
-              </label>
+                  <label className="termination-field">
+                    <span>Số tài khoản nhận hoàn tiền</span>
+                    <input
+                      type="text"
+                      inputMode="text"
+                      value={accountNo}
+                      onChange={(event) => setAccountNo(event.target.value)}
+                      placeholder="Nhập số tài khoản"
+                    />
+                  </label>
 
-              <label className="termination-field">
-                <span>Tên chủ tài khoản</span>
-                <input
-                  type="text"
-                  inputMode="text"
-                  value={accountHolderName}
-                  onChange={(event) => setAccountHolderName(event.target.value)}
-                  placeholder="Nhập tên chủ tài khoản"
-                />
-              </label>
+                  <label className="termination-field">
+                    <span>Tên chủ tài khoản</span>
+                    <input
+                      type="text"
+                      inputMode="text"
+                      value={accountHolderName}
+                      onChange={(event) => setAccountHolderName(event.target.value)}
+                      placeholder="Nhập tên chủ tài khoản"
+                    />
+                  </label>
+                </>
+              ) : (
+                <p className="termination-modal__subtitle">
+                  Trung tâm đang yêu cầu chấm dứt toàn lớp. Hệ thống sẽ dùng thông tin nhận hoàn tiền mà từng học sinh đã lưu khi ký và thanh toán.
+                </p>
+              )}
             </>
           )}
 

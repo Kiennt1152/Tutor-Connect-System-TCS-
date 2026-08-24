@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { AdminTimeFilter } from '../components/AdminTimeFilter';
@@ -6,6 +6,8 @@ import { useWithdrawalDecision } from '../hooks/usePlatformMutations';
 import { useWithdrawalList } from '../hooks/useWithdrawalList';
 import type { WithdrawalRequestStatus } from '../types/platformTypes';
 import './PlatformWithdrawalsPage.css';
+
+const AUTO_REFRESH_INTERVAL_MS = 5000;
 
 function VisibilityIcon({ hidden }: { hidden: boolean }) {
   if (hidden) {
@@ -67,6 +69,8 @@ export default function PlatformWithdrawalsPage() {
   } | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
   const [visibleAccountIds, setVisibleAccountIds] = useState<Record<string, boolean>>({});
+  const [lastAutoRefreshAt, setLastAutoRefreshAt] = useState<Date | null>(null);
+  const autoRefreshInFlightRef = useRef(false);
 
   const pagePendingCount = useMemo(
     () => data?.items.filter((item) => item.status === 'PENDING').length ?? 0,
@@ -76,6 +80,30 @@ export default function PlatformWithdrawalsPage() {
     () => data?.items.reduce((sum, item) => sum + item.rawAmount, 0) ?? 0,
     [data],
   );
+  const lastAutoRefreshLabel = useMemo(() => {
+    if (!lastAutoRefreshAt) return null;
+
+    return lastAutoRefreshAt.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }, [lastAutoRefreshAt]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible' || autoRefreshInFlightRef.current) return;
+
+      autoRefreshInFlightRef.current = true;
+      void reload({ silent: true })
+        .then(() => setLastAutoRefreshAt(new Date()))
+        .finally(() => {
+          autoRefreshInFlightRef.current = false;
+        });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [reload]);
 
   const applyFilter = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch, page: 0 }));
@@ -103,6 +131,7 @@ export default function PlatformWithdrawalsPage() {
   };
 
   const submitDecision = async () => {
+    // Reject and transfer-failed both return locked money to the requester, but with different audit meaning.
     if (!decisionDialog) return;
     const reason = decisionReason.trim();
     const payload = reason ? { reason } : {};
@@ -116,6 +145,7 @@ export default function PlatformWithdrawalsPage() {
   };
 
   const toggleAccountVisibility = (withdrawalId: string) => {
+    // Bank account numbers stay masked by default and are revealed per row only when admin needs to transfer.
     setVisibleAccountIds((current) => ({
       ...current,
       [withdrawalId]: !current[withdrawalId],
@@ -127,6 +157,7 @@ export default function PlatformWithdrawalsPage() {
       title="Yêu cầu chuyển tiền"
       subtitle="Theo dõi yêu cầu rút tiền và hoàn tiền cần chuyển khoản ra ngoài."
     >
+      {/* This page intentionally merges withdrawals and refund transfers so admin has one transfer queue. */}
       {data && (
         <section className="pw-summary" aria-label="Tổng quan yêu cầu rút tiền">
           <article className="pw-summary-card pw-summary-card--warn">
@@ -178,16 +209,20 @@ export default function PlatformWithdrawalsPage() {
             <option value={20}>20 dòng/trang</option>
             <option value={50}>50 dòng/trang</option>
           </select>
-          <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reload}>
+          <button className="tcs-btn tcs-btn--ghost" type="button" onClick={() => reload()}>
             Làm mới
           </button>
+          <span className="pw-auto-refresh" aria-live="polite">
+            Tự cập nhật mỗi 5 giây
+            {lastAutoRefreshLabel ? ` · lần cuối ${lastAutoRefreshLabel}` : ''}
+          </span>
         </div>
 
         {status === 'loading' && <div className="adm-state">Đang tải yêu cầu rút tiền...</div>}
         {status === 'error' && (
           <div className="adm-state">
             <p>{listErrorMessage ?? 'Không tải được dữ liệu.'}</p>
-            <button className="tcs-btn tcs-btn--primary" type="button" onClick={reload}>
+            <button className="tcs-btn tcs-btn--primary" type="button" onClick={() => reload()}>
               Thử lại
             </button>
           </div>
@@ -226,14 +261,16 @@ export default function PlatformWithdrawalsPage() {
                         </td>
                         <td>
                           <div className="pw-user-cell">
-                            <strong>{item.requester}</strong>
-                            <span>{item.requestType === 'REFUND' ? 'Người nhận hoàn tiền' : `Ví #${item.walletId}`}</span>
+                            <strong title={item.requester}>{item.requester}</strong>
+                            <span title={item.requestType === 'REFUND' ? 'Người nhận hoàn tiền' : `Ví #${item.walletId}`}>
+                              {item.requestType === 'REFUND' ? 'Người nhận hoàn tiền' : `Ví #${item.walletId}`}
+                            </span>
                           </div>
                         </td>
                         <td className="pw-table__amount">{item.amount}</td>
                         <td>
                           <div className="pw-bank-cell">
-                            <strong>{item.bankName}</strong>
+                            <strong title={item.bankName}>{item.bankName}</strong>
                             <div className="pw-bank-row">
                               <span className="pw-bank-row__account" title={visibleAccountIds[item.id] && item.raw.accountNo
                                 ? item.raw.accountNo
@@ -260,7 +297,7 @@ export default function PlatformWithdrawalsPage() {
                                 <VisibilityIcon hidden={!!visibleAccountIds[item.id]} />
                               </button>
                             </div>
-                            <span className="pw-bank-cell__holder">
+                            <span className="pw-bank-cell__holder" title={item.accountHolderName || '—'}>
                               {item.accountHolderName || '—'}
                             </span>
                           </div>

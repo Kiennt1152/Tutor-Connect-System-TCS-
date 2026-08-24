@@ -72,6 +72,7 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
             BigDecimal projectedEscrowAmount,
             RefundPayoutInfo payoutInfo) {
 
+        // Client pays a small held fee before a center starts fulfilling the class-opening request.
         if (!StringUtils.hasText(requestId) || clientUserId == null || centerUserId == null) {
             throw new BusinessException("Không xác định được thông tin yêu cầu/trung tâm để tạo phí xử lý");
         }
@@ -137,6 +138,7 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
     @Transactional
     public CenterRequestFeePaymentResponse completeIncomingPayment(
             PaymentTransaction tx, String externalTransactionId) {
+        // Incoming webhook confirms the fee and releases the class request into the center's work queue.
         CenterRequestFeeHold hold = feeHoldRepository.findByPaymentTransaction_TransactionId(tx.getTransactionId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy phí xử lý yêu cầu trung tâm"));
         if (tx.getStatus() == PaymentTransactionStatus.SUCCESS
@@ -219,6 +221,7 @@ public class CenterRequestFeeServiceImpl implements CenterRequestFeeService {
     @Override
     @Transactional
     public void requestRefund(String requestId, String reason) {
+        // If the center cannot fulfill the request, the held fee becomes an admin transfer/refund request.
         CenterRequestFeeHold hold = requireHold(requestId);
         if (hold.getStatus() == CenterRequestFeeStatus.PENDING_PAYMENT) {
             cancelUnpaid(requestId);
