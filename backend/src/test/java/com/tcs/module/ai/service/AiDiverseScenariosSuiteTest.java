@@ -132,6 +132,24 @@ public class AiDiverseScenariosSuiteTest {
                 "Làm sao để xuất dữ liệu thống kê người dùng và gia sư cho Admin?",
                 "Thống kê và báo cáo quản trị nền tảng",
                 null, "PLATFORM_ADMIN", "PLATFORM_STATS"
+            ),
+            new ScenarioCase(
+                "6. Phương thức & Thống kê",
+                "có bao nhiêu lớp đang mở",
+                "Thống kê số lượng lớp học đang mở trên sàn",
+                null, "PLATFORM_ADMIN", "PLATFORM_STATS"
+            ),
+            new ScenarioCase(
+                "6. Phương thức & Thống kê",
+                "có bao nhiêu lớp học đang mở",
+                "Thống kê số lượng lớp học đang mở tuyển gia sư",
+                null, "PLATFORM_ADMIN", "PLATFORM_STATS"
+            ),
+            new ScenarioCase(
+                "6. Phương thức & Thống kê",
+                "có bao nhiêu gia sư trên hệ thống tcs",
+                "Thống kê tổng số lượng gia sư trên toàn hệ thống",
+                null, "PLATFORM_ADMIN", "PLATFORM_STATS"
             )
         );
 

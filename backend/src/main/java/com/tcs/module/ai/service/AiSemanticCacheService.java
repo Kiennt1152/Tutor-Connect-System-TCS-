@@ -48,6 +48,9 @@ public class AiSemanticCacheService {
         Optional<AiQueryCache> exactMatch = cacheRepository.findByQueryHash(queryHash);
         if (exactMatch.isPresent() && !isExpired(exactMatch.get())) {
             AiQueryCache cache = exactMatch.get();
+            if ("PLATFORM_STATS".equals(cache.getSubIntent())) {
+                return Optional.empty();
+            }
             cache.incrementHit();
             cacheRepository.save(cache);
             log.info("Cache HIT (exact): query='{}', cacheId={}, hits={}", 
@@ -60,6 +63,9 @@ public class AiSemanticCacheService {
             List<AiQueryCache> candidates = cacheRepository.findByDomainAndActive(null, LocalDateTime.now());
             
             for (AiQueryCache candidate : candidates) {
+                if ("PLATFORM_STATS".equals(candidate.getSubIntent())) {
+                    continue;
+                }
                 if (candidate.getEmbeddingJson() == null || candidate.getEmbeddingJson().isBlank()) continue;
                 
                 try {

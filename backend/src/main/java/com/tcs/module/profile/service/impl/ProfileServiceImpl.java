@@ -991,7 +991,7 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     private ProfileResponse toProfileResponse(ProfileContext ctx) {
-        ProfileResponse.ProfileResponseBuilder builder = ProfileResponse.builder()
+        var builder = ProfileResponse.builder()
                 .userId(ctx.user().getUserId())
                 .role(ctx.role())
                 .email(ctx.user().getEmail())
@@ -1040,7 +1040,7 @@ public class ProfileServiceImpl implements ProfileService {
     }
 
     private ChildProfileResponse toChildResponse(ChildProfile child) {
-        ChildProfileResponse.ChildProfileResponseBuilder builder = ChildProfileResponse.builder()
+        var builder = ChildProfileResponse.builder()
                 .childProfileId(child.getChildProfileId())
                 .fullName(child.getFullName())
                 .dateOfBirth(child.getDateOfBirth())

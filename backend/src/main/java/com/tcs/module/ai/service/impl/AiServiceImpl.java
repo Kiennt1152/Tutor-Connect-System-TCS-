@@ -395,7 +395,7 @@ public class AiServiceImpl implements AiService {
         } else if ((subIntent == AiSubIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS) && allSources.stream().noneMatch(s -> "CLASS".equals(s.getSourceType()))) {
             allSources.addAll(classSearchContextProvider.searchClasses(entities));
         } else if (subIntent == AiSubIntent.PLATFORM_STATS) {
-            allSources.addAll(platformStatsContextProvider.getPlatformStats());
+            allSources.addAll(0, platformStatsContextProvider.getPlatformStats());
         } else if (domain == AiDomain.PLATFORM_ADMIN) {
             allSources.addAll(dashboardContextProvider.getDashboardContext(userRole));
         } else if (domain == AiDomain.FINANCE_WALLET) {
@@ -434,7 +434,8 @@ public class AiServiceImpl implements AiService {
         if (evaluation.confidenceScore() >= AiConstants.HIGH_CONFIDENCE_THRESHOLD && 
             !"FALLBACK".equals(evaluation.answerMode()) && 
             !"SAFETY_FILTER".equals(evaluation.answerMode()) &&
-            domain != AiDomain.OUT_OF_SCOPE) {
+            domain != AiDomain.OUT_OF_SCOPE &&
+            subIntent != AiSubIntent.PLATFORM_STATS) {
             
             semanticCacheService.put(
                 message, normalizedQuery, aiResponseText,
@@ -491,10 +492,22 @@ public class AiServiceImpl implements AiService {
             }
         }
 
+        if (intent == AiIntent.PLATFORM_STATS) {
+            if (sources != null) {
+                for (AiSourceResponse s : sources) {
+                    if ("SYSTEM".equals(s.getSourceType()) || "STATS".equals(s.getSourceId())) {
+                        if (s.getSnippet() != null && !s.getSnippet().isBlank()) {
+                            return s.getSnippet();
+                        }
+                    }
+                }
+            }
+        }
+
         if (sources != null && !sources.isEmpty()) {
             for (AiSourceResponse s : sources) {
                 if (s.getFinalScore() >= AiConstants.MIN_REFERENCE_CARD_SCORE && 
-                    ("FAQ".equals(s.getSourceType()) || "POLICY".equals(s.getSourceType()) || "SYSTEM_DOC".equals(s.getSourceType()))) {
+                    ("FAQ".equals(s.getSourceType()) || "POLICY".equals(s.getSourceType()) || "SYSTEM_DOC".equals(s.getSourceType()) || "SYSTEM".equals(s.getSourceType()))) {
                     if (s.getSnippet() != null && !s.getSnippet().isBlank()) {
                         return s.getSnippet();
                     }

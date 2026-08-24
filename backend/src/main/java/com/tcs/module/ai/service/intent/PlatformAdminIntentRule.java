@@ -21,9 +21,12 @@ public class PlatformAdminIntentRule implements IntentRule {
         if (containsAny(normalized,
                 "bao nhieu nguoi dung", "bn nguoi dung", "bao nhieu user", "bn user", "tong user", "so luong user", "tong so user",
                 "bao nhieu tai khoan", "bn tai khoan", "co bao nhieu nguoi dung", "bao nhieu hoc vien", "tong so hoc vien",
-                "co bao nhieu gia su", "so luong gia su", "co bao nhieu trung tam", "so luong trung tam",
-                "co bao nhieu lop", "so luong lop", "thong ke he thong", "tong so nguoi dung", "tong so gia su",
-                "tong so lop", "tong so trung tam", "thong ke nguoi dung")) {
+                "co bao nhieu gia su", "so luong gia su", "bao nhieu gia su", "tong so gia su", "tong gia su",
+                "co bao nhieu trung tam", "so luong trung tam", "bao nhieu trung tam", "tong so trung tam",
+                "co bao nhieu lop", "so luong lop", "bao nhieu lop", "tong so lop", "tong lop",
+                "co bao nhieu lop hoc", "bao nhieu lop hoc", "so luong lop hoc", "lop dang mo", "lop hoc dang mo",
+                "he thong co bao nhieu", "tren he thong co bao nhieu", "thong ke he thong", "thong ke nen tang",
+                "quy mo he thong", "quy mo nen tang", "thong ke nguoi dung")) {
             return new ClassificationDetail(AiDomain.PLATFORM_ADMIN, AiSubIntent.PLATFORM_STATS, AiIntent.PLATFORM_STATS, 0.95, null);
         }
 
