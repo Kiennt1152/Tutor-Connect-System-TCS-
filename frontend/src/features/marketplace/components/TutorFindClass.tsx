@@ -16,6 +16,11 @@ interface Props {
   readonly provinces: CatalogOption[];
 }
 
+/**
+ * Người điều phối của màn gia sư tìm lớp. Bản thân nó không chấm điểm và cũng không
+ * dựng thanh tìm — hai việc đó giao cho tutorMatching.tsx và useClassSearch.tsx.
+ * Việc của tệp này gói gọn: lấy dữ liệu về, ráp lại, phân trang, mở/đóng modal.
+ */
 export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -27,6 +32,11 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const [profileFee, setProfileFee] = useState('');
   const [page, setPage] = useState(1);
 
+  /**
+   * Tải danh sách lớp. `silent = true` là lần tải lại ngầm: giữ nguyên danh sách cũ trên
+   * màn, không hiện "Đang tải…" và lỗi cũng nuốt luôn — tránh làm màn nhấp nháy hoặc
+   * đang xem thì bỗng thành trang lỗi.
+   */
   const loadClasses = useCallback((silent = false) => {
     if (!silent) setStatus('loading');
     marketplaceApi
@@ -44,12 +54,17 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     loadClasses();
   }, [loadClasses]);
 
+  // Quay lại tab thì tải lại ngầm: gia sư thường mở tab khác xem hồ sơ rồi quay về,
+  // lúc đó danh sách cần cập nhật (lớp mới đăng, lớp đã bị người khác nhận).
   useEffect(() => {
     const onFocus = () => loadClasses(true);
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [loadClasses]);
 
+  // Các lớp gia sư này đã nộp đơn -> nút đổi thành "✓ Đã ứng tuyển" thay vì "Ứng tuyển".
+  // Cờ `alive` chặn setState sau khi component đã bị gỡ (đổi trang giữa chừng).
+  // Lỗi thì bỏ qua: coi như chưa nộp đơn lớp nào, màn vẫn dùng được bình thường.
   useEffect(() => {
     let alive = true;
     marketplaceApi
@@ -83,6 +98,9 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const search = useClassSearch({ subjects, grades, provinces, classes });
   const { criteria, hasFilter, subjectName, gradeName } = search;
 
+  // Chỗ chấm điểm thật sự. searchClasses() chạy hoàn toàn trong trình duyệt: soi từng lớp
+  // theo `criteria` rồi sắp giảm dần theo điểm. Phụ thuộc là [classes, criteria] nên chỉ
+  // tính lại khi tải xong lớp mới hoặc khi gia sư bấm Tìm — gõ chữ trong ô không kích hoạt.
   const results = useMemo(() => searchClasses(classes, criteria), [classes, criteria]);
 
   // Phân trang: 6 lớp / trang (2 cột × 3 hàng); lớp thứ 7 nhảy sang trang 2.
