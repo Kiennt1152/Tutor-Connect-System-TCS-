@@ -56,26 +56,15 @@ public class ConversationContextService {
         ConversationContext existing = getContext(sessionId);
         Map<String, String> safeEntities = entities != null ? new HashMap<>(entities) : new HashMap<>();
         
-        List<Long> accumulatedTutors = new ArrayList<>(existing != null ? existing.mentionedTutorIds() : List.of());
-        if (tutorIds != null) {
-            for (Long tid : tutorIds) {
-                if (!accumulatedTutors.contains(tid)) accumulatedTutors.add(tid);
-            }
-        }
+        // O(1) deduplicated accumulation with LinkedHashSet
+        Set<Long> tutorSet = new LinkedHashSet<>(existing != null ? existing.mentionedTutorIds() : List.of());
+        if (tutorIds != null) tutorSet.addAll(tutorIds);
 
-        List<Long> accumulatedClasses = new ArrayList<>(existing != null ? existing.mentionedClassIds() : List.of());
-        if (classIds != null) {
-            for (Long cid : classIds) {
-                if (!accumulatedClasses.contains(cid)) accumulatedClasses.add(cid);
-            }
-        }
+        Set<Long> classSet = new LinkedHashSet<>(existing != null ? existing.mentionedClassIds() : List.of());
+        if (classIds != null) classSet.addAll(classIds);
 
-        List<Long> accumulatedFaqs = new ArrayList<>(existing != null ? existing.mentionedFaqIds() : List.of());
-        if (faqIds != null) {
-            for (Long fid : faqIds) {
-                if (!accumulatedFaqs.contains(fid)) accumulatedFaqs.add(fid);
-            }
-        }
+        Set<Long> faqSet = new LinkedHashSet<>(existing != null ? existing.mentionedFaqIds() : List.of());
+        if (faqIds != null) faqSet.addAll(faqIds);
 
         Map<String, Integer> freqMap = new HashMap<>(existing != null ? existing.topicFrequency() : Map.of());
         if (subIntent != null) {
@@ -95,9 +84,9 @@ public class ConversationContextService {
             subIntent,
             safeEntities,
             query,
-            accumulatedTutors,
-            accumulatedClasses,
-            accumulatedFaqs,
+            new ArrayList<>(tutorSet),
+            new ArrayList<>(classSet),
+            new ArrayList<>(faqSet),
             freqMap,
             effectiveGoal,
             Instant.now()
@@ -114,6 +103,52 @@ public class ConversationContextService {
             sessionContexts.remove(sessionId);
         }
         return null;
+    }
+
+    public String resolveFollowUpQuery(Long sessionId, String currentQuery) {
+        ConversationContext ctx = getContext(sessionId);
+        if (ctx == null || currentQuery == null || currentQuery.isBlank() || ctx.lastQuery() == null) {
+            return currentQuery;
+        }
+
+        String lower = currentQuery.toLowerCase(Locale.ROOT).trim();
+        String normalized = VietnameseTextNormalizer.removeDiacritics(lower);
+
+        boolean isFollowUp = normalized.startsWith("con ") || normalized.startsWith("the con ") ||
+                normalized.startsWith("vay con ") || normalized.contains("thi sao") ||
+                normalized.contains("con o ") || normalized.contains("the o ") || normalized.contains("con tai ") ||
+                normalized.contains("thay do") || normalized.contains("gia su do") || normalized.contains("lop do") ||
+                normalized.contains("thay khac") || normalized.contains("nguoi khac");
+
+        if (!isFollowUp) {
+            return currentQuery;
+        }
+
+        // Expand query with action verb and inherited entities from previous turn
+        StringBuilder expanded = new StringBuilder(currentQuery);
+
+        boolean alreadyHasRole = normalized.contains("gia su") || normalized.contains("giao vien") ||
+                normalized.contains("thay giao") || normalized.contains("co giao") || normalized.contains("thay co");
+        boolean alreadyHasClass = normalized.contains("lop hoc") || normalized.contains("khoa hoc") ||
+                normalized.startsWith("lop ") || normalized.contains(" lop ") || normalized.endsWith(" lop");
+
+        if ((ctx.lastSubIntent() == AiSubIntent.FIND_TUTOR || ctx.lastDomain() == AiDomain.MARKETPLACE) &&
+            !alreadyHasRole && !alreadyHasClass) {
+            expanded.insert(0, "Tìm gia sư ");
+        } else if (ctx.lastSubIntent() == AiSubIntent.FIND_CLASS && !alreadyHasClass) {
+            expanded.insert(0, "Tìm lớp ");
+        }
+
+        if (ctx.lastEntities() != null) {
+            if (ctx.lastEntities().containsKey("grade") && !normalized.contains(ctx.lastEntities().get("grade").toLowerCase(Locale.ROOT))) {
+                expanded.append(" lớp ").append(ctx.lastEntities().get("grade"));
+            }
+            if (ctx.lastEntities().containsKey("location") && !normalized.contains(ctx.lastEntities().get("location").toLowerCase(Locale.ROOT))) {
+                expanded.append(" tại ").append(ctx.lastEntities().get("location"));
+            }
+        }
+
+        return expanded.toString().trim();
     }
 
     public FollowUpResolution resolveFollowUp(Long sessionId, String currentQuery, Map<String, String> currentEntities) {

@@ -12,8 +12,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiRerankService {
@@ -246,6 +248,7 @@ public class AiRerankService {
 
             return Math.min(0.10, bonus);
         } catch (Exception e) {
+            log.warn("Failed to parse metadata JSON in rerank alignment: {}", e.getMessage());
             return 0.0;
         }
     }

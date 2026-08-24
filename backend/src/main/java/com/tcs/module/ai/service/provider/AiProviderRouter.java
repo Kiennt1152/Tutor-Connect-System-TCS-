@@ -123,6 +123,36 @@ public class AiProviderRouter {
         return until != null && System.currentTimeMillis() < until;
     }
 
+    public Map<String, Object> getHealthStatus() {
+        Map<String, Object> status = new java.util.LinkedHashMap<>();
+        long now = System.currentTimeMillis();
+
+        for (String provider : executionOrder) {
+            AiChatProviderClient client = providers.get(provider);
+            boolean configured = client != null && client.isConfigured();
+            boolean disabled = providerDisabled.getOrDefault(provider, false);
+            Long cooldownUntil = providerCooldowns.get(provider);
+            boolean onCooldown = cooldownUntil != null && now < cooldownUntil;
+            boolean available = configured && !disabled && !onCooldown;
+
+            Map<String, Object> pInfo = new java.util.LinkedHashMap<>();
+            pInfo.put("available", available);
+            pInfo.put("configured", configured);
+            pInfo.put("disabled", disabled);
+            pInfo.put("onCooldown", onCooldown);
+            pInfo.put("cooldownRemainingSeconds", onCooldown ? Math.max(0, (cooldownUntil - now) / 1000) : 0);
+            pInfo.put("priority", executionOrder.indexOf(provider) + 1);
+
+            status.put(provider, pInfo);
+        }
+
+        Map<String, Object> root = new java.util.LinkedHashMap<>();
+        root.put("providers", status);
+        root.put("defaultTimeoutMs", timeoutMs);
+        root.put("totalGenerationDeadlineMs", totalGenerationDeadlineMs);
+        return root;
+    }
+
     public AiProviderChatResponse chat(AiProviderChatRequest request) {
         long startTime = System.currentTimeMillis();
         

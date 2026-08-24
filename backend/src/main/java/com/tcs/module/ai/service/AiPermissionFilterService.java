@@ -1,5 +1,6 @@
 package com.tcs.module.ai.service;
 
+import com.tcs.module.ai.constants.AiConstants;
 import com.tcs.module.ai.entity.AiKnowledgeChunk;
 import org.springframework.stereotype.Service;
 
@@ -7,9 +8,9 @@ import org.springframework.stereotype.Service;
 public class AiPermissionFilterService {
 
     public boolean canAccess(AiKnowledgeChunk chunk, String userRole, Long userId) {
-        String visibility = chunk.getVisibility() != null ? chunk.getVisibility() : "PUBLIC";
+        String visibility = chunk.getVisibility() != null ? chunk.getVisibility() : AiConstants.VISIBILITY_PUBLIC;
         
-        if ("PUBLIC".equals(visibility)) {
+        if (AiConstants.VISIBILITY_PUBLIC.equals(visibility)) {
             return true;
         }
 
@@ -21,11 +22,11 @@ public class AiPermissionFilterService {
             return true;
         }
 
-        if ("OWNER_PRIVATE".equals(visibility)) {
+        if (AiConstants.VISIBILITY_OWNER_PRIVATE.equals(visibility)) {
             return userId != null && userId.equals(chunk.getOwnerUserId());
         }
 
-        if ("ROLE_RESTRICTED".equals(visibility)) {
+        if (AiConstants.VISIBILITY_ROLE_RESTRICTED.equals(visibility)) {
             String minRole = chunk.getMinRole();
             if (minRole == null) return true;
             if ("TUTOR_CENTER".equals(minRole) && "TUTOR_CENTER".equals(userRole)) return true;
@@ -34,7 +35,7 @@ public class AiPermissionFilterService {
             return false;
         }
 
-        if ("ADMIN_ONLY".equals(visibility)) {
+        if (AiConstants.VISIBILITY_ADMIN_ONLY.equals(visibility)) {
             return false; // Already checked for PLATFORM_ADMIN above
         }
 

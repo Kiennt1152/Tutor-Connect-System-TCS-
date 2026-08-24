@@ -50,4 +50,6 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, Lo
             @Param("now") java.time.LocalDateTime now);
 
     long countByCreatedAtBetween(java.time.LocalDateTime from, java.time.LocalDateTime to);
+
+    List<SupportTicket> findByCreatedAtAfter(java.time.LocalDateTime since);
 }
