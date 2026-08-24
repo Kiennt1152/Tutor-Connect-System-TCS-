@@ -163,6 +163,7 @@ public class DisputeServiceImpl implements DisputeService {
                 reporter.getUserId(),
                 request.getAssignmentId(),
                 request.getClassStudentId());
+        preventCenterTutorFinancialClassIssue(tutoringClass, reporter.getUserId(), request);
         preventDuplicateClassIssue(reporter.getUserId(), request.getClassId(), request.getIssueType());
 
         Report report = createReport(
@@ -958,6 +959,24 @@ public class DisputeServiceImpl implements DisputeService {
         throw new ForbiddenException("Bạn không có quyền báo cáo lớp học này");
     }
 
+    private void preventCenterTutorFinancialClassIssue(
+            TutoringClass tutoringClass,
+            Long reporterUserId,
+            CreateClassIssueRequest request) {
+
+        if (tutoringClass.getClassType() != ClassType.CENTER
+                || !shouldEscalateClassIssue(request)
+                || isClassParticipant(tutoringClass, reporterUserId)
+                || classStudentRepository.existsByTutoringClass_ClassIdAndEnrolledByUser_UserId(
+                        tutoringClass.getClassId(),
+                        reporterUserId)
+                || !isActiveClassTutor(tutoringClass.getClassId(), reporterUserId)) {
+            return;
+        }
+        throw new ForbiddenException(
+                "Gia sư không thể tạo tranh chấp hoặc yêu cầu chấm dứt sớm cho lớp trung tâm");
+    }
+
     private boolean assignmentBelongsToClass(ClassAssignment assignment, Long classId) {
         return assignment != null
                 && assignment.getApplication() != null
@@ -1365,6 +1384,12 @@ public class DisputeServiceImpl implements DisputeService {
     }
 
     private DisputeResponse createAndHoldDispute(Report report, EscrowTransaction escrow, String reason) {
+        if (disputeRepository.existsByEscrowTransaction_EscrowIdAndStatusNot(
+                escrow.getEscrowId(), DisputeStatus.RESOLVED)) {
+            throw new BusinessException(
+                    "Khoản ký quỹ này đang có tranh chấp chưa xử lý. Vui lòng theo dõi hồ sơ hiện có.");
+        }
+
         EscrowTransaction heldEscrow = escrowService.holdForDispute(escrow.getEscrowId(), reason);
 
         Dispute dispute = new Dispute();

@@ -37,6 +37,14 @@
   min-width: 180px;
 }
 
+.pw-auto-refresh {
+  margin-left: auto;
+  color: var(--color-text-secondary);
+  font-size: var(--fs-body-sm);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 .pw-table th:nth-child(1),
 .pw-table td:nth-child(1) {
   width: 82px;
@@ -315,5 +323,10 @@
 @media (max-width: 1020px) {
   .pw-summary {
     grid-template-columns: 1fr;
+  }
+
+  .pw-auto-refresh {
+    width: 100%;
+    margin-left: 0;
   }
 }

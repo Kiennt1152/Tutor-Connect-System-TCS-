@@ -98,10 +98,12 @@ import java.time.LocalTime;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import lombok.RequiredArgsConstructor;
@@ -198,14 +200,21 @@ public class ContractServiceImpl implements ContractService {
         LinkedHashSet<Contract> contracts = new LinkedHashSet<>();
         contracts.addAll(contractRepository.findContractsByUserId(userId));
         contracts.addAll(contractRepository.findBySignatureParty(userId, principal.getEmail()));
-        contracts.addAll(contractRepository.findByAssignment_Tutor_UserId(userId));
-        contracts.addAll(contractRepository.findByAssignment_ClassCreator_UserId(userId));
+        contractRepository.findByAssignment_Tutor_UserId(userId).stream()
+                .filter(this::isPrivateAssignmentContract)
+                .forEach(contracts::add);
+        contractRepository.findByAssignment_ClassCreator_UserId(userId).stream()
+                .filter(this::isPrivateAssignmentContract)
+                .forEach(contracts::add);
         contracts.addAll(contractRepository.findByClassStudent_UserId(userId));
         appendVisiblePrivateAssignmentContracts(contracts, userId);
         // BF-03: thỏa thuận hợp tác center–gia sư (gia sư ký, trung tâm theo dõi).
         contracts.addAll(contractRepository.findByRecruitmentApplication_Tutor_UserId(userId));
         contracts.addAll(contractRepository.findByRecruitmentApplication_CenterUser_UserId(userId));
-        return contracts.stream().map(this::toContractResponse).toList();
+        return contracts.stream()
+                .filter(this::isSupportedMyContractEntry)
+                .map(this::toContractResponse)
+                .toList();
     }
 
     private void appendVisiblePrivateAssignmentContracts(LinkedHashSet<Contract> contracts, Long userId) {
@@ -220,7 +229,8 @@ public class ContractServiceImpl implements ContractService {
     private void appendVisibleAssignmentContract(LinkedHashSet<Contract> contracts, ClassAssignment assignment) {
         if (assignment == null
                 || assignment.getAssignmentId() == null
-                || assignment.getClientSignedAt() == null) {
+                || assignment.getClientSignedAt() == null
+                || !isPrivateAssignment(assignment)) {
             return;
         }
         // Private-class contracts become visible after the client signs, even if the tutor has not signed yet.
@@ -249,6 +259,24 @@ public class ContractServiceImpl implements ContractService {
             syncSignedContractSignature(saved, PartyRole.TUTOR, assignment.getTutor().getUser(), assignment.getTutorSignedAt());
         }
         contracts.add(saved);
+    }
+
+    private boolean isPrivateAssignmentContract(Contract contract) {
+        return contract != null && isPrivateAssignment(contract.getAssignment());
+    }
+
+    private boolean isSupportedMyContractEntry(Contract contract) {
+        return contract == null
+                || contract.getAssignment() == null
+                || isPrivateAssignment(contract.getAssignment());
+    }
+
+    private boolean isPrivateAssignment(ClassAssignment assignment) {
+        TutoringClass tutoringClass = assignment != null
+                && assignment.getApplication() != null
+                ? assignment.getApplication().getTutoringClass()
+                : null;
+        return tutoringClass != null && tutoringClass.getClassType() == ClassType.PRIVATE;
     }
 
     private void syncSignedContractSignature(
@@ -336,6 +364,9 @@ public class ContractServiceImpl implements ContractService {
         }
         if (contract.getAssignment() != null) {
             ClassAssignment a = contract.getAssignment();
+            if (!isPrivateAssignment(a)) {
+                return null;
+            }
             if (a.getTutor() != null && a.getTutor().getUser() != null
                     && a.getTutor().getUser().getUserId().equals(userId)) {
                 return PartyRole.TUTOR;
@@ -1043,6 +1074,9 @@ public class ContractServiceImpl implements ContractService {
     }
 
     private void validateGenerateAssignmentPermission(ClassAssignment assignment) {
+        if (!isPrivateAssignment(assignment)) {
+            throw new ForbiddenException("Hợp đồng phân công chỉ áp dụng cho lớp gia sư riêng");
+        }
         Long currentUserId = authHelper.currentUserId();
         boolean isTutor = assignment.getTutor() != null
                 && assignment.getTutor().getUser() != null
@@ -1080,6 +1114,9 @@ public class ContractServiceImpl implements ContractService {
         }
         if (contract.getAssignment() != null) {
             ClassAssignment assignment = contract.getAssignment();
+            if (!isPrivateAssignment(assignment)) {
+                return false;
+            }
             if (assignment.getTutor() != null
                     && assignment.getTutor().getUser() != null
                     && assignment.getTutor().getUser().getUserId().equals(userId)) {
@@ -1125,6 +1162,9 @@ public class ContractServiceImpl implements ContractService {
 
         if (contract.getAssignment() != null) {
             ClassAssignment assignment = contract.getAssignment();
+            if (!isPrivateAssignment(assignment)) {
+                throw new ForbiddenException("Bạn không phải là bên liên quan đến hợp đồng này");
+            }
             if (assignment.getTutor() != null
                     && assignment.getTutor().getUser() != null
                     && assignment.getTutor().getUser().getUserId().equals(currentUserId)) {
@@ -1678,20 +1718,56 @@ public class ContractServiceImpl implements ContractService {
         if (contract == null) {
             return null;
         }
-        RefundPayoutInfo payoutInfo = null;
-        if (contract.getClassStudent() != null) {
-            payoutInfo = RefundPayoutInfoCodec.parseFromReason(contract.getClassStudent().getNotes());
-        } else if (contract.getAssignment() != null) {
-            payoutInfo = RefundPayoutInfoCodec.parseFromReason(contract.getAssignment().getTermsB());
+        Long viewerId = authHelper.currentUserId();
+        boolean clientViewer = partyRoleOf(contract, viewerId) == PartyRole.CLIENT;
+        RefundPayoutInfo payoutInfo = resolveContractRefundPayoutInfo(contract);
+        boolean suggested = false;
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo) && clientViewer) {
+            payoutInfo = findLatestClientRefundPayoutInfo(viewerId, contract.getContractId()).orElse(null);
+            suggested = RefundPayoutInfoCodec.hasCompletePayout(payoutInfo);
         }
         if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
             return null;
         }
         return ContractResponse.RefundPayoutInfoView.builder()
                 .bankName(RefundPayoutInfoCodec.normalize(payoutInfo.bankName()))
+                .accountNo(clientViewer ? RefundPayoutInfoCodec.normalizeAccountNo(payoutInfo.accountNo()) : null)
                 .accountNoMasked(RefundPayoutInfoCodec.maskAccountNo(payoutInfo.accountNo()))
                 .accountHolderName(RefundPayoutInfoCodec.normalize(payoutInfo.accountHolderName()))
+                .suggested(suggested)
                 .build();
+    }
+
+    private Optional<RefundPayoutInfo> findLatestClientRefundPayoutInfo(Long userId, Long currentContractId) {
+        if (userId == null) {
+            return Optional.empty();
+        }
+        return contractRepository.findContractsByUserId(userId).stream()
+                .filter(candidate -> !Objects.equals(candidate.getContractId(), currentContractId))
+                .filter(candidate -> partyRoleOf(candidate, userId) == PartyRole.CLIENT)
+                .sorted(Comparator
+                        .comparing(
+                                (Contract candidate) -> Optional
+                                        .ofNullable(candidate.getUpdatedAt())
+                                        .orElse(candidate.getCreatedAt()),
+                                Comparator.nullsLast(Comparator.naturalOrder()))
+                        .reversed())
+                .map(this::resolveContractRefundPayoutInfo)
+                .filter(RefundPayoutInfoCodec::hasCompletePayout)
+                .findFirst();
+    }
+
+    private RefundPayoutInfo resolveContractRefundPayoutInfo(Contract contract) {
+        if (contract == null) {
+            return null;
+        }
+        if (contract.getClassStudent() != null) {
+            return RefundPayoutInfoCodec.parseFromReason(contract.getClassStudent().getNotes());
+        }
+        if (contract.getAssignment() != null) {
+            return RefundPayoutInfoCodec.parseFromReason(contract.getAssignment().getTermsB());
+        }
+        return null;
     }
 
     private RefundPolicy resolveRefundPolicy(Contract contract) {

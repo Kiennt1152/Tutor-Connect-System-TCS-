@@ -45,6 +45,7 @@ import com.tcs.module.catalog.repository.CategoryRepository;
 import com.tcs.module.catalog.repository.GradeRepository;
 import com.tcs.module.catalog.repository.LocationRepository;
 import com.tcs.module.catalog.repository.SubjectRepository;
+import com.tcs.module.catalog.repository.TutorSubjectRepository;
 import com.tcs.module.identity.entity.EmailOtp;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.identity.enums.OtpPurpose;
@@ -140,6 +141,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.regex.Matcher;
@@ -223,6 +225,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final FavoriteTutorRepository favoriteTutorRepository;
     private final CategoryRepository categoryRepository;
     private final SubjectRepository subjectRepository;
+    private final TutorSubjectRepository tutorSubjectRepository;
     private final GradeRepository gradeRepository;
     private final LocationRepository locationRepository;
     private final LessonRescheduleRequestRepository rescheduleRequestRepository;
@@ -1959,6 +1962,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (tutoringClass.getClassId() == null
                 || tutoringClass.getClassType() != ClassType.PRIVATE
                 || tutoringClass.getStartDate() == null
+                || !isPrivateClassLongerThanOneMonth(tutoringClass)
                 || tutoringClass.getStatus() != TutoringClassStatus.IN_PROGRESS) {
             return;
         }
@@ -1994,6 +1998,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 + "Hệ thống đã giải ngân khoản ký quỹ tháng đầu cho gia sư.";
         sendClassNotification(assignment.getTutor().getUser(), title, content, tutoringClass.getClassId());
         sendClassNotification(tutoringClass.getCreator(), title, content, tutoringClass.getClassId());
+    }
+
+    private boolean isPrivateClassLongerThanOneMonth(TutoringClass tutoringClass) {
+        return tutoringClass.getEndDate() != null
+                && tutoringClass.getEndDate().isAfter(tutoringClass.getStartDate().plusMonths(1));
     }
 
     private boolean isPrivateFirstMonthEscrowReadyForRelease(
@@ -2044,21 +2053,106 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return false;
         }
 
-        LocalDate firstMonthEndExclusive = tutoringClass.getStartDate().plusMonths(1);
-        boolean hasFirstMonthLesson = false;
+        BigDecimal paidEscrowAmount = escrow.getAmount() != null ? escrow.getAmount() : BigDecimal.ZERO;
+        if (paidEscrowAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        BigDecimal completedValue = completedPrivateFirstCycleLessonValue(tutoringClass, assignment, lessons);
+        return completedValue.compareTo(paidEscrowAmount) >= 0;
+    }
+
+    private BigDecimal completedPrivateFirstCycleLessonValue(
+            TutoringClass tutoringClass,
+            ClassAssignment assignment,
+            List<Lesson> lessons) {
+        LocalDate firstCycleEndExclusive = tutoringClass.getStartDate().plusMonths(1);
+        Map<SlotSpec, BigDecimal> ratesBySlot = privateLessonRatesBySlot(tutoringClass, assignment);
+        BigDecimal fallbackRate = positiveAmount(tutoringClass.getTuitionFee());
+        BigDecimal completedValue = BigDecimal.ZERO;
         for (Lesson currentLesson : lessons) {
             LocalDate lessonDate = currentLesson.getLessonDate();
             if (lessonDate == null
                     || lessonDate.isBefore(tutoringClass.getStartDate())
-                    || !lessonDate.isBefore(firstMonthEndExclusive)) {
+                    || !lessonDate.isBefore(firstCycleEndExclusive)
+                    || currentLesson.getAttendanceStatus() != AttendanceStatus.COMPLETED) {
                 continue;
             }
-            hasFirstMonthLesson = true;
-            if (currentLesson.getAttendanceStatus() != AttendanceStatus.COMPLETED) {
-                return false;
-            }
+            completedValue = completedValue.add(privateLessonValue(currentLesson, ratesBySlot, fallbackRate));
         }
-        return hasFirstMonthLesson;
+        return completedValue.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private Map<SlotSpec, BigDecimal> privateLessonRatesBySlot(
+            TutoringClass tutoringClass,
+            ClassAssignment assignment) {
+        JsonNode form = readTree(filterDetailsToSubjects(
+                tutoringClass.getDetailsJson(),
+                acceptedSubjectKeys(assignment)));
+        JsonNode slots = form.path("slots");
+        JsonNode feesNode = form.path("subjectFees");
+        if (!slots.isArray() || feesNode == null || !feesNode.isObject()) {
+            return Map.of();
+        }
+        Map<String, BigDecimal> fees = readRates(feesNode.toString());
+        if (fees == null || fees.isEmpty()) {
+            return Map.of();
+        }
+        boolean custom = "CUSTOM".equals(form.path("scheduleMode").asText("WEEKLY"));
+        Map<SlotSpec, BigDecimal> ratesBySlot = new HashMap<>();
+        for (JsonNode slot : slots) {
+            LocalTime start = parseTime(slot.path("start").asText(""));
+            LocalTime end = parseTime(slot.path("end").asText(""));
+            if (start == null || end == null) {
+                continue;
+            }
+            Integer day = custom
+                    ? dayOfWeekOf(parseDate(slot.path("date").asText("")))
+                    : DAY_CODE_TO_ISO.get(slot.path("day").asText(""));
+            if (day == null) {
+                continue;
+            }
+            String key = slot.path("subjectId").asText("");
+            BigDecimal rate = fees.get(key);
+            if (rate == null || rate.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+            ratesBySlot.putIfAbsent(new SlotSpec(day, start, end, subjectIdOf(key)), rate);
+        }
+        return ratesBySlot;
+    }
+
+    private BigDecimal privateLessonValue(
+            Lesson lesson,
+            Map<SlotSpec, BigDecimal> ratesBySlot,
+            BigDecimal fallbackRate) {
+        if (lesson == null || lesson.getSlot() == null) {
+            return BigDecimal.ZERO;
+        }
+        ScheduleSlot slot = lesson.getSlot();
+        if (slot.getStartTime() == null || slot.getEndTime() == null) {
+            return fallbackRate != null ? fallbackRate : BigDecimal.ZERO;
+        }
+        Long subjectId = slot.getSubject() != null ? slot.getSubject().getSubjectId() : null;
+        Integer dayOfWeek = lesson.getLessonDate() != null
+                ? lesson.getLessonDate().getDayOfWeek().getValue()
+                : slot.getDayOfWeek();
+        BigDecimal rate = ratesBySlot.get(new SlotSpec(dayOfWeek, slot.getStartTime(), slot.getEndTime(), subjectId));
+        if (rate == null && ratesBySlot.size() == 1) {
+            rate = ratesBySlot.values().iterator().next();
+        }
+        if (rate == null) {
+            rate = fallbackRate;
+        }
+        if (rate == null || rate.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        BigDecimal hours = BigDecimal.valueOf(
+                java.time.Duration.between(slot.getStartTime(), slot.getEndTime()).toMinutes())
+                .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+        if (hours.compareTo(BigDecimal.ZERO) <= 0) {
+            return BigDecimal.ZERO;
+        }
+        return rate.multiply(hours);
     }
 
     private void notifyStudentEnrollmentSuccess(ClassStudent classStudent) {
@@ -3034,6 +3128,10 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             throw new BusinessException("Chỉ lớp đang diễn ra mới có thể yêu cầu chấm dứt sớm");
         }
 
+        if (canRequestCenterWholeClassTermination(tutoringClass, requester.getUserId())) {
+            return requestCenterWholeClassTermination(tutoringClass, request, requester);
+        }
+
         validateTerminationSelector(request.getAssignmentId(), request.getClassStudentId());
         TerminationTarget target = resolveTerminationTarget(
                 tutoringClass,
@@ -3042,7 +3140,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 requester.getUserId());
 
         if (hasPendingTermination(target)) {
-            throw new BusinessException("Lớp học đã có yêu cầu chấm dứt sớm đang chờ xử lý");
+            throw new BusinessException("Lớp học đã có yêu cầu chấm dứt sớm đang xử lý");
         }
 
         EscrowTransaction escrow = resolveEscrowForTermination(target);
@@ -3083,6 +3181,69 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         ClassTerminationRequest savedTermination = classTerminationRequestRepository.save(termination);
         notifyClassTerminationCompleted(savedTermination, tutoringClass, target);
         return toTerminationResponse(savedTermination, tutoringClass);
+    }
+
+    private ClassTerminationResponse requestCenterWholeClassTermination(
+            TutoringClass tutoringClass,
+            CreateClassTerminationRequest request,
+            User requester) {
+
+        List<ClassStudent> students = classStudentRepository.findByTutoringClass_ClassIdAndStatus(
+                tutoringClass.getClassId(), ClassStudentStatus.ENROLLED);
+        if (students.isEmpty()) {
+            throw new BusinessException("Lớp trung tâm chưa có học sinh đang ghi danh để chấm dứt");
+        }
+        if (hasActiveCenterTermination(students)) {
+            throw new BusinessException("Lớp học đã có yêu cầu chấm dứt sớm đang xử lý");
+        }
+
+        List<CenterTerminationPlan> plans = students.stream()
+                .map(student -> {
+                    TerminationTarget target = new TerminationTarget(null, student);
+                    EscrowTransaction escrow = resolveEscrowForTermination(target);
+                    SettlementSplit settlement = calculateEarlyTerminationSettlement(tutoringClass, target, escrow);
+                    RefundPayoutInfo payoutInfo = refundPayoutInfoForClassStudent(student, settlement.refundAmount());
+                    return new CenterTerminationPlan(student, settlement, payoutInfo);
+                })
+                .toList();
+
+        List<ClassAssignment> activeAssignments = classAssignmentRepository
+                .findByApplication_TutoringClass_ClassIdAndStatus(
+                        tutoringClass.getClassId(), ClassAssignmentStatus.ACTIVE);
+        LocalDateTime now = LocalDateTime.now();
+        ClassTerminationRequest firstSaved = null;
+
+        for (CenterTerminationPlan plan : plans) {
+            TerminationTarget target = new TerminationTarget(null, plan.classStudent());
+            ClassTerminationRequest termination = new ClassTerminationRequest();
+            termination.setClassStudent(plan.classStudent());
+            termination.setRequestedBy(requester);
+            termination.setReason(RefundPayoutInfoCodec.appendToReason(request.getReason().trim(), plan.payoutInfo()));
+            termination.setEffectiveDate(request.getEffectiveDate());
+            termination.setStatus(ClassTerminationStatus.COMPLETED);
+            termination.setProcessedAt(now);
+
+            escrowService.apply(new ReleaseInstruction(
+                    plan.settlement().escrow().getEscrowId(),
+                    plan.settlement().releaseAmount(),
+                    plan.settlement().refundAmount(),
+                    buildEarlyTerminationSettlementReason(request.getReason(), plan.settlement()),
+                    plan.payoutInfo()));
+
+            completeTerminationTarget(target);
+
+            ClassTerminationRequest savedTermination = classTerminationRequestRepository.save(termination);
+            if (firstSaved == null) {
+                firstSaved = savedTermination;
+            }
+            notifyClassTerminationCompleted(savedTermination, tutoringClass, target);
+        }
+
+        terminateCenterClassAssignments(activeAssignments);
+        tutoringClass.setStatus(TutoringClassStatus.CANCELLED);
+        tutoringClassRepository.save(tutoringClass);
+        notifyCenterClassTerminated(tutoringClass, activeAssignments, requester);
+        return toTerminationResponse(firstSaved, tutoringClass);
     }
 
     // ===== UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE: 1 gia sư – 1 phụ huynh/học viên) =====
@@ -3287,8 +3448,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 throw new VerificationRequiredException(
                         "Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển vào lớp.");
             }
-            if (tutorApplicationRepository
-                    .existsByTutoringClass_ClassIdAndTutor_TutorId(classId, tutor.getTutorId())) {
+            Optional<TutorApplication> existingApplication = tutorApplicationRepository
+                    .findFirstByTutoringClass_ClassIdAndTutor_TutorId(classId, tutor.getTutorId());
+            boolean hasBlockingApplication = existingApplication
+                    .map(existing -> existing.getStatus() != TutorApplicationStatus.REJECTED)
+                    .orElseGet(() -> tutorApplicationRepository
+                            .existsByTutoringClass_ClassIdAndTutor_TutorId(classId, tutor.getTutorId()));
+            if (hasBlockingApplication) {
                 throw new IllegalArgumentException("Bạn đã đăng ký lớp này rồi");
             }
             TutorApplication application = new TutorApplication();
@@ -3451,6 +3617,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .filter(t -> !StringUtils.hasText(q)
                         || t.getFullName().toLowerCase(Locale.ROOT).contains(q)
                         || (t.getBio() != null && t.getBio().toLowerCase(Locale.ROOT).contains(q)))
+                .filter(t -> subjectId == null
+                        || tutorSubjectRepository.existsByTutor_TutorIdAndSubject_SubjectId(t.getTutorId(), subjectId))
                 .map(this::toTutorSearch)
                 .toList();
     }
@@ -3594,6 +3762,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             Long requesterUserId) {
         boolean isClassCreator = tutoringClass.getCreator() != null
                 && Objects.equals(tutoringClass.getCreator().getUserId(), requesterUserId);
+        if (tutoringClass.getClassType() == ClassType.CENTER) {
+            return isClassCreator;
+        }
         boolean isAssignedTutor = assignment.getTutor() != null
                 && assignment.getTutor().getUser() != null
                 && Objects.equals(assignment.getTutor().getUser().getUserId(), requesterUserId);
@@ -3627,6 +3798,13 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         Long currentUserId = currentUserIdOrNull();
         if (currentUserId == null || !isTerminationRequestableStatus(tutoringClass.getStatus())) {
             return null;
+        }
+        if (canRequestCenterWholeClassTermination(tutoringClass, currentUserId)) {
+            List<ClassStudent> students = classStudentRepository.findByTutoringClass_ClassIdAndStatus(
+                    tutoringClass.getClassId(), ClassStudentStatus.ENROLLED);
+            return !students.isEmpty() && !hasActiveCenterTermination(students)
+                    ? new TerminationTarget(null, null)
+                    : null;
         }
         if (assignmentId != null && classStudentId != null) {
             return null;
@@ -3680,19 +3858,74 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     private boolean hasPendingTermination(TerminationTarget target) {
+        return hasTerminationWithStatus(target, ClassTerminationStatus.PENDING)
+                || hasTerminationWithStatus(target, ClassTerminationStatus.APPROVED);
+    }
+
+    private boolean hasTerminationWithStatus(TerminationTarget target, ClassTerminationStatus status) {
         if (target.assignment() != null) {
             return classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
-                    target.assignment().getAssignmentId(), ClassTerminationStatus.PENDING);
+                    target.assignment().getAssignmentId(), status);
         }
         if (target.classStudent() != null) {
             return classTerminationRequestRepository.existsByClassStudent_ClassStudentIdAndStatus(
-                    target.classStudent().getClassStudentId(), ClassTerminationStatus.PENDING);
+                    target.classStudent().getClassStudentId(), status);
         }
         return false;
     }
 
     private boolean isTerminationRequestableStatus(TutoringClassStatus status) {
         return status == TutoringClassStatus.IN_PROGRESS || status == TutoringClassStatus.DISPUTED;
+    }
+
+    private boolean canRequestCenterWholeClassTermination(TutoringClass tutoringClass, Long requesterUserId) {
+        return tutoringClass != null
+                && tutoringClass.getClassType() == ClassType.CENTER
+                && requesterUserId != null
+                && isClassParticipant(tutoringClass, requesterUserId)
+                && tutorCenterRepository.findByUser_UserId(requesterUserId).isPresent();
+    }
+
+    private boolean isClassParticipant(TutoringClass tutoringClass, Long userId) {
+        if (tutoringClass == null || userId == null) {
+            return false;
+        }
+        if (tutoringClass.getCreator() != null
+                && Objects.equals(tutoringClass.getCreator().getUserId(), userId)) {
+            return true;
+        }
+        return tutoringClass.getCenter() != null
+                && tutoringClass.getCenter().getUser() != null
+                && Objects.equals(tutoringClass.getCenter().getUser().getUserId(), userId);
+    }
+
+    private boolean hasActiveCenterTermination(List<ClassStudent> students) {
+        return students.stream()
+                .map(student -> new TerminationTarget(null, student))
+                .anyMatch(this::hasPendingTermination);
+    }
+
+    private RefundPayoutInfo refundPayoutInfoForClassStudent(ClassStudent classStudent, BigDecimal refundAmount) {
+        if (refundAmount == null || refundAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return null;
+        }
+        RefundPayoutInfo payoutInfo = RefundPayoutInfoCodec.parseFromReason(classStudent.getNotes());
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            throw new BusinessException("Học sinh "
+                    + classStudentLabel(classStudent)
+                    + " chưa có thông tin tài khoản nhận hoàn tiền");
+        }
+        return payoutInfo;
+    }
+
+    private String classStudentLabel(ClassStudent classStudent) {
+        if (classStudent == null) {
+            return "này";
+        }
+        if (StringUtils.hasText(classStudent.getStudentName())) {
+            return "\"" + classStudent.getStudentName().trim() + "\"";
+        }
+        return "#" + classStudent.getClassStudentId();
     }
 
     private boolean requiresAdminTerminationReview(TutoringClass tutoringClass, EscrowTransaction escrow) {
@@ -3716,6 +3949,40 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .divide(BigDecimal.valueOf(totalSessions), 2, RoundingMode.HALF_UP);
         BigDecimal refundAmount = escrow.getAmount().subtract(releaseAmount);
         return new SettlementSplit(escrow, totalSessions, completedSessions, releaseAmount, refundAmount);
+    }
+
+    private void terminateCenterClassAssignments(List<ClassAssignment> activeAssignments) {
+        for (ClassAssignment assignment : activeAssignments) {
+            assignment.setStatus(ClassAssignmentStatus.TERMINATED);
+            classAssignmentRepository.save(assignment);
+            contractRepository.findByAssignment_AssignmentId(assignment.getAssignmentId())
+                    .ifPresent(this::terminateContract);
+        }
+    }
+
+    private void notifyCenterClassTerminated(
+            TutoringClass tutoringClass,
+            List<ClassAssignment> activeAssignments,
+            User requester) {
+
+        String classTitle = classNotificationTitle(tutoringClass);
+        Set<Long> notified = new LinkedHashSet<>();
+        if (requester != null && requester.getUserId() != null) {
+            notified.add(requester.getUserId());
+        }
+        for (ClassAssignment assignment : activeAssignments) {
+            User tutorUser = assignment.getTutor() != null ? assignment.getTutor().getUser() : null;
+            if (tutorUser == null || tutorUser.getUserId() == null || notified.contains(tutorUser.getUserId())) {
+                continue;
+            }
+            notified.add(tutorUser.getUserId());
+            sendClassNotification(
+                    tutorUser,
+                    "Lớp trung tâm đã chấm dứt sớm",
+                    "Lớp \"" + classTitle + "\" đã được trung tâm chấm dứt sớm. "
+                            + "Các khoản ký quỹ của học sinh đã được tất toán theo quy tắc của hệ thống.",
+                    tutoringClass.getClassId());
+        }
     }
 
     private EscrowTransaction resolveEscrowForTermination(TerminationTarget target) {
@@ -4195,7 +4462,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     private RefundPolicy resolveClassRefundPolicy(TutoringClass tutoringClass, TerminationTarget target) {
-        if (target == null) {
+        if (target == null || (target.assignment() == null && target.classStudent() == null)) {
             return new RefundPolicy(null, null, false, null);
         }
         try {
@@ -4246,6 +4513,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             int completedSessions,
             BigDecimal releaseAmount,
             BigDecimal refundAmount) {
+    }
+
+    private record CenterTerminationPlan(
+            ClassStudent classStudent,
+            SettlementSplit settlement,
+            RefundPayoutInfo payoutInfo) {
     }
 
     private record RefundPolicy(

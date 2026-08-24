@@ -2,7 +2,6 @@ package com.tcs.module.finance.scheduler;
 
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -71,13 +70,12 @@ class CourseCompletionAutoConfirmSchedulerTest {
     }
 
     @Test
-    @DisplayName("UTCID03 (A) - BF-05: lớp PRIVATE quá 7 ngày -> theo đặc tả cũng phải tự xác nhận")
-    void utcid03_privateClassAutoConfirmed() {
+    @DisplayName("UTCID03 (A) - Lớp PRIVATE quá 7 ngày -> scheduler center không xử lý")
+    void utcid03_privateClassIsIgnoredByCenterScheduler() {
         when(tutoringClassRepository.findAll()).thenReturn(List.of(overdueClass(3L, ClassType.PRIVATE)));
-        when(settlementService.trySettleCompletedCenterClass(3L)).thenReturn(true);
 
         scheduler.autoConfirmStaleCompletions();
 
-        verify(settlementService, times(1)).trySettleCompletedCenterClass(3L);
+        verify(settlementService, never()).trySettleCompletedCenterClass(3L);
     }
 }

@@ -16,6 +16,7 @@ import com.tcs.module.catalog.repository.CategoryRepository;
 import com.tcs.module.catalog.repository.GradeRepository;
 import com.tcs.module.catalog.repository.LocationRepository;
 import com.tcs.module.catalog.repository.SubjectRepository;
+import com.tcs.module.catalog.repository.TutorSubjectRepository;
 import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
@@ -109,6 +110,7 @@ class MarketplaceServiceImplLessonTest {
     @Mock private FavoriteTutorRepository favoriteTutorRepository;
     @Mock private CategoryRepository categoryRepository;
     @Mock private SubjectRepository subjectRepository;
+    @Mock private TutorSubjectRepository tutorSubjectRepository;
     @Mock private GradeRepository gradeRepository;
     @Mock private LocationRepository locationRepository;
     @Mock private LessonRescheduleRequestRepository rescheduleRequestRepository;
@@ -438,6 +440,8 @@ class MarketplaceServiceImplLessonTest {
             when(tutorRepository.findAll()).thenReturn(List.of(
                     tutorNamed(1L, "Nguyen Van Toan", "Day Toan THCS"),
                     tutorNamed(2L, "Tran Thi Anh", "Day Tieng Anh")));
+            when(tutorSubjectRepository.existsByTutor_TutorIdAndSubject_SubjectId(1L, 1L)).thenReturn(true);
+            when(tutorSubjectRepository.existsByTutor_TutorIdAndSubject_SubjectId(2L, 1L)).thenReturn(false);
 
             var result = service.searchTutors(null, 1L);
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { AdminTimeFilter } from '../components/AdminTimeFilter';
@@ -6,6 +6,8 @@ import { useWithdrawalDecision } from '../hooks/usePlatformMutations';
 import { useWithdrawalList } from '../hooks/useWithdrawalList';
 import type { WithdrawalRequestStatus } from '../types/platformTypes';
 import './PlatformWithdrawalsPage.css';
+
+const AUTO_REFRESH_INTERVAL_MS = 5000;
 
 function VisibilityIcon({ hidden }: { hidden: boolean }) {
   if (hidden) {
@@ -67,6 +69,8 @@ export default function PlatformWithdrawalsPage() {
   } | null>(null);
   const [decisionReason, setDecisionReason] = useState('');
   const [visibleAccountIds, setVisibleAccountIds] = useState<Record<string, boolean>>({});
+  const [lastAutoRefreshAt, setLastAutoRefreshAt] = useState<Date | null>(null);
+  const autoRefreshInFlightRef = useRef(false);
 
   const pagePendingCount = useMemo(
     () => data?.items.filter((item) => item.status === 'PENDING').length ?? 0,
@@ -76,6 +80,30 @@ export default function PlatformWithdrawalsPage() {
     () => data?.items.reduce((sum, item) => sum + item.rawAmount, 0) ?? 0,
     [data],
   );
+  const lastAutoRefreshLabel = useMemo(() => {
+    if (!lastAutoRefreshAt) return null;
+
+    return lastAutoRefreshAt.toLocaleTimeString('vi-VN', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    });
+  }, [lastAutoRefreshAt]);
+
+  useEffect(() => {
+    const intervalId = window.setInterval(() => {
+      if (document.visibilityState !== 'visible' || autoRefreshInFlightRef.current) return;
+
+      autoRefreshInFlightRef.current = true;
+      void reload({ silent: true })
+        .then(() => setLastAutoRefreshAt(new Date()))
+        .finally(() => {
+          autoRefreshInFlightRef.current = false;
+        });
+    }, AUTO_REFRESH_INTERVAL_MS);
+
+    return () => window.clearInterval(intervalId);
+  }, [reload]);
 
   const applyFilter = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch, page: 0 }));
@@ -181,16 +209,20 @@ export default function PlatformWithdrawalsPage() {
             <option value={20}>20 dòng/trang</option>
             <option value={50}>50 dòng/trang</option>
           </select>
-          <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reload}>
+          <button className="tcs-btn tcs-btn--ghost" type="button" onClick={() => reload()}>
             Làm mới
           </button>
+          <span className="pw-auto-refresh" aria-live="polite">
+            Tự cập nhật mỗi 5 giây
+            {lastAutoRefreshLabel ? ` · lần cuối ${lastAutoRefreshLabel}` : ''}
+          </span>
         </div>
 
         {status === 'loading' && <div className="adm-state">Đang tải yêu cầu rút tiền...</div>}
         {status === 'error' && (
           <div className="adm-state">
             <p>{listErrorMessage ?? 'Không tải được dữ liệu.'}</p>
-            <button className="tcs-btn tcs-btn--primary" type="button" onClick={reload}>
+            <button className="tcs-btn tcs-btn--primary" type="button" onClick={() => reload()}>
               Thử lại
             </button>
           </div>

@@ -2516,6 +2516,8 @@ public class FinanceServiceImpl implements FinanceService {
             PaymentTransaction tx) {
         Wallet wallet = withdrawal.getWallet();
         PaymentMethod paymentMethod = withdrawal.getPaymentMethod();
+        String bankName = snapshotBankName(withdrawal, paymentMethod);
+        String accountNo = snapshotAccountNo(withdrawal, paymentMethod);
         return AdminWithdrawalResponse.builder()
                 .withdrawalId(withdrawal.getWithdrawalId())
                 .refundId(null)
@@ -2525,9 +2527,9 @@ public class FinanceServiceImpl implements FinanceService {
                 .amount(withdrawal.getAmount())
                 .status(withdrawal.getStatus())
                 .paymentMethodId(paymentMethod != null ? paymentMethod.getPaymentMethodId() : null)
-                .bankName(paymentMethod != null ? paymentMethod.getBankName() : null)
-                .accountNo(paymentMethod != null ? paymentMethod.getAccountNo() : null)
-                .accountNoMasked(paymentMethod != null ? maskAccountNo(paymentMethod.getAccountNo()) : "")
+                .bankName(bankName)
+                .accountNo(accountNo)
+                .accountNoMasked(maskAccountNo(accountNo))
                 .accountHolderName(withdrawal.getAccountHolderName() != null
                         ? withdrawal.getAccountHolderName()
                         : paymentMethod != null ? paymentMethod.getAccountHolderName() : null)
@@ -2642,18 +2644,34 @@ public class FinanceServiceImpl implements FinanceService {
             PaymentTransaction tx,
             Wallet wallet) {
         PaymentMethod paymentMethod = withdrawal.getPaymentMethod();
+        String bankName = snapshotBankName(withdrawal, paymentMethod);
+        String accountNo = snapshotAccountNo(withdrawal, paymentMethod);
         return WithdrawalResponse.builder()
                 .withdrawalId(withdrawal.getWithdrawalId())
                 .amount(withdrawal.getAmount())
                 .status(withdrawal.getStatus())
                 .paymentMethodId(paymentMethod.getPaymentMethodId())
-                .bankName(paymentMethod.getBankName())
-                .accountNoMasked(maskAccountNo(paymentMethod.getAccountNo()))
+                .bankName(bankName)
+                .accountNoMasked(maskAccountNo(accountNo))
                 .accountHolderName(withdrawal.getAccountHolderName())
                 .referenceCode(tx.getReferenceCode())
                 .requestedAt(withdrawal.getRequestedAt())
                 .wallet(toWalletResponse(wallet))
                 .build();
+    }
+
+    private String snapshotBankName(WithdrawalRequest withdrawal, PaymentMethod paymentMethod) {
+        if (withdrawal != null && !isBlank(withdrawal.getBankName())) {
+            return withdrawal.getBankName();
+        }
+        return paymentMethod != null ? paymentMethod.getBankName() : null;
+    }
+
+    private String snapshotAccountNo(WithdrawalRequest withdrawal, PaymentMethod paymentMethod) {
+        if (withdrawal != null && !isBlank(withdrawal.getAccountNo())) {
+            return withdrawal.getAccountNo();
+        }
+        return paymentMethod != null ? paymentMethod.getAccountNo() : null;
     }
 
     private String maskAccountNo(String accountNo) {

@@ -23,9 +23,9 @@ export interface CreateClassTerminationRequest {
   classStudentId?: number;
   reason: string;
   effectiveDate?: string;
-  bankName: string;
-  accountNo: string;
-  accountHolderName: string;
+  bankName?: string;
+  accountNo?: string;
+  accountHolderName?: string;
 }
 
 export interface ClassTerminationResponse {
