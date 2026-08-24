@@ -53,6 +53,7 @@ import com.tcs.module.marketplace.enums.AttendanceStatus;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassTerminationStatus;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.marketplace.repository.ClassTerminationRequestRepository;
@@ -192,6 +193,49 @@ class DisputeServiceImplTest {
     }
 
     @Test
+    void createDisputeRejectsWhenEscrowAlreadyHasActiveDispute() {
+        User reporter = new User();
+        reporter.setUserId(USER_ID);
+
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setClassId(99L);
+
+        ClassStudent classStudent = new ClassStudent();
+        classStudent.setClassStudentId(12L);
+        classStudent.setTutoringClass(tutoringClass);
+        classStudent.setEnrolledByUser(reporter);
+
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.FUNDED);
+        escrow.setClassStudent(classStudent);
+        Report savedReport = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+
+        CreateDisputeRequest request = new CreateDisputeRequest();
+        request.setTargetType(ReportTargetType.CLASS);
+        request.setTargetId(99L);
+        request.setCategory(ReportCategory.FRAUD);
+        request.setDescription("Có gian lận");
+        request.setEscrowId(11L);
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(reporter));
+        when(escrowTransactionRepository.findById(11L)).thenReturn(Optional.of(escrow));
+        when(reportRepository.save(any(Report.class))).thenReturn(savedReport);
+        when(disputeRepository.existsByEscrowTransaction_EscrowIdAndStatusNot(
+                        11L, DisputeStatus.RESOLVED))
+                .thenReturn(true);
+
+        BusinessException exception = assertThrows(
+                BusinessException.class,
+                () -> disputeService.createDispute(request));
+
+        assertEquals(
+                "Khoản ký quỹ này đang có tranh chấp chưa xử lý. Vui lòng theo dõi hồ sơ hiện có.",
+                exception.getMessage());
+        verify(escrowService, never()).holdForDispute(any(), any());
+        verify(disputeRepository, never()).save(any(Dispute.class));
+    }
+
+    @Test
     void createClassIssueCreatesReportWithoutHoldingEscrow() {
         User reporter = new User();
         reporter.setUserId(USER_ID);
@@ -235,6 +279,50 @@ class DisputeServiceImplTest {
         assertEquals(21L, response.getReportId());
         assertNull(response.getEscrowId());
         assertEquals(ReportTargetType.CLASS, response.getTargetType());
+        verify(escrowService, never()).holdForDispute(any(), any());
+        verify(disputeRepository, never()).save(any(Dispute.class));
+    }
+
+    @Test
+    void createClassIssueRejectsCenterTutorFinancialDisputeAction() {
+        User tutorUser = new User();
+        tutorUser.setUserId(USER_ID);
+        User centerUser = new User();
+        centerUser.setUserId(700L);
+
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setClassId(99L);
+        tutoringClass.setCreator(centerUser);
+        tutoringClass.setClassType(ClassType.CENTER);
+        tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
+
+        Tutor tutor = new Tutor();
+        tutor.setTutorId(44L);
+        tutor.setUser(tutorUser);
+        TutorApplication application = new TutorApplication();
+        application.setTutoringClass(tutoringClass);
+        ClassAssignment assignment = new ClassAssignment();
+        assignment.setAssignmentId(77L);
+        assignment.setTutor(tutor);
+        assignment.setApplication(application);
+        assignment.setStatus(ClassAssignmentStatus.ACTIVE);
+
+        CreateClassIssueRequest request = new CreateClassIssueRequest();
+        request.setClassId(99L);
+        request.setIssueType(ClassIssueType.TUTOR_ABSENT);
+        request.setRequestedAction(ClassIssueRequestedAction.ESCALATE_DISPUTE);
+        request.setDescription("Gia sư muốn chuyển sự cố lớp trung tâm thành tranh chấp tài chính");
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(tutorUser));
+        when(tutoringClassRepository.findById(99L)).thenReturn(Optional.of(tutoringClass));
+        when(classAssignmentRepository.findByApplication_TutoringClass_ClassIdAndStatus(
+                        99L, ClassAssignmentStatus.ACTIVE))
+                .thenReturn(List.of(assignment));
+
+        assertThrows(ForbiddenException.class, () -> disputeService.createClassIssue(request));
+
+        verify(reportRepository, never()).save(any(Report.class));
         verify(escrowService, never()).holdForDispute(any(), any());
         verify(disputeRepository, never()).save(any(Dispute.class));
     }

@@ -291,7 +291,7 @@ export default function ContractDetailPage() {
     if (contract.refundPayoutInfo) {
       setPayoutBankName(contract.refundPayoutInfo.bankName ?? '');
       setPayoutAccountHolder(contract.refundPayoutInfo.accountHolderName ?? '');
-      setPayoutAccountNo('');
+      setPayoutAccountNo(contract.refundPayoutInfo.accountNo ?? '');
     } else {
       setPayoutBankName('');
       setPayoutAccountHolder('');
@@ -479,7 +479,7 @@ export default function ContractDetailPage() {
   const displayTuitionFee = contract.totalTuitionAmount ?? contract.tuitionFee;
   const needsRefundPayoutInfo =
     Boolean(visibleEscrowPayment)
-    && !contract.refundPayoutInfo
+    && (!contract.refundPayoutInfo || contract.refundPayoutInfo.suggested)
     && isClient;
   const classDetailUrl = contract.classId
     ? `/marketplace/classes/${contract.classId}${
@@ -627,7 +627,9 @@ export default function ContractDetailPage() {
                 </div>
                 <div className="contract-sign-form">
                   <p>
-                    Vui lòng nhập tài khoản thụ hưởng của quý khách để phục vụ xử lý các nhu cầu phát sinh.
+                    {contract.refundPayoutInfo?.suggested
+                      ? 'Hệ thống đã điền sẵn tài khoản nhận hoàn tiền từ lần thanh toán gần nhất. Quý khách có thể kiểm tra, chỉnh sửa rồi lưu cho hợp đồng này.'
+                      : 'Vui lòng nhập tài khoản thụ hưởng của quý khách để phục vụ xử lý các nhu cầu phát sinh.'}
                   </p>
                   {payoutMessage ? <div className="contract-alert contract-alert--error">{payoutMessage}</div> : null}
                   <BankSelectField

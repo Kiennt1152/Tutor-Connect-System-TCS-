@@ -1220,16 +1220,6 @@ class IdentityServiceImplTest {
         req.setPhone("0123456789");
         req.setRole(null);
 
-        when(googleTokenVerifier.verify("valid-google-token"))
-                .thenReturn(new GoogleTokenVerifier.GooglePayload("newuser@gmail.com", "New User"));
-        when(userRepository.findByEmail("newuser@gmail.com")).thenReturn(Optional.empty());
-        when(userRepository.existsByPhone("0123456789")).thenReturn(false);
-        when(userRepository.save(any(User.class))).thenAnswer(i -> {
-            User u = i.getArgument(0);
-            u.setUserId(51L);
-            return u;
-        });
-
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> identityService.completeGoogleSignup(req),
                 "role = null phai bi chan bang IllegalArgumentException nhu register(), "

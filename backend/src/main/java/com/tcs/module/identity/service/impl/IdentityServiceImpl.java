@@ -335,12 +335,14 @@ public class IdentityServiceImpl implements IdentityService {
     @Override
     @Transactional
     public GoogleLoginResponse completeGoogleSignup(GoogleCompleteRequest request) {
+        if (request.getRole() == null
+                || request.getRole() == UserRole.PLATFORM_ADMIN
+                || request.getRole() == UserRole.UNKNOWN) {
+            throw new IllegalArgumentException("Vai trò đăng ký không hợp lệ");
+        }
         GoogleTokenVerifier.GooglePayload payload = googleTokenVerifier.verify(request.getAccessToken());
         String email = normalizeEmail(payload.getEmail());
 
-        if (request.getRole() == UserRole.PLATFORM_ADMIN || request.getRole() == UserRole.UNKNOWN) {
-            throw new IllegalArgumentException("Vai trò đăng ký không hợp lệ");
-        }
         ensureEmailRegistrable(email);
         String phone = normalizePhone(request.getPhone());
         if (userRepository.existsByPhone(phone)) {

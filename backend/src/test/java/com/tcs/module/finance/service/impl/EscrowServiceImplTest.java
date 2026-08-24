@@ -43,6 +43,7 @@ import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.BeforeEach;
@@ -256,7 +257,9 @@ class EscrowServiceImplTest {
         ClassAssignment assignment = new ClassAssignment();
         assignment.setAssignmentId(7L);
 
-        when(paymentTransactionRepository.findByReferenceCode("ESCROW-A7")).thenReturn(Optional.of(payment));
+        when(paymentTransactionRepository.findEscrowReferenceFamilyByTypeAndStatus(
+                "ESCROW-A7", PaymentTransactionType.ESCROW_DEPOSIT, PaymentTransactionStatus.SUCCESS))
+                .thenReturn(List.of(payment));
         when(escrowTransactionRepository.findByPayment_TransactionId(88L)).thenReturn(Optional.empty());
         when(classAssignmentRepository.findById(7L)).thenReturn(Optional.of(assignment));
         when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -283,7 +286,7 @@ class EscrowServiceImplTest {
         BusinessException ex = assertThrows(BusinessException.class, () ->
                 escrowService.lock(new EscrowLockCommand(null, new BigDecimal("500000.00"), 7L, null)));
         assertEquals("Thiếu người thanh toán escrow", ex.getMessage());
-        verify(paymentTransactionRepository, never()).findByReferenceCode(any());
+        verify(paymentTransactionRepository, never()).findEscrowReferenceFamilyByTypeAndStatus(any(), any(), any());
     }
 
     /** UTCID04 (B) - amount = 0 (cận dưới) -> 'Số tiền escrow phải lớn hơn 0'. */
@@ -316,7 +319,9 @@ class EscrowServiceImplTest {
      */
     @Test
     void utcid06_lockRejectsWhenPaymentNotPrepared() {
-        when(paymentTransactionRepository.findByReferenceCode("ESCROW-A7")).thenReturn(Optional.empty());
+        when(paymentTransactionRepository.findEscrowReferenceFamilyByTypeAndStatus(
+                "ESCROW-A7", PaymentTransactionType.ESCROW_DEPOSIT, PaymentTransactionStatus.SUCCESS))
+                .thenReturn(List.of());
 
         BusinessException ex = assertThrows(BusinessException.class, () ->
                 escrowService.lock(new EscrowLockCommand(PAYER_ID, new BigDecimal("500000.00"), 7L, null)));
@@ -324,16 +329,16 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).save(any());
     }
 
-    /** UTCID07 (A) - Giao dịch thanh toán còn PENDING (client chưa chuyển khoản) -> không sinh escrow. */
+    /** UTCID07 (A) - Chỉ giao dịch SUCCESS mới được dùng; payment PENDING không được lock tìm thấy. */
     @Test
     void utcid07_lockRejectsWhenPaymentNotSuccess() {
-        PaymentTransaction pending = successEscrowPayment(88L, "ESCROW-A7", new BigDecimal("500000.00"));
-        pending.setStatus(PaymentTransactionStatus.PENDING);
-        when(paymentTransactionRepository.findByReferenceCode("ESCROW-A7")).thenReturn(Optional.of(pending));
+        when(paymentTransactionRepository.findEscrowReferenceFamilyByTypeAndStatus(
+                "ESCROW-A7", PaymentTransactionType.ESCROW_DEPOSIT, PaymentTransactionStatus.SUCCESS))
+                .thenReturn(List.of());
 
         BusinessException ex = assertThrows(BusinessException.class, () ->
                 escrowService.lock(new EscrowLockCommand(PAYER_ID, new BigDecimal("500000.00"), 7L, null)));
-        assertEquals("Chỉ giao dịch đã thanh toán thành công mới sinh escrow", ex.getMessage());
+        assertEquals("Chưa có giao dịch thanh toán escrow", ex.getMessage());
         verify(escrowTransactionRepository, never()).save(any());
     }
 
@@ -346,7 +351,9 @@ class EscrowServiceImplTest {
         existing.setEscrowId(500L);
         existing.setStatus(EscrowStatus.FUNDED);
 
-        when(paymentTransactionRepository.findByReferenceCode("ESCROW-A7")).thenReturn(Optional.of(payment));
+        when(paymentTransactionRepository.findEscrowReferenceFamilyByTypeAndStatus(
+                "ESCROW-A7", PaymentTransactionType.ESCROW_DEPOSIT, PaymentTransactionStatus.SUCCESS))
+                .thenReturn(List.of(payment));
         when(escrowTransactionRepository.findByPayment_TransactionId(88L)).thenReturn(Optional.of(existing));
 
         EscrowTransaction result = escrowService.lock(new EscrowLockCommand(PAYER_ID, amount, 7L, null));
@@ -364,7 +371,9 @@ class EscrowServiceImplTest {
         ClassStudent classStudent = new ClassStudent();
         classStudent.setClassStudentId(9L);
 
-        when(paymentTransactionRepository.findByReferenceCode("ESCROW-CS9")).thenReturn(Optional.of(payment));
+        when(paymentTransactionRepository.findEscrowReferenceFamilyByTypeAndStatus(
+                "ESCROW-CS9", PaymentTransactionType.ESCROW_DEPOSIT, PaymentTransactionStatus.SUCCESS))
+                .thenReturn(List.of(payment));
         when(escrowTransactionRepository.findByPayment_TransactionId(90L)).thenReturn(Optional.empty());
         when(classStudentRepository.findById(9L)).thenReturn(Optional.of(classStudent));
         when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));

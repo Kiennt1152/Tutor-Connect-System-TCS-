@@ -105,7 +105,9 @@ public class ContractResponse {
     @Builder
     public static class RefundPayoutInfoView {
         private String bankName;
+        private String accountNo;
         private String accountNoMasked;
         private String accountHolderName;
+        private boolean suggested;
     }
 }

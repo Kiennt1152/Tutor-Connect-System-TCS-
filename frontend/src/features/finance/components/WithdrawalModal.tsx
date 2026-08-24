@@ -55,6 +55,7 @@ export function WithdrawalModal({
     if (!open || hasAutoSelectedMethod || paymentMethodId || !defaultPaymentMethod) {
       return;
     }
+    // Pre-fill the default payout account so withdrawal does not require retyping bank details.
     setPaymentMethodId(String(defaultPaymentMethod.paymentMethodId));
     setHasAutoSelectedMethod(true);
   }, [defaultPaymentMethod, hasAutoSelectedMethod, open, paymentMethodId]);
@@ -77,6 +78,7 @@ export function WithdrawalModal({
   }
 
   async function handleSubmit() {
+    // The backend freezes balance first; final success comes from admin action / outgoing webhook.
     const parsedAmount = Number(amount);
     if (!parsedAmount || parsedAmount <= 0) {
       setError('Số tiền rút phải lớn hơn 0');

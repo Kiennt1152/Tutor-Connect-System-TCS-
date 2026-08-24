@@ -31,8 +31,10 @@ export interface EscrowPaymentInfo {
 
 export interface ContractRefundPayoutInfo {
   bankName: string | null;
+  accountNo?: string | null;
   accountNoMasked: string | null;
   accountHolderName: string | null;
+  suggested?: boolean;
 }
 
 export interface SaveRefundPayoutRequest {

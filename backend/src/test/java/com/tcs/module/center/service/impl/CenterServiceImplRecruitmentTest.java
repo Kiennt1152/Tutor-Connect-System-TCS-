@@ -29,7 +29,10 @@ import com.tcs.module.center.repository.RecruitmentApplicationRepository;
 import com.tcs.module.center.repository.RecruitmentPostRepository;
 import com.tcs.module.contract.repository.ContractTemplateRepository;
 import com.tcs.module.contract.service.ContractService;
+import com.tcs.module.finance.entity.Wallet;
+import com.tcs.module.finance.enums.WalletStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.CenterEscrowAutoSettlementService;
 import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.service.EscrowService;
@@ -107,6 +110,7 @@ class CenterServiceImplRecruitmentTest {
     @Mock private LessonRepository lessonRepository;
     @Mock private LessonAttendanceRepository lessonAttendanceRepository;
     @Mock private EscrowTransactionRepository escrowTransactionRepository;
+    @Mock private WalletRepository walletRepository;
     @Mock private EscrowService escrowService;
     @Mock private CenterRequestFeeService centerRequestFeeService;
     @Mock private RescheduleService rescheduleService;
@@ -155,11 +159,19 @@ class CenterServiceImplRecruitmentTest {
     private void loginAsTutor() {
         when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
         when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(tutor));
+        when(walletRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(activeWallet()));
     }
 
     private void loginAsCenter() {
         when(authHelper.currentUserId()).thenReturn(CENTER_USER_ID);
         when(tutorCenterRepository.findByUser_UserId(CENTER_USER_ID)).thenReturn(Optional.of(center));
+        when(walletRepository.findByUser_UserId(CENTER_USER_ID)).thenReturn(Optional.of(activeWallet()));
+    }
+
+    private Wallet activeWallet() {
+        Wallet wallet = new Wallet();
+        wallet.setStatus(WalletStatus.ACTIVE);
+        return wallet;
     }
 
     private ApplyRecruitmentRequest applyBody(String coverLetter) {
