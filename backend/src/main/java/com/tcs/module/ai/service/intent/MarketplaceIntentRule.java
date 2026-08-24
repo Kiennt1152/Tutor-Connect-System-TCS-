@@ -19,6 +19,27 @@ public class MarketplaceIntentRule implements IntentRule {
 
     @Override
     public ClassificationDetail classify(String normalized, String lower) {
+        // Global exclusions for Academic Tutoring / Homework & Platform Policies
+        boolean isAcademicOrHomework = containsAny(normalized,
+                "giai thich", "the nao la", "vi du ve", "vi du", "tai sao", "chung minh",
+                "giai phuong trinh", "giai giup", "giai bai", "bai tap", "tinh gia tri", "khai niem",
+                "dinh ly", "cong thuc", "ngu phap", "banh pizza", "pizza", "huong dan giai");
+        if (isAcademicOrHomework) {
+            return null; // Let ConversationSafetyRule or IntentClassifier route to OUT_OF_SCOPE
+        }
+
+        boolean isPolicyOrFaq = containsAny(normalized,
+                "website minh co", "he thong co", "ben minh co", "tcs co",
+                "tieu chuan tuyen chon", "tieu chuan gia su", "kiem duyet", "linh vuc nao duoc",
+                "hinh thuc day", "online hay tai nha", "tai nha hay online", "day online khong", "co gia su day online khong", "day online hay", "day truc tuyen khong",
+                "hoc thu", "doi gia su", "khong hop thi doi", "doi gia su khac",
+                "quy trinh dang ky", "quy trinh tim gia su", "cac buoc tim gia su", "cach thue gia su",
+                "thanh toan truc tiep", "chuyen khoan qua", "chuyen tien cho gia su hay trung tam", "thanh toan qua dau",
+                "luong trung binh", "hoc phi trung binh", "thu nhap trung binh", "bang gia hoc phi", "khung hoc phi", "gia mot buoi la bao nhieu", "chi phi thue gia su");
+        if (isPolicyOrFaq) {
+            return null; // Let CatalogFaqIntentRule handle
+        }
+
         // 1. APPLY TO CLASS (TUTOR APPLICATION) - High Priority
         if (containsAny(normalized,
                 "ung tuyen nhu the nao", "ung tuyen nhu nao", "cach ung tuyen", "huong dan ung tuyen",
@@ -40,26 +61,18 @@ public class MarketplaceIntentRule implements IntentRule {
                 "gia su", "tutor", "thay giao", "co giao", "thay co", "giao vien", "nguoi day", "day kem", "gs", "tim thay", "tim co");
 
         if (containsAny(normalized,
-                "tim lop", "lop hoc dang mo", "lop dang mo", "khoa hoc", "dang ky lop", "danh sach lop", "chon gia su ung tuyen", "day kem hoa",
+                "tim lop", "lop hoc dang mo", "lop dang mo", "khoa hoc", "dang ky lop", "danh sach lop", "chon gia su ung tuyen",
                 "tim lop toan", "tim lop ly", "tim lop hoa", "tim lop anh", "tim lop van", "tim lop su", "tim lop dia", "tim lop sinh", "tim lop tin", "tim lop tieng",
                 "co lop nao", "co lop toan nao", "co lop toan ko", "co lop toan khong", "co lop day tiieng viet khong", "co lop day tieng", "co lop day", "co lop", "tim lop hoc", "lop hoc tieng", "lop day tieng", "lop day toan",
-                "find class", "find classes", "find math classes", "open classes", "math classes open", "classes near me", "search classes", "can tim lop") ||
-            (normalized.contains("lop") && !hasTutorKeyword && containsAny(normalized, "tim", "co ", "day", "mo tuyen", "dang mo", "nguoi di lam", "find", "classes", "hoc", "khong", "ko"))) {
+                "find class", "find classes", "find math classes", "open classes", "math classes open", "classes near me", "search classes", "can tim lop")) {
             return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.FIND_CLASS, AiIntent.FIND_CLASS, 0.9, "/lop-hoc");
-        }
-
-        // Simple arithmetic pattern check
-        if (Pattern.compile("[0-9]+\\s*[+\\-*/]\\s*[0-9]+").matcher(lower).find() &&
-            !containsAny(normalized, "giai bai", "bai tap", "huong dan", "phuong trinh", "dinh ly", "cong thuc")) {
-            return new ClassificationDetail(AiDomain.OUT_OF_SCOPE, AiSubIntent.OUT_OF_SCOPE, AiIntent.OUT_OF_SCOPE, 0.95, null);
         }
 
         // 4. FIND TUTOR
         boolean hasExclusion = containsAny(normalized,
                 "luong", "tra luong", "nhan luong", "tra trong bao lau", "bao lau", "bao gio", "giai ngan", "quy dinh", "bao nhieu phan tram",
                 "diem uy tin", "xac minh", "duyet ho so", "cccd", "bang cap", "hoan tien", "tranh chap", "to cao", "ung tuyen", "cach nhan lop",
-                "khieu nai", "hop dong", "ky hop dong", "rut tien", "phi san", "phi nen tang", "chuyen khoan rieng", "ngoai san", "bao cao", "lich day", "doi gio",
-                "dang tin", "dang bai", "tao lop", "tao bai dang");
+                "khieu nai", "hop dong", "ky hop dong", "rut tien", "phi san", "phi nen tang", "chuyen khoan rieng", "ngoai san", "bao cao", "lich day", "doi gio");
 
         boolean hasSearchKeyword = containsAny(normalized,
                 "tim", "thue", "can", "kiem", "cho toi", "gioi thieu", "mon", "toan", "ly", "hoa", "anh", "van", "tin", "sinh", "su", "dia",
@@ -68,7 +81,7 @@ public class MarketplaceIntentRule implements IntentRule {
                 "khu vuc", "cau giay", "dong da", "ba dinh", "ha noi", "hcm", "sai gon", "da nang",
                 "hoc phi", "duoi", "khoang", "k/buoi", "vnd", "luyen thi", "find", "looking", "near", "day kem", "tai nha", "1 kem 1", "online");
 
-        if (!hasExclusion && !normalized.contains("ngu phap") && ((hasTutorKeyword && hasSearchKeyword) || containsAny(normalized,
+        if (!hasExclusion && ((hasTutorKeyword && hasSearchKeyword) || containsAny(normalized,
                 "tim gia su", "thue gia su", "can gia su", "can thue gia su", "gia su day", "giao vien day", "tim thay", "tim co", "ai re hon",
                 "tim gs", "tim gs toan", "tim gs ly", "tim gs hoa", "tim gs anh", "tim thay day toan", "tim co day toan", "co gia su toan ko", "co gia su nao",
                 "gia su toan", "gia su ly", "gia su hoa", "gia su anh", "gia su van", "gia su tin", "gia su luyen thi", "gia su tieng", "gia su ielts",

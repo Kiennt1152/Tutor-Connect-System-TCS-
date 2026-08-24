@@ -32,6 +32,19 @@ public class AiSemanticCacheService {
     private static final int CACHE_TTL_HOURS = AiConstants.SEMANTIC_CACHE_TTL_HOURS;
     private static final int MAX_CACHE_ENTRIES = AiConstants.MAX_CACHE_ENTRIES;
 
+    @jakarta.annotation.PostConstruct
+    public void clearStaleCacheOnStartup() {
+        try {
+            long count = cacheRepository.count();
+            if (count > 0) {
+                cacheRepository.deleteAll();
+                log.info("Cleared {} legacy semantic cache entries on startup for fresh AI pipeline", count);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to clear semantic cache on startup: {}", e.getMessage());
+        }
+    }
+
     /**
      * Check cache for similar query using exact match or semantic search with double[] embedding.
      */

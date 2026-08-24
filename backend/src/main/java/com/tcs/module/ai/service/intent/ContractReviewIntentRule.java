@@ -27,8 +27,8 @@ public class ContractReviewIntentRule implements IntentRule {
             return new ClassificationDetail(AiDomain.CONTRACT_REVIEW, AiSubIntent.REVIEW_CREATE_HELP, AiIntent.FAQ_SUPPORT, 0.9, "/classes");
         }
 
-        if (containsAny(normalized, "uy tin gia su", "do uy tin gia su", "reputation") ||
-            (normalized.contains("uy tin") && containsAny(normalized, "gia su", "giao vien", "thay", "co", "diem uy tin"))) {
+        if (containsAny(normalized, "uy tin gia su", "do uy tin gia su", "reputation", "diem uy tin", "xem diem uy tin", "tinh diem uy tin", "xem diem uy tin gia su", "cach tinh diem uy tin") ||
+            (normalized.contains("uy tin") && containsAny(normalized, "gia su", "giao vien", "thay", "co", "diem", "xem", "tinh"))) {
             return new ClassificationDetail(AiDomain.CONTRACT_REVIEW, AiSubIntent.REPUTATION_VIEW_HELP, AiIntent.FAQ_SUPPORT, 0.9, "/profile");
         }
 

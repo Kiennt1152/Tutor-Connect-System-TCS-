@@ -9,6 +9,8 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.stereotype.Service;
 
+import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
+
 @Service
 public class ConversationContextService {
 
@@ -118,7 +120,11 @@ public class ConversationContextService {
                 normalized.startsWith("vay con ") || normalized.contains("thi sao") ||
                 normalized.contains("con o ") || normalized.contains("the o ") || normalized.contains("con tai ") ||
                 normalized.contains("thay do") || normalized.contains("gia su do") || normalized.contains("lop do") ||
-                normalized.contains("thay khac") || normalized.contains("nguoi khac");
+                normalized.contains("thay khac") || normalized.contains("nguoi khac") ||
+                normalized.contains("gia bao nhieu") || normalized.contains("gia mot buoi") || normalized.contains("gia 1 buoi") ||
+                normalized.contains("hoc phi bao nhieu") || normalized.contains("chi phi bao nhieu") || normalized.contains("bao nhieu mot buoi") ||
+                normalized.contains("bao nhieu 1 buoi") || normalized.equals("gia bao nhieu") || normalized.equals("hoc phi bao nhieu") ||
+                normalized.startsWith("gia ") || normalized.startsWith("hoc phi ") || normalized.startsWith("chi phi ");
 
         if (!isFollowUp) {
             return currentQuery;
@@ -132,6 +138,54 @@ public class ConversationContextService {
         boolean alreadyHasClass = normalized.contains("lop hoc") || normalized.contains("khoa hoc") ||
                 normalized.startsWith("lop ") || normalized.contains(" lop ") || normalized.endsWith(" lop");
 
+        boolean currentHasSubject = hasAnySubject(normalized);
+        boolean currentHasGrade = hasAnyGrade(normalized);
+
+        // 1. Pricing inquiries (Inherit subject & grade if omitted)
+        if (normalized.contains("gia") || normalized.contains("hoc phi") || normalized.contains("chi phi") || normalized.contains("bao nhieu")) {
+            if (ctx.lastEntities() != null) {
+                if (!currentHasSubject && ctx.lastEntities().containsKey("subject")) {
+                    expanded.append(" môn ").append(ctx.lastEntities().get("subject"));
+                }
+                if (!currentHasGrade && ctx.lastEntities().containsKey("grade")) {
+                    expanded.append(" lớp ").append(ctx.lastEntities().get("grade"));
+                }
+            }
+            return expanded.toString().trim();
+        }
+
+        // 2. Subject / Grade Switch Follow-up ("còn toán thì sao?", "thế còn môn lý?", "còn lớp 10?")
+        if (normalized.startsWith("con ") || normalized.startsWith("the con ") || normalized.startsWith("vay con ") || normalized.contains("thi sao")) {
+            if (ctx.lastSubIntent() == AiSubIntent.FIND_TUTOR || ctx.lastDomain() == AiDomain.MARKETPLACE) {
+                expanded.setLength(0);
+                expanded.append("Tìm gia sư ");
+                if (currentHasSubject) {
+                    expanded.append(currentQuery);
+                } else if (ctx.lastEntities() != null && ctx.lastEntities().containsKey("subject")) {
+                    expanded.append("môn ").append(ctx.lastEntities().get("subject"));
+                }
+                if (!currentHasGrade && ctx.lastEntities() != null && ctx.lastEntities().containsKey("grade")) {
+                    expanded.append(" lớp ").append(ctx.lastEntities().get("grade"));
+                }
+                if (ctx.lastEntities() != null && ctx.lastEntities().containsKey("location") && !normalized.contains(ctx.lastEntities().get("location").toLowerCase(Locale.ROOT))) {
+                    expanded.append(" tại ").append(ctx.lastEntities().get("location"));
+                }
+                return expanded.toString().trim();
+            } else if (ctx.lastSubIntent() == AiSubIntent.FIND_CLASS) {
+                expanded.setLength(0);
+                expanded.append("Tìm lớp ");
+                if (currentHasSubject) {
+                    expanded.append(currentQuery);
+                } else if (ctx.lastEntities() != null && ctx.lastEntities().containsKey("subject")) {
+                    expanded.append("môn ").append(ctx.lastEntities().get("subject"));
+                }
+                if (!currentHasGrade && ctx.lastEntities() != null && ctx.lastEntities().containsKey("grade")) {
+                    expanded.append(" lớp ").append(ctx.lastEntities().get("grade"));
+                }
+                return expanded.toString().trim();
+            }
+        }
+
         if ((ctx.lastSubIntent() == AiSubIntent.FIND_TUTOR || ctx.lastDomain() == AiDomain.MARKETPLACE) &&
             !alreadyHasRole && !alreadyHasClass) {
             expanded.insert(0, "Tìm gia sư ");
@@ -140,7 +194,10 @@ public class ConversationContextService {
         }
 
         if (ctx.lastEntities() != null) {
-            if (ctx.lastEntities().containsKey("grade") && !normalized.contains(ctx.lastEntities().get("grade").toLowerCase(Locale.ROOT))) {
+            if (!currentHasSubject && ctx.lastEntities().containsKey("subject") && !normalized.contains(ctx.lastEntities().get("subject").toLowerCase(Locale.ROOT))) {
+                expanded.append(" môn ").append(ctx.lastEntities().get("subject"));
+            }
+            if (!currentHasGrade && ctx.lastEntities().containsKey("grade") && !normalized.contains(ctx.lastEntities().get("grade").toLowerCase(Locale.ROOT))) {
                 expanded.append(" lớp ").append(ctx.lastEntities().get("grade"));
             }
             if (ctx.lastEntities().containsKey("location") && !normalized.contains(ctx.lastEntities().get("location").toLowerCase(Locale.ROOT))) {
@@ -149,6 +206,18 @@ public class ConversationContextService {
         }
 
         return expanded.toString().trim();
+    }
+
+    private boolean hasAnySubject(String normalized) {
+        return containsAny(normalized,
+                "toan", "ly", "hoa", "anh", "van", "ngu van", "sinh", "su", "dia", "tin", "tin hoc", "gdcd",
+                "tieng anh", "tieng nhat", "tieng phap", "tieng trung", "tieng han", "tieng viet",
+                "ielts", "toeic", "toefl", "lap trinh", "scratch", "python", "java", "c++");
+    }
+
+    private boolean hasAnyGrade(String normalized) {
+        return normalized.contains("lop ") || normalized.matches(".*\\blop\\s*\\d+.*") ||
+                containsAny(normalized, "cap 1", "cap 2", "cap 3", "dai hoc", "tieu hoc", "thcs", "thpt");
     }
 
     public FollowUpResolution resolveFollowUp(Long sessionId, String currentQuery, Map<String, String> currentEntities) {
@@ -164,14 +233,18 @@ public class ConversationContextService {
                 normalized.startsWith("vay con ") || normalized.contains("thi sao") ||
                 normalized.contains("con o ") || normalized.contains("the o ") || normalized.contains("con tai ") ||
                 normalized.contains("thay do") || normalized.contains("gia su do") || normalized.contains("lop do") ||
-                normalized.contains("thay khac") || normalized.contains("nguoi khac");
+                normalized.contains("thay khac") || normalized.contains("nguoi khac") ||
+                normalized.contains("gia bao nhieu") || normalized.contains("gia mot buoi") || normalized.contains("gia 1 buoi") ||
+                normalized.contains("hoc phi bao nhieu") || normalized.contains("chi phi bao nhieu") || normalized.contains("bao nhieu mot buoi") ||
+                normalized.contains("bao nhieu 1 buoi") || normalized.equals("gia bao nhieu") || normalized.equals("hoc phi bao nhieu") ||
+                normalized.startsWith("gia ") || normalized.startsWith("hoc phi ") || normalized.startsWith("chi phi ");
 
         if (!isFollowUpPattern) {
             return new FollowUpResolution(false, null, null, currentEntities);
         }
 
         Map<String, String> mergedEntities = new HashMap<>(ctx.lastEntities());
-        if (currentEntities != null) {
+        if (currentEntities != null && !currentEntities.isEmpty()) {
             mergedEntities.putAll(currentEntities);
         }
 

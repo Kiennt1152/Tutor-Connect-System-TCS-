@@ -23,7 +23,7 @@ public class IdentityAuthIntentRule implements IntentRule {
         }
 
         if (containsAny(normalized, "dang ky tai khoan", "dang ky lam gia su", "dang ky trung tam", "huong dan dang ky", "tao tai khoan", "tao tai khoan moi", "dang ky tao tai khoan", "dang ky") &&
-            !containsAny(normalized, "dang ky lop", "dang ky hoc")) {
+            !containsAny(normalized, "dang ky lop", "dang ky hoc", "dang ky tim gia su", "quy trinh dang ky", "quy trinh tim gia su")) {
             return new ClassificationDetail(AiDomain.IDENTITY_AUTH, AiSubIntent.REGISTER_HELP, AiIntent.FAQ_SUPPORT, 0.95, "/register");
         }
 

@@ -3,10 +3,16 @@ package com.tcs.module.contract.dto.response;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 @Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 @Builder
 public class TutorReputationResponse {
 
@@ -29,6 +35,9 @@ public class TutorReputationResponse {
     private List<ReviewResponse> reviews;
 
     @Getter
+    @Setter
+    @NoArgsConstructor
+    @AllArgsConstructor
     @Builder
     public static class CriterionAverage {
         private String code;

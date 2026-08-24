@@ -18,7 +18,7 @@ public class CenterOpsIntentRule implements IntentRule {
 
     @Override
     public ClassificationDetail classify(String normalized, String lower) {
-        if (normalized.contains("xac minh")) {
+        if (normalized.contains("xac minh") || containsAny(normalized, "thanh toan", "hoc phi", "chuyen khoan qua", "thanh toan truc tiep", "dong tien", "nap tien", "tien hoc")) {
             return null;
         }
 

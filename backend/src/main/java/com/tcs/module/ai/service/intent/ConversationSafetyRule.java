@@ -87,9 +87,13 @@ public class ConversationSafetyRule implements IntentRule {
             return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.HUMAN_SUPPORT_REQUEST, AiIntent.TICKET_SUPPORT, 1.0, "/support/tickets");
         }
 
-        // ARITHMETIC / OUT_OF_SCOPE CALCULATION
-        if (java.util.regex.Pattern.compile("[0-9]+\\s*[+\\-*/]\\s*[0-9]+").matcher(lower).find() &&
-            !containsAny(normalized, "giai bai", "bai tap", "huong dan", "phuong trinh", "dinh ly", "cong thuc")) {
+        // ARITHMETIC / OUT_OF_SCOPE CALCULATION & HOMEWORK
+        if (containsAny(normalized,
+                "giai thich cho", "the nao la", "vi du ve", "banh pizza", "pizza",
+                "giai phuong trinh", "giai giup em", "giai bai toan", "giai chi tiet", "huong dan giai bai",
+                "phuong trinh nay", "bai tap nay", "giai bai tap", "tinh gia tri cua", "chung minh rang") ||
+            (java.util.regex.Pattern.compile("[0-9]+\\s*[+\\-*/]\\s*[0-9]+").matcher(lower).find() &&
+             !containsAny(normalized, "giai bai", "bai tap", "huong dan", "phuong trinh", "dinh ly", "cong thuc"))) {
             return new ClassificationDetail(AiDomain.OUT_OF_SCOPE, AiSubIntent.OUT_OF_SCOPE, AiIntent.OUT_OF_SCOPE, 0.95, null);
         }
 

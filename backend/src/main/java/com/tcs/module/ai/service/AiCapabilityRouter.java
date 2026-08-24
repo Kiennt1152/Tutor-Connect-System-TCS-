@@ -168,7 +168,7 @@ public class AiCapabilityRouter {
             "Hiện tại chưa có lớp học nào đang mở phù hợp với tiêu chí của bạn. Bạn có thể xem danh sách lớp đang mở tại mục 'Lớp học'."
         )),
         Map.entry(AiSubIntent.CREATE_CLASS, new CapabilityPolicy(
-            Set.of("FAQ"), true, Set.of("PARENT", "STUDENT"), true, false,
+            Set.of("FAQ"), false, Set.of(), true, false,
             CardPolicy.FAQ_CARDS, GuardType.NONE, "/tao-lop",
             "Bạn có thể đăng bài tìm gia sư hoặc tạo yêu cầu học mới tại mục 'Tạo lớp học'."
         )),
@@ -180,17 +180,17 @@ public class AiCapabilityRouter {
             "Bạn có thể theo dõi và sắp xếp ca dạy tại mục 'Lịch dạy'."
         )),
         Map.entry(AiSubIntent.TUTOR_ATTENDANCE_MARK, new CapabilityPolicy(
-            Set.of("FAQ"), true, Set.of("TUTOR"), true, false,
+            Set.of("FAQ"), false, Set.of(), true, false,
             CardPolicy.FAQ_CARDS, GuardType.NONE, "/tutor/classes",
-            "Bạn có thể thực hiện điểm danh học viên sau mỗi buổi học tại mục 'Lớp học của tôi'."
+            "Bạn có thể thực hiện điểm danh học viên sau mỗi buổi học tại mục 'Lớp học của tôi'. Nếu quên điểm danh, bạn có thể thực hiện điểm danh bổ sung trong vòng 24 giờ."
         )),
         Map.entry(AiSubIntent.TUTOR_RESCHEDULE_REQUEST, new CapabilityPolicy(
-            Set.of("FAQ"), true, Set.of("TUTOR"), true, false,
+            Set.of("FAQ"), false, Set.of(), true, false,
             CardPolicy.FAQ_CARDS, GuardType.NONE, "/tutor/schedule",
             "Bạn có thể gửi yêu cầu dời hoặc đổi lịch buổi dạy tại mục 'Lịch dạy'."
         )),
         Map.entry(AiSubIntent.TUTOR_SUBSTITUTE_REQUEST, new CapabilityPolicy(
-            Set.of("FAQ"), true, Set.of("TUTOR"), true, false,
+            Set.of("FAQ"), false, Set.of(), true, false,
             CardPolicy.FAQ_CARDS, GuardType.NONE, "/tutor/classes",
             "Bạn có thể tạo yêu cầu tìm người dạy thay tại mục 'Lớp học của tôi'."
         )),
@@ -202,13 +202,13 @@ public class AiCapabilityRouter {
             "Vui lòng đăng nhập để xem số dư ví và chi tiết thu nhập của bạn tại mục 'Ví tiền & Tài chính'."
         )),
         Map.entry(AiSubIntent.WALLET_TOPUP, new CapabilityPolicy(
-            Set.of("FAQ"), true, Set.of("PARENT", "STUDENT", "TUTOR"), true, false,
+            Set.of("FAQ"), false, Set.of(), true, false,
             CardPolicy.FINANCE_LINK_ONLY, GuardType.NONE, "/finance",
             "Bạn có thể nạp tiền vào ví bằng hình thức quét mã VietQR tự động tại mục 'Ví tiền & Tài chính'."
         )),
         Map.entry(AiSubIntent.WITHDRAWAL_REQUEST, new CapabilityPolicy(
-            Set.of("FAQ", "WALLET"), true, Set.of("TUTOR", "TUTOR_CENTER"), true, false,
-            CardPolicy.FINANCE_LINK_ONLY, GuardType.FINANCE_LOGIN_GUARD, "/finance",
+            Set.of("FAQ", "WALLET"), false, Set.of(), true, false,
+            CardPolicy.FINANCE_LINK_ONLY, GuardType.NONE, "/finance",
             "Gia sư và trung tâm có thể gửi yêu cầu rút tiền về tài khoản ngân hàng chính chủ tại mục 'Ví tiền & Tài chính'."
         )),
         Map.entry(AiSubIntent.ESCROW_EXPLAIN, new CapabilityPolicy(
@@ -229,17 +229,17 @@ public class AiCapabilityRouter {
 
         // Contract & Review
         Map.entry(AiSubIntent.CONTRACT_LIST_HELP, new CapabilityPolicy(
-            Set.of("FAQ", "CONTRACT"), true, Set.of(), true, false,
+            Set.of("FAQ", "CONTRACT"), false, Set.of(), true, false,
             CardPolicy.FAQ_CARDS, GuardType.NONE, "/contracts",
             "Xem danh sách hợp đồng điện tử tại mục 'Quản lý Hợp đồng'."
         )),
         Map.entry(AiSubIntent.CONTRACT_SIGN_OTP, new CapabilityPolicy(
-            Set.of("FAQ", "CONTRACT"), true, Set.of(), true, false,
+            Set.of("FAQ", "CONTRACT"), false, Set.of(), true, false,
             CardPolicy.FAQ_CARDS, GuardType.NONE, "/contracts",
             "Xác nhận ký hợp đồng lớp học an toàn bằng mã OTP tại mục 'Quản lý Hợp đồng'."
         )),
         Map.entry(AiSubIntent.REVIEW_CREATE_HELP, new CapabilityPolicy(
-            Set.of("FAQ"), true, Set.of("PARENT", "STUDENT"), true, false,
+            Set.of("FAQ"), false, Set.of(), true, false,
             CardPolicy.FAQ_CARDS, GuardType.NONE, "/classes",
             "Đánh giá và gửi nhận xét về gia sư sau khóa học tại mục 'Lớp học'."
         )),
@@ -251,7 +251,7 @@ public class AiCapabilityRouter {
 
         // Messaging & Tickets
         Map.entry(AiSubIntent.MESSAGING_OPEN_HELP, new CapabilityPolicy(
-            Set.of("FAQ"), true, Set.of(), true, false,
+            Set.of("FAQ"), false, Set.of(), true, false,
             CardPolicy.FAQ_CARDS, GuardType.NONE, "/chat",
             "Bạn có thể trò chuyện trực tiếp qua mục 'Tin nhắn'."
         )),
@@ -261,7 +261,7 @@ public class AiCapabilityRouter {
             "Bạn có thể gửi yêu cầu hỗ trợ hoặc tạo phiếu khiếu nại tại mục 'Hỗ trợ & Khiếu nại'."
         )),
         Map.entry(AiSubIntent.SUPPORT_TICKET_STATUS, new CapabilityPolicy(
-            Set.of("FAQ"), true, Set.of(), true, false,
+            Set.of("FAQ"), false, Set.of(), true, false,
             CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
             "Kiểm tra trạng thái và tiến độ xử lý ticket tại mục 'Hỗ trợ & Khiếu nại'."
         )),
@@ -278,14 +278,14 @@ public class AiCapabilityRouter {
             "TCS bảo vệ giao dịch qua Escrow. Báo cáo lách sàn hoặc gian lận được tiếp nhận tại mục 'Hỗ trợ & Khiếu nại'."
         )),
         Map.entry(AiSubIntent.DISPUTE_OPEN_HELP, new CapabilityPolicy(
-            Set.of("FAQ", "POLICY"), true, Set.of(), true, false,
+            Set.of("FAQ", "POLICY"), false, Set.of(), true, false,
             CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
-            "Tranh chấp lớp học có thể được mở khi có vi phạm cam kết giảng dạy tại mục 'Hỗ trợ & Khiếu nại'."
+            "Tranh chấp lớp học có thể được mở khi có vi phạm cam kết giảng dạy (như gia sư bỏ dạy, đi muộn quá 30 phút) tại mục 'Hỗ trợ & Khiếu nại' để Admin can thiệp giải quyết và hoàn tiền Escrow."
         )),
         Map.entry(AiSubIntent.PENALTY_EXPLAIN, new CapabilityPolicy(
             Set.of("FAQ", "POLICY"), false, Set.of(), true, false,
             CardPolicy.FAQ_CARDS, GuardType.NONE, "/help",
-            "Hành vi vi phạm quy định sàn có thể bị trừ điểm uy tín hoặc khóa tài khoản vĩnh viễn."
+            "Quy định xử phạt vi phạm quy chế của TCS bao gồm: cảnh cáo, trừ điểm uy tín, tạm khóa tài khoản hoặc cấm vĩnh viễn đối với các hành vi gian lận, bỏ dạy không phép hoặc lách sàn giao dịch."
         )),
 
         // Admin & Stats
@@ -319,7 +319,7 @@ public class AiCapabilityRouter {
         Map.entry(AiSubIntent.APPLY_TO_CLASS, new CapabilityPolicy(
             Set.of("FAQ"), false, Set.of(), true, false,
             CardPolicy.FAQ_CARDS, GuardType.NONE, "/lop-hoc",
-            "Gia sư có thể tìm lớp phù hợp tại mục 'Danh sách lớp học' và bấm nút 'Ứng tuyển' trên trang chi tiết lớp học."
+            "Gia sư có thể tìm lớp phù hợp tại mục 'Danh sách lớp học' và bấm nút 'Ứng tuyển' trên trang chi tiết lớp học để đề xuất học phí và nộp hồ sơ."
         )),
 
         // Admin Policies with correct deep-links
