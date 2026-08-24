@@ -66,6 +66,14 @@
 }
 .tfc-search__clear:hover { background: #e0e6ee; }
 .tfc-search__btn { flex: 0 0 auto; padding: 12px 26px; font-size: 15px; border-radius: 10px; }
+/* Câu ví dụ dưới ô gõ nhanh — thụt bằng mép trong của input, chừa chỗ nút "Tìm". */
+.tfc-search__hint {
+  margin: -4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #8592a3;
+}
+.tfc-search__hint em { font-style: normal; color: #5b6b7f; }
 .tfc-search__chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 /* Ba câu hỏi có độ dài khác nhau — cố định bề rộng nhãn để các hàng chip thẳng lề trái. */
 .tfc-search__chips + .tfc-search__chips { border-top: 1px dashed #eef2f7; padding-top: 10px; }

@@ -694,6 +694,28 @@
   background: #fdecea;
   color: #c62828;
 }
+/* Tin hết hạn — kho lưu chỉ để xem lại. */
+.mkt-status--expired {
+  background: #eceff1;
+  color: #78909c;
+}
+.mkt-class-card--expired {
+  background: #fafbfc;
+  border-style: dashed;
+}
+.mkt-class-card--expired .mkt-class-card__title,
+.mkt-class-card--expired .mkt-subj-fees__fee {
+  color: #78909c;
+}
+.mkt-class-card__archived {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #eceff1;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #5b6b7f;
+}
 
 /* ===== Tiêu đề từng mục trong "Yêu cầu của tôi" ===== */
 .mkt-section-head {

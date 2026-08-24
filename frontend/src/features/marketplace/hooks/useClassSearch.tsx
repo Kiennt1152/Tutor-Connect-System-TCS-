@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { FormulaExplainer } from '../components/FormulaExplainer';
 import { FALLBACK_SUBJECTS, FALLBACK_GRADES } from '../constants/catalogFallback';
 import { isOtherSubject, type CatalogOption, type ClassResponse } from '../types/marketplaceTypes';
@@ -624,7 +625,7 @@ export function useClassSearch({
               <input
                 className="tfc-search__input"
                 type="text"
-                placeholder="Gõ nhanh: môn, khối lớp, tỉnh/phường, thứ + buổi, học phí — VD: toán lớp 9 hà nội cầu giấy tối thứ 2 200k"
+                placeholder="Hãy nhập: môn, khối lớp, tỉnh/phường, thứ + buổi, học phí"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -651,6 +652,12 @@ export function useClassSearch({
               Tìm
             </button>
           </div>
+
+          {/* Câu ví dụ tách khỏi placeholder: placeholder chỉ nêu các thành phần cần gõ,
+              dòng này minh hoạ một câu hoàn chỉnh và vẫn đọc được sau khi đã gõ. */}
+          <p className="tfc-search__hint">
+            VD: <em>toán lớp 9 hà nội cầu giấy tối thứ 2 200k</em>
+          </p>
 
           {chips.length > 0 && (
             <div className="tfc-chips">
@@ -736,7 +743,7 @@ export function useClassSearch({
           )}
           </aside>
         </div>
-        {showFormula && (
+        {showFormula && createPortal(
           <div
             className="cdm-overlay"
             role="presentation"
@@ -754,7 +761,8 @@ export function useClassSearch({
               <h3 className="tfc-formula-modal__title">Cách tính độ phù hợp</h3>
               <FormulaExplainer criteria={activeCriteria} bare />
             </div>
-          </div>
+          </div>,
+          document.body,
         )}
     </>
   );

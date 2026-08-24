@@ -253,7 +253,31 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     public List<ClassResponse> listClasses(TutoringClassStatus status) {
         List<TutoringClass> classes =
                 status != null ? tutoringClassRepository.findByStatus(status) : tutoringClassRepository.findAll();
-        return classes.stream().map(c -> toClassResponse(c, null, null)).toList();
+        return classes.stream()
+                .filter(MarketplaceServiceImpl::stillVisible)
+                .map(c -> toClassResponse(c, null, null))
+                .toList();
+    }
+
+    /**
+     * Tin đã quá hạn hiển thị thì coi như đã gỡ: gia sư không tìm thấy nữa, kể cả khi job dọn
+     * dẹp (chạy theo giờ) chưa kịp xóa hẳn khỏi DB. Lớp đã ghép không còn expires_at nên không
+     * bị ảnh hưởng.
+     */
+    private static boolean stillVisible(TutoringClass c) {
+        return c.getExpiresAt() == null || c.getExpiresAt().isAfter(LocalDateTime.now());
+    }
+
+    /**
+     * Tin hết hạn được lưu vào mục "Đã hết hạn" của chủ tin: chỉ xem lại, không sửa / đăng lại /
+     * gỡ đăng. Muốn tuyển tiếp thì tạo tin mới.
+     */
+    private static void requireNotExpired(TutoringClass c, String action) {
+        if (!stillVisible(c)) {
+            throw new IllegalArgumentException(
+                    "Tin đã hết hạn, chỉ xem lại được chứ không " + action + " được nữa."
+                            + " Bạn hãy tạo tin mới nếu vẫn cần tìm gia sư.");
+        }
     }
 
     /**
@@ -268,6 +292,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     public List<ClassResponse> listBoardClasses() {
         return tutoringClassRepository
                 .findByStatusIn(List.of(TutoringClassStatus.OPEN, TutoringClassStatus.MATCHED)).stream()
+                .filter(MarketplaceServiceImpl::stillVisible)
                 .filter(c -> c.getStatus() == TutoringClassStatus.OPEN || !handoverCompleted(c))
                 .map(c -> toClassResponse(c, null, null))
                 .toList();
@@ -329,6 +354,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (!tutoringClass.getCreator().getUserId().equals(authHelper.currentUserId())) {
             throw new ForbiddenException("Không có quyền sửa lớp này");
         }
+        requireNotExpired(tutoringClass, "sửa");
         boolean isDraft = tutoringClass.getStatus() == TutoringClassStatus.DRAFT;
         boolean isOpen = tutoringClass.getStatus() == TutoringClassStatus.OPEN;
         long applicationCount = tutorApplicationRepository.countByTutoringClass_ClassIdAndStatusNot(
@@ -420,6 +446,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (!tutoringClass.getCreator().getUserId().equals(userId)) {
             throw new ForbiddenException("Không có quyền đăng lớp này");
         }
+        requireNotExpired(tutoringClass, "đăng lại");
         tutoringClass.setStatus(TutoringClassStatus.OPEN);
         // Thời gian hiển thị 30 ngày kể từ lúc đăng; đăng lại sẽ làm mới hạn.
         tutoringClass.setExpiresAt(java.time.LocalDateTime.now().plusDays(CLASS_DISPLAY_DAYS));
@@ -435,6 +462,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (!tutoringClass.getCreator().getUserId().equals(authHelper.currentUserId())) {
             throw new ForbiddenException("Không có quyền gỡ đăng lớp này");
         }
+        requireNotExpired(tutoringClass, "gỡ đăng");
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Chỉ có thể gỡ đăng lớp đang mở");
         }
@@ -462,6 +490,10 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         TutoringClass tutoringClass = findClass(classId);
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Lớp không mở đơn ứng tuyển");
+        }
+        // Chặn nộp đơn từ trang đã mở sẵn trước khi tin hết hạn.
+        if (!stillVisible(tutoringClass)) {
+            throw new IllegalArgumentException("Tin này đã hết hạn hiển thị nên không nhận đơn ứng tuyển nữa.");
         }
         TutorApplication existing = tutorApplicationRepository
                 .findFirstByTutoringClass_ClassIdAndTutor_TutorId(classId, tutor.getTutorId())
@@ -2971,30 +3003,76 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
     }
 
+    /** Số năm kinh nghiệm được coi là trọn vẹn — từ mốc này trở lên đều ăn đủ phần kinh nghiệm. */
+    private static final double EXPERIENCE_FULL_YEARS = 5.0;
+
+    /**
+     * Điểm AI gợi ý gia sư cho chủ lớp: 3 tiêu chí chia đều, mỗi tiêu chí 1/3 (≈33,3 điểm).
+     *
+     * <ul>
+     *   <li><b>Đánh giá</b> — sao trung bình / 5 (5 sao = trọn phần, 2,5 sao = một nửa).</li>
+     *   <li><b>Kinh nghiệm</b> — số năm / 5 (mỗi năm ≈ 6,7 điểm, từ 5 năm trở lên là trọn phần).</li>
+     *   <li><b>Mức phí</b> — báo giá bằng giá lớp trở xuống là trọn phần, gấp đôi giá lớp là 0.</li>
+     * </ul>
+     *
+     * <p>Không còn tiêu chí xác minh: chưa xác minh thì đã không ứng tuyển được.</p>
+     */
     private int aiMatchScore(TutorApplication app, Tutor tutor, TutoringClass tutoringClass) {
         double rating = tutor.getRatingAvg() != null ? tutor.getRatingAvg().doubleValue() / 5.0 : 0;
-        double experience = Math.min((tutor.getExperienceYears() != null ? tutor.getExperienceYears() : 0) / 10.0, 1.0);
-        double verified =
-                switch (tutor.getVerificationStatus()) {
-                    case VERIFIED -> 1.0;
-                    case UNDER_VERIFY -> 0.5;
-                    case REJECTED -> 0.0;
-                };
+        double years = tutor.getExperienceYears() != null ? tutor.getExperienceYears() : 0;
+        double experience = clamp01(years / EXPERIENCE_FULL_YEARS);
         double priceFit = priceFit(app, tutor, tutoringClass);
-        double total = 0.40 * clamp01(rating) + 0.25 * experience + 0.20 * priceFit + 0.15 * verified;
+        double total = (clamp01(rating) + experience + priceFit) / 3.0;
         return (int) Math.round(clamp01(total) * 100);
     }
 
+    /**
+     * Độ hợp về giá. Lớp nhiều môn thì chấm từng môn rồi lấy trung bình, vì báo giá và học phí
+     * đều tách theo môn; thiếu dữ liệu môn thì lùi về so báo giá cao nhất với học phí của lớp.
+     */
     private double priceFit(TutorApplication app, Tutor tutor, TutoringClass tutoringClass) {
+        Map<String, BigDecimal> proposed = readRates(app.getProposedRatesJson());
+        Map<String, BigDecimal> expectedBySubject = classSubjectFees(tutoringClass);
+        if (proposed != null && !proposed.isEmpty() && !expectedBySubject.isEmpty()) {
+            double sum = 0;
+            int counted = 0;
+            for (Map.Entry<String, BigDecimal> e : proposed.entrySet()) {
+                BigDecimal expected = expectedBySubject.get(e.getKey());
+                if (expected == null || expected.signum() <= 0
+                        || e.getValue() == null || e.getValue().signum() <= 0) {
+                    continue;
+                }
+                sum += rateFit(expected, e.getValue());
+                counted++;
+            }
+            if (counted > 0) {
+                return sum / counted;
+            }
+        }
         BigDecimal expected = tutoringClass.getTuitionFee();
         BigDecimal rate = app.getProposedRate() != null ? app.getProposedRate() : tutor.getHourlyRate();
         if (expected == null || expected.signum() <= 0 || rate == null || rate.signum() <= 0) {
-            return 0.7;
+            return 0.7; // Thiếu dữ liệu giá: cho điểm trung tính, không thưởng cũng không phạt.
         }
-        if (rate.compareTo(expected) <= 0) {
-            return 1.0;
+        return rateFit(expected, rate);
+    }
+
+    /** Bằng giá lớp trở xuống = 1.0; gấp đôi giá lớp = 0; ở giữa giảm tuyến tính. */
+    private double rateFit(BigDecimal expected, BigDecimal rate) {
+        return clamp01(2.0 - rate.doubleValue() / expected.doubleValue());
+    }
+
+    /** Học phí/giờ theo từng môn lấy từ details_json của lớp; rỗng nếu lớp không khai báo. */
+    private Map<String, BigDecimal> classSubjectFees(TutoringClass tutoringClass) {
+        if (!StringUtils.hasText(tutoringClass.getDetailsJson())) {
+            return Map.of();
         }
-        return clamp01(expected.doubleValue() / rate.doubleValue());
+        JsonNode fees = readTree(tutoringClass.getDetailsJson()).path("subjectFees");
+        if (!fees.isObject()) {
+            return Map.of();
+        }
+        Map<String, BigDecimal> parsed = readRates(fees.toString());
+        return parsed != null ? parsed : Map.of();
     }
 
     private double clamp01(double v) {
