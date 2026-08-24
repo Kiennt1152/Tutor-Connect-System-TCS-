@@ -277,7 +277,7 @@ public class AiServiceImpl implements AiService {
         String suggestedRoute = "PRIVACY".equals(safetyCheck.reason()) ? "/platform/users" : "/help";
         List<String> options = "PRIVACY".equals(safetyCheck.reason())
             ? List.of("Quy định bảo mật thông tin", "Liên hệ ban quản trị")
-            : List.of("Tìm gia sư (/tim-gia-su)", "Xem lớp học (/lop-hoc)", "Liên hệ hỗ trợ (/support/tickets)");
+            : List.of("Tìm gia sư", "Xem lớp học", "Liên hệ hỗ trợ");
 
         return responseBuilderService.build(
             aiMsg.getMessageId(), session.getSessionId(), safetyCheck.suggestedResponse(),
@@ -362,7 +362,7 @@ public class AiServiceImpl implements AiService {
         return responseBuilderService.build(
             aiMsg.getMessageId(), session.getSessionId(), outOfScopeMsg,
             legacyIntent.name(), domain.name(), subIntent.name(), "/help",
-            List.of("Tìm gia sư (/tim-gia-su)", "Xem lớp học (/lop-hoc)", "Câu hỏi thường gặp (/help)"),
+            List.of("Tìm gia sư", "Xem lớp học", "Câu hỏi thường gặp"),
             "FALLBACK_OUT_OF_SCOPE", 0.0, "NONE", 0, "OUT_OF_SCOPE",
             List.of(), List.of(), List.of(), List.of(), null, false, null, null
         );

@@ -150,6 +150,18 @@ public class AiDiverseScenariosSuiteTest {
                 "có bao nhiêu gia sư trên hệ thống tcs",
                 "Thống kê tổng số lượng gia sư trên toàn hệ thống",
                 null, "PLATFORM_ADMIN", "PLATFORM_STATS"
+            ),
+            new ScenarioCase(
+                "7. Lương & Ứng tuyển",
+                "lương trung bình của gia sư là bao nhiêu",
+                "Hỏi khung học phí và mức thu nhập trung bình của gia sư",
+                null, "CATALOG_FAQ", "FAQ_SEARCH"
+            ),
+            new ScenarioCase(
+                "7. Lương & Ứng tuyển",
+                "gia sư ứng tuyển như nào",
+                "Hướng dẫn quy trình gia sư nộp đơn ứng tuyển nhận lớp",
+                null, "MARKETPLACE", "APPLY_TO_CLASS"
             )
         );
 

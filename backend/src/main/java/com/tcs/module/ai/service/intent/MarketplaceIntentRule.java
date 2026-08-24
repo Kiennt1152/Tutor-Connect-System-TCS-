@@ -44,10 +44,18 @@ public class MarketplaceIntentRule implements IntentRule {
             return new ClassificationDetail(AiDomain.OUT_OF_SCOPE, AiSubIntent.OUT_OF_SCOPE, AiIntent.OUT_OF_SCOPE, 0.95, null);
         }
 
+        // APPLY TO CLASS (TUTOR APPLICATION)
+        if (containsAny(normalized,
+                "ung tuyen nhu the nao", "ung tuyen nhu nao", "cach ung tuyen", "huong dan ung tuyen",
+                "lam sao de ung tuyen", "gia su ung tuyen", "ung tuyen nhan lop", "ung tuyen lop day",
+                "nop don ung tuyen", "cach nhan lop day", "quy trinh ung tuyen")) {
+            return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.APPLY_TO_CLASS, AiIntent.FAQ_SUPPORT, 0.95, "/lop-hoc");
+        }
+
         // FIND TUTOR
         boolean hasExclusion = containsAny(normalized,
                 "luong", "tra luong", "nhan luong", "tra trong bao lau", "bao lau", "bao gio", "giai ngan", "quy dinh", "bao nhieu phan tram",
-                "diem uy tin", "xac minh", "duyet ho so", "cccd", "bang cap", "hoan tien", "tranh chap", "to cao",
+                "diem uy tin", "xac minh", "duyet ho so", "cccd", "bang cap", "hoan tien", "tranh chap", "to cao", "ung tuyen", "cach nhan lop",
                 "khieu nai", "hop dong", "ky hop dong", "rut tien", "phi san", "phi nen tang", "chuyen khoan rieng", "ngoai san", "bao cao", "lich day", "doi gio");
 
         boolean hasSearchKeyword = containsAny(normalized,

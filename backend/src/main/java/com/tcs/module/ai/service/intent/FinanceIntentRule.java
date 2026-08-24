@@ -26,7 +26,7 @@ public class FinanceIntentRule implements IntentRule {
             return new ClassificationDetail(AiDomain.FINANCE_WALLET, AiSubIntent.WITHDRAWAL_REQUEST, AiIntent.PAYMENT_SUPPORT, 0.95, "/finance");
         }
 
-        if (containsAny(normalized, "escrow", "ky quy", "tam giu", "giai ngan", "tien escrow", "bao lau gia su nhan duoc tien", "nhan duoc tien", "dong ca thang", "thanh toan theo tung buoi", "thanh toan tung buoi")) {
+        if (containsAny(normalized, "escrow", "ky quy", "tam giu", "giai ngan", "tien escrow", "bao lau gia su nhan duoc tien", "nhan duoc tien", "dong ca thang", "thanh toan theo tung buoi", "thanh toan tung buoi", "tra trong bao lau", "bao lau nhan duoc", "bao lau thi nhan")) {
             return new ClassificationDetail(AiDomain.FINANCE_WALLET, AiSubIntent.ESCROW_EXPLAIN, AiIntent.PAYMENT_SUPPORT, 0.95, "/finance");
         }
 
@@ -38,7 +38,8 @@ public class FinanceIntentRule implements IntentRule {
             return new ClassificationDetail(AiDomain.FINANCE_WALLET, AiSubIntent.REFUND_POLICY, AiIntent.PAYMENT_SUPPORT, 0.95, "/finance");
         }
 
-        if (containsAny(normalized, "vi tien cua toi", "so du vi", "luong cua toi", "thu nhap gia su", "xem lich su giao dich", "xem luong gia su", "thu nhap", "luong")) {
+        boolean isGeneralMarketFee = containsAny(normalized, "trung binh", "khung hoc phi", "bang gia hoc phi", "muc hoc phi trung binh");
+        if (!isGeneralMarketFee && containsAny(normalized, "vi tien cua toi", "so du vi", "luong cua toi", "xem lich su giao dich", "xem luong", "thu nhap cua toi", "vi cua toi", "thu nhap gia su", "xem luong gia su", "luong thang nay", "tien trong vi", "so du")) {
             return new ClassificationDetail(AiDomain.FINANCE_WALLET, AiSubIntent.WALLET_VIEW, AiIntent.PAYMENT_SUPPORT, 0.9, "/finance");
         }
 
