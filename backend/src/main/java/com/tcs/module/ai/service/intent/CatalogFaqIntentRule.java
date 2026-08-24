@@ -35,6 +35,8 @@ public class CatalogFaqIntentRule implements IntentRule {
                 "hoc thu", "hoc thu 1 buoi", "doi gia su", "khong hop thi doi", "khong hop co duoc doi", "doi gia su khac",
                 "tieu chuan tuyen chon", "tieu chuan gia su", "linh vuc nao duoc kiem duyet", "kiem duyet gia su", "dieu kien lam gia su", "tieu chuan chon gia su",
                 "quy trinh dang ky tim gia su", "quy trinh tim gia su", "cach dang ky tim gia su", "cach thue gia su", "cac buoc tim gia su",
+                "muon kiem gia su thi vao dau", "kiem gia su thi vao dau", "tim gia su thi vao dau", "muon tim gia su thi vao dau",
+                "kiem gia su o dau", "tim gia su o dau", "thue gia su o dau", "vao dau de tim gia su", "vao dau de thue gia su", "vao dau", "o dau",
                 "thanh toan truc tiep hay chuyen khoan", "chuyen tien cho gia su hay trung tam", "thanh toan truc tiep", "thanh toan qua dau", "thanh toan hoc phi nhu the nao")) {
             return new ClassificationDetail(AiDomain.CATALOG_FAQ, AiSubIntent.FAQ_SEARCH, AiIntent.FAQ_SUPPORT, 0.95, "/help");
         }

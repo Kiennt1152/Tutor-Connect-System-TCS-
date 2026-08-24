@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { AdminLayout } from '../components/AdminLayout';
+import { Pagination } from '../../../shared/components';
 import { platformApi } from '../api/platformApi';
 import type {
   NotificationTemplateApiResponse,
@@ -20,6 +21,18 @@ export default function PlatformNotificationTemplatesPage() {
   const [variables, setVariables] = useState('{}');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [items.length]);
+
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, items.length);
+  const paginatedItems = items.slice(startIndex, endIndex);
 
   const reload = useCallback(async () => {
     try {
@@ -104,7 +117,7 @@ export default function PlatformNotificationTemplatesPage() {
             <th>Mã</th><th>Kênh</th><th>Biến</th><th>Trạng thái</th><th>Thao tác</th>
           </tr></thead><tbody>
             {items.length === 0 && <tr><td colSpan={5}>Chưa có mẫu thông báo.</td></tr>}
-            {items.map((item) => <tr key={item.templateId}>
+            {paginatedItems.map((item) => <tr key={item.templateId}>
               <td><strong>{item.code}</strong><div className="adm-table__notes">{item.description}</div></td>
               <td>{item.channel}</td><td>{item.placeholders.map((value) => `{{${value}}}`).join(', ') || 'Không có'}</td>
               <td><span className={item.enabled ? 'tcs-badge tcs-badge--active' : 'tcs-badge tcs-badge--suspended'}>{item.enabled ? 'Đang bật' : 'Đã tắt'}</span></td>
@@ -112,6 +125,29 @@ export default function PlatformNotificationTemplatesPage() {
                 <button className="tcs-btn tcs-btn--danger tcs-btn--badge" type="button" disabled={!item.enabled || busy} onClick={() => void disable(item)}>Tắt</button></div></td>
             </tr>)}
           </tbody></table></div>
+
+          {items.length > 0 && (
+            <div className="adm-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '16px', gap: '8px' }}>
+              <select
+                className="adm-field adm-field--fixed"
+                style={{ width: 'auto', padding: '4px 8px', fontSize: '13px', borderRadius: '8px' }}
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+              >
+                <option value={10}>10 / trang</option>
+                <option value={20}>20 / trang</option>
+                <option value={50}>50 / trang</option>
+              </select>
+              <Pagination
+                current={validCurrentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
+            </div>
+          )}
         </section>
         <section className="adm-card adm-card--sticky">
           <div className="adm-card__head"><h2 className="adm-card__title">{selectedId ? 'Chỉnh sửa mẫu' : 'Tạo mẫu mới'}</h2></div>

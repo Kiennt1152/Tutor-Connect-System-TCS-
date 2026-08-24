@@ -34,6 +34,8 @@ public class MarketplaceIntentRule implements IntentRule {
                 "hinh thuc day", "online hay tai nha", "tai nha hay online", "day online khong", "co gia su day online khong", "day online hay", "day truc tuyen khong",
                 "hoc thu", "doi gia su", "khong hop thi doi", "doi gia su khac",
                 "quy trinh dang ky", "quy trinh tim gia su", "cac buoc tim gia su", "cach thue gia su",
+                "muon kiem gia su thi", "muon tim gia su thi", "kiem gia su thi vao dau", "tim gia su thi vao dau", "thue gia su thi vao dau",
+                "vao dau", "o dau", "trang nao", "muc nao",
                 "thanh toan truc tiep", "chuyen khoan qua", "chuyen tien cho gia su hay trung tam", "thanh toan qua dau",
                 "luong trung binh", "hoc phi trung binh", "thu nhap trung binh", "bang gia hoc phi", "khung hoc phi", "gia mot buoi la bao nhieu", "chi phi thue gia su");
         if (isPolicyOrFaq) {

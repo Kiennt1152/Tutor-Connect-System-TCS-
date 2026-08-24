@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
+import { Pagination } from '../../../shared/components';
 import { platformApi } from '../api/platformApi';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import type { AuditLogApiResponse, AuditLogFilters } from '../types/platformTypes';
@@ -261,8 +262,8 @@ export default function PlatformAuditLogsPage() {
   const handleFilterChange = (key: keyof AuditLogFilters, value: string | number | undefined) => {
     setFilters((prev) => ({
       ...prev,
-      [key]: value || undefined,
-      page: 0, // Reset to page 0 on filter change
+      [key]: value === 0 ? 0 : (value || undefined),
+      page: key === 'page' ? (Number(value) || 0) : 0,
     }));
   };
 
@@ -389,25 +390,25 @@ export default function PlatformAuditLogsPage() {
         </table>
       </div>
 
-      {totalPages > 1 && (
-        <div className="adm-pagination" style={{ display: 'flex', gap: '8px', marginTop: '16px', alignItems: 'center' }}>
-          <button
-            onClick={() => handleFilterChange('page', Math.max(0, filters.page - 1))}
-            disabled={filters.page === 0}
-            style={{ padding: '6px 12px' }}
+      {logs.length > 0 && (
+        <div className="adm-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '16px', gap: '8px' }}>
+          <select
+            className="adm-field adm-field--fixed"
+            style={{ width: 'auto', padding: '4px 8px', fontSize: '13px', borderRadius: '8px' }}
+            value={filters.size}
+            onChange={(e) => {
+              handleFilterChange('size', Number(e.target.value));
+            }}
           >
-            Trước
-          </button>
-          <span>
-            Trang {filters.page + 1} / {totalPages}
-          </span>
-          <button
-            onClick={() => handleFilterChange('page', Math.min(totalPages - 1, filters.page + 1))}
-            disabled={filters.page >= totalPages - 1}
-            style={{ padding: '6px 12px' }}
-          >
-            Sau
-          </button>
+            <option value={10}>10 / trang</option>
+            <option value={20}>20 / trang</option>
+            <option value={50}>50 / trang</option>
+          </select>
+          <Pagination
+            current={filters.page + 1}
+            totalPages={Math.max(totalPages, 1)}
+            onPageChange={(p) => handleFilterChange('page', p - 1)}
+          />
         </div>
       )}
     </AdminLayout>

@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { AdminLayout } from '../components/AdminLayout';
+import { Pagination } from '../../../shared/components';
 import { useReviewModeration } from '../hooks/useReviewModeration';
 import type {
   AdminReviewApiResponse,
@@ -49,6 +50,18 @@ export default function PlatformReviewsPage() {
   const { status, items, errorMessage, reload, moderate, remove } = useReviewModeration();
   const [busyId, setBusyId] = useState<number | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [items.length]);
+
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, items.length);
+  const paginatedItems = items.slice(startIndex, endIndex);
 
   const visibleCount = items.filter((r) => r.status === 'VISIBLE').length;
   const flaggedCount = items.filter((r) => r.status !== 'VISIBLE').length;
@@ -156,7 +169,7 @@ export default function PlatformReviewsPage() {
                     <td colSpan={8}>Chưa có đánh giá nào.</td>
                   </tr>
                 ) : (
-                  items.map((r) => (
+                  paginatedItems.map((r) => (
                     <tr key={r.reviewId}>
                       <td>
                         <div className="adm-review__name">{r.reviewerName ?? '—'}</div>
@@ -251,6 +264,29 @@ export default function PlatformReviewsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {status === 'success' && items.length > 0 && (
+          <div className="adm-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '16px', gap: '8px' }}>
+            <select
+              className="adm-field adm-field--fixed"
+              style={{ width: 'auto', padding: '4px 8px', fontSize: '13px', borderRadius: '8px' }}
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+            >
+              <option value={10}>10 / trang</option>
+              <option value={20}>20 / trang</option>
+              <option value={50}>50 / trang</option>
+            </select>
+            <Pagination
+              current={validCurrentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           </div>
         )}
       </div>

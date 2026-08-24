@@ -24,17 +24,19 @@ function pageItems(current: number, total: number): PageItem[] {
   return [1, 'ellipsis', current - 1, current, current + 1, 'ellipsis', total];
 }
 
-/** Thanh phân trang dùng chung: « ‹ 1 2 3 … N › ». */
 export function Pagination({ current, totalPages, onPageChange, ariaLabel }: PaginationProps) {
-  if (totalPages <= 1) return null;
+  if (totalPages < 1) return null;
+
+  const total = Math.max(1, totalPages);
+  const cur = Math.max(1, Math.min(current, total));
 
   const go = (p: number) => {
-    const next = Math.min(Math.max(1, p), totalPages);
-    if (next !== current) onPageChange(next);
+    const next = Math.min(Math.max(1, p), total);
+    if (next !== cur) onPageChange(next);
   };
 
-  const atStart = current <= 1;
-  const atEnd = current >= totalPages;
+  const atStart = cur <= 1;
+  const atEnd = cur >= total;
 
   return (
     <nav className="pgn" aria-label={ariaLabel ?? 'Phân trang'}>
@@ -50,36 +52,35 @@ export function Pagination({ current, totalPages, onPageChange, ariaLabel }: Pag
       <button
         type="button"
         className="pgn__btn pgn__btn--nav"
-        onClick={() => go(current - 1)}
+        onClick={() => go(cur - 1)}
         disabled={atStart}
         aria-label="Trang trước"
       >
         ‹
       </button>
 
-      {pageItems(current, totalPages).map((item, idx) =>
+      {pageItems(cur, total).map((item, idx) =>
         item === 'ellipsis' ? (
-          <span key={`e${idx}`} className="pgn__ellipsis" aria-hidden="true">
+          <span key={`ellipsis-${idx}`} className="pgn__ellipsis" aria-hidden="true">
             …
           </span>
         ) : (
           <button
-            type="button"
             key={item}
-            className={`pgn__btn${item === current ? ' pgn__btn--active' : ''}`}
+            type="button"
+            className={`pgn__btn ${item === cur ? 'pgn__btn--active' : ''}`}
             onClick={() => go(item)}
-            aria-current={item === current ? 'page' : undefined}
-            aria-label={`Trang ${item}`}
+            aria-current={item === cur ? 'page' : undefined}
           >
             {item}
           </button>
-        ),
+        )
       )}
 
       <button
         type="button"
         className="pgn__btn pgn__btn--nav"
-        onClick={() => go(current + 1)}
+        onClick={() => go(cur + 1)}
         disabled={atEnd}
         aria-label="Trang sau"
       >
@@ -88,7 +89,7 @@ export function Pagination({ current, totalPages, onPageChange, ariaLabel }: Pag
       <button
         type="button"
         className="pgn__btn pgn__btn--nav"
-        onClick={() => go(totalPages)}
+        onClick={() => go(total)}
         disabled={atEnd}
         aria-label="Trang cuối"
       >

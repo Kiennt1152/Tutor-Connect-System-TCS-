@@ -1,6 +1,6 @@
 import type { FormEvent } from 'react';
-import { useState } from 'react';
-import { ConfirmDialog } from '../../../shared/components';
+import { useState, useEffect } from 'react';
+import { ConfirmDialog, Pagination } from '../../../shared/components';
 import type { UpsertFaqRequest, FaqItem } from '../../catalog/types/catalogTypes';
 import { AdminLayout } from '../components/AdminLayout';
 import { useFaqList, useFaqMutations } from '../hooks/useFaqManagement';
@@ -29,10 +29,23 @@ export default function PlatformFaqPage() {
   const [form, setForm] = useState<UpsertFaqRequest>(EMPTY_FORM);
   const [selectedFaq, setSelectedFaq] = useState<FaqItem | null>(null);
   const [pendingDelete, setPendingDelete] = useState<FaqItem | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  // Reset to page 1 when filters or items change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filters.keyword, filters.category, items.length]);
 
   const applyFilter = (patch: Partial<typeof filters>) => {
     setFilters((current) => ({ ...current, ...patch }));
   };
+
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, items.length);
+  const paginatedItems = items.slice(startIndex, endIndex);
 
   function selectFaq(faq: FaqItem) {
     setSelectedFaq(faq);
@@ -131,7 +144,7 @@ export default function PlatformFaqPage() {
                       <td colSpan={7}>Chưa có câu hỏi thường gặp nào.</td>
                     </tr>
                   ) : (
-                    items.map((faq) => (
+                    paginatedItems.map((faq) => (
                       <tr key={faq.faqId}>
                         <td>{faq.faqId}</td>
                         <td className="adm-table__question">
@@ -168,6 +181,29 @@ export default function PlatformFaqPage() {
                   )}
                 </tbody>
               </table>
+            </div>
+          )}
+
+          {status === 'success' && items.length > 0 && (
+            <div className="adm-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '16px', gap: '8px' }}>
+              <select
+                className="adm-field adm-field--fixed"
+                style={{ width: 'auto', padding: '4px 8px', fontSize: '13px', borderRadius: '8px' }}
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+              >
+                <option value={10}>10 / trang</option>
+                <option value={20}>20 / trang</option>
+                <option value={50}>50 / trang</option>
+              </select>
+              <Pagination
+                current={validCurrentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+              />
             </div>
           )}
         </div>

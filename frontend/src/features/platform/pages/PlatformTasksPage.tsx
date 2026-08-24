@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { AdminTimeFilter } from '../components/AdminTimeFilter';
+import { Pagination } from '../../../shared/components';
 import { platformApi } from '../api/platformApi';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import type { TaskQueueSummaryApiResponse, TaskItemApiResponse, TaskPriority } from '../types/platformTypes';
@@ -39,6 +40,8 @@ export default function PlatformTasksPage() {
   const [selectedPriority, setSelectedPriority] = useState<string>(initialPriority);
   const [slaBreachedFilter, setSlaBreachedFilter] = useState<boolean | undefined>(initialSla);
   const [page, setPage] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     const qType = searchParams.get('type') || 'ALL';
@@ -76,15 +79,16 @@ export default function PlatformTasksPage() {
         priority: selectedPriority,
         slaBreached: slaBreachedFilter,
         page,
-        size: 20,
+        size: pageSize,
       });
       setTasks(res.data.content);
+      setTotalPages(res.data.totalPages || 1);
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, [selectedType, selectedPriority, slaBreachedFilter, page]);
+  }, [selectedType, selectedPriority, slaBreachedFilter, page, pageSize]);
 
   useEffect(() => {
     fetchSummary();
@@ -303,6 +307,29 @@ export default function PlatformTasksPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {!loading && tasks.length > 0 && (
+          <div className="adm-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '16px', gap: '8px' }}>
+            <select
+              className="adm-field adm-field--fixed"
+              style={{ width: 'auto', padding: '4px 8px', fontSize: '13px', borderRadius: '8px' }}
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setPage(0);
+              }}
+            >
+              <option value={10}>10 / trang</option>
+              <option value={20}>20 / trang</option>
+              <option value={50}>50 / trang</option>
+            </select>
+            <Pagination
+              current={page + 1}
+              totalPages={Math.max(totalPages, 1)}
+              onPageChange={(p) => setPage(p - 1)}
+            />
           </div>
         )}
       </div>

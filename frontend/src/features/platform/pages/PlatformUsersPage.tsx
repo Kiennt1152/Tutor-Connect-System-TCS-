@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ConfirmDialog } from '../../../shared/components';
+import { ConfirmDialog, Pagination } from '../../../shared/components';
 import type { ConfirmDialogVariant } from '../../../shared/components';
 import { AdminLayout } from '../components/AdminLayout';
 import { useUpdateUserStatus } from '../hooks/usePlatformMutations';
@@ -239,28 +239,28 @@ export default function PlatformUsersPage() {
               </table>
             </div>
 
-            <div className="adm-pagination">
-              <span>
-                Trang {data.page + 1}/{Math.max(data.totalPages, 1)} · {data.totalElements} người dùng
-              </span>
-              <div className="adm-pagination__actions">
-                <button
-                  className="tcs-btn tcs-btn--ghost"
-                  type="button"
-                  disabled={data.page <= 0}
-                  onClick={() => setFilters((current) => ({ ...current, page: current.page - 1 }))}
-                >
-                  Trước
-                </button>
-                <button
-                  className="tcs-btn tcs-btn--ghost"
-                  type="button"
-                  disabled={data.page + 1 >= data.totalPages}
-                  onClick={() => setFilters((current) => ({ ...current, page: current.page + 1 }))}
-                >
-                  Sau
-                </button>
-              </div>
+            <div className="adm-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '16px', gap: '8px' }}>
+              <select
+                className="adm-field adm-field--fixed"
+                style={{ width: 'auto', padding: '4px 8px', fontSize: '13px', borderRadius: '8px' }}
+                value={filters.size}
+                onChange={(e) =>
+                  setFilters((current) => ({
+                    ...current,
+                    size: Number(e.target.value),
+                    page: 0,
+                  }))
+                }
+              >
+                <option value={10}>10 / trang</option>
+                <option value={20}>20 / trang</option>
+                <option value={50}>50 / trang</option>
+              </select>
+              <Pagination
+                current={data.page + 1}
+                totalPages={Math.max(data.totalPages, 1)}
+                onPageChange={(p) => setFilters((current) => ({ ...current, page: p - 1 }))}
+              />
             </div>
           </>
         )}

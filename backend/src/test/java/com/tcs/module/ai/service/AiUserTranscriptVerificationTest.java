@@ -220,4 +220,18 @@ public class AiUserTranscriptVerificationTest {
             assertThat(resp2.getReferencedTutors()).allMatch(t -> t.getTitle() != null && (t.getTitle().toLowerCase().contains("toán") || t.getTitle().toLowerCase().contains("toan")));
         }
     }
+
+    @Test
+    @DisplayName("Verify Scenario 13: Navigation / Where to find tutors ('tôi muốn kiếm gia sư thì vào đâu')")
+    void testWhereToFindTutorsNavigationGuide() {
+        ChatRequest req = new ChatRequest();
+        req.setMessage("tôi muốn kiếm gia sư thì vào đâu");
+
+        AiMessageResponse resp = aiService.chat(req, null);
+        assertThat(resp).isNotNull();
+        assertThat(resp.getDomain()).isEqualTo("CATALOG_FAQ");
+        assertThat(resp.getSubIntent()).isEqualTo("FAQ_SEARCH");
+        assertThat(resp.getContent()).contains("Tìm gia sư").contains("Tạo lớp học");
+        assertThat(resp.getReferencedTutors()).isEmpty();
+    }
 }

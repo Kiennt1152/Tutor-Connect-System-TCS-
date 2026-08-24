@@ -570,14 +570,23 @@ public class AiServiceImpl implements AiService {
                 """;
         }
 
-        // Hiring / Registration Workflow
-        if (normalized.contains("quy trinh dang ky") || lower.contains("quy trình đăng ký") || normalized.contains("quy trinh tim gia su") || lower.contains("quy trình tìm gia sư") || normalized.contains("cac buoc tim gia su") || normalized.contains("cach thue gia su") || normalized.contains("dang ky tim gia su") || normalized.contains("tim gia su dien ra") || lower.contains("tìm gia sư diễn ra")) {
+        // Hiring / Registration Workflow (4 Steps)
+        if (normalized.contains("quy trinh dang ky") || lower.contains("quy trình đăng ký") || normalized.contains("quy trinh tim gia su") || lower.contains("quy trình tìm gia sư") || normalized.contains("cac buoc tim gia su") || normalized.contains("cac buoc thue gia su") || normalized.contains("dang ky tim gia su") || normalized.contains("tim gia su dien ra") || lower.contains("tìm gia sư diễn ra")) {
             return """
                 **Quy trình tìm và thuê gia sư trên TCS gồm 4 bước đơn giản:**
                 1. **Đăng yêu cầu hoặc Tìm kiếm:** Truy cập [Tạo lớp học](/tao-lop) để đăng tin miễn phí hoặc chủ động chọn gia sư tại [Tìm gia sư](/tim-gia-su).
                 2. **Chọn gia sư & Trao đổi:** Xem xét hồ sơ bằng cấp, đánh giá sao của các ứng viên và nhắn tin trao đổi thống nhất lịch học, học phí.
                 3. **Ký Hợp đồng điện tử:** Xác nhận hợp đồng học tập 3 bên bằng mã OTP bảo mật gửi về điện thoại/email.
                 4. **Nạp ký quỹ Escrow:** Nạp học phí tạm giữ an toàn vào quỹ Escrow qua VietQR SePay. Tiền chỉ được giải ngân cho gia sư sau khi từng buổi học hoàn tất thành công.
+                """;
+        }
+
+        // Navigation / Where-to-go Guide
+        if (normalized.contains("vao dau") || normalized.contains("o dau") || normalized.contains("trang nao") || normalized.contains("muc nao") || normalized.contains("muon kiem gia su") || normalized.contains("muon tim gia su") || normalized.contains("cach tim gia su") || normalized.contains("cach thue gia su")) {
+            return """
+                **Để tìm kiếm và thuê gia sư trên nền tảng TCS, bạn có thể thực hiện theo 2 cách:**
+                1. **Tìm kiếm trực tiếp:** Truy cập trang **[Tìm gia sư](/tim-gia-su)**, sử dụng bộ lọc môn học, khối lớp, khu vực và hình thức (Online/Tại nhà) để xem hồ sơ và gửi yêu cầu học.
+                2. **Đăng bài tạo lớp:** Truy cập trang **[Tạo lớp học](/tao-lop)** để đăng thông tin lớp học (hoàn toàn miễn phí). Các gia sư phù hợp sẽ chủ động gửi hồ sơ ứng tuyển để bạn lựa chọn.
                 """;
         }
 
