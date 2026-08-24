@@ -18,7 +18,7 @@ public class FinanceIntentRule implements IntentRule {
 
     @Override
     public ClassificationDetail classify(String normalized, String lower) {
-        if (containsAny(normalized, "nap tien", "topup", "sepay", "nap qua qr", "nap vi")) {
+        if (containsAny(normalized, "nap tien", "topup", "sepay", "nap qua qr", "nap vi", "phuong thuc thanh toan", "chuyen khoan nap tien", "noi dung chuyen khoan", "ghi sai noi dung")) {
             return new ClassificationDetail(AiDomain.FINANCE_WALLET, AiSubIntent.WALLET_TOPUP, AiIntent.PAYMENT_SUPPORT, 0.95, "/finance");
         }
 
@@ -26,7 +26,7 @@ public class FinanceIntentRule implements IntentRule {
             return new ClassificationDetail(AiDomain.FINANCE_WALLET, AiSubIntent.WITHDRAWAL_REQUEST, AiIntent.PAYMENT_SUPPORT, 0.95, "/finance");
         }
 
-        if (containsAny(normalized, "escrow", "ky quy", "tam giu", "giai ngan", "tien escrow")) {
+        if (containsAny(normalized, "escrow", "ky quy", "tam giu", "giai ngan", "tien escrow", "bao lau gia su nhan duoc tien", "nhan duoc tien", "dong ca thang", "thanh toan theo tung buoi", "thanh toan tung buoi")) {
             return new ClassificationDetail(AiDomain.FINANCE_WALLET, AiSubIntent.ESCROW_EXPLAIN, AiIntent.PAYMENT_SUPPORT, 0.95, "/finance");
         }
 

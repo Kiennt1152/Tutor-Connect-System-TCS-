@@ -52,7 +52,8 @@ public class MarketplaceIntentRule implements IntentRule {
 
         boolean hasSearchKeyword = containsAny(normalized,
                 "tim", "thue", "can", "kiem", "cho toi", "gioi thieu", "mon", "toan", "ly", "hoa", "anh", "van", "tin", "sinh", "su", "dia",
-                "ielts", "toeic", "tieng anh", "ngoai ngu", "giao tiep", "cap 3", "cap 2", "cap 1", "thay co",
+                "ielts", "toeic", "tieng anh", "tieng nhat", "tieng han", "tieng trung", "ngoai ngu", "giao tiep", "n5", "n4", "n3", "n2", "n1",
+                "cap 3", "cap 2", "cap 1", "thay co", "mat goc", "nguoi di lam", "on thi",
                 "khu vuc", "cau giay", "dong da", "ba dinh", "ha noi", "hcm", "sai gon", "da nang",
                 "hoc phi", "duoi", "khoang", "k/buoi", "vnd", "luyen thi", "find", "looking", "near", "day kem", "tai nha", "1 kem 1", "online");
 
