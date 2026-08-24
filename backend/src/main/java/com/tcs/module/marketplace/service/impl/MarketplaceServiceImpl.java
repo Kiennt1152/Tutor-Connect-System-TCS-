@@ -328,6 +328,22 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .toList();
     }
 
+    /**
+     * Tạo tin tìm gia sư từ form của khách (màn /dang-yeu-cau-tim-gia-su).
+     *
+     * <p>Bốn chốt chặn, theo đúng thứ tự:</p>
+     * <ol>
+     *   <li>{@code requireUser()} — phải đăng nhập.</li>
+     *   <li>{@code requireFeature("CLASS_POSTING")} — tài khoản đang bị phạt thì cấm đăng tin.</li>
+     *   <li>{@code requireClient()} — chỉ vai CLIENT (phụ huynh/học viên) mới được đăng.</li>
+     *   <li>Phải có môn học: hoặc {@code subjectId} (tin một môn), hoặc {@code detailsJson}
+     *       (tin nhiều môn — danh sách môn nằm trong JSON).</li>
+     * </ol>
+     *
+     * <p>Qua hết thì {@code applyRequest()} đổ dữ liệu vào entity và lưu với
+     * <b>status = DRAFT</b> — cố ý để nháp, chưa ai thấy. Việc công khai và đặt hạn hiển thị
+     * 30 ngày là của {@link #publishClass(Long)}.</p>
+     */
     @Override
     @Transactional
     public ClassResponse createClass(CreateClassRequest request) {
@@ -697,7 +713,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 tutorApplicationRepository.findByTutoringClass_ClassId(tutoringClass.getClassId());
         List<ApplicantResponse> ranked = applications.stream()
                 .map(app -> toApplicant(app, tutoringClass))
-                .sorted(Comparator.comparingInt(ApplicantResponse::getMatchScore).reversed())
+                // Điểm AI cao lên trước; bằng điểm thì ai nộp đơn sớm hơn đứng trên.
+                .sorted(Comparator.comparingInt(ApplicantResponse::getMatchScore).reversed()
+                        .thenComparing(ApplicantResponse::getAppliedAt,
+                                Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(ApplicantResponse::getApplicationId))
                 .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         for (int i = 0; i < ranked.size() && i < 5; i++) {
             ranked.get(i).setRecommended(true);

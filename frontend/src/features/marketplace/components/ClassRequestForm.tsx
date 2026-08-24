@@ -542,6 +542,16 @@ export function ClassRequestForm({
   }
   if (form.slots.length === 0) missing.push('Lịch học');
 
+  /**
+   * Cửa duy nhất để dữ liệu rời khỏi form.
+   *
+   * setTouched(true) bật hiển thị lỗi — trước khi bấm lần đầu thì form im lặng, không
+   * bôi đỏ khi người dùng còn đang điền dở. Ba rào chắn phải sạch mới cho đi tiếp:
+   *   missing     — trường bắt buộc còn trống (môn, lớp, địa chỉ, lịch học)
+   *   slotErrors  — khung giờ vô lý (giờ kết thúc <= giờ bắt đầu, chưa chọn thứ...)
+   *   conflicts   — hai buổi của cùng lớp đè giờ lên nhau
+   * Qua hết thì formToPayload() dịch state của form sang đúng hình dạng backend chờ.
+   */
   function handleSubmit() {
     setTouched(true);
     if (missing.length > 0 || slotErrors.length > 0 || conflicts.length > 0) return;

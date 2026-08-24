@@ -15,6 +15,59 @@ import type {
 import './HomePage.css';
 import './FindTutorPage.css';
 
+/*
+ * ============================================================================
+ * MÀN "ĐĂNG YÊU CẦU TÌM GIA SƯ"  —  route /dang-yeu-cau-tim-gia-su
+ * ============================================================================
+ *
+ * TỆP NÀY LÀM GÌ
+ * Chỉ là cái khung: tiêu đề, banner cảnh báo quyền, và màn hình báo thành công.
+ * Toàn bộ ô nhập bạn thấy trên màn nằm ở <ClassRequestForm> — dùng chung với
+ * màn "Chỉnh sửa lớp" trong MarketplacePage, nên sửa form là hai nơi cùng đổi.
+ *
+ * LUỒNG DỮ LIỆU (từ lúc mở trang đến lúc lưu xong)
+ *
+ *   1. MỞ TRANG
+ *      useTutorRequestForm() gọi song song 3 API danh mục để đổ dữ liệu cho các
+ *      ô chọn:  GET /catalog/subjects  (checkbox Môn học)
+ *               GET /catalog/grades    (dropdown Lớp)
+ *               GET /catalog/provinces (không dùng ở màn này — xem mục 2)
+ *      API lỗi thì đặt về mảng rỗng, form vẫn mở được (riêng Lớp còn có
+ *      FALLBACK_GRADES trong constants/catalogFallback.tsx đỡ lưng).
+ *
+ *   2. Ô TỈNH / PHƯỜNG
+ *      Do <LocationPicker> lo, và nó KHÔNG gọi backend của mình mà gọi API công
+ *      cộng provinces.open-api.vn. Vì vậy mất mạng ngoài là hai ô này trống dù
+ *      backend vẫn chạy. Chỉ hiện khi chọn Offline.
+ *
+ *   3. NGƯỜI DÙNG ĐIỀN → BẤM "ĐĂNG YÊU CẦU"
+ *      ClassRequestForm giữ toàn bộ state trong một object ClassFormValues, tự
+ *      kiểm tra thiếu trường / lịch trùng giờ. Hợp lệ mới gọi formToPayload()
+ *      để gói lại thành ClassRequestPayload rồi bắn ngược lên đây qua onSubmit.
+ *
+ *   4. handleSubmit() Ở DƯỚI
+ *      Chặn trước nếu không phải tài khoản CLIENT, rồi gọi
+ *      marketplaceApi.createClass()  →  POST /api/marketplace/classes
+ *
+ *   5. BACKEND
+ *      MarketplaceController.createClass() (dòng 67) → MarketplaceServiceImpl
+ *      .createClass(): kiểm tra role CLIENT + quyền CLASS_POSTING (tài khoản bị
+ *      phạt sẽ bị chặn) → lưu 1 dòng vào bảng tutoring_classes → ghi audit_logs.
+ *
+ *   6. QUAN TRỌNG — TIN LƯU RA Ở TRẠNG THÁI **DRAFT (NHÁP)**
+ *      Tức là gia sư CHƯA nhìn thấy. Muốn công khai phải sang trang "Yêu cầu của
+ *      tôi" bấm "Đăng lớp" → POST /marketplace/classes/{id}/publish, lúc đó mới
+ *      status = OPEN và đặt expires_at = now + 30 ngày. Đó là lý do màn thành
+ *      công bên dưới ghi rõ "đang ở trạng thái nháp".
+ *
+ * DỮ LIỆU LƯU Ở ĐÂU
+ *      Bảng tutoring_classes. Vài trường quen thuộc nằm ở cột riêng (title,
+ *      grade_id, tuition_fee, start_date...), còn TẤT CẢ chi tiết của form —
+ *      danh sách môn, học phí từng môn, từng khung giờ, mục tiêu, địa chỉ —
+ *      được nén thành JSON và nhét vào MỘT cột: details_json.
+ *      Muốn xem một tin trông ra sao thì đọc cột đó là đủ.
+ */
+
 function extractError(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;
