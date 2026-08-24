@@ -898,9 +898,6 @@ public class DisputeServiceImpl implements DisputeService {
         if (request.getOccurredAt() != null && request.getOccurredAt().isAfter(LocalDate.now())) {
             throw new IllegalArgumentException("Ngày xảy ra sự cố không được ở tương lai");
         }
-        if (requiresRefundPayoutInfo(request) && !RefundPayoutInfoCodec.hasCompletePayout(request.getRefundPayoutInfo())) {
-            throw new IllegalArgumentException("Vui lòng nhập đầy đủ thông tin tài khoản nhận hoàn tiền");
-        }
         validateEscrowSelector(
                 request.getEscrowId(),
                 request.getAssignmentId(),
@@ -1050,12 +1047,6 @@ public class DisputeServiceImpl implements DisputeService {
                 || request.getRequestedAction() == ClassIssueRequestedAction.TERMINATE_CLASS
                 || request.getIssueType() == ClassIssueType.PAYMENT_OR_REFUND
                 || request.getCategory() == ReportCategory.FRAUD;
-    }
-
-    private boolean requiresRefundPayoutInfo(CreateClassIssueRequest request) {
-        return request.getRequestedAction() == ClassIssueRequestedAction.REFUND_REVIEW
-                || request.getRequestedAction() == ClassIssueRequestedAction.TERMINATE_CLASS
-                || request.getIssueType() == ClassIssueType.PAYMENT_OR_REFUND;
     }
 
     private String buildClassIssueDescription(CreateClassIssueRequest request) {
