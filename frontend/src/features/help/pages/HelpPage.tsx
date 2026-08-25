@@ -76,22 +76,56 @@ function getVisiblePages(currentPage: number, totalPages: number): (number | 'el
   return pages;
 }
 
+const FAQ_CATEGORIES = [
+  { key: '', label: 'Tất cả chủ đề' },
+  { key: 'AUTH_PROFILE', label: 'Tài khoản & Hồ sơ' },
+  { key: 'VERIFICATION', label: 'Xác minh hồ sơ' },
+  { key: 'MARKETPLACE', label: 'Lớp học & Tìm gia sư' },
+  { key: 'TUTOR_OPS', label: 'Lịch dạy & Điểm danh' },
+  { key: 'CENTER_OPS', label: 'Trung tâm gia sư' },
+  { key: 'FINANCE_ESCROW', label: 'Ví tiền & Nạp rút' },
+  { key: 'CONTRACT_REVIEW', label: 'Hợp đồng & Đánh giá' },
+  { key: 'TRUST_SAFETY', label: 'An toàn & Khiếu nại' },
+];
+
+const CATEGORY_MAP: Record<string, string> = {
+  AUTH_PROFILE: 'Tài khoản & Hồ sơ',
+  VERIFICATION: 'Xác minh hồ sơ',
+  MARKETPLACE: 'Lớp học & Tìm gia sư',
+  TUTOR_OPS: 'Lịch dạy & Điểm danh',
+  CENTER_OPS: 'Trung tâm gia sư',
+  FINANCE_ESCROW: 'Ví tiền & Nạp rút',
+  CONTRACT_REVIEW: 'Hợp đồng & Đánh giá',
+  TRUST_SAFETY: 'An toàn & Khiếu nại',
+  PLATFORM_ADMIN: 'Quản trị nền tảng',
+};
+
 export default function HelpPage() {
   const { user } = useAuth();
-  const { status, items, keyword, setKeyword, errorMessage, reload } = useFaqSearch();
+  const { status, items, keyword, setKeyword, category, setCategory, errorMessage, reload } = useFaqSearch();
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);
   const [searchDraft, setSearchDraft] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Reset to page 1 when search keyword or item list changes
+  // Reset to page 1 when search keyword, category or item list changes
   useEffect(() => {
     setCurrentPage(1);
     setOpenFaqId(null);
-  }, [keyword, items.length]);
+  }, [keyword, category, items.length]);
 
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
     setKeyword(searchDraft);
+  };
+
+  const handleCategorySelect = (selectedCat: string) => {
+    setCategory(selectedCat);
+  };
+
+  const handleClearFilters = () => {
+    setSearchDraft('');
+    setKeyword('');
+    setCategory('');
   };
 
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
@@ -127,6 +161,25 @@ export default function HelpPage() {
           />
           <button className="help-page__search-btn" type="submit">Tìm kiếm</button>
         </form>
+
+        {/* Category Chips Bar */}
+        <div className="help-category-bar" role="tablist" aria-label="Lọc theo danh mục">
+          {FAQ_CATEGORIES.map((cat) => {
+            const isActive = category === cat.key;
+            return (
+              <button
+                key={cat.key}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`help-category-chip ${isActive ? 'help-category-chip--active' : ''}`}
+                onClick={() => handleCategorySelect(cat.key)}
+              >
+                {cat.label}
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       <div className="help-page__body">
@@ -134,7 +187,7 @@ export default function HelpPage() {
         <section>
           <div className="help-faq__header-row">
             <h2 className="help-faq__heading">
-              Câu hỏi thường gặp
+              {category ? (CATEGORY_MAP[category] || category) : 'Câu hỏi thường gặp'}
               {status === 'success' && <span className="help-faq__count">{items.length}</span>}
             </h2>
             {status === 'success' && items.length > 0 && (
@@ -156,9 +209,26 @@ export default function HelpPage() {
           )}
 
           {status === 'success' && items.length === 0 && (
-            <p className="help-faq__empty">
-              {keyword ? `Không tìm thấy kết quả cho "${keyword}".` : 'Chưa có câu hỏi nào.'}
-            </p>
+            <div className="help-faq__empty-box">
+              <p className="help-faq__empty">
+                {keyword && category
+                  ? `Không tìm thấy câu hỏi phù hợp cho "${keyword}" trong danh mục "${CATEGORY_MAP[category] || category}".`
+                  : keyword
+                  ? `Không tìm thấy kết quả cho "${keyword}".`
+                  : category
+                  ? `Chưa có câu hỏi nào trong danh mục "${CATEGORY_MAP[category] || category}".`
+                  : 'Chưa có câu hỏi nào.'}
+              </p>
+              {(keyword || category) && (
+                <button
+                  type="button"
+                  className="help-faq__clear-filter-btn"
+                  onClick={handleClearFilters}
+                >
+                  Xóa bộ lọc tìm kiếm
+                </button>
+              )}
+            </div>
           )}
 
           {status === 'success' && paginatedItems.map((faq) => (
@@ -169,7 +239,14 @@ export default function HelpPage() {
                 onClick={() => setOpenFaqId(openFaqId === faq.faqId ? null : faq.faqId)}
                 aria-expanded={openFaqId === faq.faqId}
               >
-                <span>{faq.question}</span>
+                <div className="help-faq__question-content">
+                  {faq.category && (
+                    <span className="help-faq__category-tag">
+                      {CATEGORY_MAP[faq.category] || faq.category}
+                    </span>
+                  )}
+                  <span className="help-faq__question-title">{faq.question}</span>
+                </div>
                 <ChevronDown className={`help-faq__chevron${openFaqId === faq.faqId ? ' help-faq__chevron--open' : ''}`} />
               </button>
               {openFaqId === faq.faqId && (
