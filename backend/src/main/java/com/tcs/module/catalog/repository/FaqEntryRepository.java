@@ -10,6 +10,11 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface FaqEntryRepository extends JpaRepository<FaqEntry, Long> {
 
+    // =========================================================================
+    // LUỒNG 1: TRA CỨU & TÌM KIẾM FAQ TRI THỨC (UC-61, UC-67)
+    // =========================================================================
+
+    // Luồng 1 - Truy vấn JPQL tìm kiếm FAQ công khai (published = true) theo category và keyword
     @Query("""
             SELECT f FROM FaqEntry f
             WHERE f.published = true
@@ -23,10 +28,15 @@ public interface FaqEntryRepository extends JpaRepository<FaqEntry, Long> {
             """)
     List<FaqEntry> search(@Param("category") String category, @Param("keyword") String keyword);
 
+    // Luồng 1 - Lấy toàn bộ danh sách FAQ đã xuất bản (is_published = true)
     List<FaqEntry> findByPublishedTrueOrderBySortOrderAscFaqIdAsc();
 
+    // Luồng 1 - Lấy FAQ đã xuất bản theo danh mục chỉ định
     List<FaqEntry> findByPublishedTrueAndCategoryOrderBySortOrderAscFaqIdAsc(String category);
 
+    // =========================================================================
+    // LUỒNG 6: QUẢN TRỊ FAQ - ADMIN TÌM KIẾM CẢ BẢN NHÁP CHƯA XUẤT BẢN (UC-67)
+    // =========================================================================
     @Query("""
             SELECT f FROM FaqEntry f
             WHERE (:category IS NULL OR :category = '' OR f.category = :category)

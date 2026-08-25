@@ -1,9 +1,9 @@
 package com.tcs.module.catalog.service.impl;
 
+import com.tcs.module.catalog.dto.request.CatalogRequest;
 import com.tcs.module.catalog.dto.request.ChatbotAskRequest;
 import com.tcs.module.catalog.dto.request.UpsertFaqRequest;
 import com.tcs.module.catalog.dto.response.CatalogItemResponse;
-import com.tcs.module.catalog.dto.request.CatalogRequest;
 import com.tcs.module.catalog.dto.response.CatalogResponse;
 import com.tcs.module.catalog.dto.response.ChatbotAskResponse;
 import com.tcs.module.catalog.dto.response.FaqResponse;
@@ -66,6 +66,7 @@ public class CatalogServiceImpl implements CatalogService {
     private final GeminiService geminiService;
     private final AuditLogService auditLogService;
 
+    // LUỒNG 1 - BƯỚC 5.1: Chuẩn hóa tiếng Việt, chuyển chữ thường, thay 'đ' thành 'd' và loại bỏ dấu thanh Unicode NFD
     private String normalizeVietnamese(String text) {
         if (text == null) {
             return "";
@@ -76,6 +77,7 @@ public class CatalogServiceImpl implements CatalogService {
         return DIACRITICAL_MARKS.matcher(normalized).replaceAll("");
     }
 
+    // LUỒNG 1 - BƯỚC 5.2: Tách chuỗi từ khóa thành danh sách các token đơn, lọc bỏ số và stop words
     private List<String> tokenize(String text) {
         String normalized = normalizeVietnamese(text);
         String[] parts = normalized.split("[^a-z0-9]+");
@@ -88,6 +90,7 @@ public class CatalogServiceImpl implements CatalogService {
         return tokens;
     }
 
+    // LUỒNG 1 - BƯỚC 5.3: Chấm điểm liên quan: Khớp trong Question x 2, khớp trong Answer x 1. Ngưỡng tối thiểu khớp Question >= min(2, tokens.size())
     private int calculateFaqScore(FaqEntry faq, List<String> queryTokens) {
         if (queryTokens.isEmpty()) {
             return 0;
@@ -184,12 +187,14 @@ public class CatalogServiceImpl implements CatalogService {
         return locations.stream().map(this::toLocation).toList();
     }
 
+    // LUỒNG 1: Tra cứu & Tìm kiếm FAQ theo Danh mục (category) và Từ khóa (keyword)
     @Override
     @Transactional(readOnly = true)
     public List<FaqResponse> getFaqEntries(String category, String keyword) {
         String trimmedCategory = StringUtils.hasText(category) ? category.trim() : null;
         String trimmedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
 
+        // BƯỚC 4: Tầng lọc 1 (Database) - Lấy tập FAQ đã xuất bản theo Category nếu có
         List<FaqEntry> entries;
         if (trimmedCategory != null) {
             entries = faqEntryRepository.findByPublishedTrueAndCategoryOrderBySortOrderAscFaqIdAsc(trimmedCategory);
@@ -197,10 +202,12 @@ public class CatalogServiceImpl implements CatalogService {
             entries = faqEntryRepository.findByPublishedTrueOrderBySortOrderAscFaqIdAsc();
         }
 
+        // Nếu không nhập từ khóa tìm kiếm -> Chuyển đổi và trả về ngay theo thứ tự sortOrder gốc
         if (!StringUtils.hasText(trimmedKeyword)) {
             return entries.stream().map(this::toFaq).toList();
         }
 
+        // BƯỚC 5: Tách từ khóa và lọc bỏ stop words
         List<String> tokens = tokenize(trimmedKeyword);
         if (tokens.isEmpty()) {
             return entries.stream().map(this::toFaq).toList();
@@ -208,6 +215,7 @@ public class CatalogServiceImpl implements CatalogService {
 
         record ScoredFaq(FaqEntry faq, int score) {}
 
+        // BƯỚC 5: Tầng lọc 2 (In-Memory Ranking Engine) - Chấm điểm liên quan cho từng bài viết
         List<ScoredFaq> scoredList = new ArrayList<>();
         for (FaqEntry entry : entries) {
             int score = calculateFaqScore(entry, tokens);
@@ -216,10 +224,13 @@ public class CatalogServiceImpl implements CatalogService {
             }
         }
 
+        // BƯỚC 6: Sắp xếp kết quả đa tầng (score DESC -> sortOrder ASC -> faqId ASC)
         scoredList.sort((a, b) -> {
+            // Tiêu chí 1: Điểm liên quan cao nhất lên đầu
             if (b.score() != a.score()) {
                 return Integer.compare(b.score(), a.score());
             }
+            // Tiêu chí 2: Thứ tự sortOrder do Admin chỉ định
             int sortOrderComp = Integer.compare(
                     a.faq().getSortOrder() != null ? a.faq().getSortOrder() : 0,
                     b.faq().getSortOrder() != null ? b.faq().getSortOrder() : 0
@@ -227,12 +238,14 @@ public class CatalogServiceImpl implements CatalogService {
             if (sortOrderComp != 0) {
                 return sortOrderComp;
             }
+            // Tiêu chí 3: Thứ tự ID bản ghi
             return Long.compare(
                     a.faq().getFaqId() != null ? a.faq().getFaqId() : 0L,
                     b.faq().getFaqId() != null ? b.faq().getFaqId() : 0L
             );
         });
 
+        // BƯỚC 6: Ánh xạ từ Entity FaqEntry sang DTO FaqResponse
         return scoredList.stream().map(sf -> toFaq(sf.faq())).toList();
     }
 
@@ -289,6 +302,11 @@ public class CatalogServiceImpl implements CatalogService {
                 .build();
     }
 
+    // =========================================================================
+    // LUỒNG 6: QUẢN TRỊ TRI THỨC FAQ - ADMIN CRUD & PHÊ DUYỆT BẢN NHÁP (UC-67)
+    // =========================================================================
+
+    // Luồng 6 - Bước 1: Admin lấy toàn bộ danh sách FAQ (bao gồm cả bản nháp chưa xuất bản)
     @Override
     @Transactional(readOnly = true)
     public List<FaqResponse> getFaqEntriesForAdmin(String category, String keyword) {
@@ -297,6 +315,7 @@ public class CatalogServiceImpl implements CatalogService {
         return faqEntryRepository.searchAdmin(trimmedCategory, trimmedKeyword).stream().map(this::toFaq).toList();
     }
 
+    // Luồng 6 - Bước 3: Admin tạo bài viết FAQ mới & Ghi vết Audit Log
     @Override
     @Transactional
     public FaqResponse createFaqEntry(UpsertFaqRequest request) {
@@ -307,6 +326,7 @@ public class CatalogServiceImpl implements CatalogService {
         return toFaq(saved);
     }
 
+    // Luồng 6 - Bước 4: Admin chỉnh sửa FAQ / Phê duyệt bản nháp do AI sinh ra (published: true)
     @Override
     @Transactional
     public FaqResponse updateFaqEntry(Long faqId, UpsertFaqRequest request) {
@@ -318,6 +338,7 @@ public class CatalogServiceImpl implements CatalogService {
         return toFaq(saved);
     }
 
+    // Luồng 6 - Bước 5: Admin xóa bài viết FAQ & Ghi vết Audit Log
     @Override
     @Transactional
     public void deleteFaqEntry(Long faqId) {
@@ -373,6 +394,7 @@ public class CatalogServiceImpl implements CatalogService {
                 .build();
     }
 
+    // LUỒNG 1 - BƯỚC 6: Ánh xạ Entity FaqEntry sang DTO FaqResponse trả về cho Client
     private FaqResponse toFaq(FaqEntry entry) {
         return FaqResponse.builder()
                 .faqId(entry.getFaqId())
@@ -386,6 +408,11 @@ public class CatalogServiceImpl implements CatalogService {
                 .build();
     }
 
+    // =========================================================================
+    // LUỒNG 9: QUẢN LÝ CÂY DANH MỤC HỆ THỐNG PHÂN CẤP ĐỆ QUY (UC-57)
+    // =========================================================================
+
+    // Luồng 9 - Bước 1: Dựng cấu trúc cây danh mục đệ quy (Recursive Tree Hierarchy)
     @Override
     public List<CatalogResponse.CategoryResponse> getCategoryTree(String rootName) {
         List<Category> categories = categoryRepository.findAllByOrderByNameAsc();
@@ -413,6 +440,7 @@ public class CatalogServiceImpl implements CatalogService {
         return List.of(toCategoryResponse(rootCategory, children));
     }
 
+    // Luồng 9 - Bước 2: Gom nhóm danh mục theo parentId bằng LinkedHashMap (Độ phức tạp O(N))
     private Map<Long, List<Category>> indexCategoriesByParent(List<Category> categories) {
         Map<Long, List<Category>> categoriesByParentId = new LinkedHashMap<>();
 
@@ -430,6 +458,7 @@ public class CatalogServiceImpl implements CatalogService {
         return toCategoryResponse(category, List.of());
     }
 
+    // Luồng 9 - Bước 3: Tạo danh mục mới kèm kiểm tra tính duy nhất trong cùng danh mục cha
     @Override
     @Transactional
     public CatalogResponse.CategoryResponse createCategory(CatalogRequest.UpsertCategoryRequest request) {
@@ -442,6 +471,7 @@ public class CatalogServiceImpl implements CatalogService {
         return toCategoryResponse(savedCategory, List.of());
     }
 
+    // Luồng 9 - Bước 4: Cập nhật danh mục kèm chống tạo chu trình đệ quy vô hạn (Anti-circular dependency)
     @Override
     @Transactional
     public CatalogResponse.CategoryResponse updateCategory(Long categoryId, CatalogRequest.UpsertCategoryRequest request) {
@@ -454,14 +484,17 @@ public class CatalogServiceImpl implements CatalogService {
         return toCategoryResponse(savedCategory, List.of());
     }
 
+    // Luồng 9 - Bước 5: Xóa an toàn danh mục với 2 lớp bảo vệ (Chống node mồ côi & Bảo toàn dữ liệu lớp học)
     @Override
     @Transactional
     public void deleteCategory(Long categoryId) {
         Category category = getRequiredCategory(categoryId);
+        // Lớp bảo vệ 1: Không cho xóa nếu vẫn còn danh mục con trực thuộc
         if (categoryRepository.existsByParent_CategoryId(categoryId)) {
             throw new IllegalArgumentException("Không thể xóa danh mục vẫn còn danh mục con.");
         }
 
+        // Lớp bảo vệ 2: Không cho xóa nếu danh mục đang được gắn vào lớp học
         if (tutoringClassRepository.existsByCategory_CategoryId(categoryId)) {
             throw new IllegalArgumentException("Không thể xóa danh mục đang được dùng cho lớp học.");
         }

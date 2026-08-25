@@ -204,6 +204,9 @@ public class PlatformServiceImpl implements PlatformService {
         return platformMapper.toUserListItem(saved, profiles);
     }
 
+    // =========================================================================
+    // LUỒNG 8: BẢNG ĐIỀU KHIỂN QUẢN TRỊ & GIÁM SÁT CHỈ SỐ SỨC KHỎE DASHBOARD (UC-56)
+    // =========================================================================
     @Override
     @Transactional(readOnly = true)
     public DashboardResponse getDashboard(LocalDate from, LocalDate to, String granularity) {
@@ -213,9 +216,11 @@ public class PlatformServiceImpl implements PlatformService {
         com.tcs.module.platform.dto.response.TaskQueueSummaryResponse taskSummary = taskQueueService.getSummary();
         com.tcs.module.platform.dto.response.AnalyticsSummaryResponse analyticsSummary = analyticsService.getSummary(effectiveFrom, effectiveTo);
 
+        // Luồng 8 - Phân vùng 5: Xem trước danh sách nhiệm vụ trực ban khẩn cấp
         com.tcs.module.platform.dto.response.PageTaskItemResponse queueResponse = taskQueueService.listTasks("ALL", null, null, 0, 10);
         java.util.List<com.tcs.module.platform.dto.response.TaskItemResponse> queuePreview = queueResponse.getContent();
 
+        // Luồng 8 - Phân vùng 1: Khối cảnh báo rủi ro vận hành (Risk Summary)
         com.tcs.module.platform.dto.response.RiskSummaryResponse riskSummary = com.tcs.module.platform.dto.response.RiskSummaryResponse.builder()
                 .overdueTickets(taskSummary.getOverdueCount())
                 .openDisputes(taskSummary.getOpenDisputes())
@@ -224,6 +229,7 @@ public class PlatformServiceImpl implements PlatformService {
                 .unhandledReports(taskSummary.getOpenReports())
                 .build();
         
+        // Luồng 8 - Phân vùng 2: Khối dòng tiền tài chính & Tỷ lệ phí sàn (Financial Flow)
         com.tcs.module.platform.dto.response.FinancialFlowResponse financialFlow = com.tcs.module.platform.dto.response.FinancialFlowResponse.builder()
                 .moneyIn(analyticsSummary.getMoneyIn())
                 .moneyOut(analyticsSummary.getMoneyOut())
@@ -239,7 +245,7 @@ public class PlatformServiceImpl implements PlatformService {
         LocalDateTime rangeStart = effectiveFrom.atStartOfDay();
         LocalDateTime rangeEnd = effectiveTo.plusDays(1).atStartOfDay();
 
-        // --- Active Tutors ---
+        // Luồng 8 - Phân vùng 3: Khối sức khỏe Gia sư & Trung tâm (Tutor & Center Health)
         long activeTutors = 0;
         long newTutors = 0;
         long verifiedTutors = 0;
@@ -1076,6 +1082,11 @@ public class PlatformServiceImpl implements PlatformService {
         };
     }
 
+    // =========================================================================
+    // LUỒNG 4: ADMIN TIẾP NHẬN, XỬ LÝ & ĐO LƯỜNG RESPONSE SLA (UC-66)
+    // =========================================================================
+
+    // Luồng 4 - Bước 2: Admin gửi phản hồi Ticket & Đo lường First Response SLA
     @Override
     @Transactional
     public SupportTicketDetailResponse respondToTicket(Long ticketId, RespondTicketRequest request) {
@@ -1085,10 +1096,12 @@ public class PlatformServiceImpl implements PlatformService {
         SupportTicket ticket = findTicketOrThrow(ticketId);
         PlatformAdmin admin = currentAdminOrThrow();
 
+        // Luồng 4 - Bước 3: Thuật toán tự động gán Admin xử lý đầu tiên làm PIC (Auto-Assignment)
         if (ticket.getAssignedAdmin() == null) {
             ticket.setAssignedAdmin(admin);
         }
 
+        // Luồng 4 - Bước 4: Lưu tin nhắn phản hồi của Admin
         TicketMessage message = new TicketMessage();
         message.setTicket(ticket);
         message.setSender(admin.getUser());
@@ -1096,23 +1109,28 @@ public class PlatformServiceImpl implements PlatformService {
         message.setContent(request.getContent());
         ticketMessageRepository.save(message);
 
+        // Luồng 4 - Bước 5: Chuyển trạng thái sang IN_REVIEW
         if (ticket.getStatus() != SupportTicketStatus.RESOLVED && ticket.getStatus() != SupportTicketStatus.CLOSED) {
             ticket.setStatus(SupportTicketStatus.IN_REVIEW);
         }
         LocalDateTime now = LocalDateTime.now();
+        // Thuật toán đo lường thời gian phản hồi đầu tiên (First Response SLA Tracking)
         if (ticket.getResponseSlaMs() == null && ticket.getCreatedAt() != null) {
             ticket.setResponseSlaMs(java.time.Duration.between(ticket.getCreatedAt(), now).toMillis());
         }
+        // Kiểm tra vi phạm hạn chót xử lý
         if (ticket.getDueAt() != null && now.isAfter(ticket.getDueAt())) {
             ticket.setSlaBreached(true);
         }
         SupportTicket saved = supportTicketRepository.save(ticket);
 
+        // Luồng 4 - Bước 6: Phát thông báo tới người dùng & Ghi vết Audit Log
         notifyUserOfTicketResponse(saved, request.getContent());
         auditLogService.record("RESPOND_TICKET", "SupportTicket", ticketId, null, request);
         return toTicketDetail(saved);
     }
 
+    // Luồng 4 - Bước 7: Admin Đóng / Giải quyết Ticket (RESOLVED hoặc CLOSED)
     @Override
     @Transactional
     public SupportTicketDetailResponse closeTicket(Long ticketId, CloseTicketRequest request) {
@@ -1145,6 +1163,11 @@ public class PlatformServiceImpl implements PlatformService {
         return toTicketDetail(saved);
     }
 
+    // =========================================================================
+    // LUỒNG 5: GỘP TICKET TRÙNG LẶP & CHUYỂN SANG LUỒNG KHIẾU NẠI (UC-66, BF-08)
+    // =========================================================================
+
+    // Luồng 5A: Gộp Ticket trùng lặp của cùng một người dùng
     @Override
     @Transactional
     public SupportTicketDetailResponse mergeTicket(
@@ -1160,6 +1183,7 @@ public class PlatformServiceImpl implements PlatformService {
         SupportTicket targetTicket = findTicketOrThrow(request.getTargetTicketId());
         PlatformAdmin admin = currentAdminOrThrow();
 
+        // Kiểm tra an toàn: Bắt buộc 2 ticket phải thuộc cùng một người dùng
         if (!sourceTicket.getUser().getUserId().equals(targetTicket.getUser().getUserId())) {
             throw new IllegalArgumentException("Chỉ có thể gộp các ticket của cùng một người dùng");
         }
@@ -1196,7 +1220,7 @@ public class PlatformServiceImpl implements PlatformService {
         }
         SupportTicket savedSource = supportTicketRepository.save(sourceTicket);
 
-        // 3. Ghi audit log
+        // 3. Ghi Audit Log hành động MERGE_TICKET
         Map<String, Object> newMeta = new java.util.HashMap<>();
         newMeta.put("newStatus", SupportTicketStatus.CLOSED);
         newMeta.put("targetTicketId", request.getTargetTicketId());
@@ -1213,11 +1237,17 @@ public class PlatformServiceImpl implements PlatformService {
         return toTicketDetail(savedSource);
     }
 
+    // =========================================================================
+    // LUỒNG 7: QUÉT ĐỊNH KỲ & NÂNG CẤP KHẨN CẤP TICKET QUÁ HẠN SLA (JOB-11)
+    // =========================================================================
+
+    // Luồng 7 - Quét định kỳ mỗi 10 phút, tìm và nâng mức ưu tiên cho ticket quá hạn SLA
     @Override
     @Transactional
     public int scanAndEscalateSlaBreaches() {
         LocalDateTime now = LocalDateTime.now();
         List<SupportTicketStatus> excludedStatuses = List.of(SupportTicketStatus.RESOLVED, SupportTicketStatus.CLOSED);
+        // Truy vấn tìm các ticket chưa giải quyết có dueAt < now và slaBreached = false
         List<SupportTicket> breachedCandidates = supportTicketRepository.findBreachedCandidateTickets(excludedStatuses, now);
 
         if (breachedCandidates.isEmpty()) {
@@ -1229,13 +1259,14 @@ public class PlatformServiceImpl implements PlatformService {
 
         for (SupportTicket ticket : breachedCandidates) {
             SupportTicketPriority oldPriority = ticket.getPriority();
+            // Thuật toán thăng cấp lũy tiến (LOW -> MEDIUM -> HIGH -> URGENT)
             SupportTicketPriority newPriority = escalatePriority(oldPriority);
 
             ticket.setSlaBreached(true);
             ticket.setPriority(newPriority);
             supportTicketRepository.save(ticket);
 
-            // Ghi audit log
+            // Ghi Audit Log hành động SLA_BREACH_ESCALATION
             auditLogService.record(
                     "SLA_BREACH_ESCALATION",
                     "SupportTicket",
@@ -1243,7 +1274,7 @@ public class PlatformServiceImpl implements PlatformService {
                     Map.of("oldPriority", oldPriority, "slaBreached", false),
                     Map.of("newPriority", newPriority, "slaBreached", true));
 
-            // Gửi thông báo nhắc nhở đến Admin
+            // Gửi thông báo nhắc nhở cảnh báo khẩn cấp đến Admin
             String adminTitle = "Cảnh báo quá hạn SLA Ticket #" + ticket.getTicketId();
             String adminContent = "Yêu cầu hỗ trợ #" + ticket.getTicketId() + " (" + ticket.getSubject()
                     + ") đã quá hạn phản hồi. Hệ thống đã tự động nâng độ ưu tiên lên " + newPriority + ". Vui lòng kiểm tra và xử lý gấp.";
@@ -1270,7 +1301,7 @@ public class PlatformServiceImpl implements PlatformService {
                 }
             }
 
-            // Gửi thông báo cập nhật tiến độ cho người dùng
+            // Gửi thông báo cập nhật tiến độ và xin lỗi người dùng vì sự chậm trễ
             if (ticket.getUser() != null) {
                 String userTitle = "Cập nhật tiến độ: Yêu cầu hỗ trợ #" + ticket.getTicketId();
                 String userContent = "Yêu cầu hỗ trợ #" + ticket.getTicketId()
@@ -1298,6 +1329,7 @@ public class PlatformServiceImpl implements PlatformService {
         };
     }
 
+    // Luồng 5B: Chuyển Ticket sang luồng Xử lý Tranh chấp & Báo cáo sự cố (BF-08)
     @Override
     @Transactional
     public SupportTicketDetailResponse redirectTicketToDispute(
@@ -1346,7 +1378,7 @@ public class PlatformServiceImpl implements PlatformService {
         transferMessage.setContent(msgBuilder.toString());
         ticketMessageRepository.save(transferMessage);
 
-        // 4. Nếu có lớp học, tạo một bản ghi Report dạng CLASS để hiển thị trên /platform/reports
+        // 4. Nếu có lớp học, tạo một bản ghi Report dạng CLASS để hiển thị trên /platform/reports (Tích hợp liên phân hệ BF-08)
         if (tutoringClass != null) {
             com.tcs.module.platform.entity.Report report = new com.tcs.module.platform.entity.Report();
             report.setReporter(ticket.getUser());

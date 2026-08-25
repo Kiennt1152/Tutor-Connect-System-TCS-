@@ -62,6 +62,9 @@ public class PlatformController {
         return platformService.updateUserStatus(userId, request);
     }
 
+    // =========================================================================
+    // LUỒNG 8: BẢNG ĐIỀU KHIỂN QUẢN TRỊ & GIÁM SÁT SỨC KHỎE DASHBOARD (UC-56)
+    // =========================================================================
     @GetMapping("/dashboard")
     public DashboardResponse getDashboard(
             @RequestParam(required = false) LocalDate from,
@@ -129,6 +132,9 @@ public class PlatformController {
         return platformService.resolveReviewReport(reportId, request);
     }
 
+    // =========================================================================
+    // LUỒNG 4: ADMIN TIẾP NHẬN, XỬ LÝ & ĐO LƯỜNG RESPONSE SLA (UC-66)
+    // =========================================================================
     @GetMapping("/tickets")
     public PageSupportTicketResponse getTickets(
             @RequestParam(defaultValue = "0") int page,
@@ -151,30 +157,41 @@ public class PlatformController {
         return platformService.updateTicket(ticketId, request);
     }
 
+    // Luồng 4 - Bước 2: Admin gửi phản hồi Ticket & Kích hoạt đo lường First Response SLA
     @PostMapping("/tickets/{ticketId}/messages")
     public SupportTicketDetailResponse respondToTicket(
             @PathVariable Long ticketId, @Valid @RequestBody RespondTicketRequest request) {
         return platformService.respondToTicket(ticketId, request);
     }
 
+    // Luồng 4 - Bước 7: Admin đóng / giải quyết ticket
     @PatchMapping("/tickets/{ticketId}/status")
     public SupportTicketDetailResponse closeTicket(
             @PathVariable Long ticketId, @Valid @RequestBody CloseTicketRequest request) {
         return platformService.closeTicket(ticketId, request);
     }
 
+    // =========================================================================
+    // LUỒNG 5: GỘP TICKET TRÙNG LẶP & CHUYỂN TIẾP TRANH CHẤP (UC-66, BF-08)
+    // =========================================================================
+
+    // Luồng 5A: Gộp ticket nguồn vào ticket đích của cùng một người dùng
     @PostMapping("/tickets/{ticketId}/merge")
     public SupportTicketDetailResponse mergeTicket(
             @PathVariable Long ticketId, @Valid @RequestBody com.tcs.module.platform.dto.request.MergeTicketRequest request) {
         return platformService.mergeTicket(ticketId, request);
     }
 
+    // Luồng 5B: Chuyển Ticket sang luồng Tranh chấp Khiếu nại tạo bản ghi Report sang BF-08
     @PostMapping("/tickets/{ticketId}/redirect-dispute")
     public SupportTicketDetailResponse redirectTicketToDispute(
             @PathVariable Long ticketId, @RequestBody com.tcs.module.platform.dto.request.RedirectDisputeRequest request) {
         return platformService.redirectTicketToDispute(ticketId, request);
     }
 
+    // =========================================================================
+    // LUỒNG 7: KÍCH HOẠT QUÉT THỦ CÔNG & NÂNG CẤP TICKET QUÁ HẠN SLA (JOB-11)
+    // =========================================================================
     @PostMapping("/tickets/sla/scan")
     public java.util.Map<String, Object> triggerSlaScan() {
         int count = platformService.scanAndEscalateSlaBreaches();

@@ -45,6 +45,11 @@ public class AuditLogServiceImpl implements AuditLogService {
     private final ClientRepository clientRepository;
     private final PlatformMapper platformMapper;
 
+    // =========================================================================
+    // LUỒNG 11: GIÁM SÁT NHẬT KÝ KIỂM TOÁN & SO VẾT THAY ĐỔI JSON DIFF (UC-61)
+    // =========================================================================
+
+    // Luồng 11 - Bước 1: Ghi nhận vết kiểm toán tự động từ SecurityContext
     @Override
     public void record(String action, String entityType, Long entityId, Object oldValue, Object newValue) {
         Long userId = null;
@@ -56,6 +61,7 @@ public class AuditLogServiceImpl implements AuditLogService {
         record(userId, action, entityType, entityId, oldValue, newValue);
     }
 
+    // Luồng 11 - Bước 2: Khởi tạo thực thể AuditLog, tuần tự hóa JSON Diff và trích xuất IP/User-Agent
     @Override
     public void record(Long actorUserId, String action, String entityType, Long entityId, Object oldValue, Object newValue) {
         AuditLog auditLog = new AuditLog();
@@ -72,6 +78,7 @@ public class AuditLogServiceImpl implements AuditLogService {
             log.warn("Could not retrieve actor for audit log", e);
         }
 
+        // Tuần tự hóa đối tượng cũ và mới sang chuỗi JSON (JSON Diff snapshot)
         try {
             if (oldValue != null) {
                 auditLog.setOldValue(objectMapper.writeValueAsString(oldValue));
@@ -83,6 +90,7 @@ public class AuditLogServiceImpl implements AuditLogService {
             log.warn("Could not serialize audit log values", e);
         }
 
+        // Tự động bắt địa chỉ IP và định danh trình duyệt Client thông qua RequestContextHolder
         try {
             ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
             if (attributes != null) {
@@ -97,6 +105,7 @@ public class AuditLogServiceImpl implements AuditLogService {
         auditLogRepository.save(auditLog);
     }
 
+    // Luồng 11 - Bước 3: Tra cứu & phân trang danh sách nhật ký kiểm toán đa tiêu chí
     @Override
     public PageAuditLogResponse search(Long actorId, String actorRole, String action, String entityType,
             String keyword, LocalDateTime from, LocalDateTime to, int page, int size) {

@@ -102,32 +102,38 @@ const CATEGORY_MAP: Record<string, string> = {
 
 export default function HelpPage() {
   const { user } = useAuth();
+  
+  // LUỒNG 1 - BƯỚC 1 & 7: Quản lý trạng thái tìm kiếm FAQ, bộ lọc danh mục và phân trang
   const { status, items, keyword, setKeyword, category, setCategory, errorMessage, reload } = useFaqSearch();
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);
   const [searchDraft, setSearchDraft] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
-  // Reset to page 1 when search keyword, category or item list changes
+  // Tự động reset về trang 1 và đóng các accordion khi thay đổi từ khóa, danh mục hoặc danh sách kết quả
   useEffect(() => {
     setCurrentPage(1);
     setOpenFaqId(null);
   }, [keyword, category, items.length]);
 
+  // Xử lý khi người dùng submit form tìm kiếm từ khóa
   const handleSearch = (e: FormEvent) => {
     e.preventDefault();
-    setKeyword(searchDraft);
+    setKeyword(searchDraft); // Kích hoạt reload FAQ với keyword mới
   };
 
+  // Xử lý khi người dùng bấm chọn một thẻ danh mục
   const handleCategorySelect = (selectedCat: string) => {
-    setCategory(selectedCat);
+    setCategory(selectedCat); // Kích hoạt reload FAQ với category mới
   };
 
+  // Xóa toàn bộ bộ lọc tìm kiếm (reset cả keyword và category)
   const handleClearFilters = () => {
     setSearchDraft('');
     setKeyword('');
     setCategory('');
   };
 
+  // Tính toán phân trang cục bộ (Client-side Pagination: 8 câu/trang)
   const totalPages = Math.max(1, Math.ceil(items.length / PAGE_SIZE));
   const startIndex = (currentPage - 1) * PAGE_SIZE;
   const endIndex = Math.min(startIndex + PAGE_SIZE, items.length);
@@ -162,7 +168,7 @@ export default function HelpPage() {
           <button className="help-page__search-btn" type="submit">Tìm kiếm</button>
         </form>
 
-        {/* Category Chips Bar */}
+        {/* BƯỚC 1: Render thanh Category Tabs dạng Pill */}
         <div className="help-category-bar" role="tablist" aria-label="Lọc theo danh mục">
           {FAQ_CATEGORIES.map((cat) => {
             const isActive = category === cat.key;
@@ -183,10 +189,11 @@ export default function HelpPage() {
       </div>
 
       <div className="help-page__body">
-        {/* FAQ accordion */}
+        {/* BƯỚC 7: FAQ Accordion Section */}
         <section>
           <div className="help-faq__header-row">
             <h2 className="help-faq__heading">
+              {/* Tiêu đề tự động cập nhật theo tên danh mục đang chọn */}
               {category ? (CATEGORY_MAP[category] || category) : 'Câu hỏi thường gặp'}
               {status === 'success' && <span className="help-faq__count">{items.length}</span>}
             </h2>
@@ -208,6 +215,7 @@ export default function HelpPage() {
             </p>
           )}
 
+          {/* Hiển thị thông báo trạng thái rỗng thông minh theo ngữ cảnh */}
           {status === 'success' && items.length === 0 && (
             <div className="help-faq__empty-box">
               <p className="help-faq__empty">
@@ -231,6 +239,7 @@ export default function HelpPage() {
             </div>
           )}
 
+          {/* Render danh sách câu hỏi dạng Accordion */}
           {status === 'success' && paginatedItems.map((faq) => (
             <div key={faq.faqId} className="help-faq__item">
               <button
@@ -240,6 +249,7 @@ export default function HelpPage() {
                 aria-expanded={openFaqId === faq.faqId}
               >
                 <div className="help-faq__question-content">
+                  {/* Badge tag danh mục của từng bài viết */}
                   {faq.category && (
                     <span className="help-faq__category-tag">
                       {CATEGORY_MAP[faq.category] || faq.category}
