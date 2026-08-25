@@ -428,6 +428,7 @@ export function ClassIssueModal({
                       fileName={file.fileName}
                       mimeType={file.mimeType}
                       fileSize={file.fileSize}
+                      showHoverPreview={false}
                       actions={
                         <button
                           className="issue-evidence-remove"

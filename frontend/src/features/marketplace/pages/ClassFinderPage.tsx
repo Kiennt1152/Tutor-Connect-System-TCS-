@@ -1,148 +1,174 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
-import { VerificationHeader } from '../../../shared/components/VerificationHeader';
+import { Link, useNavigate } from 'react-router-dom';
+import { SiteHeader } from '../../home/components/SiteHeader';
+import { SiteFooter } from '../../home/components/SiteFooter';
 import { marketplaceApi } from '../api/marketplaceApi';
-import type { LessonMode, MarketplaceClass } from '../types/marketplaceTypes';
+import { ClassResultCard } from '../components/ClassResultCard';
+import { useClassSearch } from '../hooks/useClassSearch';
+import { searchClasses, type TutorCriteria } from '../matching/tutorMatching';
+import type { CatalogOption, ClassResponse } from '../types/marketplaceTypes';
+import '../../home/pages/HomePage.css';
+import '../../home/pages/FindTutorPage.css';
+import './MarketplacePage.css';
 import './ClassFinderPage.css';
 
-const LESSON_MODE_LABELS: Record<LessonMode, string> = {
-  ONLINE: 'Trực tuyến',
-  OFFLINE: 'Trực tiếp',
-  HYBRID: 'Kết hợp',
-};
-
-function extractError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
-    return error.response.data.message;
-  }
-  return fallback;
-}
-
-function formatCurrency(value: number): string {
-  return `${new Intl.NumberFormat('vi-VN').format(value)} đ`;
-}
+/** Cùng cỡ trang với màn gia sư: 6 lớp / trang (2 cột × 3 hàng). */
+const PAGE_SIZE = 6;
 
 export default function ClassFinderPage() {
   const navigate = useNavigate();
-  const [classes, setClasses] = useState<MarketplaceClass[]>([]);
+  const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
-  const [error, setError] = useState('');
-  const [query, setQuery] = useState('');
+  const [subjects, setSubjects] = useState<CatalogOption[]>([]);
+  const [grades, setGrades] = useState<CatalogOption[]>([]);
+  const [provinces, setProvinces] = useState<CatalogOption[]>([]);
+  /** { key: bộ tiêu chí đã sinh ra trang này, page: số trang }. */
+  const [paged, setPaged] = useState<{ key: TutorCriteria | null; page: number }>({
+    key: null,
+    page: 1,
+  });
 
   useEffect(() => {
-    setStatus('loading');
-    marketplaceApi
-      .getOpenClasses()
-      .then((res) => {
-        setClasses(res.data);
-        setStatus('success');
-      })
-      .catch((err) => {
-        setError(extractError(err, 'Không tải được danh sách lớp.'));
-        setStatus('error');
-      });
+    marketplaceApi.listSubjects().then(setSubjects).catch(() => setSubjects([]));
+    marketplaceApi.listGrades().then(setGrades).catch(() => setGrades([]));
+    marketplaceApi.listProvinces().then(setProvinces).catch(() => setProvinces([]));
   }, []);
 
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return classes;
-    return classes.filter((c) =>
-      [c.title, c.subjectName, c.gradeName]
-        .filter(Boolean)
-        .some((v) => (v as string).toLowerCase().includes(q)),
-    );
-  }, [classes, query]);
+  useEffect(() => {
+    marketplaceApi
+      .listOpenClasses()
+      .then((data) => {
+        setClasses(data);
+        setStatus('success');
+      })
+      .catch(() => setStatus('error'));
+  }, []);
 
-  const openDetail = (classId: number) => navigate(`/marketplace/classes/${classId}`);
+  // Đúng thanh tìm của màn gia sư: ô gõ nhanh + 5 ô lọc + 5 thanh trượt ưu tiên.
+  const search = useClassSearch({ subjects, grades, provinces, classes });
+  const results = useMemo(
+    () => searchClasses(classes, search.criteria),
+    [classes, search.criteria],
+  );
+
+  // Kết quả đổi (tìm mới / lọc khác) -> quay về trang 1. Gắn số trang vào chính bộ tiêu chí
+  // đã sinh ra nó: tiêu chí đổi thì số trang cũ hết hiệu lực ngay trong lần render đó, không
+  // phải đợi một nhịp effect mới nhảy về đầu.
+  const page = paged.key === search.criteria ? paged.page : 1;
+  const pageCount = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount);
+  const pageResults = results.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   return (
-    <>
-      <VerificationHeader />
-      <div className="mk-page">
-        <section className="mk-hero">
-          <div className="mk-hero__text">
-            <span className="mk-hero__eyebrow">Khám phá lớp học</span>
-            <h1 className="mk-hero__title">Tìm lớp phù hợp với bạn</h1>
-            <p className="mk-hero__sub">
-              Duyệt các lớp đang mở đăng ký. Bấm vào một lớp để xem chi tiết và đăng ký.
-            </p>
-          </div>
-          <div className="mk-search">
-            <span className="mk-search__icon" aria-hidden="true">🔍</span>
-            <input
-              className="mk-search__input"
-              placeholder="Tìm theo tên lớp, môn học, khối/lớp…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+    <div className="tcs-page">
+      <SiteHeader />
+      <main>
+        <section className="tcs-home-hero tcs-find-hero">
+          <div className="tcs-container">
+            <div className="tcs-find-hero__intro tcs-find-hero__intro--left">
+              <Link className="tcs-find-back" to="/">← Trang chủ</Link>
+              <h1 className="tcs-find-title tcs-find-title--left">
+                <span className="tcs-find-title__text tcs-find-title__text--plain">
+                  Tìm lớp phù hợp với bạn
+                </span>
+              </h1>
+              <p className="tcs-find-subtitle tcs-find-subtitle--sm">
+                Cho biết bạn cần học môn gì, ở đâu, mức học phí bao nhiêu — hệ thống tự chấm
+                điểm và xếp hạng các lớp đang mở để bạn dễ chọn lớp đăng ký.
+              </p>
+            </div>
+
+            <div className="tfc-container">
+              <div className="tfc">
+                {search.bar}
+
+                <section className="tfc-results" id="tfc-results">
+                  <header className="tfc-results__head">
+                    <h2>{search.hasFilter ? 'Lớp phù hợp với bạn' : 'Tất cả lớp đang mở'}</h2>
+                    <span className="tfc-results__count">
+                      {status === 'success'
+                        ? search.hasFilter && search.selectedCount > 0
+                          ? `${results.length} lớp môn: ${search.subjectNames}`
+                          : `${results.length} lớp đang mở`
+                        : ''}
+                    </span>
+                  </header>
+
+                  {status === 'loading' && (
+                    <div className="tfc-state">Đang tải danh sách lớp…</div>
+                  )}
+                  {status === 'error' && (
+                    <div className="tfc-state tfc-state--error">
+                      Không tải được danh sách lớp.
+                    </div>
+                  )}
+                  {status === 'success' && results.length === 0 && (
+                    <div className="tfc-state">
+                      {search.hasFilter && search.selectedCount > 0
+                        ? `Chưa có lớp nào môn: ${search.subjectNames}. Thử môn khác nhé.`
+                        : 'Hiện chưa có lớp nào đang mở đăng ký.'}
+                    </div>
+                  )}
+
+                  <div className="tfc-list">
+                    {pageResults.map((r) => (
+                      <ClassResultCard
+                        key={r.parsed.raw.classId}
+                        result={r}
+                        subjectName={search.subjectName}
+                        gradeName={search.gradeName}
+                        showScore={search.hasFilter}
+                        actions={
+                          <button
+                            type="button"
+                            className="tfc-btn tfc-btn--primary"
+                            onClick={() => navigate(`/marketplace/classes/${r.parsed.raw.classId}`)}
+                          >
+                            Xem chi tiết
+                          </button>
+                        }
+                      />
+                    ))}
+                  </div>
+
+                  {pageCount > 1 && (
+                    <nav className="tfc-pager" aria-label="Phân trang danh sách lớp">
+                      <button
+                        type="button"
+                        className="tfc-pager__btn"
+                        disabled={safePage <= 1}
+                        onClick={() => setPaged({ key: search.criteria, page: Math.max(1, safePage - 1) })}
+                      >
+                        ← Trước
+                      </button>
+                      {Array.from({ length: pageCount }, (_, i) => i + 1).map((n) => (
+                        <button
+                          key={n}
+                          type="button"
+                          className={`tfc-pager__num${n === safePage ? ' is-active' : ''}`}
+                          aria-current={n === safePage ? 'page' : undefined}
+                          onClick={() => setPaged({ key: search.criteria, page: n })}
+                        >
+                          {n}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        className="tfc-pager__btn"
+                        disabled={safePage >= pageCount}
+                        onClick={() => setPaged({ key: search.criteria, page: Math.min(pageCount, safePage + 1) })}
+                      >
+                        Sau →
+                      </button>
+                    </nav>
+                  )}
+                </section>
+              </div>
+            </div>
           </div>
         </section>
-
-        {status === 'loading' && <div className="mk-state">Đang tải danh sách lớp…</div>}
-        {status === 'error' && <div className="mk-state mk-state--error">{error}</div>}
-        {status === 'success' && classes.length === 0 && (
-          <div className="mk-empty">
-            <div className="mk-empty__emoji">📭</div>
-            <p>Hiện chưa có lớp nào đang mở đăng ký.</p>
-          </div>
-        )}
-        {status === 'success' && classes.length > 0 && filtered.length === 0 && (
-          <div className="mk-empty">
-            <div className="mk-empty__emoji">🔎</div>
-            <p>Không tìm thấy lớp phù hợp với “{query}”.</p>
-          </div>
-        )}
-
-        {status === 'success' && filtered.length > 0 && (
-          <>
-            <p className="mk-count">
-              {filtered.length} lớp{query.trim() ? ` khớp “${query.trim()}”` : ' đang mở'}
-            </p>
-            <div className="mk-grid">
-              {filtered.map((c) => (
-                <button
-                  type="button"
-                  className="mk-card"
-                  key={c.classId}
-                  onClick={() => openDetail(c.classId)}
-                >
-                  <span className="mk-card__accent" aria-hidden="true" />
-                  <div className="mk-card__body">
-                    <h2 className="mk-card__title">{c.title}</h2>
-
-                    <div className="mk-tags">
-                      {c.subjectName && <span className="mk-tag mk-tag--subject">{c.subjectName}</span>}
-                      {c.gradeName && <span className="mk-tag">{c.gradeName}</span>}
-                      <span className="mk-tag">{LESSON_MODE_LABELS[c.lessonMode]}</span>
-                    </div>
-
-                    <ul className="mk-facts">
-                      <li>
-                        <span className="mk-facts__ic" aria-hidden="true">🗓️</span>
-                        {c.startDate} → {c.endDate}
-                      </li>
-                      <li>
-                        <span className="mk-facts__ic" aria-hidden="true">📚</span>
-                        {c.numberOfSessions} buổi
-                      </li>
-                      <li>
-                        <span className="mk-facts__ic" aria-hidden="true">👥</span>
-                        Tối đa {c.maxStudents ?? '—'} học sinh
-                      </li>
-                    </ul>
-                  </div>
-
-                  <div className="mk-card__foot">
-                    <span className="mk-fee">{formatCurrency(c.tuitionFee)}</span>
-                    <span className="mk-card__cta">Xem chi tiết →</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
-    </>
+      </main>
+      <SiteFooter />
+    </div>
   );
 }

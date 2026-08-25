@@ -13,6 +13,50 @@ import './HomePage.css';
 import './FindTutorPage.css';
 import '../../marketplace/pages/MarketplacePage.css';
 
+/*
+ * ============================================================================
+ * MÀN "TÌM YÊU CẦU GIẢNG DẠY"  —  route /tim-yeu-cau-giang-day
+ * ============================================================================
+ *
+ * MỘT ROUTE, HAI MÀN KHÁC HẲN NHAU
+ * Đây là chỗ dễ nhầm nhất. Cùng một đường dẫn nhưng ai đăng nhập sẽ quyết định
+ * render cái gì:
+ *   • TUTOR / TUTOR_CENTER  → <TutorFindClassPage> — màn tìm lớp có chấm điểm
+ *                              phù hợp, thanh trượt ưu tiên, nút "Ứng tuyển".
+ *   • Vai khác / chưa login → <OpenClassListPage>  — chỉ là danh sách lớp trơn.
+ * Nên khi sửa gì ở màn này, luôn tự hỏi: mình đang sửa nhánh nào.
+ *
+ * ĐIỀU QUAN TRỌNG NHẤT CẦN BIẾT
+ * Backend KHÔNG chấm điểm và KHÔNG xếp hạng gì cả. Nó chỉ trả về danh sách lớp
+ * đang mở (GET /marketplace/classes?status=OPEN). Toàn bộ việc chấm "80% phù
+ * hợp" và sắp thứ tự chạy ngay trong trình duyệt, ở matching/tutorMatching.tsx.
+ *
+ * Hệ quả thực tế:
+ *   - Sửa công thức chấm điểm thì KHÔNG cần restart backend, chỉ cần F5.
+ *   - Nhưng trình duyệt phải tải về TẤT CẢ lớp đang mở rồi mới lọc. Hiện ~95 lớp
+ *     nên chạy thoải mái; nếu sau này lên hàng chục nghìn lớp thì phải chuyển
+ *     việc lọc/chấm điểm xuống backend.
+ *
+ * BA TỆP LÀM NÊN NHÁNH GIA SƯ (đọc theo thứ tự này là hiểu)
+ *   1. TutorFindClass.tsx      — người điều phối: tải lớp, phân trang, mở modal.
+ *   2. useClassSearch.tsx      — dựng cả khối tìm kiếm: ô gõ nhanh + bộ phân tích
+ *                                câu tiếng Việt + 5 ô lọc + 5 thanh trượt ưu tiên.
+ *                                Nó trả về `bar` (JSX) và `criteria` (tiêu chí đã
+ *                                chốt) — chỉ đổi khi bấm Tìm, không đổi lúc gõ.
+ *   3. tutorMatching.tsx       — thuật toán chấm điểm. Đọc chú thích trong đó.
+ *
+ * LUỒNG MỘT LẦN TÌM
+ *   gõ câu → bấm Tìm → useClassSearch chốt `criteria`
+ *          → searchClasses(classes, criteria) chấm điểm từng lớp, sắp giảm dần
+ *          → cắt 6 lớp/trang → ClassResultCard vẽ ra
+ *
+ * NÚT "ỨNG TUYỂN"
+ *   ApplyClassModal hiện hồ sơ gia sư (GET /profile/me) cho người dùng soát lại,
+ *   nhập báo giá TỪNG MÔN, rồi POST /marketplace/classes/{id}/apply.
+ *   Danh sách lớp đã nộp đơn lấy từ GET /marketplace/applications/mine để đổi nút
+ *   thành "✓ Đã ứng tuyển".
+ */
+
 export default function FindClassPage() {
   const { user, isAuthenticated } = useAuth();
   const isTutor = hasAnyRole(user?.role, ['TUTOR', 'TUTOR_CENTER']);

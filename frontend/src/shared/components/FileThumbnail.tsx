@@ -9,6 +9,7 @@ export interface FileThumbnailProps {
   readonly mimeType: string | null;
   readonly fileSize: number | null;
   readonly actions?: ReactNode;
+  readonly showHoverPreview?: boolean;
   /**
    * MediaFile id. Bắt buộc với file riêng tư (CCCD, giấy tờ, hồ sơ xác minh):
    * các file này nằm sau /api/files/private/{fileId} và cần JWT, mà thẻ <img>
@@ -24,6 +25,7 @@ export function FileThumbnail({
   fileSize,
   actions,
   fileId,
+  showHoverPreview = true,
 }: FileThumbnailProps) {
   const [modalOpen, setModalOpen] = useState(false);
   const [hoverPreview, setHoverPreview] = useState(false);
@@ -76,7 +78,7 @@ export function FileThumbnail({
   const isPdf = mimeType === 'application/pdf';
 
   function handleMouseEnter() {
-    if (isImage || isPdf) setHoverPreview(true);
+    if (showHoverPreview && (isImage || isPdf)) setHoverPreview(true);
   }
 
   function handleMouseLeave() {
@@ -125,7 +127,7 @@ export function FileThumbnail({
 
       {actions && <div className="ft-actions">{actions}</div>}
 
-      {hoverPreview && (isImage || isPdf) && (
+      {showHoverPreview && hoverPreview && (isImage || isPdf) && (
         <div className="ft-popover" role="tooltip">
           <div className="ft-popover__body">
             {isImage && resolvedSrc ? (
