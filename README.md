@@ -331,8 +331,8 @@ npx sonar-scanner
 
 | Full Name | Role | Responsibilities |
 |---|:---:|---|
-| **Nguyen Trung Kien** | Tech Lead / Developer | System Architecture, Escrow FinTech, AI Engine, Deployment |
-| **Hoang Khoi Nguyen** | Business Analyst / PM | Product Requirements (PRD), Use Cases (UCS), Testing Plan |
+| **Nguyen Trung Kien** | Business Analyst / PM | System Architecture, Escrow FinTech, AI Engine, Deployment |
+| **Hoang Khoi Nguyen** | Tech Lead / Developer | Product Requirements (PRD), Use Cases (UCS), Testing Plan |
 | **Development Team Members** | Dev & QA | Feature Engineering, L1/L2 Test Suite, Quality Assurance |
 
 ---
