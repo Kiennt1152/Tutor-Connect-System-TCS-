@@ -11,4 +11,11 @@ public class ChatRequest {
     private Long sessionId;
     
     private String userRole;
+
+    public String getMessage() { return message; }
+    public void setMessage(String message) { this.message = message; }
+    public Long getSessionId() { return sessionId; }
+    public void setSessionId(Long sessionId) { this.sessionId = sessionId; }
+    public String getUserRole() { return userRole; }
+    public void setUserRole(String userRole) { this.userRole = userRole; }
 }

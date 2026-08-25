@@ -67,4 +67,12 @@ public class Wallet implements Persistable<Long> {
     public boolean isNew() {
         return createdAt == null;
     }
+
+    public Long getWalletId() { return walletId; }
+    public User getUser() { return user; }
+    public BigDecimal getAvailableBalance() { return availableBalance; }
+    public BigDecimal getFrozenBalance() { return frozenBalance; }
+    public WalletStatus getStatus() { return status; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
 }

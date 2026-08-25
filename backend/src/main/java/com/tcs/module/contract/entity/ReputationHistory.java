@@ -48,4 +48,19 @@ public class ReputationHistory {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
+
+    public Long getHistoryId() { return historyId; }
+    public void setHistoryId(Long historyId) { this.historyId = historyId; }
+    public Tutor getTutor() { return tutor; }
+    public void setTutor(Tutor tutor) { this.tutor = tutor; }
+    public BigDecimal getOldScore() { return oldScore; }
+    public void setOldScore(BigDecimal oldScore) { this.oldScore = oldScore; }
+    public BigDecimal getNewScore() { return newScore; }
+    public void setNewScore(BigDecimal newScore) { this.newScore = newScore; }
+    public String getTriggerType() { return triggerType; }
+    public void setTriggerType(String triggerType) { this.triggerType = triggerType; }
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

@@ -1,13 +1,22 @@
 package com.tcs.module.ai.dto.response;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
-import lombok.Value;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-@Value
+@Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class FaqReferenceDto {
-    Long faqId;
-    String question;
-    String answer;
-    String category;
+    private Long faqId;
+    private String question;
+    private String answer;
+    private String category;
+
+    public Long getFaqId() { return faqId; }
+    public String getQuestion() { return question; }
+    public String getAnswer() { return answer; }
+    public String getCategory() { return category; }
 }

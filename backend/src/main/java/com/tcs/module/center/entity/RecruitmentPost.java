@@ -81,4 +81,35 @@ public class RecruitmentPost {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public Long getRecruitmentId() { return recruitmentId; }
+    public void setRecruitmentId(Long recruitmentId) { this.recruitmentId = recruitmentId; }
+    public TutorCenter getCenter() { return center; }
+    public void setCenter(TutorCenter center) { this.center = center; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getRequirements() { return requirements; }
+    public void setRequirements(String requirements) { this.requirements = requirements; }
+    public String getBenefits() { return benefits; }
+    public void setBenefits(String benefits) { this.benefits = benefits; }
+    public Integer getRequiredExperience() { return requiredExperience; }
+    public void setRequiredExperience(Integer requiredExperience) { this.requiredExperience = requiredExperience; }
+    public Subject getSubject() { return subject; }
+    public void setSubject(Subject subject) { this.subject = subject; }
+    public Location getLocation() { return location; }
+    public void setLocation(Location location) { this.location = location; }
+    public Integer getMaxPositions() { return maxPositions; }
+    public void setMaxPositions(Integer maxPositions) { this.maxPositions = maxPositions; }
+    public RecruitmentPostStatus getStatus() { return status; }
+    public void setStatus(RecruitmentPostStatus status) { this.status = status; }
+    public LocalDateTime getPublishedAt() { return publishedAt; }
+    public void setPublishedAt(LocalDateTime publishedAt) { this.publishedAt = publishedAt; }
+    public LocalDateTime getClosedAt() { return closedAt; }
+    public void setClosedAt(LocalDateTime closedAt) { this.closedAt = closedAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

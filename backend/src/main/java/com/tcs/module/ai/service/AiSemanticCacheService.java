@@ -21,10 +21,11 @@ import org.springframework.transaction.annotation.Transactional;
  * =========================================================================
  * Lưu trữ và phục vụ tức thì (<50ms) các câu hỏi có độ tương đồng ngữ nghĩa Jaccard >= 0.85
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiSemanticCacheService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AiSemanticCacheService.class);
 
     private final AiQueryCacheRepository cacheRepository;
     private final TcsSynonymService synonymService;

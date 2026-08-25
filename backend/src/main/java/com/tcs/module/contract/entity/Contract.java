@@ -87,4 +87,35 @@ public class Contract {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public Long getContractId() { return contractId; }
+    public void setContractId(Long contractId) { this.contractId = contractId; }
+    public String getContractNo() { return contractNo; }
+    public void setContractNo(String contractNo) { this.contractNo = contractNo; }
+    public ClassAssignment getAssignment() { return assignment; }
+    public void setAssignment(ClassAssignment assignment) { this.assignment = assignment; }
+    public ClassStudent getClassStudent() { return classStudent; }
+    public void setClassStudent(ClassStudent classStudent) { this.classStudent = classStudent; }
+    public RecruitmentApplication getRecruitmentApplication() { return recruitmentApplication; }
+    public void setRecruitmentApplication(RecruitmentApplication recruitmentApplication) { this.recruitmentApplication = recruitmentApplication; }
+    public ContractTemplate getTemplate() { return template; }
+    public void setTemplate(ContractTemplate template) { this.template = template; }
+    public String getContractFileUrl() { return contractFileUrl; }
+    public void setContractFileUrl(String contractFileUrl) { this.contractFileUrl = contractFileUrl; }
+    public String getTermsSummary() { return termsSummary; }
+    public void setTermsSummary(String termsSummary) { this.termsSummary = termsSummary; }
+    public ContractStatus getStatus() { return status; }
+    public void setStatus(ContractStatus status) { this.status = status; }
+    public ContractSourceType getSourceType() { return sourceType; }
+    public void setSourceType(ContractSourceType sourceType) { this.sourceType = sourceType; }
+    public LocalDateTime getSignedAt() { return signedAt; }
+    public void setSignedAt(LocalDateTime signedAt) { this.signedAt = signedAt; }
+    public LocalDateTime getExpiresAt() { return expiresAt; }
+    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
+    public LocalDateTime getConfirmedAt() { return confirmedAt; }
+    public void setConfirmedAt(LocalDateTime confirmedAt) { this.confirmedAt = confirmedAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

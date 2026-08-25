@@ -73,4 +73,29 @@ public class ClassAssignment {
 
     @Column(name = "terms_b", columnDefinition = "TEXT")
     private String termsB;
+
+    public Long getAssignmentId() { return assignmentId; }
+    public void setAssignmentId(Long assignmentId) { this.assignmentId = assignmentId; }
+    public Tutor getTutor() { return tutor; }
+    public void setTutor(Tutor tutor) { this.tutor = tutor; }
+    public TutorApplication getApplication() { return application; }
+    public void setApplication(TutorApplication application) { this.application = application; }
+    public LocalDateTime getAssignedDate() { return assignedDate; }
+    public void setAssignedDate(LocalDateTime assignedDate) { this.assignedDate = assignedDate; }
+    public ClassAssignmentStatus getStatus() { return status; }
+    public void setStatus(ClassAssignmentStatus status) { this.status = status; }
+    public LocalDateTime getTutorSignedAt() { return tutorSignedAt; }
+    public void setTutorSignedAt(LocalDateTime tutorSignedAt) { this.tutorSignedAt = tutorSignedAt; }
+    public LocalDateTime getClientSignedAt() { return clientSignedAt; }
+    public void setClientSignedAt(LocalDateTime clientSignedAt) { this.clientSignedAt = clientSignedAt; }
+    public LocalDateTime getTutorCompletedAt() { return tutorCompletedAt; }
+    public void setTutorCompletedAt(LocalDateTime tutorCompletedAt) { this.tutorCompletedAt = tutorCompletedAt; }
+    public LocalDateTime getClientCompletedAt() { return clientCompletedAt; }
+    public void setClientCompletedAt(LocalDateTime clientCompletedAt) { this.clientCompletedAt = clientCompletedAt; }
+    public String getClientRejectReason() { return clientRejectReason; }
+    public void setClientRejectReason(String clientRejectReason) { this.clientRejectReason = clientRejectReason; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public String getTermsB() { return termsB; }
+    public void setTermsB(String termsB) { this.termsB = termsB; }
 }

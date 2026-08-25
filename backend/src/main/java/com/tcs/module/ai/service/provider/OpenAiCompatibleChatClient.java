@@ -13,8 +13,9 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 public abstract class OpenAiCompatibleChatClient implements AiChatProviderClient {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(OpenAiCompatibleChatClient.class);
 
     protected final String apiKey;
     protected final String baseUrl;

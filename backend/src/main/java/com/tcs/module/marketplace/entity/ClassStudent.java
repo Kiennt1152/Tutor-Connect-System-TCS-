@@ -64,4 +64,25 @@ public class ClassStudent {
 
     @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
+
+    public Long getClassStudentId() { return classStudentId; }
+    public void setClassStudentId(Long classStudentId) { this.classStudentId = classStudentId; }
+    public TutoringClass getTutoringClass() { return tutoringClass; }
+    public void setTutoringClass(TutoringClass tutoringClass) { this.tutoringClass = tutoringClass; }
+    public ChildProfile getChildProfile() { return childProfile; }
+    public void setChildProfile(ChildProfile childProfile) { this.childProfile = childProfile; }
+    public User getEnrolledByUser() { return enrolledByUser; }
+    public void setEnrolledByUser(User enrolledByUser) { this.enrolledByUser = enrolledByUser; }
+    public String getStudentName() { return studentName; }
+    public void setStudentName(String studentName) { this.studentName = studentName; }
+    public String getStudentPhone() { return studentPhone; }
+    public void setStudentPhone(String studentPhone) { this.studentPhone = studentPhone; }
+    public String getStudentEmail() { return studentEmail; }
+    public void setStudentEmail(String studentEmail) { this.studentEmail = studentEmail; }
+    public ClassStudentStatus getStatus() { return status; }
+    public void setStatus(ClassStudentStatus status) { this.status = status; }
+    public LocalDateTime getEnrolledAt() { return enrolledAt; }
+    public void setEnrolledAt(LocalDateTime enrolledAt) { this.enrolledAt = enrolledAt; }
+    public String getNotes() { return notes; }
+    public void setNotes(String notes) { this.notes = notes; }
 }

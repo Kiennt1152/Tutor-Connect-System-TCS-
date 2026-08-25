@@ -40,4 +40,13 @@ public class VerificationDocument {
     @Enumerated(EnumType.STRING)
     @Column(name = "document_type", length = 50, nullable = false)
     private VerificationDocumentType documentType;
+
+    public Long getDocumentId() { return documentId; }
+    public void setDocumentId(Long documentId) { this.documentId = documentId; }
+    public VerificationRequest getVerificationRequest() { return verificationRequest; }
+    public void setVerificationRequest(VerificationRequest verificationRequest) { this.verificationRequest = verificationRequest; }
+    public MediaFile getFile() { return file; }
+    public void setFile(MediaFile file) { this.file = file; }
+    public VerificationDocumentType getDocumentType() { return documentType; }
+    public void setDocumentType(VerificationDocumentType documentType) { this.documentType = documentType; }
 }

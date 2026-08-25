@@ -12,4 +12,7 @@ public class ChatbotAskRequest {
     @NotBlank(message = "Vui lòng nhập câu hỏi")
     @Size(max = 500, message = "Câu hỏi không được vượt quá 500 ký tự")
     private String question;
+
+    public String getQuestion() { return question; }
+    public void setQuestion(String question) { this.question = question; }
 }

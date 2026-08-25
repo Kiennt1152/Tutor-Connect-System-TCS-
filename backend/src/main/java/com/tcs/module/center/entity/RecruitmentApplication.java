@@ -66,4 +66,27 @@ public class RecruitmentApplication {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public Long getRecruitmentAppId() { return recruitmentAppId; }
+    public void setRecruitmentAppId(Long recruitmentAppId) { this.recruitmentAppId = recruitmentAppId; }
+    public RecruitmentPost getRecruitmentPost() { return recruitmentPost; }
+    public void setRecruitmentPost(RecruitmentPost recruitmentPost) { this.recruitmentPost = recruitmentPost; }
+    public Tutor getTutor() { return tutor; }
+    public void setTutor(Tutor tutor) { this.tutor = tutor; }
+    public String getCoverLetter() { return coverLetter; }
+    public void setCoverLetter(String coverLetter) { this.coverLetter = coverLetter; }
+    public String getResumeUrl() { return resumeUrl; }
+    public void setResumeUrl(String resumeUrl) { this.resumeUrl = resumeUrl; }
+    public RecruitmentApplicationStatus getStatus() { return status; }
+    public void setStatus(RecruitmentApplicationStatus status) { this.status = status; }
+    public LocalDateTime getInterviewDate() { return interviewDate; }
+    public void setInterviewDate(LocalDateTime interviewDate) { this.interviewDate = interviewDate; }
+    public String getInterviewNotes() { return interviewNotes; }
+    public void setInterviewNotes(String interviewNotes) { this.interviewNotes = interviewNotes; }
+    public LocalDateTime getAppliedAt() { return appliedAt; }
+    public void setAppliedAt(LocalDateTime appliedAt) { this.appliedAt = appliedAt; }
+    public LocalDateTime getReviewedAt() { return reviewedAt; }
+    public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

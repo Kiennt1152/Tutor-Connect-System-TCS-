@@ -5,7 +5,6 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -15,8 +14,9 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
 @Service
-@Slf4j
 public class GeminiServiceImpl implements GeminiService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GeminiServiceImpl.class);
 
     private static final String SYSTEM_PROMPT =
             "Bạn là trợ lý hỗ trợ của hệ thống Tutor Connect System (TCS) – nền tảng kết nối học viên và gia sư trực tuyến. "

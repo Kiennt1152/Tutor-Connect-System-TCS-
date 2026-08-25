@@ -9,9 +9,10 @@ import org.springframework.stereotype.Service;
  * TCS-specific Synonym and Query Expansion Service.
  * Expands queries with domain-specific synonyms to improve retrieval recall.
  */
-@Slf4j
 @Service
 public class TcsSynonymService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(TcsSynonymService.class);
 
     // TCS domain-specific synonym dictionary
     private static final Map<String, List<String>> TCS_SYNONYMS = Map.ofEntries(

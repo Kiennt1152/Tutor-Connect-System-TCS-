@@ -9,4 +9,9 @@ public class SubmitDisputeEvidenceRequest {
 
     private String evidenceUrls;
     private String note;
+
+    public String getEvidenceUrls() { return evidenceUrls; }
+    public void setEvidenceUrls(String evidenceUrls) { this.evidenceUrls = evidenceUrls; }
+    public String getNote() { return note; }
+    public void setNote(String note) { this.note = note; }
 }

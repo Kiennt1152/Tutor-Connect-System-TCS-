@@ -10,9 +10,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 
-@Slf4j
 @Service
 public class AiProviderRouter {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AiProviderRouter.class);
 
     @Value("${ai.chat.provider-order:groq,cerebras,deepseek,gemini}")
     private String providerOrderConfig;

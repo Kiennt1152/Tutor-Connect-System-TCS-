@@ -69,4 +69,25 @@ public class EscrowTransaction {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
+
+    public Long getEscrowId() { return escrowId; }
+    public void setEscrowId(Long escrowId) { this.escrowId = escrowId; }
+    public PaymentTransaction getPayment() { return payment; }
+    public void setPayment(PaymentTransaction payment) { this.payment = payment; }
+    public ClassAssignment getAssignment() { return assignment; }
+    public void setAssignment(ClassAssignment assignment) { this.assignment = assignment; }
+    public ClassStudent getClassStudent() { return classStudent; }
+    public void setClassStudent(ClassStudent classStudent) { this.classStudent = classStudent; }
+    public BigDecimal getAmount() { return amount; }
+    public void setAmount(BigDecimal amount) { this.amount = amount; }
+    public EscrowStatus getStatus() { return status; }
+    public void setStatus(EscrowStatus status) { this.status = status; }
+    public LocalDateTime getDepositedAt() { return depositedAt; }
+    public void setDepositedAt(LocalDateTime depositedAt) { this.depositedAt = depositedAt; }
+    public LocalDateTime getReleasedAt() { return releasedAt; }
+    public void setReleasedAt(LocalDateTime releasedAt) { this.releasedAt = releasedAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

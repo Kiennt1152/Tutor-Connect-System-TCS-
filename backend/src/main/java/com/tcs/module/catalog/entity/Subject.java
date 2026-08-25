@@ -27,4 +27,11 @@ public class Subject {
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
+
+    public Long getSubjectId() { return subjectId; }
+    public void setSubjectId(Long subjectId) { this.subjectId = subjectId; }
+    public String getSubjectName() { return subjectName; }
+    public void setSubjectName(String subjectName) { this.subjectName = subjectName; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 }

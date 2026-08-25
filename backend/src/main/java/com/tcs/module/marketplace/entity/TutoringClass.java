@@ -138,4 +138,53 @@ public class TutoringClass {
      */
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
+
+    public Long getClassId() { return classId; }
+    public void setClassId(Long classId) { this.classId = classId; }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public Subject getSubject() { return subject; }
+    public void setSubject(Subject subject) { this.subject = subject; }
+    public Grade getGrade() { return grade; }
+    public void setGrade(Grade grade) { this.grade = grade; }
+    public BigDecimal getTuitionFee() { return tuitionFee; }
+    public void setTuitionFee(BigDecimal tuitionFee) { this.tuitionFee = tuitionFee; }
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
+    public TutoringClassStatus getStatus() { return status; }
+    public void setStatus(TutoringClassStatus status) { this.status = status; }
+    public LessonMode getLessonMode() { return lessonMode; }
+    public void setLessonMode(LessonMode lessonMode) { this.lessonMode = lessonMode; }
+    public User getCreator() { return creator; }
+    public void setCreator(User creator) { this.creator = creator; }
+    public Category getCategory() { return category; }
+    public void setCategory(Category category) { this.category = category; }
+    public Location getLocation() { return location; }
+    public void setLocation(Location location) { this.location = location; }
+    public Integer getMinStudents() { return minStudents; }
+    public void setMinStudents(Integer minStudents) { this.minStudents = minStudents; }
+    public Integer getMaxStudents() { return maxStudents; }
+    public void setMaxStudents(Integer maxStudents) { this.maxStudents = maxStudents; }
+    public LocalDate getEnrollmentDeadline() { return enrollmentDeadline; }
+    public void setEnrollmentDeadline(LocalDate enrollmentDeadline) { this.enrollmentDeadline = enrollmentDeadline; }
+    public LocalDate getStartDate() { return startDate; }
+    public void setStartDate(LocalDate startDate) { this.startDate = startDate; }
+    public LocalDate getEndDate() { return endDate; }
+    public void setEndDate(LocalDate endDate) { this.endDate = endDate; }
+    public ClassType getClassType() { return classType; }
+    public void setClassType(ClassType classType) { this.classType = classType; }
+    public TutorCenter getCenter() { return center; }
+    public void setCenter(TutorCenter center) { this.center = center; }
+    public Integer getNumberOfSessions() { return numberOfSessions; }
+    public void setNumberOfSessions(Integer numberOfSessions) { this.numberOfSessions = numberOfSessions; }
+    public RecurringType getRecurringType() { return recurringType; }
+    public void setRecurringType(RecurringType recurringType) { this.recurringType = recurringType; }
+    public String getDetailsJson() { return detailsJson; }
+    public void setDetailsJson(String detailsJson) { this.detailsJson = detailsJson; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

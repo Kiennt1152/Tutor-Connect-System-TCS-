@@ -73,7 +73,27 @@ public class TutorCenter {
     private LocalDateTime updatedAt;
 
     public String getCompanyName() { return companyName; }
+    public void setCompanyName(String companyName) { this.companyName = companyName; }
     public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
     public Long getCenterId() { return centerId; }
+    public void setCenterId(Long centerId) { this.centerId = centerId; }
     public User getUser() { return user; }
+    public void setUser(User user) { this.user = user; }
+    public String getLicenseNo() { return licenseNo; }
+    public void setLicenseNo(String licenseNo) { this.licenseNo = licenseNo; }
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
+    public Location getLocation() { return location; }
+    public void setLocation(Location location) { this.location = location; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public ProfileVerificationStatus getVerificationStatus() { return verificationStatus; }
+    public void setVerificationStatus(ProfileVerificationStatus verificationStatus) { this.verificationStatus = verificationStatus; }
+    public String getAvatar() { return avatar; }
+    public void setAvatar(String avatar) { this.avatar = avatar; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

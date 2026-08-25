@@ -15,10 +15,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiRerankService {
+
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AiRerankService.class);
 
     private final ObjectMapper objectMapper;
 

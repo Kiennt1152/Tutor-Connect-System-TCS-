@@ -63,4 +63,29 @@ public class PaymentMethod {
 
     @Column(name = "status", length = 20, nullable = false)
     private String status = "ACTIVE";
+
+    public Long getPaymentMethodId() { return paymentMethodId; }
+    public void setPaymentMethodId(Long paymentMethodId) { this.paymentMethodId = paymentMethodId; }
+    public Wallet getWallet() { return wallet; }
+    public void setWallet(Wallet wallet) { this.wallet = wallet; }
+    public String getType() { return type; }
+    public void setType(String type) { this.type = type; }
+    public String getAccountNo() { return accountNo; }
+    public void setAccountNo(String accountNo) { this.accountNo = accountNo; }
+    public String getBankName() { return bankName; }
+    public void setBankName(String bankName) { this.bankName = bankName; }
+    public String getAccountHolderName() { return accountHolderName; }
+    public void setAccountHolderName(String accountHolderName) { this.accountHolderName = accountHolderName; }
+    public LocalDateTime getVerifiedAt() { return verifiedAt; }
+    public void setVerifiedAt(LocalDateTime verifiedAt) { this.verifiedAt = verifiedAt; }
+    public LocalDateTime getCooldownUntil() { return cooldownUntil; }
+    public void setCooldownUntil(LocalDateTime cooldownUntil) { this.cooldownUntil = cooldownUntil; }
+    public LocalDateTime getLastUsedAt() { return lastUsedAt; }
+    public void setLastUsedAt(LocalDateTime lastUsedAt) { this.lastUsedAt = lastUsedAt; }
+    public LocalDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }
