@@ -12,9 +12,8 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 public class GeminiChatClient implements AiChatProviderClient {
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(GeminiChatClient.class);
 
     private final String apiKey;
     private final String baseUrl;

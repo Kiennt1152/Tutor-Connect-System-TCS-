@@ -9,10 +9,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class AiRetrievalService {
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AiRetrievalService.class);
 
     private final AiKnowledgeChunkRepository chunkRepository;
     private final EmbeddingService embeddingService;

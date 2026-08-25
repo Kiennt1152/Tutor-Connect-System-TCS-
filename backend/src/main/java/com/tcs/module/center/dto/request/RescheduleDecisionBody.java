@@ -12,11 +12,4 @@ public class RescheduleDecisionBody {
     private Long classId;
     private LocalDate originalDate;
     private boolean approve;
-
-    public Long getClassId() { return classId; }
-    public void setClassId(Long classId) { this.classId = classId; }
-    public LocalDate getOriginalDate() { return originalDate; }
-    public void setOriginalDate(LocalDate originalDate) { this.originalDate = originalDate; }
-    public boolean isApprove() { return approve; }
-    public void setApprove(boolean approve) { this.approve = approve; }
 }

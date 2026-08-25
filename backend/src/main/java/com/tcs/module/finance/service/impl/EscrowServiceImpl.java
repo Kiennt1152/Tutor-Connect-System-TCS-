@@ -60,8 +60,6 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class EscrowServiceImpl implements EscrowService {
 
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EscrowServiceImpl.class);
-
     private static final String PRIVATE_REF_PREFIX = "ESCROW-A";
     private static final String CENTER_REF_PREFIX = "ESCROW-CS";
     private static final String RELEASE_REF_PREFIX = "ESCROW_RELEASE-";

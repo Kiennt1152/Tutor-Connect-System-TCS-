@@ -8,8 +8,6 @@ import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,20 +19,16 @@ import org.springframework.transaction.annotation.Transactional;
  * <p>Chỉ tự đóng khi lớp thực sự đã học đủ buổi (điểm danh đủ) và không có khiếu nại — tái dùng
  * {@link CenterEscrowAutoSettlementService#trySettleCompletedCenterClass(Long)} (không cần cờ thủ công).</p>
  */
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class CourseCompletionAutoConfirmScheduler {
 
-    private static final Logger log = LoggerFactory.getLogger(CourseCompletionAutoConfirmScheduler.class);
     private static final long SIX_HOURS = 21_600_000L;
     private static final int GRACE_DAYS = 7;
 
     private final TutoringClassRepository tutoringClassRepository;
     private final CenterEscrowAutoSettlementService settlementService;
-
-    public CourseCompletionAutoConfirmScheduler(TutoringClassRepository tutoringClassRepository, CenterEscrowAutoSettlementService settlementService) {
-        this.tutoringClassRepository = tutoringClassRepository;
-        this.settlementService = settlementService;
-    }
 
     @Scheduled(fixedRate = SIX_HOURS)
     @Transactional

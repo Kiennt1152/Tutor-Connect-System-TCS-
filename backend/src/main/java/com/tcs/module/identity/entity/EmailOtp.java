@@ -60,23 +60,4 @@ public class EmailOtp {
     public boolean isExpired() {
         return expiresAt != null && LocalDateTime.now().isAfter(expiresAt);
     }
-
-    public Long getOtpId() { return otpId; }
-    public void setOtpId(Long otpId) { this.otpId = otpId; }
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-    public String getCode() { return code; }
-    public void setCode(String code) { this.code = code; }
-    public OtpPurpose getPurpose() { return purpose; }
-    public void setPurpose(OtpPurpose purpose) { this.purpose = purpose; }
-    public LocalDateTime getExpiresAt() { return expiresAt; }
-    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
-    public LocalDateTime getConsumedAt() { return consumedAt; }
-    public void setConsumedAt(LocalDateTime consumedAt) { this.consumedAt = consumedAt; }
-    public Integer getAttempts() { return attempts; }
-    public void setAttempts(Integer attempts) { this.attempts = attempts; }
-    public LocalDateTime getLastSentAt() { return lastSentAt; }
-    public void setLastSentAt(LocalDateTime lastSentAt) { this.lastSentAt = lastSentAt; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

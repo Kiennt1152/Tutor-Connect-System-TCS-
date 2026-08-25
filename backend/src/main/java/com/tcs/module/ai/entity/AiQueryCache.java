@@ -93,29 +93,4 @@ public class AiQueryCache {
         this.hitCount = (this.hitCount == null ? 0 : this.hitCount) + 1;
         this.lastHitAt = LocalDateTime.now();
     }
-
-    public Long getCacheId() { return cacheId; }
-    public String getQueryText() { return queryText; }
-    public String getQueryHash() { return queryHash; }
-    public String getNormalizedQuery() { return normalizedQuery; }
-    public String getEmbeddingJson() { return embeddingJson; }
-    public String getResponseContent() { return responseContent; }
-    public String getIntent() { return intent; }
-    public String getDomain() { return domain; }
-    public String getSubIntent() { return subIntent; }
-    public Double getConfidenceScore() { return confidenceScore; }
-    public Integer getSourceCount() { return sourceCount; }
-    public String getReferencedTutorIds() { return referencedTutorIds; }
-    public String getReferencedClassIds() { return referencedClassIds; }
-    public String getReferencedFaqIds() { return referencedFaqIds; }
-    public String getUserRole() { return userRole; }
-    public Integer getHitCount() { return hitCount; }
-    public LocalDateTime getLastHitAt() { return lastHitAt; }
-    public LocalDateTime getExpiresAt() { return expiresAt; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-
-    public void setHitCount(Integer hitCount) { this.hitCount = hitCount; }
-    public void setLastHitAt(LocalDateTime lastHitAt) { this.lastHitAt = lastHitAt; }
-    public void setExpiresAt(LocalDateTime expiresAt) { this.expiresAt = expiresAt; }
 }

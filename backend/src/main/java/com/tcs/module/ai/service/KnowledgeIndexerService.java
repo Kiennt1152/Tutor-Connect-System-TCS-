@@ -25,11 +25,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class KnowledgeIndexerService {
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(KnowledgeIndexerService.class);
 
     private final AiKnowledgeChunkRepository chunkRepository;
     private final FaqEntryRepository faqEntryRepository;
@@ -297,16 +296,15 @@ public class KnowledgeIndexerService {
         String hash = computeHash(content);
         Optional<AiKnowledgeChunk> opt = chunkRepository.findBySourceTypeAndSourceId(type, sourceId);
         
-        AiKnowledgeChunk chunk = opt.orElseGet(() -> {
-            AiKnowledgeChunk c = new AiKnowledgeChunk();
-            c.setSourceType(type);
-            c.setSourceId(sourceId);
-            c.setEmbeddingModel("models/text-embedding-004");
-            c.setActive(true);
-            c.setVisibility("PUBLIC");
-            c.setLocale("vi");
-            return c;
-        });
+        boolean isNew = opt.isEmpty();
+        AiKnowledgeChunk chunk = opt.orElseGet(() -> AiKnowledgeChunk.builder()
+                .sourceType(type)
+                .sourceId(sourceId)
+                .embeddingModel("models/text-embedding-004")
+                .active(true)
+                .visibility("PUBLIC")
+                .locale("vi")
+                .build());
 
         if (!isNew && hash.equals(chunk.getContentHash()) && chunk.getEmbeddingJson() != null) {
             stats.put("unchanged", stats.get("unchanged") + 1);

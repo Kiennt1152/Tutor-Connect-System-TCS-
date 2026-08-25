@@ -24,8 +24,4 @@ public class Ward {
 
     @Column(name = "district_id", nullable = false)
     private Long districtId;
-
-    public Long getWardId() { return wardId; }
-    public String getWardName() { return wardName; }
-    public Long getDistrictId() { return districtId; }
 }

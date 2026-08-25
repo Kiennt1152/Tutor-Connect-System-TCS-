@@ -8,7 +8,4 @@ import lombok.Setter;
 public class WithdrawalDecisionRequest {
 
     private String reason;
-
-    public String getReason() { return reason; }
-    public void setReason(String reason) { this.reason = reason; }
 }

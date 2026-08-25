@@ -60,23 +60,4 @@ public class ClassTerminationRequest {
 
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
-
-    public Long getTerminationId() { return terminationId; }
-    public void setTerminationId(Long terminationId) { this.terminationId = terminationId; }
-    public ClassAssignment getAssignment() { return assignment; }
-    public void setAssignment(ClassAssignment assignment) { this.assignment = assignment; }
-    public ClassStudent getClassStudent() { return classStudent; }
-    public void setClassStudent(ClassStudent classStudent) { this.classStudent = classStudent; }
-    public User getRequestedBy() { return requestedBy; }
-    public void setRequestedBy(User requestedBy) { this.requestedBy = requestedBy; }
-    public String getReason() { return reason; }
-    public void setReason(String reason) { this.reason = reason; }
-    public LocalDate getEffectiveDate() { return effectiveDate; }
-    public void setEffectiveDate(LocalDate effectiveDate) { this.effectiveDate = effectiveDate; }
-    public ClassTerminationStatus getStatus() { return status; }
-    public void setStatus(ClassTerminationStatus status) { this.status = status; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public LocalDateTime getProcessedAt() { return processedAt; }
-    public void setProcessedAt(LocalDateTime processedAt) { this.processedAt = processedAt; }
 }

@@ -8,7 +8,4 @@ import lombok.Setter;
 public class ApplyRecruitmentRequest {
 
     private String coverLetter;
-
-    public String getCoverLetter() { return coverLetter; }
-    public void setCoverLetter(String coverLetter) { this.coverLetter = coverLetter; }
 }

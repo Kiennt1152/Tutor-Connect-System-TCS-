@@ -30,13 +30,4 @@ public class SystemParameter {
 
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
-
-    public Long getParameterId() { return parameterId; }
-    public void setParameterId(Long parameterId) { this.parameterId = parameterId; }
-    public String getParamKey() { return paramKey; }
-    public void setParamKey(String paramKey) { this.paramKey = paramKey; }
-    public String getParamValue() { return paramValue; }
-    public void setParamValue(String paramValue) { this.paramValue = paramValue; }
-    public String getDescription() { return description; }
-    public void setDescription(String description) { this.description = description; }
 }

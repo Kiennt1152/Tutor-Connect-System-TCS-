@@ -64,10 +64,6 @@ public class MarketplaceController {
         return marketplaceService.getClass(classId, assignmentId, classStudentId);
     }
 
-    /**
-     * Điểm tiếp nhận của màn "Đăng yêu cầu tìm gia sư" (FE: PostTutorRequestPage).
-     * Chỉ tạo bản nháp; muốn gia sư thấy thì gọi tiếp POST /classes/{id}/publish.
-     */
     @PostMapping("/classes")
     @ResponseStatus(HttpStatus.CREATED)
     public ClassResponse createClass(@RequestBody CreateClassRequest request) {

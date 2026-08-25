@@ -89,35 +89,7 @@ public class Tutor {
     private LocalDateTime updatedAt;
 
     public String getFullName() { return fullName; }
-    public void setFullName(String fullName) { this.fullName = fullName; }
     public String getPhone() { return phone; }
-    public void setPhone(String phone) { this.phone = phone; }
     public Long getTutorId() { return tutorId; }
-    public void setTutorId(Long tutorId) { this.tutorId = tutorId; }
     public User getUser() { return user; }
-    public void setUser(User user) { this.user = user; }
-    public Gender getGender() { return gender; }
-    public void setGender(Gender gender) { this.gender = gender; }
-    public LocalDate getDateOfBirth() { return dateOfBirth; }
-    public void setDateOfBirth(LocalDate dateOfBirth) { this.dateOfBirth = dateOfBirth; }
-    public String getAddress() { return address; }
-    public void setAddress(String address) { this.address = address; }
-    public Location getLocation() { return location; }
-    public void setLocation(Location location) { this.location = location; }
-    public Integer getExperienceYears() { return experienceYears; }
-    public void setExperienceYears(Integer experienceYears) { this.experienceYears = experienceYears; }
-    public String getBio() { return bio; }
-    public void setBio(String bio) { this.bio = bio; }
-    public BigDecimal getHourlyRate() { return hourlyRate; }
-    public void setHourlyRate(BigDecimal hourlyRate) { this.hourlyRate = hourlyRate; }
-    public BigDecimal getRatingAvg() { return ratingAvg; }
-    public void setRatingAvg(BigDecimal ratingAvg) { this.ratingAvg = ratingAvg; }
-    public ProfileVerificationStatus getVerificationStatus() { return verificationStatus; }
-    public void setVerificationStatus(ProfileVerificationStatus verificationStatus) { this.verificationStatus = verificationStatus; }
-    public String getAvatar() { return avatar; }
-    public void setAvatar(String avatar) { this.avatar = avatar; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

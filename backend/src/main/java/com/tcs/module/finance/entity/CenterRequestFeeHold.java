@@ -92,45 +92,4 @@ public class CenterRequestFeeHold {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    public Long getFeeHoldId() { return feeHoldId; }
-    public void setFeeHoldId(Long feeHoldId) { this.feeHoldId = feeHoldId; }
-    public String getRequestId() { return requestId; }
-    public void setRequestId(String requestId) { this.requestId = requestId; }
-    public Long getClientUserId() { return clientUserId; }
-    public void setClientUserId(Long clientUserId) { this.clientUserId = clientUserId; }
-    public Long getCenterUserId() { return centerUserId; }
-    public void setCenterUserId(Long centerUserId) { this.centerUserId = centerUserId; }
-    public String getCenterName() { return centerName; }
-    public void setCenterName(String centerName) { this.centerName = centerName; }
-    public PaymentTransaction getPaymentTransaction() { return paymentTransaction; }
-    public void setPaymentTransaction(PaymentTransaction paymentTransaction) { this.paymentTransaction = paymentTransaction; }
-    public BigDecimal getProjectedEscrowAmount() { return projectedEscrowAmount; }
-    public void setProjectedEscrowAmount(BigDecimal projectedEscrowAmount) { this.projectedEscrowAmount = projectedEscrowAmount; }
-    public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
-    public String getReferenceCode() { return referenceCode; }
-    public void setReferenceCode(String referenceCode) { this.referenceCode = referenceCode; }
-    public String getPayoutBankName() { return payoutBankName; }
-    public void setPayoutBankName(String payoutBankName) { this.payoutBankName = payoutBankName; }
-    public String getPayoutAccountNo() { return payoutAccountNo; }
-    public void setPayoutAccountNo(String payoutAccountNo) { this.payoutAccountNo = payoutAccountNo; }
-    public String getPayoutAccountHolderName() { return payoutAccountHolderName; }
-    public void setPayoutAccountHolderName(String payoutAccountHolderName) { this.payoutAccountHolderName = payoutAccountHolderName; }
-    public Long getClassId() { return classId; }
-    public void setClassId(Long classId) { this.classId = classId; }
-    public Long getAssignmentId() { return assignmentId; }
-    public void setAssignmentId(Long assignmentId) { this.assignmentId = assignmentId; }
-    public CenterRequestFeeStatus getStatus() { return status; }
-    public void setStatus(CenterRequestFeeStatus status) { this.status = status; }
-    public LocalDateTime getPaidAt() { return paidAt; }
-    public void setPaidAt(LocalDateTime paidAt) { this.paidAt = paidAt; }
-    public LocalDateTime getReleasedAt() { return releasedAt; }
-    public void setReleasedAt(LocalDateTime releasedAt) { this.releasedAt = releasedAt; }
-    public LocalDateTime getRefundedAt() { return refundedAt; }
-    public void setRefundedAt(LocalDateTime refundedAt) { this.refundedAt = refundedAt; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

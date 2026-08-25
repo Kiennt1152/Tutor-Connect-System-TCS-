@@ -55,21 +55,4 @@ public class ContractSignature {
     @Enumerated(EnumType.STRING)
     @Column(name = "signature_status", length = 20, nullable = false)
     private ContractSignatureStatus signatureStatus = ContractSignatureStatus.PENDING;
-
-    public Long getSignatureId() { return signatureId; }
-    public void setSignatureId(Long signatureId) { this.signatureId = signatureId; }
-    public Contract getContract() { return contract; }
-    public void setContract(Contract contract) { this.contract = contract; }
-    public PartyRole getPartyRole() { return partyRole; }
-    public void setPartyRole(PartyRole partyRole) { this.partyRole = partyRole; }
-    public User getSigner() { return signer; }
-    public void setSigner(User signer) { this.signer = signer; }
-    public String getEmail() { return email; }
-    public void setEmail(String email) { this.email = email; }
-    public LocalDateTime getSignedAt() { return signedAt; }
-    public void setSignedAt(LocalDateTime signedAt) { this.signedAt = signedAt; }
-    public String getSignatureData() { return signatureData; }
-    public void setSignatureData(String signatureData) { this.signatureData = signatureData; }
-    public ContractSignatureStatus getSignatureStatus() { return signatureStatus; }
-    public void setSignatureStatus(ContractSignatureStatus signatureStatus) { this.signatureStatus = signatureStatus; }
 }

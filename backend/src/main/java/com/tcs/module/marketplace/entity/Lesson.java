@@ -75,31 +75,4 @@ public class Lesson {
     /** Thời điểm đã gửi thông báo nhắc nhở buổi học; null = chưa gửi (chống gửi trùng). */
     @Column(name = "reminder_sent_at")
     private LocalDateTime reminderSentAt;
-
-    public Long getLessonId() { return lessonId; }
-    public void setLessonId(Long lessonId) { this.lessonId = lessonId; }
-    public TutoringClass getTutoringClass() { return tutoringClass; }
-    public void setTutoringClass(TutoringClass tutoringClass) { this.tutoringClass = tutoringClass; }
-    public LocalDate getLessonDate() { return lessonDate; }
-    public void setLessonDate(LocalDate lessonDate) { this.lessonDate = lessonDate; }
-    public ScheduleSlot getSlot() { return slot; }
-    public void setSlot(ScheduleSlot slot) { this.slot = slot; }
-    public Integer getSequenceNo() { return sequenceNo; }
-    public void setSequenceNo(Integer sequenceNo) { this.sequenceNo = sequenceNo; }
-    public Tutor getTutor() { return tutor; }
-    public void setTutor(Tutor tutor) { this.tutor = tutor; }
-    public LocalDateTime getTutorCheckInAt() { return tutorCheckInAt; }
-    public void setTutorCheckInAt(LocalDateTime tutorCheckInAt) { this.tutorCheckInAt = tutorCheckInAt; }
-    public LocalDateTime getTutorCheckOutAt() { return tutorCheckOutAt; }
-    public void setTutorCheckOutAt(LocalDateTime tutorCheckOutAt) { this.tutorCheckOutAt = tutorCheckOutAt; }
-    public LocalDateTime getClientConfirmAt() { return clientConfirmAt; }
-    public void setClientConfirmAt(LocalDateTime clientConfirmAt) { this.clientConfirmAt = clientConfirmAt; }
-    public AttendanceStatus getAttendanceStatus() { return attendanceStatus; }
-    public void setAttendanceStatus(AttendanceStatus attendanceStatus) { this.attendanceStatus = attendanceStatus; }
-    public User getApprovedByUser() { return approvedByUser; }
-    public void setApprovedByUser(User approvedByUser) { this.approvedByUser = approvedByUser; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public LocalDateTime getReminderSentAt() { return reminderSentAt; }
-    public void setReminderSentAt(LocalDateTime reminderSentAt) { this.reminderSentAt = reminderSentAt; }
 }

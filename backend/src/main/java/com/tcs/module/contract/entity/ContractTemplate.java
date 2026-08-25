@@ -61,23 +61,4 @@ public class ContractTemplate {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    public Long getTemplateId() { return templateId; }
-    public void setTemplateId(Long templateId) { this.templateId = templateId; }
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
-    public String getContent() { return content; }
-    public void setContent(String content) { this.content = content; }
-    public User getCreatedBy() { return createdBy; }
-    public void setCreatedBy(User createdBy) { this.createdBy = createdBy; }
-    public TutorCenter getCenter() { return center; }
-    public void setCenter(TutorCenter center) { this.center = center; }
-    public Boolean getDefaultTemplate() { return defaultTemplate; }
-    public void setDefaultTemplate(Boolean defaultTemplate) { this.defaultTemplate = defaultTemplate; }
-    public ContractTemplateStatus getStatus() { return status; }
-    public void setStatus(ContractTemplateStatus status) { this.status = status; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

@@ -59,23 +59,4 @@ public class TutorApplication {
 
     @Column(name = "reviewed_at")
     private LocalDateTime reviewedAt;
-
-    public Long getApplicationId() { return applicationId; }
-    public void setApplicationId(Long applicationId) { this.applicationId = applicationId; }
-    public TutoringClass getTutoringClass() { return tutoringClass; }
-    public void setTutoringClass(TutoringClass tutoringClass) { this.tutoringClass = tutoringClass; }
-    public Tutor getTutor() { return tutor; }
-    public void setTutor(Tutor tutor) { this.tutor = tutor; }
-    public BigDecimal getProposedRate() { return proposedRate; }
-    public void setProposedRate(BigDecimal proposedRate) { this.proposedRate = proposedRate; }
-    public String getProposedRatesJson() { return proposedRatesJson; }
-    public void setProposedRatesJson(String proposedRatesJson) { this.proposedRatesJson = proposedRatesJson; }
-    public String getCoverLetter() { return coverLetter; }
-    public void setCoverLetter(String coverLetter) { this.coverLetter = coverLetter; }
-    public TutorApplicationStatus getStatus() { return status; }
-    public void setStatus(TutorApplicationStatus status) { this.status = status; }
-    public LocalDateTime getAppliedAt() { return appliedAt; }
-    public void setAppliedAt(LocalDateTime appliedAt) { this.appliedAt = appliedAt; }
-    public LocalDateTime getReviewedAt() { return reviewedAt; }
-    public void setReviewedAt(LocalDateTime reviewedAt) { this.reviewedAt = reviewedAt; }
 }

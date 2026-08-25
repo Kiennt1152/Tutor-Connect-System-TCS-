@@ -24,9 +24,4 @@ public class Grade {
 
     @Column(name = "grade_name", length = 50, nullable = false, unique = true)
     private String gradeName;
-
-    public Long getGradeId() { return gradeId; }
-    public void setGradeId(Long gradeId) { this.gradeId = gradeId; }
-    public String getGradeName() { return gradeName; }
-    public void setGradeName(String gradeName) { this.gradeName = gradeName; }
 }

@@ -9,8 +9,6 @@ import com.tcs.module.contract.repository.ContractRepository;
 import java.time.LocalDateTime;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,17 +19,12 @@ import org.springframework.transaction.annotation.Transactional;
  * có thể chọn ứng viên khác. Chỉ áp dụng cho hợp đồng gắn với đơn tuyển dụng (recruitmentApplication).
  */
 @Component
+@RequiredArgsConstructor
+@Slf4j
 public class CooperationContractExpiryScheduler {
-
-    private static final Logger log = LoggerFactory.getLogger(CooperationContractExpiryScheduler.class);
 
     private final ContractRepository contractRepository;
     private final RecruitmentApplicationRepository recruitmentApplicationRepository;
-
-    public CooperationContractExpiryScheduler(ContractRepository contractRepository, RecruitmentApplicationRepository recruitmentApplicationRepository) {
-        this.contractRepository = contractRepository;
-        this.recruitmentApplicationRepository = recruitmentApplicationRepository;
-    }
 
     /** Rà mỗi giờ (chạy lần đầu ngay khi khởi động). */
     @Scheduled(fixedRate = 3_600_000L)

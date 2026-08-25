@@ -55,19 +55,4 @@ public class Dispute {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    public Long getDisputeId() { return disputeId; }
-    public void setDisputeId(Long disputeId) { this.disputeId = disputeId; }
-    public Report getReport() { return report; }
-    public void setReport(Report report) { this.report = report; }
-    public EscrowTransaction getEscrowTransaction() { return escrowTransaction; }
-    public void setEscrowTransaction(EscrowTransaction escrowTransaction) { this.escrowTransaction = escrowTransaction; }
-    public String getResolution() { return resolution; }
-    public void setResolution(String resolution) { this.resolution = resolution; }
-    public DisputeStatus getStatus() { return status; }
-    public void setStatus(DisputeStatus status) { this.status = status; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

@@ -35,11 +35,10 @@ import org.springframework.transaction.annotation.Transactional;
 /**
  * Production-Grade Orchestrator for the AI Assistant, Contextual RAG, and Intent Routing.
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiServiceImpl implements AiService {
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(AiServiceImpl.class);
 
     private final AiChatSessionRepository sessionRepository;
     private final AiChatMessageRepository messageRepository;

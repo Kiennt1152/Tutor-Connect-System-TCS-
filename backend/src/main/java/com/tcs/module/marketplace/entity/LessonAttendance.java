@@ -57,19 +57,4 @@ public class LessonAttendance {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
-
-    public Long getAttendanceId() { return attendanceId; }
-    public void setAttendanceId(Long attendanceId) { this.attendanceId = attendanceId; }
-    public Lesson getLesson() { return lesson; }
-    public void setLesson(Lesson lesson) { this.lesson = lesson; }
-    public ClassStudent getClassStudent() { return classStudent; }
-    public void setClassStudent(ClassStudent classStudent) { this.classStudent = classStudent; }
-    public LessonAttendanceStatus getStatus() { return status; }
-    public void setStatus(LessonAttendanceStatus status) { this.status = status; }
-    public String getNote() { return note; }
-    public void setNote(String note) { this.note = note; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
-    public LocalDateTime getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(LocalDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

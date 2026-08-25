@@ -24,8 +24,4 @@ public class District {
 
     @Column(name = "province_id", nullable = false)
     private Long provinceId;
-
-    public Long getDistrictId() { return districtId; }
-    public String getDistrictName() { return districtName; }
-    public Long getProvinceId() { return provinceId; }
 }

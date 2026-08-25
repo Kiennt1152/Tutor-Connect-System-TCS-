@@ -132,8 +132,6 @@ import org.springframework.util.StringUtils;
 @RequiredArgsConstructor
 public class ContractServiceImpl implements ContractService {
 
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ContractServiceImpl.class);
-
     private static final int OTP_LENGTH = 6;
     private static final int OTP_EXPIRY_MINUTES = 5;
     private static final int OTP_MAX_ATTEMPTS = 5;

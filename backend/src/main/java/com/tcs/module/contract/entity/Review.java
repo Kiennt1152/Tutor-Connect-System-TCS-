@@ -89,35 +89,4 @@ public class Review {
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
-
-    public Long getReviewId() { return reviewId; }
-    public void setReviewId(Long reviewId) { this.reviewId = reviewId; }
-    public ClassAssignment getAssignment() { return assignment; }
-    public void setAssignment(ClassAssignment assignment) { this.assignment = assignment; }
-    public TutoringClass getTutoringClass() { return tutoringClass; }
-    public void setTutoringClass(TutoringClass tutoringClass) { this.tutoringClass = tutoringClass; }
-    public User getReviewer() { return reviewer; }
-    public void setReviewer(User reviewer) { this.reviewer = reviewer; }
-    public User getReviewee() { return reviewee; }
-    public void setReviewee(User reviewee) { this.reviewee = reviewee; }
-    public ReviewType getReviewType() { return reviewType; }
-    public void setReviewType(ReviewType reviewType) { this.reviewType = reviewType; }
-    public BigDecimal getRating() { return rating; }
-    public void setRating(BigDecimal rating) { this.rating = rating; }
-    public String getComment() { return comment; }
-    public void setComment(String comment) { this.comment = comment; }
-    public String getTutorReply() { return tutorReply; }
-    public void setTutorReply(String tutorReply) { this.tutorReply = tutorReply; }
-    public LocalDateTime getTutorReplyAt() { return tutorReplyAt; }
-    public void setTutorReplyAt(LocalDateTime tutorReplyAt) { this.tutorReplyAt = tutorReplyAt; }
-    public String getCriteriaJson() { return criteriaJson; }
-    public void setCriteriaJson(String criteriaJson) { this.criteriaJson = criteriaJson; }
-    public boolean isAnonymous() { return anonymous; }
-    public void setAnonymous(boolean anonymous) { this.anonymous = anonymous; }
-    public String getDisplayName() { return displayName; }
-    public void setDisplayName(String displayName) { this.displayName = displayName; }
-    public ReviewStatus getStatus() { return status; }
-    public void setStatus(ReviewStatus status) { this.status = status; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
 }

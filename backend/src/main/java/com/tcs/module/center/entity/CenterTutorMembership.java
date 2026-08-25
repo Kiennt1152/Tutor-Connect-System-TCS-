@@ -49,17 +49,4 @@ public class CenterTutorMembership {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", length = 20, nullable = false)
     private CenterTutorMembershipStatus status = CenterTutorMembershipStatus.ACTIVE;
-
-    public Long getMembershipId() { return membershipId; }
-    public void setMembershipId(Long membershipId) { this.membershipId = membershipId; }
-    public TutorCenter getCenter() { return center; }
-    public void setCenter(TutorCenter center) { this.center = center; }
-    public Tutor getTutor() { return tutor; }
-    public void setTutor(Tutor tutor) { this.tutor = tutor; }
-    public RecruitmentApplication getRecruitmentApplication() { return recruitmentApplication; }
-    public void setRecruitmentApplication(RecruitmentApplication recruitmentApplication) { this.recruitmentApplication = recruitmentApplication; }
-    public LocalDateTime getJoinedAt() { return joinedAt; }
-    public void setJoinedAt(LocalDateTime joinedAt) { this.joinedAt = joinedAt; }
-    public CenterTutorMembershipStatus getStatus() { return status; }
-    public void setStatus(CenterTutorMembershipStatus status) { this.status = status; }
 }

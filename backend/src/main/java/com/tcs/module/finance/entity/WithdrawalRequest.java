@@ -62,27 +62,4 @@ public class WithdrawalRequest {
 
     @Column(name = "failure_reason", columnDefinition = "TEXT")
     private String failureReason;
-
-    public Long getWithdrawalId() { return withdrawalId; }
-    public void setWithdrawalId(Long withdrawalId) { this.withdrawalId = withdrawalId; }
-    public Wallet getWallet() { return wallet; }
-    public void setWallet(Wallet wallet) { this.wallet = wallet; }
-    public PaymentMethod getPaymentMethod() { return paymentMethod; }
-    public void setPaymentMethod(PaymentMethod paymentMethod) { this.paymentMethod = paymentMethod; }
-    public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
-    public String getBankName() { return bankName; }
-    public void setBankName(String bankName) { this.bankName = bankName; }
-    public String getAccountNo() { return accountNo; }
-    public void setAccountNo(String accountNo) { this.accountNo = accountNo; }
-    public String getAccountHolderName() { return accountHolderName; }
-    public void setAccountHolderName(String accountHolderName) { this.accountHolderName = accountHolderName; }
-    public WithdrawalRequestStatus getStatus() { return status; }
-    public void setStatus(WithdrawalRequestStatus status) { this.status = status; }
-    public LocalDateTime getRequestedAt() { return requestedAt; }
-    public void setRequestedAt(LocalDateTime requestedAt) { this.requestedAt = requestedAt; }
-    public LocalDateTime getProcessedAt() { return processedAt; }
-    public void setProcessedAt(LocalDateTime processedAt) { this.processedAt = processedAt; }
-    public String getFailureReason() { return failureReason; }
-    public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
 }

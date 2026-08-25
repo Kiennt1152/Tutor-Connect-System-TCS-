@@ -24,9 +24,4 @@ public class Province {
 
     @Column(name = "province_name", length = 100, nullable = false, unique = true)
     private String provinceName;
-
-    public Long getProvinceId() { return provinceId; }
-    public void setProvinceId(Long provinceId) { this.provinceId = provinceId; }
-    public String getProvinceName() { return provinceName; }
-    public void setProvinceName(String provinceName) { this.provinceName = provinceName; }
 }

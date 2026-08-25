@@ -76,35 +76,4 @@ public class RefundRequest {
 
     @Column(name = "processed_at")
     private LocalDateTime processedAt;
-
-    public Long getRefundId() { return refundId; }
-    public void setRefundId(Long refundId) { this.refundId = refundId; }
-    public EscrowTransaction getEscrowTransaction() { return escrowTransaction; }
-    public void setEscrowTransaction(EscrowTransaction escrowTransaction) { this.escrowTransaction = escrowTransaction; }
-    public CenterRequestFeeHold getCenterRequestFeeHold() { return centerRequestFeeHold; }
-    public void setCenterRequestFeeHold(CenterRequestFeeHold centerRequestFeeHold) { this.centerRequestFeeHold = centerRequestFeeHold; }
-    public User getRequestedBy() { return requestedBy; }
-    public void setRequestedBy(User requestedBy) { this.requestedBy = requestedBy; }
-    public String getReason() { return reason; }
-    public void setReason(String reason) { this.reason = reason; }
-    public BigDecimal getAmount() { return amount; }
-    public void setAmount(BigDecimal amount) { this.amount = amount; }
-    public String getBankName() { return bankName; }
-    public void setBankName(String bankName) { this.bankName = bankName; }
-    public String getAccountNo() { return accountNo; }
-    public void setAccountNo(String accountNo) { this.accountNo = accountNo; }
-    public String getAccountHolderName() { return accountHolderName; }
-    public void setAccountHolderName(String accountHolderName) { this.accountHolderName = accountHolderName; }
-    public String getRefundReferenceCode() { return refundReferenceCode; }
-    public void setRefundReferenceCode(String refundReferenceCode) { this.refundReferenceCode = refundReferenceCode; }
-    public String getTransferStatus() { return transferStatus; }
-    public void setTransferStatus(String transferStatus) { this.transferStatus = transferStatus; }
-    public LocalDateTime getTransferProcessedAt() { return transferProcessedAt; }
-    public void setTransferProcessedAt(LocalDateTime transferProcessedAt) { this.transferProcessedAt = transferProcessedAt; }
-    public RefundRequestStatus getStatus() { return status; }
-    public void setStatus(RefundRequestStatus status) { this.status = status; }
-    public LocalDateTime getRequestedAt() { return requestedAt; }
-    public void setRequestedAt(LocalDateTime requestedAt) { this.requestedAt = requestedAt; }
-    public LocalDateTime getProcessedAt() { return processedAt; }
-    public void setProcessedAt(LocalDateTime processedAt) { this.processedAt = processedAt; }
 }

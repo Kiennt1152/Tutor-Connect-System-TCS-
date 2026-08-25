@@ -137,11 +137,10 @@ import org.springframework.context.event.EventListener;
  * @see com.tcs.module.center.service.CenterService
  * @see com.tcs.module.center.entity.RecruitmentPost
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CenterServiceImpl implements CenterService {
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CenterServiceImpl.class);
 
     private final AuthHelper authHelper;
     private final RecruitmentPostRepository recruitmentPostRepository;

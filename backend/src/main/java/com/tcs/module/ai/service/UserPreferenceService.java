@@ -7,10 +7,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 public class UserPreferenceService {
-
-    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(UserPreferenceService.class);
 
     public record UserPreferences(
         Long userId,
