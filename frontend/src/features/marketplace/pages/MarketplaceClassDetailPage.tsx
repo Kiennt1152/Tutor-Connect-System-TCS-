@@ -399,6 +399,7 @@ export default function MarketplaceClassDetailPage() {
           assignmentId={data.terminationAssignmentId}
           classStudentId={data.terminationClassStudentId}
           classTitle={data.title}
+          currentUserRole={role}
           onClose={() => setTerminationModalOpen(false)}
         />
       ) : null}

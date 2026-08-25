@@ -3242,7 +3242,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
 
         EscrowTransaction escrow = resolveEscrowForTermination(target);
-        RefundPayoutInfo payoutInfo = validateTerminationRefundPayoutInfo(request);
+        RefundPayoutInfo payoutInfo = resolveTerminationRefundPayoutInfo(request, target);
 
         ClassTerminationRequest termination = new ClassTerminationRequest();
         termination.setAssignment(target.assignment());
@@ -3261,6 +3261,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
 
         SettlementSplit settlement = calculateEarlyTerminationSettlement(tutoringClass, target, escrow);
+        requireRefundPayoutInfoIfNeeded(settlement.refundAmount(), payoutInfo);
         termination.setStatus(ClassTerminationStatus.COMPLETED);
         termination.setProcessedAt(LocalDateTime.now());
 
@@ -3512,15 +3513,31 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return l.getSequenceNo() == null ? 0 : l.getSequenceNo();
     }
 
-    private RefundPayoutInfo validateTerminationRefundPayoutInfo(CreateClassTerminationRequest request) {
+    private RefundPayoutInfo resolveTerminationRefundPayoutInfo(
+            CreateClassTerminationRequest request,
+            TerminationTarget target) {
         RefundPayoutInfo payoutInfo = new RefundPayoutInfo(
                 RefundPayoutInfoCodec.normalize(request.getBankName()),
                 RefundPayoutInfoCodec.normalizeAccountNo(request.getAccountNo()),
                 RefundPayoutInfoCodec.normalize(request.getAccountHolderName()));
-        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
-            throw new IllegalArgumentException("Vui lòng nhập đầy đủ thông tin tài khoản nhận hoàn tiền");
+        if (RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            return payoutInfo;
+        }
+        if (target != null && target.classStudent() != null) {
+            payoutInfo = RefundPayoutInfoCodec.parseFromReason(target.classStudent().getNotes());
+        }
+        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo) && target != null && target.assignment() != null) {
+            payoutInfo = RefundPayoutInfoCodec.parseFromReason(target.assignment().getTermsB());
         }
         return payoutInfo;
+    }
+
+    private void requireRefundPayoutInfoIfNeeded(BigDecimal refundAmount, RefundPayoutInfo payoutInfo) {
+        if (refundAmount != null
+                && refundAmount.compareTo(BigDecimal.ZERO) > 0
+                && !RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            throw new IllegalArgumentException("Vui lòng nhập đầy đủ thông tin tài khoản nhận hoàn tiền");
+        }
     }
 
     @Override

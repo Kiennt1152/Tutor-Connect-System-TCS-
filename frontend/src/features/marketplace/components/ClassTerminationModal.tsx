@@ -16,6 +16,7 @@ type ClassTerminationModalProps = {
   assignmentId?: number | null;
   classStudentId?: number | null;
   classTitle?: string | null;
+  currentUserRole?: string | null;
   onClose: () => void;
 };
 
@@ -32,6 +33,7 @@ export function ClassTerminationModal({
   assignmentId,
   classStudentId,
   classTitle,
+  currentUserRole,
   onClose,
 }: ClassTerminationModalProps) {
   const [reason, setReason] = useState('');
@@ -44,7 +46,7 @@ export function ClassTerminationModal({
   const [error, setError] = useState('');
   const [success, setSuccess] = useState<ClassTerminationResponse | null>(null);
   const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
-  const needsPayoutInfo = Boolean(assignmentId || classStudentId);
+  const needsPayoutInfo = currentUserRole === 'CLIENT' && Boolean(assignmentId || classStudentId);
 
   if (!open) return null;
 
@@ -196,9 +198,13 @@ export function ClassTerminationModal({
                     />
                   </label>
                 </>
-              ) : (
+              ) : currentUserRole === 'CLIENT' ? (
                 <p className="termination-modal__subtitle">
                   Trung tâm đang yêu cầu chấm dứt toàn lớp. Hệ thống sẽ dùng thông tin nhận hoàn tiền mà từng học sinh đã lưu khi ký và thanh toán.
+                </p>
+              ) : (
+                <p className="termination-modal__subtitle">
+                  Hệ thống sẽ dùng thông tin nhận hoàn tiền mà học viên/phụ huynh đã lưu khi ký và thanh toán.
                 </p>
               )}
             </>
