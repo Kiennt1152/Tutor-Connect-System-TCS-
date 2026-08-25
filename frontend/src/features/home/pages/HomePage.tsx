@@ -47,7 +47,6 @@ function HomeHeroSection({
   const firstName = displayName?.trim().split(/\s+/)[0] || displayName;
   const showSearch = !isAuthenticated || hasAnyRole(role, MARKETPLACE_HOME_ROLES);
   const isTutor = hasRole(role, 'TUTOR');
-  const subjectLinkTarget = isTutor ? '/tim-yeu-cau-giang-day' : '#find-tutor';
 
   return (
     <section className="tcs-home-hero">
@@ -91,21 +90,6 @@ function HomeHeroSection({
 
           <HeroSlideshow />
         </div>
-
-        {subjects.length > 0 ? (
-          <div className="tcs-hero__subjects">
-            <p className="tcs-hero__subjects-label">
-              {isTutor ? 'Môn học đang có lớp mở' : 'Môn học phổ biến'}
-            </p>
-            <div className="tcs-chips">
-              {subjects.map((subject) => (
-                <a key={subject.id} href={subjectLinkTarget} className="tcs-chip">
-                  {subject.name}
-                </a>
-              ))}
-            </div>
-          </div>
-        ) : null}
       </div>
     </section>
   );

@@ -5,7 +5,7 @@ import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { Pagination } from '../../../shared/components';
 import { useWithdrawalDecision } from '../hooks/usePlatformMutations';
 import { useWithdrawalList } from '../hooks/useWithdrawalList';
-import type { WithdrawalRequestStatus } from '../types/platformTypes';
+import type { AdminWithdrawalItem, WithdrawalRequestStatus } from '../types/platformTypes';
 import './PlatformWithdrawalsPage.css';
 
 const AUTO_REFRESH_INTERVAL_MS = 5000;
@@ -153,6 +153,15 @@ export default function PlatformWithdrawalsPage() {
     }));
   };
 
+  const isTargetRow = (item: AdminWithdrawalItem) => {
+    if (!targetId) return false;
+
+    return String(item.id) === String(targetId)
+      || String(item.displayId) === String(targetId)
+      || (item.raw.withdrawalId != null && String(item.raw.withdrawalId) === String(targetId))
+      || (item.raw.refundId != null && String(item.raw.refundId) === String(targetId));
+  };
+
   return (
     <AdminLayout
       title="Yêu cầu chuyển tiền"
@@ -253,7 +262,7 @@ export default function PlatformWithdrawalsPage() {
                     </tr>
                   ) : (
                     data.items.map((item) => (
-                      <tr key={item.id} style={{ backgroundColor: String(item.id) === String(targetId) ? '#fef3c7' : undefined }}>
+                      <tr key={item.id} style={{ backgroundColor: isTargetRow(item) ? '#fef3c7' : undefined }}>
                         <td className="pw-table__id">#{item.displayId}</td>
                         <td>
                           <span className={`pw-type-pill pw-type-pill--${item.requestType.toLowerCase()}`}>
