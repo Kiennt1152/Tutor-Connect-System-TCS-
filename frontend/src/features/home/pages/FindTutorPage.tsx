@@ -23,7 +23,8 @@ const PAGE_SIZE = 6;
 export default function FindTutorPage() {
   const { status, data, reload } = useHome();
   const { isAuthenticated } = useAuth();
-  const [query, setQuery] = useState('');
+  const [draft, setDraft] = useState(''); // chữ đang gõ
+  const [query, setQuery] = useState(''); // từ khóa đã bấm "Tìm" (dùng để lọc)
   const [page, setPage] = useState(1);
 
   const tutors = data?.featuredTutors ?? [];
@@ -61,27 +62,32 @@ export default function FindTutorPage() {
               </Link>
             </div>
 
-            <div className="tcs-find-search">
-              <span className="tcs-find-search__icon" aria-hidden="true">🔍</span>
-              <input
-                type="search"
-                className="tcs-find-search__input"
-                placeholder="Tìm gia sư theo tên, mô tả..."
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                aria-label="Tìm kiếm gia sư"
-              />
-              {query ? (
-                <button
-                  type="button"
-                  className="tcs-find-search__clear"
-                  onClick={() => setQuery('')}
-                  aria-label="Xóa tìm kiếm"
-                >
-                  ✕
-                </button>
-              ) : null}
-            </div>
+            <form
+              className="tcs-find-search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setQuery(draft.trim());
+              }}
+            >
+              <div className="tcs-find-search__field">
+                <input
+                  type="search"
+                  className="tcs-find-search__input"
+                  placeholder="Tìm gia sư theo tên..."
+                  value={draft}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setDraft(value);
+                    // Bấm dấu ✕ mặc định của trình duyệt (làm rỗng ô) -> reset luôn kết quả lọc.
+                    if (value === '') setQuery('');
+                  }}
+                  aria-label="Tìm kiếm gia sư"
+                />
+              </div>
+              <button type="submit" className="tcs-find-search__btn">
+                Tìm
+              </button>
+            </form>
 
             <div className="tcs-section-bar tcs-find-listbar">
               <div>

@@ -7,7 +7,7 @@ export const APP_ROUTES = {
   classBoard: '/sua-lop/danh-sach-tin-da-dang',
   /** Trang "Tìm lớp phù hợp với bạn" — duyệt lớp đang mở để đăng ký (bản của center/class). */
   classFinder: '/lop-hoc',
-  tutorProfile: '/gia-su/chi-tiet-gia-su',
+  tutorProfile: '/tim-gia-su/chi-tiet-gia-su',
   /** Trang "Đánh giá" công khai: danh sách toàn bộ gia sư kèm số sao để xem chi tiết đánh giá. */
   tutorReviews: '/danh-gia',
   teaching: '/lich-ca-nhan',
@@ -65,4 +65,4 @@ export const APP_ROUTES = {
 
 // URL ẩn tutorId — id được truyền qua router state (xem TutorPublicProfilePage). Giữ tham số để
 // nhắc nơi gọi kèm state={{ tutorId }}, nhưng đường dẫn luôn cố định, không lộ id.
-export const tutorProfilePath = (_tutorId?: number | string) => '/gia-su/chi-tiet-gia-su';
+export const tutorProfilePath = (_tutorId?: number | string) => '/tim-gia-su/chi-tiet-gia-su';
