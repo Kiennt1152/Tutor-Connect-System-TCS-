@@ -32,9 +32,8 @@ export default function FindTutorPage() {
   const filteredTutors = useMemo(() => {
     const q = normalize(query);
     if (!q) return tutors;
-    return tutors.filter((tutor) =>
-      normalize(`${tutor.fullName} ${tutor.bio ?? ''} ${tutor.gender ?? ''}`).includes(q),
-    );
+    // Chỉ tìm theo họ và tên (khớp cả khi gõ đầy đủ họ tên lẫn chỉ gõ tên).
+    return tutors.filter((tutor) => normalize(tutor.fullName).includes(q));
   }, [tutors, query]);
 
   const totalPages = Math.max(1, Math.ceil(filteredTutors.length / PAGE_SIZE));
