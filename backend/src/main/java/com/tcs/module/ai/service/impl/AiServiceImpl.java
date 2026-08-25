@@ -86,7 +86,6 @@ public class AiServiceImpl implements AiService {
     @Value("${ai.contextual-window.size:2}")
     private int contextualWindowSize = 2;
 
-    @Override
     // =========================================================================
     // LUỒNG 2: TRỢ LÝ AI HỖ TRỢ THÔNG MINH RAG CHATBOT (UC-65)
     // =========================================================================
