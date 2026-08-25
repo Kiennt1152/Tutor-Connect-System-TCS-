@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
@@ -66,8 +66,7 @@ function isEditableClass(c: ClassResponse): boolean {
 type Mode =
   | { kind: 'list' }
   | { kind: 'create' }
-  | { kind: 'edit'; target: ClassResponse }
-  | { kind: 'detail'; target: ClassResponse };
+  | { kind: 'edit'; target: ClassResponse };
 
 export default function MarketplacePage() {
   const { user } = useAuth();
@@ -85,6 +84,19 @@ export default function MarketplacePage() {
   } = useMarketplace();
 
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
+  // Màn chi tiết tin có URL riêng: /yeu-cau-tim-gia-su-cua-toi/thong-tin-tin-tuyen-dung?id=<classId>
+  const navigate = useNavigate();
+  const location = useLocation();
+  const detailPath = `${APP_ROUTES.marketplace}/thong-tin-tin-tuyen-dung`;
+  const onDetailRoute = location.pathname === detailPath;
+  // classId truyền qua router state để URL sạch (không lộ id); dự phòng sessionStorage để refresh vẫn giữ đúng tin.
+  const stateClassId = (location.state as { classId?: number } | null)?.classId;
+  const detailId = stateClassId ?? Number(sessionStorage.getItem('mkt-detail-classId')) ?? 0;
+  const detailTarget =
+    onDetailRoute && mode.kind === 'list'
+      ? (classes.find((c) => c.classId === detailId) ?? null)
+      : null;
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [publishTarget, setPublishTarget] = useState<number | null>(null);
@@ -191,11 +203,14 @@ export default function MarketplacePage() {
 
   function openEdit(target: ClassResponse) {
     setError(null);
+    // Rời màn chi tiết (nếu đang ở) để hiện form chỉnh sửa đúng.
+    if (onDetailRoute) navigate(APP_ROUTES.marketplace);
     setMode({ kind: 'edit', target });
   }
 
   function openDetail(target: ClassResponse) {
-    setMode({ kind: 'detail', target });
+    sessionStorage.setItem('mkt-detail-classId', String(target.classId));
+    navigate(detailPath, { state: { classId: target.classId } });
   }
 
   async function handleSubmit(payload: ClassRequestPayload) {
@@ -232,9 +247,8 @@ export default function MarketplacePage() {
     if (classId == null) return;
     try {
       await unpublishClass(classId);
-      setMode((prev) =>
-        prev.kind === 'detail' && prev.target.classId === classId ? { kind: 'list' } : prev,
-      );
+      // Đang xem chi tiết tin vừa gỡ đăng -> quay về danh sách.
+      if (onDetailRoute && detailId === classId) navigate(APP_ROUTES.marketplace);
     } catch (err) {
       setPublishError(extractError(err));
     }
@@ -270,7 +284,7 @@ export default function MarketplacePage() {
                 phù hợp sẽ ứng tuyển sau khi bạn đăng lớp.
               </p>
             </div>
-            {mode.kind === 'list' && isClient && (
+            {mode.kind === 'list' && !onDetailRoute && isClient && (
               <div className="mkt-header__actions">
                 <Link className="mkt-btn mkt-btn--ghost" to={APP_ROUTES.classBoard}>
                   Danh sách tin đã đăng
@@ -288,16 +302,33 @@ export default function MarketplacePage() {
             </div>
           )}
 
-          {mode.kind === 'detail' ? (
+          {detailTarget ? (
             <ClassDetailScreen
-              target={mode.target}
+              target={detailTarget}
               subjects={subjects}
               grades={grades}
               onChosen={reload}
               onEdit={openEdit}
               onUnpublish={setUnpublishTarget}
-              onBack={() => setMode({ kind: 'list' })}
+              onBack={() => navigate(APP_ROUTES.marketplace)}
             />
+          ) : onDetailRoute && mode.kind === 'list' ? (
+            <section className="mkt-card">
+              <div className="mkt-card__body">
+                <button
+                  type="button"
+                  className="mkt-btn mkt-btn--ghost"
+                  onClick={() => navigate(APP_ROUTES.marketplace)}
+                >
+                  ← Quay lại danh sách
+                </button>
+                <p className="mkt-muted" style={{ marginTop: 12 }}>
+                  {status === 'loading'
+                    ? 'Đang tải chi tiết tin tuyển dụng…'
+                    : 'Không tìm thấy tin tuyển dụng này.'}
+                </p>
+              </div>
+            </section>
           ) : mode.kind !== 'list' ? (
             <section className="mkt-card">
               <div className="mkt-card__head">
