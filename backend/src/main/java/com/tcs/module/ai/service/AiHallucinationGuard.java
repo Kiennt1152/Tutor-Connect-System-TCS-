@@ -31,10 +31,14 @@ public class AiHallucinationGuard {
         }
 
         String lowerResponse = response != null ? response.toLowerCase() : "";
-        boolean hasFakeName = FAKE_PATTERNS.stream().anyMatch(lowerResponse::contains);
+        boolean hasFakeName = FAKE_PATTERNS.stream().anyMatch(lowerResponse::contains) ||
+                              lowerResponse.contains("chưa tìm thấy gia sư") ||
+                              lowerResponse.contains("chua tim thay gia su") ||
+                              lowerResponse.contains("không tìm thấy gia sư") ||
+                              lowerResponse.contains("khong tim thay gia su");
 
         if (hasFakeName) {
-            log.warn("[HallucinationGuard] FIND_TUTOR: detected fake tutor names in LLM response, replacing");
+            log.warn("[HallucinationGuard] FIND_TUTOR: detected placeholder/fallback in response while real tutors exist, replacing with tutor list");
             StringBuilder sb = new StringBuilder();
             sb.append("Dựa trên tiêu chí tìm kiếm của bạn, hệ thống TCS tìm thấy các gia sư phù hợp sau:\n\n");
             for (TutorReferenceDto t : realTutors) {
@@ -64,10 +68,14 @@ public class AiHallucinationGuard {
         }
 
         String lowerResponse = response != null ? response.toLowerCase() : "";
-        boolean hasFakeName = FAKE_PATTERNS.stream().anyMatch(lowerResponse::contains);
+        boolean hasFakeName = FAKE_PATTERNS.stream().anyMatch(lowerResponse::contains) ||
+                              lowerResponse.contains("chưa tìm thấy lớp") ||
+                              lowerResponse.contains("chua tim thay lop") ||
+                              lowerResponse.contains("không tìm thấy lớp") ||
+                              lowerResponse.contains("khong tim thay lop");
 
         if (hasFakeName) {
-            log.warn("[HallucinationGuard] FIND_CLASS: detected fake class placeholders in LLM response, replacing");
+            log.warn("[HallucinationGuard] FIND_CLASS: detected placeholder/fallback in response while real classes exist, replacing with class list");
             StringBuilder sb = new StringBuilder();
             sb.append("Dựa trên tiêu chí tìm kiếm của bạn, hệ thống TCS tìm thấy các lớp học phù hợp sau:\n\n");
             for (ClassReferenceDto c : realClasses) {

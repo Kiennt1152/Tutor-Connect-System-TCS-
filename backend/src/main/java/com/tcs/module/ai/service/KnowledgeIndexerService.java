@@ -194,9 +194,73 @@ public class KnowledgeIndexerService {
                 "  + Mức độ Cao (HIGH - ví dụ tranh chấp lớp học): Phản hồi trong vòng 12 - 24 giờ.\n" +
                 "  + Mức độ Thường (NORMAL - câu hỏi chung, góp ý): Phản hồi trong vòng 24 - 48 giờ làm việc.",
                 Map.of("category", "TICKETS", "tags", "ticket,sla,ho_tro,cskh,khieu_nai"), stats);
+
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_MARKET_SALARY_BENCHMARKS",
+                "Khung học phí và Mức thù lao trung bình của Gia sư trên TCS",
+                "Mức học phí và thu nhập trung bình của gia sư trên nền tảng TCS được thống kê theo từng cấp học:\n" +
+                "- Cấp 1 (Tiểu học): 120.000đ - 180.000đ / buổi (thời lượng 90 phút).\n" +
+                "- Cấp 2 (THCS): 150.000đ - 250.000đ / buổi (thời lượng 90 - 120 phút).\n" +
+                "- Cấp 3 (THPT & Luyện thi vào 10 / Luyện thi Đại học): 200.000đ - 350.000đ / buổi.\n" +
+                "- Ngoại ngữ & Luyện thi chứng chỉ quốc tế (IELTS, TOEIC, HSK, JLPT): 250.000đ - 500.000đ / buổi.\n" +
+                "- Lập trình, Tin học và Môn Năng khiếu: 250.000đ - 450.000đ / buổi.\n" +
+                "- Phụ huynh và gia sư có quyền tự do thương lượng mức giá khi tạo lớp hoặc nộp đơn ứng tuyển.",
+                Map.of("category", "PRICING", "tags", "luong,hoc_phi,thu_nhap,bang_gia,gia_su_toan,ielts"), stats);
+
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_TUTOR_APPLICATION_FLOW",
+                "Quy trình Nộp hồ sơ và Ứng tuyển nhận lớp dạy kèm",
+                "Quy trình Gia sư ứng tuyển nhận lớp trên TCS:\n" +
+                "1. Tìm kiếm lớp học phù hợp tại mục 'Danh sách lớp học' (/lop-hoc).\n" +
+                "2. Xem kỹ yêu cầu của học sinh (môn học, khối lớp, lịch học, học phí đề xuất, địa chỉ).\n" +
+                "3. Bấm nút 'Ứng tuyển', nhập mức học phí đề xuất kèm lời giới thiệu kinh nghiệm và phương pháp giảng dạy.\n" +
+                "4. Phụ huynh xem xét hồ sơ, trao đổi qua tin nhắn và bấm 'Chấp nhận' để tiến hành ký hợp đồng điện tử qua OTP.",
+                Map.of("category", "MARKETPLACE", "tags", "ung_tuyen,nhan_lop,nop_don,lop_hoc,day_kem"), stats);
+
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_ATTENDANCE_AND_SUBSTITUTE",
+                "Quy định Điểm danh buổi học, Dời lịch và Tìm gia sư dạy thay",
+                "Quy định Vận hành dạy học dành cho gia sư:\n" +
+                "- Điểm danh buổi học: Thực hiện tại mục 'Lớp học của tôi' (/tutor/classes) sau mỗi buổi dạy. Nếu quên điểm danh, gia sư có thời hạn ân hạn 24 giờ để điểm danh bù.\n" +
+                "- Xin nghỉ / Dời lịch dạy: Gia sư phải gửi yêu cầu dời lịch tại mục 'Lịch dạy' (/tutor/schedule) trước ít nhất 12 giờ để phụ huynh xác nhận.\n" +
+                "- Tìm người dạy thay (Substitute): Trường hợp bận đột xuất dài ngày, gia sư tạo yêu cầu tìm người dạy thay để trung tâm hoặc nền tảng bố trí gia sư tương đương chuyên môn.",
+                Map.of("category", "TUTOR_OPS", "tags", "diem_danh,doi_lich,nghi_day,day_thay,thoi_khoa_bieu"), stats);
+
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_CENTER_RECRUITMENT_MANAGEMENT",
+                "Vận hành Tuyển dụng và Quản lý Gia sư trực thuộc Trung tâm",
+                "Quy định dành cho Trung tâm gia sư (Tutor Center):\n" +
+                "- Đăng tin tuyển dụng: Trung tâm đăng bài tuyển gia sư tại /center/recruitment để tiếp nhận ứng viên.\n" +
+                "- Quản lý đội ngũ: Trung tâm quản lý danh sách giáo viên, phân công lớp học nhóm và theo dõi doanh thu tại /center.\n" +
+                "- Hoa hồng trung tâm: Thiết lập tỷ lệ hoa hồng phân chia minh bạch trong hợp đồng nội bộ với gia sư.",
+                Map.of("category", "CENTER_OPS", "tags", "trung_tam,tuyen_dung,quan_ly_gia_su,lop_nhom"), stats);
+
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_PARENT_CHILD_PROFILE_LINK",
+                "Quản lý Hồ sơ con học viên và Liên kết Người giám hộ",
+                "Chính sách Quản lý Hồ sơ con (Child Profile) và Liên kết phụ huynh:\n" +
+                "- Phụ huynh có thể tạo nhiều hồ sơ con dưới 1 tài khoản duy nhất tại /parent/students để quản lý lịch học, lớp học và theo dõi điểm danh riêng cho từng con.\n" +
+                "- Học viên có thể gửi yêu cầu liên kết với tài khoản phụ huynh để phụ huynh hỗ trợ thanh toán học phí qua Escrow.",
+                Map.of("category", "PROFILE", "tags", "ho_so_con,phu_huynh,giam_ho,child_profile,lien_ket"), stats);
+
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_SEPAY_VIETQR_PAYMENT",
+                "Hướng dẫn Nạp tiền Ví tự động qua VietQR SePay",
+                "Quy trình Nạp tiền vào ví TCS:\n" +
+                "1. Đăng nhập và truy cập mục 'Ví tiền & Tài chính' (/finance), chọn 'Nạp tiền'.\n" +
+                "2. Nhập số tiền cần nạp và chọn thanh toán qua VietQR SePay.\n" +
+                "3. Mở App ngân hàng quét mã QR trên màn hình. Tiền sẽ được tự động cộng vào ví trong vòng 10 - 30 giây mà không cần gửi biên lai thủ công.",
+                Map.of("category", "PAYMENT", "tags", "nap_tien,sepay,vietqr,qr_code,vi_tien"), stats);
         
         log.info("Finished AI Knowledge Reindexing. Stats: {}", stats);
         return stats;
+    }
+
+    @org.springframework.context.event.EventListener(org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        try {
+            long count = chunkRepository.count();
+            if (count == 0) {
+                log.info("Knowledge chunks table is empty on startup. Triggering initial AI knowledge indexing...");
+                reindexAll();
+            }
+        } catch (Exception e) {
+            log.warn("Auto-indexing on startup skipped: {}", e.getMessage());
+        }
     }
 
     @Transactional(readOnly = true)

@@ -161,15 +161,16 @@ class AiProductionHardeningTest {
 
         @BeforeEach
         void setUp() {
+            AiReferenceCardService refCardService = new AiReferenceCardService(tutorRepository, tutoringClassRepository, faqEntryRepository);
             aiService = new AiServiceImpl(
-                sessionRepository, messageRepository, null, null,
-                tutorRepository, null, null, faqEntryRepository,
-                tutoringClassRepository, null, null, null,
+                sessionRepository, messageRepository, null,
+                tutorRepository, null, null, null,
+                null, null, null, null, null, null,
+                null, null, null, null, null,
+                refCardService, null, new AiResponseBuilderService(), null,
                 null, null, null, null,
-                null, null, null, null,
-                null, null, null, null,
-                null, null, null, null,
-                null, null, null, new ObjectMapper()
+                null, null, null, null, null, null,
+                null
             );
         }
 

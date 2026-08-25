@@ -54,11 +54,13 @@ class AiSecurityAndTenancyTest {
     @Mock private ClientRepository clientRepository;
     @Mock private FaqEntryRepository faqEntryRepository;
     @Mock private TutoringClassRepository tutoringClassRepository;
+    @Mock private com.tcs.module.ai.repository.AiKnowledgeChunkRepository chunkRepository;
     @Mock private AiConversationContextService contextService;
     @Mock private AiQueryRewriteService rewriteService;
     @Mock private AiIntentService intentService;
     @Mock private AiRetrievalService retrievalService;
     @Mock private AiRerankService rerankService;
+    @Mock private ContextualChunkRetriever contextualChunkRetriever;
     @Mock private AiPromptBuilderService promptBuilderService;
     @Mock private AiAnswerEvaluatorService evaluatorService;
     @Mock private AiCapabilityRouter capabilityRouter;
@@ -89,19 +91,25 @@ class AiSecurityAndTenancyTest {
         lenient().when(synonymService.normalizeQuery(anyString())).thenAnswer(invocation -> invocation.getArgument(0));
         
         // Mock semantic cache to always miss (empty) - lenient for tests that don't call chat()
-        lenient().when(semanticCacheService.get(anyString(), anyString(), any())).thenReturn(Optional.empty());
+        lenient().when(semanticCacheService.get(anyString(), anyString())).thenReturn(Optional.empty());
         
+        AiFinanceGuardService financeGuardService = new AiFinanceGuardService(fallbackService);
+        AiReferenceCardService referenceCardService = new AiReferenceCardService(tutorRepository, tutoringClassRepository, faqEntryRepository);
+        AiHallucinationGuardService hallucinationGuardService = new AiHallucinationGuardService(hallucinationGuard, fallbackService);
+        AiResponseBuilderService responseBuilderService = new AiResponseBuilderService();
+
         aiService = new AiServiceImpl(
-            sessionRepository, messageRepository, userRepository,
+            sessionRepository, messageRepository,
             platformAdminRepository, tutorRepository, tutorCenterRepository,
-            clientRepository, faqEntryRepository, tutoringClassRepository,
+            clientRepository, chunkRepository,
             contextService, rewriteService, intentService, retrievalService, rerankService,
-            promptBuilderService, evaluatorService, capabilityRouter, fallbackService,
-            hallucinationGuard, contentSafetyFilter, conversationContextService,
+            contextualChunkRetriever, promptBuilderService, evaluatorService, capabilityRouter, fallbackService,
+            financeGuardService, referenceCardService, hallucinationGuardService, responseBuilderService,
+            contentSafetyFilter, conversationContextService,
             semanticCacheService, synonymService, userPreferenceService,
             ticketContextProvider, dashboardContextProvider, tutorSearchContextProvider,
             classSearchContextProvider, platformStatsContextProvider, tutorFinanceContextProvider,
-            aiProviderRouter, new ObjectMapper()
+            aiProviderRouter
         );
     }
 

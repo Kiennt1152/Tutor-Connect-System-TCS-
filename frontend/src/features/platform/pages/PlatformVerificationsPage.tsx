@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { AdminLayout } from '../components/AdminLayout';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
+import { Pagination } from '../../../shared/components';
 import { platformApi } from '../api/platformApi';
 import { useReviewVerification } from '../hooks/usePlatformMutations';
 import { useVerificationList } from '../hooks/useVerificationList';
@@ -84,8 +85,20 @@ export default function PlatformVerificationsPage() {
   const [rejecting, setRejecting] = useState(false);
   const [rejectNotes, setRejectNotes] = useState('');
   const [formError, setFormError] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const pendingCount = items.filter((item) => item.canReview).length;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [items.length]);
+
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, items.length);
+  const paginatedItems = items.slice(startIndex, endIndex);
 
   useEffect(() => {
     if (targetId && items.length > 0 && !selected) {
@@ -208,7 +221,7 @@ export default function PlatformVerificationsPage() {
                     <td colSpan={7}>Chưa có yêu cầu xác minh nào.</td>
                   </tr>
                 ) : (
-                  items.map((item) => (
+                  paginatedItems.map((item) => (
                     <tr key={item.id}>
                       <td>{item.id}</td>
                       <td>{item.userEmail}</td>
@@ -234,6 +247,29 @@ export default function PlatformVerificationsPage() {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {status === 'success' && items.length > 0 && (
+          <div className="adm-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '16px', gap: '8px' }}>
+            <select
+              className="adm-field adm-field--fixed"
+              style={{ width: 'auto', padding: '4px 8px', fontSize: '13px', borderRadius: '8px' }}
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+            >
+              <option value={10}>10 / trang</option>
+              <option value={20}>20 / trang</option>
+              <option value={50}>50 / trang</option>
+            </select>
+            <Pagination
+              current={validCurrentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
           </div>
         )}
       </div>

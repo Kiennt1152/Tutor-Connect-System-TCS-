@@ -42,6 +42,7 @@ class AiServiceImplTest {
 
     @Mock private AiChatSessionRepository sessionRepository;
     @Mock private AiChatMessageRepository messageRepository;
+    @Mock private com.tcs.module.ai.service.AiReferenceCardService referenceCardService;
 
     @InjectMocks private AiServiceImpl service;
 

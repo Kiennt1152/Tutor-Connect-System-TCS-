@@ -24,7 +24,7 @@ public interface AiQueryCacheRepository extends JpaRepository<AiQueryCache, Long
     @Query("SELECT c FROM AiQueryCache c WHERE c.domain = :domain AND c.expiresAt > :now ORDER BY c.createdAt DESC")
     List<AiQueryCache> findByDomainAndActive(@Param("domain") String domain, @Param("now") LocalDateTime now);
     
-    @Modifying
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("DELETE FROM AiQueryCache c WHERE c.expiresAt <= :now")
     int deleteExpiredCaches(@Param("now") LocalDateTime now);
     

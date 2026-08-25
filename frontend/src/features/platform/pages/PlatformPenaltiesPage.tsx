@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { AdminTimeFilter } from '../components/AdminTimeFilter';
+import { Pagination } from '../../../shared/components';
 import { platformApi } from '../api/platformApi';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import type { 
@@ -339,23 +340,13 @@ export default function PlatformPenaltiesPage() {
       </div>
 
       {/* Pagination */}
-      {!loading && totalPages > 1 && (
-        <div className="adm-pagination" style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginTop: '16px' }}>
-          <button 
-            disabled={page === 0} 
-            onClick={() => setPage(p => p - 1)}
-            style={{ padding: '6px 12px' }}
-          >
-            Trước
-          </button>
-          <span style={{ padding: '6px 12px' }}>Trang {page + 1} / {totalPages}</span>
-          <button 
-            disabled={page >= totalPages - 1} 
-            onClick={() => setPage(p => p + 1)}
-            style={{ padding: '6px 12px' }}
-          >
-            Sau
-          </button>
+      {!loading && penalties.length > 0 && (
+        <div className="adm-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '16px', gap: '8px' }}>
+          <Pagination
+            current={page + 1}
+            totalPages={Math.max(totalPages, 1)}
+            onPageChange={(p) => setPage(p - 1)}
+          />
         </div>
       )}
 

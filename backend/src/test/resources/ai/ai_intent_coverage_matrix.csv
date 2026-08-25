@@ -36,7 +36,7 @@ TUTOR_OPS,TUTOR_SUBSTITUTE_REQUEST,tìm gia sư dạy thay thế,FAQ_SUPPORT,TUT
 TUTOR_OPS,TUTOR_SCHEDULE_VIEW,quy trình nhận lớp dạy kèm,FAQ_SUPPORT,TUTOR,FAQ,/tutor/schedule,FAQ_CARDS,L4_PERMISSION,false,nhan lop day
 CENTER_OPS,CENTER_TUTOR_MANAGEMENT,trung tâm quản lý gia sư ở đâu,CENTER_MANAGEMENT,TUTOR_CENTER,FAQ,/center,FAQ_CARDS,L4_PERMISSION,false,quan ly trung tam gia su
 CENTER_OPS,CENTER_TUTOR_MANAGEMENT,thành viên trung tâm gia sư,CENTER_MANAGEMENT,TUTOR_CENTER,FAQ,/center,FAQ_CARDS,L4_PERMISSION,false,thanh vien trung tam
-CENTER_OPS,CENTER_TUTOR_MANAGEMENT,đăng bài tuyển dụng gia sư cho trung tâm,CENTER_MANAGEMENT,TUTOR_CENTER,FAQ,/center,FAQ_CARDS,L4_PERMISSION,false,tao bai tuyen dung
+CENTER_OPS,CENTER_RECRUITMENT_POST,đăng bài tuyển dụng gia sư cho trung tâm,CENTER_MANAGEMENT,TUTOR_CENTER,FAQ,/center/recruitment,FAQ_CARDS,L4_PERMISSION,false,tao bai tuyen dung
 CENTER_OPS,CENTER_TUTOR_MANAGEMENT,duyệt gia sư vào trung tâm,CENTER_MANAGEMENT,TUTOR_CENTER,FAQ,/center,FAQ_CARDS,L4_PERMISSION,false,duyet gia su vao trung tam
 CENTER_OPS,CENTER_TUTOR_MANAGEMENT,báo cáo doanh thu trung tâm,CENTER_MANAGEMENT,TUTOR_CENTER,FAQ,/center,FAQ_CARDS,L4_PERMISSION,false,bao cao doanh thu trung tam
 FINANCE_WALLET,WALLET_VIEW,xem ví tiền của tôi,PAYMENT_SUPPORT,AUTHENTICATED,WALLET,/finance,FINANCE_LINK_ONLY,L4_PERMISSION,false,vi tien cua toi

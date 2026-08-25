@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
+import { Pagination } from '../../../shared/components';
 import { platformApi } from '../api/platformApi';
 import { AdminLayout } from '../components/AdminLayout';
 import type {
@@ -17,6 +18,8 @@ export default function PlatformCircumventionPage() {
   const [conversation, setConversation] = useState<CircumventionConversationApiResponse | null>(null);
   const [conversationError, setConversationError] = useState<string | null>(null);
   const [loadingConversationId, setLoadingConversationId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
 
   const load = useCallback(async () => {
     try {
@@ -31,6 +34,16 @@ export default function PlatformCircumventionPage() {
     const id = window.setTimeout(() => void load(), 0);
     return () => window.clearTimeout(id);
   }, [load]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [status, items.length]);
+
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const validCurrentPage = Math.min(currentPage, totalPages);
+  const startIndex = (validCurrentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, items.length);
+  const paginatedItems = items.slice(startIndex, endIndex);
 
   async function openConversation(item: CircumventionEventApiResponse) {
     setLoadingConversationId(item.eventId);
@@ -78,7 +91,7 @@ export default function PlatformCircumventionPage() {
             <thead><tr><th>Người gửi</th><th>Quy tắc</th><th>Bằng chứng</th><th>Rủi ro</th><th>Thời gian</th><th>Thao tác</th></tr></thead>
             <tbody>
               {items.length === 0 && <tr><td colSpan={6}>Không có sự kiện.</td></tr>}
-              {items.map((item) => (
+              {paginatedItems.map((item) => (
                 <tr key={item.eventId}>
                   <td>
                     {item.senderEmail}
@@ -108,6 +121,29 @@ export default function PlatformCircumventionPage() {
             </tbody>
           </table>
         </div>
+
+        {items.length > 0 && (
+          <div className="adm-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '16px', gap: '8px' }}>
+            <select
+              className="adm-field adm-field--fixed"
+              style={{ width: 'auto', padding: '4px 8px', fontSize: '13px', borderRadius: '8px' }}
+              value={pageSize}
+              onChange={(e) => {
+                setPageSize(Number(e.target.value));
+                setCurrentPage(1);
+              }}
+            >
+              <option value={10}>10 / trang</option>
+              <option value={20}>20 / trang</option>
+              <option value={50}>50 / trang</option>
+            </select>
+            <Pagination
+              current={validCurrentPage}
+              totalPages={totalPages}
+              onPageChange={setCurrentPage}
+            />
+          </div>
+        )}
       </div>
 
       {conversation && (

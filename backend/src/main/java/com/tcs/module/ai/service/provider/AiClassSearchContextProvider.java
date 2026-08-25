@@ -151,7 +151,7 @@ public class AiClassSearchContextProvider {
 
     public String renderDeterministicAnswer(List<ClassReferenceDto> classes) {
         if (classes == null || classes.isEmpty()) {
-            return "Hiện tại chưa có lớp học nào đang mở khớp với tiêu chí tìm kiếm của bạn. Bạn có thể theo dõi danh sách lớp mới tại mục /lop-hoc.";
+            return "Hiện tại chưa có lớp học nào đang mở khớp với tiêu chí tìm kiếm của bạn. Bạn có thể theo dõi danh sách lớp mới tại mục 'Lớp học'.";
         }
         StringBuilder sb = new StringBuilder();
         sb.append("Dựa trên hệ thống Tutor Connect System, tôi tìm thấy các lớp học đang mở tuyển gia sư sau:\n\n");

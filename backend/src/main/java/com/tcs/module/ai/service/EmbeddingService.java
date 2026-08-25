@@ -8,27 +8,30 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import lombok.RequiredArgsConstructor;
+import java.util.*;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Slf4j
 @Service
-@RequiredArgsConstructor
 public class EmbeddingService {
 
     private final ObjectMapper objectMapper;
-    private final HttpClient httpClient = HttpClient.newBuilder()
-            .connectTimeout(Duration.ofSeconds(10))
-            .build();
+    private final HttpClient httpClient;
 
-    private final Map<String, double[]> embeddingCache = new ConcurrentHashMap<>();
     private static final int MAX_CACHE_SIZE = 1000;
+
+    // Thread-safe LRU Cache to prevent thundering herd / cold-start cache wipes
+    private final Map<String, double[]> embeddingCache = Collections.synchronizedMap(
+        new LinkedHashMap<String, double[]>(128, 0.75f, true) {
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, double[]> eldest) {
+                return size() > MAX_CACHE_SIZE;
+            }
+        }
+    );
 
     @Value("${ai.gemini.api-key:}")
     private String geminiApiKey;
@@ -42,14 +45,26 @@ public class EmbeddingService {
         "text-embedding-004"
     );
 
+    @Autowired
+    public EmbeddingService(ObjectMapper objectMapper) {
+        this(objectMapper, HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build());
+    }
+
+    public EmbeddingService(ObjectMapper objectMapper, HttpClient httpClient) {
+        this.objectMapper = objectMapper;
+        this.httpClient = httpClient != null ? httpClient : HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
+    }
+
     public Optional<double[]> getEmbedding(String text) {
         if (text == null || text.isBlank()) {
             return Optional.empty();
         }
 
         String cacheKey = text.trim();
-        if (embeddingCache.containsKey(cacheKey)) {
-            return Optional.of(embeddingCache.get(cacheKey));
+        synchronized (embeddingCache) {
+            if (embeddingCache.containsKey(cacheKey)) {
+                return Optional.of(embeddingCache.get(cacheKey));
+            }
         }
 
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
@@ -57,7 +72,7 @@ public class EmbeddingService {
             return Optional.empty();
         }
 
-        List<String> modelsToTry = new java.util.ArrayList<>();
+        List<String> modelsToTry = new ArrayList<>();
         if (configuredEmbeddingModel != null && !configuredEmbeddingModel.isBlank()) {
             modelsToTry.add(configuredEmbeddingModel.trim());
         }
@@ -88,10 +103,9 @@ public class EmbeddingService {
                         for (int i = 0; i < values.size(); i++) {
                             embedding[i] = values.get(i).asDouble();
                         }
-                        if (embeddingCache.size() > MAX_CACHE_SIZE) {
-                            embeddingCache.clear();
+                        synchronized (embeddingCache) {
+                            embeddingCache.put(cacheKey, embedding);
                         }
-                        embeddingCache.put(cacheKey, embedding);
                         return Optional.of(embedding);
                     }
                 } else if (response.statusCode() == 404) {
@@ -151,8 +165,26 @@ public class EmbeddingService {
                 return arr;
             }
         } catch (Exception e) {
-            log.error("Failed to parse embedding json", e);
+            log.error("Failed to parse embedding json: {}", e.getMessage());
         }
         return new double[0];
+    }
+
+    public int getCacheSize() {
+        synchronized (embeddingCache) {
+            return embeddingCache.size();
+        }
+    }
+
+    public void clearCache() {
+        synchronized (embeddingCache) {
+            embeddingCache.clear();
+        }
+    }
+
+    public void putCacheForTesting(String text, double[] embedding) {
+        synchronized (embeddingCache) {
+            embeddingCache.put(text.trim(), embedding);
+        }
     }
 }

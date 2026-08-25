@@ -2,18 +2,18 @@ package com.tcs.module.ai.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tcs.module.ai.constants.AiConstants;
 import com.tcs.module.ai.entity.AiQueryCache;
 import com.tcs.module.ai.repository.AiQueryCacheRepository;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.time.LocalDateTime;
+import java.util.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
-import java.time.LocalDateTime;
-import java.util.*;
 
 /**
  * Semantic Cache Service for AI Query Responses.
@@ -28,26 +28,42 @@ public class AiSemanticCacheService {
     private final TcsSynonymService synonymService;
     private final ObjectMapper objectMapper;
 
-    private static final double SIMILARITY_THRESHOLD = 0.92; // 92% similarity for cache hit
-    private static final int CACHE_TTL_HOURS = 24; // Cache expires after 24 hours
-    private static final int MAX_CACHE_ENTRIES = 1000; // Max cached queries
+    private static final double SIMILARITY_THRESHOLD = AiConstants.SEMANTIC_CACHE_THRESHOLD;
+    private static final int CACHE_TTL_HOURS = AiConstants.SEMANTIC_CACHE_TTL_HOURS;
+    private static final int MAX_CACHE_ENTRIES = AiConstants.MAX_CACHE_ENTRIES;
+
+    @jakarta.annotation.PostConstruct
+    public void clearStaleCacheOnStartup() {
+        try {
+            long count = cacheRepository.count();
+            if (count > 0) {
+                cacheRepository.deleteAll();
+                log.info("Cleared {} legacy semantic cache entries on startup for fresh AI pipeline", count);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to clear semantic cache on startup: {}", e.getMessage());
+        }
+    }
 
     /**
-     * Check cache for similar query and return cached response if found.
+     * Check cache for similar query using exact match or semantic search with double[] embedding.
      */
     @Transactional
-    public Optional<CachedResponse> get(String query, String userRole, List<float[]> queryEmbedding) {
+    public Optional<CachedResponse> get(String query, String userRole, double[] queryEmbedding) {
         if (query == null || query.isBlank()) {
             return Optional.empty();
         }
 
         // 1. Try exact normalized match first (fastest)
-        String normalized = synonymService.normalizeQuery(query);
+        String normalized = synonymService != null ? synonymService.normalizeQuery(query) : query.trim().toLowerCase(Locale.ROOT);
         String queryHash = hashQuery(normalized, userRole);
         
         Optional<AiQueryCache> exactMatch = cacheRepository.findByQueryHash(queryHash);
         if (exactMatch.isPresent() && !isExpired(exactMatch.get())) {
             AiQueryCache cache = exactMatch.get();
+            if ("PLATFORM_STATS".equals(cache.getSubIntent())) {
+                return Optional.empty();
+            }
             cache.incrementHit();
             cacheRepository.save(cache);
             log.info("Cache HIT (exact): query='{}', cacheId={}, hits={}", 
@@ -56,20 +72,20 @@ public class AiSemanticCacheService {
         }
 
         // 2. Try semantic similarity search (if embedding provided)
-        if (queryEmbedding != null && !queryEmbedding.isEmpty()) {
-            List<AiQueryCache> candidates = cacheRepository.findByDomainAndActive(
-                null, LocalDateTime.now());
+        if (queryEmbedding != null && queryEmbedding.length > 0) {
+            List<AiQueryCache> candidates = cacheRepository.findByDomainAndActive(null, LocalDateTime.now());
             
             for (AiQueryCache candidate : candidates) {
-                if (candidate.getEmbeddingJson() == null) continue;
+                if ("PLATFORM_STATS".equals(candidate.getSubIntent())) {
+                    continue;
+                }
+                if (candidate.getEmbeddingJson() == null || candidate.getEmbeddingJson().isBlank()) continue;
                 
                 try {
-                    List<Float> cachedEmbedding = objectMapper.readValue(
-                        candidate.getEmbeddingJson(), new TypeReference<List<Float>>() {});
+                    double[] cachedEmbedding = objectMapper.readValue(
+                        candidate.getEmbeddingJson(), double[].class);
                     
-                    double similarity = cosineSimilarity(
-                        queryEmbedding.get(0), 
-                        cachedEmbedding.stream().map(Float::floatValue).toArray(Float[]::new));
+                    double similarity = cosineSimilarity(queryEmbedding, cachedEmbedding);
                     
                     if (similarity >= SIMILARITY_THRESHOLD) {
                         candidate.incrementHit();
@@ -89,15 +105,20 @@ public class AiSemanticCacheService {
         return Optional.empty();
     }
 
+    @Transactional
+    public Optional<CachedResponse> get(String query, String userRole) {
+        return get(query, userRole, (double[]) null);
+    }
+
     /**
-     * Store query and response in cache.
+     * Store query and response in cache with double[] embedding.
      */
     @Transactional
     public void put(String query, String normalizedQuery, String response, 
                     String intent, String domain, String subIntent, 
                     Double confidenceScore, Integer sourceCount,
                     String referencedTutorIds, String referencedClassIds, String referencedFaqIds,
-                    String userRole, List<float[]> embedding) {
+                    String userRole, double[] embedding) {
         
         if (query == null || response == null) return;
 
@@ -116,9 +137,9 @@ public class AiSemanticCacheService {
         }
 
         String embeddingJson = null;
-        if (embedding != null && !embedding.isEmpty()) {
+        if (embedding != null && embedding.length > 0) {
             try {
-                embeddingJson = objectMapper.writeValueAsString(embedding.get(0));
+                embeddingJson = objectMapper.writeValueAsString(embedding);
             } catch (Exception e) {
                 log.warn("Failed to serialize embedding: {}", e.getMessage());
             }
@@ -147,16 +168,39 @@ public class AiSemanticCacheService {
         log.debug("Cached query: '{}' with hash={}", query, queryHash);
     }
 
+    @Transactional
+    public void put(String query, String normalizedQuery, String response, 
+                    String intent, String domain, String subIntent, 
+                    Double confidenceScore, Integer sourceCount,
+                    String referencedTutorIds, String referencedClassIds, String referencedFaqIds,
+                    String userRole) {
+        put(query, normalizedQuery, response, intent, domain, subIntent, confidenceScore,
+            sourceCount, referencedTutorIds, referencedClassIds, referencedFaqIds, userRole, (double[]) null);
+    }
+
     /**
-     * Clear expired cache entries (runs every hour).
+     * Clear expired cache entries (scheduled distributed lock run).
      */
     @Scheduled(cron = "0 0 * * * *") // Every hour
+    @net.javacrumbs.shedlock.spring.annotation.SchedulerLock(
+        name = "aiCacheCleanup",
+        lockAtMostFor = "50m",
+        lockAtLeastFor = "5m"
+    )
+    public void scheduledClearExpiredCaches() {
+        clearExpiredCaches();
+    }
+
+    /**
+     * Clear expired cache entries programmatically.
+     */
     @Transactional
-    public void clearExpiredCaches() {
+    public int clearExpiredCaches() {
         int deleted = cacheRepository.deleteExpiredCaches(LocalDateTime.now());
         if (deleted > 0) {
             log.info("Cleared {} expired cache entries", deleted);
         }
+        return deleted;
     }
 
     /**
@@ -171,7 +215,7 @@ public class AiSemanticCacheService {
             (int) popular.stream().mapToInt(AiQueryCache::getHitCount).average().orElse(0);
         
         return new CacheStats(totalCaches, cacheHits, avgHits, 
-                              popular.size() > 0 ? popular.get(0).getHitCount() : 0);
+                              !popular.isEmpty() ? popular.get(0).getHitCount() : 0);
     }
 
     private boolean isExpired(AiQueryCache cache) {
@@ -211,8 +255,10 @@ public class AiSemanticCacheService {
         }
     }
 
-    private double cosineSimilarity(float[] vec1, Float[] vec2) {
-        if (vec1.length != vec2.length) return 0.0;
+    private double cosineSimilarity(double[] vec1, double[] vec2) {
+        if (vec1 == null || vec2 == null || vec1.length == 0 || vec2.length == 0 || vec1.length != vec2.length) {
+            return 0.0;
+        }
         
         double dotProduct = 0.0;
         double norm1 = 0.0;

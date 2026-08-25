@@ -38,10 +38,10 @@ public class AiFallbackService {
 
         AiSubIntent.BOT_CAPABILITY_ASK,
         "Tôi có thể hỗ trợ bạn các công việc sau:\n" +
-        "1. **Tìm gia sư & Lớp học**: Tìm gia sư theo môn, lớp, học phí và khu vực (/tim-gia-su, /lop-hoc).\n" +
-        "2. **Tài chính & Escrow**: Hướng dẫn nạp ví, rút tiền, giải ngân ký quỹ và chính sách hoàn tiền (/finance).\n" +
-        "3. **Hỗ trợ & Khiếu nại**: Hướng dẫn tạo ticket, báo cáo lách sàn hoặc mở tranh chấp (/support/tickets).\n" +
-        "4. **Chính sách & Quy trình**: Giải đáp các quy định, hợp đồng, phí sàn, và chính sách nền tảng (/help).",
+        "1. **Tìm gia sư & Lớp học**: Tìm gia sư theo môn học, khối lớp, mức học phí và khu vực.\n" +
+        "2. **Tài chính & Escrow**: Hướng dẫn nạp ví, rút tiền, giải ngân ký quỹ và chính sách hoàn tiền an toàn.\n" +
+        "3. **Hỗ trợ & Khiếu nại**: Hướng dẫn tạo phiếu hỗ trợ, báo cáo vi phạm hoặc giải quyết tranh chấp.\n" +
+        "4. **Chính sách & Quy trình**: Giải đáp các quy định, hợp đồng điện tử, phí nền tảng và chính sách vận hành.",
 
         AiSubIntent.PROFANITY_OR_FRUSTRATION,
         "TCS luôn hướng tới môi trường giao tiếp văn minh và tôn trọng lẫn nhau. Nếu bạn đang gặp sự cố hoặc bức xúc về dịch vụ, vui lòng mô tả chi tiết vấn đề để tôi hỗ trợ hoặc chuyển tiếp đội ngũ quản trị viên xử lý ngay nhé.",
@@ -53,7 +53,7 @@ public class AiFallbackService {
         "• *'Làm sao để nạp tiền vào ví Escrow?'*",
 
         AiSubIntent.HUMAN_SUPPORT_REQUEST,
-        "Bạn có thể gửi yêu cầu hỗ trợ trực tiếp tới đội ngũ quản trị viên TCS bằng cách tạo phiếu hỗ trợ tại mục /support/tickets hoặc liên hệ hotline hỗ trợ."
+        "Bạn có thể gửi yêu cầu hỗ trợ trực tiếp tới đội ngũ quản trị viên TCS bằng cách tạo phiếu hỗ trợ tại mục 'Hỗ trợ & Khiếu nại' hoặc liên hệ hotline hỗ trợ."
     );
 
     /**
@@ -81,9 +81,9 @@ public class AiFallbackService {
                 "Bạn cần hỗ trợ về quy trình xác minh hồ sơ? Vui lòng chọn nội dung cụ thể:",
                 "/profile",
                 List.of(
-                    "Quy trình xác minh bằng cấp & CCCD (/profile)",
+                    "Quy trình xác minh bằng cấp & CCCD",
                     "Thời gian duyệt hồ sơ gia sư (24-48h)",
-                    "Hướng dẫn khi hồ sơ bị từ chối (/support/tickets)"
+                    "Hướng dẫn khi hồ sơ bị từ chối"
                 )
             );
         }
@@ -95,9 +95,9 @@ public class AiFallbackService {
                 "Bạn cần hỗ trợ về hợp đồng điện tử? Vui lòng chọn nội dung cụ thể:",
                 "/contracts",
                 List.of(
-                    "Danh sách hợp đồng điện tử (/contracts)",
+                    "Danh sách hợp đồng điện tử",
                     "Hướng dẫn ký hợp đồng bằng mã OTP",
-                    "Điều khoản cam kết chất lượng (/help)"
+                    "Điều khoản cam kết chất lượng"
                 )
             );
         }
@@ -109,8 +109,8 @@ public class AiFallbackService {
                 "Bạn cần hỗ trợ về lịch giảng dạy? Vui lòng chọn nội dung cụ thể:",
                 "/tutor/classes",
                 List.of(
-                    "Điểm danh buổi học (/tutor/classes)",
-                    "Xem thời khóa biểu (/tutor/schedule)",
+                    "Điểm danh buổi học",
+                    "Xem thời khóa biểu",
                     "Quy trình xin dời lịch / dạy thay"
                 )
             );
@@ -123,10 +123,10 @@ public class AiFallbackService {
                 "Có vẻ bạn đang quan tâm đến vấn đề Tài chính & Thanh toán. Vui lòng chọn nội dung cụ thể bạn cần hỗ trợ:",
                 "/finance",
                 List.of(
-                    "Hướng dẫn nạp tiền ví qua QR SePay (/finance)",
-                    "Quy trình rút tiền về tài khoản ngân hàng (/finance)",
-                    "Chính sách bảo vệ học phí ký quỹ Escrow (/help)",
-                    "Chính sách hoàn tiền khi hủy lớp học (/help)"
+                    "Hướng dẫn nạp tiền ví qua mã QR",
+                    "Quy trình rút tiền về tài khoản ngân hàng",
+                    "Chính sách bảo vệ học phí ký quỹ Escrow",
+                    "Chính sách hoàn tiền khi hủy lớp học"
                 )
             );
         }
@@ -137,10 +137,10 @@ public class AiFallbackService {
                 "Tôi có thể hỗ trợ bạn tìm kiếm và kết nối lớp học. Vui lòng chọn hướng bạn muốn thực hiện:",
                 "/tim-gia-su",
                 List.of(
-                    "Tìm hồ sơ gia sư uy tín (/tim-gia-su)",
-                    "Xem danh sách lớp học đang mở (/lop-hoc)",
-                    "Đăng bài tạo lớp mới tìm gia sư (/tao-lop)",
-                    "Hướng dẫn quy trình đăng ký làm gia sư (/register)"
+                    "Tìm hồ sơ gia sư uy tín",
+                    "Xem danh sách lớp học đang mở",
+                    "Đăng bài tạo lớp mới tìm gia sư",
+                    "Hướng dẫn quy trình đăng ký làm gia sư"
                 )
             );
         }
@@ -151,7 +151,7 @@ public class AiFallbackService {
                 "Bạn cần hỗ trợ xử lý sự cố hoặc khiếu nại? Vui lòng chọn nội dung bên dưới:",
                 "/support/tickets",
                 List.of(
-                    "Tạo phiếu yêu cầu hỗ trợ (Ticket) (/support/tickets)",
+                    "Tạo phiếu yêu cầu hỗ trợ (Ticket)",
                     "Báo cáo hành vi lách sàn / vi phạm quy định",
                     "Quy trình mở tranh chấp lớp học",
                     "Tra cứu thời gian cam kết phản hồi SLA"
@@ -165,9 +165,9 @@ public class AiFallbackService {
                 "Câu hỏi này nằm ngoài phạm vi hỗ trợ của tôi. Tuy nhiên, tôi có thể giúp bạn tìm gia sư dạy kèm phù hợp:",
                 "/tim-gia-su",
                 List.of(
-                    "Tìm gia sư dạy kèm 1-1 (/tim-gia-su)",
-                    "Xem danh sách lớp học đang mở (/lop-hoc)",
-                    "Trung tâm trợ giúp (/help)"
+                    "Tìm gia sư dạy kèm 1-1",
+                    "Xem danh sách lớp học đang mở",
+                    "Trung tâm trợ giúp"
                 )
             );
         }
@@ -178,9 +178,9 @@ public class AiFallbackService {
                 "Nếu bạn đang lên lịch học, TCS có thể giúp bạn kết nối gia sư linh hoạt thời gian:",
                 "/tim-gia-su",
                 List.of(
-                    "Tìm gia sư có lịch phù hợp (/tim-gia-su)",
-                    "Xem lịch dạy của gia sư (/tutor/schedule)",
-                    "Đăng bài tạo lớp theo khung giờ cụ thể (/tao-lop)"
+                    "Tìm gia sư có lịch phù hợp",
+                    "Xem lịch dạy của gia sư",
+                    "Đăng bài tạo lớp theo khung giờ cụ thể"
                 )
             );
         }
@@ -190,10 +190,10 @@ public class AiFallbackService {
             "Tôi có thể hỗ trợ bạn theo các hướng sau. Vui lòng chọn nội dung bạn quan tâm:",
             null,
             List.of(
-                "Tìm gia sư theo môn và khu vực (/tim-gia-su)",
-                "Tìm lớp học đang tuyển gia sư (/lop-hoc)",
-                "Hướng dẫn nạp tiền / Rút tiền ví (/finance)",
-                "Tạo ticket khiếu nại / Hỗ trợ (/support/tickets)"
+                "Tìm gia sư theo môn và khu vực",
+                "Tìm lớp học đang tuyển gia sư",
+                "Hướng dẫn nạp tiền / Rút tiền ví",
+                "Tạo ticket khiếu nại / Hỗ trợ"
             )
         );
     }
@@ -256,7 +256,7 @@ public class AiFallbackService {
                     criteriaText
                 ),
                 "/tao-lop",
-                List.of("Đăng tin tìm gia sư miễn phí (/tao-lop)", "Xem tất cả gia sư (/tim-gia-su)")
+                List.of("Đăng tin tìm gia sư miễn phí", "Xem tất cả gia sư")
             );
         }
         
@@ -271,7 +271,7 @@ public class AiFallbackService {
                     criteriaText
                 ),
                 "/lop-hoc",
-                List.of("Xem danh sách lớp học (/lop-hoc)", "Tìm gia sư 1-1 (/tim-gia-su)")
+                List.of("Xem danh sách lớp học", "Tìm gia sư 1-1")
             );
         }
         
@@ -279,7 +279,7 @@ public class AiFallbackService {
             3,
             "Hiện tại hệ thống chưa tìm thấy dữ liệu phù hợp với yêu cầu của bạn. Vui lòng thử điều chỉnh tiêu chí tìm kiếm hoặc liên hệ bộ phận hỗ trợ.",
             "/help",
-            List.of("Trung tâm trợ giúp (/help)", "Tạo ticket hỗ trợ (/support/tickets)")
+            List.of("Trung tâm trợ giúp", "Tạo ticket hỗ trợ")
         );
     }
 

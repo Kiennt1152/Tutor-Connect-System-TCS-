@@ -3,6 +3,7 @@ import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { AdminTimeFilter } from '../components/AdminTimeFilter';
+import { Pagination } from '../../../shared/components';
 import {
   useAdminTicketDetail,
   useAdminTicketList,
@@ -844,27 +845,29 @@ export default function PlatformTicketsPage() {
               </table>
             </div>
 
-            {data && data.totalPages > 1 && (
-              <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'center', marginTop: '1rem' }}>
-                <button
-                  type="button"
-                  className="tcs-btn tcs-btn--ghost"
-                  disabled={filters.page === 0}
-                  onClick={() => setFilters((f) => ({ ...f, page: f.page - 1 }))}
+            {data && data.items.length > 0 && (
+              <div className="adm-pagination" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', marginTop: '16px', gap: '8px' }}>
+                <select
+                  className="adm-field adm-field--fixed"
+                  style={{ width: 'auto', padding: '4px 8px', fontSize: '13px', borderRadius: '8px' }}
+                  value={filters.size}
+                  onChange={(e) =>
+                    setFilters((f) => ({
+                      ...f,
+                      size: Number(e.target.value),
+                      page: 0,
+                    }))
+                  }
                 >
-                  Trước
-                </button>
-                <span style={{ alignSelf: 'center', fontSize: '0.88rem', color: '#4a5568' }}>
-                  Trang {filters.page + 1} / {data.totalPages}
-                </span>
-                <button
-                  type="button"
-                  className="tcs-btn tcs-btn--ghost"
-                  disabled={filters.page >= data.totalPages - 1}
-                  onClick={() => setFilters((f) => ({ ...f, page: f.page + 1 }))}
-                >
-                  Sau
-                </button>
+                  <option value={10}>10 / trang</option>
+                  <option value={20}>20 / trang</option>
+                  <option value={50}>50 / trang</option>
+                </select>
+                <Pagination
+                  current={filters.page + 1}
+                  totalPages={Math.max(data.totalPages, 1)}
+                  onPageChange={(p) => setFilters((f) => ({ ...f, page: p - 1 }))}
+                />
               </div>
             )}
           </>
