@@ -79,3 +79,41 @@
   color: #8592a3;
 }
 .fx__foot strong { color: #c2410c; }
+
+/* Bảng phần điểm của từng tiêu chí theo bộ lọc đang đặt */
+.fx__table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+}
+.fx__table th {
+  text-align: right;
+  padding: 6px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #8592a3;
+  border-bottom: 1px solid #e3e9f2;
+}
+.fx__table th:first-child { text-align: left; }
+.fx__table td {
+  padding: 7px 8px;
+  text-align: right;
+  color: #43546a;
+  border-bottom: 1px solid #eef2f7;
+  white-space: nowrap;
+}
+.fx__table td:first-child {
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #12233b;
+}
+.fx__table tr:last-child td { border-bottom: none; }
+.fx__table em { color: #8592a3; font-style: normal; }
+.fx__cap { font-weight: 700; color: #c2410c; }
+.fx__row--off td, .fx__row--off .fx__cap { color: #a9b4c2; }
+.fx__row--off .fx__badge { background: #c8d1dc; }

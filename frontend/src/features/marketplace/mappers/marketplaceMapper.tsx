@@ -276,6 +276,25 @@ export function buildScheduleSummary(form: ClassFormValues, subjects: CatalogOpt
   return `${parts.join('. ')}.`;
 }
 
+/**
+ * Dịch state của form sang payload gửi backend — nơi quyết định một tin trông thế nào.
+ *
+ * <p>Việc chính là "làm phẳng": form có hàng chục trường, nhưng bảng tutoring_classes chỉ
+ * có vài cột quen thuộc. Nên hàm này tự suy ra các cột đó rồi nhét phần còn lại vào
+ * detailsJson:</p>
+ *
+ * <ul>
+ *   <li><b>title</b> — tự sinh từ danh sách môn ("Cần tìm gia sư môn Toán, Vật lý...").</li>
+ *   <li><b>description</b> — dòng môn học + bản tóm tắt lịch dạng chữ + ghi chú.</li>
+ *   <li><b>startDate / endDate</b> — lịch hàng tuần thì lấy hôm nay + số tuần của chu kỳ;
+ *       lịch chọn ngày cụ thể thì lấy ngày sớm nhất và muộn nhất trong các buổi.</li>
+ *   <li><b>tuitionFee</b> — học phí của môn ĐẦU TIÊN, không phải tổng. Lớp nhiều môn muốn
+ *       biết giá từng môn phải đọc subjectFees trong detailsJson.</li>
+ *   <li><b>budget</b> — tổng tiền cả khóa, tính từ số giờ × học phí từng môn.</li>
+ *   <li><b>detailsJson</b> — chuỗi JSON chứa nguyên vẹn mọi thứ người dùng đã điền, để khi
+ *       mở lại tin còn dựng ngược về form được (xem classToForm ở dưới).</li>
+ * </ul>
+ */
 export function formToPayload(
   form: ClassFormValues,
   subjects: CatalogOption[] = [],

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import axios from 'axios';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { classToForm } from '../mappers/marketplaceMapper';
@@ -134,7 +135,7 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
     .join('')
     .toUpperCase();
 
-  return (
+  return createPortal(
     <div
       className="cdm-overlay"
       role="dialog"
@@ -349,7 +350,8 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

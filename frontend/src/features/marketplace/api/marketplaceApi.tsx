@@ -63,6 +63,10 @@ export const marketplaceApi = {
   getMyTutorProfile: () =>
     axiosClient.get<TutorProfileCard>('/profile/me').then((r) => r.data),
 
+  /**
+   * Tạo tin mới. Lưu ý: backend luôn lưu ở trạng thái DRAFT (nháp) — gia sư chưa thấy được.
+   * Muốn công khai phải gọi tiếp publishClass() bên dưới.
+   */
   createClass: (payload: ClassRequestPayload) =>
     axiosClient.post<ClassResponse>('/marketplace/classes', payload).then((r) => r.data),
 

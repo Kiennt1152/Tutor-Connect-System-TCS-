@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import type { ApplicantResponse } from '../types/marketplaceTypes';
 import './tutorFindClass.css';
 
@@ -20,7 +21,7 @@ export function TutorDetailModal({ applicant: a, subjectName, onClose }: Props) 
   const rate = a.proposedRate ?? a.hourlyRate ?? 0;
   const perSubject = Object.entries(a.proposedRates ?? {});
 
-  return (
+  return createPortal(
     <div
       className="cdm-overlay"
       role="dialog"
@@ -106,6 +107,7 @@ export function TutorDetailModal({ applicant: a, subjectName, onClose }: Props) 
           </button>
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

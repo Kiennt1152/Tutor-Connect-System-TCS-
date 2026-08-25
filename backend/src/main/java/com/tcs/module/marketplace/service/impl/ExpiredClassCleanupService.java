@@ -17,6 +17,11 @@ import org.springframework.transaction.support.TransactionTemplate;
  * Dọn dẹp lớp OPEN (chưa ký hợp đồng) đã hết hạn hiển thị 30 ngày (expires_at &lt; now).
  * Hard-delete lớp cùng các đơn ứng tuyển đang chờ và dữ liệu phụ thuộc an toàn.
  * Lớp đã ghép/đang học không bị đụng tới (status khác OPEN, expires_at đã null).
+ *
+ * <p><b>Đang tắt tự động.</b> Tin hết hạn được giữ lại làm kho lưu: gia sư không còn tìm thấy
+ * (đã lọc ở MarketplaceServiceImpl), còn chủ tin vẫn xem lại được ở mục "Đã hết hạn" — chỉ xem,
+ * không sửa / đăng lại. Bật lại bằng cách đặt {@code tcs.marketplace.expired-class-purge-cron}
+ * (ví dụ {@code 0 0 3 * * *}); bỏ trống thì job không chạy.</p>
  */
 @Slf4j
 @Service
@@ -34,8 +39,8 @@ public class ExpiredClassCleanupService {
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
-    /** Chạy mỗi giờ; quét lớp OPEN quá hạn và xóa. */
-    @Scheduled(cron = "0 0 * * * *")
+    /** Mặc định "-" = tắt hẳn; đặt cron trong cấu hình mới bật lại việc xóa vĩnh viễn. */
+    @Scheduled(cron = "${tcs.marketplace.expired-class-purge-cron:-}")
     public void cleanupExpiredOpenClasses() {
         List<TutoringClass> expired = tutoringClassRepository
                 .findByStatusAndExpiresAtBefore(TutoringClassStatus.OPEN, LocalDateTime.now());

@@ -116,7 +116,9 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
               <div className="apm-ai__badge">AI</div>
               <p className="apm-ai__text">
                 Trợ lý AI đã xếp hạng {visibleApplicants.length} ứng viên theo{' '}
-                <strong>đánh giá, kinh nghiệm, mức phí và trạng thái xác minh</strong>.
+                <strong>đánh giá, kinh nghiệm và mức phí</strong> — mỗi tiêu chí chiếm 1/3 số điểm.
+                5 sao ăn trọn phần đánh giá; 5 năm kinh nghiệm ăn trọn phần kinh nghiệm; báo giá
+                bằng giá lớp ăn trọn phần mức phí, gấp đôi giá lớp thì phần này về 0.
                 {recommended.length > 0 && (
                   <>
                     {' '}

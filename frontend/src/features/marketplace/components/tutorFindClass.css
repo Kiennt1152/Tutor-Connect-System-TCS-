@@ -49,10 +49,10 @@
 }
 .tfc-search__row { display: flex; gap: 12px; }
 .tfc-search__box { position: relative; flex: 1; display: flex; align-items: center; }
-.tfc-search__icon { position: absolute; left: 14px; font-size: 15px; color: #8592a3; pointer-events: none; }
 .tfc-search__input {
   width: 100%;
-  padding: 12px 40px;
+  /* Chừa chỗ bên phải cho nút ✕; bên trái không còn icon nên thụt vào như ô nhập thường. */
+  padding: 12px 40px 12px 16px;
   border: 1px solid #cfd8e3;
   border-radius: 10px;
   font-size: 15px;
@@ -66,6 +66,14 @@
 }
 .tfc-search__clear:hover { background: #e0e6ee; }
 .tfc-search__btn { flex: 0 0 auto; padding: 12px 26px; font-size: 15px; border-radius: 10px; }
+/* Câu ví dụ dưới ô gõ nhanh — thụt bằng mép trong của input, chừa chỗ nút "Tìm". */
+.tfc-search__hint {
+  margin: -4px 0 0;
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: #8592a3;
+}
+.tfc-search__hint em { font-style: normal; color: #5b6b7f; }
 .tfc-search__chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 /* Ba câu hỏi có độ dài khác nhau — cố định bề rộng nhãn để các hàng chip thẳng lề trái. */
 .tfc-search__chips + .tfc-search__chips { border-top: 1px dashed #eef2f7; padding-top: 10px; }
@@ -126,27 +134,8 @@
 .tfc-input:focus { outline: none; border-color: #ea580c; box-shadow: 0 0 0 3px rgba(21, 101, 192, 0.12); }
 .tfc-input--stack { margin-top: 8px; }
 .tfc-input:disabled { background: #f2f4f7; color: #94a3b5; cursor: not-allowed; }
-.tfc-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.tfc-chip {
-  border: 1px solid #cfd8e3; background: #fff; color: #43546a; border-radius: 999px;
-  padding: 5px 12px; font-size: 13px; cursor: pointer; transition: all 0.15s;
-}
-.tfc-chip:hover { border-color: #ea580c; }
-.tfc-chip.is-on { background: #ea580c; border-color: #ea580c; color: #fff; }
 .tfc-check { display: flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; color: #43546a; cursor: pointer; }
 .tfc-check--top { margin-top: 0; margin-bottom: 10px; }
-.tfc-avail table { width: 100%; border-collapse: collapse; }
-.tfc-avail th { font-size: 12px; font-weight: 600; color: #5b6b7f; padding: 4px; text-align: center; }
-.tfc-avail__time { display: block; font-size: 10.5px; font-weight: 500; color: #94a3b5; margin-top: 1px; }
-.tfc-avail tbody th { text-align: left; white-space: nowrap; }
-.tfc-avail td { padding: 3px; text-align: center; }
-.tfc-avail__cell {
-  width: 100px; max-width: 100%; height: 26px; border: 1px solid #cfd8e3; background: #f7f9fc;
-  border-radius: 6px; cursor: pointer; color: #ea580c; font-weight: 700; font-size: 13px;
-  display: inline-block; padding: 0; line-height: 24px;
-}
-.tfc-avail__cell:hover { border-color: #ea580c; }
-.tfc-avail__cell.is-on { background: #ea580c; border-color: #ea580c; color: #fff; }
 .tfc-weight-intro { margin: 0 0 10px; font-size: 12px; line-height: 1.45; color: #5b6b7f; }
 .tfc-weight-legend { color: #8592a3; font-size: 11.5px; }
 .tfc-weight { margin-bottom: 2px; }
@@ -235,6 +224,13 @@
 .tfc-card__meta span {
   font-size: 12.5px; color: #43546a; background: #f4f7fb; border: 1px solid #e8eef6;
   border-radius: 999px; padding: 4px 10px;
+}
+/* Học phí và lịch học là hai tiêu chí gia sư nhìn đầu tiên -> tô đậm hơn các chip khác. */
+.tfc-card__meta span[title^="Học phí"] {
+  color: #b8461a; background: #fff4ec; border-color: #fbd9c3; font-weight: 600;
+}
+.tfc-card__meta span[title^="Lịch học"] {
+  color: #1d4ed8; background: #eef3ff; border-color: #d7e2fb;
 }
 .tfc-card__info { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
 /* Icon tách thành cột riêng để dòng dài xuống hàng vẫn thẳng lề, không chui xuống dưới icon. */
@@ -375,3 +371,214 @@
   /* Màn hẹp: nhãn câu hỏi xuống dòng riêng, chip trải hết bề ngang. */
   .tfc-search__chips-label { min-width: 100%; }
 }
+
+/* ---- Bộ tiêu chí chấm điểm (E / L / P / T) --------------------------------
+   Mỗi ô ở đây soi vào một trường trong tin khách đăng; bỏ trống = không kén. */
+.tfc-criteria {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+@media (max-width: 900px) {
+  .tfc-criteria { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 560px) {
+  .tfc-criteria { grid-template-columns: 1fr; }
+}
+
+.tfc-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.tfc-field__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #475569;
+}
+
+.tfc-field__control {
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid #d7dde5;
+  border-radius: 9px;
+  background: #fff;
+  font-size: 14px;
+  color: #1f2937;
+}
+
+.tfc-field__control:focus {
+  outline: none;
+  border-color: #f26522;
+  box-shadow: 0 0 0 3px rgba(242, 101, 34, 0.15);
+}
+
+.tfc-field__control:disabled {
+  background: #f1f5f9;
+  color: #94a3b8;
+  cursor: not-allowed;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+/* ---- Nút mở/đóng bộ thanh trượt trọng số ------------------------------------
+   Đóng = chấm trung bình cộng, mở = chấm theo mức ưu tiên tự kéo. Nhãn phụ nói
+   rõ đang ở chế độ nào để gia sư không phải đoán. */
+.tfc-panel__toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 8px 14px;
+  border: 1px solid #cfd8e3;
+  border-radius: 12px;
+  background: #f7f9fc;
+  text-align: left;
+  cursor: pointer;
+  color: inherit;
+  transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+}
+
+.tfc-panel__toggle:hover:not(:disabled) {
+  border-color: #ea580c;
+  background: #fff7ed;
+}
+
+.tfc-panel__toggle.is-open {
+  border-color: #ea580c;
+  background: #fff7ed;
+  box-shadow: 0 0 0 3px rgba(242, 101, 34, 0.12);
+}
+
+/* Tiêu đề nằm trong nút nên bỏ khoảng đệm dưới của <h2> cũ, không thì nút bị lệch. */
+.tfc-panel__toggle .tfc-panel__title { margin: 0; }
+
+.tfc-panel__toggle:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.tfc-panel__toggle-hint {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  background: #f1f5f9;
+  border-radius: 999px;
+  padding: 3px 10px;
+  white-space: nowrap;
+}
+
+.tfc-panel__toggle.is-open .tfc-panel__toggle-hint {
+  color: #b8461a;
+  background: #fdece2;
+}
+
+.tfc-panel__caret {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+@media (max-width: 640px) {
+  .tfc-panel__toggle { flex-wrap: wrap; gap: 6px; }
+  .tfc-panel__toggle-hint { white-space: normal; }
+}
+
+/* ---- Ô "Môn học (S)" : chip chọn nhiều môn + ô gõ môn ngoài danh mục ------ */
+.tfc-field--wide { grid-column: 1 / -1; }
+
+.tfc-subjects {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.tfc-subject {
+  border: 1px solid #d7dde5;
+  background: #fff;
+  color: #43546a;
+  border-radius: 999px;
+  padding: 5px 12px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.tfc-subject:hover { border-color: #f26522; }
+
+.tfc-subject.is-on {
+  background: #f26522;
+  border-color: #f26522;
+  color: #fff;
+  font-weight: 600;
+}
+
+.tfc-field__control--sub { margin-top: 8px; }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+.tfc-gradelist { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* ===== Chip tóm tắt câu tìm =====
+   Thay cho 5 ô lọc xổ xuống: câu gõ điền được gì thì hiện nguyên thứ đó, chỉ để đọc. */
+.tfc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.tfc-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 1px solid #fbd9c3;
+  border-radius: 999px;
+  background: #fff7ed;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #12233b;
+}
+.tfc-chip__key {
+  font-size: 11.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: #b45309;
+}
+.tfc-chips__clear {
+  border: 0;
+  background: none;
+  padding: 4px 2px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #ea580c;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.tfc-chips__clear:hover { color: #c2410c; }
