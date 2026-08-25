@@ -546,10 +546,22 @@
   border-radius: 14px;
 }
 
+/* Mỗi trang 6 tin xếp 3 cột x 2 hàng. Cố định số cột thay vì auto-fill để màn rộng
+   không tự nhét thành 4 cột (khi đó hàng dưới chỉ còn 2 tin, nhìn lệch). */
 .mkt-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 18px;
+}
+@media (max-width: 1024px) {
+  .mkt-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 640px) {
+  .mkt-grid {
+    grid-template-columns: 1fr;
+  }
 }
 .mkt-class-card {
   background: #fff;
@@ -681,6 +693,28 @@
 .mkt-status--disputed {
   background: #fdecea;
   color: #c62828;
+}
+/* Tin hết hạn — kho lưu chỉ để xem lại. */
+.mkt-status--expired {
+  background: #eceff1;
+  color: #78909c;
+}
+.mkt-class-card--expired {
+  background: #fafbfc;
+  border-style: dashed;
+}
+.mkt-class-card--expired .mkt-class-card__title,
+.mkt-class-card--expired .mkt-subj-fees__fee {
+  color: #78909c;
+}
+.mkt-class-card__archived {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: #eceff1;
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #5b6b7f;
 }
 
 /* ===== Tiêu đề từng mục trong "Yêu cầu của tôi" ===== */

@@ -58,7 +58,8 @@ axiosClient.interceptors.response.use(
       redirectToExpiredSession();
     }
 
-    if (status === 403 && !isAuthEndpoint(requestUrl) && path !== APP_ROUTES.forbidden) {
+    const isAiEndpoint = requestUrl.includes('/api/ai');
+    if (status === 403 && !isAuthEndpoint(requestUrl) && !isAiEndpoint && path !== APP_ROUTES.forbidden) {
       window.location.assign(APP_ROUTES.forbidden);
     }
 

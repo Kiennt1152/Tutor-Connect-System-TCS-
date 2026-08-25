@@ -19,6 +19,7 @@ public class ContentSafetyFilter {
         "che tao bom", "che tao vu khi", "thuoc no", "chat no", "sung dan", "bom thuong",
         "ma tuy", "heroin", "thuoc phien", "can sa", "ke da", "mua ban ma tuy",
         "hack pass", "hack facebook", "ddos server", "hack the tin dung", "tan cong mang",
+        "tan cong he thong", "tan cong vao he thong", "hack he thong", "tan cong website", "tan cong server",
         "lua dao chiem doat", "khieu dam", "doi truy", "sex clip"
     );
 
@@ -36,7 +37,8 @@ public class ContentSafetyFilter {
         "lay toan bo tai khoan", "lay tat ca nguoi dung", "lay danh sach nguoi dung",
         "dump database", "dump user", "dump acc", "xuat toan bo database", "lay database",
         "danh sach mat khau", "xem mat khau", "lay mat khau", "danh sach email",
-        "export all users", "get all users", "list all accounts", "dump all accounts"
+        "export all users", "get all users", "list all accounts", "dump all accounts",
+        "connection string", "database connection", "chuoi ket noi database"
     );
 
     private static final Set<String> ROLEPLAY_ADMIN_PATTERNS = Set.of(

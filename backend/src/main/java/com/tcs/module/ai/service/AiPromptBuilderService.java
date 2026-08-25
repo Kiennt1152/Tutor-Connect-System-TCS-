@@ -31,7 +31,7 @@ public class AiPromptBuilderService {
         } else if ("TUTOR".equals(userRole) || "TUTOR_CENTER".equals(userRole)) {
             sb.append("Vai trò người dùng: Gia sư / Trung tâm gia sư. Sẵn sàng hỗ trợ nghiệp vụ nhận lớp, lịch dạy, ví tiền, và hỗ trợ soạn giáo án, câu hỏi ôn tập, đề kiểm tra bài học.\n");
         } else {
-            sb.append("Phong cách: Thân thiện, thông minh, chuyên nghiệp, súc tích, sử dụng gạch đầu dòng rõ ràng khi liệt kê, dẫn link điều hướng nghiệp vụ chính xác (ví dụ: /tim-gia-su, /lop-hoc, /tao-lop, /finance, /contracts, /support/tickets, /help, /profile).\n");
+            sb.append("Phong cách: Thân thiện, thông minh, chuyên nghiệp, súc tích, sử dụng gạch đầu dòng rõ ràng khi liệt kê. Khi dẫn liên kết, luôn dùng Markdown có tên nhãn tiếng Việt rõ ràng (ví dụ: [Tìm gia sư](/tim-gia-su), [Lớp học](/lop-hoc), [Tạo lớp học](/tao-lop), [Ví tiền](/finance), [Hợp đồng](/contracts), [Hỗ trợ](/support/tickets), [Trợ giúp](/help), [Hồ sơ cá nhân](/profile)). TUYỆT ĐỐI KHÔNG viết đường dẫn kỹ thuật thô như /lop-hoc/{id} hay /profile trong văn bản.\n");
         }
 
         // 3. Domain Rules & Strict Grounding

@@ -324,7 +324,7 @@ public class AiIntentService {
             entities.put("subject", "Lý");
         } else if (lower.contains("hóa học") || lower.contains("môn hóa") || normalized.contains("hoa hoc") || lower.contains("chemistry") || normalized.contains("gia su hoa") || normalized.contains("lop hoa") || (lower.contains("hóa") && !lower.contains("chuyển hóa") && !lower.contains("tài khóa"))) {
             entities.put("subject", "Hóa");
-        } else if (lower.contains("ngữ văn") || lower.contains("môn văn") || normalized.contains("ngu van") || normalized.contains("gia su van") || normalized.contains("lop van") || lower.contains("văn học")) {
+        } else if (lower.contains("ngữ văn") || lower.contains("môn văn") || normalized.contains("ngu van") || normalized.contains("gia su van") || normalized.contains("lop van") || lower.contains("văn học") || lower.contains("dạy văn") || normalized.contains("day van") || (normalized.contains("van") && containsAny(normalized, "day", "hoc", "kem", "tim", "gia su", "lop"))) {
             entities.put("subject", "Văn");
         } else if (lower.contains("sinh học") || lower.contains("môn sinh") || normalized.contains("sinh hoc") || normalized.contains("gia su sinh") || normalized.contains("lop sinh")) {
             entities.put("subject", "Sinh");

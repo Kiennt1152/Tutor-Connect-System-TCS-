@@ -2,7 +2,6 @@ package com.tcs.module.ai.service;
 
 import com.tcs.module.ai.enums.RagStrategy;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,6 +16,13 @@ public class RagExperimentService {
         double avgConfidence,
         double avgLatencyMs,
         long cacheHits
+    ) {}
+
+    public record StrategyMetrics(
+        long queryCount,
+        double avgLatencyMs,
+        double avgConfidence,
+        double cacheHitRate
     ) {}
 
     private static class MetricAccumulator {
@@ -77,6 +83,45 @@ public class RagExperimentService {
             summary.put(entry.getKey(), entry.getValue().snapshot(entry.getKey()));
         }
         return summary;
+    }
+
+    public Map<String, StrategyMetrics> getStrategyMetrics() {
+        Map<String, StrategyMetrics> result = new LinkedHashMap<>();
+        for (RagStrategy strategy : RagStrategy.values()) {
+            MetricAccumulator acc = metrics.get(strategy);
+            if (acc != null) {
+                StrategyMetric snapshot = acc.snapshot(strategy);
+                double hitRate = snapshot.totalQueries() > 0 ? (double) snapshot.cacheHits() / snapshot.totalQueries() : 0.0;
+                result.put(strategy.name(), new StrategyMetrics(
+                    snapshot.totalQueries(),
+                    snapshot.avgLatencyMs(),
+                    snapshot.avgConfidence(),
+                    hitRate
+                ));
+            }
+        }
+        return result;
+    }
+
+    public Map<String, Object> getSummary() {
+        Map<RagStrategy, StrategyMetric> summary = getExperimentSummary();
+        long totalQueries = summary.values().stream().mapToLong(StrategyMetric::totalQueries).sum();
+        double avgLatency = summary.values().stream()
+            .filter(m -> m.totalQueries() > 0)
+            .mapToDouble(StrategyMetric::avgLatencyMs)
+            .average().orElse(0.0);
+
+        RagStrategy bestStrategy = summary.entrySet().stream()
+            .filter(e -> e.getValue().totalQueries() > 0)
+            .max(Comparator.comparingDouble(e -> e.getValue().avgConfidence()))
+            .map(Map.Entry::getKey)
+            .orElse(RagStrategy.HYBRID_VECTOR_BM25);
+
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("totalQueries", totalQueries);
+        map.put("avgLatencyMs", avgLatency);
+        map.put("bestStrategy", bestStrategy.name());
+        return map;
     }
 
     public void reset() {

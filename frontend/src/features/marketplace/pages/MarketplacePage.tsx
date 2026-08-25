@@ -50,9 +50,17 @@ const REQ_STATUS_LABEL: Record<ClassRequestStatus, string> = {
   CANCELLED: 'Đã hủy',
 };
 
+/**
+ * Tin đã quá hạn hiển thị: gia sư không còn tìm thấy, chủ tin chỉ xem lại được ở mục
+ * "Đã hết hạn" — không sửa, không đăng lại, không gỡ đăng.
+ */
+function isExpiredClass(c: ClassResponse): boolean {
+  return c.status === 'OPEN' && !!c.expiresAt && Date.parse(c.expiresAt) <= Date.now();
+}
+
 function isEditableClass(c: ClassResponse): boolean {
   const noApplicants = (c.applicationCount ?? 0) === 0;
-  return (c.status === 'DRAFT' || c.status === 'OPEN') && noApplicants;
+  return (c.status === 'DRAFT' || c.status === 'OPEN') && noApplicants && !isExpiredClass(c);
 }
 
 type Mode =
@@ -829,32 +837,52 @@ function ClassList({
 }: ClassListProps) {
   const PAGE_SIZE = 6;
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<ClassStatus | 'ALL'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<ClassStatus | 'ALL' | 'EXPIRED'>('ALL');
 
-  // Tin mới nhất lên đầu (theo createdAt giảm dần, fallback classId).
-  const sorted = useMemo(
-    () =>
-      [...classes].sort((a, b) => {
-        const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
-        const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
-        if (tb !== ta) return tb - ta;
-        return b.classId - a.classId;
-      }),
-    [classes],
-  );
+  // Thứ tự ưu tiên: (0) tin đã có gia sư ứng tuyển — cần bạn xem đơn ngay,
+  // (1) tin còn hạn chưa ai ứng tuyển, (2) tin hết hạn — chỉ lưu để xem lại.
+  // Trong mỗi nhóm: tin mới nhất lên đầu (createdAt giảm dần, fallback classId).
+  const sorted = useMemo(() => {
+    const rank = (c: ClassResponse) => {
+      if (isExpiredClass(c)) return 2;
+      return (c.applicationCount ?? 0) > 0 ? 0 : 1;
+    };
+    return [...classes].sort((a, b) => {
+      const ra = rank(a);
+      const rb = rank(b);
+      if (ra !== rb) return ra - rb;
+      // Cùng nhóm "có ứng tuyển": nhiều đơn hơn lên trước.
+      if (ra === 0) {
+        const na = a.applicationCount ?? 0;
+        const nb = b.applicationCount ?? 0;
+        if (nb !== na) return nb - na;
+      }
+      const ta = a.createdAt ? Date.parse(a.createdAt) : 0;
+      const tb = b.createdAt ? Date.parse(b.createdAt) : 0;
+      if (tb !== ta) return tb - ta;
+      return b.classId - a.classId;
+    });
+  }, [classes]);
 
   // Các tab lọc trạng thái: "Tất cả" + mỗi trạng thái đang có (theo thứ tự vòng đời), kèm số đếm.
+  // Tin hết hạn tách ra tab riêng nên không tính vào "Đang mở".
   const statusTabs = useMemo(() => {
     const order = Object.keys(CLASS_STATUS_LABELS) as ClassStatus[];
     const counts = new Map<ClassStatus, number>();
-    for (const c of sorted) counts.set(c.status, (counts.get(c.status) ?? 0) + 1);
+    for (const c of sorted) {
+      if (isExpiredClass(c)) continue;
+      counts.set(c.status, (counts.get(c.status) ?? 0) + 1);
+    }
     return order.filter((s) => counts.has(s)).map((s) => ({ status: s, count: counts.get(s) ?? 0 }));
   }, [sorted]);
 
-  const filtered = useMemo(
-    () => (statusFilter === 'ALL' ? sorted : sorted.filter((c) => c.status === statusFilter)),
-    [sorted, statusFilter],
-  );
+  const expiredCount = useMemo(() => sorted.filter(isExpiredClass).length, [sorted]);
+
+  const filtered = useMemo(() => {
+    if (statusFilter === 'ALL') return sorted;
+    if (statusFilter === 'EXPIRED') return sorted.filter(isExpiredClass);
+    return sorted.filter((c) => c.status === statusFilter && !isExpiredClass(c));
+  }, [sorted, statusFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -903,6 +931,17 @@ function ClassList({
           {CLASS_STATUS_LABELS[s]} ({count})
         </button>
       ))}
+      {expiredCount > 0 && (
+        <button
+          type="button"
+          role="tab"
+          aria-selected={statusFilter === 'EXPIRED'}
+          className={`mkt-filter__tab${statusFilter === 'EXPIRED' ? ' mkt-filter__tab--active' : ''}`}
+          onClick={() => setStatusFilter('EXPIRED')}
+        >
+          Đã hết hạn ({expiredCount})
+        </button>
+      )}
     </div>
 
     {pageItems.length === 0 ? (
@@ -914,11 +953,12 @@ function ClassList({
         const subjectRows = subjectRowsOf(form, c, subjects);
         const isOnline = c.lessonMode === 'ONLINE';
         const address = fullAddressOf(form, c);
+        const expired = isExpiredClass(c);
         return (
-        <article key={c.classId} className="mkt-class-card">
+        <article key={c.classId} className={`mkt-class-card${expired ? ' mkt-class-card--expired' : ''}`}>
           <div className="mkt-class-card__top">
-            <span className={`mkt-status mkt-status--${c.status.toLowerCase()}`}>
-              {CLASS_STATUS_LABELS[c.status] ?? c.status}
+            <span className={`mkt-status mkt-status--${expired ? 'expired' : c.status.toLowerCase()}`}>
+              {expired ? 'Đã hết hạn' : (CLASS_STATUS_LABELS[c.status] ?? c.status)}
             </span>
             {c.status === 'OPEN' && c.expiresAt && <ExpiryBadge expiresAt={c.expiresAt} />}
           </div>
@@ -954,13 +994,19 @@ function ClassList({
           </div>
           {c.learningGoal && <p className="mkt-class-card__goal">🎯 {c.learningGoal}</p>}
           <p className="mkt-class-card__loc">📍 {isOnline ? 'Học Online' : address || '—'}</p>
+          {expired && (
+            <p className="mkt-class-card__archived">
+              🔒 Tin đã hết hạn, được lưu lại để xem. Không sửa hay đăng lại được — cần tuyển tiếp
+              thì tạo tin mới.
+            </p>
+          )}
           <div className="mkt-class-card__actions">
-            {c.status === 'DRAFT' && (
+            {!expired && c.status === 'DRAFT' && (
               <button type="button" className="mkt-btn mkt-btn--ghost" onClick={() => onEdit(c)}>
                 Sửa
               </button>
             )}
-            {c.status === 'DRAFT' && (
+            {!expired && c.status === 'DRAFT' && (
               <button
                 type="button"
                 className="mkt-btn mkt-btn--primary"
@@ -969,12 +1015,12 @@ function ClassList({
                 Đăng lớp
               </button>
             )}
-            {c.status !== 'DRAFT' && isEditableClass(c) && (
+            {!expired && c.status !== 'DRAFT' && isEditableClass(c) && (
               <button type="button" className="mkt-btn mkt-btn--ghost" onClick={() => onEdit(c)}>
                 Sửa
               </button>
             )}
-            {c.status === 'OPEN' && isEditableClass(c) && (
+            {!expired && c.status === 'OPEN' && isEditableClass(c) && (
               <button
                 type="button"
                 className="mkt-btn mkt-btn--ghost"
@@ -989,7 +1035,7 @@ function ClassList({
                 className="mkt-btn mkt-btn--primary"
                 onClick={() => onOpenDetail(c)}
               >
-                Xem chi tiết &amp; gia sư ứng tuyển
+                {expired ? 'Xem lại tin' : 'Xem chi tiết & gia sư ứng tuyển'}
                 {c.applicationCount != null && c.applicationCount > 0
                   ? ` (${c.applicationCount})`
                   : ''}

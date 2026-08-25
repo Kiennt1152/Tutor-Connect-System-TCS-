@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import type { CatalogOption, ClassResponse } from '../types/marketplaceTypes';
 import { ClassDetailPanel } from './ClassDetailPanel';
 import './tutorFindClass.css';
@@ -21,7 +22,9 @@ export function ClassDetailModal({
   onApply,
   onClose,
 }: Props) {
-  return (
+  // Portal ra body: hero có stacking context riêng (z-index: 1) nên modal đặt trong đó
+  // sẽ bị header sticky đè lên dù z-index cao hơn.
+  return createPortal(
     <div
       className="cdm-overlay"
       role="dialog"
@@ -57,6 +60,7 @@ export function ClassDetailModal({
           )}
         </footer>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

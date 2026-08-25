@@ -180,8 +180,8 @@ class AiFullIntentCoverageTest {
             "'tạo lớp tìm người dạy', CREATE_CLASS",
             "'đăng tin tìm gia sư toán', CREATE_CLASS",
             "'tao lop tim gia su', CREATE_CLASS",
-            "'gia sư ứng tuyển lớp như thế nào', FIND_CLASS",
-            "'phụ huynh chọn gia sư ứng tuyển ra sao', FIND_CLASS"
+            "'gia sư ứng tuyển lớp như thế nào', APPLY_TO_CLASS",
+            "'phụ huynh chọn gia sư ứng tuyển ra sao', APPLY_TO_CLASS"
         })
         void shouldClassifyMarketplace(String query, AiSubIntent expectedSubIntent) {
             var detail = classifier.classifyDetailed(query);
@@ -239,15 +239,15 @@ class AiFullIntentCoverageTest {
         @CsvSource({
             "'trung tâm quản lý gia sư ở đâu', CENTER_TUTOR_MANAGEMENT",
             "'thành viên trung tâm gia sư', CENTER_TUTOR_MANAGEMENT",
-            "'đăng bài tuyển dụng gia sư cho trung tâm', CENTER_TUTOR_MANAGEMENT",
+            "'đăng bài tuyển dụng gia sư cho trung tâm', CENTER_RECRUITMENT_POST",
             "'duyệt gia sư vào trung tâm', CENTER_TUTOR_MANAGEMENT",
             "'hợp đồng trung tâm gia sư', CENTER_TUTOR_MANAGEMENT",
             "'báo cáo doanh thu trung tâm', CENTER_TUTOR_MANAGEMENT",
             "'tạo lớp nhóm cho trung tâm', CENTER_TUTOR_MANAGEMENT",
             "'quan ly trung tam gia su', CENTER_TUTOR_MANAGEMENT",
-            "'tuyen ung vien gia su', CENTER_TUTOR_MANAGEMENT",
+            "'tuyen ung vien gia su', CENTER_RECRUITMENT_POST",
             "'thanh vien trung tam', CENTER_TUTOR_MANAGEMENT",
-            "'tao bai tuyen dung', CENTER_TUTOR_MANAGEMENT",
+            "'tao bai tuyen dung', CENTER_RECRUITMENT_POST",
             "'hop dong trung tam', CENTER_TUTOR_MANAGEMENT",
             "'danh sach gia su trung tam', CENTER_TUTOR_MANAGEMENT",
             "'xoa gia su khoi trung tam', CENTER_TUTOR_MANAGEMENT",

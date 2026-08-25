@@ -44,10 +44,6 @@ export default function AiAssistantPage() {
   useEffect(() => {
     if (currentSessionId) {
       sessionStorage.setItem('ai_current_session', String(currentSessionId));
-      // Auto-load messages if returning to the page with an active session
-      if (messages.length === 0 && !loading && !sending) {
-        handleSelectSession(currentSessionId);
-      }
     } else {
       sessionStorage.removeItem('ai_current_session');
     }
@@ -61,6 +57,17 @@ export default function AiAssistantPage() {
     try {
       const list = await aiApi.getSessions();
       setSessions(list);
+      const stored = sessionStorage.getItem('ai_current_session');
+      const storedId = stored ? Number(stored) : undefined;
+      if (storedId) {
+        if (list.some(s => s.sessionId === storedId)) {
+          handleSelectSession(storedId);
+        } else {
+          sessionStorage.removeItem('ai_current_session');
+          setCurrentSessionId(undefined);
+          setMessages([]);
+        }
+      }
     } catch (err) {
       console.error('Failed to load chat sessions:', err);
     }
@@ -75,6 +82,9 @@ export default function AiAssistantPage() {
       setMessages(list);
     } catch (err) {
       console.error('Failed to load session messages:', err);
+      sessionStorage.removeItem('ai_current_session');
+      setCurrentSessionId(undefined);
+      setMessages([]);
     } finally {
       setLoading(false);
     }

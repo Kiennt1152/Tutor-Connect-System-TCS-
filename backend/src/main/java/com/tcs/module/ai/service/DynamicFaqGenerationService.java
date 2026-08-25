@@ -23,6 +23,11 @@ public class DynamicFaqGenerationService {
     private final FaqEntryRepository faqEntryRepository;
 
     @Scheduled(cron = "0 0 2 * * *")
+    @net.javacrumbs.shedlock.spring.annotation.SchedulerLock(
+        name = "dynamicFaqGeneration",
+        lockAtMostFor = "2h",
+        lockAtLeastFor = "10m"
+    )
     @Transactional
     public void scheduledNightlyFaqGeneration() {
         log.info("[DynamicFaqGenerationService] Running scheduled nightly support ticket FAQ generation...");
@@ -33,9 +38,12 @@ public class DynamicFaqGenerationService {
     @Transactional
     public List<FaqEntry> generateFaqsFromRecentTickets(int daysBack, int minOccurrences) {
         LocalDateTime since = LocalDateTime.now().minusDays(daysBack);
-        List<SupportTicket> recentTickets = supportTicketRepository.findAll().stream()
-                .filter(t -> t.getCreatedAt() != null && t.getCreatedAt().isAfter(since))
-                .toList();
+        List<SupportTicket> recentTickets = supportTicketRepository.findByCreatedAtAfter(since);
+        if (recentTickets == null || recentTickets.isEmpty()) {
+            recentTickets = supportTicketRepository.findAll().stream()
+                    .filter(t -> t.getCreatedAt() != null && t.getCreatedAt().isAfter(since))
+                    .toList();
+        }
 
         if (recentTickets.isEmpty()) {
             return List.of();

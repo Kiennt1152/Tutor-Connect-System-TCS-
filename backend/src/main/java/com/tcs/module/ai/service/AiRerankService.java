@@ -12,8 +12,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AiRerankService {
@@ -47,8 +49,12 @@ public class AiRerankService {
                 // Quality Factor from chunk (defaults to 1.0)
                 double qualityFactor = r.chunk().getQualityScore() != null ? r.chunk().getQualityScore() : 1.0;
 
-                // Semantic Conflict Detection (Penalty: -0.15 to -0.30)
+                // Semantic Conflict Detection (Penalty: -0.15 to -0.50)
                 double semanticPenalty = detectSemanticConflict(r.chunk(), entities);
+                if (semanticPenalty >= 0.30) {
+                    // Hard mismatch on subject or location for specific tutor/class searches
+                    continue;
+                }
 
                 // Final Composite Score anchored by Dense Vector Cosine Similarity (80%) + Intent (10%) + Business (10%) - Semantic Penalty
                 double rawScore = (cosineSimilarity * 0.80 * qualityFactor - semanticPenalty) + (intentBonus * 0.67) + businessBonus;
@@ -136,14 +142,32 @@ public class AiRerankService {
         if (normSubject.equals("toan") || normSubject.contains("toan")) {
             if ((normText.contains("ngu van") || normText.contains("tieng anh"))
                     && !normText.contains("toan") && !normText.contains("math")) {
-                penalty += 0.25;
+                penalty += 0.35;
             }
         }
 
         if (normSubject.equals("anh") || normSubject.contains("tieng anh") || normCert.contains("ielts") || normCert.contains("toeic")) {
             if ((normText.contains("mon toan") || normText.contains("ngu van") || normText.contains("vat ly"))
                     && !normText.contains("tieng anh") && !normText.contains("anh") && !normText.contains("ielts") && !normText.contains("toeic") && !normText.contains("english")) {
-                penalty += 0.25;
+                penalty += 0.35;
+            }
+        }
+
+        if (normSubject.contains("python") || normSubject.contains("lap trinh") || normSubject.contains("tin")) {
+            if (!normText.contains("python") && !normText.contains("lap trinh") && !normText.contains("coding") && !normText.contains("tin hoc")) {
+                penalty += 0.40;
+            }
+        }
+
+        if (normSubject.equals("hoa") || normSubject.contains("hoa hoc")) {
+            if (!normText.contains("hoa") && !normText.contains("chemistry")) {
+                penalty += 0.40;
+            }
+        }
+
+        if (normSubject.equals("van") || normSubject.contains("ngu van")) {
+            if (!normText.contains("van") && !normText.contains("ngu van") && !normText.contains("van hoc")) {
+                penalty += 0.40;
             }
         }
 
@@ -246,6 +270,7 @@ public class AiRerankService {
 
             return Math.min(0.10, bonus);
         } catch (Exception e) {
+            log.warn("Failed to parse metadata JSON in rerank alignment: {}", e.getMessage());
             return 0.0;
         }
     }

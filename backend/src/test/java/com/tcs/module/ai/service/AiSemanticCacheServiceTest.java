@@ -43,10 +43,10 @@ class AiSemanticCacheServiceTest {
         
         cacheService.put(query, synonymService.normalizeQuery(query), response, 
                         "FAQ", "CATALOG_FAQ", "FAQ_SEARCH", 
-                        0.95, 2, null, null, null, "GUEST", null);
+                        0.95, 2, null, null, null, "GUEST");
 
         Optional<AiSemanticCacheService.CachedResponse> cached = 
-            cacheService.get(query, "GUEST", null);
+            cacheService.get(query, "GUEST");
 
         assertThat(cached).isPresent();
         assertThat(cached.get().content()).isEqualTo(response);
@@ -61,10 +61,10 @@ class AiSemanticCacheServiceTest {
         
         cacheService.put(query1, synonymService.normalizeQuery(query1), response, 
                         "FAQ", "CATALOG_FAQ", "FAQ_SEARCH", 
-                        0.95, 2, null, null, null, "GUEST", null);
+                        0.95, 2, null, null, null, "GUEST");
 
         Optional<AiSemanticCacheService.CachedResponse> cached = 
-            cacheService.get(query2, "GUEST", null);
+            cacheService.get(query2, "GUEST");
 
         assertThat(cached).isPresent();
         assertThat(cached.get().content()).isEqualTo(response);
@@ -78,10 +78,10 @@ class AiSemanticCacheServiceTest {
         
         cacheService.put(query1, synonymService.normalizeQuery(query1), response, 
                         "FAQ", "CATALOG_FAQ", "FAQ_SEARCH", 
-                        0.95, 2, null, null, null, "GUEST", null);
+                        0.95, 2, null, null, null, "GUEST");
 
         Optional<AiSemanticCacheService.CachedResponse> cached = 
-            cacheService.get(query2, "GUEST", null);
+            cacheService.get(query2, "GUEST");
 
         assertThat(cached).isEmpty();
     }
@@ -93,11 +93,11 @@ class AiSemanticCacheServiceTest {
         
         cacheService.put(query, synonymService.normalizeQuery(query), response, 
                         "FAQ", "CATALOG_FAQ", "FAQ_SEARCH", 
-                        0.95, 2, null, null, null, "GUEST", null);
+                        0.95, 2, null, null, null, "GUEST");
 
-        cacheService.get(query, "GUEST", null);
-        cacheService.get(query, "GUEST", null);
-        cacheService.get(query, "GUEST", null);
+        cacheService.get(query, "GUEST");
+        cacheService.get(query, "GUEST");
+        cacheService.get(query, "GUEST");
 
         List<AiQueryCache> caches = cacheRepository.findAll();
         assertThat(caches).hasSize(1);
@@ -124,7 +124,7 @@ class AiSemanticCacheServiceTest {
         cacheRepository.save(cache);
 
         Optional<AiSemanticCacheService.CachedResponse> cached = 
-            cacheService.get("Test query", "GUEST", null);
+            cacheService.get("Test query", "GUEST");
 
         assertThat(cached).isEmpty();
     }
@@ -133,13 +133,13 @@ class AiSemanticCacheServiceTest {
     void testCacheStats() {
         cacheService.put("Query 1", "query 1", "Response 1", 
                         "FAQ", "CATALOG_FAQ", "FAQ_SEARCH", 
-                        0.95, 2, null, null, null, "GUEST", null);
+                        0.95, 2, null, null, null, "GUEST");
         cacheService.put("Query 2", "query 2", "Response 2", 
                         "FAQ", "CATALOG_FAQ", "FAQ_SEARCH", 
-                        0.90, 3, null, null, null, "GUEST", null);
+                        0.90, 3, null, null, null, "GUEST");
 
-        cacheService.get("Query 1", "GUEST", null);
-        cacheService.get("Query 1", "GUEST", null);
+        cacheService.get("Query 1", "GUEST");
+        cacheService.get("Query 1", "GUEST");
 
         AiSemanticCacheService.CacheStats stats = cacheService.getStats();
 
@@ -149,8 +149,8 @@ class AiSemanticCacheServiceTest {
     }
 
     @Test
-    void testClearExpiredCaches() {
-        AiQueryCache expiredCache = AiQueryCache.builder()
+    void testCacheClearExpired() {
+        AiQueryCache expired = AiQueryCache.builder()
             .queryText("Expired query")
             .queryHash("expired-hash")
             .normalizedQuery("expired query")
@@ -162,10 +162,10 @@ class AiSemanticCacheServiceTest {
             .sourceCount(2)
             .userRole("GUEST")
             .hitCount(0)
-            .expiresAt(LocalDateTime.now().minusHours(1))
+            .expiresAt(LocalDateTime.now().minusHours(2))
             .build();
-
-        AiQueryCache activeCache = AiQueryCache.builder()
+        
+        AiQueryCache active = AiQueryCache.builder()
             .queryText("Active query")
             .queryHash("active-hash")
             .normalizedQuery("active query")
@@ -177,11 +177,11 @@ class AiSemanticCacheServiceTest {
             .sourceCount(2)
             .userRole("GUEST")
             .hitCount(0)
-            .expiresAt(LocalDateTime.now().plusHours(24))
+            .expiresAt(LocalDateTime.now().plusHours(2))
             .build();
 
-        cacheRepository.save(expiredCache);
-        cacheRepository.save(activeCache);
+        cacheRepository.save(expired);
+        cacheRepository.save(active);
 
         cacheService.clearExpiredCaches();
 
@@ -197,11 +197,11 @@ class AiSemanticCacheServiceTest {
         
         cacheService.put(query, synonymService.normalizeQuery(query), response, 
                         "FAQ", "CATALOG_FAQ", "FAQ_SEARCH", 
-                        0.95, 2, null, null, null, "GUEST", null);
+                        0.95, 2, null, null, null, "GUEST");
         
         cacheService.put(query, synonymService.normalizeQuery(query), "10% học phí", 
                         "FAQ", "CATALOG_FAQ", "FAQ_SEARCH", 
-                        0.95, 2, null, null, null, "GUEST", null);
+                        0.95, 2, null, null, null, "GUEST");
 
         List<AiQueryCache> caches = cacheRepository.findAll();
         assertThat(caches).hasSize(1);
@@ -214,10 +214,10 @@ class AiSemanticCacheServiceTest {
         
         cacheService.put(query, synonymService.normalizeQuery(query), response, 
                         "FIND_TUTOR", "MARKETPLACE_TUTOR", "FIND_TUTOR", 
-                        0.88, 3, "1,2,3", null, null, "CLIENT", null);
+                        0.88, 3, "1,2,3", null, null, "CLIENT");
 
         Optional<AiSemanticCacheService.CachedResponse> cached = 
-            cacheService.get(query, "CLIENT", null);
+            cacheService.get(query, "CLIENT");
 
         assertThat(cached).isPresent();
         assertThat(cached.get().referencedTutorIds()).isEqualTo("1,2,3");
