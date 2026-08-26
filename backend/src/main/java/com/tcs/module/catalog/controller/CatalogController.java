@@ -45,6 +45,9 @@ public class CatalogController {
         return catalogService.getProvinces();
     }
 
+    // =========================================================================
+    // LUỒNG 1: TRA CỨU & TÌM KIẾM FAQ TRI THỨC (/help - UC-61, UC-67)
+    // =========================================================================
     @GetMapping("/faq")
     public List<FaqResponse> getFaqEntries(
             @RequestParam(required = false) String category,
@@ -58,6 +61,9 @@ public class CatalogController {
         return catalogService.askChatbot(request);
     }
 
+    // =========================================================================
+    // LUỒNG 6: QUẢN TRỊ TRI THỨC FAQ - ADMIN CRUD (/platform/faq - UC-67)
+    // =========================================================================
     @GetMapping("/faq/admin")
     public List<FaqResponse> getFaqEntriesForAdmin(
             @RequestParam(required = false) String category,
@@ -81,6 +87,9 @@ public class CatalogController {
         catalogService.deleteFaqEntry(faqId);
     }
 
+    // =========================================================================
+    // LUỒNG 9: QUẢN LÝ CÂY DANH MỤC HỆ THỐNG PHÂN CẤP (/categories - UC-57)
+    // =========================================================================
     @GetMapping("/categories")
     public List<CatalogResponse.CategoryResponse> getCategoryTree(
             @RequestParam(required = false) String root

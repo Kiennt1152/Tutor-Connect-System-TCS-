@@ -227,12 +227,18 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                 .build();
     }
 
+    // =========================================================================
+    // LUỒNG 12: BÁO CÁO TÀI CHÍNH ĐA CHIỀU & XUẤT DỮ LIỆU CSV AN TOÀN (UC-41, UC-43)
+    // =========================================================================
+
+    // Luồng 12 - Xuất dữ liệu CSV an toàn chống OOM và mã độc Formula Injection
     @Override
     public byte[] exportCsv(String type, LocalDate from, LocalDate to) {
         StringBuilder sb = new StringBuilder();
+        // Luồng 12 - Bước 1: Chèn UTF-8 BOM Header (\uFEFF) giúp Microsoft Excel hiển thị đúng Tiếng Việt có dấu
         sb.append("\uFEFF");
 
-        // Default to last 90 days if date bounds not provided, preventing unbounded table dumps
+        // Luồng 12 - Bước 2: Giới hạn mặc định 90 ngày và tối đa 10,000 dòng chống tràn RAM máy chủ (OOM Protection)
         LocalDateTime fromDt = from != null
                 ? from.atStartOfDay()
                 : LocalDate.now().minusDays(DEFAULT_EXPORT_DAYS).atStartOfDay();
@@ -376,9 +382,11 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         return isPlatformFeeTransaction(transaction) ? "PLATFORM_FEE" : transaction.getType().name();
     }
 
+    // Luồng 12 - Thuật toán phòng chống tấn công CSV Injection (DDE Injection Sanitization)
     private String escapeCsv(String val) {
         if (val == null) return "";
         String clean = val.replace("\"", "\"\"");
+        // Vô hiệu hóa việc thực thi công thức bằng cách chèn thêm dấu nháy đơn (') phía trước
         if (!clean.isEmpty() && "=+-@\t".indexOf(clean.charAt(0)) >= 0) {
             clean = "'" + clean;
         }

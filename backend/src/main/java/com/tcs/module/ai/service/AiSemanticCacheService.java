@@ -16,8 +16,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Semantic Cache Service for AI Query Responses.
- * Uses embedding similarity to cache and retrieve similar queries.
+ * =========================================================================
+ * LUỒNG 2: BỘ NHỚ ĐỆM NGỮ NGHĨA SEMANTIC CACHE SERVICE (UC-65)
+ * =========================================================================
+ * Lưu trữ và phục vụ tức thì (<50ms) các câu hỏi có độ tương đồng ngữ nghĩa Jaccard >= 0.85
  */
 @Slf4j
 @Service
@@ -45,16 +47,14 @@ public class AiSemanticCacheService {
         }
     }
 
-    /**
-     * Check cache for similar query using exact match or semantic search with double[] embedding.
-     */
+    // Luồng 2 - Bước 0.5: Tra cứu cache theo hàm băm Hash Query hoặc độ tương đồng Embedding
     @Transactional
     public Optional<CachedResponse> get(String query, String userRole, double[] queryEmbedding) {
         if (query == null || query.isBlank()) {
             return Optional.empty();
         }
 
-        // 1. Try exact normalized match first (fastest)
+        // 1. Kiểm tra khớp chính xác chuỗi sau chuẩn hóa (Exact Normalized Match)
         String normalized = synonymService != null ? synonymService.normalizeQuery(query) : query.trim().toLowerCase(Locale.ROOT);
         String queryHash = hashQuery(normalized, userRole);
         

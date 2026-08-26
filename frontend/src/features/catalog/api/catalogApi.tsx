@@ -16,6 +16,7 @@ export const catalogApi = {
   http: axiosClient,
   basePath: CATALOG_API_BASE,
 
+  // LUỒNG 1 - BƯỚC 2: Gửi HTTP GET request /api/catalog/faq kèm params (category, keyword)
   async getFaqEntries(category?: string, keyword?: string) {
     const params: Record<string, string> = {};
     if (category) params.category = category;
