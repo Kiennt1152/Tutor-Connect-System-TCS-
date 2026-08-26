@@ -3,11 +3,17 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { aiApi } from '../api/aiApi';
 import type { AiMessage } from '../types/aiTypes';
 import { APP_ROUTES } from '../../../shared/constants/routes';
+import { useAuth } from '../../../shared/auth/AuthProvider';
+import { normalizeRole, hasRole } from '../../../shared/auth/rbac';
 import './AiFloatingWidget.css';
 
 export default function AiFloatingWidget() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user } = useAuth();
+  const role = normalizeRole(user?.role);
+  const isAdmin = hasRole(role, 'PLATFORM_ADMIN');
+
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<AiMessage[]>([
     {
@@ -29,8 +35,8 @@ export default function AiFloatingWidget() {
     }
   }, [messages, isOpen]);
 
-  // Hide widget when already on full AI Assistant page
-  if (location.pathname === APP_ROUTES.aiAssistant) {
+  // Hide widget for Platform Admin, on platform routes, or when already on full AI Assistant page
+  if (isAdmin || location.pathname.startsWith('/platform') || location.pathname === APP_ROUTES.aiAssistant) {
     return null;
   }
 
