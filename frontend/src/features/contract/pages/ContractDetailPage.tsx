@@ -970,6 +970,7 @@ export default function ContractDetailPage() {
             assignmentId={contract.assignmentId}
             classStudentId={contract.classStudentId}
             classTitle={contract.classTitle}
+            initialRefundPayoutInfo={contract.refundPayoutInfo}
             currentUserRole={user?.role}
             onClose={() => setIssueModalOpen(false)}
           />

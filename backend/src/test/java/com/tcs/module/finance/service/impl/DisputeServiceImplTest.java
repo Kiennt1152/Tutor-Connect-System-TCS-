@@ -391,6 +391,75 @@ class DisputeServiceImplTest {
     }
 
     @Test
+    void createClassIssueAllowsTutorTerminationWithoutSubmittedPayoutWhenEscrowHasSavedPayout() {
+        User tutorUser = user(USER_ID, "tutor@tcs.com");
+        User clientUser = user(101L, "client@tcs.com");
+
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setClassId(99L);
+        tutoringClass.setCreator(clientUser);
+        tutoringClass.setClassType(ClassType.PRIVATE);
+        tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
+
+        ClassAssignment assignment = assignment(77L, tutorUser, tutoringClass);
+        assignment.setStatus(ClassAssignmentStatus.ACTIVE);
+        assignment.setTermsB("""
+                Gia sư dạy Toán 12, thanh toán qua ký quỹ.
+
+                Thông tin nhận hoàn tiền:
+                - Tên chủ tài khoản: Nguyễn Thu Hà
+                - Ngân hàng: TPBank
+                - Số tài khoản: 0123456789
+                """);
+
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.FUNDED);
+        escrow.setAssignment(assignment);
+        escrow.setPayment(payment(55L, clientUser));
+
+        Report savedReport = report(
+                21L,
+                tutorUser,
+                ReportTargetType.CLASS,
+                99L,
+                ReportCategory.SPAM,
+                "[UC-29] Báo cáo sự cố lớp học");
+        Dispute savedDispute = dispute(savedReport, escrow, 31L, DisputeStatus.OPEN);
+
+        CreateClassIssueRequest request = new CreateClassIssueRequest();
+        request.setClassId(99L);
+        request.setAssignmentId(77L);
+        request.setIssueType(ClassIssueType.SCHEDULE_CONFLICT);
+        request.setRequestedAction(ClassIssueRequestedAction.TERMINATE_CLASS);
+        request.setDescription("Gia sư đề nghị chấm dứt lớp vì lịch dạy không còn phù hợp");
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(tutorUser));
+        when(tutoringClassRepository.findById(99L)).thenReturn(Optional.of(tutoringClass));
+        when(classAssignmentRepository.findById(77L)).thenReturn(Optional.of(assignment));
+        when(reportRepository.findByReporter_UserIdAndTargetTypeAndTargetIdAndStatusOrderByCreatedAtDesc(
+                USER_ID,
+                ReportTargetType.CLASS,
+                99L,
+                ReportStatus.PENDING))
+                .thenReturn(List.of());
+        when(escrowTransactionRepository.findByAssignment_AssignmentId(77L))
+                .thenReturn(Optional.of(escrow));
+        when(reportRepository.save(any(Report.class))).thenReturn(savedReport);
+        when(escrowService.holdForDispute(11L, "Gia sư đề nghị chấm dứt lớp vì lịch dạy không còn phù hợp"))
+                .thenReturn(escrow);
+        when(disputeRepository.save(any(Dispute.class))).thenReturn(savedDispute);
+
+        DisputeResponse response = disputeService.createClassIssue(request);
+
+        assertEquals(Boolean.TRUE, response.getEscalatedToDispute());
+        assertEquals(31L, response.getDisputeId());
+        assertEquals(11L, response.getEscrowId());
+        verify(escrowService)
+                .holdForDispute(11L, "Gia sư đề nghị chấm dứt lớp vì lịch dạy không còn phù hợp");
+        verify(disputeRepository).save(any(Dispute.class));
+    }
+
+    @Test
     void createDisputeRejectsMissingEscrowSelector() {
         CreateDisputeRequest request = new CreateDisputeRequest();
         request.setTargetType(ReportTargetType.USER);

@@ -23,6 +23,11 @@ type ClassIssueModalProps = {
   classTitle?: string | null;
   assignmentId?: number | null;
   classStudentId?: number | null;
+  initialRefundPayoutInfo?: {
+    bankName?: string | null;
+    accountNo?: string | null;
+    accountHolderName?: string | null;
+  } | null;
   currentUserRole?: string | null;
   onClose: () => void;
 };
@@ -119,6 +124,7 @@ export function ClassIssueModal({
   classTitle,
   assignmentId,
   classStudentId,
+  initialRefundPayoutInfo,
   currentUserRole,
   onClose,
 }: ClassIssueModalProps) {
@@ -138,11 +144,16 @@ export function ClassIssueModal({
   const [success, setSuccess] = useState<DisputeResponse | null>(null);
   const selectedBank = BANK_OPTIONS.find((bank) => bank.code === selectedBankCode);
   const showRefundPayoutInfo = needsRefundPayoutInfo(issueType, requestedAction, currentUserRole);
+  const isEscalatingDispute = requestedAction === 'ESCALATE_DISPUTE';
+  const isTerminationRequest = requestedAction === 'TERMINATE_CLASS';
   const availableIssueTypes = issueTypesForRole(currentUserRole).map((value) => [
     value,
     ISSUE_TYPE_LABELS[value],
   ]) as Array<[ClassIssueType, string]>;
   const availableRequestedActions = REQUESTED_ACTION_OPTIONS;
+  const initialPayoutBankName = initialRefundPayoutInfo?.bankName?.trim() ?? '';
+  const initialPayoutAccountNo = initialRefundPayoutInfo?.accountNo?.trim() ?? '';
+  const initialPayoutAccountHolder = initialRefundPayoutInfo?.accountHolderName?.trim() ?? '';
 
   useEffect(() => {
     const allowedTypes = issueTypesForRole(currentUserRole);
@@ -150,6 +161,34 @@ export function ClassIssueModal({
       setIssueType(defaultIssueTypeForRole(currentUserRole));
     }
   }, [currentUserRole, issueType]);
+
+  useEffect(() => {
+    if (!open || currentUserRole !== 'CLIENT') return;
+
+    if (initialPayoutBankName) {
+      const normalizedInitialBankName = initialPayoutBankName.toLowerCase();
+      const matchedBank = BANK_OPTIONS.find((bank) => [
+        bank.code,
+        bank.shortName,
+        bank.name,
+      ].some((value) => value.toLowerCase() === normalizedInitialBankName));
+      if (matchedBank) {
+        setSelectedBankCode(matchedBank.code);
+      }
+    }
+    if (initialPayoutAccountNo) {
+      setAccountNo(initialPayoutAccountNo);
+    }
+    if (initialPayoutAccountHolder) {
+      setAccountHolderName(initialPayoutAccountHolder);
+    }
+  }, [
+    currentUserRole,
+    initialPayoutAccountHolder,
+    initialPayoutAccountNo,
+    initialPayoutBankName,
+    open,
+  ]);
 
   if (!open) return null;
 
@@ -221,10 +260,12 @@ export function ClassIssueModal({
       return;
     }
     if (description.trim().length < 20) {
-      setError('Vui lòng mô tả sự cố tối thiểu 20 ký tự.');
+      setError(isTerminationRequest
+        ? 'Vui lòng nhập lý do chấm dứt tối thiểu 20 ký tự.'
+        : 'Vui lòng mô tả sự cố tối thiểu 20 ký tự.');
       return;
     }
-    if (occurredAt && new Date(occurredAt) > new Date()) {
+    if (isEscalatingDispute && occurredAt && new Date(occurredAt) > new Date()) {
       setError('Ngày xảy ra sự cố không được ở tương lai.');
       return;
     }
@@ -250,8 +291,8 @@ export function ClassIssueModal({
         classId,
         issueType,
         category: categoryForIssueType(issueType),
-        lessonRef: lessonRef.trim() || undefined,
-        occurredAt: occurredAt || undefined,
+        lessonRef: isEscalatingDispute ? lessonRef.trim() || undefined : undefined,
+        occurredAt: isEscalatingDispute ? occurredAt || undefined : undefined,
         requestedAction,
         description: description.trim(),
         evidenceUrls: buildEvidenceUrls(evidenceFiles) || undefined,
@@ -301,13 +342,13 @@ export function ClassIssueModal({
               <p className="issue-success__title">Đã gửi báo cáo</p>
               {success.escalatedToDispute && success.disputeId ? (
                 <p>
-                  Mã báo cáo #{success.reportId}, mã tranh chấp #{success.disputeId}. Escrow liên quan
-                  đã được chuyển sang trạng thái {formatEscrowStatus(success.escrowStatus)}. Admin sẽ
-                  thấy hồ sơ trong mục Tranh chấp và Báo cáo sự cố lớp.
+                  Mã báo cáo #{success.reportId}, mã tranh chấp #{success.disputeId}. Khoản ký quỹ liên quan
+                  đã được chuyển sang trạng thái {formatEscrowStatus(success.escrowStatus)}. Quản trị viên sẽ
+                  thấy hồ sơ trong mục Tranh chấp và Báo cáo sự cố lớp học.
                 </p>
               ) : (
                 <p>
-                  Mã báo cáo #{success.reportId}. Admin sẽ thấy ticket trong mục Báo cáo sự cố lớp.
+                  Mã báo cáo #{success.reportId}. Quản trị viên sẽ thấy hồ sơ trong mục Báo cáo sự cố lớp học.
                 </p>
               )}
             </div>
@@ -327,26 +368,6 @@ export function ClassIssueModal({
                 </select>
               </label>
 
-              <div className="issue-field-grid">
-                <label className="issue-field">
-                  <span>Buổi/ngày liên quan</span>
-                  <input
-                    value={lessonRef}
-                    onChange={(event) => setLessonRef(event.target.value)}
-                    placeholder="Ví dụ: Buổi 3, tối thứ Hai"
-                  />
-                </label>
-
-                <label className="issue-field">
-                  <span>Ngày xảy ra</span>
-                  <input
-                    type="date"
-                    value={occurredAt}
-                    onChange={(event) => setOccurredAt(event.target.value)}
-                  />
-                </label>
-              </div>
-
               <label className="issue-field">
                 <span>Hướng xử lý mong muốn</span>
                 <select
@@ -360,6 +381,28 @@ export function ClassIssueModal({
                   ))}
                 </select>
               </label>
+
+              {isEscalatingDispute ? (
+                <div className="issue-field-grid">
+                  <label className="issue-field">
+                    <span>Buổi/ngày liên quan</span>
+                    <input
+                      value={lessonRef}
+                      onChange={(event) => setLessonRef(event.target.value)}
+                      placeholder="Ví dụ: Buổi 3, tối thứ Hai"
+                    />
+                  </label>
+
+                  <label className="issue-field">
+                    <span>Ngày xảy ra</span>
+                    <input
+                      type="date"
+                      value={occurredAt}
+                      onChange={(event) => setOccurredAt(event.target.value)}
+                    />
+                  </label>
+                </div>
+              ) : null}
 
               {showRefundPayoutInfo ? (
                 <div className="issue-payout">
@@ -394,12 +437,14 @@ export function ClassIssueModal({
               ) : null}
 
               <label className="issue-field">
-                <span>Mô tả chi tiết</span>
+                <span>{isTerminationRequest ? 'Lý do' : 'Mô tả chi tiết'}</span>
                 <textarea
                   rows={5}
                   value={description}
                   onChange={(event) => setDescription(event.target.value)}
-                  placeholder="Mô tả diễn biến, ai liên quan, ảnh hưởng tới buổi học và mong muốn xử lý..."
+                  placeholder={isTerminationRequest
+                    ? 'Nhập lý do muốn chấm dứt lớp và các thông tin cần người xử lý xem xét...'
+                    : 'Mô tả diễn biến, ai liên quan, ảnh hưởng tới buổi học và mong muốn xử lý...'}
                 />
               </label>
 

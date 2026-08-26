@@ -1054,7 +1054,6 @@ public class DisputeServiceImpl implements DisputeService {
 
     private boolean requiresRefundPayoutInfo(CreateClassIssueRequest request) {
         return request.getRequestedAction() == ClassIssueRequestedAction.REFUND_REVIEW
-                || request.getRequestedAction() == ClassIssueRequestedAction.TERMINATE_CLASS
                 || request.getIssueType() == ClassIssueType.PAYMENT_OR_REFUND;
     }
 
