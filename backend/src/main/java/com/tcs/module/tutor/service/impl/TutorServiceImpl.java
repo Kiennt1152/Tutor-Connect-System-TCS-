@@ -94,6 +94,11 @@ public class TutorServiceImpl implements TutorService {
                 continue;
             }
             TutoringClass c = a.getApplication().getTutoringClass();
+            // Màn này là LỊCH LỚP TRUNG TÂM: chỉ lấy lớp CENTER. Lớp PRIVATE (gia sư riêng)
+            // đã có lịch dạy cá nhân ở /marketplace nên không hiện ở đây nữa.
+            if (c.getClassType() != ClassType.CENTER) {
+                continue;
+            }
             myClasses.put(c.getClassId(), c);
         }
 
@@ -157,7 +162,7 @@ public class TutorServiceImpl implements TutorService {
                 continue; // không có yêu cầu, hoặc mình vốn là gia sư chính lớp này
             }
             TutoringClass c = tutoringClassRepository.findById(classId).orElse(null);
-            if (c == null) {
+            if (c == null || c.getClassType() != ClassType.CENTER) {
                 continue;
             }
             CenterScheduleClassResponse item =
@@ -678,25 +683,15 @@ public class TutorServiceImpl implements TutorService {
     }
 
     /**
-     * Luật điểm danh: CHỈ đúng ngày hôm nay.
+     * Ngày điểm danh của lớp TRUNG TÂM: không giới hạn thời điểm.
      *
-     * <p>Trước đây {@code date} nhận bất kỳ ngày nào nên gia sư bấm "Điểm danh" ở ô thứ Sáu tuần
-     * sau trong lịch tuần là ghi được luôn. Giờ chặn cả hai chiều: không điểm danh trước cho ngày
-     * chưa tới, không bù cho ngày đã qua (quên thì xin đổi lịch buổi đó).</p>
-     *
-     * <p>Trong đúng ngày học thì bấm lúc nào cũng được — lớp học buổi chiều nhưng sáng cùng ngày
-     * vẫn điểm danh được. Cùng luật với lớp private ở
-     * {@code MarketplaceServiceImpl.requireAttendanceDay()}.</p>
+     * <p>Trước đây chỉ cho điểm danh đúng ngày hôm nay. Bỏ ràng buộc đó theo yêu cầu: gia sư
+     * điểm danh lúc nào cũng được (điểm danh trước cho buổi sắp tới, hoặc bù cho buổi đã qua).
+     * Ràng buộc còn lại vẫn giữ: ngày đó phải có buổi học của lớp và mỗi buổi chỉ điểm danh
+     * một lần.</p>
      */
     private LocalDate requireAttendanceDay(LocalDate date) {
-        LocalDate today = LocalDate.now();
-        LocalDate d = date != null ? date : today;
-        if (!d.equals(today)) {
-            throw new IllegalArgumentException(
-                    "Chỉ điểm danh được trong đúng ngày diễn ra buổi học. Hôm nay là " + today
-                            + ", không thể điểm danh cho ngày " + d + ".");
-        }
-        return d;
+        return date != null ? date : LocalDate.now();
     }
 
     private Tutor requireTutor() {
