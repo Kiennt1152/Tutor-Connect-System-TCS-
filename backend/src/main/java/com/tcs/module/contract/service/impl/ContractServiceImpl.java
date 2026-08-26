@@ -2472,12 +2472,17 @@ public class ContractServiceImpl implements ContractService {
                 .toList();
     }
 
+    /**
+     * Các buổi được tính là ĐÃ DIỄN RA (mỗi buổi cho khách một lượt đánh giá gia sư).
+     *
+     * <p>Mốc duy nhất là ĐÃ ĐIỂM DANH, không phải ngày trên lịch. Gia sư lớp trung tâm được
+     * điểm danh bất kỳ lúc nào (kể cả trước ngày học), nên nếu còn lọc theo
+     * {@code lessonDate <= today} thì buổi đã điểm danh cho ngày mai vẫn bị coi như chưa diễn ra
+     * và khách không bấm đánh giá được. Buổi chưa điểm danh thì vẫn không tính, dù ngày đã qua.</p>
+     */
     private List<LocalDate> occurredLessonDates(Long classId) {
-        LocalDate today = LocalDate.now();
         List<Lesson> lessons = lessonRepository
-                .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(classId).stream()
-                .filter(l -> !l.getLessonDate().isAfter(today))
-                .toList();
+                .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(classId);
         if (lessons.isEmpty()) {
             return List.of();
         }

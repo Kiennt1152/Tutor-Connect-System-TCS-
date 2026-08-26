@@ -159,6 +159,10 @@
   gap: 8px;
 }
 
+.issue-evidence-list .ft-popover {
+  display: none;
+}
+
 .issue-evidence-remove {
   min-height: 30px;
   padding: 0 10px;

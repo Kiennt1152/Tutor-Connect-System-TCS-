@@ -935,8 +935,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                         requireTutor().getTutorId());
         return assignments.stream()
                 .filter(a -> a.getApplication() != null)
+                // Lịch/lớp CÁ NHÂN: chỉ lớp PRIVATE. Lớp CENTER do trung tâm gán, đã có màn
+                // "Lịch lớp trung tâm" riêng nên không trộn vào đây.
+                .filter(a -> isPrivateClass(a.getApplication().getTutoringClass()))
                 .map(this::toAssignment)
                 .toList();
+    }
+
+    /** Lớp gia sư riêng (PRIVATE) — dùng để tách hẳn dữ liệu cá nhân khỏi lớp trung tâm. */
+    private boolean isPrivateClass(TutoringClass c) {
+        return c != null && c.getClassType() != ClassType.CENTER;
     }
 
     private boolean isClient() {
@@ -2574,11 +2582,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     private List<Lesson> myLessons() {
-        return isClient()
+        List<Lesson> lessons = isClient()
                 ? lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(
                         authHelper.currentUserId())
                 : lessonRepository.findByTutor_TutorIdOrderByLessonDateAscSequenceNoAsc(
                         requireTutor().getTutorId());
+        // Buổi của lớp CENTER (sinh ra khi gia sư điểm danh ở màn trung tâm) không được lọt vào
+        // thời khóa biểu cá nhân — hai lịch tách hẳn nhau.
+        return lessons.stream()
+                .filter(l -> isPrivateClass(l.getTutoringClass()))
+                .toList();
     }
 
     private Set<Long> myClassIds() {
@@ -3159,7 +3172,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
 
         EscrowTransaction escrow = resolveEscrowForTermination(target);
-        RefundPayoutInfo payoutInfo = validateTerminationRefundPayoutInfo(request);
+        RefundPayoutInfo payoutInfo = resolveTerminationRefundPayoutInfo(request, target);
 
         ClassTerminationRequest termination = new ClassTerminationRequest();
         termination.setAssignment(target.assignment());
@@ -3178,6 +3191,10 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
 
         SettlementSplit settlement = calculateEarlyTerminationSettlement(tutoringClass, target, escrow);
+        if (settlement.refundAmount().compareTo(BigDecimal.ZERO) > 0
+                && !RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            throw new IllegalArgumentException("Vui lòng nhập đầy đủ thông tin tài khoản nhận hoàn tiền");
+        }
         termination.setStatus(ClassTerminationStatus.COMPLETED);
         termination.setProcessedAt(LocalDateTime.now());
 
@@ -3429,14 +3446,33 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return l.getSequenceNo() == null ? 0 : l.getSequenceNo();
     }
 
-    private RefundPayoutInfo validateTerminationRefundPayoutInfo(CreateClassTerminationRequest request) {
+    private RefundPayoutInfo resolveTerminationRefundPayoutInfo(
+            CreateClassTerminationRequest request,
+            TerminationTarget target) {
         RefundPayoutInfo payoutInfo = new RefundPayoutInfo(
                 RefundPayoutInfoCodec.normalize(request.getBankName()),
                 RefundPayoutInfoCodec.normalizeAccountNo(request.getAccountNo()),
                 RefundPayoutInfoCodec.normalize(request.getAccountHolderName()));
-        if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
-            throw new IllegalArgumentException("Vui lòng nhập đầy đủ thông tin tài khoản nhận hoàn tiền");
+        if (RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
+            return payoutInfo;
         }
+
+        if (target != null && target.classStudent() != null) {
+            RefundPayoutInfo classStudentPayout =
+                    RefundPayoutInfoCodec.parseFromReason(target.classStudent().getNotes());
+            if (RefundPayoutInfoCodec.hasCompletePayout(classStudentPayout)) {
+                return classStudentPayout;
+            }
+        }
+
+        if (target != null && target.assignment() != null) {
+            RefundPayoutInfo assignmentPayout =
+                    RefundPayoutInfoCodec.parseFromReason(target.assignment().getTermsB());
+            if (RefundPayoutInfoCodec.hasCompletePayout(assignmentPayout)) {
+                return assignmentPayout;
+            }
+        }
+
         return payoutInfo;
     }
 
