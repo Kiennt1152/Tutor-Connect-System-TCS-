@@ -2650,7 +2650,7 @@ public class FinanceServiceImpl implements FinanceService {
                 .withdrawalId(withdrawal.getWithdrawalId())
                 .amount(withdrawal.getAmount())
                 .status(withdrawal.getStatus())
-                .paymentMethodId(paymentMethod.getPaymentMethodId())
+                .paymentMethodId(paymentMethod != null ? paymentMethod.getPaymentMethodId() : null)
                 .bankName(bankName)
                 .accountNoMasked(maskAccountNo(accountNo))
                 .accountHolderName(withdrawal.getAccountHolderName())
