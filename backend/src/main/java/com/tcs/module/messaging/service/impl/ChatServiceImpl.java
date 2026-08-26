@@ -57,13 +57,31 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * ============================================================================
+ * DỊCH VỤ NHẮN TIN TRÒ CHUYỆN THỜI GIAN THỰC (REAL-TIME CHAT SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các tính năng cốt lõi:
+ *   - Trò chuyện trực tiếp 1-1 (Direct Conversation) giữa Phụ huynh, Gia sư, Trung tâm và Quản trị viên.
+ *   - Trò chuyện theo ngữ cảnh lớp học/tuyển dụng/hợp đồng (Context Conversations).
+ *   - Quản lý nhóm trò chuyện (Group Chat): Tạo nhóm (3-20 thành viên), đổi tên nhóm, thêm/xóa thành viên, chuyển quyền Trưởng nhóm (Owner).
+ *   - Phát hiện và ngăn chặn tin nhắn có dấu hiệu lách sàn (Circumvention Detection).
+ *   - Đồng bộ tin nhắn thời gian thực qua WebSocket (STOMP / SimpMessagingTemplate) và thông báo Notification.
+ *   - Kiểm tra quyền truy cập và ràng buộc người dùng bị phạt (Penalty Access Service).
+ */
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {
 
+    /** Độ dài tối đa của văn bản xem trước tin nhắn */
     private static final int MAX_PREVIEW_LENGTH = 200;
+    /** Độ dài tối thiểu cho tên nhóm trò chuyện */
     private static final int MIN_GROUP_NAME_LENGTH = 3;
+    /** Độ dài tối đa cho tên nhóm trò chuyện */
     private static final int MAX_GROUP_NAME_LENGTH = 80;
+    /** Số lượng thành viên tối đa được phép trong một nhóm */
     private static final int MAX_GROUP_PARTICIPANTS = 20;
 
     private final AuthHelper authHelper;
@@ -86,6 +104,11 @@ public class ChatServiceImpl implements ChatService {
     private final PenaltyAccessService penaltyAccessService;
     private final NotificationDispatchService notificationDispatchService;
 
+    /**
+     * Lấy danh sách toàn bộ các cuộc trò chuyện mà người dùng hiện tại đang tham gia.
+     * 
+     * @return danh sách cuộc trò chuyện được định dạng ConversationResponse
+     */
     @Override
     @Transactional(readOnly = true)
     public List<ConversationResponse> getMyConversations() {

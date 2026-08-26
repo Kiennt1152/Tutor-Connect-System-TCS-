@@ -1,3 +1,15 @@
+/**
+ * ============================================================================
+ * BẢNG ĐIỀU KHIỂN YÊU CẦU HỖ TRỢ VÀ KHIẾU NẠI (MESSAGING SUPPORT TICKETS PANEL)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả:
+ *   - Giao diện người dùng gửi và theo dõi yêu cầu hỗ trợ (Support Ticket).
+ *   - Tạo mới ticket với tiêu đề, phân loại, mức ưu tiên, mô tả và tải lên tệp bằng chứng.
+ *   - Xem chi tiết tiến độ xử lý và chuỗi trao đổi phản hồi qua lại với đội ngũ Quản trị viên.
+ */
+
 import { useState, type FormEvent } from 'react';
 import { EvidencePreviewList } from '../../../shared/components/EvidencePreviewList';
 import type { SupportTicketCategory, SupportTicketPriority } from '../types/messagingTypes';

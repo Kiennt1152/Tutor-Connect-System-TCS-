@@ -1,3 +1,17 @@
+/**
+ * ============================================================================
+ * TRANG QUẢN LÝ HỒ SƠ CÁ NHÂN VÀ ONBOARDING (USER PROFILE & ONBOARDING PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các chức năng quản lý hồ sơ:
+ *   - Onboarding lần đầu đăng nhập (UC-08): Yêu cầu bổ sung thông tin họ tên, CCCD, vai trò.
+ *   - Tải lên và xem trước ảnh đại diện (Avatar upload & preview) với hỗ trợ kiểm tra định dạng và dung lượng.
+ *   - Cập nhật thông tin chi tiết tùy biến theo từng vai trò (Client, Tutor, TutorCenter).
+ *   - Quản lý trạng thái xác minh KYC (CccdSection / CccdVerifiedView).
+ *   - Đổi mật khẩu tài khoản và quản lý thông tin bảo mật.
+ */
+
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';

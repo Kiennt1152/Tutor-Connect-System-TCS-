@@ -107,6 +107,21 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * ============================================================================
+ * DỊCH VỤ QUẢN TRỊ NỀN TẢNG TOÀN DIỆN (PLATFORM SERVICE IMPLEMENTATION)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các phân hệ & nghiệp vụ quản trị:
+ *   - Quản lý người dùng và hồ sơ đa vai trò (User & Profile Management).
+ *   - Phê duyệt/từ chối hồ sơ xác minh danh tính và bằng cấp (KYC / Verification Workflow).
+ *   - Tiếp nhận, xử lý báo cáo vi phạm, đánh giá tiêu cực và sự cố lớp học (Reports & Disputes).
+ *   - Quản trị luồng hỗ trợ kỹ thuật và khiếu nại khách hàng (Support Ticket Management, SLA Tracking).
+ *   - Tác vụ tự động quét và nâng cấp độ ưu tiên cho ticket quá hạn phản hồi (SLA Escalation Scanner).
+ *   - Gộp các ticket trùng lặp (Merge Tickets) và chuyển tiếp sự cố sang phân hệ tranh chấp (Dispute Redirect).
+ *   - Bảng điều khiển quản trị (Admin Dashboard) tổng hợp chỉ số KPI, biểu đồ tài chính và dòng tiền.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

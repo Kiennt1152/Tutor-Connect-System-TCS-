@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * MODAL BAN HÀNH QUYẾT ĐỊNH XỬ PHẠT VI PHẠM (ISSUE PENALTY MODAL)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả:
+ *   - Modal tái sử dụng cho phép Quản trị viên ban hành án phạt từ nhiều ngữ cảnh khác nhau:
+ *     (Trang Penalties, Chi tiết Ticket, Báo cáo sự cố, Tranh chấp tài chính, Phát hiện lách sàn).
+ *   - Kiểm tra ràng buộc hợp lệ: Loại phạt, thời hạn cấm tạm thời, lý do giải trình tối thiểu 20 ký tự.
+ *   - Tự động gắn kết mã nguồn (sourceType, sourceId, sourceTaskId) phục vụ truy vết liên phân hệ.
+ */
+
 import { useState, useEffect, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { platformApi } from '../api/platformApi';

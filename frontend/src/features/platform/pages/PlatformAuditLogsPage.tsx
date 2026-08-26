@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * TRANG NHẬT KÝ KIỂM TOÁN VẬN HÀNH HỆ THỐNG (PLATFORM AUDIT LOGS PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các tính năng kiểm toán và truy vết:
+ *   - Ghi nhận và hiển thị toàn bộ hoạt động quan trọng trên hệ thống (Auth, Users, Classes, Contracts, Tickets, Penalties, Finance, Escrow).
+ *   - Lọc nhật ký theo Hành động (Action), Loại đối tượng (Entity Type), ID đối tượng, và Từ khóa.
+ *   - Xem chi tiết giá trị cũ (Old Value) và giá trị mới (New Value) dạng JSON để đối soát thay đổi.
+ *   - Ánh xạ nhãn tiếng Việt thân thiện cho từng mã hành động của hệ thống.
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { Pagination } from '../../../shared/components';

@@ -54,6 +54,19 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
+/**
+ * ============================================================================
+ * KIỂM THỬ TỰ ĐỘNG DỊCH VỤ XÁC THỰC VÀ ĐĂNG NHẬP (UNIT TEST IDENTITY SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các ca kiểm thử:
+ *   - Đăng ký tài khoản (Register), gửi mã OTP xác thực email.
+ *   - Đăng nhập chuẩn (Email/Password), kiểm tra tài khoản bị cấm (BANNED) hoặc chưa xác thực (UNVERIFIED).
+ *   - Đăng nhập Google OAuth2 (Google Login / Google Complete First Time).
+ *   - Quên mật khẩu và Đặt lại mật khẩu bằng mã OTP (Reset Password with OTP).
+ *   - Đổi mật khẩu tài khoản (Change Password) và thu hồi Token cũ (Token Versioning).
+ */
 @ExtendWith(MockitoExtension.class)
 class IdentityServiceImplTest {
 

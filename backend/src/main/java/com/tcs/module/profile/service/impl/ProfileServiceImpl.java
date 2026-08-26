@@ -619,6 +619,19 @@ public class ProfileServiceImpl implements ProfileService {
         return verificationService.submitVerification(request);
     }
 
+    /**
+     * Tải lên và cập nhật ảnh đại diện (Avatar) cho người dùng hiện tại (UC-08).
+     * 
+     * Quy trình xử lý:
+     *   1. Kiểm tra tính hợp lệ của file (không rỗng, dung lượng <= 5MB).
+     *   2. Nhận diện MIME Type thực tế từ Magic Bytes ở đầu file thông qua FileMagicDetector (ngăn chặn tấn công mạo danh đuôi file).
+     *   3. Lưu trữ file ảnh vào thư mục cấu hình `storagePath/avatars/user-{userId}.ext`.
+     *   4. Cập nhật đường dẫn URL ảnh đại diện vào bảng hồ sơ tương ứng theo vai trò (Client, Tutor, TutorCenter).
+     *   5. Ghi vết kiểm toán (Audit Log) cho thao tác UPLOAD_AVATAR.
+     * 
+     * @param file file ảnh tải lên từ client (MultipartFile)
+     * @return đường dẫn tĩnh URL tới file ảnh đã lưu (/uploads/avatars/user-x.ext)
+     */
     @Override
     @Transactional
     public String uploadAvatar(MultipartFile file) {
@@ -629,6 +642,7 @@ public class ProfileServiceImpl implements ProfileService {
             throw new IllegalArgumentException("Kích thước ảnh không được vượt quá 5MB");
         }
 
+        // Kiểm tra chữ ký file (Magic Bytes) để xác định định dạng ảnh thực sự
         String detectedMime = detectAvatarMime(file);
         if (!ALLOWED_AVATAR_TYPES.contains(detectedMime)) {
             throw new IllegalArgumentException("Chỉ chấp nhận file ảnh (JPEG, PNG, WEBP, GIF)");
@@ -667,6 +681,12 @@ public class ProfileServiceImpl implements ProfileService {
         return avatarUrl;
     }
 
+    /**
+     * Đọc Magic Bytes từ luồng InputStream của file để nhận diện MIME Type chính xác.
+     * 
+     * @param file đối tượng MultipartFile cần kiểm tra
+     * @return chuỗi MIME Type (ví dụ: image/jpeg, image/png)
+     */
     private String detectAvatarMime(MultipartFile file) {
         try (BufferedInputStream bis = new BufferedInputStream(file.getInputStream())) {
             String detected = FileMagicDetector.detect(bis);

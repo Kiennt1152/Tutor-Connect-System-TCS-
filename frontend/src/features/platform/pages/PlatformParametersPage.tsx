@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * TRANG CẤU HÌNH THAM SỐ TOÀN HỆ THỐNG (SYSTEM PARAMETERS CONFIG PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các tính năng quản trị cấu hình:
+ *   - Quản lý các tham số vận hành cốt lõi: Tỷ lệ phí nền tảng (PLATFORM_FEE_RATE), Trạng thái bảo trì (MAINTENANCE_MODE), SLA response,...
+ *   - Thêm mới, chỉnh sửa giá trị cấu hình theo thời gian thực (Hot-reload configuration).
+ *   - Phân nhóm tham số theo tiền tố (Prefix) và tìm kiếm từ khóa.
+ *   - Ghi nhận Audit Log cho mọi thay đổi tham số hệ thống.
+ */
+
 import type { FormEvent } from 'react';
 import { useState, useEffect } from 'react';
 import { ConfirmDialog, Pagination } from '../../../shared/components';

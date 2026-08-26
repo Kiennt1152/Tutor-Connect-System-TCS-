@@ -38,6 +38,20 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+/**
+ * ============================================================================
+ * KIỂM THỬ TỰ ĐỘNG QUẢN LÝ SUPPORT TICKET & SLA (UNIT TEST TICKET SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các ca kiểm thử:
+ *   - Kiểm tra lấy chi tiết Ticket và tự động phân công PIC Admin (Auto-Assignment).
+ *   - Kiểm tra gửi phản hồi Ticket và đo lường First Response SLA.
+ *   - Kiểm tra cập nhật Category/Priority và tính toán lại Due Date.
+ *   - Kiểm tra đóng Ticket (RESOLVED / CLOSED) và gửi thông báo.
+ *   - Kiểm tra quét định kỳ và thăng cấp tự động khi vi phạm SLA (SLA Escalation Scanner).
+ *   - Kiểm tra gộp Ticket (Merge Ticket) và chuyển tiếp tranh chấp (Dispute Redirect).
+ */
 @ExtendWith(MockitoExtension.class)
 class PlatformServiceImplTicketTest {
 

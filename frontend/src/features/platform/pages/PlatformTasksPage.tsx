@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * TRANG HÀNG ĐỢI NHIỆM VỤ TRỰC BAN KHẨN CẤP (PLATFORM TASK QUEUE PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các tính năng bảng điều khiển nhiệm vụ:
+ *   - Tập hợp các nhiệm vụ cần xử lý ngay: Xác minh hồ sơ, Báo cáo vi phạm, Support Ticket, Rút tiền, Hoàn tiền, Tranh chấp.
+ *   - Thống kê tổng số công việc, số task vi phạm hạn chót SLA, và tổng số tiền rủi ro đang bị treo (Money At Risk).
+ *   - Sắp xếp và phân loại thông minh theo mức độ khẩn cấp (Urgent > High > Medium > Low).
+ *   - Điều hướng người dùng trực tiếp tới trang và modal xử lý chi tiết tương ứng.
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';

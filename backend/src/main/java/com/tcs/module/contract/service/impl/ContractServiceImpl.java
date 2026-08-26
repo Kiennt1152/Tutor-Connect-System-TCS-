@@ -430,6 +430,12 @@ public class ContractServiceImpl implements ContractService {
         return body;
     }
 
+    /**
+     * Gửi mã OTP xác thực ký hợp đồng điện tử qua email cho người dùng (UC-44).
+     * 
+     * @param contractId ID hợp đồng cần ký
+     * @return OtpSentResponse chứa thông tin email được che (masked) và thông điệp xác nhận
+     */
     @Override
     @Transactional
     public OtpSentResponse sendSignOtp(Long contractId) {
@@ -440,6 +446,25 @@ public class ContractServiceImpl implements ContractService {
                 .build();
     }
 
+    /**
+     * Thực hiện ký hợp đồng điện tử bằng mã OTP đã nhận qua email (UC-44).
+     * 
+     * Quy trình xử lý:
+     *   1. Kiểm tra mã OTP không để trống.
+     *   2. Ràng buộc pháp lý: Người ký không được là trẻ vị thành niên và phải hoàn tất thông tin CCCD.
+     *   3. Xác định vai trò của người ký (PartyRole: CLIENT, TUTOR, CENTER) và kiểm tra trạng thái hợp đồng.
+     *   4. Xác thực mã OTP qua OtpService (kiểm tra hết hạn, số lần thử tối đa).
+     *   5. Cập nhật bản ghi chữ ký ContractSignature sang trạng thái SIGNED kèm thời gian ký và chuỗi xác thực.
+     *   6. Đồng bộ thời gian ký vào ClassAssignment (TutorSignedAt / ClientSignedAt).
+     *   7. Nếu cả 2 bên đã ký đủ (isFullySigned):
+     *      - Chuyển trạng thái hợp đồng sang SIGNED.
+     *      - Khóa tiền ký quỹ (Escrow Lock) và phát sự kiện ContractSigned.
+     *      - Phát sự kiện CooperationContractSigned hoặc StudentContractSigned cho các module liên quan.
+     * 
+     * @param contractId ID hợp đồng điện tử
+     * @param request    chứa mã OTP người dùng nhập
+     * @return đối tượng ContractResponse chứa đầy đủ thông tin hợp đồng sau khi ký
+     */
     @Override
     @Transactional
     public ContractResponse signWithOtp(Long contractId, SignWithOtpRequest request) {
@@ -488,6 +513,7 @@ public class ContractServiceImpl implements ContractService {
         contractSignatureRepository.save(signature);
         syncAssignmentSignedAt(contract, role, signedAt);
 
+        // Kiểm tra xem tất cả các bên liên quan đã ký đủ hay chưa
         if (isFullySigned(contractId)) {
             contract.setStatus(ContractStatus.SIGNED);
             contract.setSignedAt(signedAt);

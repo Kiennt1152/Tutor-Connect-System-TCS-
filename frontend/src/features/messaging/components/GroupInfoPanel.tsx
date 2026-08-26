@@ -1,3 +1,15 @@
+/**
+ * ============================================================================
+ * BẢNG THÔNG TIN VÀ QUẢN LÝ NHÓM CHAT (GROUP INFO & MANAGEMENT PANEL)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả:
+ *   - Hiển thị danh sách thành viên nhóm chat và thông tin vai trò (Owner / Member).
+ *   - Chức năng quản trị dành cho Trưởng nhóm (Owner): Đổi tên nhóm, Thêm thành viên mới (tối đa 20 người), Xóa thành viên, Chuyển quyền Trưởng nhóm.
+ *   - Cho phép thành viên tự rời nhóm (Leave Group) sau khi đã xử lý bàn giao quyền chủ nhóm.
+ */
+
 import { useEffect, useMemo, useState } from 'react';
 import { messagingApi } from '../api/messagingApi';
 import type {

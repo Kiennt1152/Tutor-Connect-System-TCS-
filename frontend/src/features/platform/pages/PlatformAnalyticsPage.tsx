@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * TRANG BÁO CÁO PHÂN TÍCH VÀ THỐNG KÊ KINH DOANH (PLATFORM ANALYTICS PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các tính năng phân tích và xuất dữ liệu:
+ *   - Hiển thị bảng tổng hợp tài chính (Tổng nạp, Rút, Escrow ký quỹ, Doanh thu phí sàn).
+ *   - Biểu đồ và bảng phân rã loại giao dịch (Transaction Breakdown) theo chiều IN/OUT.
+ *   - Xuất file báo cáo CSV đa dạng: Danh sách người dùng, Lớp học, Doanh thu, Dòng tiền (Cashflow), Phân loại giao dịch.
+ *   - Lọc dữ liệu linh hoạt theo khoảng thời gian thực tế.
+ */
+
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';

@@ -21,6 +21,18 @@ function isAuthEndpoint(url: string) {
   );
 }
 
+function isPublicEndpoint(url: string) {
+  return (
+    url.startsWith('/ai') ||
+    url.includes('/ai/') ||
+    url.startsWith('/catalog') ||
+    url.includes('/catalog/') ||
+    url.startsWith('/marketplace') ||
+    url.includes('/marketplace/') ||
+    url.startsWith('/files/public')
+  );
+}
+
 function redirectToExpiredSession() {
   const path = window.location.pathname;
   if (path === APP_ROUTES.login || isRedirectingToLogin) {
@@ -35,12 +47,17 @@ function redirectToExpiredSession() {
 axiosClient.interceptors.request.use((config) => {
   const requestUrl = config.url ?? '';
   const token = authStorage.getToken();
-  if (token && !isAuthEndpoint(requestUrl) && authStorage.isSessionExpired()) {
-    redirectToExpiredSession();
-    return Promise.reject(new Error('Phiên đăng nhập đã hết hạn.'));
+  if (token && authStorage.isSessionExpired()) {
+    if (isPublicEndpoint(requestUrl)) {
+      authStorage.clearAll();
+    } else if (!isAuthEndpoint(requestUrl)) {
+      redirectToExpiredSession();
+      return Promise.reject(new Error('Phiên đăng nhập đã hết hạn.'));
+    }
   }
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const currentToken = authStorage.getToken();
+  if (currentToken) {
+    config.headers.Authorization = `Bearer ${currentToken}`;
   }
   return config;
 });
@@ -54,11 +71,12 @@ axiosClient.interceptors.response.use(
     const path = window.location.pathname;
     const requestUrl = error.config?.url ?? '';
 
-    if (status === 401 && !isAuthEndpoint(requestUrl) && path !== APP_ROUTES.login && !isRedirectingToLogin) {
+    const isAiEndpoint = requestUrl.startsWith('/ai') || requestUrl.includes('/ai');
+
+    if (status === 401 && !isAuthEndpoint(requestUrl) && !isAiEndpoint && path !== APP_ROUTES.login && !isRedirectingToLogin) {
       redirectToExpiredSession();
     }
 
-    const isAiEndpoint = requestUrl.includes('/api/ai');
     if (status === 403 && !isAuthEndpoint(requestUrl) && !isAiEndpoint && path !== APP_ROUTES.forbidden) {
       window.location.assign(APP_ROUTES.forbidden);
     }

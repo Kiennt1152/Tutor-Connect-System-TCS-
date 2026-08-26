@@ -12,7 +12,22 @@ import org.junit.jupiter.params.provider.CsvSource;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * 150+ Comprehensive Test Suite covering all 14 TCS business domains and safety intents.
+ * ============================================================================
+ * KIỂM THỬ TOÀN DIỆN PHÂN LOẠI Ý ĐỊNH AI (AI FULL INTENT COVERAGE TEST)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả:
+ *   - Bộ kiểm thử 150+ ca kiểm thử bao phủ toàn bộ 14 nghiệp vụ miền (Business Domains) của TCS và an toàn thông tin (Safety Intents):
+ *     1. Hội thoại xã giao & An toàn (Greeting, Goodbye, Thanks, Prompt Injection, Jailbreak).
+ *     2. Tìm kiếm gia sư (Find Tutor: Toán, Lý, Hóa, Tiếng Anh, IELTS, Lớp 1-12,...).
+ *     3. Tìm kiếm lớp học (Find Class).
+ *     4. Quản trị viên (Platform Admin).
+ *     5. Tài chính, Ký quỹ Escrow, Nạp/Rút tiền (Finance & Escrow).
+ *     6. Hợp đồng điện tử & Ký OTP (Contract & OTP Signing).
+ *     7. Hồ sơ & Xác minh KYC (Profile & Verification).
+ *     8. Hỗ trợ & Khiếu nại (Tickets & Disputes).
+ *     9. Ngoài phạm vi & Dẫn hướng mềm (Out of Scope & Soft Steering).
  */
 class AiFullIntentCoverageTest {
 
