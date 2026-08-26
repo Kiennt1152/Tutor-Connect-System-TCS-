@@ -598,6 +598,41 @@ class EscrowServiceImplTest {
     }
 
     @Test
+    void applyTreatsEscrowDepositWithoutFrozenBalanceAsDirectTransferPayment() {
+        BigDecimal releaseAmount = new BigDecimal("480000.00");
+        BigDecimal refundAmount = new BigDecimal("720000.00");
+        EscrowTransaction escrow = fundedPrivateEscrowPaidThroughSystem(22L, new BigDecimal("1200000.00"));
+        escrow.getPayment().setWallet(wallet(PAYER_ID));
+        Wallet systemWallet = wallet(999L);
+        Wallet tutorWallet = wallet(TUTOR_USER_ID);
+
+        when(escrowTransactionRepository.findById(22L)).thenReturn(Optional.of(escrow));
+        when(walletService.getOrCreate(TUTOR_USER_ID)).thenReturn(tutorWallet);
+        when(walletService.getSystemEscrowWallet()).thenReturn(systemWallet);
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(refundRequestRepository.findFirstByEscrowTransaction_EscrowIdOrderByRequestedAtDesc(22L))
+                .thenReturn(Optional.empty());
+        when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        escrowService.apply(new ReleaseInstruction(
+                22L,
+                releaseAmount,
+                refundAmount,
+                "Admin chia tiền chấm dứt sớm",
+                new RefundPayoutInfo("TPBank", "0123456789", "Nguyen Van A")));
+
+        verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
+        verify(walletService).credit(TUTOR_USER_ID, releaseAmount, "ESCROW_RELEASE-22");
+        verify(refundRequestRepository).save(refundRequestCaptor.capture());
+        RefundRequest refundRequest = refundRequestCaptor.getValue();
+        assertEquals(refundAmount, refundRequest.getAmount());
+        assertEquals("REFUND-ESCROW-22", refundRequest.getRefundReferenceCode());
+        assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
+    }
+
+    @Test
     void applyRejectsSettlementTotalMismatch() {
         EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
         when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
@@ -821,7 +856,9 @@ class EscrowServiceImplTest {
     }
 
     private Wallet payerWallet() {
-        return wallet(PAYER_ID);
+        Wallet wallet = wallet(PAYER_ID);
+        wallet.setFrozenBalance(new BigDecimal("1000000.00"));
+        return wallet;
     }
 
     private Wallet wallet(Long userId) {
