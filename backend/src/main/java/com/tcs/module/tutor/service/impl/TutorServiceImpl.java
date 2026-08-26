@@ -475,7 +475,7 @@ public class TutorServiceImpl implements TutorService {
             throw new IllegalArgumentException("Thiếu thông tin điểm danh");
         }
 
-        LocalDate d = date != null ? date : LocalDate.now();
+        LocalDate d = requireAttendanceDay(date);
         // Gia sư chính, hoặc gia sư phụ đã được duyệt dạy thay hôm nay, mới được điểm danh.
         requireCanTeach(classId, d, tutor);
         int weekday = slotWeekday(d, arrivingReschedule(classId, d));
@@ -563,7 +563,7 @@ public class TutorServiceImpl implements TutorService {
         if (records == null || records.isEmpty()) {
             throw new IllegalArgumentException("Chưa có dữ liệu điểm danh");
         }
-        LocalDate d = date != null ? date : LocalDate.now();
+        LocalDate d = requireAttendanceDay(date);
         requireCanTeach(classId, d, tutor);
         int weekday = slotWeekday(d, arrivingReschedule(classId, d));
         List<ScheduleSlot> slotsToday = slotsForClassDate(tutoringClass, d, weekday);
@@ -675,6 +675,28 @@ public class TutorServiceImpl implements TutorService {
         if (sub != null) {
             throw new ForbiddenException("Buổi này đã được nhờ gia sư phụ dạy thay.");
         }
+    }
+
+    /**
+     * Luật điểm danh: CHỈ đúng ngày hôm nay.
+     *
+     * <p>Trước đây {@code date} nhận bất kỳ ngày nào nên gia sư bấm "Điểm danh" ở ô thứ Sáu tuần
+     * sau trong lịch tuần là ghi được luôn. Giờ chặn cả hai chiều: không điểm danh trước cho ngày
+     * chưa tới, không bù cho ngày đã qua (quên thì xin đổi lịch buổi đó).</p>
+     *
+     * <p>Trong đúng ngày học thì bấm lúc nào cũng được — lớp học buổi chiều nhưng sáng cùng ngày
+     * vẫn điểm danh được. Cùng luật với lớp private ở
+     * {@code MarketplaceServiceImpl.requireAttendanceDay()}.</p>
+     */
+    private LocalDate requireAttendanceDay(LocalDate date) {
+        LocalDate today = LocalDate.now();
+        LocalDate d = date != null ? date : today;
+        if (!d.equals(today)) {
+            throw new IllegalArgumentException(
+                    "Chỉ điểm danh được trong đúng ngày diễn ra buổi học. Hôm nay là " + today
+                            + ", không thể điểm danh cho ngày " + d + ".");
+        }
+        return d;
     }
 
     private Tutor requireTutor() {

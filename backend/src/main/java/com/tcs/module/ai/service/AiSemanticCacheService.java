@@ -187,6 +187,7 @@ public class AiSemanticCacheService {
         lockAtMostFor = "50m",
         lockAtLeastFor = "5m"
     )
+    @Transactional
     public void scheduledClearExpiredCaches() {
         clearExpiredCaches();
     }

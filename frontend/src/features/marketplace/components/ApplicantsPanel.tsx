@@ -50,7 +50,6 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
     ? [acceptedApplicant]
     : applicants.filter((a) => a.status !== 'REJECTED');
   const alreadyChosen = !!acceptedApplicant;
-  const recommended = visibleApplicants.filter((a) => a.recommended);
   const tutorAccepted = target.status === 'IN_PROGRESS';
 
   const subjectName = useMemo(() => {
@@ -117,15 +116,12 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
               <p className="apm-ai__text">
                 Trợ lý AI đã xếp hạng {visibleApplicants.length} ứng viên theo{' '}
                 <strong>đánh giá, kinh nghiệm và mức phí</strong> — mỗi tiêu chí chiếm 1/3 số điểm.
-                5 sao ăn trọn phần đánh giá; 5 năm kinh nghiệm ăn trọn phần kinh nghiệm; báo giá
-                bằng giá lớp ăn trọn phần mức phí, gấp đôi giá lớp thì phần này về 0.
-                {recommended.length > 0 && (
-                  <>
-                    {' '}
-                    <strong>Top {recommended.length}</strong> phù hợp nhất được đánh dấu ⭐ để bạn dễ
-                    chọn.
-                  </>
-                )}
+                <br />
+                5 sao ăn trọn phần đánh giá;
+                <br />
+                5 năm kinh nghiệm ăn trọn phần kinh nghiệm;
+                <br />
+                báo giá bằng giá lớp ăn trọn phần mức phí, gấp đôi giá lớp thì phần này về 0.
               </p>
             </div>
           )}
@@ -284,9 +280,12 @@ function ApplicantCard({
               </span>
             )}
           </h3>
-          <div className={`apm-card__score apm-card__score--${tone}`} title="Điểm AI gợi ý">
-            <span className="apm-card__score-num">{a.matchScore}</span>
-            <span className="apm-card__score-unit">điểm AI</span>
+          <div
+            className={`apm-card__score apm-card__score--${tone}`}
+            title="Mức độ phù hợp AI chấm trên thang 100%"
+          >
+            <span className="apm-card__score-num">{a.matchScore}%</span>
+            <span className="apm-card__score-unit">phù hợp</span>
           </div>
         </div>
 

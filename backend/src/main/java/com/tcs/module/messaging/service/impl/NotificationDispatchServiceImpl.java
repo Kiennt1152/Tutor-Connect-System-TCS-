@@ -76,6 +76,7 @@ public class NotificationDispatchServiceImpl implements NotificationDispatchServ
     }
 
     @Override
+    @Transactional
     public void notifyUserFromTemplate(
             User user,
             NotificationType type,

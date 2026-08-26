@@ -115,7 +115,10 @@ export default function TutorAttendancePage() {
   };
 
   const hasStudents = (data?.students.length ?? 0) > 0;
-  const locked = !!data?.attendanceTaken;
+  // Khoá khi đã điểm danh rồi, HOẶC khi ngày đang mở không phải hôm nay.
+  // Điểm danh chỉ diễn ra trong đúng ngày học: không bấm trước, không bù ngày đã qua.
+  const wrongDay = date !== todayStr();
+  const locked = !!data?.attendanceTaken || wrongDay;
 
   return (
     <>
@@ -144,6 +147,13 @@ export default function TutorAttendancePage() {
                 </p>
               </div>
             </header>
+
+            {wrongDay && !data.attendanceTaken && (
+              <div className="cs-alert cs-alert--error">
+                Buổi này không diễn ra hôm nay ({todayStr()}) nên không điểm danh được. Chỉ điểm
+                danh được trong đúng ngày học — quên thì phải xin đổi lịch buổi đó.
+              </div>
+            )}
 
             {!hasStudents ? (
               <div className="cs-empty">
@@ -191,11 +201,11 @@ export default function TutorAttendancePage() {
 
                   {saveError && <div className="cs-alert cs-alert--error">{saveError}</div>}
 
-                  {locked ? (
+                  {data.attendanceTaken ? (
                     <div className="cs-alert cs-alert--ok">
                       ✓ Buổi này đã điểm danh — không thể điểm danh lại.
                     </div>
-                  ) : confirming ? (
+                  ) : wrongDay ? null : confirming ? (
                     <div className="cs-confirm">
                       <span>Xác nhận lưu điểm danh cho {data.students.length} học sinh?</span>
                       <div className="cs-confirm__actions">
