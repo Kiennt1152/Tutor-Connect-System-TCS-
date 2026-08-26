@@ -260,7 +260,9 @@ class MarketplaceServiceImplLessonTest {
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> service.checkInLesson(LESSON_ID));
-            assertTrue(ex.getMessage().contains("Chỉ điểm danh được trong ngày diễn ra buổi học"),
+            assertTrue(ex.getMessage().contains("Chỉ điểm danh được trong đúng ngày diễn ra buổi học"),
+                    "Thông báo phải nêu rõ luật chỉ điểm danh trong ngày: " + ex.getMessage());
+            assertTrue(ex.getMessage().contains(lesson.getLessonDate().toString()),
                     "Thông báo phải nêu rõ ngày buổi học: " + ex.getMessage());
         }
     }

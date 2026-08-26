@@ -30,9 +30,9 @@ export function resolvePenaltySourceRoute(
 
   switch (cleanType) {
     case 'REPORT':
-      return `/platform/reports?tab=reports&id=${cleanId}`;
+      return `/platform/reports?tab=disputes&id=${cleanId}`;
     case 'CIRCUMVENTION':
-      return `/platform/reports?tab=circumvention&id=${cleanId}`;
+      return `/platform/reports?tab=disputes&id=${cleanId}`;
     case 'DISPUTE':
       return `/platform/reports?tab=disputes&id=${cleanId}`;
     case 'TICKET':

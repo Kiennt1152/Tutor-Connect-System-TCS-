@@ -82,15 +82,15 @@ export function TutorListingCard({
         <div className="tcs-listing-card__actions">
           <Link
             className="tcs-btn tcs-btn--ghost tcs-listing-card__review"
-            to={tutorProfilePath(tutor.id)}
-            state={{ tab: 'reviews' }}
+            to={tutorProfilePath()}
+            state={{ tab: 'reviews', tutorId: tutor.id }}
           >
             Xem đánh giá
           </Link>
           <Link
             className="tcs-btn tcs-btn--market"
-            to={tutorProfilePath(tutor.id)}
-            state={{ tab: 'profile' }}
+            to={tutorProfilePath()}
+            state={{ tab: 'profile', tutorId: tutor.id }}
           >
             Xem hồ sơ
           </Link>

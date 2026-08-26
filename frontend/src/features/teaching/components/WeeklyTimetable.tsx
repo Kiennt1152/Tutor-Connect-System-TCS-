@@ -172,10 +172,7 @@ export function WeeklyTimetable({
           <i className="wtt__dot wtt__dot--done" /> Đã điểm danh
         </span>
         <span>
-          <i className="wtt__dot wtt__dot--todaywait" /> Diễn ra trong ngày (chưa tới giờ điểm danh)
-        </span>
-        <span>
-          <i className="wtt__dot wtt__dot--today" /> Đang diễn ra buổi học
+          <i className="wtt__dot wtt__dot--today" /> Hôm nay — đang mở điểm danh
         </span>
         <span>
           <i className="wtt__dot wtt__dot--absent" /> Vắng mặt
@@ -212,18 +209,11 @@ function LessonChip({
 }) {
   const done = lesson.attendanceStatus === 'COMPLETED';
   const absent = lesson.attendanceStatus === 'ABSENT';
-  const isTodayLesson = lesson.lessonDate === toIsoDate(new Date());
-  // done=xanh lá · absent=đỏ · today(đúng ngày học)=xanh dương ·
-  // todaywait(hôm nay nhưng backend chưa cho điểm danh)=vàng · pending(lịch tương lai)=cam.
-  const tone = done
-    ? 'done'
-    : absent
-      ? 'absent'
-      : lesson.canCheckInToday
-        ? 'today'
-        : isTodayLesson
-          ? 'todaywait'
-          : 'pending';
+  // done=xanh lá · absent=đỏ · today(đúng ngày học, mở điểm danh cả ngày)=xanh dương ·
+  // pending(buổi của ngày khác)=cam.
+  // Không còn mốc vàng "chưa tới giờ": trong đúng ngày học thì gia sư bấm lúc nào cũng được,
+  // buổi tối thì sáng cùng ngày đã điểm danh được rồi.
+  const tone = done ? 'done' : absent ? 'absent' : lesson.canCheckInToday ? 'today' : 'pending';
   const canReschedule =
     onReschedule && lesson.attendanceStatus === 'PENDING' && !lesson.rescheduleLocked;
   const [attendOpen, setAttendOpen] = useState(false);

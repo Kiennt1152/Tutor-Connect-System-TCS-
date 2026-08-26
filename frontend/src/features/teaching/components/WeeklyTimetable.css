@@ -172,10 +172,6 @@
   background: #90caf9;
   box-shadow: 0 0 0 1px rgba(21, 101, 192, 0.25);
 }
-.wtt-chip--todaywait {
-  border-left-color: #f9a825;
-  background: #ffe14d;
-}
 .wtt-chip--absent {
   border-left-color: #b71c1c;
   background: #ef9a9a;
@@ -212,9 +208,6 @@
 }
 .wtt-chip__status--today {
   color: #0d47a1;
-}
-.wtt-chip__status--todaywait {
-  color: #7a5900;
 }
 .wtt-chip__status--absent {
   color: #c62828;
@@ -304,9 +297,6 @@
 }
 .wtt__dot--today {
   background: #1565c0;
-}
-.wtt__dot--todaywait {
-  background: #f5c518;
 }
 .wtt__dot--absent {
   background: #c62828;

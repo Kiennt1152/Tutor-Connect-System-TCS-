@@ -176,6 +176,14 @@ export default function App() {
             }
           />
           <Route
+            path={`${APP_ROUTES.marketplace}/thong-tin-tin-tuyen-dung`}
+            element={
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+                <MarketplacePage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path="/marketplace/classes/:classId"
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
