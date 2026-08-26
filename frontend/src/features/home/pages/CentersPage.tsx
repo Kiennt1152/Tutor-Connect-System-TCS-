@@ -188,10 +188,10 @@ export default function CentersPage() {
       });
       if (response.centerRequestFeePayment) {
         setPaymentRequest(response.centerRequestFeePayment);
-        setNotice('Đã tạo mã thanh toán phí xử lý. Nếu đóng màn hình, vào Yêu cầu của tôi (/sua-lop) để mở lại QR.');
+        setNotice('Đã tạo mã thanh toán phí xử lý. Nếu đóng màn hình, vào Yêu cầu của tôi để mở lại QR.');
       } else {
         setTarget(null);
-        setNotice('Đã gửi yêu cầu nhờ trung tâm tìm gia sư. Theo dõi ở trang “Yêu cầu của tôi” (/sua-lop).');
+        setNotice('Đã gửi yêu cầu nhờ trung tâm tìm gia sư. Theo dõi ở trang “Yêu cầu của tôi”.');
       }
       window.setTimeout(() => setNotice(''), 6000);
     } catch (err) {
@@ -309,7 +309,7 @@ export default function CentersPage() {
                 <div>
                   <strong>Đã có yêu cầu đang xử lý?</strong>
                   <span>
-                    Vào <b>Yêu cầu của tôi</b> (/sua-lop) để xem lại QR thanh toán và trạng thái
+                    Vào <b>Yêu cầu của tôi</b> để xem lại QR thanh toán và trạng thái
                     các yêu cầu đã gửi.
                   </span>
                 </div>
