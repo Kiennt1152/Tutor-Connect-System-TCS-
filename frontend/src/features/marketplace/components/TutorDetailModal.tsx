@@ -54,7 +54,7 @@ export function TutorDetailModal({ applicant: a, subjectName, onClose }: Props) 
                 <span>⭐ {a.ratingAvg != null ? Number(a.ratingAvg).toFixed(1) : '—'}/5</span>
                 <span>🎓 {a.experienceYears ?? 0} năm kinh nghiệm</span>
                 <span>💰 {rate > 0 ? `${currency.format(rate)}đ/giờ` : '—'}</span>
-                <span>🤖 {a.matchScore} điểm AI</span>
+                <span>🤖 {a.matchScore}% phù hợp</span>
               </div>
             </div>
           </div>

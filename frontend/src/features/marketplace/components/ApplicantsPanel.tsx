@@ -115,10 +115,12 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
             <div className="apm-ai">
               <div className="apm-ai__badge">AI</div>
               <p className="apm-ai__text">
-                Trợ lý AI đã xếp hạng {visibleApplicants.length} ứng viên theo{' '}
-                <strong>đánh giá, kinh nghiệm và mức phí</strong> — mỗi tiêu chí chiếm 1/3 số điểm.
-                5 sao ăn trọn phần đánh giá; 5 năm kinh nghiệm ăn trọn phần kinh nghiệm; báo giá
-                bằng giá lớp ăn trọn phần mức phí, gấp đôi giá lớp thì phần này về 0.
+                Trợ lý AI chấm <strong>mức độ phù hợp (%)</strong> của {visibleApplicants.length}{' '}
+                ứng viên theo 3 tiêu chí, mỗi tiêu chí chiếm 1/3 của 100% (tối đa 33,3%):{' '}
+                <strong>đánh giá</strong> — 5 sao ăn trọn 33,3%, mỗi sao ≈ 6,7%;{' '}
+                <strong>kinh nghiệm</strong> — 5 năm ăn trọn 33,3%, mỗi năm ≈ 6,7%;{' '}
+                <strong>mức phí</strong> — báo giá bằng (hoặc thấp hơn) giá lớp ăn trọn 33,3%, gấp
+                đôi giá lớp thì phần này về 0%.
                 {recommended.length > 0 && (
                   <>
                     {' '}
@@ -284,9 +286,12 @@ function ApplicantCard({
               </span>
             )}
           </h3>
-          <div className={`apm-card__score apm-card__score--${tone}`} title="Điểm AI gợi ý">
-            <span className="apm-card__score-num">{a.matchScore}</span>
-            <span className="apm-card__score-unit">điểm AI</span>
+          <div
+            className={`apm-card__score apm-card__score--${tone}`}
+            title="Mức độ phù hợp AI chấm trên thang 100%"
+          >
+            <span className="apm-card__score-num">{a.matchScore}%</span>
+            <span className="apm-card__score-unit">phù hợp</span>
           </div>
         </div>
 
