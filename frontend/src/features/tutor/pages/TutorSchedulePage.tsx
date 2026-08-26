@@ -276,19 +276,11 @@ export default function TutorSchedulePage() {
                                   label="Chat"
                                   size="sm"
                                 />
-                                {/* Điểm danh theo NGÀY và chỉ đúng hôm nay: không bấm trước cho
-                                    ngày chưa tới, không bù cho ngày đã qua. Backend chặn lại ở
-                                    TutorServiceImpl.requireAttendanceDay() nên đây chỉ là lớp
-                                    hiển thị cho khỏi bấm nhầm. */}
+                                {/* Lớp trung tâm: điểm danh lúc nào cũng được — bấm trước cho
+                                    buổi sắp tới hay bù cho buổi đã qua đều hợp lệ. */}
                                 <button
                                   className={`tw-btn${c.attendanceTaken ? ' tw-btn--done' : ''}`}
                                   type="button"
-                                  disabled={!c.attendanceTaken && iso !== TODAY_ISO}
-                                  title={
-                                    c.attendanceTaken || iso === TODAY_ISO
-                                      ? undefined
-                                      : 'Chỉ điểm danh được trong đúng ngày diễn ra buổi học'
-                                  }
                                   onClick={() => openAttendance(c.classId, iso)}
                                 >
                                   {c.attendanceTaken ? '✓ Đã điểm danh' : 'Điểm danh'}
