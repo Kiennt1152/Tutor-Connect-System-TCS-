@@ -3310,7 +3310,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     @Override
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    @Transactional
     public void completeClassAfterClientReview(Long classId) {
         TutoringClass c = tutoringClassRepository.findById(classId).orElse(null);
         if (c == null || c.getClassType() == ClassType.CENTER
@@ -3964,6 +3964,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             TutoringClass tutoringClass,
             List<ClassAssignment> activeAssignments,
             User requester) {
+        if (tutoringClass == null) {
+            return;
+        }
 
         String classTitle = classNotificationTitle(tutoringClass);
         Set<Long> notified = new LinkedHashSet<>();
@@ -4484,15 +4487,21 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private ClassTerminationResponse toTerminationResponse(
             ClassTerminationRequest request,
             TutoringClass tutoringClass) {
+        if (request == null) {
+            return ClassTerminationResponse.builder()
+                    .classId(tutoringClass != null ? tutoringClass.getClassId() : null)
+                    .status(ClassTerminationStatus.COMPLETED)
+                    .build();
+        }
         RefundPayoutInfo payoutInfo = RefundPayoutInfoCodec.parseFromReason(request.getReason());
         return ClassTerminationResponse.builder()
                 .terminationId(request.getTerminationId())
-                .classId(tutoringClass.getClassId())
+                .classId(tutoringClass != null ? tutoringClass.getClassId() : null)
                 .assignmentId(request.getAssignment() != null ? request.getAssignment().getAssignmentId() : null)
                 .classStudentId(request.getClassStudent() != null
                         ? request.getClassStudent().getClassStudentId()
                         : null)
-                .requestedByUserId(request.getRequestedBy().getUserId())
+                .requestedByUserId(request.getRequestedBy() != null ? request.getRequestedBy().getUserId() : null)
                 .reason(RefundPayoutInfoCodec.stripFromReason(request.getReason()))
                 .effectiveDate(request.getEffectiveDate())
                 .bankName(payoutInfo != null ? payoutInfo.bankName() : null)
