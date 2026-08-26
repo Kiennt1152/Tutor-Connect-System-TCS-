@@ -22,6 +22,11 @@ public class DynamicFaqGenerationService {
     private final SupportTicketRepository supportTicketRepository;
     private final FaqEntryRepository faqEntryRepository;
 
+    // =========================================================================
+    // LUỒNG 6: TỰ ĐỘNG ĐỀ XUẤT BẢN NHÁP FAQ TỪ TICKET LẶP LẠI (UC-67)
+    // =========================================================================
+
+    // Luồng 6 - Tác vụ chạy ngầm lúc 02:00 AM hàng ngày quét ticket 7 ngày qua
     @Scheduled(cron = "0 0 2 * * *")
     @net.javacrumbs.shedlock.spring.annotation.SchedulerLock(
         name = "dynamicFaqGeneration",
@@ -35,6 +40,7 @@ public class DynamicFaqGenerationService {
         log.info("[DynamicFaqGenerationService] Generated {} draft FAQs for admin review.", generated.size());
     }
 
+    // Luồng 6 - Thuật toán gom cụm chủ đề và tự động sinh FAQ nháp
     @Transactional
     public List<FaqEntry> generateFaqsFromRecentTickets(int daysBack, int minOccurrences) {
         LocalDateTime since = LocalDateTime.now().minusDays(daysBack);
@@ -49,7 +55,7 @@ public class DynamicFaqGenerationService {
             return List.of();
         }
 
-        // Group tickets by category and normalized subject cluster
+        // Bước 1: Gom cụm các ticket theo category và từ khóa chủ đề chuẩn hóa (Cluster Key)
         Map<String, List<SupportTicket>> clusters = new HashMap<>();
         for (SupportTicket ticket : recentTickets) {
             String clusterKey = buildClusterKey(ticket);
@@ -59,8 +65,10 @@ public class DynamicFaqGenerationService {
         List<FaqEntry> createdDrafts = new ArrayList<>();
         List<FaqEntry> existingFaqs = faqEntryRepository.findAll();
 
+        // Bước 2: Duyệt qua từng cụm sự cố
         for (Map.Entry<String, List<SupportTicket>> entry : clusters.entrySet()) {
             List<SupportTicket> group = entry.getValue();
+            // Chỉ xem xét vấn đề lặp lại >= minOccurrences (>= 2 lần)
             if (group.size() < minOccurrences) {
                 continue;
             }
@@ -70,20 +78,21 @@ public class DynamicFaqGenerationService {
             String candidateAnswer = buildCanonicalAnswer(sample, group.size());
             String category = sample.getCategory() != null ? sample.getCategory().name() : "GENERAL";
 
-            // Check if similar FAQ already exists
+            // Bước 3: Kiểm tra đối chiếu không dấu chống tạo trùng lặp với kho FAQ hiện tại
             boolean alreadyExists = existingFaqs.stream().anyMatch(f ->
                 f.getQuestion() != null &&
                 VietnameseTextNormalizer.normalize(f.getQuestion().toLowerCase(Locale.ROOT))
                     .contains(VietnameseTextNormalizer.normalize(candidateQuestion.toLowerCase(Locale.ROOT)))
             );
 
+            // Bước 4: Lưu bài viết FAQ mới dưới dạng DRAFT (published = false) chờ Admin duyệt
             if (!alreadyExists) {
                 FaqEntry draft = new FaqEntry();
                 draft.setQuestion(candidateQuestion);
                 draft.setAnswer(candidateAnswer);
                 draft.setCategory(category);
                 draft.setSortOrder(99);
-                draft.setPublished(false); // DRAFT status: awaits admin review
+                draft.setPublished(false); // Trạng thái DRAFT chờ Admin duyệt trên trang quản trị
 
                 FaqEntry saved = faqEntryRepository.save(draft);
                 createdDrafts.add(saved);

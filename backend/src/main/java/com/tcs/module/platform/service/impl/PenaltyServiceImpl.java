@@ -67,14 +67,16 @@ public class PenaltyServiceImpl implements PenaltyService {
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy hồ sơ quản trị viên"));
     }
 
-    /**
-     * Runs periodically to auto-expire temporary bans whose expiresAt has passed,
-     * restoring the user's status to ACTIVE when they have no other active penalty.
-     */
+    // =========================================================================
+    // LUỒNG 13: BAN HÀNH QUYẾT ĐỊNH XỬ PHẠT & TỰ ĐỘNG MÃN HẠN PHẠT (UC-60)
+    // =========================================================================
+
+    // Luồng 13 - Tác vụ chạy ngầm định kỳ 5 phút/lần tự động mở khóa khi hết hạn phạt cấm tạm thời
     @Scheduled(fixedRate = 5 * 60 * 1000)
     @Transactional
     public void expireOverduePenalties() {
         LocalDateTime now = LocalDateTime.now();
+        // Lấy danh sách các án phạt đang ACTIVE nhưng đã quá hạn expiresAt < now
         List<UserPenalty> overdue = userPenaltyRepository.findByStatusAndExpiresAtBefore(UserPenaltyStatus.ACTIVE, now);
         if (overdue.isEmpty()) {
             return;
@@ -85,6 +87,7 @@ public class PenaltyServiceImpl implements PenaltyService {
             userPenaltyRepository.save(penalty);
 
             User user = penalty.getUser();
+            // Nếu người dùng không còn án phạt cấm nào khác đang hiệu lực -> Khôi phục về ACTIVE
             if (!hasActiveBan(user.getUserId())) {
                 user.setStatus(UserStatus.ACTIVE);
                 userRepository.save(user);
@@ -113,6 +116,7 @@ public class PenaltyServiceImpl implements PenaltyService {
                 .build();
     }
 
+    // Luồng 13 - Bước 4: Admin ban hành quyết định xử phạt vi phạm
     @Override
     @Transactional
     public PenaltyResponse issuePenalty(IssuePenaltyRequest request) {
@@ -120,6 +124,7 @@ public class PenaltyServiceImpl implements PenaltyService {
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
 
+        // Ràng buộc bảo vệ: Admin không thể tự phạt mình hoặc phạt Admin khác
         if (issuingAdmin.getUser().getUserId().equals(user.getUserId())) {
             throw new IllegalArgumentException("Quản trị viên không thể tự áp dụng hình phạt.");
         }
@@ -127,6 +132,7 @@ public class PenaltyServiceImpl implements PenaltyService {
             throw new IllegalArgumentException("Không thể áp dụng hình phạt cho tài khoản quản trị viên khác.");
         }
 
+        // Ràng buộc giải trình: Bắt buộc lý do xử phạt tối thiểu 20 ký tự
         if (request.getReason() == null || request.getReason().trim().length() < 20) {
             throw new IllegalArgumentException("Lý do xử phạt phải có ít nhất 20 ký tự.");
         }
@@ -180,6 +186,7 @@ public class PenaltyServiceImpl implements PenaltyService {
         request.setSourceId(sourceId);
         request.setSourceTaskId(sourceTaskId);
 
+        // Khởi tạo và lưu quyết định xử phạt UserPenalty
         UserPenalty penalty = new UserPenalty();
         penalty.setUser(user);
         penalty.setIssuedBy(issuingAdmin);
@@ -195,13 +202,16 @@ public class PenaltyServiceImpl implements PenaltyService {
         penalty.setSourceId(sourceId);
         penalty.setSourceTaskId(sourceTaskId);
 
+        // Cập nhật trạng thái tài khoản người dùng sang BANNED nếu bị cấm
         if (penaltyType == UserPenaltyType.TEMPORARY_BAN || penaltyType == UserPenaltyType.PERMANENT_BAN) {
             user.setStatus(UserStatus.BANNED);
             userRepository.save(user);
         }
 
         userPenaltyRepository.save(penalty);
+        // Ghi Audit Log hành động ISSUE_PENALTY
         auditLogService.record("ISSUE_PENALTY", "UserPenalty", penalty.getPenaltyId(), null, request);
+        // Phát thông báo khẩn tới người dùng vi phạm
         notificationDispatchService.notifyUserFromTemplate(
                 user, NotificationType.SYSTEM, "PENALTY_ISSUED",
                 Map.of(

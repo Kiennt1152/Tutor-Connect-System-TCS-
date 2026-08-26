@@ -86,19 +86,23 @@ public class AiServiceImpl implements AiService {
     @Value("${ai.contextual-window.size:2}")
     private int contextualWindowSize = 2;
 
+    // =========================================================================
+    // LUỒNG 2: TRỢ LÝ AI HỖ TRỢ THÔNG MINH RAG CHATBOT (UC-65)
+    // =========================================================================
     @Override
     @Transactional
     public AiMessageResponse chat(ChatRequest request, Long userId) {
         String userRole = resolveUserRole(userId);
         AiChatSession session = getOrCreateSession(request.getSessionId(), userId, request.getMessage());
 
+        // Lưu tin nhắn của User vào CSDL
         AiChatMessage userMsg = new AiChatMessage();
         userMsg.setSession(session);
         userMsg.setRole("user");
         userMsg.setContent(request.getMessage());
         messageRepository.save(userMsg);
 
-        // 0. Content Safety & Crisis Fast-Path Filter
+        // Luồng 2 - Bước 0: Content Safety & Prompt Injection Filter (Bộ lọc an toàn nội dung)
         ContentSafetyFilter.SafetyCheckResult safetyCheck = contentSafetyFilter.checkQuery(request.getMessage());
         if (!safetyCheck.isSafe()) {
             return handleSafetyBlockResponse(session, safetyCheck);
@@ -106,7 +110,7 @@ public class AiServiceImpl implements AiService {
 
         List<AiChatMessage> history = contextService.getHistory(session.getSessionId());
 
-        // 0.4. Follow-Up Resolution & Query Expansion
+        // Luồng 2 - Bước 0.4: Mở rộng ngữ cảnh & Từ đồng nghĩa (Synonym & Follow-up Expansion)
         String followUpExpandedQuery = resolveFollowUp(session.getSessionId(), request.getMessage());
         String expandedQuery = synonymService != null ? synonymService.expandQuery(followUpExpandedQuery) : followUpExpandedQuery;
         if (expandedQuery == null || expandedQuery.isBlank()) {
@@ -114,14 +118,14 @@ public class AiServiceImpl implements AiService {
         }
         String normalizedQuery = synonymService != null ? synonymService.normalizeQuery(followUpExpandedQuery) : followUpExpandedQuery;
 
-        // 0.5. Semantic Cache Check
+        // Luồng 2 - Bước 0.5: Kiểm tra Semantic Cache (Bộ nhớ đệm ngữ nghĩa tốc độ cao <50ms)
         Optional<AiSemanticCacheService.CachedResponse> cachedResponse = 
             semanticCacheService.get(request.getMessage(), userRole);
         if (cachedResponse.isPresent()) {
             return handleSemanticCacheHit(session, request.getMessage(), cachedResponse.get());
         }
 
-        // 1. 3-Tier Classification
+        // Luồng 2 - Bước 1: 3-Tier Classification (Phân loại Domain / Sub-Intent / Entities)
         String classificationQuery = followUpExpandedQuery != null ? followUpExpandedQuery : request.getMessage();
         AiIntentService.DetailedIntentResult classification = intentService.classifyAndExtractDetailed(
             classificationQuery, session.getSessionId(), userId);
@@ -135,31 +139,31 @@ public class AiServiceImpl implements AiService {
         }
         String suggestedRoute = classification.suggestedRoute();
 
-        // 2. Safety & Conversational fast-path (Level 0)
+        // Luồng 2 - Bước 2: Level 0 Fast-Path (Phản hồi nhanh cho câu chào hỏi, cảm ơn)
         AiFallbackService.FallbackResult safetyResult = fallbackService.checkLevel0Safety(subIntent);
         if (safetyResult != null) {
             return handleSafetyFastPath(session, domain, subIntent, legacyIntent, safetyResult);
         }
 
-        // 2.5. Out-of-Scope Gating
+        // Luồng 2 - Bước 2.5: Out-of-Scope Gating (Chặn câu hỏi ngoài phạm vi giáo dục/gia sư)
         if (domain == AiDomain.OUT_OF_SCOPE || subIntent == AiSubIntent.OUT_OF_SCOPE) {
             return handleOutOfScopeResponse(session, domain, subIntent, legacyIntent, entities, request.getMessage());
         }
 
-        // 3. Query Rewriting for follow-up conversational context
+        // Luồng 2 - Bước 3: Query Rewriting (Viết lại câu hỏi kèm ngữ cảnh lịch sử chat)
         AiQueryRewriteService.RewriteResult rewritten = rewriteService.rewriteQuery(history, expandedQuery, legacyIntent);
         String effectiveRewrittenQuery = rewritten != null && rewritten.rewrittenQuery() != null ? rewritten.rewrittenQuery() : expandedQuery;
 
-        // 4. Capability Policy & Role Verification
+        // Luồng 2 - Bước 4: Capability Policy & Role Verification (Kiểm tra quyền hạn theo vai trò)
         AiCapabilityRouter.CapabilityPolicy policy = capabilityRouter.getPolicy(domain, subIntent);
         if (policy != null && policy.requireAuth() && !policy.allowedRoles().isEmpty() && !policy.allowedRoles().contains(userRole)) {
             return handleAuthPolicyResponse(session, domain, subIntent, legacyIntent, policy);
         }
 
-        // 5. Context Retrieval (Unified Vector RAG + Database Providers)
+        // Luồng 2 - Bước 5: Retrieval Context (Truy vấn CSDL Gia sư, Lớp học, FAQ Tri thức)
         List<AiSourceResponse> allSources = retrieveAllSources(domain, subIntent, legacyIntent, entities, effectiveRewrittenQuery, userRole, userId, request.getMessage());
 
-        // 5.5. Contextual Window Enrichment
+        // Luồng 2 - Bước 5.5: Contextual Window Enrichment (Mở rộng cửa sổ ngữ cảnh chunk tri thức)
         if (contextualWindowEnabled && !allSources.isEmpty() && (domain == AiDomain.MARKETPLACE || domain == AiDomain.CATALOG_FAQ)) {
             try {
                 enrichSourcesWithContextWindow(allSources, contextualWindowSize);
@@ -170,32 +174,32 @@ public class AiServiceImpl implements AiService {
 
         boolean retrievalUnavailable = allSources.isEmpty();
 
-        // 6. Grounding Evaluation
+        // Luồng 2 - Bước 6: Grounding Evaluation (Đánh giá độ tin cậy và căn cứ dữ liệu)
         AiAnswerEvaluatorService.EvaluatedAnswer evaluation = evaluatorService.evaluate(legacyIntent, allSources);
 
-        // 7. Reference Card Hydration
+        // Luồng 2 - Bước 7: Hydrate Reference Cards (Đóng gói thẻ card Gia sư / Lớp học / FAQ)
         AiReferenceCardService.ReferenceCards cards = referenceCardService.hydrateCards(domain, subIntent, allSources, entities);
         List<TutorReferenceDto> tutors = cards.tutors();
         List<ClassReferenceDto> classes = cards.classes();
         List<FaqReferenceDto> faqs = cards.faqs();
 
-        // 8. Finance Access Guard & Response Synthesis
+        // Luồng 2 - Bước 8: Finance Guard & Dựng Prompt Grounding gọi Multi-Provider LLM Router
         String aiResponseText = financeGuardService.checkFinanceAccess(domain, request.getMessage(), userRole, userId);
         if (aiResponseText == null) {
             String finalPrompt = promptBuilderService.buildPrompt(request.getMessage(), effectiveRewrittenQuery, legacyIntent, userRole, allSources, retrievalUnavailable);
             aiResponseText = callLlm(finalPrompt, history, evaluation.answerMode(), domain, subIntent, legacyIntent, allSources, effectiveRewrittenQuery);
         }
 
-        // 9. Hallucination Post-Processing
+        // Luồng 2 - Bước 9: Hallucination Guard (Triệt tiêu ảo giác câu trả lời sau LLM)
         aiResponseText = hallucinationGuardService.applyGuards(
             aiResponseText, domain, subIntent, entities, tutors, classes, allSources, request.getMessage(), userRole, userId
         );
 
-        // 10. Persist Message & Context
+        // Luồng 2 - Bước 10: Lưu tin nhắn Assistant & Session Context vào MySQL
         AiChatMessage aiMsg = persistAssistantMessage(session, aiResponseText, tutors, classes, faqs);
         persistSessionContext(session.getSessionId(), domain, subIntent, entities, request.getMessage(), tutors, classes, faqs);
 
-        // 11. Semantic Caching
+        // Luồng 2 - Bước 11: Lưu câu trả lời vào Semantic Cache để phục vụ truy vấn tương tự sau này
         cacheGroundedResponse(request.getMessage(), normalizedQuery, aiResponseText, legacyIntent, domain, subIntent, evaluation, tutors, classes, faqs, userRole);
 
         return responseBuilderService.build(

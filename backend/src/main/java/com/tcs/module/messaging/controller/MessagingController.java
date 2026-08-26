@@ -40,22 +40,30 @@ public class MessagingController {
         return Map.of("message", "Đã đánh dấu đã đọc");
     }
 
+    // =========================================================================
+    // LUỒNG 3: NGƯỜI DÙNG TẠO TICKET HỖ TRỢ & TỰ ĐỘNG TÍNH HẠN SLA (UC-65, UC-66)
+    // =========================================================================
+
+    // Danh sách ticket hỗ trợ của cá nhân người dùng
     @GetMapping("/support-tickets")
     public List<SupportTicketResponse> getMySupportTickets() {
         return messagingService.getMySupportTickets();
     }
 
+    // Xem chi tiết ticket và tiến trình xử lý của Admin
     @GetMapping("/support-tickets/{ticketId}")
     public SupportTicketDetailResponse getMySupportTicketDetail(@PathVariable Long ticketId) {
         return messagingService.getMySupportTicketDetail(ticketId);
     }
 
+    // Luồng 3 - Bước 2: Tiếp nhận yêu cầu tạo mới Ticket hỗ trợ
     @PostMapping("/support-tickets")
     @ResponseStatus(HttpStatus.CREATED)
     public SupportTicketResponse createSupportTicket(@Valid @RequestBody CreateSupportTicketRequest request) {
         return messagingService.createSupportTicket(request);
     }
 
+    // Người dùng gửi thêm tin nhắn phản hồi / bổ sung bằng chứng vào Ticket
     @PostMapping("/support-tickets/{ticketId}/messages")
     @ResponseStatus(HttpStatus.CREATED)
     public TicketMessageResponse replySupportTicket(
@@ -64,6 +72,7 @@ public class MessagingController {
         return messagingService.replySupportTicket(ticketId, request);
     }
 
+    // Người dùng mở lại Ticket nếu sự cố chưa được giải quyết triệt để
     @PostMapping("/support-tickets/{ticketId}/reopen")
     public SupportTicketDetailResponse reopenSupportTicket(
             @PathVariable Long ticketId,

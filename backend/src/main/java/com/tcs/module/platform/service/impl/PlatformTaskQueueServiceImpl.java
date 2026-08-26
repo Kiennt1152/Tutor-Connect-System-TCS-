@@ -38,6 +38,11 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
     private final RefundRequestRepository refundRequestRepository;
     private final DisputeRepository disputeRepository;
 
+    // =========================================================================
+    // LUỒNG 8: TỔNG HỢP HÀNG ĐỢI NHIỆM VỤ TRỰC BAN KHẨN CẤP (UC-56)
+    // =========================================================================
+
+    // Luồng 8 - Phân vùng 1 & 5: Tổng hợp số lượng công việc tồn đọng (Tickets, Báo cáo, Rút tiền, Tiền rủi ro)
     @Override
     public TaskQueueSummaryResponse getSummary() {
         List<TaskItemResponse> allItems = getAllTasks();
@@ -64,8 +69,10 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
                         Collectors.counting()
                 ));
 
+        // Đếm tổng số task trễ hạn SLA
         long overdueCount = allItems.stream().filter(t -> Boolean.TRUE.equals(t.getSlaBreached())).count();
         
+        // Tính tổng số tiền rủi ro đang bị tranh chấp hoặc chờ hoàn tiền (Escrow Exposure)
         BigDecimal moneyAtRisk = allItems.stream()
                 .filter(t -> ("DISPUTE".equals(t.getTaskType()) || "REFUND_REQUEST".equals(t.getTaskType())) && t.getAmount() != null)
                 .map(TaskItemResponse::getAmount)

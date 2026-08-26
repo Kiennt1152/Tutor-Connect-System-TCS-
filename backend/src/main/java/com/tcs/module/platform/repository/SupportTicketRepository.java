@@ -15,8 +15,14 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface SupportTicketRepository extends JpaRepository<SupportTicket, Long> {
 
+    // =========================================================================
+    // LUỒNG 3: NGƯỜI DÙNG TẠO & XEM TICKET CÁ NHÂN (UC-65)
+    // =========================================================================
     List<SupportTicket> findByUser_UserIdOrderByCreatedAtDesc(Long userId);
 
+    // =========================================================================
+    // LUỒNG 4: ADMIN LỌC & TÌM KIẾM TICKET ĐA TIÊU CHÍ (UC-66)
+    // =========================================================================
     @Query("""
             SELECT t FROM SupportTicket t
             WHERE (:status IS NULL OR t.status = :status)
@@ -38,6 +44,10 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, Lo
     long countByStatusIn(List<SupportTicketStatus> statuses);
     List<SupportTicket> findByStatusInOrderByCreatedAtAsc(List<SupportTicketStatus> statuses);
 
+    // =========================================================================
+    // LUỒNG 7: QUÉT ĐỊNH KỲ TICKET QUÁ HẠN CAM KẾT SLA (JOB-11)
+    // =========================================================================
+    // Lọc các ticket chưa đóng có hạn chót dueAt < now và chưa bị đánh dấu slaBreached
     @Query("""
             SELECT t FROM SupportTicket t
             WHERE t.status NOT IN (:excludedStatuses)
@@ -51,5 +61,8 @@ public interface SupportTicketRepository extends JpaRepository<SupportTicket, Lo
 
     long countByCreatedAtBetween(java.time.LocalDateTime from, java.time.LocalDateTime to);
 
+    // =========================================================================
+    // LUỒNG 6: GOM CỤM TICKET SINH BẢN NHÁP FAQ (UC-67)
+    // =========================================================================
     List<SupportTicket> findByCreatedAtAfter(java.time.LocalDateTime since);
 }

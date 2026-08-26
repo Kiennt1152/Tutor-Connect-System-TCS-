@@ -95,34 +95,54 @@ public class MessagingServiceImpl implements MessagingService {
         notificationRepository.save(notification);
     }
 
+    // =========================================================================
+    // LUỒNG 3: NGƯỜI DÙNG TẠO TICKET HỖ TRỢ & TỰ ĐỘNG TÍNH HẠN SLA (UC-65, UC-66)
+    // =========================================================================
+
+    // Luồng 3 - Bước 1: Tiếp nhận yêu cầu tạo phiếu hỗ trợ kỹ thuật
     @Override
     @Transactional
     public SupportTicketResponse createSupportTicket(CreateSupportTicketRequest request) {
         if (request.getCategory() == null || !StringUtils.hasText(request.getSubject())) {
             throw new IllegalArgumentException("Danh mục và tiêu đề là bắt buộc");
         }
+        // Lấy thông tin tài khoản người tạo an toàn từ Security Context
         User user = userRepository
                 .findById(authHelper.currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
+        
         SupportTicket ticket = new SupportTicket();
         ticket.setUser(user);
         ticket.setCategory(request.getCategory());
         ticket.setSubject(request.getSubject());
         ticket.setDescription(request.getDescription() != null ? request.getDescription() : "");
         ticket.setEvidenceUrls(request.getEvidenceUrls());
+
+        // Luồng 3 - Bước 3: Thuật toán nâng mức ưu tiên sàn theo danh mục sự cố (Priority Escalation)
         SupportTicketPriority priority = escalatePriority(request.getCategory(), request.getPriority());
         ticket.setPriority(priority);
+
+        // Luồng 3 - Bước 4: Thuật toán tính toán hạn chót cam kết SLA (dueAt = now + SLA_Hours)
         ticket.setDueAt(java.time.LocalDateTime.now().plusHours(calculateSlaHours(priority)));
         ticket.setSlaBreached(false);
+
         if (request.getTargetClassId() != null) {
             TutoringClass tutoringClass = tutoringClassRepository
                     .findById(request.getTargetClassId())
                     .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lớp học"));
             ticket.setTargetClass(tutoringClass);
         }
+
+        // Luồng 3 - Bước 5: Lưu thực thể SupportTicket vào bảng support_tickets
         SupportTicket saved = supportTicketRepository.save(ticket);
+
+        // Khởi tạo tin nhắn đầu tiên trong luồng trao đổi của Ticket
         createTicketConversation(saved, user);
+
+        // Luồng 3 - Bước 6: Phát thông báo In-App thời gian thực tới tất cả Admin đang Active
         notifyAdminsNewSupportTicket(saved);
+
+        // Trả về DTO SupportTicketResponse cho Client
         return toResponse(saved);
     }
 
@@ -146,7 +166,7 @@ public class MessagingServiceImpl implements MessagingService {
         return toDetailResponse(ticket);
     }
 
-    /** BR auto-escalate: priority cuối cùng = mức cao hơn giữa lựa chọn của người dùng và mức sàn theo category. */
+    // Luồng 3 - Thuật toán so sánh & ép nâng lên mức sàn (SYSTEM_ERROR/DISPUTE tối thiểu HIGH)
     private SupportTicketPriority escalatePriority(
             SupportTicketCategory category, SupportTicketPriority requestedPriority) {
         SupportTicketPriority floor = CATEGORY_MIN_PRIORITY.getOrDefault(category, SupportTicketPriority.LOW);
@@ -156,6 +176,7 @@ public class MessagingServiceImpl implements MessagingService {
         return requestedPriority.ordinal() > floor.ordinal() ? requestedPriority : floor;
     }
 
+    // Luồng 3 - Thuật toán ánh xạ thời hạn SLA (URGENT: 4h, HIGH: 12h, MEDIUM: 24h, LOW: 48h)
     private int calculateSlaHours(SupportTicketPriority priority) {
         if (priority == null) {
             return 48;
@@ -168,6 +189,7 @@ public class MessagingServiceImpl implements MessagingService {
         };
     }
 
+    // Luồng 3 - Khởi tạo tin nhắn đầu tiên trong bảng ticket_messages với isFromAdmin = false
     private void createTicketConversation(SupportTicket ticket, User creator) {
         TicketMessage message = new TicketMessage();
         message.setTicket(ticket);
@@ -178,6 +200,7 @@ public class MessagingServiceImpl implements MessagingService {
         ticketMessageRepository.save(message);
     }
 
+    // Luồng 3 - Phát thông báo In-App tới Admin
     private void notifyAdminsNewSupportTicket(SupportTicket ticket) {
         String content = String.format(
                 "%s vừa tạo yêu cầu hỗ trợ #%d: %s. Mức ưu tiên: %s.",

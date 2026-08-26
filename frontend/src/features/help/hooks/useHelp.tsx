@@ -5,6 +5,7 @@ import { getApiErrorMessage } from '../../../shared/api/apiError';
 
 export type HelpStatus = 'idle' | 'loading' | 'success' | 'error';
 
+// LUỒNG 1 - BƯỚC 2: Hook quản lý tải & tìm kiếm dữ liệu FAQ theo Category và Keyword
 export function useFaqSearch(initialKeyword = '') {
   const [keyword, setKeyword] = useState(initialKeyword);
   const [category, setCategory] = useState('');
@@ -12,12 +13,14 @@ export function useFaqSearch(initialKeyword = '') {
   const [items, setItems] = useState<FaqEntryApiResponse[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Hàm gọi API lấy danh sách FAQ dựa trên category và keyword
   const reload = useCallback(() => {
     setStatus('loading');
     setErrorMessage(null);
     catalogApi
       .getFaqEntries(category || undefined, keyword || undefined)
       .then((data) => {
+        // Cập nhật danh sách câu hỏi nhận được từ server
         setItems(data);
         setStatus('success');
       })
@@ -27,6 +30,7 @@ export function useFaqSearch(initialKeyword = '') {
       });
   }, [keyword, category]);
 
+  // Tự động gọi reload mỗi khi keyword hoặc category thay đổi
   useEffect(() => {
     reload();
   }, [reload]);

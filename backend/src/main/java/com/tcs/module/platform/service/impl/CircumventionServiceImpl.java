@@ -33,11 +33,21 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class CircumventionServiceImpl implements CircumventionService {
+    // =========================================================================
+    // LUỒNG 13: PHÁT HIỆN HÀNH VI LÁCH NỀN TẢNG (CIRCUMVENTION DETECTION - UC-59)
+    // =========================================================================
+
     private record Rule(String code, Pattern pattern, int score) {}
+
+    // Luồng 13 - Bước 1: Khai báo 4 bộ lọc Regex nhận diện thông tin liên lạc ngoài nền tảng kèm điểm rủi ro
     private static final List<Rule> RULES = List.of(
+            // Luật 1: Nhận diện Số điện thoại di động Việt Nam (+84 hoặc 0...) -> Điểm rủi ro: 80
             new Rule("PHONE", Pattern.compile("(?<!\\d)(?:\\+?84|0)(?:[ .-]?\\d){9,10}(?!\\d)"), 80),
+            // Luật 2: Nhận diện Email liên hệ cá nhân -> Điểm rủi ro: 90
             new Rule("EMAIL", Pattern.compile("[A-Z0-9._%+-]+@[A-Z0-9.-]+\\.[A-Z]{2,}", Pattern.CASE_INSENSITIVE), 90),
+            // Luật 3: Nhận diện Đường dẫn liên kết bên ngoài (URL / Web Link) -> Điểm rủi ro: 70
             new Rule("URL", Pattern.compile("(?i)(?:https?://|www\\.)\\S+"), 70),
+            // Luật 4: Nhận diện Tài khoản mạng xã hội (Zalo, Telegram, Facebook, Instagram) -> Điểm rủi ro: 65
             new Rule("SOCIAL", Pattern.compile("(?i)(?:zalo|telegram|facebook|fb|instagram)\\s*[:@-]?\\s*[A-Z0-9_.-]{3,}"), 65));
 
     private final CircumventionEventRepository repository;
@@ -47,6 +57,7 @@ public class CircumventionServiceImpl implements CircumventionService {
     private final AuthHelper authHelper;
     private final AuditLogService auditLogService;
 
+    // Luồng 13 - Bước 2: Quét kiểm duyệt tin nhắn thời gian thực (Real-time Message Inspection)
     @Override
     @Transactional
     public void inspect(Message message) {
@@ -54,6 +65,7 @@ public class CircumventionServiceImpl implements CircumventionService {
         for (Rule rule : RULES) {
             Matcher matcher = rule.pattern().matcher(message.getContent());
             if (!matcher.find()) continue;
+            // Nếu phát hiện vi phạm, tạo thực thể CircumventionEvent lưu vết bằng chứng
             CircumventionEvent event = new CircumventionEvent();
             event.setMessage(message);
             event.setConversation(message.getConversation());
