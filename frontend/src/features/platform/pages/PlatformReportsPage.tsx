@@ -19,16 +19,13 @@ import {
   useAppealDispute,
   useResolveDispute,
 } from '../hooks/usePlatformMutations';
-import { useRefundRequestList } from '../hooks/useRefundRequestList';
 import { useReportList } from '../hooks/useReportList';
 import type {
   AdminDisputeReviewApiResponse,
-  ClassIssueResolutionAction,
   DisputeReviewItem,
   DisputeResolutionAction,
   DisputeStatus,
   EscrowStatus,
-  RefundRequestItem,
   RefundRequestStatus,
   ReportItem,
   ReportStatus,
@@ -37,7 +34,6 @@ import type {
 } from '../types/platformTypes';
 import { IssuePenaltyModal, type UserOption } from '../components/IssuePenaltyModal';
 import { SettleDisputeModal } from '../components/SettleDisputeModal';
-import { RefundDecisionModal } from '../components/RefundDecisionModal';
 import './PlatformReportsPage.css';
 
 const RESOLUTION_ACTION_OPTIONS: { value: DisputeResolutionAction; label: string }[] = [
@@ -46,16 +42,6 @@ const RESOLUTION_ACTION_OPTIONS: { value: DisputeResolutionAction; label: string
   { value: 'APPROVE_PARTIAL_REFUND', label: 'Hoàn tiền một phần' },
   { value: 'REJECT_REFUND', label: 'Từ chối hoàn tiền' },
   { value: 'REQUEST_MORE_EVIDENCE', label: 'Yêu cầu bổ sung bằng chứng' },
-];
-
-const CLASS_ISSUE_ACTION_OPTIONS: { value: ClassIssueResolutionAction; label: string }[] = [
-  { value: 'REQUEST_MORE_INFORMATION', label: 'Yêu cầu bổ sung thông tin' },
-  { value: 'CONTINUE_CLASS', label: 'Tiếp tục lớp' },
-  { value: 'RESCHEDULE', label: 'Dời lịch/bù buổi' },
-  { value: 'REPLACE_TUTOR', label: 'Đổi gia sư' },
-  { value: 'ESCALATE_TO_DISPUTE', label: 'Chuyển thành tranh chấp' },
-  { value: 'TERMINATE_CLASS', label: 'Chuyển xử lý chấm dứt lớp' },
-  { value: 'CLOSE_NO_ACTION', label: 'Đóng báo cáo' },
 ];
 
 const REVIEW_REPORT_ACTION_OPTIONS: { value: ReviewReportAction; label: string }[] = [
@@ -1457,301 +1443,6 @@ function DisputeDetail({
   );
 }
 
-function ClassIssueReportDetail({
-  detail,
-  onChanged,
-}: {
-  detail: ReportItem | null;
-  onChanged: () => void;
-}) {
-  const [action, setAction] = useState<ClassIssueResolutionAction>('REQUEST_MORE_INFORMATION');
-  const [notes, setNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState(false);
-
-  useEffect(() => {
-    setAction('REQUEST_MORE_INFORMATION');
-    setNotes('');
-    setErrorMessage('');
-    setSuccessMessage('');
-  }, [detail?.id]);
-
-  if (!detail) {
-    return (
-      <div className="pd-detail pd-detail--empty">
-        <p>Chọn một báo cáo sự cố để xem chi tiết và xử lý.</p>
-      </div>
-    );
-  }
-
-  const canResolve = detail.status === 'PENDING';
-
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-    if (notes.trim().length < 10) {
-      setErrorMessage('Ghi chú xử lý phải có ít nhất 10 ký tự.');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const response = await platformApi.resolveClassIssue(detail.id, {
-        action,
-        notes: notes.trim(),
-      });
-      const linkedDisputeId = response.data.linkedDisputeId;
-      setSuccessMessage(
-        linkedDisputeId
-          ? `Đã chuyển báo cáo thành tranh chấp #${linkedDisputeId}.`
-          : 'Đã cập nhật xử lý báo cáo sự cố.',
-      );
-      setNotes('');
-      onChanged();
-    } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'Không thể xử lý báo cáo sự cố.'));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="pd-detail">
-      <div className="pd-detail__head">
-        <div>
-          <p className="pd-detail__eyebrow">Báo cáo #{detail.id}</p>
-          <h2 className="pd-detail__title">{detail.classTitle}</h2>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className={reportBadgeClass(detail.status)}>{detail.statusLabel}</span>
-          <button
-            type="button"
-            className="tcs-btn tcs-btn--sm tcs-btn--danger"
-            onClick={() => setIsPenaltyModalOpen(true)}
-            title="Tạo quyết định xử phạt liên quan đến sự cố lớp này"
-          >
-            ⚖️ Tạo xử phạt
-          </button>
-        </div>
-      </div>
-
-      <IssuePenaltyModal
-        isOpen={isPenaltyModalOpen}
-        onClose={() => setIsPenaltyModalOpen(false)}
-        onSuccess={() => {
-          setSuccessMessage('Đã tạo quyết định xử phạt thành công và lưu vết nguồn báo cáo.');
-          onChanged();
-        }}
-        initialUserId={Number(detail.targetId) || undefined}
-        initialReason={`Xử phạt từ Báo cáo sự cố lớp #${detail.id}: ${detail.classTitle}`}
-        initialEvidenceUrls={detail.evidenceUrlList?.join(', ')}
-        sourceType="REPORT"
-        sourceId={detail.id}
-        sourceTaskId={`REPORT-${detail.id}`}
-        title={`Tạo xử phạt từ Báo cáo #${detail.id}`}
-      />
-
-      <section className="pd-section">
-        <h3 className="pd-section__title">Thông tin sự cố</h3>
-        <div className="pd-info-grid">
-          <InfoRow label="Người báo cáo" value={detail.reporterEmail} />
-          <InfoRow label="Lớp" value={`${detail.classTitle} (${detail.classStatus})`} />
-          <InfoRow label="Loại sự cố" value={detail.issueTypeLabel} />
-          <InfoRow label="Buổi liên quan" value={detail.lessonRef} />
-          <InfoRow label="Ngày xảy ra" value={detail.occurredAt} />
-          <InfoRow label="Mong muốn" value={detail.requestedActionLabel} />
-          <InfoRow label="Danh mục" value={detail.categoryLabel} />
-          <InfoRow label="Tranh chấp" value={detail.linkedDisputeId ? `#${detail.linkedDisputeId}` : '—'} />
-        </div>
-        <p className="pd-description">{detail.userDescription}</p>
-      </section>
-
-      <section className="pd-section">
-        <h3 className="pd-section__title">Bằng chứng</h3>
-        <EvidencePreviewList
-          urls={detail.evidenceUrlList}
-          emptyText="Chưa có bằng chứng."
-        />
-      </section>
-
-      <section className="pd-section">
-        <h3 className="pd-section__title">Xử lý</h3>
-        {!canResolve ? (
-          <div className="adm-alert adm-alert--success">Báo cáo này đã được xử lý.</div>
-        ) : (
-          <form className="pd-resolution-form" onSubmit={handleSubmit}>
-            <label className="pd-field">
-              <span>Hành động</span>
-              <select
-                className="adm-field"
-                value={action}
-                onChange={(event) => setAction(event.target.value as ClassIssueResolutionAction)}
-              >
-                {CLASS_ISSUE_ACTION_OPTIONS.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="pd-field">
-              <span>Ghi chú xử lý</span>
-              <textarea
-                className="pd-textarea"
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Nhập quyết định xử lý, hướng dẫn bổ sung thông tin hoặc lý do chuyển tranh chấp..."
-              />
-            </label>
-            {errorMessage && <div className="adm-alert adm-alert--error">{errorMessage}</div>}
-            {successMessage && <div className="adm-alert adm-alert--success">{successMessage}</div>}
-            <div className="pd-resolution-actions" style={{ display: 'flex', gap: '8px' }}>
-              <button className="tcs-btn tcs-btn--primary" type="submit" disabled={submitting}>
-                {submitting ? 'Đang xử lý...' : 'Lưu xử lý'}
-              </button>
-            </div>
-          </form>
-        )}
-      </section>
-    </div>
-  );
-}
-
-function GenericReportDetail({
-  detail,
-  onChanged,
-}: {
-  detail: ReportItem | null;
-  onChanged: () => void;
-}) {
-  const [notes, setNotes] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [isPenaltyModalOpen, setIsPenaltyModalOpen] = useState(false);
-
-  if (!detail) {
-    return <div className="pd-detail pd-detail--empty">Chọn một báo cáo để xem chi tiết và xử lý.</div>;
-  }
-
-  const canResolve = detail.status === 'PENDING';
-  const handleSubmit = async (event: FormEvent) => {
-    event.preventDefault();
-    setErrorMessage('');
-    setSuccessMessage('');
-    if (notes.trim().length < 5) {
-      setErrorMessage('Ghi chú xử lý phải có ít nhất 5 ký tự.');
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      await platformApi.resolveReport(Number(detail.id), {
-        status: 'RESOLVED',
-        adminNotes: notes.trim(),
-      });
-      setSuccessMessage('Đã đánh dấu báo cáo là đã xử lý.');
-      setNotes('');
-      onChanged();
-    } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'Không thể xử lý báo cáo.'));
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  return (
-    <div className="pd-detail">
-      <div className="pd-detail__head">
-        <div>
-          <p className="pd-detail__eyebrow">Báo cáo #{detail.id}</p>
-          <h2 className="pd-detail__title">
-            {detail.targetTypeLabel} #{detail.targetId}
-          </h2>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className={reportBadgeClass(detail.status)}>{detail.statusLabel}</span>
-          <button
-            type="button"
-            className="tcs-btn tcs-btn--sm tcs-btn--danger"
-            onClick={() => setIsPenaltyModalOpen(true)}
-            title="Tạo quyết định xử phạt người dùng từ báo cáo này"
-          >
-            ⚖️ Tạo xử phạt
-          </button>
-        </div>
-      </div>
-
-      {(() => {
-        const isCircumvention = detail.category === 'PLATFORM_CIRCUMVENTION' || (Boolean(detail.categoryLabel) && detail.categoryLabel.toLowerCase().includes('lách sàn'));
-        const penaltySourceType = isCircumvention ? 'CIRCUMVENTION' : 'REPORT';
-        return (
-          <IssuePenaltyModal
-            isOpen={isPenaltyModalOpen}
-            onClose={() => setIsPenaltyModalOpen(false)}
-            onSuccess={() => {
-              setSuccessMessage('Đã tạo quyết định xử phạt thành công và lưu vết nguồn báo cáo.');
-              onChanged();
-            }}
-            initialUserId={Number(detail.targetId) || undefined}
-            initialReason={`Xử lý từ ${isCircumvention ? 'Cảnh báo lách sàn' : 'Báo cáo'} #${detail.id} (${detail.categoryLabel}): ${detail.description}`}
-            initialEvidenceUrls={detail.evidenceUrlList?.join(', ')}
-            sourceType={penaltySourceType}
-            sourceId={detail.id}
-            sourceTaskId={`${penaltySourceType}-${detail.id}`}
-            title={`Tạo xử phạt từ ${isCircumvention ? 'Cảnh báo lách sàn' : 'Báo cáo'} #${detail.id}`}
-          />
-        );
-      })()}
-
-      <section className="pd-section">
-        <h3 className="pd-section__title">Thông tin báo cáo</h3>
-        <div className="pd-info-grid">
-          <InfoRow label="Người báo cáo" value={detail.reporterEmail} />
-          <InfoRow label="Đối tượng" value={`${detail.targetTypeLabel} #${detail.targetId}`} />
-          <InfoRow label="Danh mục" value={detail.categoryLabel} />
-          <InfoRow label="Tạo lúc" value={detail.createdAt} />
-        </div>
-        <p className="pd-description">{detail.description}</p>
-      </section>
-
-      <section className="pd-section">
-        <h3 className="pd-section__title">Bằng chứng</h3>
-        <EvidencePreviewList urls={detail.evidenceUrlList} emptyText="Chưa có bằng chứng." />
-      </section>
-
-      <section className="pd-section">
-        <h3 className="pd-section__title">Xử lý</h3>
-        {!canResolve ? (
-          <div className="adm-alert adm-alert--success">Báo cáo này đã được xử lý.</div>
-        ) : (
-          <form className="pd-resolution-form" onSubmit={handleSubmit}>
-            <label className="pd-field">
-              <span>Ghi chú xử lý</span>
-              <textarea
-                className="pd-textarea"
-                value={notes}
-                onChange={(event) => setNotes(event.target.value)}
-                placeholder="Nhập kết quả kiểm tra và biện pháp đã áp dụng..."
-              />
-            </label>
-            {errorMessage && <div className="adm-alert adm-alert--error">{errorMessage}</div>}
-            {successMessage && <div className="adm-alert adm-alert--success">{successMessage}</div>}
-            <div className="pd-resolution-actions" style={{ display: 'flex', gap: '8px' }}>
-              <button className="tcs-btn tcs-btn--primary" type="submit" disabled={submitting}>
-                {submitting ? 'Đang xử lý...' : 'Đánh dấu đã xử lý'}
-              </button>
-            </div>
-          </form>
-        )}
-      </section>
-    </div>
-  );
-}
-
 function ReviewReportDetail({
   detail,
   onChanged,
@@ -1921,200 +1612,18 @@ function ReviewReportDetail({
 }
 
 
-function RefundRequestDetail({
-  item,
-  onChanged,
-}: {
-  item: RefundRequestItem | null;
-  onChanged: () => void;
-}) {
-  const [approvedAmount, setApprovedAmount] = useState('');
-  const [reason, setReason] = useState('');
-  const [submitting, setSubmitting] = useState<'approve' | 'reject' | null>(null);
-  const [errorMessage, setErrorMessage] = useState('');
-  const [successMessage, setSuccessMessage] = useState('');
-  const [isDecisionModalOpen, setIsDecisionModalOpen] = useState(false);
-
-  useEffect(() => {
-    setApprovedAmount(item?.raw.amount ? String(Math.trunc(item.raw.amount)) : '');
-    setReason('');
-    setErrorMessage('');
-    setSuccessMessage('');
-  }, [item?.id, item?.raw.amount]);
-
-  if (!item) {
-    return <div className="pd-detail pd-detail--empty">Chọn một yêu cầu hoàn tiền để xem chi tiết.</div>;
-  }
-
-  const canDecide = item.canDecide;
-  const escrowLabel = item.escrowId === '—' ? '—' : `#${item.escrowId}`;
-
-  const handleApprove = async () => {
-    setErrorMessage('');
-    setSuccessMessage('');
-    const parsedAmount = Number(approvedAmount);
-    if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
-      setErrorMessage('Số tiền hoàn được duyệt phải lớn hơn 0.');
-      return;
-    }
-
-    setSubmitting('approve');
-    try {
-      await platformApi.approveRefundRequest(item.id, {
-        approvedAmount: parsedAmount,
-        reason: reason.trim() || undefined,
-      });
-      setSuccessMessage('Đã duyệt hoàn tiền. Nếu hoàn qua ngân hàng, hệ thống sẽ chờ SePay xác nhận tiền ra.');
-      onChanged();
-    } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'Không thể duyệt yêu cầu hoàn tiền.'));
-    } finally {
-      setSubmitting(null);
-    }
-  };
-
-  const handleReject = async () => {
-    setErrorMessage('');
-    setSuccessMessage('');
-    if (reason.trim().length < 5) {
-      setErrorMessage('Vui lòng nhập lý do từ chối.');
-      return;
-    }
-
-    setSubmitting('reject');
-    try {
-      await platformApi.rejectRefundRequest(item.id, {
-        reason: reason.trim(),
-      });
-      setSuccessMessage('Đã từ chối yêu cầu hoàn tiền.');
-      onChanged();
-    } catch (error) {
-      setErrorMessage(getApiErrorMessage(error, 'Không thể từ chối yêu cầu hoàn tiền.'));
-    } finally {
-      setSubmitting(null);
-    }
-  };
-
-  return (
-    <div className="pd-detail">
-      <div className="pd-detail__head">
-        <div>
-          <p className="pd-detail__eyebrow">Yêu cầu hoàn tiền #{item.id}</p>
-          <h2 className="pd-detail__title">{item.classTitle}</h2>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className={refundBadgeClass(item.status)}>{item.statusLabel}</span>
-          {canDecide && (
-            <button
-              type="button"
-              className="tcs-btn tcs-btn--sm tcs-btn--primary"
-              onClick={() => setIsDecisionModalOpen(true)}
-              title="Mở form duyệt hoặc từ chối yêu cầu hoàn tiền"
-            >
-              ⚡ Xử lý yêu cầu
-            </button>
-          )}
-        </div>
-      </div>
-
-      <RefundDecisionModal
-        isOpen={isDecisionModalOpen}
-        refund={item}
-        onClose={() => setIsDecisionModalOpen(false)}
-        onSuccess={() => {
-          setSuccessMessage('Đã cập nhật trạng thái yêu cầu hoàn tiền thành công.');
-          onChanged();
-        }}
-      />
-
-      <section className="pd-section">
-        <h3 className="pd-section__title">Thông tin yêu cầu</h3>
-        <div className="pd-info-grid">
-          <InfoRow label="Người yêu cầu" value={item.requester} />
-          <InfoRow label="Mã escrow" value={escrowLabel} />
-          <InfoRow label="Trạng thái escrow" value={<span className={escrowBadgeClass(item.escrowStatus)}>{item.escrowStatusLabel}</span>} />
-          <InfoRow label="Tổng escrow" value={item.escrowAmount} />
-          <InfoRow label="Số tiền yêu cầu" value={item.amount} />
-          <InfoRow label="Ngân hàng nhận" value={item.bankName} />
-          <InfoRow label="Tài khoản nhận" value={item.accountNoMasked} />
-          <InfoRow label="Tên chủ tài khoản" value={item.accountHolderName} />
-          <InfoRow label="Mã chuyển khoản" value={item.refundReferenceCode} />
-          <InfoRow label="Trạng thái chuyển khoản" value={item.transferStatus} />
-          <InfoRow label="Tạo lúc" value={item.requestedAt} />
-          <InfoRow label="Xử lý lúc" value={item.processedAt} />
-          <InfoRow label="SePay xác nhận lúc" value={formatDateTime(item.raw.transferProcessedAt)} />
-        </div>
-        <p className="pd-description">{item.reason}</p>
-      </section>
-
-      <section className="pd-section">
-        <h3 className="pd-section__title">Quyết định tài chính</h3>
-        {!canDecide ? (
-          <div className="adm-alert adm-alert--success">Yêu cầu này đã được xử lý.</div>
-        ) : (
-          <div className="pd-resolution-form">
-            <label className="pd-field">
-              <span>Số tiền hoàn được duyệt</span>
-              <input
-                className="adm-field"
-                type="text"
-                inputMode="numeric"
-                value={approvedAmount}
-                onChange={(event) => setApprovedAmount(normalizeDigits(event.target.value))}
-              />
-            </label>
-            <label className="pd-field">
-              <span>Lý do/quyết định</span>
-              <textarea
-                className="pd-textarea"
-                value={reason}
-                onChange={(event) => setReason(event.target.value)}
-                placeholder="Nhập căn cứ duyệt hoàn hoặc lý do từ chối..."
-              />
-            </label>
-            {errorMessage && <div className="adm-alert adm-alert--error">{errorMessage}</div>}
-            {successMessage && <div className="adm-alert adm-alert--success">{successMessage}</div>}
-            <div className="pd-resolution-actions">
-              <button
-                className="tcs-btn tcs-btn--primary"
-                type="button"
-                onClick={handleApprove}
-                disabled={submitting != null}
-              >
-                {submitting === 'approve' ? 'Đang duyệt...' : 'Duyệt hoàn tiền'}
-              </button>
-              <button
-                className="tcs-btn tcs-btn--ghost"
-                type="button"
-                onClick={handleReject}
-                disabled={submitting != null}
-              >
-                {submitting === 'reject' ? 'Đang từ chối...' : 'Từ chối'}
-              </button>
-            </div>
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
-
 export default function PlatformReportsPage() {
   const reports = useReportList();
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [selectedReviewReportId, setSelectedReviewReportId] = useState<string | null>(null);
   const [disputeStatusFilter, setDisputeStatusFilter] = useState<DisputeStatus | undefined>();
-  const [refundStatusFilter, setRefundStatusFilter] = useState<RefundRequestStatus | undefined>();
   const disputes = useDisputeReviewList(disputeStatusFilter);
-  const refunds = useRefundRequestList(refundStatusFilter);
-  const [selectedRefundId, setSelectedRefundId] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const targetTab = searchParams.get('tab');
   const targetId = searchParams.get('id');
 
   useEffect(() => {
     if (!targetTab) return;
-    const tabName = targetTab === 'circumvention' ? 'reports' : targetTab;
+    const tabName = targetTab === 'reports' || targetTab === 'circumvention' ? 'disputes' : targetTab;
     const el = document.getElementById(`section-${tabName}`);
     if (el) {
       el.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -2122,48 +1631,21 @@ export default function PlatformReportsPage() {
   }, [targetTab]);
 
   useEffect(() => {
-    if (!targetId || reports.items.length === 0) return;
-    const match = reports.items.find((item) => String(item.id) === String(targetId));
-    if (match) setSelectedReportId(match.id);
-  }, [reports.items, targetId]);
-
-  useEffect(() => {
     if (!targetId || disputes.items.length === 0) return;
-    const match = disputes.items.find((item) => String(item.id) === String(targetId) || String(item.raw?.disputeId) === String(targetId));
+    const match = disputes.items.find((item) =>
+      String(item.id) === String(targetId)
+      || String(item.raw?.disputeId) === String(targetId)
+      || (item.raw?.reportId != null && String(item.raw.reportId) === String(targetId))
+    );
     if (match) disputes.selectDispute(match);
   }, [disputes.items, targetId]);
 
-  useEffect(() => {
-    if (!targetId || refunds.items.length === 0) return;
-    const match = refunds.items.find((item) => String(item.id) === String(targetId));
-    if (match) setSelectedRefundId(match.id);
-  }, [refunds.items, targetId]);
-
-  const openReportCount = reports.items.filter((item) => item.status === 'PENDING').length;
   const openDisputeCount = disputes.items.filter((item) => item.status !== 'RESOLVED').length;
-  const pendingRefundCount = refunds.items.filter((item) =>
-    item.status === 'PENDING'
-      || (item.status === 'APPROVED' && item.raw.transferStatus === 'PENDING')
-  ).length;
   const heldEscrowCount = disputes.items.filter((item) => isEscrowHeldForDispute(item.escrowStatus)).length;
-  // Báo cáo đánh giá có khu vực xử lý riêng bên dưới nên tách khỏi danh sách chung.
-  const generalReports = reports.items.filter((item) => item.targetType !== 'REVIEW');
   const reviewReports = reports.items.filter((item) => item.targetType === 'REVIEW');
   const openReviewReportCount = reviewReports.filter((item) => item.status === 'PENDING').length;
-  const selectedReport = generalReports.find((item) => item.id === selectedReportId) ?? null;
   const selectedReviewReport =
     reviewReports.find((item) => item.id === selectedReviewReportId) ?? null;
-  const selectedRefund = refunds.items.find((item) => item.id === selectedRefundId) ?? null;
-
-  useEffect(() => {
-    if (generalReports.length === 0) {
-      setSelectedReportId(null);
-      return;
-    }
-    if (!selectedReportId || !generalReports.some((item) => item.id === selectedReportId)) {
-      setSelectedReportId(generalReports[0].id);
-    }
-  }, [generalReports, selectedReportId]);
 
   useEffect(() => {
     if (reviewReports.length === 0) {
@@ -2175,34 +1657,18 @@ export default function PlatformReportsPage() {
     }
   }, [reviewReports, selectedReviewReportId]);
 
-  useEffect(() => {
-    if (refunds.items.length === 0) {
-      setSelectedRefundId(null);
-      return;
-    }
-    if (!selectedRefundId || !refunds.items.some((item) => item.id === selectedRefundId)) {
-      setSelectedRefundId(refunds.items[0].id);
-    }
-  }, [refunds.items, selectedRefundId]);
-
   const selectDispute = (item: DisputeReviewItem) => {
     disputes.selectDispute(item);
-  };
-
-  const reloadIssueQueues = () => {
-    reports.reload();
-    disputes.reload();
   };
 
   useEffect(() => {
     const handleFocus = () => {
       reports.reload();
       disputes.reload();
-      refunds.reload();
     };
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [disputes.reload, refunds.reload, reports.reload]);
+  }, [disputes.reload, reports.reload]);
 
   return (
     <AdminLayout
@@ -2219,12 +1685,8 @@ export default function PlatformReportsPage() {
           <p className="adm-summary-card__value">{heldEscrowCount}</p>
         </article>
         <article className="adm-summary-card">
-          <p className="adm-summary-card__label">Báo cáo đang mở</p>
-          <p className="adm-summary-card__value">{openReportCount}</p>
-        </article>
-        <article className="adm-summary-card">
-          <p className="adm-summary-card__label">Hoàn tiền chờ xử lý/chuyển</p>
-          <p className="adm-summary-card__value">{pendingRefundCount}</p>
+          <p className="adm-summary-card__label">Báo cáo đánh giá đang mở</p>
+          <p className="adm-summary-card__value">{openReviewReportCount}</p>
         </article>
       </div>
 
@@ -2307,79 +1769,6 @@ export default function PlatformReportsPage() {
         />
       </section>
 
-      <section id="section-reports" className="pd-console" aria-label="Hàng đợi báo cáo sự cố">
-        <div className="adm-card pd-console__list">
-          <div className="pd-card-head">
-            <div>
-              <h2 className="pd-card-head__title">Báo cáo người dùng và lớp học</h2>
-              <p className="pd-card-head__meta">{generalReports.length} báo cáo</p>
-            </div>
-            <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reports.reload}>
-              Làm mới
-            </button>
-          </div>
-
-          {reports.status === 'loading' && (
-            <div className="adm-state adm-state--loading">Đang tải danh sách báo cáo…</div>
-          )}
-
-          {reports.status === 'error' && (
-            <div className="adm-state">
-              <p>{reports.errorMessage ?? 'Không tải được dữ liệu.'}</p>
-              <button className="tcs-btn tcs-btn--market" type="button" onClick={reports.reload}>
-                Thử lại
-              </button>
-            </div>
-          )}
-
-          {reports.status === 'success' && (
-            <div className="pd-dispute-list">
-              {generalReports.length === 0 ? (
-                <div className="adm-state">Chưa có báo cáo nào.</div>
-              ) : (
-                generalReports.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`pd-dispute-item${
-                      selectedReportId === item.id ? ' pd-dispute-item--active' : ''
-                    }`}
-                    onClick={() => setSelectedReportId(item.id)}
-                  >
-                    <span className="pd-dispute-item__top">
-                      <span className="pd-dispute-item__id">#{item.id}</span>
-                      <span className={reportBadgeClass(item.status)}>{item.statusLabel}</span>
-                    </span>
-                    <span className="pd-dispute-item__title">
-                      {item.targetType === 'CLASS'
-                        ? item.classTitle
-                        : `${item.targetTypeLabel} #${item.targetId}`}
-                    </span>
-                    <span className="pd-dispute-item__desc">{item.description}</span>
-                    <span className="pd-dispute-item__meta">
-                      {item.categoryLabel} · {item.evidenceCount} bằng chứng · {item.createdAt}
-                      {item.linkedDisputeId ? (
-                        <span className="tcs-badge tcs-badge--role">Tranh chấp #{item.linkedDisputeId}</span>
-                      ) : null}
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        {selectedReport?.targetType === 'CLASS' ? (
-          <ClassIssueReportDetail detail={selectedReport} onChanged={reloadIssueQueues} />
-        ) : (
-          <GenericReportDetail
-            key={selectedReport?.id ?? 'empty-report'}
-            detail={selectedReport}
-            onChanged={reloadIssueQueues}
-          />
-        )}
-      </section>
-
       <section className="pd-console" aria-label="Hàng đợi báo cáo đánh giá">
         <div className="adm-card pd-console__list">
           <div className="pd-card-head">
@@ -2452,77 +1841,6 @@ export default function PlatformReportsPage() {
         <ReviewReportDetail detail={selectedReviewReport} onChanged={reports.reload} />
       </section>
 
-      <section id="section-refunds" className="pd-console" aria-label="Hàng đợi yêu cầu hoàn tiền">
-        <div className="adm-card pd-console__list">
-          <div className="pd-card-head">
-            <div>
-              <h2 className="pd-card-head__title">Yêu cầu hoàn tiền</h2>
-              <p className="pd-card-head__meta">{refunds.items.length} yêu cầu</p>
-            </div>
-            <button className="tcs-btn tcs-btn--ghost" type="button" onClick={refunds.reload}>
-              Làm mới
-            </button>
-          </div>
-
-          <div className="adm-toolbar">
-            <select
-              className="adm-field"
-              value={refundStatusFilter ?? ''}
-              onChange={(event) =>
-                setRefundStatusFilter((event.target.value as RefundRequestStatus) || undefined)
-              }
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="PENDING">Chờ xử lý</option>
-              <option value="APPROVED">Đã duyệt</option>
-              <option value="REJECTED">Từ chối</option>
-              <option value="COMPLETED">Đã hoàn tiền</option>
-            </select>
-          </div>
-
-          {refunds.status === 'loading' && <div className="adm-state">Đang tải yêu cầu hoàn tiền…</div>}
-          {refunds.status === 'error' && (
-            <div className="adm-state">
-              <p>{refunds.errorMessage ?? 'Không tải được dữ liệu.'}</p>
-              <button className="tcs-btn tcs-btn--primary" type="button" onClick={refunds.reload}>
-                Thử lại
-              </button>
-            </div>
-          )}
-
-          {refunds.status === 'success' && (
-            <div className="pd-dispute-list">
-              {refunds.items.length === 0 ? (
-                <div className="adm-state">Chưa có yêu cầu hoàn tiền nào.</div>
-              ) : (
-                refunds.items.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`pd-dispute-item${
-                      selectedRefundId === item.id ? ' pd-dispute-item--active' : ''
-                    }`}
-                    onClick={() => setSelectedRefundId(item.id)}
-                  >
-                    <span className="pd-dispute-item__top">
-                      <span className="pd-dispute-item__id">#{item.id}</span>
-                      <span className={refundBadgeClass(item.status)}>{item.statusLabel}</span>
-                    </span>
-                    <span className="pd-dispute-item__title">{item.classTitle}</span>
-                    <span className="pd-dispute-item__desc">{item.reason}</span>
-                    <span className="pd-dispute-item__meta">
-                      {item.amount} · escrow {item.escrowId === '—' ? '—' : `#${item.escrowId}`} · {item.requestedAt}
-                      <span className={escrowBadgeClass(item.escrowStatus)}>{item.escrowStatusLabel}</span>
-                    </span>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
-        </div>
-
-        <RefundRequestDetail item={selectedRefund} onChanged={refunds.reload} />
-      </section>
     </AdminLayout>
   );
 }
