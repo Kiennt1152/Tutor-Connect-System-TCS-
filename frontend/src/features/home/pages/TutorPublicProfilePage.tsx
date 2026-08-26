@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
-import { Link, useLocation, useParams } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { StarRating } from '../../reviews/components/StarRating';
@@ -44,8 +44,16 @@ type StarFilter = number | 'all';
 type ProfileTab = 'profile' | 'reviews';
 
 export default function TutorPublicProfilePage() {
-  const { tutorId } = useParams<{ tutorId: string }>();
   const location = useLocation();
+  // tutorId ẩn khỏi URL — truyền qua router state; dự phòng sessionStorage để refresh vẫn giữ đúng gia sư.
+  const stateTutorId = (location.state as { tutorId?: number | string } | null)?.tutorId;
+  const tutorId =
+    stateTutorId != null
+      ? String(stateTutorId)
+      : (sessionStorage.getItem('tutor-profile-id') ?? undefined);
+  useEffect(() => {
+    if (stateTutorId != null) sessionStorage.setItem('tutor-profile-id', String(stateTutorId));
+  }, [stateTutorId]);
   const [data, setData] = useState<TutorReputation | null>(null);
   const [profile, setProfile] = useState<PublicTutorProfile | null>(null);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');

@@ -361,7 +361,11 @@ export default function AiAssistantPage() {
                               <button
                                 type="button"
                                 className="ai-mini-card-btn"
-                                onClick={() => navigate(t.tutorId ? tutorProfilePath(t.tutorId) : APP_ROUTES.findTutor)}
+                                onClick={() =>
+                                  t.tutorId
+                                    ? navigate(tutorProfilePath(), { state: { tutorId: t.tutorId } })
+                                    : navigate(APP_ROUTES.findTutor)
+                                }
                               >
                                 Xem hồ sơ gia sư →
                               </button>

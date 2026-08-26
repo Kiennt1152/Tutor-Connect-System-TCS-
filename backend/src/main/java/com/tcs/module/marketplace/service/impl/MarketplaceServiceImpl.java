@@ -1894,14 +1894,30 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
     }
 
-    private void requireLessonIsToday(Lesson lesson) {
+    /**
+     * Luật điểm danh dùng chung: CHỈ đúng ngày hôm nay.
+     *
+     * <p>Không cho điểm danh trước cho ngày chưa tới (chống điểm danh khống), cũng không cho bù
+     * cho ngày đã qua — quên thì phải xin đổi lịch buổi đó.</p>
+     */
+    private LocalDate requireAttendanceDay(LocalDate date) {
         LocalDate today = LocalDate.now();
-        if (!today.equals(lesson.getLessonDate())) {
+        LocalDate day = date != null ? date : today;
+        if (!day.equals(today)) {
             throw new IllegalArgumentException(
-                    "Chỉ điểm danh được trong ngày diễn ra buổi học ("
-                            + lesson.getLessonDate() + "). Hôm nay là " + today + ".");
+                    "Chỉ điểm danh được trong đúng ngày diễn ra buổi học. Hôm nay là " + today
+                            + ", không thể điểm danh cho ngày " + day + ".");
         }
-        // Lớp private cho phép gia sư điểm danh bất cứ lúc nào trong đúng ngày học.
+        return day;
+    }
+
+    private void requireLessonIsToday(Lesson lesson) {
+        if (lesson.getLessonDate() == null) {
+            throw new IllegalArgumentException("Buổi học chưa có ngày diễn ra nên chưa điểm danh được.");
+        }
+        requireAttendanceDay(lesson.getLessonDate());
+        // Không xét giờ bắt đầu buổi: trong đúng ngày học thì gia sư bấm lúc nào cũng được,
+        // buổi tối thì sáng cùng ngày đã điểm danh được rồi.
     }
 
     private void sendClassNotification(User user, String title, String content, Long classId) {
@@ -3028,10 +3044,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .attendanceStatus(lesson.getAttendanceStatus().name())
                 .tutorCheckInAt(lesson.getTutorCheckInAt())
                 .tutorCheckOutAt(lesson.getTutorCheckOutAt())
-                // Chỉ mở điểm danh từ giờ bắt đầu slot đến hết ngày hôm đó (khớp requireLessonIsToday).
-                .canCheckInToday(today.equals(lesson.getLessonDate())
-                        && (slot.getStartTime() == null
-                                || !LocalTime.now().isBefore(slot.getStartTime())))
+                // Mở điểm danh trọn ngày học: buổi chiều thì sáng cùng ngày vẫn bấm được.
+                // Chỉ chặn khác ngày — khớp đúng requireAttendanceDay() ở backend.
+                .canCheckInToday(today.equals(lesson.getLessonDate()))
                 .rescheduleLocked(rescheduleLocked)
                 .build();
     }
