@@ -820,6 +820,21 @@ class EscrowServiceImplTest {
         assertThrows(BusinessException.class, () -> escrowService.refund(null, "Missing id"));
     }
 
+    /** Sheet escrowRefund - UTCID06 (A): so tien escrow khong hop le -> 'Số tiền escrow không hợp lệ'. */
+    @Test
+    void refundRejectsInvalidEscrowAmount() {
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, BigDecimal.ZERO);
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> escrowService.refund(5L, "So tien khong hop le"));
+        assertEquals("Số tiền escrow không hợp lệ", ex.getMessage());
+
+        verify(walletService, never()).refundLockedFunds(any(), any(), any());
+        verify(paymentTransactionRepository, never()).save(any());
+        verify(escrowTransactionRepository, never()).save(any());
+    }
+
     private Wallet payerWallet() {
         return wallet(PAYER_ID);
     }
@@ -907,5 +922,243 @@ class EscrowServiceImplTest {
         escrow.setAmount(amount);
         escrow.setStatus(EscrowStatus.FUNDED);
         return escrow;
+    }
+
+    // ===================================================================
+    //  Sheet: escrowPreparePayment
+    // ===================================================================
+    @org.junit.jupiter.api.Nested
+    @org.junit.jupiter.api.DisplayName("escrowPreparePayment")
+    class EscrowPreparePayment {
+
+        private static final Long ASSIGNMENT_ID = 10L;
+        private static final Long CLASS_STUDENT_ID = 20L;
+        private static final Long PAYER_ID = 1L;
+
+        /** Chuan bi toan bo stub cho nhanh tao moi cua lop PRIVATE. */
+        private void givenPrivateCreatePath() {
+            when(escrowTransactionRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID))
+                    .thenReturn(java.util.Optional.empty());
+            when(classAssignmentRepository.findById(ASSIGNMENT_ID))
+                    .thenReturn(java.util.Optional.of(new com.tcs.module.marketplace.entity.ClassAssignment()));
+            when(paymentTransactionRepository.findEscrowReferenceFamilyByTypeAndStatus(
+                    "ESCROW-A" + ASSIGNMENT_ID, PaymentTransactionType.ESCROW_DEPOSIT,
+                    PaymentTransactionStatus.PENDING)).thenReturn(java.util.List.of());
+            when(paymentTransactionRepository.findEscrowReferenceFamily("ESCROW-A" + ASSIGNMENT_ID))
+                    .thenReturn(java.util.List.of());
+            when(walletService.getSystemEscrowWallet()).thenReturn(new Wallet());
+            when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+                    .thenAnswer(i -> i.getArgument(0));
+        }
+
+        /** Chuan bi toan bo stub cho nhanh tao moi cua lop CENTER. */
+        private void givenCenterCreatePath() {
+            when(escrowTransactionRepository.findByClassStudent_ClassStudentId(CLASS_STUDENT_ID))
+                    .thenReturn(java.util.Optional.empty());
+            when(classStudentRepository.findById(CLASS_STUDENT_ID))
+                    .thenReturn(java.util.Optional.of(new com.tcs.module.marketplace.entity.ClassStudent()));
+            when(paymentTransactionRepository.findEscrowReferenceFamilyByTypeAndStatus(
+                    "ESCROW-CS" + CLASS_STUDENT_ID, PaymentTransactionType.ESCROW_DEPOSIT,
+                    PaymentTransactionStatus.PENDING)).thenReturn(java.util.List.of());
+            when(paymentTransactionRepository.findEscrowReferenceFamily("ESCROW-CS" + CLASS_STUDENT_ID))
+                    .thenReturn(java.util.List.of());
+            when(walletService.getSystemEscrowWallet()).thenReturn(new Wallet());
+            when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+                    .thenAnswer(i -> i.getArgument(0));
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID01 (N) - lenh hop le co assignmentId -> tao PaymentTransaction PENDING")
+        void utcid01_privatePath() {
+            givenPrivateCreatePath();
+
+            PaymentTransaction tx = escrowService.preparePayment(
+                    new EscrowLockCommand(PAYER_ID, new BigDecimal("500000"), ASSIGNMENT_ID, null));
+
+            assertEquals(PaymentTransactionStatus.PENDING, tx.getStatus());
+            assertEquals(PaymentTransactionType.ESCROW_DEPOSIT, tx.getType());
+            assertEquals("ESCROW-A" + ASSIGNMENT_ID, tx.getReferenceCode());
+            assertEquals(0, new BigDecimal("500000").compareTo(tx.getAmount()));
+            verify(escrowTransactionRepository, never()).save(any(EscrowTransaction.class));
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID02 (N) - lenh hop le co classStudentId -> tao PaymentTransaction PENDING")
+        void utcid02_centerPath() {
+            givenCenterCreatePath();
+
+            PaymentTransaction tx = escrowService.preparePayment(
+                    new EscrowLockCommand(PAYER_ID, new BigDecimal("300000"), null, CLASS_STUDENT_ID));
+
+            assertEquals(PaymentTransactionStatus.PENDING, tx.getStatus());
+            assertEquals("ESCROW-CS" + CLASS_STUDENT_ID, tx.getReferenceCode());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID03 (A) - command = null -> 'Thiếu thông tin khóa escrow'")
+        void utcid03_nullCommand() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> escrowService.preparePayment(null));
+            assertEquals("Thiếu thông tin khóa escrow", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID04 (A) - payerUserId = null -> 'Thiếu người thanh toán escrow'")
+        void utcid04_nullPayer() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> escrowService.preparePayment(
+                            new EscrowLockCommand(null, new BigDecimal("100000"), ASSIGNMENT_ID, null)));
+            assertEquals("Thiếu người thanh toán escrow", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID05 (A) - amount = null -> 'Số tiền escrow phải lớn hơn 0'")
+        void utcid05_nullAmount() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> escrowService.preparePayment(
+                            new EscrowLockCommand(PAYER_ID, null, ASSIGNMENT_ID, null)));
+            assertEquals("Số tiền escrow phải lớn hơn 0", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID06 (B) - amount = 0 -> 'Số tiền escrow phải lớn hơn 0'")
+        void utcid06_zeroAmount() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> escrowService.preparePayment(
+                            new EscrowLockCommand(PAYER_ID, BigDecimal.ZERO, ASSIGNMENT_ID, null)));
+            assertEquals("Số tiền escrow phải lớn hơn 0", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID07 (B) - amount = 0.01 (nho nhat > 0) -> hop le")
+        void utcid07_smallestPositiveAmount() {
+            givenCenterCreatePath();
+
+            PaymentTransaction tx = escrowService.preparePayment(
+                    new EscrowLockCommand(PAYER_ID, new BigDecimal("0.01"), null, CLASS_STUDENT_ID));
+
+            assertEquals(0, new BigDecimal("0.01").compareTo(tx.getAmount()));
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID08 (A) - thieu ca hai id -> 'Escrow phải gắn đúng một trong assignmentId hoặc classStudentId'")
+        void utcid08_bothTargetsNull() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> escrowService.preparePayment(
+                            new EscrowLockCommand(PAYER_ID, new BigDecimal("100000"), null, null)));
+            assertEquals("Escrow phải gắn đúng một trong assignmentId hoặc classStudentId", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID09 (A) - co ca hai id -> 'Escrow phải gắn đúng một trong assignmentId hoặc classStudentId'")
+        void utcid09_bothTargetsProvided() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> escrowService.preparePayment(
+                            new EscrowLockCommand(PAYER_ID, new BigDecimal("100000"), ASSIGNMENT_ID, CLASS_STUDENT_ID)));
+            assertEquals("Escrow phải gắn đúng một trong assignmentId hoặc classStudentId", ex.getMessage());
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: escrowFundPayment
+    // ===================================================================
+    @org.junit.jupiter.api.Nested
+    @org.junit.jupiter.api.DisplayName("escrowFundPayment")
+    class EscrowFundPayment {
+
+        private PaymentTransaction payment(PaymentTransactionStatus status, java.time.LocalDateTime processedAt) {
+            PaymentTransaction tx = new PaymentTransaction();
+            tx.setTransactionId(99L);
+            tx.setStatus(status);
+            tx.setAmount(new BigDecimal("500000"));
+            tx.setReferenceCode("ESCROW-A10");
+            tx.setProcessedAt(processedAt);
+            return tx;
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID01 (N) - payment SUCCESS, chua co escrow -> tao escrow FUNDED")
+        void utcid01_createFundedEscrow() {
+            java.time.LocalDateTime paidAt = java.time.LocalDateTime.of(2026, 8, 20, 10, 0);
+            PaymentTransaction tx = payment(PaymentTransactionStatus.SUCCESS, paidAt);
+            when(escrowTransactionRepository.findByPayment_TransactionId(99L)).thenReturn(java.util.Optional.empty());
+            when(classAssignmentRepository.findById(10L))
+                    .thenReturn(java.util.Optional.of(new com.tcs.module.marketplace.entity.ClassAssignment()));
+            when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(i -> i.getArgument(0));
+
+            EscrowTransaction escrow = escrowService.fundConfirmedPayment(tx);
+
+            assertEquals(EscrowStatus.FUNDED, escrow.getStatus());
+            assertEquals(0, new BigDecimal("500000").compareTo(escrow.getAmount()));
+            assertEquals(paidAt, escrow.getDepositedAt());
+            assertSame(tx, escrow.getPayment());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID02 (N) - da co escrow cho giao dich -> tra ve escrow cu, khong tao moi")
+        void utcid02_idempotent() {
+            PaymentTransaction tx = payment(PaymentTransactionStatus.SUCCESS, java.time.LocalDateTime.now());
+            EscrowTransaction existing = new EscrowTransaction();
+            when(escrowTransactionRepository.findByPayment_TransactionId(99L))
+                    .thenReturn(java.util.Optional.of(existing));
+
+            EscrowTransaction escrow = escrowService.fundConfirmedPayment(tx);
+
+            assertSame(existing, escrow);
+            verify(escrowTransactionRepository, never()).save(any(EscrowTransaction.class));
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID03 (A) - payment = null -> 'Thiếu giao dịch thanh toán escrow'")
+        void utcid03_nullPayment() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> escrowService.fundConfirmedPayment(null));
+            assertEquals("Thiếu giao dịch thanh toán escrow", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID04 (A) - transactionId = null -> 'Thiếu giao dịch thanh toán escrow'")
+        void utcid04_nullTransactionId() {
+            PaymentTransaction tx = payment(PaymentTransactionStatus.SUCCESS, java.time.LocalDateTime.now());
+            tx.setTransactionId(null);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> escrowService.fundConfirmedPayment(tx));
+            assertEquals("Thiếu giao dịch thanh toán escrow", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID05 (A) - payment PENDING -> 'Chỉ giao dịch đã thanh toán thành công mới sinh escrow'")
+        void utcid05_pendingPayment() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> escrowService.fundConfirmedPayment(
+                            payment(PaymentTransactionStatus.PENDING, null)));
+            assertEquals("Chỉ giao dịch đã thanh toán thành công mới sinh escrow", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID06 (A) - payment FAILED -> 'Chỉ giao dịch đã thanh toán thành công mới sinh escrow'")
+        void utcid06_failedPayment() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> escrowService.fundConfirmedPayment(
+                            payment(PaymentTransactionStatus.FAILED, null)));
+            assertEquals("Chỉ giao dịch đã thanh toán thành công mới sinh escrow", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID07 (B) - processedAt = null -> depositedAt lay thoi diem hien tai")
+        void utcid07_nullProcessedAt() {
+            PaymentTransaction tx = payment(PaymentTransactionStatus.SUCCESS, null);
+            when(escrowTransactionRepository.findByPayment_TransactionId(99L)).thenReturn(java.util.Optional.empty());
+            when(classAssignmentRepository.findById(10L))
+                    .thenReturn(java.util.Optional.of(new com.tcs.module.marketplace.entity.ClassAssignment()));
+            when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(i -> i.getArgument(0));
+
+            java.time.LocalDateTime before = java.time.LocalDateTime.now().minusSeconds(1);
+            EscrowTransaction escrow = escrowService.fundConfirmedPayment(tx);
+
+            assertTrue(escrow.getDepositedAt().isAfter(before),
+                    "processedAt null thi depositedAt phai lay now()");
+        }
     }
 }

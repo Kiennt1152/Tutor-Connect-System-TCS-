@@ -2,8 +2,10 @@ package com.tcs.module.tutor.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,6 +15,7 @@ import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.center.dto.request.MarkAttendanceRequest;
 import com.tcs.module.finance.service.CenterEscrowAutoSettlementService;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.center.dto.request.RescheduleRequestBody;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.ScheduleSlot;
@@ -159,7 +162,7 @@ class TutorServiceImplAttendanceTest {
     //  Sheet: markAttendance
     // ===================================================================
     @Nested
-    @DisplayName("markAttendance")
+    @DisplayName("tuMarkAttendance")
     class MarkAttendance {
 
         @Test
@@ -326,6 +329,282 @@ class TutorServiceImplAttendanceTest {
             when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.empty());
 
             assertThrows(ResourceNotFoundException.class, () -> service.getClassSession(CLASS_ID, today));
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: tuConfirmCompletion (gia su xac nhan khoa hoc hoan thanh)
+    // ===================================================================
+    @Nested
+    @DisplayName("tuConfirmCompletion")
+    class TuConfirmCompletion {
+
+        /** Lượt gán ACTIVE của lớp, do gia sư {@code ownerTutorId} phụ trách. */
+        private ClassAssignment activeAssignment(Long ownerTutorId, TutoringClass linkedClass) {
+            Tutor owner = new Tutor();
+            owner.setTutorId(ownerTutorId);
+
+            ClassAssignment assignment = new ClassAssignment();
+            assignment.setAssignmentId(900L);
+            assignment.setTutor(owner);
+            assignment.setStatus(ClassAssignmentStatus.ACTIVE);
+            if (linkedClass != null) {
+                com.tcs.module.marketplace.entity.TutorApplication application =
+                        new com.tcs.module.marketplace.entity.TutorApplication();
+                application.setApplicationId(800L);
+                application.setTutoringClass(linkedClass);
+                application.setTutor(owner);
+                assignment.setApplication(application);
+            }
+            return assignment;
+        }
+
+        private void givenAssignment(ClassAssignment assignment) {
+            when(classAssignmentRepository
+                    .findFirstByApplication_TutoringClass_ClassIdAndStatus(CLASS_ID, ClassAssignmentStatus.ACTIVE))
+                    .thenReturn(assignment == null ? Optional.empty() : Optional.of(assignment));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Gia su phu trach lop CENTER -> markTutorConfirmed va tra thong bao trung tam")
+        void utcid01_centerClass() {
+            tutoringClass.setClassType(ClassType.CENTER);
+            givenAssignment(activeAssignment(TUTOR_ID, tutoringClass));
+
+            String message = service.confirmClassCompletion(CLASS_ID);
+
+            verify(centerEscrowAutoSettlementService).markTutorConfirmed(CLASS_ID);
+            assertTrue(message.startsWith("Đã xác nhận khóa học hoàn thành."),
+                    "Phai tra thong bao xac nhan: " + message);
+            verify(marketplaceService, never()).confirmClassCompletion(anyLong());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (N) - Gia su phu trach lop ca nhan -> chuyen cho MarketplaceService")
+        void utcid02_privateClass() {
+            tutoringClass.setClassType(ClassType.PRIVATE);
+            givenAssignment(activeAssignment(TUTOR_ID, tutoringClass));
+            when(marketplaceService.confirmClassCompletion(CLASS_ID)).thenReturn("Đã xác nhận hoàn thành lớp");
+
+            String message = service.confirmClassCompletion(CLASS_ID);
+
+            assertEquals("Đã xác nhận hoàn thành lớp", message);
+            verify(centerEscrowAutoSettlementService, never()).markTutorConfirmed(anyLong());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - Nguoi goi khong phai gia su -> requireTutor chan lai")
+        void utcid03_callerIsNotATutor() {
+            when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.confirmClassCompletion(CLASS_ID));
+            assertEquals("Không tìm thấy hồ sơ gia sư", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - Lop khong co luot gan ACTIVE nao -> 'Bạn không phụ trách lớp này'")
+        void utcid04_noActiveAssignment() {
+            givenAssignment(null);
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.confirmClassCompletion(CLASS_ID));
+            assertEquals("Bạn không phụ trách lớp này", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Luot gan ACTIVE thuoc gia su khac -> 'Bạn không phụ trách lớp này'")
+        void utcid05_assignmentOfAnotherTutor() {
+            givenAssignment(activeAssignment(OTHER_TUTOR_ID, tutoringClass));
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.confirmClassCompletion(CLASS_ID));
+            assertEquals("Bạn không phụ trách lớp này", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - Luot gan khong co application nen khong xac dinh duoc lop -> 'Không tìm thấy lớp học.'")
+        void utcid06_assignmentWithoutApplication() {
+            givenAssignment(activeAssignment(TUTOR_ID, null));
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.confirmClassCompletion(CLASS_ID));
+            assertEquals("Không tìm thấy lớp học.", ex.getMessage());
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: tuRequestReschedule (gia su xin doi lich buoi hoc)
+    // ===================================================================
+    @Nested
+    @DisplayName("tuRequestReschedule")
+    class TuRequestReschedule {
+
+        /** Ngày trong khoảng lớp và có tiết đúng thứ. */
+        private LocalDate original;
+        private LocalDate next;
+
+        @BeforeEach
+        void initDates() {
+            original = today.plusDays(1);
+            next = today.plusDays(2);
+            tutoringClass.setStartDate(today.minusDays(7));
+            tutoringClass.setEndDate(today.plusDays(30));
+            assignMainTutor(TUTOR_ID);
+        }
+
+        private RescheduleRequestBody body(LocalDate originalDate, LocalDate newDate, String start, String end) {
+            RescheduleRequestBody b = new RescheduleRequestBody();
+            b.setOriginalDate(originalDate);
+            b.setNewDate(newDate);
+            b.setNewStartTime(start);
+            b.setNewEndTime(end);
+            b.setReason("Gia sư bị ốm");
+            return b;
+        }
+
+        /** Lớp có tiết vào đúng thứ của cả hai ngày, để qua được các bước kiểm tra lịch. */
+        private void haveSlotsOnBothDays() {
+            ScheduleSlot s1 = new ScheduleSlot();
+            s1.setSlotId(1L);
+            s1.setTutoringClass(tutoringClass);
+            s1.setDayOfWeek(original.getDayOfWeek().getValue());
+            s1.setStartTime(LocalTime.of(18, 0));
+            s1.setEndTime(LocalTime.of(20, 0));
+            when(scheduleSlotRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(List.of(s1));
+        }
+
+        private void givenRescheduleAccepted() {
+            when(rescheduleService.request(anyLong(), any(), any(), any(), any(), anyLong(), any()))
+                    .thenAnswer(i -> new com.tcs.module.marketplace.dto.RescheduleEntry(
+                            i.getArgument(0), i.getArgument(1), i.getArgument(2),
+                            i.getArgument(3), i.getArgument(4),
+                            com.tcs.module.marketplace.dto.RescheduleEntry.PENDING,
+                            i.getArgument(5), i.getArgument(6)));
+            when(classAssignmentRepository.findByTutor_TutorIdAndStatus(TUTOR_ID, ClassAssignmentStatus.ACTIVE))
+                    .thenReturn(List.of());
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Gia su phu trach lop, hai ngay hop le -> tao yeu cau doi lich")
+        void utcid01_requestSuccessfully() {
+            haveSlotsOnBothDays();
+            givenRescheduleAccepted();
+
+            var response = service.requestReschedule(CLASS_ID, body(original, next, "18:00", "20:00"));
+
+            assertEquals(CLASS_ID, response.getClassId());
+            assertEquals(original, response.getOriginalDate());
+            assertEquals(next, response.getNewDate());
+            verify(rescheduleService).request(eq(CLASS_ID), eq(original), eq(next),
+                    eq(LocalTime.of(18, 0)), eq(LocalTime.of(20, 0)), eq(TUTOR_ID), any());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - Nguoi goi khong phai gia su -> requireTutor chan lai")
+        void utcid02_callerIsNotATutor() {
+            when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.requestReschedule(CLASS_ID, body(original, next, "18:00", "20:00")));
+            assertEquals("Không tìm thấy hồ sơ gia sư", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - classId khong khop lop nao -> 'Không tìm thấy lớp học'")
+        void utcid03_classNotFound() {
+            when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.requestReschedule(CLASS_ID, body(original, next, "18:00", "20:00")));
+            assertEquals("Không tìm thấy lớp học", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - Gia su khong phu trach lop -> 'Bạn không phụ trách lớp này'")
+        void utcid04_notAssignedTutor() {
+            assignMainTutor(OTHER_TUTOR_ID);
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.requestReschedule(CLASS_ID, body(original, next, "18:00", "20:00")));
+            assertEquals("Bạn không phụ trách lớp này", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - originalDate = null -> 'Vui lòng chọn ngày cần dời và ngày mới'")
+        void utcid05_missingOriginalDate() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestReschedule(CLASS_ID, body(null, next, "18:00", "20:00")));
+            assertEquals("Vui lòng chọn ngày cần dời và ngày mới", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - newDate = null -> 'Vui lòng chọn ngày cần dời và ngày mới'")
+        void utcid06_missingNewDate() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestReschedule(CLASS_ID, body(original, null, "18:00", "20:00")));
+            assertEquals("Vui lòng chọn ngày cần dời và ngày mới", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID07 (A) - newDate trung originalDate -> 'Ngày mới phải khác ngày cần dời'")
+        void utcid07_sameDate() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestReschedule(CLASS_ID, body(original, original, "18:00", "20:00")));
+            assertEquals("Ngày mới phải khác ngày cần dời", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID08 (B) - newDate = hom qua (duoi can duoi) -> 'Ngày mới phải từ hôm nay trở đi'")
+        void utcid08_newDateInThePast() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestReschedule(CLASS_ID,
+                            body(original, today.minusDays(1), "18:00", "20:00")));
+            assertEquals("Ngày mới phải từ hôm nay trở đi", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID09 (B) - newDate = hom nay (dung can duoi) va trong khoang lop -> chap nhan")
+        void utcid09_newDateIsToday() {
+            haveSlotsOnBothDays();
+            givenRescheduleAccepted();
+
+            var response = service.requestReschedule(CLASS_ID, body(original, today, "18:00", "20:00"));
+
+            assertEquals(today, response.getNewDate(),
+                    "Ngay mới bằng hôm nay là hợp lệ (cận dưới)");
+        }
+
+        @Test
+        @DisplayName("UTCID10 (A) - originalDate khong phai buoi hoc cua lop -> 'Ngày cần dời không phải buổi học của lớp'")
+        void utcid10_originalDateIsNotASession() {
+            when(scheduleSlotRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(List.of());
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestReschedule(CLASS_ID, body(original, next, "18:00", "20:00")));
+            assertEquals("Ngày cần dời không phải buổi học của lớp", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID11 (A) - newDate ngoai khoang ngay cua lop -> 'Ngày mới phải nằm trong khoảng thời gian của lớp'")
+        void utcid11_newDateOutsideClassRange() {
+            haveSlotsOnBothDays();
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestReschedule(CLASS_ID,
+                            body(original, today.plusDays(60), "18:00", "20:00")));
+            assertEquals("Ngày mới phải nằm trong khoảng thời gian của lớp", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID12 (A) - Gio ket thuc khong sau gio bat dau -> 'Khung giờ mới không hợp lệ ...'")
+        void utcid12_invalidTimeWindow() {
+            haveSlotsOnBothDays();
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestReschedule(CLASS_ID, body(original, next, "20:00", "18:00")));
+            assertEquals("Khung giờ mới không hợp lệ (giờ kết thúc phải sau giờ bắt đầu)", ex.getMessage());
+            verify(rescheduleService, never()).request(anyLong(), any(), any(), any(), any(), anyLong(), any());
         }
     }
 }

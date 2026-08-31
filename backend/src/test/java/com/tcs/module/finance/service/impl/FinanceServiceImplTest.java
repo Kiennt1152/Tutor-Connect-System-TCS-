@@ -1,5 +1,7 @@
 package com.tcs.module.finance.service.impl;
 
+import com.tcs.exception.BusinessException;
+import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.common.event.EscrowFunded;
 import com.tcs.module.finance.dto.request.DepositRequest;
@@ -17,6 +19,7 @@ import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentMethod;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.entity.RefundRequest;
+import com.tcs.module.finance.dto.ReleaseInstruction;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.entity.WithdrawalRequest;
 import com.tcs.module.finance.enums.EscrowStatus;
@@ -37,6 +40,7 @@ import com.tcs.module.finance.service.WalletService;
 import com.tcs.module.identity.entity.User;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.TutorApplication;
+import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.entity.Tutor;
@@ -65,7 +69,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
@@ -112,6 +118,15 @@ class FinanceServiceImplTest {
 
     @Mock
     private PlatformAdminRepository platformAdminRepository;
+
+    @Mock
+    private com.tcs.module.finance.repository.CenterRequestFeeHoldRepository centerRequestFeeHoldRepository;
+
+    @Mock
+    private com.tcs.module.finance.repository.DisputeRepository disputeRepository;
+
+    @Mock
+    private com.tcs.common.classrequest.ClassRequestStore classRequestStore;
 
     @Mock
     private ApplicationEventPublisher eventPublisher;
@@ -863,6 +878,20 @@ class FinanceServiceImplTest {
         verifyNoInteractions(paymentTransactionRepository);
     }
 
+    /** Sheet financeGetTransactions - ngay bat dau sau ngay ket thuc -> chan truoc khi truy van. */
+    @Test
+    @DisplayName("getMyTransactions rejects a from-date later than the to-date")
+    void getMyTransactionsRejectsInvertedDateRange() {
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> financeService.getMyTransactions(0, 20, null,
+                        java.time.LocalDate.of(2026, 8, 31), java.time.LocalDate.of(2026, 8, 1)));
+        assertEquals("Ngày bắt đầu không được sau ngày kết thúc", ex.getMessage());
+        verifyNoInteractions(paymentTransactionRepository);
+    }
+
     private PaymentTransaction pendingTopup(String reference, BigDecimal amount) {
         PaymentTransaction tx = new PaymentTransaction();
         tx.setWallet(wallet);
@@ -958,5 +987,1104 @@ class FinanceServiceImplTest {
         tx.setReferenceCode(reference);
         tx.setCreatedAt(createdAt);
         return tx;
+    }
+
+    // ===================================================================
+    //  Sheet financeCreateWithdrawal - UTCID04..UTCID08 (validateWithdrawalRequest)
+    // ===================================================================
+
+    /** UTCID04 (A): request = null -> 'Thiếu thông tin rút tiền'. */
+    @Test
+    @DisplayName("createWithdrawal rejects a null request")
+    void createWithdrawalRejectsNullRequest() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> financeService.createWithdrawal(null));
+        assertEquals("Thiếu thông tin rút tiền", ex.getMessage());
+        verify(withdrawalRequestRepository, never()).save(any());
+        verify(walletService, never()).lockFunds(any(), any(), any());
+    }
+
+    /** UTCID05 (B): amount = 0 (can duoi) -> 'Số tiền rút phải lớn hơn 0'. */
+    @Test
+    @DisplayName("createWithdrawal rejects a zero amount")
+    void createWithdrawalRejectsZeroAmount() {
+        CreateWithdrawalRequest request = new CreateWithdrawalRequest();
+        request.setAmount(BigDecimal.ZERO);
+        request.setPaymentMethodId(3L);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> financeService.createWithdrawal(request));
+        assertEquals("Số tiền rút phải lớn hơn 0", ex.getMessage());
+        verify(withdrawalRequestRepository, never()).save(any());
+    }
+
+    /** UTCID06 (A): amount = null -> 'Số tiền rút phải lớn hơn 0'. */
+    @Test
+    @DisplayName("createWithdrawal rejects a null amount")
+    void createWithdrawalRejectsNullAmount() {
+        CreateWithdrawalRequest request = new CreateWithdrawalRequest();
+        request.setAmount(null);
+        request.setPaymentMethodId(3L);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> financeService.createWithdrawal(request));
+        assertEquals("Số tiền rút phải lớn hơn 0", ex.getMessage());
+        verify(withdrawalRequestRepository, never()).save(any());
+    }
+
+    /** UTCID07 (B): accountHolderName 151 ky tu (vuot can tren) -> chan. */
+    @Test
+    @DisplayName("createWithdrawal rejects an account holder name longer than 150 characters")
+    void createWithdrawalRejectsTooLongAccountHolderName() {
+        CreateWithdrawalRequest request = new CreateWithdrawalRequest();
+        request.setAmount(new BigDecimal("100000.00"));
+        request.setPaymentMethodId(3L);
+        request.setAccountHolderName("A".repeat(151));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> financeService.createWithdrawal(request));
+        assertEquals("Tên chủ tài khoản không được vượt quá 150 ký tự", ex.getMessage());
+        verify(withdrawalRequestRepository, never()).save(any());
+    }
+
+    /** UTCID08 (B): accountHolderName dung 150 ky tu (dung can tren) -> chap nhan. */
+    @Test
+    @DisplayName("createWithdrawal accepts an account holder name of exactly 150 characters")
+    void createWithdrawalAcceptsAccountHolderNameAtBoundary() {
+        CreateWithdrawalRequest request = new CreateWithdrawalRequest();
+        request.setAmount(new BigDecimal("100000.00"));
+        request.setPaymentMethodId(3L);
+        request.setAccountHolderName("A".repeat(150));
+
+        PaymentMethod savedMethod = new PaymentMethod();
+        savedMethod.setPaymentMethodId(3L);
+        savedMethod.setWallet(wallet);
+        savedMethod.setType("BANK_TRANSFER");
+        savedMethod.setBankName("TPBank");
+        savedMethod.setAccountNo("1234567890");
+        savedMethod.setAccountHolderName("A".repeat(150));
+        savedMethod.setStatus("ACTIVE");
+
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(walletService.getRequired(USER_ID)).thenReturn(wallet);
+        when(walletService.lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), any())).thenReturn(wallet);
+        when(platformAdminRepository.findAll()).thenReturn(List.of());
+        when(paymentMethodRepository.findByPaymentMethodIdAndWallet_WalletIdAndStatus(3L, USER_ID, "ACTIVE"))
+                .thenReturn(Optional.of(savedMethod));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+        when(withdrawalRequestRepository.save(any(WithdrawalRequest.class))).thenAnswer(invocation -> {
+            WithdrawalRequest withdrawal = invocation.getArgument(0);
+            withdrawal.setWithdrawalId(16L);
+            return withdrawal;
+        });
+
+        WithdrawalResponse response = financeService.createWithdrawal(request);
+
+        assertEquals(16L, response.getWithdrawalId());
+        assertEquals(WithdrawalRequestStatus.PENDING, response.getStatus());
+        verify(walletService).lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), any());
+    }
+
+    // =====================================================================================
+    //  Sheet: financeDeposit (nap tien truc tiep - chi bat o moi truong dev)
+    // =====================================================================================
+    @org.junit.jupiter.api.Nested
+    @DisplayName("financeDeposit")
+    class FinanceDeposit {
+
+        private com.tcs.module.finance.dto.request.DepositRequest request(
+                BigDecimal amount, String description) {
+            var r = new com.tcs.module.finance.dto.request.DepositRequest();
+            r.setAmount(amount);
+            r.setDescription(description);
+            return r;
+        }
+
+        private void givenCenterWallet() {
+            when(authHelper.currentUserId()).thenReturn(USER_ID);
+            when(walletService.getRequired(USER_ID)).thenReturn(wallet);
+            when(paymentTransactionRepository.save(any(PaymentTransaction.class)))
+                    .thenAnswer(i -> i.getArgument(0));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Trung tam nap tien, co bat cong tac dev -> tao giao dich DEPOSIT SUCCESS va cong vi")
+        void utcid01_depositSuccessfully() {
+            givenCenterWallet();
+
+            financeService.deposit(request(new BigDecimal("500000.00"), "Nap tien dot 1"));
+
+            ArgumentCaptor<PaymentTransaction> captor = ArgumentCaptor.forClass(PaymentTransaction.class);
+            verify(paymentTransactionRepository).save(captor.capture());
+            PaymentTransaction tx = captor.getValue();
+            assertEquals(PaymentTransactionType.DEPOSIT, tx.getType());
+            assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
+            assertTrue(tx.getReferenceCode().startsWith("TOPUP-"));
+            assertEquals("Nap tien dot 1", tx.getDescription());
+            verify(walletService).credit(eq(USER_ID), eq(new BigDecimal("500000.00")), eq(tx.getReferenceCode()));
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - amount = null -> 'Số tiền nạp phải lớn hơn 0'")
+        void utcid02_nullAmount() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> financeService.deposit(request(null, "Nap tien")));
+            assertEquals("Số tiền nạp phải lớn hơn 0", ex.getMessage());
+            verify(paymentTransactionRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (B) - amount = 0 (dung can duoi) -> chan")
+        void utcid03_zeroAmount() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> financeService.deposit(request(BigDecimal.ZERO, "Nap tien")));
+            assertEquals("Số tiền nạp phải lớn hơn 0", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - amount am -> chan")
+        void utcid04_negativeAmount() {
+            assertThrows(IllegalArgumentException.class,
+                    () -> financeService.deposit(request(new BigDecimal("-1000"), "Nap tien")));
+            verify(paymentTransactionRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Cong tac nap truc tiep dang tat -> 'Nạp tiền trực tiếp đã tắt. ...'")
+        void utcid05_directDepositDisabled() {
+            ReflectionTestUtils.setField(financeService, "directDepositEnabled", false);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> financeService.deposit(request(new BigDecimal("500000.00"), "Nap tien")));
+            assertEquals("Nạp tiền trực tiếp đã tắt. Vui lòng nạp tiền qua cổng thanh toán.", ex.getMessage());
+            verify(paymentTransactionRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - Nguoi goi khong phai TUTOR_CENTER -> ForbiddenException")
+        void utcid06_callerIsNotACenter() {
+            when(authHelper.requireRole(UserRole.TUTOR_CENTER))
+                    .thenThrow(new ForbiddenException("Không có quyền truy cập"));
+
+            assertThrows(ForbiddenException.class,
+                    () -> financeService.deposit(request(new BigDecimal("500000.00"), "Nap tien")));
+            verify(paymentTransactionRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID07 (A) - Trung tam chua co vi -> 'Không tìm thấy ví cho người dùng này'")
+        void utcid07_walletMissing() {
+            when(authHelper.currentUserId()).thenReturn(USER_ID);
+            when(walletService.getRequired(USER_ID))
+                    .thenThrow(new BusinessException("Không tìm thấy ví cho người dùng này"));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> financeService.deposit(request(new BigDecimal("500000.00"), "Nap tien")));
+            assertEquals("Không tìm thấy ví cho người dùng này", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID08 (B) - amount = 0.01 (gia tri duong nho nhat) -> van nap duoc")
+        void utcid08_smallestPositiveAmount() {
+            givenCenterWallet();
+
+            financeService.deposit(request(new BigDecimal("0.01"), "Nap thu"));
+
+            verify(walletService).credit(eq(USER_ID), eq(new BigDecimal("0.01")), any());
+        }
+
+        @Test
+        @DisplayName("UTCID09 (N) - description = null -> dung noi dung mac dinh 'Nạp tiền ví trung tâm'")
+        void utcid09_defaultDescription() {
+            givenCenterWallet();
+
+            financeService.deposit(request(new BigDecimal("500000.00"), null));
+
+            ArgumentCaptor<PaymentTransaction> captor = ArgumentCaptor.forClass(PaymentTransaction.class);
+            verify(paymentTransactionRepository).save(captor.capture());
+            assertEquals("Nạp tiền ví trung tâm", captor.getValue().getDescription());
+        }
+    }
+
+    // =====================================================================================
+    //  Sheet: financeRejectWithdrawal & financeWithdrawalFailed (dao nguoc yeu cau rut tien)
+    // =====================================================================================
+    @org.junit.jupiter.api.Nested
+    @DisplayName("financeRejectWithdrawal")
+    class FinanceRejectWithdrawal {
+
+        @Test
+        @DisplayName("UTCID01 (N) - Admin tu choi yeu cau dang cho -> hoan tien dong bang, giao dich CANCELLED")
+        void utcid01_rejectSuccessfully() {
+            WithdrawalRequest withdrawal = awaitingWithdrawal();
+            PaymentTransaction tx = pendingWithdrawalTransaction();
+            givenReversibleWithdrawal(withdrawal, tx);
+
+            financeService.rejectWithdrawal(20L, withdrawalDecision("Sai thong tin tai khoan"));
+
+            assertEquals(PaymentTransactionStatus.CANCELLED, tx.getStatus());
+            assertEquals("Sai thong tin tai khoan", tx.getFailureReason());
+            assertEquals(WithdrawalRequestStatus.REJECTED, withdrawal.getStatus());
+            verify(walletService).refundLockedFunds(USER_ID, withdrawal.getAmount(), tx.getReferenceCode());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - Nguoi goi khong phai PLATFORM_ADMIN -> ForbiddenException")
+        void utcid02_notAdmin() {
+            when(authHelper.requireRole(UserRole.PLATFORM_ADMIN))
+                    .thenThrow(new ForbiddenException("Không có quyền truy cập"));
+
+            assertThrows(ForbiddenException.class,
+                    () -> financeService.rejectWithdrawal(20L, withdrawalDecision("ly do")));
+            verify(withdrawalRequestRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - withdrawalId khong khop yeu cau nao -> 'Không tìm thấy yêu cầu rút tiền'")
+        void utcid03_withdrawalNotFound() {
+            when(withdrawalRequestRepository.findById(20L)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> financeService.rejectWithdrawal(20L, withdrawalDecision("ly do")));
+            assertEquals("Không tìm thấy yêu cầu rút tiền", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - Yeu cau khong con o trang thai cho -> 'Chỉ yêu cầu rút tiền đang chờ mới có thể hoàn lại'")
+        void utcid04_notAwaitingTransfer() {
+            WithdrawalRequest withdrawal = awaitingWithdrawal();
+            withdrawal.setStatus(WithdrawalRequestStatus.COMPLETED);
+            when(withdrawalRequestRepository.findById(20L)).thenReturn(Optional.of(withdrawal));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> financeService.rejectWithdrawal(20L, withdrawalDecision("ly do")));
+            assertEquals("Chỉ yêu cầu rút tiền đang chờ mới có thể hoàn lại", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Khong xac dinh duoc giao dich rut tien tuong ung -> chan")
+        void utcid05_noMatchingTransaction() {
+            WithdrawalRequest withdrawal = awaitingWithdrawal();
+            when(withdrawalRequestRepository.findById(20L)).thenReturn(Optional.of(withdrawal));
+            when(paymentTransactionRepository
+                    .findByWallet_WalletIdAndTypeAndStatusAndAmountAndCreatedAtBetweenOrderByCreatedAtAsc(
+                            any(), any(), any(), any(), any(), any()))
+                    .thenReturn(List.of());
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> financeService.rejectWithdrawal(20L, withdrawalDecision("ly do")));
+            assertEquals("Không xác định được giao dịch rút tiền tương ứng", ex.getMessage());
+            verify(walletService, never()).refundLockedFunds(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (N) - reason = null -> dung ly do mac dinh 'Yêu cầu rút tiền bị từ chối'")
+        void utcid06_defaultReason() {
+            WithdrawalRequest withdrawal = awaitingWithdrawal();
+            PaymentTransaction tx = pendingWithdrawalTransaction();
+            givenReversibleWithdrawal(withdrawal, tx);
+
+            financeService.rejectWithdrawal(20L, withdrawalDecision(null));
+
+            assertEquals("Yêu cầu rút tiền bị từ chối", tx.getFailureReason());
+            assertEquals(WithdrawalRequestStatus.REJECTED, withdrawal.getStatus());
+        }
+    }
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("financeWithdrawalFailed")
+    class FinanceWithdrawalFailed {
+
+        @Test
+        @DisplayName("UTCID01 (N) - Admin danh dau chuyen khoan that bai -> hoan tien, giao dich FAILED")
+        void utcid01_markFailedSuccessfully() {
+            WithdrawalRequest withdrawal = awaitingWithdrawal();
+            PaymentTransaction tx = pendingWithdrawalTransaction();
+            givenReversibleWithdrawal(withdrawal, tx);
+
+            financeService.markWithdrawalTransferFailed(20L, withdrawalDecision("Ngan hang tu choi lenh"));
+
+            assertEquals(PaymentTransactionStatus.FAILED, tx.getStatus(),
+                    "Chuyen khoan that bai phai la FAILED, khong phai CANCELLED");
+            assertEquals("Ngan hang tu choi lenh", tx.getFailureReason());
+            assertEquals(WithdrawalRequestStatus.REJECTED, withdrawal.getStatus());
+            verify(walletService).refundLockedFunds(USER_ID, withdrawal.getAmount(), tx.getReferenceCode());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - Nguoi goi khong phai PLATFORM_ADMIN -> ForbiddenException")
+        void utcid02_notAdmin() {
+            when(authHelper.requireRole(UserRole.PLATFORM_ADMIN))
+                    .thenThrow(new ForbiddenException("Không có quyền truy cập"));
+
+            assertThrows(ForbiddenException.class,
+                    () -> financeService.markWithdrawalTransferFailed(20L, withdrawalDecision("ly do")));
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - withdrawalId khong khop yeu cau nao -> 'Không tìm thấy yêu cầu rút tiền'")
+        void utcid03_withdrawalNotFound() {
+            when(withdrawalRequestRepository.findById(20L)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> financeService.markWithdrawalTransferFailed(20L, withdrawalDecision("ly do")));
+            assertEquals("Không tìm thấy yêu cầu rút tiền", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - Yeu cau khong con o trang thai cho -> chan")
+        void utcid04_notAwaitingTransfer() {
+            WithdrawalRequest withdrawal = awaitingWithdrawal();
+            withdrawal.setStatus(WithdrawalRequestStatus.REJECTED);
+            when(withdrawalRequestRepository.findById(20L)).thenReturn(Optional.of(withdrawal));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> financeService.markWithdrawalTransferFailed(20L, withdrawalDecision("ly do")));
+            assertEquals("Chỉ yêu cầu rút tiền đang chờ mới có thể hoàn lại", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Khong xac dinh duoc giao dich rut tien tuong ung -> chan")
+        void utcid05_noMatchingTransaction() {
+            WithdrawalRequest withdrawal = awaitingWithdrawal();
+            when(withdrawalRequestRepository.findById(20L)).thenReturn(Optional.of(withdrawal));
+            when(paymentTransactionRepository
+                    .findByWallet_WalletIdAndTypeAndStatusAndAmountAndCreatedAtBetweenOrderByCreatedAtAsc(
+                            any(), any(), any(), any(), any(), any()))
+                    .thenReturn(List.of());
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> financeService.markWithdrawalTransferFailed(20L, withdrawalDecision("ly do")));
+            assertEquals("Không xác định được giao dịch rút tiền tương ứng", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (N) - reason = null -> dung ly do mac dinh ve chuyen khoan that bai")
+        void utcid06_defaultReason() {
+            WithdrawalRequest withdrawal = awaitingWithdrawal();
+            PaymentTransaction tx = pendingWithdrawalTransaction();
+            givenReversibleWithdrawal(withdrawal, tx);
+
+            financeService.markWithdrawalTransferFailed(20L, withdrawalDecision(null));
+
+            assertEquals("Chuyển khoản ngân hàng thất bại, hệ thống đã hoàn lại số dư khả dụng",
+                    tx.getFailureReason());
+        }
+    }
+
+    /** Yeu cau rut tien dang cho chuyen khoan. */
+    private WithdrawalRequest awaitingWithdrawal() {
+        WithdrawalRequest withdrawal = new WithdrawalRequest();
+        withdrawal.setWithdrawalId(20L);
+        withdrawal.setWallet(wallet);
+        withdrawal.setAmount(new BigDecimal("100000.00"));
+        withdrawal.setStatus(WithdrawalRequestStatus.PENDING);
+        withdrawal.setRequestedAt(java.time.LocalDateTime.now().minusMinutes(5));
+        return withdrawal;
+    }
+
+    /** Giao dich rut tien dang PENDING khop voi yeu cau tren. */
+    private PaymentTransaction pendingWithdrawalTransaction() {
+        PaymentTransaction tx = new PaymentTransaction();
+        tx.setTransactionId(30L);
+        tx.setWallet(wallet);
+        tx.setType(PaymentTransactionType.WITHDRAWAL);
+        tx.setStatus(PaymentTransactionStatus.PENDING);
+        tx.setAmount(new BigDecimal("100000.00"));
+        tx.setReferenceCode("WITHDRAW-20");
+        return tx;
+    }
+
+    private com.tcs.module.finance.dto.request.WithdrawalDecisionRequest withdrawalDecision(String reason) {
+        var r = new com.tcs.module.finance.dto.request.WithdrawalDecisionRequest();
+        r.setReason(reason);
+        return r;
+    }
+
+    private void givenReversibleWithdrawal(WithdrawalRequest withdrawal, PaymentTransaction tx) {
+        when(withdrawalRequestRepository.findById(20L)).thenReturn(Optional.of(withdrawal));
+        when(paymentTransactionRepository
+                .findByWallet_WalletIdAndTypeAndStatusAndAmountAndCreatedAtBetweenOrderByCreatedAtAsc(
+                        any(), any(), any(), any(), any(), any()))
+                .thenReturn(List.of(tx));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(i -> i.getArgument(0));
+        when(withdrawalRequestRepository.save(any(WithdrawalRequest.class))).thenAnswer(i -> i.getArgument(0));
+        when(walletService.refundLockedFunds(any(), any(), any())).thenReturn(wallet);
+    }
+
+    // =====================================================================================
+    //  Sheet: financeSepayIncoming (webhook tien vao tu SePay)
+    // =====================================================================================
+    @org.junit.jupiter.api.Nested
+    @DisplayName("financeSepayIncoming")
+    class FinanceSepayIncoming {
+
+        private static final BigDecimal AMOUNT = new BigDecimal("100000");
+
+        private SepayWebhookRequest incoming(Long id, BigDecimal amount, String content) {
+            SepayWebhookRequest r = new SepayWebhookRequest();
+            r.setId(id);
+            r.setTransferType("in");
+            r.setTransferAmount(amount);
+            r.setContent(content);
+            r.setAccountNumber("02660559201");
+            return r;
+        }
+
+        private void givenNoDuplicate(String externalId) {
+            when(paymentTransactionRepository.findByExternalTransactionId(externalId))
+                    .thenReturn(Optional.empty());
+        }
+
+        private void givenNoEscrowCandidate() {
+            when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                    PaymentTransactionType.ESCROW_DEPOSIT, PaymentTransactionStatus.PENDING, AMOUNT))
+                    .thenReturn(List.of());
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Khop giao dich nap tien dang cho -> success, hoan tat nap tien")
+        void utcid01_matchesPendingTopup() {
+            PaymentTransaction tx = pendingTopup("TOPUP-ABC", AMOUNT);
+            givenNoDuplicate("123");
+            givenNoEscrowCandidate();
+            when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                    PaymentTransactionType.DEPOSIT, PaymentTransactionStatus.PENDING, AMOUNT))
+                    .thenReturn(List.of(tx));
+            when(walletService.getOrCreate(USER_ID)).thenReturn(wallet);
+
+            PaymentWebhookResponse response =
+                    financeService.handleSepayIncomingWebhook(incoming(123L, AMOUNT, "Chuyen khoan TOPUP-ABC"));
+
+            assertEquals("success", response.getStatus());
+            assertEquals("Đã ghi nhận giao dịch SePay thành công", response.getMessage());
+            assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
+            verify(walletService).credit(USER_ID, AMOUNT, "TOPUP-ABC");
+        }
+
+        @Test
+        @DisplayName("UTCID02 (N) - Khop thanh toan ky quy (khong phai phi trung tam) -> 'Đã ghi nhận học phí SePay vào ký quỹ'")
+        void utcid02_matchesEscrowPayment() {
+            BigDecimal amount = new BigDecimal("500000");
+            PaymentTransaction tx = pendingEscrowPayment("ESCROW-A7", amount);
+            EscrowTransaction escrow = privateEscrow(5L, tx, amount);
+            givenNoDuplicate("456");
+            when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                    PaymentTransactionType.ESCROW_DEPOSIT, PaymentTransactionStatus.PENDING, amount))
+                    .thenReturn(List.of(tx));
+            when(centerRequestFeeService.isCenterRequestFeePayment(tx)).thenReturn(false);
+            when(escrowService.fundConfirmedPayment(tx)).thenReturn(escrow);
+
+            PaymentWebhookResponse response = financeService.handleSepayIncomingWebhook(
+                    incoming(456L, amount, "Thanh toan hoc phi ESCROW-A7"));
+
+            assertEquals("success", response.getStatus());
+            assertEquals("Đã ghi nhận học phí SePay vào ký quỹ", response.getMessage());
+            verify(escrowService).fundConfirmedPayment(tx);
+        }
+
+        @Test
+        @DisplayName("UTCID03 (N) - Khoan khop la phi xu ly yeu cau trung tam -> 'Đã ghi nhận phí xử lý yêu cầu trung tâm'")
+        void utcid03_matchesCenterRequestFee() {
+            BigDecimal amount = new BigDecimal("500000");
+            PaymentTransaction tx = pendingEscrowPayment("FEE-A7", amount);
+            givenNoDuplicate("457");
+            when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                    PaymentTransactionType.ESCROW_DEPOSIT, PaymentTransactionStatus.PENDING, amount))
+                    .thenReturn(List.of(tx));
+            when(centerRequestFeeService.isCenterRequestFeePayment(tx)).thenReturn(true);
+
+            PaymentWebhookResponse response = financeService.handleSepayIncomingWebhook(
+                    incoming(457L, amount, "Thanh toan phi FEE-A7"));
+
+            assertEquals("success", response.getStatus());
+            assertEquals("Đã ghi nhận phí xử lý yêu cầu trung tâm", response.getMessage());
+            verify(centerRequestFeeService).completeIncomingPayment(tx, "457");
+            verify(escrowService, never()).fundConfirmedPayment(any());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (N) - externalTransactionId da duoc xu ly (webhook gui lai) -> 'Webhook đã được xử lý trước đó', khong cong tien lan hai")
+        void utcid04_duplicateWebhook() {
+            when(paymentTransactionRepository.findByExternalTransactionId("123"))
+                    .thenReturn(Optional.of(pendingTopup("TOPUP-ABC", AMOUNT)));
+
+            PaymentWebhookResponse response =
+                    financeService.handleSepayIncomingWebhook(incoming(123L, AMOUNT, "TOPUP-ABC"));
+
+            assertEquals("success", response.getStatus());
+            assertEquals("Webhook đã được xử lý trước đó", response.getMessage());
+            verify(walletService, never()).credit(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - request = null -> error 'Thiếu id, transferAmount hoặc nội dung giao dịch'")
+        void utcid05_nullRequest() {
+            PaymentWebhookResponse response = financeService.handleSepayIncomingWebhook(null);
+
+            assertEquals("error", response.getStatus());
+            assertEquals("Thiếu id, transferAmount hoặc nội dung giao dịch", response.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - id = null -> error")
+        void utcid06_nullId() {
+            PaymentWebhookResponse response =
+                    financeService.handleSepayIncomingWebhook(incoming(null, AMOUNT, "TOPUP-ABC"));
+
+            assertEquals("error", response.getStatus());
+            assertEquals("Thiếu id, transferAmount hoặc nội dung giao dịch", response.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID07 (A) - transferAmount = null -> error")
+        void utcid07_nullAmount() {
+            PaymentWebhookResponse response =
+                    financeService.handleSepayIncomingWebhook(incoming(123L, null, "TOPUP-ABC"));
+
+            assertEquals("error", response.getStatus());
+        }
+
+        @Test
+        @DisplayName("UTCID08 (B) - transferAmount = 0 (dung can duoi) -> error")
+        void utcid08_zeroAmount() {
+            PaymentWebhookResponse response =
+                    financeService.handleSepayIncomingWebhook(incoming(123L, BigDecimal.ZERO, "TOPUP-ABC"));
+
+            assertEquals("error", response.getStatus());
+        }
+
+        @Test
+        @DisplayName("UTCID09 (A) - Noi dung chuyen khoan rong -> error")
+        void utcid09_blankContent() {
+            SepayWebhookRequest request = new SepayWebhookRequest();
+            request.setId(123L);
+            request.setTransferType("in");
+            request.setTransferAmount(AMOUNT);
+
+            PaymentWebhookResponse response = financeService.handleSepayIncomingWebhook(request);
+
+            assertEquals("error", response.getStatus());
+            assertEquals("Thiếu id, transferAmount hoặc nội dung giao dịch", response.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID10 (A) - transferType = out -> ignored 'Giao dịch không phải tiền vào'")
+        void utcid10_notIncoming() {
+            SepayWebhookRequest request = incoming(123L, AMOUNT, "TOPUP-ABC");
+            request.setTransferType("out");
+
+            PaymentWebhookResponse response = financeService.handleSepayIncomingWebhook(request);
+
+            assertEquals("ignored", response.getStatus());
+            assertEquals("Giao dịch không phải tiền vào", response.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID11 (A) - Khong khop giao dich nao -> ignored kem thong bao khong tim thay")
+        void utcid11_noMatch() {
+            givenNoDuplicate("123");
+            givenNoEscrowCandidate();
+            when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                    PaymentTransactionType.DEPOSIT, PaymentTransactionStatus.PENDING, AMOUNT))
+                    .thenReturn(List.of());
+
+            PaymentWebhookResponse response =
+                    financeService.handleSepayIncomingWebhook(incoming(123L, AMOUNT, "Khong khop gi ca"));
+
+            assertEquals("ignored", response.getStatus());
+            assertEquals("Không tìm thấy giao dịch nạp tiền/ký quỹ khớp số tiền, nội dung và tài khoản",
+                    response.getMessage());
+            verify(walletService, never()).credit(any(), any(), any());
+        }
+    }
+
+    // =====================================================================================
+    //  Sheet: financeSepayOutgoing (webhook tien ra tu SePay)
+    // =====================================================================================
+    @org.junit.jupiter.api.Nested
+    @DisplayName("financeSepayOutgoing")
+    class FinanceSepayOutgoing {
+
+        private static final BigDecimal AMOUNT = new BigDecimal("100000.00");
+
+        private SepayWebhookRequest outgoing(Long id, BigDecimal amount, String content) {
+            SepayWebhookRequest r = new SepayWebhookRequest();
+            r.setId(id);
+            r.setTransferType("out");
+            r.setTransferAmount(amount);
+            r.setContent(content);
+            r.setAccountNumber("02660559201");
+            return r;
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Khop yeu cau rut tien -> 'Đã xác nhận giao dịch rút tiền từ SePay'")
+        void utcid01_matchesWithdrawal() {
+            LocalDateTime requestedAt = LocalDateTime.of(2026, 7, 13, 9, 0);
+            PaymentMethod method = savedPaymentMethod();
+            WithdrawalRequest withdrawal = pendingWithdrawal(15L, method, AMOUNT, requestedAt);
+            PaymentTransaction tx = pendingWithdrawalTransaction(method, AMOUNT, "WITHDRAW-ABC", requestedAt);
+
+            when(paymentTransactionRepository.findByExternalTransactionId("SEPAY-OUT-987"))
+                    .thenReturn(Optional.empty());
+            when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                    PaymentTransactionType.WITHDRAWAL, PaymentTransactionStatus.PENDING, AMOUNT))
+                    .thenReturn(List.of(tx));
+            when(withdrawalRequestRepository
+                    .findByWallet_WalletIdAndStatusAndAmountAndRequestedAtBetweenOrderByRequestedAtAsc(
+                            USER_ID, WithdrawalRequestStatus.PENDING, AMOUNT,
+                            requestedAt.minusMinutes(5), requestedAt.plusMinutes(5)))
+                    .thenReturn(List.of(withdrawal));
+            when(walletService.releaseLockedFunds(USER_ID, AMOUNT, "WITHDRAW-ABC")).thenReturn(wallet);
+            when(withdrawalRequestRepository.save(any(WithdrawalRequest.class)))
+                    .thenAnswer(i -> i.getArgument(0));
+
+            PaymentWebhookResponse response = financeService.handleSepayOutgoingWebhook(
+                    outgoing(987L, AMOUNT, "Chuyen tien rut vi WITHDRAW-ABC"));
+
+            assertEquals("success", response.getStatus());
+            assertEquals("Đã xác nhận giao dịch rút tiền từ SePay", response.getMessage());
+            assertEquals(WithdrawalRequestStatus.COMPLETED, withdrawal.getStatus());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (N) - Khong khop rut tien nhung khop giao dich hoan tien -> 'Đã xác nhận giao dịch hoàn tiền từ SePay'")
+        void utcid02_matchesRefund() {
+            PaymentTransaction refundTx = new PaymentTransaction();
+            refundTx.setTransactionId(90L);
+            refundTx.setWallet(wallet);
+            refundTx.setType(PaymentTransactionType.REFUND);
+            refundTx.setStatus(PaymentTransactionStatus.PENDING);
+            refundTx.setAmount(AMOUNT);
+            refundTx.setReferenceCode("REFUND-XYZ");
+            refundTx.setCreatedAt(LocalDateTime.now());
+
+            when(paymentTransactionRepository.findByExternalTransactionId("SEPAY-OUT-988"))
+                    .thenReturn(Optional.empty());
+            when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                    PaymentTransactionType.WITHDRAWAL, PaymentTransactionStatus.PENDING, AMOUNT))
+                    .thenReturn(List.of());
+            when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                    PaymentTransactionType.REFUND, PaymentTransactionStatus.PENDING, AMOUNT))
+                    .thenReturn(List.of(refundTx));
+
+            PaymentWebhookResponse response = financeService.handleSepayOutgoingWebhook(
+                    outgoing(988L, AMOUNT, "Hoan tien REFUND-XYZ"));
+
+            assertEquals("success", response.getStatus());
+            assertEquals("Đã xác nhận giao dịch hoàn tiền từ SePay", response.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (N) - externalTransactionId da xu ly -> 'Webhook đã được xử lý trước đó'")
+        void utcid03_duplicateWebhook() {
+            PaymentTransaction processed = pendingWithdrawalTransaction(
+                    savedPaymentMethod(), AMOUNT, "WITHDRAW-ABC", LocalDateTime.now());
+            when(paymentTransactionRepository.findByExternalTransactionId("SEPAY-OUT-987"))
+                    .thenReturn(Optional.of(processed));
+
+            PaymentWebhookResponse response =
+                    financeService.handleSepayOutgoingWebhook(outgoing(987L, AMOUNT, "WITHDRAW-ABC"));
+
+            assertEquals("success", response.getStatus());
+            assertEquals("Webhook đã được xử lý trước đó", response.getMessage());
+            verify(walletService, never()).releaseLockedFunds(any(), any(), any());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - request = null -> error 'Thiếu id, transferAmount hoặc nội dung giao dịch'")
+        void utcid04_nullRequest() {
+            PaymentWebhookResponse response = financeService.handleSepayOutgoingWebhook(null);
+
+            assertEquals("error", response.getStatus());
+            assertEquals("Thiếu id, transferAmount hoặc nội dung giao dịch", response.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - id = null -> error")
+        void utcid05_nullId() {
+            PaymentWebhookResponse response =
+                    financeService.handleSepayOutgoingWebhook(outgoing(null, AMOUNT, "WITHDRAW-ABC"));
+
+            assertEquals("error", response.getStatus());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (B) - transferAmount = 0 (dung can duoi) -> error")
+        void utcid06_zeroAmount() {
+            PaymentWebhookResponse response =
+                    financeService.handleSepayOutgoingWebhook(outgoing(987L, BigDecimal.ZERO, "WITHDRAW-ABC"));
+
+            assertEquals("error", response.getStatus());
+        }
+
+        @Test
+        @DisplayName("UTCID07 (A) - Noi dung chuyen khoan rong -> error")
+        void utcid07_blankContent() {
+            SepayWebhookRequest request = new SepayWebhookRequest();
+            request.setId(987L);
+            request.setTransferType("out");
+            request.setTransferAmount(AMOUNT);
+
+            PaymentWebhookResponse response = financeService.handleSepayOutgoingWebhook(request);
+
+            assertEquals("error", response.getStatus());
+        }
+
+        @Test
+        @DisplayName("UTCID08 (A) - transferType = in -> ignored 'Giao dịch không phải tiền ra'")
+        void utcid08_notOutgoing() {
+            SepayWebhookRequest request = outgoing(987L, AMOUNT, "WITHDRAW-ABC");
+            request.setTransferType("in");
+
+            PaymentWebhookResponse response = financeService.handleSepayOutgoingWebhook(request);
+
+            assertEquals("ignored", response.getStatus());
+            assertEquals("Giao dịch không phải tiền ra", response.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID09 (A) - Khong khop rut tien lan hoan tien -> ignored kem thong bao khong tim thay")
+        void utcid09_noMatch() {
+            when(paymentTransactionRepository.findByExternalTransactionId("SEPAY-OUT-987"))
+                    .thenReturn(Optional.empty());
+            when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                    PaymentTransactionType.WITHDRAWAL, PaymentTransactionStatus.PENDING, AMOUNT))
+                    .thenReturn(List.of());
+            when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
+                    PaymentTransactionType.REFUND, PaymentTransactionStatus.PENDING, AMOUNT))
+                    .thenReturn(List.of());
+
+            PaymentWebhookResponse response =
+                    financeService.handleSepayOutgoingWebhook(outgoing(987L, AMOUNT, "Khong khop gi ca"));
+
+            assertEquals("ignored", response.getStatus());
+            assertEquals("Không tìm thấy yêu cầu rút/hoàn tiền khớp số tiền, nội dung và tài khoản",
+                    response.getMessage());
+        }
+    }
+
+    // =====================================================================================
+    //  Sheet: financeApproveRefundReq & financeRejectRefundReq (admin/trung tam xu ly hoan tien)
+    // =====================================================================================
+
+    private static final Long REFUND_ID = 40L;
+    private static final Long ESCROW_ID = 71L;
+
+    /** Escrow lop trung tam do centerUserId quan ly, dang FUNDED. */
+    private EscrowTransaction centerEscrow(Long centerUserId) {
+        User centerUser = new User();
+        centerUser.setUserId(centerUserId);
+        centerUser.setEmail("trungtam@tcs.com");
+
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setClassId(3L);
+        tutoringClass.setClassType(com.tcs.module.marketplace.enums.ClassType.CENTER);
+        tutoringClass.setCreator(centerUser);
+
+        ClassStudent classStudent = new ClassStudent();
+        classStudent.setClassStudentId(8L);
+        classStudent.setTutoringClass(tutoringClass);
+
+        EscrowTransaction escrow = new EscrowTransaction();
+        escrow.setEscrowId(ESCROW_ID);
+        escrow.setAmount(new BigDecimal("1000000.00"));
+        escrow.setStatus(EscrowStatus.FUNDED);
+        escrow.setClassStudent(classStudent);
+        return escrow;
+    }
+
+    private RefundRequest pendingRefund(EscrowTransaction escrow, BigDecimal amount) {
+        User requester = new User();
+        requester.setUserId(USER_ID);
+        requester.setEmail("phuhuynh@tcs.com");
+
+        RefundRequest refund = new RefundRequest();
+        refund.setRefundId(REFUND_ID);
+        refund.setEscrowTransaction(escrow);
+        refund.setAmount(amount);
+        refund.setStatus(RefundRequestStatus.PENDING);
+        refund.setReason("Lop dung som");
+        refund.setRequestedBy(requester);
+        refund.setRequestedAt(LocalDateTime.now().minusDays(1));
+        return refund;
+    }
+
+    private com.tcs.module.finance.dto.request.RefundDecisionRequest refundDecision(
+            BigDecimal approvedAmount, String reason) {
+        var r = new com.tcs.module.finance.dto.request.RefundDecisionRequest();
+        r.setApprovedAmount(approvedAmount);
+        r.setReason(reason);
+        return r;
+    }
+
+    private void loginAsPlatformAdmin() {
+        User admin = new User();
+        admin.setUserId(1L);
+        admin.setEmail("admin@tcs.com");
+        when(authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER))
+                .thenReturn(new com.tcs.security.UserPrincipal(admin, UserRole.PLATFORM_ADMIN));
+    }
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("financeApproveRefundReq")
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    class FinanceApproveRefundReq {
+
+        @org.junit.jupiter.api.BeforeEach
+        void loginAsAdmin() {
+            loginAsPlatformAdmin();
+            when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(i -> i.getArgument(0));
+            when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(i -> i.getArgument(0));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Admin duyet hoan tien tren escrow thuong -> tat toan escrow qua escrowService.apply")
+        void utcid01_approveNormalEscrow() {
+            EscrowTransaction escrow = centerEscrow(555L);
+            RefundRequest refund = pendingRefund(escrow, new BigDecimal("400000.00"));
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.of(refund));
+            when(escrowTransactionRepository.findById(ESCROW_ID)).thenReturn(Optional.of(escrow));
+
+            financeService.approveRefundRequest(REFUND_ID, refundDecision(null, "Duyet hoan mot phan"));
+
+            ArgumentCaptor<ReleaseInstruction> captor = ArgumentCaptor.forClass(ReleaseInstruction.class);
+            verify(escrowService).apply(captor.capture());
+            ReleaseInstruction instruction = captor.getValue();
+            assertEquals(ESCROW_ID, instruction.escrowId());
+            assertEquals(new BigDecimal("400000.00"), instruction.refundToPayer());
+            assertEquals(new BigDecimal("600000.00"), instruction.releaseToBeneficiary(),
+                    "Phan con lai cua escrow phai duoc giai ngan cho ben thu huong");
+        }
+
+        @Test
+        @DisplayName("UTCID02 (N) - Yeu cau gan voi phi giu cua trung tam -> APPROVED, transferStatus = PENDING, sinh ma hoan tien")
+        void utcid02_approveCenterFeeHold() {
+            RefundRequest refund = pendingRefund(centerEscrow(555L), new BigDecimal("200000.00"));
+            refund.setCenterRequestFeeHold(centerFeeHold());
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.of(refund));
+            when(walletService.getSystemEscrowWallet()).thenReturn(wallet);
+
+            financeService.approveRefundRequest(REFUND_ID, refundDecision(null, "Duyet hoan phi"));
+
+            assertEquals(RefundRequestStatus.APPROVED, refund.getStatus());
+            assertEquals("PENDING", refund.getTransferStatus());
+            assertNotNull(refund.getProcessedAt());
+            assertNotNull(refund.getRefundReferenceCode(), "Phai sinh ma hoan tien khi chua co");
+            verify(escrowService, never()).apply(any());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - refundId = null -> 'refundId là bắt buộc'")
+        void utcid03_nullRefundId() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> financeService.approveRefundRequest(null, refundDecision(null, "ly do")));
+            assertEquals("refundId là bắt buộc", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - refundId khong khop yeu cau nao -> 'Không tìm thấy yêu cầu hoàn tiền'")
+        void utcid04_refundNotFound() {
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> financeService.approveRefundRequest(REFUND_ID, refundDecision(null, "ly do")));
+            assertEquals("Không tìm thấy yêu cầu hoàn tiền", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Yeu cau khong con o trang thai cho -> chan duyet")
+        void utcid05_refundNotPending() {
+            RefundRequest refund = pendingRefund(centerEscrow(555L), new BigDecimal("400000.00"));
+            refund.setStatus(RefundRequestStatus.APPROVED);
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.of(refund));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> financeService.approveRefundRequest(REFUND_ID, refundDecision(null, "ly do")));
+            assertEquals("Chỉ yêu cầu hoàn tiền đang chờ xử lý mới có thể duyệt/từ chối", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - Trung tam khong so huu lop cua yeu cau nay -> ForbiddenException")
+        void utcid06_centerDoesNotOwnClass() {
+            User centerUser = new User();
+            centerUser.setUserId(999L);
+            when(authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER))
+                    .thenReturn(new com.tcs.security.UserPrincipal(centerUser, UserRole.TUTOR_CENTER));
+            when(refundRequestRepository.findById(REFUND_ID))
+                    .thenReturn(Optional.of(pendingRefund(centerEscrow(555L), new BigDecimal("400000.00"))));
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> financeService.approveRefundRequest(REFUND_ID, refundDecision(null, "ly do")));
+            assertEquals("Bạn chỉ có quyền xử lý yêu cầu hoàn tiền của lớp trung tâm do mình quản lý",
+                    ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID07 (A) - So tien duyet vuot qua so tien yeu cau (phi trung tam) -> chan")
+        void utcid07_approvedAmountAboveRequested() {
+            RefundRequest refund = pendingRefund(centerEscrow(555L), new BigDecimal("200000.00"));
+            refund.setCenterRequestFeeHold(centerFeeHold());
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.of(refund));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> financeService.approveRefundRequest(
+                            REFUND_ID, refundDecision(new BigDecimal("300000.00"), "ly do")));
+            assertEquals("Số tiền hoàn được duyệt không được vượt quá số tiền yêu cầu", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID08 (B) - So tien duyet bang dung so tien yeu cau (phi trung tam) -> chap nhan")
+        void utcid08_approvedAmountEqualsRequested() {
+            RefundRequest refund = pendingRefund(centerEscrow(555L), new BigDecimal("200000.00"));
+            refund.setCenterRequestFeeHold(centerFeeHold());
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.of(refund));
+            when(walletService.getSystemEscrowWallet()).thenReturn(wallet);
+
+            financeService.approveRefundRequest(
+                    REFUND_ID, refundDecision(new BigDecimal("200000.00"), "Duyet toan bo"));
+
+            assertEquals(RefundRequestStatus.APPROVED, refund.getStatus());
+            assertEquals(new BigDecimal("200000.00"), refund.getAmount());
+        }
+
+        @Test
+        @DisplayName("UTCID09 (A) - Nguoi goi khong phai PLATFORM_ADMIN cung khong phai TUTOR_CENTER -> ForbiddenException")
+        void utcid09_wrongRole() {
+            when(authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER))
+                    .thenThrow(new ForbiddenException("Không có quyền truy cập"));
+
+            assertThrows(ForbiddenException.class,
+                    () -> financeService.approveRefundRequest(REFUND_ID, refundDecision(null, "ly do")));
+            verify(refundRequestRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID10 (A) - So tien duyet vuot qua so tien escrow -> chan")
+        void utcid10_approvedAmountAboveEscrow() {
+            EscrowTransaction escrow = centerEscrow(555L);
+            RefundRequest refund = pendingRefund(escrow, new BigDecimal("400000.00"));
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.of(refund));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> financeService.approveRefundRequest(
+                            REFUND_ID, refundDecision(new BigDecimal("2000000.00"), "ly do")));
+            assertEquals("Số tiền hoàn được duyệt không được vượt quá số tiền escrow", ex.getMessage());
+            verify(escrowService, never()).apply(any());
+        }
+    }
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("financeRejectRefundReq")
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    class FinanceRejectRefundReq {
+
+        @org.junit.jupiter.api.BeforeEach
+        void loginAsAdmin() {
+            loginAsPlatformAdmin();
+            when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(i -> i.getArgument(0));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Admin tu choi hoan tien tren escrow thuong -> REJECTED kem ghi chu quyet dinh")
+        void utcid01_rejectNormalRefund() {
+            RefundRequest refund = pendingRefund(centerEscrow(555L), new BigDecimal("400000.00"));
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.of(refund));
+
+            financeService.rejectRefundRequest(REFUND_ID, refundDecision(null, "Khong du can cu hoan tien"));
+
+            assertEquals(RefundRequestStatus.REJECTED, refund.getStatus());
+            assertNotNull(refund.getProcessedAt());
+            assertTrue(refund.getReason().contains("Khong du can cu hoan tien"),
+                    "Ly do tu choi phai duoc noi vao reason: " + refund.getReason());
+            verify(paymentNotificationService).notifyPayment(
+                    any(User.class), eq("Yêu cầu hoàn tiền bị từ chối"), anyString(), anyString(), any());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (N) - Yeu cau gan phi trung tam dang REFUND_REQUESTED -> tra phi ve trang thai HELD")
+        void utcid02_rejectCenterFeeHold() {
+            RefundRequest refund = pendingRefund(centerEscrow(555L), new BigDecimal("200000.00"));
+            var hold = centerFeeHold();
+            hold.setStatus(com.tcs.module.finance.enums.CenterRequestFeeStatus.REFUND_REQUESTED);
+            refund.setCenterRequestFeeHold(hold);
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.of(refund));
+
+            financeService.rejectRefundRequest(REFUND_ID, refundDecision(null, "Khong hoan phi"));
+
+            assertEquals(RefundRequestStatus.REJECTED, refund.getStatus());
+            assertEquals(com.tcs.module.finance.enums.CenterRequestFeeStatus.HELD, hold.getStatus());
+            verify(centerRequestFeeHoldRepository).save(hold);
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - refundId = null -> 'refundId là bắt buộc'")
+        void utcid03_nullRefundId() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> financeService.rejectRefundRequest(null, refundDecision(null, "ly do")));
+            assertEquals("refundId là bắt buộc", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - refundId khong khop yeu cau nao -> 'Không tìm thấy yêu cầu hoàn tiền'")
+        void utcid04_refundNotFound() {
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> financeService.rejectRefundRequest(REFUND_ID, refundDecision(null, "ly do")));
+            assertEquals("Không tìm thấy yêu cầu hoàn tiền", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Yeu cau khong con o trang thai cho -> chan tu choi")
+        void utcid05_refundNotPending() {
+            RefundRequest refund = pendingRefund(centerEscrow(555L), new BigDecimal("400000.00"));
+            refund.setStatus(RefundRequestStatus.REJECTED);
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.of(refund));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> financeService.rejectRefundRequest(REFUND_ID, refundDecision(null, "ly do")));
+            assertEquals("Chỉ yêu cầu hoàn tiền đang chờ xử lý mới có thể duyệt/từ chối", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - Trung tam khong so huu lop cua yeu cau nay -> ForbiddenException")
+        void utcid06_centerDoesNotOwnClass() {
+            User centerUser = new User();
+            centerUser.setUserId(999L);
+            when(authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER))
+                    .thenReturn(new com.tcs.security.UserPrincipal(centerUser, UserRole.TUTOR_CENTER));
+            when(refundRequestRepository.findById(REFUND_ID))
+                    .thenReturn(Optional.of(pendingRefund(centerEscrow(555L), new BigDecimal("400000.00"))));
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> financeService.rejectRefundRequest(REFUND_ID, refundDecision(null, "ly do")));
+            assertEquals("Bạn chỉ có quyền xử lý yêu cầu hoàn tiền của lớp trung tâm do mình quản lý",
+                    ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID07 (N) - reason = null -> dung ly do mac dinh 'Từ chối yêu cầu hoàn tiền'")
+        void utcid07_defaultReason() {
+            RefundRequest refund = pendingRefund(centerEscrow(555L), new BigDecimal("400000.00"));
+            when(refundRequestRepository.findById(REFUND_ID)).thenReturn(Optional.of(refund));
+
+            financeService.rejectRefundRequest(REFUND_ID, refundDecision(null, null));
+
+            assertEquals(RefundRequestStatus.REJECTED, refund.getStatus());
+            assertTrue(refund.getReason().contains("Từ chối yêu cầu hoàn tiền"),
+                    "Phai dung ly do mac dinh khi khong nhap: " + refund.getReason());
+        }
+    }
+
+    /** Ban ghi giu phi xu ly yeu cau cua trung tam. */
+    private com.tcs.module.finance.entity.CenterRequestFeeHold centerFeeHold() {
+        var hold = new com.tcs.module.finance.entity.CenterRequestFeeHold();
+        hold.setFeeHoldId(60L);
+        hold.setStatus(com.tcs.module.finance.enums.CenterRequestFeeStatus.HELD);
+        hold.setAmount(new BigDecimal("200000.00"));
+        return hold;
     }
 }

@@ -160,4 +160,90 @@ class VerificationServiceImplReviewTest {
             assertEquals("Bạn không có quyền xem hồ sơ xác minh của người khác", ex.getMessage());
         }
     }
+
+    // ===================================================================
+    //  Sheet: startReview
+    //  Luu y: nhanh "review flow bi tat" khong kiem thu duoc vi
+    //  REVIEW_FLOW_ENABLED la hang so bien dich (= true) -> nhanh chet.
+    // ===================================================================
+    @Nested
+    @DisplayName("startReview")
+    class StartReview {
+
+        private static final Long ADMIN_USER_ID = 1L;
+
+        private User admin;
+
+        private void loginAsAdmin() {
+            admin = new User();
+            admin.setUserId(ADMIN_USER_ID);
+            admin.setEmail("admin@tcs.vn");
+            when(authHelper.requireRole(com.tcs.module.profile.enums.UserRole.PLATFORM_ADMIN))
+                    .thenReturn(new com.tcs.security.UserPrincipal(
+                            admin, com.tcs.module.profile.enums.UserRole.PLATFORM_ADMIN));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Ho so dang SUBMITTED, admin hop le -> chuyen sang UNDER_REVIEW + ghi lich su")
+        void utcid01_startReviewSubmitted() {
+            loginAsAdmin();
+            when(userRepository.findById(ADMIN_USER_ID)).thenReturn(Optional.of(admin));
+            when(verificationRequestRepository.save(verification)).thenReturn(verification);
+
+            service.startReview(VERIFICATION_ID);
+
+            assertEquals(VerificationStatus.UNDER_REVIEW, verification.getStatus());
+            verify(verificationRequestRepository).save(verification);
+            verify(verificationHistoryRepository).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - Ho so khong o trang thai SUBMITTED -> 'Chỉ có thể bắt đầu duyệt khi hồ sơ ở trạng thái SUBMITTED'")
+        void utcid02_notSubmitted() {
+            loginAsAdmin();
+            verification.setStatus(VerificationStatus.UNDER_REVIEW);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> service.startReview(VERIFICATION_ID));
+            assertEquals("Chỉ có thể bắt đầu duyệt khi hồ sơ ở trạng thái SUBMITTED", ex.getMessage());
+            verify(verificationRequestRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - Khong tim thay tai khoan admin dang dang nhap -> 'Admin not found: <id>'")
+        void utcid04_adminNotFound() {
+            loginAsAdmin();
+            when(userRepository.findById(ADMIN_USER_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.startReview(VERIFICATION_ID));
+            assertEquals("Admin not found: " + ADMIN_USER_ID, ex.getMessage());
+            assertEquals(VerificationStatus.SUBMITTED, verification.getStatus(),
+                    "Khong duoc doi trang thai khi chua xac dinh duoc admin");
+            verify(verificationRequestRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Nguoi dang nhap khong phai quan tri vien nen tang -> 'Không có quyền truy cập'")
+        void utcid05_notPlatformAdmin() {
+            when(authHelper.requireRole(com.tcs.module.profile.enums.UserRole.PLATFORM_ADMIN))
+                    .thenThrow(new ForbiddenException("Không có quyền truy cập"));
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.startReview(VERIFICATION_ID));
+            assertEquals("Không có quyền truy cập", ex.getMessage());
+            verify(verificationRequestRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - Ho so xac minh khong ton tai -> 'Verification not found: <id>'")
+        void utcid03_verificationNotFound() {
+            loginAsAdmin();
+            when(verificationRequestRepository.findById(VERIFICATION_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.startReview(VERIFICATION_ID));
+            assertEquals("Verification not found: " + VERIFICATION_ID, ex.getMessage());
+        }
+    }
 }

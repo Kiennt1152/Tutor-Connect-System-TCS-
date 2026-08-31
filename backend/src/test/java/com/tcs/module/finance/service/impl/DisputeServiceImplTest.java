@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
@@ -1090,5 +1091,292 @@ class DisputeServiceImplTest {
         dispute.setStatus(status);
         dispute.setCreatedAt(LocalDateTime.of(2026, 7, 15, 20, 1));
         return dispute;
+    }
+
+    // ===================================================================
+    //  Sheet createDispute - UTCID04 (A) va sheet resolveDispute - UTCID09 (A)
+    // ===================================================================
+
+    /** Sheet createDispute - UTCID04 (A): request = null -> 'Thiếu thông tin tranh chấp'. */
+    @Test
+    void createDisputeRejectsNullRequest() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> disputeService.createDispute(null));
+        assertEquals("Thiếu thông tin tranh chấp", ex.getMessage());
+        verify(reportRepository, never()).save(any());
+        verify(escrowService, never()).holdForDispute(any(), any());
+    }
+
+    /** Sheet resolveDispute - UTCID09 (A): request = null -> 'Thiếu thông tin quyết định xử lý tranh chấp'. */
+    @Test
+    void resolveDisputeRejectsNullRequest() {
+        stubAdminReviewer();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> disputeService.resolveDispute(31L, null));
+        assertEquals("Thiếu thông tin quyết định xử lý tranh chấp", ex.getMessage());
+        verify(disputeRepository, never()).findById(any());
+        verify(disputeRepository, never()).save(any());
+    }
+
+    // =====================================================================================
+    //  Sheet: createClassIssue (bao cao su co lop hoc - UC-29)
+    // =====================================================================================
+    @org.junit.jupiter.api.Nested
+    @org.junit.jupiter.api.DisplayName("createClassIssue")
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    class CreateClassIssue {
+
+        private static final Long ISSUE_CLASS_ID = 99L;
+        private static final String VALID_DESCRIPTION = "Gia su khong tham gia buoi hoc theo lich da hen";
+
+        private User reporter;
+        private TutoringClass tutoringClass;
+
+        @org.junit.jupiter.api.BeforeEach
+        void initClassIssue() {
+            reporter = user(USER_ID, "nguoibaocao@tcs.com");
+            tutoringClass = new TutoringClass();
+            tutoringClass.setClassId(ISSUE_CLASS_ID);
+            tutoringClass.setCreator(reporter);
+            tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
+            tutoringClass.setClassType(ClassType.PRIVATE);
+
+            when(authHelper.currentUserId()).thenReturn(USER_ID);
+            when(userRepository.findById(USER_ID)).thenReturn(Optional.of(reporter));
+            when(tutoringClassRepository.findById(ISSUE_CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+            when(reportRepository.findByReporter_UserIdAndTargetTypeAndTargetIdAndStatusOrderByCreatedAtDesc(
+                    USER_ID, ReportTargetType.CLASS, ISSUE_CLASS_ID, ReportStatus.PENDING))
+                    .thenReturn(List.of());
+            when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
+                Report r = invocation.getArgument(0);
+                r.setReportId(21L);
+                r.setCreatedAt(LocalDateTime.of(2026, 7, 15, 20, 0));
+                return r;
+            });
+        }
+
+        /** Yeu cau bao cao hop le, khong leo thang thanh tranh chap. */
+        private CreateClassIssueRequest request() {
+            CreateClassIssueRequest request = new CreateClassIssueRequest();
+            request.setClassId(ISSUE_CLASS_ID);
+            request.setIssueType(ClassIssueType.TUTOR_ABSENT);
+            request.setRequestedAction(ClassIssueRequestedAction.RESCHEDULE);
+            request.setLessonRef("Buoi 3");
+            request.setOccurredAt(LocalDate.now().minusDays(1));
+            request.setDescription(VALID_DESCRIPTION);
+            return request;
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID01 (N) - Lop dang dien ra, nguoi bao cao la thanh vien, hanh dong khong leo thang -> chi tao Report")
+        void utcid01_createReportOnly() {
+            DisputeResponse response = disputeService.createClassIssue(request());
+
+            assertFalse(response.getEscalatedToDispute());
+            assertNull(response.getDisputeId());
+            assertEquals(21L, response.getReportId());
+            verify(escrowService, never()).holdForDispute(any(), any());
+            verify(disputeRepository, never()).save(any(Dispute.class));
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID02 (N) - requestedAction = ESCALATE_DISPUTE -> tao them tranh chap tren escrow")
+        void utcid02_escalatesToDispute() {
+            // Escrow gan voi ghi danh cua chinh nguoi bao cao trong lop nay.
+            ClassStudent enrollment = new ClassStudent();
+            enrollment.setClassStudentId(8L);
+            enrollment.setTutoringClass(tutoringClass);
+            enrollment.setEnrolledByUser(reporter);
+            EscrowTransaction escrow = escrow(71L, EscrowStatus.FUNDED);
+            escrow.setClassStudent(enrollment);
+
+            CreateClassIssueRequest request = request();
+            request.setRequestedAction(ClassIssueRequestedAction.ESCALATE_DISPUTE);
+            request.setEscrowId(71L);
+
+            when(escrowTransactionRepository.findById(71L)).thenReturn(Optional.of(escrow));
+            when(escrowService.holdForDispute(org.mockito.ArgumentMatchers.eq(71L), any())).thenReturn(escrow);
+            when(disputeRepository.save(any(Dispute.class))).thenAnswer(invocation -> {
+                Dispute d = invocation.getArgument(0);
+                d.setDisputeId(31L);
+                return d;
+            });
+
+            DisputeResponse response = disputeService.createClassIssue(request);
+
+            assertTrue(response.getEscalatedToDispute());
+            assertEquals(31L, response.getDisputeId());
+            verify(escrowService).holdForDispute(org.mockito.ArgumentMatchers.eq(71L), any());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID03 (A) - request = null -> 'Thiếu thông tin báo cáo lớp học'")
+        void utcid03_nullRequest() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> disputeService.createClassIssue(null));
+            assertEquals("Thiếu thông tin báo cáo lớp học", ex.getMessage());
+            verify(reportRepository, never()).save(any());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID04 (A) - classId = null -> 'classId là bắt buộc'")
+        void utcid04_nullClassId() {
+            CreateClassIssueRequest request = request();
+            request.setClassId(null);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> disputeService.createClassIssue(request));
+            assertEquals("classId là bắt buộc", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID05 (A) - issueType = null -> 'Loại sự cố là bắt buộc'")
+        void utcid05_nullIssueType() {
+            CreateClassIssueRequest request = request();
+            request.setIssueType(null);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> disputeService.createClassIssue(request));
+            assertEquals("Loại sự cố là bắt buộc", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID06 (A) - requestedAction = null -> 'Hướng xử lý mong muốn là bắt buộc'")
+        void utcid06_nullRequestedAction() {
+            CreateClassIssueRequest request = request();
+            request.setRequestedAction(null);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> disputeService.createClassIssue(request));
+            assertEquals("Hướng xử lý mong muốn là bắt buộc", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID07 (A) - description rong -> 'Mô tả báo cáo là bắt buộc'")
+        void utcid07_blankDescription() {
+            CreateClassIssueRequest request = request();
+            request.setDescription("   ");
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> disputeService.createClassIssue(request));
+            assertEquals("Mô tả báo cáo là bắt buộc", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID08 (B) - description 19 ky tu (duoi can duoi) -> 'Mô tả báo cáo phải có ít nhất 20 ký tự'")
+        void utcid08_descriptionOneCharTooShort() {
+            CreateClassIssueRequest request = request();
+            request.setDescription("a".repeat(19));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> disputeService.createClassIssue(request));
+            assertEquals("Mô tả báo cáo phải có ít nhất 20 ký tự", ex.getMessage());
+            verify(reportRepository, never()).save(any());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID09 (B) - description dung 20 ky tu (dung can duoi) -> chap nhan")
+        void utcid09_descriptionAtBoundary() {
+            CreateClassIssueRequest request = request();
+            request.setDescription("a".repeat(20));
+
+            DisputeResponse response = disputeService.createClassIssue(request);
+
+            assertEquals(21L, response.getReportId());
+            verify(reportRepository).save(any(Report.class));
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID10 (A) - occurredAt o tuong lai -> 'Ngày xảy ra sự cố không được ở tương lai'")
+        void utcid10_futureOccurredAt() {
+            CreateClassIssueRequest request = request();
+            request.setOccurredAt(LocalDate.now().plusDays(1));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> disputeService.createClassIssue(request));
+            assertEquals("Ngày xảy ra sự cố không được ở tương lai", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID11 (A) - classId khong khop lop nao -> 'Không tìm thấy lớp học'")
+        void utcid11_classNotFound() {
+            when(tutoringClassRepository.findById(ISSUE_CLASS_ID)).thenReturn(Optional.empty());
+
+            com.tcs.exception.ResourceNotFoundException ex = assertThrows(
+                    com.tcs.exception.ResourceNotFoundException.class,
+                    () -> disputeService.createClassIssue(request()));
+            assertEquals("Không tìm thấy lớp học", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID12 (A) - Lop o trang thai DRAFT/OPEN/COMPLETED/CANCELLED -> khong cho bao cao")
+        void utcid12_classStatusNotReportable() {
+            tutoringClass.setStatus(TutoringClassStatus.COMPLETED);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> disputeService.createClassIssue(request()));
+            assertEquals("Chỉ có thể báo cáo sự cố cho lớp đã ghép/đang diễn ra hoặc đang tranh chấp",
+                    ex.getMessage());
+            verify(reportRepository, never()).save(any());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID13 (A) - Nguoi bao cao khong phai thanh vien lop -> 'Bạn không có quyền báo cáo lớp học này'")
+        void utcid13_reporterIsNotAParticipant() {
+            User owner = user(555L, "chulop@tcs.com");
+            tutoringClass.setCreator(owner);
+            when(classStudentRepository.existsByTutoringClass_ClassIdAndEnrolledByUser_UserId(
+                    ISSUE_CLASS_ID, USER_ID)).thenReturn(false);
+            when(classAssignmentRepository.findByApplication_TutoringClass_ClassIdAndStatus(
+                    org.mockito.ArgumentMatchers.eq(ISSUE_CLASS_ID), any())).thenReturn(List.of());
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> disputeService.createClassIssue(request()));
+            assertEquals("Bạn không có quyền báo cáo lớp học này", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID14 (A) - Gia su lop trung tam yeu cau hanh dong leo thang -> ForbiddenException")
+        void utcid14_centerTutorCannotEscalate() {
+            User centerUser = user(555L, "trungtam@tcs.com");
+            tutoringClass.setCreator(centerUser);
+            tutoringClass.setClassType(ClassType.CENTER);
+
+            ClassAssignment tutorAssignment = assignment(7L, reporter, tutoringClass);
+            tutorAssignment.setStatus(ClassAssignmentStatus.ACTIVE);
+            when(classStudentRepository.existsByTutoringClass_ClassIdAndEnrolledByUser_UserId(
+                    ISSUE_CLASS_ID, USER_ID)).thenReturn(false);
+            when(classAssignmentRepository.findByApplication_TutoringClass_ClassIdAndStatus(
+                    org.mockito.ArgumentMatchers.eq(ISSUE_CLASS_ID), any()))
+                    .thenReturn(List.of(tutorAssignment));
+
+            CreateClassIssueRequest request = request();
+            request.setRequestedAction(ClassIssueRequestedAction.ESCALATE_DISPUTE);
+            request.setAssignmentId(7L);
+            when(classAssignmentRepository.findById(7L)).thenReturn(Optional.of(tutorAssignment));
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> disputeService.createClassIssue(request));
+            assertEquals("Gia sư không thể tạo tranh chấp hoặc yêu cầu chấm dứt sớm cho lớp trung tâm",
+                    ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID15 (A) - Da co bao cao PENDING cung loai su co -> chan tao trung")
+        void utcid15_duplicatePendingReport() {
+            Report existing = report(20L, reporter, ReportTargetType.CLASS, ISSUE_CLASS_ID,
+                    ReportCategory.SPAM,
+                    "[UC-29] Báo cáo sự cố lớp học\nMã loại sự cố: TUTOR_ABSENT\n");
+            when(reportRepository.findByReporter_UserIdAndTargetTypeAndTargetIdAndStatusOrderByCreatedAtDesc(
+                    USER_ID, ReportTargetType.CLASS, ISSUE_CLASS_ID, ReportStatus.PENDING))
+                    .thenReturn(List.of(existing));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> disputeService.createClassIssue(request()));
+            assertTrue(ex.getMessage().contains("đã có báo cáo sự cố cùng loại đang mở"),
+                    "Phai bao trung loai su co: " + ex.getMessage());
+            verify(reportRepository, never()).save(any());
+        }
     }
 }

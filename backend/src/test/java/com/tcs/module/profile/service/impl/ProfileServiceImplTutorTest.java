@@ -221,6 +221,17 @@ class ProfileServiceImplTutorTest {
                     () -> service.deleteExperience(EXPERIENCE_ID));
             assertEquals("Không tìm thấy kinh nghiệm", ex.getMessage());
         }
+
+        @Test
+        @DisplayName("UTCID04 (A) - Tài khoản đăng nhập không có hồ sơ gia sư -> ResourceNotFoundException")
+        void utcid04_noTutorProfile() {
+            when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.deleteExperience(EXPERIENCE_ID));
+            assertEquals("Không tìm thấy hồ sơ gia sư", ex.getMessage());
+            verify(tutorExperienceRepository, never()).delete(any());
+        }
     }
 
     // ===================================================================

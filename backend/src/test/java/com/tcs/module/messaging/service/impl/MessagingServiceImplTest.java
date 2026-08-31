@@ -63,6 +63,8 @@ class MessagingServiceImplTest {
     private NotificationDispatchService notificationDispatchService;
     @Mock
     private PlatformAdminRepository platformAdminRepository;
+    @Mock
+    private com.tcs.module.platform.repository.ReportRepository reportRepository;
 
     @InjectMocks
     private MessagingServiceImpl messagingService;
@@ -226,5 +228,257 @@ class MessagingServiceImplTest {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
 
         assertThrows(IllegalArgumentException.class, () -> messagingService.reopenSupportTicket(TICKET_ID));
+    }
+
+    // ===================================================================
+    //  Sheet: markNotificationAsRead
+    // ===================================================================
+    @org.junit.jupiter.api.Nested
+    @org.junit.jupiter.api.DisplayName("markNotificationAsRead")
+    class MarkNotificationAsRead {
+
+        private static final Long NOTI_ID = 55L;
+
+        private com.tcs.module.messaging.entity.Notification notification(User owner) {
+            var n = new com.tcs.module.messaging.entity.Notification();
+            n.setUser(owner);
+            n.setIsRead(false);
+            return n;
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID01 (N) - thong bao cua chinh minh -> danh dau da doc va luu")
+        void utcid01_markOwnNotification() {
+            var n = notification(user);
+            when(notificationRepository.findById(NOTI_ID)).thenReturn(java.util.Optional.of(n));
+            when(authHelper.currentUserId()).thenReturn(USER_ID);
+
+            messagingService.markAsRead(NOTI_ID);
+
+            org.junit.jupiter.api.Assertions.assertTrue(n.getIsRead());
+            org.junit.jupiter.api.Assertions.assertNotNull(n.getReadAt());
+            verify(notificationRepository).save(n);
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID02 (A) - thong bao cua nguoi khac -> 'Không có quyền cập nhật thông báo này'")
+        void utcid02_notOwner() {
+            User other = new User();
+            other.setUserId(OTHER_USER_ID);
+            when(notificationRepository.findById(NOTI_ID)).thenReturn(java.util.Optional.of(notification(other)));
+            when(authHelper.currentUserId()).thenReturn(USER_ID);
+
+            var ex = assertThrows(com.tcs.exception.ForbiddenException.class,
+                    () -> messagingService.markAsRead(NOTI_ID));
+            assertEquals("Không có quyền cập nhật thông báo này", ex.getMessage());
+            verify(notificationRepository, never()).save(org.mockito.ArgumentMatchers.any());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID03 (A) - notificationId khong ton tai -> 'Không tìm thấy thông báo'")
+        void utcid03_notFound() {
+            when(notificationRepository.findById(NOTI_ID)).thenReturn(java.util.Optional.empty());
+
+            var ex = assertThrows(com.tcs.exception.ResourceNotFoundException.class,
+                    () -> messagingService.markAsRead(NOTI_ID));
+            assertEquals("Không tìm thấy thông báo", ex.getMessage());
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: createReport
+    // ===================================================================
+    @org.junit.jupiter.api.Nested
+    @org.junit.jupiter.api.DisplayName("createReport")
+    class CreateReport {
+
+        private static final Long TARGET_ID = 777L;
+
+        private com.tcs.module.messaging.dto.request.CreateReportRequest req(String description, Long targetId) {
+            var r = new com.tcs.module.messaging.dto.request.CreateReportRequest();
+            r.setTargetType(com.tcs.module.platform.enums.ReportTargetType.USER);
+            r.setTargetId(targetId);
+            r.setCategory(com.tcs.module.platform.enums.ReportCategory.OTHER);
+            r.setDescription(description);
+            return r;
+        }
+
+        private void givenReporter() {
+            when(authHelper.currentUserId()).thenReturn(USER_ID);
+            when(userRepository.findById(USER_ID)).thenReturn(java.util.Optional.of(user));
+        }
+
+        private void givenUnderDailyLimit(long count) {
+            when(reportRepository.countByReporter_UserIdAndCreatedAtAfter(
+                    org.mockito.ArgumentMatchers.eq(USER_ID), org.mockito.ArgumentMatchers.any()))
+                    .thenReturn(count);
+        }
+
+        private void givenTargetUserExists() {
+            when(userRepository.findById(TARGET_ID)).thenReturn(java.util.Optional.of(new User()));
+        }
+
+        private void givenNoPendingReport() {
+            when(reportRepository.findByReporter_UserIdAndTargetTypeAndTargetIdAndStatusOrderByCreatedAtDesc(
+                    USER_ID, com.tcs.module.platform.enums.ReportTargetType.USER, TARGET_ID,
+                    com.tcs.module.platform.enums.ReportStatus.PENDING)).thenReturn(java.util.List.of());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID01 (N) - du thong tin, mo ta du dai, chua vuot han muc -> tao bao cao")
+        void utcid01_createSuccessfully() {
+            givenReporter();
+            givenUnderDailyLimit(0);
+            givenTargetUserExists();
+            givenNoPendingReport();
+            when(reportRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+            messagingService.createReport(req("Nguoi nay co hanh vi khong dung muc", TARGET_ID));
+
+            verify(reportRepository).save(org.mockito.ArgumentMatchers.any());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID02 (A) - thieu targetType/targetId/category -> 'targetType, targetId và category là bắt buộc'")
+        void utcid02_missingFields() {
+            var r = req("Mo ta du dai cho hop le", TARGET_ID);
+            r.setTargetId(null);
+
+            var ex = assertThrows(IllegalArgumentException.class, () -> messagingService.createReport(r));
+            assertEquals("targetType, targetId và category là bắt buộc", ex.getMessage());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID03 (B) - mo ta ngan hon 10 ky tu -> 'Mô tả báo cáo phải có ít nhất 10 ký tự.'")
+        void utcid03_descriptionTooShort() {
+            givenReporter();
+
+            var ex = assertThrows(IllegalArgumentException.class,
+                    () -> messagingService.createReport(req("ngan", TARGET_ID)));
+            assertEquals("Mô tả báo cáo phải có ít nhất 10 ký tự.", ex.getMessage());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID04 (B) - da gui 5 bao cao trong 24 gio -> 'Bạn đã đạt giới hạn 5 báo cáo trong 24 giờ.'")
+        void utcid04_dailyLimitReached() {
+            givenReporter();
+            givenUnderDailyLimit(5);
+
+            var ex = assertThrows(IllegalArgumentException.class,
+                    () -> messagingService.createReport(req("Mo ta du dai cho hop le", TARGET_ID)));
+            assertEquals("Bạn đã đạt giới hạn 5 báo cáo trong 24 giờ.", ex.getMessage());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID05 (A) - tu bao cao chinh minh -> 'Không thể báo cáo chính mình.'")
+        void utcid05_reportSelf() {
+            givenReporter();
+            givenUnderDailyLimit(0);
+
+            var ex = assertThrows(IllegalArgumentException.class,
+                    () -> messagingService.createReport(req("Mo ta du dai cho hop le", USER_ID)));
+            assertEquals("Không thể báo cáo chính mình.", ex.getMessage());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID06 (A) - da co bao cao dang cho cho cung doi tuong -> chan tao trung")
+        void utcid06_duplicatePendingReport() {
+            givenReporter();
+            givenUnderDailyLimit(0);
+            givenTargetUserExists();
+            when(reportRepository.findByReporter_UserIdAndTargetTypeAndTargetIdAndStatusOrderByCreatedAtDesc(
+                    USER_ID, com.tcs.module.platform.enums.ReportTargetType.USER, TARGET_ID,
+                    com.tcs.module.platform.enums.ReportStatus.PENDING))
+                    .thenReturn(java.util.List.of(new com.tcs.module.platform.entity.Report()));
+
+            var ex = assertThrows(IllegalArgumentException.class,
+                    () -> messagingService.createReport(req("Mo ta du dai cho hop le", TARGET_ID)));
+            assertEquals("Bạn đã có một báo cáo đang chờ xử lý cho đối tượng này.", ex.getMessage());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID07 (A) - nguoi bi bao cao khong ton tai -> 'Không tìm thấy người dùng bị báo cáo.'")
+        void utcid07_targetUserNotFound() {
+            givenReporter();
+            givenUnderDailyLimit(0);
+            when(userRepository.findById(TARGET_ID)).thenReturn(java.util.Optional.empty());
+
+            var ex = assertThrows(com.tcs.exception.ResourceNotFoundException.class,
+                    () -> messagingService.createReport(req("Mo ta du dai cho hop le", TARGET_ID)));
+            assertEquals("Không tìm thấy người dùng bị báo cáo.", ex.getMessage());
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: replySupportTicket
+    // ===================================================================
+    @org.junit.jupiter.api.Nested
+    @org.junit.jupiter.api.DisplayName("replySupportTicket")
+    class ReplySupportTicket {
+
+        private com.tcs.module.messaging.dto.request.ReplyTicketRequest reply() {
+            var r = new com.tcs.module.messaging.dto.request.ReplyTicketRequest();
+            r.setContent("Em van chua nhan duoc phan hoi ạ");
+            return r;
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID01 (N) - chu ticket, ticket con mo -> tao TicketMessage cua nguoi dung")
+        void utcid01_replySuccessfully() {
+            when(supportTicketRepository.findById(TICKET_ID)).thenReturn(java.util.Optional.of(ticket));
+            when(authHelper.currentUserId()).thenReturn(USER_ID);
+            when(userRepository.findById(USER_ID)).thenReturn(java.util.Optional.of(user));
+            when(ticketMessageRepository.save(org.mockito.ArgumentMatchers.any()))
+                    .thenAnswer(i -> i.getArgument(0));
+
+            messagingService.replySupportTicket(TICKET_ID, reply());
+
+            verify(ticketMessageRepository).save(org.mockito.ArgumentMatchers.any());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID02 (A) - ticket cua nguoi khac -> 'Không có quyền phản hồi yêu cầu hỗ trợ này'")
+        void utcid02_notOwner() {
+            when(supportTicketRepository.findById(TICKET_ID)).thenReturn(java.util.Optional.of(ticket));
+            when(authHelper.currentUserId()).thenReturn(OTHER_USER_ID);
+
+            var ex = assertThrows(com.tcs.exception.ForbiddenException.class,
+                    () -> messagingService.replySupportTicket(TICKET_ID, reply()));
+            assertEquals("Không có quyền phản hồi yêu cầu hỗ trợ này", ex.getMessage());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID03 (A) - ticket da dong/da giai quyet -> chan phan hoi")
+        void utcid03_ticketClosed() {
+            ticket.setStatus(SupportTicketStatus.CLOSED);
+            when(supportTicketRepository.findById(TICKET_ID)).thenReturn(java.util.Optional.of(ticket));
+            when(authHelper.currentUserId()).thenReturn(USER_ID);
+
+            var ex = assertThrows(IllegalArgumentException.class,
+                    () -> messagingService.replySupportTicket(TICKET_ID, reply()));
+            assertEquals("Không thể phản hồi yêu cầu hỗ trợ đã đóng hoặc đã giải quyết", ex.getMessage());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID04 (A) - ticketId khong ton tai -> 'Không tìm thấy yêu cầu hỗ trợ'")
+        void utcid04_ticketNotFound() {
+            when(supportTicketRepository.findById(TICKET_ID)).thenReturn(java.util.Optional.empty());
+
+            var ex = assertThrows(com.tcs.exception.ResourceNotFoundException.class,
+                    () -> messagingService.replySupportTicket(TICKET_ID, reply()));
+            assertEquals("Không tìm thấy yêu cầu hỗ trợ", ex.getMessage());
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID05 (A) - khong load duoc nguoi gui -> 'Không tìm thấy người dùng'")
+        void utcid05_senderNotFound() {
+            when(supportTicketRepository.findById(TICKET_ID)).thenReturn(java.util.Optional.of(ticket));
+            when(authHelper.currentUserId()).thenReturn(USER_ID);
+            when(userRepository.findById(USER_ID)).thenReturn(java.util.Optional.empty());
+
+            var ex = assertThrows(com.tcs.exception.ResourceNotFoundException.class,
+                    () -> messagingService.replySupportTicket(TICKET_ID, reply()));
+            assertEquals("Không tìm thấy người dùng", ex.getMessage());
+        }
     }
 }

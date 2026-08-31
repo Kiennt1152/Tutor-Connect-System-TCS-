@@ -249,6 +249,36 @@ class PlatformServiceImplTicketTest {
         verify(supportTicketRepository, never()).save(any());
     }
 
+    /** Sheet updateTicket - UTCID07 (A): ticketId khong khop ticket nao. */
+    @Test
+    @DisplayName("updateTicket: ticketId không tồn tại -> 'Không tìm thấy yêu cầu hỗ trợ'")
+    void updateTicket_RejectsUnknownTicketId() {
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.empty());
+        UpdateTicketRequest request = new UpdateTicketRequest();
+        request.setPriority(SupportTicketPriority.URGENT);
+
+        com.tcs.exception.ResourceNotFoundException ex = assertThrows(
+                com.tcs.exception.ResourceNotFoundException.class,
+                () -> platformService.updateTicket(TICKET_ID, request));
+        assertEquals("Không tìm thấy yêu cầu hỗ trợ", ex.getMessage());
+        verify(supportTicketRepository, never()).save(any());
+    }
+
+    /** Sheet updateTicket - UTCID08 (B): gia tri gui len trung khop gia tri hien tai. */
+    @Test
+    @DisplayName("updateTicket: category và priority trùng giá trị hiện tại -> 'Ticket không có thay đổi để lưu'")
+    void updateTicket_RejectsUnchangedValues() {
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        UpdateTicketRequest noOp = new UpdateTicketRequest();
+        noOp.setCategory(ticket.getCategory());
+        noOp.setPriority(ticket.getPriority());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> platformService.updateTicket(TICKET_ID, noOp));
+        assertEquals("Ticket không có thay đổi để lưu", ex.getMessage());
+        verify(supportTicketRepository, never()).save(any());
+    }
+
     @Test
     @DisplayName("getTicketDetail: trả về đầy đủ thông tin ticket bao gồm dueAt, slaBreached, responseSlaMs")
     void getTicketDetail_Success() {
