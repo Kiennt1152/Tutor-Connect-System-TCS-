@@ -121,7 +121,8 @@ class MessagingServiceImplTest {
         verify(ticketMessageRepository, times(1)).save(any(TicketMessage.class));
         verify(notificationDispatchService).notifyUserFromTemplate(
                 eq(activeAdminUser), eq(NotificationType.SYSTEM), eq("SUPPORT_TICKET_CREATED"),
-                any(Map.class), eq("Yêu cầu hỗ trợ mới #1"), anyString(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+                org.mockito.ArgumentMatchers.<Map<String, ?>>any(),
+                eq("Yêu cầu hỗ trợ mới #1"), anyString(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
         verify(notificationDispatchService, times(1)).notifyUserFromTemplate(
                 any(), any(), anyString(), any(), anyString(), anyString(), anyString(), anyLong());
     }
@@ -209,12 +210,14 @@ class MessagingServiceImplTest {
         // Verify admin notification
         verify(notificationDispatchService).notifyUserFromTemplate(
                 eq(activeAdminUser), eq(NotificationType.SYSTEM), eq("SUPPORT_TICKET_REOPENED"),
-                any(Map.class), eq("Yêu cầu hỗ trợ #1 đã được mở lại"), anyString(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+                org.mockito.ArgumentMatchers.<Map<String, ?>>any(),
+                eq("Yêu cầu hỗ trợ #1 đã được mở lại"), anyString(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
 
         // Verify user notification
         verify(notificationDispatchService).notifyUserFromTemplate(
                 eq(user), eq(NotificationType.SYSTEM), eq("SUPPORT_TICKET_REOPENED_USER"),
-                any(Map.class), eq("Yêu cầu hỗ trợ #1 đã mở lại"), anyString(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
+                org.mockito.ArgumentMatchers.<Map<String, ?>>any(),
+                eq("Yêu cầu hỗ trợ #1 đã mở lại"), anyString(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
     }
 
     @Test
