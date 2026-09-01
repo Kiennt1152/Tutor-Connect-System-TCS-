@@ -108,6 +108,7 @@ class IdentityServiceImplTest {
     // REGISTER TESTS (TC-UNIT-IdentityService-001 -> 013)
     // =========================================================================================
 
+    /** Sheet register - UTCID01 (N): token hợp lệ, email/phone chưa tồn tại, mật khẩu hợp lệ -> tạo tài khoản ACTIVE. */
     @Test
     void TC_UNIT_IdentityService_001_register_happyPath() {
         RegisterRequest req = new RegisterRequest();
@@ -142,6 +143,7 @@ class IdentityServiceImplTest {
         verify(clientRepository).save(any(Client.class));
     }
 
+    /** Sheet register - UTCID02 (A): confirmPassword không khớp password. */
     @Test
     void TC_UNIT_IdentityService_002_register_confirmPasswordMismatch() {
         RegisterRequest req = new RegisterRequest();
@@ -154,6 +156,7 @@ class IdentityServiceImplTest {
         verify(userRepository, never()).save(any());
     }
 
+    /** Sheet register - UTCID03 (B): mật khẩu 7 ký tự (ngay dưới ngưỡng 8). */
     @Test
     void TC_UNIT_IdentityService_003_register_passwordTooShort() {
         RegisterRequest req = new RegisterRequest();
@@ -165,6 +168,7 @@ class IdentityServiceImplTest {
         assertEquals("Mật khẩu phải có ít nhất 8 ký tự, gồm cả chữ và số", ex.getMessage());
     }
 
+    /** Sheet register - UTCID04 (B): mật khẩu đúng 8 ký tự có chữ và số (ngay tại ngưỡng). */
     @Test
     void TC_UNIT_IdentityService_004_register_passwordValid() {
         RegisterRequest req = new RegisterRequest();
@@ -187,6 +191,7 @@ class IdentityServiceImplTest {
         assertDoesNotThrow(() -> identityService.register(req));
     }
 
+    /** Sheet register - UTCID05 (A): mật khẩu không có chữ số. */
     @Test
     void TC_UNIT_IdentityService_005_register_passwordMissingDigits() {
         RegisterRequest req = new RegisterRequest();
@@ -198,6 +203,7 @@ class IdentityServiceImplTest {
         assertEquals("Mật khẩu phải có ít nhất 8 ký tự, gồm cả chữ và số", ex.getMessage());
     }
 
+    /** Sheet register - UTCID06 (A): mật khẩu chứa ký tự có dấu (ngoài ASCII). */
     @Test
     void TC_UNIT_IdentityService_006_register_passwordNonAscii() {
         RegisterRequest req = new RegisterRequest();
@@ -209,6 +215,7 @@ class IdentityServiceImplTest {
         assertEquals("Mật khẩu không được chứa ký tự có dấu hoặc ký tự không thuộc ASCII", ex.getMessage());
     }
 
+    /** Sheet register - UTCID07 (A): đăng ký với role PLATFORM_ADMIN. */
     @Test
     void TC_UNIT_IdentityService_007_register_rolePlatformAdmin() {
         RegisterRequest req = new RegisterRequest();
@@ -221,6 +228,7 @@ class IdentityServiceImplTest {
         assertEquals("Vai trò đăng ký không hợp lệ", ex.getMessage());
     }
 
+    /** Sheet register - UTCID08 (A): không tìm thấy phiên xác thực email. */
     @Test
     void TC_UNIT_IdentityService_008_register_verifiedTokenNotFound() {
         RegisterRequest req = new RegisterRequest();
@@ -236,6 +244,7 @@ class IdentityServiceImplTest {
         assertEquals("Phiên xác thực email không hợp lệ. Vui lòng xác thực lại email.", ex.getMessage());
     }
 
+    /** Sheet register - UTCID09 (A): phiên xác thực email đã được sử dụng. */
     @Test
     void TC_UNIT_IdentityService_009_register_verifiedTokenConsumed() {
         RegisterRequest req = new RegisterRequest();
@@ -254,7 +263,7 @@ class IdentityServiceImplTest {
         assertEquals("Phiên xác thực email đã được sử dụng. Vui lòng xác thực lại email.", ex.getMessage());
     }
 
-    /** Sheet register - UTCID08 (B): phiên xác thực email đã hết hạn. */
+    /** Sheet register - UTCID10 (A): phiên xác thực email đã hết hạn. */
     @Test
     void TC_UNIT_IdentityService_009b_register_verifiedTokenExpired() {
         RegisterRequest req = new RegisterRequest();
@@ -274,6 +283,7 @@ class IdentityServiceImplTest {
         assertEquals("Phiên xác thực email đã hết hạn. Vui lòng xác thực lại email.", ex.getMessage());
     }
 
+    /** Sheet register - UTCID11 (A): token gắn với email khác email đăng ký. */
     @Test
     void TC_UNIT_IdentityService_010_register_verifiedTokenEmailMismatch() {
         RegisterRequest req = new RegisterRequest();
@@ -293,6 +303,7 @@ class IdentityServiceImplTest {
         assertEquals("Mã xác thực email không khớp với email đăng ký.", ex.getMessage());
     }
 
+    /** Sheet register - UTCID12 (A): email đã có tài khoản ACTIVE. */
     @Test
     void TC_UNIT_IdentityService_011_register_emailExists() {
         RegisterRequest req = new RegisterRequest();
@@ -316,6 +327,7 @@ class IdentityServiceImplTest {
         assertEquals("Email này đã được đăng ký", ex.getMessage());
     }
 
+    /** Sheet register - UTCID13 (A): email đã bị khóa. */
     @Test
     void TC_UNIT_IdentityService_012_register_emailBanned() {
         RegisterRequest req = new RegisterRequest();
@@ -339,6 +351,7 @@ class IdentityServiceImplTest {
         assertEquals("Email này đã bị khóa và không thể đăng ký tài khoản mới.", ex.getMessage());
     }
 
+    /** Sheet register - UTCID14 (A): số điện thoại đã được sử dụng. */
     @Test
     void TC_UNIT_IdentityService_013_register_phoneExists() {
         RegisterRequest req = new RegisterRequest();
@@ -366,6 +379,7 @@ class IdentityServiceImplTest {
     // VERIFY OTP TESTS (TC-UNIT-IdentityService-014 -> 018)
     // =========================================================================================
 
+    /** Sheet verifyOTP - UTCID01 (N): mã đúng, chưa hết hạn -> cấp EmailVerificationToken. */
     @Test
     void TC_UNIT_IdentityService_014_verifyOtp_happyPath() {
         VerifyOtpRequest req = new VerifyOtpRequest();
@@ -484,6 +498,7 @@ class IdentityServiceImplTest {
         assertEquals("Bạn đã nhập sai quá số lần cho phép. Vui lòng yêu cầu mã mới.", ex.getMessage());
     }
 
+    /** Sheet verifyOTP - UTCID03 (B): bản ghi OTP đã hết hạn. */
     @Test
     void TC_UNIT_IdentityService_015_verifyOtp_otpExpired() {
         VerifyOtpRequest req = new VerifyOtpRequest();
@@ -500,6 +515,7 @@ class IdentityServiceImplTest {
         assertEquals("Mã xác thực đã hết hạn. Vui lòng yêu cầu gửi lại mã.", ex.getMessage());
     }
 
+    /** Sheet verifyOTP - UTCID05 (B): OTP sai khi attempts = 3 -> còn 1 lượt thử. */
     @Test
     void TC_UNIT_IdentityService_016_verifyOtp_wrongOtp_underLimit() {
         VerifyOtpRequest req = new VerifyOtpRequest();
@@ -520,6 +536,7 @@ class IdentityServiceImplTest {
         verify(emailOtpRepository).save(otp);
     }
 
+    /** Sheet verifyOTP - UTCID06 (B): OTP sai khi attempts = 4 -> chạm ngưỡng 5, khoá mã. */
     @Test
     void TC_UNIT_IdentityService_017_verifyOtp_wrongOtp_reachLimit() {
         VerifyOtpRequest req = new VerifyOtpRequest();
@@ -539,6 +556,7 @@ class IdentityServiceImplTest {
         assertEquals(5, otp.getAttempts());
     }
 
+    /** Sheet verifyOTP - UTCID02 (A): không tìm thấy bản ghi OTP chưa dùng. */
     @Test
     void TC_UNIT_IdentityService_018_verifyOtp_notFound() {
         VerifyOtpRequest req = new VerifyOtpRequest();
@@ -557,6 +575,7 @@ class IdentityServiceImplTest {
     // LOGIN TESTS (TC-UNIT-IdentityService-019 -> 022)
     // =========================================================================================
 
+    /** Sheet login - UTCID01 (N): email ACTIVE + mật khẩu khớp -> cấp JWT. */
     @Test
     void TC_UNIT_IdentityService_019_login_happyPath() {
         LoginRequest req = new LoginRequest();
@@ -584,6 +603,7 @@ class IdentityServiceImplTest {
         verify(userRepository).save(user);
     }
 
+    /** Sheet login - UTCID04 (A): tài khoản đã bị khóa. */
     @Test
     void TC_UNIT_IdentityService_020_login_bannedUser() {
         LoginRequest req = new LoginRequest();
@@ -600,6 +620,7 @@ class IdentityServiceImplTest {
         verify(passwordEncoder, never()).matches(anyString(), anyString());
     }
 
+    /** Sheet login - UTCID05 (A): tài khoản đang bị tạm ngừng (ca trùng với 020b). */
     @Test
     void login_suspendedUser_isRejected() {
         LoginRequest req = new LoginRequest();
@@ -616,6 +637,7 @@ class IdentityServiceImplTest {
         verify(passwordEncoder, never()).matches(anyString(), anyString());
     }
 
+    /** Ngoài phạm vi Report 5.1 (không có sheet logout) - test bổ sung cho luồng đăng xuất. */
     @Test
     void logout_incrementsTokenVersionAndWritesAudit() {
         User user = new User();
@@ -651,6 +673,7 @@ class IdentityServiceImplTest {
         verify(passwordEncoder, never()).matches(anyString(), anyString());
     }
 
+    /** Sheet login - UTCID03 (A): mật khẩu không khớp hash đã lưu. */
     @Test
     void TC_UNIT_IdentityService_021_login_wrongPassword() {
         LoginRequest req = new LoginRequest();
@@ -668,6 +691,7 @@ class IdentityServiceImplTest {
         assertEquals("Email hoặc mật khẩu không đúng", ex.getMessage());
     }
 
+    /** Sheet login - UTCID02 (A): email không tồn tại trong hệ thống. */
     @Test
     void TC_UNIT_IdentityService_022_login_emailNotFound() {
         LoginRequest req = new LoginRequest();
@@ -685,6 +709,7 @@ class IdentityServiceImplTest {
     // CHANGE/RESET PASSWORD TESTS (TC-UNIT-IdentityService-023 -> 024)
     // =========================================================================================
 
+    /** Sheet changePassword - UTCID02 (A): currentPassword không khớp hash đã lưu. */
     @Test
     void TC_UNIT_IdentityService_023_changePassword_wrongCurrentPassword() {
         ChangePasswordRequest req = new ChangePasswordRequest();
@@ -723,7 +748,7 @@ class IdentityServiceImplTest {
         verify(userRepository).save(user);
     }
 
-    /** Sheet changePassword - UTCID03 (A): mật khẩu mới trùng mật khẩu hiện tại. */
+    /** Sheet changePassword - UTCID05 (A): mật khẩu mới trùng mật khẩu hiện tại. */
     @Test
     void TC_UNIT_IdentityService_023b_changePassword_newSameAsCurrent() {
         ChangePasswordRequest req = new ChangePasswordRequest();
@@ -741,7 +766,7 @@ class IdentityServiceImplTest {
         verify(userRepository, never()).save(any());
     }
 
-    /** Sheet changePassword - UTCID04 (B): mật khẩu mới quá ngắn / thiếu số. */
+    /** Sheet changePassword - UTCID03 (B): mật khẩu mới quá ngắn / thiếu số. */
     @Test
     void TC_UNIT_IdentityService_023c_changePassword_newPasswordInvalidFormat() {
         ChangePasswordRequest req = new ChangePasswordRequest();
@@ -758,7 +783,7 @@ class IdentityServiceImplTest {
         assertEquals("Mật khẩu phải có ít nhất 8 ký tự, gồm cả chữ và số", ex.getMessage());
     }
 
-    /** Sheet changePassword - UTCID05 (A): mật khẩu mới có ký tự có dấu (không thuộc ASCII). */
+    /** Sheet changePassword - UTCID04 (A): mật khẩu mới có ký tự có dấu (không thuộc ASCII). */
     @Test
     void TC_UNIT_IdentityService_023d_changePassword_newPasswordNonAscii() {
         ChangePasswordRequest req = new ChangePasswordRequest();
@@ -775,6 +800,7 @@ class IdentityServiceImplTest {
         assertEquals("Mật khẩu không được chứa ký tự có dấu hoặc ký tự không thuộc ASCII", ex.getMessage());
     }
 
+    /** Sheet resetPassword - UTCID08 (A): token đặt lại mật khẩu đã hết hạn. */
     @Test
     void TC_UNIT_IdentityService_024_resetPassword_tokenExpired() {
         ResetPasswordRequest req = new ResetPasswordRequest();
@@ -795,6 +821,7 @@ class IdentityServiceImplTest {
     // SEND OTP TESTS (TC-UNIT-IdentityService-025)
     // =========================================================================================
 
+    /** Sheet idSendOtp - UTCID04 (A): chưa hết cooldown 60s kể từ lần gửi trước. */
     @Test
     void TC_UNIT_IdentityService_025_sendOtp_rateLimitExceeded() {
         SendOtpRequest req = new SendOtpRequest();
@@ -812,7 +839,7 @@ class IdentityServiceImplTest {
         verify(emailService, never()).sendRegistrationOtp(anyString(), anyString(), anyLong());
     }
 
-    /** Sheet sendOTP - UTCID01 (N): chưa gửi lần nào, chưa chạm giới hạn -> gửi mã thành công. */
+    /** Sheet idSendOtp - UTCID01 (N): chưa gửi lần nào, chưa chạm giới hạn -> gửi mã thành công. */
     @Test
     void TC_UNIT_IdentityService_025a_sendOtp_happyPath() {
         SendOtpRequest req = new SendOtpRequest();
@@ -833,7 +860,7 @@ class IdentityServiceImplTest {
         verify(emailService).sendRegistrationOtp(eq("test@gmail.com"), anyString(), anyLong());
     }
 
-    /** Sheet sendOTP - UTCID03 (B): đã gửi đủ 5 mã trong cửa sổ 6 phút -> chặn. */
+    /** Sheet idSendOtp - UTCID03 (B): đã gửi đủ 5 mã trong cửa sổ 6 phút -> chặn. */
     @Test
     void TC_UNIT_IdentityService_025b_sendOtp_emailWindowLimitReached() {
         SendOtpRequest req = new SendOtpRequest();
@@ -853,7 +880,7 @@ class IdentityServiceImplTest {
         verify(emailService, never()).sendRegistrationOtp(anyString(), anyString(), anyLong());
     }
 
-    /** Sheet sendOTP - UTCID04 (B): còn 4 mã trong cửa sổ (dưới ngưỡng 5) -> vẫn gửi được. */
+    /** Sheet idSendOtp - UTCID02 (B): còn 4 mã trong cửa sổ (dưới ngưỡng 5) -> vẫn gửi được. */
     @Test
     void TC_UNIT_IdentityService_025c_sendOtp_justUnderWindowLimit() {
         SendOtpRequest req = new SendOtpRequest();
@@ -875,7 +902,7 @@ class IdentityServiceImplTest {
         verify(emailService).sendRegistrationOtp(eq("test@gmail.com"), anyString(), anyLong());
     }
 
-    /** Sheet sendOTP - UTCID05 (A): email đã có tài khoản -> không gửi mã. */
+    /** Sheet idSendOtp - UTCID05 (A): email đã có tài khoản -> không gửi mã. */
     @Test
     void TC_UNIT_IdentityService_025d_sendOtp_emailAlreadyRegistered() {
         SendOtpRequest req = new SendOtpRequest();
@@ -891,7 +918,7 @@ class IdentityServiceImplTest {
         verify(emailService, never()).sendRegistrationOtp(anyString(), anyString(), anyLong());
     }
 
-    /** Sheet sendOTP - UTCID06 (A): email đã bị khóa -> không gửi mã. */
+    /** Sheet idSendOtp - UTCID06 (A): email đã bị khóa -> không gửi mã. */
     @Test
     void TC_UNIT_IdentityService_025e_sendOtp_emailBanned() {
         SendOtpRequest req = new SendOtpRequest();
@@ -910,6 +937,7 @@ class IdentityServiceImplTest {
     // FORGOT PASSWORD TESTS
     // =========================================================================================
 
+    /** Sheet idRequestResetOtp - UTCID02 (N): email không thuộc tài khoản nào -> trả về phản hồi chung, không gửi mail. */
     @Test
     void TC_UNIT_IdentityService_026_requestPasswordResetOtp_userNotFound() {
         RequestPasswordResetOtpRequest req = new RequestPasswordResetOtpRequest();
@@ -925,6 +953,7 @@ class IdentityServiceImplTest {
         verify(emailService, never()).sendPasswordResetOtp(anyString(), anyString(), anyLong());
     }
 
+    /** Sheet idRequestResetOtp - UTCID01 (N): email tồn tại, chưa có OTP còn hiệu lực -> phát hành OTP. */
     @Test
     void TC_UNIT_IdentityService_027_requestPasswordResetOtp_happyPath() {
         RequestPasswordResetOtpRequest req = new RequestPasswordResetOtpRequest();
@@ -941,6 +970,7 @@ class IdentityServiceImplTest {
         verify(emailService).sendPasswordResetOtp(eq("found@gmail.com"), anyString(), anyLong());
     }
 
+    /** Sheet resetPassword - UTCID01 (N): OTP khớp, chưa vượt ngưỡng -> cấp reset token. */
     @Test
     void TC_UNIT_IdentityService_028_verifyPasswordResetOtp_happyPath() {
         VerifyPasswordResetOtpRequest req = new VerifyPasswordResetOtpRequest();
@@ -963,6 +993,7 @@ class IdentityServiceImplTest {
         assertNotNull(res.getResetToken());
         verify(passwordResetTokenRepository).save(any(PasswordResetToken.class));
     }
+    /** Sheet idRequestResetOtp - UTCID03 (A): còn OTP hiệu lực và chưa hết cooldown. */
     @Test
     void TC_UNIT_IdentityService_029_requestPasswordResetOtp_cooldown() {
         RequestPasswordResetOtpRequest req = new RequestPasswordResetOtpRequest();
@@ -979,6 +1010,7 @@ class IdentityServiceImplTest {
         assertEquals("Quá nhiều yêu cầu, vui lòng thử lại sau.", ex.getMessage());
     }
 
+    /** Sheet resetPassword - UTCID05 (A): nhập sai OTP khi attempts đã >= 5. */
     @Test
     void TC_UNIT_IdentityService_030_verifyPasswordResetOtp_wrongTooManyTimes() {
         VerifyPasswordResetOtpRequest req = new VerifyPasswordResetOtpRequest();
@@ -1033,7 +1065,7 @@ class IdentityServiceImplTest {
         assertEquals("Mã OTP đã hết hạn. Vui lòng yêu cầu mã mới", ex.getMessage());
     }
 
-    /** Sheet resetPassword - UTCID05 (A): nhập sai OTP nhưng chưa chạm ngưỡng. */
+    /** Sheet resetPassword - UTCID04 (A): nhập sai OTP nhưng chưa chạm ngưỡng. */
     @Test
     void TC_UNIT_IdentityService_030c_verifyPasswordResetOtp_wrongCode() {
         VerifyPasswordResetOtpRequest req = new VerifyPasswordResetOtpRequest();
@@ -1055,7 +1087,7 @@ class IdentityServiceImplTest {
         assertEquals(2, otp.getAttempts());
     }
 
-    /** Sheet resetPassword - UTCID01 (N): token hợp lệ + mật khẩu mới hợp lệ -> đổi mật khẩu. */
+    /** Sheet resetPassword - UTCID06 (N): token hợp lệ + mật khẩu mới hợp lệ -> đổi mật khẩu. */
     @Test
     void TC_UNIT_IdentityService_030d_resetPassword_happyPath() {
         ResetPasswordRequest req = new ResetPasswordRequest();
@@ -1081,7 +1113,7 @@ class IdentityServiceImplTest {
         verify(userRepository).save(user);
     }
 
-    /** Sheet resetPassword - UTCID06 (A): token không tồn tại. */
+    /** Sheet resetPassword - UTCID07 (A): token không tồn tại. */
     @Test
     void TC_UNIT_IdentityService_030e_resetPassword_tokenNotFound() {
         ResetPasswordRequest req = new ResetPasswordRequest();
@@ -1144,7 +1176,7 @@ class IdentityServiceImplTest {
         verify(userRepository, never()).save(any());
     }
 
-    /** Sheet signInByGoogle - UTCID03 (A): tài khoản đã bị khóa. */
+    /** Sheet signInByGoogle - UTCID04 (A): tài khoản đã bị khóa. */
     @Test
     void TC_UNIT_IdentityService_032_googleLogin_bannedUser() {
         GoogleLoginRequest req = new GoogleLoginRequest();
@@ -1167,7 +1199,7 @@ class IdentityServiceImplTest {
         verify(userRepository, never()).save(any());
     }
 
-    /** Sheet signInByGoogle - UTCID04 (A): token Google không hợp lệ. */
+    /** Sheet signInByGoogle - UTCID03 (A): token Google không hợp lệ. */
     @Test
     void TC_UNIT_IdentityService_033_googleLogin_invalidToken() {
         GoogleLoginRequest req = new GoogleLoginRequest();
@@ -1213,6 +1245,7 @@ class IdentityServiceImplTest {
      * user duoc save truoc roi createBaselineProfile() switch tren enum null -> NullPointerException
      * (HTTP 500) thay vi loi 400 co thong bao ro rang.
      */
+    /** Sheet signUpByGoogle - UTCID03 (A): role = null [DEF-09]. */
     @Test
     void TC_UNIT_IdentityService_027b_googleSignup_nullRole() {
         GoogleCompleteRequest req = new GoogleCompleteRequest();
@@ -1271,7 +1304,7 @@ class IdentityServiceImplTest {
         assertEquals("Google token không hợp lệ hoặc đã hết hạn.", ex.getMessage());
     }
 
-    /** Sheet signUpByGoogle - UTCID03 (A): số điện thoại đã thuộc email khác. */
+    /** Sheet signUpByGoogle - UTCID04 (A): số điện thoại đã thuộc email khác. */
     @Test
     void TC_UNIT_IdentityService_029_googleSignup_phoneAlreadyUsed() {
         GoogleCompleteRequest req = new GoogleCompleteRequest();

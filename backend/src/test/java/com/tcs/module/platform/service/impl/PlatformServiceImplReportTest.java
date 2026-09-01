@@ -45,6 +45,7 @@ class PlatformServiceImplReportTest {
     @InjectMocks
     private PlatformServiceImpl platformService;
 
+    /** Sheet resolveReport - UTCID01 (N): report không phải CLASS và chưa RESOLVED, adminNotes đầy đủ -> đóng report và thông báo người báo cáo */
     @Test
     void resolveReportSupportsUserAndNotifiesReporter() {
         User reporter = new User();
@@ -77,6 +78,7 @@ class PlatformServiceImplReportTest {
                 any(), any(), eq("Đã kiểm tra và xử lý tài khoản"), eq("REPORT"), eq(3L));
     }
 
+    /** Sheet resolveReport - UTCID03 (A): report có targetType = CLASS */
     @Test
     void resolveReportRejectsClassTarget() {
         Report report = new Report();

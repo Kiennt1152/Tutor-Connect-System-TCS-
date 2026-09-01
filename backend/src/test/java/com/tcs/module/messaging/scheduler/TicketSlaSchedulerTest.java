@@ -19,6 +19,7 @@ class TicketSlaSchedulerTest {
     @InjectMocks
     private TicketSlaScheduler ticketSlaScheduler;
 
+    /** Ngoài phạm vi Report 5.1 (test scheduler - TicketSlaScheduler, không có trong MethodList) */
     @Test
     @DisplayName("checkAndMarkSlaBreaches: gọi scanAndEscalateSlaBreaches từ platformService")
     void checkAndMarkSlaBreaches_CallsPlatformService() {
@@ -29,6 +30,7 @@ class TicketSlaSchedulerTest {
         verify(platformService, times(1)).scanAndEscalateSlaBreaches();
     }
 
+    /** Ngoài phạm vi Report 5.1 (test scheduler - TicketSlaScheduler, không có trong MethodList) */
     @Test
     @DisplayName("checkAndMarkSlaBreaches: hoạt động bình thường khi trả về 0")
     void checkAndMarkSlaBreaches_NoBreachedTickets() {

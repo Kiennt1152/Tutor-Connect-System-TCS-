@@ -90,6 +90,7 @@ class MessagingServiceImplTest {
         ticket.setCreatedAt(LocalDateTime.now());
     }
 
+    /** Sheet createSupportTicket - UTCID01 (N): có đủ danh mục và tiêu đề -> tạo ticket trạng thái mở kèm hạn SLA */
     @Test
     @DisplayName("createSupportTicket: tính toán dueAt và đặt slaBreached = false thành công")
     void createSupportTicket_Success() {
@@ -128,6 +129,7 @@ class MessagingServiceImplTest {
                 any(), any(), anyString(), any(), anyString(), anyString(), anyString(), anyLong());
     }
 
+    /** Sheet replySupportTicket - UTCID01 (N): đúng chủ ticket, ticket còn mở -> tạo TicketMessage từ người dùng */
     @Test
     @DisplayName("replySupportTicket: chuyển status từ IN_REVIEW sang OPEN và lưu tin nhắn")
     void replySupportTicket_InReviewToOpen() {
@@ -154,6 +156,7 @@ class MessagingServiceImplTest {
         verify(supportTicketRepository, times(1)).save(ticket);
     }
 
+    /** Sheet replySupportTicket - UTCID02 (A): ticket thuộc về người dùng khác */
     @Test
     @DisplayName("replySupportTicket: từ chối khi khác người sở hữu ticket (IDOR guard)")
     void replySupportTicket_ForbiddenForOtherUser() {
@@ -166,6 +169,7 @@ class MessagingServiceImplTest {
         assertThrows(ForbiddenException.class, () -> messagingService.replySupportTicket(TICKET_ID, req));
     }
 
+    /** Sheet replySupportTicket - UTCID03 (A): ticket đã CLOSED hoặc RESOLVED */
     @Test
     @DisplayName("replySupportTicket: từ chối khi ticket đã CLOSED")
     void replySupportTicket_ClosedTicket_ThrowsException() {
@@ -180,6 +184,7 @@ class MessagingServiceImplTest {
         assertThrows(IllegalArgumentException.class, () -> messagingService.replySupportTicket(TICKET_ID, req));
     }
 
+    /** Sheet reopenSupportTicket - UTCID01 (N): ticket của chính mình và đang đóng -> mở lại */
     @Test
     @DisplayName("reopenSupportTicket: chỉ thành công khi ticket là RESOLVED hoặc CLOSED, lưu message và gửi thông báo cho admin & user")
     void reopenSupportTicket_Success() {
@@ -219,6 +224,7 @@ class MessagingServiceImplTest {
                 any(Map.class), eq("Yêu cầu hỗ trợ #1 đã mở lại"), anyString(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
     }
 
+    /** Sheet reopenSupportTicket - UTCID03 (A): ticket đang mở, không thể mở lại */
     @Test
     @DisplayName("reopenSupportTicket: thất bại khi ticket đang OPEN")
     void reopenSupportTicket_AlreadyOpen_ThrowsException() {
@@ -480,5 +486,41 @@ class MessagingServiceImplTest {
                     () -> messagingService.replySupportTicket(TICKET_ID, reply()));
             assertEquals("Không tìm thấy người dùng", ex.getMessage());
         }
+    }
+    /** Sheet createSupportTicket - UTCID02 (A): thieu danh muc hoac tieu de -> chan. */
+    @Test
+    @DisplayName("createSupportTicket: thiếu danh mục hoặc tiêu đề -> 'Danh mục và tiêu đề là bắt buộc'")
+    void createSupportTicket_RejectsMissingCategoryOrSubject() {
+        CreateSupportTicketRequest noCategory = new CreateSupportTicketRequest();
+        noCategory.setSubject("Không nạp được tiền");
+
+        IllegalArgumentException ex1 = assertThrows(IllegalArgumentException.class,
+                () -> messagingService.createSupportTicket(noCategory));
+        assertEquals("Danh mục và tiêu đề là bắt buộc", ex1.getMessage());
+
+        CreateSupportTicketRequest noSubject = new CreateSupportTicketRequest();
+        noSubject.setCategory(SupportTicketCategory.BUG_REPORT);
+        noSubject.setSubject("   ");
+
+        IllegalArgumentException ex2 = assertThrows(IllegalArgumentException.class,
+                () -> messagingService.createSupportTicket(noSubject));
+        assertEquals("Danh mục và tiêu đề là bắt buộc", ex2.getMessage());
+        verify(supportTicketRepository, never()).save(any());
+    }
+
+    /** Sheet reopenSupportTicket - UTCID02 (A): ticket thuoc ve nguoi dung khac -> ForbiddenException. */
+    @Test
+    @DisplayName("reopenSupportTicket: ticket của người dùng khác -> 'Không có quyền mở lại yêu cầu hỗ trợ này'")
+    void reopenSupportTicket_ForbiddenForOtherUser() {
+        User otherUser = new User();
+        otherUser.setUserId(OTHER_USER_ID);
+        ticket.setUser(otherUser);
+        ticket.setStatus(SupportTicketStatus.CLOSED);
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+
+        ForbiddenException ex = assertThrows(ForbiddenException.class,
+                () -> messagingService.reopenSupportTicket(TICKET_ID));
+        assertEquals("Không có quyền mở lại yêu cầu hỗ trợ này", ex.getMessage());
+        verify(supportTicketRepository, never()).save(any());
     }
 }

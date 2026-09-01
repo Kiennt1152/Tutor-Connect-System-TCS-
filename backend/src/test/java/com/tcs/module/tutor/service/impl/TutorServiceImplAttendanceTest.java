@@ -4,7 +4,9 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -15,6 +17,8 @@ import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.center.dto.request.MarkAttendanceRequest;
 import com.tcs.module.finance.service.CenterEscrowAutoSettlementService;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.marketplace.entity.Lesson;
+import com.tcs.module.marketplace.entity.LessonAttendance;
 import com.tcs.module.center.dto.request.RescheduleRequestBody;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
@@ -260,7 +264,7 @@ class TutorServiceImplAttendanceTest {
     class MarkAttendanceBatch {
 
         @Test
-        @DisplayName("UTCID01 (A) - Danh sách rỗng -> 'Chưa có dữ liệu điểm danh'")
+        @DisplayName("UTCID02 (A) - Danh sách rỗng -> 'Chưa có dữ liệu điểm danh'")
         void utcid01_emptyList() {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> service.markAttendanceBatch(CLASS_ID, today, List.of()));
@@ -287,7 +291,7 @@ class TutorServiceImplAttendanceTest {
         }
 
         @Test
-        @DisplayName("UTCID04 (A) - Gia sư không phụ trách lớp -> ForbiddenException")
+        @DisplayName("Bổ sung ngoài các UTCID của sheet markAttendanceBatch - Gia sư không phụ trách lớp -> ForbiddenException")
         void utcid04_notAssignedTutor() {
             assignMainTutor(OTHER_TUTOR_ID);
 
@@ -605,6 +609,174 @@ class TutorServiceImplAttendanceTest {
                     () -> service.requestReschedule(CLASS_ID, body(original, next, "20:00", "18:00")));
             assertEquals("Khung giờ mới không hợp lệ (giờ kết thúc phải sau giờ bắt đầu)", ex.getMessage());
             verify(rescheduleService, never()).request(anyLong(), any(), any(), any(), any(), anyLong(), any());
+        }
+    }
+    // ===================================================================
+    //  Sheet: markAttendanceBatch - cac ca con lai
+    // ===================================================================
+    @Nested
+    @DisplayName("markAttendanceBatch")
+    class MarkAttendanceBatchRemaining {
+
+        @org.junit.jupiter.api.BeforeEach
+        void givenTeachableSession() {
+            assignMainTutor(TUTOR_ID);
+            haveSlotOn(today);
+            when(lessonRepository.save(any(Lesson.class))).thenAnswer(i -> {
+                Lesson lesson = i.getArgument(0);
+                lesson.setLessonId(4000L);
+                return lesson;
+            });
+            when(lessonAttendanceRepository.save(any(LessonAttendance.class)))
+                    .thenAnswer(i -> i.getArgument(0));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Du lieu day du, dung buoi, hoc sinh thuoc lop, chua diem danh -> ghi nhan trang thai cho tung hoc sinh")
+        void utcid01_markSuccessfully() {
+            when(classStudentRepository.findById(CLASS_STUDENT_ID))
+                    .thenReturn(Optional.of(studentOfClass(tutoringClass)));
+            when(lessonAttendanceRepository
+                    .findFirstByLesson_LessonIdAndClassStudent_ClassStudentId(anyLong(), anyLong()))
+                    .thenReturn(Optional.empty());
+
+            service.markAttendanceBatch(CLASS_ID, today,
+                    records(CLASS_STUDENT_ID, LessonAttendanceStatus.PRESENT));
+
+            org.mockito.ArgumentCaptor<LessonAttendance> captor =
+                    org.mockito.ArgumentCaptor.forClass(LessonAttendance.class);
+            verify(lessonAttendanceRepository).save(captor.capture());
+            assertEquals(LessonAttendanceStatus.PRESENT, captor.getValue().getStatus());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - Buoi hoc da duoc diem danh truoc do -> khong the diem danh lai")
+        void utcid04_alreadyMarked() {
+            Lesson existing = new Lesson();
+            existing.setLessonId(4001L);
+            existing.setTutoringClass(tutoringClass);
+            existing.setSequenceNo(1);
+            existing.setLessonDate(today);
+            when(lessonRepository.findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
+                    eq(CLASS_ID), anyLong(), anyInt())).thenReturn(Optional.of(existing));
+            when(lessonAttendanceRepository.findByLesson_LessonId(4001L))
+                    .thenReturn(List.of(new LessonAttendance()));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.markAttendanceBatch(CLASS_ID, today,
+                            records(CLASS_STUDENT_ID, LessonAttendanceStatus.PRESENT)));
+            assertEquals("Buổi học này đã được điểm danh, không thể điểm danh lại", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Hoc sinh khong thuoc lop nay -> chan")
+        void utcid05_studentFromAnotherClass() {
+            TutoringClass otherClass = new TutoringClass();
+            otherClass.setClassId(999L);
+            when(classStudentRepository.findById(CLASS_STUDENT_ID))
+                    .thenReturn(Optional.of(studentOfClass(otherClass)));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.markAttendanceBatch(CLASS_ID, today,
+                            records(CLASS_STUDENT_ID, LessonAttendanceStatus.PRESENT)));
+            assertEquals("Học sinh không thuộc lớp này", ex.getMessage());
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: requestSubstitute
+    // ===================================================================
+    @Nested
+    @DisplayName("requestSubstitute")
+    class RequestSubstitute {
+
+        private static final Long ASSISTANT_ID = 33L;
+
+        private com.tcs.module.center.dto.request.SubstituteRequestBody body(LocalDate date) {
+            var b = new com.tcs.module.center.dto.request.SubstituteRequestBody();
+            b.setDate(date);
+            b.setReason("Toi ban viec dot xuat");
+            return b;
+        }
+
+        @org.junit.jupiter.api.BeforeEach
+        void givenMainTutorAndAssistant() {
+            assignMainTutor(TUTOR_ID);
+            haveSlotOn(today);
+            when(substitutionService.findAssistant(CLASS_ID)).thenReturn(Optional.of(ASSISTANT_ID));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Buoi hop le, tu hom nay tro di, chua co yeu cau doi lich -> tao yeu cau day thay")
+        void utcid01_requestSuccessfully() {
+            var entry = new com.tcs.module.marketplace.dto.SubstitutionEntry(
+                    CLASS_ID, today, ASSISTANT_ID,
+                    com.tcs.module.marketplace.dto.SubstitutionEntry.PENDING, "Toi ban viec dot xuat");
+            when(substitutionService.request(eq(CLASS_ID), eq(today), eq(ASSISTANT_ID), anyString()))
+                    .thenReturn(entry);
+
+            service.requestSubstitute(CLASS_ID, body(today));
+
+            verify(substitutionService).request(eq(CLASS_ID), eq(today), eq(ASSISTANT_ID), anyString());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - Khong chon buoi can day thay -> chan")
+        void utcid02_noDateSelected() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestSubstitute(CLASS_ID, body(null)));
+            assertEquals("Vui lòng chọn buổi cần nhờ dạy thay", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - Buoi nay von la buoi da duoc doi lich -> chan")
+        void utcid03_sessionIsRescheduledTarget() {
+            var arriving = new com.tcs.module.marketplace.dto.RescheduleEntry(
+                    CLASS_ID, today.minusDays(2), today, null, null,
+                    com.tcs.module.marketplace.dto.RescheduleEntry.APPROVED, TUTOR_ID, "Doi lich");
+            when(rescheduleService.listApprovedByClassIds(any())).thenReturn(List.of(arriving));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestSubstitute(CLASS_ID, body(today)));
+            assertEquals(
+                    "Buổi này là buổi đã được dời lịch nên không thể nhờ gia sư phụ dạy thay.",
+                    ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - Ngay chon khong phai buoi hoc cua lop -> chan")
+        void utcid04_dateIsNotAClassSession() {
+            haveNoSlot();
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestSubstitute(CLASS_ID, body(today)));
+            assertEquals("Ngày cần dạy thay không phải buổi học của lớp", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (B) - Buoi hoc hom qua (ngay duoi nguong 'tu hom nay') -> chan")
+        void utcid05_pastSession() {
+            LocalDate yesterday = today.minusDays(1);
+            haveSlotOn(yesterday);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestSubstitute(CLASS_ID, body(yesterday)));
+            assertEquals("Chỉ có thể nhờ dạy thay cho buổi từ hôm nay trở đi", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - Buoi da co yeu cau doi lich -> khong the vua doi lich vua nho day thay")
+        void utcid06_sessionAlreadyHasReschedule() {
+            var pending = new com.tcs.module.marketplace.dto.RescheduleEntry(
+                    CLASS_ID, today, today.plusDays(1), null, null,
+                    com.tcs.module.marketplace.dto.RescheduleEntry.PENDING, TUTOR_ID, "Doi lich");
+            when(rescheduleService.find(CLASS_ID, today)).thenReturn(Optional.of(pending));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.requestSubstitute(CLASS_ID, body(today)));
+            assertEquals(
+                    "Buổi này đã có yêu cầu đổi lịch. Không thể vừa đổi lịch vừa nhờ dạy thay.",
+                    ex.getMessage());
         }
     }
 }

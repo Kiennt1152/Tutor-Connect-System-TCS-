@@ -1,6 +1,7 @@
 package com.tcs.module.contract.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -10,6 +11,10 @@ import static org.mockito.Mockito.when;
 
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
+import com.tcs.module.contract.dto.request.ReplyReviewRequest;
+import com.tcs.module.contract.entity.Contract;
+import com.tcs.module.contract.enums.ContractStatus;
+import com.tcs.module.center.entity.RecruitmentApplication;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.catalog.repository.SystemParameterRepository;
 import com.tcs.module.center.repository.RecruitmentApplicationRepository;
@@ -732,5 +737,316 @@ class ContractServiceImplReviewTest {
                     "Van phai co dieu khoan tom tat de hai ben ky");
             assertEquals(com.tcs.module.contract.enums.ContractSourceType.CENTER, contract.getSourceType());
         }
+    }
+    /** Danh gia CLIENT_TO_TUTOR do clientUser gui cho tutorUser tren phan cong hien tai. */
+    private Review existingClientReview(Long reviewId) {
+        Review review = new Review();
+        review.setReviewId(reviewId);
+        review.setAssignment(assignment);
+        review.setTutoringClass(tutoringClass);
+        review.setReviewer(clientUser);
+        review.setReviewee(tutorUser);
+        review.setReviewType(ReviewType.CLIENT_TO_TUTOR);
+        review.setRating(BigDecimal.valueOf(4));
+        review.setStatus(ReviewStatus.VISIBLE);
+        review.setCreatedAt(LocalDateTime.now().minusDays(1));
+        return review;
+    }
+
+    // ===================================================================
+    //  Sheet: updateReview
+    // ===================================================================
+    @Nested
+    @DisplayName("updateReview")
+    class UpdateReview {
+
+        private static final Long REVIEW_ID = 910L;
+
+        private Review review;
+
+        @BeforeEach
+        void givenExistingReview() {
+            review = existingClientReview(REVIEW_ID);
+            when(reviewRepository.findById(REVIEW_ID)).thenReturn(Optional.of(review));
+            when(reviewRepository.findByReviewee_UserIdAndReviewTypeAndStatus(
+                    TUTOR_USER_ID, ReviewType.CLIENT_TO_TUTOR, ReviewStatus.VISIBLE))
+                    .thenReturn(List.of());
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - danh gia do chinh minh gui, cac tieu chi trong 1..5 -> cap nhat va tinh lai diem uy tin")
+        void utcid01_updateSuccessfully() {
+            service.updateReview(REVIEW_ID, reviewRequest(5, 4, 5));
+
+            assertEquals(new BigDecimal("4.7"), review.getRating());
+            assertEquals("Gia su day de hieu", review.getComment());
+            verify(reviewRepository).save(review);
+            verify(reviewRepository).findByReviewee_UserIdAndReviewTypeAndStatus(
+                    TUTOR_USER_ID, ReviewType.CLIENT_TO_TUTOR, ReviewStatus.VISIBLE);
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - sua danh gia cua nguoi khac -> chan")
+        void utcid02_notOwnReview() {
+            User stranger = new User();
+            stranger.setUserId(999L);
+            review.setReviewer(stranger);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> service.updateReview(REVIEW_ID, reviewRequest(5)));
+            assertEquals("Bạn chỉ có thể chỉnh sửa đánh giá do chính mình gửi", ex.getMessage());
+            verify(reviewRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (B) - so sao 6 (ngay tren nguong 5) -> 'Số sao phải từ 1 đến 5'")
+        void utcid03_ratingOutOfRange() {
+            CreateReviewRequest request = new CreateReviewRequest();
+            request.setAssignmentId(ASSIGNMENT_ID);
+            request.setRating(6);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.updateReview(REVIEW_ID, request));
+            assertEquals("Số sao phải từ 1 đến 5", ex.getMessage());
+            verify(reviewRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (B) - mot tieu chi cham 0 (ngay duoi nguong 1) -> chan")
+        void utcid04_criterionOutOfRange() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.updateReview(REVIEW_ID, reviewRequest(5, 0)));
+            assertEquals("Mỗi tiêu chí phải được chấm từ 1 đến 5 sao", ex.getMessage());
+            verify(reviewRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - khong cham diem nao -> 'Vui lòng chấm điểm đánh giá'")
+        void utcid05_noScoreGiven() {
+            CreateReviewRequest request = new CreateReviewRequest();
+            request.setAssignmentId(ASSIGNMENT_ID);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.updateReview(REVIEW_ID, request));
+            assertEquals("Vui lòng chấm điểm đánh giá", ex.getMessage());
+            verify(reviewRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - khong ghi duoc du lieu tieu chi -> IllegalStateException")
+        void utcid06_criteriaSerializationFails() {
+            CreateReviewRequest request = new CreateReviewRequest();
+            request.setAssignmentId(ASSIGNMENT_ID);
+            request.setCriteria(List.of(new ExplodingCriterion()));
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> service.updateReview(REVIEW_ID, request));
+            assertEquals("Không ghi được dữ liệu tiêu chí đánh giá", ex.getMessage());
+            verify(reviewRepository, never()).save(any());
+        }
+    }
+
+    /** Tieu chi hop le ve diem nhung khong the serialize -> mo phong loi ghi criteriaJson. */
+    static class ExplodingCriterion extends ReviewCriterionDto {
+        ExplodingCriterion() {
+            setCode("C1");
+            setQuestion("Tieu chi loi");
+            setScore(5);
+        }
+
+        @Override
+        public String getQuestion() {
+            throw new IllegalArgumentException("Khong the doc noi dung tieu chi");
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: replyToReview
+    // ===================================================================
+    @Nested
+    @DisplayName("replyToReview")
+    class ReplyToReview {
+
+        private static final Long REVIEW_ID = 920L;
+
+        private Review review;
+
+        @BeforeEach
+        void givenTutorCaller() {
+            review = existingClientReview(REVIEW_ID);
+            when(authHelper.requireRole(UserRole.TUTOR))
+                    .thenReturn(new UserPrincipal(tutorUser, UserRole.TUTOR));
+            when(reviewRepository.findById(REVIEW_ID)).thenReturn(Optional.of(review));
+        }
+
+        private ReplyReviewRequest replyRequest(String reply) {
+            ReplyReviewRequest request = new ReplyReviewRequest();
+            request.setReply(reply);
+            return request;
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - danh gia danh cho chinh minh + co noi dung -> luu phan hoi kem thoi diem")
+        void utcid01_replySuccessfully() {
+            service.replyToReview(REVIEW_ID, replyRequest("Cảm ơn phụ huynh đã góp ý"));
+
+            assertEquals("Cảm ơn phụ huynh đã góp ý", review.getTutorReply());
+            assertNotNull(review.getTutorReplyAt());
+            verify(reviewRepository).save(review);
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - phan hoi danh gia cua gia su khac -> chan")
+        void utcid02_replyToOtherTutorReview() {
+            User otherTutorUser = new User();
+            otherTutorUser.setUserId(888L);
+            review.setReviewee(otherTutorUser);
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> service.replyToReview(REVIEW_ID, replyRequest("Cảm ơn")));
+            assertEquals("Bạn chỉ có thể phản hồi đánh giá dành cho chính mình", ex.getMessage());
+            verify(reviewRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - noi dung phan hoi rong -> chan")
+        void utcid03_blankReply() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.replyToReview(REVIEW_ID, replyRequest("   ")));
+            assertEquals("Nội dung phản hồi không được để trống", ex.getMessage());
+            verify(reviewRepository, never()).save(any());
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: getMyContract / ctSign / generateCoopContract
+    // ===================================================================
+    @Nested
+    @DisplayName("getMyContract")
+    class GetMyContract {
+
+        private static final Long CONTRACT_ID = 930L;
+
+        private Contract contract;
+
+        @BeforeEach
+        void givenContract() {
+            contract = new Contract();
+            contract.setContractId(CONTRACT_ID);
+            contract.setAssignment(assignment);
+            contract.setStatus(ContractStatus.ACTIVE);
+            when(contractRepository.findById(CONTRACT_ID)).thenReturn(Optional.of(contract));
+            tutoringClass.setClassType(com.tcs.module.marketplace.enums.ClassType.PRIVATE);
+            when(contractSignatureRepository.findByContractId(CONTRACT_ID)).thenReturn(List.of());
+            when(authHelper.requireAuthenticated())
+                    .thenReturn(new UserPrincipal(clientUser, UserRole.CLIENT));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - nguoi xem la mot ben cua hop dong -> tra chi tiet hop dong")
+        void utcid01_partyCanView() {
+            when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+
+            assertNotNull(service.getMyContract(CONTRACT_ID));
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - xem hop dong khong lien quan den minh -> ForbiddenException")
+        void utcid02_strangerCannotView() {
+            when(authHelper.currentUserId()).thenReturn(999L);
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.getMyContract(CONTRACT_ID));
+            assertEquals("Bạn không có quyền xem hợp đồng này", ex.getMessage());
+        }
+    }
+
+    @Nested
+    @DisplayName("ctSign")
+    class CtSign {
+
+        @Test
+        @DisplayName("UTCID02 (A) - ky thay nguoi dung khac -> ForbiddenException")
+        void utcid02_signOnBehalfOfAnother() {
+            when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.sign(930L, "123456", 999L));
+            assertEquals("Không thể ký thay người dùng khác", ex.getMessage());
+            verify(contractRepository, never()).save(any());
+        }
+    }
+
+    @Nested
+    @DisplayName("generateCoopContract")
+    class GenerateCoopContract {
+
+        private static final Long APPLICATION_ID = 940L;
+
+        @Test
+        @DisplayName("UTCID02 (A) - don ung tuyen da co thoa thuan hop tac -> chan tao trung")
+        void utcid02_agreementAlreadyExists() {
+            RecruitmentApplication application = new RecruitmentApplication();
+            application.setRecruitmentAppId(APPLICATION_ID);
+            when(recruitmentApplicationRepository.findById(APPLICATION_ID))
+                    .thenReturn(Optional.of(application));
+            when(contractRepository.findByRecruitmentApplication_RecruitmentAppId(APPLICATION_ID))
+                    .thenReturn(Optional.of(new Contract()));
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> service.generateCooperationContract(APPLICATION_ID, null, null));
+            assertEquals("Thỏa thuận hợp tác đã tồn tại cho đơn này", ex.getMessage());
+            verify(contractRepository, never()).save(any());
+        }
+    }
+    /**
+     * Sheet generateCoopContract - UTCID01 (N): don da duyet, chua co thoa thuan
+     * -> tao hop dong hop tac PENDING cho hai ben ky.
+     */
+    @Test
+    void generateCooperationContractCreatesPendingAgreement() {
+        com.tcs.module.profile.entity.TutorCenter center = new com.tcs.module.profile.entity.TutorCenter();
+        center.setCenterId(50L);
+        center.setCompanyName("Trung tam ABC");
+        User centerUser = new User();
+        centerUser.setUserId(770L);
+        centerUser.setEmail("trungtam@tcs.vn");
+        center.setUser(centerUser);
+
+        com.tcs.module.center.entity.RecruitmentPost post =
+                new com.tcs.module.center.entity.RecruitmentPost();
+        post.setRecruitmentId(60L);
+        post.setCenter(center);
+
+        RecruitmentApplication app = new RecruitmentApplication();
+        app.setRecruitmentAppId(941L);
+        app.setTutor(tutor);
+        app.setRecruitmentPost(post);
+
+        when(recruitmentApplicationRepository.findById(941L)).thenReturn(Optional.of(app));
+        when(contractRepository.findByRecruitmentApplication_RecruitmentAppId(941L))
+                .thenReturn(Optional.empty());
+        when(contractRepository.save(any(Contract.class))).thenAnswer(i -> {
+            Contract saved = i.getArgument(0);
+            if (saved.getContractId() == null) {
+                saved.setContractId(960L);
+            }
+            return saved;
+        });
+        when(contractSignatureRepository.findByContractId(960L)).thenReturn(List.of());
+        when(authHelper.requireAuthenticated())
+                .thenReturn(new UserPrincipal(centerUser, UserRole.TUTOR_CENTER));
+        when(cccdService.getByUserId(any()))
+                .thenReturn(new com.tcs.module.profile.dto.CccdInfoDto());
+
+        service.generateCooperationContract(941L, null, null);
+
+        ArgumentCaptor<Contract> captor = ArgumentCaptor.forClass(Contract.class);
+        verify(contractRepository).save(captor.capture());
+        Contract created = captor.getValue();
+        assertEquals(ContractStatus.PENDING, created.getStatus());
+        assertEquals(app, created.getRecruitmentApplication());
+        assertNotNull(created.getExpiresAt());
+        assertNotNull(created.getTermsSummary());
     }
 }

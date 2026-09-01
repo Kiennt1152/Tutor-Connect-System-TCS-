@@ -45,6 +45,7 @@ class CircumventionServiceImplTest {
     @Mock AuditLogService auditLogService;
     @InjectMocks CircumventionServiceImpl service;
 
+    /** Sheet circumventionInspect - UTCID05 (B): nội dung khớp nhiều luật cùng lúc -> mỗi luật sinh một CircumventionEvent */
     @Test
     void inspect_createsOneEventPerMatchedRule() {
         User sender = new User(); sender.setUserId(7L);
@@ -57,6 +58,7 @@ class CircumventionServiceImplTest {
         verify(repository, times(2)).save(any(CircumventionEvent.class));
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có getConversationEvidence) - test bổ sung */
     @Test
     void getConversationEvidence_returnsReadOnlyContextAndFlagsDetectedMessage() {
         User sender = new User(); sender.setUserId(7L); sender.setEmail("sender@example.com");

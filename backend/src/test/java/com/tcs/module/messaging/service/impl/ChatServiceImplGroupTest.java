@@ -104,6 +104,7 @@ class ChatServiceImplGroupTest {
                 .thenAnswer(invocation -> (long) participants.size());
     }
 
+    /** Sheet createGroup - UTCID01 (N): thành viên hợp lệ, tên nhóm hợp lệ, không trùng, trong giới hạn -> tạo nhóm */
     @Test
     @DisplayName("createGroup: tạo nhóm 3 người và gửi thông báo cho thành viên")
     void createGroup_Success() {
@@ -131,6 +132,7 @@ class ChatServiceImplGroupTest {
                 org.mockito.ArgumentMatchers.eq(10L));
     }
 
+    /** Sheet startOrGetConversation - UTCID01 (N): targetUserId hợp lệ, khác chính mình -> trả hội thoại DIRECT */
     @Test
     @DisplayName("direct chat: giữ otherParticipant, unread count và broadcast hiện tại")
     void directChat_Regression() {
@@ -170,6 +172,7 @@ class ChatServiceImplGroupTest {
                 any(com.tcs.module.messaging.dto.response.MessageResponse.class));
     }
 
+    /** Sheet createGroup - UTCID02 (A): danh sách thành viên bị trùng */
     @Test
     @DisplayName("createGroup: từ chối danh sách trùng lặp")
     void createGroup_RejectsDuplicateMembers() {
@@ -180,6 +183,7 @@ class ChatServiceImplGroupTest {
         verify(conversationRepository, never()).save(any());
     }
 
+    /** Sheet createGroup - UTCID03 (A): có thành viên đã ngừng hoạt động */
     @Test
     @DisplayName("createGroup: từ chối thành viên bị khóa")
     void createGroup_RejectsInactiveMember() {
@@ -191,6 +195,7 @@ class ChatServiceImplGroupTest {
                 "Nhóm học Toán", List.of(memberA.getUserId(), memberB.getUserId())));
     }
 
+    /** Sheet createGroup - UTCID04 (A) + UTCID05 (A): tên nhóm không hợp lệ / chủ nhóm nằm trong danh sách thành viên */
     @Test
     @DisplayName("createGroup: từ chối tên ngắn và tự thêm owner")
     void createGroup_RejectsInvalidNameAndOwnerInMemberList() {
@@ -203,6 +208,7 @@ class ChatServiceImplGroupTest {
         verify(conversationRepository, never()).save(any());
     }
 
+    /** Sheet createGroup - UTCID06 (B): số thành viên vượt giới hạn trên */
     @Test
     @DisplayName("createGroup: từ chối quá 19 thành viên ngoài owner")
     void createGroup_RejectsTooManyMembers() {
@@ -214,6 +220,7 @@ class ChatServiceImplGroupTest {
         verify(conversationRepository, never()).save(any());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có sheet renameGroup) - test bổ sung */
     @Test
     @DisplayName("renameGroup: chỉ owner được đổi tên")
     void renameGroup_RequiresOwner() {
@@ -227,6 +234,7 @@ class ChatServiceImplGroupTest {
                 () -> chatService.renameGroup(group.getConversationId(), "Tên mới"));
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có sheet transferGroupOwner) - test bổ sung */
     @Test
     @DisplayName("transferGroupOwner: owner mới phải là participant")
     void transferGroupOwner_RequiresCurrentParticipant() {
@@ -242,6 +250,7 @@ class ChatServiceImplGroupTest {
                 () -> chatService.transferGroupOwner(group.getConversationId(), memberA.getUserId()));
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có sheet transferGroupOwner) - test bổ sung */
     @Test
     @DisplayName("transferGroupOwner: chuyển owner cho participant hiện tại")
     void transferGroupOwner_Success() {
@@ -263,6 +272,7 @@ class ChatServiceImplGroupTest {
         assertEquals(memberA.getUserId(), response.getOwnerUserId());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có sheet addGroupMembers) - test bổ sung */
     @Test
     @DisplayName("addGroupMembers: thành viên mới được đọc toàn bộ lịch sử")
     void addGroupMembers_NewMemberCanReadHistory() {
@@ -287,6 +297,7 @@ class ChatServiceImplGroupTest {
         assertDoesNotThrow(() -> chatService.getMessages(group.getConversationId(), 0, 30));
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có sheet removeGroupMember) - test bổ sung */
     @Test
     @DisplayName("removeGroupMember: owner xóa thành viên hiện tại")
     void removeGroupMember_Success() {
@@ -304,6 +315,7 @@ class ChatServiceImplGroupTest {
                 group.getConversationId(), memberA.getUserId());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có sheet leaveGroup) - test bổ sung */
     @Test
     @DisplayName("leaveGroup: thành viên rời nhóm mất quyền đọc ngay")
     void leaveGroup_RevokesAccessImmediately() {
@@ -321,6 +333,7 @@ class ChatServiceImplGroupTest {
                 () -> chatService.getMessages(group.getConversationId(), 0, 30));
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có sheet leaveGroup) - test bổ sung */
     @Test
     @DisplayName("leaveGroup: owner phải chuyển quyền trước khi rời")
     void leaveGroup_RejectsOwner() {
@@ -359,5 +372,28 @@ class ChatServiceImplGroupTest {
         participant.setConversation(conversation);
         participant.setUser(user);
         return participant;
+    }
+    /** Sheet startOrGetConversation - UTCID02 (A): thieu targetUserId -> 'targetUserId là bắt buộc'. */
+    @Test
+    @DisplayName("startOrGetConversation: targetUserId = null -> 'targetUserId là bắt buộc'")
+    void startOrGetConversation_RejectsNullTarget() {
+        when(authHelper.currentUserId()).thenReturn(owner.getUserId());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> chatService.startOrGetConversation(null));
+        assertEquals("targetUserId là bắt buộc", ex.getMessage());
+        verify(conversationRepository, never()).save(any());
+    }
+
+    /** Sheet startOrGetConversation - UTCID03 (A): tro chuyen voi chinh minh -> chan. */
+    @Test
+    @DisplayName("startOrGetConversation: tự trò chuyện với chính mình -> chặn")
+    void startOrGetConversation_RejectsSelfChat() {
+        when(authHelper.currentUserId()).thenReturn(owner.getUserId());
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> chatService.startOrGetConversation(owner.getUserId()));
+        assertEquals("Không thể tự trò chuyện với chính mình", ex.getMessage());
+        verify(conversationRepository, never()).save(any());
     }
 }

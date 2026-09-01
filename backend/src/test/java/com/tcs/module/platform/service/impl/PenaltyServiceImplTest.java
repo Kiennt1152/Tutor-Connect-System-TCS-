@@ -424,6 +424,7 @@ class PenaltyServiceImplTest {
     }
 
     /** PERMANENT_BAN xoa expiresAt va khoa tai khoan — kiem tra rieng de bao ve hai hanh vi nay. */
+    /** Sheet issuePenalty - UTCID01 (N): cấm vĩnh viễn người dùng thường -> khoá tài khoản và xoá thời hạn hết hiệu lực */
     @Test
     @DisplayName("issuePenalty - PERMANENT_BAN khoa tai khoan va bo expiresAt")
     void permanentBanLocksAccountAndClearsExpiry() {

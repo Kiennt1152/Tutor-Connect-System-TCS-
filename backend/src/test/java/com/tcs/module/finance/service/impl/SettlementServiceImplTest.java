@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -76,6 +77,7 @@ class SettlementServiceImplTest {
     @InjectMocks
     private SettlementServiceImpl settlementService;
 
+    /** Sheet settlementExecute - UTCID01 (N): chỉ dẫn hợp lệ, escrow chưa tất toán, tổng = số tiền escrow -> uỷ quyền cho EscrowService */
     @Test
     void executeDelegatesReleaseInstructionToEscrowService() {
         ReleaseInstruction instruction = new ReleaseInstruction(
@@ -89,6 +91,7 @@ class SettlementServiceImplTest {
         verify(escrowService).apply(instruction);
     }
 
+    /** Sheet settlementExecute - UTCID02 (A): instruction = null -> 'Thiếu chỉ dẫn tất toán' */
     @Test
     void executeRejectsMissingInstruction() {
         BusinessException exception = assertThrows(BusinessException.class, () ->
@@ -98,6 +101,7 @@ class SettlementServiceImplTest {
         verifyNoInteractions(escrowService);
     }
 
+    /** Sheet settlementExecuteRefund - UTCID01 (N): escrow hợp lệ, số tiền khớp, lý do đủ dài, đủ thông tin tài khoản -> tạo yêu cầu hoàn tiền hoàn tất và kết thúc hợp đồng */
     @Test
     void executeRefundCreatesCompletedRefundRequestAndTerminatesContract() {
         ClassAssignment assignment = new ClassAssignment();
@@ -166,6 +170,7 @@ class SettlementServiceImplTest {
         verify(contractRepository).save(contract);
     }
 
+    /** Sheet settlementExecuteRefund - UTCID07 (B): số tiền hoàn = 0 (ngay tại ngưỡng không hợp lệ) */
     @Test
     void executeRefundRejectsZeroRefundAmount() {
         ExecuteRefundRequest request = new ExecuteRefundRequest();
@@ -181,6 +186,7 @@ class SettlementServiceImplTest {
         verifyNoInteractions(escrowService);
     }
 
+    /** Sheet settlementExecuteRefund - UTCID05 (A): tổng tiền không khớp số tiền escrow */
     @Test
     void executeRefundRejectsSettlementTotalMismatch() {
         EscrowTransaction escrow = new EscrowTransaction();
@@ -203,11 +209,132 @@ class SettlementServiceImplTest {
         verifyNoInteractions(escrowService);
     }
 
+    /** Sheet settlementCalculate - UTCID01 (A): calculate chưa hiện thực -> UnsupportedOperationException (thuộc phạm vi module M4) */
     @Test
     void calculateIsOwnedByM4() {
         UnsupportedOperationException exception = assertThrows(UnsupportedOperationException.class, () ->
                 settlementService.calculate(1L));
 
         assertEquals("Chức năng tính toán tất toán thuộc module M4", exception.getMessage());
+    }
+    // =====================================================================
+    //  Sheet: settlementExecute - cac ca con lai
+    // =====================================================================
+
+    /**
+     * Sheet settlementExecute - UTCID03 (A): escrow da tat toan.
+     * execute() chi kiem tra instruction null roi uy quyen cho EscrowService, nen guard
+     * trang thai escrow nam o EscrowService va loi phai thoat nguyen trang qua execute().
+     */
+    @Test
+    void executePropagatesAlreadySettledEscrowError() {
+        ReleaseInstruction instruction = new ReleaseInstruction(
+                10L, new BigDecimal("500000.00"), BigDecimal.ZERO, "Tat toan lop");
+        doThrow(new BusinessException("Chỉ escrow đã khóa, tạm giữ hoặc tranh chấp mới có thể tất toán"))
+                .when(escrowService).apply(instruction);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> settlementService.execute(instruction));
+        assertEquals("Chỉ escrow đã khóa, tạm giữ hoặc tranh chấp mới có thể tất toán", ex.getMessage());
+    }
+
+    /** Sheet settlementExecute - UTCID04 (A): tong release + refund khac so tien escrow. */
+    @Test
+    void executePropagatesSettlementTotalMismatchError() {
+        ReleaseInstruction instruction = new ReleaseInstruction(
+                10L, new BigDecimal("100000.00"), BigDecimal.ZERO, "Tat toan lop");
+        doThrow(new BusinessException("Tổng tiền giải ngân/hoàn phải bằng số tiền escrow"))
+                .when(escrowService).apply(instruction);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> settlementService.execute(instruction));
+        assertEquals("Tổng tiền giải ngân/hoàn phải bằng số tiền escrow", ex.getMessage());
+    }
+
+    // =====================================================================
+    //  Sheet: settlementExecuteRefund - cac ca con lai
+    // =====================================================================
+
+    private ExecuteRefundRequest validRefundRequest() {
+        ExecuteRefundRequest request = new ExecuteRefundRequest();
+        request.setEscrowId(10L);
+        request.setReleaseToBeneficiary(new BigDecimal("400000.00"));
+        request.setRefundToPayer(new BigDecimal("100000.00"));
+        request.setReason("Hoàn tiền một phần theo quyết định admin");
+        request.setRefundPayoutInfo(new RefundPayoutInfo("TPBank", "0123456789", "Nguyen Van A"));
+        return request;
+    }
+
+    private EscrowTransaction escrowWith(EscrowStatus status, String amount) {
+        EscrowTransaction escrow = new EscrowTransaction();
+        escrow.setEscrowId(10L);
+        escrow.setAmount(new BigDecimal(amount));
+        escrow.setStatus(status);
+        return escrow;
+    }
+
+    /** Sheet settlementExecuteRefund - UTCID02 (A): khong truyen thong tin hoan tien. */
+    @Test
+    void executeRefundRejectsNullRequest() {
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> settlementService.executeRefund(null));
+        assertEquals("Thiếu thông tin hoàn tiền", ex.getMessage());
+    }
+
+    /** Sheet settlementExecuteRefund - UTCID03 (A): khong truyen escrowId. */
+    @Test
+    void executeRefundRejectsMissingEscrowId() {
+        ExecuteRefundRequest request = validRefundRequest();
+        request.setEscrowId(null);
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> settlementService.executeRefund(request));
+        assertEquals("Thiếu escrow cần hoàn tiền", ex.getMessage());
+    }
+
+    /** Sheet settlementExecuteRefund - UTCID04 (A): escrow da duoc tat toan. */
+    @Test
+    void executeRefundRejectsAlreadySettledEscrow() {
+        when(escrowTransactionRepository.findById(10L))
+                .thenReturn(Optional.of(escrowWith(EscrowStatus.RELEASED, "500000.00")));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> settlementService.executeRefund(validRefundRequest()));
+        assertEquals("Escrow đã được tất toán, không thể hoàn tiền thêm", ex.getMessage());
+    }
+
+    /** Sheet settlementExecuteRefund - UTCID06 (A): so tien am. */
+    @Test
+    void executeRefundRejectsNegativeAmount() {
+        ExecuteRefundRequest request = validRefundRequest();
+        request.setReleaseToBeneficiary(new BigDecimal("-1.00"));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> settlementService.executeRefund(request));
+        assertEquals("Số tiền giải ngân/hoàn không được âm", ex.getMessage());
+    }
+
+    /** Sheet settlementExecuteRefund - UTCID08 (B): ly do ngan hon 10 ky tu (ngay duoi nguong). */
+    @Test
+    void executeRefundRejectsTooShortReason() {
+        ExecuteRefundRequest request = validRefundRequest();
+        request.setReason("Hoan tien");
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> settlementService.executeRefund(request));
+        assertEquals("Lý do hoàn tiền phải có ít nhất 10 ký tự", ex.getMessage());
+    }
+
+    /** Sheet settlementExecuteRefund - UTCID09 (A): thieu thong tin tai khoan nhan hoan tien. */
+    @Test
+    void executeRefundRejectsIncompletePayoutInfo() {
+        ExecuteRefundRequest request = validRefundRequest();
+        request.setRefundPayoutInfo(new RefundPayoutInfo("TPBank", null, "Nguyen Van A"));
+        when(escrowTransactionRepository.findById(10L))
+                .thenReturn(Optional.of(escrowWith(EscrowStatus.DISPUTED, "500000.00")));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> settlementService.executeRefund(request));
+        assertEquals("Vui lòng nhập đầy đủ thông tin tài khoản nhận hoàn tiền", ex.getMessage());
     }
 }

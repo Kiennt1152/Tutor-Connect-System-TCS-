@@ -98,6 +98,7 @@ class PlatformServiceImplTicketTest {
         ticket.setDueAt(LocalDateTime.now().plusHours(11));
     }
 
+    /** Sheet respondToTicket - UTCID01 (N): nội dung phản hồi có giá trị -> lưu phản hồi và thông báo người tạo ticket */
     @Test
     @DisplayName("respondToTicket: admin phản hồi ticket, gán admin, lưu TicketMessage và chuyển status thành IN_REVIEW")
     void respondToTicket_Success() {
@@ -120,6 +121,7 @@ class PlatformServiceImplTicketTest {
         verify(auditLogService, times(1)).record(eq("RESPOND_TICKET"), eq("SupportTicket"), eq(TICKET_ID), any(), eq(req));
     }
 
+    /** Sheet closeTicket - UTCID01 (N): trạng thái đóng là RESOLVED -> chuyển ticket sang trạng thái kết thúc */
     @Test
     @DisplayName("closeTicket: đóng ticket thành công với trạng thái RESOLVED")
     void closeTicket_Resolved_Success() {
@@ -138,6 +140,7 @@ class PlatformServiceImplTicketTest {
         verify(supportTicketRepository, times(1)).save(ticket);
     }
 
+    /** Sheet updateTicket - UTCID02 (N): ticket đang mở, request đổi priority -> tính lại dueAt từ createdAt */
     @ParameterizedTest
     @CsvSource({"LOW,48", "MEDIUM,24", "HIGH,12", "URGENT,4"})
     @DisplayName("updateTicket: priority mới tính lại dueAt từ createdAt")
@@ -160,6 +163,7 @@ class PlatformServiceImplTicketTest {
                 eq("UPDATE_TICKET"), eq("SupportTicket"), eq(TICKET_ID), any(), any());
     }
 
+    /** Sheet updateTicket - UTCID02 (N): ticket đang mở, request đổi priority sang URGENT làm dueAt quá hạn -> slaBreached = true */
     @Test
     @DisplayName("updateTicket: priority khẩn cấp quá hạn cập nhật slaBreached")
     void updateTicket_SetsSlaBreached() {
@@ -176,6 +180,7 @@ class PlatformServiceImplTicketTest {
         assertEquals(ticket.getCreatedAt().plusHours(4), ticket.getDueAt());
     }
 
+    /** Sheet updateTicket - UTCID01 (N): ticket đang mở, request đổi category -> giữ nguyên dueAt */
     @Test
     @DisplayName("updateTicket: đổi category không thay dueAt")
     void updateTicket_CategoryOnlyKeepsDueAt() {
@@ -191,6 +196,7 @@ class PlatformServiceImplTicketTest {
         assertEquals(originalDueAt, ticket.getDueAt());
     }
 
+    /** Sheet updateTicket - UTCID03 (N): request đổi cả category và priority -> audit ghi giá trị trước/sau */
     @Test
     @DisplayName("updateTicket: audit lưu category, priority và dueAt trước/sau")
     void updateTicket_AuditsBeforeAndAfterValues() {
@@ -218,6 +224,7 @@ class PlatformServiceImplTicketTest {
         assertEquals(ticket.getCreatedAt().plusHours(4), after.get("dueAt"));
     }
 
+    /** Sheet updateTicket - UTCID05 (A) + UTCID08 (B): request rỗng / giá trị trùng giá trị hiện tại */
     @Test
     @DisplayName("updateTicket: từ chối request rỗng hoặc không thay đổi")
     void updateTicket_RejectsEmptyAndNoOpRequests() {
@@ -236,6 +243,7 @@ class PlatformServiceImplTicketTest {
                 any(), any(), any(), any(), any());
     }
 
+    /** Sheet updateTicket - UTCID06 (A): ticket đã ở trạng thái RESOLVED hoặc CLOSED */
     @Test
     @DisplayName("updateTicket: từ chối ticket đã kết thúc")
     void updateTicket_RejectsTerminatedTicket() {
@@ -278,7 +286,26 @@ class PlatformServiceImplTicketTest {
         assertEquals("Ticket không có thay đổi để lưu", ex.getMessage());
         verify(supportTicketRepository, never()).save(any());
     }
+    /** Sheet updateTicket - UTCID04 (B): ticket dang IN_PROGRESS (bien tren cua trang thai con sua duoc) -> van cap nhat duoc. */
+    @Test
+    @DisplayName("updateTicket: ticket IN_PROGRESS vẫn đổi được category")
+    void updateTicket_AllowsInProgressTicket() {
+        ticket.setStatus(SupportTicketStatus.IN_PROGRESS);
+        LocalDateTime originalDueAt = ticket.getDueAt();
+        when(supportTicketRepository.findById(TICKET_ID)).thenReturn(Optional.of(ticket));
+        when(supportTicketRepository.save(any(SupportTicket.class))).thenAnswer(i -> i.getArgument(0));
 
+        UpdateTicketRequest request = new UpdateTicketRequest();
+        request.setCategory(SupportTicketCategory.INQUIRY);
+        platformService.updateTicket(TICKET_ID, request);
+
+        assertEquals(SupportTicketCategory.INQUIRY, ticket.getCategory());
+        assertEquals(originalDueAt, ticket.getDueAt());
+        verify(supportTicketRepository).save(ticket);
+    }
+
+
+    /** Ngoài phạm vi Report 5.1 (MethodList không có getTicketDetail) - test bổ sung */
     @Test
     @DisplayName("getTicketDetail: trả về đầy đủ thông tin ticket bao gồm dueAt, slaBreached, responseSlaMs")
     void getTicketDetail_Success() {
@@ -302,6 +329,7 @@ class PlatformServiceImplTicketTest {
         assertEquals(platformAdmin.getAdminId(), response.getAssignedAdminId());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có mergeTicket) - test bổ sung */
     @Test
     @DisplayName("mergeTicket: gộp ticket nguồn vào ticket đích thành công (BF09-TC03)")
     void mergeTicket_Success() {
@@ -346,6 +374,7 @@ class PlatformServiceImplTicketTest {
                 eq(ticketUser), any(), eq("SUPPORT_TICKET_RESPONSE"), any(), any(), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có mergeTicket) - test bổ sung */
     @Test
     @DisplayName("mergeTicket: từ chối khi gộp ticket vào chính nó")
     void mergeTicket_RejectsSameTicket() {
@@ -356,6 +385,7 @@ class PlatformServiceImplTicketTest {
         verify(supportTicketRepository, never()).save(any());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có mergeTicket) - test bổ sung */
     @Test
     @DisplayName("mergeTicket: từ chối khi gộp ticket của 2 người dùng khác nhau")
     void mergeTicket_RejectsDifferentUsers() {
@@ -384,6 +414,7 @@ class PlatformServiceImplTicketTest {
         verify(ticketMessageRepository, never()).save(any());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có mergeTicket) - test bổ sung */
     @Test
     @DisplayName("mergeTicket: từ chối khi ticket đích đã bị đóng")
     void mergeTicket_RejectsAlreadyClosedTargetTicket() {
@@ -408,6 +439,7 @@ class PlatformServiceImplTicketTest {
         verify(ticketMessageRepository, never()).save(any());
     }
 
+    /** Sheet scanSlaBreaches - UTCID01 (N): có ticket quá hạn chưa đánh dấu -> set slaBreached, lưu và trả về số ticket đã nâng cấp */
     @Test
     @DisplayName("scanAndEscalateSlaBreaches: tự động nâng độ ưu tiên và gửi nhắc nhở khi quá hạn SLA (BF09-TC02)")
     void scanAndEscalateSlaBreaches_Success() {
@@ -441,6 +473,7 @@ class PlatformServiceImplTicketTest {
                 eq(ticketUser), any(), contains("Cập nhật tiến độ"), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
     }
 
+    /** Sheet scanSlaBreaches - UTCID05 (B): ticket quá hạn có priority HIGH -> nâng lên URGENT */
     @Test
     @DisplayName("scanAndEscalateSlaBreaches: nâng HIGH lên URGENT và gửi broadcast khi chưa gán admin")
     void scanAndEscalateSlaBreaches_HighToUrgentBroadcast() {
@@ -463,6 +496,7 @@ class PlatformServiceImplTicketTest {
                 eq(adminUser), any(), contains("Cảnh báo quá hạn SLA"), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
     }
 
+    /** Sheet scanSlaBreaches - UTCID02 (B): không có ticket nào thoả điều kiện -> trả về 0, không ghi gì */
     @Test
     @DisplayName("scanAndEscalateSlaBreaches: trả về 0 khi không có ticket nào quá hạn")
     void scanAndEscalateSlaBreaches_NoBreaches() {
@@ -476,6 +510,7 @@ class PlatformServiceImplTicketTest {
         verify(notificationDispatchService, never()).notifyUser(any(), any(), any(), any(), any(), any());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có redirectTicketToDispute) - test bổ sung */
     @Test
     @DisplayName("redirectTicketToDispute: chuyển đổi category thành DISPUTE, nâng độ ưu tiên lên HIGH và gửi thông báo (BF09-TC07)")
     void redirectTicketToDispute_Success() {
@@ -509,6 +544,7 @@ class PlatformServiceImplTicketTest {
                 eq(ticketUser), any(), eq("SUPPORT_TICKET_RESPONSE"), any(), any(), any(), eq("SUPPORT_TICKET"), eq(TICKET_ID));
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có redirectTicketToDispute) - test bổ sung */
     @Test
     @DisplayName("redirectTicketToDispute: tạo bản ghi Report khi có targetClassId")
     void redirectTicketToDispute_WithClassCreatesReport() {
@@ -541,6 +577,7 @@ class PlatformServiceImplTicketTest {
         assertEquals(com.tcs.module.platform.enums.ReportStatus.PENDING, savedReport.getStatus());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có redirectTicketToDispute) - test bổ sung */
     @Test
     @DisplayName("redirectTicketToDispute: từ chối khi ticket đã bị đóng")
     void redirectTicketToDispute_RejectsClosedTicket() {
@@ -555,5 +592,31 @@ class PlatformServiceImplTicketTest {
                 () -> platformService.redirectTicketToDispute(TICKET_ID, new com.tcs.module.platform.dto.request.RedirectDisputeRequest()));
         assertEquals("Không thể chuyển tiếp ticket đã bị đóng", ex.getMessage());
         verify(ticketMessageRepository, never()).save(any());
+    }
+    /** Sheet respondToTicket - UTCID02 (A): noi dung phan hoi rong -> 'Nội dung phản hồi là bắt buộc'. */
+    @Test
+    @DisplayName("respondToTicket: nội dung phản hồi rỗng -> 'Nội dung phản hồi là bắt buộc'")
+    void respondToTicket_RejectsBlankContent() {
+        RespondTicketRequest request = new RespondTicketRequest();
+        request.setContent("   ");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> platformService.respondToTicket(TICKET_ID, request));
+        assertEquals("Nội dung phản hồi là bắt buộc", ex.getMessage());
+        verify(ticketMessageRepository, never()).save(any());
+        verify(supportTicketRepository, never()).save(any());
+    }
+
+    /** Sheet closeTicket - UTCID02 (A): trang thai dong khong hop le -> chi chap nhan RESOLVED hoac CLOSED. */
+    @Test
+    @DisplayName("closeTicket: trạng thái không phải RESOLVED/CLOSED -> chặn")
+    void closeTicket_RejectsInvalidStatus() {
+        CloseTicketRequest request = new CloseTicketRequest();
+        request.setStatus(SupportTicketStatus.IN_PROGRESS);
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> platformService.closeTicket(TICKET_ID, request));
+        assertEquals("Chỉ chấp nhận trạng thái RESOLVED hoặc CLOSED", ex.getMessage());
+        verify(supportTicketRepository, never()).save(any());
     }
 }

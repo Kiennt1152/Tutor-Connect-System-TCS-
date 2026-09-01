@@ -1560,4 +1560,68 @@ class CenterServiceImplRequestTest {
                     expectReject(request).getMessage());
         }
     }
+    // ===================================================================
+    //  Sheet: acceptClassRequest
+    // ===================================================================
+    @Nested
+    @DisplayName("acceptClassRequest")
+    class AcceptClassRequest {
+
+        @BeforeEach
+        void initVerifiedCenter() {
+            center.setVerificationStatus(com.tcs.module.profile.enums.ProfileVerificationStatus.VERIFIED);
+            var wallet = new com.tcs.module.finance.entity.Wallet();
+            wallet.setWalletId(CENTER_USER_ID);
+            wallet.setStatus(com.tcs.module.finance.enums.WalletStatus.ACTIVE);
+            when(walletRepository.findByUser_UserId(CENTER_USER_ID)).thenReturn(Optional.of(wallet));
+            when(classAssignmentRepository.findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                    anyLong(), any())).thenReturn(Optional.empty());
+            when(substitutionService.findAssistant(anyLong())).thenReturn(Optional.empty());
+            when(scheduleSlotRepository.findByTutoringClass_ClassId(anyLong())).thenReturn(List.of());
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - trung tam so huu yeu cau da san sang -> tao lop va chuyen sang buoc tim gia su")
+        void utcid01_acceptSuccessfully() {
+            givenRequest(requestData(CENTER_ID, ClassRequestStore.STATUS_PENDING));
+
+            service.acceptClassRequest(REQUEST_ID, classRequest());
+
+            verify(tutoringClassRepository).save(any(TutoringClass.class));
+            verify(centerRequestFeeService).linkFulfilledAssignment(
+                    org.mockito.ArgumentMatchers.eq(REQUEST_ID), any(), org.mockito.ArgumentMatchers.isNull());
+            verify(classRequestStore).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - yeu cau thuoc trung tam khac -> ForbiddenException")
+        void utcid02_requestOfAnotherCenter() {
+            givenRequest(requestData(999L, ClassRequestStore.STATUS_PENDING));
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.acceptClassRequest(REQUEST_ID, classRequest()));
+            assertEquals("Không có quyền xử lý yêu cầu này", ex.getMessage());
+            verify(tutoringClassRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - yeu cau chua san sang de xu ly (cho thanh toan) -> chan")
+        void utcid03_notReadyYet() {
+            givenRequest(requestData(CENTER_ID, ClassRequestStore.STATUS_PAYMENT_PENDING));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.acceptClassRequest(REQUEST_ID, classRequest()));
+            assertEquals("Yêu cầu này chưa sẵn sàng để xử lý", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - yeu cau da duoc xu ly -> chan")
+        void utcid04_alreadyProcessed() {
+            givenRequest(requestData(CENTER_ID, ClassRequestStore.STATUS_SEARCHING));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.acceptClassRequest(REQUEST_ID, classRequest()));
+            assertEquals("Yêu cầu này đã được xử lý", ex.getMessage());
+        }
+    }
 }

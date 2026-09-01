@@ -46,6 +46,7 @@ class CourseCompletionAutoConfirmSchedulerTest {
         return c;
     }
 
+    /** Sheet autoConfirmCompletion - UTCID01 (N). */
     @Test
     @DisplayName("UTCID01 (N) - BF-04: lớp CENTER quá 7 ngày -> tự xác nhận và tất toán")
     void utcid01_centerClassAutoConfirmed() {
@@ -57,6 +58,7 @@ class CourseCompletionAutoConfirmSchedulerTest {
         verify(settlementService).trySettleCompletedCenterClass(1L);
     }
 
+    /** Sheet autoConfirmCompletion - UTCID02 (B). */
     @Test
     @DisplayName("UTCID02 (B) - Lớp CENTER mới kết thúc 3 ngày (chưa quá hạn) -> chưa tự xác nhận")
     void utcid02_centerClassNotYetOverdue() {
@@ -69,6 +71,7 @@ class CourseCompletionAutoConfirmSchedulerTest {
         verify(settlementService, never()).trySettleCompletedCenterClass(anyLong());
     }
 
+    /** Sheet autoConfirmCompletion - UTCID03 (A). */
     @Test
     @DisplayName("UTCID03 (A) - Lớp PRIVATE quá 7 ngày -> scheduler center không xử lý")
     void utcid03_privateClassIsIgnoredByCenterScheduler() {

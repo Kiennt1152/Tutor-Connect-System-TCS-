@@ -36,6 +36,7 @@ class ClassActivationServiceImplTest {
     @InjectMocks
     private ClassActivationServiceImpl classActivationService;
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có onContractSigned) - test bổ sung */
     @Test
     void onContractSignedWaitsForEscrowFundedWhenTuitionIsRequired() {
         TutoringClass tutoringClass = new TutoringClass();
@@ -55,6 +56,7 @@ class ClassActivationServiceImplTest {
         verify(tutoringClassRepository, never()).save(any());
     }
 
+    /** Sheet clsActivate - UTCID01 (N): lớp private ở trạng thái còn kích hoạt được -> chuyển sang IN_PROGRESS */
     @Test
     void onEscrowFundedActivatesClass() {
         TutoringClass tutoringClass = new TutoringClass();
@@ -75,6 +77,7 @@ class ClassActivationServiceImplTest {
         verify(tutoringClassRepository).save(tutoringClass);
     }
 
+    /** Sheet clsActivate - UTCID08 (A): lớp CENTER chưa đủ escrow FUNDED so với minStudents -> thoát im lặng */
     @Test
     void onEscrowFundedDoesNotActivateCenterClassUntilEnoughStudentsPaid() {
         TutoringClass tutoringClass = centerClass();
@@ -93,6 +96,7 @@ class ClassActivationServiceImplTest {
         verify(tutoringClassRepository, never()).save(any());
     }
 
+    /** Sheet clsActivate - UTCID02 (N): lớp CENTER đủ escrow FUNDED (>= minStudents) -> chuyển sang IN_PROGRESS */
     @Test
     void onEscrowFundedActivatesCenterClassWhenEnoughStudentsPaid() {
         TutoringClass tutoringClass = centerClass();

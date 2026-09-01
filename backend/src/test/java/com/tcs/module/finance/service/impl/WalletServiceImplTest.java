@@ -80,6 +80,7 @@ class WalletServiceImplTest {
     @DisplayName("getOrCreate")
     class GetOrCreate {
 
+        /** Ngoài phạm vi Report 5.1 (MethodList không có getOrCreate) - test bổ sung */
         @Test
         @DisplayName("returns existing wallet when found")
         void returnsExistingWallet() {
@@ -91,6 +92,7 @@ class WalletServiceImplTest {
             verify(walletRepository, never()).save(any());
         }
 
+        /** Ngoài phạm vi Report 5.1 (MethodList không có getOrCreate) - test bổ sung */
         @Test
         @DisplayName("creates new wallet when not found")
         void createsNewWallet() {
@@ -124,6 +126,7 @@ class WalletServiceImplTest {
     @DisplayName("create")
     class Create {
 
+        /** Ngoài phạm vi Report 5.1 (MethodList không có create) - test bổ sung */
         @Test
         @DisplayName("returns existing wallet when user already has one")
         void returnsExistingWallet() {
@@ -135,6 +138,7 @@ class WalletServiceImplTest {
             verify(walletRepository, never()).save(any());
         }
 
+        /** Ngoài phạm vi Report 5.1 (MethodList không có create) - test bổ sung */
         @Test
         @DisplayName("creates active zero-balance wallet when missing")
         void createsWalletWhenMissing() {
@@ -161,6 +165,7 @@ class WalletServiceImplTest {
     @DisplayName("balance")
     class Balance {
 
+        /** Ngoài phạm vi Report 5.1 (MethodList không có balance) - test bổ sung */
         @Test
         @DisplayName("returns available balance when wallet exists")
         void returnsBalance() {
@@ -171,6 +176,7 @@ class WalletServiceImplTest {
             assertEquals(new BigDecimal("100000.00"), result);
         }
 
+        /** Ngoài phạm vi Report 5.1 (MethodList không có balance) - test bổ sung */
         @Test
         @DisplayName("returns ZERO when wallet not found")
         void returnsZeroWhenNotFound() {
@@ -188,6 +194,7 @@ class WalletServiceImplTest {
     @DisplayName("walletCredit")
     class Credit {
 
+        /** Sheet walletCredit - UTCID01 (N): ví ACTIVE, amount > 0 -> tăng số dư khả dụng và ghi FinancialJournal CREDIT */
         @Test
         @DisplayName("increases available balance and writes journal")
         void creditIncreasesBalance() {
@@ -208,6 +215,7 @@ class WalletServiceImplTest {
             assertEquals(new BigDecimal("150000.00"), journal.getBalanceAfter());
         }
 
+        /** Sheet walletCredit - UTCID02 (N): chưa có ví -> getOrCreate tạo ví mới rồi ghi có */
         @Test
         @DisplayName("creates wallet on credit if not exists")
         void creditCreatesWalletIfMissing() {
@@ -224,6 +232,7 @@ class WalletServiceImplTest {
             assertEquals(new BigDecimal("200000.00"), lastSaved.getAvailableBalance());
         }
 
+        /** Sheet walletCredit - UTCID03 (B): amount = 0 -> 'Số tiền ghi có phải lớn hơn 0' */
         @Test
         @DisplayName("throws when amount is zero or negative")
         void throwsOnInvalidAmount() {
@@ -233,6 +242,7 @@ class WalletServiceImplTest {
                     walletService.credit(USER_ID, new BigDecimal("-100"), "REF"));
         }
 
+        /** Sheet walletCredit - UTCID05 (A): ví SUSPENDED -> 'Ví không ở trạng thái hoạt động' */
         @Test
         @DisplayName("throws when wallet is not active")
         void throwsWhenWalletNotActive() {
@@ -250,6 +260,7 @@ class WalletServiceImplTest {
     @DisplayName("walletDebit")
     class Debit {
 
+        /** Sheet walletDebit - UTCID01 (N): ví ACTIVE, số dư khả dụng > amount -> trừ đúng amount và ghi journal DEBIT */
         @Test
         @DisplayName("decreases available balance and writes journal")
         void debitDecreasesBalance() {
@@ -267,6 +278,7 @@ class WalletServiceImplTest {
             assertEquals(new BigDecimal("70000.00"), journal.getBalanceAfter());
         }
 
+        /** Sheet walletDebit - UTCID07 (A): số dư khả dụng < amount -> 'Số dư khả dụng không đủ' */
         @Test
         @DisplayName("throws when insufficient balance")
         void throwsOnInsufficientBalance() {
@@ -276,6 +288,7 @@ class WalletServiceImplTest {
                     walletService.debit(USER_ID, new BigDecimal("999999.00"), "REF"));
         }
 
+        /** Sheet walletDebit - UTCID05 (A): chưa có ví -> 'Không tìm thấy ví cho người dùng này' */
         @Test
         @DisplayName("throws when wallet not found")
         void throwsWhenWalletNotFound() {
@@ -285,6 +298,7 @@ class WalletServiceImplTest {
                     walletService.debit(USER_ID, new BigDecimal("100"), "REF"));
         }
 
+        /** Sheet walletDebit - UTCID06 (A): ví SUSPENDED -> 'Ví không ở trạng thái hoạt động' */
         @Test
         @DisplayName("throws when wallet is suspended")
         void throwsWhenWalletSuspended() {
@@ -294,6 +308,16 @@ class WalletServiceImplTest {
             assertThrows(BusinessException.class, () ->
                     walletService.debit(USER_ID, new BigDecimal("100"), "REF"));
         }
+        /** Sheet walletDebit - UTCID03 (B): amount = 0 -> 'So tien ghi no phai lon hon 0'. */
+        @Test
+        @DisplayName("debit UTCID03 (B) - amount = 0 -> 'Số tiền ghi nợ phải lớn hơn 0'")
+        void debitZeroAmount() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.debit(USER_ID, BigDecimal.ZERO, "DEBIT-0"));
+            assertEquals("Số tiền ghi nợ phải lớn hơn 0", ex.getMessage());
+            verify(walletRepository, never()).save(any());
+        }
+
     }
 
     // ─── lockFunds ─────────────────────────────────────────────────────────
@@ -302,6 +326,7 @@ class WalletServiceImplTest {
     @DisplayName("walletLockFunds")
     class LockFunds {
 
+        /** Sheet walletLockFunds - UTCID01 (N): ví ACTIVE, khả dụng > amount -> chuyển amount sang frozen và ghi journal DEBIT */
         @Test
         @DisplayName("moves available balance to frozen balance and writes journal")
         void lockFundsMovesAvailableToFrozen() {
@@ -321,6 +346,7 @@ class WalletServiceImplTest {
             assertEquals(new BigDecimal("60000.00"), journal.getBalanceAfter());
         }
 
+        /** Sheet walletLockFunds - UTCID06 (A): số dư khả dụng < amount -> 'Số dư khả dụng không đủ' */
         @Test
         @DisplayName("throws when balance is insufficient")
         void throwsOnInsufficientBalance() {
@@ -337,6 +363,7 @@ class WalletServiceImplTest {
     @DisplayName("release/refund locked funds")
     class ReleaseLockedFunds {
 
+        /** Sheet walletReleaseLocked - UTCID01 (N): frozen > amount -> giảm frozen, không đổi khả dụng, không ghi journal */
         @Test
         @DisplayName("releaseLockedFunds decreases frozen balance")
         void releaseLockedFundsDecreasesFrozen() {
@@ -351,6 +378,7 @@ class WalletServiceImplTest {
             verify(financialJournalRepository, never()).save(any());
         }
 
+        /** Sheet walletRefundLocked - UTCID01 (N): ví ACTIVE, frozen > amount -> chuyển frozen về khả dụng và ghi journal CREDIT */
         @Test
         @DisplayName("refundLockedFunds moves frozen balance back to available balance and writes journal")
         void refundLockedFundsMovesFrozenToAvailable() {
@@ -371,6 +399,7 @@ class WalletServiceImplTest {
             assertEquals(new BigDecimal("130000.00"), journal.getBalanceAfter());
         }
 
+        /** Sheet walletReleaseLocked - UTCID06 (A) + walletRefundLocked - UTCID08 (B): frozen < amount -> 'Số dư bị khóa không đủ' */
         @Test
         @DisplayName("throws when frozen balance is insufficient")
         void throwsOnInsufficientFrozenBalance() {
@@ -382,6 +411,7 @@ class WalletServiceImplTest {
             assertThrows(BusinessException.class, () ->
                     walletService.refundLockedFunds(USER_ID, new BigDecimal("30000.00"), "REFUND-ESCROW-1"));
         }
+
     }
 
     // ─── createTopup ────────────────────────────────────────────────────────
@@ -390,6 +420,7 @@ class WalletServiceImplTest {
     @DisplayName("createTopup")
     class CreateTopup {
 
+        /** Ngoài phạm vi Report 5.1 (MethodList không có createTopup) - test bổ sung */
         @Test
         @DisplayName("delegates to PaymentGateway with correct params")
         void delegatesToGateway() {
@@ -404,6 +435,7 @@ class WalletServiceImplTest {
             verify(paymentGateway).createQr(any(BigDecimal.class), argThat(arg -> arg != null && arg.startsWith("TOPUP-")));
         }
 
+        /** Ngoài phạm vi Report 5.1 (MethodList không có createTopup) - test bổ sung */
         @Test
         @DisplayName("throws when amount is invalid")
         void throwsOnInvalidAmount() {
@@ -453,7 +485,7 @@ class WalletServiceImplTest {
         // ---- walletCredit ----
 
         @Test
-        @DisplayName("credit UTCID03 (A) - amount = null -> 'Số tiền ghi có phải lớn hơn 0'")
+        @DisplayName("credit UTCID04 (A) - amount = null -> 'Số tiền ghi có phải lớn hơn 0'")
         void creditNullAmount() {
             BusinessException ex = assertThrows(BusinessException.class,
                     () -> walletService.credit(USER_ID, null, "TRANSFER-1"));

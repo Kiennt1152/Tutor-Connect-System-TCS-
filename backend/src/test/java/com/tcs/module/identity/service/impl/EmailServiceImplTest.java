@@ -107,4 +107,51 @@ class EmailServiceImplTest {
             assertEquals("Không gửi được email OTP. Vui lòng thử lại sau.", ex.getMessage());
         }
     }
+    // ========================================================================
+    //  Sheet: sendRegistrationOtp
+    // ========================================================================
+
+    @Nested
+    @DisplayName("sendRegistrationOtp")
+    class SendRegistrationOtp {
+
+        @Test
+        @DisplayName("UTCID01 (N) - cau hinh App Password hop le, SMTP binh thuong -> gui duoc email OTP dang ky")
+        void utcid01_sendSuccessfully() {
+            MimeMessage message = realMimeMessage();
+            when(mailSender.createMimeMessage()).thenReturn(message);
+
+            emailService.sendRegistrationOtp(TO, OTP, 5);
+
+            verify(mailSender).send(message);
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - App Password Gmail bi thu hoi -> bao loi App Password")
+        void utcid02_appPasswordRevoked() {
+            MimeMessage message = realMimeMessage();
+            when(mailSender.createMimeMessage()).thenReturn(message);
+            doThrow(new MailAuthenticationException("535 auth failed"))
+                    .when(mailSender).send(any(MimeMessage.class));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> emailService.sendRegistrationOtp(TO, OTP, 5));
+            assertEquals(
+                    "Không gửi được mã OTP do App Password Gmail đã bị thu hồi hoặc không còn hợp lệ.",
+                    ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - loi SMTP khac -> 'Không gửi được email xác thực. Vui lòng thử lại sau.'")
+        void utcid03_otherSmtpError() {
+            MimeMessage message = realMimeMessage();
+            when(mailSender.createMimeMessage()).thenReturn(message);
+            doThrow(new MailSendException("connection reset"))
+                    .when(mailSender).send(any(MimeMessage.class));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> emailService.sendRegistrationOtp(TO, OTP, 5));
+            assertEquals("Không gửi được email xác thực. Vui lòng thử lại sau.", ex.getMessage());
+        }
+    }
 }

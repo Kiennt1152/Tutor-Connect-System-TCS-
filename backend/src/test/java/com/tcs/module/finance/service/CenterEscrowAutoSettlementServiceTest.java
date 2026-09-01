@@ -85,6 +85,7 @@ class CenterEscrowAutoSettlementServiceTest {
     @InjectMocks
     private CenterEscrowAutoSettlementService service;
 
+    /** Sheet ceasTrySettle - UTCID01 (N): lớp CENTER đủ điều kiện, không vướng sự cố -> giải ngân mọi escrow FUNDED và đóng lớp */
     @Test
     void releasesFundedCenterEscrowWhenClassCompletedWithoutIssue() {
         TutoringClass tutoringClass = centerClass();
@@ -117,6 +118,7 @@ class CenterEscrowAutoSettlementServiceTest {
         verify(tutoringClassRepository).save(tutoringClass);
     }
 
+    /** Sheet ceasTrySettle - UTCID08 (A): còn báo cáo/tranh chấp/yêu cầu chấm dứt đang mở -> không tự giải ngân */
     @Test
     void skipsAutoReleaseWhenClassHasPendingReport() {
         TutoringClass tutoringClass = centerClass();

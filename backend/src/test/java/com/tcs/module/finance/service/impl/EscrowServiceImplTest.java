@@ -112,6 +112,7 @@ class EscrowServiceImplTest {
                 .thenReturn(Optional.of(parameter));
     }
 
+    /** Sheet escrowPreparePayment - UTCID01 (N): lệnh hợp lệ có assignmentId -> tạo PaymentTransaction PENDING (luồng lớp private) */
     @Test
     void preparePrivateAssignmentCreatesPendingEscrowPayment() {
         BigDecimal amount = new BigDecimal("500000.00");
@@ -143,6 +144,7 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).save(any());
     }
 
+    /** Sheet escrowPreparePayment - UTCID02 (N): lệnh hợp lệ có classStudentId -> tạo PaymentTransaction PENDING (luồng lớp trung tâm) */
     @Test
     void prepareCenterEnrollmentCreatesPendingEscrowPayment() {
         BigDecimal amount = new BigDecimal("300000.00");
@@ -171,6 +173,7 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).save(any());
     }
 
+    /** Bổ sung ngoài các UTCID của sheet escrowPreparePayment: idempotent - trả lại giao dịch PENDING đã có, không tạo mới */
     @Test
     void preparePaymentReturnsExistingEscrowPaymentWithoutChargingAgain() {
         PaymentTransaction payment = new PaymentTransaction();
@@ -188,6 +191,7 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).save(any());
     }
 
+    /** Bổ sung ngoài các UTCID của sheet escrowPreparePayment: giao dịch cũ đã huỷ -> sinh session reference mới */
     @Test
     void preparePaymentCreatesNewSessionReferenceWhenPreviousEscrowPaymentWasCancelled() {
         BigDecimal amount = new BigDecimal("500000.00");
@@ -218,6 +222,7 @@ class EscrowServiceImplTest {
         assertEquals(PaymentTransactionStatus.PENDING, result.getStatus());
     }
 
+    /** Sheet escrowFundPayment - UTCID01 (N): payment SUCCESS, chưa có escrow -> tạo EscrowTransaction FUNDED */
     @Test
     void fundConfirmedPaymentCreatesFundedEscrow() {
         BigDecimal amount = new BigDecimal("500000.00");
@@ -249,7 +254,7 @@ class EscrowServiceImplTest {
     //  Sheet: lock (EscrowLockCommand)
     // ===================================================================
 
-    /** UTCID01 (N) - Lệnh hợp lệ + đã có giao dịch thanh toán SUCCESS -> sinh escrow FUNDED. */
+    /** Sheet escrowLock - UTCID01 (N) - Lệnh hợp lệ + đã có giao dịch thanh toán SUCCESS -> sinh escrow FUNDED. */
     @Test
     void utcid01_lockPrivateAssignmentCreatesFundedEscrow() {
         BigDecimal amount = new BigDecimal("500000.00");
@@ -272,7 +277,7 @@ class EscrowServiceImplTest {
         assertEquals(amount, result.getAmount());
     }
 
-    /** UTCID02 (A) - command = null -> 'Thiếu thông tin khóa escrow'. */
+    /** Sheet escrowLock - UTCID02 (A) - command = null -> 'Thiếu thông tin khóa escrow'. */
     @Test
     void utcid02_lockRejectsNullCommand() {
         BusinessException ex = assertThrows(BusinessException.class, () -> escrowService.lock(null));
@@ -280,7 +285,7 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).save(any());
     }
 
-    /** UTCID03 (A) - Thiếu payer -> 'Thiếu người thanh toán escrow'. */
+    /** Sheet escrowLock - UTCID03 (A) - Thiếu payer -> 'Thiếu người thanh toán escrow'. */
     @Test
     void utcid03_lockRejectsMissingPayer() {
         BusinessException ex = assertThrows(BusinessException.class, () ->
@@ -289,7 +294,7 @@ class EscrowServiceImplTest {
         verify(paymentTransactionRepository, never()).findEscrowReferenceFamilyByTypeAndStatus(any(), any(), any());
     }
 
-    /** UTCID04 (B) - amount = 0 (cận dưới) -> 'Số tiền escrow phải lớn hơn 0'. */
+    /** Sheet escrowLock - UTCID04 (B) - amount = 0 (cận dưới) -> 'Số tiền escrow phải lớn hơn 0'. */
     @Test
     void utcid04_lockRejectsZeroAmount() {
         BusinessException ex = assertThrows(BusinessException.class, () ->
@@ -301,7 +306,7 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).save(any());
     }
 
-    /** UTCID05 (A) - Không có target hoặc có cả hai -> 'Escrow phải gắn đúng một trong ...'. */
+    /** Sheet escrowLock - UTCID05 (A) - Không có target hoặc có cả hai -> 'Escrow phải gắn đúng một trong ...'. */
     @Test
     void utcid05_lockRequiresExactlyOneTarget() {
         BusinessException noTarget = assertThrows(BusinessException.class, () ->
@@ -314,7 +319,7 @@ class EscrowServiceImplTest {
     }
 
     /**
-     * UTCID06 (A) - Lệnh hợp lệ nhưng CHƯA có giao dịch thanh toán escrow
+     * Sheet escrowLock - UTCID06 (A) - Lệnh hợp lệ nhưng CHƯA có giao dịch thanh toán escrow
      * -> 'Chưa có giao dịch thanh toán escrow'. Đây là tiền điều kiện mà sheet đang thiếu.
      */
     @Test
@@ -329,7 +334,7 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).save(any());
     }
 
-    /** UTCID07 (A) - Chỉ giao dịch SUCCESS mới được dùng; payment PENDING không được lock tìm thấy. */
+    /** Sheet escrowLock - UTCID07 (A) - Chỉ giao dịch SUCCESS mới được dùng; payment PENDING không được lock tìm thấy. */
     @Test
     void utcid07_lockRejectsWhenPaymentNotSuccess() {
         when(paymentTransactionRepository.findEscrowReferenceFamilyByTypeAndStatus(
@@ -342,7 +347,7 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).save(any());
     }
 
-    /** UTCID08 (N) - Gọi lock lần 2 trên cùng giao dịch -> trả escrow cũ, KHÔNG tạo trùng (idempotent). */
+    /** Sheet escrowLock - UTCID08 (N) - Gọi lock lần 2 trên cùng giao dịch -> trả escrow cũ, KHÔNG tạo trùng (idempotent). */
     @Test
     void utcid08_lockIsIdempotentForSamePayment() {
         BigDecimal amount = new BigDecimal("500000.00");
@@ -363,7 +368,7 @@ class EscrowServiceImplTest {
         verify(classAssignmentRepository, never()).findById(any());
     }
 
-    /** UTCID09 (N) - Nhánh lớp CENTER: target là classStudentId -> tra mã 'ESCROW-CS{id}'. */
+    /** Sheet escrowLock - UTCID09 (N) - Nhánh lớp CENTER: target là classStudentId -> tra mã 'ESCROW-CS{id}'. */
     @Test
     void utcid09_lockCenterEnrollmentUsesClassStudentReference() {
         BigDecimal amount = new BigDecimal("300000.00");
@@ -395,6 +400,7 @@ class EscrowServiceImplTest {
         return payment;
     }
 
+    /** Sheet escrowApply - UTCID01 (N): escrow FUNDED, release = toàn bộ số tiền -> giải ngân cho gia sư */
     @Test
     void applyReleasesPrivateEscrowToTutor() {
         BigDecimal amount = new BigDecimal("500000.00");
@@ -419,6 +425,7 @@ class EscrowServiceImplTest {
         assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
     }
 
+    /** Sheet escrowApply - UTCID14 (N): PLATFORM_FEE_RATE = 0.10 -> sinh thêm giao dịch PLATFORM_FEE */
     @Test
     void applyDeductsConfiguredPlatformFeeAndRecordsActualFeeTransaction() {
         BigDecimal amount = new BigDecimal("500000.00");
@@ -460,6 +467,7 @@ class EscrowServiceImplTest {
         assertEquals("PLATFORM_FEE-INCOME-15", feeIncome.getReferenceCode());
     }
 
+    /** Sheet escrowApply - UTCID04 (N): escrow DISPUTED -> vẫn tất toán được, giải ngân cho gia sư */
     @Test
     void applyReleasesDisputedEscrowToTutor() {
         BigDecimal amount = new BigDecimal("500000.00");
@@ -479,6 +487,7 @@ class EscrowServiceImplTest {
         assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
     }
 
+    /** Sheet escrowApply - UTCID01 (N): escrow FUNDED của lớp trung tâm -> giải ngân vào ví trung tâm */
     @Test
     void applyReleasesCenterEscrowToCenterWallet() {
         BigDecimal amount = new BigDecimal("300000.00");
@@ -500,6 +509,7 @@ class EscrowServiceImplTest {
         assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
     }
 
+    /** Sheet escrowApply - UTCID02 (N): release = 0, refund = toàn bộ -> hoàn tiền cho người trả */
     @Test
     void applyRefundsEscrowToPayer() {
         BigDecimal amount = new BigDecimal("500000.00");
@@ -523,6 +533,7 @@ class EscrowServiceImplTest {
         assertEquals(EscrowStatus.REFUNDED, escrow.getStatus());
     }
 
+    /** Sheet escrowApply - UTCID03 (N): chia đôi release/refund, tổng = số tiền escrow */
     @Test
     void applySupportsSplitReleaseAndRefund() {
         EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
@@ -550,6 +561,7 @@ class EscrowServiceImplTest {
         assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
     }
 
+    /** Sheet escrowApply - UTCID02 (N): hoàn tiền khi người trả không dùng ví -> tạo TransferRequest đã duyệt */
     @Test
     void applyCreatesApprovedRefundTransferRequestWhenPayerDidNotUseWallet() {
         BigDecimal releaseAmount = new BigDecimal("300000.00");
@@ -597,6 +609,7 @@ class EscrowServiceImplTest {
         assertEquals(EscrowStatus.RELEASED, escrow.getStatus());
     }
 
+    /** Sheet escrowApply - UTCID08 (A): tổng release + refund khác số tiền escrow */
     @Test
     void applyRejectsSettlementTotalMismatch() {
         EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
@@ -610,6 +623,7 @@ class EscrowServiceImplTest {
         verify(paymentTransactionRepository, never()).save(any());
     }
 
+    /** Sheet escrowApply - UTCID06 (N): escrow đã RELEASED/REFUNDED -> thoát im lặng, không đổi trạng thái */
     @Test
     void applyReturnsWhenEscrowAlreadySettled() {
         EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
@@ -627,7 +641,7 @@ class EscrowServiceImplTest {
     //  Sheet: apply (ReleaseInstruction) - bo sung cac nhanh con thieu
     // ===================================================================
 
-    /** UTCID05 (N) - Escrow ON_HOLD cũng tất toán được (isSettleable). */
+    /** Sheet escrowApply - UTCID05 (N) - Escrow ON_HOLD cũng tất toán được (isSettleable). */
     @Test
     void utcid05_applyReleasesOnHoldEscrow() {
         BigDecimal amount = new BigDecimal("500000.00");
@@ -645,7 +659,7 @@ class EscrowServiceImplTest {
     }
 
     /**
-     * UTCID07 (A) - Escrow còn PENDING (client chưa chuyển tiền) -> chặn tất toán.
+     * Sheet escrowApply - UTCID07 (A) - Escrow còn PENDING (client chưa chuyển tiền) -> chặn tất toán.
      * Đây mới là trường hợp DUY NHẤT ném ra thông báo 'Chỉ escrow đã khóa, tạm giữ hoặc tranh chấp...'.
      */
     @Test
@@ -661,14 +675,14 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).save(any());
     }
 
-    /** UTCID09 (A) - instruction = null -> 'Thiếu thông tin giải ngân escrow'. */
+    /** Sheet escrowApply - UTCID09 (A) - instruction = null -> 'Thiếu thông tin giải ngân escrow'. */
     @Test
     void utcid09_applyRejectsNullInstruction() {
         BusinessException ex = assertThrows(BusinessException.class, () -> escrowService.apply(null));
         assertEquals("Thiếu thông tin giải ngân escrow", ex.getMessage());
     }
 
-    /** UTCID10 (A) - escrowId = null -> 'Thiếu escrow cần giải ngân'. */
+    /** Sheet escrowApply - UTCID10 (A) - escrowId = null -> 'Thiếu escrow cần giải ngân'. */
     @Test
     void utcid10_applyRejectsMissingEscrowId() {
         BusinessException ex = assertThrows(BusinessException.class, () ->
@@ -677,7 +691,7 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).findById(any());
     }
 
-    /** UTCID11 (B) - release = 0 và refund = 0 -> 'Cần có số tiền giải ngân hoặc hoàn tiền'. */
+    /** Sheet escrowApply - UTCID11 (B) - release = 0 và refund = 0 -> 'Cần có số tiền giải ngân hoặc hoàn tiền'. */
     @Test
     void utcid11_applyRejectsZeroTotalSettlement() {
         BusinessException ex = assertThrows(BusinessException.class, () ->
@@ -686,7 +700,7 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).findById(any());
     }
 
-    /** UTCID12 (A) - Số tiền âm -> 'Số tiền giải ngân/hoàn không được âm'. */
+    /** Sheet escrowApply - UTCID12 (A) - Số tiền âm -> 'Số tiền giải ngân/hoàn không được âm'. */
     @Test
     void utcid12_applyRejectsNegativeAmount() {
         BusinessException negativeRelease = assertThrows(BusinessException.class, () ->
@@ -698,7 +712,7 @@ class EscrowServiceImplTest {
         assertEquals("Số tiền giải ngân/hoàn không được âm", negativeRefund.getMessage());
     }
 
-    /** UTCID13 (A) - Escrow không tồn tại -> ResourceNotFoundException. */
+    /** Sheet escrowApply - UTCID13 (A) - Escrow không tồn tại -> ResourceNotFoundException. */
     @Test
     void utcid13_applyRejectsUnknownEscrow() {
         when(escrowTransactionRepository.findById(404L)).thenReturn(Optional.empty());
@@ -708,6 +722,7 @@ class EscrowServiceImplTest {
         assertEquals("Không tìm thấy escrow", ex.getMessage());
     }
 
+    /** Sheet escrowHoldForDispute - UTCID01 (N): escrow đã khóa tiền, chưa tất toán -> chuyển sang DISPUTED */
     @Test
     void holdForDisputeMarksEscrowAsDisputed() {
         EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
@@ -724,6 +739,7 @@ class EscrowServiceImplTest {
         verify(walletService, never()).refundLockedFunds(any(), any(), any());
     }
 
+    /** Bổ sung ngoài các UTCID của sheet escrowHoldForDispute: escrow đã DISPUTED -> idempotent, không lưu lại */
     @Test
     void holdForDisputeReturnsAlreadyDisputedEscrowWithoutSavingAgain() {
         EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
@@ -738,6 +754,7 @@ class EscrowServiceImplTest {
         verify(walletService, never()).refundLockedFunds(any(), any(), any());
     }
 
+    /** Sheet escrowHoldForDispute - UTCID03 (A): escrow đã tất toán -> không chuyển sang tranh chấp */
     @Test
     void holdForDisputeRejectsReleasedEscrow() {
         EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
@@ -750,7 +767,30 @@ class EscrowServiceImplTest {
         verify(walletService, never()).releaseLockedFunds(any(), any(), any());
         verify(walletService, never()).refundLockedFunds(any(), any(), any());
     }
+    /** Sheet escrowHoldForDispute - UTCID02 (A): escrowId = null -> 'Thieu escrow can tam giu'. */
+    @Test
+    void holdForDisputeRequiresEscrowId() {
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> escrowService.holdForDispute(null, "Tranh chấp"));
+        assertEquals("Thiếu escrow cần tạm giữ", ex.getMessage());
+        verify(escrowTransactionRepository, never()).save(any());
+    }
 
+    /** Sheet escrowHoldForDispute - UTCID04 (A): escrow con PENDING (chua khoa tien) -> khong the tam giu. */
+    @Test
+    void holdForDisputeRejectsPendingEscrow() {
+        EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
+        escrow.setStatus(EscrowStatus.PENDING);
+        when(escrowTransactionRepository.findById(5L)).thenReturn(Optional.of(escrow));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> escrowService.holdForDispute(5L, "Tranh chấp"));
+        assertEquals("Chỉ escrow đã khóa tiền mới có thể tạm giữ khi có tranh chấp", ex.getMessage());
+        verify(escrowTransactionRepository, never()).save(any());
+    }
+
+
+    /** Sheet escrowRefund - UTCID01 (N): escrow FUNDED -> hoàn về ví người trả, escrow sang REFUNDED */
     @Test
     void refundReturnsEscrowMoneyToPayer() {
         BigDecimal amount = new BigDecimal("500000.00");
@@ -777,6 +817,7 @@ class EscrowServiceImplTest {
         assertEquals(EscrowStatus.REFUNDED, escrow.getStatus());
     }
 
+    /** Sheet escrowRefund - UTCID02 (N): escrow đã REFUNDED -> idempotent, không hoàn lần hai */
     @Test
     void refundReturnsExistingRefundedEscrowWithoutChargingAgain() {
         EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
@@ -791,6 +832,7 @@ class EscrowServiceImplTest {
         verify(escrowTransactionRepository, never()).save(any());
     }
 
+    /** Sheet escrowRefund - UTCID03 (A): escrow đã RELEASED -> không thể hoàn tiền */
     @Test
     void refundRejectsReleasedEscrow() {
         EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
@@ -803,6 +845,7 @@ class EscrowServiceImplTest {
         verify(paymentTransactionRepository, never()).save(any());
     }
 
+    /** Sheet escrowRefund - UTCID04 (A): escrow còn PENDING (chưa khóa tiền) -> không thể hoàn tiền */
     @Test
     void refundRequiresFundedEscrow() {
         EscrowTransaction escrow = fundedPrivateEscrow(5L, new BigDecimal("500000.00"));
@@ -815,6 +858,7 @@ class EscrowServiceImplTest {
         verify(paymentTransactionRepository, never()).save(any());
     }
 
+    /** Sheet escrowRefund - UTCID05 (A): escrowId = null */
     @Test
     void refundRequiresEscrowId() {
         assertThrows(BusinessException.class, () -> escrowService.refund(null, "Missing id"));

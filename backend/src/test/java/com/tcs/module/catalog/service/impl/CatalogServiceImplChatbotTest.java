@@ -45,6 +45,7 @@ class CatalogServiceImplChatbotTest {
 
     @InjectMocks private CatalogServiceImpl catalogService;
 
+    /** Sheet askChatbot - UTCID02 (N): không FAQ nào đạt điểm > 0 -> dùng câu trả lời từ AI */
     @Test
     void askChatbotUsesAiWhenNoFaqMatches() {
         ChatbotAskRequest request = new ChatbotAskRequest();

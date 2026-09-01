@@ -26,6 +26,7 @@ class PlatformAnalyticsControllerTest {
     @Mock
     private AuditLogService auditLogService;
 
+    /** Ngoài phạm vi Report 5.1 (test controller - PlatformAnalyticsController, không có trong MethodList) */
     @Test
     void exportCsvReturnsAttachmentAndRecordsValidAuditEntityId() {
         LocalDate from = LocalDate.of(2026, 8, 1);

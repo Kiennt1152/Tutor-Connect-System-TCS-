@@ -47,6 +47,7 @@ class PaymentReconciliationServiceTest {
     @InjectMocks
     private PaymentReconciliationService service;
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có expirePendingTopups) - test bổ sung */
     @Test
     void expirePendingTopupsCancelsExpiredTransactions() {
         LocalDateTime now = LocalDateTime.of(2026, 7, 10, 10, 0);
@@ -70,6 +71,7 @@ class PaymentReconciliationServiceTest {
         verify(paymentTransactionRepository).saveAll(List.of(tx));
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có expirePendingEscrowDeposits) - test bổ sung */
     @Test
     void expirePendingEscrowDepositsCancelsExpiredClassEscrowTransactions() {
         LocalDateTime now = LocalDateTime.of(2026, 7, 10, 10, 0);
@@ -93,6 +95,7 @@ class PaymentReconciliationServiceTest {
         verify(paymentTransactionRepository).saveAll(List.of(tx));
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có expirePendingEscrowDeposits) - test bổ sung */
     @Test
     void expirePendingEscrowDepositsSkipsCenterRequestFeePayments() {
         LocalDateTime now = LocalDateTime.of(2026, 7, 10, 10, 0);
@@ -114,6 +117,7 @@ class PaymentReconciliationServiceTest {
         verify(paymentTransactionRepository).saveAll(List.of());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có refundStaleWithdrawals) - test bổ sung */
     @Test
     void refundStaleWithdrawalsCancelsTransactionAndRefundsLockedFunds() {
         LocalDateTime now = LocalDateTime.of(2026, 7, 10, 10, 0);
@@ -150,6 +154,7 @@ class PaymentReconciliationServiceTest {
         verify(withdrawalRequestRepository).save(withdrawal);
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có refundStaleWithdrawals) - test bổ sung */
     @Test
     void refundStaleWithdrawalsSkipsAmbiguousTransactionMatches() {
         LocalDateTime now = LocalDateTime.of(2026, 7, 10, 10, 0);

@@ -32,6 +32,7 @@ class WebSocketAuthInterceptorTest {
     @Mock private MessageChannel messageChannel;
     @InjectMocks private WebSocketAuthInterceptor interceptor;
 
+    /** Ngoài phạm vi Report 5.1 (test hạ tầng - WebSocketAuthInterceptor, không có trong MethodList) */
     @Test
     void subscribe_AllowsParticipant() {
         when(participantRepository.existsByConversation_ConversationIdAndUser_UserId(12L, 5L))
@@ -40,6 +41,7 @@ class WebSocketAuthInterceptorTest {
         assertDoesNotThrow(() -> interceptor.preSend(subscribeMessage(12L, 5L), messageChannel));
     }
 
+    /** Ngoài phạm vi Report 5.1 (test hạ tầng - WebSocketAuthInterceptor, không có trong MethodList) */
     @Test
     void subscribe_RejectsNonParticipant() {
         when(participantRepository.existsByConversation_ConversationIdAndUser_UserId(12L, 5L))

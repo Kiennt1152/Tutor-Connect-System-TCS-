@@ -4,6 +4,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -915,6 +916,153 @@ class PlatformServiceImplModerationTest {
                     com.tcs.module.platform.enums.SupportTicketStatus.RESOLVED));
             assertTrue(captor.getValue().contains(
                     com.tcs.module.platform.enums.SupportTicketStatus.CLOSED));
+        }
+    }
+    // ===================================================================
+    //  Sheet: resolveClassIssue
+    // ===================================================================
+    @Nested
+    @DisplayName("resolveClassIssue")
+    class ResolveClassIssue {
+
+        private ResolveClassIssueRequest request(ClassIssueResolutionAction action) {
+            ResolveClassIssueRequest r = new ResolveClassIssueRequest();
+            r.setAction(action);
+            r.setNotes("Admin da lam viec voi hai ben va thong nhat huong xu ly");
+            return r;
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - bao cao su co lop con PENDING -> ghi huong xu ly va dong bao cao")
+        void utcid01_resolveSuccessfully() {
+            Report target = report(ReportTargetType.CLASS, CLASS_ID, ReportStatus.PENDING);
+            when(reportRepository.findById(REPORT_ID)).thenReturn(Optional.of(target));
+
+            service.resolveClassIssue(REPORT_ID, request(ClassIssueResolutionAction.CONTINUE_CLASS));
+
+            assertEquals(ReportStatus.RESOLVED, target.getStatus());
+            verify(reportRepository).save(target);
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - reportId = null -> 'reportId là bắt buộc'")
+        void utcid02_nullReportId() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.resolveClassIssue(null,
+                            request(ClassIssueResolutionAction.CONTINUE_CLASS)));
+            assertEquals("reportId là bắt buộc", ex.getMessage());
+            verify(reportRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - thieu hanh dong xu ly -> 'Hành động xử lý là bắt buộc'")
+        void utcid03_missingAction() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.resolveClassIssue(REPORT_ID, new ResolveClassIssueRequest()));
+            assertEquals("Hành động xử lý là bắt buộc", ex.getMessage());
+            verify(reportRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - bao cao khong phai loai su co lop hoc -> chan")
+        void utcid04_notAClassReport() {
+            Report target = report(ReportTargetType.REVIEW, REVIEW_ID, ReportStatus.PENDING);
+            when(reportRepository.findById(REPORT_ID)).thenReturn(Optional.of(target));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> service.resolveClassIssue(REPORT_ID,
+                            request(ClassIssueResolutionAction.CONTINUE_CLASS)));
+            assertEquals("Chỉ hỗ trợ xử lý báo cáo sự cố lớp học trong luồng này", ex.getMessage());
+            verify(reportRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - bao cao da duoc xu ly -> 'Báo cáo đã được xử lý'")
+        void utcid05_alreadyResolved() {
+            Report target = report(ReportTargetType.CLASS, CLASS_ID, ReportStatus.RESOLVED);
+            when(reportRepository.findById(REPORT_ID)).thenReturn(Optional.of(target));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> service.resolveClassIssue(REPORT_ID,
+                            request(ClassIssueResolutionAction.CONTINUE_CLASS)));
+            assertEquals("Báo cáo đã được xử lý", ex.getMessage());
+            verify(reportRepository, never()).save(any());
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: updateUserStatus
+    // ===================================================================
+    @Nested
+    @DisplayName("updateUserStatus")
+    class UpdateUserStatus {
+
+        private static final Long TARGET_USER_ID = 820L;
+
+        private User target;
+
+        private com.tcs.module.platform.dto.request.UpdateUserStatusRequest request(
+                com.tcs.module.identity.enums.UserStatus status) {
+            var r = new com.tcs.module.platform.dto.request.UpdateUserStatusRequest();
+            r.setStatus(status);
+            return r;
+        }
+
+        @BeforeEach
+        void givenOrdinaryTarget() {
+            target = user(TARGET_USER_ID, "hocvien@tcs.vn");
+            target.setStatus(com.tcs.module.identity.enums.UserStatus.ACTIVE);
+            when(userRepository.findById(TARGET_USER_ID)).thenReturn(Optional.of(target));
+            when(userRepository.save(any(User.class))).thenAnswer(i -> i.getArgument(0));
+            when(platformMapper.resolveRole(any())).thenReturn(UserRole.CLIENT);
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - tai khoan thuong + trang thai moi hop le -> cap nhat va ghi audit")
+        void utcid01_updateSuccessfully() {
+            service.updateUserStatus(TARGET_USER_ID,
+                    request(com.tcs.module.identity.enums.UserStatus.SUSPENDED));
+
+            assertEquals(com.tcs.module.identity.enums.UserStatus.SUSPENDED, target.getStatus());
+            verify(userRepository).save(target);
+            verify(auditLogService).record(
+                    eq("UPDATE_USER_STATUS"), eq("User"), eq(TARGET_USER_ID), any(), any());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - khong truyen trang thai -> 'Trạng thái không được để trống'")
+        void utcid02_nullStatus() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.updateUserStatus(TARGET_USER_ID, request(null)));
+            assertEquals("Trạng thái không được để trống", ex.getMessage());
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - doi tuong la tai khoan quan tri vien -> chan")
+        void utcid03_targetIsAdmin() {
+            when(platformMapper.resolveRole(any())).thenReturn(UserRole.PLATFORM_ADMIN);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.updateUserStatus(TARGET_USER_ID,
+                            request(com.tcs.module.identity.enums.UserStatus.BANNED)));
+            assertEquals("Không thể thay đổi trạng thái tài khoản quản trị viên", ex.getMessage());
+            verify(userRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - enum UserStatus chi co 3 gia tri nen nhanh 'Trạng thái không hợp lệ' khong the cham toi")
+        void utcid04_everyEnumValueIsAccepted() {
+            // Guard trong code chan cac gia tri ngoai ACTIVE / SUSPENDED / BANNED. Kieu tham so
+            // la enum UserStatus nen moi gia tri non-null deu hop le; test nay khoa lai dieu do:
+            // neu ai do them hang so moi vao enum thi test do ngay va phai bo sung ca guard.
+            assertEquals(3, com.tcs.module.identity.enums.UserStatus.values().length);
+            for (com.tcs.module.identity.enums.UserStatus status
+                    : com.tcs.module.identity.enums.UserStatus.values()) {
+                target.setStatus(com.tcs.module.identity.enums.UserStatus.ACTIVE);
+                service.updateUserStatus(TARGET_USER_ID, request(status));
+                assertEquals(status, target.getStatus());
+            }
         }
     }
 }

@@ -44,6 +44,7 @@ class MaintenanceModeInterceptorTest {
         responseWriter = new StringWriter();
     }
 
+    /** Ngoài phạm vi Report 5.1 (test hạ tầng - MaintenanceModeInterceptor, không có trong MethodList) */
     @Test
     @DisplayName("preHandle: cho phép phương thức GET ngay cả khi đang bảo trì (Read-only mode)")
     void preHandle_AllowsGetDuringMaintenance() throws Exception {
@@ -55,6 +56,7 @@ class MaintenanceModeInterceptorTest {
         verify(systemParameterRepository, never()).findByParamKey(any());
     }
 
+    /** Ngoài phạm vi Report 5.1 (test hạ tầng - MaintenanceModeInterceptor, không có trong MethodList) */
     @Test
     @DisplayName("preHandle: cho phép request khi MAINTENANCE_MODE = false")
     void preHandle_AllowsMutationsWhenMaintenanceIsFalse() throws Exception {
@@ -67,6 +69,7 @@ class MaintenanceModeInterceptorTest {
         assertTrue(result);
     }
 
+    /** Ngoài phạm vi Report 5.1 (test hạ tầng - MaintenanceModeInterceptor, không có trong MethodList) */
     @Test
     @DisplayName("preHandle: cho phép Admin thực hiện POST khi đang bảo trì")
     void preHandle_AllowsAdminDuringMaintenance() throws Exception {
@@ -84,6 +87,7 @@ class MaintenanceModeInterceptorTest {
         assertTrue(result);
     }
 
+    /** Ngoài phạm vi Report 5.1 (test hạ tầng - MaintenanceModeInterceptor, không có trong MethodList) */
     @Test
     @DisplayName("preHandle: chặn request POST của người dùng thường khi đang bảo trì (503 Service Unavailable)")
     void preHandle_BlocksUserMutationsDuringMaintenance() throws Exception {

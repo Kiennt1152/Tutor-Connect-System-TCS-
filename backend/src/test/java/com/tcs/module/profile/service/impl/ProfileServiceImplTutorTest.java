@@ -333,7 +333,7 @@ class ProfileServiceImplTutorTest {
     class UploadAvatar {
 
         @Test
-        @DisplayName("UTCID01 (A) - File rỗng -> 'File ảnh không được để trống'")
+        @DisplayName("UTCID02 (A) - File rỗng -> 'File ảnh không được để trống'")
         void utcid01_emptyFile() {
             MockMultipartFile empty = new MockMultipartFile("file", "a.png", "image/png", new byte[0]);
 
@@ -391,7 +391,7 @@ class ProfileServiceImplTutorTest {
         }
 
         @Test
-        @DisplayName("UTCID01 (A) - Phụ huynh đủ 18 tuổi, dữ liệu null -> 'Dữ liệu hồ sơ con là bắt buộc'")
+        @DisplayName("UTCID02 (A) - Phụ huynh đủ 18 tuổi, dữ liệu null -> 'Dữ liệu hồ sơ con là bắt buộc'")
         void utcid01_nullRequest() {
             loginAsClientAged(30);
 
@@ -401,7 +401,7 @@ class ProfileServiceImplTutorTest {
         }
 
         @Test
-        @DisplayName("UTCID02 (A) - Tài khoản gia sư -> ForbiddenException (không quản lý hồ sơ con)")
+        @DisplayName("UTCID03 (A) - Tài khoản gia sư -> ForbiddenException (không quản lý hồ sơ con)")
         void utcid02_tutorCannotCreateChild() {
             ForbiddenException ex = assertThrows(ForbiddenException.class,
                     () -> service.createChild(null));
@@ -409,13 +409,184 @@ class ProfileServiceImplTutorTest {
         }
 
         @Test
-        @DisplayName("UTCID03 (B) - Phụ huynh dưới 18 tuổi -> không được quản lý hồ sơ con")
+        @DisplayName("UTCID04 (B) - Phụ huynh dưới 18 tuổi -> không được quản lý hồ sơ con")
         void utcid03_minorParentBlocked() {
             loginAsClientAged(16);
 
             ForbiddenException ex = assertThrows(ForbiddenException.class,
                     () -> service.createChild(null));
             assertEquals("Chỉ tài khoản phụ huynh từ 18 tuổi trở lên mới quản lý hồ sơ con", ex.getMessage());
+        }
+    }
+    /** Anh PNG hop le toi thieu (chi can magic number de FileMagicDetector nhan dien). */
+    private static byte[] pngBytes() {
+        byte[] png = new byte[64];
+        png[0] = (byte) 0x89;
+        png[1] = 'P';
+        png[2] = 'N';
+        png[3] = 'G';
+        png[4] = 0x0D;
+        png[5] = 0x0A;
+        png[6] = 0x1A;
+        png[7] = 0x0A;
+        return png;
+    }
+
+    // ===================================================================
+    //  Sheet: uploadAvatar - cac ca con lai
+    // ===================================================================
+    @Nested
+    @DisplayName("uploadAvatar")
+    class UploadAvatarRemaining {
+
+        @Test
+        @DisplayName("UTCID01 (N) - Anh hop le, duoi 5MB, dung dinh dang -> luu anh va tra ve duong dan moi")
+        void utcid01_uploadSuccessfully(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) {
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    service, "storagePath", tempDir.toString());
+            MockMultipartFile file =
+                    new MockMultipartFile("file", "avatar.png", "image/png", pngBytes());
+
+            String avatarUrl = service.uploadAvatar(file);
+
+            assertEquals("/uploads/avatars/user-" + TUTOR_USER_ID + ".png", avatarUrl);
+            assertEquals(avatarUrl, tutor.getAvatar());
+            verify(tutorRepository).save(tutor);
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Loi khi doc file -> RuntimeException 'Không thể đọc file ảnh'")
+        void utcid05_readError() throws Exception {
+            org.springframework.web.multipart.MultipartFile broken =
+                    org.mockito.Mockito.mock(org.springframework.web.multipart.MultipartFile.class);
+            when(broken.isEmpty()).thenReturn(false);
+            when(broken.getSize()).thenReturn(1024L);
+            when(broken.getInputStream()).thenThrow(new java.io.IOException("o dia loi"));
+
+            RuntimeException ex = assertThrows(RuntimeException.class,
+                    () -> service.uploadAvatar(broken));
+            assertEquals("Không thể đọc file ảnh", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - Loi khi ghi file xuong dia -> RuntimeException 'Không thể lưu ảnh đại diện'")
+        void utcid06_writeError(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+            // Bien thu muc luu tru thanh mot FILE thuong -> Files.createDirectories nem IOException.
+            java.nio.file.Path notADirectory = tempDir.resolve("storage-as-file");
+            java.nio.file.Files.writeString(notADirectory, "khong phai thu muc");
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    service, "storagePath", notADirectory.toString());
+            MockMultipartFile file =
+                    new MockMultipartFile("file", "avatar.png", "image/png", pngBytes());
+
+            RuntimeException ex = assertThrows(RuntimeException.class,
+                    () -> service.uploadAvatar(file));
+            assertEquals("Không thể lưu ảnh đại diện", ex.getMessage());
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: createChild - cac ca con lai
+    // ===================================================================
+    @Nested
+    @DisplayName("createChild")
+    class CreateChildRemaining {
+
+        private com.tcs.module.profile.entity.Client parent;
+
+        private void loginAsAdultParent() {
+            parent = new com.tcs.module.profile.entity.Client();
+            parent.setClientId(9L);
+            parent.setUser(tutorUser);
+            parent.setFullName("Phu huynh A");
+            parent.setDateOfBirth(java.time.LocalDate.now().minusYears(30));
+            when(clientRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(parent));
+            when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.empty());
+            when(platformMapper.resolveRole(any())).thenReturn(UserRole.CLIENT);
+        }
+
+        private com.tcs.module.profile.dto.request.ChildProfileRequest childRequest() {
+            var request = new com.tcs.module.profile.dto.request.ChildProfileRequest();
+            request.setFullName("Nguyen Van Con");
+            request.setDateOfBirth(java.time.LocalDate.now().minusYears(10));
+            return request;
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Phu huynh du 18 tuoi, du lieu hop le, chua trung -> tao ho so con gan voi tai khoan cha me")
+        void utcid01_createSuccessfully() {
+            loginAsAdultParent();
+            when(parentChildLinkRepository
+                    .findFirstByParentUser_UserIdAndChildProfile_FullNameAndChildProfile_DateOfBirthAndStatus(
+                            any(), any(), any(), any()))
+                    .thenReturn(Optional.empty());
+            when(childProfileRepository.save(any(com.tcs.module.profile.entity.ChildProfile.class)))
+                    .thenAnswer(i -> {
+                        var saved = (com.tcs.module.profile.entity.ChildProfile) i.getArgument(0);
+                        saved.setChildProfileId(500L);
+                        return saved;
+                    });
+
+            service.createChild(childRequest());
+
+            verify(childProfileRepository).save(any(com.tcs.module.profile.entity.ChildProfile.class));
+            verify(parentChildLinkRepository)
+                    .save(any(com.tcs.module.profile.entity.ParentChildLink.class));
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Trung ho ten va ngay sinh voi ho so con da co -> chan")
+        void utcid05_duplicateChild() {
+            loginAsAdultParent();
+            var existingChild = new com.tcs.module.profile.entity.ChildProfile();
+            existingChild.setChildProfileId(501L);
+            var existingLink = new com.tcs.module.profile.entity.ParentChildLink();
+            existingLink.setChildProfile(existingChild);
+            when(parentChildLinkRepository
+                    .findFirstByParentUser_UserIdAndChildProfile_FullNameAndChildProfile_DateOfBirthAndStatus(
+                            any(), any(), any(), any()))
+                    .thenReturn(Optional.of(existingLink));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.createChild(childRequest()));
+            assertEquals("Đã tồn tại hồ sơ con với cùng họ tên và ngày sinh", ex.getMessage());
+            verify(childProfileRepository, never()).save(any());
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: updateMyProfile
+    // ===================================================================
+    @Nested
+    @DisplayName("updateMyProfile")
+    class UpdateMyProfile {
+
+        @Test
+        @DisplayName("UTCID01 (N) - vai tro co ho so tuong ung -> cap nhat theo vai tro va luu lai")
+        void utcid01_updateTutorProfile() {
+            var request = new com.tcs.module.profile.dto.request.UpdateProfileRequest();
+            request.setFullName("Gia su moi");
+            request.setBio("Toi day Toan 9");
+            when(cccdService.getByUserId(any()))
+                    .thenReturn(new com.tcs.module.profile.dto.CccdInfoDto());
+
+            service.updateMyProfile(request);
+
+            assertEquals("Gia su moi", tutor.getFullName());
+            assertEquals("Toi day Toan 9", tutor.getBio());
+            verify(tutorRepository).save(tutor);
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - vai tro khong co ho so de cap nhat -> ForbiddenException")
+        void utcid02_roleWithoutProfile() {
+            when(platformMapper.resolveRole(any())).thenReturn(UserRole.PLATFORM_ADMIN);
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.updateMyProfile(
+                            new com.tcs.module.profile.dto.request.UpdateProfileRequest()));
+            assertEquals("Không thể cập nhật hồ sơ cho vai trò này", ex.getMessage());
+            verify(tutorRepository, never()).save(any());
         }
     }
 }

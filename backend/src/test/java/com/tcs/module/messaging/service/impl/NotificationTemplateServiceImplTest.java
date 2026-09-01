@@ -26,6 +26,7 @@ class NotificationTemplateServiceImplTest {
     @Mock AuditLogService auditLogService;
     @InjectMocks NotificationTemplateServiceImpl service;
 
+    /** Sheet ntRenderEnabled - UTCID01 (N): có template đang bật -> thay biến đã biết, giữ nguyên biến lạ */
     @Test
     void renderEnabled_replacesKnownVariablesAndKeepsUnknownOnes() {
         NotificationTemplate template = new NotificationTemplate();
@@ -41,6 +42,7 @@ class NotificationTemplateServiceImplTest {
         assertEquals("Lý do: {{reason}}", rendered.content());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có preview) - test bổ sung */
     @Test
     void preview_rejectsMalformedPlaceholder() {
         PreviewNotificationTemplateRequest request = new PreviewNotificationTemplateRequest();

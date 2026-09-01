@@ -148,6 +148,7 @@ class DisputeServiceImplTest {
     @InjectMocks
     private DisputeServiceImpl disputeService;
 
+    /** Sheet createDispute - UTCID01 (N): escrow thuộc về người mở tranh chấp -> tạo Report + Dispute và tạm giữ escrow */
     @Test
     void createDisputeCreatesReportDisputeAndHoldsEscrow() {
         User reporter = new User();
@@ -193,6 +194,7 @@ class DisputeServiceImplTest {
         verify(disputeRepository).save(any(Dispute.class));
     }
 
+    /** Bổ sung ngoài các UTCID của sheet createDispute: escrow đã có tranh chấp đang mở -> chặn tạo trùng */
     @Test
     void createDisputeRejectsWhenEscrowAlreadyHasActiveDispute() {
         User reporter = new User();
@@ -236,6 +238,7 @@ class DisputeServiceImplTest {
         verify(disputeRepository, never()).save(any(Dispute.class));
     }
 
+    /** Sheet createClassIssue - UTCID01 (N): requestedAction không leo thang -> chỉ tạo báo cáo, không giữ escrow */
     @Test
     void createClassIssueCreatesReportWithoutHoldingEscrow() {
         User reporter = new User();
@@ -284,6 +287,7 @@ class DisputeServiceImplTest {
         verify(disputeRepository, never()).save(any(Dispute.class));
     }
 
+    /** Sheet createClassIssue - UTCID14 (A): gia sư lớp trung tâm yêu cầu hành động leo thang */
     @Test
     void createClassIssueRejectsCenterTutorFinancialDisputeAction() {
         User tutorUser = new User();
@@ -328,6 +332,7 @@ class DisputeServiceImplTest {
         verify(disputeRepository, never()).save(any(Dispute.class));
     }
 
+    /** Sheet createClassIssue - UTCID02 (N): requestedAction = ESCALATE_DISPUTE -> leo thang thành tranh chấp và giữ escrow */
     @Test
     void createClassIssueEscalatesRefundReviewToDisputeAndHoldsEscrow() {
         User reporter = new User();
@@ -391,6 +396,7 @@ class DisputeServiceImplTest {
         verify(disputeRepository).save(any(Dispute.class));
     }
 
+    /** Bổ sung ngoài các UTCID của sheet createClassIssue: gia sư xin chấm dứt khi escrow đã có payout lưu sẵn */
     @Test
     void createClassIssueAllowsTutorTerminationWithoutSubmittedPayoutWhenEscrowHasSavedPayout() {
         User tutorUser = user(USER_ID, "tutor@tcs.com");
@@ -460,6 +466,7 @@ class DisputeServiceImplTest {
         verify(disputeRepository).save(any(Dispute.class));
     }
 
+    /** Sheet createDispute - UTCID03 (A): không truyền escrowId/assignmentId/classStudentId */
     @Test
     void createDisputeRejectsMissingEscrowSelector() {
         CreateDisputeRequest request = new CreateDisputeRequest();
@@ -473,6 +480,7 @@ class DisputeServiceImplTest {
         verify(escrowService, never()).holdForDispute(any(), any());
     }
 
+    /** Sheet createDispute - UTCID02 (A): escrow không thuộc về người mở tranh chấp */
     @Test
     void createDisputeRejectsEscrowThatDoesNotBelongToReporter() {
         User reporter = user(USER_ID, "reporter@tcs.com");
@@ -506,6 +514,7 @@ class DisputeServiceImplTest {
         verify(escrowService, never()).holdForDispute(any(), any());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có listDisputesForAdmin) - test bổ sung */
     @Test
     void listDisputesForAdminReturnsReviewConsoleItems() {
         stubAdminReviewer();
@@ -550,6 +559,7 @@ class DisputeServiceImplTest {
         verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có getDisputeForAdmin) - test bổ sung */
     @Test
     void getDisputeForAdminReturnsDetailById() {
         stubAdminReviewer();
@@ -586,12 +596,14 @@ class DisputeServiceImplTest {
         verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER);
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có getDisputeForAdmin) - test bổ sung */
     @Test
     void getDisputeForAdminRejectsMissingId() {
         assertThrows(IllegalArgumentException.class, () -> disputeService.getDisputeForAdmin(null));
         verify(disputeRepository, never()).findById(any());
     }
 
+    /** Sheet resolveDispute - UTCID01 (N): đóng tranh chấp bằng kết luận -> đánh dấu dispute và report đã xử lý */
     @Test
     void resolveDisputeMarksDisputeAndReportResolved() {
         stubAdminReviewer();
@@ -620,6 +632,7 @@ class DisputeServiceImplTest {
         verify(disputeRepository).save(dispute);
     }
 
+    /** Sheet resolveDispute - UTCID04 (N): chấm dứt lớp có nêu số tiền -> duyệt yêu cầu chấm dứt và kết thúc hợp đồng */
     @Test
     void resolveDisputeWithTerminationRequestApprovesTerminationAndTerminatesContract() {
         stubAdminReviewer();
@@ -660,6 +673,7 @@ class DisputeServiceImplTest {
         verify(contractRepository).save(contract);
     }
 
+    /** Sheet resolveDispute - UTCID02 (N): tiếp tục lớp -> trả escrow đang giữ về trạng thái cũ */
     @Test
     void resolveDisputeContinueClassRestoresHeldEscrowAndClass() {
         stubAdminReviewer();
@@ -693,6 +707,7 @@ class DisputeServiceImplTest {
         verify(escrowService, never()).apply(any());
     }
 
+    /** Sheet resolveDispute - UTCID03 (N): hoàn tiền một phần -> tất toán escrow và hoàn tất chấm dứt */
     @Test
     void resolveDisputePartialRefundSettlesEscrowAndCompletesTermination() {
         stubAdminReviewer();
@@ -746,6 +761,7 @@ class DisputeServiceImplTest {
         verify(contractRepository).save(contract);
     }
 
+    /** Sheet resolveDispute - UTCID05 (N): chấm dứt lớp không nêu số tiền -> tính pro rata theo số buổi đã học */
     @Test
     void resolveDisputeTerminateClassUsesProRataSettlementWhenAmountsAreBlank() {
         stubAdminReviewer();
@@ -793,6 +809,7 @@ class DisputeServiceImplTest {
         assertEquals(TutoringClassStatus.CANCELLED, tutoringClass.getStatus());
     }
 
+    /** Sheet resolveDispute - UTCID06 (N): chuyển sang chờ bổ sung bằng chứng, chưa đóng report */
     @Test
     void resolveDisputeCanMoveToWaitingWithoutClosingReport() {
         stubAdminReviewer();
@@ -817,6 +834,7 @@ class DisputeServiceImplTest {
         verify(disputeRepository).save(dispute);
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có submitAdditionalEvidence) - test bổ sung */
     @Test
     void submitAdditionalEvidenceMovesWaitingDisputeBackToInvestigation() {
         User reporter = user(USER_ID, "client@tcs.com");
@@ -855,6 +873,7 @@ class DisputeServiceImplTest {
         verify(platformAdminRepository).findAll();
     }
 
+    /** Sheet resolveDispute - UTCID07 (A): tranh chấp đã được xử lý trước đó */
     @Test
     void resolveDisputeRejectsAlreadyResolvedDispute() {
         stubAdminReviewer();
@@ -874,6 +893,7 @@ class DisputeServiceImplTest {
         verify(reportRepository, never()).save(any());
     }
 
+    /** Sheet resolveDispute - UTCID08 (A): nội dung kết luận quá ngắn */
     @Test
     void resolveDisputeRejectsShortResolution() {
         ResolveDisputeRequest request = new ResolveDisputeRequest();
@@ -884,6 +904,7 @@ class DisputeServiceImplTest {
         verify(disputeRepository, never()).findById(any());
     }
 
+    /** Sheet appealDispute - UTCID01 (N): tranh chấp đã xử lý, escrow chưa tất toán, đúng bên liên quan -> mở lại và giữ escrow */
     @Test
     void appealDisputeReopensResolvedDisputeAndHoldsEscrow() {
         User reporter = user(USER_ID, "client@tcs.com");
@@ -927,6 +948,7 @@ class DisputeServiceImplTest {
         verify(disputeRepository).save(dispute);
     }
 
+    /** Sheet appealDispute - UTCID05 (A): người khiếu nại không phải bên liên quan */
     @Test
     void appealDisputeRejectsNonParticipant() {
         User reporter = user(USER_ID, "client@tcs.com");
@@ -953,6 +975,7 @@ class DisputeServiceImplTest {
         verify(reportRepository, never()).save(any());
     }
 
+    /** Sheet appealDispute - UTCID09 (A): escrow đã tất toán */
     @Test
     void appealDisputeRejectsSettledEscrow() {
         User reporter = user(USER_ID, "client@tcs.com");
@@ -1378,5 +1401,108 @@ class DisputeServiceImplTest {
                     "Phai bao trung loai su co: " + ex.getMessage());
             verify(reportRepository, never()).save(any());
         }
+    }
+    // =====================================================================
+    //  Sheet: appealDispute - cac ca con lai
+    // =====================================================================
+
+    private AppealDisputeRequest appealRequest(String reason) {
+        AppealDisputeRequest request = new AppealDisputeRequest();
+        request.setReason(reason);
+        return request;
+    }
+
+    private void givenAppealCaller() {
+        User reporter = user(USER_ID, "client@tcs.com");
+        when(authHelper.requireRole(
+                UserRole.CLIENT,
+                UserRole.TUTOR,
+                UserRole.TUTOR_CENTER,
+                UserRole.PLATFORM_ADMIN))
+                .thenReturn(principal(reporter, UserRole.CLIENT));
+    }
+
+    /** Sheet appealDispute - UTCID02 (A): khong truyen disputeId -> 'disputeId là bắt buộc'. */
+    @Test
+    void appealDisputeRejectsMissingDisputeId() {
+        givenAppealCaller();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> disputeService.appealDispute(null, appealRequest("Bổ sung bằng chứng mới")));
+        assertEquals("disputeId là bắt buộc", ex.getMessage());
+        verify(disputeRepository, never()).save(any());
+    }
+
+    /** Sheet appealDispute - UTCID03 (A): khong truyen noi dung khieu nai -> chan. */
+    @Test
+    void appealDisputeRejectsNullRequest() {
+        givenAppealCaller();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> disputeService.appealDispute(31L, null));
+        assertEquals("Thiếu thông tin khiếu nại/mở lại", ex.getMessage());
+        verify(disputeRepository, never()).save(any());
+    }
+
+    /** Sheet appealDispute - UTCID04 (A): tranh chap chua duoc xu ly -> chua the khieu nai. */
+    @Test
+    void appealDisputeRejectsUnresolvedDispute() {
+        givenAppealCaller();
+        User reporter = user(USER_ID, "client@tcs.com");
+        EscrowTransaction escrow = escrow(11L, EscrowStatus.FUNDED);
+        escrow.setPayment(payment(55L, reporter));
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        Dispute dispute = dispute(report, escrow, 31L, DisputeStatus.UNDER_INVESTIGATION);
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> disputeService.appealDispute(31L, appealRequest("Bổ sung bằng chứng mới cần xem lại")));
+        assertEquals("Chỉ tranh chấp đã xử lý mới có thể khiếu nại/mở lại", ex.getMessage());
+        verify(disputeRepository, never()).save(any());
+    }
+
+    /** Sheet appealDispute - UTCID06 (A): noi dung khieu nai rong. */
+    @Test
+    void appealDisputeRejectsBlankReason() {
+        givenAppealCaller();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> disputeService.appealDispute(31L, appealRequest("   ")));
+        assertEquals("Nội dung khiếu nại là bắt buộc", ex.getMessage());
+        verify(disputeRepository, never()).save(any());
+    }
+
+    /** Sheet appealDispute - UTCID07 (B): ly do 9 ky tu (ngay duoi nguong 10). */
+    @Test
+    void appealDisputeRejectsTooShortReason() {
+        givenAppealCaller();
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> disputeService.appealDispute(31L, appealRequest("Khieu nai")));
+        assertEquals("Nội dung khiếu nại phải có ít nhất 10 ký tự", ex.getMessage());
+        verify(disputeRepository, never()).save(any());
+    }
+
+    /** Sheet appealDispute - UTCID08 (A): tranh chap khong gan voi escrow nao. */
+    @Test
+    void appealDisputeRejectsDisputeWithoutEscrow() {
+        // Goi bang PLATFORM_ADMIN de bo qua buoc kiem tra ben lien quan (escrow = null),
+        // nham cham dung nhanh ensureEscrowCanReopen.
+        User adminCaller = user(USER_ID, "admin@tcs.com");
+        when(authHelper.requireRole(
+                UserRole.CLIENT,
+                UserRole.TUTOR,
+                UserRole.TUTOR_CENTER,
+                UserRole.PLATFORM_ADMIN))
+                .thenReturn(principal(adminCaller, UserRole.PLATFORM_ADMIN));
+        User reporter = user(USER_ID, "client@tcs.com");
+        Report report = report(21L, reporter, ReportTargetType.CLASS, 99L, ReportCategory.FRAUD, "Có gian lận");
+        Dispute dispute = dispute(report, null, 31L, DisputeStatus.RESOLVED);
+        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> disputeService.appealDispute(31L, appealRequest("Bổ sung bằng chứng mới cần xem lại")));
+        assertEquals("Tranh chấp không có escrow để mở lại", ex.getMessage());
+        verify(disputeRepository, never()).save(any());
     }
 }

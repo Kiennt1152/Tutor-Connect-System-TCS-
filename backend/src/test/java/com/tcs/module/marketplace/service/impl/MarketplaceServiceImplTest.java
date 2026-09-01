@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -48,7 +49,12 @@ import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.enums.TutorApplicationStatus;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.dto.request.RescheduleDecisionRequest;
+import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
+import com.tcs.module.marketplace.entity.LessonRescheduleRequest;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
+import com.tcs.module.marketplace.enums.RescheduleRequestStatus;
+import com.tcs.module.marketplace.enums.RescheduleRequestType;
 import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
 import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.ClassTerminationStatus;
@@ -89,6 +95,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.DisplayName;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -98,6 +105,10 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class MarketplaceServiceImplTest {
 
     @Mock private PenaltyAccessService penaltyAccessService;
+    @Mock private com.tcs.module.platform.service.AuditLogService auditLogService;
+    @Mock private com.tcs.common.classrequest.ClassRequestStore classRequestStore;
+    @Mock private com.tcs.module.marketplace.repository.LessonRescheduleRequestRepository rescheduleRequestRepository;
+    @Mock private com.tcs.module.marketplace.service.impl.LessonReminderService lessonReminderService;
 
     private static final Long CLASS_ID = 5L;
     private static final Long ASSIGNMENT_ID = 7L;
@@ -196,6 +207,7 @@ class MarketplaceServiceImplTest {
     @InjectMocks
     private MarketplaceServiceImpl marketplaceService;
 
+    /** Bổ sung ngoài các UTCID của sheet applyToClass: gia sư đã xác minh nhưng chưa có ví -> chặn trước khi đọc lớp */
     @Test
     void applyToClassRejectsVerifiedTutorWithoutWallet() {
         User tutorUser = user(TUTOR_USER_ID);
@@ -217,6 +229,7 @@ class MarketplaceServiceImplTest {
         verify(tutorApplicationRepository, never()).save(any());
     }
 
+    /** Sheet requestClassTermination - UTCID01 (N): thành viên lớp private đang chạy yêu cầu chấm dứt sớm -> tự tất toán theo số buổi đã hoàn thành */
     @Test
     void requestClassTerminationAutoSettlesPrivateClassByCompletedSessions() {
         User clientUser = user(CLIENT_USER_ID);
@@ -280,6 +293,7 @@ class MarketplaceServiceImplTest {
         verify(classTerminationRequestRepository).save(any(ClassTerminationRequest.class));
     }
 
+    /** Sheet requestClassTermination - UTCID01 (N): học viên lớp trung tâm yêu cầu chấm dứt sớm -> tự tất toán theo số buổi có mặt */
     @Test
     void requestClassTerminationAutoSettlesCenterEnrollmentByPresentAttendances() {
         User centerUser = user(CLIENT_USER_ID);
@@ -343,6 +357,7 @@ class MarketplaceServiceImplTest {
         verify(classTerminationRequestRepository).save(any(ClassTerminationRequest.class));
     }
 
+    /** Sheet requestClassTermination - UTCID01 (N): escrow đang tranh chấp -> tạo yêu cầu và chờ admin, không tự tất toán */
     @Test
     void requestClassTerminationWaitsForAdminWhenEscrowIsDisputed() {
         User clientUser = user(CLIENT_USER_ID);
@@ -393,6 +408,7 @@ class MarketplaceServiceImplTest {
         verify(classTerminationRequestRepository).save(any(ClassTerminationRequest.class));
     }
 
+    /** Sheet requestClassTermination - UTCID05 (A): đã có yêu cầu chấm dứt đang chờ xử lý */
     @Test
     void requestClassTerminationRejectsDuplicatePendingRequest() {
         User clientUser = user(CLIENT_USER_ID);
@@ -423,6 +439,7 @@ class MarketplaceServiceImplTest {
         verify(classTerminationRequestRepository, never()).save(any());
     }
 
+    /** Sheet requestClassTermination - UTCID05 (A): đã có yêu cầu chấm dứt được duyệt trước đó */
     @Test
     void requestClassTerminationRejectsDuplicateApprovedRequest() {
         User clientUser = user(CLIENT_USER_ID);
@@ -460,6 +477,7 @@ class MarketplaceServiceImplTest {
         verify(classTerminationRequestRepository, never()).save(any());
     }
 
+    /** Sheet requestClassTermination - UTCID06 (A): gia sư lớp trung tâm không phải bên được phép yêu cầu */
     @Test
     void requestClassTerminationRejectsCenterClassTutor() {
         User centerUser = user(CENTER_USER_ID);
@@ -483,6 +501,7 @@ class MarketplaceServiceImplTest {
         verify(classTerminationRequestRepository, never()).save(any());
     }
 
+    /** Sheet requestClassTermination - UTCID02 (N): trung tâm yêu cầu chấm dứt cả lớp -> huỷ lớp và tất toán escrow từng học viên */
     @Test
     void requestClassTerminationByCenterCancelsWholeCenterClassAndSettlesEachStudentEscrow() {
         User centerUser = user(CENTER_USER_ID);
@@ -560,6 +579,7 @@ class MarketplaceServiceImplTest {
         assertEquals(new BigDecimal("300000.00"), instructionCaptor.getAllValues().get(1).refundToPayer());
     }
 
+    /** Sheet requestClassTermination - UTCID06 (A): người gửi không phải thành viên của lớp */
     @Test
     void requestClassTerminationRejectsNonParticipant() {
         User clientUser = user(CLIENT_USER_ID);
@@ -587,6 +607,7 @@ class MarketplaceServiceImplTest {
         verify(classTerminationRequestRepository, never()).save(any());
     }
 
+    /** Sheet requestClassTermination - UTCID04 (A): trạng thái lớp không cho phép yêu cầu chấm dứt sớm */
     @Test
     void requestClassTerminationRejectsClassThatIsNotInProgress() {
         User clientUser = user(CLIENT_USER_ID);
@@ -606,6 +627,7 @@ class MarketplaceServiceImplTest {
         verify(classTerminationRequestRepository, never()).save(any());
     }
 
+    /** Sheet chooseApplicant - UTCID01 (N): lớp đang mở, người chọn có CCCD hợp lệ -> chốt gia sư và lập hợp đồng theo giá gia sư đề xuất */
     @Test
     void chooseApplicantReplacesPrivateClassDealRatesWithTutorProposal() {
         User clientUser = user(CLIENT_USER_ID);
@@ -659,6 +681,7 @@ class MarketplaceServiceImplTest {
         assertEquals("[1]", parsed != null ? parsed.get("subjectIds").toString() : null);
     }
 
+    /** Sheet mkConfirmCompletion - UTCID02 (N): client đã đánh giá lớp -> xác nhận hoàn thành, giải ngân escrow và phí yêu cầu trung tâm */
     @Test
     void confirmClassCompletionReleasesEscrowAndCenterRequestFeeWhenClientAlreadyReviewed() {
         User clientUser = user(CLIENT_USER_ID);
@@ -692,6 +715,7 @@ class MarketplaceServiceImplTest {
         verify(tutoringClassRepository).save(tutoringClass);
     }
 
+    /** Bổ sung ngoài các UTCID của sheet mkConfirmCompletion: client đánh giá sau khi gia sư đã xác nhận -> đóng lớp private */
     @Test
     void completeClassAfterClientReviewClosesPrivateClassWhenTutorAlreadyConfirmed() {
         User clientUser = user(CLIENT_USER_ID);
@@ -719,6 +743,7 @@ class MarketplaceServiceImplTest {
         verify(tutoringClassRepository).save(tutoringClass);
     }
 
+    /** Sheet checkOutLesson - UTCID01 (N): gia sư check-out buổi học của mình -> COMPLETED, kèm nhánh tự giải ngân escrow tháng đầu */
     @Test
     void checkOutLessonAutoReleasesPrivateFirstMonthEscrowWhenNoBlockingIssue() {
         User clientUser = user(CLIENT_USER_ID);
@@ -787,6 +812,7 @@ class MarketplaceServiceImplTest {
                 eq(CLASS_ID));
     }
 
+    /** Sheet checkOutLesson - UTCID01 (N): giá trị buổi đã hoàn thành đủ bù escrow -> giải ngân sớm trước mốc tròn tháng */
     @Test
     void checkOutLessonAutoReleasesPrivateFirstMonthEscrowBeforeMonthlyAnniversaryWhenCompletedValueCoversEscrow() {
         User clientUser = user(CLIENT_USER_ID);
@@ -822,6 +848,7 @@ class MarketplaceServiceImplTest {
         verify(escrowService).apply(any(ReleaseInstruction.class));
     }
 
+    /** Sheet checkOutLesson - UTCID01 (N): giá trị buổi đã hoàn thành chưa đủ escrow -> chưa giải ngân */
     @Test
     void checkOutLessonDoesNotReleasePrivateFirstMonthEscrowWhenCompletedValueIsBelowPaidEscrow() {
         User clientUser = user(CLIENT_USER_ID);
@@ -857,6 +884,7 @@ class MarketplaceServiceImplTest {
         verify(escrowService, never()).apply(any());
     }
 
+    /** Sheet checkOutLesson - UTCID01 (N): lớp private ngắn -> giữ luồng xác nhận hoàn thành thủ công */
     @Test
     void checkOutLessonKeepsShortPrivateClassOnManualReviewCompletionFlow() {
         User clientUser = user(CLIENT_USER_ID);
@@ -885,6 +913,7 @@ class MarketplaceServiceImplTest {
                 .findFirstByApplication_TutoringClass_ClassIdAndStatus(any(), any());
     }
 
+    /** Sheet checkOutLesson - UTCID01 (N): lớp còn báo cáo chờ xử lý -> chưa giải ngân escrow */
     @Test
     void checkOutLessonDoesNotReleasePrivateFirstMonthEscrowWhenClassHasPendingReport() {
         User clientUser = user(CLIENT_USER_ID);
@@ -923,6 +952,7 @@ class MarketplaceServiceImplTest {
                 any(), any(), any(), any(), any(), any(), any(), any());
     }
 
+    /** Ngoài phạm vi Report 5.1 (MethodList không có onEscrowFunded) - test bổ sung */
     @Test
     void onEscrowFundedEnrollsStudentAndNotifiesClient() {
         User clientUser = user(CLIENT_USER_ID);
@@ -1242,6 +1272,7 @@ class MarketplaceServiceImplTest {
      * <p>Kiem chung bang cach cho luong di QUA buoc kiem tra ngay: lop o trang thai khong cho
      * cham dut som nen loi nem ra la loi trang thai, khong phai loi ngay hieu luc.</p>
      */
+    /** Sheet requestClassTermination - UTCID10 (B): effectiveDate = hôm nay (đúng tại ngưỡng) -> chấp nhận */
     @Test
     void requestClassTerminationAcceptsTodayAsEffectiveDate() {
         User clientUser = user(CLIENT_USER_ID);
@@ -1259,5 +1290,787 @@ class MarketplaceServiceImplTest {
                 () -> marketplaceService.requestClassTermination(CLASS_ID, request));
         assertEquals("Chỉ lớp đang diễn ra mới có thể yêu cầu chấm dứt sớm", ex.getMessage(),
                 "Ngay hieu luc = hom nay phai qua duoc buoc kiem tra ngay");
+    }
+    // =====================================================================================
+    //  Sheet: applyToClass
+    // =====================================================================================
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("applyToClass")
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    class ApplyToClass {
+
+        private static final Long APPLICATION_ID = 66L;
+
+        private Tutor verifiedTutor;
+        private TutoringClass openClass;
+
+        @org.junit.jupiter.api.BeforeEach
+        void loginAsVerifiedTutor() {
+            User tutorUser = user(TUTOR_USER_ID);
+            verifiedTutor = tutor(tutorUser);
+            verifiedTutor.setVerificationStatus(ProfileVerificationStatus.VERIFIED);
+            verifiedTutor.setFullName("Gia su A");
+
+            com.tcs.module.finance.entity.Wallet wallet = new com.tcs.module.finance.entity.Wallet();
+            wallet.setWalletId(TUTOR_USER_ID);
+            wallet.setStatus(com.tcs.module.finance.enums.WalletStatus.ACTIVE);
+
+            openClass = tutoringClass(user(CLIENT_USER_ID), TutoringClassStatus.OPEN);
+            com.tcs.module.catalog.entity.Subject subject = new com.tcs.module.catalog.entity.Subject();
+            subject.setSubjectId(3L);
+            openClass.setSubject(subject);
+
+            when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+            when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(verifiedTutor));
+            when(walletRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(wallet));
+            when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(openClass));
+            when(tutorApplicationRepository.findFirstByTutoringClass_ClassIdAndTutor_TutorId(
+                    CLASS_ID, verifiedTutor.getTutorId())).thenReturn(Optional.empty());
+            when(tutorApplicationRepository.save(any(TutorApplication.class))).thenAnswer(i -> {
+                TutorApplication saved = i.getArgument(0);
+                if (saved.getApplicationId() == null) {
+                    saved.setApplicationId(APPLICATION_ID);
+                }
+                return saved;
+            });
+        }
+
+        private ApplyClassRequest applyRequest(java.math.BigDecimal flatRate) {
+            ApplyClassRequest request = new ApplyClassRequest();
+            request.setProposedRate(flatRate);
+            request.setCoverLetter("Toi co 3 nam kinh nghiem day Toan");
+            return request;
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - gia su da xac minh, lop dang mo, chua nop don, hoc phi hop le -> tao don ung tuyen")
+        void utcid01_applySuccessfully() {
+            marketplaceService.applyToClass(CLASS_ID, applyRequest(new java.math.BigDecimal("200000")));
+
+            ArgumentCaptor<TutorApplication> captor = ArgumentCaptor.forClass(TutorApplication.class);
+            verify(tutorApplicationRepository).save(captor.capture());
+            assertEquals(TutorApplicationStatus.SUBMITTED, captor.getValue().getStatus());
+            assertEquals(verifiedTutor, captor.getValue().getTutor());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - ho so gia su chua duoc xac minh -> VerificationRequiredException")
+        void utcid02_tutorNotVerified() {
+            verifiedTutor.setVerificationStatus(ProfileVerificationStatus.UNDER_VERIFY);
+
+            com.tcs.exception.VerificationRequiredException ex = assertThrows(
+                    com.tcs.exception.VerificationRequiredException.class,
+                    () -> marketplaceService.applyToClass(
+                            CLASS_ID, applyRequest(new java.math.BigDecimal("200000"))));
+            assertEquals("Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển vào lớp.", ex.getMessage());
+            verify(tutorApplicationRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - lop khong mo don ung tuyen -> chan")
+        void utcid03_classNotOpen() {
+            openClass.setStatus(TutoringClassStatus.IN_PROGRESS);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.applyToClass(
+                            CLASS_ID, applyRequest(new java.math.BigDecimal("200000"))));
+            assertEquals("Lớp không mở đơn ứng tuyển", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - da nop don cho lop nay roi -> moi lop chi mot don")
+        void utcid04_alreadyApplied() {
+            TutorApplication existing = new TutorApplication();
+            existing.setApplicationId(APPLICATION_ID);
+            existing.setStatus(TutorApplicationStatus.SUBMITTED);
+            when(tutorApplicationRepository.findFirstByTutoringClass_ClassIdAndTutor_TutorId(
+                    CLASS_ID, verifiedTutor.getTutorId())).thenReturn(Optional.of(existing));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.applyToClass(
+                            CLASS_ID, applyRequest(new java.math.BigDecimal("200000"))));
+            assertEquals("Bạn đã ứng tuyển lớp này rồi. Mỗi lớp chỉ nộp được một đơn.", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - khong nhap hoc phi de xuat cho tung mon -> chan")
+        void utcid05_missingProposedRate() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.applyToClass(CLASS_ID, applyRequest(null)));
+            assertEquals("Vui lòng nhập học phí đề xuất cho từng môn của lớp", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - khong chon mon nao trong bang hoc phi -> chan")
+        void utcid06_noSubjectSelected() {
+            ApplyClassRequest request = applyRequest(null);
+            request.setProposedRates(new java.util.LinkedHashMap<>(
+                    java.util.Map.of("999", new java.math.BigDecimal("200000"))));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.applyToClass(CLASS_ID, request));
+            assertEquals("Vui lòng chọn ít nhất một môn và nhập học phí đề xuất", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID07 (A) - hoc phi de xuat sai dinh dang (<= 0) -> chan")
+        void utcid07_invalidRateFormat() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.applyToClass(
+                            CLASS_ID, applyRequest(java.math.BigDecimal.ZERO)));
+            assertEquals("Học phí đề xuất phải lớn hơn 0", ex.getMessage());
+        }
+    }
+
+    // =====================================================================================
+    //  Sheet: chooseApplicant / rejectApplicant
+    // =====================================================================================
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("chooseApplicant")
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    class ChooseApplicant {
+
+        private static final Long APPLICATION_ID = 77L;
+
+        private TutoringClass ownedClass;
+
+        @org.junit.jupiter.api.BeforeEach
+        void loginAsClassOwner() {
+            User clientUser = user(CLIENT_USER_ID);
+            ownedClass = tutoringClass(clientUser, TutoringClassStatus.OPEN);
+
+            TutorApplication application = new TutorApplication();
+            application.setApplicationId(APPLICATION_ID);
+            application.setTutoringClass(ownedClass);
+            application.setTutor(tutor(user(TUTOR_USER_ID)));
+            application.setStatus(TutorApplicationStatus.SUBMITTED);
+
+            when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+            when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
+            when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(ownedClass));
+            when(tutorApplicationRepository.findById(APPLICATION_ID)).thenReturn(Optional.of(application));
+            when(tutorApplicationRepository.findByTutoringClass_ClassId(CLASS_ID))
+                    .thenReturn(List.of(application));
+            com.tcs.module.profile.dto.CccdInfoDto cccd = new com.tcs.module.profile.dto.CccdInfoDto();
+            cccd.setCccdNumber("012345678901");
+            when(cccdService.getByUserId(CLIENT_USER_ID)).thenReturn(cccd);
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - nguoi chon chua cap nhat so CCCD -> chan truoc khi lap hop dong")
+        void utcid02_missingCccd() {
+            when(cccdService.getByUserId(CLIENT_USER_ID))
+                    .thenReturn(new com.tcs.module.profile.dto.CccdInfoDto());
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.chooseApplicant(CLASS_ID, APPLICATION_ID));
+            assertEquals(
+                    "Bạn cần cập nhật Căn cước công dân (CCCD) trong hồ sơ trước khi chọn gia sư "
+                            + "và lập hợp đồng.",
+                    ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - lop khong con o trang thai dang mo -> khong the chon gia su")
+        void utcid03_classNotOpen() {
+            ownedClass.setStatus(TutoringClassStatus.IN_PROGRESS);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.chooseApplicant(CLASS_ID, APPLICATION_ID));
+            assertEquals("Lớp không còn ở trạng thái đang mở để chọn gia sư", ex.getMessage());
+        }
+    }
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("rejectApplicant")
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    class RejectApplicant {
+
+        private static final Long APPLICATION_ID = 88L;
+
+        private TutoringClass ownedClass;
+        private TutorApplication application;
+
+        @org.junit.jupiter.api.BeforeEach
+        void loginAsClassOwner() {
+            User clientUser = user(CLIENT_USER_ID);
+            ownedClass = tutoringClass(clientUser, TutoringClassStatus.OPEN);
+
+            application = new TutorApplication();
+            application.setApplicationId(APPLICATION_ID);
+            application.setTutoringClass(ownedClass);
+            application.setTutor(tutor(user(TUTOR_USER_ID)));
+            application.setStatus(TutorApplicationStatus.SUBMITTED);
+
+            when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+            when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
+            when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(ownedClass));
+            when(tutorApplicationRepository.findById(APPLICATION_ID)).thenReturn(Optional.of(application));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - lop dang mo, gia su chua duoc chon, co ly do -> danh dau tu choi va bao gia su")
+        void utcid01_rejectSuccessfully() {
+            marketplaceService.rejectApplicant(CLASS_ID, APPLICATION_ID, "Ho so chua phu hop");
+
+            assertEquals(TutorApplicationStatus.REJECTED, application.getStatus());
+            verify(tutorApplicationRepository).save(application);
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - lop khong con o trang thai dang mo -> chan")
+        void utcid02_classNotOpen() {
+            ownedClass.setStatus(TutoringClassStatus.IN_PROGRESS);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.rejectApplicant(CLASS_ID, APPLICATION_ID, "Ly do"));
+            assertEquals("Lớp không còn ở trạng thái đang mở để bỏ chọn gia sư", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - gia su da duoc chon truoc do -> khong the bo chon")
+        void utcid03_applicantAlreadyAccepted() {
+            application.setStatus(TutorApplicationStatus.ACCEPTED);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.rejectApplicant(CLASS_ID, APPLICATION_ID, "Ly do"));
+            assertEquals("Không thể bỏ chọn gia sư đã được chọn", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - khong nhap ly do bo chon -> chan")
+        void utcid04_missingReason() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.rejectApplicant(CLASS_ID, APPLICATION_ID, "   "));
+            assertEquals("Vui lòng nhập lý do bỏ chọn gia sư", ex.getMessage());
+            verify(tutorApplicationRepository, never()).save(any());
+        }
+    }
+    // =====================================================================================
+    //  Sheet: createClassRequest / cancelClassRequest
+    // =====================================================================================
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("createClassRequest")
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    class CreateClassRequest {
+
+        private static final Long CENTER_ID = 120L;
+
+        private com.tcs.module.profile.entity.TutorCenter center;
+
+        @org.junit.jupiter.api.BeforeEach
+        void loginAsClient() {
+            User clientUser = user(CLIENT_USER_ID);
+            com.tcs.module.profile.entity.Client client = new com.tcs.module.profile.entity.Client();
+            client.setClientId(1L);
+            client.setUser(clientUser);
+
+            center = new com.tcs.module.profile.entity.TutorCenter();
+            center.setCenterId(CENTER_ID);
+            center.setCompanyName("Trung tam ABC");
+            center.setUser(user(CENTER_USER_ID));
+            center.setVerificationStatus(ProfileVerificationStatus.VERIFIED);
+
+            when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+            when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
+            when(clientRepository.findByUser_UserId(CLIENT_USER_ID)).thenReturn(Optional.of(client));
+            when(tutorCenterRepository.findById(CENTER_ID)).thenReturn(Optional.of(center));
+            when(cccdService.isComplete(CLIENT_USER_ID)).thenReturn(true);
+            when(classRequestStore.findByClient(CLIENT_USER_ID)).thenReturn(List.of());
+        }
+
+        private com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest requestWithNote(String note) {
+            var request = new com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest();
+            request.setNote(note);
+            return request;
+        }
+
+        private com.tcs.common.classrequest.ClassRequestStore.ClassRequestData data(String status) {
+            return new com.tcs.common.classrequest.ClassRequestStore.ClassRequestData(
+                    "req-1", CLIENT_USER_ID, CENTER_ID, null, "Can gia su Toan 9",
+                    null, status, null, "2026-09-01T10:00", null, List.of(), null);
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - trung tam da xac minh, CCCD day du, co nguyen vong, chua vuot han muc -> tao yeu cau tim gia su")
+        void utcid01_createSuccessfully() {
+            var created = data(com.tcs.common.classrequest.ClassRequestStore.STATUS_PAYMENT_PENDING);
+            when(classRequestStore.create(any(), any(), any(), anyString(), any(), any()))
+                    .thenReturn(created);
+            when(classRequestStore.withStatus(any(), anyString(), any())).thenReturn(created);
+            when(classRequestStore.toResponse(created)).thenReturn(
+                    com.tcs.module.marketplace.dto.response.ClassRequestResponse.builder()
+                            .requestId("req-1")
+                            .build());
+
+            marketplaceService.createClassRequest(CENTER_ID, requestWithNote("Can gia su Toan 9"));
+
+            verify(classRequestStore).save(created);
+            verify(centerRequestFeeService).createPayment(
+                    eq("req-1"), eq(CLIENT_USER_ID), any(), anyString(), any(), any());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - trung tam chua duoc xac minh -> chan")
+        void utcid02_centerNotVerified() {
+            center.setVerificationStatus(ProfileVerificationStatus.UNDER_VERIFY);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.createClassRequest(
+                            CENTER_ID, requestWithNote("Can gia su Toan 9")));
+            assertEquals("Chỉ có thể gửi yêu cầu tới trung tâm đã được xác minh.", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - nguoi gui chua nhap day du CCCD -> chan")
+        void utcid03_incompleteCccd() {
+            when(cccdService.isComplete(CLIENT_USER_ID)).thenReturn(false);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.createClassRequest(
+                            CENTER_ID, requestWithNote("Can gia su Toan 9")));
+            assertEquals(
+                    "Bạn cần nhập đầy đủ thông tin CCCD trong Hồ sơ trước khi gửi yêu cầu tới trung tâm.",
+                    ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - khong nhap noi dung nguyen vong -> chan")
+        void utcid04_missingNote() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.createClassRequest(CENTER_ID, requestWithNote("   ")));
+            assertEquals("Vui lòng nhập nội dung nguyện vọng", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (B) - da co dung 10 yeu cau cho xu ly (cham nguong) -> chan")
+        void utcid05_tooManyPendingRequests() {
+            java.util.List<com.tcs.common.classrequest.ClassRequestStore.ClassRequestData> pending =
+                    new java.util.ArrayList<>();
+            for (int i = 0; i < 10; i++) {
+                pending.add(data(com.tcs.common.classrequest.ClassRequestStore.STATUS_PENDING));
+            }
+            when(classRequestStore.findByClient(CLIENT_USER_ID)).thenReturn(pending);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.createClassRequest(
+                            CENTER_ID, requestWithNote("Can gia su Toan 9")));
+            assertEquals("Bạn đang có quá nhiều yêu cầu chờ xử lý.", ex.getMessage());
+        }
+    }
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("cancelClassRequest")
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    class CancelClassRequest {
+
+        private com.tcs.common.classrequest.ClassRequestStore.ClassRequestData data(
+                Long ownerUserId, String status) {
+            return new com.tcs.common.classrequest.ClassRequestStore.ClassRequestData(
+                    "req-9", ownerUserId, 120L, null, "Can gia su Toan 9",
+                    null, status, null, "2026-09-01T10:00", null, List.of(), null);
+        }
+
+        @org.junit.jupiter.api.BeforeEach
+        void loginAsClient() {
+            when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+            when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(user(CLIENT_USER_ID)));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - dung nguoi gui, yeu cau dang cho thanh toan -> huy yeu cau tim gia su")
+        void utcid01_cancelSuccessfully() {
+            when(classRequestStore.find("req-9")).thenReturn(Optional.of(data(
+                    CLIENT_USER_ID, com.tcs.common.classrequest.ClassRequestStore.STATUS_PAYMENT_PENDING)));
+
+            marketplaceService.cancelClassRequest("req-9");
+
+            verify(centerRequestFeeService).cancelUnpaid("req-9");
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - khong phai nguoi gui yeu cau -> ForbiddenException")
+        void utcid02_notTheOwner() {
+            when(classRequestStore.find("req-9")).thenReturn(Optional.of(data(
+                    999L, com.tcs.common.classrequest.ClassRequestStore.STATUS_PAYMENT_PENDING)));
+
+            com.tcs.exception.ForbiddenException ex = assertThrows(
+                    com.tcs.exception.ForbiddenException.class,
+                    () -> marketplaceService.cancelClassRequest("req-9"));
+            assertEquals("Bạn không có quyền hủy yêu cầu này", ex.getMessage());
+            verify(centerRequestFeeService, never()).cancelUnpaid(anyString());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - yeu cau khong con o buoc cho thanh toan -> chan")
+        void utcid03_notPaymentPending() {
+            when(classRequestStore.find("req-9")).thenReturn(Optional.of(data(
+                    CLIENT_USER_ID, com.tcs.common.classrequest.ClassRequestStore.STATUS_SEARCHING)));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.cancelClassRequest("req-9"));
+            assertEquals("Chỉ hủy được yêu cầu đang chờ thanh toán", ex.getMessage());
+            verify(centerRequestFeeService, never()).cancelUnpaid(anyString());
+        }
+    }
+    // =====================================================================================
+    //  Sheet: mkRequestReschedule / decideRescheduleRequest / cancelRescheduleRequest
+    // =====================================================================================
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("mkRequestReschedule")
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    class MkRequestReschedule {
+
+        private static final Long LESSON_ID = 3100L;
+
+        private TutoringClass runningClass;
+        private com.tcs.module.marketplace.entity.Lesson lesson;
+
+        private com.tcs.module.marketplace.entity.Lesson lesson(
+                Long lessonId, java.time.LocalDate date,
+                java.time.LocalTime start, java.time.LocalTime end) {
+            com.tcs.module.marketplace.entity.ScheduleSlot slot =
+                    new com.tcs.module.marketplace.entity.ScheduleSlot();
+            slot.setSlotId(lessonId);
+            slot.setTutoringClass(runningClass);
+            slot.setDayOfWeek(date.getDayOfWeek().getValue());
+            slot.setStartTime(start);
+            slot.setEndTime(end);
+
+            var row = new com.tcs.module.marketplace.entity.Lesson();
+            row.setLessonId(lessonId);
+            row.setTutoringClass(runningClass);
+            row.setSlot(slot);
+            row.setSequenceNo(1);
+            row.setLessonDate(date);
+            row.setAttendanceStatus(AttendanceStatus.PENDING);
+            row.setTutor(tutor(user(TUTOR_USER_ID)));
+            return row;
+        }
+
+        @org.junit.jupiter.api.BeforeEach
+        void loginAsClassOwner() {
+            User clientUser = user(CLIENT_USER_ID);
+            runningClass = tutoringClass(clientUser, TutoringClassStatus.IN_PROGRESS);
+            lesson = lesson(LESSON_ID, java.time.LocalDate.now().plusDays(3),
+                    java.time.LocalTime.of(18, 0), java.time.LocalTime.of(20, 0));
+
+            when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+            when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
+            when(lessonRepository.findById(LESSON_ID)).thenReturn(Optional.of(lesson));
+            when(lessonRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(List.of(lesson));
+            when(rescheduleRequestRepository.existsByLesson_LessonIdAndStatus(
+                    eq(LESSON_ID), any())).thenReturn(false);
+            when(rescheduleRequestRepository.save(any(LessonRescheduleRequest.class)))
+                    .thenAnswer(i -> {
+                        LessonRescheduleRequest saved = i.getArgument(0);
+                        if (saved.getRequestId() == null) {
+                            saved.setRequestId(3200L);
+                        }
+                        return saved;
+                    });
+        }
+
+        private RescheduleLessonRequest req(
+                java.time.LocalDate date, java.time.LocalTime start, java.time.LocalTime end) {
+            RescheduleLessonRequest request = new RescheduleLessonRequest();
+            request.setNewDate(date);
+            request.setNewStartTime(start);
+            request.setNewEndTime(end);
+            request.setReason("Ban dot xuat");
+            return request;
+        }
+
+        private RescheduleLessonRequest validReq() {
+            return req(java.time.LocalDate.now().plusDays(5),
+                    java.time.LocalTime.of(18, 0), java.time.LocalTime.of(20, 0));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - buoi chua diem danh, khong trung lich, gio moi hop le -> tao yeu cau doi lich cho duyet")
+        void utcid01_requestSuccessfully() {
+            marketplaceService.requestReschedule(LESSON_ID, validReq());
+
+            ArgumentCaptor<LessonRescheduleRequest> captor =
+                    ArgumentCaptor.forClass(LessonRescheduleRequest.class);
+            verify(rescheduleRequestRepository).save(captor.capture());
+            assertEquals(java.time.LocalDate.now().plusDays(5), captor.getValue().getNewDate());
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - khong co quyen tren lop nay -> ForbiddenException")
+        void utcid02_noPermission() {
+            User stranger = user(999L);
+            when(authHelper.currentUserId()).thenReturn(999L);
+            when(userRepository.findById(999L)).thenReturn(Optional.of(stranger));
+            when(lessonRepository.findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(CLASS_ID))
+                    .thenReturn(List.of(lesson));
+
+            com.tcs.exception.ForbiddenException ex = assertThrows(
+                    com.tcs.exception.ForbiddenException.class,
+                    () -> marketplaceService.requestReschedule(LESSON_ID, validReq()));
+            assertEquals("Không có quyền thay đổi lịch của lớp này", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - buoi da diem danh xong -> khong doi lich duoc nua")
+        void utcid03_lessonAlreadyAttended() {
+            lesson.setAttendanceStatus(AttendanceStatus.COMPLETED);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.requestReschedule(LESSON_ID, validReq()));
+            assertEquals("Buổi này đã điểm danh xong nên không đổi lịch được nữa", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - lop da diem danh buoi cuoi cung -> khoa toan bo doi lich")
+        void utcid04_lastLessonAlreadyAttended() {
+            var last = lesson(3101L, java.time.LocalDate.now().minusDays(1),
+                    java.time.LocalTime.of(18, 0), java.time.LocalTime.of(20, 0));
+            last.setAttendanceStatus(AttendanceStatus.COMPLETED);
+            when(lessonRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(List.of(last));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.requestReschedule(LESSON_ID, validReq()));
+            assertEquals("Lớp đã điểm danh buổi học cuối cùng nên không thể đổi lịch nữa.",
+                    ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - buoi dang co yeu cau doi lich cho duyet -> chan")
+        void utcid05_pendingRequestExists() {
+            when(rescheduleRequestRepository.existsByLesson_LessonIdAndStatus(eq(LESSON_ID), any()))
+                    .thenReturn(true);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.requestReschedule(LESSON_ID, validReq()));
+            assertEquals("Buổi này đang có một yêu cầu đổi lịch chờ duyệt", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - thieu ngay hoc moi -> chan")
+        void utcid06_missingNewDate() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.requestReschedule(LESSON_ID,
+                            req(null, java.time.LocalTime.of(18, 0), java.time.LocalTime.of(20, 0))));
+            assertEquals("Thiếu ngày học mới", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID07 (B) - ngay moi la hom qua (ngay duoi nguong hop le) -> chan")
+        void utcid07_newDateInThePast() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.requestReschedule(LESSON_ID,
+                            req(java.time.LocalDate.now().minusDays(1),
+                                    java.time.LocalTime.of(18, 0), java.time.LocalTime.of(20, 0))));
+            assertEquals("Không thể xếp buổi học vào ngày đã qua", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID08 (A) - thieu gio bat dau hoac gio ket thuc -> chan")
+        void utcid08_missingTimeRange() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.requestReschedule(LESSON_ID,
+                            req(java.time.LocalDate.now().plusDays(5), null,
+                                    java.time.LocalTime.of(20, 0))));
+            assertEquals("Thiếu giờ bắt đầu hoặc giờ kết thúc", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID09 (B) - gio ket thuc bang gio bat dau (ngay tai nguong khong hop le) -> chan")
+        void utcid09_endTimeNotAfterStart() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.requestReschedule(LESSON_ID,
+                            req(java.time.LocalDate.now().plusDays(5),
+                                    java.time.LocalTime.of(18, 0), java.time.LocalTime.of(18, 0))));
+            assertEquals("Giờ kết thúc phải sau giờ bắt đầu", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID10 (B) - chon gio hom nay nhung da qua -> chan")
+        void utcid10_timeTodayAlreadyPassed() {
+            // 00:00 luon som hon thoi diem chay test trong ngay -> cham dung nhanh 'gio da qua'.
+            java.time.LocalTime past = java.time.LocalTime.MIDNIGHT;
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.requestReschedule(LESSON_ID,
+                            req(java.time.LocalDate.now(), past, java.time.LocalTime.of(23, 59))));
+            assertEquals("Giờ học hôm nay đã qua — chọn giờ muộn hơn", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID11 (A) - khung gio trung voi buoi hoc khac -> chan")
+        void utcid11_slotOverlapsAnotherLesson() {
+            java.time.LocalDate target = java.time.LocalDate.now().plusDays(5);
+            var other = lesson(3102L, target,
+                    java.time.LocalTime.of(19, 0), java.time.LocalTime.of(21, 0));
+            other.setTutoringClass(runningClass);
+            when(lessonRepository.findByTutor_TutorIdOrderByLessonDateAscSequenceNoAsc(anyLong()))
+                    .thenReturn(List.of(other));
+            when(lessonRepository.findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(CLASS_ID))
+                    .thenReturn(List.of(lesson, other));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.requestReschedule(LESSON_ID,
+                            req(target, java.time.LocalTime.of(18, 0), java.time.LocalTime.of(20, 0))));
+            assertTrue(ex.getMessage().startsWith("Khung giờ này trùng với buổi"));
+        }
+    }
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("decideRescheduleRequest")
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    class DecideRescheduleRequest {
+
+        private static final Long REQUEST_ID = 3300L;
+
+        private LessonRescheduleRequest row;
+        private User requester;
+
+        @org.junit.jupiter.api.BeforeEach
+        void loginAsCounterpart() {
+            requester = user(TUTOR_USER_ID);
+            User approver = user(CLIENT_USER_ID);
+            TutoringClass runningClass = tutoringClass(approver, TutoringClassStatus.IN_PROGRESS);
+
+            row = new LessonRescheduleRequest();
+            row.setRequestId(REQUEST_ID);
+            row.setTutoringClass(runningClass);
+            row.setRequestType(RescheduleRequestType.EXTRA);
+            row.setStatus(RescheduleRequestStatus.PENDING);
+            row.setRequestedBy(requester);
+            row.setNewDate(java.time.LocalDate.now().plusDays(5));
+            row.setNewStartTime(java.time.LocalTime.of(18, 0));
+            row.setNewEndTime(java.time.LocalTime.of(20, 0));
+
+            when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+            when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(approver));
+            when(rescheduleRequestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(row));
+        }
+
+        private RescheduleDecisionRequest decision(Boolean approve) {
+            RescheduleDecisionRequest request = new RescheduleDecisionRequest();
+            request.setApprove(approve);
+            return request;
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - yeu cau con cho, dung nguoi duyet, co quyet dinh -> cap nhat trang thai")
+        void utcid01_decideSuccessfully() {
+            marketplaceService.decideRescheduleRequest(REQUEST_ID, decision(false));
+
+            assertEquals(RescheduleRequestStatus.REJECTED, row.getStatus());
+            verify(rescheduleRequestRepository).save(row);
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - yeu cau da duoc xu ly truoc do -> chan")
+        void utcid02_alreadyDecided() {
+            row.setStatus(RescheduleRequestStatus.APPROVED);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.decideRescheduleRequest(REQUEST_ID, decision(true)));
+            assertEquals("Yêu cầu này đã được xử lý trước đó", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - nguoi duyet chinh la nguoi gui -> ForbiddenException")
+        void utcid03_approverIsRequester() {
+            row.setRequestedBy(user(CLIENT_USER_ID));
+
+            com.tcs.exception.ForbiddenException ex = assertThrows(
+                    com.tcs.exception.ForbiddenException.class,
+                    () -> marketplaceService.decideRescheduleRequest(REQUEST_ID, decision(true)));
+            assertEquals("Bên còn lại mới là người duyệt yêu cầu này", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - khong nen quyet dinh duyet hay tu choi -> chan")
+        void utcid04_missingDecision() {
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.decideRescheduleRequest(REQUEST_ID, decision(null)));
+            assertEquals("Thiếu quyết định duyệt hay từ chối", ex.getMessage());
+            verify(rescheduleRequestRepository, never()).save(any());
+        }
+    }
+
+    @org.junit.jupiter.api.Nested
+    @DisplayName("cancelRescheduleRequest")
+    @org.mockito.junit.jupiter.MockitoSettings(strictness = org.mockito.quality.Strictness.LENIENT)
+    class CancelRescheduleRequest {
+
+        private static final Long REQUEST_ID = 3400L;
+
+        private LessonRescheduleRequest row;
+
+        @org.junit.jupiter.api.BeforeEach
+        void loginAsRequester() {
+            User requester = user(CLIENT_USER_ID);
+            row = new LessonRescheduleRequest();
+            row.setRequestId(REQUEST_ID);
+            row.setTutoringClass(tutoringClass(requester, TutoringClassStatus.IN_PROGRESS));
+            row.setStatus(RescheduleRequestStatus.PENDING);
+            row.setRequestedBy(requester);
+
+            when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+            when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(requester));
+            when(rescheduleRequestRepository.findById(REQUEST_ID)).thenReturn(Optional.of(row));
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - dung nguoi gui, yeu cau con cho -> thu hoi yeu cau, buoi giu nguyen lich cu")
+        void utcid01_cancelSuccessfully() {
+            marketplaceService.cancelRescheduleRequest(REQUEST_ID);
+
+            assertEquals(RescheduleRequestStatus.CANCELLED, row.getStatus());
+            verify(rescheduleRequestRepository).save(row);
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - khong phai nguoi gui -> ForbiddenException")
+        void utcid02_notTheRequester() {
+            row.setRequestedBy(user(999L));
+
+            com.tcs.exception.ForbiddenException ex = assertThrows(
+                    com.tcs.exception.ForbiddenException.class,
+                    () -> marketplaceService.cancelRescheduleRequest(REQUEST_ID));
+            assertEquals("Chỉ người gửi mới thu hồi được yêu cầu", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - yeu cau da duoc xu ly -> khong thu hoi duoc")
+        void utcid03_alreadyProcessed() {
+            row.setStatus(RescheduleRequestStatus.APPROVED);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.cancelRescheduleRequest(REQUEST_ID));
+            assertEquals("Yêu cầu này đã được xử lý, không thu hồi được", ex.getMessage());
+        }
+    }
+    /**
+     * Sheet requestClassTermination - UTCID03 (N): effectiveDate = null van duoc chap nhan
+     * va bo qua buoc kiem tra ngay trong qua khu.
+     */
+    @Test
+    void requestClassTerminationAcceptsNullEffectiveDate() {
+        User clientUser = user(CLIENT_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.COMPLETED);
+
+        CreateClassTerminationRequest request = new CreateClassTerminationRequest();
+        request.setReason("Gia sư cần dừng lớp sớm");
+        request.setEffectiveDate(null);
+
+        when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+        when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> marketplaceService.requestClassTermination(CLASS_ID, request));
+        assertEquals("Chỉ lớp đang diễn ra mới có thể yêu cầu chấm dứt sớm", ex.getMessage(),
+                "effectiveDate = null phai di qua duoc buoc kiem tra ngay trong qua khu");
     }
 }
