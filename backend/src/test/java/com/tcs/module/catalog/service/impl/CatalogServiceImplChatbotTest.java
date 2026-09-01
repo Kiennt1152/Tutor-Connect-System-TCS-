@@ -62,4 +62,108 @@ class CatalogServiceImplChatbotTest {
         assertThat(response.getAnswer()).isEqualTo("1 + 1 bang 2.");
         verify(geminiService).askQuestion("1 + 1 bang may?");
     }
+
+    // ===================================================================
+    //  Sheet: askChatbot
+    //  Cham diem: khop trong Question x2, khop trong Answer x1;
+    //  nguong toi thieu questionMatches >= min(2, so token).
+    // ===================================================================
+    @org.junit.jupiter.api.Nested
+    @org.junit.jupiter.api.DisplayName("askChatbot")
+    class AskChatbot {
+
+        private static final String QUESTION = "thanh toan hoc phi";
+
+        private ChatbotAskRequest ask(String question) {
+            ChatbotAskRequest r = new ChatbotAskRequest();
+            r.setQuestion(question);
+            return r;
+        }
+
+        private FaqEntry faq(Long id, String question, String answer) {
+            FaqEntry f = new FaqEntry();
+            f.setFaqId(id);
+            f.setQuestion(question);
+            f.setAnswer(answer);
+            return f;
+        }
+
+        private FaqEntry unrelatedFaq() {
+            return faq(9L, "Lam sao doi lich buoi day?", "Vao muc lich day roi bam doi lich.");
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID01 (N) - co FAQ dat diem > 0 -> tra cau tra loi FAQ, aiGenerated = false")
+        void utcid01_faqMatched() {
+            FaqEntry matched = faq(1L, "Thanh toan hoc phi bang cach nao?",
+                    "He thong ho tro chuyen khoan va vi dien tu.");
+            when(faqEntryRepository.findByPublishedTrueOrderBySortOrderAscFaqIdAsc())
+                    .thenReturn(List.of(matched));
+
+            ChatbotAskResponse res = catalogService.askChatbot(ask(QUESTION));
+
+            assertThat(res.isMatched()).isTrue();
+            assertThat(res.isAiGenerated()).isFalse();
+            assertThat(res.getFaqId()).isEqualTo(1L);
+            assertThat(res.getAnswer()).isEqualTo("He thong ho tro chuyen khoan va vi dien tu.");
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID02 (N) - khong FAQ nao khop, AI tra loi duoc -> aiGenerated = true")
+        void utcid02_aiAnswers() {
+            when(faqEntryRepository.findByPublishedTrueOrderBySortOrderAscFaqIdAsc())
+                    .thenReturn(List.of(unrelatedFaq()));
+            when(geminiService.askQuestion(QUESTION)).thenReturn(Optional.of("Ban co the chuyen khoan."));
+
+            ChatbotAskResponse res = catalogService.askChatbot(ask(QUESTION));
+
+            assertThat(res.isMatched()).isTrue();
+            assertThat(res.isAiGenerated()).isTrue();
+            assertThat(res.getAnswer()).isEqualTo("Ban co the chuyen khoan.");
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID03 (A) - request = null -> matched = false kem goi y tao yeu cau ho tro")
+        void utcid03_nullRequest() {
+            ChatbotAskResponse res = catalogService.askChatbot(null);
+
+            assertThat(res.isMatched()).isFalse();
+            assertThat(res.getSuggestion())
+                    .isEqualTo("Không tìm thấy câu trả lời. Vui lòng tạo yêu cầu hỗ trợ.");
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID04 (A) - cau hoi rong/toan khoang trang -> matched = false")
+        void utcid04_blankQuestion() {
+            assertThat(catalogService.askChatbot(ask("   ")).isMatched()).isFalse();
+            assertThat(catalogService.askChatbot(ask(null)).isMatched()).isFalse();
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID05 (B) - moi FAQ deu 0 diem va AI khong tra loi -> matched = false")
+        void utcid05_fallsThroughToAiThenFails() {
+            when(faqEntryRepository.findByPublishedTrueOrderBySortOrderAscFaqIdAsc())
+                    .thenReturn(List.of(unrelatedFaq()));
+            when(geminiService.askQuestion(QUESTION)).thenReturn(Optional.empty());
+
+            ChatbotAskResponse res = catalogService.askChatbot(ask(QUESTION));
+
+            assertThat(res.isMatched()).isFalse();
+            verify(geminiService).askQuestion(QUESTION);
+        }
+
+        @org.junit.jupiter.api.Test
+        @org.junit.jupiter.api.DisplayName("UTCID06 (B) - hai FAQ cung diem cao nhat -> chon FAQ dau tien (so sanh > chu khong >=)")
+        void utcid06_firstHighestScoreWins() {
+            FaqEntry first = faq(1L, "Thanh toan hoc phi bang cach nao?", "Chuyen khoan ngan hang.");
+            FaqEntry second = faq(2L, "Thanh toan hoc phi bang cach nao?", "Vi dien tu.");
+            when(faqEntryRepository.findByPublishedTrueOrderBySortOrderAscFaqIdAsc())
+                    .thenReturn(List.of(first, second));
+
+            ChatbotAskResponse res = catalogService.askChatbot(ask(QUESTION));
+
+            assertThat(res.getFaqId()).isEqualTo(1L);
+            assertThat(res.getAnswer()).isEqualTo("Chuyen khoan ngan hang.");
+        }
+    }
 }

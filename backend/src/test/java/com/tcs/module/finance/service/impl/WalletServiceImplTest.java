@@ -185,7 +185,7 @@ class WalletServiceImplTest {
     // ─── credit ────────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("credit")
+    @DisplayName("walletCredit")
     class Credit {
 
         @Test
@@ -247,7 +247,7 @@ class WalletServiceImplTest {
     // ─── debit ─────────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("debit")
+    @DisplayName("walletDebit")
     class Debit {
 
         @Test
@@ -299,7 +299,7 @@ class WalletServiceImplTest {
     // ─── lockFunds ─────────────────────────────────────────────────────────
 
     @Nested
-    @DisplayName("lockFunds")
+    @DisplayName("walletLockFunds")
     class LockFunds {
 
         @Test
@@ -544,6 +544,114 @@ class WalletServiceImplTest {
             BusinessException ex = assertThrows(BusinessException.class,
                     () -> walletService.releaseLockedFunds(USER_ID, new BigDecimal("1000.00"), "ESCROW_RELEASE-1"));
             assertEquals("Ví không ở trạng thái hoạt động", ex.getMessage());
+        }
+    }
+
+    // ─── walletRefundLocked ─────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("walletRefundLocked")
+    class WalletRefundLocked {
+
+        private static final String REF = "ESCROW_REFUND-1";
+
+        /** Ví bị tạm ngưng, có sẵn số dư bị khóa để đi tới bước kiểm tra trạng thái. */
+        private Wallet suspendedWallet() {
+            Wallet w = new Wallet();
+            w.setWalletId(USER_ID);
+            w.setAvailableBalance(new BigDecimal("100000.00"));
+            w.setFrozenBalance(new BigDecimal("50000.00"));
+            w.setStatus(WalletStatus.SUSPENDED);
+            return w;
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - ví ACTIVE, frozen đủ -> trả tiền về khả dụng + ghi journal CREDIT")
+        void utcid01_refundSuccessfully() {
+            activeWallet.setAvailableBalance(new BigDecimal("100000.00"));
+            activeWallet.setFrozenBalance(new BigDecimal("50000.00"));
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+            when(walletRepository.save(any(Wallet.class))).thenAnswer(i -> i.getArgument(0));
+
+            Wallet result = walletService.refundLockedFunds(USER_ID, new BigDecimal("20000.00"), REF);
+
+            assertEquals(0, new BigDecimal("30000.00").compareTo(result.getFrozenBalance()));
+            assertEquals(0, new BigDecimal("120000.00").compareTo(result.getAvailableBalance()));
+
+            verify(financialJournalRepository).save(journalCaptor.capture());
+            assertEquals(JournalEntryType.CREDIT, journalCaptor.getValue().getEntryType());
+            assertEquals(0, new BigDecimal("20000.00").compareTo(journalCaptor.getValue().getAmount()));
+        }
+
+        @Test
+        @DisplayName("UTCID02 (B) - hoàn đúng toàn bộ số dư bị khóa -> frozen về 0")
+        void utcid02_refundWholeFrozenBalance() {
+            activeWallet.setAvailableBalance(new BigDecimal("100000.00"));
+            activeWallet.setFrozenBalance(new BigDecimal("50000.00"));
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+            when(walletRepository.save(any(Wallet.class))).thenAnswer(i -> i.getArgument(0));
+
+            Wallet result = walletService.refundLockedFunds(USER_ID, new BigDecimal("50000.00"), REF);
+
+            assertEquals(0, BigDecimal.ZERO.compareTo(result.getFrozenBalance()));
+            assertEquals(0, new BigDecimal("150000.00").compareTo(result.getAvailableBalance()));
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - amount = null -> 'Số tiền hoàn escrow phải lớn hơn 0'")
+        void utcid03_amountNull() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.refundLockedFunds(USER_ID, null, REF));
+            assertEquals("Số tiền hoàn escrow phải lớn hơn 0", ex.getMessage());
+            verify(walletRepository, never()).save(any(Wallet.class));
+        }
+
+        @Test
+        @DisplayName("UTCID04 (B) - amount = 0 -> 'Số tiền hoàn escrow phải lớn hơn 0'")
+        void utcid04_amountZero() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.refundLockedFunds(USER_ID, BigDecimal.ZERO, REF));
+            assertEquals("Số tiền hoàn escrow phải lớn hơn 0", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - amount âm -> 'Số tiền hoàn escrow phải lớn hơn 0'")
+        void utcid05_amountNegative() {
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.refundLockedFunds(USER_ID, new BigDecimal("-1.00"), REF));
+            assertEquals("Số tiền hoàn escrow phải lớn hơn 0", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (A) - chưa có ví -> 'Không tìm thấy ví cho người dùng này'")
+        void utcid06_walletNotFound() {
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.empty());
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.refundLockedFunds(USER_ID, new BigDecimal("1000.00"), REF));
+            assertEquals("Không tìm thấy ví cho người dùng này", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID07 (A) - ví bị tạm ngưng -> 'Ví không ở trạng thái hoạt động'")
+        void utcid07_walletNotActive() {
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(suspendedWallet()));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.refundLockedFunds(USER_ID, new BigDecimal("1000.00"), REF));
+            assertEquals("Ví không ở trạng thái hoạt động", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID08 (B) - amount vượt frozen đúng 0.01 -> 'Số dư bị khóa không đủ'")
+        void utcid08_frozenBalanceNotEnough() {
+            activeWallet.setFrozenBalance(new BigDecimal("50000.00"));
+            when(walletRepository.findByUser_UserId(USER_ID)).thenReturn(Optional.of(activeWallet));
+
+            BusinessException ex = assertThrows(BusinessException.class,
+                    () -> walletService.refundLockedFunds(USER_ID, new BigDecimal("50000.01"), REF));
+            assertEquals("Số dư bị khóa không đủ", ex.getMessage());
+            verify(walletRepository, never()).save(any(Wallet.class));
         }
     }
 }

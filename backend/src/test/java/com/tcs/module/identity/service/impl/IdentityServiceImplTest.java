@@ -1290,4 +1290,333 @@ class IdentityServiceImplTest {
                 () -> identityService.completeGoogleSignup(req));
         assertEquals("Số điện thoại này đã được đăng kí bởi email khác", ex.getMessage());
     }
+
+    // =========================================================================================
+    //  Bo sung: sheet resetPassword UTCID08, signInByGoogle UTCID06-07, signUpByGoogle UTCID05-06
+    // =========================================================================================
+
+    /** Sheet resetPassword - UTCID08 (A): token con han nhung da duoc su dung roi. */
+    @Test
+    void TC_UNIT_IdentityService_024b_resetPassword_tokenAlreadyUsed() {
+        ResetPasswordRequest req = new ResetPasswordRequest();
+        req.setToken("used-token");
+        req.setNewPassword("New12345");
+
+        PasswordResetToken token = new PasswordResetToken();
+        token.setToken("used-token");
+        token.setExpiresAt(LocalDateTime.now().plusMinutes(10));
+        token.setUsedAt(LocalDateTime.now().minusMinutes(1));
+
+        when(passwordResetTokenRepository.findByToken("used-token")).thenReturn(Optional.of(token));
+
+        Exception ex = assertThrows(IllegalArgumentException.class, () -> identityService.resetPassword(req));
+        assertEquals("Token đã hết hạn hoặc đã sử dụng", ex.getMessage());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    /** Sheet signInByGoogle - UTCID06 (A): Google tra ve email chua duoc xac thuc. */
+    @Test
+    void TC_UNIT_IdentityService_035_googleLogin_emailNotVerified() {
+        GoogleLoginRequest req = new GoogleLoginRequest();
+        req.setAccessToken("unverified-email-token");
+
+        when(googleTokenVerifier.verify("unverified-email-token"))
+                .thenThrow(new IllegalArgumentException("Email Google chưa được xác thực."));
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.loginWithGoogle(req));
+        assertEquals("Email Google chưa được xác thực.", ex.getMessage());
+        verify(userRepository, never()).findByEmail(anyString());
+    }
+
+    /** Sheet signInByGoogle - UTCID07 (A): token duoc cap cho client id khac (sai audience). */
+    @Test
+    void TC_UNIT_IdentityService_036_googleLogin_wrongAudience() {
+        GoogleLoginRequest req = new GoogleLoginRequest();
+        req.setAccessToken("other-app-token");
+
+        when(googleTokenVerifier.verify("other-app-token"))
+                .thenThrow(new IllegalArgumentException("Google token không dành cho ứng dụng này."));
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.loginWithGoogle(req));
+        assertEquals("Google token không dành cho ứng dụng này.", ex.getMessage());
+        verify(userRepository, never()).findByEmail(anyString());
+    }
+
+    /** Sheet signUpByGoogle - UTCID05 (A): Google tra ve email chua duoc xac thuc. */
+    @Test
+    void TC_UNIT_IdentityService_037_googleSignup_emailNotVerified() {
+        GoogleCompleteRequest req = new GoogleCompleteRequest();
+        req.setAccessToken("unverified-email-token");
+        req.setPhone("0123456789");
+        req.setRole(UserRole.CLIENT);
+
+        when(googleTokenVerifier.verify("unverified-email-token"))
+                .thenThrow(new IllegalArgumentException("Email Google chưa được xác thực."));
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.completeGoogleSignup(req));
+        assertEquals("Email Google chưa được xác thực.", ex.getMessage());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    /** Sheet signUpByGoogle - UTCID06 (A): token duoc cap cho client id khac (sai audience). */
+    @Test
+    void TC_UNIT_IdentityService_038_googleSignup_wrongAudience() {
+        GoogleCompleteRequest req = new GoogleCompleteRequest();
+        req.setAccessToken("other-app-token");
+        req.setPhone("0123456789");
+        req.setRole(UserRole.CLIENT);
+
+        when(googleTokenVerifier.verify("other-app-token"))
+                .thenThrow(new IllegalArgumentException("Google token không dành cho ứng dụng này."));
+
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.completeGoogleSignup(req));
+        assertEquals("Google token không dành cho ứng dụng này.", ex.getMessage());
+        verify(userRepository, never()).save(any(User.class));
+    }
+
+    // =========================================================================================
+    //  Sheet: idRequestResetOtp  &  idVerifyResetOtp  (luong quen mat khau)
+    // =========================================================================================
+
+    private static final String RESET_EMAIL = "quenmatkhau@example.com";
+    private static final String RATE_LIMIT = "Quá nhiều yêu cầu, vui lòng thử lại sau.";
+
+    private com.tcs.module.identity.dto.request.RequestPasswordResetOtpRequest resetReq(String email) {
+        var r = new com.tcs.module.identity.dto.request.RequestPasswordResetOtpRequest();
+        r.setEmail(email);
+        return r;
+    }
+
+    private com.tcs.module.identity.dto.request.VerifyPasswordResetOtpRequest verifyReq(String email, String code) {
+        var r = new com.tcs.module.identity.dto.request.VerifyPasswordResetOtpRequest();
+        r.setEmail(email);
+        r.setCode(code);
+        return r;
+    }
+
+    private com.tcs.module.identity.entity.EmailOtp resetOtp(String code, java.time.LocalDateTime lastSentAt) {
+        var otp = new com.tcs.module.identity.entity.EmailOtp();
+        otp.setEmail(RESET_EMAIL);
+        otp.setCode(code);
+        otp.setPurpose(com.tcs.module.identity.enums.OtpPurpose.PASSWORD_RESET);
+        otp.setExpiresAt(java.time.LocalDateTime.now().plusMinutes(5));
+        otp.setAttempts(0);
+        otp.setLastSentAt(lastSentAt);
+        return otp;
+    }
+
+    private void givenActiveResetOtp(com.tcs.module.identity.entity.EmailOtp otp) {
+        when(emailOtpRepository.findFirstByEmailAndPurposeAndConsumedAtIsNullOrderByCreatedAtDesc(
+                RESET_EMAIL, com.tcs.module.identity.enums.OtpPurpose.PASSWORD_RESET))
+                .thenReturn(java.util.Optional.ofNullable(otp));
+    }
+
+    @org.junit.jupiter.api.Nested
+    @org.junit.jupiter.api.DisplayName("idRequestResetOtp")
+    class IdRequestResetOtp {
+
+        private void givenAccountExists() {
+            when(userRepository.findByEmail(RESET_EMAIL))
+                    .thenReturn(java.util.Optional.of(new com.tcs.module.identity.entity.User()));
+        }
+
+        private void givenWithinWindow(long sentInWindow) {
+            when(emailOtpRepository.countByEmailAndPurposeAndCreatedAtAfter(
+                    org.mockito.ArgumentMatchers.eq(RESET_EMAIL),
+                    org.mockito.ArgumentMatchers.eq(com.tcs.module.identity.enums.OtpPurpose.PASSWORD_RESET),
+                    org.mockito.ArgumentMatchers.any()))
+                    .thenReturn(sentInWindow);
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID01 (N) - email ton tai, chua co OTP cu -> sinh OTP va gui mail")
+        void utcid01_issueResetOtp() {
+            givenAccountExists();
+            givenActiveResetOtp(null);
+            givenWithinWindow(0);
+            when(emailOtpRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+            identityService.requestPasswordResetOtp(resetReq(RESET_EMAIL), null);
+
+            verify(emailService).sendPasswordResetOtp(org.mockito.ArgumentMatchers.eq(RESET_EMAIL),
+                    org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID02 (N) - email khong ton tai -> tra ve thong bao chung, KHONG gui mail")
+        void utcid02_unknownEmailDoesNotLeak() {
+            when(userRepository.findByEmail(RESET_EMAIL)).thenReturn(java.util.Optional.empty());
+
+            var res = identityService.requestPasswordResetOtp(resetReq(RESET_EMAIL), null);
+
+            assertEquals("Nếu email tồn tại, mã OTP đặt lại mật khẩu đã được gửi", res.getMessage());
+            verify(emailService, never()).sendPasswordResetOtp(
+                    org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.anyString(),
+                    org.mockito.ArgumentMatchers.anyLong());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID03 (A) - gui lai truoc thoi gian cho -> 'Quá nhiều yêu cầu, vui lòng thử lại sau.'")
+        void utcid03_resendTooSoon() {
+            givenAccountExists();
+            givenActiveResetOtp(resetOtp("111111", java.time.LocalDateTime.now().minusSeconds(10)));
+
+            Exception ex = assertThrows(IllegalArgumentException.class,
+                    () -> identityService.requestPasswordResetOtp(resetReq(RESET_EMAIL), null));
+            assertEquals(RATE_LIMIT, ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID04 (B) - da du thoi gian cho (60s) -> cho phep, ma cu bi vo hieu")
+        void utcid04_resendAfterCooldown() {
+            givenAccountExists();
+            var previous = resetOtp("111111", java.time.LocalDateTime.now().minusSeconds(60));
+            givenActiveResetOtp(previous);
+            givenWithinWindow(0);
+            when(emailOtpRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+            identityService.requestPasswordResetOtp(resetReq(RESET_EMAIL), null);
+
+            assertNotNull(previous.getConsumedAt(), "ma cu phai bi danh dau da dung");
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID05 (A) - vuot so lan gui trong cua so thoi gian -> chan")
+        void utcid05_emailWindowExceeded() {
+            givenAccountExists();
+            givenActiveResetOtp(null);
+            givenWithinWindow(5);
+
+            Exception ex = assertThrows(IllegalArgumentException.class,
+                    () -> identityService.requestPasswordResetOtp(resetReq(RESET_EMAIL), null));
+            assertEquals(RATE_LIMIT, ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID06 (B) - da gui 4/5 lan trong cua so -> van cho phep")
+        void utcid06_emailWindowAtBoundary() {
+            givenAccountExists();
+            givenActiveResetOtp(null);
+            givenWithinWindow(4);
+            when(emailOtpRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+            identityService.requestPasswordResetOtp(resetReq(RESET_EMAIL), null);
+
+            verify(emailService).sendPasswordResetOtp(org.mockito.ArgumentMatchers.eq(RESET_EMAIL),
+                    org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID07 (A) - IP het han muc trong gio -> chan")
+        void utcid07_ipQuotaExhausted() {
+            ReflectionTestUtils.setField(identityService, "maxPerIpPerHour", 0);
+            givenAccountExists();
+            givenActiveResetOtp(null);
+            givenWithinWindow(0);
+
+            Exception ex = assertThrows(IllegalArgumentException.class,
+                    () -> identityService.requestPasswordResetOtp(resetReq(RESET_EMAIL), "1.2.3.4"));
+            assertEquals(RATE_LIMIT, ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID08 (N) - email co hoa/thuong va khoang trang -> duoc chuan hoa truoc khi tra cuu")
+        void utcid08_emailNormalised() {
+            givenAccountExists();
+            givenActiveResetOtp(null);
+            givenWithinWindow(0);
+            when(emailOtpRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
+
+            var res = identityService.requestPasswordResetOtp(
+                    resetReq("  QuenMatKhau@Example.COM  "), null);
+
+            assertEquals(RESET_EMAIL, res.getEmail());
+            verify(userRepository).findByEmail(RESET_EMAIL);
+        }
+    }
+
+    @org.junit.jupiter.api.Nested
+    @org.junit.jupiter.api.DisplayName("idVerifyResetOtp")
+    class IdVerifyResetOtp {
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID01 (N) - OTP dung -> tao PasswordResetToken va tra ve resetToken")
+        void utcid01_verifySuccessfully() {
+            givenActiveResetOtp(resetOtp("123456", java.time.LocalDateTime.now()));
+            when(userRepository.findByEmail(RESET_EMAIL))
+                    .thenReturn(java.util.Optional.of(new com.tcs.module.identity.entity.User()));
+            when(passwordResetTokenRepository.save(org.mockito.ArgumentMatchers.any()))
+                    .thenAnswer(i -> i.getArgument(0));
+
+            var res = identityService.verifyPasswordResetOtp(verifyReq(RESET_EMAIL, "123456"), null);
+
+            assertEquals("Xác thực OTP thành công", res.getMessage());
+            assertNotNull(res.getResetToken());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID02 (A) - IP het han muc -> 'Quá nhiều yêu cầu, vui lòng thử lại sau.'")
+        void utcid02_ipQuotaExhausted() {
+            ReflectionTestUtils.setField(identityService, "maxPerIpPerHour", 0);
+
+            Exception ex = assertThrows(IllegalArgumentException.class,
+                    () -> identityService.verifyPasswordResetOtp(verifyReq(RESET_EMAIL, "123456"), "1.2.3.4"));
+            assertEquals(RATE_LIMIT, ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID03 (A) - OtpService.verify tu choi ma -> loi truyen ra, khong tao token")
+        void utcid03_otpRejected() {
+            givenActiveResetOtp(null);
+
+            assertThrows(IllegalArgumentException.class,
+                    () -> identityService.verifyPasswordResetOtp(verifyReq(RESET_EMAIL, "999999"), null));
+            verify(passwordResetTokenRepository, never()).save(org.mockito.ArgumentMatchers.any());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID04 (A) - OTP hop le nhung khong co tai khoan -> 'Mã OTP không hợp lệ'")
+        void utcid04_userNotFound() {
+            givenActiveResetOtp(resetOtp("123456", java.time.LocalDateTime.now()));
+            when(userRepository.findByEmail(RESET_EMAIL)).thenReturn(java.util.Optional.empty());
+
+            Exception ex = assertThrows(IllegalArgumentException.class,
+                    () -> identityService.verifyPasswordResetOtp(verifyReq(RESET_EMAIL, "123456"), null));
+            assertEquals("Mã OTP không hợp lệ", ex.getMessage());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID05 (N) - email co hoa/thuong -> duoc chuan hoa truoc khi tra cuu")
+        void utcid05_emailNormalised() {
+            givenActiveResetOtp(resetOtp("123456", java.time.LocalDateTime.now()));
+            when(userRepository.findByEmail(RESET_EMAIL))
+                    .thenReturn(java.util.Optional.of(new com.tcs.module.identity.entity.User()));
+            when(passwordResetTokenRepository.save(org.mockito.ArgumentMatchers.any()))
+                    .thenAnswer(i -> i.getArgument(0));
+
+            var res = identityService.verifyPasswordResetOtp(
+                    verifyReq("  QuenMatKhau@Example.COM  ", "123456"), null);
+
+            assertEquals(RESET_EMAIL, res.getEmail());
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID06 (B) - han token = now + tokenExpirationMinutes (15 phut)")
+        void utcid06_tokenExpiry() {
+            givenActiveResetOtp(resetOtp("123456", java.time.LocalDateTime.now()));
+            when(userRepository.findByEmail(RESET_EMAIL))
+                    .thenReturn(java.util.Optional.of(new com.tcs.module.identity.entity.User()));
+            when(passwordResetTokenRepository.save(org.mockito.ArgumentMatchers.any()))
+                    .thenAnswer(i -> i.getArgument(0));
+
+            var res = identityService.verifyPasswordResetOtp(verifyReq(RESET_EMAIL, "123456"), null);
+
+            assertEquals(15 * 60, res.getResetTokenExpiresInSeconds());
+        }
+    }
 }
