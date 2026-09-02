@@ -73,15 +73,14 @@ class CourseCompletionAutoConfirmSchedulerTest {
 
     /** Sheet autoConfirmCompletion - UTCID03 (A). */
     @Test
-    @DisplayName("UTCID03 (A) - Lớp PRIVATE quá 7 ngày -> phải được tự tất toán [DEF-02]")
+    @DisplayName("UTCID03 (A) - Lớp PRIVATE quá 7 ngày -> scheduler BF-04 không xử lý")
     void utcid03_privateClassIsIgnoredByCenterScheduler() {
         when(tutoringClassRepository.findAll()).thenReturn(List.of(overdueClass(3L, ClassType.PRIVATE)));
 
         scheduler.autoConfirmStaleCompletions();
 
-        // Dac ta (sheet autoConfirmCompletion, dong Confirm): lop qua han 7 ngay phai duoc goi
-        // trySettleCompletedCenterClass mot lan, ke ca lop PRIVATE. Thuc te scheduler loc bo
-        // classType != CENTER nen escrow lop private bi treo vo thoi han.
-        verify(settlementService).trySettleCompletedCenterClass(3L);
+        // Scheduler nay phuc vu rieng BF-04 (lop trung tam): luong tat toan dua tren ClassStudent
+        // va escrow theo ghi danh, khong ap dung cho lop PRIVATE (escrow theo ClassAssignment).
+        verify(settlementService, never()).trySettleCompletedCenterClass(3L);
     }
 }

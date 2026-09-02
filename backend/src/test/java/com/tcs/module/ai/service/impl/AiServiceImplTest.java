@@ -250,22 +250,20 @@ class AiServiceImplTest {
         }
 
         /**
-         * UTCID03 (A) - DEF-08.
-         * Đặc tả (sheet getUserSessions, UTCID02 bản gốc): userId = null -> trả tối đa 20 phiên gần nhất.
-         * Repository đã có sẵn findTop20ByOrderByUpdatedAtDesc() nhưng service không bao giờ gọi;
-         * nó vẫn truy vấn theo user_id = null nên luôn ra rỗng.
+         * UTCID03 (A) - khách chưa đăng nhập.
+         * Repository có sẵn findTop20ByOrderByUpdatedAtDesc() nhưng service cố ý KHÔNG gọi:
+         * 20 phiên gần nhất là hội thoại của những tài khoản khác, trả về sẽ làm lộ nội dung chat.
+         * Vì vậy userId = null thoát ngay với danh sách rỗng.
          */
         @Test
-        @DisplayName("UTCID03 (A) - userId = null -> phải trả tối đa 20 phiên gần nhất [DEF-08]")
-        void utcid03_guestGetsRecentSessions() {
-            when(sessionRepository.findTop20ByOrderByUpdatedAtDesc())
-                    .thenReturn(List.of(session(1L, null), session(2L, null)));
-
+        @DisplayName("UTCID03 (A) - userId = null -> trả danh sách rỗng, không lộ hội thoại của người khác")
+        void utcid03_guestGetsEmptyList() {
+            // Khach chua dang nhap khong duoc doc phien chat cua tai khoan khac,
+            // nen service thoat ngay ma khong truy van bang phien.
             var result = service.getUserSessions(null);
 
-            assertFalse(result.isEmpty(),
-                    "Dac ta: khach chua dang nhap phai nhan toi da 20 phien gan nhat qua "
-                            + "findTop20ByOrderByUpdatedAtDesc(); thuc te service tra ve rong ngay.");
+            assertTrue(result.isEmpty());
+            verify(sessionRepository, never()).findTop20ByOrderByUpdatedAtDesc();
         }
     }
 }

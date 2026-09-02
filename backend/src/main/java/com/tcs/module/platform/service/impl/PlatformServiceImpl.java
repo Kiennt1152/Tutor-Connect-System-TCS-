@@ -1266,13 +1266,21 @@ public class PlatformServiceImpl implements PlatformService {
             ticket.setPriority(newPriority);
             supportTicketRepository.save(ticket);
 
-            // Ghi Audit Log hành động SLA_BREACH_ESCALATION
+            // Ghi Audit Log hành động SLA_BREACH_ESCALATION.
+            // Map.of từ chối giá trị null, mà ticket cũ có thể chưa gán độ ưu tiên; dùng HashMap
+            // để một ticket priority = null không ném NPE làm hỏng cả đợt quét SLA.
+            Map<String, Object> auditBefore = new java.util.HashMap<>();
+            auditBefore.put("oldPriority", oldPriority);
+            auditBefore.put("slaBreached", false);
+            Map<String, Object> auditAfter = new java.util.HashMap<>();
+            auditAfter.put("newPriority", newPriority);
+            auditAfter.put("slaBreached", true);
             auditLogService.record(
                     "SLA_BREACH_ESCALATION",
                     "SupportTicket",
                     ticket.getTicketId(),
-                    Map.of("oldPriority", oldPriority, "slaBreached", false),
-                    Map.of("newPriority", newPriority, "slaBreached", true));
+                    auditBefore,
+                    auditAfter);
 
             // Gửi thông báo nhắc nhở cảnh báo khẩn cấp đến Admin
             String adminTitle = "Cảnh báo quá hạn SLA Ticket #" + ticket.getTicketId();

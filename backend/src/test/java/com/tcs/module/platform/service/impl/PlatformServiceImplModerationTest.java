@@ -881,18 +881,14 @@ class PlatformServiceImplModerationTest {
         /**
          * UTCID07 (B) — ticket quá hạn nhưng chưa có mức ưu tiên.
          *
-         * <p><b>DEF-11.</b> {@code escalatePriority()} đã xử lý đúng trường hợp null (mặc định HIGH),
-         * nhưng ngay sau đó dòng ghi audit dùng
-         * {@code Map.of("oldPriority", oldPriority, "slaBreached", false)} — {@code Map.of} KHÔNG
-         * chấp nhận giá trị null nên cả vòng quét bị ném {@code NullPointerException}. Hậu quả:
-         * chỉ cần một ticket quá hạn có priority = null là job SLA dừng hẳn, không ticket nào
-         * được nâng cấp.</p>
-         *
-         * <p>Cách sửa: thay {@code Map.of} bằng map cho phép null (ví dụ {@code java.util.HashMap})
-         * ở {@code PlatformServiceImpl#scanAndEscalateSlaBreaches}.</p>
+         * <p>Trước đây dòng ghi audit dùng {@code Map.of("oldPriority", oldPriority, ...)}, mà
+         * {@code Map.of} không nhận giá trị null: chỉ cần một ticket quá hạn có priority = null
+         * là cả đợt quét SLA ném {@code NullPointerException} và dừng hẳn. Đã sửa bằng
+         * {@code java.util.HashMap} ở {@code PlatformServiceImpl#scanAndEscalateSlaBreaches};
+         * test này giữ lại để chặn hồi quy.</p>
          */
         @Test
-        @DisplayName("UTCID07 (B) - Ticket khong co muc uu tien -> phai nang len HIGH [DEF-11]")
+        @DisplayName("UTCID07 (B) - Ticket khong co muc uu tien -> nang len HIGH, khong lam hong dot quet")
         void utcid07_nullPriorityBecomesHigh() {
             SupportTicket ticket = breachedTicket(15L, null);
             givenBreachedTickets(ticket);
