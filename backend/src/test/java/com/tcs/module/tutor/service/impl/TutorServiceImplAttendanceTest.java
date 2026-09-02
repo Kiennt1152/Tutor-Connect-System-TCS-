@@ -1,6 +1,7 @@
 package com.tcs.module.tutor.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -170,7 +171,7 @@ class TutorServiceImplAttendanceTest {
     class MarkAttendance {
 
         @Test
-        @DisplayName("UTCID01 (A) - classStudentId null -> 'Thiếu thông tin điểm danh'")
+        @DisplayName("UTCID02 (A) - classStudentId null -> 'Thiếu thông tin điểm danh'")
         void utcid01_missingStudentId() {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> service.markAttendance(CLASS_ID, today, null, LessonAttendanceStatus.PRESENT));
@@ -178,7 +179,7 @@ class TutorServiceImplAttendanceTest {
         }
 
         @Test
-        @DisplayName("UTCID02 (A) - status null -> 'Thiếu thông tin điểm danh'")
+        @DisplayName("UTCID03 (A) - status null -> 'Thiếu thông tin điểm danh'")
         void utcid02_missingStatus() {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> service.markAttendance(CLASS_ID, today, CLASS_STUDENT_ID, null));
@@ -186,7 +187,7 @@ class TutorServiceImplAttendanceTest {
         }
 
         @Test
-        @DisplayName("UTCID03 (A) - Lớp không tồn tại -> ResourceNotFoundException")
+        @DisplayName("Bổ sung ngoài các UTCID của sheet tuMarkAttendance - Lớp không tồn tại -> ResourceNotFoundException")
         void utcid03_classNotFound() {
             when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.empty());
 
@@ -206,7 +207,7 @@ class TutorServiceImplAttendanceTest {
         }
 
         @Test
-        @DisplayName("UTCID05 (A) - Lớp chưa gán gia sư nào -> ForbiddenException")
+        @DisplayName("Bổ sung ngoài các UTCID của sheet tuMarkAttendance - Lớp chưa gán gia sư nào -> ForbiddenException")
         void utcid05_noAssignment() {
             when(classAssignmentRepository
                     .findFirstByApplication_TutoringClass_ClassIdAndStatus(CLASS_ID, ClassAssignmentStatus.ACTIVE))
@@ -309,7 +310,7 @@ class TutorServiceImplAttendanceTest {
     class GetClassSession {
 
         @Test
-        @DisplayName("UTCID01 (A) - Ngày không có buổi học -> 'Lớp không có buổi học vào ngày này'")
+        @DisplayName("UTCID02 (A) - Ngày không có buổi học -> 'Lớp không có buổi học vào ngày này'")
         void utcid01_noSessionOnDate() {
             assignMainTutor(TUTOR_ID);
             haveNoSlot();
@@ -320,7 +321,7 @@ class TutorServiceImplAttendanceTest {
         }
 
         @Test
-        @DisplayName("UTCID02 (A) - Gia sư không phụ trách lớp -> ForbiddenException")
+        @DisplayName("Bổ sung ngoài các UTCID của sheet getClassSession - Gia sư không phụ trách lớp -> ForbiddenException")
         void utcid02_notAssignedTutor() {
             assignMainTutor(OTHER_TUTOR_ID);
 
@@ -328,7 +329,7 @@ class TutorServiceImplAttendanceTest {
         }
 
         @Test
-        @DisplayName("UTCID03 (A) - Lớp không tồn tại -> ResourceNotFoundException")
+        @DisplayName("Bổ sung ngoài các UTCID của sheet getClassSession - Lớp không tồn tại -> ResourceNotFoundException")
         void utcid03_classNotFound() {
             when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.empty());
 
@@ -778,5 +779,74 @@ class TutorServiceImplAttendanceTest {
                     "Buổi này đã có yêu cầu đổi lịch. Không thể vừa đổi lịch vừa nhờ dạy thay.",
                     ex.getMessage());
         }
+    }
+    // ===================================================================
+    //  Cac ca con thieu cua tuMarkAttendance / getClassSession
+    // ===================================================================
+
+    /**
+     * Sheet tuMarkAttendance - UTCID01 (N): dung gia su phu trach, co buoi hoc trong ngay,
+     * hoc sinh thuoc lop, du lieu day du -> ghi nhan trang thai diem danh cho hoc sinh.
+     */
+    @Test
+    void markAttendanceRecordsStatusOnHappyPath() {
+        assignMainTutor(TUTOR_ID);
+        haveSlotOn(today);
+        when(classStudentRepository.findById(CLASS_STUDENT_ID))
+                .thenReturn(Optional.of(studentOfClass(tutoringClass)));
+        when(lessonRepository.save(any(Lesson.class))).thenAnswer(i -> {
+            Lesson lesson = i.getArgument(0);
+            lesson.setLessonId(5000L);
+            return lesson;
+        });
+        when(lessonAttendanceRepository
+                .findFirstByLesson_LessonIdAndClassStudent_ClassStudentId(anyLong(), anyLong()))
+                .thenReturn(Optional.empty());
+        when(lessonAttendanceRepository.save(any(LessonAttendance.class)))
+                .thenAnswer(i -> i.getArgument(0));
+
+        service.markAttendance(CLASS_ID, today, CLASS_STUDENT_ID, LessonAttendanceStatus.PRESENT);
+
+        org.mockito.ArgumentCaptor<LessonAttendance> captor =
+                org.mockito.ArgumentCaptor.forClass(LessonAttendance.class);
+        verify(lessonAttendanceRepository).save(captor.capture());
+        assertEquals(LessonAttendanceStatus.PRESENT, captor.getValue().getStatus());
+    }
+
+    /**
+     * Sheet tuMarkAttendance - UTCID05 (A): buoi hoc da duoc nho gia su phu day thay
+     * -> gia su chinh khong con quyen diem danh buoi do.
+     */
+    @Test
+    void markAttendanceRejectsSessionHandedToSubstitute() {
+        assignMainTutor(TUTOR_ID);
+        haveSlotOn(today);
+        var approvedSubstitution = new com.tcs.module.marketplace.dto.SubstitutionEntry(
+                CLASS_ID, today, 99L,
+                com.tcs.module.marketplace.dto.SubstitutionEntry.APPROVED, "Ban dot xuat");
+        when(substitutionService.find(CLASS_ID, today)).thenReturn(Optional.of(approvedSubstitution));
+
+        ForbiddenException ex = assertThrows(ForbiddenException.class,
+                () -> service.markAttendance(
+                        CLASS_ID, today, CLASS_STUDENT_ID, LessonAttendanceStatus.PRESENT));
+        assertEquals("Buổi này đã được nhờ gia sư phụ dạy thay.", ex.getMessage());
+        verify(lessonAttendanceRepository, never()).save(any());
+    }
+
+    /**
+     * Sheet getClassSession - UTCID01 (N): lop co buoi hoc dung ngay yeu cau
+     * -> tra ve thong tin buoi hoc kem danh sach hoc sinh.
+     */
+    @Test
+    void getClassSessionReturnsSessionOnHappyPath() {
+        assignMainTutor(TUTOR_ID);
+        haveSlotOn(today);
+        when(classStudentRepository.findByTutoringClass_ClassIdAndStatus(anyLong(), any()))
+                .thenReturn(List.of(studentOfClass(tutoringClass)));
+
+        var session = service.getClassSession(CLASS_ID, today);
+
+        assertNotNull(session);
+        assertEquals(CLASS_ID, session.getClassId());
     }
 }

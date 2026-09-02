@@ -1,6 +1,7 @@
 package com.tcs.module.contract.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
@@ -184,7 +185,7 @@ class ContractServiceImplSignTest {
     class SignWithOtp {
 
         @Test
-        @DisplayName("UTCID01 (A) - OTP rỗng -> 'Mã OTP là bắt buộc'")
+        @DisplayName("UTCID02 (A) - OTP rỗng -> 'Mã OTP là bắt buộc'")
         void utcid01_blankOtp() {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> service.signWithOtp(CONTRACT_ID, otp("")));
@@ -198,7 +199,7 @@ class ContractServiceImplSignTest {
         }
 
         @Test
-        @DisplayName("UTCID03 (A) - Người ký chưa hoàn thành CCCD -> chặn ký")
+        @DisplayName("UTCID05 (A) - Người ký chưa hoàn thành CCCD -> chặn ký")
         void utcid03_cccdIncomplete() {
             when(cccdService.isComplete(TUTOR_USER_ID)).thenReturn(false);
 
@@ -208,7 +209,7 @@ class ContractServiceImplSignTest {
         }
 
         @Test
-        @DisplayName("UTCID04 (A) - Tài khoản dưới 18 tuổi -> không được tự ký")
+        @DisplayName("UTCID06 (A) - Tài khoản dưới 18 tuổi -> không được tự ký")
         void utcid04_minorCannotSign() {
             Client minor = new Client();
             minor.setDateOfBirth(LocalDate.now().minusYears(15));
@@ -221,7 +222,7 @@ class ContractServiceImplSignTest {
         }
 
         @Test
-        @DisplayName("UTCID05 (A) - Hợp đồng đã SIGNED -> 'Hợp đồng không ở trạng thái chờ ký'")
+        @DisplayName("UTCID03 (A) - Hợp đồng đã SIGNED -> 'Hợp đồng không ở trạng thái chờ ký'")
         void utcid05_contractNotPending() {
             contract.setStatus(ContractStatus.SIGNED);
 
@@ -231,7 +232,7 @@ class ContractServiceImplSignTest {
         }
 
         @Test
-        @DisplayName("UTCID06 (A) - Vai trò này đã ký rồi -> 'Bạn đã ký hợp đồng này rồi'")
+        @DisplayName("UTCID04 (A) - Vai trò này đã ký rồi -> 'Bạn đã ký hợp đồng này rồi'")
         void utcid06_alreadySigned() {
             tutorSignature.setSignatureStatus(ContractSignatureStatus.SIGNED);
 
@@ -301,7 +302,7 @@ class ContractServiceImplSignTest {
     class SendOtp {
 
         @Test
-        @DisplayName("UTCID01 (A) - Hợp đồng đã SIGNED -> 'Hợp đồng không ở trạng thái chờ ký'")
+        @DisplayName("UTCID02 (A) - Hợp đồng đã SIGNED -> 'Hợp đồng không ở trạng thái chờ ký'")
         void utcid01_contractNotPending() {
             contract.setStatus(ContractStatus.SIGNED);
 
@@ -311,7 +312,7 @@ class ContractServiceImplSignTest {
         }
 
         @Test
-        @DisplayName("UTCID02 (A) - Vai trò đã ký rồi -> 'Bạn đã ký hợp đồng này rồi'")
+        @DisplayName("UTCID03 (A) - Vai trò đã ký rồi -> 'Bạn đã ký hợp đồng này rồi'")
         void utcid02_alreadySigned() {
             tutorSignature.setSignatureStatus(ContractSignatureStatus.SIGNED);
 
@@ -321,7 +322,7 @@ class ContractServiceImplSignTest {
         }
 
         @Test
-        @DisplayName("UTCID03 (A) - Hợp đồng không tồn tại -> ResourceNotFoundException")
+        @DisplayName("Bổ sung ngoài các UTCID của sheet ctSendOtp - Hợp đồng không tồn tại -> ResourceNotFoundException")
         void utcid03_contractNotFound() {
             when(contractRepository.findById(CONTRACT_ID)).thenReturn(Optional.empty());
 
@@ -337,7 +338,7 @@ class ContractServiceImplSignTest {
     class Sign {
 
         @Test
-        @DisplayName("UTCID01 (A) - Ký thay user khác -> 'Không thể ký thay người dùng khác'")
+        @DisplayName("UTCID02 (A) - Ký thay user khác -> 'Không thể ký thay người dùng khác'")
         void utcid01_cannotSignForOthers() {
             ForbiddenException ex = assertThrows(ForbiddenException.class,
                     () -> service.sign(CONTRACT_ID, "123456", STRANGER_USER_ID));
@@ -446,5 +447,78 @@ class ContractServiceImplSignTest {
             assertEquals("Không tìm thấy học viên trong lớp", ex.getMessage());
             verify(contractRepository, never()).save(any(Contract.class));
         }
+    }
+    // ===================================================================
+    //  Cac ca happy-path con thieu cua signWithOtp / ctSendOtp / ctSign
+    // ===================================================================
+
+    /**
+     * Sheet signWithOtp - UTCID01 (N): nguoi ky du 18 tuoi, co CCCD, hop dong dang cho ky,
+     * OTP dung va con han -> ghi nhan chu ky cho vai tro tuong ung.
+     */
+    @Test
+    void signWithOtpRecordsSignatureOnHappyPath() {
+        when(userRepository.findById(TUTOR_USER_ID)).thenReturn(Optional.of(
+                contract.getRecruitmentApplication().getTutor().getUser()));
+        when(contractSignatureRepository.save(any(ContractSignature.class)))
+                .thenAnswer(i -> i.getArgument(0));
+        when(contractSignatureRepository.countSignedByContractId(CONTRACT_ID)).thenReturn(0);
+        when(contractSignatureRepository.findByContract_ContractId(CONTRACT_ID))
+                .thenReturn(java.util.List.of(tutorSignature));
+        when(cccdService.getByUserId(any()))
+                .thenReturn(new com.tcs.module.profile.dto.CccdInfoDto());
+
+        service.signWithOtp(CONTRACT_ID, otp("123456"));
+
+        assertEquals(ContractSignatureStatus.SIGNED, tutorSignature.getSignatureStatus());
+        assertNotNull(tutorSignature.getSignedAt());
+        assertTrue(tutorSignature.getSignatureData().startsWith("OTP_VERIFIED:"));
+        assertNotNull(activeOtp.getConsumedAt(), "OTP phai duoc danh dau da dung");
+    }
+
+    /**
+     * Sheet ctSendOtp - UTCID01 (N): hop dong dang cho ky va vai tro nay chua ky
+     * -> sinh ma OTP, gui email va tra ve thoi han hieu luc cua ma.
+     */
+    @Test
+    void sendOtpIssuesCodeOnHappyPath() {
+        when(contractSignatureRepository.save(any(ContractSignature.class)))
+                .thenAnswer(i -> i.getArgument(0));
+        when(emailOtpRepository.save(any(EmailOtp.class))).thenAnswer(i -> {
+            EmailOtp saved = i.getArgument(0);
+            if (saved.getOtpId() == null) {
+                saved.setOtpId(3300L);
+            }
+            return saved;
+        });
+        when(cccdService.getByUserId(any()))
+                .thenReturn(new com.tcs.module.profile.dto.CccdInfoDto());
+
+        var result = service.sendOtp(CONTRACT_ID);
+
+        assertNotNull(result);
+        assertEquals(TUTOR_EMAIL, tutorSignature.getEmail());
+        verify(emailOtpRepository, org.mockito.Mockito.atLeastOnce()).save(any(EmailOtp.class));
+    }
+
+    /**
+     * Sheet ctSign - UTCID01 (N): signerUserId trung nguoi dang dang nhap
+     * -> chuyen tiep sang luong ky bang OTP cua dung vai tro.
+     */
+    @Test
+    void signDelegatesToOtpFlowForOwnUser() {
+        when(userRepository.findById(TUTOR_USER_ID)).thenReturn(Optional.of(
+                contract.getRecruitmentApplication().getTutor().getUser()));
+        when(contractSignatureRepository.save(any(ContractSignature.class)))
+                .thenAnswer(i -> i.getArgument(0));
+        when(contractSignatureRepository.countSignedByContractId(CONTRACT_ID)).thenReturn(0);
+        when(contractSignatureRepository.findByContract_ContractId(CONTRACT_ID))
+                .thenReturn(java.util.List.of(tutorSignature));
+        when(cccdService.getByUserId(any()))
+                .thenReturn(new com.tcs.module.profile.dto.CccdInfoDto());
+
+        service.sign(CONTRACT_ID, "123456", TUTOR_USER_ID);
+
+        assertEquals(ContractSignatureStatus.SIGNED, tutorSignature.getSignatureStatus());
     }
 }

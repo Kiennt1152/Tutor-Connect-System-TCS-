@@ -32,6 +32,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+/**
+ * Ngoài phạm vi Report 5.1: MethodList không liệt kê lớp này.
+ * Đây là bộ test tích hợp / đánh giá chất lượng trợ lý AI của nhóm.
+ */
 @ExtendWith(MockitoExtension.class)
 class AiProductionHardeningTest {
 

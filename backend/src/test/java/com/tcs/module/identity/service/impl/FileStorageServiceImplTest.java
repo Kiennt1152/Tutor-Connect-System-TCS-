@@ -111,7 +111,7 @@ class FileStorageServiceImplTest {
         }
 
         @Test
-        @DisplayName("UTCID03 (A) - kich thuoc vuot 10MB -> 'File size exceeds 10MB limit'")
+        @DisplayName("UTCID03 (B) - kich thuoc vuot 10MB dung 1 byte -> 'File size exceeds 10MB limit'")
         void utcid03_fileTooLarge() throws IOException {
             MultipartFile big = org.mockito.Mockito.mock(MultipartFile.class);
             when(big.isEmpty()).thenReturn(false);

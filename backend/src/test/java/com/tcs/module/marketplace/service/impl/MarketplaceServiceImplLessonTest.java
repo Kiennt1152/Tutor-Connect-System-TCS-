@@ -567,14 +567,14 @@ class MarketplaceServiceImplLessonTest {
         }
 
         /**
-         * UTCID06 (A) - DEF-10.
+         * UTCID06 (N) - DEF-10.
          * Đặc tả (và applyToClass đã làm đúng): đơn bị TỪ CHỐI thì gia sư được nộp lại.
          * applyToClass chặn bằng {@code existing.getStatus() != REJECTED};
          * registerToClass lại chặn bằng existsByTutoringClass_ClassIdAndTutor_TutorId,
          * không phân biệt trạng thái -> gia sư bị từ chối một lần là khoá vĩnh viễn trên đường này.
          */
         @Test
-        @DisplayName("UTCID06 (A) - Đơn cũ đã bị TỪ CHỐI -> phải cho nộp lại [DEF-10]")
+        @DisplayName("UTCID06 (N) - Đơn cũ đã bị TỪ CHỐI -> phải cho nộp lại [DEF-10]")
         void utcid06_rejectedTutorMayReapply() {
             tutor.setVerificationStatus(ProfileVerificationStatus.VERIFIED);
             tutoringClass.setClassType(ClassType.PRIVATE);

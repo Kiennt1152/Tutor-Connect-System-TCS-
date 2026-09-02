@@ -1117,7 +1117,7 @@ class DisputeServiceImplTest {
     }
 
     // ===================================================================
-    //  Sheet createDispute - UTCID04 (A) va sheet resolveDispute - UTCID09 (A)
+    //  createDispute va resolveDispute - cac ca con lai
     // ===================================================================
 
     /** Sheet createDispute - UTCID04 (A): request = null -> 'Thiếu thông tin tranh chấp'. */

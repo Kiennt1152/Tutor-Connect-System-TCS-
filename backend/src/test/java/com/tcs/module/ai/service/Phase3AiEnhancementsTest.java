@@ -25,6 +25,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+/**
+ * Ngoài phạm vi Report 5.1: MethodList không liệt kê lớp này.
+ * Đây là bộ test tích hợp / đánh giá chất lượng trợ lý AI của nhóm.
+ */
 @ExtendWith(MockitoExtension.class)
 class Phase3AiEnhancementsTest {
 

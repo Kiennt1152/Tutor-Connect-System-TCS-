@@ -28,6 +28,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
+/**
+ * Ngoài phạm vi Report 5.1: MethodList không liệt kê lớp này.
+ * Đây là bộ test tích hợp / đánh giá chất lượng trợ lý AI của nhóm.
+ */
 class AiHardenedIntegrationTest {
 
     private TutorRepository tutorRepository;

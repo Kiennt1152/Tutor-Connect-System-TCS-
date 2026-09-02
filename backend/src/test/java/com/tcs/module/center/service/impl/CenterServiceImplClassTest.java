@@ -419,15 +419,22 @@ class CenterServiceImplClassTest {
         }
 
         @Test
-        @DisplayName("UTCID05 (B) - minStudents null -> mac dinh can it nhat 1 hoc sinh")
+        @DisplayName("UTCID05 (B) - minStudents null -> mac dinh can it nhat 1 hoc sinh, du 1 thi dong duoc")
         void utcid05_nullMinStudentsDefaultsToOne() {
             tutoringClass.setMinStudents(null);
             loginAsCenter();
             when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+            // minStudents = null -> nguong mac dinh la 1; co dung 1 hoc sinh la dat nguong.
             when(classStudentRepository.countByTutoringClass_ClassIdAndStatus(CLASS_ID, ClassStudentStatus.ENROLLED))
-                    .thenReturn(0L);
+                    .thenReturn(1L);
+            when(classAssignmentRepository
+                    .findFirstByApplication_TutoringClass_ClassIdAndStatus(CLASS_ID, ClassAssignmentStatus.ACTIVE))
+                    .thenReturn(Optional.empty());
+            when(tutoringClassRepository.save(any(TutoringClass.class))).thenAnswer(i -> i.getArgument(0));
 
-            assertThrows(IllegalArgumentException.class, () -> service.closeEnrollment(CLASS_ID));
+            service.closeEnrollment(CLASS_ID);
+
+            assertEquals(TutoringClassStatus.ENROLLMENT_CLOSED, tutoringClass.getStatus());
         }
 
         @Test

@@ -110,8 +110,9 @@ class ReviewServiceImplTest {
         return r;
     }
 
+    /** Ngoài phạm vi Report 5.1: MethodList trỏ sheet createReview tới ContractService.createReview; đây là ReviewServiceImpl - hiện thực song song (ca tương ứng: UTCID01 (N)). */
     @Test
-    @DisplayName("UTCID01 (N) - Client trong lớp đánh giá gia sư, rating 4 -> tạo Review")
+    @DisplayName("Ca 01 - Client trong lớp đánh giá gia sư, rating 4 -> tạo Review")
     void utcid01_createSuccessfully() {
         var result = service.createReview(req(ASSIGNMENT_ID, TUTOR_USER_ID, 4));
 
@@ -121,8 +122,9 @@ class ReviewServiceImplTest {
         verify(reviewRepository).save(any(Review.class));
     }
 
+    /** Ngoài phạm vi Report 5.1: MethodList trỏ sheet createReview tới ContractService.createReview; đây là ReviewServiceImpl - hiện thực song song (ca tương ứng: UTCID02 (A)). */
     @Test
-    @DisplayName("UTCID02 (A) - Thiếu assignmentId/revieweeId/rating -> chặn")
+    @DisplayName("Ca 02 - Thiếu assignmentId/revieweeId/rating -> chặn")
     void utcid02_missingRequiredFields() {
         IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                 () -> service.createReview(req(null, TUTOR_USER_ID, 4)));
@@ -135,8 +137,9 @@ class ReviewServiceImplTest {
         verify(reviewRepository, never()).save(any());
     }
 
+    /** Ngoài phạm vi Report 5.1: MethodList trỏ sheet createReview tới ContractService.createReview; đây là ReviewServiceImpl - hiện thực song song (ca tương ứng: UTCID03 (B)). */
     @Test
-    @DisplayName("UTCID03 (B) - rating = 1 và rating = 5 (hai cận) -> hợp lệ")
+    @DisplayName("Ca 03 - rating = 1 và rating = 5 (hai cận) -> hợp lệ")
     void utcid03_ratingBoundsAccepted() {
         service.createReview(req(ASSIGNMENT_ID, TUTOR_USER_ID, 1));
         service.createReview(req(ASSIGNMENT_ID, TUTOR_USER_ID, 5));
@@ -144,8 +147,9 @@ class ReviewServiceImplTest {
         verify(reviewRepository, org.mockito.Mockito.times(2)).save(any(Review.class));
     }
 
+    /** Ngoài phạm vi Report 5.1: MethodList trỏ sheet createReview tới ContractService.createReview; đây là ReviewServiceImpl - hiện thực song song (ca tương ứng: UTCID04 (B)). */
     @Test
-    @DisplayName("UTCID04 (B) - rating = 0 và rating = 6 (ngoài cận) -> chặn")
+    @DisplayName("Ca 04 - rating = 0 và rating = 6 (ngoài cận) -> chặn")
     void utcid04_ratingOutOfBounds() {
         IllegalArgumentException low = assertThrows(IllegalArgumentException.class,
                 () -> service.createReview(req(ASSIGNMENT_ID, TUTOR_USER_ID, 0)));
@@ -163,8 +167,9 @@ class ReviewServiceImplTest {
      * mới được đánh giá phân công đó.
      * Thực tế: service không đối chiếu người đăng nhập với assignment -> người lạ vẫn ghi được.
      */
+    /** Ngoài phạm vi Report 5.1: MethodList trỏ sheet createReview tới ContractService.createReview; đây là ReviewServiceImpl - hiện thực song song (ca tương ứng: UTCID05 (A)). */
     @Test
-    @DisplayName("UTCID05 (A) - Người ngoài lớp đánh giá -> phải bị từ chối [DEF-03]")
+    @DisplayName("Ca 05 - Người ngoài lớp đánh giá -> phải bị từ chối [DEF-03]")
     void utcid05_strangerCannotReview() {
         when(authHelper.currentUserId()).thenReturn(STRANGER_ID);
 
@@ -179,8 +184,9 @@ class ReviewServiceImplTest {
      * Đặc tả: mỗi người chỉ đánh giá một lần cho một phân công lớp.
      * Thực tế: không truy vấn kiểm tra trùng -> gửi bao nhiêu lần cũng được.
      */
+    /** Ngoài phạm vi Report 5.1: MethodList trỏ sheet createReview tới ContractService.createReview; đây là ReviewServiceImpl - hiện thực song song (ca tương ứng: UTCID06 (A)). */
     @Test
-    @DisplayName("UTCID06 (A) - Đánh giá lần 2 cho cùng phân công -> phải bị từ chối [DEF-04]")
+    @DisplayName("Ca 06 - Đánh giá lần 2 cho cùng phân công -> phải bị từ chối [DEF-04]")
     void utcid06_duplicateReviewRejected() {
         Review existing = new Review();
         existing.setReviewId(1L);
@@ -198,16 +204,18 @@ class ReviewServiceImplTest {
      * Đặc tả: không ai được tự đánh giá chính mình.
      * Thực tế: không so sánh reviewer với reviewee -> tự cộng sao cho bản thân được.
      */
+    /** Ngoài phạm vi Report 5.1: MethodList trỏ sheet createReview tới ContractService.createReview; đây là ReviewServiceImpl - hiện thực song song (ca tương ứng: UTCID07 (A)). */
     @Test
-    @DisplayName("UTCID07 (A) - Tự đánh giá chính mình -> phải bị từ chối [DEF-05]")
+    @DisplayName("Ca 07 - Tự đánh giá chính mình -> phải bị từ chối [DEF-05]")
     void utcid07_selfReviewRejected() {
         assertThrows(RuntimeException.class,
                 () -> service.createReview(req(ASSIGNMENT_ID, REVIEWER_ID, 5)),
                 "reviewer trùng reviewee phải bị chặn, nhưng service vẫn lưu đánh giá");
     }
 
+    /** Ngoài phạm vi Report 5.1: MethodList trỏ sheet createReview tới ContractService.createReview; đây là ReviewServiceImpl - hiện thực song song (ca tương ứng: UTCID08 (A)). */
     @Test
-    @DisplayName("UTCID08 (A) - Phân công lớp không tồn tại -> ResourceNotFoundException")
+    @DisplayName("Ca 08 - Phân công lớp không tồn tại -> ResourceNotFoundException")
     void utcid08_assignmentNotFound() {
         when(classAssignmentRepository.findById(ASSIGNMENT_ID)).thenReturn(Optional.empty());
 
@@ -216,8 +224,9 @@ class ReviewServiceImplTest {
         assertEquals("Không tìm thấy phân công lớp", ex.getMessage());
     }
 
+    /** Ngoài phạm vi Report 5.1: MethodList trỏ sheet createReview tới ContractService.createReview; đây là ReviewServiceImpl - hiện thực song song (ca tương ứng: UTCID09 (A)). */
     @Test
-    @DisplayName("UTCID09 (A) - Người được đánh giá không tồn tại -> ResourceNotFoundException")
+    @DisplayName("Ca 09 - Người được đánh giá không tồn tại -> ResourceNotFoundException")
     void utcid09_revieweeNotFound() {
         when(userRepository.findById(TUTOR_USER_ID)).thenReturn(Optional.empty());
 

@@ -2,6 +2,7 @@ package com.tcs.module.ai.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
@@ -168,7 +169,7 @@ class AiServiceImplTest {
         }
 
         @Test
-        @DisplayName("UTCID02 (N) - Phiên chưa có tin nhắn -> trả danh sách rỗng")
+        @DisplayName("UTCID02 (B) - Phiên chưa có tin nhắn -> trả danh sách rỗng")
         void utcid02_emptySession() {
             when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(session(SESSION_ID, OWNER_ID)));
             when(messageRepository.findBySession_SessionIdOrderByCreatedAtAsc(SESSION_ID)).thenReturn(List.of());
@@ -255,10 +256,16 @@ class AiServiceImplTest {
          * nó vẫn truy vấn theo user_id = null nên luôn ra rỗng.
          */
         @Test
-        @DisplayName("UTCID03 (A) - userId = null -> trả danh sách rỗng bảo mật")
+        @DisplayName("UTCID03 (A) - userId = null -> phải trả tối đa 20 phiên gần nhất [DEF-08]")
         void utcid03_guestGetsRecentSessions() {
+            when(sessionRepository.findTop20ByOrderByUpdatedAtDesc())
+                    .thenReturn(List.of(session(1L, null), session(2L, null)));
+
             var result = service.getUserSessions(null);
-            assertTrue(result.isEmpty());
+
+            assertFalse(result.isEmpty(),
+                    "Dac ta: khach chua dang nhap phai nhan toi da 20 phien gan nhat qua "
+                            + "findTop20ByOrderByUpdatedAtDesc(); thuc te service tra ve rong ngay.");
         }
     }
 }

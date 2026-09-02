@@ -14,6 +14,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * 150+ Comprehensive Test Suite covering all 14 TCS business domains and safety intents.
  */
+/**
+ * Ngoài phạm vi Report 5.1: MethodList không liệt kê lớp này.
+ * Đây là bộ test tích hợp / đánh giá chất lượng trợ lý AI của nhóm.
+ */
 class AiFullIntentCoverageTest {
 
     private IntentClassifier classifier;

@@ -1275,21 +1275,18 @@ class MarketplaceServiceImplTest {
     /** Sheet requestClassTermination - UTCID10 (B): effectiveDate = hôm nay (đúng tại ngưỡng) -> chấp nhận */
     @Test
     void requestClassTerminationAcceptsTodayAsEffectiveDate() {
-        User clientUser = user(CLIENT_USER_ID);
-        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.COMPLETED);
+        givenRunningClassForTermination();
 
-        CreateClassTerminationRequest request = new CreateClassTerminationRequest();
-        request.setReason("Gia sư cần dừng lớp sớm");
+        CreateClassTerminationRequest request = terminationRequest();
         request.setEffectiveDate(LocalDate.now());
 
-        when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
-        when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
-        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        marketplaceService.requestClassTermination(CLASS_ID, request);
 
-        BusinessException ex = assertThrows(BusinessException.class,
-                () -> marketplaceService.requestClassTermination(CLASS_ID, request));
-        assertEquals("Chỉ lớp đang diễn ra mới có thể yêu cầu chấm dứt sớm", ex.getMessage(),
-                "Ngay hieu luc = hom nay phai qua duoc buoc kiem tra ngay");
+        ArgumentCaptor<ClassTerminationRequest> captor =
+                ArgumentCaptor.forClass(ClassTerminationRequest.class);
+        verify(classTerminationRequestRepository).save(captor.capture());
+        assertEquals(LocalDate.now(), captor.getValue().getEffectiveDate(),
+                "Ngay hieu luc = hom nay (dung tai nguong) phai duoc chap nhan");
     }
     // =====================================================================================
     //  Sheet: applyToClass
@@ -1414,8 +1411,26 @@ class MarketplaceServiceImplTest {
         }
 
         @Test
-        @DisplayName("UTCID07 (A) - hoc phi de xuat sai dinh dang (<= 0) -> chan")
-        void utcid07_invalidRateFormat() {
+        @DisplayName("UTCID07 (A) - hoc phi de xuat sai dinh dang, khong serialize duoc -> 'Không đọc được học phí đề xuất'")
+        void utcid07_invalidRateFormat() throws Exception {
+            // Nhanh nay chi cham toi khi ObjectMapper khong ghi noi map hoc phi.
+            var brokenMapper = org.mockito.Mockito.spy(
+                    new com.fasterxml.jackson.databind.ObjectMapper());
+            org.mockito.Mockito.doThrow(
+                            new com.fasterxml.jackson.core.JsonProcessingException("hong") {})
+                    .when(brokenMapper).writeValueAsString(any());
+            org.springframework.test.util.ReflectionTestUtils.setField(
+                    marketplaceService, "objectMapper", brokenMapper);
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> marketplaceService.applyToClass(
+                            CLASS_ID, applyRequest(new java.math.BigDecimal("200000"))));
+            assertEquals("Không đọc được học phí đề xuất", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("Bổ sung ngoài các UTCID của sheet applyToClass - hoc phi de xuat = 0 -> 'Học phí đề xuất phải lớn hơn 0'")
+        void extra_nonPositiveProposedRate() {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> marketplaceService.applyToClass(
                             CLASS_ID, applyRequest(java.math.BigDecimal.ZERO)));
@@ -2057,20 +2072,53 @@ class MarketplaceServiceImplTest {
      */
     @Test
     void requestClassTerminationAcceptsNullEffectiveDate() {
-        User clientUser = user(CLIENT_USER_ID);
-        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.COMPLETED);
+        givenRunningClassForTermination();
 
-        CreateClassTerminationRequest request = new CreateClassTerminationRequest();
-        request.setReason("Gia sư cần dừng lớp sớm");
+        CreateClassTerminationRequest request = terminationRequest();
         request.setEffectiveDate(null);
+
+        marketplaceService.requestClassTermination(CLASS_ID, request);
+
+        ArgumentCaptor<ClassTerminationRequest> captor =
+                ArgumentCaptor.forClass(ClassTerminationRequest.class);
+        verify(classTerminationRequestRepository).save(captor.capture());
+        assertNull(captor.getValue().getEffectiveDate(),
+                "effectiveDate = null duoc chap nhan va bo qua buoc kiem tra ngay qua khu");
+    }
+
+    /** Lop private dang chay, nguoi goi la chu lop, chua co yeu cau cham dut nao. */
+    private void givenRunningClassForTermination() {
+        User clientUser = user(CLIENT_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.IN_PROGRESS);
+        ClassAssignment assignment = assignment(tutoringClass, user(TUTOR_USER_ID));
 
         when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
         when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
         when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(classAssignmentRepository.findByApplication_TutoringClass_ClassIdAndStatus(
+                        CLASS_ID, ClassAssignmentStatus.ACTIVE))
+                .thenReturn(List.of(assignment));
+        when(classStudentRepository.findByTutoringClass_ClassIdAndStatus(
+                        CLASS_ID, com.tcs.module.marketplace.enums.ClassStudentStatus.ENROLLED))
+                .thenReturn(List.of());
+        when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                        ASSIGNMENT_ID, ClassTerminationStatus.PENDING))
+                .thenReturn(false);
+        when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                        ASSIGNMENT_ID, ClassTerminationStatus.APPROVED))
+                .thenReturn(false);
+        when(classTerminationRequestRepository.save(any(ClassTerminationRequest.class)))
+                .thenAnswer(i -> i.getArgument(0));
+        when(escrowTransactionRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID))
+                .thenReturn(Optional.of(escrow(71L, new BigDecimal("1000000.00"))));
+    }
 
-        BusinessException ex = assertThrows(BusinessException.class,
-                () -> marketplaceService.requestClassTermination(CLASS_ID, request));
-        assertEquals("Chỉ lớp đang diễn ra mới có thể yêu cầu chấm dứt sớm", ex.getMessage(),
-                "effectiveDate = null phai di qua duoc buoc kiem tra ngay trong qua khu");
+    private CreateClassTerminationRequest terminationRequest() {
+        CreateClassTerminationRequest request = new CreateClassTerminationRequest();
+        request.setReason("Gia sư cần dừng lớp sớm");
+        request.setBankName("TPBank");
+        request.setAccountNo("0123456789");
+        request.setAccountHolderName("Nguyen Van A");
+        return request;
     }
 }

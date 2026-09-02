@@ -399,7 +399,7 @@ class WalletServiceImplTest {
             assertEquals(new BigDecimal("130000.00"), journal.getBalanceAfter());
         }
 
-        /** Sheet walletReleaseLocked - UTCID06 (A) + walletRefundLocked - UTCID08 (B): frozen < amount -> 'Số dư bị khóa không đủ' */
+        /** Sheet walletReleaseLocked - UTCID06 (A): frozen < amount -> 'Số dư bị khóa không đủ' (releaseLockedFunds). */
         @Test
         @DisplayName("throws when frozen balance is insufficient")
         void throwsOnInsufficientFrozenBalance() {

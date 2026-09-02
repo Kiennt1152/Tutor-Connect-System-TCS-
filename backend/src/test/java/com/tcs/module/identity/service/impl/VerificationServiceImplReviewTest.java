@@ -123,7 +123,7 @@ class VerificationServiceImplReviewTest {
         }
 
         @Test
-        @DisplayName("UTCID04 (A) - Hồ sơ đã UNDER_REVIEW -> không cho hủy")
+        @DisplayName("UTCID03 (A) - Hồ sơ đã UNDER_REVIEW (khong con SUBMITTED) -> không cho hủy")
         void utcid04_cancelUnderReview() {
             verification.setStatus(VerificationStatus.UNDER_REVIEW);
 
@@ -131,7 +131,7 @@ class VerificationServiceImplReviewTest {
         }
 
         @Test
-        @DisplayName("UTCID05 (A) - Hồ sơ không tồn tại -> ResourceNotFoundException")
+        @DisplayName("Bổ sung ngoài các UTCID của sheet cancelVerification - Hồ sơ không tồn tại -> ResourceNotFoundException")
         void utcid05_notFound() {
             when(verificationRequestRepository.findById(VERIFICATION_ID)).thenReturn(Optional.empty());
 
@@ -149,7 +149,7 @@ class VerificationServiceImplReviewTest {
     class GetVerificationsByUser {
 
         @Test
-        @DisplayName("UTCID01 (A) - Xem hồ sơ xác minh của người khác -> ForbiddenException")
+        @DisplayName("Ngoài phạm vi Report 5.1 (MethodList không có getVerificationsByUser) - Xem hồ sơ xác minh của người khác -> ForbiddenException")
         void utcid01_viewOthers() {
             com.tcs.security.UserPrincipal principal = new com.tcs.security.UserPrincipal(
                     owner, com.tcs.module.profile.enums.UserRole.TUTOR);

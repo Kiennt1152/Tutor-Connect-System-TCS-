@@ -10,6 +10,10 @@ import java.util.Collections;
 import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
+/**
+ * Ngoài phạm vi Report 5.1: MethodList không liệt kê lớp này.
+ * Đây là bộ test tích hợp / đánh giá chất lượng trợ lý AI của nhóm.
+ */
 class AiHallucinationGuardTest {
 
     private AiHallucinationGuard guard;
