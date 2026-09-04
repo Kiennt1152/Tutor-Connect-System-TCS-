@@ -264,8 +264,7 @@ class Report52MessagingNotificationITTest {
     }
 
     @Test
-    @Tag("report52-it")
-    void IT_MSG_010_MarkNotificationAsReadStoresReadTimestamp() {
+    void SUPPORT_MSG_MarkNotificationAsReadStoresReadTimestampAtServiceLevel() {
         Notification notification = new Notification();
         notification.setNotificationId(88L);
         notification.setUser(user(USER_ID, "client.it@tcs.test", UserStatus.ACTIVE));

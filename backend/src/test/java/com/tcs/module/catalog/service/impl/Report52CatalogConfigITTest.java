@@ -30,6 +30,9 @@ import com.tcs.module.catalog.repository.WardRepository;
 import com.tcs.module.catalog.service.GeminiService;
 import com.tcs.module.marketplace.repository.TutoringClassRepository;
 import com.tcs.module.platform.service.AuditLogService;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -81,8 +84,7 @@ class Report52CatalogConfigITTest {
     }
 
     @Test
-    @Tag("report52-it")
-    void IT_CAT_001_LoadCategoryTreeWithParentChildHierarchyForCatalogForms() {
+    void SUPPORT_CAT_LoadCategoryTreeWithParentChildHierarchyForCatalogFormsAtServiceLevel() {
         Category root = category(1L, "SUBJECT", CategoryType.SUBJECT, null, "ACTIVE");
         Category math = category(2L, "Toán", CategoryType.SUBJECT, root, "ACTIVE");
         Category english = category(3L, "Tiếng Anh", CategoryType.SUBJECT, root, "INACTIVE");
@@ -100,8 +102,7 @@ class Report52CatalogConfigITTest {
     }
 
     @Test
-    @Tag("report52-it")
-    void IT_CAT_002_FilterPublishedFaqByCategoryAndVietnameseKeyword() {
+    void SUPPORT_CAT_FilterPublishedFaqByCategoryAndVietnameseKeywordAtServiceLevel() {
         FaqEntry payment = faq(10L, "Thanh toán học phí như thế nào?", "Phụ huynh quét mã QR để thanh toán.", "PAYMENT", 1, true);
         FaqEntry profile = faq(11L, "Cập nhật hồ sơ gia sư", "Vào trang xác minh để cập nhật.", "PROFILE", 2, true);
 
@@ -144,6 +145,44 @@ class Report52CatalogConfigITTest {
 
         assertEquals("Tên danh mục là bắt buộc.", exception.getMessage());
         verify(categoryRepository, never()).save(any());
+    }
+
+    @Test
+    @Tag("report52-it")
+    void IT_CAT_006_AnonymousCanReadPublicCatalogButAdminCatalogRoutesRemainProtected() throws IOException {
+        String securityConfig = readSecurityConfigSource();
+
+        int protectedFaqAdmin = securityConfig.indexOf("\"/api/catalog/faq/admin\"");
+        int protectedParameters = securityConfig.indexOf("\"/api/catalog/parameters/**\"");
+        int publicCatalogGet = securityConfig.indexOf("\"/api/catalog/**\"");
+
+        assertTrue(protectedFaqAdmin >= 0);
+        assertTrue(protectedParameters >= 0);
+        assertTrue(publicCatalogGet > protectedFaqAdmin);
+        assertTrue(securityConfig.substring(protectedFaqAdmin, publicCatalogGet)
+                .contains(".hasRole(RbacConstants.PLATFORM_ADMIN)"));
+        assertTrue(securityConfig.substring(protectedParameters, publicCatalogGet)
+                .contains(".hasRole(RbacConstants.PLATFORM_ADMIN)"));
+        assertTrue(securityConfig.substring(publicCatalogGet, securityConfig.indexOf("\"/api/ai/**\""))
+                .contains(".permitAll()"));
+    }
+
+    @Test
+    @Tag("report52-it")
+    void IT_CAT_007_NonAdminCanReadPublicCatalogButCannotUseCatalogWriteEndpoints() throws IOException {
+        String securityConfig = readSecurityConfigSource();
+
+        int publicCatalogRead = securityConfig.indexOf(".requestMatchers(HttpMethod.GET, \"/api/catalog/**\")");
+        int publicChatbotPost = securityConfig.indexOf(".requestMatchers(HttpMethod.POST, \"/api/catalog/chatbot/ask\")");
+        int adminCatalogWrite = securityConfig.indexOf(".requestMatchers(\"/api/catalog/**\")");
+
+        assertTrue(publicCatalogRead >= 0);
+        assertTrue(publicChatbotPost > publicCatalogRead);
+        assertTrue(adminCatalogWrite > publicChatbotPost);
+        assertTrue(securityConfig.substring(publicCatalogRead, publicChatbotPost).contains(".permitAll()"));
+        assertTrue(securityConfig.substring(publicChatbotPost, adminCatalogWrite).contains(".permitAll()"));
+        assertTrue(securityConfig.substring(adminCatalogWrite, securityConfig.indexOf("\"/api/marketplace/classes/**\""))
+                .contains(".hasRole(RbacConstants.PLATFORM_ADMIN)"));
     }
 
     @Test
@@ -256,6 +295,19 @@ class Report52CatalogConfigITTest {
     }
 
     @Test
+    @Tag("report52-it")
+    void IT_CAT_019_CatalogValidationMessagesStayVietnameseAndDoNotExposeRawEnumNames() {
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> catalogService.createFaqEntry(faqRequest(" ", "Câu trả lời cho người dùng.", "PAYMENT", true)));
+
+        assertEquals("Câu hỏi là bắt buộc.", exception.getMessage());
+        assertFalse(exception.getMessage().contains("PAYMENT"));
+        assertFalse(exception.getMessage().contains("FaqEntry"));
+        verify(faqEntryRepository, never()).save(any());
+    }
+
+    @Test
     void SUPPORT_CAT_RejectDeletingCategoryUsedByTutoringClass() {
         Category math = category(2L, "Toán", CategoryType.SUBJECT, null, "ACTIVE");
 
@@ -356,5 +408,9 @@ class Report52CatalogConfigITTest {
         entry.setSortOrder(sortOrder);
         entry.setPublished(published);
         return entry;
+    }
+
+    private String readSecurityConfigSource() throws IOException {
+        return Files.readString(Path.of("src/main/java/com/tcs/config/SecurityConfig.java"));
     }
 }

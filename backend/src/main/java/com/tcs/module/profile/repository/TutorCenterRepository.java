@@ -17,6 +17,8 @@ public interface TutorCenterRepository extends JpaRepository<TutorCenter, Long> 
 
     Optional<TutorCenter> findByUser_UserId(Long userId);
 
+    boolean existsByUser_UserIdAndVerificationStatus(Long userId, ProfileVerificationStatus verificationStatus);
+
     List<TutorCenter> findByUser_UserIdIn(Collection<Long> userIds);
 
     @Query("SELECT COUNT(tc) FROM TutorCenter tc WHERE tc.user.createdAt BETWEEN :from AND :to")

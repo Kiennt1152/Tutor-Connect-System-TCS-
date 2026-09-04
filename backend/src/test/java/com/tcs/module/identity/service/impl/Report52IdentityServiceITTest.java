@@ -127,8 +127,7 @@ class Report52IdentityServiceITTest {
     }
 
     @Test
-    @Tag("report52-it")
-    void IT_AUTH_001_LoginActiveUserIssuesJwtAndUpdatesLastLogin() {
+    void SUPPORT_AUTH_LoginActiveUserIssuesJwtAndUpdatesLastLoginAtServiceLevel() {
         LoginRequest request = new LoginRequest();
         request.setEmail("client.it@tcs.test");
         request.setPassword("Password123");
@@ -568,8 +567,7 @@ class Report52IdentityServiceITTest {
     }
 
     @Test
-    @Tag("report52-it")
-    void IT_AUTH_020_ResetPasswordConsumesTokenAndStoresNewHash() {
+    void SUPPORT_AUTH_ResetPasswordConsumesTokenAndStoresNewHashAtServiceLevel() {
         ResetPasswordRequest request = new ResetPasswordRequest();
         request.setToken("reset-token");
         request.setNewPassword("New12345");

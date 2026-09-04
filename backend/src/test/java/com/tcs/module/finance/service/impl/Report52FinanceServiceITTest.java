@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -62,9 +63,11 @@ import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
+import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.security.AuthHelper;
@@ -104,6 +107,7 @@ class Report52FinanceServiceITTest {
     @Mock private DisputeRepository disputeRepository;
     @Mock private UserRepository userRepository;
     @Mock private PlatformAdminRepository platformAdminRepository;
+    @Mock private TutorRepository tutorRepository;
     @Mock private TutorCenterRepository tutorCenterRepository;
     @Mock private EscrowService escrowService;
     @Mock private CenterRequestFeeService centerRequestFeeService;
@@ -129,6 +133,14 @@ class Report52FinanceServiceITTest {
         wallet.setAvailableBalance(new BigDecimal("250000.00"));
         wallet.setFrozenBalance(new BigDecimal("50000.00"));
         wallet.setStatus(WalletStatus.ACTIVE);
+        lenient().when(tutorRepository.existsByUser_UserIdAndVerificationStatus(
+                        USER_ID,
+                        ProfileVerificationStatus.VERIFIED))
+                .thenReturn(true);
+        lenient().when(tutorCenterRepository.existsByUser_UserIdAndVerificationStatus(
+                        USER_ID,
+                        ProfileVerificationStatus.VERIFIED))
+                .thenReturn(true);
         ReflectionTestUtils.setField(financeService, "directDepositEnabled", true);
         ReflectionTestUtils.setField(financeService, "simulateTopupEnabled", true);
     }
