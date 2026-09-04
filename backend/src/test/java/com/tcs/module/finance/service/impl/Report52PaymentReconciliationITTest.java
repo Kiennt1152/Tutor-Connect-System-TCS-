@@ -21,6 +21,7 @@ import com.tcs.module.finance.service.WalletService;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -48,8 +49,14 @@ class Report52PaymentReconciliationITTest {
 
     @InjectMocks
     private PaymentReconciliationService reconciliationService;
-
+    /**
+     * Test Case: IT-WLT-018
+     * Mô tả: Kiểm tra quy tắc thời gian: Tự động hủy phiên nạp tiền ví qua mã QR quá hạn 15 phút chưa thanh toán.
+     * Procedure: Scheduler quét các giao dịch DEPOSIT trạng thái PENDING tạo quá 15 phút trước.
+     * Expected Results: Giao dịch chuyển sang CANCELLED, cập nhật thời gian xử lý và lý do thất bại.
+     */
     @Test
+    @DisplayName("IT-WLT-018: Auto-cancel expired wallet QR topup session after 15 minutes")
     @Tag("report52-it")
     void IT_WLT_018_CancelExpiredWalletTopupSession() {
         LocalDateTime now = LocalDateTime.of(2026, 8, 31, 10, 0);
@@ -124,8 +131,14 @@ class Report52PaymentReconciliationITTest {
         assertEquals(PaymentTransactionStatus.PENDING, centerRequestFee.getStatus());
         verify(paymentTransactionRepository).saveAll(List.of());
     }
-
+    /**
+     * Test Case: IT-WLT-017
+     * Mô tả: Tự động hủy yêu cầu rút tiền bị treo quá hạn (> 48 giờ) và hoàn trả số dư đóng băng về ví người dùng.
+     * Procedure: Scheduler quét các yêu cầu rút tiền PENDING/APPROVED tạo hơn 48h trước.
+     * Expected Results: Yêu cầu chuyển sang REJECTED, giao dịch CANCELLED, gọi refundLockedFunds hoàn tiền vào ví.
+     */
     @Test
+    @DisplayName("IT-WLT-017: Auto-refund stale pending withdrawal and cancel transaction after 48h")
     @Tag("report52-it")
     void IT_WLT_017_RefundStalePendingWithdrawalAndCancelTransaction() {
         LocalDateTime now = LocalDateTime.of(2026, 8, 31, 10, 0);

@@ -75,6 +75,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -187,8 +188,14 @@ class Report52FinanceServiceITTest {
         assertEquals("123", tx.getExternalTransactionId());
         verify(walletService).credit(USER_ID, new BigDecimal("100000"), "TOPUP-ABC");
     }
-
+    /**
+     * Test Case: IT-WLT-009
+     * Mô tả: Kiểm tra tính lũy kế/chống trùng lặp (Idempotency) khi webhook nạp tiền SePay bị gửi lặp lại.
+     * Procedure: Nhận webhook với externalTransactionId đã được xử lý trước đó.
+     * Expected Results: Trả về success nhưng không cộng tiền lần thứ hai vào ví.
+     */
     @Test
+    @DisplayName("IT-WLT-009: Ignore duplicate incoming webhook without second credit (Idempotency)")
     @Tag("report52-it")
     void IT_WLT_009_IgnoreDuplicateIncomingWebhookWithoutSecondCredit() {
         SepayWebhookRequest request = incomingWebhook(123L, new BigDecimal("100000"), "TOPUP-ABC");
@@ -232,8 +239,14 @@ class Report52FinanceServiceITTest {
         verify(escrowService).fundConfirmedPayment(tx);
         verify(eventPublisher).publishEvent(any(EscrowFunded.class));
     }
-
+    /**
+     * Test Case: IT-WLT-001
+     * Mô tả: Hoàn tất luồng chính tạo yêu cầu rút tiền với phương thức nhận tiền đã lưu, khóa số dư và chuyển sang hàng đợi Admin.
+     * Procedure: Gửi POST /api/finance/withdrawals với amount và paymentMethodId hợp lệ.
+     * Expected Results: Yêu cầu rút tiền được tạo ở trạng thái PENDING, số dư ví được khóa, mã tham chiếu WITHDRAW-... được sinh ra.
+     */
     @Test
+    @DisplayName("IT-WLT-001: Complete the main wallet, payout method, withdrawal and admin transfer path")
     @Tag("report52-it")
     void IT_WLT_001_CreateWithdrawalOnlyWithSavedPayoutAccount() {
         CreateWithdrawalRequest request = withdrawalRequest(new BigDecimal("100000.00"), 3L);
@@ -263,8 +276,14 @@ class Report52FinanceServiceITTest {
         verify(authHelper).requireRole(UserRole.TUTOR, UserRole.TUTOR_CENTER);
         verify(paymentMethodRepository).findByPaymentMethodIdAndWallet_WalletIdAndStatus(3L, USER_ID, "ACTIVE");
     }
-
+    /**
+     * Test Case: IT-WLT-002
+     * Mô tả: Kiểm tra danh sách yêu cầu rút tiền phía Admin lọc chính xác theo trạng thái và che số tài khoản.
+     * Procedure: Gọi GET /api/finance/withdrawals?page=0&size=10&status=PENDING.
+     * Expected Results: Trả về đúng danh sách PENDING, che số tài khoản (****7890), hiển thị tên ngân hàng và mã tham chiếu.
+     */
     @Test
+    @DisplayName("IT-WLT-002: Verify the admin withdrawal list screen returns only relevant records by status")
     @Tag("report52-it")
     void IT_WLT_002_AdminWithdrawalListFiltersPendingStatusAndShowsMaskedAccount() {
         BigDecimal amount = new BigDecimal("200000.00");
@@ -293,8 +312,14 @@ class Report52FinanceServiceITTest {
         assertEquals("WITHDRAW-ABC", response.getContent().get(0).getReferenceCode());
         verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN);
     }
-
+    /**
+     * Test Case: IT-WLT-003
+     * Mô tả: Kiểm tra chi tiết danh sách tài khoản thụ hưởng đã lưu, đánh dấu tài khoản dùng gần nhất là mặc định.
+     * Procedure: Gọi GET /api/finance/payment-methods.
+     * Expected Results: Danh sách tài khoản thụ hưởng được nạp đầy đủ, tài khoản sử dụng gần nhất có isDefault = true.
+     */
     @Test
+    @DisplayName("IT-WLT-003: List saved payout methods and verify most recent is marked as default")
     @Tag("report52-it")
     void IT_WLT_003_ListSavedPayoutMethodsMarksMostRecentAsDefault() {
         PaymentMethod latest = savedPaymentMethod();
@@ -320,8 +345,14 @@ class Report52FinanceServiceITTest {
         assertEquals(Boolean.FALSE, responses.get(1).getIsDefault());
         assertEquals("****7890", responses.get(0).getAccountNoMasked());
     }
-
+    /**
+     * Test Case: IT-WLT-004
+     * Mô tả: Từ chối yêu cầu rút tiền khi thiếu trường nghiệp vụ bắt buộc (chưa chọn tài khoản nhận tiền).
+     * Procedure: Gửi payload rút tiền thiếu paymentMethodId.
+     * Expected Results: Ném IllegalArgumentException "Vui lòng thêm và chọn tài khoản nhận tiền trước khi rút tiền", không khóa tiền ví.
+     */
     @Test
+    @DisplayName("IT-WLT-004: Reject withdrawal submission when mandatory business fields are missing")
     @Tag("report52-it")
     void IT_WLT_004_RejectWithdrawalWithoutSavedPayoutAccount() {
         CreateWithdrawalRequest request = new CreateWithdrawalRequest();
@@ -335,8 +366,14 @@ class Report52FinanceServiceITTest {
         verifyNoInteractions(withdrawalRequestRepository);
         verify(walletService, never()).lockFunds(any(), any(), any());
     }
-
+    /**
+     * Test Case: IT-WLT-005
+     * Mô tả: Chặn yêu cầu rút tiền của Trung tâm (Tutor Center) khi tài khoản thụ hưởng đang trong thời gian chờ (cooling-off).
+     * Procedure: Gửi yêu cầu rút tiền cho phương thức có cooldownUntil > hiện tại.
+     * Expected Results: Ném BusinessException "Tài khoản nhận tiền mới cần chờ một thời gian trước khi rút tiền", không khóa tiền ví.
+     */
     @Test
+    @DisplayName("IT-WLT-005: Reject center withdrawal during cooling-off period")
     @Tag("report52-it")
     void IT_WLT_005_CenterPayoutCoolingOffBlocksWithdrawal() {
         CreateWithdrawalRequest request = withdrawalRequest(new BigDecimal("100000.00"), 3L);
@@ -355,8 +392,14 @@ class Report52FinanceServiceITTest {
         verify(walletService, never()).lockFunds(any(), any(), any());
         verify(paymentTransactionRepository, never()).save(any());
     }
-
+    /**
+     * Test Case: IT-WLT-014
+     * Mô tả: Đảm bảo tính nhất quán giữa số dư khả dụng, số dư đóng băng và giao dịch rút tiền tạm giữ.
+     * Procedure: Tạo yêu cầu rút tiền 150,000 VND.
+     * Expected Results: Tiền khả dụng giảm 150,000, tiền đóng băng tăng 150,000, tạo PaymentTransaction WITHDRAWAL trạng thái PENDING.
+     */
     @Test
+    @DisplayName("IT-WLT-014: Create withdrawal consistently locks balance and records pending transaction")
     @Tag("report52-it")
     void IT_WLT_014_CreateWithdrawalLocksWalletBalanceAndStoresPendingTransactionAmount() {
         CreateWithdrawalRequest request = withdrawalRequest(new BigDecimal("150000.00"), 3L);
@@ -389,8 +432,14 @@ class Report52FinanceServiceITTest {
         assertEquals(PaymentTransactionStatus.PENDING, txCaptor.getValue().getStatus());
         assertEquals(new BigDecimal("150000.00"), txCaptor.getValue().getAmount());
     }
-
+    /**
+     * Test Case: IT-WLT-006
+     * Mô tả: Chặn truy cập ẩn danh (chưa đăng nhập) vào API rút tiền ví.
+     * Procedure: Gửi request không có token xác thực.
+     * Expected Results: Ném ForbiddenException "Yêu cầu đăng nhập", không truy cập hay biến động dữ liệu ví.
+     */
     @Test
+    @DisplayName("IT-WLT-006: Block anonymous access to protected withdrawal API")
     @Tag("report52-it")
     void IT_WLT_006_UnauthenticatedWithdrawalRequestIsBlockedBeforeWalletMutation() {
         CreateWithdrawalRequest request = withdrawalRequest(new BigDecimal("100000.00"), 3L);
@@ -406,8 +455,14 @@ class Report52FinanceServiceITTest {
         verify(walletService, never()).getRequired(any());
         verify(paymentTransactionRepository, never()).save(any());
     }
-
+    /**
+     * Test Case: IT-WLT-007
+     * Mô tả: Chặn người dùng có role CLIENT thực hiện hành động rút tiền của Gia sư/Trung tâm.
+     * Procedure: Đăng nhập tài khoản CLIENT và gọi tạo yêu cầu rút tiền.
+     * Expected Results: Ném ForbiddenException "Yêu cầu quyền TUTOR hoặc TUTOR_CENTER", không tạo bản ghi.
+     */
     @Test
+    @DisplayName("IT-WLT-007: Block wrong role (CLIENT) from creating withdrawal")
     @Tag("report52-it")
     void IT_WLT_007_ClientRoleCannotCreateWithdrawal() {
         CreateWithdrawalRequest request = withdrawalRequest(new BigDecimal("100000.00"), 3L);
@@ -423,8 +478,14 @@ class Report52FinanceServiceITTest {
         verify(walletService, never()).getRequired(any());
         verify(withdrawalRequestRepository, never()).save(any());
     }
-
+    /**
+     * Test Case: IT-WLT-008
+     * Mô tả: Ngăn chặn tạo trùng lặp tài khoản thụ hưởng khi người dùng nhập lại thông tin ngân hàng đã có.
+     * Procedure: Thêm phương thức thanh toán có tên ngân hàng và số tài khoản đã tồn tại trong ví.
+     * Expected Results: Trả về bản ghi đã tồn tại, không tạo thêm dòng mới trong database.
+     */
     @Test
+    @DisplayName("IT-WLT-008: Create payment method reuses existing bank account without duplicate row")
     @Tag("report52-it")
     void IT_WLT_008_CreatePaymentMethodReusesExistingBankAccountWithoutDuplicateRow() {
         PaymentMethod existing = savedPaymentMethod();
@@ -449,8 +510,14 @@ class Report52FinanceServiceITTest {
         assertEquals("TPBank", response.getBankName());
         verify(paymentMethodRepository, never()).save(any());
     }
-
+    /**
+     * Test Case: IT-WLT-010
+     * Mô tả: Ghi nhận vết thông báo in-app cho toàn bộ Admin và người yêu cầu khi tạo lệnh rút tiền.
+     * Procedure: Thực hiện tạo yêu cầu rút tiền thành công.
+     * Expected Results: Admin nhận thông báo "Có yêu cầu rút tiền mới", người tạo nhận thông báo "Đã tạo yêu cầu rút tiền".
+     */
     @Test
+    @DisplayName("IT-WLT-010: Create withdrawal leaves traceable notification to Admins and Requester")
     @Tag("report52-it")
     void IT_WLT_010_CreateWithdrawalNotifiesAdminsAndRequester() {
         CreateWithdrawalRequest request = withdrawalRequest(new BigDecimal("100000.00"), 3L);
@@ -490,8 +557,14 @@ class Report52FinanceServiceITTest {
                 eq("WITHDRAWAL_REQUEST"),
                 eq(15L));
     }
-
+    /**
+     * Test Case: IT-WLT-011
+     * Mô tả: Kiểm tra thông báo rút tiền chứa đúng mã tham chiếu nghiệp vụ để điều hướng trên giao diện Admin.
+     * Procedure: Kiểm tra payload thông báo được tạo sau khi gửi yêu cầu rút tiền.
+     * Expected Results: Thông báo có referenceType = WITHDRAWAL_REQUEST và targetId trỏ chính xác đến withdrawalId.
+     */
     @Test
+    @DisplayName("IT-WLT-011: Withdrawal notification carries reference for Admin Task Queue navigation")
     @Tag("report52-it")
     void IT_WLT_011_CreateWithdrawalNotificationUsesWithdrawalRequestReferenceForAdminQueue() {
         CreateWithdrawalRequest request = withdrawalRequest(new BigDecimal("120000.00"), 3L);
@@ -529,8 +602,14 @@ class Report52FinanceServiceITTest {
                 eq("WITHDRAWAL_REQUEST"),
                 eq(16L));
     }
-
+    /**
+     * Test Case: IT-WLT-012
+     * Mô tả: Từ chối tra cứu lịch sử giao dịch ví khi khoảng thời gian không hợp lệ (ngày bắt đầu sau ngày kết thúc).
+     * Procedure: Gọi getMyTransactions với startDate > endDate.
+     * Expected Results: Ném IllegalArgumentException "Ngày bắt đầu không được sau ngày kết thúc", không gọi xuống DB.
+     */
     @Test
+    @DisplayName("IT-WLT-012: Reject wallet transaction history when date range is inverted")
     @Tag("report52-it")
     void IT_WLT_012_RejectTransactionHistoryWhenDateRangeIsInvalid() {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
@@ -548,8 +627,14 @@ class Report52FinanceServiceITTest {
         assertEquals("Ngày bắt đầu không được sau ngày kết thúc", exception.getMessage());
         verify(paymentTransactionRepository, never()).findByWalletIdWithFilters(any(), any(), any(), any(), any());
     }
-
+    /**
+     * Test Case: IT-WLT-019
+     * Mô tả: Kiểm tra nội dung thông báo duyệt rút tiền gửi tới chủ ví bằng tiếng Việt rõ ràng, dễ hiểu.
+     * Procedure: Admin duyệt yêu cầu rút tiền.
+     * Expected Results: Thông báo gửi tới đúng userId với tiêu đề "Yêu cầu rút tiền đã được duyệt" và liên kết WITHDRAWAL_REQUEST.
+     */
     @Test
+    @DisplayName("IT-WLT-019: Withdrawal approval notification is understandable in Vietnamese for wallet owner")
     @Tag("report52-it")
     void IT_WLT_019_WithdrawalApprovalNotificationTargetsWalletOwner() {
         BigDecimal amount = new BigDecimal("100000.00");
@@ -580,8 +665,14 @@ class Report52FinanceServiceITTest {
                 eq("WITHDRAWAL_REQUEST"),
                 eq(15L));
     }
-
+    /**
+     * Test Case: IT-WLT-020
+     * Mô tả: Kiểm tra tính toàn vẹn: Kiểm tra chế tài/án phạt hạn chế tính năng rút tiền trước khi khởi tạo ví.
+     * Procedure: Gọi createMyWallet() cho người dùng.
+     * Expected Results: Kiểm tra role TUTOR/TUTOR_CENTER và xác minh tính năng WITHDRAWAL không bị khóa trước khi tạo ví.
+     */
     @Test
+    @DisplayName("IT-WLT-020: Create wallet checks penalty access before opening balance")
     @Tag("report52-it")
     void IT_WLT_020_CreateWalletChecksPenaltyAccessBeforeOpeningBalance() {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
@@ -616,8 +707,14 @@ class Report52FinanceServiceITTest {
         assertEquals(WithdrawalRequestStatus.PENDING, response.getStatus());
         verify(walletService).lockFunds(eq(USER_ID), eq(new BigDecimal("100000.00")), any());
     }
-
+    /**
+     * Test Case: IT-WLT-016
+     * Mô tả: Admin phê duyệt yêu cầu rút tiền (APPROVED) nhưng giữ tiền đóng băng cho tới khi hoàn tất chuyển tiền.
+     * Procedure: Admin gọi approveWithdrawal(withdrawalId).
+     * Expected Results: Yêu cầu chuyển sang APPROVED, giao dịch giữ PENDING chờ SePay, không giải phóng tiền sớm.
+     */
     @Test
+    @DisplayName("IT-WLT-016: Admin approval keeps withdrawal pending until manual transfer is confirmed")
     @Tag("report52-it")
     void IT_WLT_016_AdminApprovalKeepsWithdrawalPendingUntilManualTransferIsConfirmed() {
         BigDecimal amount = new BigDecimal("100000.00");
@@ -648,8 +745,14 @@ class Report52FinanceServiceITTest {
         verify(walletService, never()).releaseLockedFunds(any(), any(), any());
         verify(paymentTransactionRepository).save(tx);
     }
-
+    /**
+     * Test Case: IT-WLT-013
+     * Mô tả: Kích hoạt callback SePay Out để hoàn tất rút tiền và giải phóng số dư đóng băng.
+     * Procedure: Nhận webhook chuyển tiền thành công từ cổng thanh toán SePay Out (POST /api/finance/webhooks/sepay/out).
+     * Expected Results: Trạng thái rút tiền chuyển sang COMPLETED, giao dịch SUCCESS, số dư đóng băng được giải phóng.
+     */
     @Test
+    @DisplayName("IT-WLT-013: Complete withdrawal only after outgoing SePay transfer webhook")
     @Tag("report52-it")
     void IT_WLT_013_CompleteWithdrawalOnlyAfterOutgoingSepayWebhook() {
         BigDecimal amount = new BigDecimal("100000.00");
@@ -685,8 +788,14 @@ class Report52FinanceServiceITTest {
         assertEquals(WithdrawalRequestStatus.COMPLETED, withdrawal.getStatus());
         verify(walletService).releaseLockedFunds(USER_ID, amount, "WITHDRAW-ABC");
     }
-
+    /**
+     * Test Case: IT-WLT-015
+     * Mô tả: Kiểm tra phân trang và bộ lọc lịch sử giao dịch ví theo loại giao dịch và khoảng thời gian.
+     * Procedure: Gọi getMyTransactions với type = 'deposit' và khoảng ngày hợp lệ.
+     * Expected Results: Trả về đúng phân trang (PageImpl) và chỉ chứa các giao dịch khớp điều kiện lọc.
+     */
     @Test
+    @DisplayName("IT-WLT-015: List wallet transactions with type and date range filter")
     @Tag("report52-it")
     void IT_WLT_015_ListWalletTransactionHistoryWithTypeAndDateFilter() {
         when(authHelper.currentUserId()).thenReturn(USER_ID);
