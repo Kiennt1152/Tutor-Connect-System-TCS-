@@ -1,9 +1,12 @@
 package com.tcs.module.marketplace.service.impl;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeast;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -18,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -78,8 +82,16 @@ class Report52ExpiredClassCleanupITTest {
         verify(tutoringClassRepository).findByStatusAndExpiresAtBefore(
                 eq(TutoringClassStatus.OPEN),
                 any(LocalDateTime.class));
-        verify(entityManager).createNativeQuery("DELETE FROM tutor_applications WHERE class_id = :id");
-        verify(entityManager).createNativeQuery("DELETE FROM tutoring_classes WHERE class_id = :id");
+        ArgumentCaptor<String> sqlCaptor = ArgumentCaptor.forClass(String.class);
+        verify(entityManager, times(6)).createNativeQuery(sqlCaptor.capture());
+        var statements = sqlCaptor.getAllValues();
+        assertEquals(6, statements.size());
+        assertTrue(statements.get(0).startsWith("DELETE FROM application_status_histories"));
+        assertTrue(statements.get(1).startsWith("DELETE FROM tutor_applications"));
+        assertTrue(statements.get(2).startsWith("DELETE FROM recommendation_logs"));
+        assertTrue(statements.get(3).startsWith("DELETE FROM schedule_slots"));
+        assertTrue(statements.get(4).startsWith("UPDATE support_tickets"));
+        assertTrue(statements.get(5).startsWith("DELETE FROM tutoring_classes"));
         verify(query, atLeast(6)).setParameter("id", 701L);
         verify(query, atLeast(6)).executeUpdate();
     }

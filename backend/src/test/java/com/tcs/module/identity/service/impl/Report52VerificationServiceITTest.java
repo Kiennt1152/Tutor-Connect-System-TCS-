@@ -182,6 +182,8 @@ class Report52VerificationServiceITTest {
         assertEquals(VERIFICATION_ID, response.getVerificationId());
         assertEquals(OWNER_USER_ID, response.getUserId());
         assertEquals(VerificationStatus.SUBMITTED, response.getStatus());
+        verify(verificationDocumentRepository)
+                .findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(VERIFICATION_ID);
     }
 
     @Test
@@ -433,6 +435,10 @@ class Report52VerificationServiceITTest {
         assertEquals(904L, responses.get(0).getVerificationId());
         assertEquals(905L, responses.get(1).getVerificationId());
         verify(authHelper).requireRole(UserRole.PLATFORM_ADMIN);
+        verify(verificationDocumentRepository)
+                .findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(904L);
+        verify(verificationDocumentRepository)
+                .findByVerificationRequest_VerificationIdOrderByDocumentIdAsc(905L);
     }
 
     @Test

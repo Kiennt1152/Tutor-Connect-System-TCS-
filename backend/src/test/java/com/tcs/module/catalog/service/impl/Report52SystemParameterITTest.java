@@ -17,6 +17,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -41,7 +42,10 @@ class Report52SystemParameterITTest {
 
         systemParameterService.createParameter(request("PLATFORM_FEE_RATE", "0.00"));
 
-        verify(systemParameterRepository).save(any(SystemParameter.class));
+        ArgumentCaptor<SystemParameter> parameterCaptor = ArgumentCaptor.forClass(SystemParameter.class);
+        verify(systemParameterRepository).save(parameterCaptor.capture());
+        assertEquals("PLATFORM_FEE_RATE", parameterCaptor.getValue().getParamKey());
+        assertEquals("0", parameterCaptor.getValue().getParamValue());
     }
 
     @Test

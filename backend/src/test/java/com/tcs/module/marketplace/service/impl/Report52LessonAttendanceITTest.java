@@ -360,6 +360,7 @@ class Report52LessonAttendanceITTest {
                 anyString(),
                 eq("TUTORING_CLASS"),
                 eq(CLASS_ID));
+        verify(escrowService, org.mockito.Mockito.never()).apply(any());
     }
 
     @Test

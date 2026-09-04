@@ -240,6 +240,11 @@ class Report52CenterRequestFeeITTest {
 
         centerRequestFeeService.requestRefund(REQUEST_ID, "Trung tâm không thể tìm gia sư phù hợp");
 
+        ArgumentCaptor<RefundRequest> refundCaptor = ArgumentCaptor.forClass(RefundRequest.class);
+        verify(refundRequestRepository).save(refundCaptor.capture());
+        assertEquals(RefundRequestStatus.PENDING, refundCaptor.getValue().getStatus());
+        assertEquals("PENDING", refundCaptor.getValue().getTransferStatus());
+        assertEquals(new BigDecimal("10000.00"), refundCaptor.getValue().getAmount());
         verify(paymentNotificationService).notifyPayment(
                 eq(adminUser),
                 eq("Có yêu cầu hoàn phí trung tâm mới"),

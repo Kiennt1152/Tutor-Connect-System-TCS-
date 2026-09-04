@@ -54,6 +54,7 @@ import com.tcs.module.marketplace.dto.response.ClassTerminationResponse;
 import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
+import com.tcs.module.marketplace.entity.ClassTerminationRequest;
 import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.entity.TutorApplication;
@@ -376,6 +377,11 @@ class Report52MarketplacePrivateCenterITTest {
 
         marketplaceService.applyToClass(CLASS_ID, applyClassRequest());
 
+        ArgumentCaptor<TutorApplication> applicationCaptor = ArgumentCaptor.forClass(TutorApplication.class);
+        verify(tutorApplicationRepository).save(applicationCaptor.capture());
+        assertEquals(com.tcs.module.marketplace.enums.TutorApplicationStatus.SUBMITTED,
+                applicationCaptor.getValue().getStatus());
+        assertEquals(tutoringClass, applicationCaptor.getValue().getTutoringClass());
         verify(notificationDispatchService).notifyUserFromTemplate(
                 eq(clientUser),
                 eq(NotificationType.APPLICATION),
@@ -983,7 +989,7 @@ class Report52MarketplacePrivateCenterITTest {
 
     @Test
     @Tag("report52-it")
-    void IT_DSP_009_RejectDuplicatePendingEarlyTerminationForPrivateAssignment() {
+    void IT_DSP_009_RejectDuplicateEarlyTerminationForPendingOrApprovedRequest() {
         User clientUser = user(CLIENT_USER_ID);
         TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.IN_PROGRESS);
         ClassAssignment assignment = assignment(tutoringClass, user(TUTOR_USER_ID));
@@ -999,12 +1005,84 @@ class Report52MarketplacePrivateCenterITTest {
         when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
                 ASSIGNMENT_ID, ClassTerminationStatus.PENDING)).thenReturn(true);
 
-        org.junit.jupiter.api.Assertions.assertThrows(
+        BusinessException pendingException = org.junit.jupiter.api.Assertions.assertThrows(
                 BusinessException.class,
                 () -> marketplaceService.requestClassTermination(CLASS_ID, request));
+        assertEquals("Lớp học đã có yêu cầu chấm dứt sớm đang xử lý", pendingException.getMessage());
+
+        // The duplicate guard must cover both PENDING and APPROVED requests.
+        when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                ASSIGNMENT_ID, ClassTerminationStatus.PENDING)).thenReturn(false);
+        when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                ASSIGNMENT_ID, ClassTerminationStatus.APPROVED)).thenReturn(true);
+
+        BusinessException approvedException = org.junit.jupiter.api.Assertions.assertThrows(
+                BusinessException.class,
+                () -> marketplaceService.requestClassTermination(CLASS_ID, request));
+        assertEquals("Lớp học đã có yêu cầu chấm dứt sớm đang xử lý", approvedException.getMessage());
+        verify(classTerminationRequestRepository).existsByAssignment_AssignmentIdAndStatus(
+                ASSIGNMENT_ID, ClassTerminationStatus.APPROVED);
 
         verify(tutoringClassRepository, never()).save(any());
         verify(classTerminationRequestRepository, never()).save(any());
+    }
+
+    @Test
+    @Tag("report52-it")
+    void IT_DSP_020_TutorPrivateTerminationUsesClientPayoutStoredOnAssignmentTerms() {
+        User tutorUser = user(TUTOR_USER_ID);
+        User clientUser = user(CLIENT_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.IN_PROGRESS);
+        tutoringClass.setNumberOfSessions(5);
+        ClassAssignment assignment = assignment(tutoringClass, tutorUser);
+        assignment.setTermsB("""
+                Thông tin nhận hoàn tiền:
+                - Tên chủ tài khoản: Nguyễn Thu Hà
+                - Ngân hàng: TPBank
+                - Số tài khoản: 0123456789
+                """);
+        EscrowTransaction escrow = escrow(95L, new BigDecimal("500000.00"));
+        List<Lesson> lessons = lessons(tutoringClass, assignment.getTutor(), 5, 2);
+        CreateClassTerminationRequest request = terminationRequest();
+        request.setAssignmentId(ASSIGNMENT_ID);
+        request.setBankName("");
+        request.setAccountNo("");
+        request.setAccountHolderName("");
+
+        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(userRepository.findById(TUTOR_USER_ID)).thenReturn(Optional.of(tutorUser));
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(classAssignmentRepository.findById(ASSIGNMENT_ID)).thenReturn(Optional.of(assignment));
+        when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                ASSIGNMENT_ID, ClassTerminationStatus.PENDING)).thenReturn(false);
+        when(classTerminationRequestRepository.existsByAssignment_AssignmentIdAndStatus(
+                ASSIGNMENT_ID, ClassTerminationStatus.APPROVED)).thenReturn(false);
+        when(escrowTransactionRepository.findByAssignment_AssignmentId(ASSIGNMENT_ID))
+                .thenReturn(Optional.of(escrow));
+        when(lessonRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(lessons);
+        when(classTerminationRequestRepository.save(any(ClassTerminationRequest.class))).thenAnswer(invocation -> {
+            ClassTerminationRequest saved = invocation.getArgument(0);
+            saved.setTerminationId(901L);
+            return saved;
+        });
+
+        ClassTerminationResponse response = marketplaceService.requestClassTermination(CLASS_ID, request);
+
+        assertEquals(ClassTerminationStatus.COMPLETED, response.getStatus());
+        assertEquals(ClassAssignmentStatus.TERMINATED, assignment.getStatus());
+        assertEquals(TutoringClassStatus.CANCELLED, tutoringClass.getStatus());
+
+        ArgumentCaptor<ClassTerminationRequest> terminationCaptor =
+                ArgumentCaptor.forClass(ClassTerminationRequest.class);
+        verify(classTerminationRequestRepository).save(terminationCaptor.capture());
+        assertTrue(terminationCaptor.getValue().getReason().contains("Ngân hàng: TPBank"));
+        assertTrue(terminationCaptor.getValue().getReason().contains("Số tài khoản: 0123456789"));
+
+        ArgumentCaptor<ReleaseInstruction> instructionCaptor =
+                ArgumentCaptor.forClass(ReleaseInstruction.class);
+        verify(escrowService).apply(instructionCaptor.capture());
+        assertEquals(new BigDecimal("200000.00"), instructionCaptor.getValue().releaseToBeneficiary());
+        assertEquals(new BigDecimal("300000.00"), instructionCaptor.getValue().refundToPayer());
     }
 
     @Test

@@ -237,7 +237,7 @@ class Report52CenterClassEnrollmentITTest {
         verify(tutoringClassRepository).save(classCaptor.capture());
         assertEquals(ClassType.CENTER, classCaptor.getValue().getClassType());
         assertEquals(TutoringClassStatus.DRAFT, classCaptor.getValue().getStatus());
-        assertEquals(5, classCaptor.getValue().getNumberOfSessions());
+        assertEquals(4, classCaptor.getValue().getNumberOfSessions());
         verify(auditLogService).record(eq(CENTER_USER_ID), eq("CREATE_CENTER_CLASS"),
                 eq("TutoringClass"), eq(CLASS_ID), eq(null), eq(request));
     }
