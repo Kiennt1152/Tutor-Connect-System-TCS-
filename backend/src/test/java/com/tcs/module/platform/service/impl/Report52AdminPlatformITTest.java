@@ -1,37 +1,45 @@
 package com.tcs.module.platform.service.impl;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
-
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tcs.common.classrequest.ClassRequestStore;
+import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
+import com.tcs.module.catalog.dto.request.UpsertSystemParameterRequest;
+import com.tcs.module.catalog.entity.SystemParameter;
+import com.tcs.module.catalog.repository.SystemParameterRepository;
+import com.tcs.module.catalog.service.impl.SystemParameterServiceImpl;
+import com.tcs.module.finance.dto.RefundPayoutInfo;
+import com.tcs.module.finance.dto.response.CenterRequestFeePaymentResponse;
+import com.tcs.module.finance.entity.CenterRequestFeeHold;
 import com.tcs.module.finance.entity.Dispute;
 import com.tcs.module.finance.entity.EscrowTransaction;
+import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.entity.RefundRequest;
 import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.entity.WithdrawalRequest;
+import com.tcs.module.finance.enums.CenterRequestFeeStatus;
 import com.tcs.module.finance.enums.DisputeStatus;
+import com.tcs.module.finance.enums.PaymentTransactionStatus;
+import com.tcs.module.finance.enums.PaymentTransactionType;
 import com.tcs.module.finance.enums.RefundRequestStatus;
 import com.tcs.module.finance.enums.WithdrawalRequestStatus;
+import com.tcs.module.finance.repository.CenterRequestFeeHoldRepository;
 import com.tcs.module.finance.repository.DisputeRepository;
+import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.repository.WithdrawalRequestRepository;
+import com.tcs.module.finance.service.PaymentNotificationService;
+import com.tcs.module.finance.service.WalletService;
+import com.tcs.module.finance.service.impl.CenterRequestFeeServiceImpl;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.identity.entity.VerificationRequest;
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.enums.VerificationType;
-import com.tcs.module.identity.entity.VerificationRequest;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
 import com.tcs.module.messaging.enums.NotificationType;
+import com.tcs.module.messaging.repository.NotificationRepository;
 import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.dto.request.IssuePenaltyRequest;
 import com.tcs.module.platform.dto.request.RevokePenaltyRequest;
@@ -53,6 +61,7 @@ import com.tcs.module.platform.repository.CircumventionEventRepository;
 import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.platform.repository.SupportTicketRepository;
 import com.tcs.module.platform.repository.UserPenaltyRepository;
+import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
@@ -67,19 +76,53 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.mockito.quality.Strictness;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
-@Tag("report52-support")
+@Tag("report52-it")
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class Report52AdminPlatformITTest {
+public class Report52AdminPlatformITTest {
+
+    private static final Long PARAM_ID = 1L;
+    private static final String REQUEST_ID = "REQ-CENTER-001";
+    private static final Long CLIENT_USER_ID = 11L;
+    private static final Long CENTER_USER_ID = 22L;
+
+    @Mock private SystemParameterRepository systemParameterRepository;
+    @Mock private CenterRequestFeeHoldRepository feeHoldRepository;
+    @Mock private WalletService walletService;
+    @Mock private PaymentTransactionRepository paymentTransactionRepository;
+    @Mock private ClassRequestStore classRequestStore;
+    @Mock private NotificationRepository notificationRepository;
+    @Mock private com.tcs.module.finance.service.PaymentNotificationService paymentNotificationService;
+
+    @InjectMocks
+    private SystemParameterServiceImpl systemParameterService;
+
+    @InjectMocks
+    private CenterRequestFeeServiceImpl centerRequestFeeService;
+
 
     private static final Long ADMIN_USER_ID = 1L;
     private static final Long TARGET_USER_ID = 2L;
@@ -146,8 +189,24 @@ class Report52AdminPlatformITTest {
         when(disputeRepository.findByStatusInOrderByCreatedAtAsc(anyList())).thenReturn(List.of());
     }
 
+    
+
+    /**
+     * Test Case: IT-ADM-001
+     * Title: Aggregate pending admin work and money at risk for the dashboard.
+     * Procedure: Prepare the stated fixture and input, then execute TaskQueueServiceImpl.getSummary (GET /api/platform/tasks/summary).
+     * Input: Admin dashboard summary request.
+     * Steps:
+     *   1. Prepare the fixture: Each admin queue repository returns one pending item with known amounts.
+     *   2. Use the input: Admin dashboard summary request.
+     *   3. Execute TaskQueueServiceImpl.getSummary (GET /api/platform/tasks/summary). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_001_TaskQueueSummaryAggregatesAllAdminWorkAndMoneyAtRisk.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert all six counts, total pending tasks and money at risk.
+     * Expected: The summary counts verification, report, ticket, withdrawal, refund and dispute queues and calculates moneyAtRisk=800000.
+     * Pre-conditions: Each admin queue repository returns one pending item with known amounts.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-001: Aggregate pending admin work and money at risk for the dashboard.")
     void IT_ADM_001_TaskQueueSummaryAggregatesAllAdminWorkAndMoneyAtRisk() {
         when(verificationRequestRepository.findByStatusOrderBySubmittedAtAsc(VerificationStatus.SUBMITTED))
                 .thenReturn(List.of(verification(10L, LocalDateTime.now().minusHours(1))));
@@ -174,8 +233,22 @@ class Report52AdminPlatformITTest {
         assertEquals(new BigDecimal("800000"), summary.getMoneyAtRisk());
     }
 
+    /**
+     * Test Case: IT-ADM-002
+     * Title: Filter admin tasks by type, priority and SLA state.
+     * Procedure: Prepare the stated fixture and input, then execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks).
+     * Input: type=REFUND_REQUEST; priority=HIGH; overdue=false; page=0; size=10.
+     * Steps:
+     *   1. Prepare the fixture: Queue fixtures contain refund and other task types.
+     *   2. Use the input: type=REFUND_REQUEST; priority=HIGH; overdue=false; page=0; size=10.
+     *   3. Execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_002_ListTasksFiltersAdminQueueByTypeAndPriority.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert total/task type/priority.
+     * Expected: The filtered page returns one HIGH REFUND_REQUEST task and excludes unrelated task types.
+     * Pre-conditions: Queue fixtures contain refund and other task types.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-002: Filter admin tasks by type, priority and SLA state.")
     void IT_ADM_002_ListTasksFiltersAdminQueueByTypeAndPriority() {
         when(refundRequestRepository.findByStatusOrderByRequestedAtAsc(RefundRequestStatus.PENDING))
                 .thenReturn(List.of(refund(50L, new BigDecimal("300000"), LocalDateTime.now().minusHours(2))));
@@ -189,8 +262,22 @@ class Report52AdminPlatformITTest {
         assertEquals("HIGH", page.getContent().get(0).getPriority());
     }
 
+    /**
+     * Test Case: IT-ADM-003
+     * Title: Expose the target route and entity reference for a withdrawal task.
+     * Procedure: Prepare the stated fixture and input, then execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks).
+     * Input: type=WITHDRAWAL; page=0; size=10.
+     * Steps:
+     *   1. Prepare the fixture: One pending withdrawal is present in the queue.
+     *   2. Use the input: type=WITHDRAWAL; page=0; size=10.
+     *   3. Execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_003_TaskItemsCarryAdminTargetRouteAndEntityReference.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert targetRoute, targetQuery and entityId.
+     * Expected: A withdrawal task points to /platform/withdrawals with query id=40 and entityId=40.
+     * Pre-conditions: One pending withdrawal is present in the queue.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-003: Expose the target route and entity reference for a withdrawal task.")
     void IT_ADM_003_TaskItemsCarryAdminTargetRouteAndEntityReference() {
         when(withdrawalRequestRepository.findByStatusOrderByRequestedAtAsc(WithdrawalRequestStatus.PENDING))
                 .thenReturn(List.of(withdrawal(40L, new BigDecimal("200000"), LocalDateTime.now().minusHours(1))));
@@ -203,8 +290,52 @@ class Report52AdminPlatformITTest {
         assertEquals(40L, page.getContent().get(0).getEntityId());
     }
 
+    /**
+     * Test Case: IT-ADM-004
+     * Title: Reject a blank platform-fee configuration value.
+     * Procedure: Prepare the stated fixture and input, then execute SystemParameterServiceImpl.createParameter (POST /api/catalog/parameters).
+     * Input: PLATFORM_FEE_RATE value blank.
+     * Steps:
+     *   1. Prepare the fixture: Admin is authorized and the key is not already present.
+     *   2. Use the input: PLATFORM_FEE_RATE value blank.
+     *   3. Execute SystemParameterServiceImpl.createParameter (POST /api/catalog/parameters). Mapped test: com.tcs.module.catalog.service.impl.Report52SystemParameterITTest#IT_ADM_004_RejectBlankPlatformFeeValueBeforeSavingConfig.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert error and verify no save/audit.
+     * Expected: The service returns “Giá trị tham số là bắt buộc.” and does not save or audit a parameter.
+     * Pre-conditions: Admin is authorized and the key is not already present.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-004: Reject a blank platform-fee configuration value.")
+    void IT_ADM_004_RejectBlankPlatformFeeValueBeforeSavingConfig() {
+        UpsertSystemParameterRequest request = request("PLATFORM_FEE_RATE", " ");
+
+        when(systemParameterRepository.findByParamKey("PLATFORM_FEE_RATE")).thenReturn(Optional.empty());
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> systemParameterService.createParameter(request));
+
+        assertEquals("Giá trị tham số là bắt buộc.", exception.getMessage());
+        verify(systemParameterRepository, never()).save(any());
+        verify(auditLogService, never()).record(any(), any(), any(), any(), any());
+    }
+
+    /**
+     * Test Case: IT-ADM-005
+     * Title: Reject an unsupported penalty type before saving an admin decision.
+     * Procedure: Prepare the stated fixture and input, then execute PenaltyServiceImpl.issuePenalty (POST /api/platform/penalties).
+     * Input: penaltyType=UNKNOWN_PENALTY.
+     * Steps:
+     *   1. Prepare the fixture: Valid platform admin and target user exist.
+     *   2. Use the input: penaltyType=UNKNOWN_PENALTY.
+     *   3. Execute PenaltyServiceImpl.issuePenalty (POST /api/platform/penalties). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_005_RejectInvalidPenaltyTypeBeforeSavingAdminDecision.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert error and verify UserPenaltyRepository.save is never called.
+     * Expected: The service returns the invalid-penalty-type error and no penalty is saved.
+     * Pre-conditions: Valid platform admin and target user exist.
+     */
+    @Test
+    @Tag("report52-it")
+    @DisplayName("IT-ADM-005: Reject an unsupported penalty type before saving an admin decision.")
     void IT_ADM_005_RejectInvalidPenaltyTypeBeforeSavingAdminDecision() {
         User adminUser = user(ADMIN_USER_ID, "admin.it@tcs.test");
         PlatformAdmin admin = platformAdmin(adminUser);
@@ -224,8 +355,22 @@ class Report52AdminPlatformITTest {
         verify(userPenaltyRepository, never()).save(any());
     }
 
+    /**
+     * Test Case: IT-ADM-006
+     * Title: Block an anonymous admin action before loading target data.
+     * Procedure: Prepare the stated fixture and input, then execute PenaltyServiceImpl.issuePenalty (POST /api/platform/penalties).
+     * Input: Valid-looking penalty request.
+     * Steps:
+     *   1. Prepare the fixture: No admin principal.
+     *   2. Use the input: Valid-looking penalty request.
+     *   3. Execute PenaltyServiceImpl.issuePenalty (POST /api/platform/penalties). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_006_AnonymousAdminActionIsBlockedBeforeBusinessLookup.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert exception and verify target lookup/save are skipped.
+     * Expected: The service returns “Yêu cầu đăng nhập quản trị viên” and does not query users or save a penalty.
+     * Pre-conditions: No admin principal.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-006: Block an anonymous admin action before loading target data.")
     void IT_ADM_006_AnonymousAdminActionIsBlockedBeforeBusinessLookup() {
         IssuePenaltyRequest request = issuePenaltyRequest(UserPenaltyType.WARNING.name());
 
@@ -241,8 +386,22 @@ class Report52AdminPlatformITTest {
         verify(userPenaltyRepository, never()).save(any());
     }
 
+    /**
+     * Test Case: IT-ADM-007
+     * Title: Prevent a non-admin from issuing a penalty.
+     * Procedure: Prepare the stated fixture and input, then execute PenaltyServiceImpl.issuePenalty (POST /api/platform/penalties).
+     * Input: Valid-looking penalty request.
+     * Steps:
+     *   1. Prepare the fixture: Authenticated user is not a platform admin.
+     *   2. Use the input: Valid-looking penalty request.
+     *   3. Execute PenaltyServiceImpl.issuePenalty (POST /api/platform/penalties). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_007_NonAdminCannotIssuePenaltyOrChangeTargetUser.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert role error and verify no lookup/save.
+     * Expected: The service returns the PLATFORM_ADMIN permission error and creates no penalty.
+     * Pre-conditions: Authenticated user is not a platform admin.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-007: Prevent a non-admin from issuing a penalty.")
     void IT_ADM_007_NonAdminCannotIssuePenaltyOrChangeTargetUser() {
         IssuePenaltyRequest request = issuePenaltyRequest(UserPenaltyType.WARNING.name());
 
@@ -258,8 +417,53 @@ class Report52AdminPlatformITTest {
         verify(userPenaltyRepository, never()).save(any());
     }
 
+    /**
+     * Test Case: IT-ADM-008
+     * Title: Reject a duplicate PLATFORM_FEE_RATE configuration row.
+     * Procedure: Prepare the stated fixture and input, then execute SystemParameterServiceImpl.createParameter (POST /api/catalog/parameters).
+     * Input: Second PLATFORM_FEE_RATE value 0.02.
+     * Steps:
+     *   1. Prepare the fixture: PLATFORM_FEE_RATE already exists.
+     *   2. Use the input: Second PLATFORM_FEE_RATE value 0.02.
+     *   3. Execute SystemParameterServiceImpl.createParameter (POST /api/catalog/parameters). Mapped test: com.tcs.module.catalog.service.impl.Report52SystemParameterITTest#IT_ADM_008_RejectDuplicatePlatformFeeParameterBeforeCreatingConfigRow.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert error and verify no save/audit.
+     * Expected: The duplicate-key error is returned and neither parameter nor audit row is created.
+     * Pre-conditions: PLATFORM_FEE_RATE already exists.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-008: Reject a duplicate PLATFORM_FEE_RATE configuration row.")
+    void IT_ADM_008_RejectDuplicatePlatformFeeParameterBeforeCreatingConfigRow() {
+        UpsertSystemParameterRequest request = request("PLATFORM_FEE_RATE", "0.02");
+
+        when(systemParameterRepository.findByParamKey("PLATFORM_FEE_RATE"))
+                .thenReturn(Optional.of(parameter(1L, "PLATFORM_FEE_RATE", "0.02")));
+
+        IllegalArgumentException exception = assertThrows(
+                IllegalArgumentException.class,
+                () -> systemParameterService.createParameter(request));
+
+        assertEquals("Khóa tham số đã tồn tại: PLATFORM_FEE_RATE", exception.getMessage());
+        verify(systemParameterRepository, never()).save(any());
+        verify(auditLogService, never()).record(any(), any(), any(), any(), any());
+    }
+
+    /**
+     * Test Case: IT-ADM-009
+     * Title: Return stable pagination metadata for the second admin-task page.
+     * Procedure: Prepare the stated fixture and input, then execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks).
+     * Input: type=WITHDRAWAL; page=1; size=10.
+     * Steps:
+     *   1. Prepare the fixture: Queue contains 12 withdrawal tasks.
+     *   2. Use the input: type=WITHDRAWAL; page=1; size=10.
+     *   3. Execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_009_TaskQueuePaginationReturnsStableSecondPageAndTotal.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert total/page/size/content count.
+     * Expected: The page reports total 12, page index 1, size 10 and two content rows.
+     * Pre-conditions: Queue contains 12 withdrawal tasks.
+     */
+    @Test
+    @Tag("report52-it")
+    @DisplayName("IT-ADM-009: Return stable pagination metadata for the second admin-task page.")
     void IT_ADM_009_TaskQueuePaginationReturnsStableSecondPageAndTotal() {
         List<WithdrawalRequest> withdrawals = java.util.stream.IntStream.rangeClosed(1, 12)
                 .mapToObj(index -> withdrawal(
@@ -279,8 +483,22 @@ class Report52AdminPlatformITTest {
         assertEquals(10, page.getSize());
     }
 
+    /**
+     * Test Case: IT-ADM-010
+     * Title: Issue a penalty, write its audit entry and notify the target user.
+     * Procedure: Prepare the stated fixture and input, then execute PenaltyServiceImpl.issuePenalty (POST /api/platform/penalties).
+     * Input: WARNING penalty with a reason/restriction.
+     * Steps:
+     *   1. Prepare the fixture: Admin and target user exist; penalty request is valid.
+     *   2. Use the input: WARNING penalty with a reason/restriction.
+     *   3. Execute PenaltyServiceImpl.issuePenalty (POST /api/platform/penalties). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_010_IssuePenaltyRecordsAuditAndNotifiesTargetUser.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert response status/id and capture audit/notification references.
+     * Expected: Penalty 70 is ACTIVE; an ISSUE_PENALTY audit row and target notification are created.
+     * Pre-conditions: Admin and target user exist; penalty request is valid.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-010: Issue a penalty, write its audit entry and notify the target user.")
     void IT_ADM_010_IssuePenaltyRecordsAuditAndNotifiesTargetUser() {
         User adminUser = user(ADMIN_USER_ID, "admin.it@tcs.test");
         PlatformAdmin admin = platformAdmin(adminUser);
@@ -314,8 +532,22 @@ class Report52AdminPlatformITTest {
                 eq(70L));
     }
 
+    /**
+     * Test Case: IT-ADM-011
+     * Title: Include the penalty reference in the target-user notification.
+     * Procedure: Prepare the stated fixture and input, then execute PenaltyServiceImpl.issuePenalty (POST /api/platform/penalties).
+     * Input: Valid penalty request.
+     * Steps:
+     *   1. Prepare the fixture: Admin issues a valid WARNING penalty to target user 22.
+     *   2. Use the input: Valid penalty request.
+     *   3. Execute PenaltyServiceImpl.issuePenalty (POST /api/platform/penalties). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_011_IssuePenaltyNotificationCarriesPenaltyReferenceToTargetUser.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Capture notification template/text/reference.
+     * Expected: The target notification uses PENALTY reference type and id 71.
+     * Pre-conditions: Admin issues a valid WARNING penalty to target user 22.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-011: Include the penalty reference in the target-user notification.")
     void IT_ADM_011_IssuePenaltyNotificationCarriesPenaltyReferenceToTargetUser() {
         User adminUser = user(ADMIN_USER_ID, "admin.it@tcs.test");
         PlatformAdmin admin = platformAdmin(adminUser);
@@ -345,8 +577,22 @@ class Report52AdminPlatformITTest {
                 eq(71L));
     }
 
+    /**
+     * Test Case: IT-ADM-012
+     * Title: Flag overdue urgent tasks in the admin queue.
+     * Procedure: Prepare the stated fixture and input, then execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks).
+     * Input: type=DISPUTE; priority=URGENT; overdue=true.
+     * Steps:
+     *   1. Prepare the fixture: A dispute task has passed its SLA deadline.
+     *   2. Use the input: type=DISPUTE; priority=URGENT; overdue=true.
+     *   3. Execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_012_OverdueTaskQueueItemsAreFlaggedBySla.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert task count/type and SLA flag.
+     * Expected: The urgent DISPUTE task is returned with slaBreached=true.
+     * Pre-conditions: A dispute task has passed its SLA deadline.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-012: Flag overdue urgent tasks in the admin queue.")
     void IT_ADM_012_OverdueTaskQueueItemsAreFlaggedBySla() {
         when(disputeRepository.findByStatusInOrderByCreatedAtAsc(anyList()))
                 .thenReturn(List.of(dispute(60L, new BigDecimal("500000"), LocalDateTime.now().minusHours(25))));
@@ -358,8 +604,97 @@ class Report52AdminPlatformITTest {
         assertTrue(page.getContent().get(0).getSlaBreached());
     }
 
+    /**
+     * Test Case: IT-ADM-013
+     * Title: Update the platform-fee parameter, validate it and record an audit snapshot.
+     * Procedure: Prepare the stated fixture and input, then execute SystemParameterServiceImpl.updateParameter (PATCH /api/catalog/parameters/{parameterId}).
+     * Input: parameterId=10; new value 0.05.
+     * Steps:
+     *   1. Prepare the fixture: Parameter 10 currently has rate 0.02.
+     *   2. Use the input: parameterId=10; new value 0.05.
+     *   3. Execute SystemParameterServiceImpl.updateParameter (PATCH /api/catalog/parameters/{parameterId}). Mapped test: com.tcs.module.catalog.service.impl.Report52SystemParameterITTest#IT_ADM_013_UpdatePlatformFeeParameterStoresValidatedValueAndAuditSnapshot.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert response and capture UPDATE_SYSTEM_PARAMETER audit.
+     * Expected: PLATFORM_FEE_RATE changes to 0.05 and the audit records the old/new values.
+     * Pre-conditions: Parameter 10 currently has rate 0.02.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-013: Update the platform-fee parameter, validate it and record an audit snapshot.")
+    void IT_ADM_013_UpdatePlatformFeeParameterStoresValidatedValueAndAuditSnapshot() {
+        SystemParameter parameter = parameter(PARAM_ID, "PLATFORM_FEE_RATE", "0.02");
+        UpsertSystemParameterRequest request = request("PLATFORM_FEE_RATE", "0.05");
+
+        when(systemParameterRepository.findById(PARAM_ID)).thenReturn(Optional.of(parameter));
+        when(systemParameterRepository.findByParamKey("PLATFORM_FEE_RATE")).thenReturn(Optional.of(parameter));
+        when(systemParameterRepository.save(parameter)).thenReturn(parameter);
+
+        var response = systemParameterService.updateParameter(PARAM_ID, request);
+
+        assertEquals("PLATFORM_FEE_RATE", response.getParamKey());
+        assertEquals("0.05", response.getParamValue());
+        verify(systemParameterRepository).save(parameter);
+        verify(auditLogService).record(eq("UPDATE_SYSTEM_PARAMETER"), eq("SystemParameter"), eq(PARAM_ID), any(), eq(request));
+    }
+
+    /**
+     * Test Case: IT-ADM-014
+     * Title: Use the configured platform fee when building a center-request payment.
+     * Procedure: Prepare the stated fixture and input, then execute CenterRequestFeeServiceImpl.createPayment (finance fee path).
+     * Input: Center request amount 1000000 with valid payout.
+     * Steps:
+     *   1. Prepare the fixture: Fee parameter is 0.08 and system escrow wallet exists.
+     *   2. Use the input: Center request amount 1000000 with valid payout.
+     *   3. Execute CenterRequestFeeServiceImpl.createPayment (finance fee path). Mapped test: com.tcs.module.finance.service.impl.Report52CenterRequestFeeITTest#IT_ADM_014_PlatformFeeParameterIsUsedWhenBuildingCenterRequestPayment.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert response amount and QR amount.
+     * Expected: With platform fee 0.08 and request amount 1000000, the QR/payment amount is 80000.
+     * Pre-conditions: Fee parameter is 0.08 and system escrow wallet exists.
+     */
+    @Test
+    @Tag("report52-it")
+    @DisplayName("IT-ADM-014: Use the configured platform fee when building a center-request payment.")
+    void IT_ADM_014_PlatformFeeParameterIsUsedWhenBuildingCenterRequestPayment() {
+        SystemParameter feeRate = new SystemParameter();
+        feeRate.setParamKey("PLATFORM_FEE_RATE");
+        feeRate.setParamValue("0.10");
+
+        when(feeHoldRepository.findByRequestId(REQUEST_ID)).thenReturn(Optional.empty());
+        when(systemParameterRepository.findByParamKey("PLATFORM_FEE_RATE")).thenReturn(Optional.of(feeRate));
+        when(walletService.getSystemEscrowWallet()).thenReturn(wallet(999L));
+        when(paymentTransactionRepository.save(any(PaymentTransaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(feeHoldRepository.save(any(CenterRequestFeeHold.class))).thenAnswer(invocation -> {
+            CenterRequestFeeHold hold = invocation.getArgument(0);
+            hold.setFeeHoldId(603L);
+            return hold;
+        });
+
+        CenterRequestFeePaymentResponse response = centerRequestFeeService.createPayment(
+                REQUEST_ID,
+                CLIENT_USER_ID,
+                CENTER_USER_ID,
+                "Trung tâm Minh Tâm",
+                new BigDecimal("800000.00"),
+                payoutInfo());
+
+        assertEquals(new BigDecimal("80000"), response.getAmount());
+        assertTrue(response.getQrUrl().contains("amount=80000"));
+    }
+
+    /**
+     * Test Case: IT-ADM-015
+     * Title: Persist audit actor, action, entity and JSON snapshots for a configuration update.
+     * Procedure: Prepare the stated fixture and input, then execute AuditLogService.record (called by SystemParameterServiceImpl.updateParameter).
+     * Input: Old rate 0.02 -> new rate 0.05.
+     * Steps:
+     *   1. Prepare the fixture: Admin actor and parameter update are available in the test database.
+     *   2. Use the input: Old rate 0.02 -> new rate 0.05.
+     *   3. Execute AuditLogService.record (called by SystemParameterServiceImpl.updateParameter). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_015_AuditLogRecordStoresActorAndJsonSnapshots.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Capture audit entity and assert all snapshot fields/timestamp.
+     * Expected: The audit row stores actor, UPDATE_SYSTEM_PARAMETER, SystemParameter id 10 and old/new JSON snapshots.
+     * Pre-conditions: Admin actor and parameter update are available in the test database.
+     */
+    @Test
+    @Tag("report52-it")
+    @DisplayName("IT-ADM-015: Persist audit actor, action, entity and JSON snapshots for a configuration update.")
     void IT_ADM_015_AuditLogRecordStoresActorAndJsonSnapshots() {
         User actor = user(ADMIN_USER_ID, "admin.it@tcs.test");
 
@@ -385,8 +720,22 @@ class Report52AdminPlatformITTest {
         assertNotNull(log.getCreatedAt());
     }
 
+    /**
+     * Test Case: IT-ADM-016
+     * Title: Prevent a second revocation of an already revoked penalty.
+     * Procedure: Prepare the stated fixture and input, then execute PenaltyServiceImpl.revokePenalty (PATCH /api/platform/penalties/{penaltyId}/revoke).
+     * Input: penaltyId=81; revocation reason.
+     * Steps:
+     *   1. Prepare the fixture: Penalty 81 is already REVOKED.
+     *   2. Use the input: penaltyId=81; revocation reason.
+     *   3. Execute PenaltyServiceImpl.revokePenalty (PATCH /api/platform/penalties/{penaltyId}/revoke). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_016_RepeatedAdminPenaltyRevocationCannotCreateConflictingFinalStatus.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert error/status and verify no save/audit.
+     * Expected: The service returns the active-penalty prerequisite error and preserves REVOKED status without another save/audit.
+     * Pre-conditions: Penalty 81 is already REVOKED.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-016: Prevent a second revocation of an already revoked penalty.")
     void IT_ADM_016_RepeatedAdminPenaltyRevocationCannotCreateConflictingFinalStatus() {
         User adminUser = user(ADMIN_USER_ID, "admin.it@tcs.test");
         PlatformAdmin admin = platformAdmin(adminUser);
@@ -415,8 +764,22 @@ class Report52AdminPlatformITTest {
         verify(auditLogService, never()).record(any(), any(), any(), any(), any());
     }
 
+    /**
+     * Test Case: IT-ADM-017
+     * Title: Revoke an active penalty and restore the user when no active ban remains.
+     * Procedure: Prepare the stated fixture and input, then execute PenaltyServiceImpl.revokePenalty (PATCH /api/platform/penalties/{penaltyId}/revoke).
+     * Input: penaltyId=80; valid revocation request.
+     * Steps:
+     *   1. Prepare the fixture: Admin owns active penalty 80 and target has no other active ban.
+     *   2. Use the input: penaltyId=80; valid revocation request.
+     *   3. Execute PenaltyServiceImpl.revokePenalty (PATCH /api/platform/penalties/{penaltyId}/revoke). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_017_RevokeActivePenaltyRestoresUserWhenNoActiveBanRemains.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert penalty/user statuses and audit/save calls.
+     * Expected: Penalty 80 becomes REVOKED, target user becomes ACTIVE and the revocation is audited.
+     * Pre-conditions: Admin owns active penalty 80 and target has no other active ban.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-017: Revoke an active penalty and restore the user when no active ban remains.")
     void IT_ADM_017_RevokeActivePenaltyRestoresUserWhenNoActiveBanRemains() {
         User adminUser = user(ADMIN_USER_ID, "admin.it@tcs.test");
         PlatformAdmin admin = platformAdmin(adminUser);
@@ -444,8 +807,22 @@ class Report52AdminPlatformITTest {
         verify(auditLogService).record(eq("REVOKE_PENALTY"), eq("UserPenalty"), eq(80L), eq(null), eq(request));
     }
 
+    /**
+     * Test Case: IT-ADM-018
+     * Title: Sort admin tasks by priority and due time for stable polling.
+     * Procedure: Prepare the stated fixture and input, then execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks).
+     * Input: Unfiltered page=0; size=10.
+     * Steps:
+     *   1. Prepare the fixture: Queue fixtures have distinct priorities and due times.
+     *   2. Use the input: Unfiltered page=0; size=10.
+     *   3. Execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_018_TaskQueueSortsByPriorityThenDueTimeForStablePolling.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert ordered task ids.
+     * Expected: The returned order is TICKET-32, WITHDRAW-40, then TICKET-31 according to queue priority/due-time rules.
+     * Pre-conditions: Queue fixtures have distinct priorities and due times.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-018: Sort admin tasks by priority and due time for stable polling.")
     void IT_ADM_018_TaskQueueSortsByPriorityThenDueTimeForStablePolling() {
         when(supportTicketRepository.findByStatusInOrderByCreatedAtAsc(anyList()))
                 .thenReturn(List.of(
@@ -461,8 +838,22 @@ class Report52AdminPlatformITTest {
         assertEquals("TICKET-31", page.getContent().get(2).getTaskId());
     }
 
+    /**
+     * Test Case: IT-ADM-019
+     * Title: Expose admin routes for verification, reports, withdrawals, refunds and disputes.
+     * Procedure: Prepare the stated fixture and input, then execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks).
+     * Input: Unfiltered admin task request.
+     * Steps:
+     *   1. Prepare the fixture: Each queue contains one pending item.
+     *   2. Use the input: Unfiltered admin task request.
+     *   3. Execute TaskQueueServiceImpl.listTasks (GET /api/platform/tasks). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_019_TaskQueueItemsExposeAdminRoutesForVerificationReportWithdrawalRefundAndDispute.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert all target routes and dispute tab query.
+     * Expected: Task items point to the correct frontend route/query for each business queue, including disputes under reports.
+     * Pre-conditions: Each queue contains one pending item.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-019: Expose admin routes for verification, reports, withdrawals, refunds and disputes.")
     void IT_ADM_019_TaskQueueItemsExposeAdminRoutesForVerificationReportWithdrawalRefundAndDispute() {
         when(verificationRequestRepository.findByStatusOrderBySubmittedAtAsc(VerificationStatus.SUBMITTED))
                 .thenReturn(List.of(verification(10L, LocalDateTime.now().minusHours(1))));
@@ -485,8 +876,22 @@ class Report52AdminPlatformITTest {
         assertTrue(queryFor(page.getContent(), "DISPUTE").contains("tab=disputes"));
     }
 
+    /**
+     * Test Case: IT-ADM-020
+     * Title: Expire an overdue temporary ban and restore the account when no other ban remains.
+     * Procedure: Prepare the stated fixture and input, then execute PenaltyServiceImpl.expireOverduePenalties (scheduled cleanup).
+     * Input: Scheduled penalty-expiry scan.
+     * Steps:
+     *   1. Prepare the fixture: An ACTIVE temporary penalty has an expiry in the past and no other active restriction.
+     *   2. Use the input: Scheduled penalty-expiry scan.
+     *   3. Execute PenaltyServiceImpl.expireOverduePenalties (scheduled cleanup). Mapped test: com.tcs.module.platform.service.impl.Report52AdminPlatformITTest#IT_ADM_020_ExpireOverdueTemporaryBanRestoresAccountWhenNoOtherActiveBanExists.
+     *   4. Compare the result with the expected behavior and the service with mocked collaborators checks: Assert penalty/user statuses and saves.
+     * Expected: The overdue penalty becomes EXPIRED and the target user returns to ACTIVE.
+     * Pre-conditions: An ACTIVE temporary penalty has an expiry in the past and no other active restriction.
+     */
     @Test
     @Tag("report52-it")
+    @DisplayName("IT-ADM-020: Expire an overdue temporary ban and restore the account when no other ban remains.")
     void IT_ADM_020_ExpireOverdueTemporaryBanRestoresAccountWhenNoOtherActiveBanExists() {
         User target = user(TARGET_USER_ID, "target.it@tcs.test");
         target.setStatus(UserStatus.BANNED);
@@ -509,6 +914,8 @@ class Report52AdminPlatformITTest {
         verify(userPenaltyRepository).save(overdue);
         verify(userRepository).save(target);
     }
+
+
 
     private IssuePenaltyRequest issuePenaltyRequest(String type) {
         IssuePenaltyRequest request = new IssuePenaltyRequest();
@@ -647,5 +1054,39 @@ class Report52AdminPlatformITTest {
                 .findFirst()
                 .orElseThrow()
                 .getTargetQuery();
+    }
+
+
+    private Wallet wallet(Long id) {
+        Wallet wallet = new Wallet();
+        wallet.setWalletId(id);
+        User user = new User();
+        user.setUserId(id);
+        wallet.setUser(user);
+        return wallet;
+    }
+
+    private RefundPayoutInfo payoutInfo() {
+        return new RefundPayoutInfo("TPBank", "0123456789", "Nguyen Van A");
+    }
+
+    
+
+    private UpsertSystemParameterRequest request(String key, String value) {
+        UpsertSystemParameterRequest request = new UpsertSystemParameterRequest();
+        request.setParamKey(key);
+        request.setParamValue(value);
+        request.setDescription("IT config value");
+        return request;
+    }
+
+    
+
+    private SystemParameter parameter(Long id, String key, String value) {
+        SystemParameter parameter = new SystemParameter();
+        parameter.setParameterId(id);
+        parameter.setParamKey(key);
+        parameter.setParamValue(value);
+        return parameter;
     }
 }
