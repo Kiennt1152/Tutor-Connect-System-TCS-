@@ -17,6 +17,8 @@ public interface TutorRepository extends JpaRepository<Tutor, Long> {
 
     Optional<Tutor> findByUser_UserId(Long userId);
 
+    boolean existsByUser_UserIdAndVerificationStatus(Long userId, ProfileVerificationStatus verificationStatus);
+
     List<Tutor> findByUser_UserIdIn(Collection<Long> userIds);
 
     List<Tutor> findByUser_StatusAndVerificationStatus(UserStatus userStatus, ProfileVerificationStatus verificationStatus);

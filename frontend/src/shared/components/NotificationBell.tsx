@@ -25,7 +25,6 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [showRead, setShowRead] = useState(false);
-  const [openedIds, setOpenedIds] = useState<number[]>([]);
   const [announcements, setAnnouncements] = useState<AnnouncementApiResponse[]>([]);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -36,25 +35,12 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
       .catch((err) => console.error('Failed to load announcements:', err));
   }, []);
 
-  // Nhắc nhở buổi học là thông báo hệ thống (hiển thị suốt ngày có lịch), tách khỏi thông báo thường.
-  const isLessonReminder = (n: NotificationItem) =>
-    n.referenceType === 'LESSON_REMINDER' || n.referenceType === 'CLASS_ACTIVE';
-  const reminderItems = items.filter(isLessonReminder);
-  const regularItems = items.filter((n) => !isLessonReminder(n));
-
-  const historyReadCount = regularItems.filter(
-    (n) => n.isRead && !openedIds.includes(n.notificationId),
-  ).length;
-  const visible = showRead
-    ? regularItems
-    : regularItems.filter((n) => !n.isRead || openedIds.includes(n.notificationId));
+  const historyReadCount = items.filter((n) => n.isRead).length;
+  const visible = showRead ? items : items.filter((n) => !n.isRead);
 
   function togglePanel() {
     if (!open) {
-      const unreadIds = items.filter((n) => !n.isRead).map((n) => n.notificationId);
-      setOpenedIds(unreadIds);
       setShowRead(false);
-      unreadIds.forEach((id) => void markRead(id));
     }
     setOpen((v) => !v);
   }
@@ -100,7 +86,7 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
           {enabled && (
             <>
               <div className="ntf__head">Thông báo</div>
-              {visible.length === 0 ? (
+              {visible.length === 0 && announcements.length === 0 ? (
                 <div className="ntf__empty">
                   {showRead ? 'Chưa có thông báo nào.' : 'Không có thông báo mới.'}
                 </div>
@@ -124,6 +110,14 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
                       </li>
                     );
                   })}
+                  {announcements.map((ann) => (
+                    <li key={`ann-${ann.announcementId}`} className="ntf__item-row">
+                      <div className="ntf__item">
+                        <div className="ntf__item-title">{ann.title}</div>
+                        <div className="ntf__item-content">{ann.content}</div>
+                      </div>
+                    </li>
+                  ))}
                 </ul>
               )}
               {historyReadCount > 0 && (
@@ -132,31 +126,6 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
                 </button>
               )}
             </>
-          )}
-
-          <div className="ntf__head ntf__head--system">Thông báo hệ thống</div>
-          {reminderItems.length === 0 && announcements.length === 0 ? (
-            <div className="ntf__empty">Không có thông báo nào.</div>
-          ) : (
-            <ul className="ntf__list">
-              {reminderItems.map((n) => (
-                <li key={`rm-${n.notificationId}`} className="ntf__item-row">
-                  <div className="ntf__item">
-                    <div className="ntf__item-title">{n.title}</div>
-                    <div className="ntf__item-content">{n.content}</div>
-                    <div className="ntf__item-time">{timeAgo(n.createdAt)}</div>
-                  </div>
-                </li>
-              ))}
-              {announcements.map((ann) => (
-                <li key={ann.announcementId} className="ntf__item-row">
-                  <div className="ntf__item">
-                    <div className="ntf__item-title">{ann.title}</div>
-                    <div className="ntf__item-content">{ann.content}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
           )}
         </div>
       )}

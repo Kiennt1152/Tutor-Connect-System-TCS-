@@ -29,6 +29,19 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * DỊCH VỤ QUẢN LÝ THÔNG BÁO TOÀN HỆ THỐNG (SYSTEM ANNOUNCEMENT SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả:
+ *   - Quản lý các thông báo/banner toàn nền tảng (System Announcements).
+ *   - Lưu trữ danh sách thông báo động dưới dạng JSON trong bảng SystemParameter (SYSTEM_ANNOUNCEMENTS).
+ *   - Hỗ trợ định hướng mục tiêu đối tượng (Target Role: Tất cả, Gia sư, Phụ huynh, Trung tâm).
+ *   - Thiết lập thời gian hiển thị (StartsAt -> EndsAt) và trạng thái bật/tắt (Active).
+ *   - Ghi vết Audit Log cho các hành động Thêm, Sửa, Bật/Tắt, Xóa thông báo.
+ */
 @Service
 @RequiredArgsConstructor
 public class AnnouncementServiceImpl implements AnnouncementService {
@@ -45,6 +58,9 @@ public class AnnouncementServiceImpl implements AnnouncementService {
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
+    /**
+     * Cấu trúc dữ liệu đại diện cho một bản ghi thông báo hệ thống được lưu trong JSON.
+     */
     @Data
     @NoArgsConstructor
     @AllArgsConstructor

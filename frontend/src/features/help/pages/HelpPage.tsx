@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * TRANG TRUNG TÂM TRỢ GIÚP VÀ HỎI ĐÁP CÔNG KHAI (PUBLIC HELP & FAQ CENTER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả:
+ *   - Trung tâm hỗ trợ trực tuyến công khai dành cho tất cả người dùng nền tảng.
+ *   - Tìm kiếm nhanh câu hỏi thường gặp (FAQ) theo từ khóa và danh mục chủ đề (Học viên, Gia sư, Trung tâm, Thanh toán,...).
+ *   - Danh mục câu hỏi dạng Accordion (Đóng/Mở câu trả lời).
+ *   - Phân trang câu hỏi và liên kết trực tiếp tới Trợ lý AI và Luồng tạo Ticket hỗ trợ.
+ */
+
 import { useState, useEffect, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { useFaqSearch } from '../hooks/useHelp';

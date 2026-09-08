@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * MODAL PHÁN QUYẾT TRANH CHẤP KÝ QUỸ (SETTLE DISPUTE MODAL)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả:
+ *   - Modal cho phép Quản trị viên đưa ra phán quyết phân chia quỹ ký quỹ Escrow giữa Phụ huynh và Gia sư.
+ *   - Các tùy chọn phân bổ nhanh: Hoàn trả 100% học viên, Giải ngân 100% gia sư, Phân chia theo tỷ lệ buổi học đã dạy.
+ *   - Ràng buộc bảo toàn tài chính: Tổng tiền hoàn trả + Giải ngân bắt buộc phải bằng chính xác 100% số tiền Escrow đang giữ.
+ *   - Ghi nhận phán quyết và giải phóng ký quỹ về ví tài khoản của hai bên.
+ */
+
 import { useState, useEffect, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { platformApi } from '../api/platformApi';

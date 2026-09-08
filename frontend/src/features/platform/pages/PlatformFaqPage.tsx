@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * TRANG QUẢN TRỊ KHO TRI THỨC VÀ HỎI ĐÁP FAQ (PLATFORM FAQ MANAGEMENT PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các tính năng quản lý FAQ:
+ *   - Quản lý bộ câu hỏi - trả lời thường gặp (FAQ Knowledge Base) phục vụ khách hàng và luồng RAG của AI.
+ *   - Thêm mới, chỉnh sửa, xóa và sắp xếp thứ tự ưu tiên hiển thị (sortOrder).
+ *   - Lọc danh mục câu hỏi (Chung, Phụ huynh, Gia sư, Trung tâm, Tài chính, Lớp học).
+ *   - Bật/tắt trạng thái xuất bản (Published / Hidden) trên trang Trợ giúp công khai.
+ */
+
 import type { FormEvent } from 'react';
 import { useState, useEffect } from 'react';
 import { ConfirmDialog, Pagination } from '../../../shared/components';

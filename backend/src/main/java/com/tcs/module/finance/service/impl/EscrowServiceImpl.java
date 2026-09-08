@@ -641,10 +641,15 @@ public class EscrowServiceImpl implements EscrowService {
             return tutoringClass.getCreator();
         }
 
-        if (escrow.getPayment() != null
-                && escrow.getPayment().getWallet() != null
-                && escrow.getPayment().getWallet().getUser() != null) {
-            return escrow.getPayment().getWallet().getUser();
+        if (paymentWalletCanRepresentPayer(escrow)) {
+            Wallet wallet = escrow.getPayment().getWallet();
+            if (wallet.getUser() != null) {
+                return wallet.getUser();
+            }
+            if (wallet.getWalletId() != null) {
+                return userRepository.findById(wallet.getWalletId())
+                        .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người thanh toán escrow"));
+            }
         }
 
         return userRepository.findById(payerUserId)
@@ -666,7 +671,7 @@ public class EscrowServiceImpl implements EscrowService {
             return tutoringClass.getCreator().getUserId();
         }
 
-        if (escrow.getPayment() != null && escrow.getPayment().getWallet() != null) {
+        if (paymentWalletCanRepresentPayer(escrow)) {
             Wallet wallet = escrow.getPayment().getWallet();
             if (wallet.getUser() != null && wallet.getUser().getUserId() != null) {
                 return wallet.getUser().getUserId();
@@ -684,8 +689,27 @@ public class EscrowServiceImpl implements EscrowService {
             return false;
         }
         Wallet wallet = escrow.getPayment().getWallet();
-        return (wallet.getUser() != null && payerUserId.equals(wallet.getUser().getUserId()))
+        boolean ownerMatches = (wallet.getUser() != null && payerUserId.equals(wallet.getUser().getUserId()))
                 || payerUserId.equals(wallet.getWalletId());
+        return ownerMatches && walletHasFrozenEscrowAmount(wallet, escrow.getAmount());
+    }
+
+    private boolean paymentWalletCanRepresentPayer(EscrowTransaction escrow) {
+        if (escrow == null || escrow.getPayment() == null || escrow.getPayment().getWallet() == null) {
+            return false;
+        }
+        Wallet wallet = escrow.getPayment().getWallet();
+        boolean hasOwner = (wallet.getUser() != null && wallet.getUser().getUserId() != null)
+                || wallet.getWalletId() != null;
+        return hasOwner && walletHasFrozenEscrowAmount(wallet, escrow.getAmount());
+    }
+
+    private boolean walletHasFrozenEscrowAmount(Wallet wallet, BigDecimal escrowAmount) {
+        if (wallet == null || escrowAmount == null || escrowAmount.compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        BigDecimal frozen = wallet.getFrozenBalance() != null ? wallet.getFrozenBalance() : BigDecimal.ZERO;
+        return frozen.compareTo(escrowAmount) >= 0;
     }
 
     private boolean isSettleable(EscrowStatus status) {

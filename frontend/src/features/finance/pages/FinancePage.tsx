@@ -1,7 +1,9 @@
 import { type MouseEvent, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { SiteFooter } from '../../home/components/SiteFooter';
 import { useAuth } from '../../../shared/auth/AuthProvider';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import '../FinancePage.css';
 import { useFinance } from '../hooks/useFinance';
 import { WalletBalanceCard } from '../components/WalletBalanceCard';
@@ -23,6 +25,7 @@ const EMPTY_WALLET: WalletInfo = {
 
 export default function FinancePage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const {
     wallet,
     walletLoading,
@@ -50,7 +53,8 @@ export default function FinancePage() {
   const [creatingWallet, setCreatingWallet] = useState(false);
   const [hasSeenMissingWallet, setHasSeenMissingWallet] = useState(false);
   const walletMissing = Boolean(walletError?.includes('chưa có ví'));
-  const showWalletSetup = !wallet && (walletMissing || hasSeenMissingWallet);
+  const walletVerificationRequired = Boolean(walletError?.toLowerCase().includes('xác minh hồ sơ'));
+  const showWalletSetup = !wallet && (walletMissing || hasSeenMissingWallet || walletVerificationRequired);
   const canTopup = user?.role === 'TUTOR_CENTER';
 
   useEffect(() => {
@@ -79,6 +83,10 @@ export default function FinancePage() {
 
   async function handleCreateWallet(event?: MouseEvent<HTMLButtonElement>) {
     event?.preventDefault();
+    if (walletVerificationRequired) {
+      navigate(APP_ROUTES.verification);
+      return;
+    }
     setCreatingWallet(true);
     try {
       await createWallet();
@@ -114,9 +122,11 @@ export default function FinancePage() {
           <section className="wallet-empty">
             <div>
               <p className="wallet-empty__eyebrow">Chưa kích hoạt ví</p>
-              <h2>Tạo ví nhận tiền</h2>
+              <h2>{walletVerificationRequired ? 'Cần xác minh hồ sơ' : 'Tạo ví nhận tiền'}</h2>
               <p>
-                Ví sẽ được dùng để nhận tiền lương, nhận khoản giải ngân từ escrow và gửi yêu cầu rút tiền.
+                {walletVerificationRequired
+                  ? 'Bạn cần gửi hồ sơ xác minh và được quản trị viên duyệt trước khi tạo ví nhận tiền.'
+                  : 'Ví sẽ được dùng để nhận tiền lương, nhận khoản giải ngân từ escrow và gửi yêu cầu rút tiền.'}
               </p>
               {walletError ? <p className="wallet-empty__error">{walletError}</p> : null}
             </div>
@@ -126,7 +136,7 @@ export default function FinancePage() {
               onClick={handleCreateWallet}
               disabled={creatingWallet || walletLoading}
             >
-              {creatingWallet ? 'Đang tạo ví...' : 'Tạo ví'}
+              {walletVerificationRequired ? 'Đi xác minh' : creatingWallet ? 'Đang tạo ví...' : 'Tạo ví'}
             </button>
           </section>
         ) : (
