@@ -12,14 +12,24 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tcs.common.classrequest.ClassRequestStore;
 import com.tcs.common.event.CooperationContractSigned;
+import com.tcs.common.event.EscrowFunded;
 import com.tcs.common.event.StudentContractSigned;
+import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.module.catalog.repository.CategoryRepository;
+import com.tcs.module.catalog.repository.GradeRepository;
+import com.tcs.module.catalog.repository.LocationRepository;
+import com.tcs.module.catalog.repository.SubjectRepository;
 import com.tcs.module.catalog.repository.SystemParameterRepository;
+import com.tcs.module.catalog.repository.TutorSubjectRepository;
 import com.tcs.module.center.entity.RecruitmentApplication;
 import com.tcs.module.center.entity.RecruitmentPost;
 import com.tcs.module.center.repository.RecruitmentApplicationRepository;
+import com.tcs.module.contract.dto.request.SaveRefundPayoutRequest;
 import com.tcs.module.contract.dto.request.SignWithOtpRequest;
 import com.tcs.module.contract.dto.response.ContractResponse;
 import com.tcs.module.contract.entity.Contract;
@@ -32,12 +42,22 @@ import com.tcs.module.contract.repository.ContractSignatureRepository;
 import com.tcs.module.contract.repository.ContractTemplateRepository;
 import com.tcs.module.contract.repository.ReputationHistoryRepository;
 import com.tcs.module.contract.repository.ReviewRepository;
+import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.finance.dto.EscrowLockCommand;
+import com.tcs.module.finance.dto.ReleaseInstruction;
+import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
+import com.tcs.module.finance.entity.Wallet;
+import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
+import com.tcs.module.finance.enums.WalletStatus;
+import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
+import com.tcs.module.finance.repository.RefundRequestRepository;
+import com.tcs.module.finance.repository.WalletRepository;
+import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.identity.entity.EmailOtp;
 import com.tcs.module.identity.entity.User;
@@ -45,29 +65,65 @@ import com.tcs.module.identity.enums.OtpPurpose;
 import com.tcs.module.identity.repository.EmailOtpRepository;
 import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.identity.service.OtpService;
+import com.tcs.module.marketplace.dto.request.ApplyClassRequest;
+import com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest;
+import com.tcs.module.marketplace.dto.request.CreateClassRequest;
+import com.tcs.module.marketplace.dto.request.CreateClassTerminationRequest;
+import com.tcs.module.marketplace.dto.response.ClassTerminationResponse;
+import com.tcs.module.marketplace.dto.response.TutorSearchResponse;
 import com.tcs.module.marketplace.entity.ClassAssignment;
 import com.tcs.module.marketplace.entity.ClassStudent;
+import com.tcs.module.marketplace.entity.ClassTerminationRequest;
+import com.tcs.module.marketplace.entity.Lesson;
+import com.tcs.module.marketplace.entity.ScheduleSlot;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.AttendanceStatus;
+import com.tcs.module.marketplace.enums.ClassAssignmentStatus;
+import com.tcs.module.marketplace.enums.ClassStudentStatus;
+import com.tcs.module.marketplace.enums.ClassTerminationStatus;
 import com.tcs.module.marketplace.enums.ClassType;
-import com.tcs.module.notification.service.EmailService;
-import com.tcs.module.profile.dto.CccdInfoDto;
+import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
+import com.tcs.module.marketplace.repository.ClassTerminationRequestRepository;
+import com.tcs.module.marketplace.repository.FavoriteTutorRepository;
 import com.tcs.module.marketplace.repository.LessonAttendanceRepository;
 import com.tcs.module.marketplace.repository.LessonRepository;
+import com.tcs.module.marketplace.repository.LessonRescheduleRequestRepository;
+import com.tcs.module.marketplace.repository.ScheduleSlotRepository;
+import com.tcs.module.marketplace.repository.TutorApplicationRepository;
+import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.marketplace.service.impl.*;
+import com.tcs.module.marketplace.service.impl.LessonReminderService;
+import com.tcs.module.messaging.enums.NotificationType;
+import com.tcs.module.messaging.repository.NotificationRepository;
+import com.tcs.module.messaging.service.NotificationDispatchService;
+import com.tcs.module.notification.service.EmailService;
+import com.tcs.module.platform.enums.ReportStatus;
+import com.tcs.module.platform.enums.ReportTargetType;
+import com.tcs.module.platform.repository.ReportRepository;
+import com.tcs.module.platform.service.AuditLogService;
+import com.tcs.module.platform.service.PenaltyAccessService;
+import com.tcs.module.profile.dto.CccdInfoDto;
+import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.service.CccdService;
+import com.tcs.module.profile.service.ClientLegalAccountService;
 import com.tcs.security.AuthHelper;
 import com.tcs.security.UserPrincipal;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Tag;
@@ -82,10 +138,14 @@ import org.mockito.quality.Strictness;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.test.util.ReflectionTestUtils;
 
+/**
+ * Report 5.2 F07 Contract OTP: all test functions for this sheet.
+ * Separate package-private classes preserve each original JUnit test context.
+ */
 @Tag("report52-support")
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class Report52ContractOtpServiceITTest {
+class Report52F07ContractOtpITTest {
 
     private static final Long TUTOR_USER_ID = 200L;
     private static final Long STRANGER_USER_ID = 999L;
@@ -306,101 +366,10 @@ class Report52ContractOtpServiceITTest {
         assertEquals("Bạn không có quyền xem hợp đồng này", exception.getMessage());
     }
 
-    @Test
-    @Tag("report52-it")
-    void IT_PRV_002_GetMyContractsReturnsDeduplicatedPrivateContractRowsForSigner() {
-        Contract privateContract = privateAssignmentContract();
-        preparePrivateTuitionData(privateContract);
-        privateContract.setStatus(ContractStatus.SIGNED);
 
-        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
-        when(authHelper.requireAuthenticated()).thenReturn(new UserPrincipal(tutorUser(), UserRole.TUTOR));
-        stubContractListForUser(TUTOR_USER_ID, TUTOR_EMAIL, privateContract);
-        when(contractSignatureRepository.countSignedByContractId(901L)).thenReturn(2);
 
-        var responses = contractService.getMyContracts();
 
-        assertEquals(1, responses.size());
-        assertEquals(901L, responses.get(0).getContractId());
-        assertEquals(800L, responses.get(0).getAssignmentId());
-        assertEquals(TUTOR_USER_ID, responses.get(0).getTutorId());
-        assertEquals("PRIVATE", responses.get(0).getClassType());
-    }
 
-    @Test
-    @Tag("report52-it")
-    void IT_PRV_003_GetPrivateContractDetailReturnsClassPartiesAndTuition() {
-        Contract privateContract = privateAssignmentContract();
-        preparePrivateTuitionData(privateContract);
-        User clientUser = privateContract.getAssignment().getApplication().getTutoringClass().getCreator();
-
-        when(authHelper.currentUserId()).thenReturn(clientUser.getUserId());
-        when(authHelper.requireAuthenticated()).thenReturn(new UserPrincipal(clientUser, UserRole.CLIENT));
-        when(contractRepository.findById(901L)).thenReturn(Optional.of(privateContract));
-        when(contractRepository.findContractsByUserId(clientUser.getUserId())).thenReturn(List.of());
-        when(contractSignatureRepository.countSignedByContractId(901L)).thenReturn(1);
-
-        var response = contractService.getMyContract(901L);
-
-        assertEquals("HD-PRIVATE-IT", response.getContractNo());
-        assertEquals("Lớp private Toán 12", response.getClassTitle());
-        assertEquals("client.it@tcs.test", response.getClientEmail());
-        assertEquals(TUTOR_EMAIL, response.getTutorEmail());
-        assertEquals(new BigDecimal("400000.00"), response.getEscrowAmount());
-    }
-
-    @Test
-    @Tag("report52-it")
-    void IT_PRV_006_BlockAnonymousContractListBeforeReturningPrivateContracts() {
-        when(authHelper.requireAuthenticated()).thenThrow(new ForbiddenException("Yêu cầu đăng nhập"));
-
-        ForbiddenException exception = assertThrows(
-                ForbiddenException.class,
-                () -> contractService.getMyContracts());
-
-        assertEquals("Yêu cầu đăng nhập", exception.getMessage());
-        verify(contractRepository, never()).findContractsByUserId(anyLong());
-    }
-
-    @Test
-    @Tag("report52-it")
-    void IT_PRV_007_BlockUnrelatedUserFromPrivateContractDetail() {
-        Contract privateContract = privateAssignmentContract();
-
-        when(authHelper.currentUserId()).thenReturn(STRANGER_USER_ID);
-        when(contractRepository.findById(901L)).thenReturn(Optional.of(privateContract));
-
-        ForbiddenException exception = assertThrows(
-                ForbiddenException.class,
-                () -> contractService.getMyContract(901L));
-
-        assertEquals("Bạn không có quyền xem hợp đồng này", exception.getMessage());
-        verify(contractSignatureRepository, never()).countSignedByContractId(901L);
-    }
-
-    @Test
-    @Tag("report52-it")
-    void IT_PRV_012_ReloadSignedContractReturnsExistingPendingEscrowQrPayment() {
-        Contract privateContract = privateAssignmentContract();
-        preparePrivateTuitionData(privateContract);
-        User clientUser = privateContract.getAssignment().getApplication().getTutoringClass().getCreator();
-        PaymentTransaction pendingPayment = pendingEscrowPayment("ESCROW-A800", new BigDecimal("400000.00"));
-
-        when(authHelper.currentUserId()).thenReturn(clientUser.getUserId());
-        when(authHelper.requireAuthenticated()).thenReturn(new UserPrincipal(clientUser, UserRole.CLIENT));
-        when(contractRepository.findById(901L)).thenReturn(Optional.of(privateContract));
-        when(contractRepository.findContractsByUserId(clientUser.getUserId())).thenReturn(List.of());
-        when(contractSignatureRepository.countSignedByContractId(901L)).thenReturn(2);
-        when(paymentTransactionRepository.findByReferenceCode("ESCROW-A800"))
-                .thenReturn(Optional.of(pendingPayment));
-
-        var response = contractService.getMyContract(901L);
-
-        assertNotNull(response.getEscrowPayment());
-        assertEquals(PaymentTransactionStatus.PENDING, response.getEscrowPayment().getPaymentStatus());
-        assertEquals("ESCROW-A800", response.getEscrowPayment().getTransferContent());
-        assertTrue(response.getEscrowPayment().getQrUrl().contains("amount=400000"));
-    }
 
     @Test
     @Tag("report52-it")
@@ -541,35 +510,6 @@ class Report52ContractOtpServiceITTest {
         assertEquals(new BigDecimal("600000.00"), commandCaptor.getValue().amount());
     }
 
-    @Test
-    @Tag("report52-it")
-    void IT_CCE_014_StudentEnrollmentContractUsesPerStudentTuitionForEscrowCommand() {
-        Contract studentContract = studentEnrollmentContract();
-        ContractSignature clientSignature = pendingClientSignature(studentContract);
-        ContractSignature centerSignature = signedCenterSignature(studentContract);
-        User clientUser = studentContract.getClassStudent().getEnrolledByUser();
-        activeOtp.setEmail(clientUser.getEmail());
-
-        when(authHelper.currentUserId()).thenReturn(clientUser.getUserId());
-        when(authHelper.requireAuthenticated()).thenReturn(new UserPrincipal(clientUser, UserRole.CLIENT));
-        when(cccdService.isComplete(clientUser.getUserId())).thenReturn(true);
-        when(contractRepository.findById(902L)).thenReturn(Optional.of(studentContract));
-        when(contractSignatureRepository.findByContractIdAndPartyRole(902L, PartyRole.CLIENT))
-                .thenReturn(Optional.of(clientSignature));
-        when(contractSignatureRepository.findByContractId(902L)).thenReturn(List.of(clientSignature, centerSignature));
-        when(contractSignatureRepository.countSignedByContractId(902L)).thenReturn(2);
-        when(userRepository.findById(clientUser.getUserId())).thenReturn(Optional.of(clientUser));
-        when(tutorCenterRepository.findByUser_UserId(100L)).thenReturn(Optional.of(studentCenter()));
-        when(clientRepository.findByUser_UserId(clientUser.getUserId())).thenReturn(Optional.empty());
-
-        contractService.signWithOtp(902L, otp("123456"));
-
-        ArgumentCaptor<EscrowLockCommand> commandCaptor = ArgumentCaptor.forClass(EscrowLockCommand.class);
-        verify(escrowService).preparePayment(commandCaptor.capture());
-        assertEquals(clientUser.getUserId(), commandCaptor.getValue().payerUserId());
-        assertEquals(88L, commandCaptor.getValue().classStudentId());
-        assertEquals(new BigDecimal("600000.00"), commandCaptor.getValue().amount());
-    }
 
     @Test
     @Tag("report52-it")
@@ -622,67 +562,7 @@ class Report52ContractOtpServiceITTest {
         verify(emailOtpRepository).save(activeOtp);
     }
 
-    @Test
-    @Tag("report52-it")
-    void IT_PRV_014_PrivateContractShowsTotalAndFirstPaymentAmountFromTerms() {
-        Contract privateContract = privateAssignmentContract();
-        preparePrivateTuitionData(privateContract);
-        User clientUser = privateContract.getAssignment().getApplication().getTutoringClass().getCreator();
 
-        when(authHelper.currentUserId()).thenReturn(clientUser.getUserId());
-        when(authHelper.requireAuthenticated()).thenReturn(new UserPrincipal(clientUser, UserRole.CLIENT));
-        when(contractRepository.findById(901L)).thenReturn(Optional.of(privateContract));
-        when(contractSignatureRepository.findByContractId(901L)).thenReturn(List.of());
-
-        ContractResponse response = contractService.getMyContract(901L);
-
-        assertEquals(new BigDecimal("400000.00"), response.getTotalTuitionAmount());
-        assertEquals(new BigDecimal("400000.00"), response.getEscrowAmount());
-        assertEquals("Lớp private Toán 12", response.getClassTitle());
-    }
-
-    @Test
-    @Tag("report52-it")
-    void IT_PRV_015_TutorContractListIncludesClientSignedPrivateContractAfterNotification() {
-        Contract privateContract = privateAssignmentContract();
-        preparePrivateTuitionData(privateContract);
-        ClassAssignment assignment = privateContract.getAssignment();
-        assignment.setClientSignedAt(LocalDateTime.now().minusMinutes(5));
-        User tutorUser = assignment.getTutor().getUser();
-        ContractSignature clientSignature = signedClientSignature(privateContract);
-        ContractSignature pendingTutorSignature = pendingTutorSignature(privateContract);
-
-        when(authHelper.currentUserId()).thenReturn(tutorUser.getUserId());
-        when(authHelper.requireAuthenticated()).thenReturn(new UserPrincipal(tutorUser, UserRole.TUTOR));
-        when(contractRepository.findContractsByUserId(tutorUser.getUserId())).thenReturn(List.of());
-        when(contractRepository.findBySignatureParty(tutorUser.getUserId(), tutorUser.getEmail())).thenReturn(List.of());
-        when(contractRepository.findByAssignment_Tutor_UserId(tutorUser.getUserId())).thenReturn(List.of());
-        when(contractRepository.findByAssignment_ClassCreator_UserId(tutorUser.getUserId())).thenReturn(List.of());
-        when(contractRepository.findByClassStudent_UserId(tutorUser.getUserId())).thenReturn(List.of());
-        when(contractRepository.findByRecruitmentApplication_Tutor_UserId(tutorUser.getUserId())).thenReturn(List.of());
-        when(contractRepository.findByRecruitmentApplication_CenterUser_UserId(tutorUser.getUserId())).thenReturn(List.of());
-        when(tutorRepository.findByUser_UserId(tutorUser.getUserId())).thenReturn(Optional.of(assignment.getTutor()));
-        when(classAssignmentRepository.findByTutor_TutorIdOrderByAssignedDateDesc(20L)).thenReturn(List.of(assignment));
-        when(classAssignmentRepository.findByApplication_TutoringClass_Creator_UserIdOrderByAssignedDateDesc(tutorUser.getUserId()))
-                .thenReturn(List.of());
-        when(contractRepository.findByAssignment_AssignmentId(assignment.getAssignmentId()))
-                .thenReturn(Optional.of(privateContract));
-        when(contractRepository.save(privateContract)).thenReturn(privateContract);
-        when(contractSignatureRepository.findByContractId(901L))
-                .thenReturn(List.of(clientSignature, pendingTutorSignature));
-        when(contractSignatureRepository.findByContractIdAndPartyRole(901L, PartyRole.CLIENT))
-                .thenReturn(Optional.of(clientSignature));
-        when(contractSignatureRepository.findByContractIdAndPartyRole(901L, PartyRole.TUTOR))
-                .thenReturn(Optional.of(pendingTutorSignature));
-        when(contractSignatureRepository.countSignedByContractId(901L)).thenReturn(1);
-
-        List<ContractResponse> responses = contractService.getMyContracts();
-
-        assertEquals(1, responses.size());
-        assertEquals(901L, responses.get(0).getContractId());
-        assertEquals(1, responses.get(0).getSignedCount());
-        assertEquals(2, responses.get(0).getRequiredSignatures());
-    }
 
     @Test
     @Tag("report52-it")
@@ -933,5 +813,353 @@ class Report52ContractOtpServiceITTest {
         privateContract.setAssignment(assignment);
         privateContract.setSourceType(com.tcs.module.contract.enums.ContractSourceType.PRIVATE);
         return privateContract;
+    }
+}
+
+@Tag("report52-support")
+@ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
+class Report52F07ContractOtpPart2ITTest {
+
+    private static final Long CLASS_ID = 5L;
+    private static final Long ASSIGNMENT_ID = 7L;
+    private static final Long CLASS_STUDENT_ID = 8L;
+    private static final Long CLIENT_USER_ID = 11L;
+    private static final Long TUTOR_USER_ID = 22L;
+
+    @Mock private PenaltyAccessService penaltyAccessService;
+    @Mock private AuthHelper authHelper;
+    @Mock private UserRepository userRepository;
+    @Mock private ClientRepository clientRepository;
+    @Mock private TutorRepository tutorRepository;
+    @Mock private TutorCenterRepository tutorCenterRepository;
+    @Mock private ContractRepository contractRepository;
+    @Mock private ContractSignatureRepository contractSignatureRepository;
+    @Mock private ContractService contractService;
+    @Mock private EscrowTransactionRepository escrowTransactionRepository;
+    @Mock private PaymentTransactionRepository paymentTransactionRepository;
+    @Mock private WalletRepository walletRepository;
+    @Mock private ReportRepository reportRepository;
+    @Mock private DisputeRepository disputeRepository;
+    @Mock private RefundRequestRepository refundRequestRepository;
+    @Mock private EscrowService escrowService;
+    @Mock private CenterRequestFeeService centerRequestFeeService;
+    @Mock private TutoringClassRepository tutoringClassRepository;
+    @Mock private ClassAssignmentRepository classAssignmentRepository;
+    @Mock private ClassStudentRepository classStudentRepository;
+    @Mock private ClassTerminationRequestRepository classTerminationRequestRepository;
+    @Mock private TutorApplicationRepository tutorApplicationRepository;
+    @Mock private FavoriteTutorRepository favoriteTutorRepository;
+    @Mock private LessonRepository lessonRepository;
+    @Mock private LessonAttendanceRepository lessonAttendanceRepository;
+    @Mock private ScheduleSlotRepository scheduleSlotRepository;
+    @Mock private CategoryRepository categoryRepository;
+    @Mock private SubjectRepository subjectRepository;
+    @Mock private GradeRepository gradeRepository;
+    @Mock private LocationRepository locationRepository;
+    @Mock private NotificationRepository notificationRepository;
+    @Mock private NotificationDispatchService notificationDispatchService;
+    @Mock private AuditLogService auditLogService;
+    @Mock private CccdService cccdService;
+    @Mock private ClientLegalAccountService clientLegalAccountService;
+    @Mock private TutorSubjectRepository tutorSubjectRepository;
+    @Mock private LessonRescheduleRequestRepository rescheduleRequestRepository;
+    @Mock private LessonReminderService lessonReminderService;
+    @Mock private EmailOtpRepository emailOtpRepository;
+    @Mock private OtpService otpService;
+    @Mock private EmailService contractEmailService;
+    @Mock private ApplicationEventPublisher eventPublisher;
+    @Mock private ClassRequestStore classRequestStore;
+
+    @InjectMocks
+    private MarketplaceServiceImpl marketplaceService;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    @Test
+    @Tag("report52-it")
+    void IT_CT_019_ClientSignatureNotificationUsesContractReferenceForTutorContractPage() {
+        User clientUser = user(CLIENT_USER_ID);
+        User tutorUser = user(TUTOR_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.MATCHED);
+        ClassAssignment assignment = assignment(tutoringClass, tutorUser);
+        assignment.setStatus(ClassAssignmentStatus.PENDING);
+
+        when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+        when(classAssignmentRepository.findById(ASSIGNMENT_ID)).thenReturn(Optional.of(assignment));
+        when(cccdService.getByUserId(CLIENT_USER_ID)).thenReturn(completeCccd("Nguyễn Thu Hà", "001200000001"));
+
+        marketplaceService.signAssignmentContract(ASSIGNMENT_ID, "123456");
+
+        verify(notificationDispatchService).notifyUserFromTemplate(
+                eq(tutorUser),
+                eq(NotificationType.APPLICATION),
+                eq("MARKETPLACE_CONTRACT_TUTOR_SIGN"),
+                any(),
+                eq("Bên A đã ký hợp đồng — mời bạn ký"),
+                anyString(),
+                eq("CONTRACT"),
+                eq(CLASS_ID));
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    private CreateClassTerminationRequest terminationRequest() {
+        CreateClassTerminationRequest request = new CreateClassTerminationRequest();
+        request.setReason("Muốn dừng lớp");
+        request.setBankName("TPBank");
+        request.setAccountNo("0123456789");
+        request.setAccountHolderName("Nguyen Van A");
+        return request;
+    }
+
+    private CreateClassRequest createClassRequest() {
+        CreateClassRequest request = new CreateClassRequest();
+        request.setTitle("Cần gia sư Toán lớp 9");
+        request.setDetailsJson("{\"subjectIds\":[\"101\"],\"slots\":[]}");
+        request.setBudget(new BigDecimal("120000.00"));
+        return request;
+    }
+
+    private ApplyClassRequest applyClassRequest() {
+        ApplyClassRequest request = new ApplyClassRequest();
+        request.setProposedRate(new BigDecimal("120000.00"));
+        request.setCoverLetter("Em có kinh nghiệm dạy Toán THCS.");
+        return request;
+    }
+
+    private ClassRequestCreateRequest classRequestCreateRequest() {
+        ClassRequestCreateRequest request = new ClassRequestCreateRequest();
+        request.setNote("Gia đình muốn tìm gia sư Toán lớp 9 học buổi tối.");
+        request.setDesiredBudget(new BigDecimal("500000.00"));
+        request.setRefundPayoutInfo(new com.tcs.module.finance.dto.RefundPayoutInfo(
+                "TPBank",
+                "0123456789",
+                "Nguyen Thu Ha"));
+        return request;
+    }
+
+    private CccdInfoDto completeCccd(String fullName, String cccdNumber) {
+        return CccdInfoDto.builder()
+                .fullName(fullName)
+                .cccdNumber(cccdNumber)
+                .dateOfBirth("01/01/2000")
+                .permanentAddress("Hà Nội")
+                .complete(true)
+                .build();
+    }
+
+    private User user(Long userId) {
+        User user = new User();
+        user.setUserId(userId);
+        user.setEmail("user" + userId + "@tcs.test");
+        return user;
+    }
+
+    private Client client(User user) {
+        Client client = new Client();
+        client.setClientId(user.getUserId());
+        client.setUser(user);
+        client.setFullName("Phụ huynh test");
+        client.setPhone("0900000000");
+        client.setDateOfBirth(LocalDate.of(1988, 1, 1));
+        return client;
+    }
+
+    private Wallet activeWallet(User user) {
+        Wallet wallet = new Wallet();
+        wallet.setWalletId(user.getUserId());
+        wallet.setUser(user);
+        wallet.setStatus(WalletStatus.ACTIVE);
+        return wallet;
+    }
+
+    private ClassAssignment pendingSignedAssignment(TutoringClass tutoringClass, User tutorUser) {
+        ClassAssignment assignment = assignment(tutoringClass, tutorUser);
+        assignment.setStatus(ClassAssignmentStatus.PENDING);
+        assignment.setClientSignedAt(LocalDateTime.now().minusMinutes(20));
+        assignment.setTutorSignedAt(LocalDateTime.now().minusMinutes(10));
+        return assignment;
+    }
+
+    private Contract privateContract(ClassAssignment assignment) {
+        Contract contract = new Contract();
+        contract.setContractId(880L);
+        contract.setContractNo("BF08P-PRIVATE-001");
+        contract.setAssignment(assignment);
+        return contract;
+    }
+
+    private PaymentTransaction privateEscrowPayment(Long transactionId, String referenceCode) {
+        PaymentTransaction payment = new PaymentTransaction();
+        payment.setTransactionId(transactionId);
+        payment.setReferenceCode(referenceCode);
+        payment.setAmount(new BigDecimal("500000.00"));
+        payment.setType(PaymentTransactionType.ESCROW_DEPOSIT);
+        payment.setStatus(PaymentTransactionStatus.PENDING);
+        return payment;
+    }
+
+    private TutoringClass tutoringClass(User creator, TutoringClassStatus status) {
+        TutoringClass tutoringClass = new TutoringClass();
+        tutoringClass.setClassId(CLASS_ID);
+        tutoringClass.setCreator(creator);
+        tutoringClass.setTitle("Lớp toán");
+        tutoringClass.setDescription("Lớp toán test");
+        tutoringClass.setStatus(status);
+        tutoringClass.setClassType(com.tcs.module.marketplace.enums.ClassType.PRIVATE);
+        return tutoringClass;
+    }
+
+    private TutoringClass centerClass(User creator, TutoringClassStatus status) {
+        TutoringClass tutoringClass = tutoringClass(creator, status);
+        tutoringClass.setClassType(com.tcs.module.marketplace.enums.ClassType.CENTER);
+        tutoringClass.setMaxStudents(20);
+        return tutoringClass;
+    }
+
+    private void stubSuccessfulCenterEnrollment(User clientUser, Client client, TutoringClass tutoringClass) {
+        when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+        when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(clientRepository.findByUser_UserId(CLIENT_USER_ID)).thenReturn(Optional.of(client));
+        when(classStudentRepository.existsByTutoringClass_ClassIdAndStudentEmail(CLASS_ID, clientUser.getEmail()))
+                .thenReturn(false);
+        when(clientLegalAccountService.resolveForClient(client)).thenReturn(
+                ClientLegalAccountService.LegalAccountContext.builder()
+                        .sessionUserId(CLIENT_USER_ID)
+                        .legalUserId(CLIENT_USER_ID)
+                        .legalHolderName(client.getFullName())
+                        .legalHolderEmail(clientUser.getEmail())
+                        .delegatedToParent(false)
+                        .build());
+        when(classStudentRepository.save(any(ClassStudent.class))).thenAnswer(invocation -> {
+            ClassStudent saved = invocation.getArgument(0);
+            saved.setClassStudentId(CLASS_STUDENT_ID);
+            return saved;
+        });
+    }
+
+    private Tutor tutor(User tutorUser) {
+        Tutor tutor = new Tutor();
+        tutor.setTutorId(44L);
+        tutor.setUser(tutorUser);
+        tutor.setFullName("Gia sư test");
+        return tutor;
+    }
+
+    private TutorApplication tutorApplication(TutoringClass tutoringClass, Tutor tutor) {
+        TutorApplication application = new TutorApplication();
+        application.setApplicationId(55L);
+        application.setTutoringClass(tutoringClass);
+        application.setTutor(tutor);
+        return application;
+    }
+
+    private ClassAssignment assignment(TutoringClass tutoringClass, User tutorUser) {
+        Tutor tutor = tutor(tutorUser);
+        TutorApplication application = tutorApplication(tutoringClass, tutor);
+
+        ClassAssignment assignment = new ClassAssignment();
+        assignment.setAssignmentId(ASSIGNMENT_ID);
+        assignment.setTutor(tutor);
+        assignment.setApplication(application);
+        assignment.setStatus(ClassAssignmentStatus.ACTIVE);
+        return assignment;
+    }
+
+    private ClassStudent classStudent(TutoringClass tutoringClass, User enrolledUser) {
+        ClassStudent classStudent = new ClassStudent();
+        classStudent.setClassStudentId(CLASS_STUDENT_ID);
+        classStudent.setTutoringClass(tutoringClass);
+        classStudent.setEnrolledByUser(enrolledUser);
+        classStudent.setStudentName("Học viên test");
+        classStudent.setStudentEmail(enrolledUser.getEmail());
+        classStudent.setStatus(ClassStudentStatus.ENROLLED);
+        return classStudent;
+    }
+
+    private EscrowTransaction escrow(Long escrowId, BigDecimal amount) {
+        EscrowTransaction escrow = new EscrowTransaction();
+        escrow.setEscrowId(escrowId);
+        escrow.setAmount(amount);
+        escrow.setStatus(EscrowStatus.FUNDED);
+        return escrow;
+    }
+
+    private void configurePrivateHourlyDeal(TutoringClass tutoringClass, BigDecimal hourlyRate) {
+        tutoringClass.setTuitionFee(hourlyRate);
+        tutoringClass.setDetailsJson("""
+                {
+                  "subjectIds": ["101"],
+                  "subjectFees": {"101": "%s"},
+                  "slots": [{"day": "T2", "start": "18:00", "end": "19:00", "subjectId": "101"}]
+                }
+                """.formatted(hourlyRate.toPlainString()));
+    }
+
+    private List<Lesson> lessons(TutoringClass tutoringClass, Tutor tutor, int total, int completed) {
+        ScheduleSlot slot = new ScheduleSlot();
+        slot.setSlotId(19L);
+        slot.setStartTime(LocalTime.of(18, 0));
+        slot.setEndTime(LocalTime.of(19, 0));
+        return java.util.stream.IntStream.rangeClosed(1, total)
+                .mapToObj(sequence -> {
+                    Lesson lesson = new Lesson();
+                    lesson.setLessonId(1000L + sequence);
+                    lesson.setTutoringClass(tutoringClass);
+                    lesson.setTutor(tutor);
+                    lesson.setSlot(slot);
+                    lesson.setSequenceNo(sequence);
+                    lesson.setLessonDate(LocalDate.now().minusDays(total - sequence));
+                    lesson.setAttendanceStatus(sequence <= completed ? AttendanceStatus.COMPLETED : AttendanceStatus.PENDING);
+                    return lesson;
+                })
+                .toList();
     }
 }

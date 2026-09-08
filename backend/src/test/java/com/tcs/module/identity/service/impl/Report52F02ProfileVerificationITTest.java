@@ -1,8 +1,8 @@
 package com.tcs.module.identity.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -22,10 +22,10 @@ import com.tcs.module.identity.enums.VerificationDocumentType;
 import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.enums.VerificationType;
 import com.tcs.module.identity.mapper.VerificationMapper;
+import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.identity.repository.VerificationDocumentRepository;
 import com.tcs.module.identity.repository.VerificationHistoryRepository;
 import com.tcs.module.identity.repository.VerificationRequestRepository;
-import com.tcs.module.identity.repository.UserRepository;
 import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.service.NotificationDispatchService;
 import com.tcs.module.platform.service.AuditLogService;
@@ -54,10 +54,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
+/**
+ * Report 5.2 F02 Profile Verification: all test functions for this sheet.
+ * Separate package-private classes preserve each original JUnit test context.
+ */
 @Tag("report52-support")
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class Report52VerificationServiceITTest {
+class Report52F02ProfileVerificationITTest {
 
     private static final Long OWNER_USER_ID = 200L;
     private static final Long STRANGER_USER_ID = 999L;

@@ -75,55 +75,7 @@ class Report52PaymentReconciliationITTest {
         verify(paymentTransactionRepository).saveAll(List.of(topup));
     }
 
-    @Test
-    @Tag("report52-it")
-    void IT_ESC_018_CancelExpiredClassEscrowPaymentSession() {
-        LocalDateTime now = LocalDateTime.of(2026, 8, 31, 10, 0);
-        PaymentTransaction escrowPayment = transaction(
-                PaymentTransactionType.ESCROW_DEPOSIT,
-                PaymentTransactionStatus.PENDING,
-                new BigDecimal("500000.00"),
-                "ESCROW-A7",
-                now.minusMinutes(20));
 
-        when(paymentTransactionRepository.findByTypeAndStatusAndCreatedAtBefore(
-                PaymentTransactionType.ESCROW_DEPOSIT,
-                PaymentTransactionStatus.PENDING,
-                now.minusMinutes(15)))
-                .thenReturn(List.of(escrowPayment));
-
-        int changed = reconciliationService.expirePendingEscrowDeposits(now);
-
-        assertEquals(1, changed);
-        assertEquals(PaymentTransactionStatus.CANCELLED, escrowPayment.getStatus());
-        assertEquals(now, escrowPayment.getProcessedAt());
-        assertNotNull(escrowPayment.getFailureReason());
-        verify(paymentTransactionRepository).saveAll(List.of(escrowPayment));
-    }
-
-    @Test
-    @Tag("report52-it")
-    void IT_CFR_018_KeepCenterRequestFeeOutsideClassEscrowTimeout() {
-        LocalDateTime now = LocalDateTime.of(2026, 8, 31, 10, 0);
-        PaymentTransaction centerRequestFee = transaction(
-                PaymentTransactionType.ESCROW_DEPOSIT,
-                PaymentTransactionStatus.PENDING,
-                new BigDecimal("2500.00"),
-                "CENTERREQ-ABC12345",
-                now.minusMinutes(20));
-
-        when(paymentTransactionRepository.findByTypeAndStatusAndCreatedAtBefore(
-                PaymentTransactionType.ESCROW_DEPOSIT,
-                PaymentTransactionStatus.PENDING,
-                now.minusMinutes(15)))
-                .thenReturn(List.of(centerRequestFee));
-
-        int changed = reconciliationService.expirePendingEscrowDeposits(now);
-
-        assertEquals(0, changed);
-        assertEquals(PaymentTransactionStatus.PENDING, centerRequestFee.getStatus());
-        verify(paymentTransactionRepository).saveAll(List.of());
-    }
 
     @Test
     @Tag("report52-it")

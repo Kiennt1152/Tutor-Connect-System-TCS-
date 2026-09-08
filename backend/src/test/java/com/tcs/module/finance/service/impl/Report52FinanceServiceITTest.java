@@ -214,36 +214,6 @@ class Report52FinanceServiceITTest {
         verify(paymentTransactionRepository, never()).save(any());
     }
 
-    @Test
-    @Tag("report52-it")
-    void IT_ESC_001_FundEscrowAndPublishClassActivationEventAfterPaymentWebhook() {
-        BigDecimal amount = new BigDecimal("500000");
-        PaymentTransaction tx = pendingEscrowPayment("ESCROW-A7", amount);
-        EscrowTransaction escrow = privateEscrow(5L, tx, amount);
-        SepayWebhookRequest request = incomingWebhook(456L, amount, "Thanh toan hoc phi ESCROW-A7");
-
-        when(paymentTransactionRepository.findByExternalTransactionId("456")).thenReturn(Optional.empty());
-        when(paymentTransactionRepository.findByTypeAndStatusAndAmount(
-                PaymentTransactionType.ESCROW_DEPOSIT,
-                PaymentTransactionStatus.PENDING,
-                amount)).thenReturn(List.of(tx));
-        when(centerRequestFeeService.isCenterRequestFeePayment(tx)).thenReturn(false);
-        when(escrowService.fundConfirmedPayment(tx)).thenAnswer(invocation -> {
-            escrow.setStatus(EscrowStatus.FUNDED);
-            return escrow;
-        });
-
-        PaymentWebhookResponse response = financeService.handleSepayWebhook(request);
-
-        assertEquals("success", response.getStatus());
-        assertEquals("ESCROW-A7", response.getReference());
-        assertEquals(PaymentTransactionStatus.SUCCESS, tx.getStatus());
-        assertEquals("456", tx.getExternalTransactionId());
-        assertEquals(EscrowStatus.FUNDED, escrow.getStatus());
-        verify(paymentTransactionRepository).save(tx);
-        verify(escrowService).fundConfirmedPayment(tx);
-        verify(eventPublisher).publishEvent(any(EscrowFunded.class));
-    }
 
     @Test
     @Tag("report52-it")
