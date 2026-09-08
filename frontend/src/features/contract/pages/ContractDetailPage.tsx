@@ -260,8 +260,10 @@ export default function ContractDetailPage() {
     message: string;
   } | null>(null);
   const currentEscrowPayment = contract?.escrowPayment ?? null;
+  const isClient = user?.role === 'CLIENT';
   const shouldAutoCheckEscrowPayment =
-    Boolean(currentEscrowPayment)
+    isClient
+    && Boolean(currentEscrowPayment)
     && !isEscrowPaymentConfirmed(
       currentEscrowPayment?.paymentStatus,
       currentEscrowPayment?.escrowStatus,
@@ -447,9 +449,9 @@ export default function ContractDetailPage() {
 
   const status = STATUS_LABEL[contract.status] ?? { label: contract.status, cls: '' };
   const escrowPayment = contract.escrowPayment ?? null;
-  const isClient = user?.role === 'CLIENT';
   const visibleEscrowPayment =
-    escrowPayment
+    isClient
+    && escrowPayment
     && !isEscrowPaymentConfirmed(escrowPayment.paymentStatus, escrowPayment.escrowStatus)
       ? escrowPayment
       : null;

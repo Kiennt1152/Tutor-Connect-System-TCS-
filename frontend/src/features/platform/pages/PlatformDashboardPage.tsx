@@ -1,3 +1,17 @@
+/**
+ * ============================================================================
+ * TRANG BẢNG ĐIỀU KHIỂN QUẢN TRỊ TỔNG QUAN (PLATFORM ADMIN DASHBOARD PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các thành phần và chỉ số chính:
+ *   - Thống kê toàn cảnh hệ thống: Người dùng, Gia sư, Lớp học, Doanh thu, Escrow.
+ *   - Theo dõi hàng đợi trực ban (Urgent Action Queue): Hồ sơ chờ duyệt, Tranh chấp, Rút tiền, Quá hạn SLA.
+ *   - Giám sát luồng tri thức AI (AI Knowledge Base Stats & Re-indexing Trigger).
+ *   - Lọc dữ liệu theo thời gian (Hôm nay, 7 ngày, 30 ngày, Tháng này, Tùy chọn khoảng ngày).
+ *   - Biểu đồ biến động tài chính (Tiền vào, Tiền ra, Ròng, Doanh thu phí sàn).
+ */
+
 import { useState, useEffect, useCallback } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';

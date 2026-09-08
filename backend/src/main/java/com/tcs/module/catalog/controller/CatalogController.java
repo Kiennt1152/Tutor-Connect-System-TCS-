@@ -109,6 +109,14 @@ public class CatalogController {
         return catalogService.createCategory(request);
     }
 
+    @PutMapping("/categories/{categoryId}")
+    public CatalogResponse.CategoryResponse updateCategory(
+            @PathVariable Long categoryId,
+            @RequestBody CatalogRequest.UpsertCategoryRequest request
+    ) {
+        return catalogService.updateCategory(categoryId, request);
+    }
+
     @GetMapping("/districts")
     public List<CatalogItemResponse> getDistricts(@RequestParam Long provinceId) {
         return catalogService.getDistricts(provinceId);

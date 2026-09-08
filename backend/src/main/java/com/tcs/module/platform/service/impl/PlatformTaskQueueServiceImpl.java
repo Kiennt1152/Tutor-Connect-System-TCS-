@@ -26,6 +26,24 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
+/**
+ * ============================================================================
+ * DỊCH VỤ HÀNG ĐỢI NHIỆM VỤ TRỰC BAN KHẨN CẤP (PLATFORM TASK QUEUE SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả chức năng:
+ *   - Tập hợp toàn bộ nhiệm vụ chờ xử lý từ các phân hệ khác nhau vào một bảng điều khiển duy nhất:
+ *     1. Xác minh danh tính/bằng cấp (Verification)
+ *     2. Báo cáo vi phạm & Nghi vấn lách sàn (Report / Circumvention)
+ *     3. Yêu cầu hỗ trợ kỹ thuật & khiếu nại (Support Ticket)
+ *     4. Yêu cầu rút tiền số dư ví (Withdrawal)
+ *     5. Yêu cầu hoàn tiền học phí (Refund Request)
+ *     6. Tranh chấp ký quỹ Escrow (Dispute)
+ *   - Tính toán hạn chót xử lý (SLA Due Date) và cờ cảnh báo quá hạn (SlaBreached).
+ *   - Đo lường tổng giá trị tài chính rủi ro (Escrow Exposure / Money At Risk).
+ *   - Phân loại, sắp xếp ưu tiên theo độ khẩn cấp (URGENT > HIGH > MEDIUM > LOW).
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -42,6 +60,11 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
     // LUỒNG 8: TỔNG HỢP HÀNG ĐỢI NHIỆM VỤ TRỰC BAN KHẨN CẤP (UC-56)
     // =========================================================================
 
+    /**
+     * Tổng hợp các chỉ số thống kê hàng đợi nhiệm vụ trực ban của Admin.
+     * 
+     * @return đối tượng TaskQueueSummaryResponse chứa số lượng công việc theo từng nhóm và mức ưu tiên
+     */
     // Luồng 8 - Phân vùng 1 & 5: Tổng hợp số lượng công việc tồn đọng (Tickets, Báo cáo, Rút tiền, Tiền rủi ro)
     @Override
     public TaskQueueSummaryResponse getSummary() {

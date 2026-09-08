@@ -1,8 +1,23 @@
+/**
+ * ============================================================================
+ * TRANG TRỢ LÝ THÔNG MINH AI ASSISTANT (AI ASSISTANT PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các tính năng cốt lõi:
+ *   - Giao diện trò chuyện tương tác với Trợ lý AI nền tảng TCS (Universal AI Assistant).
+ *   - Quản lý phiên hội thoại đa luồng (Sessions): Tạo mới, đổi tên, xóa, tìm kiếm lịch sử trò chuyện.
+ *   - Hiển thị phản hồi định dạng Markdown, trích dẫn nguồn tri thức RAG (Grounding References / Citations).
+ *   - Hiển thị thẻ gợi ý tương tác (Action Buttons, Quick Suggestions, Deep Link tới gia sư/lớp học/hợp đồng).
+ *   - Hỗ trợ copy tin nhắn, tự động cuộn (Auto-scroll), và thích ứng màn hình di động (Responsive Sidebar).
+ */
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { aiApi } from '../api/aiApi';
 import type { AiMessage, AiSession } from '../types/aiTypes';
 import { APP_ROUTES, tutorProfilePath } from '../../../shared/constants/routes';
+import { ConfirmDialog } from '../../../shared/components';
 import './AiAssistantPage.css';
 
 export default function AiAssistantPage() {
@@ -23,12 +38,15 @@ export default function AiAssistantPage() {
   const [expandedQueryId, setExpandedQueryId] = useState<number | null>(null);
   const [expandedSourcesId, setExpandedSourcesId] = useState<number | null>(null);
   const [copiedMessageId, setCopiedMessageId] = useState<number | null>(null);
+  const [sessionToDelete, setSessionToDelete] = useState<AiSession | null>(null);
+  const [deletingSession, setDeletingSession] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
-    loadSessions();
+    initSessions();
     const handleResize = () => {
       if (window.innerWidth <= 768) {
         setSidebarCollapsed(true);
@@ -53,7 +71,16 @@ export default function AiAssistantPage() {
     scrollToBottom();
   }, [messages, sending]);
 
-  const loadSessions = async () => {
+  const refreshSessionList = async () => {
+    try {
+      const list = await aiApi.getSessions();
+      setSessions(list);
+    } catch (err) {
+      console.error('Failed to refresh chat sessions list:', err);
+    }
+  };
+
+  const initSessions = async () => {
     try {
       const list = await aiApi.getSessions();
       setSessions(list);
@@ -65,11 +92,10 @@ export default function AiAssistantPage() {
         } else {
           sessionStorage.removeItem('ai_current_session');
           setCurrentSessionId(undefined);
-          setMessages([]);
         }
       }
     } catch (err) {
-      console.error('Failed to load chat sessions:', err);
+      console.error('Failed to initialize chat sessions:', err);
     }
   };
 
@@ -92,22 +118,35 @@ export default function AiAssistantPage() {
 
   const handleNewChat = () => {
     setCurrentSessionId(undefined);
+    sessionStorage.removeItem('ai_current_session');
     setMessages([]);
     setInput('');
     if (window.innerWidth <= 768) setSidebarCollapsed(true);
   };
 
-  const handleDeleteSession = async (e: React.MouseEvent, sessionId: number) => {
+  const handleDeleteClick = (e: React.MouseEvent, session: AiSession) => {
     e.stopPropagation();
-    if (!window.confirm('Bạn có chắc muốn xóa cuộc trò chuyện này?')) return;
+    setDeleteError(null);
+    setSessionToDelete(session);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!sessionToDelete) return;
+    const targetSessionId = sessionToDelete.sessionId;
+    setDeletingSession(true);
+    setDeleteError(null);
     try {
-      await aiApi.deleteSession(sessionId);
-      setSessions(prev => prev.filter(s => s.sessionId !== sessionId));
-      if (currentSessionId === sessionId) {
+      await aiApi.deleteSession(targetSessionId);
+      setSessions(prev => prev.filter(s => s.sessionId !== targetSessionId));
+      if (currentSessionId === targetSessionId) {
         handleNewChat();
       }
+      setSessionToDelete(null);
     } catch (err) {
-      alert('Không thể xóa cuộc trò chuyện');
+      console.error('Failed to delete chat session:', err);
+      setDeleteError('Không thể xóa cuộc trò chuyện. Vui lòng thử lại sau.');
+    } finally {
+      setDeletingSession(false);
     }
   };
 
@@ -138,7 +177,8 @@ export default function AiAssistantPage() {
       setMessages(prev => [...prev, resp]);
       if (!currentSessionId && resp.sessionId) {
         setCurrentSessionId(resp.sessionId);
-        loadSessions();
+        sessionStorage.setItem('ai_current_session', String(resp.sessionId));
+        refreshSessionList();
       }
     } catch (err) {
       const errorMsg: AiMessage = {
@@ -248,8 +288,9 @@ export default function AiAssistantPage() {
             >
               <span className="ai-session-title">{s.title}</span>
               <button
+                type="button"
                 className="ai-session-delete"
-                onClick={e => handleDeleteSession(e, s.sessionId)}
+                onClick={e => handleDeleteClick(e, s)}
                 title="Xóa cuộc trò chuyện"
               >
                 ✕
@@ -524,6 +565,33 @@ export default function AiAssistantPage() {
           </div>
         </footer>
       </main>
+
+      {sessionToDelete && (
+        <ConfirmDialog
+          open
+          title="Xóa cuộc trò chuyện"
+          message={
+            <div>
+              <p>Bạn có chắc muốn xóa cuộc trò chuyện <strong>"{sessionToDelete.title}"</strong>?</p>
+              <p style={{ marginTop: '0.5rem', fontSize: '0.85rem', color: '#64748b' }}>Toàn bộ lịch sử tin nhắn trong phiên này sẽ bị xóa vĩnh viễn và không thể khôi phục.</p>
+              {deleteError && (
+                <p style={{ marginTop: '0.5rem', color: '#dc2626', fontSize: '0.85rem' }}>{deleteError}</p>
+              )}
+            </div>
+          }
+          confirmLabel="Xóa cuộc trò chuyện"
+          cancelLabel="Hủy"
+          variant="danger"
+          loading={deletingSession}
+          onConfirm={handleConfirmDelete}
+          onCancel={() => {
+            if (!deletingSession) {
+              setSessionToDelete(null);
+              setDeleteError(null);
+            }
+          }}
+        />
+      )}
     </div>
   );
 }

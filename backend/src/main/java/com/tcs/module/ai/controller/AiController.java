@@ -49,10 +49,6 @@ public class AiController {
     }
 
     private Long getOptionalUserId() {
-        try {
-            return authHelper.currentUserId();
-        } catch (Exception e) {
-            return null;
-        }
+        return authHelper.currentUserIdOrNull();
     }
 }

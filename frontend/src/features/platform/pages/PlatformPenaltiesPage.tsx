@@ -1,3 +1,17 @@
+/**
+ * ============================================================================
+ * TRANG QUẢN TRỊ CHẾ TÀI VÀ XỬ PHẠT VI PHẠM (PLATFORM PENALTIES PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các tính năng xử lý kỷ luật nền tảng:
+ *   - Hiển thị danh sách các quyết định xử phạt (Cảnh cáo, Hạn chế tính năng, Cấm tạm thời, Cấm vĩnh viễn).
+ *   - Lọc án phạt theo Trạng thái (Đang hiệu lực, Đã hết hạn, Đã thu hồi) và Phân loại nguồn xử lý.
+ *   - Modal ban hành án phạt mới (Issue Penalty) với kiểm tra thời hạn và ràng buộc lý do tối thiểu 20 ký tự.
+ *   - Modal thu hồi án phạt (Revoke Penalty) và khôi phục tài khoản người dùng về hoạt động bình thường.
+ *   - Điều hướng trực tiếp tới nguồn phát sinh án phạt (Report, Dispute, Ticket, Circumvention).
+ */
+
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
