@@ -260,8 +260,20 @@ class ContractServiceImplSignTest {
         }
 
         @Test
-        @DisplayName("UTCID09 (A) - Chưa gửi OTP cho vai trò này -> ResourceNotFoundException")
-        void utcid09_noSignatureRow() {
+        @DisplayName("UTCID09 (B) - Da nhap sai vuot qua so lan cho phep (attempts = 5) -> 'Đã vượt quá số lần thử. Vui lòng yêu cầu mã mới.'")
+        void utcid09_maxAttemptsExceeded() {
+            activeOtp.setAttempts(5); // OTP_MAX_ATTEMPTS = 5
+
+            IllegalStateException ex = assertThrows(IllegalStateException.class,
+                    () -> service.signWithOtp(CONTRACT_ID, otp("123456")));
+            assertEquals("Đã vượt quá số lần thử. Vui lòng yêu cầu mã mới.", ex.getMessage());
+            assertEquals(ContractSignatureStatus.EXPIRED, tutorSignature.getSignatureStatus(),
+                    "Het luot thu thi o ky phai chuyen sang EXPIRED");
+        }
+
+        @Test
+        @DisplayName("UTCID10 (A) - Chưa gửi OTP cho vai trò này -> ResourceNotFoundException")
+        void utcid10_noSignatureRow() {
             when(contractSignatureRepository.findByContractIdAndPartyRole(CONTRACT_ID, PartyRole.TUTOR))
                     .thenReturn(Optional.empty());
 
@@ -271,8 +283,8 @@ class ContractServiceImplSignTest {
         }
 
         @Test
-        @DisplayName("UTCID10 (A) - Hợp đồng không tồn tại -> ResourceNotFoundException")
-        void utcid10_contractNotFound() {
+        @DisplayName("UTCID11 (A) - Hợp đồng không tồn tại -> ResourceNotFoundException")
+        void utcid11_contractNotFound() {
             when(contractRepository.findById(CONTRACT_ID)).thenReturn(Optional.empty());
 
             ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
@@ -285,7 +297,7 @@ class ContractServiceImplSignTest {
     //  Sheet: sendOtp1 (ContractService.sendOtp)
     // ===================================================================
     @Nested
-    @DisplayName("sendOtp")
+    @DisplayName("ctSendOtp")
     class SendOtp {
 
         @Test
@@ -321,7 +333,7 @@ class ContractServiceImplSignTest {
     //  Sheet: sign (ký thay người khác)
     // ===================================================================
     @Nested
-    @DisplayName("sign")
+    @DisplayName("ctSign")
     class Sign {
 
         @Test
@@ -331,6 +343,108 @@ class ContractServiceImplSignTest {
                     () -> service.sign(CONTRACT_ID, "123456", STRANGER_USER_ID));
             assertEquals("Không thể ký thay người dùng khác", ex.getMessage());
             verify(contractSignatureRepository, never()).save(any());
+        }
+    }
+
+    // ===================================================================
+    //  Sheet: generateStudentContract (BF-04 buoc 7)
+    // ===================================================================
+    @Nested
+    @DisplayName("generateStudentContract")
+    class GenerateStudentContract {
+
+        private static final Long CLASS_STUDENT_ID = 700L;
+        private static final Long CLASS_ID = 500L;
+
+        private com.tcs.module.marketplace.entity.ClassStudent enrollment() {
+            User creator = new User();
+            creator.setUserId(CENTER_USER_ID);
+            creator.setEmail("center@tcs.local");
+
+            com.tcs.module.marketplace.entity.TutoringClass cls =
+                    new com.tcs.module.marketplace.entity.TutoringClass();
+            cls.setClassId(CLASS_ID);
+            cls.setTitle("Toan 9 - Ca toi");
+            cls.setCreator(creator);
+            cls.setStartDate(LocalDate.now());
+            cls.setEndDate(LocalDate.now().plusMonths(3));
+
+            com.tcs.module.marketplace.entity.ClassStudent cs =
+                    new com.tcs.module.marketplace.entity.ClassStudent();
+            cs.setClassStudentId(CLASS_STUDENT_ID);
+            cs.setTutoringClass(cls);
+            cs.setStudentName("Nguyen Van A");
+            return cs;
+        }
+
+        private void givenNoTemplateConfigured() {
+            when(systemParameterRepository.findByParamKey(anyString())).thenReturn(Optional.empty());
+            when(contractTemplateRepository.findByStatus(
+                    com.tcs.module.contract.enums.ContractTemplateStatus.ACTIVE)).thenReturn(java.util.List.of());
+            when(tutorCenterRepository.findByUser_UserId(anyLong())).thenReturn(Optional.empty());
+            when(contractRepository.countTodayContracts()).thenReturn(0L);
+        }
+
+        @Test
+        @DisplayName("UTCID01 (N) - Ghi danh ton tai, chua co hop dong -> tao hop dong PENDING nguon CENTER")
+        void utcid01_createsNewContract() {
+            com.tcs.module.marketplace.entity.ClassStudent cs = enrollment();
+            when(classStudentRepository.findById(CLASS_STUDENT_ID)).thenReturn(Optional.of(cs));
+            when(contractRepository.findByClassStudent_ClassStudentId(CLASS_STUDENT_ID))
+                    .thenReturn(Optional.empty());
+            givenNoTemplateConfigured();
+            when(contractRepository.save(any(Contract.class))).thenAnswer(i -> {
+                Contract c = i.getArgument(0);
+                c.setContractId(1001L);
+                return c;
+            });
+
+            service.generateStudentContract(CLASS_STUDENT_ID);
+
+            org.mockito.ArgumentCaptor<Contract> captor =
+                    org.mockito.ArgumentCaptor.forClass(Contract.class);
+            verify(contractRepository).save(captor.capture());
+            Contract saved = captor.getValue();
+            assertEquals(ContractStatus.PENDING, saved.getStatus());
+            assertEquals(com.tcs.module.contract.enums.ContractSourceType.CENTER, saved.getSourceType());
+            assertEquals(CLASS_STUDENT_ID, saved.getClassStudent().getClassStudentId());
+            assertTrue(saved.getTermsSummary() != null && !saved.getTermsSummary().isBlank(),
+                    "Dieu khoan phai duoc dong bang vao hop dong");
+            // Trung tam ky san + o ky cho phia nguoi ghi danh.
+            verify(contractSignatureRepository, org.mockito.Mockito.times(2)).save(any(ContractSignature.class));
+        }
+
+        @Test
+        @DisplayName("UTCID02 (N) - Ghi danh da co hop dong -> tra ve hop dong cu, khong tao trung (idempotent)")
+        void utcid02_returnsExistingContract() {
+            com.tcs.module.marketplace.entity.ClassStudent cs = enrollment();
+            Contract existing = new Contract();
+            existing.setContractId(2002L);
+            existing.setContractNo("TCS-20260101-0001");
+            existing.setStatus(ContractStatus.PENDING);
+            existing.setClassStudent(cs);
+
+            when(classStudentRepository.findById(CLASS_STUDENT_ID)).thenReturn(Optional.of(cs));
+            when(contractRepository.findByClassStudent_ClassStudentId(CLASS_STUDENT_ID))
+                    .thenReturn(Optional.of(existing));
+            when(tutorCenterRepository.findByUser_UserId(anyLong())).thenReturn(Optional.empty());
+
+            var res = service.generateStudentContract(CLASS_STUDENT_ID);
+
+            assertEquals(2002L, res.getContractId());
+            verify(contractRepository, never()).save(any(Contract.class));
+            verify(contractSignatureRepository, never()).save(any(ContractSignature.class));
+        }
+
+        @Test
+        @DisplayName("UTCID03 (A) - classStudentId khong ton tai -> 'Không tìm thấy học viên trong lớp'")
+        void utcid03_enrollmentNotFound() {
+            when(classStudentRepository.findById(CLASS_STUDENT_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.generateStudentContract(CLASS_STUDENT_ID));
+            assertEquals("Không tìm thấy học viên trong lớp", ex.getMessage());
+            verify(contractRepository, never()).save(any(Contract.class));
         }
     }
 }

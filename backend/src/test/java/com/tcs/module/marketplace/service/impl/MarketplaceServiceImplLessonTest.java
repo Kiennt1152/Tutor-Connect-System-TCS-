@@ -265,6 +265,47 @@ class MarketplaceServiceImplLessonTest {
             assertTrue(ex.getMessage().contains(lesson.getLessonDate().toString()),
                     "Thông báo phải nêu rõ ngày buổi học: " + ex.getMessage());
         }
+
+        @Test
+        @DisplayName("UTCID07 (A) - Buổi học chưa có ngày diễn ra -> 'Buổi học chưa có ngày diễn ra nên chưa điểm danh được.'")
+        void utcid07_lessonWithoutDate() {
+            loginAsTutor();
+            Lesson lesson = lessonToday(TUTOR_ID);
+            lesson.setLessonDate(null);
+            when(lessonRepository.findById(LESSON_ID)).thenReturn(Optional.of(lesson));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.checkInLesson(LESSON_ID));
+            assertEquals("Buổi học chưa có ngày diễn ra nên chưa điểm danh được.", ex.getMessage());
+            verify(lessonRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID08 (B) - Buổi của ngày mai (điểm danh trước) -> chặn theo ngày")
+        void utcid08_lessonTomorrow() {
+            loginAsTutor();
+            Lesson lesson = lessonToday(TUTOR_ID);
+            lesson.setLessonDate(LocalDate.now().plusDays(1));
+            when(lessonRepository.findById(LESSON_ID)).thenReturn(Optional.of(lesson));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.checkInLesson(LESSON_ID));
+            assertTrue(ex.getMessage().contains("Chỉ điểm danh được trong đúng ngày diễn ra buổi học"),
+                    "Khong duoc diem danh truoc cho ngay chua toi: " + ex.getMessage());
+            verify(lessonRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID09 (A) - Người gọi không có hồ sơ gia sư -> requireTutor chặn lại")
+        void utcid09_callerIsNotATutor() {
+            when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+            when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.checkInLesson(LESSON_ID));
+            assertEquals("Không tìm thấy hồ sơ gia sư", ex.getMessage());
+            verify(lessonRepository, never()).save(any());
+        }
     }
 
     // ===================================================================
@@ -557,6 +598,50 @@ class MarketplaceServiceImplLessonTest {
                     "Đơn cũ đã bị từ chối thì phải cho nộp lại như applyToClass, "
                             + "nhưng registerToClass vẫn báo 'Bạn đã đăng ký lớp này rồi'");
             assertEquals("Đã gửi đơn ứng tuyển dạy lớp. Vui lòng chờ trung tâm/phụ huynh duyệt.", result);
+        }
+
+        @Test
+        @DisplayName("UTCID07 (N) - Gia sư VERIFIED, lớp PRIVATE đang OPEN, chưa từng nộp -> tạo đơn SUBMITTED")
+        void utcid07_freshApplication() {
+            tutor.setVerificationStatus(ProfileVerificationStatus.VERIFIED);
+            tutoringClass.setClassType(ClassType.PRIVATE);
+            when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+            when(userRepository.findById(TUTOR_USER_ID)).thenReturn(Optional.of(tutor.getUser()));
+            when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+            when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(tutor));
+            when(tutorApplicationRepository
+                    .findFirstByTutoringClass_ClassIdAndTutor_TutorId(CLASS_ID, TUTOR_ID))
+                    .thenReturn(Optional.empty());
+            when(tutorApplicationRepository
+                    .existsByTutoringClass_ClassIdAndTutor_TutorId(CLASS_ID, TUTOR_ID)).thenReturn(false);
+            when(tutorApplicationRepository.save(any(TutorApplication.class)))
+                    .thenAnswer(inv -> inv.getArgument(0));
+
+            String result = service.registerToClass(CLASS_ID);
+
+            assertEquals("Đã gửi đơn ứng tuyển dạy lớp. Vui lòng chờ trung tâm/phụ huynh duyệt.", result);
+            org.mockito.ArgumentCaptor<TutorApplication> captor =
+                    org.mockito.ArgumentCaptor.forClass(TutorApplication.class);
+            verify(tutorApplicationRepository).save(captor.capture());
+            assertEquals(TutorApplicationStatus.SUBMITTED, captor.getValue().getStatus());
+            assertEquals(TUTOR_ID, captor.getValue().getTutor().getTutorId());
+        }
+
+        @Test
+        @DisplayName("UTCID08 (A) - Lớp thuộc ClassType.CENTER -> gia sư không tự đăng ký được")
+        void utcid08_centerClassRejectsSelfRegistration() {
+            tutor.setVerificationStatus(ProfileVerificationStatus.VERIFIED);
+            tutoringClass.setClassType(ClassType.CENTER);
+            when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+            when(userRepository.findById(TUTOR_USER_ID)).thenReturn(Optional.of(tutor.getUser()));
+            when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+            when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(tutor));
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.registerToClass(CLASS_ID));
+            assertEquals("Lớp của trung tâm do trung tâm tự bố trí gia sư — gia sư không thể tự đăng ký.",
+                    ex.getMessage());
+            verify(tutorApplicationRepository, never()).save(any());
         }
     }
 }

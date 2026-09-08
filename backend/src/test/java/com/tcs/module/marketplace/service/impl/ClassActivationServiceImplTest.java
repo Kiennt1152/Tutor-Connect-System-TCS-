@@ -125,4 +125,122 @@ class ClassActivationServiceImplTest {
         escrow.setStatus(status);
         return escrow;
     }
+
+    // ===================================================================
+    //  Sheet: clsActivate
+    // ===================================================================
+    @org.junit.jupiter.api.Nested
+    @org.junit.jupiter.api.DisplayName("clsActivate")
+    class ClsActivate {
+
+        private TutoringClass privateClass(TutoringClassStatus status) {
+            TutoringClass c = new TutoringClass();
+            c.setClassId(3L);
+            c.setStatus(status);
+            return c;
+        }
+
+        private TutoringClass centerClass(int minStudents) {
+            TutoringClass c = new TutoringClass();
+            c.setClassId(3L);
+            c.setClassType(ClassType.CENTER);
+            c.setMinStudents(minStudents);
+            c.setStatus(TutoringClassStatus.MATCHED);
+            return c;
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID01 (N) - lop private chua kich hoat -> chuyen sang IN_PROGRESS")
+        void utcid01_activatePrivateClass() {
+            TutoringClass c = privateClass(TutoringClassStatus.MATCHED);
+            when(tutoringClassRepository.findById(3L)).thenReturn(Optional.of(c));
+
+            classActivationService.activate(3L);
+
+            assertEquals(TutoringClassStatus.IN_PROGRESS, c.getStatus());
+            verify(tutoringClassRepository).save(c);
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID02 (N) - lop CENTER du escrow FUNDED (>= minStudents) -> IN_PROGRESS")
+        void utcid02_activateCenterClassWithEnoughEscrows() {
+            TutoringClass c = centerClass(2);
+            when(tutoringClassRepository.findById(3L)).thenReturn(Optional.of(c));
+            when(escrowTransactionRepository.findByClassStudent_TutoringClass_ClassId(3L))
+                    .thenReturn(List.of(escrow(EscrowStatus.FUNDED), escrow(EscrowStatus.FUNDED)));
+
+            classActivationService.activate(3L);
+
+            assertEquals(TutoringClassStatus.IN_PROGRESS, c.getStatus());
+            verify(tutoringClassRepository).save(c);
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID03 (A) - classId = null -> bo qua, khong truy van")
+        void utcid03_nullClassId() {
+            classActivationService.activate(null);
+
+            verify(tutoringClassRepository, never()).findById(any());
+            verify(tutoringClassRepository, never()).save(any(TutoringClass.class));
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID04 (A) - khong tim thay lop -> bo qua")
+        void utcid04_classNotFound() {
+            when(tutoringClassRepository.findById(3L)).thenReturn(Optional.empty());
+
+            classActivationService.activate(3L);
+
+            verify(tutoringClassRepository, never()).save(any(TutoringClass.class));
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID05 (B) - lop da IN_PROGRESS -> bo qua, khong doi trang thai")
+        void utcid05_alreadyInProgress() {
+            TutoringClass c = privateClass(TutoringClassStatus.IN_PROGRESS);
+            when(tutoringClassRepository.findById(3L)).thenReturn(Optional.of(c));
+
+            classActivationService.activate(3L);
+
+            verify(tutoringClassRepository, never()).save(any(TutoringClass.class));
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID06 (B) - lop da COMPLETED -> bo qua")
+        void utcid06_alreadyCompleted() {
+            TutoringClass c = privateClass(TutoringClassStatus.COMPLETED);
+            when(tutoringClassRepository.findById(3L)).thenReturn(Optional.of(c));
+
+            classActivationService.activate(3L);
+
+            assertEquals(TutoringClassStatus.COMPLETED, c.getStatus());
+            verify(tutoringClassRepository, never()).save(any(TutoringClass.class));
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID07 (B) - lop da CANCELLED -> bo qua")
+        void utcid07_alreadyCancelled() {
+            TutoringClass c = privateClass(TutoringClassStatus.CANCELLED);
+            when(tutoringClassRepository.findById(3L)).thenReturn(Optional.of(c));
+
+            classActivationService.activate(3L);
+
+            assertEquals(TutoringClassStatus.CANCELLED, c.getStatus());
+            verify(tutoringClassRepository, never()).save(any(TutoringClass.class));
+        }
+
+        @Test
+        @org.junit.jupiter.api.DisplayName("UTCID08 (A) - lop CENTER chua du escrow FUNDED -> bo qua")
+        void utcid08_centerClassNotEnoughEscrows() {
+            TutoringClass c = centerClass(2);
+            when(tutoringClassRepository.findById(3L)).thenReturn(Optional.of(c));
+            when(escrowTransactionRepository.findByClassStudent_TutoringClass_ClassId(3L))
+                    .thenReturn(List.of(escrow(EscrowStatus.FUNDED)));
+
+            classActivationService.activate(3L);
+
+            assertEquals(TutoringClassStatus.MATCHED, c.getStatus());
+            verify(tutoringClassRepository, never()).save(any(TutoringClass.class));
+        }
+    }
 }

@@ -120,6 +120,27 @@ class AiServiceImplTest {
                     () -> service.deleteSession(SESSION_ID, null),
                     "Khách chưa đăng nhập phải bị chặn; thực tế vẫn xóa được phiên của người khác");
         }
+
+        @Test
+        @DisplayName("UTCID05 (B) - sessionId = null -> trả về ngay, không truy vấn và không xóa gì")
+        void utcid05_nullSessionId() {
+            service.deleteSession(null, OWNER_ID);
+
+            verify(sessionRepository, never()).findById(org.mockito.ArgumentMatchers.any());
+            verify(sessionRepository, never()).delete(org.mockito.ArgumentMatchers.any());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (B) - phiên có userId = null (phiên khách) -> ai cũng xóa được")
+        void utcid06_guestSessionDeletableByAnyone() {
+            AiChatSession s = session(SESSION_ID, null);
+            when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(s));
+
+            service.deleteSession(SESSION_ID, STRANGER_ID);
+
+            verify(messageRepository).deleteBySession_SessionId(SESSION_ID);
+            verify(sessionRepository).delete(s);
+        }
     }
 
     // ===================================================================
@@ -156,38 +177,47 @@ class AiServiceImplTest {
         }
 
         /**
-         * UTCID03 (A) - DEF-07.
-         * Đặc tả: chỉ chủ phiên đọc được lịch sử chat của mình.
-         * Thực tế: hàm chỉ truy vấn theo sessionId, tham số userId không được dùng.
+         * DEF-07 da duoc sua: ham nay kiem tra quyen so huu truoc khi tra ve tin nhan.
          */
         @Test
-        @DisplayName("UTCID03 (A) - Người khác đọc phiên không phải của mình -> phải bị từ chối [DEF-07]")
+        @DisplayName("UTCID03 (A) - Người khác đọc phiên không phải của mình -> ForbiddenException")
         void utcid03_strangerCannotRead() {
             AiChatSession s = session(SESSION_ID, OWNER_ID);
             when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(s));
-            when(messageRepository.findBySession_SessionIdOrderByCreatedAtAsc(SESSION_ID))
-                    .thenReturn(List.of(message(1L, s, "user", "So dien thoai cua toi la 0900000000")));
 
-            assertThrows(RuntimeException.class,
-                    () -> service.getSessionMessages(SESSION_ID, STRANGER_ID),
-                    "Lịch sử chat của user " + OWNER_ID + " phải được bảo vệ; "
-                            + "thực tế user " + STRANGER_ID + " đọc được toàn bộ nội dung");
+            var ex = assertThrows(com.tcs.exception.ForbiddenException.class,
+                    () -> service.getSessionMessages(SESSION_ID, STRANGER_ID));
+            assertEquals("You do not have permission to view messages in this session", ex.getMessage());
         }
 
-        /**
-         * UTCID04 (A) - DEF-07 (khách chưa đăng nhập).
-         */
         @Test
-        @DisplayName("UTCID04 (A) - Khách chưa đăng nhập đọc phiên của người dùng -> phải bị từ chối [DEF-07]")
-        void utcid04_guestCannotRead() {
-            AiChatSession s = session(SESSION_ID, OWNER_ID);
+        @DisplayName("UTCID04 (A) - sessionId không tồn tại -> ResourceNotFoundException 'Chat session not found'")
+        void utcid04_sessionNotFound() {
+            when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.empty());
+
+            var ex = assertThrows(com.tcs.exception.ResourceNotFoundException.class,
+                    () -> service.getSessionMessages(SESSION_ID, OWNER_ID));
+            assertEquals("Chat session not found", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (B) - phiên có userId = null (phiên khách) -> ai cũng đọc được")
+        void utcid05_guestSessionReadableByAnyone() {
+            AiChatSession s = session(SESSION_ID, null);
             when(sessionRepository.findById(SESSION_ID)).thenReturn(Optional.of(s));
             when(messageRepository.findBySession_SessionIdOrderByCreatedAtAsc(SESSION_ID))
-                    .thenReturn(List.of(message(1L, s, "user", "Noi dung rieng tu")));
+                    .thenReturn(List.of(message(1L, s, "user", "Cau hoi cong khai")));
 
-            assertThrows(RuntimeException.class,
-                    () -> service.getSessionMessages(SESSION_ID, null),
-                    "Khách chưa đăng nhập phải bị chặn khi đọc phiên của người khác");
+            var result = service.getSessionMessages(SESSION_ID, STRANGER_ID);
+
+            assertEquals(1, result.size());
+        }
+
+        @Test
+        @DisplayName("UTCID06 (B) - sessionId = null -> trả danh sách rỗng ngay, không truy vấn")
+        void utcid06_nullSessionId() {
+            assertTrue(service.getSessionMessages(null, OWNER_ID).isEmpty());
+            verify(sessionRepository, never()).findById(org.mockito.ArgumentMatchers.any());
         }
     }
 
