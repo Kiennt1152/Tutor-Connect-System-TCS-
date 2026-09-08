@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { TutorListingCard } from '../components/TutorListingCard';
@@ -7,13 +7,26 @@ import { tutorSearchToFeatured } from '../mappers/tutorSearchMapper';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import './HomePage.css';
 
+/** 6 gia sư mỗi trang: 2 hàng × 3 thẻ. */
+const PAGE_SIZE = 6;
+
 export default function TutorReviewsPage() {
   const { status, results, search } = useTutorSearch();
   const { isAuthenticated } = useAuth();
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     search({});
   }, [search]);
+
+  // Danh sách đổi (tải lại) thì quay về trang đầu.
+  useEffect(() => {
+    setPage(1);
+  }, [results]);
+
+  const totalPages = Math.max(1, Math.ceil(results.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedResults = results.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="tcs-page">
@@ -47,16 +60,50 @@ export default function TutorReviewsPage() {
               <p className="tcs-empty">Chưa có gia sư nào để hiển thị.</p>
             )}
             {status === 'success' && results.length > 0 && (
-              <div className="tcs-listing-grid">
-                {results.map((tutor) => (
-                  <TutorListingCard
-                    key={tutor.id}
-                    tutor={tutorSearchToFeatured(tutor)}
-                    isAuthenticated={isAuthenticated}
-                    showPrice={false}
-                  />
-                ))}
-              </div>
+              <>
+                <div className="tcs-listing-grid tcs-listing-grid--3col">
+                  {pagedResults.map((tutor) => (
+                    <TutorListingCard
+                      key={tutor.id}
+                      tutor={tutorSearchToFeatured(tutor)}
+                      isAuthenticated={isAuthenticated}
+                      showPrice={false}
+                    />
+                  ))}
+                </div>
+
+                {totalPages > 1 && (
+                  <nav className="tcs-pagination" aria-label="Phân trang gia sư">
+                    <button
+                      type="button"
+                      className="tcs-pagination__nav"
+                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={currentPage === 1}
+                    >
+                      ← Trước
+                    </button>
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                      <button
+                        key={p}
+                        type="button"
+                        className={`tcs-pagination__page${p === currentPage ? ' tcs-pagination__page--active' : ''}`}
+                        onClick={() => setPage(p)}
+                        aria-current={p === currentPage ? 'page' : undefined}
+                      >
+                        {p}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      className="tcs-pagination__nav"
+                      onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                      disabled={currentPage === totalPages}
+                    >
+                      Sau →
+                    </button>
+                  </nav>
+                )}
+              </>
             )}
           </div>
         </section>

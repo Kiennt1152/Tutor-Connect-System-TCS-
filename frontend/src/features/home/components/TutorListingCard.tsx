@@ -7,6 +7,8 @@ type TutorListingCardProps = {
   isAuthenticated: boolean;
   variant?: 'grid' | 'search';
   showPrice?: boolean;
+  /** Điểm phù hợp 0-100 (matchmaking); bỏ trống thì không hiển thị huy hiệu. */
+  matchScore?: number;
 };
 
 const currency = (value: number) =>
@@ -20,6 +22,20 @@ const initials = (name: string) =>
     .map((part) => part.charAt(0).toUpperCase())
     .join('');
 
+/** Hiển thị giới tính bằng tiếng Việt. */
+const genderLabel = (gender: string) => {
+  switch (gender.trim().toUpperCase()) {
+    case 'MALE':
+      return 'Nam';
+    case 'FEMALE':
+      return 'Nữ';
+    case 'OTHER':
+      return 'Khác';
+    default:
+      return gender;
+  }
+};
+
 const bioSnippet = (bio: string | null) => {
   const text = bio?.trim();
   if (!text) return 'Gia sư tận tâm, sẵn sàng đồng hành cùng học viên trên nền tảng TCS.';
@@ -30,6 +46,7 @@ export function TutorListingCard({
   tutor,
   variant = 'grid',
   showPrice = true,
+  matchScore,
 }: TutorListingCardProps) {
   return (
     <article className={`tcs-listing-card${variant === 'search' ? ' tcs-listing-card--compact' : ''}`}>
@@ -40,6 +57,14 @@ export function TutorListingCard({
             <h3 className="tcs-listing-card__name">{tutor.fullName}</h3>
             <div className="tcs-listing-card__badges">
               <span className="tcs-listing-card__badge">Gia sư</span>
+              {typeof matchScore === 'number' ? (
+                <span
+                  className="tcs-listing-card__badge tcs-listing-card__badge--match"
+                  title="Mức độ phù hợp với bộ lọc bạn đã chọn"
+                >
+                  ◎ Phù hợp {Math.round(matchScore)}%
+                </span>
+              ) : null}
               {tutor.verificationStatus === 'VERIFIED' ? (
                 <span className="tcs-listing-card__badge tcs-listing-card__badge--verified" title="Hồ sơ đã được xác minh">
                   ✓ Đã xác minh
@@ -70,7 +95,7 @@ export function TutorListingCard({
         {tutor.gender ? (
           <div className="tcs-listing-card__row">
             <span className="tcs-listing-card__label">Giới tính</span>
-            <span className="tcs-listing-card__value">{tutor.gender}</span>
+            <span className="tcs-listing-card__value">{genderLabel(tutor.gender)}</span>
           </div>
         ) : null}
       </div>
@@ -78,7 +103,6 @@ export function TutorListingCard({
       <p className="tcs-listing-card__bio">{bioSnippet(tutor.bio)}</p>
 
       <div className="tcs-listing-card__foot">
-        <span className="tcs-listing-card__status">Sẵn sàng nhận lớp</span>
         <div className="tcs-listing-card__actions">
           <Link
             className="tcs-btn tcs-btn--ghost tcs-listing-card__review"
