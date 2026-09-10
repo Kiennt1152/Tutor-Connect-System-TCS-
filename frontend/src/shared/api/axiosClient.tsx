@@ -16,6 +16,7 @@ const axiosClient = axios.create({
 function isAuthEndpoint(url: string) {
   return (
     url.includes('/identity/login') ||
+    url.includes('/identity/logout') ||
     url.includes('/identity/register') ||
     url.includes('/identity/password/')
   );

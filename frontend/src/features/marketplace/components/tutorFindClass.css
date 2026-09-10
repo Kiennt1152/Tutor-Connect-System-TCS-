@@ -317,6 +317,22 @@
 .apl-field input, .apl-field textarea { border: 1px solid #cfd8e3; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-family: inherit; }
 .apl-field input:focus, .apl-field textarea:focus { outline: none; border-color: #ea580c; }
 .apl-error { margin: 0; color: #c62828; font-size: 13px; font-weight: 500; }
+.apl-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #f2d19b;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #8a4b0f;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.apl-warning strong {
+  color: #7c2d12;
+}
 /* Bỏ khoảng trống thừa giữa ô "Lời nhắn" và cảnh báo cuối modal */
 .cdm__body > .cdm-section:last-of-type { margin-bottom: 8px; }
 .cdm__body > .cdm-section:last-of-type .apl-field { margin-bottom: 0; }
