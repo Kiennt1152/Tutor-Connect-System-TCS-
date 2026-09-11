@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { centerProfilePath } from '../../../shared/constants/routes';
 import { useHome } from '../hooks/useHome';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasRole } from '../../../shared/auth/rbac';
@@ -245,7 +247,15 @@ function CentersSection() {
           <div className="tcs-center-grid">
             {featured.map((center) => (
               <article key={center.centerId} className="tcs-center-card">
-                <h3 className="tcs-center-card__name">{center.companyName}</h3>
+                <h3 className="tcs-center-card__name">
+                  <Link
+                    className="tcs-center-card__link"
+                    to={centerProfilePath()}
+                    state={{ centerId: center.centerId }}
+                  >
+                    {center.companyName}
+                  </Link>
+                </h3>
                 {center.description && (
                   <p className="tcs-center-card__desc">{center.description}</p>
                 )}

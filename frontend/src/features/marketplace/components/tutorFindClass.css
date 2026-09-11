@@ -167,10 +167,11 @@
 .tfc-notice--warn strong { color: #6b4500; }
 .tfc-state { background: #fff; border: 1px dashed #cfd8e3; border-radius: 12px; padding: 28px; text-align: center; color: #5b6b7f; }
 .tfc-state--error { border-color: #f0b7b2; color: #c62828; }
-/* 2 lớp / hàng (6 lớp / trang = 2 cột × 3 hàng). */
+/* Thẻ không kéo quá rộng: tự điền cột tối thiểu 320px — màn rộng thành 3 lớp / hàng
+   (6 lớp / trang = 3 cột × 2 hàng). */
 .tfc-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 14px;
   align-items: stretch;
 }
@@ -195,6 +196,8 @@
   background: #ea580c; border-color: #ea580c; color: #fff; cursor: default;
 }
 .tfc-card {
+  /* Cho phần thân đổi bố cục theo bề rộng của chính thẻ (xem @container bên dưới). */
+  container-type: inline-size;
   display: flex; gap: 16px; background: #fff; border: 1px solid #e3e9f2;
   border-radius: 16px; padding: 18px;
   box-shadow: 0 2px 8px rgba(18, 35, 59, 0.04);
@@ -215,12 +218,24 @@
 .tfc-score--high { background: linear-gradient(135deg, #2e7d32, #43a047); }
 .tfc-score--mid { background: linear-gradient(135deg, #ef6c00, #fb8c00); }
 .tfc-score--low { background: linear-gradient(135deg, #78909c, #90a4ae); }
-.tfc-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.tfc-card__top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+/* Bố cục gọn: tiêu đề chạy hết ngang; chip (và mục tiêu/yêu cầu nếu có) ở cột trái, nút ở cột
+   phải cùng hàng — không còn một hàng riêng cho nút bên dưới đường kẻ. Hàng cuối 1fr để khi
+   các thẻ cùng dòng bị kéo cao bằng nhau, nút vẫn nằm sát đáy và thẳng hàng giữa các thẻ. */
+.tfc-card__body {
+  flex: 1; min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-rows: auto auto 1fr;
+  column-gap: 16px;
+}
+.tfc-card__top {
+  grid-column: 1 / -1; grid-row: 1;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+}
 .tfc-card__title { margin: 0; font-size: 16.5px; font-weight: 700; line-height: 1.4; color: #12233b; }
 .tfc-card__id { font-size: 12px; color: #8592a3; }
 /* Môn · khối · địa điểm dạng pill cho dễ quét mắt, không lẫn vào phần mô tả bên dưới. */
-.tfc-card__meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
+.tfc-card__meta { grid-column: 1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .tfc-card__meta span {
   font-size: 12.5px; color: #43546a; background: #f4f7fb; border: 1px solid #e8eef6;
   border-radius: 999px; padding: 4px 10px;
@@ -232,7 +247,12 @@
 .tfc-card__meta span[title^="Lịch học"] {
   color: #1d4ed8; background: #eef3ff; border-color: #d7e2fb;
 }
-.tfc-card__info { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
+.tfc-card__info { grid-column: 1; grid-row: 3; display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+.tfc-card__desc {
+  margin: 0; font-size: 13px; line-height: 1.5; color: #5b6b7f;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
+}
 /* Icon tách thành cột riêng để dòng dài xuống hàng vẫn thẳng lề, không chui xuống dưới icon. */
 .tfc-card__info-row {
   margin: 0; font-size: 13px; line-height: 1.5; color: #43546a;
@@ -241,8 +261,14 @@
 .tfc-card__ico { flex: 0 0 auto; line-height: 1.5; }
 .tfc-card__info-row strong { color: #12233b; font-weight: 600; }
 .tfc-card__actions {
+  grid-column: 2; grid-row: 2 / 4; align-self: end;
   display: flex; justify-content: flex-end; gap: 10px;
-  margin-top: auto; padding-top: 14px; border-top: 1px solid #f0f4f9;
+}
+/* Thẻ hẹp (3 cột, hoặc điện thoại): không đủ chỗ cho chip và nút cùng hàng -> nút xuống
+   dưới, canh phải. Đo theo bề rộng thẻ nên đúng cả khi thẻ có ô "% phù hợp" bên trái. */
+@container (max-width: 440px) {
+  .tfc-card__body { grid-template-rows: auto auto auto 1fr; }
+  .tfc-card__actions { grid-column: 1 / -1; grid-row: 4; margin-top: 12px; }
 }
 .tfc-btn { border: none; border-radius: 8px; padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .tfc-btn--primary { background: #ea580c; color: #fff; }

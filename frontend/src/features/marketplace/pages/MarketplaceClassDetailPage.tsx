@@ -96,6 +96,8 @@ export default function MarketplaceClassDetailPage() {
     } catch (err) {
       setRegStatus('error');
       setRegMessage(extractError(err, 'Đăng ký thất bại.'));
+      // Tải lại lớp: nếu thực ra đã đăng ký rồi (vd. ở tab khác) thì nút tự chuyển sang khoá.
+      load();
     }
   };
 
@@ -134,6 +136,8 @@ export default function MarketplaceClassDetailPage() {
   const legalHolderName = depLinkStatus?.legalAccountHolderName;
 
   const isOpen = data?.status === 'OPEN';
+  // Đã đăng ký lớp này rồi (mọi trạng thái) -> khoá nút; backend cũng chặn đăng ký trùng.
+  const myRegistration = isClient ? (data?.myRegistrationStatus ?? null) : null;
   const sortedSchedule = data
     ? [...data.schedule].sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime))
     : [];
@@ -142,7 +146,7 @@ export default function MarketplaceClassDetailPage() {
     <>
       <VerificationHeader />
       <div className="mk-page">
-        <button className="mk-back" type="button" onClick={() => navigate('/marketplace')}>
+        <button className="mk-back" type="button" onClick={() => navigate(APP_ROUTES.classFinder)}>
           ← Quay lại Tìm lớp
         </button>
 
@@ -235,7 +239,44 @@ export default function MarketplaceClassDetailPage() {
                     {regStatus === 'error' && (
                       <div className="mk-alert mk-alert--error">{regMessage}</div>
                     )}
-                    {isClient && needsDob ? (
+                    {myRegistration ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <button
+                          className="mk-btn mk-btn--locked mk-btn--block"
+                          type="button"
+                          disabled
+                        >
+                          ✓ Bạn đã đăng ký lớp này
+                        </button>
+                        <p className="mk-note">
+                          {myRegistration === 'PENDING_SIGNATURE'
+                            ? delegatedToParent
+                              ? `Hợp đồng đang chờ phụ huynh${legalHolderName ? ` (${legalHolderName})` : ''} ký và thanh toán.`
+                              : 'Hợp đồng đang chờ bạn ký và thanh toán để chính thức vào lớp.'
+                            : myRegistration === 'ENROLLED'
+                              ? 'Bạn đang học lớp này.'
+                              : myRegistration === 'COMPLETED'
+                                ? 'Bạn đã hoàn thành lớp này.'
+                                : 'Bạn đã rời lớp này nên không thể đăng ký lại.'}
+                        </p>
+                        {myRegistration === 'PENDING_SIGNATURE' && !delegatedToParent && (
+                          <button
+                            className="mk-btn mk-btn--secondary mk-btn--block"
+                            type="button"
+                            onClick={() => navigate(APP_ROUTES.contract)}
+                          >
+                            Đi tới Hợp đồng
+                          </button>
+                        )}
+                        {data.status === 'IN_PROGRESS' && (
+                          <ChatButton
+                            contextType="CLASS_ACTIVE"
+                            contextId={data.classId}
+                            label="Chat với bên liên quan"
+                          />
+                        )}
+                      </div>
+                    ) : isClient && needsDob ? (
                       // Backend yêu cầu ngày sinh để xác định <18; thiếu -> điều hướng cập nhật hồ sơ.
                       <div className="mk-alert mk-alert--warn" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <span>

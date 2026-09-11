@@ -52,6 +52,7 @@ export function ClassResultCard({
         ? `${money(parsed.feeMin)} – ${money(parsed.feePerHour)}/giờ`
         : `${money(parsed.feePerHour)}/giờ`;
   const slotLabels = parsed.slots.map(slotLabel).filter(Boolean);
+  const description = c.description?.trim() ?? '';
   const learningGoal = c.learningGoal?.trim() ?? '';
   const tutorRequirement = parsed.tutorRequirement?.trim() ?? '';
   const sessionCount = parsed.slots.length;
@@ -101,25 +102,34 @@ export function ClassResultCard({
           )}
         </div>
 
-        <div className="tfc-card__info">
-          {learningGoal && (
-            <p className="tfc-card__info-row">
-              <span className="tfc-card__ico" aria-hidden>🎯</span>
-              <span>
-                <strong>Mục tiêu:</strong> {learningGoal}
-              </span>
-            </p>
-          )}
-          {tutorRequirement && (
-            <p className="tfc-card__info-row">
-              <span className="tfc-card__ico" aria-hidden>🧑‍🏫</span>
-              <span>
-                <strong>Yêu cầu gia sư:</strong> {tutorRequirement}
-              </span>
-            </p>
-          )}
-          {/* Lịch học đã nằm ở chip 🕒 phía trên (kèm số buổi/tuần) nên bỏ dòng này. */}
-        </div>
+        {/* Chỉ dựng khung khi lớp có mô tả / mục tiêu / yêu cầu — tránh để trống một khoảng trên thẻ. */}
+        {(description || learningGoal || tutorRequirement) && (
+          <div className="tfc-card__info">
+            {/* Mô tả cắt gọn 2 dòng cho các thẻ đều nhau; rê chuột để đọc đủ. */}
+            {description && (
+              <p className="tfc-card__desc" title={description}>
+                {description}
+              </p>
+            )}
+            {learningGoal && (
+              <p className="tfc-card__info-row">
+                <span className="tfc-card__ico" aria-hidden>🎯</span>
+                <span>
+                  <strong>Mục tiêu:</strong> {learningGoal}
+                </span>
+              </p>
+            )}
+            {tutorRequirement && (
+              <p className="tfc-card__info-row">
+                <span className="tfc-card__ico" aria-hidden>🧑‍🏫</span>
+                <span>
+                  <strong>Yêu cầu gia sư:</strong> {tutorRequirement}
+                </span>
+              </p>
+            )}
+            {/* Lịch học đã nằm ở chip 🕒 phía trên (kèm số buổi/tuần) nên bỏ dòng này. */}
+          </div>
+        )}
 
         {actions && <div className="tfc-card__actions">{actions}</div>}
       </div>

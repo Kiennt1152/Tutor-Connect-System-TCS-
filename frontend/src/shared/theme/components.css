@@ -183,6 +183,71 @@
   padding: var(--space-md);
 }
 
+/* Lưới tự điền cột (cùng thông số mục gia sư ở trang chủ): ít thẻ vẫn giữ đúng bề rộng thẻ.
+   Kích thước thẻ gọn trong lưới này dùng chung rule với trang chủ (HomePage.css). */
+.tcs-listing-grid--fill {
+  grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .tcs-listing-grid--fill {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tcs-listing-card__avatar {
+  overflow: hidden;
+}
+
+.tcs-listing-card__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tcs-listing-card__actions--end {
+  margin-left: auto;
+}
+
+/* Thẻ bấm được cả khối: link ở tên phủ toàn thẻ, chân thẻ nổi lên trên để các nút bấm riêng. */
+.tcs-listing-card--link {
+  position: relative;
+}
+
+.tcs-listing-card__cover-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.tcs-listing-card__cover-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.tcs-listing-card--link:hover .tcs-listing-card__cover-link {
+  color: var(--color-primary);
+}
+
+.tcs-listing-card__cover-link:focus-visible {
+  outline: none;
+}
+
+.tcs-listing-card__cover-link:focus-visible::after {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  border-radius: 14px;
+}
+
+.tcs-listing-card--link .tcs-listing-card__foot {
+  position: relative;
+  z-index: 2;
+}
+
 .tcs-quick-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
@@ -279,7 +344,6 @@
   color: var(--color-primary-dark);
   background: var(--color-primary-xlight);
 }
-
 .tcs-promo {
   display: flex;
   align-items: center;

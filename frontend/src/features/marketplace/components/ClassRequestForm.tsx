@@ -1087,43 +1087,49 @@ export function ClassRequestForm({
                                 </option>
                               ))}
                             </select>
-                            <select
-                              className="mkt-day-time__session"
-                              aria-label="Giờ bắt đầu"
-                              value={slot.start}
-                              onChange={(e) => updateSlot(idx, { start: e.target.value })}
-                            >
-                              <option value="">Từ…</option>
-                              {times
-                                .filter((t) => t !== MIDNIGHT_END)
-                                .map((t) => (
-                                  <option key={t} value={t}>
-                                    {t}
-                                  </option>
-                                ))}
-                            </select>
-                            <span className="mkt-day-time__sep">–</span>
-                            <select
-                              className="mkt-day-time__session"
-                              aria-label="Giờ kết thúc"
-                              value={slot.end}
-                              onChange={(e) => updateSlot(idx, { end: e.target.value })}
-                            >
-                              <option value="">Đến…</option>
-                              {endTimes.map((t) => (
-                                <option key={t} value={t}>
-                                  {slot.start ? `${fmtTime(t)} (${durationLabel(slot.start, t)})` : fmtTime(t)}
-                                </option>
-                              ))}
-                            </select>
-                            <button
-                              type="button"
-                              className="mkt-slot-remove"
-                              aria-label="Xóa buổi"
-                              onClick={() => removeSlot(idx)}
-                            >
-                              ×
-                            </button>
+                            {/* Giờ bắt đầu – kết thúc – nút xoá là một cụm: thiếu chỗ thì cả cụm
+                                xuống dòng cùng nhau, nút × không bị rớt xuống dòng một mình. */}
+                            <span className="mkt-slot-time">
+                              <select
+                                className="mkt-day-time__session"
+                                aria-label="Giờ bắt đầu"
+                                value={slot.start}
+                                onChange={(e) => updateSlot(idx, { start: e.target.value })}
+                              >
+                                <option value="">Từ…</option>
+                                {times
+                                  .filter((t) => t !== MIDNIGHT_END)
+                                  .map((t) => (
+                                    <option key={t} value={t}>
+                                      {t}
+                                    </option>
+                                  ))}
+                              </select>
+                              <span className="mkt-slot-end">
+                                <span className="mkt-day-time__sep">–</span>
+                                <select
+                                  className="mkt-day-time__session"
+                                  aria-label="Giờ kết thúc"
+                                  value={slot.end}
+                                  onChange={(e) => updateSlot(idx, { end: e.target.value })}
+                                >
+                                  <option value="">Đến…</option>
+                                  {endTimes.map((t) => (
+                                    <option key={t} value={t}>
+                                      {slot.start ? `${fmtTime(t)} (${durationLabel(slot.start, t)})` : fmtTime(t)}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  className="mkt-slot-remove"
+                                  aria-label="Xóa buổi"
+                                  onClick={() => removeSlot(idx)}
+                                >
+                                  ×
+                                </button>
+                              </span>
+                            </span>
                           </div>
                         );
                       })}
