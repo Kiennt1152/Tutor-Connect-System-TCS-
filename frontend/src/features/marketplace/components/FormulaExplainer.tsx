@@ -82,8 +82,8 @@ export function FormulaExplainer({ criteria, defaultOpen = true, bare = false }:
         trừ như nhau: lớp cần <em>Hóa + Sinh</em> mà bạn chỉ tìm <em>Sinh</em> thì khớp môn =
         50%, và bạn tìm <em>Toán + Anh</em> mà lớp chỉ cần <em>Toán</em> thì cũng 50%. Nếu
         phần Môn học đang có trần 4% thì lớp đó nhận 2% từ tiêu chí Môn học.
-        {' '}Tiêu chí bạn <strong>để trống</strong> mặc nhiên khớp 100% và giữ trọn phần của nó —
-        không nêu thì không có gì để xếp mức ưu tiên, nên thanh trượt của nó không làm đổi %.
+        {' '}Tiêu chí bạn <strong>để trống</strong> được <strong>bỏ qua</strong>: không nêu thì
+        không có gì để so, nên phần của nó chia đều cho các tiêu chí bạn đã nhập.
         {' '}Điểm cao nhất một lớp có thể đạt lúc này là <strong>{pct(maxScore)}%</strong>
         {kept.length < CRITERIA_KEYS.length && ` (${CRITERIA_KEYS.length - kept.length} tiêu chí đã bỏ)`}.
       </p>
