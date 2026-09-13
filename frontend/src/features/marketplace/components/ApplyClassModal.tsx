@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { classToForm } from '../mappers/marketplaceMapper';
 import {
@@ -30,6 +32,7 @@ interface Props {
 }
 
 export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubmitted }: Props) {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<TutorProfileCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [coverLetter, setCoverLetter] = useState('Tôi quan tâm và mong muốn nhận lớp này.');
@@ -63,21 +66,30 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
   useEffect(() => {
     const fallback = defaultRate || (profile?.hourlyRate ? Math.round(Number(profile.hourlyRate)) : 0);
     if (!fallback) return;
-    setRates((prev) =>
-      Object.fromEntries(Object.entries(prev).map(([id, v]) => [id, v || String(fallback)])),
-    );
-  }, [form, profile, defaultRate]);
+    setRates((prev) => {
+      const next: Record<string, string> = { ...prev };
+      for (const id of form.subjectIds) {
+        if (!next[id]) next[id] = String(fallback);
+      }
+      return next;
+    });
+  }, [defaultRate, profile?.hourlyRate, form.subjectIds]);
 
   useEffect(() => {
-    let alive = true;
+    let active = true;
     marketplaceApi
       .getMyTutorProfile()
-      .then((p) => alive && setProfile(p))
-      .catch(() => {
+      .then((p) => {
+        if (active) setProfile(p);
       })
-      .finally(() => alive && setLoading(false));
+      .catch(() => {
+        if (active) setProfile(null);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
     return () => {
-      alive = false;
+      active = false;
     };
   }, []);
 
@@ -91,7 +103,7 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
   const rateErrors = chosenIds
     .map((id) => {
       const fee = Number(rates[id]);
-      if (!(fee > 0)) return `${subjectName(id)}: chưa nhập học phí/giờ`;
+      if (!fee) return `${subjectName(id)}: chưa nhập học phí`;
       if (fee < FEE_PER_HOUR_MIN)
         return `${subjectName(id)}: học phí/giờ tối thiểu ${currency.format(FEE_PER_HOUR_MIN)}đ`;
       return null;
@@ -120,6 +132,15 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
       });
       onSubmitted(target.classId);
     } catch (err) {
+      if (errorCode(err) === 'VERIFICATION_REQUIRED') {
+        onClose();
+        navigate(APP_ROUTES.verification, {
+          state: {
+            notice: 'Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển vào lớp học.',
+          },
+        });
+        return;
+      }
       setError(extractError(err));
       setSubmitting(false);
     }
@@ -362,4 +383,12 @@ function extractError(err: unknown): string {
   }
   if (err instanceof Error) return err.message;
   return 'Có lỗi xảy ra. Vui lòng thử lại.';
+}
+
+function errorCode(err: unknown): string | undefined {
+  if (axios.isAxiosError(err)) {
+    const data = err.response?.data as { code?: string } | undefined;
+    if (data?.code) return data.code;
+  }
+  return undefined;
 }

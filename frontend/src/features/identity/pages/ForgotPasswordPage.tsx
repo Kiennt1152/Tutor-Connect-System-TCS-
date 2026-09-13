@@ -1,5 +1,5 @@
 import type { FormEvent } from 'react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { imageAssets } from '../../../assets/images/ImageAssets';
@@ -16,6 +16,14 @@ export default function ForgotPasswordPage() {
   const [message, setMessage] = useState('');
   const [cooldown, setCooldown] = useState(0);
 
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const timer = window.setInterval(() => {
+      setCooldown((prev) => (prev <= 1 ? 0 : prev - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldown]);
+
   async function requestOtp(event?: FormEvent) {
     event?.preventDefault();
     setError('');
@@ -24,9 +32,10 @@ export default function ForgotPasswordPage() {
     try {
       const response = await identityApi.requestPasswordResetOtp({ email: email.trim() });
       setStep('otp');
-      setMessage(response.message);
+      setMessage(
+        response.message || 'Mã OTP đặt lại mật khẩu đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.',
+      );
       setCooldown(response.resendCooldownSeconds ?? 60);
-      window.setTimeout(() => setCooldown(0), (response.resendCooldownSeconds ?? 60) * 1000);
     } catch (err) {
       setError(getApiErrorMessage(err, 'Không thể gửi mã OTP. Vui lòng thử lại.'));
     } finally {

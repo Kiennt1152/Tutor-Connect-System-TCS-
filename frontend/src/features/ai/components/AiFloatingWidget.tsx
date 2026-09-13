@@ -93,7 +93,10 @@ export default function AiFloatingWidget() {
       {isHomepage && (
         <button
           className="ai-widget-button ai-widget-button--support"
-          onClick={() => navigate(APP_ROUTES.help)}
+          onClick={() => {
+            navigate(APP_ROUTES.help);
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+          }}
           title="Hỗ trợ khách hàng"
         >
           <span className="ai-widget-button__icon" aria-hidden="true">☎</span>

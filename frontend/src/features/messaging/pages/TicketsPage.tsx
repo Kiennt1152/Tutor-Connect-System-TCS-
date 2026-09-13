@@ -5,8 +5,10 @@ export default function TicketsPage() {
   return (
     <div className="tcs-page">
       <HomeNavbar />
-      <div style={{ maxWidth: '1200px', margin: '2rem auto', padding: '0 1rem' }}>
-        <MessagingPanel />
+      <div className="msg-page" style={{ minHeight: 'calc(100vh - 70px)' }}>
+        <div className="msg-page__body">
+          <MessagingPanel />
+        </div>
       </div>
     </div>
   );

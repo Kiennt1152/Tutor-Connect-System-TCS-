@@ -379,7 +379,6 @@ function TicketDetailPanel({ ticketId, onBack }: TicketDetailProps) {
             <button
               type="button"
               className="tcs-btn tcs-btn--primary"
-              style={{ background: '#2563eb' }}
               onClick={handleReopen}
               disabled={mutations.status === 'loading' || !replyText.trim()}
             >

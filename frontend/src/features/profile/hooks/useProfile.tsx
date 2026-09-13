@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { profileApi } from '../api/profileApi';
 import type { ProfileResponse, UpdateProfileRequest } from '../types/profileTypes';
 
-interface UseProfileResult {
+export interface UseProfileResult {
   profile: ProfileResponse | null;
   loading: boolean;
   error: string | null;

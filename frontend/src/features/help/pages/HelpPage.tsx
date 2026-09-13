@@ -122,6 +122,11 @@ export default function HelpPage() {
   const [searchDraft, setSearchDraft] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
+  // Tự động cuộn lên đầu trang khi vào trang Hỗ trợ
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, []);
+
   // Tự động reset về trang 1 và đóng các accordion khi thay đổi từ khóa, danh mục hoặc danh sách kết quả
   useEffect(() => {
     setCurrentPage(1);
