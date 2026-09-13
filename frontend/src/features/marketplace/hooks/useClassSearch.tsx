@@ -4,6 +4,7 @@ import { FormulaExplainer } from '../components/FormulaExplainer';
 import { FALLBACK_SUBJECTS, FALLBACK_GRADES } from '../constants/catalogFallback';
 import { isOtherSubject, type CatalogOption, type ClassResponse } from '../types/marketplaceTypes';
 import {
+  CRITERIA_KEYS,
   FEE_FLOOR,
   emptyCriteria,
   parseClass,
@@ -440,14 +441,36 @@ export function useClassSearch({
     return (id: string) => m.get(id) ?? '';
   }, [effGrades]);
 
-  // Chưa mở panel -> mọi tiêu chí ưu tiên cao như nhau, mỗi tiêu chí ăn trọn 20% phần của nó.
-  const effectiveWeights = useMemo<MatchWeights>(
-    () =>
-      showWeights
-        ? criteria.weights
-        : { subject: 5, location: 5, salary: 5, schedule: 5, grade: 5 },
-    [showWeights, criteria.weights],
+  /** Câu tìm có nêu tiêu chí đó không — phải khớp đúng activeCriteria() bên tutorMatching. */
+  const filledCriteria = useMemo<Record<keyof MatchWeights, boolean>>(
+    () => ({
+      subject: selectedIds.length > 0 || otherText.trim() !== '',
+      location: provinceName.trim() !== '' || wardName.trim() !== '' || onlineOnly,
+      salary: clampFee(queryFee).trim() !== '',
+      schedule: availability.length > 0,
+      grade: gradeIds.length > 0,
+    }),
+    [selectedIds, otherText, provinceName, wardName, onlineOnly, queryFee, availability, gradeIds],
   );
+
+  const filledCount = CRITERIA_KEYS.filter((k) => filledCriteria[k]).length;
+
+  /**
+   * Chưa mở panel -> mọi tiêu chí ưu tiên cao như nhau. Nhưng tiêu chí KHÔNG nêu trong câu
+   * tìm thì tự về 0 · Bỏ qua: không nêu gì thì chẳng có gì để so, để nguyên mức 5 nó vẫn
+   * ăn trọn phần của mình và làm loãng các tiêu chí thật. Phần bị bỏ được criteriaShares()
+   * chia đều cho các tiêu chí còn lại.
+   */
+  const effectiveWeights = useMemo<MatchWeights>(() => {
+    const base: MatchWeights = showWeights
+      ? criteria.weights
+      : { subject: 5, location: 5, salary: 5, schedule: 5, grade: 5 };
+    const out = { ...base };
+    for (const k of CRITERIA_KEYS) {
+      if (!filledCriteria[k]) out[k] = 0;
+    }
+    return out;
+  }, [showWeights, criteria.weights, filledCriteria]);
 
   /** id khối -> số lớp. Chỉ "Lớp N" mới có số; chứng chỉ / đại học để ngoài. */
   const gradeLevels = useMemo<Record<string, number>>(() => {
@@ -685,7 +708,11 @@ export function useClassSearch({
             >
               <span className="tfc-panel__title">Mức độ ưu tiên khi tìm</span>
               <span className="tfc-panel__toggle-hint">
-                {showWeights ? 'đang theo mức bạn kéo' : 'đang tính trung bình 5 tiêu chí'}
+                {showWeights
+                  ? 'đang theo mức bạn kéo'
+                  : filledCount > 0
+                    ? `đang tính đều ${filledCount} tiêu chí bạn đã nhập`
+                    : 'đang tính đều các tiêu chí bạn nhập'}
               </span>
               <span className="tfc-panel__caret" aria-hidden>
                 {showWeights ? '▲' : '▼'}
@@ -718,13 +745,18 @@ export function useClassSearch({
           {showWeights && (
           <div className="tfc-weight-list">
             {WEIGHT_LABELS.map((w) => {
-              const v = criteria.weights[w.key];
+              const filled = filledCriteria[w.key];
+              const v = effectiveWeights[w.key];
               return (
-                <div key={w.key} className="tfc-weight" title={hasFilter ? w.hint : undefined}>
+                <div
+                  key={w.key}
+                  className={`tfc-weight${filled ? '' : ' is-off'}`}
+                  title={filled ? w.hint : 'Câu tìm chưa nêu tiêu chí này nên nó được bỏ qua'}
+                >
                   <div className="tfc-weight__head">
                     <span>{w.label}</span>
                     <span className={`tfc-weight__val ${v === 0 ? 'is-zero' : ''}`}>
-                      {v} · {weightLabel(v)}
+                      {filled ? `${v} · ${weightLabel(v)}` : 'chưa nhập · Bỏ qua'}
                     </span>
                   </div>
                   <input
@@ -733,7 +765,7 @@ export function useClassSearch({
                     max={5}
                     step={1}
                     value={v}
-                    disabled={!hasFilter}
+                    disabled={!hasFilter || !filled}
                     onChange={(e) => setWeight(w.key, Number(e.target.value))}
                   />
                 </div>
