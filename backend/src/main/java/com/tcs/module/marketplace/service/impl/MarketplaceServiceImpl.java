@@ -287,9 +287,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Override
     @Transactional(readOnly = true)
     public List<ClassResponse> listBoardClasses() {
-        return tutoringClassRepository
-                .findByStatusIn(List.of(TutoringClassStatus.OPEN, TutoringClassStatus.MATCHED)).stream()
-                .filter(c -> c.getStatus() == TutoringClassStatus.OPEN || !handoverCompleted(c))
+        // "Danh sách tin đã đăng" là tin của CHÍNH người đang đăng nhập, không phải bảng tin
+        // chung: client này không được thấy tin của client khác. Endpoint là GET công khai nên
+        // dùng currentUserIdOrNull() — khách chưa đăng nhập thì đơn giản là không có tin nào.
+        Long userId = authHelper.currentUserIdOrNull();
+        if (userId == null) {
+            return List.of();
+        }
+        return tutoringClassRepository.findByCreator_UserId(userId).stream()
+                .filter(c -> c.getStatus() == TutoringClassStatus.OPEN
+                        || (c.getStatus() == TutoringClassStatus.MATCHED && !handoverCompleted(c)))
                 .map(c -> toClassResponse(c, null, null))
                 .toList();
     }

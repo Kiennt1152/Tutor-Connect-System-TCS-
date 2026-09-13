@@ -1447,15 +1447,14 @@
   line-height: 1.45;
 }
 
-/* Chân thẻ */
-:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__status {
-  padding: 3px 9px;
-  font-size: var(--fs-badge);
-}
+/* Chân thẻ — hai nút bằng nhau, chia đôi bề ngang thẻ (theo main; nhãn trạng thái đã bỏ khỏi
+   markup nên không còn rule cho nó). Áp thêm cho lưới --fill để thẻ ở trang Trung tâm và
+   hồ sơ trung tâm cùng cỡ với thẻ ở trang chủ. */
 :is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__foot .tcs-btn {
-  height: 32px;
-  padding: 0 12px;
+  height: 36px;
+  padding: 0 10px;
   font-size: var(--fs-body-sm);
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {

@@ -82,11 +82,13 @@ axiosClient.interceptors.response.use(
     }
 
     if (error.code === 'ERR_NETWORK' || !error.response) {
-      return Promise.reject(
-        new Error(
-          'Không thể kết nối đến máy chủ. Vui lòng kiểm tra backend đang chạy và CORS đã được cấu hình.',
-        ),
+      // Giữ lại error.code: nơi gọi cần phân biệt "backend đang tắt/restart" với
+      // "server trả 401" — mất kết nối thì KHÔNG được coi là phiên hỏng.
+      const networkError: Error & { code?: string } = new Error(
+        'Không thể kết nối đến máy chủ. Vui lòng kiểm tra backend đang chạy và CORS đã được cấu hình.',
       );
+      networkError.code = error.code ?? 'ERR_NETWORK';
+      return Promise.reject(networkError);
     }
 
     return Promise.reject(error);

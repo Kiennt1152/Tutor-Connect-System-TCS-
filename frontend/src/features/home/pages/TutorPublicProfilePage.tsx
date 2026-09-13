@@ -186,7 +186,6 @@ function ProfileHeader({ data }: { readonly data: TutorReputation }) {
           <span>🎓 {data.experienceYears} năm kinh nghiệm</span>
           <span>💰 {Number(data.hourlyRate) > 0 ? `${currency.format(Number(data.hourlyRate))}đ/giờ` : '—'}</span>
         </div>
-        {data.bio?.trim() ? <p className="tp-header__bio">{data.bio.trim()}</p> : null}
       </div>
     </header>
   );
