@@ -63,6 +63,11 @@ public class ClassResponse {
     private LocalDateTime createdAt;
     /** Hạn hiển thị (đăng lớp + 30 ngày); null nếu không tính hạn. Chỉ có với lớp OPEN. */
     private LocalDateTime expiresAt;
+    /**
+     * Hạn 48 giờ ký hợp đồng + chuyển tiền ký quỹ, tính từ lúc chọn gia sư. Quá hạn thì lớp tự
+     * mở lại cho các gia sư đã ứng tuyển. Null = không đang đếm ngược.
+     */
+    private LocalDateTime matchDeadlineAt;
     private Long applicationCount;
     private Long assignmentId;
 

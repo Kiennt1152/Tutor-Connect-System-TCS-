@@ -142,7 +142,11 @@ export default function MarketplaceClassDetailPage() {
     <>
       <VerificationHeader />
       <div className="mk-page">
-        <button className="mk-back" type="button" onClick={() => navigate('/marketplace')}>
+        <button
+          className="mk-back"
+          type="button"
+          onClick={() => navigate(APP_ROUTES.classFinder)}
+        >
           ← Quay lại Tìm lớp
         </button>
 

@@ -10,6 +10,7 @@ import {
 } from '../types/marketplaceTypes';
 import { TutorDetailModal } from './TutorDetailModal';
 import { ConfirmDialog } from './ConfirmDialog';
+import { ContractDeadline } from '../../../shared/components/ContractDeadline';
 import './applicantsModal.css';
 
 const currency = new Intl.NumberFormat('vi-VN');
@@ -44,13 +45,19 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
       .catch(() => setStatus('error'));
   }, [classId]);
 
-  // Khi đã chọn gia sư: chỉ hiển thị đúng gia sư đó, ẩn hẳn các ứng viên còn lại (không hiện mờ).
+  // Đã chọn gia sư thì các ứng viên còn lại KHÔNG bị loại: họ nằm ở danh sách chờ, sẵn sàng
+  // nhận lớp nếu hợp đồng 48 giờ với người được chọn không hoàn tất.
   const acceptedApplicant = applicants.find((a) => a.status === 'ACCEPTED');
+  const waitingApplicants = applicants.filter(
+    (a) => a.status !== 'REJECTED' && a.applicationId !== acceptedApplicant?.applicationId,
+  );
   const visibleApplicants = acceptedApplicant
-    ? [acceptedApplicant]
-    : applicants.filter((a) => a.status !== 'REJECTED');
+    ? [acceptedApplicant, ...waitingApplicants]
+    : waitingApplicants;
   const alreadyChosen = !!acceptedApplicant;
   const tutorAccepted = target.status === 'IN_PROGRESS';
+  // Đồng hồ chỉ chạy khi lớp đang chờ ký hợp đồng (MATCHED); lớp đã vào học thì backend gỡ hạn.
+  const deadline = alreadyChosen && !tutorAccepted ? target.matchDeadlineAt : null;
 
   const subjectName = useMemo(() => {
     const form = classToForm(target);
@@ -65,13 +72,13 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
     setNotice(null);
     try {
       await marketplaceApi.chooseApplicant(classId, applicationId);
+      // Chỉ người được chọn đổi trạng thái — số còn lại giữ nguyên ở danh sách chờ.
       setApplicants((list) =>
-        list.map((a) => ({
-          ...a,
-          status: a.applicationId === applicationId ? 'ACCEPTED' : 'REJECTED',
-        })),
+        list.map((a) => (a.applicationId === applicationId ? { ...a, status: 'ACCEPTED' } : a)),
       );
-      setNotice('Đã chọn gia sư cho lớp.');
+      setNotice(
+        'Đã chọn gia sư cho lớp. Bạn có 48 giờ để ký hợp đồng và chuyển tiền ký quỹ; quá hạn lớp sẽ tự mở lại cho các gia sư còn lại.',
+      );
       onChosen?.();
     } catch (err) {
       setNotice(extractError(err));
@@ -109,7 +116,22 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
 
       {status === 'success' && visibleApplicants.length > 0 && (
         <>
-          {/* Giải thích AI + Top 5 gợi ý — ẩn khi đã chọn gia sư (chỉ còn 1 người). */}
+          {/* Đã chọn gia sư: thay khối gợi ý AI bằng đồng hồ 48 giờ ký hợp đồng. */}
+          {alreadyChosen && (
+            <div className="apm-deadline">
+              <div className="apm-deadline__row">
+                <strong className="apm-deadline__title">Hạn ký hợp đồng &amp; chuyển tiền</strong>
+                {deadline ? <ContractDeadline deadline={deadline} /> : null}
+              </div>
+              <p className="apm-deadline__text">
+                {tutorAccepted
+                  ? 'Gia sư đã nhận lớp. Hợp đồng đã có hiệu lực.'
+                  : `Hợp đồng chỉ có hiệu lực trong 48 giờ kể từ lúc bạn chọn gia sư. Hết hạn mà hai bên chưa ký xong hoặc tiền ký quỹ chưa vào hệ thống, hệ thống sẽ hủy hợp đồng và mở lại lớp cho ${waitingApplicants.length} gia sư đang chờ bên dưới.`}
+              </p>
+            </div>
+          )}
+
+          {/* Giải thích AI + Top 5 gợi ý — ẩn khi đã chọn gia sư. */}
           {!alreadyChosen && (
             <div className="apm-ai">
               <div className="apm-ai__badge">AI</div>
@@ -127,25 +149,41 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
           )}
 
           <div className="apm-list">
-            {visibleApplicants.map((a, idx) => (
-              <ApplicantCard
-                key={a.applicationId}
-                applicant={a}
-                subjectName={subjectName}
-                classSubjectIds={classSubjectIds}
-                tutorAccepted={tutorAccepted}
-                rank={!alreadyChosen && a.recommended ? idx + 1 : null}
-                choosing={choosingId === a.applicationId}
-                rejecting={rejectingId === a.applicationId}
-                disabled={alreadyChosen || choosingId != null || rejectingId != null}
-                onChoose={() => setConfirmAction({ kind: 'choose', applicationId: a.applicationId })}
-                onReject={() => {
-                  setRejectReason('');
-                  setConfirmAction({ kind: 'reject', applicationId: a.applicationId });
-                }}
-                onDetail={() => setDetailApplicant(a)}
-              />
-            ))}
+            {visibleApplicants.map((a, idx) => {
+              const waiting = alreadyChosen && a.applicationId !== acceptedApplicant?.applicationId;
+              return (
+                <div key={a.applicationId}>
+                  {/* Tiêu đề nhóm chỉ chèn 1 lần, ngay trước ứng viên chờ đầu tiên. */}
+                  {waiting && idx === 1 && (
+                    <h4 className="apm-group">
+                      Danh sách chờ ({waitingApplicants.length})
+                      <span className="apm-group__hint">
+                        Chưa bị từ chối — sẽ được chọn lại nếu hợp đồng trên hết hạn
+                      </span>
+                    </h4>
+                  )}
+                  <ApplicantCard
+                    applicant={a}
+                    subjectName={subjectName}
+                    classSubjectIds={classSubjectIds}
+                    tutorAccepted={tutorAccepted}
+                    waiting={waiting}
+                    rank={!alreadyChosen && a.recommended ? idx + 1 : null}
+                    choosing={choosingId === a.applicationId}
+                    rejecting={rejectingId === a.applicationId}
+                    disabled={alreadyChosen || choosingId != null || rejectingId != null}
+                    onChoose={() =>
+                      setConfirmAction({ kind: 'choose', applicationId: a.applicationId })
+                    }
+                    onReject={() => {
+                      setRejectReason('');
+                      setConfirmAction({ kind: 'reject', applicationId: a.applicationId });
+                    }}
+                    onDetail={() => setDetailApplicant(a)}
+                  />
+                </div>
+              );
+            })}
           </div>
         </>
       )}
@@ -161,7 +199,7 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
       {confirmAction?.kind === 'choose' && (
         <ConfirmDialog
           title="Chọn gia sư"
-          message="Chọn gia sư này cho lớp? Các ứng viên còn lại sẽ bị từ chối."
+          message="Chọn gia sư này cho lớp? Các ứng viên còn lại được giữ ở danh sách chờ. Bạn có 48 giờ để ký hợp đồng và chuyển tiền ký quỹ — quá hạn, lớp sẽ tự mở lại cho họ."
           confirmLabel="Chọn gia sư này"
           cancelLabel="Hủy"
           onConfirm={() => {
@@ -231,6 +269,8 @@ interface CardProps {
   readonly subjectName: (id: string) => string;
   readonly classSubjectIds: string[];
   readonly tutorAccepted: boolean;
+  /** Ứng viên chưa được chọn nhưng vẫn giữ đơn, chờ hợp đồng 48 giờ của người được chọn. */
+  readonly waiting: boolean;
   readonly rank: number | null;
   readonly choosing: boolean;
   readonly rejecting: boolean;
@@ -245,6 +285,7 @@ function ApplicantCard({
   subjectName,
   classSubjectIds,
   tutorAccepted,
+  waiting,
   rank,
   choosing,
   rejecting,
@@ -266,7 +307,11 @@ function ApplicantCard({
   const rejected = a.status === 'REJECTED';
 
   return (
-    <article className={`apm-card ${a.recommended ? 'is-rec' : ''} ${rejected ? 'is-rejected' : ''}`}>
+    <article
+      className={`apm-card ${a.recommended ? 'is-rec' : ''} ${rejected ? 'is-rejected' : ''} ${
+        waiting ? 'is-waiting' : ''
+      }`}
+    >
       {rank != null && <span className="apm-card__rank">⭐ Top {rank}</span>}
       <div className={`apm-card__avatar apm-card__avatar--${tone}`}>{initials || '?'}</div>
 
@@ -341,6 +386,13 @@ function ApplicantCard({
             )
           ) : rejected ? (
             <span className="apm-chip apm-chip--rejected">Đã từ chối</span>
+          ) : waiting ? (
+            <span
+              className="apm-chip apm-chip--waiting"
+              title="Đơn vẫn còn hiệu lực. Nếu hợp đồng với gia sư đã chọn hết hạn 48 giờ, bạn có thể chọn gia sư này."
+            >
+              ⏳ Đang trong danh sách chờ
+            </span>
           ) : (
             <>
               <button

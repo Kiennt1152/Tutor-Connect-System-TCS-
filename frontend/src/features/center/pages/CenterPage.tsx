@@ -23,6 +23,7 @@ import type {
   TutorOption,
 } from '../types/centerTypes';
 import './CenterPage.css';
+import { isValidTimeRange, slotOverlaps } from '../../../shared/utils/format';
 
 const DAYS: { value: number; label: string }[] = [
   { value: 1, label: 'Thứ Hai' },
@@ -349,7 +350,7 @@ function validateForm(form: FormState, isCreate: boolean): FormErrors {
 
   const allowed = allowedDaysInRange(form.startDate, form.endDate);
   form.schedule.forEach((s, i) => {
-    if (!s.startTime || !s.endTime || s.endTime <= s.startTime) {
+    if (!s.startTime || !s.endTime || !isValidTimeRange(s.startTime, s.endTime)) {
       slots[i] = 'Giờ kết thúc phải sau giờ bắt đầu';
       return;
     }
@@ -365,7 +366,7 @@ function validateForm(form: FormState, isCreate: boolean): FormErrors {
       if (slots[j]) continue;
       const a = form.schedule[i];
       const b = form.schedule[j];
-      const timeOverlap = a.startTime < b.endTime && b.startTime < a.endTime;
+      const timeOverlap = slotOverlaps(a.startTime, a.endTime, b.startTime, b.endTime);
       if (!timeOverlap) continue;
       if (daily) {
         slots[i] = 'Tiết bị trùng/chồng giờ với tiết khác';

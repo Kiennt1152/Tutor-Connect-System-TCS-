@@ -127,7 +127,7 @@ export function SiteHeader({ active }: SiteHeaderProps) {
           ))}
           {showHomeAnchors && (
             <>
-              {/* "Đánh giá" mở trang riêng /danh-gia (danh sách gia sư + số sao). */}
+              {/* "Đánh giá" mở trang riêng /reviews (danh sách gia sư + số sao). */}
               <Link
                 to={APP_ROUTES.tutorReviews}
                 className={[

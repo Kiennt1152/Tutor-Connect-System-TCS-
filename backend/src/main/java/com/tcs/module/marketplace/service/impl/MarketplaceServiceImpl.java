@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.tcs.common.util.SlotTime;
 import com.tcs.common.classrequest.ClassRequestStore;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
@@ -245,6 +246,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
     /** Số ngày hiển thị lớp OPEN trước khi hết hạn và bị xóa. */
     private static final long CLASS_DISPLAY_DAYS = 30;
+
+    /** Số giờ client + gia sư phải ký xong hợp đồng và chuyển tiền ký quỹ sau khi ghép lớp. */
+    public static final long MATCH_CONTRACT_HOURS = 48;
 
     private static final int SIGN_OTP_EXPIRE_SECONDS = 300;
     private static final int SIGN_OTP_MAX_ATTEMPTS = 5;
@@ -712,14 +716,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Lớp không còn ở trạng thái đang mở để chọn gia sư");
         }
-        for (TutorApplication app :
-                tutorApplicationRepository.findByTutoringClass_ClassId(tutoringClass.getClassId())) {
-            app.setStatus(
-                    app.getApplicationId().equals(applicationId)
-                            ? TutorApplicationStatus.ACCEPTED
-                            : TutorApplicationStatus.REJECTED);
-            app.setReviewedAt(LocalDateTime.now());
+        // Lớp mở lại sau khi hợp đồng hết hạn 48 giờ vẫn giữ đơn cũ đã đóng — không cho chọn lại.
+        if (chosen.getStatus() == TutorApplicationStatus.REJECTED
+                || chosen.getStatus() == TutorApplicationStatus.WITHDRAWN) {
+            throw new IllegalArgumentException("Đơn ứng tuyển này đã đóng, không thể chọn lại.");
         }
+        // Chỉ đánh dấu người được chọn. Các ứng viên còn lại KHÔNG bị loại — họ nằm ở danh sách
+        // chờ để nhận lớp ngay nếu hợp đồng 48 giờ này không được hoàn tất.
+        chosen.setStatus(TutorApplicationStatus.ACCEPTED);
+        chosen.setReviewedAt(LocalDateTime.now());
+        tutorApplicationRepository.save(chosen);
         // Chặn trùng lịch NGAY TẠI ĐÂY — lúc chưa có hợp đồng và chưa ai chuyển tiền. Nếu để lọt
         // xuống bước kích hoạt lớp (sau khi đã nạp escrow) thì lỗi sẽ làm hỏng cả giao dịch nạp tiền.
         Map<String, BigDecimal> chosenRates = readRates(chosen.getProposedRatesJson());
@@ -732,8 +738,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     + ", trùng với lịch của lớp. Vui lòng chọn gia sư khác hoặc đổi lịch lớp.");
         }
 
+        // Chụp lại học phí/details gốc TRƯỚC khi áp giá gia sư, để hủy ghép còn trả lớp về đúng
+        // nội dung mà các ứng viên còn lại đã ứng tuyển.
+        if (tutoringClass.getPreMatchDetailsJson() == null && tutoringClass.getPreMatchTuitionFee() == null) {
+            tutoringClass.setPreMatchDetailsJson(tutoringClass.getDetailsJson());
+            tutoringClass.setPreMatchTuitionFee(tutoringClass.getTuitionFee());
+        }
         applyTutorRatesToClass(tutoringClass, chosen);
         tutoringClass.setStatus(TutoringClassStatus.MATCHED);
+        // Đồng hồ 48 giờ: hết hạn mà chưa ký đủ + chưa có tiền vào escrow thì lớp tự mở lại.
+        tutoringClass.setMatchDeadlineAt(LocalDateTime.now().plusHours(MATCH_CONTRACT_HOURS));
         tutoringClassRepository.save(tutoringClass);
 
         ClassAssignment assignment = classAssignmentRepository
@@ -878,7 +892,9 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return;
         }
         String content = "Bạn được chọn cho lớp \"" + tutoringClass.getTitle()
-                + "\". Vào mục Lịch dạy để bấm nhận lớp và bắt đầu lịch học.";
+                + "\". Vào mục Lịch dạy để bấm nhận lớp và bắt đầu lịch học. Hợp đồng chỉ có hiệu lực "
+                + MATCH_CONTRACT_HOURS + " giờ — quá hạn mà hai bên chưa ký xong và chưa thanh toán"
+                + " ký quỹ thì lớp sẽ mở lại cho các gia sư khác.";
         notificationDispatchService.notifyUserFromTemplate(
                 chosen.getTutor().getUser(),
                 com.tcs.module.messaging.enums.NotificationType.APPLICATION,
@@ -977,7 +993,32 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         assignment.setStatus(ClassAssignmentStatus.ACTIVE);
         classAssignmentRepository.save(assignment);
         tutoringClass.setStatus(TutoringClassStatus.IN_PROGRESS);
+        // Lớp đã chốt: gỡ đồng hồ 48 giờ và ảnh chụp học phí, đóng nốt danh sách chờ.
+        tutoringClass.setMatchDeadlineAt(null);
+        tutoringClass.setPreMatchDetailsJson(null);
+        tutoringClass.setPreMatchTuitionFee(null);
         tutoringClassRepository.save(tutoringClass);
+        closeWaitingApplicants(tutoringClass, assignment.getApplication().getApplicationId());
+    }
+
+    /**
+     * Lớp đã có gia sư chính thức nhận -> các ứng viên còn ở danh sách chờ được báo kết quả và
+     * đóng đơn. Trước bước này họ vẫn ở trạng thái chờ để còn nhận lớp nếu hợp đồng 48 giờ hỏng.
+     */
+    private void closeWaitingApplicants(TutoringClass tutoringClass, Long acceptedApplicationId) {
+        for (TutorApplication app :
+                tutorApplicationRepository.findByTutoringClass_ClassId(tutoringClass.getClassId())) {
+            if (app.getApplicationId().equals(acceptedApplicationId)
+                    || app.getStatus() == TutorApplicationStatus.REJECTED
+                    || app.getStatus() == TutorApplicationStatus.WITHDRAWN) {
+                continue;
+            }
+            app.setStatus(TutorApplicationStatus.REJECTED);
+            app.setReviewedAt(LocalDateTime.now());
+            tutorApplicationRepository.save(app);
+            notifyApplicantRejected(
+                    tutoringClass, app, "Lớp đã có gia sư khác nhận và ký hợp đồng thành công");
+        }
     }
 
     @Override
@@ -1032,6 +1073,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .tutorSignedAt(assignment.getTutorSignedAt())
                 .clientSignedAt(assignment.getClientSignedAt())
                 .paymentMethod(assignment.getPaymentMethod())
+                .matchDeadlineAt(c.getMatchDeadlineAt())
                 .myRole(role)
                 .escrowPayment(toEscrowPaymentInfo(resolveAssignmentEscrow(assignment), resolveAssignmentEscrowPayment(assignment)))
                 .refundPayoutInfo(toRefundPayoutInfoView(contract, assignment))
@@ -1488,7 +1530,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         for (Map.Entry<LocalDate, SlotSpec> occurrence : occurrences) {
             SlotSpec spec = occurrence.getValue();
             BigDecimal rate = ratePerHour.getOrDefault(spec, BigDecimal.ZERO);
-            double hours = java.time.Duration.between(spec.start(), spec.end()).toMinutes() / 60.0;
+            double hours = SlotTime.hours(spec.start(), spec.end());
             total = total.add(rate.multiply(BigDecimal.valueOf(hours)));
         }
         return total.setScale(2, RoundingMode.HALF_UP);
@@ -2177,9 +2219,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (rate == null || rate.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
-        BigDecimal hours = BigDecimal.valueOf(
-                java.time.Duration.between(slot.getStartTime(), slot.getEndTime()).toMinutes())
-                .divide(BigDecimal.valueOf(60), 2, RoundingMode.HALF_UP);
+        BigDecimal hours = BigDecimal.valueOf(SlotTime.hours(slot.getStartTime(), slot.getEndTime()))
+                .setScale(2, RoundingMode.HALF_UP);
         if (hours.compareTo(BigDecimal.ZERO) <= 0) {
             return BigDecimal.ZERO;
         }
@@ -2562,7 +2603,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     }
 
     private boolean overlaps(LocalTime start, LocalTime end, LocalTime otherStart, LocalTime otherEnd) {
-        return start.isBefore(otherEnd) && otherStart.isBefore(end);
+        return SlotTime.overlaps(start, end, otherStart, otherEnd);
     }
 
     private Tutor activeTutorOf(TutoringClass tutoringClass) {
@@ -2631,7 +2672,8 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         if (start == null || end == null) {
             throw new IllegalArgumentException("Thiếu giờ bắt đầu hoặc giờ kết thúc");
         }
-        if (!start.isBefore(end)) {
+        // 00:00 là mốc nửa đêm (24:00) nên vẫn hợp lệ dù đứng "trước" giờ bắt đầu.
+        if (!SlotTime.isValidRange(start, end)) {
             throw new IllegalArgumentException("Giờ kết thúc phải sau giờ bắt đầu");
         }
     }
@@ -2773,7 +2815,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             List<Map.Entry<LocalDate, SlotSpec>> occurrences) {
         LocalDateTime now = LocalDateTime.now();
         return occurrences.stream()
-                .filter(o -> o.getKey().atTime(o.getValue().end()).isAfter(now))
+                .filter(o -> SlotTime.endAt(o.getKey(), o.getValue().end()).isAfter(now))
                 .toList();
     }
 
@@ -2789,7 +2831,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             LocalDate date = occurrence.getKey();
             SlotSpec spec = occurrence.getValue();
             // Buổi của lớp mới đã trôi qua thì không còn tranh chấp giờ với ai nữa.
-            if (!date.atTime(spec.end()).isAfter(now)) {
+            if (!SlotTime.endAt(date, spec.end()).isAfter(now)) {
                 continue;
             }
             for (Lesson lesson : existing) {
@@ -2800,7 +2842,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 LocalTime otherStart = lesson.getSlot().getStartTime();
                 LocalTime otherEnd = lesson.getSlot().getEndTime();
                 // Buổi cũ đã dạy xong thì thôi — qua giờ đó là gia sư rảnh trở lại.
-                if (!lesson.getLessonDate().atTime(otherEnd).isAfter(now)) {
+                if (!SlotTime.endAt(lesson.getLessonDate(), otherEnd).isAfter(now)) {
                     continue;
                 }
                 if (overlaps(spec.start(), spec.end(), otherStart, otherEnd)) {
@@ -3043,6 +3085,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 .tutorSignedAt(assignment.getTutorSignedAt())
                 .clientSignedAt(assignment.getClientSignedAt())
                 .paymentMethod(assignment.getPaymentMethod())
+                .matchDeadlineAt(c.getMatchDeadlineAt())
                 .classCompleted(c.getStatus() == TutoringClassStatus.COMPLETED)
                 .completionState(completion.state())
                 .completionBlockedReason(completion.blockedReason())
@@ -4448,6 +4491,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                         .toList())
                 .createdAt(c.getCreatedAt())
                 .expiresAt(c.getExpiresAt())
+                .matchDeadlineAt(c.getMatchDeadlineAt())
                 .applicationCount(tutorApplicationRepository.countByTutoringClass_ClassIdAndStatusNot(
                         c.getClassId(), TutorApplicationStatus.REJECTED))
                 .assignmentId(classAssignmentRepository

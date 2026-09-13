@@ -43,6 +43,11 @@ import {
 import { FALLBACK_GRADES } from '../constants/catalogFallback';
 import { LocationPicker, type LocationValue } from '../../center/components/LocationPicker';
 import '../pages/MarketplacePage.css';
+import {
+  MIDNIGHT_END,
+  endMinutes,
+  startMinutes as toMinutes,
+} from '../../../shared/utils/format';
 
 interface ClassRequestFormProps {
   readonly initial: ClassFormValues;
@@ -65,21 +70,16 @@ interface ClassRequestFormProps {
 const currency = new Intl.NumberFormat('vi-VN');
 
 function buildTimeSlots(min: string, max: string, stepMinutes = 30): string[] {
-  const toMinutes = (t: string) => {
-    const [h, m] = t.split(':').map(Number);
-    return h * 60 + m;
-  };
   const out: string[] = [];
-  for (let x = toMinutes(min); x <= toMinutes(max); x += stepMinutes) {
-    out.push(`${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`);
+  const maxMin = endMinutes(max);
+  for (let x = toMinutes(min); x <= maxMin; x += stepMinutes) {
+    const wrapped = x % (24 * 60);
+    out.push(
+      `${String(Math.floor(wrapped / 60)).padStart(2, '0')}:${String(wrapped % 60).padStart(2, '0')}`,
+    );
   }
   if (out.length > 0 && out[out.length - 1] !== max) out.push(max);
   return out;
-}
-
-const MIDNIGHT_END = '23:59';
-function fmtTime(t: string): string {
-  return t === MIDNIGHT_END ? '00:00' : t;
 }
 
 function emptySlot(subjectId: string): ScheduleSlot {
@@ -94,11 +94,6 @@ function sessionFromStart(start: string): string {
   if (start < '12:00') return 'Sáng';
   if (start < '18:00') return 'Chiều';
   return 'Tối';
-}
-
-function toMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
 }
 
 function minutesToTime(mins: number): string {
@@ -129,13 +124,14 @@ function sessionFullyBusy(
   busy: { start: string; end: string }[],
 ): boolean {
   const pool = buildTimeSlots(session.min, session.max).slice(0, -1);
-  return pool.every((t) => busy.some((b) => b.start <= t && t < b.end));
+  return pool.every((t) =>
+    busy.some((b) => toMinutes(b.start) <= toMinutes(t) && toMinutes(t) < endMinutes(b.end)),
+  );
 }
 
 function durationLabel(start: string, end: string): string {
-  if (!start || !end || end <= start) return '';
-  const endMin = end === MIDNIGHT_END ? 24 * 60 : toMinutes(end);
-  const mins = endMin - toMinutes(start);
+  if (!start || !end || endMinutes(end) <= toMinutes(start)) return '';
+  const mins = endMinutes(end) - toMinutes(start);
   const h = Math.floor(mins / 60);
   const m = mins % 60;
   const parts = [];
@@ -373,7 +369,8 @@ export function ClassRequestForm({
       const shared = prev.slots.find((s) => s.subjectId === subjectId);
       let start = shared?.start || WEEKLY_DEFAULT_START;
       let end = shared?.end || WEEKLY_DEFAULT_END;
-      const overlaps = (a: string, b: string) => busy.some((r) => a < r.end && r.start < b);
+      const overlaps = (a: string, b: string) =>
+        busy.some((r) => toMinutes(a) < endMinutes(r.end) && toMinutes(r.start) < endMinutes(b));
       if (overlaps(start, end)) {
         const span = toMinutes(end) - toMinutes(start);
         const free = buildTimeSlots('06:00', '23:30').find(
@@ -400,7 +397,7 @@ export function ClassRequestForm({
         if (i !== index) return s;
         const start = patch.start ?? s.start;
         let end = patch.end ?? s.end;
-        if (end && start && end <= start) end = '';
+        if (end && start && endMinutes(end) <= toMinutes(start)) end = '';
         return { ...s, start, end, session: start ? sessionFromStart(start) : s.session };
       }),
     }));
@@ -441,8 +438,8 @@ export function ClassRequestForm({
           (weekly ? !!o.day && o.day === cur.day : !!o.date && o.date === cur.date) &&
           !!o.start &&
           !!o.end &&
-          preset.start < o.end &&
-          o.start < preset.end,
+          toMinutes(preset.start) < endMinutes(o.end) &&
+          toMinutes(o.start) < endMinutes(preset.end),
       );
       const past =
         !weekly && cur.date === new Date().toLocaleDateString('en-CA')
@@ -494,7 +491,7 @@ export function ClassRequestForm({
       slotErrorSet.add(`${nm}: ngày học không được ở quá khứ`);
     } else if (!isWeekly && s.date === today && s.start <= nowHm) {
       slotErrorSet.add(`${nm}: giờ học hôm nay đã qua (phải sau ${nowHm})`);
-    } else if (s.end <= s.start) {
+    } else if (endMinutes(s.end) <= toMinutes(s.start)) {
       slotErrorSet.add(`${nm}: giờ kết thúc phải sau giờ bắt đầu`);
     }
   });
@@ -519,12 +516,17 @@ export function ClassRequestForm({
       const a = form.slots[i];
       const b = form.slots[j];
       const sameWhen = isWeekly ? !!a.day && a.day === b.day : !!a.date && a.date === b.date;
-      if (sameWhen && a.start && a.end && b.start && b.end && a.start < b.end && b.start < a.end) {
+      const filled = !!a.start && !!a.end && !!b.start && !!b.end;
+      const clash =
+        filled &&
+        toMinutes(a.start) < endMinutes(b.end) &&
+        toMinutes(b.start) < endMinutes(a.end);
+      if (sameWhen && clash) {
         const when = isWeekly ? dayLabel(a.day) : `ngày ${a.date}`;
         conflicts.push(
-          `Trùng giờ ${when}: ${subjName(a.subjectId)} (${fmtTime(a.start)}–${fmtTime(a.end)}) & ${subjName(
+          `Trùng giờ ${when}: ${subjName(a.subjectId)} (${a.start}–${a.end}) & ${subjName(
             b.subjectId,
-          )} (${fmtTime(b.start)}–${fmtTime(b.end)})`,
+          )} (${b.start}–${b.end})`,
         );
       }
     }
@@ -718,6 +720,28 @@ export function ClassRequestForm({
         </label>
       </div>
 
+      <div className="mkt-field">
+        <span className="mkt-field__label">Kiểu lịch học</span>
+        <div className="mkt-radios">
+          {SCHEDULE_MODE_OPTIONS.map((opt) => (
+            <label key={opt.value} className="mkt-radio">
+              <input
+                type="radio"
+                name="scheduleMode"
+                checked={form.scheduleMode === opt.value}
+                onChange={() => setScheduleMode(opt.value as ScheduleMode)}
+              />
+              <span>{opt.label}</span>
+            </label>
+          ))}
+        </div>
+        <span className="mkt-hint">
+          {isWeekly
+            ? 'Lặp lại cùng khung giờ theo Thứ ở các tuần tiếp theo.'
+            : 'Chọn từng ngày cụ thể (không lặp lại) — hết các ngày/tuần đã chọn, bạn cần nhập lại lịch cho tuần tiếp theo.'}
+        </span>
+      </div>
+
       {/* Chọn ngày cụ thể (lịch cá nhân) -> bỏ qua chu kỳ Tháng/Quý/Kỳ/Năm và số tháng học. */}
       {isWeekly && (
       <div className="mkt-form__grid">
@@ -768,28 +792,6 @@ export function ClassRequestForm({
         )}
       </div>
       )}
-
-      <div className="mkt-field">
-        <span className="mkt-field__label">Kiểu lịch học</span>
-        <div className="mkt-radios">
-          {SCHEDULE_MODE_OPTIONS.map((opt) => (
-            <label key={opt.value} className="mkt-radio">
-              <input
-                type="radio"
-                name="scheduleMode"
-                checked={form.scheduleMode === opt.value}
-                onChange={() => setScheduleMode(opt.value as ScheduleMode)}
-              />
-              <span>{opt.label}</span>
-            </label>
-          ))}
-        </div>
-        <span className="mkt-hint">
-          {isWeekly
-            ? 'Lặp lại cùng khung giờ theo Thứ ở các tuần tiếp theo.'
-            : 'Chọn từng ngày cụ thể (không lặp lại) — hết các ngày/tuần đã chọn, bạn cần nhập lại lịch cho tuần tiếp theo.'}
-        </span>
-      </div>
 
       {isWeekly && (
         <div className="mkt-form__grid">
@@ -944,19 +946,27 @@ export function ClassRequestForm({
                           const busy = busyRangesOf(form.slots, idx, 'day', slot.day);
                           const startTimes = pool
                             .slice(0, -1)
-                            .filter((t) => !busy.some((b) => b.start <= t && t < b.end));
+                            .filter(
+                              (t) =>
+                                !busy.some(
+                                  (b) =>
+                                    toMinutes(b.start) <= toMinutes(t) &&
+                                    toMinutes(t) < endMinutes(b.end),
+                                ),
+                            );
                           const nextBusyStart = busy
                             .map((b) => b.start)
                             .filter((s) => s >= slot.start)
                             .sort()[0];
                           const endTimes = pool.filter(
                             (t) =>
-                              (!slot.start || t > slot.start) &&
-                              (!nextBusyStart || t <= nextBusyStart),
+                              (!slot.start || endMinutes(t) > toMinutes(slot.start)) &&
+                              (!nextBusyStart || endMinutes(t) <= toMinutes(nextBusyStart)),
                           );
                           if (slot.end && !endTimes.includes(slot.end)) {
                             endTimes.push(slot.end);
-                            endTimes.sort();
+                            // Sắp theo phút kết thúc: "00:00" là nửa đêm nên phải nằm cuối.
+                            endTimes.sort((a, b) => endMinutes(a) - endMinutes(b));
                           }
                           return (
                             <div key={slot.day} className="mkt-wday-row">
@@ -999,7 +1009,7 @@ export function ClassRequestForm({
                                 <option value="">Đến…</option>
                                 {endTimes.map((t) => (
                                   <option key={t} value={t}>
-                                    {slot.start ? `${fmtTime(t)} (${durationLabel(slot.start, t)})` : fmtTime(t)}
+                                    {slot.start ? `${t} (${durationLabel(slot.start, t)})` : t}
                                   </option>
                                 ))}
                               </select>
@@ -1013,7 +1023,7 @@ export function ClassRequestForm({
                                 .map(
                                   ({ slot }) =>
                                     `${dayLabel(slot.day)}${
-                                      slot.start && slot.end ? ` ${fmtTime(slot.start)}–${fmtTime(slot.end)}` : ''
+                                      slot.start && slot.end ? ` ${slot.start}–${slot.end}` : ''
                                     }`,
                                 )
                                 .join(' · ')}`}
@@ -1029,19 +1039,30 @@ export function ClassRequestForm({
                       .map(({ slot, idx }) => {
                         const sess = SESSION_OPTIONS.find((o) => o.value === slot.session);
                         const sessTimes = buildTimeSlots(sess?.min ?? '00:00', sess?.max ?? '23:30');
-                        const dayTimes =
-                          slot.date === today ? sessTimes.filter((t) => t > nowHm) : sessTimes;
+                        const isToday = slot.date === today;
+                        const dayTimes = isToday ? sessTimes.filter((t) => t > nowHm) : sessTimes;
+                        // Giờ kết thúc lọc riêng: 00:00 là nửa đêm nên vẫn ở tương lai dù chuỗi nhỏ.
+                        const endPool = isToday
+                          ? sessTimes.filter((t) => endMinutes(t) > toMinutes(nowHm))
+                          : sessTimes;
                         const busy = busyRangesOf(form.slots, idx, 'date', slot.date);
                         const times = dayTimes.filter(
-                          (t) => !busy.some((b) => b.start <= t && t < b.end),
+                          (t) =>
+                            !busy.some(
+                              (b) =>
+                                toMinutes(b.start) <= toMinutes(t) &&
+                                toMinutes(t) < endMinutes(b.end),
+                            ),
                         );
                         const nextBusyStart = busy
                           .map((b) => b.start)
                           .filter((s) => s >= slot.start)
                           .sort()[0];
                         const endTimes = slot.start
-                          ? dayTimes.filter(
-                              (t) => t > slot.start && (!nextBusyStart || t <= nextBusyStart),
+                          ? endPool.filter(
+                              (t) =>
+                                endMinutes(t) > toMinutes(slot.start) &&
+                                (!nextBusyStart || endMinutes(t) <= toMinutes(nextBusyStart)),
                             )
                           : times;
                         return (
@@ -1065,8 +1086,8 @@ export function ClassRequestForm({
                                       o.date === date &&
                                       !!o.start &&
                                       !!o.end &&
-                                      slot.start < o.end &&
-                                      o.start < slot.end,
+                                      toMinutes(slot.start) < endMinutes(o.end) &&
+                                      toMinutes(o.start) < endMinutes(slot.end),
                                   );
                                 updateSlot(
                                   idx,
@@ -1095,6 +1116,7 @@ export function ClassRequestForm({
                             >
                               <option value="">Từ…</option>
                               {times
+                                // 00:00 chỉ là mốc KẾT THÚC (nửa đêm), không cho chọn làm giờ bắt đầu.
                                 .filter((t) => t !== MIDNIGHT_END)
                                 .map((t) => (
                                   <option key={t} value={t}>
@@ -1112,7 +1134,7 @@ export function ClassRequestForm({
                               <option value="">Đến…</option>
                               {endTimes.map((t) => (
                                 <option key={t} value={t}>
-                                  {slot.start ? `${fmtTime(t)} (${durationLabel(slot.start, t)})` : fmtTime(t)}
+                                  {slot.start ? `${t} (${durationLabel(slot.start, t)})` : t}
                                 </option>
                               ))}
                             </select>

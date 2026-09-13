@@ -1,5 +1,6 @@
 package com.tcs.module.center.service.impl;
 
+import com.tcs.common.util.SlotTime;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ResourceNotFoundException;
@@ -1587,8 +1588,7 @@ public class CenterServiceImpl implements CenterService {
         boolean daily = request.getRecurringType() == RecurringType.DAILY;
         List<ScheduleSlotRequest> slots = request.getSchedule();
         for (ScheduleSlotRequest slot : slots) {
-            if (slot.getStartTime() == null || slot.getEndTime() == null
-                    || !slot.getEndTime().isAfter(slot.getStartTime())) {
+            if (!SlotTime.isValidRange(slot.getStartTime(), slot.getEndTime())) {
                 throw new IllegalArgumentException("Giờ kết thúc của khung lịch phải sau giờ bắt đầu");
             }
             // Hằng ngày: không cần thứ; Hằng tuần: bắt buộc thứ 1-7.
@@ -1601,8 +1601,8 @@ public class CenterServiceImpl implements CenterService {
             for (int j = i + 1; j < slots.size(); j++) {
                 ScheduleSlotRequest a = slots.get(i);
                 ScheduleSlotRequest b = slots.get(j);
-                boolean timeOverlap = a.getStartTime().isBefore(b.getEndTime())
-                        && b.getStartTime().isBefore(a.getEndTime());
+                boolean timeOverlap = SlotTime.overlaps(
+                        a.getStartTime(), a.getEndTime(), b.getStartTime(), b.getEndTime());
                 if (!timeOverlap) {
                     continue;
                 }
@@ -1673,8 +1673,8 @@ public class CenterServiceImpl implements CenterService {
                     if (!s1.getDayOfWeek().equals(s2.getDayOfWeek())) {
                         continue;
                     }
-                    boolean timeOverlap = s1.getStartTime().isBefore(s2.getEndTime())
-                            && s2.getStartTime().isBefore(s1.getEndTime());
+                    boolean timeOverlap = SlotTime.overlaps(
+                            s1.getStartTime(), s1.getEndTime(), s2.getStartTime(), s2.getEndTime());
                     if (timeOverlap) {
                         return other;
                     }

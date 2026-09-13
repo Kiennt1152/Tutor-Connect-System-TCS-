@@ -84,10 +84,10 @@ export default function MarketplacePage() {
   } = useMarketplace();
 
   const [mode, setMode] = useState<Mode>({ kind: 'list' });
-  // Màn chi tiết tin có URL riêng: /yeu-cau-tim-gia-su-cua-toi/thong-tin-tin-tuyen-dung?id=<classId>
+  // Màn chi tiết tin có URL riêng: /marketplace/class-detail?id=<classId>
   const navigate = useNavigate();
   const location = useLocation();
-  const detailPath = `${APP_ROUTES.marketplace}/thong-tin-tin-tuyen-dung`;
+  const detailPath = `${APP_ROUTES.marketplace}/class-detail`;
   const onDetailRoute = location.pathname === detailPath;
   // classId truyền qua router state để URL sạch (không lộ id); dự phòng sessionStorage để refresh vẫn giữ đúng tin.
   const stateClassId = (location.state as { classId?: number } | null)?.classId;

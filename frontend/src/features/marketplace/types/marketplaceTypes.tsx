@@ -85,6 +85,11 @@ export interface ClassResponse {
   createdAt: string;
   /** Hạn hiển thị (đăng lớp + 30 ngày); null nếu không tính hạn. Chỉ có với lớp OPEN. */
   expiresAt: string | null;
+  /**
+   * Hạn 48 giờ để ký hợp đồng và chuyển tiền ký quỹ, tính từ lúc chọn gia sư.
+   * Quá hạn thì lớp tự mở lại cho các gia sư đã ứng tuyển. Null = không đang đếm ngược.
+   */
+  matchDeadlineAt: string | null;
   applicationCount: number | null;
   assignmentId: number | null;
   /** Gia sư đang dạy lớp (phân công ACTIVE), null khi lớp chưa ghép gia sư. */
@@ -232,7 +237,8 @@ export const SESSION_OPTIONS: readonly {
 }[] = [
   { value: 'Sáng', label: 'Sáng (6h–12h)', min: '06:00', max: '12:00', start: '06:00', end: '08:00' },
   { value: 'Chiều', label: 'Chiều (12h–18h)', min: '12:00', max: '18:00', start: '12:00', end: '14:00' },
-  { value: 'Tối', label: 'Tối (18h–0h)', min: '18:00', max: '23:59', start: '18:00', end: '20:00' },
+  // max '00:00' là mốc NỬA ĐÊM (24:00) của chính ngày hôm đó, không phải 0h đầu ngày.
+  { value: 'Tối', label: 'Tối (18h–0h)', min: '18:00', max: '00:00', start: '18:00', end: '20:00' },
 ];
 
 export type BillingCycle = 'MONTH' | 'TERM' | 'QUARTER' | 'YEAR';

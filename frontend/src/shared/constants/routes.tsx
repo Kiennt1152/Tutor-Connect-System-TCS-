@@ -1,21 +1,21 @@
 export const APP_ROUTES = {
   home: '/',
-  findTutor: '/tim-gia-su',
-  postTutorRequest: '/dang-yeu-cau-tim-gia-su',
+  findTutor: '/find-tutor',
+  postTutorRequest: '/post-tutor-request',
   findClass: '/tim-yeu-cau-giang-day',
   /** Bảng tổng hợp mọi lớp client đăng (đang mở). Ký hợp đồng xong -> lớp kích hoạt, tự gỡ khỏi đây. */
-  classBoard: '/sua-lop/danh-sach-tin-da-dang',
+  classBoard: '/class-board',
   /** Trang "Tìm lớp phù hợp với bạn" — duyệt lớp đang mở để đăng ký (bản của center/class). */
-  classFinder: '/lop-hoc',
-  tutorProfile: '/tim-gia-su/chi-tiet-gia-su',
+  classFinder: '/class-finder',
+  tutorProfile: '/find-tutor/tutor-profile',
   /** Trang "Đánh giá" công khai: danh sách toàn bộ gia sư kèm số sao để xem chi tiết đánh giá. */
-  tutorReviews: '/danh-gia',
-  teaching: '/lich-ca-nhan',
+  tutorReviews: '/reviews',
+  teaching: '/teaching',
   /** Lịch lớp TRUNG TÂM — tách riêng khỏi `teaching` (lịch lớp cá nhân). */
   tutorSchedule: '/tutor/schedule',
   clientSchedule: '/client/schedule',
   centerReschedules: '/center/reschedules',
-  signContract: '/lich-ca-nhan/ki-hop-dong',
+  signContract: '/teaching/sign-contract',
   login: '/login',
   register: '/register',
   forgotPassword: '/forgot-password',
@@ -33,11 +33,11 @@ export const APP_ROUTES = {
   /** Trang công khai giới thiệu trung tâm + tin tuyển gia sư (khác /center là trang quản lý). */
   centers: '/centers',
   recruitment: '/recruitment',
-  marketplace: '/yeu-cau-tim-gia-su-cua-toi',
+  marketplace: '/marketplace',
   contract: '/contract',
   guardianApprovals: '/profile/guardian/approvals',
   messaging: '/messaging',
-  feedback: '/nhan-xet-gia-su',
+  feedback: '/feedback',
   myReputation: '/nhan-xet-ve-toi',
   messagingTickets: '/messaging/tickets',
   help: '/help',
@@ -66,4 +66,4 @@ export const APP_ROUTES = {
 
 // URL ẩn tutorId — id được truyền qua router state (xem TutorPublicProfilePage). Giữ tham số để
 // nhắc nơi gọi kèm state={{ tutorId }}, nhưng đường dẫn luôn cố định, không lộ id.
-export const tutorProfilePath = (_tutorId?: number | string) => '/tim-gia-su/chi-tiet-gia-su';
+export const tutorProfilePath = (_tutorId?: number | string) => '/find-tutor/tutor-profile';

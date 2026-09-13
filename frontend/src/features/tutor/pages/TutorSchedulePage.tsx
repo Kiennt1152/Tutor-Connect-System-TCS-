@@ -7,6 +7,7 @@ import { ChatButton } from '../../messaging/components/ChatButton';
 import type { LessonMode, ScheduleClass } from '../../center/types/centerTypes';
 import '../../center/pages/CenterSchedulePage.css';
 import './TutorSchedulePage.css';
+import { isValidTimeRange } from '../../../shared/utils/format';
 
 const LESSON_MODE_LABELS: Record<LessonMode, string> = {
   ONLINE: 'Trực tuyến',
@@ -108,7 +109,7 @@ export default function TutorSchedulePage() {
       setReschedError('Vui lòng chọn ngày dạy mới.');
       return;
     }
-    if (!startTime || !endTime || endTime <= startTime) {
+    if (!startTime || !endTime || !isValidTimeRange(startTime, endTime)) {
       setReschedError('Khung giờ mới không hợp lệ (giờ kết thúc phải sau giờ bắt đầu).');
       return;
     }

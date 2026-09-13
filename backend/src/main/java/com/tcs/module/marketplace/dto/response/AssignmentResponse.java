@@ -31,6 +31,8 @@ public class AssignmentResponse {
     private LocalDateTime tutorSignedAt;
     private LocalDateTime clientSignedAt;
     private String paymentMethod;
+    /** Hạn 48 giờ ký hợp đồng + chuyển tiền ký quỹ; quá hạn lời mời tự hủy. Null = không đếm ngược. */
+    private LocalDateTime matchDeadlineAt;
 
     /** UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE). */
     private boolean classCompleted;

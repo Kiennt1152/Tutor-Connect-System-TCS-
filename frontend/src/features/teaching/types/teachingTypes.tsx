@@ -47,6 +47,8 @@ export interface AssignmentResponse {
   tutorSignedAt: string | null;
   clientSignedAt: string | null;
   paymentMethod: PaymentMethod | null;
+  /** Hạn 48 giờ ký hợp đồng + chuyển tiền; quá hạn lời mời tự hủy. Null = không đếm ngược. */
+  matchDeadlineAt: string | null;
   /** UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE). */
   classCompleted: boolean;
   completionState: CompletionState;
@@ -86,6 +88,8 @@ export interface ContractView {
   tutorSignedAt: string | null;
   clientSignedAt: string | null;
   paymentMethod: PaymentMethod | null;
+  /** Hạn 48 giờ ký hợp đồng + chuyển tiền ký quỹ. Null = không còn đếm ngược. */
+  matchDeadlineAt: string | null;
   myRole: 'CLIENT' | 'TUTOR';
   escrowPayment: EscrowPaymentInfo | null;
   refundPayoutInfo: ContractRefundPayoutInfo | null;

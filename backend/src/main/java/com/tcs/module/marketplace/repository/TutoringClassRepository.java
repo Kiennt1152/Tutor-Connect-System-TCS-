@@ -34,4 +34,8 @@ public interface TutoringClassRepository extends JpaRepository<TutoringClass, Lo
     /** Lớp OPEN đã quá hạn hiển thị (expires_at < mốc truyền vào) -> cần dọn dẹp. */
     List<TutoringClass> findByStatusAndExpiresAtBefore(
             TutoringClassStatus status, LocalDateTime cutoff);
+
+    /** Lớp đã ghép nhưng quá hạn 48 giờ ký hợp đồng/chuyển tiền -> cần mở lại cho ứng viên khác. */
+    List<TutoringClass> findByStatusAndMatchDeadlineAtBefore(
+            TutoringClassStatus status, LocalDateTime cutoff);
 }
