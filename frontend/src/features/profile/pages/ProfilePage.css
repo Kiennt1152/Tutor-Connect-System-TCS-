@@ -171,6 +171,16 @@
   color: var(--color-text-primary);
 }
 
+.profile-password-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.profile-password-form .profile-actions {
+  margin-top: var(--space-sm);
+}
+
 .profile-hint {
   font-size: var(--fs-body-sm);
   color: var(--color-text-secondary);

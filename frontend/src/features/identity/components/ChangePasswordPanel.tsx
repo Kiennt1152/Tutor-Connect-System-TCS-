@@ -2,6 +2,7 @@ import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { identityApi } from '../api/identityApi';
+import '../../profile/pages/ProfilePage.css';
 
 const PASSWORD_RULE = /^(?=.*[A-Za-z])(?=.*\d)[\x00-\x7F]{8,100}$/;
 
