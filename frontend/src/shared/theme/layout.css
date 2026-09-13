@@ -38,6 +38,8 @@
 
 .tcs-header__inner > .app-logo {
   flex: 0 0 auto;
+  max-height: 56px;
+  overflow: hidden;
 }
 
 .tcs-header__nav {
