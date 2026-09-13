@@ -32,6 +32,8 @@ export const APP_ROUTES = {
   centerSchedule: '/center/schedule',
   /** Trang công khai giới thiệu trung tâm + tin tuyển gia sư (khác /center là trang quản lý). */
   centers: '/centers',
+  /** Hồ sơ công khai một trung tâm — id truyền qua router state như trang hồ sơ gia sư. */
+  centerProfile: '/centers/chi-tiet-trung-tam',
   recruitment: '/recruitment',
   marketplace: '/marketplace',
   contract: '/contract',
@@ -67,3 +69,6 @@ export const APP_ROUTES = {
 // URL ẩn tutorId — id được truyền qua router state (xem TutorPublicProfilePage). Giữ tham số để
 // nhắc nơi gọi kèm state={{ tutorId }}, nhưng đường dẫn luôn cố định, không lộ id.
 export const tutorProfilePath = (_tutorId?: number | string) => '/find-tutor/tutor-profile';
+
+// Cùng cách với tutorProfilePath: gọi kèm state={{ centerId }}, đường dẫn cố định.
+export const centerProfilePath = (_centerId?: number | string) => '/centers/chi-tiet-trung-tam';

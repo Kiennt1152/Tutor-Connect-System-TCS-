@@ -1,16 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { centerProfilePath } from '../../../shared/constants/routes';
 import { useHome } from '../hooks/useHome';
 import { useAuth } from '../../../shared/auth/AuthProvider';
-import { hasAnyRole, hasRole } from '../../../shared/auth/rbac';
-import type { UserRole } from '../../../shared/types/userRole';
+import { hasRole } from '../../../shared/auth/rbac';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
-import { TutorSearchBlock } from '../components/TutorSearchBlock';
-import { ClassSearchBlock } from '../components/ClassSearchBlock';
 import { TutorListingCard } from '../components/TutorListingCard';
 import { ClassListingCard } from '../components/ClassListingCard';
 import { getAuthenticatedHeroCopy } from '../config/homeQuickActions';
-import { useOpenClasses } from '../hooks/useOpenClasses';
 import { useReveal } from '../hooks/useReveal';
 import { useCardSpotlight } from '../hooks/useCardSpotlight';
 import { CountUp } from '../components/CountUp';
@@ -18,35 +16,24 @@ import { TutorListSkeleton } from '../components/HomeSkeleton';
 import { HeroSlideshow } from '../components/HeroSlideshow';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import type { CenterSummary } from '../../marketplace/types/marketplaceTypes';
-import type { FeaturedTutor, HomeData, SubjectItem } from '../types/homeTypes';
+import type { FeaturedTutor, HomeData } from '../types/homeTypes';
 import type { OpenClassItem } from '../types/openClassTypes';
-import type { OpenClassesStatus } from '../hooks/useOpenClasses';
 import AdminHomePage from './AdminHomePage';
 import './HomePage.css';
 
-const MARKETPLACE_HOME_ROLES: UserRole[] = ['CLIENT', 'TUTOR', 'TUTOR_CENTER', 'UNKNOWN'];
-
 function HomeHeroSection({
   data,
-  subjects,
-  openClasses,
-  classesStatus,
   isAuthenticated,
   displayName,
   role,
 }: {
   data: HomeData | null;
-  subjects: SubjectItem[];
-  openClasses: OpenClassItem[];
-  classesStatus: OpenClassesStatus;
   isAuthenticated: boolean;
   displayName?: string;
   role?: string;
 }) {
   const copy = role ? getAuthenticatedHeroCopy(role) : null;
   const firstName = displayName?.trim().split(/\s+/)[0] || displayName;
-  const showSearch = !isAuthenticated || hasAnyRole(role, MARKETPLACE_HOME_ROLES);
-  const isTutor = hasRole(role, 'TUTOR');
 
   return (
     <section className="tcs-home-hero">
@@ -71,21 +58,6 @@ function HomeHeroSection({
                 </>
               )}
             </div>
-
-            {showSearch ? (
-              <div className="tcs-hero__search-row">
-                {isTutor ? (
-                  <ClassSearchBlock
-                    subjects={subjects}
-                    classes={openClasses}
-                    classesStatus={classesStatus}
-                    isAuthenticated={isAuthenticated}
-                  />
-                ) : (
-                  <TutorSearchBlock subjects={subjects} isAuthenticated={isAuthenticated} />
-                )}
-              </div>
-            ) : null}
           </div>
 
           <HeroSlideshow />
@@ -275,7 +247,15 @@ function CentersSection() {
           <div className="tcs-center-grid">
             {featured.map((center) => (
               <article key={center.centerId} className="tcs-center-card">
-                <h3 className="tcs-center-card__name">{center.companyName}</h3>
+                <h3 className="tcs-center-card__name">
+                  <Link
+                    className="tcs-center-card__link"
+                    to={centerProfilePath()}
+                    state={{ centerId: center.centerId }}
+                  >
+                    {center.companyName}
+                  </Link>
+                </h3>
                 {center.description && (
                   <p className="tcs-center-card__desc">{center.description}</p>
                 )}
@@ -305,7 +285,6 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
 
 function HomePage() {
   const { status, data, reload } = useHome();
-  const { status: classesStatus, classes: openClasses } = useOpenClasses();
   const { user, isAuthenticated } = useAuth();
   const isEmpty = useMemo(
     () =>
@@ -317,7 +296,7 @@ function HomePage() {
   );
 
   // Quét lại các section mỗi khi dữ liệu đổi, vì phần lớn chỉ được render sau khi tải xong.
-  useReveal([status, classesStatus, data]);
+  useReveal([status, data]);
   useCardSpotlight();
 
   if (hasRole(user?.role, 'PLATFORM_ADMIN')) {
@@ -333,9 +312,6 @@ function HomePage() {
       <main>
         <HomeHeroSection
           data={data}
-          subjects={data?.subjects ?? []}
-          openClasses={openClasses}
-          classesStatus={classesStatus}
           isAuthenticated={isAuthenticated}
           displayName={isAuthenticated ? displayName : undefined}
           role={isAuthenticated ? role : undefined}

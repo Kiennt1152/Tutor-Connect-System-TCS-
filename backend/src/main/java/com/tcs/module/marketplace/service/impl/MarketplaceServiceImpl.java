@@ -116,6 +116,9 @@ import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.service.CccdService;
 import com.tcs.module.profile.repository.TutorCenterRepository;
+import com.tcs.module.center.enums.CenterTutorMembershipStatus;
+import com.tcs.module.center.repository.CenterTutorMembershipRepository;
+import com.tcs.module.marketplace.dto.response.CenterProfileResponse;
 import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.service.ClientLegalAccountService;
 import com.tcs.security.AuthHelper;
@@ -234,6 +237,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final AuditLogService auditLogService;
     private final PenaltyAccessService penaltyAccessService;
     private final TutorCenterRepository tutorCenterRepository;
+    private final CenterTutorMembershipRepository centerTutorMembershipRepository;
     private final ClassRequestStore classRequestStore;
     private final CenterRequestFeeService centerRequestFeeService;
     private final ContractService contractService;
@@ -320,7 +324,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     @Override
     @Transactional(readOnly = true)
     public ClassResponse getClass(Long classId, Long assignmentId, Long classStudentId) {
-        return toClassResponse(findClass(classId), assignmentId, classStudentId);
+        ClassResponse response = toClassResponse(findClass(classId), assignmentId, classStudentId);
+        // Người đang xem đã đăng ký học lớp này chưa — đúng điều kiện chặn trùng trong
+        // registerToClass (theo email tài khoản học viên) để giao diện khoá nút "Đăng ký học".
+        // Chỉ tính ở trang chi tiết (một lớp), không tính cho danh sách để khỏi thêm truy vấn mỗi lớp.
+        Long viewerId = authHelper.currentUserIdOrNull();
+        if (viewerId != null) {
+            userRepository.findById(viewerId).ifPresent(viewer -> classStudentRepository
+                    .findFirstByTutoringClass_ClassIdAndStudentEmail(classId, viewer.getEmail())
+                    .ifPresent(cs -> response.setMyRegistrationStatus(cs.getStatus())));
+        }
+        return response;
     }
 
     @Override
@@ -4205,6 +4219,40 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                         .avatar(c.getAvatar())
                         .build())
                 .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public CenterProfileResponse getCenterProfile(Long centerId) {
+        // Cùng quy tắc với listCenters(): chỉ trung tâm đã xác minh mới được xem công khai.
+        TutorCenter center = tutorCenterRepository
+                .findById(centerId)
+                .filter(c -> c.getVerificationStatus() == ProfileVerificationStatus.VERIFIED)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trung tâm"));
+
+        List<TutorSearchResponse> tutors = centerTutorMembershipRepository
+                .findByCenter_CenterIdOrderByJoinedAtDesc(centerId).stream()
+                .filter(m -> m.getStatus() == CenterTutorMembershipStatus.ACTIVE)
+                .map(m -> toTutorSearch(m.getTutor()))
+                .toList();
+
+        List<ClassResponse> openClasses = tutoringClassRepository
+                .findByCenter_CenterIdAndStatusOrderByCreatedAtDesc(centerId, TutoringClassStatus.OPEN)
+                .stream()
+                .map(this::toClassResponse)
+                .toList();
+
+        return CenterProfileResponse.builder()
+                .centerId(center.getCenterId())
+                .companyName(center.getCompanyName())
+                .description(center.getDescription())
+                .address(center.getAddress())
+                .phone(center.getPhone())
+                .avatar(center.getAvatar())
+                .joinedAt(center.getCreatedAt())
+                .tutors(tutors)
+                .openClasses(openClasses)
+                .build();
     }
 
     @Override

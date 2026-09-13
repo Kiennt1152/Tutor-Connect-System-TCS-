@@ -63,6 +63,41 @@ function isEditableClass(c: ClassResponse): boolean {
   return (c.status === 'DRAFT' || c.status === 'OPEN') && noApplicants && !isExpiredClass(c);
 }
 
+/**
+ * Ghi chú yêu cầu gửi trung tâm được form ghép sẵn nhiều dòng: "Môn học: …", tóm tắt lịch học
+ * từng môn, rồi ghi chú của phụ huynh. Dòng đầu làm tiêu đề ngắn, phần còn lại là chi tiết.
+ */
+function splitRequestNote(note: string | null | undefined): { title: string; details: string } {
+  const lines = (note ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return {
+    title: lines[0] ?? 'Yêu cầu tìm gia sư',
+    details: lines.slice(1).join(' · '),
+  };
+}
+
+/** Chi tiết dài (lịch học từng môn) — thu gọn 2 dòng, bấm "Xem thêm" để mở hết. */
+function RequestNoteDetails({ text }: { readonly text: string }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="mkt-req-card__details">
+      <p className={`mkt-req-card__details-text${open ? ' is-open' : ''}`}>{text}</p>
+      {text.length > 120 && (
+        <button
+          type="button"
+          className="mkt-req-card__details-toggle"
+          aria-expanded={open}
+          onClick={() => setOpen((v) => !v)}
+        >
+          {open ? 'Thu gọn' : 'Xem thêm'}
+        </button>
+      )}
+    </div>
+  );
+}
+
 type Mode =
   | { kind: 'list' }
   | { kind: 'create' }
@@ -385,13 +420,17 @@ export default function MarketplacePage() {
                     const payment = r.centerRequestFeePayment;
                     const isPaymentPending =
                       r.status === 'PAYMENT_PENDING' && payment?.status === 'PENDING_PAYMENT';
+                    const noteParts = splitRequestNote(r.note);
                     return (
                       <div
                         key={r.requestId}
                         className={`mkt-req-card${isPaymentPending ? ' mkt-req-card--payment' : ''}`}
                       >
                         <div className="mkt-req-card__main">
-                          <p className="mkt-req-card__note">{r.note}</p>
+                          <p className="mkt-req-card__note" title={noteParts.title}>
+                            {noteParts.title}
+                          </p>
+                          {noteParts.details && <RequestNoteDetails text={noteParts.details} />}
                           <div className="mkt-req-card__meta">
                             <span>
                               Gửi tới: <b>{r.centerName ?? '—'}</b>

@@ -870,6 +870,107 @@
   border-bottom-color: var(--color-primary);
 }
 
+/* Khung tìm kiếm tin tuyển dụng (trang gia sư) — cùng kiểu khung tìm kiếm trang "Tìm lớp". */
+.rc-search {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 16px 18px;
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  background: var(--color-surface-2);
+  box-shadow: 0 8px 24px rgba(18, 35, 59, 0.06);
+}
+.rc-search .tcs-find-search {
+  margin-bottom: 0;
+}
+
+/* ---------- Thẻ tin tuyển dụng phía gia sư: gọn, thẳng hàng, trải hết bề rộng thẻ ---------- */
+/* Ghép 2 class để thắng rule .rc-card gốc nằm phía dưới file. */
+.rc-card.rc-card--post {
+  gap: 8px;
+  padding: 12px 16px;
+}
+.rc-post__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rc-card__title.rc-post__title {
+  margin: 0;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.rc-post__date {
+  flex-shrink: 0;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+/* Mô tả · Yêu cầu · Quyền lợi: các ô ngang chia đều bề rộng (có mấy ô thì chia mấy phần). */
+.rc-post__info {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 8px;
+  margin: 2px 0 0;
+}
+.rc-post__cell {
+  min-width: 0;
+  padding: 8px 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  background: var(--color-surface-1);
+}
+.rc-post__cell dt {
+  margin: 0 0 2px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+.rc-post__cell dd {
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: var(--color-text-primary);
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.rc-card__foot.rc-post__foot {
+  padding-top: 8px;
+  border-top: 1px dashed var(--color-border);
+}
+/* Nút đã khoá (đã ứng tuyển / đã trong đội ngũ): xám hẳn, cùng kiểu nút khoá ở trang chi tiết lớp.
+   Ghép class để thắng .rc-btn--primary và .rc-btn:disabled (mờ 50%) nằm phía dưới file. */
+.rc-btn.rc-btn--locked,
+.rc-btn.rc-btn--locked:disabled {
+  background: var(--color-surface-3);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-secondary);
+  box-shadow: none;
+  opacity: 1;
+  cursor: not-allowed;
+}
+/* Phân trang dưới danh sách tin: sát danh sách hơn cho khớp thẻ gọn. */
+.rc-page .tcs-pagination {
+  margin-top: 18px;
+}
+/* Neo cuộn khi chuyển trang: chừa chỗ cho header dính phía trên. */
+.rc-list-anchor {
+  scroll-margin-top: 84px;
+}
+.rc-empty .rc-btn {
+  margin-top: 10px;
+}
+
 /* Khối phụ trong thẻ tin (Yêu cầu / Quyền lợi) */
 .rc-section {
   display: flex;
