@@ -32,12 +32,10 @@ export default function ForgotPasswordPage() {
     try {
       const response = await identityApi.requestPasswordResetOtp({ email: email.trim() });
       setStep('otp');
-      setMessage(
-        response.message || 'Mã OTP đặt lại mật khẩu đã được gửi đến email của bạn. Vui lòng kiểm tra hộp thư.',
-      );
+      setMessage(response.message || 'OTP đã được gửi thành công.');
       setCooldown(response.resendCooldownSeconds ?? 60);
     } catch (err) {
-      setError(getApiErrorMessage(err, 'Không thể gửi mã OTP. Vui lòng thử lại.'));
+      setError(getApiErrorMessage(err, 'Email không tồn tại trong hệ thống.'));
     } finally {
       setLoading(false);
     }

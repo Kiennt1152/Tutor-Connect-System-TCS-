@@ -930,9 +930,9 @@ class IdentityServiceImplTest {
 
         when(userRepository.findByEmail("notfound@gmail.com")).thenReturn(Optional.empty());
 
-        var res = identityService.requestPasswordResetOtp(req, "127.0.0.1");
-        assertEquals("notfound@gmail.com", res.getEmail());
-        assertEquals("Nếu email tồn tại, mã OTP đặt lại mật khẩu đã được gửi", res.getMessage());
+        Exception ex = assertThrows(IllegalArgumentException.class,
+                () -> identityService.requestPasswordResetOtp(req, "127.0.0.1"));
+        assertEquals("Email không tồn tại trong hệ thống.", ex.getMessage());
 
         verify(emailOtpRepository, never()).save(any());
         verify(emailService, never()).sendPasswordResetOtp(anyString(), anyString(), anyLong());
@@ -949,6 +949,7 @@ class IdentityServiceImplTest {
 
         var res = identityService.requestPasswordResetOtp(req, "127.0.0.1");
         assertEquals("found@gmail.com", res.getEmail());
+        assertEquals("OTP đã được gửi thành công.", res.getMessage());
 
         verify(emailOtpRepository).save(any(EmailOtp.class));
         verify(emailService).sendPasswordResetOtp(eq("found@gmail.com"), anyString(), anyLong());
@@ -1453,20 +1454,22 @@ class IdentityServiceImplTest {
             givenWithinWindow(0);
             when(emailOtpRepository.save(org.mockito.ArgumentMatchers.any())).thenAnswer(i -> i.getArgument(0));
 
-            identityService.requestPasswordResetOtp(resetReq(RESET_EMAIL), null);
+            var res = identityService.requestPasswordResetOtp(resetReq(RESET_EMAIL), null);
 
+            assertEquals("OTP đã được gửi thành công.", res.getMessage());
             verify(emailService).sendPasswordResetOtp(org.mockito.ArgumentMatchers.eq(RESET_EMAIL),
                     org.mockito.ArgumentMatchers.anyString(), org.mockito.ArgumentMatchers.anyLong());
         }
 
         @Test
-        @org.junit.jupiter.api.DisplayName("UTCID02 (N) - email khong ton tai -> tra ve thong bao chung, KHONG gui mail")
+        @org.junit.jupiter.api.DisplayName("UTCID02 (N) - email khong ton tai -> nem ngoai le, KHONG gui mail")
         void utcid02_unknownEmailDoesNotLeak() {
             when(userRepository.findByEmail(RESET_EMAIL)).thenReturn(java.util.Optional.empty());
 
-            var res = identityService.requestPasswordResetOtp(resetReq(RESET_EMAIL), null);
+            Exception ex = assertThrows(IllegalArgumentException.class,
+                    () -> identityService.requestPasswordResetOtp(resetReq(RESET_EMAIL), null));
 
-            assertEquals("Nếu email tồn tại, mã OTP đặt lại mật khẩu đã được gửi", res.getMessage());
+            assertEquals("Email không tồn tại trong hệ thống.", ex.getMessage());
             verify(emailService, never()).sendPasswordResetOtp(
                     org.mockito.ArgumentMatchers.anyString(),
                     org.mockito.ArgumentMatchers.anyString(),

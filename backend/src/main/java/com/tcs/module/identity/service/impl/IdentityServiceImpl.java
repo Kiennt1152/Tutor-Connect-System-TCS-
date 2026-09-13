@@ -439,12 +439,7 @@ public class IdentityServiceImpl implements IdentityService {
         String email = normalizeEmail(request.getEmail());
 
         if (userRepository.findByEmail(email).isEmpty()) {
-            return PasswordResetOtpResponse.builder()
-                    .email(email)
-                    .message("Nếu email tồn tại, mã OTP đặt lại mật khẩu đã được gửi")
-                    .otpExpiresInSeconds(otpExpirationMinutes * 60)
-                    .resendCooldownSeconds(resendCooldownSeconds)
-                    .build();
+            throw new IllegalArgumentException("Email không tồn tại trong hệ thống.");
         }
 
         emailOtpRepository
@@ -474,7 +469,7 @@ public class IdentityServiceImpl implements IdentityService {
 
         return PasswordResetOtpResponse.builder()
                 .email(email)
-                .message("Nếu email tồn tại, mã OTP đặt lại mật khẩu đã được gửi")
+                .message("OTP đã được gửi thành công.")
                 .otpExpiresInSeconds(otpExpirationMinutes * 60)
                 .resendCooldownSeconds(resendCooldownSeconds)
                 .build();
