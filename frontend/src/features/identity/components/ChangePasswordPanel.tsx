@@ -140,7 +140,7 @@ export function ChangePasswordPanel() {
         {error && <div className="profile-alert error">{error}</div>}
         {success && <div className="profile-alert success">{success}</div>}
         <div className="profile-actions">
-          <button className="btn-secondary" type="submit" disabled={submitting}>
+          <button className="btn-primary" type="submit" disabled={submitting}>
             {submitting ? 'Đang đổi mật khẩu...' : 'Đổi mật khẩu'}
           </button>
         </div>
