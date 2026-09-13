@@ -1,6 +1,7 @@
 package com.tcs.module.marketplace.service.impl;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.when;
 import com.tcs.common.event.EscrowFunded;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
+import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.contract.service.ContractService;
 import com.tcs.module.catalog.repository.CategoryRepository;
@@ -28,6 +30,7 @@ import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.RefundRequestRepository;
 import com.tcs.module.finance.repository.WalletRepository;
+import com.tcs.module.finance.entity.Wallet;
 import com.tcs.module.finance.service.CenterRequestFeeService;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.util.RefundPayoutInfoCodec;
@@ -42,6 +45,7 @@ import com.tcs.module.marketplace.entity.ClassTerminationRequest;
 import com.tcs.module.marketplace.entity.Lesson;
 import com.tcs.module.marketplace.entity.LessonAttendance;
 import com.tcs.module.marketplace.entity.ScheduleSlot;
+import com.tcs.module.marketplace.enums.TutorApplicationStatus;
 import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.AttendanceStatus;
@@ -1051,5 +1055,209 @@ class MarketplaceServiceImplTest {
                     return attendance;
                 })
                 .toList();
+    }
+
+    // =====================================================================================
+    //  Bo sung theo Report_5.1_UnitTest: applyToClass UTCID08, chooseApplicant UTCID04,
+    //  createClassRequest UTCID06, requestClassTermination UTCID07..UTCID10.
+    // =====================================================================================
+
+
+    /** Don ung tuyen kem hoc phi de xuat hop le (>= 50.000d/gio). */
+    private ApplyClassRequest applyWithRate() {
+        ApplyClassRequest request = new ApplyClassRequest();
+        request.setProposedRate(new BigDecimal("150000"));
+        return request;
+    }
+
+    /** Thong tin CCCD day du cua nguoi tao lop. */
+    private CccdInfoDto cccdInfo() {
+        return CccdInfoDto.builder()
+                .fullName("Client Test")
+                .cccdNumber("012345678901")
+                .dateOfBirth("01/01/2000")
+                .permanentAddress("Hà Nội")
+                .complete(true)
+                .build();
+    }
+    /** MarketplaceServiceImpl doc detailsJson bang ObjectMapper that -> can ban that de kiem thu trung lich. */
+    private void useRealObjectMapper() {
+        org.springframework.test.util.ReflectionTestUtils.setField(
+                marketplaceService, "objectMapper", new com.fasterxml.jackson.databind.ObjectMapper());
+    }
+
+    /** Lop co dung 1 buoi CUSTOM vao ngay mai 18:00-20:00. */
+    private TutoringClass classWithTomorrowSlot(User creator, TutoringClassStatus status) {
+        TutoringClass tutoringClass = tutoringClass(creator, status);
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        tutoringClass.setStartDate(tomorrow);
+        tutoringClass.setEndDate(tomorrow);
+        tutoringClass.setDetailsJson("""
+                {
+                  "scheduleMode": "CUSTOM",
+                  "slots": [{"date": "%s", "start": "18:00", "end": "20:00"}]
+                }
+                """.formatted(tomorrow));
+        return tutoringClass;
+    }
+
+    /** Buoi day san co cua gia su, cung ngay mai va chong gio 18:30-20:30. */
+    private Lesson busyLessonTomorrow(Tutor tutor) {
+        TutoringClass otherClass = new TutoringClass();
+        otherClass.setClassId(999L);
+        otherClass.setTitle("Lớp lý");
+
+        ScheduleSlot slot = new ScheduleSlot();
+        slot.setSlotId(77L);
+        slot.setStartTime(java.time.LocalTime.of(18, 30));
+        slot.setEndTime(java.time.LocalTime.of(20, 30));
+
+        Lesson lesson = new Lesson();
+        lesson.setLessonId(7001L);
+        lesson.setTutoringClass(otherClass);
+        lesson.setTutor(tutor);
+        lesson.setSlot(slot);
+        lesson.setLessonDate(LocalDate.now().plusDays(1));
+        return lesson;
+    }
+
+    /** Sheet applyToClass - UTCID08 (A): gia su da co buoi day chong gio voi lich lop. */
+    @Test
+    void applyToClassRejectsTutorWithClashingSchedule() {
+        useRealObjectMapper();
+        User clientUser = user(CLIENT_USER_ID);
+        User tutorUser = user(TUTOR_USER_ID);
+        Tutor tutor = tutor(tutorUser);
+        tutor.setVerificationStatus(ProfileVerificationStatus.VERIFIED);
+        TutoringClass tutoringClass = classWithTomorrowSlot(clientUser, TutoringClassStatus.OPEN);
+
+        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(tutor));
+        when(walletRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(new Wallet()));
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(tutorApplicationRepository.findFirstByTutoringClass_ClassIdAndTutor_TutorId(CLASS_ID, 44L))
+                .thenReturn(Optional.empty());
+        when(lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(CLIENT_USER_ID))
+                .thenReturn(List.of());
+        when(lessonRepository.findByTutor_TutorIdOrderByLessonDateAscSequenceNoAsc(44L))
+                .thenReturn(List.of(busyLessonTomorrow(tutor)));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> marketplaceService.applyToClass(CLASS_ID, applyWithRate()));
+
+        assertTrue(ex.getMessage().startsWith("Bạn đã có lịch dạy "),
+                "Phai bao trung lich day: " + ex.getMessage());
+        assertTrue(ex.getMessage().contains("Lớp lý"),
+                "Phai neu ro lop bi trung: " + ex.getMessage());
+        verify(tutorApplicationRepository, never()).save(any());
+    }
+
+    /** Sheet chooseApplicant - UTCID04 (A): gia su duoc chon da ban day trung khung gio. */
+    @Test
+    void chooseApplicantRejectsTutorWithClashingSchedule() {
+        useRealObjectMapper();
+        User clientUser = user(CLIENT_USER_ID);
+        User tutorUser = user(TUTOR_USER_ID);
+        Tutor tutor = tutor(tutorUser);
+        TutoringClass tutoringClass = classWithTomorrowSlot(clientUser, TutoringClassStatus.OPEN);
+
+        TutorApplication chosen = new TutorApplication();
+        chosen.setApplicationId(55L);
+        chosen.setTutoringClass(tutoringClass);
+        chosen.setTutor(tutor);
+        chosen.setStatus(TutorApplicationStatus.SUBMITTED);
+
+        when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+        when(cccdService.getByUserId(CLIENT_USER_ID)).thenReturn(cccdInfo());
+        when(tutorApplicationRepository.findById(55L)).thenReturn(Optional.of(chosen));
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(tutorApplicationRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(List.of(chosen));
+        when(lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(CLIENT_USER_ID))
+                .thenReturn(List.of());
+        when(lessonRepository.findByTutor_TutorIdOrderByLessonDateAscSequenceNoAsc(44L))
+                .thenReturn(List.of(busyLessonTomorrow(tutor)));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> marketplaceService.chooseApplicant(CLASS_ID, 55L));
+
+        assertTrue(ex.getMessage().startsWith("Gia sư này đã bận dạy "),
+                "Phai bao gia su ban: " + ex.getMessage());
+        verify(classAssignmentRepository, never()).save(any());
+    }
+
+    /** Sheet createClassRequest - UTCID06 (A): centerId khong khop trung tam nao. */
+    @Test
+    void createClassRequestRejectsUnknownCenter() {
+        User clientUser = user(CLIENT_USER_ID);
+
+        when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+        when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
+        when(clientRepository.findByUser_UserId(CLIENT_USER_ID))
+                .thenReturn(Optional.of(new com.tcs.module.profile.entity.Client()));
+        when(tutorCenterRepository.findById(404L)).thenReturn(Optional.empty());
+
+        ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                () -> marketplaceService.createClassRequest(404L,
+                        new com.tcs.module.marketplace.dto.request.ClassRequestCreateRequest()));
+        assertEquals("Không tìm thấy trung tâm", ex.getMessage());
+    }
+
+    /** Sheet requestClassTermination - UTCID07 (A): request = null. */
+    @Test
+    void requestClassTerminationRejectsNullRequest() {
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> marketplaceService.requestClassTermination(CLASS_ID, null));
+        assertEquals("Thiếu thông tin yêu cầu chấm dứt lớp", ex.getMessage());
+        verify(tutoringClassRepository, never()).findById(any());
+    }
+
+    /** Sheet requestClassTermination - UTCID08 (A): reason rong hoac chi khoang trang. */
+    @Test
+    void requestClassTerminationRejectsBlankReason() {
+        CreateClassTerminationRequest request = new CreateClassTerminationRequest();
+        request.setReason("   ");
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> marketplaceService.requestClassTermination(CLASS_ID, request));
+        assertEquals("Lý do chấm dứt lớp là bắt buộc", ex.getMessage());
+        verify(tutoringClassRepository, never()).findById(any());
+    }
+
+    /** Sheet requestClassTermination - UTCID09 (B): effectiveDate = hom qua (duoi can duoi). */
+    @Test
+    void requestClassTerminationRejectsPastEffectiveDate() {
+        CreateClassTerminationRequest request = new CreateClassTerminationRequest();
+        request.setReason("Gia sư cần dừng lớp sớm");
+        request.setEffectiveDate(LocalDate.now().minusDays(1));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> marketplaceService.requestClassTermination(CLASS_ID, request));
+        assertEquals("Ngày hiệu lực không được nằm trong quá khứ", ex.getMessage());
+        verify(tutoringClassRepository, never()).findById(any());
+    }
+
+    /**
+     * Sheet requestClassTermination - UTCID10 (B): effectiveDate = hom nay (dung can duoi) duoc chap nhan.
+     *
+     * <p>Kiem chung bang cach cho luong di QUA buoc kiem tra ngay: lop o trang thai khong cho
+     * cham dut som nen loi nem ra la loi trang thai, khong phai loi ngay hieu luc.</p>
+     */
+    @Test
+    void requestClassTerminationAcceptsTodayAsEffectiveDate() {
+        User clientUser = user(CLIENT_USER_ID);
+        TutoringClass tutoringClass = tutoringClass(clientUser, TutoringClassStatus.COMPLETED);
+
+        CreateClassTerminationRequest request = new CreateClassTerminationRequest();
+        request.setReason("Gia sư cần dừng lớp sớm");
+        request.setEffectiveDate(LocalDate.now());
+
+        when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+        when(userRepository.findById(CLIENT_USER_ID)).thenReturn(Optional.of(clientUser));
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> marketplaceService.requestClassTermination(CLASS_ID, request));
+        assertEquals("Chỉ lớp đang diễn ra mới có thể yêu cầu chấm dứt sớm", ex.getMessage(),
+                "Ngay hieu luc = hom nay phai qua duoc buoc kiem tra ngay");
     }
 }

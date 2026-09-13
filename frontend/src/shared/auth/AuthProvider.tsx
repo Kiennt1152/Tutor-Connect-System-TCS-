@@ -1,4 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import axios from 'axios';
 import { identityApi, persistAuth } from '../../features/identity/api/identityApi';
 import type {
   AuthResponse,
@@ -52,10 +53,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         authStorage.setUser(refreshedUser);
         setUser(refreshedUser);
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (cancelled) return;
-        authStorage.clearAll();
-        setUser(null);
+        // Chỉ đăng xuất khi server TỪ CHỐI token (401/403). Backend đang restart hoặc
+        // mất mạng thì lần gọi này hỏng chứ phiên vẫn còn hạn — xoá phiên ở đây sẽ đá
+        // người dùng ra ngoài mỗi lần backend khởi động lại.
+        const status = axios.isAxiosError(error) ? error.response?.status : undefined;
+        if (status === 401 || status === 403) {
+          authStorage.clearAll();
+          setUser(null);
+        }
       })
       .finally(() => {
         if (!cancelled) {

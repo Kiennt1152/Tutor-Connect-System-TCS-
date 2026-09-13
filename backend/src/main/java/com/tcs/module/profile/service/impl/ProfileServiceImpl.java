@@ -706,6 +706,7 @@ public class ProfileServiceImpl implements ProfileService {
         return ctx.client();
     }
 
+    @SuppressWarnings("deprecation")
     private DependentLinkStatusResponse buildDependentLinkStatus(Client client) {
         LocalDate dateOfBirth = client.getDateOfBirth();
         boolean dateOfBirthMissing = dateOfBirth == null;
@@ -742,6 +743,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .childrenLinkOptional(childrenLinkOptional)
                 .linkedChildrenCount(linkedChildrenCount)
                 .profileLinkComplete(profileLinkComplete)
+                // Legacy frontend clients still read canProceedToPayment; keep it in sync with profileLinkComplete.
                 .canProceedToPayment(profileLinkComplete)
                 .legalProceduresDelegatedToParent(legalProceduresDelegatedToParent)
                 .parentApprovalRequired(legalProceduresDelegatedToParent)

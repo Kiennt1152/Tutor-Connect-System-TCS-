@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
+import { useAuth } from '../../../shared/auth/AuthProvider';
 import { OpenClassBoardCard } from '../../marketplace/components/OpenClassBoardCard';
 import type { CatalogOption, ClassResponse } from '../../marketplace/types/marketplaceTypes';
 import './HomePage.css';
@@ -13,12 +14,14 @@ type Status = 'loading' | 'success' | 'error';
 const PAGE_SIZE = 6;
 
 /**
- * Danh sách lớp (/danh-sach-tin-da-dang): tổng hợp tin do client đăng.
+ * Danh sách lớp (/danh-sach-tin-da-dang): tin do CHÍNH tài khoản đang đăng nhập đăng —
+ * client này không thấy tin của client khác (backend lọc theo creator).
  * Tin chỉ được gỡ khỏi danh sách khi hai bên ĐÃ KÝ XONG hợp đồng VÀ đã chuyển khoản tiền cọc
  * (học phí tháng đầu) vào escrow; trước đó lớp vẫn hiển thị dù đã chọn được gia sư.
  * Dùng lại thẻ lớp giống màn "Yêu cầu của tôi".
  */
 export default function ClassBoardPage() {
+  const { isAuthenticated } = useAuth();
   const [status, setStatus] = useState<Status>('loading');
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [subjects, setSubjects] = useState<CatalogOption[]>([]);
@@ -90,7 +93,11 @@ export default function ClassBoardPage() {
               </div>
             )}
             {status === 'success' && classes.length === 0 && (
-              <p className="tcs-empty">Hiện chưa có lớp học nào đang mở.</p>
+              <p className="tcs-empty">
+                {isAuthenticated
+                  ? 'Bạn chưa đăng tin nào.'
+                  : 'Đăng nhập để xem những tin bạn đã đăng.'}
+              </p>
             )}
             {status === 'success' && classes.length > 0 && (
               <>

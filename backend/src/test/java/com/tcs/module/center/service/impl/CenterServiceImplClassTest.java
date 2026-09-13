@@ -327,6 +327,18 @@ class CenterServiceImplClassTest {
                     () -> service.updateMembershipStatus(MEMBERSHIP_ID, CenterTutorMembershipStatus.INACTIVE));
             assertEquals("Bạn không có quyền với thành viên này", ex.getMessage());
         }
+
+        @Test
+        @DisplayName("UTCID06 (A) - Tai khoan goi khong phai trung tam -> requireCenter chan lai")
+        void utcid06_callerIsNotACenter() {
+            when(authHelper.requireRole(com.tcs.module.profile.enums.UserRole.TUTOR_CENTER))
+                    .thenThrow(new ForbiddenException("Không có quyền truy cập"));
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.updateMembershipStatus(MEMBERSHIP_ID, CenterTutorMembershipStatus.INACTIVE));
+            assertEquals("Không có quyền truy cập", ex.getMessage());
+            verify(membershipRepository, never()).save(any());
+        }
     }
 
     // ===================================================================
@@ -453,7 +465,6 @@ class CenterServiceImplClassTest {
             assertEquals("Không tìm thấy lớp học", ex.getMessage());
         }
     }
-
     // ===================================================================
     //  Sheet: assignTutor
     // ===================================================================
@@ -472,8 +483,48 @@ class CenterServiceImplClassTest {
             membership.setStatus(CenterTutorMembershipStatus.ACTIVE);
         }
 
+        /** Trung tam dang nhap, lop thuoc trung tam, gia su la thanh vien ACTIVE. */
+        private void givenActiveMember() {
+            loginAsCenter();
+            when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+            when(membershipRepository.findFirstByCenter_CenterIdAndTutor_TutorId(1L, TUTOR_ID))
+                    .thenReturn(Optional.of(membership));
+            when(tutorRepository.findById(TUTOR_ID)).thenReturn(Optional.of(tutor));
+            when(tutoringClassRepository.save(any(TutoringClass.class))).thenAnswer(i -> i.getArgument(0));
+            when(tutorApplicationRepository.save(any(com.tcs.module.marketplace.entity.TutorApplication.class)))
+                    .thenAnswer(i -> {
+                        com.tcs.module.marketplace.entity.TutorApplication app = i.getArgument(0);
+                        app.setApplicationId(400L);
+                        return app;
+                    });
+        }
+
+        /** Slot lich hoc dung cho kiem thu trung lich. */
+        private com.tcs.module.marketplace.entity.ScheduleSlot slot(
+                Long slotId, TutoringClass owner, int dayOfWeek, int startHour, int endHour) {
+            com.tcs.module.marketplace.entity.ScheduleSlot s =
+                    new com.tcs.module.marketplace.entity.ScheduleSlot();
+            s.setSlotId(slotId);
+            s.setTutoringClass(owner);
+            s.setDayOfWeek(dayOfWeek);
+            s.setStartTime(java.time.LocalTime.of(startHour, 0));
+            s.setEndTime(java.time.LocalTime.of(endHour, 0));
+            return s;
+        }
+
         @Test
-        @DisplayName("UTCID02 (A) - tutorId null -> IllegalArgumentException")
+        @DisplayName("UTCID01 (N) - Trung tam so huu lop, gia su ACTIVE, khong trung lich -> gan gia su chinh")
+        void utcid01_assignSuccessfully() {
+            givenActiveMember();
+
+            service.assignTutor(CLASS_ID, TUTOR_ID);
+
+            verify(classAssignmentRepository).save(any());
+            verify(tutoringClassRepository).save(tutoringClass);
+        }
+
+        @Test
+        @DisplayName("UTCID02 (A) - tutorId null -> 'Vui lòng chọn gia sư'")
         void utcid02_nullTutorId() {
             loginAsCenter();
             when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
@@ -484,8 +535,30 @@ class CenterServiceImplClassTest {
         }
 
         @Test
-        @DisplayName("UTCID03 (A) - Gia su khong thuoc trung tam -> IllegalArgumentException")
-        void utcid03_tutorNotInCenter() {
+        @DisplayName("UTCID03 (A) - Lop cua trung tam khac -> ForbiddenException")
+        void utcid03_notOwner() {
+            useOtherCenterOwner();
+            loginAsCenter();
+            when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+
+            assertThrows(ForbiddenException.class, () -> service.assignTutor(CLASS_ID, TUTOR_ID));
+        }
+
+        @Test
+        @DisplayName("UTCID04 (A) - Lop da COMPLETED (khong con gan duoc) -> 'Lớp này không thể gán gia sư nữa.'")
+        void utcid04_classNotStaffable() {
+            tutoringClass.setStatus(TutoringClassStatus.COMPLETED);
+            loginAsCenter();
+            when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+
+            IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                    () -> service.assignTutor(CLASS_ID, TUTOR_ID));
+            assertEquals("Lớp này không thể gán gia sư nữa.", ex.getMessage());
+        }
+
+        @Test
+        @DisplayName("UTCID05 (A) - Gia su khong co ban ghi thanh vien voi trung tam -> chan")
+        void utcid05_tutorNotInCenter() {
             loginAsCenter();
             when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
             when(membershipRepository.findFirstByCenter_CenterIdAndTutor_TutorId(1L, TUTOR_ID))
@@ -497,8 +570,8 @@ class CenterServiceImplClassTest {
         }
 
         @Test
-        @DisplayName("UTCID04 (A) - Gia su da INACTIVE -> IllegalArgumentException")
-        void utcid04_tutorInactive() {
+        @DisplayName("UTCID06 (A) - Thanh vien khong con ACTIVE -> chan")
+        void utcid06_membershipInactive() {
             membership.setStatus(CenterTutorMembershipStatus.INACTIVE);
             loginAsCenter();
             when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
@@ -511,30 +584,101 @@ class CenterServiceImplClassTest {
         }
 
         @Test
-        @DisplayName("UTCID05 (A) - Lop da COMPLETED -> khong the gan gia su")
-        void utcid05_classCompleted() {
-            tutoringClass.setStatus(TutoringClassStatus.COMPLETED);
+        @DisplayName("UTCID07 (A) - Thanh vien ACTIVE nhung khong co ban ghi Tutor -> 'Không tìm thấy gia sư'")
+        void utcid07_tutorRowMissing() {
             loginAsCenter();
             when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+            when(membershipRepository.findFirstByCenter_CenterIdAndTutor_TutorId(1L, TUTOR_ID))
+                    .thenReturn(Optional.of(membership));
+            when(tutorRepository.findById(TUTOR_ID)).thenReturn(Optional.empty());
+
+            ResourceNotFoundException ex = assertThrows(ResourceNotFoundException.class,
+                    () -> service.assignTutor(CLASS_ID, TUTOR_ID));
+            assertEquals("Không tìm thấy gia sư", ex.getMessage());
+            verify(classAssignmentRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID08 (A) - Gia su da co lich day trung khung gio -> chan kem ten lop trung")
+        void utcid08_scheduleConflict() {
+            loginAsCenter();
+            when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+            when(membershipRepository.findFirstByCenter_CenterIdAndTutor_TutorId(1L, TUTOR_ID))
+                    .thenReturn(Optional.of(membership));
+            when(tutorRepository.findById(TUTOR_ID)).thenReturn(Optional.of(tutor));
+
+            // Lop dang gan: thu 2, 18:00-20:00, keo dai 30 ngay toi.
+            tutoringClass.setStartDate(java.time.LocalDate.now());
+            tutoringClass.setEndDate(java.time.LocalDate.now().plusDays(30));
+            when(scheduleSlotRepository.findByTutoringClass_ClassId(CLASS_ID))
+                    .thenReturn(List.of(slot(1L, tutoringClass, 1, 18, 20)));
+
+            // Lop khac gia su dang day: trung thu, trung khung gio, trung khoang ngay.
+            TutoringClass other = new TutoringClass();
+            other.setClassId(999L);
+            other.setTitle("Ly 9 - Ca toi");
+            other.setStartDate(java.time.LocalDate.now());
+            other.setEndDate(java.time.LocalDate.now().plusDays(30));
+            when(scheduleSlotRepository.findByTutoringClass_ClassId(999L))
+                    .thenReturn(List.of(slot(2L, other, 1, 18, 20)));
+
+            com.tcs.module.marketplace.entity.TutorApplication otherApp =
+                    new com.tcs.module.marketplace.entity.TutorApplication();
+            otherApp.setTutoringClass(other);
+            com.tcs.module.marketplace.entity.ClassAssignment otherAssignment =
+                    new com.tcs.module.marketplace.entity.ClassAssignment();
+            otherAssignment.setApplication(otherApp);
+            otherAssignment.setStatus(ClassAssignmentStatus.ACTIVE);
+            when(classAssignmentRepository.findByTutor_TutorIdAndStatus(TUTOR_ID, ClassAssignmentStatus.ACTIVE))
+                    .thenReturn(List.of(otherAssignment));
 
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> service.assignTutor(CLASS_ID, TUTOR_ID));
-            assertEquals("Lớp này không thể gán gia sư nữa.", ex.getMessage());
+            assertTrue(ex.getMessage().contains("đã có lịch dạy trùng thời gian với lớp này"),
+                    "Phai bao trung lich: " + ex.getMessage());
+            assertTrue(ex.getMessage().contains("Ly 9 - Ca toi"),
+                    "Phai neu ten lop bi trung: " + ex.getMessage());
+            verify(classAssignmentRepository, never()).save(any());
         }
 
         @Test
-        @DisplayName("UTCID06 (A) - Lop cua trung tam khac -> ForbiddenException")
-        void utcid06_notOwner() {
-            useOtherCenterOwner();
-            loginAsCenter();
-            when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        @DisplayName("UTCID09 (B) - Lop dang ENROLLMENT_CLOSED khi gan gia su -> chuyen sang MATCHED")
+        void utcid09_enrollmentClosedBecomesMatched() {
+            tutoringClass.setStatus(TutoringClassStatus.ENROLLMENT_CLOSED);
+            givenActiveMember();
 
-            assertThrows(ForbiddenException.class, () -> service.assignTutor(CLASS_ID, TUTOR_ID));
+            service.assignTutor(CLASS_ID, TUTOR_ID);
+
+            assertEquals(TutoringClassStatus.MATCHED, tutoringClass.getStatus());
         }
 
         @Test
-        @DisplayName("UTCID07 (A) - Lop khong ton tai -> ResourceNotFoundException")
-        void utcid07_classNotFound() {
+        @DisplayName("UTCID10 (B) - Lop dang DRAFT / OPEN khi gan gia su -> giu nguyen trang thai")
+        void utcid10_draftAndOpenKeepStatus() {
+            tutoringClass.setStatus(TutoringClassStatus.OPEN);
+            givenActiveMember();
+
+            service.assignTutor(CLASS_ID, TUTOR_ID);
+
+            assertEquals(TutoringClassStatus.OPEN, tutoringClass.getStatus(),
+                    "Con dang tuyen hoc sinh thi chua chuyen MATCHED");
+        }
+
+        @Test
+        @DisplayName("UTCID11 (A) - Nguoi goi khong phai tai khoan trung tam -> requireCenter chan lai")
+        void utcid11_callerIsNotACenter() {
+            when(authHelper.requireRole(com.tcs.module.profile.enums.UserRole.TUTOR_CENTER))
+                    .thenThrow(new ForbiddenException("Không có quyền truy cập"));
+
+            ForbiddenException ex = assertThrows(ForbiddenException.class,
+                    () -> service.assignTutor(CLASS_ID, TUTOR_ID));
+            assertEquals("Không có quyền truy cập", ex.getMessage());
+            verify(classAssignmentRepository, never()).save(any());
+        }
+
+        @Test
+        @DisplayName("UTCID12 (A) - Lop khong ton tai -> ResourceNotFoundException")
+        void utcid12_classNotFound() {
             loginAsCenter();
             when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.empty());
 
