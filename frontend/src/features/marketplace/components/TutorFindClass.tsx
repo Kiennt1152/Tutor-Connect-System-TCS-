@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { ClassDetailModal } from './ClassDetailModal';
 import { ApplyClassModal } from './ApplyClassModal';
 import { ClassResultCard } from './ClassResultCard';
 import { useClassSearch } from '../hooks/useClassSearch';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import type { CatalogOption, ClassResponse } from '../types/marketplaceTypes';
 import { searchClasses } from '../matching/tutorMatching';
 import './tutorFindClass.css';
@@ -22,6 +24,7 @@ interface Props {
  * Việc của tệp này gói gọn: lấy dữ liệu về, ráp lại, phân trang, mở/đóng modal.
  */
 export function TutorFindClass({ subjects, grades, provinces }: Props) {
+  const navigate = useNavigate();
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [applied, setApplied] = useState<Set<number>>(new Set());
@@ -30,6 +33,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const [applyTarget, setApplyTarget] = useState<ClassResponse | null>(null);
   /** Mức trong hồ sơ — chỉ dùng làm gợi ý cho ô học phí, không phải giá trị mặc định. */
   const [profileFee, setProfileFee] = useState('');
+  const [profileVerified, setProfileVerified] = useState<boolean | null>(null);
   const [page, setPage] = useState(1);
 
   /**
@@ -82,7 +86,9 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     marketplaceApi
       .getMyTutorProfile()
       .then((p) => {
-        if (!alive || !p.hourlyRate) return;
+        if (!alive) return;
+        setProfileVerified(p.verificationStatus === 'VERIFIED');
+        if (!p.hourlyRate) return;
         // Chỉ GỢI Ý mức trong hồ sơ (đổ vào placeholder), KHÔNG tự điền thành giá trị:
         // tự điền thì tiêu chí P âm thầm trừ điểm dù gia sư chưa hề khai mức nào.
         setProfileFee(String(Math.round(Number(p.hourlyRate))));
@@ -116,8 +122,18 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
 
   function openApply(target: ClassResponse) {
     setNotice(null);
+    if (profileVerified === false) {
+      goVerify('Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển lớp học.');
+      return;
+    }
     setApplyTarget(target);
     setDetailTarget(null);
+  }
+
+  function goVerify(message: string) {
+    setApplyTarget(null);
+    setDetailTarget(null);
+    navigate(APP_ROUTES.verification, { state: { notice: message } });
   }
 
   function handleApplied(classId: number) {
@@ -239,6 +255,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
           defaultRate={Number(search.fee || profileFee) || undefined}
           onClose={() => setApplyTarget(null)}
           onSubmitted={handleApplied}
+          onVerificationRequired={goVerify}
         />
       )}
     </div>
