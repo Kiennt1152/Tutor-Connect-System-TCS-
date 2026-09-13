@@ -39,6 +39,13 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function errorCode(error: unknown): string | undefined {
+  if (axios.isAxiosError(error) && typeof error.response?.data?.code === 'string') {
+    return error.response.data.code;
+  }
+  return undefined;
+}
+
 function formatCurrency(value: number): string {
   return `${new Intl.NumberFormat('vi-VN').format(value)} đ`;
 }
@@ -94,6 +101,14 @@ export default function MarketplaceClassDetailPage() {
       setRegMessage(res.data?.message ?? 'Đăng ký thành công');
       load(); // cập nhật sĩ số / trạng thái
     } catch (err) {
+      if (errorCode(err) === 'VERIFICATION_REQUIRED') {
+        navigate(APP_ROUTES.verification, {
+          state: {
+            notice: 'Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển lớp học.',
+          },
+        });
+        return;
+      }
       setRegStatus('error');
       setRegMessage(extractError(err, 'Đăng ký thất bại.'));
     }

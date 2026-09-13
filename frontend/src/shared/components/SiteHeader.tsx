@@ -55,12 +55,12 @@ function buildNavLinks(role: UserRole): NavLinkItem[] {
       { key: 'centers', label: 'Trung tâm', to: APP_ROUTES.centers },
     ];
   }
-  // Trung tâm: xem danh sách lớp đang mở (gồm lớp do trung tâm tạo) + trang giới thiệu công khai;
-  // quản lý sâu qua nút "Quản lý trung tâm".
+  // Trung tâm: tìm gia sư phù hợp và xem đánh giá công khai; phần vận hành dùng nút
+  // "Quản lý trung tâm" ở bên phải, không đưa lại trang public "Trung tâm" lên navbar.
   if (role === 'TUTOR_CENTER') {
     return [
-      { key: 'find-class', label: 'Tìm lớp', to: APP_ROUTES.classFinder },
-      { key: 'centers', label: 'Trung tâm', to: APP_ROUTES.centers },
+      { key: 'find-tutor', label: 'Tìm gia sư', to: APP_ROUTES.findTutor },
+      { key: 'reviews', label: 'Đánh giá', to: APP_ROUTES.tutorReviews },
     ];
   }
   // Admin: không có nav khám phá (dùng khu vực quản trị riêng).
