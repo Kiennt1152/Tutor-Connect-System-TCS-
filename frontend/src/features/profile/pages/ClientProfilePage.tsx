@@ -152,7 +152,7 @@ export default function ClientProfilePage({ ctx }: { ctx: UseProfileResult }) {
       <section className="profile-role-banner">
         <div className="profile-role-banner__header">
           <span className="profile-role-badge-pill profile-role-badge-pill--client">
-            🎓 Học viên / Phụ huynh
+            Học viên / Phụ huynh
           </span>
         </div>
         <p className="profile-role-banner__subtitle">
@@ -160,16 +160,16 @@ export default function ClientProfilePage({ ctx }: { ctx: UseProfileResult }) {
         </p>
         <div className="profile-quick-links">
           <Link to={APP_ROUTES.clientSchedule} className="profile-quick-chip">
-            📅 Lịch học của tôi
+            Lịch học của tôi
           </Link>
           <Link to={APP_ROUTES.marketplace} className="profile-quick-chip">
-            📋 Yêu cầu gia sư đã đăng
+            Yêu cầu gia sư đã đăng
           </Link>
           <Link to={APP_ROUTES.profileDependents} className="profile-quick-chip">
-            👶 Hồ sơ con / học viên
+            Hồ sơ con / học viên
           </Link>
           <Link to={APP_ROUTES.contract} className="profile-quick-chip">
-            📝 Hợp đồng gia sư
+            Hợp đồng gia sư
           </Link>
         </div>
       </section>

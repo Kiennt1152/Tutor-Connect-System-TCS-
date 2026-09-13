@@ -1,4 +1,4 @@
-﻿import type { FormEvent } from 'react';
+import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';
@@ -120,7 +120,7 @@ export default function CenterProfilePage({ ctx }: { ctx: UseProfileResult }) {
       <section className="profile-role-banner profile-role-banner--center">
         <div className="profile-role-banner__header">
           <span className="profile-role-badge-pill profile-role-badge-pill--center">
-            🏢 Trung tâm gia sư
+            Trung tâm gia sư
           </span>
           {profile?.verificationStatus && (
             <span className={`verification-badge verification-${profile.verificationStatus.toLowerCase()}`}>
@@ -133,19 +133,19 @@ export default function CenterProfilePage({ ctx }: { ctx: UseProfileResult }) {
         </p>
         <div className="profile-quick-links">
           <Link to={APP_ROUTES.center} className="profile-quick-chip">
-            🏢 Bảng quản trị trung tâm
+            Bảng quản trị trung tâm
           </Link>
           <Link to={APP_ROUTES.centerReports} className="profile-quick-chip">
-            📊 Báo cáo doanh thu & lớp
+            Báo cáo doanh thu & lớp
           </Link>
           <Link to={APP_ROUTES.centerSchedule} className="profile-quick-chip">
-            📅 Lịch dạy trung tâm
+            Lịch dạy trung tâm
           </Link>
           <Link to={APP_ROUTES.recruitment} className="profile-quick-chip">
-            📢 Đăng tuyển gia sư
+            Đăng tuyển gia sư
           </Link>
           <Link to={APP_ROUTES.verification} className="profile-quick-chip">
-            📑 Xác minh pháp nhân
+            Xác minh pháp nhân
           </Link>
         </div>
       </section>

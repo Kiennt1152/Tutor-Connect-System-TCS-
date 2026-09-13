@@ -157,7 +157,7 @@ export default function TutorProfilePage({ ctx }: { ctx: UseProfileResult }) {
       <section className="profile-role-banner profile-role-banner--tutor">
         <div className="profile-role-banner__header">
           <span className="profile-role-badge-pill profile-role-badge-pill--tutor">
-            👨‍🏫 Gia sư đối tác
+            Gia sư đối tác
           </span>
           {profile?.verificationStatus && (
             <span className={`verification-badge verification-${profile.verificationStatus.toLowerCase()}`}>
@@ -170,19 +170,19 @@ export default function TutorProfilePage({ ctx }: { ctx: UseProfileResult }) {
         </p>
         <div className="profile-quick-links">
           <Link to={APP_ROUTES.teaching} className="profile-quick-chip">
-            📅 Lịch dạy cá nhân
+            Lịch dạy cá nhân
           </Link>
           <Link to={APP_ROUTES.tutorSchedule} className="profile-quick-chip">
-            🏢 Lịch lớp trung tâm
+            Lịch lớp trung tâm
           </Link>
           <Link to={APP_ROUTES.myReputation} className="profile-quick-chip">
-            🌟 Đánh giá & Uy tín
+            Đánh giá & Uy tín
           </Link>
           <Link to={APP_ROUTES.contract} className="profile-quick-chip">
-            📜 Hợp đồng giảng dạy
+            Hợp đồng giảng dạy
           </Link>
           <Link to={APP_ROUTES.verification} className="profile-quick-chip">
-            📑 Xác minh KYC
+            Xác minh KYC
           </Link>
         </div>
       </section>

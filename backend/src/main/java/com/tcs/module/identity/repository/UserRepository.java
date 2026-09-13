@@ -58,6 +58,28 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     @Query("""
             SELECT u FROM User u
+            WHERE (:status IS NULL OR u.status = :status)
+            AND (
+                :keyword IS NULL OR :keyword = '' OR
+                EXISTS (
+                    SELECT 1 FROM Client c
+                    WHERE c.user = u AND LOWER(c.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                ) OR
+                EXISTS (
+                    SELECT 1 FROM Tutor t
+                    WHERE t.user = u AND LOWER(t.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                ) OR
+                EXISTS (
+                    SELECT 1 FROM TutorCenter tc
+                    WHERE tc.user = u AND LOWER(tc.companyName) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                )
+            )
+            """)
+    Page<User> searchUsersByNameOnly(
+            @Param("status") UserStatus status, @Param("keyword") String keyword, Pageable pageable);
+
+    @Query("""
+            SELECT u FROM User u
             WHERE u.userId IN :userIds
             AND (:status IS NULL OR u.status = :status)
             AND (

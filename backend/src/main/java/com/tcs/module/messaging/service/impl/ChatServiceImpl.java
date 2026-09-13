@@ -437,7 +437,7 @@ public class ChatServiceImpl implements ChatService {
     public List<UserSummaryResponse> listUsers(String keyword) {
         Long currentUserId = authHelper.currentUserId();
         Pageable pageable = PageRequest.of(0, 20);
-        Page<User> users = userRepository.searchUsers(UserStatus.ACTIVE, keyword, pageable);
+        Page<User> users = userRepository.searchUsersByNameOnly(UserStatus.ACTIVE, keyword, pageable);
         return users.getContent().stream()
                 .filter(u -> !u.getUserId().equals(currentUserId))
                 .map(this::toUserSummary)
