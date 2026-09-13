@@ -10,6 +10,7 @@ import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
 import com.tcs.module.marketplace.dto.response.ContractViewResponse;
+import com.tcs.module.marketplace.dto.response.CenterProfileResponse;
 import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
@@ -80,6 +81,12 @@ public class MarketplaceController {
     @GetMapping("/centers")
     public List<CenterSummaryResponse> listCenters() {
         return marketplaceService.listCenters();
+    }
+
+    /** Hồ sơ công khai của một trung tâm (trang "Xem hồ sơ" từ danh sách trung tâm). */
+    @GetMapping("/centers/{centerId}")
+    public CenterProfileResponse getCenterProfile(@PathVariable Long centerId) {
+        return marketplaceService.getCenterProfile(centerId);
     }
 
     @PostMapping("/centers/{centerId}/class-requests")

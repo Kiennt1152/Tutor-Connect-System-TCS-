@@ -1,0 +1,157 @@
+/* Hồ sơ trung tâm — dùng lại khung trang hồ sơ gia sư (tp-*), bổ sung phần riêng theo token TCS. */
+
+.cp-header {
+  align-items: center;
+  gap: var(--space-lg);
+  padding: var(--space-lg);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  /* Sắc cam rất nhạt phía trái, cùng tông với hero trang chủ. */
+  background: linear-gradient(115deg, var(--color-primary-xlight) 0%, var(--color-surface-2) 45%);
+}
+
+.cp-header__avatar {
+  width: 96px;
+  height: 96px;
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+  box-shadow: 0 0 0 4px var(--color-surface-2), 0 0 0 5px var(--color-accent-border-hover);
+}
+
+.cp-badge {
+  padding: 3px 10px;
+}
+
+.cp-header__kind {
+  margin: 2px 0 0;
+  font-size: var(--fs-body-sm);
+  font-weight: 600;
+  color: var(--color-primary-dark);
+}
+
+.cp-header__bio {
+  margin-top: var(--space-sm);
+  max-width: 68ch;
+  color: var(--color-text-secondary);
+}
+
+/* Thông tin liên hệ: pill cam nhạt giống nhãn địa chỉ ở thẻ trung tâm trang chủ. */
+.cp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  margin: var(--space-md) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cp-meta__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border: 1px solid var(--color-primary-light);
+  border-radius: var(--radius-pill);
+  background: var(--color-primary-xlight);
+  color: var(--color-primary-dark);
+  font-size: var(--fs-body-sm);
+  font-weight: 500;
+}
+
+.cp-meta__chip svg {
+  flex-shrink: 0;
+}
+
+/* Số liệu: cùng kiểu số cam + nhãn xám như thống kê ở hero trang chủ. */
+.cp-stats {
+  display: flex;
+  flex-shrink: 0;
+  align-self: stretch;
+  align-items: center;
+  gap: var(--space-xl);
+  padding-left: var(--space-lg);
+  border-left: 1px dashed var(--color-border);
+}
+
+.cp-stats .tcs-stat {
+  align-items: center;
+  text-align: center;
+}
+
+.cp-stats .tcs-stat__value {
+  font-size: var(--fs-h1);
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Tab kèm số đếm dạng pill. */
+.cp-tabs {
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.cp-tabs .tp-tab {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-sm);
+  white-space: nowrap;
+}
+
+.cp-tab__count {
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface-3);
+  color: var(--color-text-secondary);
+  font-size: var(--fs-badge);
+  font-weight: 700;
+  line-height: 20px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.tp-tab--active .cp-tab__count {
+  background: var(--color-primary-light);
+  color: var(--color-primary-dark);
+}
+
+.cp-empty {
+  padding: var(--space-xl) var(--space-lg);
+  border: 1px dashed var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface-2);
+  text-align: center;
+}
+
+.cp-empty__title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.cp-empty__text {
+  margin: 4px 0 0;
+  font-size: var(--fs-body-sm);
+  color: var(--color-text-secondary);
+}
+
+@media (max-width: 768px) {
+  .cp-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .cp-stats {
+    align-self: stretch;
+    padding: var(--space-md) 0 0;
+    border-left: none;
+    border-top: 1px dashed var(--color-border);
+  }
+
+  .cp-tabs .tp-tab {
+    padding: 10px 12px;
+  }
+}

@@ -6,6 +6,7 @@ import { SiteFooter } from '../components/SiteFooter';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { hasRole } from '../../../shared/auth/rbac';
 import { APP_ROUTES } from '../../../shared/constants/routes';
+import { CenterListingCard } from '../components/CenterListingCard';
 import { marketplaceApi } from '../../marketplace/api/marketplaceApi';
 import type {
   CenterRequestFeePayment,
@@ -23,7 +24,9 @@ import {
 } from '../../finance/components/BankPicker';
 import { profileApi } from '../../profile/api/profileApi';
 import { useTutorRequestForm } from '../hooks/useTutorRequestForm';
+import { normalizeName } from '../../marketplace/matching/tutorMatching';
 import './HomePage.css';
+import './FindTutorPage.css';
 import './CentersRequest.css';
 
 function extractError(error: unknown, fallback: string): string {
@@ -55,6 +58,24 @@ export default function CentersPage() {
 
   const [centers, setCenters] = useState<CenterSummary[]>([]);
   const [centersLoading, setCentersLoading] = useState(true);
+  const [draft, setDraft] = useState(''); // chữ đang gõ
+  const [query, setQuery] = useState(''); // từ khóa đã bấm "Tìm" (dùng để lọc)
+
+  // Tìm không phân biệt dấu theo tên, địa chỉ và mô tả — gõ "Hà Nội" hay "ha noi" đều ra.
+  const filteredCenters = useMemo(() => {
+    const q = normalizeName(query);
+    if (!q) return centers;
+    return centers.filter((center) =>
+      [center.companyName, center.address, center.description].some((field) =>
+        normalizeName(field).includes(q),
+      ),
+    );
+  }, [centers, query]);
+
+  const applySearch = (value: string) => {
+    setDraft(value);
+    setQuery(value);
+  };
 
   useEffect(() => {
     marketplaceApi
@@ -249,75 +270,115 @@ export default function CentersPage() {
         </div>
       )}
       <main>
-        <section className="tcs-section tcs-section--centers">
+        {/* Cùng bố cục với trang "Tìm lớp": dải hero cam nhạt, khung tìm kiếm trắng, rồi danh sách. */}
+        <section className="tcs-home-hero tcs-find-hero ctr-hero">
           <div className="tcs-container">
-            <div className="tcs-section-bar">
-              <div>
-                <h1 className="tcs-section-bar__title">Trung tâm</h1>
-                <p className="tcs-section-bar__subtitle">
-                  Các trung tâm gia sư đối tác — quy trình tuyển chọn và hỗ trợ chuyên nghiệp.
-                </p>
-              </div>
+            <Link className="tcs-find-back" to={APP_ROUTES.home}>
+              ← Trang chủ
+            </Link>
+            {/* Cụm tiêu đề + ô tìm kiếm canh giữa cho cân đối (kiểu hero canh giữa của TCS). */}
+            <div className="tcs-find-hero__intro ctr-intro">
+              <h1 className="tcs-find-title">
+                <span className="tcs-find-title__text tcs-find-title__text--plain">
+                  Trung tâm gia sư uy tín
+                </span>
+              </h1>
             </div>
 
-            {/* Danh sách trung tâm đã xác minh (thật). */}
-            <div className="tcs-section-bar">
-              <div>
-                <h2 className="tcs-recruit__title">Danh sách trung tâm</h2>
-                <p className="tcs-section-bar__subtitle">
-                  {isClient
-                    ? 'Chọn một trung tâm và gửi yêu cầu mở lớp theo nguyện vọng của bạn.'
-                    : 'Các trung tâm đã được xác minh trên nền tảng.'}
-                </p>
-              </div>
+            <div className="ctr-panel">
+              <form
+                className="tcs-find-search"
+                role="search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setQuery(draft.trim());
+                }}
+              >
+                <div className="tcs-find-search__field">
+                  <input
+                    type="search"
+                    className="tcs-find-search__input"
+                    placeholder="Tìm theo tên, khu vực..."
+                    value={draft}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setDraft(value);
+                      // Bấm dấu ✕ của trình duyệt (làm rỗng ô) -> hiện lại toàn bộ danh sách.
+                      if (value === '') setQuery('');
+                    }}
+                    aria-label="Tìm kiếm trung tâm"
+                  />
+                </div>
+                <button type="submit" className="tcs-find-search__btn">
+                  Tìm
+                </button>
+              </form>
             </div>
 
-            {centersLoading && (
-              <div className="tcs-search-results__state">
-                <span className="tcs-spinner" aria-hidden="true" />
-                Đang tải danh sách trung tâm...
-              </div>
-            )}
-            {!centersLoading && centers.length === 0 && (
-              <p className="tcs-empty">Hiện chưa có trung tâm nào được xác minh.</p>
-            )}
-            {!centersLoading && centers.length > 0 && (
-              <div className="cr-grid">
-                {centers.map((center) => (
-                  <article key={center.centerId} className="cr-card">
-                    <h3 className="cr-card__name">{center.companyName}</h3>
-                    {center.description && <p className="cr-card__desc">{center.description}</p>}
-                    {center.address && <span className="cr-card__meta">📍 {center.address}</span>}
-                    {isClient && (
-                      <div className="cr-card__actions">
-                        <button
-                          type="button"
-                          className="tcs-btn tcs-btn--market tcs-btn--sm"
-                          onClick={() => openModal(center)}
-                        >
-                          Nhờ trung tâm tìm gia sư
-                        </button>
-                      </div>
-                    )}
-                  </article>
-                ))}
-              </div>
-            )}
+            <section className="ctr-results" aria-live="polite">
+              <header className="ctr-results__head">
+                <h2 className="ctr-results__title">
+                  {query ? `Kết quả cho “${query}”` : 'Tất cả trung tâm'}
+                </h2>
+              </header>
 
-            {isClient && (
-              <div className="cr-request-tip">
-                <div>
-                  <strong>Đã có yêu cầu đang xử lý?</strong>
+              {centersLoading && (
+                <div className="ctr-state">
+                  <span className="tcs-spinner" aria-hidden="true" />
+                  Đang tải danh sách trung tâm...
+                </div>
+              )}
+              {!centersLoading && centers.length === 0 && (
+                <div className="ctr-state">Hiện chưa có trung tâm nào được xác minh.</div>
+              )}
+              {!centersLoading && centers.length > 0 && filteredCenters.length === 0 && (
+                <div className="ctr-state">
                   <span>
-                    Vào <b>Yêu cầu của tôi</b> để xem lại QR thanh toán và trạng thái
-                    các yêu cầu đã gửi.
+                    Không tìm thấy trung tâm khớp với “{query}”.{' '}
+                    <button type="button" className="ctr-state__reset" onClick={() => applySearch('')}>
+                      Xem tất cả
+                    </button>
                   </span>
                 </div>
-                <Link className="tcs-btn tcs-btn--market tcs-btn--sm" to={APP_ROUTES.marketplace}>
-                  Xem yêu cầu của tôi
-                </Link>
-              </div>
-            )}
+              )}
+              {!centersLoading && filteredCenters.length > 0 && (
+                <div className="tcs-listing-grid tcs-listing-grid--fill">
+                  {filteredCenters.map((center) => (
+                    <CenterListingCard
+                      key={center.centerId}
+                      center={center}
+                      action={
+                        isClient ? (
+                          <button
+                            type="button"
+                            className="tcs-btn tcs-btn--ghost"
+                            onClick={() => openModal(center)}
+                            title="Nhờ trung tâm tìm gia sư"
+                          >
+                            Nhờ tìm gia sư
+                          </button>
+                        ) : undefined
+                      }
+                    />
+                  ))}
+                </div>
+              )}
+  
+              {isClient && (
+                <div className="cr-request-tip">
+                  <div>
+                    <strong>Đã có yêu cầu đang xử lý?</strong>
+                    <span>
+                      Vào <b>Yêu cầu của tôi</b> để xem lại QR thanh toán và trạng thái
+                      các yêu cầu đã gửi.
+                    </span>
+                  </div>
+                  <Link className="tcs-btn tcs-btn--market tcs-btn--sm" to={APP_ROUTES.marketplace}>
+                    Xem yêu cầu của tôi
+                  </Link>
+                </div>
+              )}
+            </section>
           </div>
         </section>
       </main>
@@ -327,7 +388,8 @@ export default function CentersPage() {
         <div className="cr-overlay" role="dialog" aria-modal="true" onClick={closeModal}>
           <div
             className="cr-modal"
-            style={{ maxHeight: '88vh', overflowY: 'auto', maxWidth: 720 }}
+            // 820px: đủ để hàng lịch học (ngày · buổi · từ – đến · ×) nằm trọn một dòng, không xuống dòng.
+            style={{ maxHeight: '88vh', overflowY: 'auto', maxWidth: 820 }}
             onClick={(e) => e.stopPropagation()}
           >
             <h3 className="cr-modal__title">

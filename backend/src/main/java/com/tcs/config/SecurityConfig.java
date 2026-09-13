@@ -95,7 +95,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/tutors/**")
                         .permitAll()
                         // Danh sách trung tâm đã xác minh: ai cũng xem được (để phụ huynh chọn).
-                        .requestMatchers(HttpMethod.GET, "/api/marketplace/centers")
+                        .requestMatchers(HttpMethod.GET, "/api/marketplace/centers", "/api/marketplace/centers/*")
                         .permitAll()
                         // Recruitment: các GET cần đăng nhập phải đứng TRƯỚC GET công khai bên dưới.
                         .requestMatchers(HttpMethod.GET, "/api/center/recruitment/my-posts")
