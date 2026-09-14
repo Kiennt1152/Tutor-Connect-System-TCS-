@@ -646,7 +646,7 @@ tutoringClass.setStatus(TutoringClassStatus.DRAFT);
 `"status":"OPEN"` vào body cũng vô ích.
 
 Hệ quả: `listClasses(OPEN)` không trả về → gia sư ở màn
-`/tim-yeu-cau-giang-day` **không thấy**. Muốn công khai phải gọi tiếp:
+`/find-class` **không thấy**. Muốn công khai phải gọi tiếp:
 
 ```
 POST /marketplace/classes/{id}/publish  →  publishClass()  [dòng 449]

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SiteHeader } from '../components/SiteHeader';
 import { SiteFooter } from '../components/SiteFooter';
@@ -140,6 +140,7 @@ const parseQuery = (raw: string): ParsedQuery => {
 export default function FindTutorPage() {
   const { status, data, reload } = useHome();
   const { isAuthenticated } = useAuth();
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [draft, setDraft] = useState<Filters>(EMPTY_FILTERS); // đang chỉnh trên form
   const [applied, setApplied] = useState<Filters>(EMPTY_FILTERS); // đã bấm "Tìm"
   const [page, setPage] = useState(1);
@@ -258,7 +259,31 @@ export default function FindTutorPage() {
                       if (value === '') setApplied(EMPTY_FILTERS);
                     }}
                     aria-label="Tìm kiếm gia sư"
+                    ref={searchInputRef}
                   />
+                  {/* Nút xóa của riêng trang — nút mặc định của trình duyệt (type="search") mỗi
+                      trình một kiểu và không canh được theo ô, nên ẩn đi ở CSS. */}
+                  {draft.keyword ? (
+                    <button
+                      type="button"
+                      className="tcs-find-search__clear"
+                      aria-label="Xóa nội dung tìm kiếm"
+                      onClick={() => {
+                        patchDraft({ keyword: '' });
+                        setApplied(EMPTY_FILTERS);
+                        searchInputRef.current?.focus();
+                      }}
+                    >
+                      <svg viewBox="0 0 24 24" width="12" height="12" aria-hidden="true">
+                        <path
+                          d="M5 5 L19 19 M19 5 L5 19"
+                          stroke="currentColor"
+                          strokeWidth="2.6"
+                          strokeLinecap="round"
+                        />
+                      </svg>
+                    </button>
+                  ) : null}
                 </div>
                 <button type="submit" className="tcs-find-search__btn">
                   Tìm

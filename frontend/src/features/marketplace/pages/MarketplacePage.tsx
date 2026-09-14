@@ -19,6 +19,7 @@ import { ExpiryBadge } from '../../../shared/components/ExpiryBadge';
 import { useTeaching } from '../../teaching/hooks/useTeaching';
 import type { LessonResponse } from '../../teaching/types/teachingTypes';
 import { classToForm, emptyForm } from '../mappers/marketplaceMapper';
+import { slotLabel } from '../hooks/useClassSearch';
 import {
   CLASS_STATUS_LABELS,
   type CenterRequestFeePayment,
@@ -1024,8 +1025,25 @@ function ClassList({
         const isOnline = c.lessonMode === 'ONLINE';
         const address = fullAddressOf(form, c);
         const expired = isExpiredClass(c);
+        // Năm tiêu chí hiển thị giống thẻ bên màn Tìm yêu cầu giảng dạy (/find-class).
+        const subjectLabel = subjectRows.map((r) => r.name).join(', ') || (c.subjectName ?? '—');
+        const fees = subjectRows.map((r) => r.fee).filter((f) => f > 0);
+        // Lớp nhiều môn mỗi môn một giá thì gộp thành khoảng, như bên /find-class.
+        const feeLabel = fees.length === 0
+          ? ''
+          : Math.min(...fees) !== Math.max(...fees)
+            ? `${currency.format(Math.min(...fees))}đ – ${currency.format(Math.max(...fees))}đ/giờ`
+            : `${currency.format(fees[0])}đ/giờ`;
+        const slotLabels = form.slots.map(slotLabel).filter(Boolean);
         return (
-        <article key={c.classId} className={`mkt-class-card${expired ? ' mkt-class-card--expired' : ''}`}>
+        <article
+          key={c.classId}
+          /* Thêm trạng thái vào class để CSS tô màu viền/nền theo từng trạng thái tin.
+             --expired để sau cùng để đè lên màu của trạng thái gốc. */
+          className={`mkt-class-card mkt-class-card--${c.status.toLowerCase()}${
+            expired ? ' mkt-class-card--expired' : ''
+          }`}
+        >
           <div className="mkt-class-card__top">
             <span className={`mkt-status mkt-status--${expired ? 'expired' : c.status.toLowerCase()}`}>
               {expired ? 'Đã hết hạn' : (CLASS_STATUS_LABELS[c.status] ?? c.status)}
@@ -1033,37 +1051,40 @@ function ClassList({
             {c.status === 'OPEN' && c.expiresAt && <ExpiryBadge expiresAt={c.expiresAt} />}
           </div>
           <h3 className="mkt-class-card__title">{c.title}</h3>
-          <dl className="mkt-class-card__meta">
-            <div>
-              <dt>Lớp</dt>
-              <dd>{c.gradeName ?? '—'}</dd>
-            </div>
-            <div>
-              <dt>Hình thức</dt>
-              <dd>{isOnline ? 'Online' : 'Offline'}</dd>
-            </div>
-          </dl>
-          <div className="mkt-class-card__subjects">
-            <span className="mkt-class-card__subjects-label">
-              {subjectRows.length > 1 ? 'Các môn & học phí/giờ' : 'Môn & học phí/giờ'}
+          <div className="mkt-class-card__chips">
+            {/* Nhãn và giá trị là hai phần tử riêng để CSS dồn nhãn về trái, giá trị về phải. */}
+            <span data-key="subject">
+              <b className="mkt-class-card__chip-key">Môn</b>
+              <span className="mkt-class-card__chip-val">{subjectLabel}</span>
             </span>
-            {subjectRows.length > 0 ? (
-              <ul className="mkt-subj-fees">
-                {subjectRows.map((row, i) => (
-                  <li key={i}>
-                    <span className="mkt-subj-fees__name">📚 {row.name}</span>
-                    <span className="mkt-subj-fees__fee">
-                      {row.fee > 0 ? `${currency.format(row.fee)} đ` : '—'}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="mkt-class-card__loc">—</p>
+            <span data-key="place">
+              <b className="mkt-class-card__chip-key">Địa điểm</b>
+              <span className="mkt-class-card__chip-val">
+                {isOnline ? 'Học online' : address || '—'}
+              </span>
+            </span>
+            {feeLabel && (
+              <span data-key="fee">
+                <b className="mkt-class-card__chip-key">Học phí</b>
+                <span className="mkt-class-card__chip-val">{feeLabel}</span>
+              </span>
             )}
+            {slotLabels.length > 0 && (
+              <span data-key="slot">
+                <b className="mkt-class-card__chip-key">Lịch học</b>
+                <span className="mkt-class-card__chip-val">{slotLabels.join(' · ')}</span>
+              </span>
+            )}
+            <span data-key="grade">
+              <b className="mkt-class-card__chip-key">Khối học</b>
+              <span className="mkt-class-card__chip-val">{c.gradeName ?? '—'}</span>
+            </span>
           </div>
-          {c.learningGoal && <p className="mkt-class-card__goal">🎯 {c.learningGoal}</p>}
-          <p className="mkt-class-card__loc">📍 {isOnline ? 'Học Online' : address || '—'}</p>
+          {c.learningGoal && (
+            <p className="mkt-class-card__goal">
+              <strong>Mục tiêu:</strong> {c.learningGoal}
+            </p>
+          )}
           {expired && (
             <p className="mkt-class-card__archived">
               🔒 Tin đã hết hạn, được lưu lại để xem. Không sửa hay đăng lại được — cần tuyển tiếp

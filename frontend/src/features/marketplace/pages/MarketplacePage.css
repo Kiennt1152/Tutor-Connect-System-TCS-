@@ -592,15 +592,58 @@
     grid-template-columns: 1fr;
   }
 }
+/* Màu nhấn theo trạng thái tin — mặc định xám, từng trạng thái ghi đè bên dưới.
+   Dùng biến để viền trên, nền chuyển sắc và màu hover lấy chung một nguồn. */
 .mkt-class-card {
-  background: #fff;
+  --mkt-accent: #90a4ae;
+  --mkt-accent-soft: rgba(144, 164, 174, 0.1);
+  position: relative;
+  overflow: hidden;
+  /* Nền loang nhẹ từ trên xuống cho thẻ bớt trống, không phải mảng trắng phẳng. */
+  background: linear-gradient(180deg, var(--mkt-accent-soft) 0, rgba(255, 255, 255, 0) 150px), #fff;
   border: 1px solid #e3e9f2;
   border-radius: 14px;
-  padding: 18px;
+  padding: 20px 18px 18px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   box-shadow: 0 4px 14px rgba(18, 35, 59, 0.04);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+/* Vạch màu sát mép trên — nhận ra trạng thái tin từ xa mà không cần đọc chữ. */
+.mkt-class-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--mkt-accent);
+}
+.mkt-class-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--mkt-accent);
+  box-shadow: 0 14px 28px rgba(18, 35, 59, 0.1);
+}
+.mkt-class-card--open {
+  --mkt-accent: #2e7d32;
+  --mkt-accent-soft: rgba(46, 125, 50, 0.09);
+}
+.mkt-class-card--matched,
+.mkt-class-card--in_progress {
+  --mkt-accent: #1e88e5;
+  --mkt-accent-soft: rgba(30, 136, 229, 0.09);
+}
+.mkt-class-card--completed {
+  --mkt-accent: #5e35b1;
+  --mkt-accent-soft: rgba(94, 53, 177, 0.09);
+}
+.mkt-class-card--draft {
+  --mkt-accent: #607d8b;
+  --mkt-accent-soft: rgba(96, 125, 139, 0.09);
+}
+.mkt-class-card--cancelled,
+.mkt-class-card--disputed {
+  --mkt-accent: #c62828;
+  --mkt-accent-soft: rgba(198, 40, 40, 0.08);
 }
 .mkt-class-card__top {
   display: flex;
@@ -617,6 +660,7 @@
   font-size: 16px;
   color: #12233b;
   line-height: 1.35;
+  text-align: center;
 }
 .mkt-class-card__meta {
   display: grid;
@@ -636,11 +680,54 @@
   font-weight: 600;
   color: #33465e;
 }
+/* Năm tiêu chí dạng chip, mỗi cái một hàng — giống thẻ bên màn /find-class.
+   Chip trải hết bề ngang thẻ: có cùng bề rộng thì năm nhãn mới thẳng hàng nhau được,
+   đồng thời giá trị cũng thẳng lề phải. */
+.mkt-class-card__chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* Một tone cam duy nhất cho cả năm chip. */
+.mkt-class-card__chips > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  color: #b8461a;
+  background: #fff4ec;
+  border: 1px solid #fbd9c3;
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+/* Giá trị dài thì xuống hàng trong chip, canh phải cho khớp lề. */
+.mkt-class-card__chip-val {
+  min-width: 0;
+  text-align: right;
+}
+/* Cùng màu thì học phí phải in đậm mới nổi — con số gia sư nhìn đầu tiên. */
+.mkt-class-card__chips span[data-key='fee'] {
+  font-weight: 600;
+}
+/* Nhãn đen, không co lại để luôn nằm đúng một cột bên trái. */
+.mkt-class-card__chip-key {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: #12233b;
+}
+.mkt-class-card__chip-key::after {
+  content: ':';
+}
 .mkt-class-card__goal,
 .mkt-class-card__loc {
   margin: 0;
   font-size: 13px;
   color: #5b6b7f;
+}
+.mkt-class-card__goal strong {
+  color: #33465e;
+  font-weight: 600;
 }
 .mkt-class-card__subjects {
   display: flex;
@@ -729,12 +816,26 @@
   color: #78909c;
 }
 .mkt-class-card--expired {
+  --mkt-accent: #b0bec5;
+  --mkt-accent-soft: rgba(176, 190, 197, 0.12);
   background: #fafbfc;
   border-style: dashed;
+}
+/* Tin đã lưu kho thì đừng nhấc lên khi rê chuột — không còn gì để thao tác. */
+.mkt-class-card--expired:hover {
+  transform: none;
+  border-color: #e3e9f2;
+  box-shadow: 0 4px 14px rgba(18, 35, 59, 0.04);
 }
 .mkt-class-card--expired .mkt-class-card__title,
 .mkt-class-card--expired .mkt-subj-fees__fee {
   color: #78909c;
+}
+/* Tin hết hạn thì bỏ màu nhấn của chip học phí / lịch học cho đỡ chói. */
+.mkt-class-card--expired .mkt-class-card__chips span {
+  color: #78909c;
+  background: #f1f5f9;
+  border-color: #dde3ea;
 }
 .mkt-class-card__archived {
   margin: 0;

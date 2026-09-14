@@ -2,7 +2,7 @@ export const APP_ROUTES = {
   home: '/',
   findTutor: '/find-tutor',
   postTutorRequest: '/post-tutor-request',
-  findClass: '/tim-yeu-cau-giang-day',
+  findClass: '/find-class',
   /** Bảng tổng hợp mọi lớp client đăng (đang mở). Ký hợp đồng xong -> lớp kích hoạt, tự gỡ khỏi đây. */
   classBoard: '/class-board',
   /** Trang "Tìm lớp phù hợp với bạn" — duyệt lớp đang mở để đăng ký (bản của center/class). */

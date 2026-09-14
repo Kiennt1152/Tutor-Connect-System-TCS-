@@ -15,8 +15,8 @@
   margin-top: 2px;
   padding-top: 10px;
 }
-/* flex-start: tiêu đề xuống 2 dòng thì nút "Cách tính ?" vẫn nằm ngang dòng đầu. */
-.tfc-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+/* Chỉ còn một nút sau khi bỏ "Cách tính ?" nên canh giữa thay vì space-between. */
+.tfc-panel__head { display: flex; align-items: flex-start; justify-content: center; gap: 10px; }
 .tfc-panel__title { margin: 0 0 4px; font-size: 15px; font-weight: 800; color: #12233b; }
 /* Nút mở popup công thức — thay cho khối <details> nằm chình ình trong panel trước đây. */
 .tfc-formula-btn {
@@ -27,7 +27,10 @@
 .tfc-formula-btn:hover { border-color: #ea580c; background: #fff7ed; }
 .tfc-formula-modal { max-width: 560px; padding: 24px; }
 .tfc-formula-modal__title { margin: 0 0 14px; font-size: 18px; font-weight: 800; color: #12233b; }
-.tfc-panel__desc { margin: 0 0 10px; font-size: 11.5px; line-height: 1.45; color: #5b6b7f; }
+.tfc-panel__desc {
+  margin: 0 0 10px; font-size: 11.5px; line-height: 1.45; color: #5b6b7f;
+  text-align: center;
+}
 .tfc-panel__desc strong { color: #12233b; }
 
 /* Thẻ form nằm trong hero (căn giữa) — nền warm bao quanh giống màn Tìm gia sư. */
@@ -201,8 +204,6 @@
   background: #ea580c; border-color: #ea580c; color: #fff; cursor: default;
 }
 .tfc-card {
-  /* Cho phần thân đổi bố cục theo bề rộng của chính thẻ (xem @container bên dưới). */
-  container-type: inline-size;
   display: flex; gap: 16px; background: #fff; border: 1px solid #e3e9f2;
   border-radius: 16px; padding: 18px;
   box-shadow: 0 2px 8px rgba(18, 35, 59, 0.04);
@@ -223,38 +224,52 @@
 .tfc-score--high { background: linear-gradient(135deg, #2e7d32, #43a047); }
 .tfc-score--mid { background: linear-gradient(135deg, #ef6c00, #fb8c00); }
 .tfc-score--low { background: linear-gradient(135deg, #78909c, #90a4ae); }
-/* Bố cục gọn: tiêu đề chạy hết ngang; chip (và mục tiêu/yêu cầu nếu có) ở cột trái, nút ở cột
-   phải cùng hàng — không còn một hàng riêng cho nút bên dưới đường kẻ. Hàng cuối 1fr để khi
-   các thẻ cùng dòng bị kéo cao bằng nhau, nút vẫn nằm sát đáy và thẳng hàng giữa các thẻ. */
+/* Mỗi tiêu chí đã chiếm một hàng riêng nên cột trái rất hẹp; để nút ở cột phải như trước
+   sẽ thành hai khối lệch nhau. Nay thân thẻ xếp dọc, nút trải hết bề ngang ở đáy. */
 .tfc-card__body {
   flex: 1; min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-rows: auto auto 1fr;
-  column-gap: 16px;
+  display: flex;
+  flex-direction: column;
 }
 .tfc-card__top {
-  grid-column: 1 / -1; grid-row: 1;
   display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
 }
 .tfc-card__title { margin: 0; font-size: 16.5px; font-weight: 700; line-height: 1.4; color: #12233b; }
 .tfc-card__id { font-size: 12px; color: #8592a3; }
 /* Môn · khối · địa điểm dạng pill cho dễ quét mắt, không lẫn vào phần mô tả bên dưới. */
-.tfc-card__meta { grid-column: 1; grid-row: 2; display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
-.tfc-card__meta span {
-  font-size: 12.5px; color: #43546a; background: #f4f7fb; border: 1px solid #e8eef6;
-  border-radius: 999px; padding: 4px 10px;
+/* Mỗi tiêu chí một hàng để gia sư đọc lướt theo chiều dọc. Chip trải hết bề ngang thẻ:
+   có cùng bề rộng thì năm nhãn mới thẳng hàng, giá trị cũng thẳng lề phải. */
+.tfc-card__meta {
+  display: flex; flex-direction: column;
+  gap: 6px; margin-top: 10px;
 }
-/* Học phí và lịch học là hai tiêu chí gia sư nhìn đầu tiên -> tô đậm hơn các chip khác. */
+/* Một tone cam duy nhất cho cả năm chip. */
+.tfc-card__meta > span {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  font-size: 12.5px; color: #b8461a; background: #fff4ec; border: 1px solid #fbd9c3;
+  border-radius: 999px; padding: 4px 12px;
+}
+/* Giá trị dài thì xuống hàng trong chip, canh phải cho khớp lề. */
+.tfc-card__meta-val {
+  min-width: 0;
+  text-align: right;
+}
+/* Nhãn đen, không co lại để luôn nằm đúng một cột bên trái. */
+.tfc-card__meta-key {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: #12233b;
+}
+.tfc-card__meta-key::after {
+  content: ':';
+}
+/* Cùng màu thì học phí phải in đậm mới nổi — con số gia sư nhìn đầu tiên. */
 .tfc-card__meta span[title^="Học phí"] {
-  color: #b8461a; background: #fff4ec; border-color: #fbd9c3; font-weight: 600;
-}
-.tfc-card__meta span[title^="Lịch học"] {
-  color: #1d4ed8; background: #eef3ff; border-color: #d7e2fb;
+  font-weight: 600;
 }
 /* Vị trí trong lưới thân thẻ (xem .tfc-card__body phía trên). Markup chỉ dựng khối này khi lớp
    có mô tả / mục tiêu / yêu cầu, nên không còn khoảng trống thừa. */
-.tfc-card__info { grid-column: 1; grid-row: 3; display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+.tfc-card__info { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
 /* Giữ luật của main: nếu khối rỗng lọt vào thì cũng không chiếm chỗ. */
 .tfc-card__info:empty { display: none; }
 /* Mô tả lớp: cắt gọn 2 dòng cho các thẻ đều nhau. */
@@ -263,22 +278,27 @@
   display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
   overflow: hidden; overflow-wrap: anywhere;
 }
-/* Icon tách thành cột riêng để dòng dài xuống hàng vẫn thẳng lề, không chui xuống dưới icon. */
+/* Bỏ icon nên không cần tách cột nữa: để block cho nhãn và nội dung chảy liền mạch,
+   dòng dài xuống hàng vẫn thẳng lề trái. */
 .tfc-card__info-row {
   margin: 0; font-size: 13px; line-height: 1.5; color: #43546a;
-  display: flex; align-items: flex-start; gap: 8px;
 }
-.tfc-card__ico { flex: 0 0 auto; line-height: 1.5; }
 .tfc-card__info-row strong { color: #12233b; font-weight: 600; }
 .tfc-card__actions {
-  grid-column: 2; grid-row: 2 / 4; align-self: end;
-  display: flex; justify-content: flex-end; gap: 10px;
+  /* margin-top: auto đẩy nút xuống đáy thẻ — các thẻ cùng hàng bị kéo cao bằng nhau thì
+     hàng nút vẫn thẳng nhau. */
+  margin-top: auto;
+  padding-top: 14px;
+  display: flex; gap: 10px;
 }
-/* Thẻ hẹp (3 cột, hoặc điện thoại): không đủ chỗ cho chip và nút cùng hàng -> nút xuống
-   dưới, canh phải. Đo theo bề rộng thẻ nên đúng cả khi thẻ có ô "% phù hợp" bên trái. */
-@container (max-width: 440px) {
-  .tfc-card__body { grid-template-rows: auto auto auto 1fr; }
-  .tfc-card__actions { grid-column: 1 / -1; grid-row: 4; margin-top: 12px; }
+/* Chia đều bề ngang ô cho mọi nút: flex-basis 0 nên bề rộng không còn phụ thuộc độ dài
+   chữ ("✓ Đã ứng tuyển" vẫn bằng "Xem chi tiết"). Đệm ngang thu lại vì bề rộng đã do
+   flex quyết định; nowrap để nhãn không gãy dòng khi thẻ hẹp. */
+.tfc-card__actions > * {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline: 12px;
+  white-space: nowrap;
 }
 .tfc-btn { border: none; border-radius: 8px; padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .tfc-btn--primary { background: #ea580c; color: #fff; }

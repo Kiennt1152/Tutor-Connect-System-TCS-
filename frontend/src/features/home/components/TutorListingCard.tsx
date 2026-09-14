@@ -34,12 +34,6 @@ const genderLabel = (gender: string) => {
   }
 };
 
-const bioSnippet = (bio: string | null) => {
-  const text = bio?.trim();
-  if (!text) return 'Gia sư tận tâm, sẵn sàng đồng hành cùng học viên trên nền tảng TCS.';
-  return text.length > 120 ? `${text.slice(0, 120)}…` : text;
-};
-
 export function TutorListingCard({
   tutor,
   variant = 'grid',
@@ -88,8 +82,6 @@ export function TutorListingCard({
           </div>
         ) : null}
       </div>
-
-      <p className="tcs-listing-card__bio">{bioSnippet(tutor.bio)}</p>
 
       <div className="tcs-listing-card__foot">
         <div className="tcs-listing-card__actions">
