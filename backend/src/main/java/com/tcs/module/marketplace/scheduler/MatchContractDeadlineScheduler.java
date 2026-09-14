@@ -1,9 +1,6 @@
 package com.tcs.module.marketplace.scheduler;
 
 import com.tcs.module.contract.entity.Contract;
-import com.tcs.module.contract.entity.ContractSignature;
-import com.tcs.module.contract.enums.ContractSignatureStatus;
-import com.tcs.module.contract.enums.ContractStatus;
 import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.contract.repository.ContractSignatureRepository;
 import com.tcs.module.finance.entity.EscrowTransaction;
@@ -35,9 +32,9 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>Khi client chọn gia sư, lớp vào MATCHED và bắt đầu đếm ngược 48 giờ. Trong thời gian đó các
  * gia sư ứng tuyển khác KHÔNG bị loại — họ nằm ở danh sách chờ. Hết 48 giờ mà hợp đồng chưa được
- * hai bên ký xong và tiền ký quỹ chưa vào hệ thống thì hợp đồng bị hủy: phân công chuyển DECLINED,
- * đơn của gia sư được chọn bị đóng, lớp trả về OPEN kèm học phí/nội dung gốc cho đúng nhóm gia sư
- * đã ứng tuyển từ trước.
+ * hai bên ký xong và tiền ký quỹ chưa vào hệ thống thì hợp đồng bị xóa: phân công chuyển DECLINED,
+ * đơn của gia sư được chọn quay về chờ (SUBMITTED) cùng các gia sư khác, lớp trả về OPEN kèm học
+ * phí/nội dung gốc cho đúng nhóm gia sư đã ứng tuyển từ trước.
  *
  * <p>Đã chuyển tiền (escrow khác PENDING) thì KHÔNG hủy — chỉ gỡ đồng hồ để gia sư bấm nhận lớp.
  */
@@ -116,13 +113,17 @@ public class MatchContractDeadlineScheduler {
 
         TutorApplication chosen = assignment.getApplication();
         assignment.setStatus(ClassAssignmentStatus.DECLINED);
+        // Xóa dấu ký cũ: chọn lại đúng gia sư này sẽ dùng lại phân công, phải ký lại từ đầu.
+        assignment.setTutorSignedAt(null);
+        assignment.setClientSignedAt(null);
         classAssignmentRepository.save(assignment);
 
-        terminateContract(assignment.getAssignmentId());
+        deleteContract(assignment.getAssignmentId());
 
+        // Gia sư cũ KHÔNG bị loại: đơn quay về chờ, nằm cùng các gia sư khác để phụ huynh chọn lại.
         if (chosen != null) {
-            chosen.setStatus(TutorApplicationStatus.REJECTED);
-            chosen.setReviewedAt(LocalDateTime.now());
+            chosen.setStatus(TutorApplicationStatus.SUBMITTED);
+            chosen.setReviewedAt(null);
             tutorApplicationRepository.save(chosen);
         }
 
@@ -153,21 +154,18 @@ public class MatchContractDeadlineScheduler {
         tutoringClassRepository.save(c);
     }
 
-    /** Hợp đồng chờ ký của phân công bị hủy -> TERMINATED, chữ ký chưa ký -> EXPIRED. */
-    private void terminateContract(Long assignmentId) {
+    /**
+     * Hợp đồng chưa có hiệu lực (chưa có tiền ký quỹ) của phân công bị hủy -> xóa hẳn cùng chữ ký.
+     * Mỗi phân công chỉ có một hợp đồng, nên để lại bản cũ thì lần chọn lại gia sư này sẽ dùng nhầm.
+     */
+    private void deleteContract(Long assignmentId) {
         Contract contract = contractRepository.findByAssignment_AssignmentId(assignmentId).orElse(null);
-        if (contract == null || contract.getStatus() == ContractStatus.TERMINATED) {
+        if (contract == null) {
             return;
         }
-        contract.setStatus(ContractStatus.TERMINATED);
-        contractRepository.save(contract);
-        for (ContractSignature s :
-                contractSignatureRepository.findByContract_ContractId(contract.getContractId())) {
-            if (s.getSignatureStatus() == ContractSignatureStatus.PENDING) {
-                s.setSignatureStatus(ContractSignatureStatus.EXPIRED);
-                contractSignatureRepository.save(s);
-            }
-        }
+        contractSignatureRepository.deleteAll(
+                contractSignatureRepository.findByContract_ContractId(contract.getContractId()));
+        contractRepository.delete(contract);
     }
 
     private void notifyCancelled(TutoringClass c, TutorApplication chosen) {
@@ -183,7 +181,8 @@ public class MatchContractDeadlineScheduler {
         if (chosen != null && chosen.getTutor() != null && chosen.getTutor().getUser() != null) {
             notify(c, chosen.getTutor().getUser(), title,
                     "Hợp đồng lớp \"" + c.getTitle() + "\" đã hết hiệu lực do quá 48 giờ mà chưa ký xong"
-                            + " và chưa có thanh toán ký quỹ. Lớp đã được mở lại cho các gia sư khác.");
+                            + " và chưa có thanh toán ký quỹ. Lớp đã được mở lại; đơn ứng tuyển của bạn vẫn"
+                            + " còn trong danh sách chờ và có thể được chọn lại.");
         }
 
         Long chosenId = chosen != null ? chosen.getApplicationId() : null;

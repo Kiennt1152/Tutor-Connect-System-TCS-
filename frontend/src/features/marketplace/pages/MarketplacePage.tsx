@@ -908,7 +908,7 @@ function ClassList({
 }: ClassListProps) {
   const PAGE_SIZE = 6;
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<ClassStatus | 'ALL' | 'EXPIRED'>('ALL');
+  const [statusFilter, setStatusFilter] = useState<ClassStatus | 'ALL' | 'EXPIRED'>('OPEN');
 
   // Thứ tự ưu tiên: (0) tin đã có gia sư ứng tuyển — cần bạn xem đơn ngay,
   // (1) tin còn hạn chưa ai ứng tuyển, (2) tin hết hạn — chỉ lưu để xem lại.
@@ -949,11 +949,15 @@ function ClassList({
 
   const expiredCount = useMemo(() => sorted.filter(isExpiredClass).length, [sorted]);
 
+  // Mặc định mở tab "Đang mở"; không còn tin đang mở thì hiện tất cả thay vì danh sách trống.
+  const activeFilter =
+    statusFilter === 'OPEN' && !statusTabs.some((t) => t.status === 'OPEN') ? 'ALL' : statusFilter;
+
   const filtered = useMemo(() => {
-    if (statusFilter === 'ALL') return sorted;
-    if (statusFilter === 'EXPIRED') return sorted.filter(isExpiredClass);
-    return sorted.filter((c) => c.status === statusFilter && !isExpiredClass(c));
-  }, [sorted, statusFilter]);
+    if (activeFilter === 'ALL') return sorted;
+    if (activeFilter === 'EXPIRED') return sorted.filter(isExpiredClass);
+    return sorted.filter((c) => c.status === activeFilter && !isExpiredClass(c));
+  }, [sorted, activeFilter]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -981,22 +985,13 @@ function ClassList({
   return (
     <>
     <div className="mkt-filter" role="tablist" aria-label="Lọc theo trạng thái">
-      <button
-        type="button"
-        role="tab"
-        aria-selected={statusFilter === 'ALL'}
-        className={`mkt-filter__tab${statusFilter === 'ALL' ? ' mkt-filter__tab--active' : ''}`}
-        onClick={() => setStatusFilter('ALL')}
-      >
-        Tất cả ({sorted.length})
-      </button>
       {statusTabs.map(({ status: s, count }) => (
         <button
           key={s}
           type="button"
           role="tab"
-          aria-selected={statusFilter === s}
-          className={`mkt-filter__tab${statusFilter === s ? ' mkt-filter__tab--active' : ''}`}
+          aria-selected={activeFilter === s}
+          className={`mkt-filter__tab${activeFilter === s ? ' mkt-filter__tab--active' : ''}`}
           onClick={() => setStatusFilter(s)}
         >
           {CLASS_STATUS_LABELS[s]} ({count})
@@ -1006,13 +1001,22 @@ function ClassList({
         <button
           type="button"
           role="tab"
-          aria-selected={statusFilter === 'EXPIRED'}
-          className={`mkt-filter__tab${statusFilter === 'EXPIRED' ? ' mkt-filter__tab--active' : ''}`}
+          aria-selected={activeFilter === 'EXPIRED'}
+          className={`mkt-filter__tab${activeFilter === 'EXPIRED' ? ' mkt-filter__tab--active' : ''}`}
           onClick={() => setStatusFilter('EXPIRED')}
         >
           Đã hết hạn ({expiredCount})
         </button>
       )}
+      <button
+        type="button"
+        role="tab"
+        aria-selected={activeFilter === 'ALL'}
+        className={`mkt-filter__tab${activeFilter === 'ALL' ? ' mkt-filter__tab--active' : ''}`}
+        onClick={() => setStatusFilter('ALL')}
+      >
+        Tất cả ({sorted.length})
+      </button>
     </div>
 
     {pageItems.length === 0 ? (

@@ -781,6 +781,19 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         ClassAssignment assignment = classAssignmentRepository
                 .findByApplication_ApplicationId(applicationId)
                 .orElseGet(ClassAssignment::new);
+        // Chọn lại gia sư từng hết hạn 48 giờ -> dùng lại phân công cũ: ký lại từ đầu, bỏ hợp đồng cũ còn sót.
+        if (assignment.getAssignmentId() != null
+                && assignment.getStatus() == ClassAssignmentStatus.DECLINED) {
+            assignment.setTutorSignedAt(null);
+            assignment.setClientSignedAt(null);
+            contractRepository.findByAssignment_AssignmentId(assignment.getAssignmentId())
+                    .filter(old -> old.getStatus() == ContractStatus.TERMINATED)
+                    .ifPresent(old -> {
+                        contractSignatureRepository.deleteAll(
+                                contractSignatureRepository.findByContract_ContractId(old.getContractId()));
+                        contractRepository.delete(old);
+                    });
+        }
         assignment.setTutor(chosen.getTutor());
         assignment.setApplication(chosen);
         assignment.setStatus(ClassAssignmentStatus.PENDING);
