@@ -163,7 +163,23 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                     className="tcs-btn tcs-btn--ghost tcs-btn--header tcs-header__shortcut"
                     aria-haspopup="menu"
                   >
-                    Lịch dạy cá nhân <span aria-hidden="true">⌄</span>
+                    Lịch dạy cá nhân
+                    <svg
+                      className="tcs-header__schedule-caret"
+                      viewBox="0 0 12 12"
+                      width="12"
+                      height="12"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M2.5 4.5 6 8l3.5-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
                   </button>
                   <div className="tcs-profile-menu__dropdown" role="menu">
                     <Link className="tcs-profile-menu__item" to={APP_ROUTES.teaching} role="menuitem">
