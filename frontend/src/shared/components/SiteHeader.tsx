@@ -154,7 +154,27 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                   Quản lý trung tâm
                 </Link>
               ) : null}
-              {showTeaching ? (
+              {showTeaching && hasRole(role, 'TUTOR') ? (
+                // Gia sư: nút mở menu chọn giữa xem lịch dạy và đăng ký thời gian bận. Dùng <button>
+                // chứ không phải <Link> để bấm vào chỉ mở menu (focus-within), không nhảy trang.
+                <div className="tcs-profile-menu tcs-header__schedule-menu">
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost tcs-btn--header tcs-header__shortcut"
+                    aria-haspopup="menu"
+                  >
+                    Lịch dạy cá nhân <span aria-hidden="true">⌄</span>
+                  </button>
+                  <div className="tcs-profile-menu__dropdown" role="menu">
+                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.teaching} role="menuitem">
+                      Xem lịch dạy
+                    </Link>
+                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.busyTimes} role="menuitem">
+                      Đăng ký thời gian bận
+                    </Link>
+                  </div>
+                </div>
+              ) : showTeaching ? (
                 <Link className="tcs-btn tcs-btn--ghost tcs-btn--header tcs-header__shortcut" to={APP_ROUTES.teaching}>
                   {hasRole(role, 'CLIENT') ? 'Lịch học cá nhân' : 'Lịch dạy cá nhân'}
                 </Link>

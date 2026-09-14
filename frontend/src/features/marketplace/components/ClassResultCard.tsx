@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ExpiryBadge } from '../../../shared/components/ExpiryBadge';
 import { money, slotLabel } from '../hooks/useClassSearch';
 import { roundScore, type MatchResult } from '../matching/tutorMatching';
+import type { ClassBusyConflict } from '../types/marketplaceTypes';
 import './tutorFindClass.css';
 
 interface CardProps {
@@ -12,6 +13,8 @@ interface CardProps {
   readonly showScore: boolean;
   /** Nút ở đáy thẻ. Gia sư thì "Ứng tuyển", phụ huynh thì "Xem chi tiết". */
   readonly actions?: ReactNode;
+  /** Gia sư: các buổi của lớp trùng thời gian bận đã đăng ký (null = không trùng / không phải gia sư). */
+  readonly busyConflict?: ClassBusyConflict | null;
 }
 
 /**
@@ -25,6 +28,7 @@ export function ClassResultCard({
   gradeName,
   showScore,
   actions,
+  busyConflict,
 }: CardProps) {
   const { parsed, breakdown } = result;
   const c = parsed.raw;
@@ -119,6 +123,12 @@ export function ClassResultCard({
             <span className="tfc-card__meta-val">{gradeLabel}</span>
           </span>
         </div>
+
+        {busyConflict && (
+          <p className="tfc-card__busy" role="note">
+            <strong>Trùng thời gian bận ({busyConflict.conflictCount} buổi):</strong> {busyConflict.summary}
+          </p>
+        )}
 
         {/* Chỉ dựng khung khi lớp có mục tiêu / yêu cầu — tránh để trống một khoảng trên thẻ. */}
         {(learningGoal || tutorRequirement) && (

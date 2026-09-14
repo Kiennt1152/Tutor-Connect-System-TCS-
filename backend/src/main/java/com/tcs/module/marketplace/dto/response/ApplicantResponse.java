@@ -31,4 +31,9 @@ public class ApplicantResponse {
 
     private Integer matchScore;
     private boolean recommended;
+
+    /** Số buổi của lớp rơi vào thời gian bận gia sư đã đăng ký (0 = không trùng). */
+    private int busyConflictCount;
+    /** Tóm tắt các buổi trùng, ví dụ "15/09 (12:00–12:30)"; null khi không trùng. */
+    private String busyConflictSummary;
 }

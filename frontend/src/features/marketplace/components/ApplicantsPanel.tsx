@@ -199,7 +199,16 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
       {confirmAction?.kind === 'choose' && (
         <ConfirmDialog
           title="Chọn gia sư"
-          message="Chọn gia sư này cho lớp? Các ứng viên còn lại được giữ ở danh sách chờ. Bạn có 48 giờ để ký hợp đồng và chuyển tiền ký quỹ — quá hạn, lớp sẽ tự mở lại cho họ."
+          message={
+            (() => {
+              const picked = applicants.find((x) => x.applicationId === confirmAction.applicationId);
+              const busyNote =
+                picked && (picked.busyConflictCount ?? 0) > 0
+                  ? ` Lưu ý: gia sư này đã đăng ký bận ${picked.busyConflictCount} buổi của lớp (${picked.busyConflictSummary}) — nên trao đổi trước khi ký hợp đồng.`
+                  : '';
+              return `Chọn gia sư này cho lớp? Các ứng viên còn lại được giữ ở danh sách chờ. Bạn có 48 giờ để ký hợp đồng và chuyển tiền ký quỹ — quá hạn, lớp sẽ tự mở lại cho họ.${busyNote}`;
+            })()
+          }
           confirmLabel="Chọn gia sư này"
           cancelLabel="Hủy"
           onConfirm={() => {
@@ -364,6 +373,13 @@ function ApplicantCard({
               },
             )}
           </ul>
+        )}
+
+        {(a.busyConflictCount ?? 0) > 0 && (
+          <p className="apm-card__busy" role="note">
+            <strong>Gia sư đã đăng ký bận {a.busyConflictCount} buổi của lớp:</strong>{' '}
+            {a.busyConflictSummary}
+          </p>
         )}
 
         {a.bio && <p className="apm-card__bio">{a.bio}</p>}

@@ -161,13 +161,16 @@ public class SecurityConfig {
                                 "/api/profile/experiences/**",
                                 "/api/profile/educations/**",
                                 "/api/profile/certificates/**",
-                                "/api/profile/availability/**")
+                                "/api/profile/availability/**",
+                                "/api/profile/busy-times/**")
                         .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/profile/verification/submit")
                         .hasAnyRole(RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
                         .requestMatchers("/api/profile/**")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
+                        .requestMatchers(HttpMethod.GET, "/api/marketplace/busy-conflicts")
+                        .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/lessons/mine", "/api/marketplace/assignments/mine")
                         .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR)
                         .requestMatchers(

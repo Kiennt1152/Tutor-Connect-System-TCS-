@@ -120,6 +120,10 @@ import com.tcs.module.center.enums.CenterTutorMembershipStatus;
 import com.tcs.module.center.repository.CenterTutorMembershipRepository;
 import com.tcs.module.marketplace.dto.response.CenterProfileResponse;
 import com.tcs.module.profile.repository.TutorRepository;
+import com.tcs.module.profile.entity.TutorBusyTime;
+import com.tcs.module.profile.repository.TutorBusyTimeRepository;
+import com.tcs.module.marketplace.dto.response.BusyConflictResponse;
+import com.tcs.module.marketplace.dto.response.ClassBusyConflictResponse;
 import com.tcs.module.profile.service.ClientLegalAccountService;
 import com.tcs.security.AuthHelper;
 import com.tcs.security.UserPrincipal;
@@ -208,6 +212,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final CccdService cccdService;
     private final ClientLegalAccountService clientLegalAccountService;
     private final TutorRepository tutorRepository;
+    private final TutorBusyTimeRepository tutorBusyTimeRepository;
     private final ContractRepository contractRepository;
     private final ContractSignatureRepository contractSignatureRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
@@ -523,6 +528,15 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                     + " trùng với lịch của lớp này nên chưa thể ứng tuyển."
                     + " Sau khi buổi dạy đó kết thúc, bạn có thể ứng tuyển lại.");
         }
+        // Trùng thời gian bận gia sư đã tự đăng ký cũng không cho nộp đơn. Bỏ lịch bận ngày đó
+        // ở trang Đăng ký thời gian bận là ứng tuyển lại được ngay.
+        List<BusyConflict> busyConflicts = busyConflictsOf(
+                tutoringClass, tutor, rates.isEmpty() ? null : rates.keySet());
+        if (!busyConflicts.isEmpty()) {
+            throw new IllegalArgumentException("Lớp này có " + busyConflicts.size()
+                    + " buổi trùng thời gian bận bạn đã đăng ký: " + describeBusyConflicts(busyConflicts)
+                    + ". Hãy bỏ lịch bận các ngày đó rồi ứng tuyển lại.");
+        }
 
         TutorApplication application = existing != null ? existing : new TutorApplication();
         application.setTutoringClass(tutoringClass);
@@ -706,7 +720,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         List<TutorApplication> applications =
                 tutorApplicationRepository.findByTutoringClass_ClassId(tutoringClass.getClassId());
         List<ApplicantResponse> ranked = applications.stream()
-                .map(app -> toApplicant(app, tutoringClass))
+                .map(app -> withBusyConflicts(toApplicant(app, tutoringClass), app, tutoringClass))
                 .sorted(Comparator.comparingInt(ApplicantResponse::getMatchScore).reversed())
                 .collect(java.util.stream.Collectors.toCollection(java.util.ArrayList::new));
         for (int i = 0; i < ranked.size() && i < 5; i++) {
@@ -772,6 +786,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         assignment.setStatus(ClassAssignmentStatus.PENDING);
         classAssignmentRepository.save(assignment);
         notifyTutorInvited(tutoringClass, chosen);
+        notifyBusyOnMatch(tutoringClass, chosen, chosenRates);
     }
 
     private void applyTutorRatesToClass(TutoringClass tutoringClass, TutorApplication chosen) {
@@ -2901,6 +2916,178 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 content,
                 "TUTORING_CLASS",
                 tutoringClass.getClassId());
+    }
+
+    // ===================== Trùng thời gian bận gia sư tự đăng ký =====================
+
+    /** Hiện tối đa bấy nhiêu buổi trùng trong một câu thông báo, còn lại gộp "và N buổi khác". */
+    private static final int BUSY_SUMMARY_LIMIT = 3;
+
+    private static final int BUSY_CONFLICT_CLASS_LIMIT = 50;
+
+    private static final DateTimeFormatter DAY_MONTH = DateTimeFormatter.ofPattern("dd/MM");
+
+    /** Một buổi CHƯA diễn ra của lớp rơi vào khoảng bận đã đăng ký. */
+    private record BusyConflict(LocalDate date, SlotSpec slot, TutorBusyTime busy) {}
+
+    /**
+     * Các buổi sắp tới của lớp chồng lên thời gian bận của gia sư. Bung lịch bằng đúng
+     * {@link #expandOccurrences} như lúc sinh buổi học thật, nên kết quả khớp lịch dạy sau này.
+     *
+     * @param subjectKeys chỉ xét các môn gia sư nhận (theo báo giá); {@code null} = mọi môn
+     */
+    private List<BusyConflict> busyConflictsOf(
+            TutoringClass tutoringClass, Tutor tutor, java.util.Set<String> subjectKeys) {
+        if (tutor == null || tutorBusyTimeRepository == null
+                || tutoringClass.getStartDate() == null || tutoringClass.getEndDate() == null) {
+            return List.of();
+        }
+        JsonNode form = readTree(filterDetailsToSubjects(tutoringClass.getDetailsJson(), subjectKeys));
+        List<SlotSpec> specs = slotSpecs(form);
+        if (specs.isEmpty()) {
+            return List.of();
+        }
+        LocalDateTime now = LocalDateTime.now();
+        List<Map.Entry<LocalDate, SlotSpec>> upcoming = expandOccurrences(form, specs, tutoringClass).stream()
+                .filter(o -> SlotTime.endAt(o.getKey(), o.getValue().end()).isAfter(now))
+                .toList();
+        if (upcoming.isEmpty()) {
+            return List.of();
+        }
+        LocalDate from = upcoming.stream().map(Map.Entry::getKey).min(Comparator.naturalOrder()).orElseThrow();
+        LocalDate to = upcoming.stream().map(Map.Entry::getKey).max(Comparator.naturalOrder()).orElseThrow();
+        Map<LocalDate, List<TutorBusyTime>> busyByDate = tutorBusyTimeRepository
+                .findByTutor_TutorIdAndBusyDateBetweenOrderByBusyDateAscStartTimeAsc(tutor.getTutorId(), from, to)
+                .stream()
+                .collect(java.util.stream.Collectors.groupingBy(TutorBusyTime::getBusyDate));
+        if (busyByDate.isEmpty()) {
+            return List.of();
+        }
+
+        List<BusyConflict> out = new ArrayList<>();
+        for (Map.Entry<LocalDate, SlotSpec> occurrence : upcoming) {
+            SlotSpec slot = occurrence.getValue();
+            for (TutorBusyTime busy : busyByDate.getOrDefault(occurrence.getKey(), List.of())) {
+                if (busy.isAllDay()
+                        || SlotTime.overlaps(slot.start(), slot.end(), busy.getStartTime(), busy.getEndTime())) {
+                    // Một buổi chỉ tính một lần dù chạm nhiều khoảng bận.
+                    out.add(new BusyConflict(occurrence.getKey(), slot, busy));
+                    break;
+                }
+            }
+        }
+        out.sort(Comparator.comparing(BusyConflict::date).thenComparing(c -> c.slot().start()));
+        return out;
+    }
+
+    /** "15/09 (12:00–12:30), 17/09 (08:00–10:00) và 4 buổi khác". */
+    private String describeBusyConflicts(List<BusyConflict> conflicts) {
+        String head = conflicts.stream()
+                .limit(BUSY_SUMMARY_LIMIT)
+                .map(c -> DAY_MONTH.format(c.date()) + " (" + hhmmOf(c.slot().start()) + "–" + hhmmOf(c.slot().end()) + ")")
+                .collect(java.util.stream.Collectors.joining(", "));
+        int rest = conflicts.size() - BUSY_SUMMARY_LIMIT;
+        return rest > 0 ? head + " và " + rest + " buổi khác" : head;
+    }
+
+    private static String hhmmOf(LocalTime time) {
+        return time == null ? "" : String.format("%02d:%02d", time.getHour(), time.getMinute());
+    }
+
+    private ApplicantResponse withBusyConflicts(
+            ApplicantResponse response, TutorApplication app, TutoringClass tutoringClass) {
+        try {
+            Map<String, BigDecimal> rates = readRates(app.getProposedRatesJson());
+            List<BusyConflict> conflicts = busyConflictsOf(
+                    tutoringClass, app.getTutor(), rates == null || rates.isEmpty() ? null : rates.keySet());
+            response.setBusyConflictCount(conflicts.size());
+            response.setBusyConflictSummary(conflicts.isEmpty() ? null : describeBusyConflicts(conflicts));
+        } catch (RuntimeException e) {
+            // Chỉ là thông tin phụ — lỗi ở đây không được làm mất cả danh sách ứng viên.
+            log.warn("Không tính được trùng lịch bận cho đơn {}: {}", app.getApplicationId(), e.getMessage());
+        }
+        return response;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ClassBusyConflictResponse> listMyBusyConflicts(List<Long> classIds) {
+        Tutor tutor = requireTutor();
+        if (classIds == null || classIds.isEmpty()) {
+            return List.of();
+        }
+        List<Long> ids = classIds.stream().filter(Objects::nonNull).distinct().limit(BUSY_CONFLICT_CLASS_LIMIT).toList();
+        List<ClassBusyConflictResponse> out = new ArrayList<>();
+        for (TutoringClass tutoringClass : tutoringClassRepository.findAllById(ids)) {
+            List<BusyConflict> conflicts = busyConflictsOf(tutoringClass, tutor, null);
+            if (conflicts.isEmpty()) {
+                continue;
+            }
+            out.add(ClassBusyConflictResponse.builder()
+                    .classId(tutoringClass.getClassId())
+                    .conflictCount(conflicts.size())
+                    .summary(describeBusyConflicts(conflicts))
+                    .conflicts(conflicts.stream().map(c -> BusyConflictResponse.builder()
+                            .date(c.date())
+                            .startTime(c.slot().start())
+                            .endTime(c.slot().end())
+                            .busyStartTime(c.busy().getStartTime())
+                            .busyEndTime(c.busy().getEndTime())
+                            .allDay(c.busy().isAllDay())
+                            .note(c.busy().getNote())
+                            .build()).toList())
+                    .build());
+        }
+        return out;
+    }
+
+    /**
+     * Phụ huynh vừa chọn (ghép nối) gia sư đã đăng ký bận vào một số buổi của lớp. Ứng tuyển
+     * đã chặn trùng lịch bận, nên trường hợp này là gia sư đăng ký bận SAU khi nộp đơn.
+     */
+    private void notifyBusyOnMatch(
+            TutoringClass tutoringClass, TutorApplication chosen, Map<String, BigDecimal> chosenRates) {
+        try {
+            Tutor tutor = chosen.getTutor();
+            List<BusyConflict> conflicts = busyConflictsOf(
+                    tutoringClass, tutor, chosenRates == null || chosenRates.isEmpty() ? null : chosenRates.keySet());
+            if (conflicts.isEmpty()) {
+                return;
+            }
+            String summary = describeBusyConflicts(conflicts);
+            if (tutor != null && tutor.getUser() != null) {
+                notificationDispatchService.notifyUserFromTemplate(
+                        tutor.getUser(),
+                        com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                        "MARKETPLACE_BUSY_CONFLICT_MATCH_TUTOR",
+                        Map.of("classTitle", tutoringClass.getTitle()),
+                        "Lớp bạn được chọn trùng thời gian bận",
+                        "Bạn được chọn nhận lớp \"" + tutoringClass.getTitle() + "\" nhưng " + conflicts.size()
+                                + " buổi trùng thời gian bận bạn đã đăng ký: " + summary
+                                + ". Hãy xem lại lịch bận trước khi ký hợp đồng.",
+                        "TUTORING_CLASS",
+                        tutoringClass.getClassId());
+            }
+            if (tutoringClass.getCreator() != null) {
+                String tutorName = tutor != null && StringUtils.hasText(tutor.getFullName())
+                        ? tutor.getFullName()
+                        : "Gia sư";
+                notificationDispatchService.notifyUserFromTemplate(
+                        tutoringClass.getCreator(),
+                        com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                        "MARKETPLACE_BUSY_CONFLICT_MATCH_CLIENT",
+                        Map.of("tutorName", tutorName, "classTitle", tutoringClass.getTitle()),
+                        "Gia sư bạn chọn có lịch bận trùng buổi học",
+                        tutorName + " đã đăng ký bận vào " + conflicts.size() + " buổi của lớp \""
+                                + tutoringClass.getTitle() + "\": " + summary
+                                + ". Nên trao đổi với gia sư trước khi ký hợp đồng.",
+                        "TUTORING_CLASS",
+                        tutoringClass.getClassId());
+            }
+        } catch (RuntimeException e) {
+            log.warn("Không gửi được cảnh báo trùng lịch bận khi chọn gia sư lớp {}: {}",
+                    tutoringClass.getClassId(), e.getMessage());
+        }
     }
 
     private record SlotSpec(Integer dayOfWeek, LocalTime start, LocalTime end, Long subjectId) {}

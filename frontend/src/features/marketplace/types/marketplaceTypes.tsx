@@ -117,6 +117,30 @@ export interface ApplicantResponse {
   appliedAt: string;
   matchScore: number;
   recommended: boolean;
+  /** Số buổi của lớp rơi vào thời gian bận gia sư đã đăng ký. Backend cũ không gửi -> undefined. */
+  busyConflictCount?: number;
+  /** Ví dụ "15/09 (12:00–12:30)"; null khi không trùng. */
+  busyConflictSummary?: string | null;
+}
+
+/** Một buổi của lớp rơi vào khoảng gia sư đã đăng ký bận. */
+export interface BusyConflictItem {
+  date: string;
+  startTime: string;
+  endTime: string;
+  /** Cùng null khi bận cả ngày. */
+  busyStartTime: string | null;
+  busyEndTime: string | null;
+  allDay: boolean;
+  note: string | null;
+}
+
+/** Lớp có buổi trùng thời gian bận của gia sư đang đăng nhập. */
+export interface ClassBusyConflict {
+  classId: number;
+  conflictCount: number;
+  summary: string;
+  conflicts: BusyConflictItem[];
 }
 
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';

@@ -7,6 +7,7 @@ import com.tcs.module.profile.dto.request.LinkChildAccountRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
+import com.tcs.module.profile.dto.request.TutorBusyTimeRequest;
 import com.tcs.module.profile.dto.request.TutorCertificateRequest;
 import com.tcs.module.profile.dto.request.TutorEducationRequest;
 import com.tcs.module.profile.dto.request.TutorExperienceRequest;
@@ -18,6 +19,7 @@ import com.tcs.module.profile.dto.response.GuardianProfileResponse;
 import com.tcs.module.profile.dto.response.ProfileResponse;
 import com.tcs.module.profile.dto.response.PublicTutorProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
+import com.tcs.module.profile.dto.response.TutorBusyTimeResponse;
 import com.tcs.module.profile.dto.response.TutorCertificateResponse;
 import com.tcs.module.profile.dto.response.TutorEducationResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
@@ -76,6 +78,14 @@ public interface ProfileService {
     TutorAvailabilityResponse addAvailability(TutorAvailabilityRequest request);
 
     void deleteAvailability(Long availabilityId);
+
+    /** Thời gian bận của gia sư đang đăng nhập trong một tháng. */
+    List<TutorBusyTimeResponse> getMyBusyTimes(java.time.YearMonth month);
+
+    /** Đăng ký bận cho nhiều ngày cùng một khung giờ (hoặc cả ngày). */
+    List<TutorBusyTimeResponse> addBusyTimes(TutorBusyTimeRequest request);
+
+    void deleteBusyTime(Long busyTimeId);
 
     VerificationResponse submitVerification(VerificationRequestDto request);
 

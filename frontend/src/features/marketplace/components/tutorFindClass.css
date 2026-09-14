@@ -654,3 +654,44 @@
   cursor: pointer;
 }
 .tfc-chips__clear:hover { color: #c2410c; }
+
+/* ---------- Trùng thời gian bận gia sư đã đăng ký (chỉ nhắc, không chặn) ---------- */
+.tfc-card__busy {
+  margin: 10px 0 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.tfc-card__busy strong {
+  color: #78350f;
+}
+.tfc-busy-notice {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.tfc-busy-notice strong {
+  display: block;
+  color: #78350f;
+}
+.tfc-busy-notice ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+.tfc-busy-notice span {
+  display: block;
+  font-size: 12.5px;
+}
+/* Trong modal "Xem chi tiết" banner nằm ngoài .cdm__body (padding 24px) nên tự thêm lề cho thẳng nội dung. */
+.cdm > .tfc-busy-notice {
+  margin: 12px 24px 0;
+}

@@ -16,6 +16,8 @@ export const APP_ROUTES = {
   clientSchedule: '/client/schedule',
   centerReschedules: '/center/reschedules',
   signContract: '/teaching/sign-contract',
+  /** Gia sư đánh dấu ngày/giờ bận theo tháng; không đánh dấu = rảnh. */
+  busyTimes: '/busy-times',
   login: '/login',
   register: '/register',
   forgotPassword: '/forgot-password',

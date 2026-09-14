@@ -284,3 +284,18 @@
   .apm-card__row { flex-direction: column; }
   .apm-card__score { flex-direction: row; gap: 6px; align-items: baseline; }
 }
+
+/* Gia sư đã tự đăng ký bận vào một số buổi của lớp — giúp phụ huynh cân nhắc trước khi chọn. */
+.apm-card__busy {
+  margin: 8px 0 0;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.apm-card__busy strong {
+  color: #78350f;
+}
