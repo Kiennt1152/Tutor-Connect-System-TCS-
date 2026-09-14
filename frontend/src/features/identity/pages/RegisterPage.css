@@ -320,6 +320,11 @@
   background-color: var(--color-info-light);
   color: #0369a1;
 }
+.reg-alert--success {
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
+}
 
 /* Locked fieldset */
 .reg-fieldset {

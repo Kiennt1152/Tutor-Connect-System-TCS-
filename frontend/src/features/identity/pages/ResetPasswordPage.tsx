@@ -42,11 +42,13 @@ export default function ResetPasswordPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState(resetToken ? '' : 'Phiên đặt lại mật khẩu không hợp lệ.');
+  const [success, setSuccess] = useState('');
   const [loading, setLoading] = useState(false);
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     setError('');
+    setSuccess('');
     if (!PASSWORD_RULE.test(newPassword)) {
       setError('Mật khẩu phải có ít nhất 8 ký tự, gồm chữ và số, không dấu.');
       return;
@@ -58,10 +60,15 @@ export default function ResetPasswordPage() {
     setLoading(true);
     try {
       await identityApi.resetPassword({ token: resetToken, newPassword });
-      navigate('/login', { replace: true, state: { message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập.' } });
+      setSuccess('Đặt lại mật khẩu thành công! Đang chuyển hướng về trang đăng nhập...');
+      setTimeout(() => {
+        navigate('/login', {
+          replace: true,
+          state: { message: 'Đặt lại mật khẩu thành công. Vui lòng đăng nhập bằng mật khẩu mới.' },
+        });
+      }, 1500);
     } catch (err) {
       setError(getApiErrorMessage(err, 'Không thể đặt lại mật khẩu. Vui lòng yêu cầu OTP mới.'));
-    } finally {
       setLoading(false);
     }
   }
@@ -122,9 +129,10 @@ export default function ResetPasswordPage() {
                 </button>
               </div>
             </label>
+            {success && <div className="password-alert password-alert--success">{success}</div>}
             {error && <div className="password-alert password-alert--error">{error}</div>}
-            <button className="password-button" type="submit" disabled={loading || !resetToken}>
-              {loading ? 'Đang lưu...' : 'Đặt lại mật khẩu'}
+            <button className="password-button" type="submit" disabled={loading || !resetToken || Boolean(success)}>
+              {success ? 'Thành công' : loading ? 'Đang lưu...' : 'Đặt lại mật khẩu'}
             </button>
           </form>
           <Link className="password-back" to="/login">Quay lại đăng nhập</Link>
