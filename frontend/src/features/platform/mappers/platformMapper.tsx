@@ -219,7 +219,7 @@ const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   RESOLVED: 'Đã xử lý',
 };
 
-const CLASS_STATUS_LABELS: Record<string, string> = {
+export const CLASS_STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Nháp',
   OPEN: 'Đang mở',
   MATCHED: 'Đã ghép',
@@ -237,35 +237,42 @@ const WITHDRAWAL_STATUS_LABELS: Record<WithdrawalRequestStatus, string> = {
   COMPLETED: 'Thành công',
 };
 
-const REFUND_STATUS_LABELS: Record<RefundRequestStatus, string> = {
+export const REFUND_STATUS_LABELS: Record<RefundRequestStatus, string> = {
   PENDING: 'Chờ xử lý',
   APPROVED: 'Đã duyệt',
   REJECTED: 'Từ chối',
   COMPLETED: 'Đã hoàn tiền',
 };
 
-const DISPUTE_STATUS_LABELS: Record<DisputeStatus, string> = {
+export const DISPUTE_STATUS_LABELS: Record<DisputeStatus, string> = {
   OPEN: 'Mới mở',
   UNDER_INVESTIGATION: 'Đang xem xét',
   WAITING: 'Chờ bổ sung',
   RESOLVED: 'Đã xử lý',
 };
 
-const ESCROW_STATUS_LABELS: Record<EscrowStatus, string> = {
+export const ESCROW_STATUS_LABELS: Record<EscrowStatus, string> = {
   PENDING: 'Chờ khóa',
-  FUNDED: 'Đã khóa',
+  FUNDED: 'Đã khóa ký quỹ',
   ON_HOLD: 'Tạm giữ',
   DISPUTED: 'Tranh chấp',
   RELEASED: 'Đã giải ngân',
   REFUNDED: 'Đã hoàn tiền',
 };
 
-const TARGET_TYPE_LABELS: Record<string, string> = {
+export const TARGET_TYPE_LABELS: Record<string, string> = {
   USER: 'Người dùng',
   TUTOR: 'Gia sư',
   CLASS: 'Lớp học',
   REVIEW: 'Đánh giá',
   MESSAGE: 'Tin nhắn',
+};
+
+export const TERMINATION_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Chờ xử lý',
+  APPROVED: 'Đã duyệt',
+  REJECTED: 'Từ chối',
+  COMPLETED: 'Đã hoàn thành',
 };
 
 function extractClassIssueUserDescription(description: string | null | undefined) {

@@ -2,7 +2,24 @@ import { useCallback, useEffect, useState } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { Pagination } from '../../../shared/components';
 import { platformApi } from '../api/platformApi';
+import { ESCROW_STATUS_LABELS } from '../mappers/platformMapper';
 import type { AdminEscrowApiResponse, EscrowStatus } from '../types/platformTypes';
+
+const ESCROW_STATUS_OPTIONS: { value: EscrowStatus; label: string }[] = [
+  { value: 'PENDING', label: 'Chờ nạp tiền' },
+  { value: 'FUNDED', label: 'Đã khóa ký quỹ' },
+  { value: 'ON_HOLD', label: 'Tạm giữ' },
+  { value: 'DISPUTED', label: 'Đang tranh chấp' },
+  { value: 'RELEASED', label: 'Đã giải ngân' },
+  { value: 'REFUNDED', label: 'Đã hoàn tiền' },
+];
+
+function escrowBadgeClass(status: EscrowStatus) {
+  if (status === 'RELEASED' || status === 'REFUNDED') return 'tcs-badge tcs-badge--active';
+  if (status === 'DISPUTED' || status === 'ON_HOLD') return 'tcs-badge tcs-badge--suspended';
+  if (status === 'FUNDED') return 'tcs-badge tcs-badge--role';
+  return 'tcs-badge';
+}
 
 export function AdminEscrowQueue() {
   const [items, setItems] = useState<AdminEscrowApiResponse[]>([]);
@@ -54,8 +71,10 @@ export function AdminEscrowQueue() {
           onChange={(e) => setStatus(e.target.value as '' | EscrowStatus)}
         >
           <option value="">Tất cả trạng thái</option>
-          {['PENDING', 'FUNDED', 'ON_HOLD', 'DISPUTED', 'RELEASED', 'REFUNDED'].map((value) => (
-            <option key={value}>{value}</option>
+          {ESCROW_STATUS_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
           ))}
         </select>
         <button className="tcs-btn tcs-btn--ghost" type="button" onClick={() => void load()}>
@@ -91,7 +110,9 @@ export function AdminEscrowQueue() {
                 <td>{item.beneficiaryEmail ?? '—'}</td>
                 <td>{item.amount.toLocaleString('vi-VN')} VND</td>
                 <td>
-                  <span className="tcs-badge tcs-badge--role">{item.status}</span>
+                  <span className={escrowBadgeClass(item.status)}>
+                    {ESCROW_STATUS_LABELS[item.status] ?? item.status}
+                  </span>
                 </td>
               </tr>
             ))}

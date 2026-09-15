@@ -32,6 +32,14 @@ import type {
   ReviewModerationStatus,
   ReviewReportAction,
 } from '../types/platformTypes';
+import {
+  CLASS_STATUS_LABELS,
+  DISPUTE_STATUS_LABELS,
+  ESCROW_STATUS_LABELS,
+  REFUND_STATUS_LABELS,
+  TARGET_TYPE_LABELS,
+  TERMINATION_STATUS_LABELS,
+} from '../mappers/platformMapper';
 import { IssuePenaltyModal, type UserOption } from '../components/IssuePenaltyModal';
 import { SettleDisputeModal } from '../components/SettleDisputeModal';
 import './PlatformReportsPage.css';
@@ -769,7 +777,9 @@ function ResolutionDecisionPanel({
     <section className="pd-section">
       <div className="pd-section__head">
         <h3 className="pd-section__title">Quyết định xử lý</h3>
-        <span className={escrowBadgeClass(escrow?.status ?? null)}>{escrow?.status ?? '—'}</span>
+        <span className={escrowBadgeClass(escrow?.status ?? null)}>
+          {escrow?.status ? (ESCROW_STATUS_LABELS[escrow.status] ?? escrow.status) : '—'}
+        </span>
       </div>
 
       <form className="pd-resolution-form" onSubmit={handleSubmit}>
@@ -817,7 +827,7 @@ function ResolutionDecisionPanel({
               <>
                 {hasSuggestion ? (
                   <div className="pd-pro-rata-note">
-                    <strong>Gợi ý pro-rata</strong>
+                    <strong>Gợi ý phân bổ theo số buổi (Pro-rata)</strong>
                     <span>
                       Đã học {suggestion.completedSessions ?? 0}/{suggestion.totalSessions ?? 0} buổi:
                       giải ngân {formatCurrency(suggestion.releaseAmount)} và hoàn {formatCurrency(suggestion.refundAmount)}.
@@ -1178,7 +1188,9 @@ function DisputeDetail({
           <h2 className="pd-detail__title">{detail.tutoringClass?.title ?? 'Không xác định lớp'}</h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className={disputeBadgeClass(detail.disputeStatus)}>{detail.disputeStatus}</span>
+          <span className={disputeBadgeClass(detail.disputeStatus)}>
+            {DISPUTE_STATUS_LABELS[detail.disputeStatus] ?? detail.disputeStatus}
+          </span>
           {detail.disputeStatus !== 'RESOLVED' && (
             <button
               type="button"
@@ -1258,7 +1270,10 @@ function DisputeDetail({
         <div className="pd-info-grid">
           <InfoRow label="Mã báo cáo" value={detail.reportId ? `#${detail.reportId}` : '—'} />
           <InfoRow label="Người báo cáo" value={detail.reporterEmail ?? detail.reporterId} />
-          <InfoRow label="Loại đối tượng" value={detail.targetType} />
+          <InfoRow
+            label="Loại đối tượng"
+            value={detail.targetType ? (TARGET_TYPE_LABELS[detail.targetType] ?? detail.targetType) : '—'}
+          />
           <InfoRow label="ID đối tượng" value={detail.targetId ? `#${detail.targetId}` : '—'} />
           <InfoRow label="Danh mục" value={detail.category} />
           <InfoRow label="Tạo lúc" value={formatDateTime(detail.reportCreatedAt)} />
@@ -1369,7 +1384,10 @@ function DisputeDetail({
         <h3 className="pd-section__title">Escrow liên quan</h3>
         <div className="pd-info-grid">
           <InfoRow label="Mã escrow" value={detail.escrow?.escrowId ? `#${detail.escrow.escrowId}` : '—'} />
-          <InfoRow label="Trạng thái" value={detail.escrow?.status ?? '—'} />
+          <InfoRow
+            label="Trạng thái"
+            value={detail.escrow?.status ? (ESCROW_STATUS_LABELS[detail.escrow.status] ?? detail.escrow.status) : '—'}
+          />
           <InfoRow label="Số tiền" value={formatCurrency(detail.escrow?.amount)} />
           <InfoRow label="Mã tham chiếu" value={detail.escrow?.paymentReferenceCode} />
           <InfoRow label="Người thanh toán" value={detail.escrow?.payerEmail ?? detail.escrow?.payerUserId} />
@@ -1390,7 +1408,9 @@ function DisputeDetail({
                 <span className="pd-info-row__label">Trạng thái</span>
                 <span className="pd-info-row__value">
                   <span className={refundBadgeClass(detail.latestRefundRequest.status)}>
-                    {detail.latestRefundRequest.status ?? '—'}
+                    {detail.latestRefundRequest.status
+                      ? (REFUND_STATUS_LABELS[detail.latestRefundRequest.status] ?? detail.latestRefundRequest.status)
+                      : '—'}
                   </span>
                 </span>
               </div>
@@ -1416,7 +1436,10 @@ function DisputeDetail({
         <h3 className="pd-section__title">Lớp học</h3>
         <div className="pd-info-grid">
           <InfoRow label="Mã lớp" value={detail.tutoringClass?.classId ? `#${detail.tutoringClass.classId}` : '—'} />
-          <InfoRow label="Trạng thái lớp" value={detail.tutoringClass?.status} />
+          <InfoRow
+            label="Trạng thái lớp"
+            value={detail.tutoringClass?.status ? (CLASS_STATUS_LABELS[detail.tutoringClass.status] ?? detail.tutoringClass.status) : '—'}
+          />
           <InfoRow label="Chủ lớp" value={detail.tutoringClass?.creatorEmail ?? detail.tutoringClass?.creatorUserId} />
           <InfoRow label="Gia sư" value={detail.tutoringClass?.tutorName ?? detail.tutoringClass?.tutorEmail} />
           <InfoRow label="Assignment" value={detail.tutoringClass?.assignmentId ? `#${detail.tutoringClass.assignmentId}` : '—'} />
@@ -1429,7 +1452,10 @@ function DisputeDetail({
           <h3 className="pd-section__title">Yêu cầu chấm dứt sớm</h3>
           <div className="pd-info-grid">
             <InfoRow label="Mã yêu cầu" value={`#${detail.terminationRequest.terminationId}`} />
-            <InfoRow label="Trạng thái" value={detail.terminationRequest.status} />
+            <InfoRow
+              label="Trạng thái"
+              value={detail.terminationRequest.status ? (TERMINATION_STATUS_LABELS[detail.terminationRequest.status] ?? detail.terminationRequest.status) : '—'}
+            />
             <InfoRow label="Người yêu cầu" value={detail.terminationRequest.requestedByEmail ?? detail.terminationRequest.requestedByUserId} />
             <InfoRow label="Ngân hàng nhận" value={detail.terminationRequest.bankName ?? '—'} />
             <InfoRow label="Tài khoản nhận" value={detail.terminationRequest.accountNoMasked ?? '—'} />
