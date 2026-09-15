@@ -5,6 +5,7 @@ import PostTutorRequestPage from '../features/home/pages/PostTutorRequestPage';
 import FindClassPage from '../features/home/pages/FindClassPage';
 import ClassBoardPage from '../features/home/pages/ClassBoardPage';
 import TutorPublicProfilePage from '../features/home/pages/TutorPublicProfilePage';
+import CenterPublicProfilePage from '../features/home/pages/CenterPublicProfilePage';
 import TutorReviewsPage from '../features/home/pages/TutorReviewsPage';
 import LoginPage from '../features/identity/pages/LoginPage';
 import RegisterPage from '../features/identity/pages/RegisterPage';
@@ -101,6 +102,7 @@ export default function App() {
           />
           {/* Trang "Trung tâm" cong khai: ai cung xem duoc; gia su thay them tin tuyen dung. */}
           <Route path={APP_ROUTES.centers} element={<CentersPage />} />
+          <Route path={APP_ROUTES.centerProfile} element={<CenterPublicProfilePage />} />
           <Route
             path={APP_ROUTES.verification}
             element={

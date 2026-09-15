@@ -29,10 +29,22 @@ interface Props {
   readonly defaultRate?: number;
   readonly onClose: () => void;
   readonly onSubmitted: (classId: number) => void;
+  readonly onVerificationRequired?: (message: string) => void;
 }
 
+<<<<<<< HEAD
 export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubmitted }: Props) {
   const navigate = useNavigate();
+=======
+export function ApplyClassModal({
+  target,
+  subjects,
+  defaultRate,
+  onClose,
+  onSubmitted,
+  onVerificationRequired,
+}: Props) {
+>>>>>>> main
   const [profile, setProfile] = useState<TutorProfileCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [coverLetter, setCoverLetter] = useState('Tôi quan tâm và mong muốn nhận lớp này.');
@@ -99,6 +111,9 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
   );
 
   const chosenIds = subjectIds.filter((id) => selected[id]);
+  const verificationKnown = !loading && profile?.verificationStatus != null;
+  const needsVerification = verificationKnown && profile?.verificationStatus !== 'VERIFIED';
+  const verificationMessage = 'Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển vào lớp.';
 
   const rateErrors = chosenIds
     .map((id) => {
@@ -122,6 +137,14 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
   }
 
   async function handleSubmit() {
+    if (needsVerification) {
+      if (onVerificationRequired) {
+        onVerificationRequired(verificationMessage);
+      } else {
+        setError(verificationMessage);
+      }
+      return;
+    }
     if (noSubjectChosen || rateErrors.length > 0) return;
     setSubmitting(true);
     setError(null);
@@ -133,12 +156,22 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
       onSubmitted(target.classId);
     } catch (err) {
       if (errorCode(err) === 'VERIFICATION_REQUIRED') {
+<<<<<<< HEAD
         onClose();
         navigate(APP_ROUTES.verification, {
           state: {
             notice: 'Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển vào lớp học.',
           },
         });
+=======
+        const message = extractError(err);
+        if (onVerificationRequired) {
+          onVerificationRequired(message);
+        } else {
+          setError(message);
+          setSubmitting(false);
+        }
+>>>>>>> main
         return;
       }
       setError(extractError(err));
@@ -180,6 +213,12 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
             nhật ở trang <strong>Hồ sơ</strong> nếu cần.
             {loading && <span className="cdm-muted"> (đang tải hồ sơ…)</span>}
           </p>
+          {needsVerification && (
+            <div className="apl-warning">
+              <strong>Hồ sơ gia sư chưa được xác minh.</strong>
+              <span>Bạn cần gửi hồ sơ và được duyệt trước khi ứng tuyển lớp học.</span>
+            </div>
+          )}
 
           {/* Thẻ hồ sơ gia sư */}
           <div className="apl-card">
@@ -357,9 +396,11 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
           <button
             type="button"
             className="tfc-btn tfc-btn--primary"
-            disabled={submitting || noSubjectChosen || rateErrors.length > 0}
+            disabled={submitting || (!needsVerification && (noSubjectChosen || rateErrors.length > 0))}
             title={
-              noSubjectChosen
+              needsVerification
+                ? 'Đi tới trang xác minh hồ sơ'
+                : noSubjectChosen
                 ? 'Hãy chọn ít nhất một môn'
                 : rateErrors.length > 0
                   ? 'Hãy nhập học phí cho các môn đã chọn'
@@ -367,7 +408,7 @@ export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubm
             }
             onClick={handleSubmit}
           >
-            {submitting ? 'Đang gửi…' : 'Gửi đơn ứng tuyển'}
+            {submitting ? 'Đang gửi…' : needsVerification ? 'Đi xác minh hồ sơ' : 'Gửi đơn ứng tuyển'}
           </button>
         </footer>
       </div>
@@ -388,7 +429,11 @@ function extractError(err: unknown): string {
 function errorCode(err: unknown): string | undefined {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { code?: string } | undefined;
+<<<<<<< HEAD
     if (data?.code) return data.code;
+=======
+    if (typeof data?.code === 'string') return data.code;
+>>>>>>> main
   }
   return undefined;
 }

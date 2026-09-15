@@ -10,6 +10,7 @@ import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
 import com.tcs.module.marketplace.dto.response.ContractViewResponse;
+import com.tcs.module.marketplace.dto.response.CenterProfileResponse;
 import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
@@ -115,6 +116,9 @@ public interface MarketplaceService {
 
     /** Danh sách trung tâm đã xác minh để phụ huynh chọn khi gửi yêu cầu. */
     List<CenterSummaryResponse> listCenters();
+
+    /** Hồ sơ công khai của một trung tâm đã xác minh: thông tin, đội ngũ gia sư, lớp đang mở. */
+    CenterProfileResponse getCenterProfile(Long centerId);
 
     /** Phụ huynh gửi yêu cầu mở lớp tới một trung tâm đã xác minh. */
     ClassRequestResponse createClassRequest(Long centerId, ClassRequestCreateRequest request);
