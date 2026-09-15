@@ -382,7 +382,6 @@ function ApplicantCard({
           </p>
         )}
 
-        {a.bio && <p className="apm-card__bio">{a.bio}</p>}
         {a.coverLetter && <p className="apm-card__cover">“{a.coverLetter}”</p>}
 
         <div className="apm-card__actions">

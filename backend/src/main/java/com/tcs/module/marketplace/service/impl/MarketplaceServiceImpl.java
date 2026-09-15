@@ -3371,17 +3371,16 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
     }
 
+    /**
+     * Đúng như lời giải thích hiện cho phụ huynh: đánh giá, kinh nghiệm, mức phí mỗi phần 1/3.
+     * 5 sao = trọn phần đánh giá; 5 năm kinh nghiệm = trọn phần kinh nghiệm;
+     * báo giá bằng (hoặc thấp hơn) giá lớp = trọn phần mức phí, gấp đôi giá lớp trở lên = 0.
+     */
     private int aiMatchScore(TutorApplication app, Tutor tutor, TutoringClass tutoringClass) {
-        double rating = tutor.getRatingAvg() != null ? tutor.getRatingAvg().doubleValue() / 5.0 : 0;
-        double experience = Math.min((tutor.getExperienceYears() != null ? tutor.getExperienceYears() : 0) / 10.0, 1.0);
-        double verified =
-                switch (tutor.getVerificationStatus()) {
-                    case VERIFIED -> 1.0;
-                    case UNDER_VERIFY -> 0.5;
-                    case REJECTED -> 0.0;
-                };
+        double rating = clamp01(tutor.getRatingAvg() != null ? tutor.getRatingAvg().doubleValue() / 5.0 : 0);
+        double experience = clamp01((tutor.getExperienceYears() != null ? tutor.getExperienceYears() : 0) / 5.0);
         double priceFit = priceFit(app, tutor, tutoringClass);
-        double total = 0.40 * clamp01(rating) + 0.25 * experience + 0.20 * priceFit + 0.15 * verified;
+        double total = (rating + experience + priceFit) / 3.0;
         return (int) Math.round(clamp01(total) * 100);
     }
 
@@ -3389,12 +3388,10 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         BigDecimal expected = tutoringClass.getTuitionFee();
         BigDecimal rate = app.getProposedRate() != null ? app.getProposedRate() : tutor.getHourlyRate();
         if (expected == null || expected.signum() <= 0 || rate == null || rate.signum() <= 0) {
-            return 0.7;
+            return 0; // không có giá để so thì không cộng phần mức phí
         }
-        if (rate.compareTo(expected) <= 0) {
-            return 1.0;
-        }
-        return clamp01(expected.doubleValue() / rate.doubleValue());
+        // Giá lớp -> 1, gấp đôi -> 0, tuyến tính ở giữa.
+        return clamp01(2.0 - rate.doubleValue() / expected.doubleValue());
     }
 
     private double clamp01(double v) {
