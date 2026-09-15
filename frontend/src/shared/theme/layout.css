@@ -38,20 +38,16 @@
 
 .tcs-header__inner > .app-logo {
   flex: 0 0 auto;
-<<<<<<< HEAD
-  max-height: 56px;
-  overflow: hidden;
-=======
   /* Ảnh logo có nhiều viền trong suốt nên được phóng 140px, cao hơn header (64px). Khoá khung
      link bằng chiều cao header để vùng bấm không thò xuống đè nội dung bên dưới
      (vd. link "← Quay lại" ngay dưới header bị bấm nhầm thành về trang chủ). */
   align-self: stretch;
+  max-height: 64px;
 }
 
 .tcs-header__inner > .app-logo .app-logo__image {
   /* Phần ảnh tràn ra ngoài vẫn hiển thị nhưng không nhận click. */
   pointer-events: none;
->>>>>>> main
 }
 
 .tcs-header__nav {

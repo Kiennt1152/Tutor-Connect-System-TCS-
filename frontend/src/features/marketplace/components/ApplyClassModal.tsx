@@ -32,10 +32,6 @@ interface Props {
   readonly onVerificationRequired?: (message: string) => void;
 }
 
-<<<<<<< HEAD
-export function ApplyClassModal({ target, subjects, defaultRate, onClose, onSubmitted }: Props) {
-  const navigate = useNavigate();
-=======
 export function ApplyClassModal({
   target,
   subjects,
@@ -44,7 +40,7 @@ export function ApplyClassModal({
   onSubmitted,
   onVerificationRequired,
 }: Props) {
->>>>>>> main
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<TutorProfileCard | null>(null);
   const [loading, setLoading] = useState(true);
   const [coverLetter, setCoverLetter] = useState('Tôi quan tâm và mong muốn nhận lớp này.');
@@ -156,22 +152,17 @@ export function ApplyClassModal({
       onSubmitted(target.classId);
     } catch (err) {
       if (errorCode(err) === 'VERIFICATION_REQUIRED') {
-<<<<<<< HEAD
-        onClose();
-        navigate(APP_ROUTES.verification, {
-          state: {
-            notice: 'Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển vào lớp học.',
-          },
-        });
-=======
         const message = extractError(err);
         if (onVerificationRequired) {
           onVerificationRequired(message);
         } else {
-          setError(message);
-          setSubmitting(false);
+          onClose();
+          navigate(APP_ROUTES.verification, {
+            state: {
+              notice: message || 'Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển vào lớp học.',
+            },
+          });
         }
->>>>>>> main
         return;
       }
       setError(extractError(err));
@@ -429,11 +420,7 @@ function extractError(err: unknown): string {
 function errorCode(err: unknown): string | undefined {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { code?: string } | undefined;
-<<<<<<< HEAD
-    if (data?.code) return data.code;
-=======
     if (typeof data?.code === 'string') return data.code;
->>>>>>> main
   }
   return undefined;
 }
