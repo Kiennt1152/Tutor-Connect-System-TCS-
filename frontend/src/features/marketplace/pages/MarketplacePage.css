@@ -283,6 +283,35 @@
   gap: 8px;
   margin-top: 8px;
 }
+/* Không ô nào được co nhỏ hơn nội dung (ngày kèm biểu tượng lịch, "Sáng (6h–12h)", "07:30 (1 giờ
+   30 phút)"...). Thiếu chỗ thì xuống dòng theo cụm thay vì bóp ô làm mất chữ. */
+.mkt-slot-row > .mkt-slot-date,
+.mkt-slot-row > .mkt-day-time__session {
+  flex: 0 0 auto;
+}
+/* Cụm giờ: [giờ bắt đầu] [– giờ kết thúc ×]. Hai ô giờ giữ đúng bề rộng tự nhiên (vừa nhãn dài
+   nhất như "07:30 (1 giờ 30 phút)") — không bị bóp mất chữ. Thiếu chỗ thì cả cụm xuống dòng; màn
+   rất hẹp thì "– giờ kết thúc ×" xuống tiếp nhưng vẫn đi liền nhau, nút × không bao giờ đứng lẻ. */
+.mkt-slot-time {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.mkt-slot-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+.mkt-slot-time .mkt-day-time__session {
+  flex: 0 0 auto;
+}
+.mkt-slot-time .mkt-slot-remove {
+  flex: 0 0 30px;
+}
 .mkt-slot-date {
   padding: 7px 10px;
   border: 1px solid #cfd8e3;
@@ -775,16 +804,52 @@
   flex: 1;
   min-width: 0;
 }
+/* Tiêu đề ngắn (dòng "Môn học: …") — một dòng, dài quá thì "…", rê chuột xem đủ. */
 .mkt-req-card__note {
-  margin: 0 0 5px;
-  font-size: 14px;
-  font-weight: 600;
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
   color: var(--color-text-primary);
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Chi tiết (lịch học từng môn + ghi chú): chữ nhỏ, thu gọn 2 dòng. */
+.mkt-req-card__details {
+  margin: 0 0 8px;
+}
+.mkt-req-card__details-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.mkt-req-card__details-text.is-open {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+.mkt-req-card__details-toggle {
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.mkt-req-card__details-toggle:hover {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
 }
 .mkt-req-card__meta {
   display: flex;
@@ -1273,6 +1338,15 @@
 }
 .mk-btn--block {
   width: 100%;
+}
+/* Nút đã khoá hẳn (vd. học viên đã đăng ký lớp): xám, không mờ cam như disabled thường. */
+.mk-btn--locked,
+.mk-btn--locked:disabled {
+  background: var(--color-surface-3);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-secondary);
+  opacity: 1;
+  cursor: not-allowed;
 }
 
 @media (max-width: 780px) {

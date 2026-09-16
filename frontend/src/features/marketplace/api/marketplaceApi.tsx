@@ -4,6 +4,7 @@ import type {
   CatalogOption,
   ClassTerminationResponse,
   CreateClassTerminationRequest,
+  CenterProfile,
   CenterSummary,
   ClassRequest,
   ClassRequestPayload,
@@ -177,6 +178,9 @@ export const marketplaceApi = {
   // ----- Yêu cầu mở lớp gửi tới một trung tâm (phía phụ huynh) -----
   listCenters() {
     return axiosClient.get<CenterSummary[]>(`${MARKETPLACE_API_BASE}/centers`);
+  },
+  getCenterProfile(centerId: number | string) {
+    return axiosClient.get<CenterProfile>(`${MARKETPLACE_API_BASE}/centers/${centerId}`);
   },
   createClassRequest(centerId: number, payload: CreateClassRequestPayload) {
     return axiosClient.post<ClassRequest>(

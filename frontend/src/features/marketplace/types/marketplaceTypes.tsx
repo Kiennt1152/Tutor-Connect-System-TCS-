@@ -1,4 +1,6 @@
 import type { CompletionState } from '../../teaching/types/teachingTypes';
+import type { OpenClassApiResponse } from '../../home/types/openClassTypes';
+import type { TutorSearchApiResponse } from '../../home/types/tutorSearchTypes';
 
 export type { CompletionState };
 
@@ -349,6 +351,8 @@ export interface MarketplaceClass {
   classType?: 'PRIVATE' | 'CENTER';
   maxStudents: number | null;
   enrolledCount: number;
+  /** Trạng thái đăng ký học của người đang xem (chỉ có ở API chi tiết lớp); null = chưa đăng ký. */
+  myRegistrationStatus?: 'PENDING_SIGNATURE' | 'ENROLLED' | 'DROPPED' | 'COMPLETED' | null;
   canRequestTermination: boolean;
   refundAllowed: boolean;
   refundBlockedReason: string | null;
@@ -372,6 +376,13 @@ export interface CenterSummary {
   address: string | null;
   phone: string | null;
   avatar: string | null;
+}
+
+/** Hồ sơ công khai một trung tâm: gia sư & lớp dùng lại DTO của trang tìm gia sư / tìm lớp. */
+export interface CenterProfile extends CenterSummary {
+  joinedAt: string | null;
+  tutors: TutorSearchApiResponse[];
+  openClasses: OpenClassApiResponse[];
 }
 
 export type ClassRequestStatus =
