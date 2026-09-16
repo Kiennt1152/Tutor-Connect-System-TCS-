@@ -22,6 +22,16 @@ public interface ReportRepository extends JpaRepository<Report, Long> {
     List<Report> findByTargetTypeAndTargetIdOrderByCreatedAtDesc(
             ReportTargetType targetType, Long targetId);
 
+    /**
+     * Tìm các báo cáo có đính kèm đúng URL của một file private.
+     *
+     * <p>URL được lưu trong cột TEXT dưới dạng danh sách phân tách bởi dấu phẩy,
+     * xuống dòng hoặc dấu chấm phẩy nên cần tìm theo chuỗi chứa. Quyền truy cập
+     * vẫn phải được kiểm tra thêm theo loại đối tượng và chủ sở hữu lớp.</p>
+     */
+    List<Report> findByTargetTypeAndEvidenceUrlsContaining(
+            ReportTargetType targetType, String evidenceUrl);
+
     boolean existsByTargetTypeAndTargetIdAndStatus(
             ReportTargetType targetType,
             Long targetId,
