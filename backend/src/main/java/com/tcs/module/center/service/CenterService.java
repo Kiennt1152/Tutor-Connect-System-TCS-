@@ -98,6 +98,25 @@ public interface CenterService {
     com.tcs.module.center.dto.response.CenterStatsResponse getClassStats();
 
     /**
+     * UC-41: báo cáo tài chính của trung tâm — đã thu, đang giữ ở ký quỹ, đã giải ngân, phí nền
+     * tảng, đã rút; kèm chi tiết theo lớp và theo tháng.
+     *
+     * @param from bỏ trống = 12 tháng gần nhất; {@code to} bỏ trống = hôm nay.
+     */
+    com.tcs.module.center.dto.response.CenterFinanceReportResponse getFinanceReport(
+            LocalDate from, LocalDate to);
+
+    /** UC-43: xuất chính báo cáo tài chính đó ra file Excel (.xlsx) để lưu sổ sách / đối soát. */
+    com.tcs.common.export.ExportFile exportFinanceReport(LocalDate from, LocalDate to);
+
+    /**
+     * UC-20: xuất danh sách học viên ra file Excel (.xlsx) để dùng ngoại tuyến / làm báo cáo.
+     *
+     * @param classId một lớp cụ thể của trung tâm; để trống thì xuất toàn bộ lớp của trung tâm.
+     */
+    com.tcs.common.export.ExportFile exportStudents(Long classId);
+
+    /**
      * Danh sách gia sư để trung tâm chọn gán (tạm thời lấy tất cả).
      * Nếu truyền {@code classId}, mỗi gia sư sẽ được đánh dấu có trùng lịch với lớp đó hay không.
      */

@@ -25,6 +25,9 @@ public interface EscrowTransactionRepository extends JpaRepository<EscrowTransac
 
     List<EscrowTransaction> findByClassStudent_TutoringClass_ClassId(Long classId);
 
+    /** UC-41: mọi khoản ký quỹ học viên thuộc các lớp của một trung tâm. */
+    List<EscrowTransaction> findByClassStudent_TutoringClass_Center_CenterId(Long centerId);
+
     @Query("SELECT e FROM EscrowTransaction e JOIN e.payment p JOIN p.wallet w JOIN w.user payer " +
            "LEFT JOIN e.assignment a LEFT JOIN a.tutor tutor LEFT JOIN tutor.user tutorUser " +
            "LEFT JOIN e.classStudent cs LEFT JOIN cs.tutoringClass tc LEFT JOIN tc.center center LEFT JOIN center.user centerUser " +
