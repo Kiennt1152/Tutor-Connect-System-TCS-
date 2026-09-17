@@ -128,7 +128,8 @@ function slotHours(start: string, end: string): number {
   if (!start || !end) return 0;
   const [sh, sm] = start.split(':').map(Number);
   const [eh, em] = end.split(':').map(Number);
-  const endMin = end === '23:59' ? 24 * 60 : eh * 60 + em;
+  // '00:00' ở giờ kết thúc là nửa đêm (24:00), không phải 0h đầu ngày.
+  const endMin = end === '00:00' ? 24 * 60 : eh * 60 + em;
   const diff = endMin - (sh * 60 + sm);
   return diff > 0 ? diff / 60 : 0;
 }
@@ -260,10 +261,9 @@ export function buildScheduleSummary(form: ClassFormValues, subjects: CatalogOpt
     form.scheduleMode === 'WEEKLY' ? dayLabel(s.day) : `${weekdayVi(s.date)} ${s.date}`;
   const bySubject = form.subjectIds
     .map((sid) => {
-      const hm = (t: string) => (t === '23:59' ? '00:00' : t);
       const rows = form.slots
         .filter((s) => s.subjectId === sid)
-        .map((s) => `${whenOf(s)} ${s.session} (${hm(s.start)}–${hm(s.end)})`);
+        .map((s) => `${whenOf(s)} ${s.session} (${s.start}–${s.end})`);
       if (!rows.length) return '';
       const fee = Number(form.subjectFees[sid]) || 0;
       const feeStr = fee > 0 ? ` [${money.format(fee)}đ/giờ]` : '';

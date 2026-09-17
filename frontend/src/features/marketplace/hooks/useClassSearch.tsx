@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { createPortal } from 'react-dom';
-import { FormulaExplainer } from '../components/FormulaExplainer';
 import { FALLBACK_SUBJECTS, FALLBACK_GRADES } from '../constants/catalogFallback';
 import { isOtherSubject, type CatalogOption, type ClassResponse } from '../types/marketplaceTypes';
 import {
@@ -422,7 +420,6 @@ export function useClassSearch({
    *  tham chiếu -> effect chạy lại; không có mốc này nó sẽ xoá sạch ô người dùng vừa
    *  chọn tay dù câu tìm không hề đổi. */
   const lastParsedSeq = useRef(0);
-  const [showFormula, setShowFormula] = useState(false);
   /** Panel trọng số đóng = chấm trung bình cộng 5 tiêu chí; mở mới dùng mức tự kéo. */
   const [showWeights, setShowWeights] = useState(false);
 
@@ -648,7 +645,7 @@ export function useClassSearch({
               <input
                 className="tfc-search__input"
                 type="text"
-                placeholder="Hãy nhập: môn, khối lớp, tỉnh/phường, thứ + buổi, học phí"
+                placeholder="Hãy nhập: Môn, Địa điểm, Học phí, Lịch học, Khối học"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={(e) => {
@@ -718,14 +715,6 @@ export function useClassSearch({
                 {showWeights ? '▲' : '▼'}
               </span>
             </button>
-            <button
-              type="button"
-              className="tfc-formula-btn"
-              onClick={() => setShowFormula(true)}
-              title="Xem công thức chấm độ phù hợp"
-            >
-              Cách tính ?
-            </button>
           </div>
           {showWeights && (
             <p className="tfc-panel__desc">
@@ -775,27 +764,6 @@ export function useClassSearch({
           )}
           </aside>
         </div>
-        {showFormula && createPortal(
-          <div
-            className="cdm-overlay"
-            role="presentation"
-            onClick={(e) => e.target === e.currentTarget && setShowFormula(false)}
-          >
-            <div className="cdm tfc-formula-modal" role="dialog" aria-label="Cách tính độ phù hợp">
-              <button
-                type="button"
-                className="cdm__close"
-                aria-label="Đóng"
-                onClick={() => setShowFormula(false)}
-              >
-                ✕
-              </button>
-              <h3 className="tfc-formula-modal__title">Cách tính độ phù hợp</h3>
-              <FormulaExplainer criteria={activeCriteria} bare />
-            </div>
-          </div>,
-          document.body,
-        )}
     </>
   );
 

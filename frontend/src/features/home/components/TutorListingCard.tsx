@@ -7,8 +7,6 @@ type TutorListingCardProps = {
   isAuthenticated: boolean;
   variant?: 'grid' | 'search';
   showPrice?: boolean;
-  /** Điểm phù hợp 0-100 (matchmaking); bỏ trống thì không hiển thị huy hiệu. */
-  matchScore?: number;
 };
 
 const currency = (value: number) =>
@@ -36,17 +34,10 @@ const genderLabel = (gender: string) => {
   }
 };
 
-const bioSnippet = (bio: string | null) => {
-  const text = bio?.trim();
-  if (!text) return 'Gia sư tận tâm, sẵn sàng đồng hành cùng học viên trên nền tảng TCS.';
-  return text.length > 120 ? `${text.slice(0, 120)}…` : text;
-};
-
 export function TutorListingCard({
   tutor,
   variant = 'grid',
   showPrice = true,
-  matchScore,
 }: TutorListingCardProps) {
   return (
     <article className={`tcs-listing-card${variant === 'search' ? ' tcs-listing-card--compact' : ''}`}>
@@ -57,14 +48,6 @@ export function TutorListingCard({
             <h3 className="tcs-listing-card__name">{tutor.fullName}</h3>
             <div className="tcs-listing-card__badges">
               <span className="tcs-listing-card__badge">Gia sư</span>
-              {typeof matchScore === 'number' ? (
-                <span
-                  className="tcs-listing-card__badge tcs-listing-card__badge--match"
-                  title="Mức độ phù hợp với bộ lọc bạn đã chọn"
-                >
-                  ◎ Phù hợp {Math.round(matchScore)}%
-                </span>
-              ) : null}
               {tutor.verificationStatus === 'VERIFIED' ? (
                 <span className="tcs-listing-card__badge tcs-listing-card__badge--verified" title="Hồ sơ đã được xác minh">
                   ✓ Đã xác minh
@@ -99,8 +82,6 @@ export function TutorListingCard({
           </div>
         ) : null}
       </div>
-
-      <p className="tcs-listing-card__bio">{bioSnippet(tutor.bio)}</p>
 
       <div className="tcs-listing-card__foot">
         <div className="tcs-listing-card__actions">

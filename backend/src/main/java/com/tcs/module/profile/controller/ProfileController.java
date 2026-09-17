@@ -7,6 +7,7 @@ import com.tcs.module.profile.dto.request.LinkChildAccountRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
+import com.tcs.module.profile.dto.request.TutorBusyTimeRequest;
 import com.tcs.module.profile.dto.request.TutorCertificateRequest;
 import com.tcs.module.profile.dto.request.TutorEducationRequest;
 import com.tcs.module.profile.dto.request.TutorExperienceRequest;
@@ -18,6 +19,7 @@ import com.tcs.module.profile.dto.response.GuardianProfileResponse;
 import com.tcs.module.profile.dto.response.ProfileResponse;
 import com.tcs.module.profile.dto.response.PublicTutorProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
+import com.tcs.module.profile.dto.response.TutorBusyTimeResponse;
 import com.tcs.module.profile.dto.response.TutorCertificateResponse;
 import com.tcs.module.profile.dto.response.TutorEducationResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
@@ -183,6 +185,27 @@ public class ProfileController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteAvailability(@PathVariable Long availabilityId) {
         profileService.deleteAvailability(availabilityId);
+    }
+
+    /** Lịch bận trong một tháng, ví dụ {@code ?month=2026-09}; bỏ trống = tháng hiện tại. */
+    @GetMapping("/busy-times")
+    public List<TutorBusyTimeResponse> getMyBusyTimes(
+            @RequestParam(required = false)
+            @org.springframework.format.annotation.DateTimeFormat(pattern = "yyyy-MM")
+            java.time.YearMonth month) {
+        return profileService.getMyBusyTimes(month);
+    }
+
+    @PostMapping("/busy-times")
+    @ResponseStatus(HttpStatus.CREATED)
+    public List<TutorBusyTimeResponse> addBusyTimes(@RequestBody TutorBusyTimeRequest request) {
+        return profileService.addBusyTimes(request);
+    }
+
+    @DeleteMapping("/busy-times/{busyTimeId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void deleteBusyTime(@PathVariable Long busyTimeId) {
+        profileService.deleteBusyTime(busyTimeId);
     }
 
     @PostMapping("/verification/submit")

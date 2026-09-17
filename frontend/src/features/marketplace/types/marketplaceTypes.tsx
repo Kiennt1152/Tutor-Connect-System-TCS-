@@ -84,9 +84,16 @@ export interface ClassResponse {
   budget: number | null;
   recurringType: RecurringType;
   status: ClassStatus;
+  /** PRIVATE = tin tìm gia sư của phụ huynh · CENTER = lớp của trung tâm (nhận học viên đăng ký). */
+  classType?: 'PRIVATE' | 'CENTER';
   createdAt: string;
   /** Hạn hiển thị (đăng lớp + 30 ngày); null nếu không tính hạn. Chỉ có với lớp OPEN. */
   expiresAt: string | null;
+  /**
+   * Hạn 48 giờ để ký hợp đồng và chuyển tiền ký quỹ, tính từ lúc chọn gia sư.
+   * Quá hạn thì lớp tự mở lại cho các gia sư đã ứng tuyển. Null = không đang đếm ngược.
+   */
+  matchDeadlineAt: string | null;
   applicationCount: number | null;
   assignmentId: number | null;
   /** Gia sư đang dạy lớp (phân công ACTIVE), null khi lớp chưa ghép gia sư. */
@@ -112,6 +119,30 @@ export interface ApplicantResponse {
   appliedAt: string;
   matchScore: number;
   recommended: boolean;
+  /** Số buổi của lớp rơi vào thời gian bận gia sư đã đăng ký. Backend cũ không gửi -> undefined. */
+  busyConflictCount?: number;
+  /** Ví dụ "15/09 (12:00–12:30)"; null khi không trùng. */
+  busyConflictSummary?: string | null;
+}
+
+/** Một buổi của lớp rơi vào khoảng gia sư đã đăng ký bận. */
+export interface BusyConflictItem {
+  date: string;
+  startTime: string;
+  endTime: string;
+  /** Cùng null khi bận cả ngày. */
+  busyStartTime: string | null;
+  busyEndTime: string | null;
+  allDay: boolean;
+  note: string | null;
+}
+
+/** Lớp có buổi trùng thời gian bận của gia sư đang đăng nhập. */
+export interface ClassBusyConflict {
+  classId: number;
+  conflictCount: number;
+  summary: string;
+  conflicts: BusyConflictItem[];
 }
 
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
@@ -234,7 +265,8 @@ export const SESSION_OPTIONS: readonly {
 }[] = [
   { value: 'Sáng', label: 'Sáng (6h–12h)', min: '06:00', max: '12:00', start: '06:00', end: '08:00' },
   { value: 'Chiều', label: 'Chiều (12h–18h)', min: '12:00', max: '18:00', start: '12:00', end: '14:00' },
-  { value: 'Tối', label: 'Tối (18h–0h)', min: '18:00', max: '23:59', start: '18:00', end: '20:00' },
+  // max '00:00' là mốc NỬA ĐÊM (24:00) của chính ngày hôm đó, không phải 0h đầu ngày.
+  { value: 'Tối', label: 'Tối (18h–0h)', min: '18:00', max: '00:00', start: '18:00', end: '20:00' },
 ];
 
 export type BillingCycle = 'MONTH' | 'TERM' | 'QUARTER' | 'YEAR';

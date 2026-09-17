@@ -31,7 +31,7 @@ public class AiPromptBuilderService {
         } else if ("TUTOR".equals(userRole) || "TUTOR_CENTER".equals(userRole)) {
             sb.append("Vai trò người dùng: Gia sư / Trung tâm gia sư. Sẵn sàng hỗ trợ nghiệp vụ nhận lớp, lịch dạy, ví tiền, và hỗ trợ soạn giáo án, câu hỏi ôn tập, đề kiểm tra bài học.\n");
         } else {
-            sb.append("Phong cách: Thân thiện, thông minh, chuyên nghiệp, súc tích, sử dụng gạch đầu dòng rõ ràng khi liệt kê. Khi dẫn liên kết, luôn dùng Markdown có tên nhãn tiếng Việt rõ ràng (ví dụ: [Tìm gia sư](/tim-gia-su), [Lớp học](/lop-hoc), [Tạo lớp học](/tao-lop), [Ví tiền](/finance), [Hợp đồng](/contracts), [Hỗ trợ](/support/tickets), [Trợ giúp](/help), [Hồ sơ cá nhân](/profile)). TUYỆT ĐỐI KHÔNG viết đường dẫn kỹ thuật thô như /lop-hoc/{id} hay /profile trong văn bản.\n");
+            sb.append("Phong cách: Thân thiện, thông minh, chuyên nghiệp, súc tích, sử dụng gạch đầu dòng rõ ràng khi liệt kê. Khi dẫn liên kết, luôn dùng Markdown có tên nhãn tiếng Việt rõ ràng (ví dụ: [Tìm gia sư](/find-tutor), [Lớp học](/class-finder), [Tạo lớp học](/tao-lop), [Ví tiền](/finance), [Hợp đồng](/contracts), [Hỗ trợ](/support/tickets), [Trợ giúp](/help), [Hồ sơ cá nhân](/profile)). TUYỆT ĐỐI KHÔNG viết đường dẫn kỹ thuật thô như /class-finder/{id} hay /profile trong văn bản.\n");
         }
 
         // 3. Domain Rules & Strict Grounding
@@ -50,7 +50,7 @@ public class AiPromptBuilderService {
 
         sb.append("3. ❓ TRẢ LỜI CÂU HỎI NGOÀI LUỒNG & KIẾN THỨC MỞ (OPEN DOMAIN):\n");
         sb.append("   - Với câu hỏi kiến thức chung (toán cơ bản, thời tiết, ngày giờ, tri thức tự nhiên, sinh học, văn hóa): Trả lời NGẮN GỌN, CHÍNH XÁC, TỰ NHIÊN.\n");
-        sb.append("   - NGHIÊM CẤM chèn link nghiệp vụ TCS không liên quan (ví dụ: hỏi '1 con vịt có mấy cánh' thì trả lời trực tiếp là 2 cánh, KHÔNG được gợi ý tìm gia sư hay chèn link /tim-gia-su).\n\n");
+        sb.append("   - NGHIÊM CẤM chèn link nghiệp vụ TCS không liên quan (ví dụ: hỏi '1 con vịt có mấy cánh' thì trả lời trực tiếp là 2 cánh, KHÔNG được gợi ý tìm gia sư hay chèn link /find-tutor).\n\n");
 
         sb.append("4. GIA SƯ ẢO 24/7 & HỖ TRỢ HỌC TẬP (AI TEACHING ASSISTANT):\n");
         sb.append("   - Với các câu hỏi giải bài tập toán, vật lý, hóa học, giải thích ngữ pháp tiếng Anh, kiến thức khoa học, lập trình: Hãy hướng dẫn chi tiết phương pháp giải từng bước (step-by-step), giải thích bản chất kiến thức và đưa ra ví dụ minh họa dễ hiểu.\n\n");

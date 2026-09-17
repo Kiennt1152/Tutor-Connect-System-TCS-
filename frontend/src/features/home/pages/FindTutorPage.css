@@ -36,6 +36,13 @@
 .tcs-find-search__input::placeholder {
   color: #97a4b6;
 }
+/* Ẩn nút xóa mặc định của input[type=search]: Chrome vẽ dấu X xám lệch tâm, Safari vẽ kiểu
+   khác, Firefox không vẽ gì — thay bằng nút .tcs-find-search__clear để mọi trình như nhau. */
+.tcs-find-search__input::-webkit-search-cancel-button,
+.tcs-find-search__input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
 .tcs-find-search__input:focus {
   outline: none;
   border-color: #ea5a1c;
@@ -44,8 +51,12 @@
 .tcs-find-search__clear {
   position: absolute;
   right: 12px;
-  width: 26px;
-  height: 26px;
+  /* Canh giữa theo chiều cao ô; thiếu top/transform thì nút rơi xuống dưới ô nhập. */
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0;
+  width: 22px;
+  height: 22px;
   border: none;
   border-radius: 50%;
   background: #eef2f7;
@@ -60,6 +71,10 @@
 .tcs-find-search__clear:hover {
   background: #ea5a1c;
   color: #fff;
+}
+.tcs-find-search__clear:focus-visible {
+  outline: 2px solid #ea5a1c;
+  outline-offset: 2px;
 }
 .tcs-find-search__btn {
   flex-shrink: 0;
@@ -78,131 +93,6 @@
   background: #c2410c;
 }
 
-/* Bộ lọc + matchmaking */
-.tcs-find-filter__toggle {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 13px 18px;
-  border-radius: 12px;
-  border: 1px solid #e3e9f2;
-  background: #fff;
-  color: #33465e;
-  font-size: 15px;
-  font-weight: 600;
-  cursor: pointer;
-  box-shadow: 0 2px 10px rgba(18, 35, 59, 0.05);
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
-}
-.tcs-find-filter__toggle:hover,
-.tcs-find-filter__toggle--open {
-  border-color: #ea5a1c;
-  color: #ea5a1c;
-  background: #fff6f0;
-}
-.tcs-find-filter__count {
-  min-width: 20px;
-  height: 20px;
-  padding: 0 6px;
-  border-radius: 999px;
-  background: #ea5a1c;
-  color: #fff;
-  font-size: 12px;
-  line-height: 20px;
-  text-align: center;
-}
-.tcs-find-filter {
-  margin-top: 12px;
-  padding: 18px;
-  border: 1px solid #e3e9f2;
-  border-radius: 14px;
-  background: #fff;
-  box-shadow: 0 6px 18px rgba(18, 35, 59, 0.06);
-}
-.tcs-find-filter__grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 14px 16px;
-}
-.tcs-find-filter__item {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-.tcs-find-filter__label {
-  font-size: 13px;
-  font-weight: 600;
-  color: #5b6b7f;
-}
-.tcs-find-filter__control {
-  height: 42px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid #e3e9f2;
-  background: #fff;
-  font-size: 14px;
-  color: #12233b;
-}
-.tcs-find-filter__control:focus {
-  outline: none;
-  border-color: #ea5a1c;
-  box-shadow: 0 0 0 3px rgba(234, 90, 28, 0.14);
-}
-.tcs-find-filter__item--check {
-  flex-direction: row;
-  align-items: center;
-  gap: 8px;
-  align-self: end;
-  height: 42px;
-  font-size: 14px;
-  color: #33465e;
-  font-weight: 600;
-}
-.tcs-find-filter__item--check input {
-  width: 17px;
-  height: 17px;
-  accent-color: #ea5a1c;
-}
-.tcs-find-filter__foot {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin-top: 14px;
-  padding-top: 14px;
-  border-top: 1px dashed #e3e9f2;
-}
-.tcs-find-filter__hint {
-  margin: 0;
-  max-width: 640px;
-  font-size: 13px;
-  line-height: 1.55;
-  color: #6b7280;
-}
-.tcs-find-filter__reset {
-  flex-shrink: 0;
-  padding: 9px 16px;
-  border-radius: 9px;
-  border: 1px solid #e3e9f2;
-  background: #fff;
-  color: #5b6b7f;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-}
-.tcs-find-filter__reset:hover {
-  border-color: #ea5a1c;
-  color: #ea5a1c;
-}
-
-/* Huy hiệu điểm phù hợp trên thẻ gia sư */
-.tcs-listing-card__badge--match {
-  background: #eef4ff;
-  color: #1d4ed8;
-  border: 1px solid #cddcff;
-}
 
 @media (max-width: 640px) {
   .tcs-find-search__bar {
@@ -456,4 +346,32 @@
 .tcs-header__nav-link--active {
   color: var(--tcs-brand, #ea5a1c);
   font-weight: 700;
+}
+
+/* Dải câu mẫu dưới thanh tìm kiếm — dạy cú pháp gõ thẳng tiêu chí. */
+.tcs-find-examples {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 10px;
+}
+.tcs-find-examples__label {
+  font-size: 12.5px;
+  color: #7b8794;
+}
+/* Chỉ là ví dụ để đọc — cố ý không viền, không con trỏ bấm, để không trông như nút. */
+.tcs-find-examples__item {
+  font-size: 12.5px;
+  font-style: italic;
+  color: #5b6b7f;
+}
+.tcs-find-examples__item::before {
+  content: '“';
+}
+.tcs-find-examples__item::after {
+  content: '”';
+}
+.tcs-find-examples__item:not(:last-child)::after {
+  content: '”,';
 }

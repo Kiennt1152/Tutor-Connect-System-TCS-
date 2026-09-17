@@ -93,7 +93,7 @@ class AiBehaviorE2ETest {
 
         var classFallback = fallbackService.getLevel3NoData(AiSubIntent.FIND_CLASS, Map.of("subject", "Hóa", "grade", "6"));
         assertThat(classFallback.message()).contains("chưa có lớp học nào đang mở");
-        assertThat(classFallback.suggestedRoute()).isEqualTo("/lop-hoc");
+        assertThat(classFallback.suggestedRoute()).isEqualTo("/class-finder");
     }
 
     @Test

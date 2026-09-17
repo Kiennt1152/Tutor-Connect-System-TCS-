@@ -55,7 +55,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
 
 const STATUS_LABELS: Record<UserStatus, string> = {
   ACTIVE: 'Hoạt động',
-  SUSPENDED: 'Tạm ngưng',
+  SUSPENDED: 'Đã khóa',
   BANNED: 'Đã khóa',
 };
 

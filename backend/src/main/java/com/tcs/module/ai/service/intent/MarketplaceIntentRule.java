@@ -48,7 +48,7 @@ public class MarketplaceIntentRule implements IntentRule {
                 "lam sao de ung tuyen", "gia su ung tuyen", "ung tuyen nhan lop", "ung tuyen lop day",
                 "nop don ung tuyen", "cach nhan lop day", "quy trinh ung tuyen", "nop ho so nhan lop",
                 "gia su nop ho so", "nop don", "nop ho so", "cach ung tuyen lop day kem", "ung tuyen lop day kem", "ung tuyen lop")) {
-            return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.APPLY_TO_CLASS, AiIntent.FAQ_SUPPORT, 0.95, "/lop-hoc");
+            return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.APPLY_TO_CLASS, AiIntent.FAQ_SUPPORT, 0.95, "/class-finder");
         }
 
         // 2. CREATE CLASS (POST A REQUEST) - Priority over finding existing tutor
@@ -67,7 +67,7 @@ public class MarketplaceIntentRule implements IntentRule {
                 "tim lop toan", "tim lop ly", "tim lop hoa", "tim lop anh", "tim lop van", "tim lop su", "tim lop dia", "tim lop sinh", "tim lop tin", "tim lop tieng",
                 "co lop nao", "co lop toan nao", "co lop toan ko", "co lop toan khong", "co lop day tiieng viet khong", "co lop day tieng", "co lop day", "co lop", "tim lop hoc", "lop hoc tieng", "lop day tieng", "lop day toan",
                 "find class", "find classes", "find math classes", "open classes", "math classes open", "classes near me", "search classes", "can tim lop")) {
-            return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.FIND_CLASS, AiIntent.FIND_CLASS, 0.9, "/lop-hoc");
+            return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.FIND_CLASS, AiIntent.FIND_CLASS, 0.9, "/class-finder");
         }
 
         // 4. FIND TUTOR
@@ -89,7 +89,7 @@ public class MarketplaceIntentRule implements IntentRule {
                 "gia su toan", "gia su ly", "gia su hoa", "gia su anh", "gia su van", "gia su tin", "gia su luyen thi", "gia su tieng", "gia su ielts",
                 "co ai day", "ai day ielts", "co ai day ielts", "day ielts", "co ai day toan", "co ai day van", "ai day",
                 "find tutor", "math tutor", "tutor near me", "looking for tutor", "need a tutor", "hire tutor", "math tutor near"))) {
-            return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.FIND_TUTOR, AiIntent.FIND_TUTOR, 0.95, "/tim-gia-su");
+            return new ClassificationDetail(AiDomain.MARKETPLACE, AiSubIntent.FIND_TUTOR, AiIntent.FIND_TUTOR, 0.95, "/find-tutor");
         }
 
         return null;

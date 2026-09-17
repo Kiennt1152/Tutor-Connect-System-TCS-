@@ -12,6 +12,44 @@
   flex-wrap: wrap;
   margin-bottom: 18px;
 }
+.ksign-deadline {
+  /* Đẩy hẳn sang phải thanh tiêu đề, nhường chỗ cho nút quay lại và tiêu đề. */
+  margin-left: auto;
+  /* Đồng hồ và lời chú nằm cạnh nhau trong một khối: hai dòng chữ xếp thẳng lề, không
+     còn so le so với viên thuốc đếm ngược như khi xếp dọc. */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  border: 1px solid #e6ebf2;
+  border-radius: 12px;
+  background: #fafbfd;
+}
+.ksign-deadline .tcs-deadline {
+  /* Viên đếm ngược không bị bóp lại khi lời chú dài. */
+  flex: none;
+  padding: 6px 12px;
+  font-size: 13px;
+}
+.ksign-deadline__note {
+  /* Giới hạn bề ngang để câu chữ gãy thành khối 2–3 dòng đều nhau, cao xấp xỉ viên
+     đếm ngược bên trái. */
+  max-width: 250px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  text-align: left;
+  color: #7b8794;
+  /* Cân bằng độ dài các dòng để khối chú thích trông vuông vắn, không bị dòng cuối cụt. */
+  text-wrap: balance;
+}
+@media (max-width: 720px) {
+  .ksign-deadline {
+    margin-left: 0;
+    align-items: flex-start;
+    width: 100%;
+  }
+  .ksign-deadline__note { max-width: none; }
+}
 .ksign-h1 {
   margin: 0;
   font-size: 22px;

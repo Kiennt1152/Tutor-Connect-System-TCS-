@@ -13,6 +13,7 @@ import type {
   LocationOption,
   MarketplaceClass,
   TutorProfileCard,
+  ClassBusyConflict,
 } from '../types/marketplaceTypes';
 
 export const MARKETPLACE_API_BASE = '/marketplace';
@@ -60,6 +61,12 @@ export const marketplaceApi = {
 
   listMyAppliedClassIds: () =>
     axiosClient.get<number[]>('/marketplace/applications/mine').then((r) => r.data),
+
+  /** Gia sư: lớp nào (trong danh sách) có buổi trùng thời gian bận đã đăng ký. Chỉ trả lớp CÓ trùng. */
+  listMyBusyConflicts: (classIds: number[]) =>
+    axiosClient
+      .get<ClassBusyConflict[]>('/marketplace/busy-conflicts', { params: { classIds: classIds.join(',') } })
+      .then((r) => r.data),
 
   getMyTutorProfile: () =>
     axiosClient.get<TutorProfileCard>('/profile/me').then((r) => r.data),
