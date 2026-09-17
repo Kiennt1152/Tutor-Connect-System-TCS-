@@ -22,15 +22,21 @@ import {
 import { useReportList } from '../hooks/useReportList';
 import type {
   AdminDisputeReviewApiResponse,
+  ClassTerminationStatus,
   DisputeReviewItem,
   DisputeResolutionAction,
   DisputeStatus,
   EscrowStatus,
+  PaymentTransactionStatus,
+  PaymentTransactionType,
+  ReportCategory,
   RefundRequestStatus,
+  ReportTargetType,
   ReportItem,
   ReportStatus,
   ReviewModerationStatus,
   ReviewReportAction,
+  TutoringClassStatus,
 } from '../types/platformTypes';
 import { IssuePenaltyModal, type UserOption } from '../components/IssuePenaltyModal';
 import { SettleDisputeModal } from '../components/SettleDisputeModal';
@@ -56,6 +62,123 @@ const REVIEW_MODERATION_LABELS: Record<ReviewModerationStatus, string> = {
   HIDDEN: 'Đã ẩn',
   MODERATED: 'Vi phạm',
 };
+
+const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
+  PENDING: 'Đang mở',
+  RESOLVED: 'Đã xử lý',
+};
+
+const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
+  FRAUD: 'Sai sự thật / gian lận',
+  ABUSE: 'Lăng mạ / xúc phạm',
+  SPAM: 'Tin rác',
+  INAPPROPRIATE: 'Nội dung không phù hợp',
+  PLATFORM_CIRCUMVENTION: 'Lách sàn nền tảng',
+  OTHER: 'Lý do khác',
+};
+
+const TARGET_TYPE_LABELS: Record<ReportTargetType, string> = {
+  USER: 'Người dùng',
+  TUTOR: 'Gia sư',
+  CLASS: 'Lớp học',
+  REVIEW: 'Đánh giá',
+  MESSAGE: 'Tin nhắn',
+};
+
+const DISPUTE_STATUS_LABELS: Record<DisputeStatus, string> = {
+  OPEN: 'Mới mở',
+  UNDER_INVESTIGATION: 'Đang xem xét',
+  WAITING: 'Chờ bổ sung',
+  RESOLVED: 'Đã xử lý',
+};
+
+const ESCROW_STATUS_LABELS: Record<EscrowStatus, string> = {
+  PENDING: 'Chờ khóa',
+  FUNDED: 'Đã ký quỹ',
+  RELEASED: 'Đã giải ngân',
+  REFUNDED: 'Đã hoàn tiền',
+  ON_HOLD: 'Tạm giữ',
+  DISPUTED: 'Đang tranh chấp',
+};
+
+const REFUND_STATUS_LABELS: Record<RefundRequestStatus, string> = {
+  PENDING: 'Chờ xử lý',
+  APPROVED: 'Đã duyệt',
+  REJECTED: 'Từ chối',
+  COMPLETED: 'Đã hoàn tiền',
+};
+
+const CLASS_STATUS_LABELS: Record<TutoringClassStatus, string> = {
+  DRAFT: 'Nháp',
+  OPEN: 'Đang mở',
+  MATCHED: 'Đã ghép',
+  ENROLLMENT_CLOSED: 'Đã đóng ghi danh',
+  IN_PROGRESS: 'Đang diễn ra',
+  COMPLETED: 'Đã hoàn thành',
+  CANCELLED: 'Đã hủy',
+  DISPUTED: 'Đang tranh chấp',
+};
+
+const TERMINATION_STATUS_LABELS: Record<ClassTerminationStatus, string> = {
+  PENDING: 'Chờ xử lý',
+  APPROVED: 'Đã duyệt',
+  REJECTED: 'Từ chối',
+  COMPLETED: 'Đã hoàn tất',
+};
+
+const PAYMENT_TYPE_LABELS: Record<PaymentTransactionType, string> = {
+  DEPOSIT: 'Nạp tiền',
+  WITHDRAWAL: 'Rút tiền',
+  REFUND: 'Hoàn tiền',
+  ESCROW_DEPOSIT: 'Nạp ký quỹ',
+  ESCROW_RELEASE: 'Giải ngân ký quỹ',
+  PLATFORM_FEE: 'Phí nền tảng',
+};
+
+const PAYMENT_STATUS_LABELS: Record<PaymentTransactionStatus, string> = {
+  PENDING: 'Đang chờ',
+  SUCCESS: 'Thành công',
+  FAILED: 'Thất bại',
+  CANCELLED: 'Đã hủy',
+};
+
+const AUDIT_ACTION_LABELS: Record<string, string> = {
+  CREATE_DISPUTE: 'Tạo tranh chấp',
+  UPDATE_DISPUTE: 'Cập nhật tranh chấp',
+  RESOLVE_DISPUTE: 'Giải quyết tranh chấp',
+  APPEAL_DISPUTE: 'Mở lại tranh chấp',
+  EXECUTE_ESCROW_SETTLEMENT: 'Tất toán ký quỹ',
+  EXECUTE_REFUND: 'Tạo yêu cầu hoàn tiền',
+  APPROVE_REFUND: 'Duyệt hoàn tiền',
+  REJECT_REFUND: 'Từ chối hoàn tiền',
+  CREATE_REPORT: 'Tạo báo cáo',
+  RESOLVE_REPORT: 'Xử lý báo cáo',
+};
+
+const AUDIT_FIELD_LABELS: Record<string, string> = {
+  action: 'Hành động',
+  status: 'Trạng thái',
+  escrowId: 'Mã ký quỹ',
+  disputeId: 'Mã tranh chấp',
+  reportId: 'Mã báo cáo',
+  refundId: 'Mã hoàn tiền',
+  releaseToBeneficiary: 'Giải ngân cho người nhận',
+  refundToPayer: 'Hoàn lại người thanh toán',
+  releaseAmount: 'Số tiền giải ngân',
+  refundAmount: 'Số tiền hoàn',
+  amount: 'Số tiền',
+  reason: 'Lý do',
+  resolution: 'Kết luận',
+  transferStatus: 'Trạng thái chuyển khoản',
+  classId: 'Mã lớp',
+  assignmentId: 'Mã phân công',
+  classStudentId: 'Mã ghi danh',
+};
+
+const labelFromMap = <T extends string>(
+  value: T | null | undefined,
+  labels: Partial<Record<T, string>>,
+) => (value ? labels[value] ?? value : '—');
 
 const MAX_EVIDENCE_FILES = 5;
 const MAX_EVIDENCE_SIZE = 10 * 1024 * 1024;
@@ -268,7 +391,7 @@ const calculateSettlementPolicy = (
   context: SettlementPolicyContext,
 ): SettlementPolicyResult => {
   if (escrowAmount <= 0) {
-    return { error: 'Escrow chưa có số tiền hợp lệ.' };
+    return { error: 'Khoản ký quỹ chưa có số tiền hợp lệ.' };
   }
 
   const splitByRelease = (release: number) => {
@@ -437,16 +560,39 @@ function formatAuditPayload(value: string | null | undefined) {
     const parsed = JSON.parse(value) as Record<string, unknown>;
     return Object.entries(parsed)
       .map(([key, rawValue]) => {
-        if (rawValue == null) return `${key}: —`;
+        const fieldLabel = AUDIT_FIELD_LABELS[key] ?? key;
+        if (rawValue == null) return `${fieldLabel}: —`;
         if (typeof rawValue === 'number' && /amount|release|refund/i.test(key)) {
-          return `${key}: ${formatCurrency(rawValue)}`;
+          return `${fieldLabel}: ${formatCurrency(rawValue)}`;
         }
-        return `${key}: ${String(rawValue)}`;
+        return `${fieldLabel}: ${formatAuditValue(key, rawValue)}`;
       })
       .join(' · ');
   } catch {
     return value;
   }
+}
+
+function formatAuditValue(key: string, rawValue: unknown) {
+  const value = String(rawValue);
+  if (key === 'status') {
+    return REPORT_STATUS_LABELS[value as ReportStatus]
+      ?? DISPUTE_STATUS_LABELS[value as DisputeStatus]
+      ?? ESCROW_STATUS_LABELS[value as EscrowStatus]
+      ?? REFUND_STATUS_LABELS[value as RefundRequestStatus]
+      ?? PAYMENT_STATUS_LABELS[value as PaymentTransactionStatus]
+      ?? value;
+  }
+  if (key === 'action') {
+    return RESOLUTION_ACTION_OPTIONS.find((option) => option.value === value)?.label
+      ?? REVIEW_REPORT_ACTION_OPTIONS.find((option) => option.value === value)?.label
+      ?? AUDIT_ACTION_LABELS[value]
+      ?? value;
+  }
+  if (key === 'transferStatus') {
+    return PAYMENT_STATUS_LABELS[value as PaymentTransactionStatus] ?? value;
+  }
+  return value;
 }
 
 function InfoRow({ label, value }: { label: string; value: ReactNode }) {
@@ -483,20 +629,20 @@ function AutomationState({ detail }: { detail: AdminDisputeReviewApiResponse }) 
 
   let tone = 'neutral';
   let title = 'Theo dõi ngoại lệ';
-  let message = 'Các luồng đủ dữ liệu sẽ tự động tất toán; admin xử lý khi có tranh chấp hoặc thiếu căn cứ.';
+  let message = 'Các luồng đủ dữ liệu sẽ tự động tất toán; quản trị viên xử lý khi có tranh chấp hoặc thiếu căn cứ.';
 
   if (!detail.escrow?.escrowId) {
     tone = 'warning';
-    title = 'Thiếu escrow liên quan';
+    title = 'Thiếu khoản ký quỹ liên quan';
     message = 'Cần kiểm tra lại dữ liệu hợp đồng/lớp trước khi ra quyết định tài chính.';
   } else if (settled) {
     tone = 'success';
-    title = 'Escrow đã tất toán';
+    title = 'Khoản ký quỹ đã tất toán';
     message = 'Tiền đã được giải ngân hoặc hoàn lại; tranh chấp chỉ còn phần kết luận hồ sơ.';
   } else if (held) {
     tone = 'danger';
-    title = 'Cần admin quyết định';
-    message = 'Escrow đang được giữ do tranh chấp nên hệ thống không tự release/refund.';
+    title = 'Cần quản trị viên quyết định';
+    message = 'Khoản ký quỹ đang được giữ do tranh chấp nên hệ thống không tự giải ngân hoặc hoàn tiền.';
   } else if (hasPendingTermination) {
     tone = 'warning';
     title = 'Chấm dứt sớm cần duyệt';
@@ -630,12 +776,12 @@ function ResolutionDecisionPanel({
   const applyQuickAction = (mode: 'pro-rata' | 'release-all' | 'refund-all' | 'half' | 'refund-30') => {
     resetPolicyPreset();
     if (escrowAmount <= 0) {
-      setFormError('Escrow chưa có số tiền hợp lệ.');
+      setFormError('Khoản ký quỹ chưa có số tiền hợp lệ.');
       return;
     }
     if (mode === 'pro-rata') {
       if (!hasSuggestion) {
-        setFormError('Chưa đủ dữ liệu buổi học để tính pro-rata.');
+        setFormError('Chưa đủ dữ liệu buổi học để tính theo tỷ lệ.');
         return;
       }
       setSplit(Math.trunc(suggestion.releaseAmount ?? 0), Math.trunc(suggestion.refundAmount ?? 0));
@@ -682,15 +828,15 @@ function ResolutionDecisionPanel({
   const validateFinancialDecision = () => {
     if (!financialAction) return true;
     if (!escrow?.escrowId) {
-      setFormError('Không tìm thấy escrow để tất toán.');
+      setFormError('Không tìm thấy khoản ký quỹ để tất toán.');
       return false;
     }
     if (isEscrowSettled(escrow.status)) {
-      setFormError('Escrow đã tất toán.');
+      setFormError('Khoản ký quỹ đã tất toán.');
       return false;
     }
     if (!settleable) {
-      setFormError('Escrow chưa ở trạng thái có thể tất toán.');
+      setFormError('Khoản ký quỹ chưa ở trạng thái có thể tất toán.');
       return false;
     }
     if (!Number.isFinite(releaseAmountNumber) || !Number.isFinite(refundAmountNumber)) {
@@ -702,7 +848,7 @@ function ResolutionDecisionPanel({
       return false;
     }
     if (escrowAmount > 0 && totalSettlement !== escrowAmount) {
-      setFormError('Tổng giải ngân và hoàn tiền phải bằng tổng escrow.');
+      setFormError('Tổng giải ngân và hoàn tiền phải bằng tổng ký quỹ.');
       return false;
     }
     if (action === 'APPROVE_PARTIAL_REFUND' && refundAmountNumber <= 0) {
@@ -769,7 +915,9 @@ function ResolutionDecisionPanel({
     <section className="pd-section">
       <div className="pd-section__head">
         <h3 className="pd-section__title">Quyết định xử lý</h3>
-        <span className={escrowBadgeClass(escrow?.status ?? null)}>{escrow?.status ?? '—'}</span>
+        <span className={escrowBadgeClass(escrow?.status ?? null)}>
+          {labelFromMap(escrow?.status, ESCROW_STATUS_LABELS)}
+        </span>
       </div>
 
       <form className="pd-resolution-form" onSubmit={handleSubmit}>
@@ -796,7 +944,7 @@ function ResolutionDecisionPanel({
           <div className="pd-settlement-form">
             <div className="pd-settlement-summary">
               <div>
-                <span>Tổng escrow</span>
+                <span>Tổng ký quỹ</span>
                 <strong>{formatCurrency(escrow?.amount)}</strong>
               </div>
               <div>
@@ -817,7 +965,7 @@ function ResolutionDecisionPanel({
               <>
                 {hasSuggestion ? (
                   <div className="pd-pro-rata-note">
-                    <strong>Gợi ý pro-rata</strong>
+                    <strong>Gợi ý theo tỷ lệ buổi học</strong>
                     <span>
                       Đã học {suggestion.completedSessions ?? 0}/{suggestion.totalSessions ?? 0} buổi:
                       giải ngân {formatCurrency(suggestion.releaseAmount)} và hoàn {formatCurrency(suggestion.refundAmount)}.
@@ -1141,25 +1289,25 @@ function DisputeDetail({
   const disputeUserOptions: UserOption[] = [];
   if (detail.tutoringClass?.tutorUserId) {
     disputeUserOptions.push({
-      label: `Gia sư: ${detail.tutoringClass.tutorName || detail.tutoringClass.tutorEmail || 'Tutor'}`,
+      label: `Gia sư: ${detail.tutoringClass.tutorName || detail.tutoringClass.tutorEmail || 'Chưa rõ gia sư'}`,
       userId: detail.tutoringClass.tutorUserId,
     });
   }
   if (detail.tutoringClass?.creatorUserId) {
     disputeUserOptions.push({
-      label: `Người tạo lớp: ${detail.tutoringClass.creatorEmail || 'Creator'}`,
+      label: `Người tạo lớp: ${detail.tutoringClass.creatorEmail || 'Chưa rõ người tạo'}`,
       userId: detail.tutoringClass.creatorUserId,
     });
   }
   if (detail.tutoringClass?.enrolledByUserId) {
     disputeUserOptions.push({
-      label: `Học viên: ${detail.tutoringClass.studentName || detail.tutoringClass.enrolledByEmail || 'Student'}`,
+      label: `Học viên: ${detail.tutoringClass.studentName || detail.tutoringClass.enrolledByEmail || 'Chưa rõ học viên'}`,
       userId: detail.tutoringClass.enrolledByUserId,
     });
   }
   if (disputeUserOptions.length === 0 && detail.reporterId) {
     disputeUserOptions.push({
-      label: `Người báo cáo (${detail.reporterEmail || 'Reporter'})`,
+      label: `Người báo cáo (${detail.reporterEmail || 'chưa rõ email'})`,
       userId: detail.reporterId,
     });
   }
@@ -1178,13 +1326,15 @@ function DisputeDetail({
           <h2 className="pd-detail__title">{detail.tutoringClass?.title ?? 'Không xác định lớp'}</h2>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span className={disputeBadgeClass(detail.disputeStatus)}>{detail.disputeStatus}</span>
+          <span className={disputeBadgeClass(detail.disputeStatus)}>
+            {labelFromMap(detail.disputeStatus, DISPUTE_STATUS_LABELS)}
+          </span>
           {detail.disputeStatus !== 'RESOLVED' && (
             <button
               type="button"
               className="tcs-btn tcs-btn--sm tcs-btn--primary"
               onClick={() => setIsSettleModalOpen(true)}
-              title="Phân bổ tiền Escrow và giải quyết dứt điểm tranh chấp"
+              title="Phân bổ tiền ký quỹ và giải quyết dứt điểm tranh chấp"
             >
               💰 Giải quyết tranh chấp
             </button>
@@ -1239,7 +1389,7 @@ function DisputeDetail({
                 <div className="pd-timeline__marker" aria-hidden="true" />
                 <div className="pd-timeline__body">
                   <div className="pd-timeline__head">
-                    <strong>{event.action ?? 'Cập nhật tranh chấp'}</strong>
+                    <strong>{event.action ? (AUDIT_ACTION_LABELS[event.action] ?? event.action) : 'Cập nhật tranh chấp'}</strong>
                     <span>{formatDateTime(event.createdAt)}</span>
                   </div>
                   <p>
@@ -1258,9 +1408,9 @@ function DisputeDetail({
         <div className="pd-info-grid">
           <InfoRow label="Mã báo cáo" value={detail.reportId ? `#${detail.reportId}` : '—'} />
           <InfoRow label="Người báo cáo" value={detail.reporterEmail ?? detail.reporterId} />
-          <InfoRow label="Loại đối tượng" value={detail.targetType} />
-          <InfoRow label="ID đối tượng" value={detail.targetId ? `#${detail.targetId}` : '—'} />
-          <InfoRow label="Danh mục" value={detail.category} />
+          <InfoRow label="Loại đối tượng" value={labelFromMap(detail.targetType, TARGET_TYPE_LABELS)} />
+          <InfoRow label="Mã đối tượng" value={detail.targetId ? `#${detail.targetId}` : '—'} />
+          <InfoRow label="Danh mục" value={labelFromMap(detail.category, REPORT_CATEGORY_LABELS)} />
           <InfoRow label="Tạo lúc" value={formatDateTime(detail.reportCreatedAt)} />
         </div>
         <p className="pd-description">{detail.description ?? '—'}</p>
@@ -1285,7 +1435,7 @@ function DisputeDetail({
 
             {appealBlockedBySettlement ? (
               <div className="adm-alert adm-alert--error pd-resolution-alert">
-                Escrow đã tất toán nên không thể mở lại tự động.
+                Khoản ký quỹ đã tất toán nên không thể mở lại tự động.
               </div>
             ) : (
               <form className="pd-resolution-form pd-appeal-form" onSubmit={handleAppeal}>
@@ -1366,11 +1516,13 @@ function DisputeDetail({
       )}
 
       <section className="pd-section">
-        <h3 className="pd-section__title">Escrow liên quan</h3>
+        <h3 className="pd-section__title">Ký quỹ liên quan</h3>
         <div className="pd-info-grid">
-          <InfoRow label="Mã escrow" value={detail.escrow?.escrowId ? `#${detail.escrow.escrowId}` : '—'} />
-          <InfoRow label="Trạng thái" value={detail.escrow?.status ?? '—'} />
+          <InfoRow label="Mã ký quỹ" value={detail.escrow?.escrowId ? `#${detail.escrow.escrowId}` : '—'} />
+          <InfoRow label="Trạng thái" value={labelFromMap(detail.escrow?.status, ESCROW_STATUS_LABELS)} />
           <InfoRow label="Số tiền" value={formatCurrency(detail.escrow?.amount)} />
+          <InfoRow label="Loại thanh toán" value={labelFromMap(detail.escrow?.paymentType, PAYMENT_TYPE_LABELS)} />
+          <InfoRow label="Trạng thái thanh toán" value={labelFromMap(detail.escrow?.paymentStatus, PAYMENT_STATUS_LABELS)} />
           <InfoRow label="Mã tham chiếu" value={detail.escrow?.paymentReferenceCode} />
           <InfoRow label="Người thanh toán" value={detail.escrow?.payerEmail ?? detail.escrow?.payerUserId} />
           <InfoRow label="Khóa lúc" value={formatDateTime(detail.escrow?.depositedAt)} />
@@ -1390,7 +1542,7 @@ function DisputeDetail({
                 <span className="pd-info-row__label">Trạng thái</span>
                 <span className="pd-info-row__value">
                   <span className={refundBadgeClass(detail.latestRefundRequest.status)}>
-                    {detail.latestRefundRequest.status ?? '—'}
+                    {labelFromMap(detail.latestRefundRequest.status, REFUND_STATUS_LABELS)}
                   </span>
                 </span>
               </div>
@@ -1399,7 +1551,10 @@ function DisputeDetail({
               <InfoRow label="Tài khoản nhận" value={detail.latestRefundRequest.accountNoMasked ?? '—'} />
               <InfoRow label="Tên chủ tài khoản" value={detail.latestRefundRequest.accountHolderName ?? '—'} />
               <InfoRow label="Mã chuyển khoản" value={detail.latestRefundRequest.refundReferenceCode ?? '—'} />
-              <InfoRow label="Trạng thái chuyển khoản" value={detail.latestRefundRequest.transferStatus ?? '—'} />
+              <InfoRow
+                label="Trạng thái chuyển khoản"
+                value={labelFromMap(detail.latestRefundRequest.transferStatus as PaymentTransactionStatus | null | undefined, PAYMENT_STATUS_LABELS)}
+              />
               <InfoRow label="Người xử lý" value={detail.latestRefundRequest.requestedByEmail ?? detail.latestRefundRequest.requestedByUserId} />
               <InfoRow label="Yêu cầu lúc" value={formatDateTime(detail.latestRefundRequest.requestedAt)} />
               <InfoRow label="Xử lý lúc" value={formatDateTime(detail.latestRefundRequest.processedAt)} />
@@ -1416,10 +1571,10 @@ function DisputeDetail({
         <h3 className="pd-section__title">Lớp học</h3>
         <div className="pd-info-grid">
           <InfoRow label="Mã lớp" value={detail.tutoringClass?.classId ? `#${detail.tutoringClass.classId}` : '—'} />
-          <InfoRow label="Trạng thái lớp" value={detail.tutoringClass?.status} />
+          <InfoRow label="Trạng thái lớp" value={labelFromMap(detail.tutoringClass?.status, CLASS_STATUS_LABELS)} />
           <InfoRow label="Chủ lớp" value={detail.tutoringClass?.creatorEmail ?? detail.tutoringClass?.creatorUserId} />
           <InfoRow label="Gia sư" value={detail.tutoringClass?.tutorName ?? detail.tutoringClass?.tutorEmail} />
-          <InfoRow label="Assignment" value={detail.tutoringClass?.assignmentId ? `#${detail.tutoringClass.assignmentId}` : '—'} />
+          <InfoRow label="Mã phân công" value={detail.tutoringClass?.assignmentId ? `#${detail.tutoringClass.assignmentId}` : '—'} />
           <InfoRow label="Học viên" value={detail.tutoringClass?.studentName} />
         </div>
       </section>
@@ -1429,7 +1584,7 @@ function DisputeDetail({
           <h3 className="pd-section__title">Yêu cầu chấm dứt sớm</h3>
           <div className="pd-info-grid">
             <InfoRow label="Mã yêu cầu" value={`#${detail.terminationRequest.terminationId}`} />
-            <InfoRow label="Trạng thái" value={detail.terminationRequest.status} />
+            <InfoRow label="Trạng thái" value={labelFromMap(detail.terminationRequest.status, TERMINATION_STATUS_LABELS)} />
             <InfoRow label="Người yêu cầu" value={detail.terminationRequest.requestedByEmail ?? detail.terminationRequest.requestedByUserId} />
             <InfoRow label="Ngân hàng nhận" value={detail.terminationRequest.bankName ?? '—'} />
             <InfoRow label="Tài khoản nhận" value={detail.terminationRequest.accountNoMasked ?? '—'} />
@@ -1677,11 +1832,11 @@ export default function PlatformReportsPage() {
     >
       <div className="adm-summary-row">
         <article className="adm-summary-card adm-summary-card--warn">
-          <p className="adm-summary-card__label">Cần admin can thiệp</p>
+          <p className="adm-summary-card__label">Cần quản trị viên can thiệp</p>
           <p className="adm-summary-card__value">{openDisputeCount}</p>
         </article>
         <article className="adm-summary-card">
-          <p className="adm-summary-card__label">Escrow đang giữ</p>
+          <p className="adm-summary-card__label">Ký quỹ đang giữ</p>
           <p className="adm-summary-card__value">{heldEscrowCount}</p>
         </article>
         <article className="adm-summary-card">
