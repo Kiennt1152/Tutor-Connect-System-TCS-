@@ -37,6 +37,19 @@ function emptyForm(): TutorForm {
   };
 }
 
+function calcAge(dateOfBirth?: string | null): number | null {
+  if (!dateOfBirth) return null;
+  const dob = new Date(dateOfBirth);
+  if (Number.isNaN(dob.getTime())) return null;
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const monthDiff = now.getMonth() - dob.getMonth();
+  if (monthDiff < 0 || (monthDiff === 0 && now.getDate() < dob.getDate())) {
+    age -= 1;
+  }
+  return age;
+}
+
 function fromProfile(profile: ProfileResponse | null): TutorForm {
   if (!profile) return emptyForm();
   return {
@@ -87,6 +100,18 @@ export default function TutorProfilePage({ ctx }: { ctx: UseProfileResult }) {
     } else if (form.fullName.trim().length < 2 || form.fullName.trim().length > 50) {
       errs.fullName = 'Phải từ 2 đến 50 ký tự';
     }
+    if (form.dateOfBirth) {
+      const dob = new Date(form.dateOfBirth);
+      if (Number.isNaN(dob.getTime())) {
+        errs.dateOfBirth = 'Ngày sinh không hợp lệ';
+      } else {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        if (dob > today) {
+          errs.dateOfBirth = 'Ngày sinh không được ở tương lai';
+        }
+      }
+    }
     if (form.bio && form.bio.length > 1000) {
       errs.bio = 'Mô tả tối đa 1000 ký tự';
     }
@@ -94,6 +119,14 @@ export default function TutorProfilePage({ ctx }: { ctx: UseProfileResult }) {
       const n = Number(form.experienceYears);
       if (!Number.isInteger(n) || n < 0 || n > 60) {
         errs.experienceYears = 'Số năm kinh nghiệm không hợp lệ (0-60)';
+      } else if (form.dateOfBirth) {
+        const age = calcAge(form.dateOfBirth);
+        if (age != null && age > 0) {
+          const maxAllowedExp = Math.max(0, age - 15);
+          if (n > maxAllowedExp) {
+            errs.experienceYears = `Số năm kinh nghiệm không hợp lý (gia sư ${age} tuổi chỉ có thể có tối đa ${maxAllowedExp} năm kinh nghiệm)`;
+          }
+        }
       }
     }
     if (form.hourlyRate) {

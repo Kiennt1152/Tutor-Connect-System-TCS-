@@ -47,6 +47,8 @@ export const APP_ROUTES = {
   platform: '/platform',
   platformTasks: '/platform/tasks',
   platformAnalytics: '/platform/analytics',
+  platformClasses: '/platform/classes',
+  platformContractTemplates: '/platform/contract-templates',
   platformUsers: '/platform/users',
   platformVerifications: '/platform/verifications',
   platformReports: '/platform/reports',

@@ -178,6 +178,39 @@ export default function PlatformAnalyticsPage() {
           </div>
         </div>
 
+        {/* Escrow Flow Section (UC-41 / UC-58) */}
+        <h2 className="adm-kpi-section-title">Ký quỹ Đảm bảo (Escrow Flow)</h2>
+        <div className="adm-analytics-grid-4" style={{ marginBottom: '1.5rem' }}>
+          <div className="adm-analytics-card">
+            <span className="adm-analytics-card-title">Tổng nạp ký quỹ</span>
+            <span className="adm-analytics-card-value" style={{ color: '#0284c7' }}>
+              {(data.escrowFlow?.deposited ?? data.deposits ?? 0).toLocaleString('vi-VN')} ₫
+            </span>
+            <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>Khoản tiền khách hàng đặt cọc</span>
+          </div>
+          <div className="adm-analytics-card">
+            <span className="adm-analytics-card-title">Đã giải ngân cho gia sư</span>
+            <span className="adm-analytics-card-value" style={{ color: '#16a34a' }}>
+              {(data.escrowFlow?.released ?? data.escrowReleased ?? 0).toLocaleString('vi-VN')} ₫
+            </span>
+            <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>Lớp hoàn thành thành công</span>
+          </div>
+          <div className="adm-analytics-card">
+            <span className="adm-analytics-card-title">Đã hoàn trả khách hàng</span>
+            <span className="adm-analytics-card-value" style={{ color: '#dc2626' }}>
+              {(data.escrowFlow?.refunded ?? data.escrowRefunded ?? 0).toLocaleString('vi-VN')} ₫
+            </span>
+            <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>Hoàn tiền khi có khiếu nại/sự cố</span>
+          </div>
+          <div className="adm-analytics-card">
+            <span className="adm-analytics-card-title">Đang giữ trong ký quỹ</span>
+            <span className="adm-analytics-card-value" style={{ color: '#ca8a04' }}>
+              {(data.escrowFlow?.held ?? data.escrowHeld ?? 0).toLocaleString('vi-VN')} ₫
+            </span>
+            <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '0.25rem' }}>Lớp học đang diễn ra an toàn</span>
+          </div>
+        </div>
+
         {/* Transaction Breakdown Table */}
         <div className="adm-analytics-table-container" style={{ marginBottom: '2rem' }}>
           <div style={{ padding: '1rem 1.25rem', borderBottom: '1px solid #e2e8f0', fontWeight: 600, color: '#1e293b' }}>

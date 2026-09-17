@@ -841,6 +841,19 @@ public class ProfileServiceImpl implements ProfileService {
             tutor.setGender(request.getGender());
         }
         if (request.getBio() != null) tutor.setBio(request.getBio());
+
+        LocalDate effectiveDob = tutor.getDateOfBirth();
+        Integer exp = request.getExperienceYears() != null ? request.getExperienceYears() : tutor.getExperienceYears();
+        if (exp != null && effectiveDob != null) {
+            int age = AgeUtils.ageAt(effectiveDob, LocalDate.now());
+            int maxAllowedExp = Math.max(0, age - 15);
+            if (exp > maxAllowedExp) {
+                throw new IllegalArgumentException(
+                        "Số năm kinh nghiệm không hợp lý so với độ tuổi hiện tại (gia sư " + age
+                                + " tuổi chỉ có thể có tối đa " + maxAllowedExp + " năm kinh nghiệm)");
+            }
+        }
+
         if (request.getExperienceYears() != null) tutor.setExperienceYears(request.getExperienceYears());
         if (request.getHourlyRate() != null) tutor.setHourlyRate(request.getHourlyRate());
         tutorRepository.save(tutor);

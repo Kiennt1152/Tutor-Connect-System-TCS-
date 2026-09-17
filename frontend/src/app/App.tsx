@@ -18,6 +18,8 @@ import PlatformProfilePage from '../features/platform/pages/PlatformProfilePage'
 import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage';
 import PlatformReviewsPage from '../features/platform/pages/PlatformReviewsPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
+import PlatformClassesPage from '../features/platform/pages/PlatformClassesPage';
+import PlatformContractTemplatesPage from '../features/platform/pages/PlatformContractTemplatesPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import PlatformWithdrawalsPage from '../features/platform/pages/PlatformWithdrawalsPage';
 import PlatformFeeSettingsPage from '../features/platform/pages/PlatformFeeSettingsPage';
@@ -362,6 +364,22 @@ export default function App() {
                 <Suspense fallback={<div>Loading...</div>}>
                   <PlatformAnalyticsPage />
                 </Suspense>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformClasses}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformClassesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformContractTemplates}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformContractTemplatesPage />
               </ProtectedRoute>
             }
           />

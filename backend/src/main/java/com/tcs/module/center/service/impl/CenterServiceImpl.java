@@ -1874,6 +1874,19 @@ public class CenterServiceImpl implements CenterService {
                 activeCount++;
             }
 
+            int totalSessions = c.getNumberOfSessions() != null ? c.getNumberOfSessions() : lessons.size();
+            int completedSessions = (int) lessons.stream()
+                    .filter(l -> l.getAttendanceStatus() == com.tcs.module.marketplace.enums.AttendanceStatus.COMPLETED
+                            || l.getTutorCheckInAt() != null
+                            || (l.getLessonDate() != null && l.getLessonDate().isBefore(java.time.LocalDate.now())))
+                    .count();
+            if (c.getStatus() == TutoringClassStatus.COMPLETED && totalSessions > 0) {
+                completedSessions = totalSessions;
+            }
+            double progressPercent = totalSessions > 0
+                    ? Math.min(100.0, Math.round((double) completedSessions / totalSessions * 1000.0) / 10.0)
+                    : 0.0;
+
             classStats.add(CenterStatsResponse.ClassStat.builder()
                     .classId(c.getClassId())
                     .title(c.getTitle())
@@ -1885,6 +1898,11 @@ public class CenterServiceImpl implements CenterService {
                     .absent(cA)
                     .excused(cE)
                     .attendanceRate(rate(cP, cP + cA + cE))
+                    .totalSessions(totalSessions)
+                    .completedSessions(completedSessions)
+                    .progressPercent(progressPercent)
+                    .startDate(c.getStartDate())
+                    .endDate(c.getEndDate())
                     .build());
 
             for (ClassStudent s : students) {

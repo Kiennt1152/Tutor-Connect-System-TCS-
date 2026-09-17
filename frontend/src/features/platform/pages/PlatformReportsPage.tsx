@@ -1,4 +1,4 @@
-import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { EvidencePreviewList as SharedEvidencePreviewList } from '../../../shared/components/EvidencePreviewList';
@@ -22,6 +22,7 @@ import {
 import { useReportList } from '../hooks/useReportList';
 import type {
   AdminDisputeReviewApiResponse,
+  ClassIssueResolutionAction,
   DisputeReviewItem,
   DisputeResolutionAction,
   DisputeStatus,
@@ -44,6 +45,16 @@ import { IssuePenaltyModal, type UserOption } from '../components/IssuePenaltyMo
 import { SettleDisputeModal } from '../components/SettleDisputeModal';
 import './PlatformReportsPage.css';
 
+const CLASS_ISSUE_ACTION_OPTIONS: { value: ClassIssueResolutionAction; label: string; desc: string }[] = [
+  { value: 'REQUEST_MORE_INFORMATION', label: 'Yêu cầu bổ sung thông tin', desc: 'Yêu cầu các bên gửi thêm chứng cứ hoặc làm rõ sự việc' },
+  { value: 'CONTINUE_CLASS', label: 'Tiếp tục lớp học', desc: 'Sự cố đã được khắc phục, cho phép lớp tiếp tục theo lộ trình' },
+  { value: 'RESCHEDULE', label: 'Cho phép dời lịch / bù buổi', desc: 'Chấp thuận đề xuất dời lịch hoặc bù buổi học bị gián đoạn' },
+  { value: 'REPLACE_TUTOR', label: 'Đổi gia sư phụ trách', desc: 'Yêu cầu trung tâm hoặc hệ thống phân công gia sư khác' },
+  { value: 'ESCALATE_TO_DISPUTE', label: 'Chuyển thành tranh chấp Escrow', desc: 'Chuyển sang bộ phận xử lý tài chính hoàn tiền ký quỹ' },
+  { value: 'TERMINATE_CLASS', label: 'Chấm dứt lớp học trước hạn', desc: 'Dừng lớp và quyết toán chi phí các buổi đã hoàn thành' },
+  { value: 'CLOSE_NO_ACTION', label: 'Đóng báo cáo (Bác bỏ)', desc: 'Báo cáo không có căn cứ hoặc các bên đã tự giải quyết' },
+];
+
 const RESOLUTION_ACTION_OPTIONS: { value: DisputeResolutionAction; label: string }[] = [
   { value: 'CONTINUE_CLASS', label: 'Tiếp tục lớp' },
   { value: 'APPROVE_FULL_REFUND', label: 'Hoàn tiền toàn phần' },
@@ -51,6 +62,7 @@ const RESOLUTION_ACTION_OPTIONS: { value: DisputeResolutionAction; label: string
   { value: 'REJECT_REFUND', label: 'Từ chối hoàn tiền' },
   { value: 'REQUEST_MORE_EVIDENCE', label: 'Yêu cầu bổ sung bằng chứng' },
 ];
+
 
 const REVIEW_REPORT_ACTION_OPTIONS: { value: ReviewReportAction; label: string }[] = [
   { value: 'HIDE_REVIEW', label: 'Ẩn đánh giá khỏi hồ sơ gia sư' },
@@ -1637,6 +1649,154 @@ function ReviewReportDetail({
   );
 }
 
+function ClassIssueReportDetail({
+  detail,
+  onChanged,
+}: {
+  detail: ReportItem | null;
+  onChanged: () => void;
+}) {
+  const [action, setAction] = useState<ClassIssueResolutionAction>('CONTINUE_CLASS');
+  const [notes, setNotes] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
+  useEffect(() => {
+    setAction('CONTINUE_CLASS');
+    setNotes('');
+    setErrorMessage('');
+    setSuccessMessage('');
+  }, [detail?.id]);
+
+  if (!detail) {
+    return (
+      <div className="pd-detail">
+        <div className="adm-state">
+          <p>Chọn một báo cáo sự cố lớp học từ danh sách bên trái để xem chi tiết.</p>
+        </div>
+      </div>
+    );
+  }
+
+  const canResolve = detail.status === 'PENDING';
+
+  const handleSubmit = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!notes.trim()) {
+      setErrorMessage('Vui lòng nhập ghi chú hoặc căn cứ giải quyết sự cố.');
+      return;
+    }
+    setSubmitting(true);
+    setErrorMessage('');
+    setSuccessMessage('');
+    try {
+      await platformApi.resolveClassIssue(detail.id, {
+        action,
+        notes: notes.trim(),
+      });
+      setSuccessMessage('Đã lưu quyết định giải quyết sự cố lớp học thành công.');
+      onChanged();
+    } catch (err) {
+      setErrorMessage(getApiErrorMessage(err, 'Không thể lưu xử lý sự cố.'));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="pd-detail">
+      <div className="pd-detail__head">
+        <div>
+          <p className="pd-detail__eyebrow">Sự cố lớp học #{detail.id}</p>
+          <h2 className="pd-detail__title">{detail.classTitle}</h2>
+        </div>
+        <span className={reportBadgeClass(detail.status)}>{detail.statusLabel}</span>
+      </div>
+
+      <section className="pd-section">
+        <h3 className="pd-section__title">Thông tin sự cố & Buổi học</h3>
+        <div className="pd-info-grid">
+          <InfoRow label="Người báo cáo" value={detail.reporterEmail} />
+          <InfoRow label="Trạng thái lớp" value={detail.classStatus} />
+          <InfoRow label="Loại sự cố" value={detail.issueTypeLabel || detail.categoryLabel} />
+          <InfoRow label="Buổi liên quan" value={detail.lessonRef || 'Chung cả lớp'} />
+          <InfoRow label="Ngày xảy ra" value={detail.occurredAt || '—'} />
+          <InfoRow label="Yêu cầu của người gửi" value={detail.requestedActionLabel || '—'} />
+          <InfoRow
+            label="Tranh chấp liên kết"
+            value={detail.linkedDisputeId ? `#${detail.linkedDisputeId}` : 'Chưa chuyển'}
+          />
+          <InfoRow label="Thời điểm gửi" value={detail.createdAt} />
+        </div>
+      </section>
+
+      <section className="pd-section">
+        <h3 className="pd-section__title">Mô tả sự cố từ người dùng</h3>
+        <p className="pd-description" style={{ whiteSpace: 'pre-line' }}>
+          {detail.userDescription || detail.description || '(Không có mô tả chi tiết)'}
+        </p>
+      </section>
+
+      {detail.evidenceUrlList && detail.evidenceUrlList.length > 0 && (
+        <section className="pd-section">
+          <h3 className="pd-section__title">Bằng chứng đính kèm ({detail.evidenceUrlList.length})</h3>
+          <SharedEvidencePreviewList urls={detail.evidenceUrlList} />
+        </section>
+      )}
+
+      <section className="pd-section">
+        <h3 className="pd-section__title">Phán quyết & Hướng giải quyết của Quản trị viên (UC-30)</h3>
+        {!canResolve ? (
+          <div className="adm-alert adm-alert--success">
+            Báo cáo sự cố này đã được giải quyết.
+          </div>
+        ) : (
+          <form className="pd-resolution-form" onSubmit={handleSubmit}>
+            <label className="pd-field">
+              <span>Hướng xử lý của Quản trị viên</span>
+              <select
+                className="adm-field"
+                value={action}
+                onChange={(e) => setAction(e.target.value as ClassIssueResolutionAction)}
+              >
+                {CLASS_ISSUE_ACTION_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+              <span className="adm-table__sub">
+                {CLASS_ISSUE_ACTION_OPTIONS.find((o) => o.value === action)?.desc}
+              </span>
+            </label>
+
+            <label className="pd-field">
+              <span>Ghi chú phán quyết / Chỉ đạo cho các bên</span>
+              <textarea
+                className="pd-textarea"
+                rows={4}
+                maxLength={2000}
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Nhập căn cứ xử lý, phương án bù buổi, hoặc chỉ đạo điều phối lớp học..."
+              />
+            </label>
+
+            {errorMessage && <div className="adm-alert adm-alert--error">{errorMessage}</div>}
+            {successMessage && <div className="adm-alert adm-alert--success">{successMessage}</div>}
+
+            <div className="pd-resolution-actions">
+              <button className="tcs-btn tcs-btn--primary" type="submit" disabled={submitting}>
+                {submitting ? 'Đang xử lý...' : 'Lưu quyết định xử lý (UC-30)'}
+              </button>
+            </div>
+          </form>
+        )}
+      </section>
+    </div>
+  );
+}
 
 export default function PlatformReportsPage() {
   const reports = useReportList();
@@ -1647,12 +1807,49 @@ export default function PlatformReportsPage() {
   const targetTab = searchParams.get('tab');
   const targetId = searchParams.get('id');
 
+  type ReportsPageTab = 'disputes' | 'class-issues' | 'reviews';
+  const [activeTab, setActiveTab] = useState<ReportsPageTab>(() => {
+    if (targetTab === 'class-issues' || targetTab === 'reports') return 'class-issues';
+    if (targetTab === 'reviews') return 'reviews';
+    return 'disputes';
+  });
+
+  const [selectedClassReportId, setSelectedClassReportId] = useState<string | null>(null);
+  const [classReportStatusFilter, setClassReportStatusFilter] = useState<string>('');
+
+  const classReports = useMemo(() => {
+    return reports.items.filter((item: ReportItem) => item.targetType === 'CLASS' || item.targetType === 'USER');
+  }, [reports.items]);
+
+  const filteredClassReports = useMemo(() => {
+    return classReports.filter((item: ReportItem) => {
+      if (classReportStatusFilter && item.status !== classReportStatusFilter) return false;
+      return true;
+    });
+  }, [classReports, classReportStatusFilter]);
+
+  const openClassReportCount = classReports.filter((item: ReportItem) => item.status === 'PENDING').length;
+  const selectedClassReport =
+    filteredClassReports.find((item: ReportItem) => item.id === selectedClassReportId) ?? null;
+
+  useEffect(() => {
+    if (filteredClassReports.length === 0) {
+      setSelectedClassReportId(null);
+      return;
+    }
+    if (!selectedClassReportId || !filteredClassReports.some((item: ReportItem) => item.id === selectedClassReportId)) {
+      setSelectedClassReportId(filteredClassReports[0].id);
+    }
+  }, [filteredClassReports, selectedClassReportId]);
+
   useEffect(() => {
     if (!targetTab) return;
-    const tabName = targetTab === 'reports' || targetTab === 'circumvention' ? 'disputes' : targetTab;
-    const el = document.getElementById(`section-${tabName}`);
-    if (el) {
-      el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (targetTab === 'class-issues' || targetTab === 'reports') {
+      setActiveTab('class-issues');
+    } else if (targetTab === 'reviews') {
+      setActiveTab('reviews');
+    } else {
+      setActiveTab('disputes');
     }
   }, [targetTab]);
 
@@ -1663,7 +1860,10 @@ export default function PlatformReportsPage() {
       || String(item.raw?.disputeId) === String(targetId)
       || (item.raw?.reportId != null && String(item.raw.reportId) === String(targetId))
     );
-    if (match) disputes.selectDispute(match);
+    if (match) {
+      disputes.selectDispute(match);
+      setActiveTab('disputes');
+    }
   }, [disputes.items, targetId]);
 
   const openDisputeCount = disputes.items.filter((item) => item.status !== 'RESOLVED').length;
@@ -1699,12 +1899,16 @@ export default function PlatformReportsPage() {
   return (
     <AdminLayout
       title="Báo cáo & tranh chấp"
-      subtitle="Theo dõi báo cáo vi phạm, tranh chấp lớp học và bằng chứng liên quan."
+      subtitle="Theo dõi báo cáo vi phạm, giải quyết sự cố lớp học (UC-30) và tranh chấp tài chính Escrow."
     >
       <div className="adm-summary-row">
         <article className="adm-summary-card adm-summary-card--warn">
-          <p className="adm-summary-card__label">Cần admin can thiệp</p>
+          <p className="adm-summary-card__label">Tranh chấp cần can thiệp</p>
           <p className="adm-summary-card__value">{openDisputeCount}</p>
+        </article>
+        <article className="adm-summary-card adm-summary-card--warn">
+          <p className="adm-summary-card__label">Sự cố lớp học chờ xử lý (UC-30)</p>
+          <p className="adm-summary-card__value">{openClassReportCount}</p>
         </article>
         <article className="adm-summary-card">
           <p className="adm-summary-card__label">Escrow đang giữ</p>
@@ -1718,155 +1922,264 @@ export default function PlatformReportsPage() {
 
       <AdminTimeFilter showGranularity={false} />
 
-      <section id="section-disputes" className="pd-console" aria-label="Danh sách tranh chấp">
-        <div className="adm-card pd-console__list">
-          <div className="pd-card-head">
-            <div>
-              <h2 className="pd-card-head__title">Tranh chấp</h2>
-              <p className="pd-card-head__meta">{disputes.items.length} hồ sơ</p>
-            </div>
-            <button className="tcs-btn tcs-btn--ghost" type="button" onClick={disputes.reload}>
-              Làm mới
-            </button>
-          </div>
+      {/* Tabs chuyển đổi phân hệ */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '1.25rem', flexWrap: 'wrap' }}>
+        <button
+          type="button"
+          className={`tcs-btn ${activeTab === 'disputes' ? 'tcs-btn--primary' : 'tcs-btn--ghost'}`}
+          onClick={() => setActiveTab('disputes')}
+        >
+          Tranh chấp tài chính Escrow ({disputes.items.length})
+        </button>
+        <button
+          type="button"
+          className={`tcs-btn ${activeTab === 'class-issues' ? 'tcs-btn--primary' : 'tcs-btn--ghost'}`}
+          onClick={() => setActiveTab('class-issues')}
+        >
+          Sự cố lớp học (UC-30) ({classReports.length}{openClassReportCount > 0 ? ` · ${openClassReportCount} chờ duyệt` : ''})
+        </button>
+        <button
+          type="button"
+          className={`tcs-btn ${activeTab === 'reviews' ? 'tcs-btn--primary' : 'tcs-btn--ghost'}`}
+          onClick={() => setActiveTab('reviews')}
+        >
+          Báo cáo đánh giá ({reviewReports.length}{openReviewReportCount > 0 ? ` · ${openReviewReportCount} chờ duyệt` : ''})
+        </button>
+      </div>
 
-          <div className="adm-toolbar">
-            <select
-              className="adm-field"
-              value={disputeStatusFilter ?? ''}
-              onChange={(event) =>
-                setDisputeStatusFilter((event.target.value as DisputeStatus) || undefined)
-              }
-            >
-              <option value="">Tất cả trạng thái</option>
-              <option value="OPEN">Mới mở</option>
-              <option value="UNDER_INVESTIGATION">Đang xem xét</option>
-              <option value="WAITING">Chờ bổ sung</option>
-              <option value="RESOLVED">Đã xử lý</option>
-            </select>
-          </div>
-
-          {disputes.status === 'loading' && <div className="adm-state">Đang tải danh sách tranh chấp…</div>}
-          {disputes.status === 'error' && (
-            <div className="adm-state">
-              <p>{disputes.errorMessage ?? 'Không tải được dữ liệu.'}</p>
-              <button className="tcs-btn tcs-btn--primary" type="button" onClick={disputes.reload}>
-                Thử lại
+      {/* TAB 1: TRANH CHẤP TÀI CHÍNH ESCROW */}
+      {activeTab === 'disputes' && (
+        <section id="section-disputes" className="pd-console" aria-label="Danh sách tranh chấp">
+          <div className="adm-card pd-console__list">
+            <div className="pd-card-head">
+              <div>
+                <h2 className="pd-card-head__title">Tranh chấp Escrow</h2>
+                <p className="pd-card-head__meta">{disputes.items.length} hồ sơ</p>
+              </div>
+              <button className="tcs-btn tcs-btn--ghost" type="button" onClick={disputes.reload}>
+                Làm mới
               </button>
             </div>
-          )}
 
-          {disputes.status === 'success' && (
-            <div className="pd-dispute-list">
-              {disputes.items.length === 0 ? (
-                <div className="adm-state">Chưa có tranh chấp nào.</div>
-              ) : (
-                disputes.items.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`pd-dispute-item${
-                      disputes.selected?.disputeId === item.raw.disputeId ? ' pd-dispute-item--active' : ''
-                    }`}
-                    onClick={() => selectDispute(item)}
-                  >
-                    <span className="pd-dispute-item__top">
-                      <span className="pd-dispute-item__id">#{item.id}</span>
-                      <span className={disputeBadgeClass(item.status)}>{item.statusLabel}</span>
-                    </span>
-                    <span className="pd-dispute-item__title">{item.classTitle}</span>
-                    <span className="pd-dispute-item__desc">{item.description}</span>
-                    <span className="pd-dispute-item__meta">
-                      {item.amount} · {item.evidenceCount} bằng chứng · {item.createdAt}
-                      <span className={escrowBadgeClass(item.escrowStatus)}>{item.escrowStatusLabel}</span>
-                    </span>
-                  </button>
-                ))
-              )}
+            <div className="adm-toolbar">
+              <select
+                className="adm-field"
+                value={disputeStatusFilter ?? ''}
+                onChange={(event) =>
+                  setDisputeStatusFilter((event.target.value as DisputeStatus) || undefined)
+                }
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="OPEN">Mới mở</option>
+                <option value="UNDER_INVESTIGATION">Đang xem xét</option>
+                <option value="WAITING">Chờ bổ sung</option>
+                <option value="RESOLVED">Đã xử lý</option>
+              </select>
             </div>
-          )}
-        </div>
 
-        <DisputeDetail
-          detail={disputes.selected}
-          status={disputes.selectedStatus}
-          errorMessage={disputes.detailErrorMessage}
-          onChanged={disputes.reload}
-        />
-      </section>
+            {disputes.status === 'loading' && <div className="adm-state">Đang tải danh sách tranh chấp…</div>}
+            {disputes.status === 'error' && (
+              <div className="adm-state">
+                <p>{disputes.errorMessage ?? 'Không tải được dữ liệu.'}</p>
+                <button className="tcs-btn tcs-btn--primary" type="button" onClick={disputes.reload}>
+                  Thử lại
+                </button>
+              </div>
+            )}
 
-      <section className="pd-console" aria-label="Hàng đợi báo cáo đánh giá">
-        <div className="adm-card pd-console__list">
-          <div className="pd-card-head">
-            <div>
-              <h2 className="pd-card-head__title">Báo cáo đánh giá</h2>
-              <p className="pd-card-head__meta">
-                {reviewReports.length} báo cáo · {openReviewReportCount} chờ xử lý
-              </p>
-            </div>
-            <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reports.reload}>
-              Làm mới
-            </button>
+            {disputes.status === 'success' && (
+              <div className="pd-dispute-list">
+                {disputes.items.length === 0 ? (
+                  <div className="adm-state">Chưa có tranh chấp nào.</div>
+                ) : (
+                  disputes.items.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`pd-dispute-item${
+                        disputes.selected?.disputeId === item.raw.disputeId ? ' pd-dispute-item--active' : ''
+                      }`}
+                      onClick={() => selectDispute(item)}
+                    >
+                      <span className="pd-dispute-item__top">
+                        <span className="pd-dispute-item__id">#{item.id}</span>
+                        <span className={disputeBadgeClass(item.status)}>{item.statusLabel}</span>
+                      </span>
+                      <span className="pd-dispute-item__title">{item.classTitle}</span>
+                      <span className="pd-dispute-item__desc">{item.description}</span>
+                      <span className="pd-dispute-item__meta">
+                        {item.amount} · {item.evidenceCount} bằng chứng · {item.createdAt}
+                        <span className={escrowBadgeClass(item.escrowStatus)}>{item.escrowStatusLabel}</span>
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
           </div>
 
-          {reports.status === 'loading' && (
-            <div className="adm-state adm-state--loading">Đang tải danh sách báo cáo…</div>
-          )}
+          <DisputeDetail
+            detail={disputes.selected}
+            status={disputes.selectedStatus}
+            errorMessage={disputes.detailErrorMessage}
+            onChanged={disputes.reload}
+          />
+        </section>
+      )}
 
-          {reports.status === 'error' && (
-            <div className="adm-state">
-              <p>{reports.errorMessage ?? 'Không tải được dữ liệu.'}</p>
-              <button className="tcs-btn tcs-btn--market" type="button" onClick={reports.reload}>
-                Thử lại
+      {/* TAB 2: SỰ CỐ LỚP HỌC (UC-30 RESOLVE CLASS ISSUES) */}
+      {activeTab === 'class-issues' && (
+        <section id="section-class-issues" className="pd-console" aria-label="Hàng đợi sự cố lớp học">
+          <div className="adm-card pd-console__list">
+            <div className="pd-card-head">
+              <div>
+                <h2 className="pd-card-head__title">Sự cố lớp học (UC-30)</h2>
+                <p className="pd-card-head__meta">
+                  {classReports.length} sự cố · {openClassReportCount} chờ xử lý
+                </p>
+              </div>
+              <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reports.reload}>
+                Làm mới
               </button>
             </div>
-          )}
 
-          {reports.status === 'success' && (
-            <div className="pd-dispute-list">
-              {reviewReports.length === 0 ? (
-                <div className="adm-state">Chưa có báo cáo đánh giá nào.</div>
-              ) : (
-                reviewReports.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className={`pd-dispute-item${
-                      selectedReviewReportId === item.id ? ' pd-dispute-item--active' : ''
-                    }`}
-                    onClick={() => setSelectedReviewReportId(item.id)}
-                  >
-                    <span className="pd-dispute-item__top">
-                      <span className="pd-dispute-item__id">#{item.id}</span>
-                      <span className={reportBadgeClass(item.status)}>{item.statusLabel}</span>
-                    </span>
-                    <span className="pd-dispute-item__title">
-                      {item.reportedReview?.tutorName
-                        ? `Đánh giá gia sư ${item.reportedReview.tutorName}`
-                        : `Đánh giá #${item.targetId}`}
-                    </span>
-                    <span className="pd-dispute-item__desc">{item.userDescription}</span>
-                    <span className="pd-dispute-item__meta">
-                      {item.categoryLabel} · {item.reporterEmail} · {item.createdAt}
-                      {item.reportedReview ? (
-                        <span className="tcs-badge tcs-badge--role">
-                          {REVIEW_MODERATION_LABELS[item.reportedReview.status]
-                            ?? item.reportedReview.status}
-                        </span>
-                      ) : (
-                        <span className="tcs-badge tcs-badge--banned">Đã xóa</span>
-                      )}
-                    </span>
-                  </button>
-                ))
-              )}
+            <div className="adm-toolbar">
+              <select
+                className="adm-field"
+                value={classReportStatusFilter}
+                onChange={(e) => setClassReportStatusFilter(e.target.value)}
+              >
+                <option value="">Tất cả trạng thái</option>
+                <option value="PENDING">Chờ xử lý (Pending)</option>
+                <option value="RESOLVED">Đã giải quyết (Resolved)</option>
+              </select>
             </div>
-          )}
-        </div>
 
-        <ReviewReportDetail detail={selectedReviewReport} onChanged={reports.reload} />
-      </section>
+            {reports.status === 'loading' && (
+              <div className="adm-state adm-state--loading">Đang tải danh sách sự cố lớp học…</div>
+            )}
+
+            {reports.status === 'error' && (
+              <div className="adm-state">
+                <p>{reports.errorMessage ?? 'Không tải được dữ liệu.'}</p>
+                <button className="tcs-btn tcs-btn--market" type="button" onClick={reports.reload}>
+                  Thử lại
+                </button>
+              </div>
+            )}
+
+            {reports.status === 'success' && (
+              <div className="pd-dispute-list">
+                {filteredClassReports.length === 0 ? (
+                  <div className="adm-state">Chưa có sự cố lớp học nào.</div>
+                ) : (
+                  filteredClassReports.map((item: ReportItem) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`pd-dispute-item${
+                        selectedClassReportId === item.id ? ' pd-dispute-item--active' : ''
+                      }`}
+                      onClick={() => setSelectedClassReportId(item.id)}
+                    >
+                      <span className="pd-dispute-item__top">
+                        <span className="pd-dispute-item__id">#{item.id}</span>
+                        <span className={reportBadgeClass(item.status)}>{item.statusLabel}</span>
+                      </span>
+                      <span className="pd-dispute-item__title">{item.classTitle}</span>
+                      <span className="pd-dispute-item__desc">
+                        {item.userDescription || item.description}
+                      </span>
+                      <span className="pd-dispute-item__meta">
+                        {item.issueTypeLabel || item.categoryLabel} · {item.lessonRef ? `Buổi ${item.lessonRef}` : 'Toàn lớp'} · {item.createdAt}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          <ClassIssueReportDetail detail={selectedClassReport} onChanged={reports.reload} />
+        </section>
+      )}
+
+      {/* TAB 3: BÁO CÁO ĐÁNH GIÁ (UC-55 REVIEW MODERATION) */}
+      {activeTab === 'reviews' && (
+        <section id="section-reviews" className="pd-console" aria-label="Hàng đợi báo cáo đánh giá">
+          <div className="adm-card pd-console__list">
+            <div className="pd-card-head">
+              <div>
+                <h2 className="pd-card-head__title">Báo cáo đánh giá</h2>
+                <p className="pd-card-head__meta">
+                  {reviewReports.length} báo cáo · {openReviewReportCount} chờ xử lý
+                </p>
+              </div>
+              <button className="tcs-btn tcs-btn--ghost" type="button" onClick={reports.reload}>
+                Làm mới
+              </button>
+            </div>
+
+            {reports.status === 'loading' && (
+              <div className="adm-state adm-state--loading">Đang tải danh sách báo cáo…</div>
+            )}
+
+            {reports.status === 'error' && (
+              <div className="adm-state">
+                <p>{reports.errorMessage ?? 'Không tải được dữ liệu.'}</p>
+                <button className="tcs-btn tcs-btn--market" type="button" onClick={reports.reload}>
+                  Thử lại
+                </button>
+              </div>
+            )}
+
+            {reports.status === 'success' && (
+              <div className="pd-dispute-list">
+                {reviewReports.length === 0 ? (
+                  <div className="adm-state">Chưa có báo cáo đánh giá nào.</div>
+                ) : (
+                  reviewReports.map((item) => (
+                    <button
+                      key={item.id}
+                      type="button"
+                      className={`pd-dispute-item${
+                        selectedReviewReportId === item.id ? ' pd-dispute-item--active' : ''
+                      }`}
+                      onClick={() => setSelectedReviewReportId(item.id)}
+                    >
+                      <span className="pd-dispute-item__top">
+                        <span className="pd-dispute-item__id">#{item.id}</span>
+                        <span className={reportBadgeClass(item.status)}>{item.statusLabel}</span>
+                      </span>
+                      <span className="pd-dispute-item__title">
+                        {item.reportedReview?.tutorName
+                          ? `Đánh giá gia sư ${item.reportedReview.tutorName}`
+                          : `Đánh giá #${item.targetId}`}
+                      </span>
+                      <span className="pd-dispute-item__desc">{item.userDescription}</span>
+                      <span className="pd-dispute-item__meta">
+                        {item.categoryLabel} · {item.reporterEmail} · {item.createdAt}
+                        {item.reportedReview ? (
+                          <span className="tcs-badge tcs-badge--role">
+                            {REVIEW_MODERATION_LABELS[item.reportedReview.status]
+                              ?? item.reportedReview.status}
+                          </span>
+                        ) : (
+                          <span className="tcs-badge tcs-badge--banned">Đã xóa</span>
+                        )}
+                      </span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+
+          <ReviewReportDetail detail={selectedReviewReport} onChanged={reports.reload} />
+        </section>
+      )}
 
     </AdminLayout>
   );
 }
+

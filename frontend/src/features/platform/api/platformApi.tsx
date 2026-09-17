@@ -8,6 +8,7 @@ import type {
   AppealDisputeApiRequest,
   AuditLogFilters,
   CloseTicketApiRequest,
+  CreateUserApiRequest,
   DashboardApiResponse,
   DisputeStatus,
   ExecuteRefundApiRequest,
@@ -75,6 +76,10 @@ export const platformApi = {
 
   getUsers(filters: UserListFilters) {
     return axiosClient.get<PageUserListApiResponse>(`${BASE}/users?${buildUserListQuery(filters)}`);
+  },
+
+  createUser(payload: CreateUserApiRequest) {
+    return axiosClient.post<UserListItemApiResponse>(`${BASE}/users`, payload);
   },
 
   getWithdrawals(filters: WithdrawalListFilters) {
@@ -344,5 +349,36 @@ export const platformApi = {
     return axiosClient.get<Blob>(`${BASE}/analytics/export?${params}`, {
       responseType: 'blob',
     });
+  },
+
+  getClasses(status?: string) {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    return axiosClient.get<any[]>(`/marketplace/classes${params.toString() ? `?${params}` : ''}`);
+  },
+
+  getClassDetail(classId: number | string) {
+    return axiosClient.get<any>(`/marketplace/classes/${classId}`);
+  },
+
+  getPlatformSchedule(date?: string) {
+    const q = date ? `?date=${date}` : '';
+    return axiosClient.get<import('../../center/types/centerTypes').ScheduleClass[]>(`${BASE}/classes/schedule${q}`);
+  },
+
+  getContractTemplates() {
+    return axiosClient.get<any[]>(`${BASE}/contract-templates`);
+  },
+
+  createContractTemplate(payload: { name: string; content: string; contractType?: string }) {
+    return axiosClient.post<any>(`${BASE}/contract-templates`, payload);
+  },
+
+  updateContractTemplate(templateId: number, payload: { name: string; content: string; contractType?: string }) {
+    return axiosClient.put<any>(`${BASE}/contract-templates/${templateId}`, payload);
+  },
+
+  deleteContractTemplate(templateId: number) {
+    return axiosClient.delete(`${BASE}/contract-templates/${templateId}`);
   },
 };

@@ -30,6 +30,15 @@ export interface UpdateUserStatusApiRequest {
   status: UserStatus;
 }
 
+export interface CreateUserApiRequest {
+  email: string;
+  password: string;
+  displayName: string;
+  phone?: string;
+  role: UserRole;
+  status?: UserStatus;
+}
+
 export interface UserListItem {
   id: string;
   email: string;

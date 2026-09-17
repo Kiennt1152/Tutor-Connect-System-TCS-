@@ -7,6 +7,9 @@ import com.tcs.module.contract.repository.ContractRepository;
 import com.tcs.module.finance.entity.PaymentTransaction;
 import com.tcs.module.finance.enums.PaymentTransactionStatus;
 import com.tcs.module.finance.enums.PaymentTransactionType;
+import com.tcs.module.finance.entity.EscrowTransaction;
+import com.tcs.module.finance.enums.EscrowStatus;
+import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.repository.DisputeRepository;
 import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.identity.entity.User;
@@ -73,6 +76,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
     private final DisputeRepository disputeRepository;
     private final ContractRepository contractRepository;
     private final SystemParameterRepository systemParameterRepository;
+    private final EscrowTransactionRepository escrowTransactionRepository;
     private final com.tcs.module.platform.service.AuditLogService auditLogService;
 
     /**
@@ -140,7 +144,14 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         BigDecimal withdrawals = sumTransactions(allTransactions, PaymentTransactionType.WITHDRAWAL);
         BigDecimal escrowDeposited = sumTransactions(allTransactions, PaymentTransactionType.ESCROW_DEPOSIT);
         BigDecimal escrowReleased = sumTransactions(allTransactions, PaymentTransactionType.ESCROW_RELEASE);
-        BigDecimal escrowRefunded = sumTransactions(allTransactions, PaymentTransactionType.REFUND);
+        BigDecimal escrowRefundedTx = sumTransactions(allTransactions, PaymentTransactionType.REFUND);
+        BigDecimal escrowRefundedFromEscrows = escrowTransactionRepository.findAll().stream()
+                .filter(e -> e.getStatus() == EscrowStatus.REFUNDED)
+                .filter(e -> inRange(e.getUpdatedAt() != null ? e.getUpdatedAt() : e.getCreatedAt(), from, to))
+                .map(EscrowTransaction::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal escrowRefunded = escrowRefundedTx.max(escrowRefundedFromEscrows);
         BigDecimal escrowHeld = escrowDeposited
                 .subtract(escrowReleased)
                 .subtract(escrowRefunded)
@@ -185,7 +196,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
         }
 
         // --- Money In / Out / Net ---
-        BigDecimal moneyIn = deposits.add(escrowDeposited).add(platformFeeRevenue);
+        BigDecimal moneyIn = deposits.add(escrowDeposited);
         BigDecimal moneyOut = withdrawals.add(escrowRefunded);
         BigDecimal netMovement = moneyIn.subtract(moneyOut);
 
@@ -207,14 +218,16 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
                     || txType == PaymentTransactionType.ESCROW_DEPOSIT;
             breakdown.add(TransactionTypeBreakdown.builder()
                     .type(txType.name())
-                    .count((int) count)
+                    .label(getTxTypeLabel(txType))
+                    .count(count)
                     .totalAmount(sum)
                     .direction(isMoneyIn ? "IN" : "OUT")
                     .build());
         }
         breakdown.add(TransactionTypeBreakdown.builder()
                 .type("PLATFORM_FEE")
-                .count((int) countPlatformFeeTransactions(allTransactions))
+                .label("Phí dịch vụ nền tảng (2%)")
+                .count(countPlatformFeeTransactions(allTransactions))
                 .totalAmount(platformFeeRevenue)
                 .direction("IN")
                 .build());
@@ -355,9 +368,9 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
 
     private BigDecimal sumTransactions(List<PaymentTransaction> transactions, PaymentTransactionType type) {
         return transactions.stream()
-                .filter(item -> item.getStatus() == PaymentTransactionStatus.SUCCESS
-                        && item.getType() == type
-                        && !isPlatformFeeTransaction(item))
+                .filter(item -> item.getType() == type
+                        && !isPlatformFeeTransaction(item)
+                        && item.getStatus() == PaymentTransactionStatus.SUCCESS)
                 .map(PaymentTransaction::getAmount)
                 .filter(java.util.Objects::nonNull)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
@@ -365,10 +378,22 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
 
     private long countTransactions(List<PaymentTransaction> transactions, PaymentTransactionType type) {
         return transactions.stream()
-                .filter(item -> item.getStatus() == PaymentTransactionStatus.SUCCESS
-                        && item.getType() == type
-                        && !isPlatformFeeTransaction(item))
+                .filter(item -> item.getType() == type
+                        && !isPlatformFeeTransaction(item)
+                        && item.getStatus() == PaymentTransactionStatus.SUCCESS)
                 .count();
+    }
+
+    private String getTxTypeLabel(PaymentTransactionType type) {
+        if (type == null) return "Khác";
+        return switch (type) {
+            case DEPOSIT -> "Nạp tiền vào ví (Deposit)";
+            case WITHDRAWAL -> "Rút tiền về tài khoản (Withdrawal)";
+            case ESCROW_DEPOSIT -> "Ký quỹ lớp học (Escrow Deposit)";
+            case ESCROW_RELEASE -> "Giải ngân học phí (Escrow Release)";
+            case REFUND -> "Hoàn tiền ký quỹ (Escrow Refund)";
+            case PLATFORM_FEE -> "Phí dịch vụ nền tảng (2%)";
+        };
     }
 
     private BigDecimal sumPlatformFeeTransactions(List<PaymentTransaction> transactions) {

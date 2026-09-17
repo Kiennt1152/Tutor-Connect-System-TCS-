@@ -3,6 +3,7 @@ package com.tcs.module.platform.controller;
 import com.tcs.module.contract.enums.ReviewStatus;
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.messaging.dto.response.SupportTicketDetailResponse;
+import com.tcs.module.platform.dto.request.CreateUserAdminRequest;
 import com.tcs.module.platform.dto.request.CloseTicketRequest;
 import com.tcs.module.platform.dto.request.ModerateReviewRequest;
 import com.tcs.module.platform.dto.request.RespondTicketRequest;
@@ -54,6 +55,11 @@ public class PlatformController {
             @RequestParam(required = false) UserRole role,
             @RequestParam(required = false) String keyword) {
         return platformService.getUsers(page, size, status, role, keyword);
+    }
+
+    @PostMapping("/users")
+    public UserListItemResponse createUser(@Valid @RequestBody CreateUserAdminRequest request) {
+        return platformService.createUser(request);
     }
 
     @PatchMapping("/users/{userId}/status")
@@ -197,4 +203,41 @@ public class PlatformController {
         int count = platformService.scanAndEscalateSlaBreaches();
         return java.util.Map.of("message", "Quét SLA hoàn tất", "escalatedCount", count);
     }
+
+    // =========================================================================
+    // LUỒNG 8: QUẢN LÝ MẪU HỢP ĐỒNG ĐIỆN TỬ (UC-45, ROLE: ADMIN)
+    // =========================================================================
+    @GetMapping("/contract-templates")
+    public List<com.tcs.module.center.dto.response.ContractTemplateResponse> listContractTemplates() {
+        return platformService.listContractTemplates();
+    }
+
+    @PostMapping("/contract-templates")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.CREATED)
+    public com.tcs.module.center.dto.response.ContractTemplateResponse createContractTemplate(
+            @RequestBody com.tcs.module.center.dto.request.SaveContractTemplateRequest request) {
+        return platformService.createContractTemplate(request);
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/contract-templates/{templateId}")
+    public com.tcs.module.center.dto.response.ContractTemplateResponse updateContractTemplate(
+            @PathVariable Long templateId,
+            @RequestBody com.tcs.module.center.dto.request.SaveContractTemplateRequest request) {
+        return platformService.updateContractTemplate(templateId, request);
+    }
+
+    @DeleteMapping("/contract-templates/{templateId}")
+    public void deleteContractTemplate(@PathVariable Long templateId) {
+        platformService.deleteContractTemplate(templateId);
+    }
+
+    // =========================================================================
+    // LUỒNG GIÁM SÁT LỊCH HỌC TOÀN HỆ THỐNG THEO NGÀY (UC-21, ROLE: ADMIN)
+    // =========================================================================
+    @GetMapping("/classes/schedule")
+    public List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getPlatformSchedule(
+            @RequestParam(required = false) java.time.LocalDate date) {
+        return platformService.getPlatformSchedule(date);
+    }
 }
+

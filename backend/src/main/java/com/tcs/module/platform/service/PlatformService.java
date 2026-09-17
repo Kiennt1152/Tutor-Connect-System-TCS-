@@ -31,6 +31,8 @@ public interface PlatformService {
 
     PageUserListResponse getUsers(int page, int size, UserStatus status, UserRole role, String keyword);
 
+    UserListItemResponse createUser(com.tcs.module.platform.dto.request.CreateUserAdminRequest request);
+
     UserListItemResponse updateUserStatus(Long userId, UpdateUserStatusRequest request);
 
     DashboardResponse getDashboard(LocalDate from, LocalDate to, String granularity);
@@ -85,4 +87,19 @@ public interface PlatformService {
 
     /** Admin chuyển tiếp ticket hỗ trợ sang luồng xử lý tranh chấp BF-08 (BF09-TC07). */
     SupportTicketDetailResponse redirectTicketToDispute(Long ticketId, com.tcs.module.platform.dto.request.RedirectDisputeRequest request);
+
+    /** UC-45: Quản lý mẫu hợp đồng điện tử (E-Contract Templates) cho Admin. */
+    List<com.tcs.module.center.dto.response.ContractTemplateResponse> listContractTemplates();
+
+    com.tcs.module.center.dto.response.ContractTemplateResponse createContractTemplate(
+            com.tcs.module.center.dto.request.SaveContractTemplateRequest request);
+
+    com.tcs.module.center.dto.response.ContractTemplateResponse updateContractTemplate(
+            Long templateId, com.tcs.module.center.dto.request.SaveContractTemplateRequest request);
+
+    void deleteContractTemplate(Long templateId);
+
+    /** UC-21: Giám sát lịch học và điểm danh toàn hệ thống theo ngày cho Admin. */
+    List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getPlatformSchedule(java.time.LocalDate date);
 }
+

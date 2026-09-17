@@ -105,6 +105,11 @@ export interface CenterClassStat {
   absent: number;
   excused: number;
   attendanceRate: number;
+  totalSessions?: number;
+  completedSessions?: number;
+  progressPercent?: number;
+  startDate?: string | null;
+  endDate?: string | null;
 }
 export interface CenterStudentStat {
   classStudentId: number;
