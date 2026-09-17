@@ -33,7 +33,26 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Production-Grade Orchestrator for the AI Assistant, Contextual RAG, and Intent Routing.
+ * ====================================================================================================
+ * [UC-65] TRỢ LÝ AI HỖ TRỢ THÔNG MINH RAG CHATBOT & ĐIỀU PHỐI ĐA MÔ HÌNH (AI RAG SERVICE ORCHESTRATOR)
+ * ====================================================================================================
+ * Lõi điều phối chính của Module AI phục vụ Trợ lý thông minh TCS (Tutor Connect System).
+ * Hiện thực hóa quy trình 12 bước RAG (Retrieval-Augmented Generation) đạt chuẩn Enterprise:
+ * 
+ * 1.  Content Safety & Prompt Injection Guard: Quét nội dung độc hại, injection hoặc rò rỉ dữ liệu riêng tư.
+ * 2.  Synonym & Follow-up Expansion: Chuẩn hóa tiếng Việt, nhận diện đại từ chỉ định thay thế ("anh ấy", "môn này").
+ * 3.  Semantic Cache Check: Phục vụ ngay dưới 50ms nếu có câu hỏi tương tự với ngưỡng tương đồng Jaccard/Cosine >= 0.85.
+ * 4.  3-Tier Intent Classification: Phân loại 3 tầng (Domain / SubIntent / Entity Extraction) tối ưu hóa truy vấn.
+ * 5.  Fast-Path Safety & Out-of-Scope Gating: Trả lời lập tức các câu chào hỏi/cảm ơn; từ chối lịch sự câu hỏi ngoài phạm vi.
+ * 6.  Query Rewriting: Tái cấu trúc câu hỏi người dùng dựa trên ngữ cảnh lịch sử hội thoại gần nhất.
+ * 7.  Capability Policy & RBAC Guard: Kiểm tra thẩm quyền truy cập theo vai trò người dùng (GUEST, CLIENT, TUTOR, ADMIN).
+ * 8.  Hybrid Vector & BM25 Retrieval: Tìm kiếm kết hợp vector embedding (Cosine) và từ khóa chính xác (BM25).
+ * 9.  Business Context Injection: Tự động bổ sung dữ liệu động thời gian thực (Gia sư, Lớp học, Ví tiền, Số liệu sàn).
+ * 10. Contextual Window Expansion: Ghép nối các chunk tri thức liền kề tăng độ mạch lạc cho thông tin truy xuất.
+ * 11. Grounding Evaluation & LLM Multi-Provider: Đánh giá độ tin cậy nguồn tin, gọi định tuyến mô hình (Groq, Cerebras, DeepSeek, Gemini).
+ * 12. Hallucination Guard & Reference Cards: Quét hậu kỳ chống bịa đặt dữ liệu (scrubbing), đóng gói Card UI tương tác.
+ * 
+ * @author mduc1011-swp (Đức)
  */
 @Slf4j
 @Service
@@ -788,6 +807,13 @@ public class AiServiceImpl implements AiService {
         return "Xin chào! Tôi là Trợ lý AI của Tutor Connect System (TCS). Tôi có thể hỗ trợ bạn tìm kiếm gia sư, tham khảo lớp học, tra cứu học phí và giải đáp các quy định của hệ thống. Bạn có câu hỏi nào cụ thể về gia sư hoặc lớp học không ạ?";
     }
 
+    /**
+     * [UC-65] Lấy danh sách các phiên hội thoại AI (Sessions) của người dùng hiện tại.
+     * Sắp xếp theo thứ tự thời gian tương tác mới nhất giảm dần.
+     * 
+     * @param userId ID người dùng đã đăng nhập (null nếu là Guest)
+     * @return Danh sách các phiên trò chuyện {@link AiSessionResponse}
+     */
     @Override
     @Transactional(readOnly = true)
     public List<AiSessionResponse> getUserSessions(Long userId) {
@@ -801,6 +827,15 @@ public class AiServiceImpl implements AiService {
                 .build()).collect(Collectors.toList());
     }
 
+    /**
+     * [UC-65] Lấy toàn bộ lịch sử tin nhắn trong một phiên hội thoại AI.
+     * Tự động hydrate các thực thể liên quan (Gia sư, Lớp học, FAQ) để hiển thị đầy đủ thẻ tương tác.
+     * Áp dụng xác thực quyền sở hữu phiên chat để ngăn chặn IDOR.
+     * 
+     * @param sessionId ID của phiên trò chuyện cần tải
+     * @param userId ID người dùng đang gửi yêu cầu
+     * @return Danh sách các tin nhắn {@link AiMessageResponse} kèm thẻ tham chiếu
+     */
     @Override
     @Transactional(readOnly = true)
     public List<AiMessageResponse> getSessionMessages(Long sessionId, Long userId) {
@@ -855,6 +890,13 @@ public class AiServiceImpl implements AiService {
         }).collect(Collectors.toList());
     }
 
+    /**
+     * [UC-65] Xóa một phiên trò chuyện cùng toàn bộ tin nhắn liên quan.
+     * Áp dụng kiểm tra quyền sở hữu (session isolation) trước khi thực hiện xóa.
+     * 
+     * @param sessionId ID phiên trò chuyện cần xóa
+     * @param userId ID người dùng yêu cầu xóa
+     */
     @Override
     @Transactional
     public void deleteSession(Long sessionId, Long userId) {

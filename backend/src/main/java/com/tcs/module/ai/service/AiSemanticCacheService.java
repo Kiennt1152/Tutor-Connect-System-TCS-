@@ -16,10 +16,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * =========================================================================
- * LUỒNG 2: BỘ NHỚ ĐỆM NGỮ NGHĨA SEMANTIC CACHE SERVICE (UC-65)
- * =========================================================================
- * Lưu trữ và phục vụ tức thì (<50ms) các câu hỏi có độ tương đồng ngữ nghĩa Jaccard >= 0.85
+ * ====================================================================================================
+ * [UC-65] BỘ NHỚ ĐỆM NGỮ NGHĨA SEMANTIC CACHE SERVICE (SUB-50MS RESPONSE ENGINE)
+ * ====================================================================================================
+ * Hệ thống lưu trữ đệm thông minh phục vụ phản hồi tức thì (<50ms) cho các câu hỏi phổ biến:
+ * 1. Exact Hash Match: Băm SHA-256 câu hỏi sau khi đã chuẩn hóa tiếng Việt và từ đồng nghĩa.
+ * 2. Semantic Similarity Match: So khớp độ tương đồng ngữ nghĩa Vector Cosine / Jaccard với ngưỡng >= 0.85.
+ * 3. Cache TTL & Invalidation: Hết hạn tự động sau khoảng thời gian quy định (24h) hoặc khi cập nhật CSDL tri thức.
+ * 4. Hit Tracking: Ghi nhận số lượt trúng đệm (hitCount) nhằm tối ưu hiệu năng và giám sát chất lượng hội thoại.
+ * 
+ * @author mduc1011-swp (Đức)
  */
 @Slf4j
 @Service

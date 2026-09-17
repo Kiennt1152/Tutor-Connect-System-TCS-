@@ -7,9 +7,24 @@ import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
+/**
+ * ====================================================================================================
+ * [UC-65] ĐIỀU PHỐI KHẢ NĂNG & KIỂM SOÁT QUYỀN TRUY XUẤT AI (AI CAPABILITY ROUTER & RBAC POLICY)
+ * ====================================================================================================
+ * Thành phần quyết định chiến lược xử lý cho từng phân hệ nghiệp vụ (Domain & Sub-Intent):
+ * 1. RBAC Guard: Xác định các vai trò người dùng được phép kích hoạt năng lực (PLATFORM_ADMIN, TUTOR, CLIENT, GUEST).
+ * 2. Card Policy: Quy định loại UI card được trả về frontend (Tutor Cards, Class Cards, FAQ Cards, Deep-link Only).
+ * 3. Guard Type: Kích hoạt các bộ tiền kiểm và hậu kiểm đặc thù (Loại bỏ tên gia sư bịa đặt, bảo vệ số liệu thống kê, chặn rò rỉ số dư ví).
+ * 4. Fallback Strategy: Cung cấp thông điệp điều hướng trực quan khi người dùng chưa đăng nhập hoặc không đủ thẩm quyền.
+ * 
+ * @author mduc1011-swp (Đức)
+ */
 @Service
 public class AiCapabilityRouter {
 
+    /**
+     * Chính sách quy định loại Card hiển thị đính kèm phản hồi của AI.
+     */
     public enum CardPolicy {
         NONE,
         TUTOR_CARDS,
@@ -21,6 +36,9 @@ public class AiCapabilityRouter {
         MIXED_ALLOWED
     }
 
+    /**
+     * Bộ tiền kiểm/hậu kiểm chuyên biệt áp dụng cho từng miền dữ liệu.
+     */
     public enum GuardType {
         TUTOR_NAME_SCRUB,
         STATS_NUMBER_GUARD,
@@ -28,6 +46,9 @@ public class AiCapabilityRouter {
         NONE
     }
 
+    /**
+     * Bản ghi định nghĩa toàn bộ quy tắc nghiệp vụ cho một Domain/SubIntent.
+     */
     public record CapabilityPolicy(
         Set<String> allowedSourceTypes,
         boolean requireAuth,

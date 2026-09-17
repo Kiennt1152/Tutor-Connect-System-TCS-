@@ -10,6 +10,18 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 
+/**
+ * ====================================================================================================
+ * [UC-65] ĐIỀU PHỐI ĐA MÔ HÌNH NGÔN NGỮ LỚN & CHUYỂN ĐỔI DỰ PHÒNG (MULTI-LLM PROVIDER ROUTER)
+ * ====================================================================================================
+ * Thành phần định tuyến thông minh giữa các nhà cung cấp mô hình trí tuệ nhân tạo hàng đầu:
+ * 1. Thứ tự ưu tiên mặc định (Priority Order): Groq (Llama-3.3-70b) -> Cerebras -> DeepSeek -> Google Gemini.
+ * 2. Automatic Failover & Circuit Breaking: Tự động chuyển nhà cung cấp tiếp theo nếu gặp lỗi Rate Limit (429) hoặc Timeout.
+ * 3. Cooldown Management: Đưa nhà cung cấp bị quá tải vào trạng thái nghỉ tạm thời (cooldown 60s) trước khi thử lại.
+ * 4. Total Generation Deadline: Đảm bảo toàn bộ chuỗi gọi LLM không vượt quá thời gian tối đa (20 giây).
+ * 
+ * @author mduc1011-swp (Đức)
+ */
 @Slf4j
 @Service
 public class AiProviderRouter {

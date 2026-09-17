@@ -46,8 +46,16 @@ public class CatalogController {
     }
 
     // =========================================================================
-    // LUỒNG 1: TRA CỨU & TÌM KIẾM FAQ TRI THỨC (/help - UC-61, UC-67)
+    // LUỒNG 1: TRA CỨU & TÌM KIẾM FAQ TRI THỨC (/help - UC-65, UC-67)
     // =========================================================================
+    /**
+     * [UC-67] Tra cứu danh sách FAQ công khai dành cho học viên và gia sư (/help).
+     * Hỗ trợ tìm kiếm theo danh mục phân loại hoặc từ khóa câu hỏi/nội dung.
+     * 
+     * @param category Danh mục FAQ (tùy chọn, ví dụ: 'PAYMENT', 'POLICY', 'ACCOUNT')
+     * @param keyword Từ khóa tìm kiếm trong câu hỏi hoặc câu trả lời
+     * @return Danh sách FAQ {@link FaqResponse} thỏa mãn điều kiện lọc
+     */
     @GetMapping("/faq")
     public List<FaqResponse> getFaqEntries(
             @RequestParam(required = false) String category,
@@ -56,6 +64,12 @@ public class CatalogController {
         return catalogService.getFaqEntries(category, keyword);
     }
 
+    /**
+     * [UC-65] Hỏi đáp nhanh với trợ lý Chatbot hỗ trợ người dùng trên nền tảng.
+     * 
+     * @param request Câu hỏi người dùng {@link ChatbotAskRequest}
+     * @return Câu trả lời gợi ý {@link ChatbotAskResponse}
+     */
     @PostMapping("/chatbot/ask")
     public ChatbotAskResponse askChatbot(@Valid @RequestBody ChatbotAskRequest request) {
         return catalogService.askChatbot(request);
@@ -64,6 +78,14 @@ public class CatalogController {
     // =========================================================================
     // LUỒNG 6: QUẢN TRỊ TRI THỨC FAQ - ADMIN CRUD (/platform/faq - UC-67)
     // =========================================================================
+    /**
+     * [UC-67] Danh sách toàn bộ FAQ cho trang quản trị Admin (/platform/faq).
+     * Hiển thị cả các mục đang ẩn/vô hiệu hóa, hỗ trợ lọc theo danh mục và từ khóa.
+     * 
+     * @param category Danh mục phân loại FAQ
+     * @param keyword Từ khóa tìm kiếm
+     * @return Danh sách đầy đủ các mục FAQ {@link FaqResponse}
+     */
     @GetMapping("/faq/admin")
     public List<FaqResponse> getFaqEntriesForAdmin(
             @RequestParam(required = false) String category,
@@ -72,16 +94,36 @@ public class CatalogController {
         return catalogService.getFaqEntriesForAdmin(category, keyword);
     }
 
+    /**
+     * [UC-67] Thêm mới câu hỏi thường gặp FAQ vào kho tri thức nền tảng.
+     * Tự động tạo vector embedding để phục vụ tìm kiếm ngữ nghĩa RAG nếu bật AI pipeline.
+     * 
+     * @param request Dữ liệu FAQ mới {@link UpsertFaqRequest}
+     * @return FAQ vừa tạo thành công {@link FaqResponse}
+     */
     @PostMapping("/faq")
     public FaqResponse createFaqEntry(@Valid @RequestBody UpsertFaqRequest request) {
         return catalogService.createFaqEntry(request);
     }
 
+    /**
+     * [UC-67] Cập nhật nội dung, tiêu đề hoặc trạng thái hiển thị của một câu hỏi FAQ.
+     * 
+     * @param faqId ID của mục FAQ cần chỉnh sửa
+     * @param request Dữ liệu cập nhật {@link UpsertFaqRequest}
+     * @return FAQ sau khi cập nhật thành công {@link FaqResponse}
+     */
     @PatchMapping("/faq/{faqId}")
     public FaqResponse updateFaqEntry(@PathVariable Long faqId, @Valid @RequestBody UpsertFaqRequest request) {
         return catalogService.updateFaqEntry(faqId, request);
     }
 
+    /**
+     * [UC-67] Xóa một câu hỏi FAQ khỏi kho tri thức.
+     * Đồng thời loại bỏ các chunk tương ứng trong cơ sở dữ liệu vector/retrieval.
+     * 
+     * @param faqId ID của mục FAQ cần xóa
+     */
     @DeleteMapping("/faq/{faqId}")
     public void deleteFaqEntry(@PathVariable Long faqId) {
         catalogService.deleteFaqEntry(faqId);

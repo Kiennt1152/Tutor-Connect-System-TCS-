@@ -9,6 +9,18 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+/**
+ * ====================================================================================================
+ * [UC-65] TRUY VẤN TRI THỨC LAI HYBRID VECTOR & BM25 SEARCH (AI RETRIEVAL SERVICE)
+ * ====================================================================================================
+ * Động cơ tìm kiếm tri thức RAG cốt lõi kết hợp 2 kỹ thuật:
+ * 1. Dense Vector Search (Cosine Similarity): So khớp ý nghĩa ngữ nghĩa bằng vector embedding đa chiều.
+ * 2. Sparse Keyword Search (BM25 Engine): So khớp chính xác thuật ngữ chuyên ngành (môn học, lớp, mã số, học phí).
+ * 3. Permission Filtering: Lọc phân quyền dữ liệu theo vai trò người dùng (USER, TUTOR, ADMIN) trước khi đưa vào ngữ cảnh.
+ * 4. A/B Testing Integration: Hỗ trợ thử nghiệm các chiến lược RAG khác nhau cho từng nhóm người dùng.
+ * 
+ * @author mduc1011-swp (Đức)
+ */
 @Slf4j
 @Service
 public class AiRetrievalService {

@@ -12,7 +12,16 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Service to post-process LLM synthesized responses and enforce anti-hallucination policies.
+ * ====================================================================================================
+ * [UC-65] KIỂM SOÁT & TRIỆT TIÊU ẢO GIÁC AI (AI POST-LLM HALLUCINATION GUARD SERVICE)
+ * ====================================================================================================
+ * Hậu kiểm phản hồi tổng hợp từ mô hình ngôn ngữ lớn (LLM) để đảm bảo độ tin cậy tuyệt đối:
+ * 1. Tutor Name Scrubbing: Quét và loại bỏ mọi tên gia sư, số điện thoại bị LLM tự bịa đặt không có trong CSDL thật.
+ * 2. Class Entity Guard: Đảm bảo mã lớp học và môn học trả về khớp 100% với danh mục lớp đang tuyển sinh.
+ * 3. Platform Stats Number Guard: Ngăn chặn LLM bịa số liệu tài chính, số lượng thành viên; ép dùng số liệu thật từ context.
+ * 4. Finance Role Guard: Chặn không cho tiết lộ số dư hoặc thu nhập nếu chưa đăng nhập đúng quyền.
+ * 
+ * @author mduc1011-swp (Đức)
  */
 @Slf4j
 @Service

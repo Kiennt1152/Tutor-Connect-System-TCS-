@@ -14,6 +14,18 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ====================================================================================================
+ * [UC-67] TỰ ĐỘNG TỔNG HỢP & ĐỀ XUẤT BẢN NHÁP FAQ TỪ TICKET HỖ TRỢ (DYNAMIC FAQ GENERATION SERVICE)
+ * ====================================================================================================
+ * Dịch vụ phân tích tự động các phiếu khiếu nại/hỗ trợ (Support Tickets) lặp lại để sinh FAQ nháp:
+ * 1. Nightly Scheduled Task: Chạy ngầm định kỳ lúc 02:00 AM hàng ngày quét toàn bộ ticket giải quyết trong 7 ngày qua.
+ * 2. Topic Clustering: Gom cụm các ticket theo danh mục (Category) và từ khóa chuẩn hóa (Vietnamese Text Normalizer).
+ * 3. Min Occurrence Filtering: Chỉ tạo bản thảo FAQ nếu một chủ đề xuất hiện từ 2 lần trở lên (minOccurrences).
+ * 4. Draft State Persistence: Lưu vào bảng FAQ với trạng thái nháp (is_active = false) chờ Admin phê duyệt trước khi công khai.
+ * 
+ * @author mduc1011-swp (Đức)
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
