@@ -17,6 +17,10 @@ public class AdminEscrowResponse {
     private String payerEmail;
     private Long beneficiaryUserId;
     private String beneficiaryEmail;
+    private String transactionType;
+    private String transactionTypeLabel;
+    private Long classId;
+    private String classTitle;
     private Long assignmentId;
     private Long classStudentId;
     private LocalDateTime depositedAt;

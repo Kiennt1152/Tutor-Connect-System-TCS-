@@ -212,6 +212,8 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 "/api/center/classes/**",
+                                "/api/center/students/**",
+                                "/api/center/finance/**",
                                 "/api/center/tutors",
                                 "/api/center/class-requests",
                                 "/api/center/class-requests/**",

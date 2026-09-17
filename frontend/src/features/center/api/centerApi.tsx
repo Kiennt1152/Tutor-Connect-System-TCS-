@@ -22,6 +22,23 @@ import type {
 
 export const CENTER_API_BASE = '/center';
 
+/**
+ * Đổi thân lỗi dạng Blob (khi gọi API với responseType: 'blob') thành JSON tại chỗ,
+ * để các hàm đọc lỗi quen thuộc vẫn lấy được `error.response.data.message`.
+ */
+async function unwrapBlobError(err: unknown): Promise<void> {
+  const response = (err as { response?: { data?: unknown } })?.response;
+  if (!response || !(response.data instanceof Blob)) {
+    return;
+  }
+  try {
+    const text = await response.data.text();
+    response.data = JSON.parse(text);
+  } catch {
+    // Không phải JSON (vd. trang lỗi HTML) -> giữ nguyên, nơi gọi dùng câu báo lỗi mặc định.
+  }
+}
+
 export const centerApi = {
   // Bước 13b/14: trung tâm xác nhận khóa học hoàn thành -> tất toán + đóng lớp.
   completeClass(classId: number) {
@@ -30,6 +47,57 @@ export const centerApi = {
   // Thống kê tình trạng lớp (điểm danh) — biểu đồ + số tổng hợp cho trung tâm.
   getStats() {
     return axiosClient.get<import('../types/centerTypes').CenterStats>(`${CENTER_API_BASE}/stats`);
+  },
+  // UC-41: báo cáo tài chính của trung tâm. Bỏ trống ngày -> server lấy 12 tháng gần nhất.
+  getFinanceReport(from?: string, to?: string) {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const query = params.toString();
+    return axiosClient.get<import('../types/centerTypes').CenterFinanceReport>(
+      `${CENTER_API_BASE}/finance/report${query ? `?${query}` : ''}`,
+    );
+  },
+  // UC-43: tải báo cáo tài chính dạng Excel, cùng khoảng ngày đang xem trên màn hình.
+  async exportFinanceReport(from?: string, to?: string): Promise<{ blob: Blob; filename: string }> {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const query = params.toString();
+    try {
+      const res = await axiosClient.get(
+        `${CENTER_API_BASE}/finance/report/export${query ? `?${query}` : ''}`,
+        { responseType: 'blob' },
+      );
+      const disposition = String(res.headers?.['content-disposition'] ?? '');
+      const matched = /filename="?([^"]+)"?/.exec(disposition);
+      return { blob: res.data as Blob, filename: matched?.[1] ?? 'bao-cao-tai-chinh.xlsx' };
+    } catch (err) {
+      await unwrapBlobError(err);
+      throw err;
+    }
+  },
+  // UC-20: tải danh sách học viên dạng Excel. Không truyền classId -> xuất toàn bộ lớp.
+  // Trả về cả blob và tên file do server đặt (đọc từ header Content-Disposition).
+  async exportStudents(classId?: number): Promise<{ blob: Blob; filename: string }> {
+    const query = classId != null ? `?classId=${classId}` : '';
+    try {
+      const res = await axiosClient.get(`${CENTER_API_BASE}/students/export${query}`, {
+        responseType: 'blob',
+      });
+      const disposition = String(res.headers?.['content-disposition'] ?? '');
+      const matched = /filename="?([^"]+)"?/.exec(disposition);
+      return {
+        blob: res.data as Blob,
+        filename: matched?.[1] ?? 'hoc-vien.xlsx',
+      };
+    } catch (err) {
+      // Khi tải kiểu blob, thân lỗi cũng là Blob nên nơi gọi đọc err.response.data.message ra
+      // undefined và chỉ hiện được câu báo lỗi chung. Đọc blob ra JSON rồi gắn ngược lại để
+      // thông báo tiếng Việt của server hiện đúng như mọi API khác.
+      await unwrapBlobError(err);
+      throw err;
+    }
   },
   // Tải file chứng chỉ đã xác minh của gia sư (endpoint kèm JWT) -> Blob để hiển thị.
   // Ảnh/giấy tờ private không xem được bằng <img src> vì thẻ img không gửi được token.

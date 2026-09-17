@@ -17,6 +17,7 @@ import com.tcs.module.center.dto.response.RecruitmentApplicationResponse;
 import com.tcs.module.center.dto.response.RecruitmentPostResponse;
 import com.tcs.module.center.dto.response.RescheduleResponse;
 import com.tcs.module.center.dto.response.SubstitutionResponse;
+import com.tcs.common.export.ExportFile;
 import com.tcs.module.center.dto.response.TutorOptionResponse;
 import com.tcs.module.center.service.CenterService;
 import com.tcs.module.center.dto.response.ContractTemplateResponse;
@@ -26,7 +27,10 @@ import java.util.List;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -273,6 +277,46 @@ public class CenterController {
     @GetMapping("/tutors")
     public List<TutorOptionResponse> listTutors(@RequestParam(required = false) Long classId) {
         return centerService.listTutors(classId);
+    }
+
+    /**
+     * UC-41: báo cáo tài chính của trung tâm. Bỏ trống ngày thì lấy 12 tháng gần nhất.
+     */
+    @GetMapping("/finance/report")
+    public com.tcs.module.center.dto.response.CenterFinanceReportResponse getFinanceReport(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return centerService.getFinanceReport(from, to);
+    }
+
+    /** UC-43: tải báo cáo tài chính dưới dạng Excel (.xlsx). */
+    @GetMapping("/finance/report/export")
+    public ResponseEntity<byte[]> exportFinanceReport(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        ExportFile file = centerService.exportFinanceReport(from, to);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + file.filename() + "\"")
+                .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION)
+                .contentType(MediaType.parseMediaType(file.contentType()))
+                .body(file.content());
+    }
+
+    /**
+     * UC-20: tải danh sách học viên dưới dạng Excel (.xlsx).
+     * Không truyền {@code classId} thì xuất toàn bộ lớp của trung tâm.
+     */
+    @GetMapping("/students/export")
+    public ResponseEntity<byte[]> exportStudents(@RequestParam(required = false) Long classId) {
+        ExportFile file = centerService.exportStudents(classId);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + file.filename() + "\"")
+                // Cho JavaScript đọc được tên file khi tải bằng XHR/fetch (mặc định bị ẩn).
+                .header(HttpHeaders.ACCESS_CONTROL_EXPOSE_HEADERS, HttpHeaders.CONTENT_DISPOSITION)
+                .contentType(MediaType.parseMediaType(file.contentType()))
+                .body(file.content());
     }
 
     @PostMapping("/classes/{classId}/assign-tutor")

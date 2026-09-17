@@ -18,7 +18,7 @@
   /* Không kéo hết bề ngang: vừa một ô tìm + nút, canh giữa ngay dưới tiêu đề. */
   max-width: 640px;
   margin: 0 auto;
-  padding: 16px 18px;
+  padding: 10px 12px;
   border: 1px solid var(--color-border);
   border-radius: 14px;
   background: var(--color-surface-2);
@@ -27,6 +27,25 @@
 
 .ctr-panel .tcs-find-search {
   margin-bottom: 0;
+}
+/* Kéo giãn thay vì canh giữa: ô nhập có viền 1px còn nút thì không, canh giữa sẽ lệch 1px.
+   Ô nhập cũng phải giãn theo khung chứa nó, nếu không chỉ khung giãn còn ô vẫn thấp hơn. */
+.ctr-panel .tcs-find-search__bar {
+  align-items: stretch;
+}
+.ctr-panel .tcs-find-search__field {
+  display: flex;
+}
+.ctr-panel .tcs-find-search__field .tcs-find-search__input {
+  flex: 1;
+}
+/* Ô nhập đã nằm trong khung có viền và bóng rồi nên bỏ bóng riêng, hạ chiều cao cho gọn. */
+.ctr-panel .tcs-find-search__input {
+  padding: 10px 40px 10px 14px;
+  box-shadow: none;
+}
+.ctr-panel .tcs-find-search__btn {
+  padding: 10px 22px;
 }
 
 .ctr-results {

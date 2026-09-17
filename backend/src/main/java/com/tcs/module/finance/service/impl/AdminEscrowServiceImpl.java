@@ -8,6 +8,7 @@ import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
 import com.tcs.module.finance.service.AdminEscrowService;
 import com.tcs.module.identity.entity.User;
+import com.tcs.module.marketplace.entity.TutoringClass;
 import java.time.LocalDate;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -39,11 +40,27 @@ public class AdminEscrowServiceImpl implements AdminEscrowService {
         User beneficiary = escrow.getAssignment() != null ? escrow.getAssignment().getTutor().getUser()
                 : escrow.getClassStudent() != null && escrow.getClassStudent().getTutoringClass().getCenter() != null
                     ? escrow.getClassStudent().getTutoringClass().getCenter().getUser() : null;
+        TutoringClass tutoringClass = escrow.getAssignment() != null
+                && escrow.getAssignment().getApplication() != null
+                ? escrow.getAssignment().getApplication().getTutoringClass()
+                : escrow.getClassStudent() == null ? null : escrow.getClassStudent().getTutoringClass();
+        boolean privateClassEscrow = escrow.getAssignment() != null;
+        boolean centerClassEscrow = escrow.getClassStudent() != null;
+        String transactionType = privateClassEscrow
+                ? "PRIVATE_CLASS_ESCROW"
+                : centerClassEscrow ? "CENTER_CLASS_ESCROW" : "UNKNOWN_ESCROW";
+        String transactionTypeLabel = privateClassEscrow
+                ? "Thanh toán lớp private"
+                : centerClassEscrow ? "Thanh toán lớp trung tâm" : "Chưa xác định loại giao dịch";
         return AdminEscrowResponse.builder().escrowId(escrow.getEscrowId())
                 .paymentId(escrow.getPayment().getTransactionId()).referenceCode(escrow.getPayment().getReferenceCode())
                 .amount(escrow.getAmount()).status(escrow.getStatus()).payerUserId(payer.getUserId()).payerEmail(payer.getEmail())
                 .beneficiaryUserId(beneficiary == null ? null : beneficiary.getUserId())
                 .beneficiaryEmail(beneficiary == null ? null : beneficiary.getEmail())
+                .transactionType(transactionType)
+                .transactionTypeLabel(transactionTypeLabel)
+                .classId(tutoringClass == null ? null : tutoringClass.getClassId())
+                .classTitle(tutoringClass == null ? null : tutoringClass.getTitle())
                 .assignmentId(escrow.getAssignment() == null ? null : escrow.getAssignment().getAssignmentId())
                 .classStudentId(escrow.getClassStudent() == null ? null : escrow.getClassStudent().getClassStudentId())
                 .depositedAt(escrow.getDepositedAt()).releasedAt(escrow.getReleasedAt())

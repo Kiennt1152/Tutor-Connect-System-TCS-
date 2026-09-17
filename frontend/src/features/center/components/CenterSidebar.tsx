@@ -14,6 +14,7 @@ const ITEMS: readonly CenterSideItem[] = [
   { to: '/center/recruitment', label: 'Tin tuyển gia sư' },
   { to: '/center/tutors', label: 'Gia sư của trung tâm' },
   { to: '/center/stats', label: 'Thống kê' },
+  { to: '/center/finance', label: 'Tài chính' },
   { to: '/center/contract-templates', label: 'Mẫu hợp đồng' },
   { to: '/center/schedule', label: 'Lịch hôm nay' },
   { to: '/center/reschedules', label: 'Yêu cầu đổi lịch' },

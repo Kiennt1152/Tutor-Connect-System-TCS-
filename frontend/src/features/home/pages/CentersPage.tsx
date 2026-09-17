@@ -294,24 +294,35 @@ export default function CentersPage() {
                   setQuery(draft.trim());
                 }}
               >
-                <div className="tcs-find-search__field">
-                  <input
-                    type="search"
-                    className="tcs-find-search__input"
-                    placeholder="Tìm theo tên, khu vực..."
-                    value={draft}
-                    onChange={(event) => {
-                      const value = event.target.value;
-                      setDraft(value);
-                      // Bấm dấu ✕ của trình duyệt (làm rỗng ô) -> hiện lại toàn bộ danh sách.
-                      if (value === '') setQuery('');
-                    }}
-                    aria-label="Tìm kiếm trung tâm"
-                  />
+                {/* __bar là lớp tạo hàng ngang; thiếu nó thì nút Tìm rơi xuống dòng dưới. */}
+                <div className="tcs-find-search__bar">
+                  <div className="tcs-find-search__field">
+                    <input
+                      type="text"
+                      className="tcs-find-search__input"
+                      placeholder="Tìm theo tên, khu vực..."
+                      value={draft}
+                      onChange={(event) => setDraft(event.target.value)}
+                      aria-label="Tìm kiếm trung tâm"
+                    />
+                    {draft && (
+                      <button
+                        type="button"
+                        className="tcs-find-search__clear"
+                        aria-label="Xoá từ khoá"
+                        onClick={() => {
+                          setDraft('');
+                          setQuery('');
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <button type="submit" className="tcs-find-search__btn">
+                    Tìm
+                  </button>
                 </div>
-                <button type="submit" className="tcs-find-search__btn">
-                  Tìm
-                </button>
               </form>
             </div>
 
