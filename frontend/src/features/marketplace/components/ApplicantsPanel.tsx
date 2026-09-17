@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { classToForm } from '../mappers/marketplaceMapper';
 import {
@@ -33,6 +35,7 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
     { kind: 'choose' | 'reject'; applicationId: number } | null
   >(null);
   const [rejectReason, setRejectReason] = useState('');
+  const navigate = useNavigate();
 
   useEffect(() => {
     setStatus('loading');
@@ -79,6 +82,16 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
       setNotice(
         'Đã chọn gia sư cho lớp. Bạn có 48 giờ để ký hợp đồng và chuyển tiền ký quỹ; quá hạn lớp sẽ tự mở lại cho các gia sư còn lại.',
       );
+      // Chọn xong đưa thẳng sang trang ký hợp đồng. Mã phân công lấy lại từ danh sách lớp của
+      // tôi; không lấy được thì ở lại trang, nút "Ký hợp đồng" trên thanh trên vẫn dùng được.
+      const assignmentId = await marketplaceApi
+        .listMyClasses()
+        .then((list) => list.find((c) => c.classId === classId)?.assignmentId ?? null)
+        .catch(() => null);
+      if (assignmentId != null) {
+        navigate(APP_ROUTES.signContract, { state: { assignmentId } });
+        return;
+      }
       onChosen?.();
     } catch (err) {
       setNotice(extractError(err));
@@ -198,18 +211,8 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
 
       {confirmAction?.kind === 'choose' && (
         <ConfirmDialog
-          title="Chọn gia sư"
-          message={
-            (() => {
-              const picked = applicants.find((x) => x.applicationId === confirmAction.applicationId);
-              const busyNote =
-                picked && (picked.busyConflictCount ?? 0) > 0
-                  ? ` Lưu ý: gia sư này đã đăng ký bận ${picked.busyConflictCount} buổi của lớp (${picked.busyConflictSummary}) — nên trao đổi trước khi ký hợp đồng.`
-                  : '';
-              return `Chọn gia sư này cho lớp? Các ứng viên còn lại được giữ ở danh sách chờ. Bạn có 48 giờ để ký hợp đồng và chuyển tiền ký quỹ — quá hạn, lớp sẽ tự mở lại cho họ.${busyNote}`;
-            })()
-          }
-          confirmLabel="Chọn gia sư này"
+          title="Chọn gia sư này?"
+          confirmLabel="Xác nhận"
           cancelLabel="Hủy"
           onConfirm={() => {
             const id = confirmAction.applicationId;

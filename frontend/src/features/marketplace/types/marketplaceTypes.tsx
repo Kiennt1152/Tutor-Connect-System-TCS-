@@ -84,6 +84,8 @@ export interface ClassResponse {
   budget: number | null;
   recurringType: RecurringType;
   status: ClassStatus;
+  /** PRIVATE = tin tìm gia sư của phụ huynh · CENTER = lớp của trung tâm (nhận học viên đăng ký). */
+  classType?: 'PRIVATE' | 'CENTER';
   createdAt: string;
   /** Hạn hiển thị (đăng lớp + 30 ngày); null nếu không tính hạn. Chỉ có với lớp OPEN. */
   expiresAt: string | null;

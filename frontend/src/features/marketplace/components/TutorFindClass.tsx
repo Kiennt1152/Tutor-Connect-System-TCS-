@@ -48,7 +48,8 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     marketplaceApi
       .listOpenClasses()
       .then((data) => {
-        setClasses(data);
+        // Lớp của trung tâm do trung tâm tự bố trí gia sư -> không hiện cho gia sư tìm/ứng tuyển.
+        setClasses(data.filter((c) => c.classType !== 'CENTER'));
         setStatus('success');
       })
       .catch(() => {

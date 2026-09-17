@@ -507,6 +507,11 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         }
         requireActiveWallet(tutor.getUser().getUserId());
         TutoringClass tutoringClass = findClass(classId);
+        // Lớp của trung tâm do trung tâm tự bố trí gia sư -> gia sư không tự ứng tuyển.
+        if (tutoringClass.getClassType() == ClassType.CENTER) {
+            throw new ForbiddenException(
+                    "Lớp của trung tâm do trung tâm tự bố trí gia sư — gia sư không thể tự đăng ký.");
+        }
         if (tutoringClass.getStatus() != TutoringClassStatus.OPEN) {
             throw new IllegalArgumentException("Lớp không mở đơn ứng tuyển");
         }
@@ -3781,6 +3786,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
         Client client = clientRepository.findByUser_UserId(userId).orElse(null);
         if (client != null) {
+            // Phụ huynh/học viên chỉ đăng ký học lớp của trung tâm. Lớp riêng là tin tìm gia sư
+            // (của người khác hoặc của chính mình) — chỉ gia sư được ứng tuyển.
+            if (tutoringClass.getClassType() != ClassType.CENTER) {
+                throw new IllegalArgumentException(
+                        "Đây là tin tìm gia sư, không nhận đăng ký học. Vui lòng chọn lớp của trung tâm.");
+            }
             // #3: bắt buộc có ngày sinh để xác minh tuổi (thiếu -> không xác định được <18).
             if (client.getDateOfBirth() == null) {
                 throw new IllegalArgumentException(

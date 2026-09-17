@@ -3,7 +3,7 @@ import '../pages/MarketplacePage.css';
 
 interface ConfirmDialogProps {
   readonly title: string;
-  readonly message: string;
+  readonly message?: string;
   readonly confirmLabel?: string;
   readonly cancelLabel?: string;
   readonly onConfirm?: () => void;
@@ -38,7 +38,7 @@ export function ConfirmDialog({
     >
       <div className="mkt-modal">
         <h3 className="mkt-modal__title">{title}</h3>
-        <p className="mkt-modal__msg">{message}</p>
+        {message && <p className="mkt-modal__msg">{message}</p>}
         <div className="mkt-modal__actions">
           {onConfirm ? (
             <>

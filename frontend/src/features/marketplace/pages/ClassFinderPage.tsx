@@ -38,7 +38,9 @@ export default function ClassFinderPage() {
     marketplaceApi
       .listOpenClasses()
       .then((data) => {
-        setClasses(data);
+        // Trang này để phụ huynh/học viên ĐĂNG KÝ HỌC -> chỉ lớp của trung tâm. Tin tìm gia sư
+        // của phụ huynh (PRIVATE, kể cả tin của chính mình) chỉ dành cho gia sư ứng tuyển.
+        setClasses(data.filter((c) => c.classType === 'CENTER'));
         setStatus('success');
       })
       .catch(() => setStatus('error'));

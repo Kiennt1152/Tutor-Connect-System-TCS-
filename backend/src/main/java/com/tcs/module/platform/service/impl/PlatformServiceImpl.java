@@ -207,10 +207,9 @@ public class PlatformServiceImpl implements PlatformService {
 
         UserStatus oldStatus = user.getStatus();
         UserStatus newStatus = request.getStatus();
-        if (newStatus != UserStatus.ACTIVE
-                && newStatus != UserStatus.SUSPENDED
-                && newStatus != UserStatus.BANNED) {
-            throw new IllegalArgumentException("Trạng thái không hợp lệ");
+        // Quản trị chỉ khóa (BANNED) hoặc kích hoạt lại (ACTIVE); không còn "tạm ngưng".
+        if (newStatus != UserStatus.ACTIVE && newStatus != UserStatus.BANNED) {
+            throw new IllegalArgumentException("Trạng thái không hợp lệ. Chỉ được khóa hoặc kích hoạt tài khoản.");
         }
 
         user.setStatus(newStatus);
