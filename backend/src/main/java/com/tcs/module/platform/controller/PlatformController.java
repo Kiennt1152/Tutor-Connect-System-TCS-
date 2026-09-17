@@ -68,6 +68,12 @@ public class PlatformController {
         return platformService.updateUserStatus(userId, request);
     }
 
+    @org.springframework.web.bind.annotation.PutMapping("/users/{userId}")
+    public UserListItemResponse updateUser(
+            @PathVariable Long userId, @RequestBody com.tcs.module.platform.dto.request.UpdateUserAdminRequest request) {
+        return platformService.updateUser(userId, request);
+    }
+
     // =========================================================================
     // LUỒNG 8: BẢNG ĐIỀU KHIỂN QUẢN TRỊ & GIÁM SÁT SỨC KHỎE DASHBOARD (UC-56)
     // =========================================================================
@@ -238,6 +244,27 @@ public class PlatformController {
     public List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getPlatformSchedule(
             @RequestParam(required = false) java.time.LocalDate date) {
         return platformService.getPlatformSchedule(date);
+    }
+
+    // =========================================================================
+    // LUỒNG CẤU HÌNH PHÍ RIÊNG BIỆT CHO TRUNG TÂM GIA SƯ (UC-46, ROLE: ADMIN)
+    // =========================================================================
+    @GetMapping("/fees/centers")
+    public List<com.tcs.module.platform.dto.response.CenterFeeConfigResponse> listCenterFeeConfigs() {
+        return platformService.listCenterFeeConfigs();
+    }
+
+    @org.springframework.web.bind.annotation.PutMapping("/fees/centers/{centerId}")
+    public com.tcs.module.platform.dto.response.CenterFeeConfigResponse updateCenterFeeConfig(
+            @PathVariable Long centerId,
+            @RequestBody @Valid com.tcs.module.platform.dto.request.UpdateCenterFeeRequest request) {
+        return platformService.updateCenterFeeConfig(centerId, request);
+    }
+
+    @DeleteMapping("/fees/centers/{centerId}")
+    public com.tcs.module.platform.dto.response.CenterFeeConfigResponse resetCenterFeeConfig(
+            @PathVariable Long centerId) {
+        return platformService.resetCenterFeeConfig(centerId);
     }
 }
 

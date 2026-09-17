@@ -331,13 +331,13 @@ export default function PlatformPenaltiesPage() {
                     {p.reason}
                   </td>
                   <td style={{ padding: '12px 16px' }}>{new Date(p.startsAt).toLocaleDateString('vi-VN')}</td>
-                  <td style={{ padding: '12px 16px' }}>{p.expiresAt ? new Date(p.expiresAt).toLocaleDateString('vi-VN') : '-'}</td>
+                  <td style={{ padding: '12px 16px' }}>{p.expiresAt ? new Date(p.expiresAt).toLocaleDateString('vi-VN') : 'Vô thời hạn'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <span className={`tcs-badge tcs-badge--status-${PENALTY_STATUS_TONES[p.status]}`} style={{ padding: '4px 8px', borderRadius: '999px', fontSize: '12px' }}>
                       {PENALTY_STATUS_LABELS[p.status]}
                     </span>
                   </td>
-                  <td style={{ padding: '12px 16px' }}>{p.issuedByName || '-'}</td>
+                  <td style={{ padding: '12px 16px' }}>{p.issuedByName || 'Quản trị viên'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     {p.status === 'ACTIVE' && (
                       <button className="adm-action-btn" onClick={() => openRevokeModal(p)}>

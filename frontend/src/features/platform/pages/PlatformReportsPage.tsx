@@ -1210,7 +1210,7 @@ function DisputeDetail({
               onClick={() => setIsSettleModalOpen(true)}
               title="Phân bổ tiền Escrow và giải quyết dứt điểm tranh chấp"
             >
-              💰 Giải quyết tranh chấp
+              Giải quyết tranh chấp
             </button>
           )}
           <button
@@ -1219,7 +1219,7 @@ function DisputeDetail({
             onClick={() => setIsPenaltyModalOpen(true)}
             title="Tạo quyết định xử phạt liên quan đến tranh chấp này"
           >
-            ⚖️ Tạo xử phạt
+            Tạo xử phạt
           </button>
         </div>
       </div>

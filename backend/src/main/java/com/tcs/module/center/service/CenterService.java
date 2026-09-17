@@ -185,4 +185,10 @@ public interface CenterService {
     /** Lưu thông tin bổ sung BÊN A (website, đại diện, chức vụ). */
     com.tcs.module.center.dto.response.CenterContractInfoResponse saveContractInfo(
             com.tcs.module.center.dto.request.SaveCenterContractInfoRequest request);
+
+    // ===== UC-41: Báo cáo tài chính riêng cho trung tâm =====
+
+    /** Trung tâm xem báo cáo tài chính của riêng trung tâm mình. */
+    com.tcs.module.platform.dto.response.CenterFinancialAnalyticsResponse getCenterFinancialReport(
+            java.time.LocalDate from, java.time.LocalDate to);
 }

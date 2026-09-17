@@ -837,7 +837,7 @@ export default function PlatformTicketsPage() {
                         <td>
                           {ticket.slaBreached ? (
                             <span className="tcs-badge" style={{ background: '#fee2e2', color: '#dc2626', fontWeight: 600, fontSize: '0.75rem' }}>
-                              🚨 Quá hạn
+                              Quá hạn
                             </span>
                           ) : ticket.dueAt ? (
                             <span style={{ fontSize: '0.78rem', color: '#4a5568' }}>{ticket.dueAt}</span>

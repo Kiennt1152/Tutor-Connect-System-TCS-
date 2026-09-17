@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { catalogApi } from '../../catalog/api/catalogApi';
 import type { SystemParameterResponse } from '../../catalog/types/catalogTypes';
+import { platformApi } from '../api/platformApi';
+import type { CenterFeeConfigApiResponse } from '../types/platformTypes';
 import { AdminLayout } from '../components/AdminLayout';
 import './PlatformFeeSettingsPage.css';
 
@@ -38,6 +40,20 @@ export default function PlatformFeeSettingsPage() {
   const [message, setMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
+  // Center Fee Overrides State
+  const [centers, setCenters] = useState<CenterFeeConfigApiResponse[]>([]);
+  const [loadingCenters, setLoadingCenters] = useState(false);
+  const [centerSearch, setCenterSearch] = useState('');
+  const [centerMessage, setCenterMessage] = useState('');
+  const [centerError, setCenterError] = useState('');
+
+  // Edit Modal State
+  const [editingCenter, setEditingCenter] = useState<CenterFeeConfigApiResponse | null>(null);
+  const [editPercent, setEditPercent] = useState('2');
+  const [editReason, setEditReason] = useState('');
+  const [savingCenterFee, setSavingCenterFee] = useState(false);
+  const [modalError, setModalError] = useState('');
+
   const loadParameter = async () => {
     setStatus('loading');
     setErrorMessage('');
@@ -55,8 +71,23 @@ export default function PlatformFeeSettingsPage() {
     }
   };
 
+  const loadCenterFees = async () => {
+    setLoadingCenters(true);
+    setCenterError('');
+    try {
+      const response = await platformApi.getCenterFeeConfigs();
+      setCenters(response.data || []);
+    } catch (error) {
+      console.error('Lỗi tải danh sách cấu hình phí trung tâm:', error);
+      setCenterError('Không tải được danh sách phí trung tâm gia sư.');
+    } finally {
+      setLoadingCenters(false);
+    }
+  };
+
   useEffect(() => {
     void loadParameter();
+    void loadCenterFees();
   }, []);
 
   const preview = useMemo(() => {
@@ -106,7 +137,8 @@ export default function PlatformFeeSettingsPage() {
         : await catalogApi.createSystemParameter(payload);
       setParameter(saved);
       setFeePercent(toPercent(saved.paramValue));
-      setMessage('Đã cập nhật phí nền tảng.');
+      setMessage('Đã cập nhật phí nền tảng mặc định toàn hệ thống.');
+      void loadCenterFees();
     } catch (error: any) {
       console.error('Lỗi lưu cấu hình phí nền tảng:', error);
       setErrorMessage(error?.response?.data?.message || 'Không thể lưu cấu hình phí nền tảng.');
@@ -115,18 +147,104 @@ export default function PlatformFeeSettingsPage() {
     }
   };
 
+  // Center Fee Handlers
+  const handleOpenEditModal = (center: CenterFeeConfigApiResponse) => {
+    setEditingCenter(center);
+    const initialPercent = center.customFeeRate != null
+      ? (center.customFeeRate * 100).toFixed(2)
+      : (center.effectiveFeeRate * 100).toFixed(2);
+    setEditPercent(String(Number(initialPercent)));
+    setEditReason('');
+    setModalError('');
+  };
+
+  const handleCloseModal = () => {
+    setEditingCenter(null);
+    setModalError('');
+  };
+
+  const handleSaveCenterFee = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editingCenter) return;
+
+    setModalError('');
+    const parsedPercent = Number(editPercent.replace(',', '.').trim());
+    if (!Number.isFinite(parsedPercent) || parsedPercent < 0 || parsedPercent > 50) {
+      setModalError('Tỷ lệ phí phải nằm trong khoảng từ 0% đến 50%.');
+      return;
+    }
+
+    setSavingCenterFee(true);
+    try {
+      const rate = Number((parsedPercent / 100).toFixed(6));
+      await platformApi.updateCenterFeeConfig(editingCenter.centerId, {
+        customFeeRate: rate,
+        reason: editReason.trim() || 'Admin cập nhật phí riêng',
+      });
+      setCenterMessage(`Đã cập nhật mức phí ${parsedPercent}% cho ${editingCenter.companyName}`);
+      handleCloseModal();
+      void loadCenterFees();
+    } catch (err: any) {
+      console.error('Lỗi lưu phí trung tâm:', err);
+      setModalError(err?.response?.data?.message || 'Không thể lưu mức phí riêng cho trung tâm.');
+    } finally {
+      setSavingCenterFee(false);
+    }
+  };
+
+  const handleResetCenterFee = async (center: CenterFeeConfigApiResponse) => {
+    if (!window.confirm(`Bạn có chắc chắn muốn khôi phục mức phí của "${center.companyName}" về mức mặc định toàn sàn (${((center.defaultPlatformFeeRate ?? 0.02) * 100).toFixed(0)}%)?`)) {
+      return;
+    }
+
+    try {
+      await platformApi.resetCenterFeeConfig(center.centerId);
+      setCenterMessage(`Đã khôi phục mức phí mặc định cho ${center.companyName}`);
+      void loadCenterFees();
+    } catch (err: any) {
+      console.error('Lỗi khôi phục phí trung tâm:', err);
+      setCenterError(err?.response?.data?.message || 'Không thể khôi phục phí mặc định.');
+    }
+  };
+
+  // Filtered Centers
+  const filteredCenters = useMemo(() => {
+    const q = centerSearch.toLowerCase().trim();
+    if (!q) return centers;
+    return centers.filter(
+      (c) =>
+        c.companyName?.toLowerCase().includes(q) ||
+        c.licenseNo?.toLowerCase().includes(q) ||
+        c.phone?.toLowerCase().includes(q) ||
+        c.email?.toLowerCase().includes(q),
+    );
+  }, [centers, centerSearch]);
+
+  // Modal Preview Calculation
+  const modalPreview = useMemo(() => {
+    const parsed = Number(editPercent.replace(',', '.').trim());
+    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    const sample = 2000000;
+    const fee = Math.round((sample * parsed) / 100);
+    return {
+      sample,
+      fee,
+      net: sample - fee,
+    };
+  }, [editPercent]);
+
   return (
     <AdminLayout
       title="Cấu hình phí nền tảng"
-      subtitle="Thiết lập tỷ lệ phí áp dụng khi hệ thống giải ngân escrow cho gia sư hoặc trung tâm."
+      subtitle="Thiết lập tỷ lệ phí áp dụng khi hệ thống giải ngân escrow hoặc xử lý yêu cầu cho trung tâm gia sư."
     >
       <div className="fee-settings-grid">
         <section className="adm-card fee-settings-card">
           <div className="adm-card__head">
             <div>
-              <h2 className="adm-card__title">Phí nền tảng</h2>
+              <h2 className="adm-card__title">Phí nền tảng mặc định toàn sàn</h2>
               <p className="fee-settings-card__hint">
-                Admin nhập theo đơn vị phần trăm. Backend sẽ lưu dưới khóa <code>{PLATFORM_FEE_KEY}</code>.
+                Tỷ lệ phí cơ sở áp dụng cho toàn bộ các lớp gia sư cá nhân và các trung tâm không có cấu hình riêng. Backend lưu dưới khóa <code>{PLATFORM_FEE_KEY}</code>.
               </p>
             </div>
           </div>
@@ -145,7 +263,7 @@ export default function PlatformFeeSettingsPage() {
           {status === 'success' && (
             <form className="fee-settings-form" onSubmit={(event) => void handleSubmit(event)}>
               <label className="adm-field-group" htmlFor="platform-fee-rate">
-                <span>Tỷ lệ phí nền tảng (%)</span>
+                <span>Tỷ lệ phí mặc định (%)</span>
                 <div className="fee-settings-input">
                   <input
                     id="platform-fee-rate"
@@ -184,7 +302,7 @@ export default function PlatformFeeSettingsPage() {
         </section>
 
         <aside className="adm-card fee-preview-card">
-          <h2 className="adm-card__title">Ví dụ tính phí</h2>
+          <h2 className="adm-card__title">Ví dụ tính phí mẫu</h2>
           <div className="fee-preview-card__rows">
             <div>
               <span>Escrow mẫu</span>
@@ -200,13 +318,238 @@ export default function PlatformFeeSettingsPage() {
             </div>
           </div>
           <p className="fee-preview-card__hint">
-            Phí này được trừ lúc giải ngân escrow, không trừ khi client mới chuyển khoản vào escrow.
+            Phí này được tự động khấu trừ khi giải ngân escrow, không trừ khi client mới nạp tiền vào sàn.
           </p>
           <Link className="fee-settings-link" to={APP_ROUTES.platformParameters}>
-            Xem cấu hình hệ thống
+            Xem cấu hình hệ thống &rarr;
           </Link>
         </aside>
       </div>
+
+      {/* Cấu hình phí riêng cho từng Trung tâm Gia sư (UC-46) */}
+      <section className="adm-card center-fees-section">
+        <div className="center-fees-header">
+          <div>
+            <h2 className="adm-card__title">Cấu hình phí riêng cho từng Trung tâm Gia sư</h2>
+            <p className="fee-settings-card__hint">
+              Thiết lập tỷ lệ phí chiết khấu riêng cho từng đối tác trung tâm (ví dụ: ưu đãi 1.5%, 1%, hoặc 0%). Nếu không thiết lập riêng, trung tâm sẽ tự động áp dụng mức phí mặc định toàn sàn ({feePercent}%).
+            </p>
+          </div>
+          <div className="center-fees-actions">
+            <input
+              type="text"
+              className="adm-field center-fees-search"
+              placeholder="Tìm tên trung tâm, GPKD, SĐT..."
+              value={centerSearch}
+              onChange={(e) => setCenterSearch(e.target.value)}
+            />
+            <button
+              className="tcs-btn tcs-btn--ghost"
+              type="button"
+              onClick={() => void loadCenterFees()}
+              disabled={loadingCenters}
+            >
+              {loadingCenters ? 'Đang tải...' : 'Làm mới'}
+            </button>
+          </div>
+        </div>
+
+        {centerMessage && (
+          <div className="adm-alert adm-alert--success" style={{ marginBottom: '16px' }}>
+            {centerMessage}
+          </div>
+        )}
+        {centerError && (
+          <div className="adm-alert adm-alert--error" style={{ marginBottom: '16px' }}>
+            {centerError}
+          </div>
+        )}
+
+        {loadingCenters && centers.length === 0 ? (
+          <div className="adm-state">Đang tải danh sách trung tâm gia sư...</div>
+        ) : filteredCenters.length === 0 ? (
+          <div className="adm-state">
+            {centerSearch ? 'Không tìm thấy trung tâm gia sư nào phù hợp với từ khóa.' : 'Chưa có trung tâm gia sư nào trên sàn.'}
+          </div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table className="center-fees-table">
+              <thead>
+                <tr>
+                  <th>Trung tâm gia sư</th>
+                  <th>Mã GPKD</th>
+                  <th>Liên hệ</th>
+                  <th>Tỷ lệ phí áp dụng</th>
+                  <th>Loại cấu hình</th>
+                  <th style={{ textAlign: 'right' }}>Thao tác</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredCenters.map((center) => (
+                  <tr key={center.centerId}>
+                    <td>
+                      <div style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>
+                        {center.companyName}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                        ID: #{center.centerId} &bull; User ID: #{center.userId || 'N/A'}
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                        {center.licenseNo || '—'}
+                      </span>
+                    </td>
+                    <td>
+                      <div>{center.email || '—'}</div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
+                        {center.phone || '—'}
+                      </div>
+                    </td>
+                    <td>
+                      <span style={{ fontSize: '1.05rem', fontWeight: 700, color: center.custom ? '#047857' : 'var(--color-text-primary)' }}>
+                        {center.effectiveFeeRatePercent}
+                      </span>
+                    </td>
+                    <td>
+                      {center.custom ? (
+                        <span className="center-badge center-badge--custom">
+                          Tùy chỉnh riêng
+                        </span>
+                      ) : (
+                        <span className="center-badge center-badge--default">
+                          Mặc định sàn ({((center.defaultPlatformFeeRate ?? 0.02) * 100).toFixed(0)}%)
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <div className="center-fees-actions" style={{ justifyContent: 'flex-end' }}>
+                        <button
+                          type="button"
+                          className="tcs-btn tcs-btn--outline tcs-btn--sm"
+                          onClick={() => handleOpenEditModal(center)}
+                        >
+                          Điều chỉnh phí
+                        </button>
+                        {center.custom && (
+                          <button
+                            type="button"
+                            className="tcs-btn tcs-btn--ghost tcs-btn--sm"
+                            style={{ color: '#b91c1c' }}
+                            onClick={() => void handleResetCenterFee(center)}
+                            title="Xóa mức phí riêng, quay về dùng phí sàn"
+                          >
+                            Khôi phục mặc định
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Modal: Điều chỉnh phí riêng cho trung tâm */}
+      {editingCenter && (
+        <div className="center-fee-modal-overlay" onClick={handleCloseModal}>
+          <div className="center-fee-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="center-fee-modal__header">
+              <h3>Cấu hình phí riêng: {editingCenter.companyName}</h3>
+              <button
+                type="button"
+                className="center-fee-modal__close"
+                onClick={handleCloseModal}
+              >
+                &times;
+              </button>
+            </div>
+
+            <form onSubmit={(e) => void handleSaveCenterFee(e)}>
+              <div className="center-fee-modal__body">
+                {modalError && <div className="adm-alert adm-alert--error">{modalError}</div>}
+
+                <label className="adm-field-group">
+                  <span>Tỷ lệ phí tùy chỉnh (%)</span>
+                  <div className="fee-settings-input" style={{ maxWidth: '100%' }}>
+                    <input
+                      type="number"
+                      className="adm-field"
+                      min="0"
+                      max="50"
+                      step="0.01"
+                      value={editPercent}
+                      onChange={(e) => setEditPercent(e.target.value)}
+                      placeholder="Ví dụ: 1.5"
+                      required
+                    />
+                    <span>%</span>
+                  </div>
+                  <div className="center-fee-quick-rates">
+                    <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', alignSelf: 'center' }}>
+                      Gợi ý:
+                    </span>
+                    {['0', '1', '1.5', '2', '3', '5'].map((rate) => (
+                      <button
+                        key={rate}
+                        type="button"
+                        className="center-fee-quick-btn"
+                        onClick={() => setEditPercent(rate)}
+                      >
+                        {rate}%
+                      </button>
+                    ))}
+                  </div>
+                </label>
+
+                <label className="adm-field-group">
+                  <span>Lý do / Căn cứ điều chỉnh</span>
+                  <input
+                    type="text"
+                    className="adm-field"
+                    placeholder="Ví dụ: Đối tác VIP, Hợp đồng chiến lược Q4..."
+                    value={editReason}
+                    onChange={(e) => setEditReason(e.target.value)}
+                  />
+                </label>
+
+                {modalPreview && (
+                  <div className="fee-preview-card__rows" style={{ marginTop: '8px' }}>
+                    <div style={{ background: '#f8fafc', padding: '10px 14px', borderRadius: '8px' }}>
+                      <span style={{ fontSize: '0.8rem' }}>Mẫu lớp 2.000.000₫: Phí sàn thu</span>
+                      <strong style={{ color: '#047857' }}>{formatCurrency(modalPreview.fee)}</strong>
+                    </div>
+                    <div style={{ background: '#f0fdf4', padding: '10px 14px', borderRadius: '8px', border: '1px solid #bbf7d0' }}>
+                      <span style={{ fontSize: '0.8rem' }}>Trung tâm thực nhận</span>
+                      <strong style={{ color: '#15803d' }}>{formatCurrency(modalPreview.net)}</strong>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="center-fee-modal__footer">
+                <button
+                  type="button"
+                  className="tcs-btn tcs-btn--ghost"
+                  onClick={handleCloseModal}
+                  disabled={savingCenterFee}
+                >
+                  Hủy bỏ
+                </button>
+                <button
+                  type="submit"
+                  className="tcs-btn tcs-btn--primary"
+                  disabled={savingCenterFee}
+                >
+                  {savingCenterFee ? 'Đang lưu...' : 'Lưu mức phí riêng'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </AdminLayout>
   );
 }

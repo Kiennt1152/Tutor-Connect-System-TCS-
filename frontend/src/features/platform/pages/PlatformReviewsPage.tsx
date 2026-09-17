@@ -194,7 +194,7 @@ export default function PlatformReviewsPage() {
                           <div className="adm-table__sub">↩ GS: {r.tutorReply}</div>
                         ) : null}
                       </td>
-                      <td className="adm-table__badge">
+                      <td className="adm-review__status-col">
                         <span className={statusBadgeClass(r.status)}>{STATUS_LABEL[r.status]}</span>
                         {r.reportCount > 0 && (
                           <span

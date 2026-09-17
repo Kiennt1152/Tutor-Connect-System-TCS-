@@ -232,7 +232,7 @@ export default function PlatformVerificationsPage() {
                         </span>
                       </td>
                       <td>{item.submittedAt}</td>
-                      <td>{item.reviewedAt}</td>
+                      <td>{item.reviewedAt && item.reviewedAt !== '—' ? item.reviewedAt : 'Chưa duyệt'}</td>
                       <td className="adm-table__actions">
                         <button
                           className="tcs-btn tcs-btn--primary tcs-btn--sm"

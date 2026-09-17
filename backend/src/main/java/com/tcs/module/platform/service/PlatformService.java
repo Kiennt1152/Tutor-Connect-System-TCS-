@@ -35,6 +35,8 @@ public interface PlatformService {
 
     UserListItemResponse updateUserStatus(Long userId, UpdateUserStatusRequest request);
 
+    UserListItemResponse updateUser(Long userId, com.tcs.module.platform.dto.request.UpdateUserAdminRequest request);
+
     DashboardResponse getDashboard(LocalDate from, LocalDate to, String granularity);
 
     List<VerificationRequestResponse> listVerificationRequests();
@@ -101,5 +103,15 @@ public interface PlatformService {
 
     /** UC-21: Giám sát lịch học và điểm danh toàn hệ thống theo ngày cho Admin. */
     List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getPlatformSchedule(java.time.LocalDate date);
+
+    /** UC-46: Lấy danh sách cấu hình phí của các trung tâm gia sư. */
+    List<com.tcs.module.platform.dto.response.CenterFeeConfigResponse> listCenterFeeConfigs();
+
+    /** UC-46: Cập nhật tỷ lệ phí riêng cho một trung tâm gia sư. */
+    com.tcs.module.platform.dto.response.CenterFeeConfigResponse updateCenterFeeConfig(
+            Long centerId, com.tcs.module.platform.dto.request.UpdateCenterFeeRequest request);
+
+    /** UC-46: Xóa cấu hình phí riêng của trung tâm (quay về dùng phí mặc định sàn). */
+    com.tcs.module.platform.dto.response.CenterFeeConfigResponse resetCenterFeeConfig(Long centerId);
 }
 

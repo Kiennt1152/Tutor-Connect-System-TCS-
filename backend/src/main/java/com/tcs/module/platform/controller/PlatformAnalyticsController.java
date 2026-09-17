@@ -1,10 +1,17 @@
 package com.tcs.module.platform.controller;
 
 import com.tcs.module.platform.dto.response.AnalyticsSummaryResponse;
+import com.tcs.module.platform.dto.response.CenterFinancialAnalyticsResponse;
+import com.tcs.module.platform.dto.response.ClientFinancialAnalyticsResponse;
+import com.tcs.module.platform.dto.response.FinancialLedgerItemResponse;
+import com.tcs.module.platform.dto.response.TutorFinancialAnalyticsResponse;
 import com.tcs.module.platform.service.PlatformAnalyticsService;
 import com.tcs.module.platform.service.AuditLogService;
 import java.time.LocalDate;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -27,6 +34,43 @@ public class PlatformAnalyticsController {
             @RequestParam(required = false) LocalDate to) {
         validateRange(from, to);
         return analyticsService.getSummary(from, to);
+    }
+
+    @GetMapping("/entities/centers")
+    public List<CenterFinancialAnalyticsResponse> getCenterAnalytics(
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to) {
+        validateRange(from, to);
+        return analyticsService.getCenterAnalytics(from, to);
+    }
+
+    @GetMapping("/entities/tutors")
+    public List<TutorFinancialAnalyticsResponse> getTutorAnalytics(
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to) {
+        validateRange(from, to);
+        return analyticsService.getTutorAnalytics(from, to);
+    }
+
+    @GetMapping("/entities/clients")
+    public List<ClientFinancialAnalyticsResponse> getClientAnalytics(
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to) {
+        validateRange(from, to);
+        return analyticsService.getClientAnalytics(from, to);
+    }
+
+    @GetMapping("/ledger")
+    public Page<FinancialLedgerItemResponse> getFinancialLedger(
+            @RequestParam(required = false) String role,
+            @RequestParam(required = false) String direction,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) LocalDate from,
+            @RequestParam(required = false) LocalDate to,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        validateRange(from, to);
+        return analyticsService.getFinancialLedger(role, direction, search, from, to, PageRequest.of(page, size));
     }
 
     @GetMapping("/export")

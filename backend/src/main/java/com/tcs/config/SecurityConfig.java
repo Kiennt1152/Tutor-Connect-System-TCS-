@@ -134,6 +134,7 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/finance/withdrawals/*/approve",
                                 "/api/finance/withdrawals/*/reject",
+                                "/api/finance/withdrawals/*/complete",
                                 "/api/finance/withdrawals/*/transfer-failed")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/finance/settlements/preview/*")

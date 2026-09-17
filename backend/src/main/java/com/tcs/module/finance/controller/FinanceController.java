@@ -172,6 +172,13 @@ public class FinanceController {
         return financeService.approveWithdrawal(withdrawalId);
     }
 
+    @PostMapping("/withdrawals/{withdrawalId}/complete")
+    public WithdrawalResponse completeWithdrawal(
+            @PathVariable Long withdrawalId,
+            @RequestBody(required = false) WithdrawalDecisionRequest request) {
+        return financeService.completeWithdrawalManual(withdrawalId, request);
+    }
+
     @PostMapping("/withdrawals/{withdrawalId}/reject")
     public WithdrawalResponse rejectWithdrawal(
             @PathVariable Long withdrawalId,

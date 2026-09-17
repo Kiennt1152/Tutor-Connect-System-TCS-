@@ -20,6 +20,7 @@
 SET NAMES utf8mb4;
 SET CHARACTER SET utf8mb4;
 USE tutorconnectsystem;
+SET FOREIGN_KEY_CHECKS = 0;
 
 -- --------------------------------------------------------------------
 -- 1. UC-07: ĐẢM BẢO TẤT CẢ USER TỪ 1 ĐẾN 36 HOẠT ĐỘNG & ĐỒNG BỘ MẬT KHẨU
@@ -31,12 +32,53 @@ SET password_hash = '$2a$10$HepRyX1MtX1rwgzMnC6nZenl7rsWrrK.OT05NSX1C9Rnb.IzntPK
 WHERE user_id BETWEEN 1 AND 36;
 
 -- Đảm bảo tài khoản admin chính xác
-INSERT INTO platform_admins (user_id, full_name)
+INSERT INTO platform_admins (admin_id, user_id, full_name)
 VALUES 
-    (1, 'Quản Trị Viên Hệ Thống'),
-    (2, 'Admin TCS'),
-    (27, 'Quản Trị Viên Đức')
+    (1, 1, 'Quản Trị Viên Hệ Thống'),
+    (2, 2, 'Admin TCS'),
+    (3, 27, 'Quản Trị Viên Đức')
 ON DUPLICATE KEY UPDATE full_name = VALUES(full_name);
+
+-- --------------------------------------------------------------------
+-- 1.1. HỒ SƠ CLIENTS, TUTORS, TRUNG TÂM & VÍ TIỀN (WALLETS) (UC-07, UC-40)
+-- --------------------------------------------------------------------
+INSERT INTO clients (client_id, user_id, full_name, phone, address, gender, created_at, updated_at)
+VALUES 
+    (1, 3, 'Huỳnh Đức Minh', '0912345678', 'Quận Cầu Giấy, Hà Nội', 'MALE', NOW(), NOW()),
+    (2, 5, 'Nguyễn Văn Hùng', '0901234567', 'Quận Ba Đình, Hà Nội', 'MALE', NOW(), NOW()),
+    (3, 6, 'Trần Thị Mai', '0902345678', 'Quận Đống Đa, Hà Nội', 'FEMALE', NOW(), NOW()),
+    (4, 7, 'Phạm Anh Tuấn', '0903334444', 'Quận Cầu Giấy, Hà Nội', 'MALE', NOW(), NOW())
+ON DUPLICATE KEY UPDATE full_name = VALUES(full_name);
+
+INSERT INTO tutors (tutor_id, user_id, full_name, gender, phone, address, experience_years, bio, hourly_rate, rating_avg, verification_status, created_at, updated_at)
+VALUES 
+    (1, 4, 'Minh Đức (Gia Sư Toán & Tin Học)', 'MALE', '0987654321', 'Quận Cầu Giấy, Hà Nội', 5, 'Gia sư chuyên Toán 12 và Luyện thi Đại học khu vực Cầu Giấy.', 250000.00, 5.00, 'VERIFIED', NOW(), NOW()),
+    (2, 8, 'Lê Hoàng Nam', 'MALE', '0903456789', 'Quận Cầu Giấy, Hà Nội', 5, 'Chuyên dạy Toán cấp 3 luyện thi đại học khu vực Cầu Giấy', 250000.00, 4.90, 'VERIFIED', NOW(), NOW()),
+    (3, 9, 'Phạm Thu Thảo', 'FEMALE', '0904567890', 'Quận 1, TP.HCM', 4, 'Gia sư Tiếng Anh IELTS 8.0 chuyên lớp 10-12', 300000.00, 5.00, 'VERIFIED', NOW(), NOW()),
+    (4, 10, 'Nguyễn Văn Toán', 'MALE', '0912111222', 'Quận Cầu Giấy, Hà Nội', 5, 'Gia sư Toán luyện thi học sinh giỏi cấp Quốc gia', 220000.00, 4.90, 'VERIFIED', NOW(), NOW())
+ON DUPLICATE KEY UPDATE full_name = VALUES(full_name), verification_status = 'VERIFIED';
+
+INSERT INTO tutor_centers (center_id, user_id, company_name, license_no, phone, address, description, verification_status, custom_fee_rate)
+VALUES 
+    (1, 12, 'Trung Tâm Gia Sư Trí Việt', 'LICENSE-2026-TV', '02838999999', '123 Đường Cầu Giấy, Hà Nội', 'Trung tâm kết nối gia sư uy tín chất lượng cao hàng đầu Hà Nội', 'VERIFIED', 0.0150)
+ON DUPLICATE KEY UPDATE company_name = VALUES(company_name), custom_fee_rate = 0.0150, verification_status = 'VERIFIED';
+
+-- Ví điện tử (Wallets) phản ánh đúng số dư thực tế & ký quỹ
+INSERT INTO wallets (wallet_id, available_balance, frozen_balance, status, created_at, updated_at)
+VALUES 
+    (1, 0.00, 0.00, 'ACTIVE', NOW(), NOW()),
+    (2, 0.00, 0.00, 'ACTIVE', NOW(), NOW()),
+    (3, 5000000.00, 0.00, 'ACTIVE', NOW(), NOW()),
+    (4, 2500000.00, 0.00, 'ACTIVE', NOW(), NOW()),
+    (5, 7600000.00, 3000000.00, 'ACTIVE', NOW(), NOW()),
+    (6, 10000000.00, 0.00, 'ACTIVE', NOW(), NOW()),
+    (7, 5000000.00, 2200000.00, 'ACTIVE', NOW(), NOW()),
+    (8, 3000000.00, 0.00, 'ACTIVE', NOW(), NOW()),
+    (9, 6600000.00, 0.00, 'ACTIVE', NOW(), NOW()),
+    (10, 2000000.00, 0.00, 'ACTIVE', NOW(), NOW()),
+    (12, 15000000.00, 0.00, 'ACTIVE', NOW(), NOW()),
+    (27, 0.00, 0.00, 'ACTIVE', NOW(), NOW())
+ON DUPLICATE KEY UPDATE available_balance = VALUES(available_balance), frozen_balance = VALUES(frozen_balance), status = 'ACTIVE';
 
 -- --------------------------------------------------------------------
 -- 2. UC-11: DỮ LIỆU DEMO XÁC MINH DANH TÍNH & BẰNG CẤP (SUBMITTED)
@@ -248,6 +290,32 @@ VALUES (105, 105, 101, 2500000.00, 'ON_HOLD', DATE_SUB(NOW(), INTERVAL 4 DAY), D
 ON DUPLICATE KEY UPDATE status = 'ON_HOLD', amount = 2500000.00;
 
 -- --------------------------------------------------------------------
+-- 4.1. UC-43: PHƯƠNG THỨC THANH TOÁN (PAYMENT METHODS) & LỆNH RÚT TIỀN (WITHDRAWALS)
+-- --------------------------------------------------------------------
+INSERT INTO payment_methods (payment_method_id, wallet_id, type, account_no, bank_name, status, created_at)
+VALUES 
+    (1, 8, 'BANK_TRANSFER', '0903456789', 'MB Bank', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 20 DAY)),
+    (2, 9, 'BANK_TRANSFER', '0904567890', 'Vietcombank', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 20 DAY)),
+    (3, 12, 'BANK_TRANSFER', '1903999888777', 'Techcombank', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 20 DAY))
+ON DUPLICATE KEY UPDATE account_no = VALUES(account_no), bank_name = VALUES(bank_name), status = 'ACTIVE';
+
+INSERT INTO withdrawal_requests (withdrawal_id, wallet_id, payment_method_id, amount, status, requested_at, processed_at)
+VALUES 
+    (1, 8, 1, 1500000.00, 'PENDING', DATE_SUB(NOW(), INTERVAL 1 DAY), NULL),
+    (2, 9, 2, 3000000.00, 'COMPLETED', DATE_SUB(NOW(), INTERVAL 4 DAY), DATE_SUB(NOW(), INTERVAL 3 DAY))
+ON DUPLICATE KEY UPDATE status = VALUES(status), amount = VALUES(amount);
+
+-- --------------------------------------------------------------------
+-- 4.2. UC-51: YÊU CẦU HOÀN TIỀN (REFUND REQUESTS)
+-- Gồm: 1 khoản 2.4tr COMPLETED (khớp UC-41) và 1 khoản 1.1tr PENDING (sẵn sàng demo duyệt/từ chối)
+-- --------------------------------------------------------------------
+INSERT INTO refund_requests (refund_id, escrow_id, requested_by, reason, amount, status, requested_at, processed_at, bank_name, account_no, refund_reference_code, transfer_status, transfer_processed_at)
+VALUES 
+    (1, 1, 5, 'Gia sư vào lớp muộn và xin hủy lớp học môn Toán 12, phụ huynh yêu cầu hoàn trả 100% học phí ký quỹ', 2400000.00, 'COMPLETED', DATE_SUB(NOW(), INTERVAL 10 DAY), DATE_SUB(NOW(), INTERVAL 5 DAY), 'MB Bank', '0901234567', 'REF-2400000', 'SUCCESS', DATE_SUB(NOW(), INTERVAL 5 DAY)),
+    (2, 103, 7, 'Nội dung giảng dạy chưa sát với đề cương bồi dưỡng HSG Vật lý 11, phụ huynh xin rút lại 50% tiền học phí ký quỹ', 1100000.00, 'PENDING', DATE_SUB(NOW(), INTERVAL 2 DAY), NULL, 'Vietcombank', '0903334444', NULL, NULL, NULL)
+ON DUPLICATE KEY UPDATE status = VALUES(status), amount = VALUES(amount), reason = VALUES(reason);
+
+-- --------------------------------------------------------------------
 -- 5. UC-45: MẪU HỢP ĐỒNG ĐIỆN TỬ HỆ THỐNG MASTER
 -- --------------------------------------------------------------------
 INSERT INTO contract_templates (template_id, name, content, created_by, center_id, is_default, status, created_at, updated_at)
@@ -274,13 +342,27 @@ VALUES
 ON DUPLICATE KEY UPDATE status = VALUES(status), terms_summary = VALUES(terms_summary);
 
 -- --------------------------------------------------------------------
+-- 6.1. UC-44: LỊCH SỬ KÝ HỢP ĐỒNG ĐIỆN TỬ (CONTRACT SIGNATURES)
+-- --------------------------------------------------------------------
+INSERT INTO contract_signatures (signature_id, contract_id, party_role, signer_id, email, signed_at, signature_data, signature_status)
+VALUES 
+    (101, 101, 'CLIENT', 5, 'parent.nguyen@gmail.com', DATE_SUB(NOW(), INTERVAL 15 DAY), 'Ký số điện tử OTP qua email (parent.nguyen@gmail.com)', 'SIGNED'),
+    (102, 101, 'TUTOR', 8, 'tutor.le@gmail.com', DATE_SUB(NOW(), INTERVAL 15 DAY), 'Ký số điện tử OTP qua email (tutor.le@gmail.com)', 'SIGNED'),
+    (103, 102, 'CLIENT', 6, 'parent.tran@gmail.com', DATE_SUB(NOW(), INTERVAL 12 DAY), 'Ký số điện tử OTP qua email (parent.tran@gmail.com)', 'SIGNED'),
+    (104, 102, 'TUTOR', 9, 'tutor.pham@gmail.com', DATE_SUB(NOW(), INTERVAL 12 DAY), 'Ký số điện tử OTP qua email (tutor.pham@gmail.com)', 'SIGNED'),
+    (105, 103, 'CLIENT', 7, 'parent.tuan@tcs.vn', NULL, NULL, 'PENDING'),
+    (106, 103, 'TUTOR', 10, 'tutor.math@tcs.vn', NULL, NULL, 'PENDING')
+ON DUPLICATE KEY UPDATE signature_status = VALUES(signature_status), signed_at = VALUES(signed_at);
+
+-- --------------------------------------------------------------------
 -- 7. UC-49, UC-30 & UC-55: BÁO CÁO VI PHẠM & TRANH CHẤP KÝ QUỸ
 -- --------------------------------------------------------------------
 INSERT INTO reports (report_id, reporter_id, target_type, target_id, category, description, status, created_at, updated_at)
 VALUES 
     (1, 5, 'CLASS', 201, 'OTHER', 'Gia sư vào lớp muộn 30 phút ở buổi học ngày 10/09, đề nghị trung tâm xếp lịch dạy bù.', 'PENDING', DATE_SUB(NOW(), INTERVAL 2 DAY), NOW()),
     (2, 7, 'CLASS', 202, 'OTHER', 'Tranh chấp hợp đồng và yêu cầu hoàn trả tiền ký quỹ học phí do chất lượng không đạt cam kết ban đầu.', 'PENDING', DATE_SUB(NOW(), INTERVAL 3 DAY), NOW()),
-    (3, 8, 'REVIEW', 3, 'ABUSE', 'Nhận xét có lời lẽ bôi nhọ danh dự và xúc phạm nghiêm trọng uy tín giáo viên.', 'PENDING', DATE_SUB(NOW(), INTERVAL 1 DAY), NOW())
+    (3, 8, 'REVIEW', 3, 'ABUSE', 'Nhận xét có lời lẽ bôi nhọ danh dự và xúc phạm nghiêm trọng uy tín giáo viên.', 'PENDING', DATE_SUB(NOW(), INTERVAL 1 DAY), NOW()),
+    (4, 6, 'REVIEW', 1, 'INAPPROPRIATE_CONTENT', 'Yêu cầu kiểm duyệt nhận xét có nội dung sai lệch về lịch học.', 'PENDING', DATE_SUB(NOW(), INTERVAL 12 HOUR), NOW())
 ON DUPLICATE KEY UPDATE status = VALUES(status), description = VALUES(description);
 
 INSERT INTO disputes (dispute_id, report_id, escrow_id, resolution, status, created_at, updated_at)
@@ -301,6 +383,20 @@ VALUES
 ON DUPLICATE KEY UPDATE status = VALUES(status), subject = VALUES(subject);
 
 -- --------------------------------------------------------------------
+-- 8.1. UC-65 & UC-66: TIN NHẮN PHẢN HỒI YÊU CẦU HỖ TRỢ (TICKET MESSAGES)
+-- --------------------------------------------------------------------
+INSERT INTO ticket_messages (message_id, ticket_id, sender_id, is_from_admin, content, created_at)
+VALUES 
+    (1, 1, 5, 0, 'Tôi đã gửi khiếu nại về khoản ký quỹ #103 nhưng chưa thấy admin phản hồi phân xử học phí. Nhờ ban quản trị kiểm tra gấp giúp tôi.', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+    (2, 2, 8, 0, 'Tôi muốn hỏi thời gian xử lý yêu cầu rút thù lao về tài khoản MB Bank mất bao lâu? Phí chuyển khoản do bên nào chịu?', DATE_SUB(NOW(), INTERVAL 3 DAY)),
+    (3, 2, 1, 1, 'Chào thầy Nam! Lệnh rút tiền về MB Bank thông thường được xử lý tự động trong vòng 24 giờ làm việc. Phí chuyển khoản liên ngân hàng được nền tảng TCS miễn phí hoàn toàn.', DATE_SUB(NOW(), INTERVAL 2 DAY)),
+    (4, 2, 8, 0, 'Cảm ơn admin đã giải đáp nhanh và tận tình!', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+    (5, 3, 6, 0, 'Lịch học 19:30 bị hiển thị thành 07:30 trên giao diện lịch học cá nhân của tôi.', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+    (6, 4, 9, 0, 'Hồ sơ của tôi đã đạt mốc 4.9 sao và 10 lớp hoàn thành, nhờ admin hướng dẫn cấp huy hiệu Gia Sư Uy Tín.', DATE_SUB(NOW(), INTERVAL 7 DAY)),
+    (7, 4, 1, 1, 'Chào cô Thảo! Hệ thống đã tự động kiểm tra đủ điều kiện và kích hoạt huy hiệu Gia Sư Uy Tín trên hồ sơ công khai của bạn.', DATE_SUB(NOW(), INTERVAL 6 DAY))
+ON DUPLICATE KEY UPDATE content = VALUES(content);
+
+-- --------------------------------------------------------------------
 -- 9. UC-53 & UC-55: ĐÁNH GIÁ GIA SƯ & KIỂM DUYỆT ĐÁNH GIÁ (REVIEWS)
 -- --------------------------------------------------------------------
 INSERT INTO reviews (review_id, assignment_id, class_id, reviewer_id, reviewee_id, review_type, rating, comment, is_anonymous, status, created_at)
@@ -318,7 +414,8 @@ VALUES
     ('PLATFORM_FEE_RATE', '0.02', 'Tỷ lệ phí dịch vụ nền tảng trích từ giao dịch hoàn tất (2%)'),
     ('ESCROW_HOLD_DAYS', '7', 'Thời gian tạm giữ ký quỹ bảo đảm trước khi giải ngân tự động (ngày)'),
     ('MAX_TUTOR_APPLICATIONS', '5', 'Số lượng đơn ứng tuyển tối đa cho mỗi lớp học mở tuyển'),
-    ('AUTO_CLOSE_TICKET_DAYS', '3', 'Tự động đóng phiếu hỗ trợ sau 3 ngày nếu người dùng không phản hồi')
+    ('AUTO_CLOSE_TICKET_DAYS', '3', 'Tự động đóng phiếu hỗ trợ sau 3 ngày nếu người dùng không phản hồi'),
+    ('SYSTEM_ANNOUNCEMENTS', '[{"announcementId":1,"title":"Chào mừng năm học mới 2026 cùng Tutor Connect System!","content":"Hệ thống hỗ trợ 100% chi phí ký quỹ cho 500 lớp học đầu tiên trong tháng 9.","targetRole":null,"active":true,"startsAt":"2026-09-01T00:00:00","endsAt":"2026-09-30T23:59:59","createdByAdminId":1,"createdByName":"Quản Trị Viên Hệ Thống","createdAt":"2026-09-01T08:00:00","updatedAt":"2026-09-01T08:00:00"},{"announcementId":2,"title":"Quy định cập nhật biểu phí dịch vụ trung tâm gia sư","content":"Ban Quản Trị thông báo áp dụng chính sách ưu đãi phí sàn riêng biệt cho các trung tâm đào tạo đối tác.","targetRole":"TUTOR_CENTER","active":true,"startsAt":"2026-09-05T00:00:00","endsAt":"2026-10-05T23:59:59","createdByAdminId":1,"createdByName":"Quản Trị Viên Hệ Thống","createdAt":"2026-09-05T09:00:00","updatedAt":"2026-09-05T09:00:00"}]', 'Danh sách thông báo toàn sàn (JSON array)')
 ON DUPLICATE KEY UPDATE param_value = VALUES(param_value), description = VALUES(description);
 
 -- --------------------------------------------------------------------
@@ -360,4 +457,88 @@ VALUES
     (1, 'SYSTEM', 'Có 3 hồ sơ xác minh mới cần kiểm duyệt', 'Gia sư Lê Hoàng Nam, Phạm Thu Thảo và Trung tâm Trí Việt vừa nộp hồ sơ.', 'VERIFICATION', 1, 0, 'SENT', DATE_SUB(NOW(), INTERVAL 1 HOUR))
 ON DUPLICATE KEY UPDATE title = VALUES(title);
 
-SELECT 'DỮ LIỆU SEED DEMO ĐÃ NẠP THÀNH CÔNG CHO TOÀN BỘ 13 USE CASES!' AS Result;
+-- --------------------------------------------------------------------
+-- 14. UC-35: MẪU THÔNG BÁO HỆ THỐNG (NOTIFICATION TEMPLATES)
+-- --------------------------------------------------------------------
+INSERT INTO notification_templates (template_id, code, title_template, content_template, channel, enabled, description, created_at, updated_at)
+VALUES 
+    (1, 'VERIFICATION_APPROVED', 'Hồ sơ xác minh đã được duyệt', 'Chúc mừng {{user_name}}! Hồ sơ xác minh danh tính và bằng cấp của bạn đã được phê duyệt thành công.', 'SYSTEM', 1, 'Thông báo khi admin duyệt xác minh hồ sơ', NOW(), NOW()),
+    (2, 'VERIFICATION_REJECTED', 'Hồ sơ xác minh chưa đạt yêu cầu', 'Rất tiếc, hồ sơ của bạn bị từ chối với lý do: {{reason}}. Vui lòng cập nhật lại giấy tờ.', 'SYSTEM', 1, 'Thông báo khi admin từ chối hồ sơ xác minh', NOW(), NOW()),
+    (3, 'SUPPORT_TICKET_RESPONSE', 'Phản hồi yêu cầu hỗ trợ #{{ticket_id}}', 'Ban quản trị đã phản hồi yêu cầu của bạn: "{{response}}".', 'SYSTEM', 1, 'Thông báo khi admin phản hồi ticket', NOW(), NOW()),
+    (4, 'REPORT_RESOLVED', 'Báo cáo vi phạm đã được xử lý', 'Báo cáo #{{report_id}} đã được xử lý với quyết định: {{decision}}.', 'SYSTEM', 1, 'Thông báo khi xử lý xong báo cáo vi phạm', NOW(), NOW()),
+    (5, 'PENALTY_ISSUED', 'Thông báo quyết định xử lý vi phạm', 'Tài khoản của bạn đã bị áp dụng hình thức xử lý: {{penalty_type}} do {{reason}}.', 'SYSTEM', 1, 'Thông báo khi admin ban hành quyết định xử phạt', NOW(), NOW()),
+    (6, 'CENTER_APPLICATION_RESULT', 'Kết quả ứng tuyển: {{title}}', '{{content}}', 'SYSTEM', 1, 'Thông báo kết quả ứng tuyển gia sư cho trung tâm', NOW(), NOW())
+ON DUPLICATE KEY UPDATE title_template = VALUES(title_template), content_template = VALUES(content_template);
+
+-- --------------------------------------------------------------------
+-- 15. UC-59: PHÁT HIỆN HÀNH VI NÉ TRÁNH NỀN TẢNG (CIRCUMVENTION EVENTS)
+-- --------------------------------------------------------------------
+INSERT INTO conversations (conversation_id, context_type, context_id, type, status, created_at, updated_at)
+VALUES 
+    (1, 'CLASS', 201, 'DIRECT', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 2 DAY), NOW()),
+    (2, 'CLASS', 202, 'DIRECT', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 3 DAY), NOW()),
+    (3, 'CLASS', 202, 'DIRECT', 'ACTIVE', DATE_SUB(NOW(), INTERVAL 6 DAY), NOW())
+ON DUPLICATE KEY UPDATE status = VALUES(status);
+
+INSERT INTO conversation_participants (participant_id, conversation_id, user_id, last_read_at)
+VALUES 
+    (1, 1, 5, NOW()),
+    (2, 1, 8, NOW()),
+    (3, 2, 6, NOW()),
+    (4, 2, 9, NOW()),
+    (5, 3, 6, NOW()),
+    (6, 3, 9, NOW())
+ON DUPLICATE KEY UPDATE last_read_at = VALUES(last_read_at);
+
+INSERT INTO messages (message_id, conversation_id, sender_id, message_type, content, is_edited, is_deleted, sent_at)
+VALUES 
+    (1, 1, 8, 'TEXT', 'Chào bạn, bạn có thể chuyển tiền trực tiếp qua Zalo 0987654321 hoặc STK MBBank để không mất phí sàn 2% nhé!', 0, 0, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+    (2, 2, 9, 'TEXT', 'Em có thể add Zalo chị 0912345678 để trao đổi học ngoài không cần qua sàn nhé.', 0, 0, DATE_SUB(NOW(), INTERVAL 2 DAY)),
+    (3, 3, 6, 'TEXT', 'Chào cô Thảo, buổi học IELTS hôm qua con tôi tiếp thu rất tốt, cảm ơn cô nhé!', 0, 0, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+    (4, 3, 9, 'TEXT', 'Dạ em cảm ơn chị! Bé My rất chăm chỉ và phát âm chuẩn, tuần tới em sẽ tăng cường thêm bài tập Reading ạ.', 0, 0, DATE_SUB(NOW(), INTERVAL 5 DAY)),
+    (5, 3, 6, 'TEXT', 'Vâng cô, nhờ cô rèn thêm cho cháu phần Writing Task 2 nữa nhé.', 0, 0, DATE_SUB(NOW(), INTERVAL 4 DAY)),
+    (6, 3, 9, 'TEXT', 'Dạ vâng chị, em đã chuẩn bị sẵn giáo trình mẫu cho phần Writing rồi ạ.', 0, 0, DATE_SUB(NOW(), INTERVAL 4 DAY))
+ON DUPLICATE KEY UPDATE content = VALUES(content);
+
+INSERT INTO circumvention_events (event_id, message_id, conversation_id, sender_id, matched_rule, evidence, risk_score, status, review_note, reviewed_by, reviewed_at, created_at)
+VALUES 
+    (1, 1, 1, 8, 'PAYMENT_KEYWORD', 'Chuyển tiền trực tiếp qua Zalo 0987654321 hoặc STK MBBank để không mất phí', 85, 'PENDING', NULL, NULL, NULL, DATE_SUB(NOW(), INTERVAL 1 DAY)),
+    (2, 2, 2, 9, 'PHONE_EXCHANGE', 'add Zalo chị 0912345678 để trao đổi học ngoài', 75, 'RESOLVED', 'Đã gửi cảnh cáo gia sư lần 1', 1, NOW(), DATE_SUB(NOW(), INTERVAL 2 DAY))
+ON DUPLICATE KEY UPDATE evidence = VALUES(evidence), status = VALUES(status);
+
+-- --------------------------------------------------------------------
+-- 16. UC-60: XỬ PHẠT TÀI KHOẢN VI PHẠM (USER PENALTIES)
+-- --------------------------------------------------------------------
+INSERT INTO user_penalties (penalty_id, user_id, issued_by, penalty_type, reason, evidence_urls, restriction_details, source_type, source_id, source_task_id, starts_at, expires_at, status, created_at)
+VALUES 
+    (1, 8, 1, 'WARNING', 'Có hành vi nhắn tin gạ gẫm phụ huynh thanh toán học phí ngoài nền tảng TCS.', '["https://images.unsplash.com/photo-1544717305-2782549b5136"]', '{"maxClasses": 1}', 'CIRCUMVENTION', 1, 'TASK-CIRC-01', DATE_SUB(NOW(), INTERVAL 1 DAY), DATE_ADD(NOW(), INTERVAL 30 DAY), 'ACTIVE', DATE_SUB(NOW(), INTERVAL 1 DAY)),
+    (2, 7, 1, 'FEATURE_RESTRICTION', 'Hủy lớp học sát giờ nhiều lần mà không có lý do chính đáng.', NULL, '{"canApplyClasses": false}', 'REPORT', 1, 'TASK-REPORT-01', DATE_SUB(NOW(), INTERVAL 5 DAY), DATE_ADD(NOW(), INTERVAL 7 DAY), 'ACTIVE', DATE_SUB(NOW(), INTERVAL 5 DAY))
+ON DUPLICATE KEY UPDATE reason = VALUES(reason), status = VALUES(status);
+
+-- --------------------------------------------------------------------
+-- 17. UC-08: HỒ SƠ CHUYÊN MÔN GIA SƯ (HỌC VẤN, KINH NGHIỆM, CHỨNG CHỈ)
+-- --------------------------------------------------------------------
+INSERT INTO tutor_educations (education_id, tutor_id, institution, degree, field_of_study, start_year, end_year)
+VALUES 
+    (101, 2, 'Đại học Sư phạm Hà Nội', 'Cử nhân Sư phạm Toán học', 'Toán học & Phương pháp giảng dạy', 2017, 2021),
+    (102, 3, 'Đại học Ngoại ngữ - ĐHQGHN', 'Cử nhân Sư phạm Tiếng Anh', 'Ngôn ngữ Anh & Giảng dạy TESOL', 2018, 2022)
+ON DUPLICATE KEY UPDATE institution = VALUES(institution);
+
+INSERT INTO tutor_experiences (experience_id, tutor_id, title, organization, start_date, end_date, description)
+VALUES 
+    (101, 2, 'Giáo viên bộ môn Toán', 'THPT Chuyên Hà Nội - Amsterdam', '2021-09-01', '2023-06-30', 'Giảng dạy Toán nâng cao khối 11, 12 và bồi dưỡng đội tuyển HSG cấp thành phố.'),
+    (102, 2, 'Gia sư Toán luyện thi Đại học', 'Nền tảng Tutor Connect System', '2023-07-01', NULL, 'Kèm 1:1 hơn 15 học sinh thi đỗ nguyện vọng 1 các trường Đại học Bách Khoa, KTQD.'),
+    (103, 3, 'Giảng viên IELTS', 'Học viện Anh ngữ Quốc tế', '2022-08-01', NULL, 'Đào tạo học viên đạt Target IELTS 7.0 - 8.0 cho mục đích du học và xét tuyển đại học.')
+ON DUPLICATE KEY UPDATE title = VALUES(title);
+
+INSERT INTO tutor_certificates (certificate_id, tutor_id, name, issuer, issue_date, file_id)
+VALUES 
+    (101, 2, 'Chứng chỉ Nghiệp vụ Sư phạm Quốc gia', 'Đại học Sư phạm Hà Nội', '2021-06-25', 103),
+    (102, 3, 'Chứng chỉ IELTS 8.0 Overall', 'British Council Vietnam', '2023-03-15', 103)
+ON DUPLICATE KEY UPDATE name = VALUES(name);
+
+SET FOREIGN_KEY_CHECKS = 1;
+
+SELECT 'DỮ LIỆU SEED DEMO ĐÃ NẠP THÀNH CÔNG CHO TOÀN BỘ 30 USE CASES!' AS Result;
+
+

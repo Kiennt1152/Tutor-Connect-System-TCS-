@@ -42,6 +42,9 @@ import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.platform.dto.response.CenterFeeConfigResponse;
+import com.tcs.module.platform.dto.request.UpdateCenterFeeRequest;
+import java.math.BigDecimal;
 import com.tcs.module.identity.entity.VerificationDocument;
 import com.tcs.module.identity.entity.VerificationRequest;
 import com.tcs.module.identity.enums.VerificationStatus;
@@ -312,6 +315,74 @@ public class PlatformServiceImpl implements PlatformService {
         User saved = userRepository.save(user);
         auditLogService.record("UPDATE_USER_STATUS", "User", userId, java.util.Map.of("oldStatus", oldStatus), java.util.Map.of("newStatus", request.getStatus()));
         return platformMapper.toUserListItem(saved, profiles);
+    }
+
+    @Override
+    @Transactional
+    public UserListItemResponse updateUser(Long userId, com.tcs.module.platform.dto.request.UpdateUserAdminRequest request) {
+        User user = findUserOrThrow(userId);
+        UserProfileBundle profiles = loadProfiles(userId);
+        UserRole role = platformMapper.resolveRole(profiles);
+
+        if (request.getStatus() != null) {
+            if (role == UserRole.PLATFORM_ADMIN && request.getStatus() != UserStatus.ACTIVE) {
+                throw new IllegalArgumentException("Không thể vô hiệu hóa tài khoản quản trị viên");
+            }
+            user.setStatus(request.getStatus());
+        }
+
+        String newPhone = request.getPhone() != null ? request.getPhone().trim() : null;
+        if (newPhone != null && newPhone.startsWith("+84")) {
+            newPhone = "0" + newPhone.substring(3);
+        }
+        if (newPhone != null && !newPhone.isBlank() && !newPhone.equals(user.getPhone())) {
+            if (userRepository.existsByPhone(newPhone)) {
+                throw new IllegalArgumentException("Số điện thoại đã tồn tại trong hệ thống");
+            }
+            user.setPhone(newPhone);
+        }
+
+        String displayName = request.getDisplayName() != null ? request.getDisplayName().trim() : null;
+
+        if (profiles.platformAdmin() != null) {
+            if (displayName != null && !displayName.isBlank()) {
+                profiles.platformAdmin().setFullName(displayName);
+                platformAdminRepository.save(profiles.platformAdmin());
+            }
+        } else if (profiles.tutor() != null) {
+            if (displayName != null && !displayName.isBlank()) {
+                profiles.tutor().setFullName(displayName);
+            }
+            if (newPhone != null) {
+                profiles.tutor().setPhone(newPhone);
+            }
+            tutorRepository.save(profiles.tutor());
+        } else if (profiles.tutorCenter() != null) {
+            if (displayName != null && !displayName.isBlank()) {
+                profiles.tutorCenter().setCompanyName(displayName);
+            }
+            if (newPhone != null) {
+                profiles.tutorCenter().setPhone(newPhone);
+            }
+            tutorCenterRepository.save(profiles.tutorCenter());
+        } else if (profiles.client() != null) {
+            if (displayName != null && !displayName.isBlank()) {
+                profiles.client().setFullName(displayName);
+            }
+            if (newPhone != null) {
+                profiles.client().setPhone(newPhone);
+            }
+            clientRepository.save(profiles.client());
+        }
+
+        User saved = userRepository.save(user);
+        auditLogService.record("UPDATE_USER_PROFILE", "User", userId, null,
+                java.util.Map.of("displayName", displayName != null ? displayName : "",
+                        "phone", newPhone != null ? newPhone : "",
+                        "status", request.getStatus() != null ? request.getStatus().name() : ""));
+
+        UserProfileBundle updatedProfiles = loadProfiles(userId);
+        return platformMapper.toUserListItem(saved, updatedProfiles);
     }
 
     // =========================================================================
@@ -2142,7 +2213,8 @@ public class PlatformServiceImpl implements PlatformService {
             );
 
             java.math.BigDecimal platformFeeRevenue = sumPlatformFeeRevenue(start, end);
-            moneyIn = moneyIn.add(platformFeeRevenue);
+            // UC-41 Fix: Không cộng platformFeeRevenue vào moneyIn vì phí sàn là doanh thu nội bộ,
+            // không phải tiền người dùng nạp vào. Đồng nhất với getSummary() trong PlatformAnalyticsServiceImpl.
             
             java.math.BigDecimal netMovement = moneyIn.subtract(moneyOut);
             
@@ -2279,7 +2351,12 @@ public class PlatformServiceImpl implements PlatformService {
         LocalDate d = date != null ? date : LocalDate.now();
         int weekday = d.getDayOfWeek().getValue();
 
-        List<TutoringClass> allClasses = tutoringClassRepository.findAll();
+        // UC-21 Performance Fix: Chỉ load lớp đang hoạt động thay vì toàn bộ lớp (tránh tràn bộ nhớ)
+        List<TutoringClass> allClasses = tutoringClassRepository.findByStatusIn(
+                java.util.List.of(
+                        com.tcs.module.marketplace.enums.TutoringClassStatus.OPEN,
+                        com.tcs.module.marketplace.enums.TutoringClassStatus.MATCHED,
+                        com.tcs.module.marketplace.enums.TutoringClassStatus.IN_PROGRESS));
         Map<Long, TutoringClass> classMap = allClasses.stream()
                 .collect(Collectors.toMap(TutoringClass::getClassId, Function.identity(), (a, b) -> a));
 
@@ -2410,6 +2487,97 @@ public class PlatformServiceImpl implements PlatformService {
         }
         item.setSubstituted(true);
         item.setSubstituteNote("Dạy thay" + (mainName != null ? " cho " + mainName : ""));
+    }
+
+    // =========================================================================
+    // UC-46: CẤU HÌNH PHÍ RIÊNG BIỆT CHO TRUNG TÂM GIA SƯ (CUSTOM CENTER FEES)
+    // =========================================================================
+
+    private BigDecimal resolveDefaultPlatformFeeRate() {
+        BigDecimal fallback = new BigDecimal("0.02");
+        if (systemParameterRepository == null) {
+            return fallback;
+        }
+        return systemParameterRepository.findByParamKey("PLATFORM_FEE_RATE")
+                .map(p -> {
+                    try {
+                        BigDecimal parsed = new BigDecimal(p.getParamValue().trim());
+                        return parsed.compareTo(BigDecimal.ZERO) >= 0 && parsed.compareTo(new BigDecimal("0.50")) <= 0
+                                ? parsed : fallback;
+                    } catch (RuntimeException e) {
+                        return fallback;
+                    }
+                })
+                .orElse(fallback);
+    }
+
+    private String formatFeePercent(BigDecimal rate) {
+        if (rate == null) {
+            return "0%";
+        }
+        return rate.multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%";
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CenterFeeConfigResponse> listCenterFeeConfigs() {
+        BigDecimal defaultRate = resolveDefaultPlatformFeeRate();
+        List<TutorCenter> centers = tutorCenterRepository.findAll();
+        return centers.stream()
+                .map(center -> mapToCenterFeeConfigResponse(center, defaultRate))
+                .sorted(Comparator.comparing(CenterFeeConfigResponse::getCompanyName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public CenterFeeConfigResponse updateCenterFeeConfig(Long centerId, UpdateCenterFeeRequest request) {
+        TutorCenter center = tutorCenterRepository.findById(centerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trung tâm gia sư với ID: " + centerId));
+
+        BigDecimal newRate = request != null ? request.getCustomFeeRate() : null;
+        if (newRate != null) {
+            if (newRate.compareTo(BigDecimal.ZERO) < 0 || newRate.compareTo(new BigDecimal("0.5000")) > 0) {
+                throw new BusinessException("Tỷ lệ phí tùy chỉnh phải nằm trong khoảng 0% đến 50% (0.0000 đến 0.5000)");
+            }
+        }
+
+        BigDecimal oldRate = center.getCustomFeeRate();
+        center.setCustomFeeRate(newRate);
+        tutorCenterRepository.save(center);
+
+        auditLogService.record("UPDATE_CENTER_FEE", "TUTOR_CENTER", centerId, oldRate, newRate);
+
+        BigDecimal defaultRate = resolveDefaultPlatformFeeRate();
+        return mapToCenterFeeConfigResponse(center, defaultRate);
+    }
+
+    @Override
+    @Transactional
+    public CenterFeeConfigResponse resetCenterFeeConfig(Long centerId) {
+        UpdateCenterFeeRequest req = new UpdateCenterFeeRequest();
+        req.setCustomFeeRate(null);
+        req.setReason("Khôi phục về tỷ lệ phí mặc định của sàn");
+        return updateCenterFeeConfig(centerId, req);
+    }
+
+    private CenterFeeConfigResponse mapToCenterFeeConfigResponse(TutorCenter center, BigDecimal defaultRate) {
+        BigDecimal customRate = center.getCustomFeeRate();
+        BigDecimal effectiveRate = customRate != null ? customRate : defaultRate;
+        return CenterFeeConfigResponse.builder()
+                .centerId(center.getCenterId())
+                .userId(center.getUser() != null ? center.getUser().getUserId() : null)
+                .companyName(center.getCompanyName())
+                .licenseNo(center.getLicenseNo())
+                .email(center.getUser() != null ? center.getUser().getEmail() : null)
+                .phone(center.getPhone())
+                .verificationStatus(center.getVerificationStatus() != null ? center.getVerificationStatus().name() : null)
+                .customFeeRate(customRate)
+                .effectiveFeeRate(effectiveRate)
+                .custom(customRate != null)
+                .effectiveFeeRatePercent(formatFeePercent(effectiveRate))
+                .defaultPlatformFeeRate(defaultRate)
+                .build();
     }
 }
 

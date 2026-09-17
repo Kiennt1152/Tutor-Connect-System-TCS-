@@ -177,6 +177,7 @@ public class CenterServiceImpl implements CenterService {
     private final com.tcs.module.profile.service.CccdService cccdService;
     private final com.tcs.module.identity.repository.UserRepository userRepository;
     private final com.tcs.module.messaging.service.NotificationDispatchService notificationDispatchService;
+    private final com.tcs.module.platform.service.PlatformAnalyticsService platformAnalyticsService;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -2881,5 +2882,16 @@ public class CenterServiceImpl implements CenterService {
         return systemParameterRepository.findByParamKey(TEMPLATE_TYPE_PREFIX + templateId)
                 .map(SystemParameter::getParamValue)
                 .orElse(TEMPLATE_TYPE_CLASS);
+    }
+
+    // =========================================================================
+    // UC-41: BÁO CÁO TÀI CHÍNH RIÊNG CHO TRUNG TÂM (TUTOR CENTER FINANCIAL REPORT)
+    // =========================================================================
+    @Override
+    @Transactional(readOnly = true)
+    public com.tcs.module.platform.dto.response.CenterFinancialAnalyticsResponse getCenterFinancialReport(
+            LocalDate from, LocalDate to) {
+        TutorCenter center = requireCenter();
+        return platformAnalyticsService.getCenterAnalyticsByCenterId(center.getCenterId(), from, to);
     }
 }

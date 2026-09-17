@@ -56,6 +56,12 @@ import type {
   CircumventionEventApiResponse,
   AiKnowledgeStatsApiResponse,
   AiKnowledgeReindexApiResponse,
+  CenterFinancialAnalyticsApiResponse,
+  TutorFinancialAnalyticsApiResponse,
+  ClientFinancialAnalyticsApiResponse,
+  PageFinancialLedgerApiResponse,
+  CenterFeeConfigApiResponse,
+  UpdateCenterFeeApiRequest,
 } from '../types/platformTypes';
 import {
   buildTicketListQuery,
@@ -102,6 +108,10 @@ export const platformApi = {
 
   markWithdrawalTransferFailed(withdrawalId: string, payload: WithdrawalDecisionApiRequest) {
     return axiosClient.post(`/finance/withdrawals/${withdrawalId}/transfer-failed`, payload);
+  },
+
+  completeWithdrawal(withdrawalId: string, payload?: WithdrawalDecisionApiRequest) {
+    return axiosClient.post(`/finance/withdrawals/${withdrawalId}/complete`, payload || {});
   },
 
   updateUserStatus(userId: string, payload: UpdateUserStatusApiRequest) {
@@ -342,7 +352,48 @@ export const platformApi = {
     return axiosClient.get<AnalyticsSummaryApiResponse>(`${BASE}/analytics/summary?${params}`);
   },
 
-  exportAnalyticsCsv(type: 'users' | 'classes' | 'revenue' | 'cashflow' | 'transaction-breakdown', from?: string, to?: string) {
+  getCenterAnalytics(from?: string, to?: string) {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return axiosClient.get<CenterFinancialAnalyticsApiResponse[]>(`${BASE}/analytics/entities/centers?${params}`);
+  },
+
+  getTutorAnalytics(from?: string, to?: string) {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return axiosClient.get<TutorFinancialAnalyticsApiResponse[]>(`${BASE}/analytics/entities/tutors?${params}`);
+  },
+
+  getClientAnalytics(from?: string, to?: string) {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return axiosClient.get<ClientFinancialAnalyticsApiResponse[]>(`${BASE}/analytics/entities/clients?${params}`);
+  },
+
+  getFinancialLedger(filters?: {
+    role?: string;
+    direction?: string;
+    search?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    size?: number;
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.role) params.set('role', filters.role);
+    if (filters?.direction) params.set('direction', filters.direction);
+    if (filters?.search) params.set('search', filters.search);
+    if (filters?.from) params.set('from', filters.from);
+    if (filters?.to) params.set('to', filters.to);
+    if (typeof filters?.page === 'number') params.set('page', String(filters.page));
+    if (typeof filters?.size === 'number') params.set('size', String(filters.size));
+    return axiosClient.get<PageFinancialLedgerApiResponse>(`${BASE}/analytics/ledger?${params}`);
+  },
+
+  exportAnalyticsCsv(type: string, from?: string, to?: string) {
     const params = new URLSearchParams({ type, format: 'csv' });
     if (from) params.set('from', from);
     if (to) params.set('to', to);
@@ -380,5 +431,17 @@ export const platformApi = {
 
   deleteContractTemplate(templateId: number) {
     return axiosClient.delete(`${BASE}/contract-templates/${templateId}`);
+  },
+
+  getCenterFeeConfigs() {
+    return axiosClient.get<CenterFeeConfigApiResponse[]>(`${BASE}/fees/centers`);
+  },
+
+  updateCenterFeeConfig(centerId: number, payload: UpdateCenterFeeApiRequest) {
+    return axiosClient.put<CenterFeeConfigApiResponse>(`${BASE}/fees/centers/${centerId}`, payload);
+  },
+
+  resetCenterFeeConfig(centerId: number) {
+    return axiosClient.delete<CenterFeeConfigApiResponse>(`${BASE}/fees/centers/${centerId}`);
   },
 };

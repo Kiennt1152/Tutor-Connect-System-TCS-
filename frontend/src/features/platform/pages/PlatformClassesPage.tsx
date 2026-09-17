@@ -276,14 +276,14 @@ export default function PlatformClassesPage() {
             className={`tcs-btn ${activeTab === 'list' ? 'tcs-btn--primary' : 'tcs-btn--ghost'}`}
             onClick={() => setActiveTab('list')}
           >
-            📋 Danh mục tất cả lớp học ({classes.length})
+            Danh mục tất cả lớp học ({classes.length})
           </button>
           <button
             type="button"
             className={`tcs-btn ${activeTab === 'schedule' ? 'tcs-btn--primary' : 'tcs-btn--ghost'}`}
             onClick={() => setActiveTab('schedule')}
           >
-            🗓️ Giám sát Lịch học theo ngày (UC-21)
+            Giám sát Lịch học theo ngày (UC-21)
           </button>
         </div>
 
@@ -593,7 +593,6 @@ export default function PlatformClassesPage() {
               </div>
             ) : filteredScheduleClasses.length === 0 ? (
               <div className="cs-empty adm-card" style={{ padding: '3rem', textAlign: 'center' }}>
-                <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🗓️</div>
                 <p style={{ fontWeight: 600, color: 'var(--color-text-primary)' }}>
                   Không có ca học nào vào ngày {fmtDate(scheduleDate)}.
                 </p>
@@ -623,14 +622,14 @@ export default function PlatformClassesPage() {
                               {LESSON_MODE_LABELS[c.lessonMode] || c.lessonMode}
                             </span>
                             {c.rescheduled && (
-                              <span className="cs-chip cs-chip--resched">🔄 {c.rescheduleNote || 'Có đổi lịch / dạy thay'}</span>
+                              <span className="cs-chip cs-chip--resched">{c.rescheduleNote || 'Có đổi lịch / dạy thay'}</span>
                             )}
                           </div>
                         </div>
                         <div className="cs-times">
                           {c.slots?.map((s) => (
                             <span className="cs-time" key={s.slotId}>
-                              🕒 {s.startTime?.slice(0, 5)}–{s.endTime?.slice(0, 5)}
+                              {s.startTime?.slice(0, 5)}–{s.endTime?.slice(0, 5)}
                             </span>
                           ))}
                         </div>
@@ -641,7 +640,7 @@ export default function PlatformClassesPage() {
                           <span className="cs-meta__label">Gia sư phụ trách</span>
                           {c.assignedTutorName ? (
                             <span className="cs-meta__value" style={{ color: '#1e40af', fontWeight: 600 }}>
-                              🧑‍🏫 {c.assignedTutorName}
+                              {c.assignedTutorName}
                             </span>
                           ) : (
                             <span className="cs-meta__value cs-meta__value--none">Chưa gán gia sư</span>
@@ -697,9 +696,9 @@ export default function PlatformClassesPage() {
                                 return (
                                   <li className="cs-student" key={st.classStudentId}>
                                     <div className="cs-student__info">
-                                      <span className="cs-student__name">👤 {st.studentName}</span>
+                                      <span className="cs-student__name">{st.studentName}</span>
                                       {st.studentPhone && (
-                                        <span className="cs-student__phone">📞 {st.studentPhone}</span>
+                                        <span className="cs-student__phone">ĐT: {st.studentPhone}</span>
                                       )}
                                     </div>
                                     {att ? (
@@ -758,7 +757,7 @@ export default function PlatformClassesPage() {
                   {detailLoading ? (
                     'Đang tải thông tin gia sư...'
                   ) : detailData?.assignedTutorName ? (
-                    `🧑‍🏫 ${detailData.assignedTutorName} (ID: #${detailData.assignedTutorId})`
+                    `${detailData.assignedTutorName} (ID: #${detailData.assignedTutorId})`
                   ) : (
                     'Chưa có gia sư chính thức'
                   )}
@@ -784,7 +783,7 @@ export default function PlatformClassesPage() {
                           color: '#334155',
                         }}
                       >
-                        📅 {DAY_OF_WEEK_NAMES[slot.dayOfWeek] || `Thứ ${slot.dayOfWeek}`}: {slot.startTime?.slice(0, 5)} - {slot.endTime?.slice(0, 5)}
+                        {DAY_OF_WEEK_NAMES[slot.dayOfWeek] || `Thứ ${slot.dayOfWeek}`}: {slot.startTime?.slice(0, 5)} - {slot.endTime?.slice(0, 5)}
                       </span>
                     ))}
                   </div>

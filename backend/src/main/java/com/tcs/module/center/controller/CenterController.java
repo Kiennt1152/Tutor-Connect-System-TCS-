@@ -328,4 +328,14 @@ public class CenterController {
     public SubstitutionResponse decideSubstitution(@RequestBody SubstitutionDecisionBody request) {
         return centerService.decideSubstitution(request);
     }
+
+    // =========================================================================
+    // UC-41: BÁO CÁO TÀI CHÍNH RIÊNG CHO TRUNG TÂM (TUTOR CENTER FINANCIAL REPORT)
+    // =========================================================================
+    @GetMapping("/financial-report")
+    public com.tcs.module.platform.dto.response.CenterFinancialAnalyticsResponse getCenterFinancialReport(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return centerService.getCenterFinancialReport(from, to);
+    }
 }

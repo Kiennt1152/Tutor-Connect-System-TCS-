@@ -15,6 +15,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -64,6 +65,9 @@ public class TutorCenter {
     @Column(name = "avatar", length = 255)
     private String avatar;
 
+    @Column(name = "custom_fee_rate", precision = 5, scale = 4)
+    private BigDecimal customFeeRate;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -76,4 +80,6 @@ public class TutorCenter {
     public String getPhone() { return phone; }
     public Long getCenterId() { return centerId; }
     public User getUser() { return user; }
+    public BigDecimal getCustomFeeRate() { return customFeeRate; }
+    public void setCustomFeeRate(BigDecimal customFeeRate) { this.customFeeRate = customFeeRate; }
 }

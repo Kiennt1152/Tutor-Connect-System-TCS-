@@ -30,6 +30,7 @@ import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.profile.entity.PlatformAdmin;
+import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -353,7 +354,7 @@ public class EscrowServiceImpl implements EscrowService {
             walletService.releaseLockedFunds(payerUserId, grossAmount, reference);
         }
 
-        BigDecimal feeRate = resolvePlatformFeeRate();
+        BigDecimal feeRate = resolvePlatformFeeRate(escrow);
         BigDecimal platformFee = grossAmount.multiply(feeRate).setScale(2, RoundingMode.HALF_UP);
         String feeSummary = formatPlatformFeeSummary(feeRate, platformFee);
         Long beneficiaryUserId = beneficiaryUserId(escrow);
@@ -424,6 +425,26 @@ public class EscrowServiceImpl implements EscrowService {
         feeTransaction.setReferenceCode(reference);
         feeTransaction.setProcessedAt(LocalDateTime.now());
         paymentTransactionRepository.save(feeTransaction);
+    }
+
+    private BigDecimal resolvePlatformFeeRate(EscrowTransaction escrow) {
+        if (escrow != null) {
+            TutorCenter center = null;
+            if (escrow.getClassStudent() != null && escrow.getClassStudent().getTutoringClass() != null) {
+                center = escrow.getClassStudent().getTutoringClass().getCenter();
+            } else if (escrow.getAssignment() != null
+                    && escrow.getAssignment().getApplication() != null
+                    && escrow.getAssignment().getApplication().getTutoringClass() != null) {
+                center = escrow.getAssignment().getApplication().getTutoringClass().getCenter();
+            }
+            if (center != null && center.getCustomFeeRate() != null) {
+                BigDecimal customRate = center.getCustomFeeRate();
+                if (customRate.compareTo(BigDecimal.ZERO) >= 0 && customRate.compareTo(new BigDecimal("0.50")) <= 0) {
+                    return customRate;
+                }
+            }
+        }
+        return resolvePlatformFeeRate();
     }
 
     private BigDecimal resolvePlatformFeeRate() {
