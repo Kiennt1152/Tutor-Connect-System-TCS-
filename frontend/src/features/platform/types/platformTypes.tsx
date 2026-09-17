@@ -1197,6 +1197,8 @@ export interface AnalyticsSummaryApiResponse {
 export interface AdminEscrowApiResponse {
   escrowId: number; paymentId: number; referenceCode: string | null; amount: number; status: EscrowStatus;
   payerUserId: number; payerEmail: string; beneficiaryUserId: number | null; beneficiaryEmail: string | null;
+  transactionType: 'PRIVATE_CLASS_ESCROW' | 'CENTER_CLASS_ESCROW' | 'UNKNOWN_ESCROW';
+  transactionTypeLabel: string; classId: number | null; classTitle: string | null;
   assignmentId: number | null; classStudentId: number | null; depositedAt: string | null; releasedAt: string | null;
   createdAt: string; updatedAt: string;
 }

@@ -1,5 +1,6 @@
 import { createPortal } from 'react-dom';
-import type { CatalogOption, ClassResponse } from '../types/marketplaceTypes';
+import { BusyConflictNotice } from './BusyConflictNotice';
+import type { CatalogOption, ClassBusyConflict, ClassResponse } from '../types/marketplaceTypes';
 import { ClassDetailPanel } from './ClassDetailPanel';
 import './tutorFindClass.css';
 
@@ -11,6 +12,8 @@ interface Props {
   readonly applying?: boolean;
   readonly onApply?: () => void;
   readonly onClose: () => void;
+  /** Gia sư: buổi của lớp trùng thời gian bận đã đăng ký. */
+  readonly busyConflict?: ClassBusyConflict | null;
 }
 
 export function ClassDetailModal({
@@ -21,6 +24,7 @@ export function ClassDetailModal({
   applying = false,
   onApply,
   onClose,
+  busyConflict,
 }: Props) {
   // Portal ra body: hero có stacking context riêng (z-index: 1) nên modal đặt trong đó
   // sẽ bị header sticky đè lên dù z-index cao hơn.
@@ -42,6 +46,8 @@ export function ClassDetailModal({
           <h2 className="cdm__title">{raw.title}</h2>
         </header>
 
+        {busyConflict && <BusyConflictNotice conflict={busyConflict} />}
+
         <ClassDetailPanel raw={raw} subjects={subjects} grades={grades} />
 
         <footer className="cdm__foot">
@@ -52,10 +58,10 @@ export function ClassDetailModal({
             <button
               type="button"
               className="tfc-btn tfc-btn--primary"
-              disabled={applied || applying}
+              disabled={applied || applying || !!busyConflict}
               onClick={onApply}
             >
-              {applied ? '✓ Đã ứng tuyển' : applying ? 'Đang gửi…' : 'Ứng tuyển'}
+              {applied ? '✓ Đã ứng tuyển' : applying ? 'Đang gửi…' : busyConflict ? 'Trùng lịch bận' : 'Ứng tuyển'}
             </button>
           )}
         </footer>

@@ -129,6 +129,48 @@ export interface CenterStats {
   students: CenterStudentStat[];
 }
 
+/** UC-41: báo cáo tài chính của trung tâm. */
+export interface CenterFinanceSummary {
+  from: string;
+  to: string;
+  /** Học phí học viên đã nộp vào ký quỹ trong kỳ (trước phí nền tảng). */
+  grossCollected: number;
+  /** Đã giải ngân về ví trong kỳ, tính gộp trước phí. */
+  releasedGross: number;
+  platformFee: number;
+  /** Thực nhận = đã giải ngân − phí nền tảng. */
+  netReceived: number;
+  refunded: number;
+  withdrawn: number;
+  /** Ba số dưới là số dư tức thời, không theo kỳ. */
+  heldInEscrow: number;
+  availableBalance: number;
+  frozenBalance: number;
+}
+export interface CenterFinanceClassRow {
+  classId: number;
+  title: string;
+  subjectName: string | null;
+  status: ClassStatus | null;
+  tuitionFee: number | null;
+  paidStudents: number;
+  gross: number;
+  held: number;
+  released: number;
+  refunded: number;
+}
+export interface CenterFinanceMonthRow {
+  /** yyyy-MM */
+  month: string;
+  gross: number;
+  released: number;
+}
+export interface CenterFinanceReport {
+  summary: CenterFinanceSummary;
+  classes: CenterFinanceClassRow[];
+  months: CenterFinanceMonthRow[];
+}
+
 export interface CertificateInfo {
   documentType: VerificationDocumentType | null;
   fileId: number | null;

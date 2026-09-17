@@ -73,7 +73,7 @@ public class AiCapabilityRouter {
 
         Map.entry(AiDomain.MARKETPLACE, new CapabilityPolicy(
             Set.of("TUTOR", "CLASS", "FAQ"), false, Set.of(), true, true,
-            CardPolicy.TUTOR_CARDS, GuardType.TUTOR_NAME_SCRUB, "/tim-gia-su",
+            CardPolicy.TUTOR_CARDS, GuardType.TUTOR_NAME_SCRUB, "/find-tutor",
             "Hiện tại chưa tìm thấy kết quả phù hợp với tiêu chí của bạn. Bạn vui lòng thử tìm với bộ lọc rộng hơn tại mục 'Tìm gia sư'."
         )),
 
@@ -159,12 +159,12 @@ public class AiCapabilityRouter {
         // Marketplace
         Map.entry(AiSubIntent.FIND_TUTOR, new CapabilityPolicy(
             Set.of("TUTOR"), false, Set.of(), true, true,
-            CardPolicy.TUTOR_CARDS, GuardType.TUTOR_NAME_SCRUB, "/tim-gia-su",
+            CardPolicy.TUTOR_CARDS, GuardType.TUTOR_NAME_SCRUB, "/find-tutor",
             "Hiện tại chưa tìm thấy gia sư phù hợp với tiêu chí của bạn. Bạn vui lòng thử mở rộng điều kiện lọc tại trang 'Tìm gia sư'."
         )),
         Map.entry(AiSubIntent.FIND_CLASS, new CapabilityPolicy(
             Set.of("CLASS"), false, Set.of(), true, true,
-            CardPolicy.CLASS_CARDS, GuardType.NONE, "/lop-hoc",
+            CardPolicy.CLASS_CARDS, GuardType.NONE, "/class-finder",
             "Hiện tại chưa có lớp học nào đang mở phù hợp với tiêu chí của bạn. Bạn có thể xem danh sách lớp đang mở tại mục 'Lớp học'."
         )),
         Map.entry(AiSubIntent.CREATE_CLASS, new CapabilityPolicy(
@@ -318,7 +318,7 @@ public class AiCapabilityRouter {
         // Marketplace Action Policies
         Map.entry(AiSubIntent.APPLY_TO_CLASS, new CapabilityPolicy(
             Set.of("FAQ"), false, Set.of(), true, false,
-            CardPolicy.FAQ_CARDS, GuardType.NONE, "/lop-hoc",
+            CardPolicy.FAQ_CARDS, GuardType.NONE, "/class-finder",
             "Gia sư có thể tìm lớp phù hợp tại mục 'Danh sách lớp học' và bấm nút 'Ứng tuyển' trên trang chi tiết lớp học để đề xuất học phí và nộp hồ sơ."
         )),
 

@@ -20,6 +20,7 @@ import {
   type LessonResponse,
   type RescheduleRequestResponse,
 } from '../types/teachingTypes';
+import { ContractDeadline } from '../../../shared/components/ContractDeadline';
 import './TeachingPage.css';
 
 const WEEKDAYS = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
@@ -580,7 +581,22 @@ function InviteCard({
           <span className={`tch-class-status tch-class-status--${classStatusTone(a.classStatus)}`}>
             {classStatusLabel(a.classStatus)}
           </span>
+          {/* Hợp đồng chỉ sống 48 giờ: hết hạn mà chưa ký xong + chưa có tiền thì lời mời tự hủy. */}
+          {a.matchDeadlineAt && (
+            <ContractDeadline
+              deadline={a.matchDeadlineAt}
+              prefix="Còn"
+              expiredLabel="Đã quá hạn 48 giờ"
+            />
+          )}
         </div>
+        {a.matchDeadlineAt && (
+          <p className="tch-invite__deadline">
+            {isClient
+              ? 'Cần ký hợp đồng và chuyển tiền ký quỹ trong 48 giờ, nếu không lớp sẽ tự mở lại cho các gia sư đã ứng tuyển.'
+              : 'Hợp đồng có hiệu lực 48 giờ. Quá hạn mà hai bên chưa ký xong và phụ huynh chưa chuyển tiền ký quỹ thì lớp sẽ mở lại cho gia sư khác.'}
+          </p>
+        )}
       </div>
       <div className="tch-invite__actions">
         {!iSigned && (

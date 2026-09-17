@@ -1,12 +1,15 @@
 package com.tcs.module.marketplace.repository;
 
 import com.tcs.module.marketplace.entity.TutoringClass;
+import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.TutoringClassStatus;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 @Repository
@@ -24,6 +27,27 @@ public interface TutoringClassRepository extends JpaRepository<TutoringClass, Lo
     List<TutoringClass> findByCenter_CenterIdAndStatusOrderByCreatedAtDesc(
             Long centerId, TutoringClassStatus status);
 
+    /**
+     * Kiểm tra lớp CENTER có thuộc về tài khoản trung tâm đang đăng nhập.
+     * Một số dữ liệu cũ xác định chủ sở hữu qua center.user, một số dữ liệu
+     * xác định qua creator nên cần hỗ trợ cả hai quan hệ.
+     */
+    @Query("""
+            SELECT CASE WHEN COUNT(t) > 0 THEN TRUE ELSE FALSE END
+            FROM TutoringClass t
+            LEFT JOIN t.center center
+            WHERE t.classId = :classId
+              AND t.classType = :classType
+              AND (
+                    center.user.userId = :centerUserId
+                    OR t.creator.userId = :centerUserId
+                  )
+            """)
+    boolean existsCenterOwnedClass(
+            @Param("classId") Long classId,
+            @Param("classType") ClassType classType,
+            @Param("centerUserId") Long centerUserId);
+
     boolean existsByCategory_CategoryId(Long categoryId);
 
     long countByStatus(TutoringClassStatus status);
@@ -39,5 +63,9 @@ public interface TutoringClassRepository extends JpaRepository<TutoringClass, Lo
 
     /** Lớp OPEN đã quá hạn hiển thị (expires_at < mốc truyền vào) -> cần dọn dẹp. */
     List<TutoringClass> findByStatusAndExpiresAtBefore(
+            TutoringClassStatus status, LocalDateTime cutoff);
+
+    /** Lớp đã ghép nhưng quá hạn 48 giờ ký hợp đồng/chuyển tiền -> cần mở lại cho ứng viên khác. */
+    List<TutoringClass> findByStatusAndMatchDeadlineAtBefore(
             TutoringClassStatus status, LocalDateTime cutoff);
 }

@@ -3,6 +3,11 @@ package com.tcs.module.identity.controller;
 import com.tcs.module.identity.enums.VerificationDocumentType;
 import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.repository.VerificationDocumentRepository;
+import com.tcs.module.marketplace.enums.ClassType;
+import com.tcs.module.marketplace.repository.TutoringClassRepository;
+import com.tcs.module.platform.entity.Report;
+import com.tcs.module.platform.enums.ReportTargetType;
+import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.profile.repository.MediaFileRepository;
 import com.tcs.security.AuthHelper;
@@ -28,7 +33,8 @@ import org.springframework.web.server.ResponseStatusException;
  *
  * <p>Public files (avatars) are still served directly via /uploads/public/** (permitAll).
  * Private files are accessed via /api/files/private/{fileId} which checks that the
- * requesting user is either the file owner or a PLATFORM_ADMIN.</p>
+ * requesting user is either the file owner, a PLATFORM_ADMIN, or the owner of
+ * the CENTER class whose report/dispute contains the file.</p>
  */
 @RestController
 @RequiredArgsConstructor
@@ -36,6 +42,8 @@ public class FileAccessController {
 
     private final MediaFileRepository mediaFileRepo;
     private final VerificationDocumentRepository verificationDocumentRepo;
+    private final ReportRepository reportRepository;
+    private final TutoringClassRepository tutoringClassRepository;
     private final AuthHelper authHelper;
 
     @Value("${tcs.file.storage.path:uploads}")
@@ -107,14 +115,40 @@ public class FileAccessController {
     private void authorizePrivateFile(MediaFile file) {
         Long userId = authHelper.currentUserId();
 
-        // Only the file owner or a platform admin may access private files.
         boolean isOwner = file.getUploadedBy() != null
                 && file.getUploadedBy().getUserId().equals(userId);
         boolean isAdmin = authHelper.hasRole("PLATFORM_ADMIN");
+        boolean isCenterOwner = !isOwner
+                && !isAdmin
+                && isCenterOwnerOfReportedClass(file, userId);
 
-        if (!isOwner && !isAdmin) {
+        if (!isOwner && !isAdmin && !isCenterOwner) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
         }
+    }
+
+    /**
+     * Center chỉ được xem bằng chứng gắn với báo cáo sự cố/tranh chấp của
+     * chính lớp CENTER do center đó quản lý. Không mở quyền đọc toàn bộ
+     * private files của người dùng khác.
+     */
+    private boolean isCenterOwnerOfReportedClass(MediaFile file, Long centerUserId) {
+        if (file == null
+                || centerUserId == null
+                || !authHelper.hasRole("TUTOR_CENTER")
+                || file.getFileUrl() == null
+                || file.getFileUrl().isBlank()) {
+            return false;
+        }
+
+        return reportRepository
+                .findByTargetTypeAndEvidenceUrlsContaining(
+                        ReportTargetType.CLASS, file.getFileUrl())
+                .stream()
+                .map(Report::getTargetId)
+                .filter(targetId -> targetId != null)
+                .anyMatch(classId -> tutoringClassRepository.existsCenterOwnedClass(
+                        classId, ClassType.CENTER, centerUserId));
     }
 
     private String normalizePrivateFileUrl(String rawUrl) {

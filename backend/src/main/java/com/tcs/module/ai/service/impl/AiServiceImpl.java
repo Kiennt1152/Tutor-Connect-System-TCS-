@@ -356,7 +356,7 @@ public class AiServiceImpl implements AiService {
     }
 
     private AiMessageResponse handleOutOfScopeResponse(AiChatSession session, AiDomain domain, AiSubIntent subIntent, AiIntent legacyIntent, Map<String, String> entities, String query) {
-        String outOfScopeMsg = "TCS là nền tảng kết nối gia sư và học viên. Trợ lý AI hỗ trợ bạn tra cứu thông tin hệ thống, bảng giá, quy trình và tìm kiếm người dạy phù hợp. Câu hỏi này nằm ngoài phạm vi hỗ trợ của tôi. Đối với các câu hỏi giải bài tập hoặc giảng dạy chuyên sâu, bạn có thể [Tìm gia sư](/tim-gia-su) hoặc [Đăng tin tạo lớp](/tao-lop) môn học này để được kèm 1-1 nhé!";
+        String outOfScopeMsg = "TCS là nền tảng kết nối gia sư và học viên. Trợ lý AI hỗ trợ bạn tra cứu thông tin hệ thống, bảng giá, quy trình và tìm kiếm người dạy phù hợp. Câu hỏi này nằm ngoài phạm vi hỗ trợ của tôi. Đối với các câu hỏi giải bài tập hoặc giảng dạy chuyên sâu, bạn có thể [Tìm gia sư](/find-tutor) hoặc [Đăng tin tạo lớp](/tao-lop) môn học này để được kèm 1-1 nhé!";
         AiChatMessage aiMsg = new AiChatMessage();
         aiMsg.setSession(session);
         aiMsg.setRole("assistant");
@@ -367,7 +367,7 @@ public class AiServiceImpl implements AiService {
 
         return responseBuilderService.build(
             aiMsg.getMessageId(), session.getSessionId(), outOfScopeMsg,
-            legacyIntent.name(), domain.name(), subIntent.name(), "/tim-gia-su",
+            legacyIntent.name(), domain.name(), subIntent.name(), "/find-tutor",
             List.of("Tìm gia sư", "Đăng tin tạo lớp", "Câu hỏi thường gặp"),
             "FALLBACK_OUT_OF_SCOPE", 0.0, "NONE", 0, "OUT_OF_SCOPE",
             List.of(), List.of(), List.of(), List.of(), null, false, null, null
@@ -516,7 +516,7 @@ public class AiServiceImpl implements AiService {
         if (subIntent == AiSubIntent.APPLY_TO_CLASS) {
             return """
                 **Quy trình gia sư ứng tuyển nhận lớp trên TCS:**
-                1. **Tìm lớp:** Truy cập mục [Danh sách lớp học](/lop-hoc), lọc theo môn học, khối lớp và khu vực mong muốn.
+                1. **Tìm lớp:** Truy cập mục [Danh sách lớp học](/class-finder), lọc theo môn học, khối lớp và khu vực mong muốn.
                 2. **Xem chi tiết:** Bấm vào bài đăng lớp học để xem yêu cầu cụ thể của phụ huynh/học viên.
                 3. **Nộp đơn ứng tuyển:** Bấm nút **"Ứng tuyển"** trên trang chi tiết lớp học, nhập mức học phí đề xuất kèm lời giới thiệu kinh nghiệm giảng dạy để gửi phụ huynh xem xét.
                 """;
@@ -550,7 +550,7 @@ public class AiServiceImpl implements AiService {
                 **Hình thức giảng dạy trên nền tảng TCS:**
                 • **Dạy kèm tại nhà (Offline):** Gia sư đến tận nhà học viên để kèm 1-1 hoặc dạy nhóm theo lịch thỏa thuận.
                 • **Dạy trực tuyến (Online):** Học viên và gia sư học tương tác trực tiếp qua Google Meet/Zoom, linh hoạt thời gian và tiết kiệm chi phí đi lại.
-                • Khi tìm kiếm tại mục [Tìm gia sư](/tim-gia-su) hoặc [Tạo lớp học](/tao-lop), bạn có thể dễ dàng lọc theo hình thức **Online** hoặc **Tại nhà**.
+                • Khi tìm kiếm tại mục [Tìm gia sư](/find-tutor) hoặc [Tạo lớp học](/tao-lop), bạn có thể dễ dàng lọc theo hình thức **Online** hoặc **Tại nhà**.
                 """;
         }
 
@@ -578,7 +578,7 @@ public class AiServiceImpl implements AiService {
         if (normalized.contains("quy trinh dang ky") || lower.contains("quy trình đăng ký") || normalized.contains("quy trinh tim gia su") || lower.contains("quy trình tìm gia sư") || normalized.contains("cac buoc tim gia su") || normalized.contains("cac buoc thue gia su") || normalized.contains("dang ky tim gia su") || normalized.contains("tim gia su dien ra") || lower.contains("tìm gia sư diễn ra")) {
             return """
                 **Quy trình tìm và thuê gia sư trên TCS gồm 4 bước đơn giản:**
-                1. **Đăng yêu cầu hoặc Tìm kiếm:** Truy cập [Tạo lớp học](/tao-lop) để đăng tin miễn phí hoặc chủ động chọn gia sư tại [Tìm gia sư](/tim-gia-su).
+                1. **Đăng yêu cầu hoặc Tìm kiếm:** Truy cập [Tạo lớp học](/tao-lop) để đăng tin miễn phí hoặc chủ động chọn gia sư tại [Tìm gia sư](/find-tutor).
                 2. **Chọn gia sư & Trao đổi:** Xem xét hồ sơ bằng cấp, đánh giá sao của các ứng viên và nhắn tin trao đổi thống nhất lịch học, học phí.
                 3. **Ký Hợp đồng điện tử:** Xác nhận hợp đồng học tập 3 bên bằng mã OTP bảo mật gửi về điện thoại/email.
                 4. **Nạp ký quỹ Escrow:** Nạp học phí tạm giữ an toàn vào quỹ Escrow qua VietQR SePay. Tiền chỉ được giải ngân cho gia sư sau khi từng buổi học hoàn tất thành công.
@@ -589,7 +589,7 @@ public class AiServiceImpl implements AiService {
         if (normalized.contains("vao dau") || normalized.contains("o dau") || normalized.contains("trang nao") || normalized.contains("muc nao") || normalized.contains("muon kiem gia su") || normalized.contains("muon tim gia su") || normalized.contains("cach tim gia su") || normalized.contains("cach thue gia su")) {
             return """
                 **Để tìm kiếm và thuê gia sư trên nền tảng TCS, bạn có thể thực hiện theo 2 cách:**
-                1. **Tìm kiếm trực tiếp:** Truy cập trang **[Tìm gia sư](/tim-gia-su)**, sử dụng bộ lọc môn học, khối lớp, khu vực và hình thức (Online/Tại nhà) để xem hồ sơ và gửi yêu cầu học.
+                1. **Tìm kiếm trực tiếp:** Truy cập trang **[Tìm gia sư](/find-tutor)**, sử dụng bộ lọc môn học, khối lớp, khu vực và hình thức (Online/Tại nhà) để xem hồ sơ và gửi yêu cầu học.
                 2. **Đăng bài tạo lớp:** Truy cập trang **[Tạo lớp học](/tao-lop)** để đăng thông tin lớp học (hoàn toàn miễn phí). Các gia sư phù hợp sẽ chủ động gửi hồ sơ ứng tuyển để bạn lựa chọn.
                 """;
         }
@@ -657,7 +657,7 @@ public class AiServiceImpl implements AiService {
                 • **Khởi tạo:** Mỗi gia sư bắt đầu với mức uy tín mặc định (100 điểm).
                 • **Cộng điểm:** Hoàn thành tốt các buổi dạy, nhận đánh giá 5 sao từ phụ huynh và duy trì tỷ lệ đi dạy đúng giờ cao.
                 • **Trừ điểm:** Đi muộn, hủy buổi dạy sát giờ, bị phụ huynh khiếu nại hoặc vi phạm quy chế sàn.
-                • **Quyền lợi:** Gia sư có điểm uy tín cao sẽ được ưu tiên hiển thị trên trang [Tìm gia sư](/tim-gia-su) và tăng cơ hội nhận lớp.
+                • **Quyền lợi:** Gia sư có điểm uy tín cao sẽ được ưu tiên hiển thị trên trang [Tìm gia sư](/find-tutor) và tăng cơ hội nhận lớp.
                 """;
         }
 
@@ -743,7 +743,7 @@ public class AiServiceImpl implements AiService {
                     return sb.toString();
                 }
             }
-            return "Hiện tại hệ thống TCS chưa tìm thấy gia sư phù hợp với tiêu chí của bạn. Bạn có thể bấm [Đăng bài tạo lớp](/tao-lop) (hoàn toàn miễn phí) để các gia sư phù hợp chủ động nộp hồ sơ ứng tuyển trong vòng 24h, hoặc mở rộng điều kiện tìm kiếm tại [Tìm gia sư](/tim-gia-su).";
+            return "Hiện tại hệ thống TCS chưa tìm thấy gia sư phù hợp với tiêu chí của bạn. Bạn có thể bấm [Đăng bài tạo lớp](/tao-lop) (hoàn toàn miễn phí) để các gia sư phù hợp chủ động nộp hồ sơ ứng tuyển trong vòng 24h, hoặc mở rộng điều kiện tìm kiếm tại [Tìm gia sư](/find-tutor).";
         }
 
         if (subIntent == AiSubIntent.FIND_CLASS || intent == AiIntent.FIND_CLASS || subIntent == AiSubIntent.FILTER_CLASS) {
@@ -764,7 +764,7 @@ public class AiServiceImpl implements AiService {
                     return sb.toString();
                 }
             }
-            return "Hiện tại hệ thống TCS chưa tìm thấy lớp học phù hợp với yêu cầu tìm kiếm của bạn. Bạn vui lòng thử điều chỉnh lại môn học, khối lớp hoặc mở rộng khu vực tìm kiếm tại [Danh sách lớp học](/lop-hoc) nhé!";
+            return "Hiện tại hệ thống TCS chưa tìm thấy lớp học phù hợp với yêu cầu tìm kiếm của bạn. Bạn vui lòng thử điều chỉnh lại môn học, khối lớp hoặc mở rộng khu vực tìm kiếm tại [Danh sách lớp học](/class-finder) nhé!";
         }
 
         // 4. Relevant FAQ & Policy Chunks

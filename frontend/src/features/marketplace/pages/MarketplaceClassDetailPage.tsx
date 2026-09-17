@@ -150,6 +150,11 @@ export default function MarketplaceClassDetailPage() {
     isClient && Boolean(depLinkStatus?.legalProceduresDelegatedToParent);
   const legalHolderName = depLinkStatus?.legalAccountHolderName;
 
+  // Gia sư không được xem lớp của trung tâm từ trang tìm lớp. Ngoại lệ: mở từ lịch lớp trung tâm
+  // của chính mình (có assignmentId) — gia sư đó đã được trung tâm phân công.
+  const hiddenCenterClass =
+    isTutor && data?.classType === 'CENTER' && !(Number(searchParams.get('assignmentId')) > 0);
+
   const isOpen = data?.status === 'OPEN';
   // Đã đăng ký lớp này rồi (mọi trạng thái) -> khoá nút; backend cũng chặn đăng ký trùng.
   const myRegistration = isClient ? (data?.myRegistrationStatus ?? null) : null;
@@ -168,7 +173,11 @@ export default function MarketplaceClassDetailPage() {
         {status === 'loading' && <div className="mk-state">Đang tải chi tiết lớp…</div>}
         {status === 'error' && <div className="mk-state">{loadError}</div>}
 
-        {status === 'success' && data && (
+        {status === 'success' && hiddenCenterClass && (
+          <div className="mk-state">Lớp của trung tâm do trung tâm tự bố trí gia sư — gia sư không xem được lớp này.</div>
+        )}
+
+        {status === 'success' && data && !hiddenCenterClass && (
           <div className="mk-detail">
             <div className="mk-detail__main">
               <div className="mk-detail__titlebar">

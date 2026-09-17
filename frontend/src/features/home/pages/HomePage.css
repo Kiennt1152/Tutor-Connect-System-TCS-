@@ -98,10 +98,11 @@
   color: var(--color-primary);
 }
 
+/* Một trang 6 tin, xếp 3 trên 3 dưới (xem PAGE_SIZE trong ClassBoardPage.tsx). */
 .tcs-classboard .tcs-class-list,
 .cboard-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-md);
   align-items: start;
 }
@@ -110,6 +111,14 @@
   display: flex;
   justify-content: center;
   margin-top: var(--space-lg);
+}
+
+/* Màn vừa: 3 cột bóp thẻ quá hẹp -> về 2 cột trước khi về 1 cột. */
+@media (max-width: 1100px) {
+  .tcs-classboard .tcs-class-list,
+  .cboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {

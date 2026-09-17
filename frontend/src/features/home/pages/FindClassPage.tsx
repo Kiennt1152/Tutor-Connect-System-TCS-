@@ -15,7 +15,7 @@ import '../../marketplace/pages/MarketplacePage.css';
 
 /*
  * ============================================================================
- * MÀN "TÌM YÊU CẦU GIẢNG DẠY"  —  route /tim-yeu-cau-giang-day
+ * MÀN "TÌM YÊU CẦU GIẢNG DẠY"  —  route /find-class
  * ============================================================================
  *
  * MỘT ROUTE, HAI MÀN KHÁC HẲN NHAU

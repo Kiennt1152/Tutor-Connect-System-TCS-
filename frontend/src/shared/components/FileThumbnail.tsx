@@ -11,7 +11,8 @@ export interface FileThumbnailProps {
   readonly actions?: ReactNode;
   readonly showHoverPreview?: boolean;
   /**
-   * MediaFile id. Bắt buộc với file riêng tư (CCCD, giấy tờ, hồ sơ xác minh):
+   * MediaFile id. Dùng được cho file riêng tư (CCCD, giấy tờ, hồ sơ xác minh,
+   * bằng chứng lớp học):
    * các file này nằm sau /api/files/private/{fileId} và cần JWT, mà thẻ <img>
    * không gửi được header Authorization — nên phải tải qua axios rồi tạo blob URL.
    */
@@ -43,6 +44,7 @@ export function FileThumbnail({
     }
     let cancelled = false;
     let objectUrl: string | null = null;
+    setPrivateBlobUrl(null);
     setPrivateLoadFailed(false);
 
     const request = fileId != null
@@ -76,9 +78,10 @@ export function FileThumbnail({
 
   const isImage = mimeType?.startsWith('image/') ?? false;
   const isPdf = mimeType === 'application/pdf';
+  const canPreview = Boolean(resolvedSrc);
 
   function handleMouseEnter() {
-    if (showHoverPreview && (isImage || isPdf)) setHoverPreview(true);
+    if (showHoverPreview && canPreview && (isImage || isPdf)) setHoverPreview(true);
   }
 
   function handleMouseLeave() {
@@ -86,6 +89,7 @@ export function FileThumbnail({
   }
 
   function openModal() {
+    if (!canPreview) return;
     setModalOpen(true);
   }
 
@@ -99,8 +103,9 @@ export function FileThumbnail({
         type="button"
         className="ft-trigger"
         onClick={openModal}
+        disabled={!canPreview}
         aria-label={`Xem trước ${fileName}`}
-        title={`Bấm để xem trước ${fileName}`}
+        title={canPreview ? `Bấm để xem trước ${fileName}` : `Đang tải ${fileName}`}
       >
         {isImage ? (
           resolvedSrc ? (
@@ -127,13 +132,13 @@ export function FileThumbnail({
 
       {actions && <div className="ft-actions">{actions}</div>}
 
-      {showHoverPreview && hoverPreview && (isImage || isPdf) && (
+      {showHoverPreview && hoverPreview && canPreview && (isImage || isPdf) && (
         <div className="ft-popover" role="tooltip">
           <div className="ft-popover__body">
-            {isImage && resolvedSrc ? (
-              <img className="ft-popover__img" src={resolvedSrc} alt={fileName} />
+            {isImage ? (
+              <img className="ft-popover__img" src={resolvedSrc ?? ''} alt={fileName} />
             ) : (
-              <div className="ft-popover__pdf">{fileName}</div>
+              <div className="ft-popover__pdf">Bấm để mở tài liệu</div>
             )}
           </div>
           <div className="ft-popover__hint">
@@ -154,7 +159,7 @@ export function FileThumbnail({
   );
 }
 
-/** File riêng tư (CCCD, giấy tờ, hồ sơ xác minh) nằm ở /uploads/private/ và cần JWT để xem. */
+/** File riêng tư (CCCD, giấy tờ, bằng chứng) nằm ở /uploads/private/ và cần JWT để xem. */
 function isPrivatePath(src: string): boolean {
   return src.includes('/uploads/private/');
 }

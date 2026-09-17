@@ -174,7 +174,7 @@ public class KnowledgeIndexerService {
                 "- Điểm uy tín khởi điểm của gia sư: 100 điểm.\n" +
                 "- Cộng điểm uy tín: Hoàn thành lớp học đúng hạn (+5 điểm), nhận đánh giá 5 sao từ phụ huynh (+2 điểm), xác minh CCCD/bằng cấp đầy đủ (+10 điểm).\n" +
                 "- Trừ điểm uy tín: Hủy lớp sát giờ không lý do chính đáng (-15 điểm), bị cảnh cáo vi phạm quy chế sàn (-20 điểm), bị xử thua tranh chấp (-30 điểm).\n" +
-                "- Gia sư có điểm uy tín cao (>90 điểm) và rating >= 4.8 sẽ nhận huy hiệu 'Gia sư Uy tín' và được đẩy lên đầu trang tìm kiếm /tim-gia-su.",
+                "- Gia sư có điểm uy tín cao (>90 điểm) và rating >= 4.8 sẽ nhận huy hiệu 'Gia sư Uy tín' và được đẩy lên đầu trang tìm kiếm /find-tutor.",
                 Map.of("category", "REPUTATION", "tags", "uy_tin,reputation,danh_gia,rating,diem_uy_tin"), stats);
 
         indexChunk(KnowledgeSourceType.POLICY, "POLICY_CIRCUMVENTION_PREVENTION", 
@@ -209,7 +209,7 @@ public class KnowledgeIndexerService {
         indexChunk(KnowledgeSourceType.POLICY, "POLICY_TUTOR_APPLICATION_FLOW",
                 "Quy trình Nộp hồ sơ và Ứng tuyển nhận lớp dạy kèm",
                 "Quy trình Gia sư ứng tuyển nhận lớp trên TCS:\n" +
-                "1. Tìm kiếm lớp học phù hợp tại mục 'Danh sách lớp học' (/lop-hoc).\n" +
+                "1. Tìm kiếm lớp học phù hợp tại mục 'Danh sách lớp học' (/class-finder).\n" +
                 "2. Xem kỹ yêu cầu của học sinh (môn học, khối lớp, lịch học, học phí đề xuất, địa chỉ).\n" +
                 "3. Bấm nút 'Ứng tuyển', nhập mức học phí đề xuất kèm lời giới thiệu kinh nghiệm và phương pháp giảng dạy.\n" +
                 "4. Phụ huynh xem xét hồ sơ, trao đổi qua tin nhắn và bấm 'Chấp nhận' để tiến hành ký hợp đồng điện tử qua OTP.",

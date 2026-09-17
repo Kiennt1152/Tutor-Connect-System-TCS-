@@ -1,6 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { LessonResponse, RescheduleLessonPayload } from '../types/teachingTypes';
-import { hhmm, hhmmDisplay, toIsoDate } from '../../../shared/utils/format';
+import {
+  endMinutes,
+  hhmm,
+  hhmmDisplay,
+  isValidTimeRange,
+  slotOverlaps,
+  startMinutes,
+  toIsoDate,
+} from '../../../shared/utils/format';
 import { SESSION_OPTIONS } from '../../marketplace/types/marketplaceTypes';
 import './LessonRequestDialog.css';
 
@@ -56,7 +64,8 @@ export function LessonRequestDialog({
 }: Props) {
   // Độ dài buổi gốc (phút) — cố định, không đổi.
   const durationMin = useMemo(
-    () => toMinutes(hhmm(lesson.endTime)) - toMinutes(hhmm(lesson.startTime)),
+    // Qua endMinutes vì buổi có thể kết thúc lúc nửa đêm (00:00 = 24:00).
+    () => endMinutes(lesson.endTime) - startMinutes(lesson.startTime),
     [lesson.endTime, lesson.startTime],
   );
 
@@ -118,13 +127,12 @@ export function LessonRequestDialog({
 
   // Cảnh báo trùng lịch ngay khi chọn ngày/giờ (không đợi bấm gửi).
   const conflict = useMemo(() => {
-    if (!date || !startTime || !endTime || startTime >= endTime) return null;
+    if (!date || !startTime || !endTime || !isValidTimeRange(startTime, endTime)) return null;
     const clash = (existingLessons ?? []).find(
       (l) =>
         l.lessonId !== lesson.lessonId &&
         l.lessonDate === date &&
-        startTime < hhmm(l.endTime) &&
-        hhmm(l.startTime) < endTime,
+        slotOverlaps(startTime, endTime, hhmm(l.startTime), hhmm(l.endTime)),
     );
     return clash
       ? `Khung giờ này trùng với buổi "${clash.classTitle}" ngày ${date} (${hhmm(clash.startTime)}–${hhmm(clash.endTime)}). Vui lòng chọn giờ hoặc ngày khác.`

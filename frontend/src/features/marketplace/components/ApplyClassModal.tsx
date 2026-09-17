@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
+import { BusyConflictNotice } from './BusyConflictNotice';
+import type { ClassBusyConflict } from '../types/marketplaceTypes';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
@@ -30,6 +32,8 @@ interface Props {
   readonly onClose: () => void;
   readonly onSubmitted: (classId: number) => void;
   readonly onVerificationRequired?: (message: string) => void;
+  /** Lớp có buổi trùng thời gian bận của gia sư — chỉ nhắc, không chặn gửi đơn. */
+  readonly busyConflict?: ClassBusyConflict | null;
 }
 
 export function ApplyClassModal({
@@ -39,6 +43,7 @@ export function ApplyClassModal({
   onClose,
   onSubmitted,
   onVerificationRequired,
+  busyConflict,
 }: Props) {
   const navigate = useNavigate();
   const [profile, setProfile] = useState<TutorProfileCard | null>(null);
@@ -377,6 +382,12 @@ export function ApplyClassModal({
             </label>
           </section>
 
+          {busyConflict && (
+            <BusyConflictNotice
+              conflict={busyConflict}
+            />
+          )}
+
           {error && <p className="apl-error">{error}</p>}
         </div>
 
@@ -387,7 +398,10 @@ export function ApplyClassModal({
           <button
             type="button"
             className="tfc-btn tfc-btn--primary"
-            disabled={submitting || (!needsVerification && (noSubjectChosen || rateErrors.length > 0))}
+            disabled={
+              submitting ||
+              (!needsVerification && (noSubjectChosen || rateErrors.length > 0 || !!busyConflict))
+            }
             title={
               needsVerification
                 ? 'Đi tới trang xác minh hồ sơ'

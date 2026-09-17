@@ -64,6 +64,13 @@ public interface MarketplaceService {
 
     List<ApplicantResponse> listApplicants(Long classId);
 
+    /**
+     * Gia sư đang đăng nhập: các lớp (trong danh sách truyền vào) có buổi trùng thời gian bận
+     * đã đăng ký. Chỉ trả những lớp CÓ trùng.
+     */
+    List<com.tcs.module.marketplace.dto.response.ClassBusyConflictResponse> listMyBusyConflicts(
+            List<Long> classIds);
+
     void chooseApplicant(Long classId, Long applicationId);
 
     void rejectApplicant(Long classId, Long applicationId, String reason);

@@ -153,6 +153,7 @@ export function AdminEscrowQueue() {
               <tr>
                 <th>Mã ký quỹ</th>
                 <th>Mã tham chiếu</th>
+                <th>Loại giao dịch</th>
                 <th>Người thanh toán</th>
                 <th>Người thụ hưởng</th>
                 <th style={{ textAlign: 'right' }}>Số tiền (VNĐ)</th>
@@ -163,13 +164,13 @@ export function AdminEscrowQueue() {
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                     Đang tải danh sách ký quỹ...
                   </td>
                 </tr>
               ) : items.length === 0 ? (
                 <tr>
-                  <td colSpan={7} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                  <td colSpan={8} style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
                     Không có giao dịch ký quỹ nào phù hợp.
                   </td>
                 </tr>
@@ -178,6 +179,12 @@ export function AdminEscrowQueue() {
                   <tr key={item.escrowId}>
                     <td><strong>#{item.escrowId}</strong></td>
                     <td><code style={{ fontSize: '0.8rem', background: '#f1f5f9', padding: '2px 6px', borderRadius: '4px' }}>{item.referenceCode ?? '—'}</code></td>
+                    <td>
+                      <div style={{ fontWeight: 700 }}>{item.transactionTypeLabel}</div>
+                      <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>
+                        {item.classTitle ? `Lớp: ${item.classTitle}` : 'Chưa liên kết lớp'}
+                      </div>
+                    </td>
                     <td>{item.payerEmail}</td>
                     <td>{item.beneficiaryEmail ?? '—'}</td>
                     <td style={{ textAlign: 'right', fontWeight: 600, color: 'var(--color-primary-dark)' }}>
@@ -292,6 +299,14 @@ export function AdminEscrowQueue() {
                 <div>
                   <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Mã tham chiếu</span>
                   <div style={{ fontSize: '0.95rem', fontWeight: 600 }}>{selectedEscrow.referenceCode || '—'}</div>
+                </div>
+
+                <div>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b', textTransform: 'uppercase' }}>Loại giao dịch</span>
+                  <div style={{ fontSize: '0.95rem', fontWeight: 600 }}>{selectedEscrow.transactionTypeLabel || 'Chưa xác định'}</div>
+                  {selectedEscrow.classTitle && (
+                    <div style={{ fontSize: '0.75rem', color: '#64748b' }}>Lớp: {selectedEscrow.classTitle}</div>
+                  )}
                 </div>
 
                 <div>
