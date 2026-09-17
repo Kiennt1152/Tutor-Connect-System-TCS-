@@ -45,6 +45,7 @@ import com.tcs.module.center.service.CenterService;
 import com.tcs.module.identity.enums.VerificationDocumentType;
 import com.tcs.module.identity.enums.VerificationStatus;
 import com.tcs.module.identity.enums.VerificationType;
+import com.tcs.module.center.dto.response.CenterFinanceReportResponse;
 import com.tcs.module.center.dto.response.CenterStatsResponse;
 import com.tcs.module.finance.service.CenterEscrowAutoSettlementService;
 import com.tcs.module.identity.repository.VerificationDocumentRepository;
@@ -56,7 +57,12 @@ import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.enums.EscrowStatus;
 import com.tcs.module.finance.enums.CenterRequestFeeStatus;
 import com.tcs.module.finance.enums.WalletStatus;
+import com.tcs.module.finance.entity.PaymentTransaction;
+import com.tcs.module.finance.entity.Wallet;
+import com.tcs.module.finance.enums.PaymentTransactionStatus;
+import com.tcs.module.finance.enums.PaymentTransactionType;
 import com.tcs.module.finance.repository.EscrowTransactionRepository;
+import com.tcs.module.finance.repository.PaymentTransactionRepository;
 import com.tcs.module.finance.repository.WalletRepository;
 import com.tcs.module.finance.service.EscrowService;
 import com.tcs.module.finance.service.CenterRequestFeeService;
@@ -101,10 +107,12 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -114,6 +122,8 @@ import org.springframework.util.StringUtils;
 
 import com.tcs.common.classrequest.ClassRequestStore;
 import com.tcs.common.event.CooperationContractSigned;
+import com.tcs.common.export.ExportFile;
+import com.tcs.common.export.XlsxWorkbook;
 import com.tcs.module.center.dto.request.SaveContractTemplateRequest;
 import com.tcs.module.center.dto.response.ContractTemplateResponse;
 import com.tcs.module.contract.entity.ContractTemplate;
@@ -165,6 +175,7 @@ public class CenterServiceImpl implements CenterService {
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final EscrowTransactionRepository escrowTransactionRepository;
     private final WalletRepository walletRepository;
+    private final PaymentTransactionRepository paymentTransactionRepository;
     private final EscrowService escrowService;
     private final CenterRequestFeeService centerRequestFeeService;
     private final RescheduleService rescheduleService;
@@ -477,12 +488,11 @@ public class CenterServiceImpl implements CenterService {
             // CHƯA tạo thành viên: gia sư chưa ký thì CHƯA phải gia sư của trung tâm.
             // Khi ký OTP xong (bước 8) mới HIRED + tạo/kích hoạt thành viên ACTIVE + gán lớp
             // + đóng tin (bước 9-10) — xử lý trong onCooperationContractSigned.
-            contractService.generateCooperationContract(
+            var cooperation = contractService.generateCooperationContract(
                     saved.getRecruitmentAppId(), contractTemplateId, contractContent);
-            notifyTutorApplicationResult(saved, "Đơn ứng tuyển được duyệt",
-                    "Trung tâm \"" + centerNameOf(saved) + "\" đã duyệt đơn của bạn cho tin \""
-                            + saved.getRecruitmentPost().getTitle()
-                            + "\". Vào mục Hợp đồng để ký thỏa thuận hợp tác (trong 48 giờ).");
+            // Việc gia sư cần làm là KÝ HỢP ĐỒNG, nên thông báo phải trỏ tới hợp đồng vừa sinh.
+            // Trước đây gắn vào đơn ứng tuyển nên bấm vào bị đưa sang Lịch cá nhân.
+            notifyTutorContractToSign(saved, cooperation);
         } else {
             // BF-03 (exception): từ chối -> thông báo kết quả cho gia sư.
             notifyTutorApplicationResult(saved, "Đơn ứng tuyển bị từ chối",
@@ -496,6 +506,32 @@ public class CenterServiceImpl implements CenterService {
     private String centerNameOf(RecruitmentApplication app) {
         TutorCenter c = app.getRecruitmentPost() != null ? app.getRecruitmentPost().getCenter() : null;
         return c != null && c.getCompanyName() != null ? c.getCompanyName() : "Trung tâm";
+    }
+
+    /**
+     * Báo gia sư đơn đã được duyệt và có thoả thuận hợp tác chờ ký.
+     *
+     * <p>Thông báo gắn vào chính hợp đồng vừa sinh (không phải đơn ứng tuyển), để bấm vào là mở
+     * trang Hợp đồng — đúng việc mà nội dung thông báo yêu cầu.
+     */
+    private void notifyTutorContractToSign(
+            RecruitmentApplication app, com.tcs.module.contract.dto.response.ContractResponse contract) {
+        if (app.getTutor() == null || app.getTutor().getUser() == null) {
+            return;
+        }
+        String title = "Đơn ứng tuyển được duyệt";
+        String content = "Trung tâm \"" + centerNameOf(app) + "\" đã duyệt đơn của bạn cho tin \""
+                + app.getRecruitmentPost().getTitle()
+                + "\". Vào mục Hợp đồng để ký thỏa thuận hợp tác (trong 48 giờ).";
+        notificationDispatchService.notifyUserFromTemplate(
+                app.getTutor().getUser(),
+                com.tcs.module.messaging.enums.NotificationType.APPLICATION,
+                "CENTER_APPLICATION_RESULT",
+                Map.of("title", title, "content", content),
+                title,
+                content,
+                "CONTRACT",
+                contract != null ? contract.getContractId() : null);
     }
 
     /** Thông báo cho gia sư kết quả xử lý đơn ứng tuyển (duyệt / từ chối). */
@@ -1221,7 +1257,8 @@ public class CenterServiceImpl implements CenterService {
         List<CenterScheduleClassResponse> result = new ArrayList<>();
         // Buổi thường trong ngày (bỏ qua buổi đã bị dời đi).
         for (TutoringClass c : myClasses.values()) {
-            if (c.getStartDate() == null || c.getEndDate() == null
+            if (!isTeachingSoonOrNow(c)
+                    || c.getStartDate() == null || c.getEndDate() == null
                     || d.isBefore(c.getStartDate()) || d.isAfter(c.getEndDate())
                     || movedAway.contains(c.getClassId())) {
                 continue;
@@ -1238,7 +1275,7 @@ public class CenterServiceImpl implements CenterService {
                 continue;
             }
             TutoringClass c = myClasses.get(e.classId());
-            if (c == null) {
+            if (c == null || !isTeachingSoonOrNow(c)) {
                 continue;
             }
             CenterScheduleClassResponse item =
@@ -1421,6 +1458,20 @@ public class CenterServiceImpl implements CenterService {
                 .assistantTutorId(e.tutorId())
                 .assistantTutorName(assistantName)
                 .build();
+    }
+
+    /**
+     * Lớp có được lên lịch ngày hay không. Chỉ nhận lớp đã ghép gia sư (sắp khai giảng) và lớp
+     * đang diễn ra — lịch ngày là để biết hôm nay dạy gì, nên loại lớp còn nháp, lớp đang tuyển
+     * sinh (chưa chốt gia sư/sĩ số), lớp đã hoàn thành, đã hủy và đang tranh chấp. Trước đây
+     * không lọc gì nên mấy loại này vẫn hiện chỉ vì khoảng ngày của chúng phủ hôm nay.
+     *
+     * <p>Lấy cả trạng thái "đã ghép" chứ không riêng "đang diễn ra": nếu trung tâm quên bấm kích
+     * hoạt thì buổi dạy vẫn phải hiện, không thì gia sư và học viên đến lớp mà lịch trống trơn.
+     */
+    private boolean isTeachingSoonOrNow(TutoringClass c) {
+        return c.getStatus() == TutoringClassStatus.MATCHED
+                || c.getStatus() == TutoringClassStatus.IN_PROGRESS;
     }
 
     private Map<Long, TutoringClass> classesByCenter() {
@@ -1926,6 +1977,323 @@ public class CenterServiceImpl implements CenterService {
 
     private double rate(long present, long total) {
         return total <= 0 ? 0.0 : Math.round((present * 10000.0) / total) / 100.0;
+    }
+
+    // ===================== UC-41: Báo cáo tài chính của trung tâm =====================
+
+    /**
+     * Gom số liệu tài chính của trung tâm từ ba nguồn: khoản ký quỹ của học viên (tiền vào),
+     * giao dịch ví (phí nền tảng, rút tiền) và số dư ví hiện tại.
+     *
+     * <p>Mỗi con số lọc theo mốc thời gian của chính nó: tiền thu theo ngày học viên nộp, tiền
+     * giải ngân theo ngày giải ngân. Riêng "đang giữ ở ký quỹ" và số dư ví là số tức thời nên
+     * không lọc theo kỳ — chúng là số dư, không phải phát sinh trong kỳ.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public CenterFinanceReportResponse getFinanceReport(LocalDate from, LocalDate to) {
+        TutorCenter center = requireCenter();
+        LocalDate fromDate = from != null ? from : LocalDate.now().minusMonths(12).withDayOfMonth(1);
+        LocalDate toDate = to != null ? to : LocalDate.now();
+        LocalDateTime fromDt = fromDate.atStartOfDay();
+        LocalDateTime toDt = toDate.plusDays(1).atStartOfDay();
+
+        CenterFinanceAggregator.Buckets buckets = CenterFinanceAggregator.aggregate(
+                escrowTransactionRepository
+                        .findByClassStudent_TutoringClass_Center_CenterId(center.getCenterId()),
+                fromDt,
+                toDt);
+
+        // Phí nền tảng và tiền rút nằm ở ví, không nằm trong ký quỹ.
+        Wallet wallet = walletRepository.findByUser_UserId(center.getUser().getUserId()).orElse(null);
+        BigDecimal platformFee = BigDecimal.ZERO;
+        BigDecimal withdrawn = BigDecimal.ZERO;
+        if (wallet != null) {
+            platformFee = sumTransactions(
+                    wallet.getWalletId(), PaymentTransactionType.PLATFORM_FEE, fromDt, toDt);
+            withdrawn = sumTransactions(
+                    wallet.getWalletId(), PaymentTransactionType.WITHDRAWAL, fromDt, toDt);
+        }
+
+        CenterFinanceReportResponse.Summary summary = CenterFinanceReportResponse.Summary.builder()
+                .from(fromDate)
+                .to(toDate)
+                .grossCollected(buckets.grossCollected())
+                .releasedGross(buckets.releasedGross())
+                .platformFee(platformFee)
+                .netReceived(buckets.releasedGross().subtract(platformFee))
+                .refunded(buckets.refunded())
+                .withdrawn(withdrawn)
+                .heldInEscrow(buckets.heldInEscrow())
+                .availableBalance(wallet != null ? wallet.getAvailableBalance() : BigDecimal.ZERO)
+                .frozenBalance(wallet != null ? wallet.getFrozenBalance() : BigDecimal.ZERO)
+                .build();
+
+        return CenterFinanceReportResponse.builder()
+                .summary(summary)
+                .classes(buckets.classes())
+                .months(buckets.months())
+                .build();
+    }
+
+    /**
+     * UC-43: xuất báo cáo tài chính ra .xlsx, ba sheet đúng ba khối trên màn hình.
+     *
+     * <p>Dùng lại chính {@link #getFinanceReport} để con số trong file luôn khớp con số trên
+     * giao diện — không tính lại lần hai theo cách khác.
+     */
+    @Override
+    @Transactional
+    public ExportFile exportFinanceReport(LocalDate from, LocalDate to) {
+        CenterFinanceReportResponse report = getFinanceReport(from, to);
+        CenterFinanceReportResponse.Summary s = report.getSummary();
+
+        XlsxWorkbook workbook = new XlsxWorkbook();
+
+        XlsxWorkbook.Sheet overview = workbook.addSheet("Tổng quan");
+        overview.header("Chỉ tiêu", "Số tiền (VND)", "Ghi chú");
+        overview.row("Kỳ báo cáo", null, s.getFrom() + " đến " + s.getTo());
+        overview.blankRow();
+        overview.row("Học viên đã đóng", s.getGrossCollected(), "Trước phí nền tảng");
+        overview.row("Đã giải ngân về ví", s.getReleasedGross(), "Tính gộp, trước phí");
+        overview.row("Phí nền tảng", s.getPlatformFee(), "Trừ khi giải ngân");
+        overview.row("Thực nhận", s.getNetReceived(), "Đã giải ngân trừ phí nền tảng");
+        overview.row("Đã hoàn học viên", s.getRefunded(), null);
+        overview.row("Đã rút khỏi ví", s.getWithdrawn(), null);
+        overview.blankRow();
+        overview.row("Đang giữ ở ký quỹ", s.getHeldInEscrow(), "Số dư tức thời, không theo kỳ");
+        overview.row("Số dư khả dụng", s.getAvailableBalance(), "Số dư tức thời, không theo kỳ");
+        overview.row("Số dư đang khoá", s.getFrozenBalance(), "Số dư tức thời, không theo kỳ");
+
+        XlsxWorkbook.Sheet classSheet = workbook.addSheet("Theo lớp");
+        classSheet.header("Lớp", "Môn học", "Trạng thái", "Học phí", "Học viên đã đóng",
+                "Đã thu", "Đang giữ", "Đã giải ngân", "Đã hoàn");
+        for (CenterFinanceReportResponse.ClassRow row : report.getClasses()) {
+            classSheet.row(
+                    row.getTitle(),
+                    row.getSubjectName(),
+                    classStatusLabel(row.getStatus() != null
+                            ? TutoringClassStatus.valueOf(row.getStatus()) : null),
+                    row.getTuitionFee(),
+                    row.getPaidStudents(),
+                    row.getGross(),
+                    row.getHeld(),
+                    row.getReleased(),
+                    row.getRefunded());
+        }
+
+        XlsxWorkbook.Sheet monthSheet = workbook.addSheet("Theo tháng");
+        monthSheet.header("Tháng", "Đã thu", "Đã giải ngân");
+        for (CenterFinanceReportResponse.MonthRow row : report.getMonths()) {
+            monthSheet.row(row.getMonth(), row.getGross(), row.getReleased());
+        }
+
+        String filename = "bao-cao-tai-chinh-" + s.getFrom() + "-den-" + s.getTo() + ".xlsx";
+        auditLogService.record(authHelper.currentUserId(), "EXPORT_CENTER_FINANCE", "TutorCenter",
+                0L, null, java.util.Map.of("from", String.valueOf(s.getFrom()),
+                        "to", String.valueOf(s.getTo()), "classRows", report.getClasses().size()));
+        return ExportFile.xlsx(filename, workbook.toBytes());
+    }
+
+    /** Tổng tiền của một loại giao dịch ví đã thành công trong kỳ. */
+    private BigDecimal sumTransactions(
+            Long walletId, PaymentTransactionType type, LocalDateTime fromDt, LocalDateTime toDt) {
+        return paymentTransactionRepository
+                .findByWallet_WalletIdAndTypeAndStatusAndCreatedAtBetweenOrderByCreatedAtAsc(
+                        walletId, type, PaymentTransactionStatus.SUCCESS, fromDt, toDt)
+                .stream()
+                .map(PaymentTransaction::getAmount)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    // ===================== UC-20: Xuất danh sách học viên ra Excel =====================
+
+    /**
+     * Xuất học viên ra file .xlsx gồm hai sheet: "Học viên" (từng học viên kèm điểm danh) và
+     * "Tổng hợp lớp" (mỗi lớp một dòng). Chỉ lấy lớp của chính trung tâm đang đăng nhập (BR-07).
+     *
+     * <p>Khác với danh sách trên giao diện (chỉ hiện học viên đã ký hợp đồng), bản xuất lấy
+     * <b>mọi trạng thái</b> và ghi rõ ở cột Trạng thái, để trung tâm còn biết ai đang chờ ký.
+     */
+    @Override
+    @Transactional
+    public ExportFile exportStudents(Long classId) {
+        requireCenter();
+        List<TutoringClass> classes;
+        if (classId != null) {
+            TutoringClass one = findClass(classId);
+            requireOwner(one); // BR-07: không xem được lớp của trung tâm khác
+            classes = List.of(one);
+        } else {
+            classes = tutoringClassRepository.findByCreator_UserId(authHelper.currentUserId());
+        }
+
+        XlsxWorkbook workbook = new XlsxWorkbook();
+        XlsxWorkbook.Sheet studentSheet = workbook.addSheet("Học viên");
+        studentSheet.header("STT", "Họ tên học viên", "Số điện thoại", "Email học viên", "Lớp",
+                "Môn học", "Khối/Lớp", "Gia sư phụ trách", "Trạng thái", "Ngày ghi danh",
+                "Người ghi danh", "Có mặt", "Vắng", "Có phép", "Tỉ lệ đi học");
+        XlsxWorkbook.Sheet classSheet = workbook.addSheet("Tổng hợp lớp");
+        classSheet.header("Lớp", "Môn học", "Khối/Lớp", "Trạng thái lớp", "Gia sư chính",
+                "Gia sư phụ", "Sĩ số tối thiểu", "Sĩ số tối đa", "Đang học", "Chờ ký hợp đồng",
+                "Đã rời lớp", "Số buổi đã tạo", "Tỉ lệ đi học");
+
+        int stt = 0;
+        for (TutoringClass c : classes) {
+            ClassAssignment assignment = classAssignmentRepository
+                    .findFirstByApplication_TutoringClass_ClassIdAndStatus(
+                            c.getClassId(), ClassAssignmentStatus.ACTIVE)
+                    .orElse(null);
+            String tutorName = (assignment != null && assignment.getTutor() != null)
+                    ? assignment.getTutor().getFullName() : null;
+            Long assistantId = substitutionService.findAssistant(c.getClassId()).orElse(null);
+            String assistantName = assistantId != null
+                    ? tutorRepository.findById(assistantId).map(Tutor::getFullName).orElse(null)
+                    : null;
+
+            String subjectName = c.getSubject() != null ? c.getSubject().getSubjectName() : null;
+            String gradeName = c.getGrade() != null ? c.getGrade().getGradeName() : null;
+
+            // Điểm danh của lớp, gom theo từng học viên: [có mặt, vắng, có phép].
+            List<com.tcs.module.marketplace.entity.Lesson> lessons = lessonRepository
+                    .findByTutoringClass_ClassIdOrderByLessonDateAscSequenceNoAsc(c.getClassId());
+            List<Long> lessonIds = lessons.stream()
+                    .map(com.tcs.module.marketplace.entity.Lesson::getLessonId)
+                    .filter(java.util.Objects::nonNull)
+                    .toList();
+            java.util.Map<Long, long[]> perStudent = new java.util.HashMap<>();
+            if (!lessonIds.isEmpty()) {
+                for (com.tcs.module.marketplace.entity.LessonAttendance a
+                        : lessonAttendanceRepository.findByLesson_LessonIdIn(lessonIds)) {
+                    if (a.getClassStudent() == null || a.getStatus() == null) {
+                        continue;
+                    }
+                    long[] counts = perStudent.computeIfAbsent(
+                            a.getClassStudent().getClassStudentId(), k -> new long[3]);
+                    switch (a.getStatus()) {
+                        case PRESENT -> counts[0]++;
+                        case ABSENT -> counts[1]++;
+                        case EXCUSED -> counts[2]++;
+                    }
+                }
+            }
+
+            long classPresent = 0;
+            long classAbsent = 0;
+            long classExcused = 0;
+            int enrolled = 0;
+            int pending = 0;
+            int dropped = 0;
+
+            for (ClassStudent s : classStudentRepository
+                    .findByTutoringClass_ClassIdOrderByEnrolledAtAsc(c.getClassId())) {
+                long[] counts = perStudent.getOrDefault(s.getClassStudentId(), new long[3]);
+                classPresent += counts[0];
+                classAbsent += counts[1];
+                classExcused += counts[2];
+                switch (s.getStatus()) {
+                    case ENROLLED -> enrolled++;
+                    case PENDING_SIGNATURE -> pending++;
+                    case DROPPED -> dropped++;
+                    default -> { /* COMPLETED: đã học xong, không tính vào ba nhóm trên */ }
+                }
+
+                stt++;
+                studentSheet.row(
+                        stt,
+                        s.getStudentName(),
+                        s.getStudentPhone(),
+                        s.getStudentEmail(),
+                        c.getTitle(),
+                        subjectName,
+                        gradeName,
+                        tutorName,
+                        studentStatusLabel(s.getStatus()),
+                        s.getEnrolledAt() != null ? s.getEnrolledAt().toLocalDate() : null,
+                        s.getEnrolledByUser() != null ? s.getEnrolledByUser().getEmail() : null,
+                        counts[0],
+                        counts[1],
+                        counts[2],
+                        new XlsxWorkbook.Percent(rate(counts[0], counts[0] + counts[1] + counts[2])));
+            }
+
+            classSheet.row(
+                    c.getTitle(),
+                    subjectName,
+                    gradeName,
+                    classStatusLabel(c.getStatus()),
+                    tutorName,
+                    assistantName,
+                    c.getMinStudents(),
+                    c.getMaxStudents(),
+                    enrolled,
+                    pending,
+                    dropped,
+                    lessons.size(),
+                    new XlsxWorkbook.Percent(
+                            rate(classPresent, classPresent + classAbsent + classExcused)));
+        }
+
+        String scope = classId != null ? slugify(classes.get(0).getTitle()) : "tat-ca-lop";
+        String filename = "hoc-vien-" + scope + "-" + LocalDate.now() + ".xlsx";
+
+        auditLogService.record(authHelper.currentUserId(), "EXPORT_CENTER_STUDENTS", "TutoringClass",
+                classId != null ? classId : 0L, null,
+                java.util.Map.of("classCount", classes.size(), "studentRows", stt));
+
+        return ExportFile.xlsx(filename, workbook.toBytes());
+    }
+
+    /** Nhãn tiếng Việt cho trạng thái học viên trong lớp — dùng cho file xuất ra. */
+    private String studentStatusLabel(ClassStudentStatus status) {
+        if (status == null) {
+            return null;
+        }
+        return switch (status) {
+            case PENDING_SIGNATURE -> "Chờ ký hợp đồng";
+            case ENROLLED -> "Đang học";
+            case DROPPED -> "Đã rời lớp";
+            case COMPLETED -> "Đã hoàn thành";
+        };
+    }
+
+    /** Nhãn tiếng Việt cho trạng thái lớp — khớp nhãn đang hiển thị trên giao diện trung tâm. */
+    private String classStatusLabel(TutoringClassStatus status) {
+        if (status == null) {
+            return null;
+        }
+        return switch (status) {
+            case DRAFT -> "Nháp";
+            case OPEN -> "Đang mở";
+            case MATCHED -> "Đã ghép";
+            case ENROLLMENT_CLOSED -> "Đóng ghi danh";
+            case IN_PROGRESS -> "Đang diễn ra";
+            case COMPLETED -> "Hoàn thành";
+            case CANCELLED -> "Đã hủy";
+            case DISPUTED -> "Tranh chấp";
+        };
+    }
+
+    /**
+     * Rút gọn tên lớp thành chuỗi không dấu để đặt tên file: trình duyệt và hệ điều hành
+     * xử lý tên file tiếng Việt có dấu không đồng nhất, dễ thành tên lỗi khi tải về.
+     */
+    private String slugify(String raw) {
+        if (!StringUtils.hasText(raw)) {
+            return "lop-hoc";
+        }
+        String noAccent = java.text.Normalizer.normalize(raw, java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replace('đ', 'd')
+                .replace('Đ', 'D');
+        String slug = noAccent.toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("(^-+)|(-+$)", "");
+        if (slug.isEmpty()) {
+            return "lop-hoc";
+        }
+        return slug.length() > 40 ? slug.substring(0, 40).replaceAll("-+$", "") : slug;
     }
 
     private TutoringClass findClass(Long classId) {

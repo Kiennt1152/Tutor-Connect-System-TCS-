@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
 import { centerApi } from '../../center/api/centerApi';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
@@ -101,7 +101,11 @@ function fmtDate(value: string | null): string {
 
 export default function RecruitmentPage() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<'open' | 'mine'>('open');
+  const [searchParams] = useSearchParams();
+  // Cho phép mở thẳng tab "Đơn của tôi" qua ?tab=mine — thông báo về đơn ứng tuyển dẫn tới đây.
+  const [tab, setTab] = useState<'open' | 'mine'>(
+    searchParams.get('tab') === 'mine' ? 'mine' : 'open',
+  );
   const [posts, setPosts] = useState<RecruitmentPost[]>([]);
   const [myApps, setMyApps] = useState<RecruitmentApplication[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -292,24 +296,35 @@ export default function RecruitmentPage() {
                 setQuery(draft.trim());
               }}
             >
-              <div className="tcs-find-search__field">
-                <input
-                  type="search"
-                  className="tcs-find-search__input"
-                  placeholder="Tìm theo tên tin, trung tâm, môn học, khu vực..."
-                  value={draft}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    setDraft(value);
-                    // Bấm ✕ của trình duyệt (làm rỗng ô) -> bỏ luôn từ khoá đang lọc.
-                    if (value === '') setQuery('');
-                  }}
-                  aria-label="Tìm kiếm tin tuyển dụng"
-                />
+              {/* __bar là lớp tạo hàng ngang; thiếu nó thì nút Tìm rơi xuống dòng dưới. */}
+              <div className="tcs-find-search__bar">
+                <div className="tcs-find-search__field">
+                  <input
+                    type="text"
+                    className="tcs-find-search__input"
+                    placeholder="Tìm theo tên tin, trung tâm, môn học, khu vực..."
+                    value={draft}
+                    onChange={(event) => setDraft(event.target.value)}
+                    aria-label="Tìm kiếm tin tuyển dụng"
+                  />
+                  {draft && (
+                    <button
+                      type="button"
+                      className="tcs-find-search__clear"
+                      aria-label="Xoá từ khoá"
+                      onClick={() => {
+                        setDraft('');
+                        setQuery('');
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <button type="submit" className="tcs-find-search__btn">
+                  Tìm
+                </button>
               </div>
-              <button type="submit" className="tcs-find-search__btn">
-                Tìm
-              </button>
             </form>
           </div>
         )}

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { CenterSidebar } from '../components/CenterSidebar';
 import { centerApi } from '../api/centerApi';
+import { downloadBlob } from '../../../shared/utils/download';
 import type { CenterStats } from '../types/centerTypes';
 
 const C_PRESENT = '#16a34a';
@@ -72,6 +73,27 @@ export default function CenterStatsPage() {
         setStatus('error');
       });
   }, []);
+
+  // UC-20: tải toàn bộ học viên của trung tâm ra một file Excel.
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState('');
+
+  const exportAllStudents = async () => {
+    setExportError('');
+    setExporting(true);
+    try {
+      const { blob, filename } = await centerApi.exportStudents();
+      downloadBlob(blob, filename);
+    } catch (err) {
+      setExportError(
+        axios.isAxiosError(err) && typeof err.response?.data?.message === 'string'
+          ? err.response.data.message
+          : 'Không xuất được danh sách học viên.',
+      );
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const tutors = useMemo(() => {
     const m = new Map<number, string>();
@@ -232,7 +254,41 @@ export default function CenterStatsPage() {
             </div>
 
             {/* Bảng theo học sinh */}
-            <h2 style={{ fontSize: 16, fontWeight: 700, margin: '10px 0 8px' }}>Chi tiết theo học sinh</h2>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 12,
+                flexWrap: 'wrap',
+                margin: '10px 0 8px',
+              }}
+            >
+              <h2 style={{ fontSize: 16, fontWeight: 700, margin: 0 }}>Chi tiết theo học sinh</h2>
+              {/* UC-20: file xuất ra gồm mọi lớp của trung tâm, không phụ thuộc bộ lọc đang chọn. */}
+              <button
+                type="button"
+                className="cc-btn cc-btn--ghost"
+                disabled={exporting}
+                onClick={exportAllStudents}
+              >
+                {exporting ? 'Đang xuất…' : '⤓ Xuất toàn bộ học viên (Excel)'}
+              </button>
+            </div>
+            {exportError && (
+              <div
+                style={{
+                  background: '#fef2f2',
+                  color: '#b91c1c',
+                  padding: 10,
+                  borderRadius: 8,
+                  marginBottom: 8,
+                  fontSize: 13,
+                }}
+              >
+                {exportError}
+              </div>
+            )}
             <div style={{ overflowX: 'auto', background: '#fff', border: '1px solid #e5e7eb', borderRadius: 12 }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>

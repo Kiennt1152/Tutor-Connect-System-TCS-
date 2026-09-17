@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import axios from 'axios';
+import { Pagination } from '../../../shared/components';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
 import { FilePreviewModal } from '../../../shared/components/FilePreviewModal';
 import { ExpiryBadge } from '../../../shared/components/ExpiryBadge';
@@ -9,6 +10,8 @@ import { ChatButton } from '../../messaging/components/ChatButton';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { LocationPicker } from '../components/LocationPicker';
 import { profileApi } from '../../profile/api/profileApi';
+import { normalizeName } from '../../marketplace/matching/tutorMatching';
+import { downloadBlob } from '../../../shared/utils/download';
 import { centerApi } from '../api/centerApi';
 import type { ClassRequest } from '../../marketplace/types/marketplaceTypes';
 import type {
@@ -22,6 +25,8 @@ import type {
   SaveClassRequest,
   TutorOption,
 } from '../types/centerTypes';
+// Kiểu ô tìm kiếm dùng chung (.tcs-find-search) được định nghĩa trong CSS của trang Tìm gia sư.
+import '../../home/pages/FindTutorPage.css';
 import './CenterPage.css';
 
 const DAYS: { value: number; label: string }[] = [
@@ -48,6 +53,28 @@ const STATUS_LABELS: Record<ClassStatus, string> = {
   CANCELLED: 'Đã hủy',
   DISPUTED: 'Tranh chấp',
 };
+
+/**
+ * Các chặng một lớp đi qua, đúng thứ tự vòng đời: nháp → mở ghi danh → đóng ghi danh → đã ghép
+ * → đang dạy → hoàn thành. Dùng cho thanh theo dõi ở đầu danh sách lớp.
+ */
+const PIPELINE_STAGES: { value: ClassStatus; hint: string }[] = [
+  { value: 'DRAFT', hint: 'Chưa đăng tải' },
+  { value: 'OPEN', hint: 'Đang tuyển học viên' },
+  { value: 'ENROLLMENT_CLOSED', hint: 'Đã chốt sĩ số, chờ gán gia sư' },
+  { value: 'MATCHED', hint: 'Đủ gia sư, chờ khai giảng' },
+  { value: 'IN_PROGRESS', hint: 'Đang dạy' },
+  { value: 'COMPLETED', hint: 'Đã tất toán' },
+];
+
+/** Số lớp hiển thị mỗi trang trong danh sách lớp của trung tâm. */
+const CLASS_PAGE_SIZE = 6;
+
+/** Hai chặng kết thúc bất thường — chỉ hiện khi trung tâm thực sự có lớp như vậy. */
+const CLOSED_STAGES: { value: ClassStatus; hint: string }[] = [
+  { value: 'CANCELLED', hint: 'Đã hủy' },
+  { value: 'DISPUTED', hint: 'Đang tranh chấp' },
+];
 
 const LESSON_MODES: LessonMode[] = ['ONLINE', 'OFFLINE', 'HYBRID'];
 const LESSON_MODE_LABELS: Record<LessonMode, string> = {
@@ -788,6 +815,111 @@ export default function CenterPage() {
     }
   };
 
+  // UC-23: theo dõi lớp theo từng chặng của vòng đời. 'ALL' = xem tất cả.
+  const [stageFilter, setStageFilter] = useState<ClassStatus | 'ALL'>('ALL');
+
+  // Tìm kiếm trong danh sách lớp. `classDraft` là chữ đang gõ, `classQuery` là từ khoá đã áp dụng.
+  const [classDraft, setClassDraft] = useState('');
+  const [classQuery, setClassQuery] = useState('');
+
+  const searchedClasses = useMemo(() => {
+    const q = normalizeName(classQuery);
+    if (!q) {
+      return classes;
+    }
+    return classes.filter((c) =>
+      [
+        c.title,
+        c.subjectName,
+        c.gradeName,
+        c.categoryName,
+        c.locationLabel,
+        c.addressDetail,
+        c.assignedTutorName,
+        c.assistantTutorName,
+        c.description,
+      ].some((field) => normalizeName(field).includes(q)),
+    );
+  }, [classes, classQuery]);
+
+  // Số đếm từng chặng tính trên kết quả tìm kiếm, để thanh theo dõi khớp với danh sách bên dưới.
+  const stageCounts = useMemo(() => {
+    const counts = {} as Record<ClassStatus, number>;
+    for (const c of searchedClasses) {
+      counts[c.status] = (counts[c.status] ?? 0) + 1;
+    }
+    return counts;
+  }, [searchedClasses]);
+
+  // Chỉ hiện chặng hủy/tranh chấp khi có lớp — không bày sẵn ô rỗng gây rối.
+  const visibleStages = useMemo(
+    () => [...PIPELINE_STAGES, ...CLOSED_STAGES.filter((s) => (stageCounts[s.value] ?? 0) > 0)],
+    [stageCounts],
+  );
+
+  const visibleClasses = useMemo(
+    () =>
+      stageFilter === 'ALL'
+        ? searchedClasses
+        : searchedClasses.filter((c) => c.status === stageFilter),
+    [searchedClasses, stageFilter],
+  );
+
+  // Phân trang danh sách lớp. Đổi chặng hoặc đổi từ khoá -> quay về trang 1.
+  const [classPage, setClassPage] = useState(1);
+
+  useEffect(() => {
+    setClassPage(1);
+  }, [stageFilter, classQuery]);
+
+  const classTotalPages = Math.max(1, Math.ceil(visibleClasses.length / CLASS_PAGE_SIZE));
+  // Kẹp lại phòng khi danh sách ngắn đi (vd. lớp vừa đổi trạng thái) mà vẫn đang ở trang cuối.
+  const currentClassPage = Math.min(classPage, classTotalPages);
+  const pagedClasses = visibleClasses.slice(
+    (currentClassPage - 1) * CLASS_PAGE_SIZE,
+    currentClassPage * CLASS_PAGE_SIZE,
+  );
+
+  /*
+   * Giữ thanh phân trang đứng yên khi lật trang. Trang cuối thường ít thẻ hơn nên lưới ngắn lại
+   * và kéo thanh phân trang nhảy lên. Đo chiều cao một trang đầy rồi dùng làm chiều cao tối thiểu
+   * cho các trang sau — đo thật thay vì đặt số cứng, vì thẻ lớp cao thấp khác nhau tuỳ trạng thái.
+   */
+  const classGridRef = useRef<HTMLDivElement | null>(null);
+  const [fullPageHeight, setFullPageHeight] = useState<number | null>(null);
+
+  useLayoutEffect(() => {
+    if (pagedClasses.length !== CLASS_PAGE_SIZE) {
+      return;
+    }
+    const measured = classGridRef.current?.getBoundingClientRect().height ?? 0;
+    // Chỉ cập nhật khi lệch đáng kể, tránh vòng lặp render vì số đo lẻ vài phần trăm pixel.
+    setFullPageHeight((prev) => (prev != null && Math.abs(prev - measured) < 1 ? prev : measured));
+  }, [pagedClasses]);
+
+  // Đổi bề rộng cửa sổ thì số cột đổi theo, số đo cũ không còn đúng — đo lại từ đầu.
+  useEffect(() => {
+    const onResize = () => setFullPageHeight(null);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // UC-20: tải danh sách học viên của lớp dưới dạng Excel.
+  const [exportingClassId, setExportingClassId] = useState<number | null>(null);
+
+  const exportStudents = async (classId: number) => {
+    setDetailError('');
+    setExportingClassId(classId);
+    try {
+      const { blob, filename } = await centerApi.exportStudents(classId);
+      downloadBlob(blob, filename);
+    } catch (err) {
+      setDetailError(extractError(err, 'Không xuất được danh sách học viên.'));
+    } finally {
+      setExportingClassId(null);
+    }
+  };
+
   // ----- Xem chi tiết lớp -----
   const [detailData, setDetailData] = useState<ClassResponse | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -1032,9 +1164,115 @@ export default function CenterPage() {
               Chưa có lớp học nào. Bấm “Tạo lớp mới” để bắt đầu.
             </div>
           )}
-          {!listLoading && classes.length > 0 && (
-            <div className="cc-class-grid">
-              {classes.map((c) => (
+          {!listLoading && !listError && classes.length > 0 && (
+            <div className="rc-search">
+              <form
+                className="tcs-find-search"
+                role="search"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  setClassQuery(classDraft.trim());
+                }}
+              >
+                {/* __bar là lớp tạo hàng ngang; thiếu nó thì nút Tìm rơi xuống dòng dưới. */}
+                <div className="tcs-find-search__bar">
+                  <div className="tcs-find-search__field">
+                    <input
+                      type="text"
+                      className="tcs-find-search__input"
+                      placeholder="Tìm theo tên lớp, môn học, khối, địa điểm, gia sư..."
+                      value={classDraft}
+                      onChange={(event) => setClassDraft(event.target.value)}
+                      aria-label="Tìm kiếm lớp học của trung tâm"
+                    />
+                    {classDraft && (
+                      <button
+                        type="button"
+                        className="tcs-find-search__clear"
+                        aria-label="Xoá từ khoá"
+                        onClick={() => {
+                          setClassDraft('');
+                          setClassQuery('');
+                        }}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                  <button type="submit" className="tcs-find-search__btn">
+                    Tìm
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+          {!listLoading && !listError && classes.length > 0 && (
+            <div
+              className="cc-pipeline"
+              role="group"
+              aria-label="Lọc lớp học theo giai đoạn"
+            >
+              <button
+                type="button"
+                className={`cc-stage cc-stage--all${
+                  stageFilter === 'ALL' ? ' cc-stage--on' : ''
+                }`}
+                aria-pressed={stageFilter === 'ALL'}
+                onClick={() => setStageFilter('ALL')}
+              >
+                <span className="cc-stage__count">{classes.length}</span>
+                <span className="cc-stage__label">Tất cả</span>
+              </button>
+              {visibleStages.map((stage) => {
+                const count = stageCounts[stage.value] ?? 0;
+                const active = stageFilter === stage.value;
+                return (
+                  <button
+                    key={stage.value}
+                    type="button"
+                    title={stage.hint}
+                    className={`cc-stage cc-stage--${stage.value.toLowerCase()}${
+                      active ? ' cc-stage--on' : ''
+                    }${count === 0 ? ' cc-stage--empty' : ''}`}
+                    aria-pressed={active}
+                    onClick={() => setStageFilter(active ? 'ALL' : stage.value)}
+                  >
+                    <span className="cc-stage__count">{count}</span>
+                    <span className="cc-stage__label">{STATUS_LABELS[stage.value]}</span>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {!listLoading && classes.length > 0 && visibleClasses.length === 0 && (
+            <div className="cc-card cc-state">
+              <p style={{ margin: '0 0 10px' }}>
+                {searchedClasses.length === 0
+                  ? `Không tìm thấy lớp nào khớp với “${classQuery}”.`
+                  : `Chưa có lớp nào ở giai đoạn “${
+                      stageFilter !== 'ALL' ? STATUS_LABELS[stageFilter] : ''
+                    }”.`}
+              </p>
+              <button
+                className="cc-btn cc-btn--ghost cc-btn--sm"
+                type="button"
+                onClick={() => {
+                  setStageFilter('ALL');
+                  setClassDraft('');
+                  setClassQuery('');
+                }}
+              >
+                Xoá bộ lọc
+              </button>
+            </div>
+          )}
+          {!listLoading && visibleClasses.length > 0 && (
+            <div
+              className="cc-class-grid"
+              ref={classGridRef}
+              style={fullPageHeight ? { minHeight: fullPageHeight } : undefined}
+            >
+              {pagedClasses.map((c) => (
                 <article className="cc-class-card" key={c.classId}>
                   <div className="cc-class-card__header">
                     <h3 className="cc-class-card__title" title={c.title}>
@@ -1074,6 +1312,23 @@ export default function CenterPage() {
                   )}
                 </article>
               ))}
+            </div>
+          )}
+          {!listLoading && visibleClasses.length > 0 && (
+            <div className="cc-class-pager">
+              <span className="cc-class-pager__count">
+                Hiển thị {(currentClassPage - 1) * CLASS_PAGE_SIZE + 1}–
+                {Math.min(currentClassPage * CLASS_PAGE_SIZE, visibleClasses.length)} trên{' '}
+                {visibleClasses.length} lớp
+              </span>
+              {/* Luôn hiện, kể cả khi chỉ có một trang, để thanh phân trang không nhảy vị trí
+                  mỗi lần đổi chặng lọc. */}
+              <Pagination
+                current={currentClassPage}
+                totalPages={classTotalPages}
+                onPageChange={setClassPage}
+                ariaLabel="Phân trang danh sách lớp học"
+              />
             </div>
           )}
         </>
@@ -2108,6 +2363,17 @@ export default function CenterPage() {
                   )}
 
                   <div className="cc-detail__foot">
+                    {/* UC-20: tải file Excel học viên của riêng lớp này. */}
+                    <button
+                      className="cc-btn cc-btn--ghost"
+                      type="button"
+                      disabled={exportingClassId === detailData.classId}
+                      onClick={() => exportStudents(detailData.classId)}
+                    >
+                      {exportingClassId === detailData.classId
+                        ? 'Đang xuất…'
+                        : '⤓ Xuất học viên (Excel)'}
+                    </button>
                     {canEditClass(detailData) ? (
                       <button
                         className="cc-btn cc-btn--ghost"

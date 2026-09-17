@@ -93,7 +93,7 @@ export default function CenterReschedulesPage() {
           <div>
             <h2 className="cs-card__title">{r.className ?? `Lớp #${r.classId}`}</h2>
             <div className="cs-chips">
-              {r.tutorName && <span className="cs-chip">👩‍🏫 {r.tutorName}</span>}
+              {r.tutorName && <span className="cs-chip">Gia sư: {r.tutorName}</span>}
               <span className={`cs-attstate cs-attstate--${st.cls === 'approved' ? 'done' : 'pending'}`}>
                 {st.label}
               </span>
@@ -144,9 +144,9 @@ export default function CenterReschedulesPage() {
           <div>
             <h2 className="cs-card__title">{s.className ?? `Lớp #${s.classId}`}</h2>
             <div className="cs-chips">
-              {s.mainTutorName && <span className="cs-chip">👩‍🏫 {s.mainTutorName}</span>}
+              {s.mainTutorName && <span className="cs-chip">Gia sư chính: {s.mainTutorName}</span>}
               {s.assistantTutorName && (
-                <span className="cs-chip">🔁 Thay: {s.assistantTutorName}</span>
+                <span className="cs-chip">Gia sư dạy thay: {s.assistantTutorName}</span>
               )}
               <span className={`cs-attstate cs-attstate--${st.cls === 'approved' ? 'done' : 'pending'}`}>
                 {st.label}
