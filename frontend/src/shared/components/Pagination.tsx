@@ -24,12 +24,14 @@ function pageItems(current: number, total: number): PageItem[] {
   return [1, 'ellipsis', current - 1, current, current + 1, 'ellipsis', total];
 }
 
+/** Thanh phân trang dùng chung (trang đầu/trước/số trang/sau/cuối). */
 export function Pagination({ current, totalPages, onPageChange, ariaLabel }: PaginationProps) {
   if (totalPages < 1) return null;
 
   const total = Math.max(1, totalPages);
   const cur = Math.max(1, Math.min(current, total));
 
+  /** Chuyển tới trang p (kẹp trong khoảng hợp lệ, bỏ qua nếu là trang hiện tại). */
   const go = (p: number) => {
     const next = Math.min(Math.max(1, p), total);
     if (next !== cur) onPageChange(next);

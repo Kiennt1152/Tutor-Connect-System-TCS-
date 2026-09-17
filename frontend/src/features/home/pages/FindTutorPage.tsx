@@ -48,6 +48,7 @@ const EMPTY_FILTERS: Filters = {
 const SEARCH_EXAMPLES = ['Tên', 'Giới tính', 'Giá tiền', 'Kinh nghiệm', 'Số sao'];
 
 
+/** Đổi chuỗi số (bỏ ký tự lạ) sang số dương; không hợp lệ thì 0 (coi như không lọc). */
 const toNumber = (value: string) => {
   const parsed = Number(value.replace(/[^\d.]/g, ''));
   return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
@@ -84,6 +85,7 @@ const parseQuery = (raw: string): ParsedQuery => {
   let rest = ` ${normalize(raw)} `;
   const out: ParsedQuery = { text: '' };
 
+  /** Tìm một mẫu trong phần câu còn lại: khớp thì lấy giá trị và xoá đoạn đó khỏi câu. */
   const eat = (re: RegExp, take: (m: RegExpMatchArray) => void) => {
     const m = rest.match(re);
     if (!m) return;
@@ -137,6 +139,10 @@ const parseQuery = (raw: string): ParsedQuery => {
   return out;
 };
 
+/**
+ * Trang "Tìm gia sư": một ô tìm bằng câu tự do (tên, giới tính, giá, kinh nghiệm, số sao, xác minh),
+ * lọc danh sách gia sư và phân trang 6 thẻ.
+ */
 export default function FindTutorPage() {
   const { status, data, reload } = useHome();
   const { isAuthenticated } = useAuth();
@@ -147,6 +153,7 @@ export default function FindTutorPage() {
 
   const tutors = data?.featuredTutors ?? [];
 
+  /** Danh sách gia sư khớp mọi tiêu chí đã đọc từ câu tìm (chỉ lọc, không chấm %). */
   const rankedTutors = useMemo(() => {
     const q = normalize(applied.keyword);
     const maxPrice = toNumber(applied.maxPrice);
@@ -199,6 +206,7 @@ export default function FindTutorPage() {
     applied.minRating !== '' ||
     applied.verifiedOnly;
 
+  /** Cập nhật một phần bộ lọc đang soạn trên form. */
   const patchDraft = (patch: Partial<Filters>) => setDraft((prev) => ({ ...prev, ...patch }));
 
   /**

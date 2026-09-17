@@ -16,6 +16,9 @@ interface Props {
   readonly busyConflict?: ClassBusyConflict | null;
 }
 
+/**
+ * Pop-up chi tiết tin tìm gia sư cho gia sư: thông tin lớp, học phí từng môn, lịch học và nút ứng tuyển theo trạng thái.
+ */
 export function ClassDetailModal({
   raw,
   subjects,

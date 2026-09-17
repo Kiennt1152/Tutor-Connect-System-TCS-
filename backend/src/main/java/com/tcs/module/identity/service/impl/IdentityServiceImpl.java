@@ -303,6 +303,10 @@ public class IdentityServiceImpl implements IdentityService {
 
     // ======================================================= Login by Google
 
+    /**
+     * Đăng nhập bằng Google: xác thực token với Google, tài khoản có sẵn và ACTIVE thì cấp JWT + ghi LOGIN;
+     * email chưa có tài khoản thì trả về trạng thái cần hoàn tất đăng ký.
+     */
     @Override
     @Transactional
     public GoogleLoginResponse loginWithGoogle(GoogleLoginRequest request) {
@@ -332,6 +336,10 @@ public class IdentityServiceImpl implements IdentityService {
         return buildGoogleLoginResponse(user, profiles, token);
     }
 
+    /**
+     * Hoàn tất đăng ký bằng Google: xác thực lại token, kiểm tra vai trò + số điện thoại (hợp lệ, không trùng),
+     * tạo tài khoản ACTIVE với hồ sơ ban đầu, cấp JWT và ghi REGISTER.
+     */
     @Override
     @Transactional
     public GoogleLoginResponse completeGoogleSignup(GoogleCompleteRequest request) {
@@ -368,6 +376,7 @@ public class IdentityServiceImpl implements IdentityService {
         return buildGoogleLoginResponse(savedUser, profiles, token);
     }
 
+    /** Tên hiển thị mặc định: tên Google, không có thì phần trước @ của email. */
     private String suggestDisplayName(String email, String googleName) {
         return (googleName == null || googleName.isBlank())
                 ? email.substring(0, email.indexOf('@'))
@@ -683,6 +692,7 @@ public class IdentityServiceImpl implements IdentityService {
                 .build();
     }
 
+    /** Dựng phản hồi đăng nhập Google: token, userId, email, vai trò, tên hiển thị, trạng thái, thời hạn token. */
     private GoogleLoginResponse buildGoogleLoginResponse(User user, UserProfileBundle profiles, String token) {
         return GoogleLoginResponse.builder()
                 .newUser(false)

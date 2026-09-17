@@ -17,6 +17,7 @@ const LESSON_MODE_LABELS: Record<string, string> = {
   HYBRID: 'Kết hợp',
 };
 
+/** Định dạng ngày "yyyy-MM-dd" thành "Thứ x, dd/MM/yyyy". */
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   const date = new Date(y, m - 1, d);
@@ -31,7 +32,9 @@ interface Props {
   readonly onClose: () => void;
 }
 
+/** Hộp thoại chi tiết lớp trên lịch dạy/lịch học: thông tin phân công và danh sách buổi học. */
 export function ClassDetailModal({ assignment, lessons, classTitle, isClient, onClose }: Props) {
+  /** Buổi học sắp theo ngày rồi giờ bắt đầu. */
   const sorted = useMemo(
     () => [...lessons].sort((a, b) => a.lessonDate.localeCompare(b.lessonDate) || a.startTime.localeCompare(b.startTime)),
     [lessons],

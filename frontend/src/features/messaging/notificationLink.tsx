@@ -1,6 +1,7 @@
 import { APP_ROUTES } from '../../shared/constants/routes';
 import type { NotificationItem } from './api/notificationsApi';
 
+/** Trang cần mở khi bấm một thông báo (theo loại thông báo và vai trò người dùng); không có thì null. */
 export function notificationLink(
   n: NotificationItem,
   role: string | undefined | null,

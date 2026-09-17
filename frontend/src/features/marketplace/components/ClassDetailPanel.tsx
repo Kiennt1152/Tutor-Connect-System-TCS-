@@ -29,27 +29,34 @@ interface Props {
   readonly grades: CatalogOption[];
 }
 
+/** Khối thông tin chi tiết lớp: môn & học phí từng môn, khối, hình thức, địa điểm, lịch học, tổng học phí. */
 export function ClassDetailPanel({ raw, subjects, grades }: Props) {
   const form: ClassFormValues = useMemo(() => classToForm(raw), [raw]);
   const hasDetails = !!raw.detailsJson;
 
+  /** Hàm tra tên môn theo id (môn "khác" lấy tên chủ lớp gõ). */
   const subjectName = useMemo(() => {
     const m = new Map(subjects.map((s) => [String(s.id), s.name]));
     return (id: string) =>
       isOtherSubject(id) ? form.subjectOthers[id]?.trim() || 'Môn khác' : (m.get(id) ?? `#${id}`);
   }, [subjects, form.subjectOthers]);
+  /** Tên khối lớp của lớp. */
   const gradeName = useMemo(() => {
     const m = new Map(grades.map((g) => [String(g.id), g.name]));
     return m.get(form.gradeId) ?? raw.gradeName ?? '—';
   }, [grades, form.gradeId, raw.gradeName]);
 
+  /** Nhãn thứ trong tuần theo giá trị. */
   const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
+  /** Thời điểm của khung học: thứ (lịch tuần) hoặc "Thứ x yyyy-MM-dd" (lịch theo ngày). */
   const whenOf = (s: ClassFormValues['slots'][number]) =>
     form.scheduleMode === 'WEEKLY' ? dayLabel(s.day) : `${weekdayVi(s.date)} ${s.date}`;
+  /** Vị trí của thứ trong tuần để sắp xếp (không tìm thấy thì xếp cuối). */
   const dayIndex = (v: string) => {
     const i = DAY_OF_WEEK_OPTIONS.findIndex((d) => d.value === v);
     return i === -1 ? 99 : i;
   };
+  /** So sánh để sắp khung học theo thứ/ngày rồi theo giờ bắt đầu. */
   const sortSlots = (
     a: ClassFormValues['slots'][number],
     b: ClassFormValues['slots'][number],

@@ -49,13 +49,16 @@ export function ApplyClassModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /** Dữ liệu lớp đọc từ detailsJson (môn, học phí mong muốn...). */
   const form = useMemo(() => classToForm(target), [target]);
   const subjectIds = form.subjectIds;
+  /** Hàm tra tên môn theo id (môn "khác" lấy tên chủ lớp gõ). */
   const subjectName = useMemo(() => {
     const m = new Map(subjects.map((s) => [String(s.id), s.name]));
     return (id: string) =>
       isOtherSubject(id) ? form.subjectOthers[id]?.trim() || 'Môn khác' : (m.get(id) ?? `#${id}`);
   }, [subjects, form.subjectOthers]);
+  /** Học phí/giờ chủ lớp mong muốn cho một môn. */
   const askingFee = (id: string) => Number(form.subjectFees[id]) || 0;
 
   const [rates, setRates] = useState<Record<string, string>>({});
@@ -94,6 +97,7 @@ export function ApplyClassModal({
     };
   }, []);
 
+  /** Năm sinh của gia sư (hiện trong phần hồ sơ gửi kèm đơn). */
   const birthYear = useMemo(
     () => (profile?.dateOfBirth ? profile.dateOfBirth.slice(0, 4) : null),
     [profile?.dateOfBirth],
@@ -115,16 +119,22 @@ export function ApplyClassModal({
     .filter((e): e is string => e !== null);
   const noSubjectChosen = chosenIds.length === 0;
 
+  /** Nhập học phí đề xuất cho một môn (chỉ giữ chữ số) và xoá lỗi đang hiện. */
   function setRate(subjectId: string, value: string) {
     setRates((prev) => ({ ...prev, [subjectId]: value.replace(/\D/g, '') }));
     setError(null);
   }
 
+  /** Tick/bỏ tick một môn muốn nhận dạy. */
   function toggleSubject(subjectId: string) {
     setSelected((prev) => ({ ...prev, [subjectId]: !prev[subjectId] }));
     setError(null);
   }
 
+  /**
+   * Gửi đơn ứng tuyển: chưa xác minh thì chuyển sang luồng xác minh; hợp lệ thì gửi học phí từng môn + thư ngỏ;
+   * server báo cần xác minh thì cũng chuyển luồng xác minh.
+   */
   async function handleSubmit() {
     if (needsVerification) {
       if (onVerificationRequired) {
@@ -406,6 +416,7 @@ export function ApplyClassModal({
   );
 }
 
+/** Lấy câu lỗi từ phản hồi API; không có thì dùng câu mặc định. */
 function extractError(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;

@@ -44,12 +44,17 @@ function classStatusLabel(status?: string | null): string {
   return status ? (CLASS_STATUS_LABELS[status] ?? status) : 'Chưa rõ trạng thái';
 }
 
+/** Định dạng ngày "yyyy-MM-dd" thành "Thứ x, dd/MM/yyyy". */
 function formatDate(iso: string): string {
   const [y, m, d] = iso.split('-').map(Number);
   const date = new Date(y, m - 1, d);
   return `${WEEKDAYS[date.getDay()]}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
 }
 
+/**
+ * Trang lịch dạy (gia sư) / lịch học (client) của lớp riêng: lời mời nhận lớp, thời khoá biểu tuần,
+ * yêu cầu đổi lịch, điểm danh, đánh giá gia sư và hoàn thành lớp.
+ */
 export default function TeachingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -75,6 +80,7 @@ export default function TeachingPage() {
   const [reviewables, setReviewables] = useState<ReviewableAssignment[]>([]);
   const [activeReview, setActiveReview] = useState<ReviewableAssignment | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  /** Client: tải danh sách lớp có thể đánh giá (để mở form đánh giá từ thời khoá biểu). */
   const loadReviewables = () => {
     if (!isClient) return;
     reviewApi
@@ -86,6 +92,7 @@ export default function TeachingPage() {
     loadReviewables();
   }, [isClient]);
 
+  /** Mở form đánh giá gia sư của lớp; chưa có buổi đã học hoặc đã đánh giá đủ thì hiện thông báo. */
   function openReviewByClass(classId: number) {
     const match = reviewables.find((a) => a.classId === classId);
     if (!match) {
@@ -99,6 +106,7 @@ export default function TeachingPage() {
     setActiveReview(match);
   }
 
+  /** Mở form đánh giá từ một buổi học trên thời khoá biểu. */
   const openReview = (lesson: LessonResponse) => openReviewByClass(lesson.classId);
 
   const [confirmAction, setConfirmAction] = useState<
@@ -463,6 +471,7 @@ function CompletionCell({
   }
 }
 
+/** Thẻ một yêu cầu đổi lịch/thêm buổi: thông tin lịch cũ/mới, lý do, trạng thái và nút duyệt/từ chối/thu hồi. */
 function RequestCard({
   request: r,
   onApprove,
@@ -532,6 +541,7 @@ function RequestCard({
   );
 }
 
+/** Thẻ lời mời nhận lớp của gia sư: thông tin lớp, hạn 48 giờ, nút ký hợp đồng hoặc từ chối. */
 function InviteCard({
   assignment: a,
   onSign,

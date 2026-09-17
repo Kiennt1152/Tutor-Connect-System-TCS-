@@ -27,6 +27,7 @@ const positiveNumber = (value: number | string | null | undefined): number | nul
   return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
 };
 
+/** Lấy câu lỗi từ phản hồi API; không có thì dùng câu mặc định. */
 function extractError(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;
@@ -36,22 +37,26 @@ function extractError(err: unknown): string {
   return 'Có lỗi xảy ra. Vui lòng thử lại.';
 }
 
+/** Đổi ngày ISO sang "dd/MM/yyyy"; thiếu thì để dấu chấm cho chỗ trống trong văn bản hợp đồng. */
 function fmtDate(iso: string | null): string {
   if (!iso) return '.......';
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
 }
 
+/** Đổi ngày sinh ISO sang "dd/MM/yyyy"; thiếu thì để dòng chấm cho chỗ trống. */
 function fmtDob(iso: string | null): string {
   if (!iso) return '.................';
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
 }
 
+/** Đổi thời điểm ISO sang "dd/MM/yyyy HH:mm:ss" (thời điểm ký); sai định dạng thì rỗng. */
 function fmtDateTime(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
+  /** Thêm số 0 đằng trước cho đủ 2 chữ số. */
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
@@ -106,6 +111,7 @@ const LOCKED_DEFAULT_LINES = new Set<string>([
   'Bảo đảm giờ học cho học viên đúng lịch; nếu nghỉ phải báo trước và dạy bù.',
 ]);
 
+/** Tách điều khoản bổ sung thành từng dòng (bỏ dòng trống) để hiển thị dạng danh sách. */
 function termsLines(text: string): string[] {
   return text
     .split('\n')
@@ -113,6 +119,10 @@ function termsLines(text: string): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Trang ký hợp đồng lớp riêng: hiển thị văn bản hợp đồng (hai bên, lớp, lịch, học phí, điều khoản),
+ * bên A thêm điều khoản, gửi/nhập OTP để ký, rồi thanh toán ký quỹ và nhập tài khoản hoàn tiền.
+ */
 export default function ContractSigningPage() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -191,11 +201,15 @@ export default function ContractSigningPage() {
     setPayoutAccountNo('');
   }, [contract]);
 
+  /** Dữ liệu lớp đọc từ detailsJson của hợp đồng (để tính lịch và học phí). */
   const form = useMemo(
     () => (contract?.detailsJson ? classToForm({ detailsJson: contract.detailsJson } as never) : null),
     [contract?.detailsJson],
   );
 
+  /**
+   * Tổng học phí cả khoá, số tiền ký quỹ mỗi tháng và số tháng: ưu tiên số server trả về, không có thì tự tính từ form.
+   */
   const amounts = useMemo(() => {
     if (!form) return { full: 0, monthly: 0, months: 1 };
     const calculatedFull = totalBudget(form);
@@ -235,6 +249,7 @@ export default function ContractSigningPage() {
         ? 'Vui lòng quét mã để thanh toán escrow.'
         : 'Đang tạo lệnh thanh toán escrow.';
 
+  /** Nhãn thứ trong tuần theo giá trị. */
   const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
 
   const combinedTermsLines = [...DEFAULT_TERMS_B_LINES, ...termsLines(extraTermsText)];
@@ -352,6 +367,7 @@ export default function ContractSigningPage() {
     }
   }
 
+  /** Bên A lưu điều khoản bổ sung; hiện "đã lưu" trong 2,5 giây. */
   async function handleSaveTerms() {
     if (!contract) return;
     setTermsSaving(true);
@@ -367,6 +383,7 @@ export default function ContractSigningPage() {
     }
   }
 
+  /** Gửi mã OTP ký hợp đồng (bên A lưu điều khoản trước), bật đếm ngược 60 giây trước khi gửi lại. */
   async function handleRequestOtp() {
     if (!contract) return;
     setOtpRequesting(true);
@@ -388,6 +405,7 @@ export default function ContractSigningPage() {
     }
   }
 
+  /** Ký hợp đồng bằng OTP 6 số rồi tải lại hợp đồng để thấy chữ ký; nhập sai quá số lần thì khoá ô OTP. */
   async function handleSign() {
     if (!contract) return;
     if (otp.trim().length !== 6) {

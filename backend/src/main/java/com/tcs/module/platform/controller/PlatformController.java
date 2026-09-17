@@ -94,18 +94,21 @@ public class PlatformController {
         return platformService.listReports();
     }
 
+    /** GET /api/platform/reviews?status= — admin xem danh sách đánh giá. */
     @GetMapping("/reviews")
     public List<AdminReviewResponse> listReviews(
             @RequestParam(required = false) ReviewStatus status) {
         return platformService.listReviews(status);
     }
 
+    /** PATCH /api/platform/reviews/{reviewId} — admin đổi trạng thái hiển thị của đánh giá. */
     @PatchMapping("/reviews/{reviewId}")
     public AdminReviewResponse moderateReview(
             @PathVariable Long reviewId, @Valid @RequestBody ModerateReviewRequest request) {
         return platformService.moderateReview(reviewId, request);
     }
 
+    /** DELETE /api/platform/reviews/{reviewId} — admin xoá vĩnh viễn đánh giá. */
     @DeleteMapping("/reviews/{reviewId}")
     public void deleteReview(@PathVariable Long reviewId) {
         platformService.deleteReview(reviewId);
@@ -125,6 +128,7 @@ public class PlatformController {
         return platformService.resolveReport(reportId, request);
     }
 
+    /** PATCH /api/platform/reports/{reportId}/resolve-review — admin xử lý báo cáo đánh giá. */
     @PatchMapping("/reports/{reportId}/resolve-review")
     public ReportResponse resolveReviewReport(
             @PathVariable Long reportId,

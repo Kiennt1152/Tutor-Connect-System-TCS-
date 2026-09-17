@@ -730,6 +730,7 @@ public class PlatformServiceImpl implements PlatformService {
         return toReportResponse(saved);
     }
 
+    /** Admin xem mọi đánh giá khách -> gia sư (lọc theo trạng thái nếu có), mới nhất trước, kèm thông tin báo cáo. */
     @Override
     @Transactional(readOnly = true)
     public List<AdminReviewResponse> listReviews(ReviewStatus status) {
@@ -750,6 +751,7 @@ public class PlatformServiceImpl implements PlatformService {
                 .toList();
     }
 
+    /** Admin đổi trạng thái một đánh giá (hiện/ẩn/vi phạm) rồi tính lại điểm trung bình của gia sư. */
     @Override
     @Transactional
     public AdminReviewResponse moderateReview(Long reviewId, ModerateReviewRequest request) {
@@ -765,6 +767,7 @@ public class PlatformServiceImpl implements PlatformService {
         return toAdminReviewResponse(saved);
     }
 
+    /** Admin xoá vĩnh viễn một đánh giá rồi tính lại điểm trung bình của gia sư. */
     @Override
     @Transactional
     public void deleteReview(Long reviewId) {
@@ -778,6 +781,10 @@ public class PlatformServiceImpl implements PlatformService {
         contractService.recomputeReputationByTutorUser(tutorUserId);
     }
 
+    /**
+     * Admin xử lý báo cáo nhắm vào đánh giá: giữ nguyên / ẩn / đánh dấu vi phạm / xoá đánh giá,
+     * tính lại điểm gia sư, ghi chú xử lý vào báo cáo, đóng báo cáo, ghi nhật ký và báo cho người báo cáo.
+     */
     @Override
     @Transactional
     public ReportResponse resolveReviewReport(Long reportId, ResolveReviewReportRequest request) {
@@ -835,6 +842,7 @@ public class PlatformServiceImpl implements PlatformService {
         return toReportResponse(saved);
     }
 
+    /** Nhãn tiếng Việt của hành động xử lý báo cáo đánh giá. */
     private String reviewReportActionLabel(ReviewReportAction action) {
         return switch (action) {
             case KEEP_REVIEW -> "Giữ nguyên đánh giá";
@@ -844,6 +852,7 @@ public class PlatformServiceImpl implements PlatformService {
         };
     }
 
+    /** Nối phần ghi chú xử lý (hành động, ghi chú, thời gian) vào mô tả hiện có của báo cáo. */
     private String appendReviewReportHandlingNote(
             String currentDescription, ReviewReportAction action, String notes) {
 
@@ -855,6 +864,7 @@ public class PlatformServiceImpl implements PlatformService {
         return StringUtils.hasText(prefix) ? prefix + "\n\n" + handlingNote : handlingNote;
     }
 
+    /** Ghi nhật ký kiểm toán việc xử lý báo cáo đánh giá (trạng thái, mô tả trước/sau, hành động). */
     private void auditReviewReportResolution(
             Report report,
             ReviewReportAction action,
@@ -878,6 +888,7 @@ public class PlatformServiceImpl implements PlatformService {
         auditLogRepository.save(auditLog);
     }
 
+    /** Báo cho người đã báo cáo rằng báo cáo đánh giá đã được xử lý, kèm hành động và ghi chú của admin. */
     private void notifyReviewReportResolution(Report report, ReviewReportAction action, String notes) {
         User reporter = report.getReporter();
         if (reporter == null) {
@@ -891,6 +902,7 @@ public class PlatformServiceImpl implements PlatformService {
                 report);
     }
 
+    /** Đổi đánh giá sang DTO cho admin, tự lấy danh sách báo cáo liên quan. */
     private AdminReviewResponse toAdminReviewResponse(Review review) {
         return toAdminReviewResponse(
                 review,
@@ -898,6 +910,10 @@ public class PlatformServiceImpl implements PlatformService {
                         ReportTargetType.REVIEW, review.getReviewId()));
     }
 
+    /**
+     * Đổi đánh giá sang DTO cho admin: tên khách/gia sư, lớp, điểm, nội dung, trạng thái,
+     * số báo cáo (đang chờ) và báo cáo mới nhất.
+     */
     private AdminReviewResponse toAdminReviewResponse(Review review, List<Report> reports) {
         Long reviewerId = review.getReviewer().getUserId();
         String reviewerName = clientRepository

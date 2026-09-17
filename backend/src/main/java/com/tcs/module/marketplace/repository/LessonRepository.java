@@ -11,6 +11,7 @@ public interface LessonRepository extends JpaRepository<Lesson, Long> {
 
     List<Lesson> findByTutoringClass_ClassId(Long classId);
 
+    /** Tìm buổi học theo lớp, khung lịch và số thứ tự buổi. */
     Optional<Lesson> findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
             Long classId, Long slotId, int sequenceNo);
 

@@ -125,6 +125,7 @@ public class ProfileServiceImpl implements ProfileService {
         return toProfileResponse(loadContext());
     }
 
+    /** Hồ sơ công khai của gia sư (thông tin cơ bản, học vấn, chứng chỉ, kinh nghiệm) cho trang xem gia sư. */
     @Override
     @Transactional(readOnly = true)
     public PublicTutorProfileResponse getPublicTutorProfile(Long tutorId) {
@@ -478,6 +479,7 @@ public class ProfileServiceImpl implements ProfileService {
                 experienceId, null, null);
     }
 
+    /** Danh sách học vấn của gia sư đang đăng nhập. */
     @Override
     @Transactional(readOnly = true)
     public List<TutorEducationResponse> getMyEducations() {
@@ -487,6 +489,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .toList();
     }
 
+    /** Gia sư thêm một mục học vấn (bắt buộc cơ sở đào tạo và bằng cấp), ghi nhật ký. */
     @Override
     @Transactional
     public TutorEducationResponse addEducation(TutorEducationRequest request) {
@@ -507,6 +510,7 @@ public class ProfileServiceImpl implements ProfileService {
         return toEducationResponse(saved);
     }
 
+    /** Gia sư xoá mục học vấn của chính mình, ghi nhật ký. */
     @Override
     @Transactional
     public void deleteEducation(Long educationId) {
@@ -522,6 +526,7 @@ public class ProfileServiceImpl implements ProfileService {
                 educationId, null, null);
     }
 
+    /** Danh sách chứng chỉ của gia sư đang đăng nhập. */
     @Override
     @Transactional(readOnly = true)
     public List<TutorCertificateResponse> getMyCertificates() {
@@ -531,6 +536,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .toList();
     }
 
+    /** Gia sư thêm chứng chỉ (bắt buộc tên và nơi cấp), ghi nhật ký. */
     @Override
     @Transactional
     public TutorCertificateResponse addCertificate(TutorCertificateRequest request) {
@@ -549,6 +555,7 @@ public class ProfileServiceImpl implements ProfileService {
         return toCertificateResponse(saved);
     }
 
+    /** Gia sư xoá chứng chỉ của chính mình, ghi nhật ký. */
     @Override
     @Transactional
     public void deleteCertificate(Long certificateId) {
@@ -613,6 +620,7 @@ public class ProfileServiceImpl implements ProfileService {
 
     private static final int MAX_BUSY_NOTE_LENGTH = 255;
 
+    /** Lịch bận của gia sư trong một tháng (mặc định tháng hiện tại), sắp theo ngày và giờ. */
     @Override
     @Transactional(readOnly = true)
     public List<TutorBusyTimeResponse> getMyBusyTimes(java.time.YearMonth month) {
@@ -740,6 +748,7 @@ public class ProfileServiceImpl implements ProfileService {
         return ranges;
     }
 
+    /** Kiểm tra một khoảng giờ bận: phải đủ giờ bắt đầu/kết thúc và kết thúc sau bắt đầu (00:00 = nửa đêm). */
     private java.time.LocalTime[] validBusyRange(java.time.LocalTime start, java.time.LocalTime end) {
         if (start == null || end == null) {
             throw new IllegalArgumentException("Nhập đủ giờ bắt đầu và kết thúc, hoặc chọn bận cả ngày");
@@ -750,6 +759,7 @@ public class ProfileServiceImpl implements ProfileService {
         return new java.time.LocalTime[] {start, end};
     }
 
+    /** Gia sư xoá một lịch bận của chính mình, ghi nhật ký. */
     @Override
     @Transactional
     public void deleteBusyTime(Long busyTimeId) {
@@ -1266,6 +1276,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .build();
     }
 
+    /** Đổi entity học vấn sang DTO trả về. */
     private TutorEducationResponse toEducationResponse(
             com.tcs.module.profile.entity.TutorEducation e) {
         return TutorEducationResponse.builder()
@@ -1278,6 +1289,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .build();
     }
 
+    /** Đổi entity chứng chỉ sang DTO trả về. */
     private TutorCertificateResponse toCertificateResponse(
             com.tcs.module.profile.entity.TutorCertificate c) {
         return TutorCertificateResponse.builder()
@@ -1288,6 +1300,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .build();
     }
 
+    /** Đổi lịch bận sang DTO (có cờ bận cả ngày). */
     private TutorBusyTimeResponse toBusyTimeResponse(TutorBusyTime b) {
         return TutorBusyTimeResponse.builder()
                 .busyTimeId(b.getBusyTimeId())

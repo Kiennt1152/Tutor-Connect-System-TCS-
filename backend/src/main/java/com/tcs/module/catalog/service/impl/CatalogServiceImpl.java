@@ -151,6 +151,7 @@ public class CatalogServiceImpl implements CatalogService {
                 .toList();
     }
 
+    /** Danh sách quận/huyện của một tỉnh (thiếu tỉnh thì trả rỗng). */
     @Override
     @Transactional(readOnly = true)
     public List<CatalogItemResponse> getDistricts(Long provinceId) {
@@ -165,6 +166,7 @@ public class CatalogServiceImpl implements CatalogService {
                 .toList();
     }
 
+    /** Danh sách phường/xã của một quận (thiếu quận thì trả rỗng). */
     @Override
     @Transactional(readOnly = true)
     public List<CatalogItemResponse> getWards(Long districtId) {

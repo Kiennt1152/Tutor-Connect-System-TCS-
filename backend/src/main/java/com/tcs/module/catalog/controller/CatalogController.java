@@ -30,16 +30,19 @@ public class CatalogController {
 
     private final CatalogService catalogService;
 
+    /** GET /api/catalog/subjects — danh mục môn học. */
     @GetMapping("/subjects")
     public List<CatalogItemResponse> getSubjects() {
         return catalogService.getSubjects();
     }
 
+    /** GET /api/catalog/grades — danh mục khối lớp. */
     @GetMapping("/grades")
     public List<CatalogItemResponse> getGrades() {
         return catalogService.getGrades();
     }
 
+    /** GET /api/catalog/provinces — danh mục tỉnh/thành. */
     @GetMapping("/provinces")
     public List<CatalogItemResponse> getProvinces() {
         return catalogService.getProvinces();
@@ -117,11 +120,13 @@ public class CatalogController {
         return catalogService.updateCategory(categoryId, request);
     }
 
+    /** GET /api/catalog/districts?provinceId= — quận/huyện của một tỉnh. */
     @GetMapping("/districts")
     public List<CatalogItemResponse> getDistricts(@RequestParam Long provinceId) {
         return catalogService.getDistricts(provinceId);
     }
 
+    /** GET /api/catalog/wards?districtId= — phường/xã của một quận. */
     @GetMapping("/wards")
     public List<CatalogItemResponse> getWards(@RequestParam Long districtId) {
         return catalogService.getWards(districtId);

@@ -126,6 +126,7 @@ export const platformApi = {
     return axiosClient.patch<ReportApiResponse>(`${BASE}/reports/${reportId}/resolve`, payload);
   },
 
+  /** Admin xử lý báo cáo nhắm vào đánh giá. */
   resolveReviewReport(reportId: string, payload: ResolveReviewReportRequest) {
     return axiosClient.patch<ReportApiResponse>(
       `${BASE}/reports/${reportId}/resolve-review`,
@@ -175,15 +176,18 @@ export const platformApi = {
     return axiosClient.post<RefundRequestApiResponse>(`/finance/refund-requests/${refundId}/reject`, payload);
   },
 
+  /** Admin lấy danh sách đánh giá (lọc theo trạng thái nếu có). */
   getReviews(status?: ReviewModerationStatus) {
     const query = status ? `?status=${status}` : '';
     return axiosClient.get<AdminReviewApiResponse[]>(`${BASE}/reviews${query}`);
   },
 
+  /** Admin đổi trạng thái hiển thị của đánh giá. */
   moderateReview(reviewId: number, status: ReviewModerationStatus) {
     return axiosClient.patch<AdminReviewApiResponse>(`${BASE}/reviews/${reviewId}`, { status });
   },
 
+  /** Admin xoá vĩnh viễn đánh giá. */
   deleteReview(reviewId: number) {
     return axiosClient.delete<void>(`${BASE}/reviews/${reviewId}`);
   },

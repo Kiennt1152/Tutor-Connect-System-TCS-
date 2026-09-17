@@ -12,14 +12,17 @@ import {
 import { SESSION_OPTIONS } from '../../marketplace/types/marketplaceTypes';
 import './LessonRequestDialog.css';
 
+/** Đổi "HH:mm" thành số phút trong ngày. */
 const toMinutes = (t: string) => {
   const [h, m] = t.split(':').map(Number);
   return h * 60 + m;
 };
 
+/** Đổi số phút trong ngày thành "HH:mm". */
 const minutesToHhmm = (mins: number) =>
   `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 
+/** Danh sách mốc giờ từ min đến max theo bước (mặc định 30 phút) cho ô chọn giờ. */
 function buildTimeSlots(min: string, max: string, step = 30): string[] {
   const out: string[] = [];
   for (let x = toMinutes(min); x <= toMinutes(max); x += step) {
@@ -29,6 +32,7 @@ function buildTimeSlots(min: string, max: string, step = 30): string[] {
   return out;
 }
 
+/** Nhãn thời lượng, ví dụ "1 giờ 30 phút". */
 function durationLabel(mins: number): string {
   if (mins <= 0) return '';
   const h = Math.floor(mins / 60);
@@ -36,6 +40,7 @@ function durationLabel(mins: number): string {
   return [h ? `${h} giờ` : '', m ? `${m} phút` : ''].filter(Boolean).join(' ');
 }
 
+/** Suy ra buổi (Sáng/Chiều/Tối) từ giờ bắt đầu. */
 function sessionOf(start: string): string {
   if (start && start >= '18:00') return 'Tối';
   if (start && start >= '12:00') return 'Chiều';
@@ -77,7 +82,9 @@ export function LessonRequestDialog({
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  /** Ngày hôm nay dạng "yyyy-MM-dd" (tính một lần khi mở hộp thoại). */
   const todayIso = useMemo(() => toIsoDate(new Date()), []);
+  /** Giờ hiện tại "HH:mm" (để chặn chọn giờ đã qua trong hôm nay). */
   const nowHm = useMemo(() => new Date().toTimeString().slice(0, 5), []);
   const isToday = date === todayIso;
 
@@ -92,6 +99,7 @@ export function LessonRequestDialog({
     return isToday ? slots.filter((t) => t > nowHm) : slots;
   }, [sess.min, sess.max, maxEndMin, durationMin, isToday, nowHm]);
 
+  /** Giờ kết thúc = giờ bắt đầu + thời lượng buổi. */
   const endTime = useMemo(
     () => minutesToHhmm(toMinutes(startTime) + durationMin),
     [startTime, durationMin],
@@ -146,6 +154,7 @@ export function LessonRequestDialog({
     }
   }, [freeStartOptions, startTime]);
 
+  /** Đổi buổi: đặt giờ bắt đầu mặc định của buổi và xoá lỗi đang hiện. */
   function changeSession(value: string) {
     const preset = SESSION_OPTIONS.find((o) => o.value === value) ?? SESSION_OPTIONS[0];
     setSession(value);
@@ -153,6 +162,10 @@ export function LessonRequestDialog({
     setLocalError(null);
   }
 
+  /**
+   * Kiểm tra form đổi lịch: có lý do, ngày, giờ hợp lệ, không ở quá khứ, khác lịch cũ và không trùng lịch khác;
+   * trả về câu lỗi đầu tiên hoặc null.
+   */
   function validate(): string | null {
     if (!reason.trim()) return 'Vui lòng nhập lý do đổi lịch.';
     if (!date) return 'Chọn ngày học.';
@@ -172,6 +185,7 @@ export function LessonRequestDialog({
     return null;
   }
 
+  /** Gửi yêu cầu đổi lịch sau khi kiểm tra; thành công thì đóng hộp thoại. */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const problem = validate();

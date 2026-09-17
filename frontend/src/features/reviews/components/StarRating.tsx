@@ -7,6 +7,7 @@ type StarRatingProps = {
   size?: number;
 };
 
+/** Dãy 5 ngôi sao để chấm hoặc chỉ hiển thị điểm (có hiệu ứng rê chuột khi chấm). */
 export function StarRating({ value, onChange, readOnly = false, size = 28 }: StarRatingProps) {
   const [hover, setHover] = useState(0);
   const active = hover || value;

@@ -17,6 +17,7 @@ export function useMarketplace() {
   const [provinces, setProvinces] = useState<CatalogOption[]>([]);
   const [locations, setLocations] = useState<LocationOption[]>([]);
 
+  /** Tải lại danh sách lớp. */
   const reload = useCallback(() => {
     setStatus('loading');
     marketplaceApi
@@ -41,6 +42,7 @@ export function useMarketplace() {
     marketplaceApi.listProvinces().then(setProvinces).catch(() => setProvinces([]));
   }, []);
 
+  /** Tải danh sách địa điểm theo tỉnh (không chọn tỉnh thì xoá danh sách). */
   const loadLocations = useCallback((provinceId: number) => {
     if (!provinceId) {
       setLocations([]);
@@ -52,6 +54,7 @@ export function useMarketplace() {
       .catch(() => setLocations([]));
   }, []);
 
+  /** Tạo tin mới rồi tải lại danh sách. */
   const createClass = useCallback(
     async (payload: ClassRequestPayload) => {
       const created = await marketplaceApi.createClass(payload);
@@ -61,6 +64,7 @@ export function useMarketplace() {
     [reload],
   );
 
+  /** Sửa tin rồi tải lại danh sách. */
   const updateClass = useCallback(
     async (classId: number, payload: ClassRequestPayload) => {
       const updated = await marketplaceApi.updateClass(classId, payload);
@@ -70,6 +74,7 @@ export function useMarketplace() {
     [reload],
   );
 
+  /** Đăng tin rồi tải lại danh sách. */
   const publishClass = useCallback(
     async (classId: number) => {
       const published = await marketplaceApi.publishClass(classId);
@@ -79,6 +84,7 @@ export function useMarketplace() {
     [reload],
   );
 
+  /** Gỡ đăng tin rồi tải lại danh sách. */
   const unpublishClass = useCallback(
     async (classId: number) => {
       const updated = await marketplaceApi.unpublishClass(classId);

@@ -149,6 +149,7 @@ public class MatchContractDeadlineScheduler {
         return true;
     }
 
+    /** Gỡ hạn 48 giờ của lớp (khi không còn gì để huỷ). */
     private void clearDeadline(TutoringClass c) {
         c.setMatchDeadlineAt(null);
         tutoringClassRepository.save(c);
@@ -168,6 +169,7 @@ public class MatchContractDeadlineScheduler {
         contractRepository.delete(contract);
     }
 
+    /** Báo khi hợp đồng hết hạn 48 giờ: chủ lớp, gia sư đã chọn và các gia sư trong danh sách chờ (lớp đã mở lại). */
     private void notifyCancelled(TutoringClass c, TutorApplication chosen) {
         String title = "Hợp đồng hết hạn 48 giờ - lớp đã mở lại";
 
@@ -200,6 +202,7 @@ public class MatchContractDeadlineScheduler {
         }
     }
 
+    /** Gửi một thông báo loại APPLICATION về lớp cho một người. */
     private void notify(TutoringClass c, User user, String title, String content) {
         notificationDispatchService.notifyUserFromTemplate(
                 user,

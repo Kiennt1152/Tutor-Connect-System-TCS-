@@ -12,6 +12,7 @@ import {
   type ClassResponse,
 } from '../types/marketplaceTypes';
 
+/** Giá trị mặc định của form tạo tin tìm gia sư (chưa chọn gì, lịch hàng tuần, 1 tháng). */
 export function emptyForm(): ClassFormValues {
   return {
     subjectIds: [],
@@ -46,6 +47,7 @@ type LegacyForm = Partial<ClassFormValues> & {
   subjectOther?: string;
 };
 
+/** Đọc tên các môn "khác" từ detailsJson; hỗ trợ cả định dạng cũ chỉ có một môn khác. */
 function migrateOtherSubjects(parsed: LegacyForm): Record<string, string> {
   if (parsed.subjectOthers && typeof parsed.subjectOthers === 'object') return parsed.subjectOthers;
   if (parsed.subjectOther && (parsed.subjectIds ?? []).includes(OTHER_SUBJECT)) {
@@ -54,6 +56,7 @@ function migrateOtherSubjects(parsed: LegacyForm): Record<string, string> {
   return {};
 }
 
+/** Đọc các tuần học trong chu kỳ từ detailsJson; dữ liệu cũ (weeksOnPerCycle = k) đổi thành tuần 1..k. */
 function migrateStudyWeeks(parsed: LegacyForm): number[] {
   if (Array.isArray(parsed.studyWeeks) && parsed.studyWeeks.length > 0) return parsed.studyWeeks;
   const k = Math.trunc(Number(parsed.weeksOnPerCycle));
@@ -61,6 +64,7 @@ function migrateStudyWeeks(parsed: LegacyForm): number[] {
   return [1];
 }
 
+/** Đọc kỳ thanh toán/thời lượng từ detailsJson; dữ liệu cũ "YEAR" đổi thành 1 năm theo tháng. */
 function migrateDuration(parsed: LegacyForm): Pick<ClassFormValues, 'billingCycle' | 'months' | 'durationUnit'> {
   const cycle = parsed.billingCycle;
   if (cycle === 'YEAR') {
@@ -76,6 +80,10 @@ function migrateDuration(parsed: LegacyForm): Pick<ClassFormValues, 'billingCycl
   };
 }
 
+/**
+ * Đổi lớp từ API thành giá trị form để sửa: đọc detailsJson (có chuyển định dạng cũ),
+ * không có detailsJson thì dựng form từ các cột cơ bản của lớp.
+ */
 export function classToForm(c: ClassResponse): ClassFormValues {
   if (c.detailsJson) {
     try {
@@ -124,6 +132,7 @@ export function classToForm(c: ClassResponse): ClassFormValues {
   };
 }
 
+/** Số giờ của một khung học (00:00 ở giờ kết thúc hiểu là nửa đêm); dữ liệu sai thì 0. */
 function slotHours(start: string, end: string): number {
   if (!start || !end) return 0;
   const [sh, sm] = start.split(':').map(Number);
@@ -134,6 +143,7 @@ function slotHours(start: string, end: string): number {
   return diff > 0 ? diff / 60 : 0;
 }
 
+/** Mục tiêu học gửi lên server: lấy nội dung tự gõ nếu chọn "Khác". */
 export function resolveLearningGoal(form: ClassFormValues): string {
   if (form.learningGoal === LEARNING_GOAL_OTHER) {
     return form.learningGoalOther.trim();
@@ -141,6 +151,7 @@ export function resolveLearningGoal(form: ClassFormValues): string {
   return form.learningGoal.trim();
 }
 
+/** Yêu cầu gia sư gửi lên server: ghép lựa chọn với phần mô tả chi tiết (nếu có). */
 export function resolveTutorRequirement(form: ClassFormValues): string {
   const detail = form.tutorRequirementDetail.trim();
   if (detail) {
@@ -149,15 +160,18 @@ export function resolveTutorRequirement(form: ClassFormValues): string {
   return form.tutorRequirement;
 }
 
+/** Số tháng/năm người dùng chọn (tối thiểu 1). */
 export function durationCountOf(form: ClassFormValues): number {
   return Math.max(1, Number(form.months) || 1);
 }
 
+/** Tổng số tháng của khoá học (năm đổi ra tháng). */
 export function totalMonthsOf(form: ClassFormValues): number {
   const n = durationCountOf(form);
   return form.durationUnit === 'YEAR' ? n * 12 : n;
 }
 
+/** Số tuần học của khoá theo kỳ thanh toán (tháng × 4; học kỳ/quý lấy từ cấu hình). */
 export function weeksForCycle(form: ClassFormValues): number {
   if (form.billingCycle === 'MONTH') {
     return totalMonthsOf(form) * 4;
@@ -165,6 +179,7 @@ export function weeksForCycle(form: ClassFormValues): number {
   return BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle)?.weeks ?? 4;
 }
 
+/** Nhãn thời lượng hiển thị, ví dụ "3 tháng", "1 năm", "Học kỳ". */
 export function cycleLabelOf(form: ClassFormValues): string {
   if (form.billingCycle === 'MONTH') {
     const n = durationCountOf(form);
@@ -173,12 +188,14 @@ export function cycleLabelOf(form: ClassFormValues): string {
   return BILLING_CYCLE_OPTIONS.find((o) => o.value === form.billingCycle)?.label ?? '1 tháng';
 }
 
+/** Chu kỳ lặp của lịch hàng tuần (1–4 tuần); lịch theo ngày luôn là 1. */
 export function repeatWeeksOf(form: ClassFormValues): number {
   if (form.scheduleMode !== 'WEEKLY') return 1;
   const n = Number(form.repeatEveryWeeks) || 1;
   return Math.min(4, Math.max(1, Math.trunc(n)));
 }
 
+/** Các tuần có học trong chu kỳ lặp (đã lọc hợp lệ, sắp xếp; mặc định tuần 1). */
 export function studyWeeksOf(form: ClassFormValues): number[] {
   const n = repeatWeeksOf(form);
   if (n <= 1) return [1];
@@ -189,11 +206,13 @@ export function studyWeeksOf(form: ClassFormValues): number[] {
   return out.length > 0 ? out : [1];
 }
 
+/** Các tuần nghỉ trong chu kỳ lặp. */
 export function restWeeksOf(form: ClassFormValues): number[] {
   const on = new Set(studyWeeksOf(form));
   return Array.from({ length: repeatWeeksOf(form) }, (_, i) => i + 1).filter((w) => !on.has(w));
 }
 
+/** Số lần mẫu lịch được lặp trong cả khoá (lịch theo ngày chỉ tính 1 lần). */
 export function patternRepeats(form: ClassFormValues): number {
   // Chọn ngày cụ thể: mỗi buổi là một buổi thực tế, không lặp -> chỉ tính đúng số buổi đã chọn.
   if (form.scheduleMode !== 'WEEKLY') return 1;
@@ -205,6 +224,7 @@ export function patternRepeats(form: ClassFormValues): number {
   return Math.floor(weeks / n) * on.length + on.filter((w) => w <= remainder).length;
 }
 
+/** Mô tả kiểu lặp: "hàng tuần", "mỗi N tuần" hoặc "học tuần 1, 3 trong mỗi N tuần". */
 export function repeatLabel(form: ClassFormValues): string {
   const n = repeatWeeksOf(form);
   const on = studyWeeksOf(form);
@@ -213,21 +233,25 @@ export function repeatLabel(form: ClassFormValues): string {
   return `học tuần ${on.join(', ')} trong mỗi ${n} tuần`;
 }
 
+/** Số buổi học ước tính của cả khoá = số khung mỗi lần lặp × số lần lặp. */
 export function estimatedSessions(form: ClassFormValues): number {
   const perRepeat = Math.max(1, form.slots.length);
   return perRepeat * patternRepeats(form);
 }
 
+/** Tổng số giờ học của tất cả khung trong một lần lặp. */
 export function totalHoursPerRepeat(form: ClassFormValues): number {
   return form.slots.reduce((sum, s) => sum + slotHours(s.start, s.end), 0);
 }
 
+/** Tổng số giờ học của một môn trong một lần lặp. */
 export function hoursPerRepeatForSubject(form: ClassFormValues, subjectId: string): number {
   return form.slots
     .filter((s) => s.subjectId === subjectId)
     .reduce((sum, s) => sum + slotHours(s.start, s.end), 0);
 }
 
+/** Tổng học phí dự kiến = Σ (học phí/giờ của môn × số giờ môn đó mỗi lần lặp × số lần lặp). */
 export function totalBudget(form: ClassFormValues): number {
   const repeats = patternRepeats(form);
   return Math.round(
@@ -239,12 +263,14 @@ export function totalBudget(form: ClassFormValues): number {
   );
 }
 
+/** Tên thứ tiếng Việt của một ngày "yyyy-MM-dd" (Chủ nhật, Thứ 2...). */
 export function weekdayVi(dateStr: string): string {
   if (!dateStr) return '';
   const d = new Date(`${dateStr}T00:00:00`);
   return ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'][d.getDay()] ?? '';
 }
 
+/** Câu tóm tắt lịch học (thời lượng, kiểu lặp, số buổi, giờ học theo từng môn) để lưu vào mô tả lớp. */
 export function buildScheduleSummary(form: ClassFormValues, subjects: CatalogOption[] = []): string {
   const parts = [
     `Lịch học ${cycleLabelOf(form).toLowerCase()}${
@@ -252,11 +278,14 @@ export function buildScheduleSummary(form: ClassFormValues, subjects: CatalogOpt
     } (${form.slots.length} buổi/tuần)`,
   ];
   const money = new Intl.NumberFormat('vi-VN');
+  /** Tên môn theo mã (môn "khác" lấy tên người dùng gõ). */
   const nameOf = (id: string) =>
     isOtherSubject(id)
       ? form.subjectOthers[id]?.trim() || 'Môn học khác'
       : (subjects.find((s) => String(s.id) === id)?.name ?? '');
+  /** Nhãn thứ trong tuần theo giá trị. */
   const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
+  /** Thời điểm của khung học: thứ (lịch tuần) hoặc "Thứ x yyyy-MM-dd" (lịch theo ngày). */
   const whenOf = (s: ClassFormValues['slots'][number]) =>
     form.scheduleMode === 'WEEKLY' ? dayLabel(s.day) : `${weekdayVi(s.date)} ${s.date}`;
   const bySubject = form.subjectIds

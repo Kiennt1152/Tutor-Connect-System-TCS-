@@ -59,6 +59,7 @@ function isExpiredClass(c: ClassResponse): boolean {
   return c.status === 'OPEN' && !!c.expiresAt && Date.parse(c.expiresAt) <= Date.now();
 }
 
+/** Tin còn sửa được không: đang Nháp hoặc Đang mở, chưa có ai ứng tuyển và chưa hết hạn hiển thị. */
 function isEditableClass(c: ClassResponse): boolean {
   const noApplicants = (c.applicationCount ?? 0) === 0;
   return (c.status === 'DRAFT' || c.status === 'OPEN') && noApplicants && !isExpiredClass(c);
@@ -237,6 +238,7 @@ export default function MarketplacePage() {
     }
   };
 
+  /** Mở form sửa tin (rời màn chi tiết nếu đang ở đó). */
   function openEdit(target: ClassResponse) {
     setError(null);
     // Rời màn chi tiết (nếu đang ở) để hiện form chỉnh sửa đúng.
@@ -244,11 +246,13 @@ export default function MarketplacePage() {
     setMode({ kind: 'edit', target });
   }
 
+  /** Mở màn chi tiết tin; lưu id vào sessionStorage để tải lại trang vẫn mở đúng tin. */
   function openDetail(target: ClassResponse) {
     sessionStorage.setItem('mkt-detail-classId', String(target.classId));
     navigate(detailPath, { state: { classId: target.classId } });
   }
 
+  /** Gửi form: đang sửa thì cập nhật tin, ngược lại tạo tin mới; lỗi thì hiện thông báo trên form. */
   async function handleSubmit(payload: ClassRequestPayload) {
     setSubmitting(true);
     setError(null);
@@ -266,6 +270,7 @@ export default function MarketplacePage() {
     }
   }
 
+  /** Sau khi xác nhận: đăng tin đang chọn (Nháp -> Đang mở). */
   async function confirmPublish() {
     const classId = publishTarget;
     setPublishTarget(null);
@@ -277,6 +282,7 @@ export default function MarketplacePage() {
     }
   }
 
+  /** Sau khi xác nhận: gỡ đăng tin; nếu đang xem chính tin đó thì quay về danh sách. */
   async function confirmUnpublish() {
     const classId = unpublishTarget;
     setUnpublishTarget(null);
@@ -729,6 +735,10 @@ interface ClassDetailScreenProps {
   readonly onBack: () => void;
 }
 
+/**
+ * Màn chi tiết tin của chủ lớp: thông tin lớp, nút quản lý theo trạng thái, danh sách ứng viên,
+ * và thời khoá biểu khi lớp đang học.
+ */
 function ClassDetailScreen({
   target,
   subjects,
@@ -811,6 +821,7 @@ function ClassDetailScreen({
   );
 }
 
+/** Thẻ thời khoá biểu của một lớp đang học, cho phép gửi yêu cầu đổi lịch từng buổi. */
 function ClassTimetableCard({ classId }: { readonly classId: number }) {
   const { status, lessons: allLessons, requests, error, requestReschedule } = useTeaching();
   const [dialogLesson, setDialogLesson] = useState<LessonResponse | null>(null);
@@ -873,6 +884,7 @@ interface SubjectFeeRow {
   readonly fee: number;
 }
 
+/** Các dòng "môn – học phí" để hiển thị: lấy từ form (detailsJson), không có thì dùng môn/học phí chính của lớp. */
 function subjectRowsOf(
   form: ClassFormValues,
   c: ClassResponse,
@@ -890,6 +902,7 @@ function subjectRowsOf(
   return c.subjectName ? [{ name: c.subjectName, fee: c.tuitionFee ?? 0 }] : [];
 }
 
+/** Địa chỉ đầy đủ "số nhà, phường, quận, tỉnh" của lớp. */
 function fullAddressOf(form: ClassFormValues, c: ClassResponse): string {
   const parts = [form.address, form.wardName, form.districtName, form.provinceName]
     .map((s) => s.trim())
@@ -897,6 +910,10 @@ function fullAddressOf(form: ClassFormValues, c: ClassResponse): string {
   return parts.join(', ') || c.address || '';
 }
 
+/**
+ * Danh sách tin của chủ lớp dạng thẻ: tab lọc theo trạng thái (mặc định Đang mở, "Tất cả" cuối),
+ * sắp xếp, phân trang và các nút Đăng/Sửa/Gỡ đăng/Xem chi tiết.
+ */
 function ClassList({
   status,
   classes,
@@ -914,6 +931,7 @@ function ClassList({
   // (1) tin còn hạn chưa ai ứng tuyển, (2) tin hết hạn — chỉ lưu để xem lại.
   // Trong mỗi nhóm: tin mới nhất lên đầu (createdAt giảm dần, fallback classId).
   const sorted = useMemo(() => {
+    /** Thứ tự ưu tiên khi sắp: tin có ứng viên trước, rồi tin chưa có ứng viên, tin hết hạn cuối. */
     const rank = (c: ClassResponse) => {
       if (isExpiredClass(c)) return 2;
       return (c.applicationCount ?? 0) > 0 ? 0 : 1;
@@ -947,12 +965,14 @@ function ClassList({
     return order.filter((s) => counts.has(s)).map((s) => ({ status: s, count: counts.get(s) ?? 0 }));
   }, [sorted]);
 
+  /** Số tin đã hết hạn hiển thị (để hiện tab "Đã hết hạn"). */
   const expiredCount = useMemo(() => sorted.filter(isExpiredClass).length, [sorted]);
 
   // Mặc định mở tab "Đang mở"; không còn tin đang mở thì hiện tất cả thay vì danh sách trống.
   const activeFilter =
     statusFilter === 'OPEN' && !statusTabs.some((t) => t.status === 'OPEN') ? 'ALL' : statusFilter;
 
+  /** Danh sách tin theo tab đang chọn (Tất cả / Đã hết hạn / từng trạng thái). */
   const filtered = useMemo(() => {
     if (activeFilter === 'ALL') return sorted;
     if (activeFilter === 'EXPIRED') return sorted.filter(isExpiredClass);
@@ -1178,6 +1198,7 @@ function ClassList({
   );
 }
 
+/** Lấy câu lỗi từ phản hồi API; không có thì dùng câu mặc định. */
 function extractError(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;

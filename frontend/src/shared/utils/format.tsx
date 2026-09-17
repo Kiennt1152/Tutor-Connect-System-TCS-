@@ -5,6 +5,7 @@ export function formatCurrency(value: number): string {
   }).format(value);
 }
 
+/** Cắt chuỗi giờ về "HH:mm". */
 export const hhmm = (time: string | null | undefined): string => (time ?? '').slice(0, 5);
 
 /** Giờ đã lưu đúng dạng hiển thị (00:00 = nửa đêm), chỉ cần cắt về HH:mm. */
@@ -41,7 +42,9 @@ export const slotOverlaps = (
 ): boolean =>
   startMinutes(start) < endMinutes(otherEnd) && startMinutes(otherStart) < endMinutes(end);
 
+/** Đổi Date sang "yyyy-MM-dd" theo giờ máy (không lệch múi giờ như toISOString). */
 export function toIsoDate(d: Date): string {
+  /** Thêm số 0 đằng trước cho đủ 2 chữ số. */
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }

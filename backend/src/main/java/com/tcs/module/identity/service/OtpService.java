@@ -95,30 +95,35 @@ public class OtpService {
 
     /** Gốc cho mọi lỗi OTP. */
     public static class OtpException extends IllegalArgumentException {
+        /** Tạo lỗi OTP với câu thông báo cho người dùng. */
         public OtpException(String message) {
             super(message);
         }
     }
 
     public static class OtpNotFoundException extends OtpException {
+        /** Lỗi khi chưa có mã OTP nào được gửi cho email/mục đích này. */
         public OtpNotFoundException(String message) {
             super(message);
         }
     }
 
     public static class OtpExpiredException extends OtpException {
+        /** Lỗi khi mã OTP đã hết hạn. */
         public OtpExpiredException(String message) {
             super(message);
         }
     }
 
     public static class OtpMaxAttemptsException extends OtpException {
+        /** Lỗi khi nhập sai quá số lần cho phép. */
         public OtpMaxAttemptsException(String message) {
             super(message);
         }
     }
 
     public static class OtpInvalidException extends OtpException {
+        /** Lỗi khi mã OTP không đúng. */
         public OtpInvalidException(String message) {
             super(message);
         }

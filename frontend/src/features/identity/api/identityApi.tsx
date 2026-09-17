@@ -31,11 +31,13 @@ export const identityApi = {
     await axiosClient.post(`${BASE}/logout`);
   },
 
+  /** Gửi Google access token để đăng nhập. */
   async loginWithGoogle(body: GoogleLoginRequest): Promise<GoogleLoginResponse> {
     const { data } = await axiosClient.post<GoogleLoginResponse>(`${BASE}/google`, body);
     return data;
   },
 
+  /** Gửi vai trò + số điện thoại để hoàn tất đăng ký bằng Google. */
   async completeGoogleSignup(body: GoogleCompleteRequest): Promise<GoogleLoginResponse> {
     const { data } = await axiosClient.post<GoogleLoginResponse>(`${BASE}/google/complete`, body);
     return data;

@@ -47,11 +47,15 @@ public class MarketplaceController {
         return marketplaceService.listClasses(status);
     }
 
+    /**
+     * GET /classes/board — tin cho bảng "Danh sách tin đã đăng" (lớp đang mở + lớp đã chọn gia sư nhưng chưa hoàn tất hợp đồng).
+     */
     @GetMapping("/classes/board")
     public List<ClassResponse> listBoardClasses() {
         return marketplaceService.listBoardClasses();
     }
 
+    /** GET /classes/mine — tin/lớp do người đăng nhập tạo. */
     @GetMapping("/classes/mine")
     public List<ClassResponse> listMyClasses() {
         return marketplaceService.listMyClasses();
@@ -71,6 +75,7 @@ public class MarketplaceController {
         return marketplaceService.createClass(request);
     }
 
+    /** PUT /classes/{classId} — chủ lớp sửa tin tìm gia sư. */
     @PutMapping("/classes/{classId}")
     public ClassResponse updateClass(@PathVariable Long classId, @RequestBody CreateClassRequest request) {
         return marketplaceService.updateClass(classId, request);
@@ -118,6 +123,7 @@ public class MarketplaceController {
         return marketplaceService.publishClass(classId);
     }
 
+    /** POST /classes/{classId}/unpublish — gỡ đăng lớp về Nháp. */
     @PostMapping("/classes/{classId}/unpublish")
     public ClassResponse unpublishClass(@PathVariable Long classId) {
         return marketplaceService.unpublishClass(classId);
@@ -150,11 +156,13 @@ public class MarketplaceController {
         return Map.of("message", marketplaceService.registerToClass(classId));
     }
 
+    /** GET /applications/mine — id các lớp gia sư đã ứng tuyển. */
     @GetMapping("/applications/mine")
     public List<Long> listMyAppliedClassIds() {
         return marketplaceService.listMyAppliedClassIds();
     }
 
+    /** GET /classes/{classId}/applications — danh sách ứng viên đã xếp hạng (chỉ chủ lớp). */
     @GetMapping("/classes/{classId}/applications")
     public List<ApplicantResponse> listApplicants(@PathVariable Long classId) {
         return marketplaceService.listApplicants(classId);
@@ -167,6 +175,7 @@ public class MarketplaceController {
         return marketplaceService.listMyBusyConflicts(classIds);
     }
 
+    /** POST /classes/{classId}/applications/{applicationId}/choose — chủ lớp chọn gia sư. */
     @PostMapping("/classes/{classId}/applications/{applicationId}/choose")
     public Map<String, String> chooseApplicant(
             @PathVariable Long classId, @PathVariable Long applicationId) {
@@ -174,6 +183,7 @@ public class MarketplaceController {
         return Map.of("message", "Đã chọn gia sư — đang chờ gia sư nhận lớp");
     }
 
+    /** POST /classes/{classId}/applications/{applicationId}/reject — chủ lớp từ chối ứng viên, body có "reason". */
     @PostMapping("/classes/{classId}/applications/{applicationId}/reject")
     public Map<String, String> rejectApplicant(
             @PathVariable Long classId,
@@ -184,34 +194,40 @@ public class MarketplaceController {
         return Map.of("message", "Đã bỏ chọn gia sư");
     }
 
+    /** GET /assignments/mine — phân công lớp riêng của người đăng nhập. */
     @GetMapping("/assignments/mine")
     public List<AssignmentResponse> listMyAssignments() {
         return marketplaceService.listMyAssignments();
     }
 
+    /** POST /assignments/{assignmentId}/accept — gia sư nhận lớp (sau khi đã ký và có ký quỹ). */
     @PostMapping("/assignments/{assignmentId}/accept")
     public Map<String, String> acceptAssignment(@PathVariable Long assignmentId) {
         marketplaceService.acceptAssignment(assignmentId);
         return Map.of("message", "Đã nhận lớp — lịch dạy đã được tạo");
     }
 
+    /** POST /assignments/{assignmentId}/decline — gia sư từ chối lời mời nhận lớp. */
     @PostMapping("/assignments/{assignmentId}/decline")
     public Map<String, String> declineAssignment(@PathVariable Long assignmentId) {
         marketplaceService.declineAssignment(assignmentId);
         return Map.of("message", "Đã từ chối lớp");
     }
 
+    /** GET /assignments/{assignmentId}/contract — dữ liệu trang ký hợp đồng lớp riêng. */
     @GetMapping("/assignments/{assignmentId}/contract")
     public ContractViewResponse getAssignmentContract(@PathVariable Long assignmentId) {
         return marketplaceService.getAssignmentContract(assignmentId);
     }
 
+    /** POST /assignments/{assignmentId}/sign/request-otp — gửi mã OTP ký hợp đồng qua email. */
     @PostMapping("/assignments/{assignmentId}/sign/request-otp")
     public Map<String, String> requestSignOtp(@PathVariable Long assignmentId) {
         marketplaceService.requestSignOtp(assignmentId);
         return Map.of("message", "Đã gửi mã OTP tới email của bạn");
     }
 
+    /** POST /assignments/{assignmentId}/sign — ký hợp đồng bằng OTP (body có "otp"). */
     @PostMapping("/assignments/{assignmentId}/sign")
     public Map<String, String> signAssignmentContract(
             @PathVariable Long assignmentId,
@@ -221,6 +237,7 @@ public class MarketplaceController {
         return Map.of("message", "Đã ký hợp đồng");
     }
 
+    /** POST /assignments/{assignmentId}/contract-terms — bên A lưu điều khoản bổ sung ("termsB"). */
     @PostMapping("/assignments/{assignmentId}/contract-terms")
     public Map<String, String> saveContractTerms(
             @PathVariable Long assignmentId,
@@ -237,6 +254,7 @@ public class MarketplaceController {
         return Map.of("message", "Đã lưu tài khoản nhận hoàn tiền");
     }
 
+    /** GET /lessons/mine — thời khoá biểu lớp riêng của người đăng nhập. */
     @GetMapping("/lessons/mine")
     public List<LessonResponse> listMyLessons() {
         return marketplaceService.listMyLessons();
@@ -251,18 +269,21 @@ public class MarketplaceController {
         return marketplaceService.getMyEnrolledSchedule(date);
     }
 
+    /** POST /lessons/{lessonId}/checkin — gia sư bắt đầu buổi học. */
     @PostMapping("/lessons/{lessonId}/checkin")
     public Map<String, String> checkInLesson(@PathVariable Long lessonId) {
         marketplaceService.checkInLesson(lessonId);
         return Map.of("message", "Đã điểm danh vào buổi học");
     }
 
+    /** POST /lessons/{lessonId}/checkout — gia sư kết thúc buổi học (buổi hoàn thành). */
     @PostMapping("/lessons/{lessonId}/checkout")
     public Map<String, String> checkOutLesson(@PathVariable Long lessonId) {
         marketplaceService.checkOutLesson(lessonId);
         return Map.of("message", "Đã kết thúc buổi học");
     }
 
+    /** POST /lessons/{lessonId}/reschedule — gửi yêu cầu đổi lịch một buổi. */
     @PostMapping("/lessons/{lessonId}/reschedule")
     @ResponseStatus(HttpStatus.CREATED)
     public RescheduleRequestResponse requestReschedule(
@@ -270,11 +291,13 @@ public class MarketplaceController {
         return marketplaceService.requestReschedule(lessonId, request);
     }
 
+    /** GET /lessons/requests — các yêu cầu đổi lịch/thêm buổi của các lớp mình tham gia. */
     @GetMapping("/lessons/requests")
     public List<RescheduleRequestResponse> listRescheduleRequests() {
         return marketplaceService.listMyRescheduleRequests();
     }
 
+    /** POST /lessons/requests/{requestId}/decision — duyệt hoặc từ chối yêu cầu đổi lịch. */
     @PostMapping("/lessons/requests/{requestId}/decision")
     public Map<String, String> decideRescheduleRequest(
             @PathVariable Long requestId, @RequestBody RescheduleDecisionRequest decision) {
@@ -286,12 +309,14 @@ public class MarketplaceController {
                         : "Đã từ chối yêu cầu");
     }
 
+    /** POST /lessons/requests/{requestId}/cancel — người gửi thu hồi yêu cầu. */
     @PostMapping("/lessons/requests/{requestId}/cancel")
     public Map<String, String> cancelRescheduleRequest(@PathVariable Long requestId) {
         marketplaceService.cancelRescheduleRequest(requestId);
         return Map.of("message", "Đã thu hồi yêu cầu");
     }
 
+    /** POST /lessons/{lessonId}/attend?present= — điểm danh nhanh có mặt/vắng trong ngày học. */
     @PostMapping("/lessons/{lessonId}/attend")
     public Map<String, String> markAttendance(
             @PathVariable Long lessonId,

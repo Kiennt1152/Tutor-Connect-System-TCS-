@@ -19,6 +19,7 @@ public final class SlotTime {
 
     private static final int MINUTES_PER_DAY = 24 * 60;
 
+    /** Lớp tiện ích, không tạo đối tượng. */
     private SlotTime() {
     }
 

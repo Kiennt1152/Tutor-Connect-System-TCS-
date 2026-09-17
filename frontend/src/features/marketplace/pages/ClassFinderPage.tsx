@@ -48,6 +48,7 @@ export default function ClassFinderPage() {
 
   // Đúng thanh tìm của màn gia sư: ô gõ nhanh + 5 ô lọc + 5 thanh trượt ưu tiên.
   const search = useClassSearch({ subjects, grades, provinces, classes });
+  /** Danh sách lớp đã lọc/chấm điểm theo tiêu chí tìm. */
   const results = useMemo(
     () => searchClasses(classes, search.criteria),
     [classes, search.criteria],

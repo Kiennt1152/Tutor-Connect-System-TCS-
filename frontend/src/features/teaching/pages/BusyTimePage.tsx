@@ -22,15 +22,23 @@ const SESSIONS: readonly { value: Session; label: string; start: string; end: st
   { value: 'EVENING', label: 'Tối (18h–0h)', start: '18:00', end: MIDNIGHT_END },
 ];
 
+/** Thêm số 0 đằng trước cho đủ 2 chữ số. */
 const pad = (n: number) => String(n).padStart(2, '0');
+/** Khoá tháng dạng "yyyy-MM" (month0 tính từ 0). */
 const monthKey = (year: number, month0: number) => `${year}-${pad(month0 + 1)}`;
+/** Đổi ngày ISO "yyyy-MM-dd" thành "dd/MM". */
 const ddmm = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
+/** Nhãn khoảng giờ bận ("HH:mm–HH:mm"); không có giờ thì "Cả ngày". */
 function rangeLabel(start: string | null, end: string | null): string {
   if (!start || !end) return 'Cả ngày';
   return `${hhmm(start)}–${hhmm(end)}`;
 }
 
+/**
+ * Trang "Đăng ký thời gian bận" của gia sư: lịch tháng, chọn nhiều ngày + buổi bận, cảnh báo trùng,
+ * lưu lịch bận và danh sách lịch bận trong tháng (xoá theo ngày).
+ */
 export default function BusyTimePage() {
   const today = toIsoDate(new Date());
   const [view, setView] = useState(() => {
@@ -63,6 +71,7 @@ export default function BusyTimePage() {
       .catch(() => setLessons([]));
   }, []);
 
+  /** Tải lịch bận của tháng đang xem. */
   const loadBusy = useCallback(() => {
     setBusyStatus('loading');
     busyTimeApi
@@ -98,6 +107,7 @@ export default function BusyTimePage() {
     return out;
   }, [view, key]);
 
+  /** Gom buổi dạy trong tháng theo ngày (sắp theo giờ bắt đầu) để vẽ lên lịch. */
   const lessonsByDate = useMemo(() => {
     const map = new Map<string, LessonResponse[]>();
     for (const l of lessons) {
@@ -110,6 +120,7 @@ export default function BusyTimePage() {
     return map;
   }, [lessons, key]);
 
+  /** Gom lịch bận theo ngày. */
   const busyByDate = useMemo(() => {
     const map = new Map<string, BusyTimeResponse[]>();
     for (const b of busy) {
@@ -149,6 +160,7 @@ export default function BusyTimePage() {
   );
   const chosenLabel = allDay ? 'Cả ngày' : ranges.map((r) => rangeLabel(r.start, r.end)).join(' + ');
 
+  /** Bật/tắt một buổi bận (Sáng/Chiều/Tối). */
   const toggleSession = (value: Session) =>
     setSessions((prev) => {
       const next = new Set(prev);
@@ -156,6 +168,7 @@ export default function BusyTimePage() {
       else next.add(value);
       return next;
     });
+  /** Bật/tắt "Cả ngày": chọn cả 3 buổi hoặc bỏ hết. */
   const toggleAllDay = () =>
     setSessions(allDay ? new Set() : new Set(SESSIONS.map((s) => s.value)));
 
@@ -175,6 +188,7 @@ export default function BusyTimePage() {
     (lessonsByDate.get(d) ?? []).some((l) => hits(l.startTime, l.endTime)),
   );
 
+  /** Chọn/bỏ chọn một ngày trên lịch (ngày đã qua không chọn được). */
   const toggleDay = (iso: string) => {
     if (iso < today) return;
     setNotice('');
@@ -207,6 +221,7 @@ export default function BusyTimePage() {
     });
   };
 
+  /** Chuyển sang tháng trước/sau. */
   const shiftMonth = (delta: number) => {
     setNotice('');
     setError('');
@@ -216,6 +231,7 @@ export default function BusyTimePage() {
     });
   };
 
+  /** Lưu lịch bận cho các ngày đã chọn với các buổi đã tick; thành công thì báo, xoá lựa chọn và tải lại. */
   const submit = async () => {
     if (selectedList.length === 0 || noSession || busyClashes.length > 0) return;
     setSaving(true);

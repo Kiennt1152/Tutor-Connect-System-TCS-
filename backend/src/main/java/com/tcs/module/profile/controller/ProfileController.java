@@ -136,34 +136,40 @@ public class ProfileController {
         profileService.deleteExperience(experienceId);
     }
 
+    /** GET /educations — học vấn của gia sư đang đăng nhập. */
     @GetMapping("/educations")
     public List<TutorEducationResponse> getMyEducations() {
         return profileService.getMyEducations();
     }
 
+    /** POST /educations — gia sư thêm học vấn. */
     @PostMapping("/educations")
     @ResponseStatus(HttpStatus.CREATED)
     public TutorEducationResponse addEducation(@RequestBody TutorEducationRequest request) {
         return profileService.addEducation(request);
     }
 
+    /** DELETE /educations/{educationId} — gia sư xoá học vấn của mình. */
     @DeleteMapping("/educations/{educationId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteEducation(@PathVariable Long educationId) {
         profileService.deleteEducation(educationId);
     }
 
+    /** GET /certificates — chứng chỉ của gia sư đang đăng nhập. */
     @GetMapping("/certificates")
     public List<TutorCertificateResponse> getMyCertificates() {
         return profileService.getMyCertificates();
     }
 
+    /** POST /certificates — gia sư thêm chứng chỉ. */
     @PostMapping("/certificates")
     @ResponseStatus(HttpStatus.CREATED)
     public TutorCertificateResponse addCertificate(@RequestBody TutorCertificateRequest request) {
         return profileService.addCertificate(request);
     }
 
+    /** DELETE /certificates/{certificateId} — gia sư xoá chứng chỉ của mình. */
     @DeleteMapping("/certificates/{certificateId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteCertificate(@PathVariable Long certificateId) {
@@ -196,12 +202,14 @@ public class ProfileController {
         return profileService.getMyBusyTimes(month);
     }
 
+    /** POST /busy-times — đăng ký lịch bận cho nhiều ngày một lượt (lưu tất cả hoặc không lưu gì). */
     @PostMapping("/busy-times")
     @ResponseStatus(HttpStatus.CREATED)
     public List<TutorBusyTimeResponse> addBusyTimes(@RequestBody TutorBusyTimeRequest request) {
         return profileService.addBusyTimes(request);
     }
 
+    /** DELETE /busy-times/{busyTimeId} — xoá một lịch bận của mình. */
     @DeleteMapping("/busy-times/{busyTimeId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteBusyTime(@PathVariable Long busyTimeId) {

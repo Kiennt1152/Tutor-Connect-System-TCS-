@@ -4,6 +4,7 @@ import { authApi } from '../api/authApi';
 import type { LoginFormValues, LoginResponse } from '../types/authTypes';
 
 
+/** Đổi lỗi đăng nhập thành câu dễ hiểu (lỗi server, sai thông tin, không kết nối được backend). */
 function extractError(error: unknown): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as Record<string, string> | undefined;
@@ -24,6 +25,7 @@ function extractError(error: unknown): string {
 }
 
 
+/** Lưu token và thông tin người dùng vào localStorage sau khi đăng nhập. */
 function persistSession(data: LoginResponse) {
   localStorage.setItem('token', data.token);
   localStorage.setItem(
@@ -38,10 +40,12 @@ function persistSession(data: LoginResponse) {
   );
 }
 
+/** Hook đăng nhập của trang đăng nhập cũ (features/auth): trạng thái gửi, lỗi và hàm login. */
 export function useLogin() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  /** Gọi API đăng nhập, lưu phiên; lỗi thì ghi câu lỗi và trả null. */
   const login = useCallback(async (values: LoginFormValues): Promise<LoginResponse | null> => {
     setSubmitting(true);
     setFormError(null);

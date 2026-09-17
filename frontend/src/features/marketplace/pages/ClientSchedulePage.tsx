@@ -62,6 +62,7 @@ export default function ClientSchedulePage() {
   const [activeReview, setActiveReview] = useState<ReviewableAssignment | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
 
+  /** Tải danh sách lớp có thể đánh giá (để mở form đánh giá từ lịch học). */
   const loadReviewables = useCallback(() => {
     reviewApi
       .getReviewable()
@@ -73,6 +74,7 @@ export default function ClientSchedulePage() {
     loadReviewables();
   }, [loadReviewables]);
 
+  /** Mở form đánh giá gia sư của lớp; chưa có buổi đã học hoặc đã đánh giá đủ thì hiện thông báo. */
   function openReview(classId: number) {
     const match = reviewables.find((a) => a.classId === classId);
     if (!match) {

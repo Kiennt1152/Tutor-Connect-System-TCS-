@@ -12,8 +12,10 @@ export interface NotificationItem {
 }
 
 export const notificationsApi = {
+  /** Danh sách thông báo của người đăng nhập. */
   list: () =>
     axiosClient.get<NotificationItem[]>('/messaging/notifications').then((r) => r.data),
+  /** Đánh dấu một thông báo đã đọc. */
   markRead: (id: number) =>
     axiosClient
       .patch<{ message: string }>(`/messaging/notifications/${id}/read`)

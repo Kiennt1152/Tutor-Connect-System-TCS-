@@ -116,6 +116,7 @@ export default function MarketplaceClassDetailPage() {
     }
   };
 
+  /** Gia sư xác nhận hoàn thành lớp và hiện kết quả/lỗi. */
   const submitCompletion = async () => {
     if (!data) return;
     setCompleting(true);

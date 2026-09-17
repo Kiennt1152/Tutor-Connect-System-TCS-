@@ -26,11 +26,13 @@ const REPORT_CATEGORY_LABEL: Record<ReportCategory, string> = {
   OTHER: 'Lý do khác',
 };
 
+/** Class màu huy hiệu theo trạng thái đánh giá (đang hiển thị = xanh, còn lại = đỏ). */
 function statusBadgeClass(status: ReviewModerationStatus) {
   if (status === 'VISIBLE') return 'tcs-badge tcs-badge--active';
   return 'tcs-badge tcs-badge--suspended';
 }
 
+/** Nội dung tooltip của cờ báo cáo: số báo cáo, người báo cáo mới nhất, thời gian, lý do. */
 function reportTooltip(r: AdminReviewApiResponse) {
   const parts = [
     `${r.reportCount} báo cáo (${r.pendingReportCount} chờ xử lý)`,
@@ -41,11 +43,13 @@ function reportTooltip(r: AdminReviewApiResponse) {
   return parts.filter(Boolean).join(' · ');
 }
 
+/** Định dạng ngày giờ theo kiểu Việt Nam (sai định dạng thì giữ nguyên chuỗi). */
 function formatDate(iso: string) {
   const d = new Date(iso);
   return Number.isNaN(d.getTime()) ? iso : d.toLocaleString('vi-VN');
 }
 
+/** Trang admin "Nhận xét gia sư": thống kê, bảng mọi đánh giá, lọc/phân trang, ẩn/hiện/vi phạm/xoá. */
 export default function PlatformReviewsPage() {
   const { status, items, errorMessage, reload, moderate, remove } = useReviewModeration();
   const [busyId, setBusyId] = useState<number | null>(null);
@@ -67,6 +71,7 @@ export default function PlatformReviewsPage() {
   const flaggedCount = items.filter((r) => r.status !== 'VISIBLE').length;
   const reportedItems = items.filter((r) => r.pendingReportCount > 0);
 
+  /** Chạy một thao tác trên đánh giá, khoá nút của dòng đó trong lúc chạy và hiện lỗi nếu thất bại. */
   function runAction(reviewId: number, fn: () => Promise<unknown>) {
     setBusyId(reviewId);
     setActionError(null);
@@ -75,10 +80,12 @@ export default function PlatformReviewsPage() {
       .finally(() => setBusyId(null));
   }
 
+  /** Đổi trạng thái hiển thị của một đánh giá. */
   function handleModerate(review: AdminReviewApiResponse, next: ReviewModerationStatus) {
     runAction(review.reviewId, () => moderate(review.reviewId, next));
   }
 
+  /** Xác nhận rồi xoá vĩnh viễn một đánh giá. */
   function handleDelete(review: AdminReviewApiResponse) {
     const ok = window.confirm(
       `Xóa vĩnh viễn đánh giá của ${review.reviewerName ?? 'khách hàng'}? Hành động này không thể hoàn tác.`,

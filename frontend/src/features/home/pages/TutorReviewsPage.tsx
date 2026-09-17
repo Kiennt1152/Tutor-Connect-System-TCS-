@@ -10,6 +10,7 @@ import './HomePage.css';
 /** 6 gia sư mỗi trang: 2 hàng × 3 thẻ. */
 const PAGE_SIZE = 6;
 
+/** Trang công khai "Đánh giá": danh sách mọi gia sư kèm điểm sao, bấm để xem hồ sơ/đánh giá. */
 export default function TutorReviewsPage() {
   const { status, results, search } = useTutorSearch();
   const { isAuthenticated } = useAuth();

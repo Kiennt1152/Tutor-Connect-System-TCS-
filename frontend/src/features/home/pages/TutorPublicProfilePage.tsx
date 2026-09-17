@@ -14,6 +14,7 @@ import './TutorPublicProfilePage.css';
 
 const currency = new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 });
 
+/** Câu lỗi khi tải hồ sơ: 404 -> "Không tìm thấy gia sư này.", có message thì dùng, còn lại câu dự phòng. */
 function extractError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     if (error.response?.status === 404) return 'Không tìm thấy gia sư này.';
@@ -22,6 +23,7 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Chữ cái đầu của hai từ cuối trong tên (làm ảnh đại diện chữ); rỗng thì "GS". */
 function initialsOf(name: string): string {
   return (
     name
@@ -33,6 +35,7 @@ function initialsOf(name: string): string {
   );
 }
 
+/** Định dạng ngày theo kiểu Việt Nam. */
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('vi-VN');
 }
@@ -43,6 +46,10 @@ type StarFilter = number | 'all';
 
 type ProfileTab = 'profile' | 'reviews';
 
+/**
+ * Trang hồ sơ công khai của gia sư: phần đầu hồ sơ, tab "Thông tin hồ sơ" và tab "Đánh giá & danh tiếng"
+ * (lọc theo số sao). tutorId lấy từ router state, dự phòng sessionStorage.
+ */
 export default function TutorPublicProfilePage() {
   const location = useLocation();
   // tutorId ẩn khỏi URL — truyền qua router state; dự phòng sessionStorage để refresh vẫn giữ đúng gia sư.
@@ -69,6 +76,7 @@ export default function TutorPublicProfilePage() {
     setTab(initialTab);
   }, [initialTab]);
 
+  /** Tải danh tiếng và hồ sơ công khai của gia sư, đặt lại bộ lọc sao. */
   const load = useCallback(() => {
     if (!tutorId) return;
     setStatus('loading');
@@ -166,6 +174,7 @@ export default function TutorPublicProfilePage() {
   );
 }
 
+/** Phần đầu hồ sơ: ảnh chữ, tên, huy hiệu xác minh, điểm sao, số năm kinh nghiệm và học phí/giờ. */
 function ProfileHeader({ data }: { readonly data: TutorReputation }) {
   const verified = data.verificationStatus === 'VERIFIED';
   return (
@@ -191,16 +200,19 @@ function ProfileHeader({ data }: { readonly data: TutorReputation }) {
   );
 }
 
+/** Chuỗi khoảng năm "bắt đầu – kết thúc" (thiếu năm kết thúc thì "nay"). */
 function yearRange(start: number | null, end: number | null): string {
   if (!start && !end) return '';
   return `${start ?? '?'} – ${end ?? 'nay'}`;
 }
 
+/** Chuỗi khoảng ngày "bắt đầu – kết thúc" (thiếu ngày kết thúc thì "nay"). */
 function dateRange(start: string | null, end: string | null): string {
   if (!start && !end) return '';
   return `${start ? formatDate(start) : '?'} – ${end ? formatDate(end) : 'nay'}`;
 }
 
+/** Tab "Thông tin hồ sơ": kinh nghiệm, học vấn, chứng chỉ; không có gì thì hiện câu báo trống. */
 function ProfileInfo({ profile }: { readonly profile: PublicTutorProfile }) {
   const { experiences, educations, certificates } = profile;
   const isEmpty =
@@ -283,6 +295,7 @@ function ProfileInfo({ profile }: { readonly profile: PublicTutorProfile }) {
   );
 }
 
+/** Khối "Danh tiếng": điểm TB, số lượt, các dòng 5★…1★ (bấm để lọc) và điểm theo tiêu chí. */
 function ReputationSummary({
   data,
   activeStar,
@@ -349,6 +362,7 @@ function ReputationSummary({
   );
 }
 
+/** Danh sách đánh giá (theo bộ lọc sao) với tên người đánh giá, lớp, tiêu chí, nhận xét và phản hồi của gia sư. */
 function ReviewsList({
   reviews,
   distribution,
