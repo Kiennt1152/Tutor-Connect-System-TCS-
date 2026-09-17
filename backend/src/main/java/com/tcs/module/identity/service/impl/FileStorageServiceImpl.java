@@ -56,7 +56,7 @@ public class FileStorageServiceImpl implements FileStorageService {
         }
         log.info("[TCS] File storage directory: {}", storageLocation);
         log.info("[TCS]   public/  -> avatars (served via /uploads/public/**)");
-        log.info("[TCS]   private/ -> CCCD, licenses, verification docs (served via /api/files/private/*)");
+        log.info("[TCS]   private/ -> CCCD, licenses, verification docs, class evidence (served via /api/files/private/*)");
     }
 
     @Override
