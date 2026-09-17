@@ -47,6 +47,14 @@ public class PlatformController {
 
     private final PlatformService platformService;
 
+    // =========================================================================
+    // LUỒNG 1: XÁC THỰC & QUẢN TRỊ TÀI KHOẢN NGƯỜI DÙNG (UC-07)
+    // - Tìm kiếm & phân trang danh sách tài khoản theo vai trò/trạng thái
+    // - Tạo tài khoản trực tiếp bởi Quản trị viên (Create User)
+    // - Khóa / Mở khóa tài khoản (Cập nhật UserStatus)
+    // - Cập nhật thông tin profile: Họ tên, Số điện thoại, Trạng thái (Update User)
+    // =========================================================================
+
     @GetMapping("/users")
     public PageUserListResponse getUsers(
             @RequestParam(defaultValue = "0") int page,
@@ -76,6 +84,7 @@ public class PlatformController {
 
     // =========================================================================
     // LUỒNG 8: BẢNG ĐIỀU KHIỂN QUẢN TRỊ & GIÁM SÁT SỨC KHỎE DASHBOARD (UC-56)
+    // - Thống kê thẻ KPI tổng quan: Người dùng, Lớp học, Tranh chấp, Hàng đợi SLA
     // =========================================================================
     @GetMapping("/dashboard")
     public DashboardResponse getDashboard(
@@ -84,6 +93,13 @@ public class PlatformController {
             @RequestParam(defaultValue = "DAY") String granularity) {
         return platformService.getDashboard(from, to, granularity);
     }
+
+    // =========================================================================
+    // LUỒNG 2: THẨM ĐỊNH DANH TÍNH & DUYỆT HỒ SƠ XÁC MINH (UC-11)
+    // - Xem danh sách yêu cầu xác minh CCCD, bằng cấp, giấy phép kinh doanh
+    // - Kiểm tra hồ sơ tài liệu đính kèm (Ảnh 2 mặt CCCD, Bằng ĐH Sư Phạm)
+    // - Phê duyệt (APPROVED) hoặc Từ chối (REJECTED) kèm lý do
+    // =========================================================================
 
     @GetMapping("/verifications")
     public List<VerificationRequestResponse> listVerifications() {
@@ -101,10 +117,22 @@ public class PlatformController {
         return platformService.reviewVerification(verificationId, request);
     }
 
+    // =========================================================================
+    // LUỒNG 6: KHIẾU NẠI, BÁO CÁO VI PHẠM CHUNG (UC-52)
+    // - Danh sách các báo cáo vi phạm do phụ huynh, gia sư hoặc trung tâm gửi lên
+    // =========================================================================
+
     @GetMapping("/reports")
     public List<ReportResponse> listReports() {
         return platformService.listReports();
     }
+
+    // =========================================================================
+    // LUỒNG 8: ĐÁNH GIÁ, FAQ, DASHBOARD & KIỂM TOÁN (UC-53 & UC-55)
+    // - Xem danh sách nhận xét công khai và nhận xét bị ẩn
+    // - Kiểm duyệt đánh giá (Ẩn review vi phạm chuẩn mực cộng đồng)
+    // - Xóa vĩnh viễn đánh giá sai sự thật hoặc bôi nhọ danh dự
+    // =========================================================================
 
     @GetMapping("/reviews")
     public List<AdminReviewResponse> listReviews(
@@ -122,6 +150,13 @@ public class PlatformController {
     public void deleteReview(@PathVariable Long reviewId) {
         platformService.deleteReview(reviewId);
     }
+
+    // =========================================================================
+    // LUỒNG 3 & LUỒNG 8: XỬ LÝ SỰ CỐ LỚP HỌC (UC-30) & BÁO CÁO ĐÁNH GIÁ (UC-55)
+    // - Xử lý sự cố lớp học với 7 phương án can thiệp (Dạy bù, Đổi gia sư, Hoàn tiền...)
+    // - Giải quyết báo cáo vi phạm chung
+    // - Xử lý báo cáo vi phạm đối với đánh giá nhận xét gia sư
+    // =========================================================================
 
     @PatchMapping("/reports/{reportId}/resolve")
     public ReportResponse resolveClassIssue(
@@ -145,8 +180,15 @@ public class PlatformController {
     }
 
     // =========================================================================
-    // LUỒNG 4: ADMIN TIẾP NHẬN, XỬ LÝ & ĐO LƯỜNG RESPONSE SLA (UC-66)
+    // LUỒNG 7: HỖ TRỢ KHÁCH HÀNG CSKH, XỬ LÝ TICKET & ĐO LƯỜNG SLA (UC-66)
+    // - Danh sách Ticket hỗ trợ, lọc đa chiều (trạng thái, ưu tiên, phân loại)
+    // - Xem chi tiết Ticket và lịch sử trao đổi giữa người dùng và Admin
+    // - Gửi phản hồi chính thức (Respond) & Kích hoạt tính First Response Time SLA
+    // - Đóng ticket / Giải quyết (Resolved/Closed)
+    // - Gộp ticket trùng lặp (Merge Ticket) & Chuyển tiếp sang Tranh chấp (Redirect Dispute)
+    // - Kích hoạt quét tự động và leo thang vi phạm thời hạn SLA (Job-11 Scan SLA)
     // =========================================================================
+
     @GetMapping("/tickets")
     public PageSupportTicketResponse getTickets(
             @RequestParam(defaultValue = "0") int page,
@@ -169,41 +211,30 @@ public class PlatformController {
         return platformService.updateTicket(ticketId, request);
     }
 
-    // Luồng 4 - Bước 2: Admin gửi phản hồi Ticket & Kích hoạt đo lường First Response SLA
     @PostMapping("/tickets/{ticketId}/messages")
     public SupportTicketDetailResponse respondToTicket(
             @PathVariable Long ticketId, @Valid @RequestBody RespondTicketRequest request) {
         return platformService.respondToTicket(ticketId, request);
     }
 
-    // Luồng 4 - Bước 7: Admin đóng / giải quyết ticket
     @PatchMapping("/tickets/{ticketId}/status")
     public SupportTicketDetailResponse closeTicket(
             @PathVariable Long ticketId, @Valid @RequestBody CloseTicketRequest request) {
         return platformService.closeTicket(ticketId, request);
     }
 
-    // =========================================================================
-    // LUỒNG 5: GỘP TICKET TRÙNG LẶP & CHUYỂN TIẾP TRANH CHẤP (UC-66, BF-08)
-    // =========================================================================
-
-    // Luồng 5A: Gộp ticket nguồn vào ticket đích của cùng một người dùng
     @PostMapping("/tickets/{ticketId}/merge")
     public SupportTicketDetailResponse mergeTicket(
             @PathVariable Long ticketId, @Valid @RequestBody com.tcs.module.platform.dto.request.MergeTicketRequest request) {
         return platformService.mergeTicket(ticketId, request);
     }
 
-    // Luồng 5B: Chuyển Ticket sang luồng Tranh chấp Khiếu nại tạo bản ghi Report sang BF-08
     @PostMapping("/tickets/{ticketId}/redirect-dispute")
     public SupportTicketDetailResponse redirectTicketToDispute(
             @PathVariable Long ticketId, @RequestBody com.tcs.module.platform.dto.request.RedirectDisputeRequest request) {
         return platformService.redirectTicketToDispute(ticketId, request);
     }
 
-    // =========================================================================
-    // LUỒNG 7: KÍCH HOẠT QUÉT THỦ CÔNG & NÂNG CẤP TICKET QUÁ HẠN SLA (JOB-11)
-    // =========================================================================
     @PostMapping("/tickets/sla/scan")
     public java.util.Map<String, Object> triggerSlaScan() {
         int count = platformService.scanAndEscalateSlaBreaches();
@@ -211,8 +242,13 @@ public class PlatformController {
     }
 
     // =========================================================================
-    // LUỒNG 8: QUẢN LÝ MẪU HỢP ĐỒNG ĐIỆN TỬ (UC-45, ROLE: ADMIN)
+    // LUỒNG 4: HỢP ĐỒNG ĐIỆN TỬ & QUẢN LÝ MẪU HỢP ĐỒNG MASTER (UC-45)
+    // - Danh sách các mẫu hợp đồng mẫu toàn sàn và trung tâm
+    // - Tạo mới mẫu hợp đồng với nội dung pháp lý và các biến giữ chỗ {{placeholder}}
+    // - Cập nhật / Tùy chỉnh điều khoản mẫu hợp đồng
+    // - Xóa / Vô hiệu hóa mẫu hợp đồng
     // =========================================================================
+
     @GetMapping("/contract-templates")
     public List<com.tcs.module.center.dto.response.ContractTemplateResponse> listContractTemplates() {
         return platformService.listContractTemplates();
@@ -238,8 +274,11 @@ public class PlatformController {
     }
 
     // =========================================================================
-    // LUỒNG GIÁM SÁT LỊCH HỌC TOÀN HỆ THỐNG THEO NGÀY (UC-21, ROLE: ADMIN)
+    // LUỒNG 3: GIÁM SÁT LỚP HỌC & LỊCH HỌC TOÀN HỆ THỐNG THEO NGÀY (UC-21)
+    // - Theo dõi các ca học, tiến độ buổi học theo ngày được chọn trên toàn sàn
+    // - Đã tối ưu hiệu năng: Lọc trước trạng thái lớp đang hoạt động tại Database
     // =========================================================================
+
     @GetMapping("/classes/schedule")
     public List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getPlatformSchedule(
             @RequestParam(required = false) java.time.LocalDate date) {
@@ -247,8 +286,12 @@ public class PlatformController {
     }
 
     // =========================================================================
-    // LUỒNG CẤU HÌNH PHÍ RIÊNG BIỆT CHO TRUNG TÂM GIA SƯ (UC-46, ROLE: ADMIN)
+    // LUỒNG 5: KÝ QUỸ ESCROW, TÀI CHÍNH & CẤU HÌNH PHÍ RIÊNG TRUNG TÂM (UC-46)
+    // - Xem danh sách các trung tâm gia sư và tỷ lệ phí nền tảng áp dụng
+    // - Thiết lập tỷ lệ phí chiết khấu riêng biệt cho trung tâm đối tác (customFeeRate)
+    // - Khôi phục biểu phí về mức phí mặc định toàn sàn (2%)
     // =========================================================================
+
     @GetMapping("/fees/centers")
     public List<com.tcs.module.platform.dto.response.CenterFeeConfigResponse> listCenterFeeConfigs() {
         return platformService.listCenterFeeConfigs();

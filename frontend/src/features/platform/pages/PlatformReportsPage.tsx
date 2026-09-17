@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { EvidencePreviewList as SharedEvidencePreviewList } from '../../../shared/components/EvidencePreviewList';
@@ -1853,18 +1853,22 @@ export default function PlatformReportsPage() {
     }
   }, [targetTab]);
 
+  const handledTargetIdRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (!targetId || disputes.items.length === 0) return;
+    if (handledTargetIdRef.current === targetId) return;
     const match = disputes.items.find((item) =>
       String(item.id) === String(targetId)
       || String(item.raw?.disputeId) === String(targetId)
       || (item.raw?.reportId != null && String(item.raw.reportId) === String(targetId))
     );
     if (match) {
+      handledTargetIdRef.current = targetId;
       disputes.selectDispute(match);
       setActiveTab('disputes');
     }
-  }, [disputes.items, targetId]);
+  }, [disputes.items, targetId, disputes]);
 
   const openDisputeCount = disputes.items.filter((item) => item.status !== 'RESOLVED').length;
   const heldEscrowCount = disputes.items.filter((item) => isEscrowHeldForDispute(item.escrowStatus)).length;

@@ -21,6 +21,14 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+// =========================================================================
+// LUỒNG 5: KÝ QUỸ ESCROW, HOÀN TIỀN & BÁO CÁO TÀI CHÍNH (UC-41, UC-43, UC-58)
+// - UC-41: Báo cáo tổng quan tài chính toàn sàn (Dòng tiền vào/ra, Doanh thu phí, Hoàn tiền 2.4M)
+// - UC-41: Phân tích tài chính theo thực thể: Trung tâm (Centers), Gia sư (Tutors), Phụ huynh (Clients)
+// - UC-58: Sổ cái tài chính toàn sàn (Financial Ledger) tra cứu đa chiều
+// - UC-43: Xuất báo cáo tài chính CSV UTF-8 kèm ghi vết Audit Log
+// - Tự động tạo snapshot báo cáo tài chính định kỳ
+// =========================================================================
 @RestController
 @RequestMapping("/api/platform/analytics")
 @RequiredArgsConstructor
@@ -29,6 +37,7 @@ public class PlatformAnalyticsController {
     private final PlatformAnalyticsService analyticsService;
     private final AuditLogService auditLogService;
 
+    // UC-41: Báo cáo tổng quan tài chính (Toàn sàn)
     @GetMapping("/summary")
     public AnalyticsSummaryResponse getSummary(@RequestParam(required = false) LocalDate from,
             @RequestParam(required = false) LocalDate to) {

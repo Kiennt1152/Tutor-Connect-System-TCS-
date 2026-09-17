@@ -63,7 +63,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: APP_ROUTES.platformNotificationTemplates, label: 'Mẫu thông báo', icon: 'message' },
       { to: APP_ROUTES.platformPenalties, label: 'Xử phạt', icon: 'flag' },
       { to: APP_ROUTES.platformCircumvention, label: 'Phát hiện né nền tảng', icon: 'shield' },
-      { to: APP_ROUTES.platformAuditLogs, label: 'Nhật ký kiểm toán hệ thống (UC-61)', icon: 'shield' },
+      { to: APP_ROUTES.platformAuditLogs, label: 'Nhật ký kiểm toán hệ thống', icon: 'shield' },
       { to: APP_ROUTES.platformParameters, label: 'Cấu hình hệ thống', icon: 'folder' },
     ],
   },

@@ -7,19 +7,29 @@ export type PlatformDashboardStatus = 'loading' | 'success' | 'error';
 
 export function usePlatformDashboard(from?: string, to?: string, granularity: string = 'DAY') {
   const [status, setStatus] = useState<PlatformDashboardStatus>('loading');
+  const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [data, setData] = useState<PlatformDashboard | null>(null);
 
   const reload = useCallback(() => {
-    setStatus('loading');
+    setData((prev) => {
+      if (!prev) {
+        setStatus('loading');
+      } else {
+        setIsRefreshing(true);
+      }
+      return prev;
+    });
     platformApi
       .getDashboard(from, to, granularity)
       .then((response) => {
         setData(mapDashboardResponse(response.data));
         setStatus('success');
+        setIsRefreshing(false);
       })
       .catch((error) => {
         console.error('Lỗi tải dashboard:', error);
         setStatus('error');
+        setIsRefreshing(false);
       });
   }, [from, to, granularity]);
 
@@ -32,5 +42,5 @@ export function usePlatformDashboard(from?: string, to?: string, granularity: st
     };
   }, [reload, from, to, granularity]);
 
-  return { status, data, reload };
+  return { status, data, reload, isRefreshing };
 }

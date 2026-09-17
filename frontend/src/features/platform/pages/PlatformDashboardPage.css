@@ -93,6 +93,11 @@
   color: #ffffff;
 }
 
+.adm-filter-btn--sm {
+  padding: 0.2rem 0.55rem;
+  font-size: 0.75rem;
+}
+
 .adm-btn-mono {
   display: inline-flex;
   align-items: center;
@@ -593,10 +598,10 @@
 
 .adm-timeline-row {
   display: grid;
-  grid-template-columns: 110px 1fr 240px;
+  grid-template-columns: minmax(100px, auto) 1fr auto;
   align-items: center;
-  gap: 1rem;
-  padding: 0.6rem 0;
+  gap: 1.25rem;
+  padding: 0.65rem 0;
   border-bottom: 1px solid #f1f5f9;
 }
 
@@ -615,6 +620,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  min-width: 80px;
 }
 
 .adm-timeline-bar-wrapper {

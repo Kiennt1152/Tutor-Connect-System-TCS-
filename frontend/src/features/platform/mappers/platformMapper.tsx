@@ -133,13 +133,31 @@ export function mapDashboardResponse(response: DashboardApiResponse): PlatformDa
       moneyIn: 0, moneyOut: 0, netMovement: 0, escrowHeld: 0, platformFeeRevenue: 0,
       deposits: 0, escrowDeposits: 0, withdrawals: 0, refunds: 0, openEscrowCount: 0, settledCount: 0, feeRate: 0
     },
-    classHealth: response.classHealth || {
+    classHealth: response.classHealth ? {
+      total: (response.classHealth as any).totalCount ?? response.classHealth.total ?? 0,
+      active: (response.classHealth as any).activeCount ?? response.classHealth.active ?? 0,
+      verified: (response.classHealth as any).verifiedCount ?? response.classHealth.verified ?? 0,
+      newCount: (response.classHealth as any).newCount ?? 0,
+      activeRate: response.classHealth.activeRate ?? 0,
+    } : {
       total: 0, active: 0, verified: 0, newCount: 0, activeRate: 0
     },
-    tutorHealth: response.tutorHealth || {
+    tutorHealth: response.tutorHealth ? {
+      total: (response.tutorHealth as any).totalCount ?? response.tutorHealth.total ?? 0,
+      active: (response.tutorHealth as any).activeCount ?? response.tutorHealth.active ?? 0,
+      verified: (response.tutorHealth as any).verifiedCount ?? response.tutorHealth.verified ?? 0,
+      newTutors: (response.tutorHealth as any).newCount ?? (response.tutorHealth as any).newTutors ?? 0,
+      activeRate: response.tutorHealth.activeRate ?? 0,
+    } : {
       total: 0, active: 0, verified: 0, newTutors: 0, activeRate: 0
     },
-    centerHealth: response.centerHealth || {
+    centerHealth: response.centerHealth ? {
+      total: (response.centerHealth as any).totalCount ?? response.centerHealth.total ?? 0,
+      active: (response.centerHealth as any).activeCount ?? response.centerHealth.active ?? 0,
+      verified: (response.centerHealth as any).verifiedCount ?? response.centerHealth.verified ?? 0,
+      newCenters: (response.centerHealth as any).newCount ?? (response.centerHealth as any).newCenters ?? 0,
+      activeRate: response.centerHealth.activeRate ?? 0,
+    } : {
       total: 0, active: 0, verified: 0, newCenters: 0, activeRate: 0
     },
     queuePreview: response.queuePreview || [],

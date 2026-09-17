@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { platformApi } from '../api/platformApi';
 import { mapDisputeReviewItem } from '../mappers/platformMapper';
@@ -18,11 +18,18 @@ export function useDisputeReviewList(statusFilter?: DisputeStatus) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [detailErrorMessage, setDetailErrorMessage] = useState<string | null>(null);
 
-  const selectDispute = useCallback((item: DisputeReviewItem | null) => {
+  const selectedRef = useRef<AdminDisputeReviewApiResponse | null>(null);
+  selectedRef.current = selected;
+
+  const selectDispute = useCallback((item: DisputeReviewItem | null, forceReload = false) => {
     if (!item) {
       setSelected(null);
       setSelectedStatus('success');
       setDetailErrorMessage(null);
+      return;
+    }
+
+    if (!forceReload && selectedRef.current?.disputeId === item.raw?.disputeId && selectedRef.current?.resolution != null) {
       return;
     }
 
@@ -43,7 +50,6 @@ export function useDisputeReviewList(statusFilter?: DisputeStatus) {
   }, []);
 
   const reload = useCallback(() => {
-    setStatus('loading');
     setErrorMessage(null);
     platformApi
       .getDisputes(statusFilter)
@@ -56,17 +62,22 @@ export function useDisputeReviewList(statusFilter?: DisputeStatus) {
           setSelectedStatus('success');
           return;
         }
-        const current = selected?.disputeId
-          ? nextItems.find((item) => item.raw.disputeId === selected.disputeId)
-          : nextItems[0];
-        selectDispute(current ?? nextItems[0]);
+        const currentId = selectedRef.current?.disputeId;
+        const current = currentId
+          ? nextItems.find((item) => item.raw.disputeId === currentId)
+          : null;
+        if (!selectedRef.current) {
+          selectDispute(nextItems[0]);
+        } else if (!current) {
+          selectDispute(nextItems[0]);
+        }
       })
       .catch((error) => {
         console.error('Lỗi tải danh sách tranh chấp:', error);
         setErrorMessage(getApiErrorMessage(error, 'Không thể tải danh sách tranh chấp.'));
         setStatus('error');
       });
-  }, [selectDispute, selected?.disputeId, statusFilter]);
+  }, [selectDispute, statusFilter]);
 
   useEffect(() => {
     reload();
