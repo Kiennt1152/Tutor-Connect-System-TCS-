@@ -37,7 +37,12 @@ export default function AiFloatingWidget() {
   }, [messages, isOpen]);
 
   // Hide widget for Platform Admin, on platform routes, or when already on full AI Assistant page
-  if (isAdmin || location.pathname.startsWith('/platform') || location.pathname === APP_ROUTES.aiAssistant) {
+  if (
+    isAdmin
+    || location.pathname.startsWith('/platform')
+    || location.pathname === APP_ROUTES.aiAssistant
+    || location.pathname === APP_ROUTES.myDisputes
+  ) {
     return null;
   }
 

@@ -432,6 +432,12 @@ export default function MarketplaceClassDetailPage() {
                 </div>
               ) : null}
 
+              {(isClient || isTutor) && (
+                <button className="mk-btn mk-btn--secondary mk-btn--block" type="button"
+                  onClick={() => navigate(APP_ROUTES.myDisputes, { state: { classId: data.classId } })}>
+                  Xem tranh chấp
+                </button>
+              )}
               {canRequestTermination ? (
                 <div className="mk-class-actions">
                   <div className="mk-enroll__head">

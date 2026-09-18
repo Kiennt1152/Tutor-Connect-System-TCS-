@@ -39,6 +39,7 @@ export const APP_ROUTES = {
   recruitment: '/recruitment',
   marketplace: '/marketplace',
   contract: '/contract',
+  myDisputes: '/disputes',
   guardianApprovals: '/profile/guardian/approvals',
   messaging: '/messaging',
   feedback: '/feedback',

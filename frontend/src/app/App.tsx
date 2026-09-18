@@ -54,6 +54,7 @@ import MarketplaceClassDetailPage from '../features/marketplace/pages/Marketplac
 import CatalogPage from '../features/catalog/pages/CatalogPage';
 import ContractListPage from '../features/contract/pages/ContractListPage';
 import ContractDetailPage from '../features/contract/pages/ContractDetailPage';
+import MyDisputesPage from '../features/dispute/pages/MyDisputesPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
 import TicketsPage from '../features/messaging/pages/TicketsPage';
 import MyReviewsPage from '../features/reviews/pages/MyReviewsPage';
@@ -216,6 +217,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
                 <ContractDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.myDisputes}
+            element={
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+                <MyDisputesPage />
               </ProtectedRoute>
             }
           />

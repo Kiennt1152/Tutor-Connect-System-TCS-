@@ -11,6 +11,8 @@ import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.profile.repository.MediaFileRepository;
 import com.tcs.security.AuthHelper;
+import com.tcs.module.finance.service.DisputeService;
+import com.tcs.exception.ForbiddenException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -45,6 +47,7 @@ public class FileAccessController {
     private final ReportRepository reportRepository;
     private final TutoringClassRepository tutoringClassRepository;
     private final AuthHelper authHelper;
+    private final DisputeService disputeService;
 
     @Value("${tcs.file.storage.path:uploads}")
     private String storagePath;
@@ -122,8 +125,10 @@ public class FileAccessController {
                 && !isAdmin
                 && isCenterOwnerOfReportedClass(file, userId);
 
-        if (!isOwner && !isAdmin && !isCenterOwner) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        boolean isDisputeParticipant = !isOwner && !isAdmin && !isCenterOwner
+                && disputeService.canReadDisputeEvidence(file.getFileUrl(), userId);
+        if (!isOwner && !isAdmin && !isCenterOwner && !isDisputeParticipant) {
+            throw new ForbiddenException("Bạn không có quyền xem tệp này");
         }
     }
 

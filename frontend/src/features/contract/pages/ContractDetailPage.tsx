@@ -542,6 +542,12 @@ export default function ContractDetailPage() {
               Báo cáo sự cố
             </button>
             {classDetailUrl ? (
+              <button className="tcs-btn tcs-btn--ghost" type="button"
+                onClick={() => navigate(APP_ROUTES.myDisputes, { state: { classId: contract.classId } })}>
+                Xem tranh chấp
+              </button>
+            ) : null}
+            {classDetailUrl ? (
               <Link
                 className="tcs-btn tcs-btn--primary"
                 to={classDetailUrl}
