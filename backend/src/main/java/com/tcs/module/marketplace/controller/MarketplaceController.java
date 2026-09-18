@@ -160,6 +160,13 @@ public class MarketplaceController {
         return marketplaceService.listApplicants(classId);
     }
 
+    /** Gia sư kiểm tra trước: lớp nào trùng thời gian bận đã đăng ký, ví dụ {@code ?classIds=1,2,3}. */
+    @GetMapping("/busy-conflicts")
+    public List<com.tcs.module.marketplace.dto.response.ClassBusyConflictResponse> listMyBusyConflicts(
+            @RequestParam List<Long> classIds) {
+        return marketplaceService.listMyBusyConflicts(classIds);
+    }
+
     @PostMapping("/classes/{classId}/applications/{applicationId}/choose")
     public Map<String, String> chooseApplicant(
             @PathVariable Long classId, @PathVariable Long applicationId) {

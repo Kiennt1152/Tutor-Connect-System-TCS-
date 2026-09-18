@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { centerApi } from '../api/centerApi';
@@ -10,6 +10,7 @@ import { CenterSidebar } from '../components/CenterSidebar';
 import { ChatButton } from '../../messaging/components/ChatButton';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { profileApi } from '../../profile/api/profileApi';
+import { normalizeName } from '../../marketplace/matching/tutorMatching';
 import type {
   ContractTemplate,
   RecruitmentApplication,
@@ -18,6 +19,8 @@ import type {
   RecruitmentPostStatus,
   SaveRecruitmentPostRequest,
 } from '../types/centerTypes';
+// Kiểu ô tìm kiếm dùng chung (.tcs-find-search) được định nghĩa trong CSS của trang Tìm gia sư.
+import '../../home/pages/FindTutorPage.css';
 import './CenterPage.css';
 
 const STATUS_LABELS: Record<RecruitmentPostStatus, { label: string; cls: string }> = {
@@ -25,6 +28,16 @@ const STATUS_LABELS: Record<RecruitmentPostStatus, { label: string; cls: string 
   ACTIVE: { label: 'Đang tuyển', cls: 'active' },
   CLOSED: { label: 'Đã đóng', cls: 'closed' },
 };
+
+/**
+ * Các chặng một tin tuyển dụng đi qua: soạn nháp → đăng tuyển → đóng tin.
+ * `hue` là màu mượn từ thanh theo dõi lớp học để hai trang nhìn đồng bộ.
+ */
+const POST_STAGES: { value: RecruitmentPostStatus; hue: string; hint: string }[] = [
+  { value: 'DRAFT', hue: 'draft', hint: 'Chưa đăng, gia sư chưa nhìn thấy' },
+  { value: 'ACTIVE', hue: 'open', hint: 'Đang nhận đơn ứng tuyển' },
+  { value: 'CLOSED', hue: 'completed', hint: 'Đã đóng, không nhận đơn nữa' },
+];
 
 const APP_STATUS_LABELS: Record<RecruitmentApplicationStatus, { label: string; cls: string }> = {
   APPLIED: { label: 'Chờ duyệt', cls: 'pending' },
@@ -99,6 +112,54 @@ export default function CenterRecruitmentPage() {
   const [posts, setPosts] = useState<RecruitmentPost[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [listError, setListError] = useState('');
+
+  // Tìm kiếm tin: `postDraft` là chữ đang gõ, `postQuery` là từ khoá đã áp dụng.
+  const [postDraft, setPostDraft] = useState('');
+  const [postQuery, setPostQuery] = useState('');
+  // Chặng đang lọc trên thanh theo dõi. 'ALL' = xem tất cả.
+  const [stageFilter, setStageFilter] = useState<RecruitmentPostStatus | 'ALL'>('ALL');
+
+  const searchedPosts = useMemo(() => {
+    const q = normalizeName(postQuery);
+    if (!q) {
+      return posts;
+    }
+    return posts.filter((p) =>
+      [
+        p.title,
+        p.description,
+        p.subjectName,
+        p.locationLabel,
+        p.addressDetail,
+        p.classTitle,
+        p.requirements,
+        p.benefits,
+      ].some((field) => normalizeName(field).includes(q)),
+    );
+  }, [posts, postQuery]);
+
+  // Số đếm tính trên kết quả tìm kiếm để thanh theo dõi luôn khớp danh sách bên dưới.
+  const stageCounts = useMemo(() => {
+    const counts = {} as Record<RecruitmentPostStatus, number>;
+    for (const p of searchedPosts) {
+      counts[p.status] = (counts[p.status] ?? 0) + 1;
+    }
+    return counts;
+  }, [searchedPosts]);
+
+  const visiblePosts = useMemo(
+    () =>
+      stageFilter === 'ALL'
+        ? searchedPosts
+        : searchedPosts.filter((p) => p.status === stageFilter),
+    [searchedPosts, stageFilter],
+  );
+
+  const clearPostFilters = () => {
+    setStageFilter('ALL');
+    setPostDraft('');
+    setPostQuery('');
+  };
 
   // Lớp mà tin đang tạo/sửa gắn tới (nếu có). Null = tin tuyển chung.
   const [linkedClass, setLinkedClass] = useState<{ id: number; title: string } | null>(null);
@@ -431,8 +492,99 @@ export default function CenterRecruitmentPage() {
         )}
 
         {status === 'success' && posts.length > 0 && (
+          <div className="rc-search">
+            <form
+              className="tcs-find-search"
+              role="search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                setPostQuery(postDraft.trim());
+              }}
+            >
+              <div className="tcs-find-search__bar">
+                <div className="tcs-find-search__field">
+                  <input
+                    type="text"
+                    className="tcs-find-search__input"
+                    placeholder="Tìm theo tiêu đề, môn học, khu vực, lớp gắn kèm..."
+                    value={postDraft}
+                    onChange={(event) => setPostDraft(event.target.value)}
+                    aria-label="Tìm kiếm tin tuyển dụng của trung tâm"
+                  />
+                  {postDraft && (
+                    <button
+                      type="button"
+                      className="tcs-find-search__clear"
+                      aria-label="Xoá từ khoá"
+                      onClick={() => {
+                        setPostDraft('');
+                        setPostQuery('');
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+                <button type="submit" className="tcs-find-search__btn">
+                  Tìm
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {status === 'success' && posts.length > 0 && (
+          <div className="cc-pipeline" role="group" aria-label="Lọc tin tuyển dụng theo giai đoạn">
+            <button
+              type="button"
+              className={`cc-stage cc-stage--all${stageFilter === 'ALL' ? ' cc-stage--on' : ''}`}
+              aria-pressed={stageFilter === 'ALL'}
+              onClick={() => setStageFilter('ALL')}
+            >
+              <span className="cc-stage__count">{searchedPosts.length}</span>
+              <span className="cc-stage__label">Tất cả</span>
+            </button>
+            {POST_STAGES.map((stage) => {
+              const count = stageCounts[stage.value] ?? 0;
+              const on = stageFilter === stage.value;
+              return (
+                <button
+                  key={stage.value}
+                  type="button"
+                  title={stage.hint}
+                  className={`cc-stage cc-stage--${stage.hue}${on ? ' cc-stage--on' : ''}${
+                    count === 0 ? ' cc-stage--empty' : ''
+                  }`}
+                  aria-pressed={on}
+                  onClick={() => setStageFilter(on ? 'ALL' : stage.value)}
+                >
+                  <span className="cc-stage__count">{count}</span>
+                  <span className="cc-stage__label">{STATUS_LABELS[stage.value].label}</span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {status === 'success' && posts.length > 0 && visiblePosts.length === 0 && (
+          <div className="rc-empty">
+            <div className="rc-empty__emoji">🔍</div>
+            <p>
+              {searchedPosts.length === 0
+                ? `Không tìm thấy tin nào khớp với “${postQuery}”.`
+                : `Chưa có tin nào ở giai đoạn “${
+                    stageFilter !== 'ALL' ? STATUS_LABELS[stageFilter].label : ''
+                  }”.`}
+            </p>
+            <button className="rc-btn rc-btn--ghost rc-btn--sm" type="button" onClick={clearPostFilters}>
+              Xoá bộ lọc
+            </button>
+          </div>
+        )}
+
+        {status === 'success' && visiblePosts.length > 0 && (
           <div className="rc-list">
-            {posts.map((p) => {
+            {visiblePosts.map((p) => {
               const st = STATUS_LABELS[p.status];
               const busy = busyId === p.recruitmentId;
               return (

@@ -1,5 +1,6 @@
 package com.tcs.module.tutor.service.impl;
 
+import com.tcs.common.util.SlotTime;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.center.dto.request.MarkAttendanceRequest;
@@ -321,7 +322,8 @@ public class TutorServiceImpl implements TutorService {
             }
         }
         for (LocalTime[] r : occupied) {
-            if (r[0].isBefore(end) && start.isBefore(r[1])) {
+            // Qua SlotTime vì giờ kết thúc có thể là 00:00 (nửa đêm) — so sánh thẳng sẽ sai.
+            if (SlotTime.overlaps(start, end, r[0], r[1])) {
                 return true;
             }
         }

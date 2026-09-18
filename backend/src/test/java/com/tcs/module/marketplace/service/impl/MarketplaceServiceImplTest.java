@@ -191,6 +191,12 @@ class MarketplaceServiceImplTest {
     private NotificationDispatchService notificationDispatchService;
 
     @Mock
+    private com.tcs.module.profile.repository.TutorBusyTimeRepository tutorBusyTimeRepository;
+
+    @Mock
+    private com.tcs.module.platform.service.AuditLogService auditLogService;
+
+    @Mock
     private CccdService cccdService;
 
     @InjectMocks
@@ -1259,5 +1265,153 @@ class MarketplaceServiceImplTest {
                 () -> marketplaceService.requestClassTermination(CLASS_ID, request));
         assertEquals("Chỉ lớp đang diễn ra mới có thể yêu cầu chấm dứt sớm", ex.getMessage(),
                 "Ngay hieu luc = hom nay phai qua duoc buoc kiem tra ngay");
+    }
+
+    // ===================== Trùng thời gian bận gia sư tự đăng ký =====================
+
+    private com.tcs.module.profile.entity.TutorBusyTime busyTomorrow(
+            Tutor tutor, java.time.LocalTime start, java.time.LocalTime end) {
+        com.tcs.module.profile.entity.TutorBusyTime busy = new com.tcs.module.profile.entity.TutorBusyTime();
+        busy.setBusyTimeId(900L);
+        busy.setTutor(tutor);
+        busy.setBusyDate(LocalDate.now().plusDays(1));
+        busy.setStartTime(start);
+        busy.setEndTime(end);
+        return busy;
+    }
+
+    /** Dựng đủ stub để gia sư nộp đơn thành công vào lớp mai 18:00–20:00, không trùng buổi dạy nào. */
+    private Tutor stubSuccessfulApply(TutoringClass tutoringClass) {
+        useRealObjectMapper();
+        Tutor tutor = tutor(user(TUTOR_USER_ID));
+        tutor.setVerificationStatus(ProfileVerificationStatus.VERIFIED);
+        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(tutor));
+        when(walletRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(new Wallet()));
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(tutorApplicationRepository.findFirstByTutoringClass_ClassIdAndTutor_TutorId(CLASS_ID, 44L))
+                .thenReturn(Optional.empty());
+        org.mockito.Mockito.lenient()
+                .when(lessonRepository.findByTutoringClass_Creator_UserIdOrderByLessonDateAscSequenceNoAsc(CLIENT_USER_ID))
+                .thenReturn(List.of());
+        org.mockito.Mockito.lenient()
+                .when(lessonRepository.findByTutor_TutorIdOrderByLessonDateAscSequenceNoAsc(44L))
+                .thenReturn(List.of());
+        // lenient: ca bị chặn vì trùng lịch bận thì không bao giờ tới bước lưu đơn.
+        org.mockito.Mockito.lenient().when(tutorApplicationRepository.save(any(TutorApplication.class))).thenAnswer(invocation -> {
+            TutorApplication app = invocation.getArgument(0);
+            app.setApplicationId(501L);
+            return app;
+        });
+        return tutor;
+    }
+
+    /** Lớp có buổi trùng thời gian bận gia sư đã đăng ký -> không cho nộp đơn, báo rõ buổi nào. */
+    @Test
+    void applyToClassRejectsWhenClassHitsRegisteredBusyTime() {
+        TutoringClass tutoringClass = classWithTomorrowSlot(user(CLIENT_USER_ID), TutoringClassStatus.OPEN);
+        Tutor tutor = stubSuccessfulApply(tutoringClass);
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        when(tutorBusyTimeRepository.findByTutor_TutorIdAndBusyDateBetweenOrderByBusyDateAscStartTimeAsc(
+                44L, tomorrow, tomorrow))
+                .thenReturn(List.of(busyTomorrow(tutor, java.time.LocalTime.of(19, 0), java.time.LocalTime.of(21, 0))));
+
+        IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
+                () -> marketplaceService.applyToClass(CLASS_ID, applyWithRate()));
+
+        String ddmm = String.format("%02d/%02d", tomorrow.getDayOfMonth(), tomorrow.getMonthValue());
+        assertTrue(ex.getMessage().contains("trùng thời gian bận"), ex.getMessage());
+        assertTrue(ex.getMessage().contains(ddmm + " (18:00–20:00)"), ex.getMessage());
+        verify(tutorApplicationRepository, never()).save(any(TutorApplication.class));
+    }
+
+    /** Khoảng bận chỉ chạm mép buổi học (20:00–22:00 sau buổi 18:00–20:00) thì không trùng -> nộp đơn được. */
+    @Test
+    void applyToClassAllowedWhenBusyTimeOnlyTouchesLessonEdge() {
+        TutoringClass tutoringClass = classWithTomorrowSlot(user(CLIENT_USER_ID), TutoringClassStatus.OPEN);
+        Tutor tutor = stubSuccessfulApply(tutoringClass);
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        when(tutorBusyTimeRepository.findByTutor_TutorIdAndBusyDateBetweenOrderByBusyDateAscStartTimeAsc(
+                44L, tomorrow, tomorrow))
+                .thenReturn(List.of(busyTomorrow(tutor, java.time.LocalTime.of(20, 0), java.time.LocalTime.of(22, 0))));
+
+        marketplaceService.applyToClass(CLASS_ID, applyWithRate());
+
+        verify(tutorApplicationRepository).save(any(TutorApplication.class));
+    }
+
+    /** Bận cả ngày thì mọi buổi trong ngày đều trùng; API gia sư trả đúng lớp kèm tóm tắt. */
+    @Test
+    void listMyBusyConflictsReportsAllDayBusyTime() {
+        useRealObjectMapper();
+        Tutor tutor = tutor(user(TUTOR_USER_ID));
+        TutoringClass tutoringClass = classWithTomorrowSlot(user(CLIENT_USER_ID), TutoringClassStatus.OPEN);
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(tutor));
+        when(tutoringClassRepository.findAllById(List.of(CLASS_ID))).thenReturn(List.of(tutoringClass));
+        when(tutorBusyTimeRepository.findByTutor_TutorIdAndBusyDateBetweenOrderByBusyDateAscStartTimeAsc(
+                44L, tomorrow, tomorrow))
+                .thenReturn(List.of(busyTomorrow(tutor, null, null)));
+
+        List<com.tcs.module.marketplace.dto.response.ClassBusyConflictResponse> result =
+                marketplaceService.listMyBusyConflicts(List.of(CLASS_ID));
+
+        assertEquals(1, result.size());
+        assertEquals(CLASS_ID, result.get(0).getClassId());
+        assertEquals(1, result.get(0).getConflictCount());
+        assertTrue(result.get(0).getSummary().endsWith("(18:00–20:00)"), result.get(0).getSummary());
+        assertTrue(result.get(0).getConflicts().get(0).isAllDay());
+    }
+
+    /** Buổi của lớp đã qua thì không còn gì để tranh chấp với lịch bận. */
+    @Test
+    void listMyBusyConflictsIgnoresLessonsInThePast() {
+        useRealObjectMapper();
+        Tutor tutor = tutor(user(TUTOR_USER_ID));
+        TutoringClass tutoringClass = tutoringClass(user(CLIENT_USER_ID), TutoringClassStatus.OPEN);
+        LocalDate yesterday = LocalDate.now().minusDays(1);
+        tutoringClass.setStartDate(yesterday);
+        tutoringClass.setEndDate(yesterday);
+        tutoringClass.setDetailsJson("""
+                {"scheduleMode": "CUSTOM", "slots": [{"date": "%s", "start": "18:00", "end": "20:00"}]}
+                """.formatted(yesterday));
+        when(authHelper.currentUserId()).thenReturn(TUTOR_USER_ID);
+        when(tutorRepository.findByUser_UserId(TUTOR_USER_ID)).thenReturn(Optional.of(tutor));
+        when(tutoringClassRepository.findAllById(List.of(CLASS_ID))).thenReturn(List.of(tutoringClass));
+
+        assertTrue(marketplaceService.listMyBusyConflicts(List.of(CLASS_ID)).isEmpty());
+        verify(tutorBusyTimeRepository, never())
+                .findByTutor_TutorIdAndBusyDateBetweenOrderByBusyDateAscStartTimeAsc(any(), any(), any());
+    }
+
+    /** Phụ huynh xem danh sách ứng viên: thấy ngay ai đã đăng ký bận vào buổi của lớp. */
+    @Test
+    void listApplicantsShowsBusyConflictForApplicant() {
+        useRealObjectMapper();
+        User clientUser = user(CLIENT_USER_ID);
+        Tutor tutor = tutor(user(TUTOR_USER_ID));
+        tutor.setVerificationStatus(ProfileVerificationStatus.VERIFIED);
+        TutoringClass tutoringClass = classWithTomorrowSlot(clientUser, TutoringClassStatus.OPEN);
+        TutorApplication app = new TutorApplication();
+        app.setApplicationId(55L);
+        app.setTutoringClass(tutoringClass);
+        app.setTutor(tutor);
+        app.setStatus(TutorApplicationStatus.SUBMITTED);
+        LocalDate tomorrow = LocalDate.now().plusDays(1);
+
+        when(authHelper.currentUserId()).thenReturn(CLIENT_USER_ID);
+        when(tutoringClassRepository.findById(CLASS_ID)).thenReturn(Optional.of(tutoringClass));
+        when(tutorApplicationRepository.findByTutoringClass_ClassId(CLASS_ID)).thenReturn(List.of(app));
+        when(tutorBusyTimeRepository.findByTutor_TutorIdAndBusyDateBetweenOrderByBusyDateAscStartTimeAsc(
+                44L, tomorrow, tomorrow))
+                .thenReturn(List.of(busyTomorrow(tutor, java.time.LocalTime.of(17, 0), java.time.LocalTime.of(18, 30))));
+
+        List<com.tcs.module.marketplace.dto.response.ApplicantResponse> applicants =
+                marketplaceService.listApplicants(CLASS_ID);
+
+        assertEquals(1, applicants.get(0).getBusyConflictCount());
+        assertTrue(applicants.get(0).getBusyConflictSummary().endsWith("(18:00–20:00)"),
+                applicants.get(0).getBusyConflictSummary());
     }
 }

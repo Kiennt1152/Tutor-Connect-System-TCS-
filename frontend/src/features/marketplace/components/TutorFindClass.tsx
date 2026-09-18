@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import type { ClassBusyConflict } from '../types/marketplaceTypes';
 import { useNavigate } from 'react-router-dom';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { ClassDetailModal } from './ClassDetailModal';
@@ -35,6 +36,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   const [profileFee, setProfileFee] = useState('');
   const [profileVerified, setProfileVerified] = useState<boolean | null>(null);
   const [page, setPage] = useState(1);
+  const [busyConflicts, setBusyConflicts] = useState<Map<number, ClassBusyConflict>>(new Map());
 
   /**
    * Tải danh sách lớp. `silent = true` là lần tải lại ngầm: giữ nguyên danh sách cũ trên
@@ -46,7 +48,8 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     marketplaceApi
       .listOpenClasses()
       .then((data) => {
-        setClasses(data);
+        // Lớp của trung tâm do trung tâm tự bố trí gia sư -> không hiện cho gia sư tìm/ứng tuyển.
+        setClasses(data.filter((c) => c.classType !== 'CENTER'));
         setStatus('success');
       })
       .catch(() => {
@@ -118,6 +121,36 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     setPage(1);
   }, [criteria]);
 
+  // Đối chiếu các lớp đang hiện với thời gian bận gia sư đã đăng ký. Gọi RIÊNG và nuốt lỗi:
+  // backend cũ chưa có API này (404) thì màn vẫn chạy bình thường, chỉ không có cảnh báo.
+  const pageIdsKey = pageResults.map((r) => r.parsed.raw.classId).join(',');
+  // Bỏ lịch bận ở tab khác rồi quay lại thì phải mở khoá nút ngay -> tính lại khi cửa sổ được focus.
+  const [busyCheckTick, setBusyCheckTick] = useState(0);
+  useEffect(() => {
+    const onFocus = () => setBusyCheckTick((t) => t + 1);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+  useEffect(() => {
+    if (!pageIdsKey) return;
+    let alive = true;
+    marketplaceApi
+      .listMyBusyConflicts(pageIdsKey.split(',').map(Number))
+      .then((rows) => {
+        if (!alive) return;
+        setBusyConflicts((prev) => {
+          const next = new Map(prev);
+          for (const id of pageIdsKey.split(',').map(Number)) next.delete(id);
+          for (const row of rows) next.set(row.classId, row);
+          return next;
+        });
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [pageIdsKey, busyCheckTick]);
+
   const selectedNames = search.subjectNames;
 
   function openApply(target: ClassResponse) {
@@ -178,6 +211,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
             <ClassResultCard
               key={r.parsed.raw.classId}
               result={r}
+              busyConflict={busyConflicts.get(r.parsed.raw.classId) ?? null}
               subjectName={subjectName}
               gradeName={gradeName}
               showScore={hasFilter}
@@ -193,10 +227,19 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
                   <button
                     type="button"
                     className="tfc-btn tfc-btn--primary"
-                    disabled={applied.has(r.parsed.raw.classId)}
+                    disabled={applied.has(r.parsed.raw.classId) || busyConflicts.has(r.parsed.raw.classId)}
+                    title={
+                      !applied.has(r.parsed.raw.classId) && busyConflicts.has(r.parsed.raw.classId)
+                        ? 'Trùng thời gian bận bạn đã đăng ký — bỏ lịch bận để ứng tuyển'
+                        : undefined
+                    }
                     onClick={() => openApply(r.parsed.raw)}
                   >
-                    {applied.has(r.parsed.raw.classId) ? '✓ Đã ứng tuyển' : 'Ứng tuyển'}
+                    {applied.has(r.parsed.raw.classId)
+                      ? '✓ Đã ứng tuyển'
+                      : busyConflicts.has(r.parsed.raw.classId)
+                        ? 'Trùng lịch bận'
+                        : 'Ứng tuyển'}
                   </button>
                 </>
               }
@@ -244,6 +287,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
           grades={search.grades}
           applied={applied.has(detailTarget.classId)}
           onApply={() => openApply(detailTarget)}
+          busyConflict={busyConflicts.get(detailTarget.classId) ?? null}
           onClose={() => setDetailTarget(null)}
         />
       )}
@@ -256,6 +300,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
           onClose={() => setApplyTarget(null)}
           onSubmitted={handleApplied}
           onVerificationRequired={goVerify}
+          busyConflict={busyConflicts.get(applyTarget.classId) ?? null}
         />
       )}
     </div>

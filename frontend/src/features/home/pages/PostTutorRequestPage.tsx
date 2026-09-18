@@ -17,7 +17,7 @@ import './FindTutorPage.css';
 
 /*
  * ============================================================================
- * MÀN "ĐĂNG YÊU CẦU TÌM GIA SƯ"  —  route /dang-yeu-cau-tim-gia-su
+ * MÀN "ĐĂNG YÊU CẦU TÌM GIA SƯ"  —  route /post-tutor-request
  * ============================================================================
  *
  * TỆP NÀY LÀM GÌ

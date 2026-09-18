@@ -240,8 +240,62 @@
 }
 .apm-chip--accepted { background: #e7f6ec; color: #1e8e4f; }
 .apm-chip--rejected { background: #f2f4f7; color: #94a3b5; }
+.apm-chip--waiting { background: #fff7e6; color: #b45309; }
+
+/* Hạn 48 giờ ký hợp đồng — thay chỗ khối gợi ý AI sau khi đã chọn gia sư. */
+.apm-deadline {
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  border-radius: 12px;
+  background: #fff8ec;
+  border: 1px solid #f3ddb4;
+}
+.apm-deadline__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.apm-deadline__title { font-size: 14px; color: #7c4a03; }
+.apm-deadline__text {
+  margin: 6px 0 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: #8a6a3a;
+}
+
+/* Nhóm "Danh sách chờ" giữa thẻ gia sư đã chọn và các ứng viên còn lại. */
+.apm-group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 18px 0 10px;
+  padding-top: 14px;
+  border-top: 1px dashed #d9e0e8;
+  font-size: 14px;
+  color: #33415c;
+}
+.apm-group__hint { font-size: 12px; font-weight: 400; color: #7b8794; }
+.apm-card.is-waiting { opacity: 0.88; }
 
 @media (max-width: 560px) {
   .apm-card__row { flex-direction: column; }
   .apm-card__score { flex-direction: row; gap: 6px; align-items: baseline; }
+}
+
+/* Gia sư đã tự đăng ký bận vào một số buổi của lớp — giúp phụ huynh cân nhắc trước khi chọn. */
+.apm-card__busy {
+  margin: 8px 0 0;
+  padding: 7px 12px;
+  border-radius: 8px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.apm-card__busy strong {
+  color: #78350f;
 }

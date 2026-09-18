@@ -25,7 +25,7 @@ public class CatalogFaqIntentRule implements IntentRule {
                 "chi phi thue gia su", "chi phi gia su", "gia mot buoi", "gia 1 buoi", "gia bao nhieu mot buoi",
                 "hoc phi bao nhieu", "bao nhieu mot buoi", "bao nhieu 1 buoi", "chi phi bao nhieu",
                 "gia bao nhieu", "muc gia mot buoi", "hoc phi mot buoi")) {
-            return new ClassificationDetail(AiDomain.CATALOG_FAQ, AiSubIntent.FAQ_SEARCH, AiIntent.FAQ_SUPPORT, 0.95, "/tim-gia-su");
+            return new ClassificationDetail(AiDomain.CATALOG_FAQ, AiSubIntent.FAQ_SEARCH, AiIntent.FAQ_SUPPORT, 0.95, "/find-tutor");
         }
 
         // 2. Platform Policies & Operational Inquiries

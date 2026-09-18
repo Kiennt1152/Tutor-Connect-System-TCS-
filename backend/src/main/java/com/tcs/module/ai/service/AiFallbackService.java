@@ -135,7 +135,7 @@ public class AiFallbackService {
             return new FallbackResult(
                 1,
                 "Tôi có thể hỗ trợ bạn tìm kiếm và kết nối lớp học. Vui lòng chọn hướng bạn muốn thực hiện:",
-                "/tim-gia-su",
+                "/find-tutor",
                 List.of(
                     "Tìm hồ sơ gia sư uy tín",
                     "Xem danh sách lớp học đang mở",
@@ -163,7 +163,7 @@ public class AiFallbackService {
             return new FallbackResult(
                 1,
                 "Câu hỏi này nằm ngoài phạm vi hỗ trợ của tôi. Tuy nhiên, tôi có thể giúp bạn tìm gia sư dạy kèm phù hợp:",
-                "/tim-gia-su",
+                "/find-tutor",
                 List.of(
                     "Tìm gia sư dạy kèm 1-1",
                     "Xem danh sách lớp học đang mở",
@@ -176,7 +176,7 @@ public class AiFallbackService {
             return new FallbackResult(
                 1,
                 "Nếu bạn đang lên lịch học, TCS có thể giúp bạn kết nối gia sư linh hoạt thời gian:",
-                "/tim-gia-su",
+                "/find-tutor",
                 List.of(
                     "Tìm gia sư có lịch phù hợp",
                     "Xem lịch dạy của gia sư",
@@ -206,7 +206,7 @@ public class AiFallbackService {
             return new FallbackResult(
                 2,
                 "Bạn muốn tìm gia sư cho **môn học nào** (ví dụ: Toán, Lý, Hóa, Tiếng Anh, Tiếng Việt...), **khối lớp mấy** và tại **khu vực nào** (hoặc học Online)?",
-                "/tim-gia-su",
+                "/find-tutor",
                 List.of("Gia sư Toán 12 Cầu Giấy", "Gia sư Tiếng Anh IELTS Online", "Gia sư Tiếng Việt Tiểu học", "Gia sư Vật lý 10")
             );
         }
@@ -214,7 +214,7 @@ public class AiFallbackService {
             return new FallbackResult(
                 2,
                 "Bạn muốn tìm lớp dạy kèm cho **môn học nào** và tại **khu vực nào** (hoặc lớp Online)?",
-                "/lop-hoc",
+                "/class-finder",
                 List.of("Lớp Toán đang mở", "Lớp Tiếng Anh đang mở", "Lớp Tiếng Việt đang mở", "Lớp Hóa đang mở")
             );
         }
@@ -252,7 +252,7 @@ public class AiFallbackService {
                     "Hiện tại hệ thống TCS **chưa tìm thấy gia sư phù hợp** với tiêu chí %s.\n\n" +
                     "📌 **Giải pháp dành cho bạn:**\n" +
                     "• [Đăng tin tạo lớp](/tao-lop): Miễn phí, các gia sư sẽ chủ động liên hệ trong vòng 24h.\n" +
-                    "• [Xem tất cả gia sư](/tim-gia-su): Mở rộng điều kiện lọc (Online, khu vực lân cận, học phí cao hơn).",
+                    "• [Xem tất cả gia sư](/find-tutor): Mở rộng điều kiện lọc (Online, khu vực lân cận, học phí cao hơn).",
                     criteriaText
                 ),
                 "/tao-lop",
@@ -266,11 +266,11 @@ public class AiFallbackService {
                 String.format(
                     "Hiện tại **chưa có lớp học nào đang mở** khớp với tiêu chí %s.\n\n" +
                     "📌 **Bạn có thể:**\n" +
-                    "• [Xem danh sách lớp học](/lop-hoc): Theo dõi lớp mới được đăng liên tục.\n" +
-                    "• [Tìm gia sư dạy kèm 1-1](/tim-gia-su): Linh hoạt hơn về lịch học và nội dung.",
+                    "• [Xem danh sách lớp học](/class-finder): Theo dõi lớp mới được đăng liên tục.\n" +
+                    "• [Tìm gia sư dạy kèm 1-1](/find-tutor): Linh hoạt hơn về lịch học và nội dung.",
                     criteriaText
                 ),
-                "/lop-hoc",
+                "/class-finder",
                 List.of("Xem danh sách lớp học", "Tìm gia sư 1-1")
             );
         }

@@ -103,7 +103,7 @@ lớp private ở giai đoạn đầu — chữ ký lưu thẳng trên `class_as
 
 **Actor:** Tutor
 **BF:** BF-05
-**Màn hình:** `/tim-yeu-cau-giang-day`
+**Màn hình:** `/find-class`
 
 ## Frontend
 
@@ -425,7 +425,7 @@ không phải phụ thuộc ngược vào module `marketplace`.
 | Bước | Actor | Màn hình | API chính | Service | Bảng thay đổi |
 |---|---|---|---|---|---|
 | 1 | Client | `/dang-yeu-cau-tim-gia-su` | `POST /marketplace/classes`<br>`POST /marketplace/classes/{id}/publish` | `MarketplaceServiceImpl:349`<br>`:459` | `tutoring_classes`, `audit_logs` |
-| 2 | Tutor | `/tim-yeu-cau-giang-day` | `GET /marketplace/classes?status=OPEN`<br>`POST /marketplace/classes/{id}/apply` | `:497` | `tutor_applications`, `notifications` |
+| 2 | Tutor | `/find-class` | `GET /marketplace/classes?status=OPEN`<br>`POST /marketplace/classes/{id}/apply` | `:497` | `tutor_applications`, `notifications` |
 | 3 | Client | `/yeu-cau-tim-gia-su-cua-toi` | `GET .../applications`<br>`POST .../applications/{id}/choose` | `:694`, `:730` | `tutor_applications`, `tutoring_classes`, `class_assignments` |
 | 4 | Client → Tutor | `/lich-ca-nhan/ki-hop-dong` | `POST .../sign/request-otp`<br>`POST .../sign` | `:1204`, `:1280` | `class_assignments`, `email_otps`, `contracts`, `escrow_transactions` |
 | 5 | Client | `/nhan-xet-gia-su` | `POST /contract/reviews` | `ContractServiceImpl:1989` | `reviews`, `tutors`, `reputation_histories` |

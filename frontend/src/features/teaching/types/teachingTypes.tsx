@@ -47,6 +47,8 @@ export interface AssignmentResponse {
   tutorSignedAt: string | null;
   clientSignedAt: string | null;
   paymentMethod: PaymentMethod | null;
+  /** Hạn 48 giờ ký hợp đồng + chuyển tiền; quá hạn lời mời tự hủy. Null = không đếm ngược. */
+  matchDeadlineAt: string | null;
   /** UC "Xác nhận lớp đã hoàn thành" (lớp PRIVATE). */
   classCompleted: boolean;
   completionState: CompletionState;
@@ -86,6 +88,8 @@ export interface ContractView {
   tutorSignedAt: string | null;
   clientSignedAt: string | null;
   paymentMethod: PaymentMethod | null;
+  /** Hạn 48 giờ ký hợp đồng + chuyển tiền ký quỹ. Null = không còn đếm ngược. */
+  matchDeadlineAt: string | null;
   myRole: 'CLIENT' | 'TUTOR';
   escrowPayment: EscrowPaymentInfo | null;
   refundPayoutInfo: ContractRefundPayoutInfo | null;
@@ -181,3 +185,25 @@ export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
   ABSENT: 'Vắng',
   DISPUTED: 'Đang tranh chấp',
 };
+
+/** Một khoảng gia sư tự khai là BẬN. `startTime`/`endTime` cùng null = bận cả ngày. */
+export interface BusyTimeResponse {
+  busyTimeId: number;
+  /** yyyy-MM-dd */
+  busyDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  allDay: boolean;
+  note: string | null;
+}
+
+export interface BusyTimePayload {
+  /** yyyy-MM-dd, nhiều ngày cùng một khung giờ. */
+  dates: string[];
+  /** Bỏ trống cả hai (và không có `ranges`) = bận cả ngày. `endTime` "00:00" là nửa đêm. */
+  startTime: string | null;
+  endTime: string | null;
+  /** Nhiều khoảng bận trong cùng ngày, vd. sáng + tối. Có phần tử thì backend dùng thay cho start/end. */
+  ranges?: { startTime: string; endTime: string }[];
+  note?: string;
+}

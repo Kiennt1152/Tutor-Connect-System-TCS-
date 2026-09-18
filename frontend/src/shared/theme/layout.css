@@ -88,6 +88,24 @@
   white-space: nowrap;
 }
 
+.tcs-header__schedule-menu > .tcs-header__shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tcs-header__schedule-caret {
+  flex: none;
+  opacity: 0.7;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.tcs-header__schedule-menu:hover .tcs-header__schedule-caret,
+.tcs-header__schedule-menu:focus-within .tcs-header__schedule-caret {
+  opacity: 1;
+  transform: rotate(180deg);
+}
+
 .tcs-home-profile-btn {
   position: relative;
   display: inline-flex;

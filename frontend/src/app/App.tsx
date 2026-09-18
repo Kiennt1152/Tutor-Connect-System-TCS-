@@ -38,6 +38,7 @@ import TutorSchedulePage from '../features/tutor/pages/TutorSchedulePage';
 import TutorAttendancePage from '../features/tutor/pages/TutorAttendancePage';
 import ClientSchedulePage from '../features/marketplace/pages/ClientSchedulePage';
 import CenterStatsPage from '../features/center/pages/CenterStatsPage';
+import CenterFinancePage from '../features/center/pages/CenterFinancePage';
 import CenterTutorsPage from '../features/center/pages/CenterTutorsPage';
 import CenterContractTemplatesPage from '../features/center/pages/CenterContractTemplatesPage';
 import CentersPage from '../features/home/pages/CentersPage';
@@ -59,6 +60,7 @@ import MyReviewsPage from '../features/reviews/pages/MyReviewsPage';
 import MyReputationPage from '../features/reviews/pages/MyReputationPage';
 import TeachingPage from '../features/teaching/pages/TeachingPage';
 import ContractSigningPage from '../features/teaching/pages/ContractSigningPage';
+import BusyTimePage from '../features/teaching/pages/BusyTimePage';
 import HelpPage from '../features/help/pages/HelpPage';
 import ForbiddenPage from '../shared/pages/ForbiddenPage';
 import { ProtectedRoute } from '../shared/auth/ProtectedRoute';
@@ -128,6 +130,14 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route
+            path={APP_ROUTES.busyTimes}
+            element={
+              <ProtectedRoute roles={['TUTOR']}>
+                <BusyTimePage />
+              </ProtectedRoute>
+            }
+          />
 
           <Route
             path={APP_ROUTES.profile}
@@ -178,7 +188,7 @@ export default function App() {
             }
           />
           <Route
-            path={`${APP_ROUTES.marketplace}/thong-tin-tin-tuyen-dung`}
+            path={`${APP_ROUTES.marketplace}/class-detail`}
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
                 <MarketplacePage />
@@ -294,6 +304,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['TUTOR_CENTER']}>
                 <CenterStatsPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/center/finance"
+            element={
+              <ProtectedRoute roles={['TUTOR_CENTER']}>
+                <CenterFinancePage />
               </ProtectedRoute>
             }
           />

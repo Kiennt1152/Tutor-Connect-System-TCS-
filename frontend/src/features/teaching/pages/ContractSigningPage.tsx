@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { SiteHeader } from '../../home/components/SiteHeader';
 import { PaymentQrCountdown } from '../../../shared/components/PaymentQrCountdown';
+import { ContractDeadline } from '../../../shared/components/ContractDeadline';
 import { contractApi } from '../../contract/api/contractApi';
 import { BankPickerDialog, BankSelectField, findBankByName } from '../../finance/components/BankPicker';
 import '../../finance/FinancePage.css';
@@ -54,8 +55,6 @@ function fmtDateTime(iso: string | null): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
 }
-
-const hm = (t: string) => (t === '23:59' ? '00:00' : t);
 
 const ESCROW_STATUS_LABEL: Record<EscrowStatus, { label: string; cls: string }> = {
   PENDING: { label: 'Chờ nạp', cls: 'is-pending' },
@@ -425,6 +424,20 @@ export default function ContractSigningPage() {
             ← Quay lại lịch dạy
           </button>
           <h1 className="ksign-h1">Ký hợp đồng làm gia sư</h1>
+          {/* Hợp đồng chỉ sống 48 giờ; tiền vào ký quỹ rồi thì hết đếm ngược. */}
+          {contract?.matchDeadlineAt && !escrowConfirmed && (
+            <div className="ksign-deadline">
+              <ContractDeadline
+                deadline={contract.matchDeadlineAt}
+                expiredLabel="Đã quá hạn 48 giờ"
+              />
+              <span className="ksign-deadline__note">
+                {contract.myRole === 'CLIENT'
+                  ? 'Hạn ký hợp đồng & chuyển tiền ký quỹ. Quá hạn, lớp sẽ tự mở lại cho các gia sư đã ứng tuyển.'
+                  : 'Hạn hai bên ký hợp đồng & phụ huynh chuyển tiền ký quỹ. Quá hạn, lớp sẽ mở lại cho gia sư khác.'}
+              </span>
+            </div>
+          )}
         </div>
 
         {status === 'loading' && <div className="ksign-state">Đang tải hợp đồng…</div>}
@@ -497,8 +510,8 @@ export default function ContractSigningPage() {
                         : rows
                             .map((s) =>
                               form.scheduleMode === 'WEEKLY'
-                                ? `${dayLabel(s.day)} ${hm(s.start)}–${hm(s.end)}`
-                                : `${s.date} ${hm(s.start)}–${hm(s.end)}`,
+                                ? `${dayLabel(s.day)} ${s.start}–${s.end}`
+                                : `${s.date} ${s.start}–${s.end}`,
                             )
                             .join(' · ')}
                     </li>

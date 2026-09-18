@@ -45,6 +45,11 @@ public class ContractViewResponse {
     private LocalDateTime tutorSignedAt;
     private LocalDateTime clientSignedAt;
     private String paymentMethod;
+    /**
+     * Hạn 48 giờ để hai bên ký xong và client chuyển tiền ký quỹ. Quá hạn, hệ thống hủy hợp đồng
+     * và mở lại lớp cho các gia sư đã ứng tuyển. Null = hợp đồng không còn đếm ngược.
+     */
+    private LocalDateTime matchDeadlineAt;
     private String myRole; // CLIENT | TUTOR
     private ContractResponse.EscrowPaymentInfo escrowPayment;
     private ContractResponse.RefundPayoutInfoView refundPayoutInfo;
