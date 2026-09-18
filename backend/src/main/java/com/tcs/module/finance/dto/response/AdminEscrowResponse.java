@@ -3,10 +3,15 @@ package com.tcs.module.finance.dto.response;
 import com.tcs.module.finance.enums.EscrowStatus;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 
-@Getter @Builder
+@Getter
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class AdminEscrowResponse {
     private Long escrowId;
     private Long paymentId;

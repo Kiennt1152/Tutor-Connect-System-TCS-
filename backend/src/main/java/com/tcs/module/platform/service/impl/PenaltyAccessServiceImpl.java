@@ -11,7 +11,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-@Service @RequiredArgsConstructor
+/**
+ * ====================================================================================================
+ * [UC-60] KIỂM SOÁT QUYỀN HẠN TÍNH NĂNG THEO CHẾ TÀI XỬ PHẠT (PENALTY FEATURE RESTRICTION GUARD)
+ * ====================================================================================================
+ * Dịch vụ cổng chắn (Access Guard) kiểm tra tính năng bị hạn chế trên tài khoản người dùng:
+ * 1. Chặn quyền sử dụng tính năng (Chat, Tạo lớp, Nhận lớp, Đăng tuyển) nếu tài khoản có án phạt FEATURE_RESTRICTION đang hiệu lực.
+ * 2. Ném lỗi ForbiddenException kèm thông điệp rõ ràng cho frontend xử lý giao diện.
+ * 
+ * @author mduc1011-swp (Đức)
+ */
+@Service
+@RequiredArgsConstructor
 public class PenaltyAccessServiceImpl implements PenaltyAccessService {
     private final UserPenaltyRepository repository;
 

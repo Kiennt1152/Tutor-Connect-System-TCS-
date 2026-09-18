@@ -30,6 +30,18 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ====================================================================================================
+ * [UC-59] PHÁT HIỆN & GIÁM SÁT HÀNH VI LÁCH NỀN TẢNG (CIRCUMVENTION DETECTION SERVICE)
+ * ====================================================================================================
+ * Dịch vụ tự động quét, phát hiện và lưu vết các hành vi cố tình giao dịch ngoài sàn:
+ * 1. Phân tích tin nhắn thời gian thực (Real-time Message Inspection) bằng Regex nhận diện SĐT, Email, URL, MXH.
+ * 2. Tính toán điểm rủi ro vi phạm (Risk Score): Gắn cờ sự kiện nếu vượt ngưỡng rủi ro cho phép.
+ * 3. Thẩm định bằng chứng chat (Evidence Review): Hỗ trợ Admin đọc lịch sử tin nhắn ngữ cảnh trước/sau vi phạm.
+ * 4. Quyết định xử lý: Đánh dấu vi phạm (CONFIRMED) hoặc bỏ qua (DISMISSED), liên thông ban hành chế tài UC-60.
+ * 
+ * @author mduc1011-swp (Đức)
+ */
 @Service
 @RequiredArgsConstructor
 public class CircumventionServiceImpl implements CircumventionService {

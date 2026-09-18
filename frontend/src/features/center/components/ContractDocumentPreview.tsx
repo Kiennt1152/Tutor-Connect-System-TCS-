@@ -4,19 +4,25 @@ import '../../teaching/pages/ContractSigningPage.css';
 
 interface Props {
   name?: string;
-  contractType: 'CLASS' | 'RECRUITMENT';
+  contractType?: string;
   content: string;
   info: CenterContractInfo | null;
 }
 
-const DOC_TITLE: Record<'CLASS' | 'RECRUITMENT', string> = {
+const DOC_TITLE: Record<string, string> = {
   CLASS: 'HỢP ĐỒNG DỊCH VỤ DẠY HỌC',
+  CENTER_CLASS: 'HỢP ĐỒNG ĐÀO TẠO THEO LỚP TRUNG TÂM',
+  PRIVATE_TUTORING: 'HỢP ĐỒNG DẠY KÈM 1:1 CÁ NHÂN',
   RECRUITMENT: 'HỢP ĐỒNG CỘNG TÁC GIA SƯ',
+  SPECIALIZED_GUARANTEE: 'HỢP ĐỒNG ĐÀO TẠO CAM KẾT ĐẦU RA',
 };
 
-const PARTY_B_LABEL: Record<'CLASS' | 'RECRUITMENT', string> = {
+const PARTY_B_LABEL: Record<string, string> = {
   CLASS: 'Học viên / Phụ huynh',
+  CENTER_CLASS: 'Học viên / Phụ huynh',
+  PRIVATE_TUTORING: 'Học viên / Phụ huynh',
   RECRUITMENT: 'Gia sư',
+  SPECIALIZED_GUARANTEE: 'Học viên / Phụ huynh',
 };
 
 /** Tô sáng biến tự điền dạng {{tenBien}} trong một dòng văn bản. */
@@ -71,7 +77,7 @@ export function ContractDocumentPreview({ name, contractType, content, info }: P
         <p className="ksign-doc__title">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</p>
         <p className="ksign-doc__sub">Độc lập - Tự do - Hạnh phúc</p>
         <p className="ksign-doc__hr">———</p>
-        <h2 className="ksign-doc__name">{DOC_TITLE[contractType]}</h2>
+        <h2 className="ksign-doc__name">{DOC_TITLE[contractType || 'CENTER_CLASS'] || DOC_TITLE.CLASS}</h2>
         {name && <p className="cct-doc__tplname">Mẫu: {name}</p>}
       </div>
 
@@ -96,7 +102,7 @@ export function ContractDocumentPreview({ name, contractType, content, info }: P
       </div>
 
       <div className="ksign-party">
-        <h3>Bên B: ({PARTY_B_LABEL[contractType]})</h3>
+        <h3>Bên B: ({PARTY_B_LABEL[contractType || 'CENTER_CLASS'] || PARTY_B_LABEL.CLASS})</h3>
         <p>
           Họ và tên: <b>{dash}</b>
         </p>

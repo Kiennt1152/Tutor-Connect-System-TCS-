@@ -402,8 +402,15 @@ export interface ContractTemplate {
   templateId: number;
   name: string;
   content: string;
-  /** RECRUITMENT (tuyển dụng/hợp tác gia sư) hoặc CLASS (học viên/dạy lớp). */
-  contractType?: 'RECRUITMENT' | 'CLASS';
+  /**
+   * Phân loại hợp đồng:
+   * - PRIVATE_TUTORING: Hợp đồng dạy kèm 1:1 cá nhân (Phụ huynh <-> Gia sư)
+   * - CENTER_CLASS: Hợp đồng đào tạo theo lớp trung tâm (Học viên <-> Trung tâm)
+   * - RECRUITMENT: Thỏa thuận hợp tác tuyển dụng gia sư (Trung tâm <-> Gia sư)
+   * - SPECIALIZED_GUARANTEE: Hợp đồng cam kết đầu ra / luyện thi chứng chỉ quốc tế
+   * - CLASS: Tương thích ngược với hệ thống cũ
+   */
+  contractType?: 'RECRUITMENT' | 'CLASS' | 'PRIVATE_TUTORING' | 'CENTER_CLASS' | 'SPECIALIZED_GUARANTEE' | string;
   defaultTemplate: boolean;
   status: string;
   /** true = mẫu hệ thống (không sửa được). */

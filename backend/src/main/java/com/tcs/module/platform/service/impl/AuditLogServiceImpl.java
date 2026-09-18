@@ -30,6 +30,18 @@ import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.ClientRepository;
 
+/**
+ * ====================================================================================================
+ * [UC-61] NHẬT KÝ KIỂM TOÁN HỆ THỐNG BẤT BIẾN (AUDIT LOG SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Dịch vụ ghi nhận và truy xuất nhật ký kiểm toán (Audit Trail) của toàn bộ sàn:
+ * 1. Tự động ghi vết mọi hành vi thay đổi dữ liệu nhạy cảm (Tài chính, Phí sàn, Phê duyệt KYC, Ban hành chế tài).
+ * 2. Lưu vết trạng thái cũ (oldValue) và trạng thái mới (newValue) dưới dạng JSON Diff.
+ * 3. Ghi nhận thông tin phiên: ID người thực hiện, vai trò, địa chỉ IP và User-Agent của request.
+ * 4. Đảm bảo tính bất biến (Immutable): Bản ghi kiểm toán chỉ được tạo mới (INSERT) và đọc (SELECT), tuyệt đối không sửa/xóa.
+ * 
+ * @author mduc1011-swp (Đức)
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

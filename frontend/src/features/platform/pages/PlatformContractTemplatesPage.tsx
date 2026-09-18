@@ -7,15 +7,26 @@ export interface ContractTemplateItem {
   templateId: number;
   name: string;
   content: string;
-  contractType: 'CLASS' | 'RECRUITMENT';
+  contractType: string;
   defaultTemplate: boolean;
   status: string;
   system: boolean;
 }
 
 const TYPE_LABEL: Record<string, string> = {
+  PRIVATE_TUTORING: 'Hợp đồng dạy kèm 1:1 cá nhân',
+  CENTER_CLASS: 'Hợp đồng dạy lớp trung tâm',
+  RECRUITMENT: 'Thỏa thuận hợp tác tuyển dụng',
+  SPECIALIZED_GUARANTEE: 'Hợp đồng cam kết đầu ra / luyện thi',
   CLASS: 'Hợp đồng dạy lớp / học viên',
-  RECRUITMENT: 'Hợp đồng tuyển dụng gia sư',
+};
+
+const TYPE_BADGE_STYLE: Record<string, { bg: string; color: string; border: string }> = {
+  PRIVATE_TUTORING: { bg: '#e0f2fe', color: '#0369a1', border: '#bae6fd' },
+  CENTER_CLASS: { bg: '#dcfce7', color: '#15803d', border: '#bbf7d0' },
+  RECRUITMENT: { bg: '#fef3c7', color: '#b45309', border: '#fde68a' },
+  SPECIALIZED_GUARANTEE: { bg: '#f3e8ff', color: '#7e22ce', border: '#e9d5ff' },
+  CLASS: { bg: '#f1f5f9', color: '#475569', border: '#e2e8f0' },
 };
 
 const DEFAULT_SAMPLE_CONTENT = `CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM
@@ -66,7 +77,7 @@ export default function PlatformContractTemplatesPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editingTemplate, setEditingTemplate] = useState<ContractTemplateItem | null>(null);
   const [formName, setFormName] = useState('');
-  const [formType, setFormType] = useState<'CLASS' | 'RECRUITMENT'>('CLASS');
+  const [formType, setFormType] = useState<string>('CENTER_CLASS');
   const [formContent, setFormContent] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -93,7 +104,7 @@ export default function PlatformContractTemplatesPage() {
   const handleOpenCreate = () => {
     setEditingTemplate(null);
     setFormName('');
-    setFormType('CLASS');
+    setFormType('CENTER_CLASS');
     setFormContent(DEFAULT_SAMPLE_CONTENT);
     setIsEditOpen(true);
   };
@@ -101,7 +112,7 @@ export default function PlatformContractTemplatesPage() {
   const handleOpenEdit = (item: ContractTemplateItem) => {
     setEditingTemplate(item);
     setFormName(item.name);
-    setFormType(item.contractType || 'CLASS');
+    setFormType(item.contractType || 'CENTER_CLASS');
     setFormContent(item.content);
     setIsEditOpen(true);
   };
@@ -153,8 +164,11 @@ export default function PlatformContractTemplatesPage() {
 
   const totalCount = templates.length;
   const systemCount = templates.filter((t) => t.system).length;
-  const classCount = templates.filter((t) => t.contractType === 'CLASS').length;
+  const teachingCount = templates.filter(
+    (t) => t.contractType === 'CENTER_CLASS' || t.contractType === 'PRIVATE_TUTORING' || t.contractType === 'CLASS'
+  ).length;
   const recCount = templates.filter((t) => t.contractType === 'RECRUITMENT').length;
+  const guaranteeCount = templates.filter((t) => t.contractType === 'SPECIALIZED_GUARANTEE').length;
 
   return (
     <AdminLayout
@@ -166,35 +180,42 @@ export default function PlatformContractTemplatesPage() {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
             gap: '12px',
           }}
         >
           <div className="adm-card" style={{ padding: '16px' }}>
             <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Tổng số mẫu hợp đồng</span>
             <div style={{ fontSize: '1.75rem', fontWeight: 700, marginTop: '4px' }}>{totalCount}</div>
-            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Toàn bộ hợp đồng điện tử</span>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Hệ thống & Trung tâm</span>
           </div>
           <div className="adm-card" style={{ padding: '16px', borderLeft: '4px solid #2563eb' }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Mẫu chuẩn hệ thống TCS</span>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Mẫu chuẩn hệ thống</span>
             <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#2563eb', marginTop: '4px' }}>
               {systemCount}
             </div>
-            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Áp dụng mặc định toàn sàn</span>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Do sàn TCS ban hành</span>
           </div>
           <div className="adm-card" style={{ padding: '16px', borderLeft: '4px solid #16a34a' }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Hợp đồng dạy lớp (CLASS)</span>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Hợp đồng dạy học / lớp</span>
             <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#16a34a', marginTop: '4px' }}>
-              {classCount}
+              {teachingCount}
             </div>
-            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Dành cho học viên & gia sư</span>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Lớp trung tâm & kèm 1:1</span>
           </div>
-          <div className="adm-card" style={{ padding: '16px', borderLeft: '4px solid #ca8a04' }}>
-            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Hợp đồng tuyển dụng (RECRUITMENT)</span>
-            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#ca8a04', marginTop: '4px' }}>
+          <div className="adm-card" style={{ padding: '16px', borderLeft: '4px solid #d97706' }}>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Hợp tác tuyển dụng</span>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#d97706', marginTop: '4px' }}>
               {recCount}
             </div>
-            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Dành cho trung tâm & gia sư</span>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Trung tâm & Gia sư</span>
+          </div>
+          <div className="adm-card" style={{ padding: '16px', borderLeft: '4px solid #7c3aed' }}>
+            <span style={{ fontSize: '0.8rem', color: '#64748b' }}>Cam kết đầu ra</span>
+            <div style={{ fontSize: '1.75rem', fontWeight: 700, color: '#7c3aed', marginTop: '4px' }}>
+              {guaranteeCount}
+            </div>
+            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Luyện thi chứng chỉ</span>
           </div>
         </div>
 
@@ -210,9 +231,11 @@ export default function PlatformContractTemplatesPage() {
                 value={typeFilter}
                 onChange={(e) => setTypeFilter(e.target.value)}
               >
-                <option value="">Tất cả loại hợp đồng</option>
-                <option value="CLASS">Hợp đồng dạy lớp (CLASS)</option>
-                <option value="RECRUITMENT">Hợp đồng tuyển dụng (RECRUITMENT)</option>
+                <option value="">Tất cả phân loại</option>
+                <option value="CENTER_CLASS">Hợp đồng dạy lớp trung tâm</option>
+                <option value="PRIVATE_TUTORING">Hợp đồng dạy kèm 1:1 cá nhân</option>
+                <option value="RECRUITMENT">Thỏa thuận hợp tác tuyển dụng</option>
+                <option value="SPECIALIZED_GUARANTEE">Hợp đồng cam kết đầu ra / luyện thi</option>
               </select>
 
               <select
@@ -281,13 +304,21 @@ export default function PlatformContractTemplatesPage() {
                           {tpl.name}
                         </div>
                         {tpl.defaultTemplate && (
-                          <span style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 500 }}>
-                            ★ Mẫu áp dụng mặc định
-                          </span>
+                          <div style={{ fontSize: '0.75rem', color: '#16a34a', fontWeight: 600, marginTop: '2px' }}>
+                            ★ Mẫu áp dụng mặc định ({TYPE_LABEL[tpl.contractType] || 'Toàn sàn'})
+                          </div>
                         )}
                       </td>
                       <td>
-                        <span className="tcs-badge tcs-badge--role">
+                        <span
+                          className="tcs-badge"
+                          style={{
+                            backgroundColor: TYPE_BADGE_STYLE[tpl.contractType]?.bg || '#f1f5f9',
+                            color: TYPE_BADGE_STYLE[tpl.contractType]?.color || '#475569',
+                            borderColor: TYPE_BADGE_STYLE[tpl.contractType]?.border || '#cbd5e1',
+                            fontWeight: 600,
+                          }}
+                        >
                           {TYPE_LABEL[tpl.contractType] || tpl.contractType || 'Hợp đồng dạy lớp'}
                         </span>
                       </td>
@@ -410,10 +441,13 @@ export default function PlatformContractTemplatesPage() {
                     className="adm-field"
                     style={{ width: '100%' }}
                     value={formType}
-                    onChange={(e) => setFormType(e.target.value as 'CLASS' | 'RECRUITMENT')}
+                    onChange={(e) => setFormType(e.target.value)}
                   >
-                    <option value="CLASS">Hợp đồng dạy lớp / học viên (CLASS)</option>
-                    <option value="RECRUITMENT">Hợp đồng tuyển dụng gia sư (RECRUITMENT)</option>
+                    <option value="CENTER_CLASS">Hợp đồng dạy lớp trung tâm (CENTER_CLASS)</option>
+                    <option value="PRIVATE_TUTORING">Hợp đồng dạy kèm 1:1 cá nhân (PRIVATE_TUTORING)</option>
+                    <option value="RECRUITMENT">Thỏa thuận hợp tác tuyển dụng (RECRUITMENT)</option>
+                    <option value="SPECIALIZED_GUARANTEE">Hợp đồng cam kết đầu ra / luyện thi (SPECIALIZED_GUARANTEE)</option>
+                    <option value="CLASS">Khác / Hợp đồng dạy lớp chung (CLASS)</option>
                   </select>
                 </div>
 

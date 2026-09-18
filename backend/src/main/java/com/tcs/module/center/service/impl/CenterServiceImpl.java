@@ -3117,12 +3117,16 @@ public class CenterServiceImpl implements CenterService {
         ContractTemplate t = new ContractTemplate();
         t.setName(request.getName().trim());
         t.setContent(request.getContent().trim());
+        String contractType = StringUtils.hasText(request.getContractType())
+                ? request.getContractType().trim()
+                : "CENTER_CLASS";
+        t.setContractType(contractType);
         t.setCreatedBy(center.getUser());
         t.setCenter(center);
         t.setDefaultTemplate(false);
         t.setStatus(ContractTemplateStatus.ACTIVE);
         ContractTemplate saved = contractTemplateRepository.save(t);
-        saveTemplateType(saved.getTemplateId(), request.getContractType());
+        saveTemplateType(saved.getTemplateId(), contractType);
         return toTemplateResponse(saved);
     }
 
@@ -3143,19 +3147,24 @@ public class CenterServiceImpl implements CenterService {
         if (StringUtils.hasText(request.getContent())) {
             t.setContent(request.getContent().trim());
         }
-        ContractTemplate saved = contractTemplateRepository.save(t);
         if (StringUtils.hasText(request.getContractType())) {
-            saveTemplateType(saved.getTemplateId(), request.getContractType());
+            String contractType = request.getContractType().trim();
+            t.setContractType(contractType);
+            saveTemplateType(t.getTemplateId(), contractType);
         }
+        ContractTemplate saved = contractTemplateRepository.save(t);
         return toTemplateResponse(saved);
     }
 
     private ContractTemplateResponse toTemplateResponse(ContractTemplate t) {
+        String type = StringUtils.hasText(t.getContractType())
+                ? t.getContractType()
+                : findTemplateType(t.getTemplateId());
         return ContractTemplateResponse.builder()
                 .templateId(t.getTemplateId())
                 .name(t.getName())
                 .content(t.getContent())
-                .contractType(findTemplateType(t.getTemplateId()))
+                .contractType(type)
                 .defaultTemplate(Boolean.TRUE.equals(t.getDefaultTemplate()))
                 .status(t.getStatus() != null ? t.getStatus().name() : null)
                 .system(t.getCenter() == null)
@@ -3249,7 +3258,9 @@ public class CenterServiceImpl implements CenterService {
     private String findTemplateType(Long templateId) {
         return systemParameterRepository.findByParamKey(TEMPLATE_TYPE_PREFIX + templateId)
                 .map(SystemParameter::getParamValue)
-                .orElse(TEMPLATE_TYPE_CLASS);
+                .orElseGet(() -> systemParameterRepository.findByParamKey("CONTRACT_TEMPLATE_TYPE_" + templateId)
+                        .map(SystemParameter::getParamValue)
+                        .orElse(TEMPLATE_TYPE_CLASS));
     }
 
     // =========================================================================

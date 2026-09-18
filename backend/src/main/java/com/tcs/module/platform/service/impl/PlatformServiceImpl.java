@@ -2272,14 +2272,18 @@ public class PlatformServiceImpl implements PlatformService {
         ContractTemplate t = new ContractTemplate();
         t.setName(request.getName().trim());
         t.setContent(request.getContent().trim());
+        String contractType = org.springframework.util.StringUtils.hasText(request.getContractType())
+                ? request.getContractType().trim()
+                : "CENTER_CLASS";
+        t.setContractType(contractType);
         User currentUser = userRepository.findById(authHelper.currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin quản trị viên"));
         t.setCreatedBy(currentUser);
         t.setCenter(null);
-        t.setDefaultTemplate(true);
+        t.setDefaultTemplate(false);
         t.setStatus(ContractTemplateStatus.ACTIVE);
         ContractTemplate saved = contractTemplateRepository.save(t);
-        saveTemplateType(saved.getTemplateId(), request.getContractType());
+        saveTemplateType(saved.getTemplateId(), contractType);
         return toTemplateResponse(saved);
     }
 
@@ -2294,10 +2298,12 @@ public class PlatformServiceImpl implements PlatformService {
         if (org.springframework.util.StringUtils.hasText(request.getContent())) {
             t.setContent(request.getContent().trim());
         }
-        ContractTemplate saved = contractTemplateRepository.save(t);
         if (org.springframework.util.StringUtils.hasText(request.getContractType())) {
-            saveTemplateType(saved.getTemplateId(), request.getContractType());
+            String contractType = request.getContractType().trim();
+            t.setContractType(contractType);
+            saveTemplateType(t.getTemplateId(), contractType);
         }
+        ContractTemplate saved = contractTemplateRepository.save(t);
         return toTemplateResponse(saved);
     }
 
@@ -2311,11 +2317,14 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     private ContractTemplateResponse toTemplateResponse(ContractTemplate t) {
+        String type = org.springframework.util.StringUtils.hasText(t.getContractType())
+                ? t.getContractType()
+                : findTemplateType(t.getTemplateId());
         return ContractTemplateResponse.builder()
                 .templateId(t.getTemplateId())
                 .name(t.getName())
                 .content(t.getContent())
-                .contractType(findTemplateType(t.getTemplateId()))
+                .contractType(type)
                 .defaultTemplate(Boolean.TRUE.equals(t.getDefaultTemplate()))
                 .status(t.getStatus() != null ? t.getStatus().name() : "ACTIVE")
                 .system(t.getCenter() == null)
@@ -2323,21 +2332,28 @@ public class PlatformServiceImpl implements PlatformService {
     }
 
     private void saveTemplateType(Long templateId, String contractType) {
-        String value = TEMPLATE_TYPE_RECRUITMENT.equalsIgnoreCase(contractType)
-                ? TEMPLATE_TYPE_RECRUITMENT : TEMPLATE_TYPE_CLASS;
-        String key = TEMPLATE_TYPE_PREFIX + templateId;
+        String value = contractType != null ? contractType.trim() : TEMPLATE_TYPE_CLASS;
+        // Lưu theo prefix Platform Admin
+        saveParam(TEMPLATE_TYPE_PREFIX + templateId, value, "Loại mẫu hợp đồng (Platform)");
+        // Đồng bộ theo prefix Center / Contract module ("tpltype:")
+        saveParam("tpltype:" + templateId, TEMPLATE_TYPE_RECRUITMENT.equalsIgnoreCase(value) ? TEMPLATE_TYPE_RECRUITMENT : TEMPLATE_TYPE_CLASS, "Loại mẫu hợp đồng (Center/Contract)");
+    }
+
+    private void saveParam(String key, String value, String desc) {
         com.tcs.module.catalog.entity.SystemParameter param = systemParameterRepository.findByParamKey(key)
                 .orElseGet(com.tcs.module.catalog.entity.SystemParameter::new);
         param.setParamKey(key);
         param.setParamValue(value);
-        param.setDescription("Loại mẫu hợp đồng: RECRUITMENT / CLASS");
+        param.setDescription(desc);
         systemParameterRepository.save(param);
     }
 
     private String findTemplateType(Long templateId) {
         return systemParameterRepository.findByParamKey(TEMPLATE_TYPE_PREFIX + templateId)
                 .map(com.tcs.module.catalog.entity.SystemParameter::getParamValue)
-                .orElse(TEMPLATE_TYPE_CLASS);
+                .orElseGet(() -> systemParameterRepository.findByParamKey("tpltype:" + templateId)
+                        .map(com.tcs.module.catalog.entity.SystemParameter::getParamValue)
+                        .orElse(TEMPLATE_TYPE_CLASS));
     }
 
     // =========================================================================

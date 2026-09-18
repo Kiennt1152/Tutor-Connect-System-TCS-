@@ -845,15 +845,27 @@ public class ContractServiceImpl implements ContractService {
         // gia sư vào hợp đồng học viên).
         return contractTemplateRepository.findByStatus(ContractTemplateStatus.ACTIVE)
                 .stream()
-                .filter(t -> !isRecruitmentTemplate(t.getTemplateId()))
+                .filter(t -> !isRecruitmentTemplate(t))
+                .sorted((a, b) -> Boolean.compare(Boolean.TRUE.equals(b.getDefaultTemplate()), Boolean.TRUE.equals(a.getDefaultTemplate())))
                 .findFirst().orElse(null);
+    }
+
+    private boolean isRecruitmentTemplate(ContractTemplate t) {
+        if (t == null) return false;
+        if ("RECRUITMENT".equalsIgnoreCase(t.getContractType())) {
+            return true;
+        }
+        return isRecruitmentTemplate(t.getTemplateId());
     }
 
     /** Loại mẫu hợp đồng lưu ở system_parameters (tpltype:{id} -> RECRUITMENT|CLASS). */
     private boolean isRecruitmentTemplate(Long templateId) {
+        if (templateId == null) return false;
         return systemParameterRepository.findByParamKey("tpltype:" + templateId)
                 .map(p -> "RECRUITMENT".equalsIgnoreCase(p.getParamValue()))
-                .orElse(false);
+                .orElseGet(() -> systemParameterRepository.findByParamKey("CONTRACT_TEMPLATE_TYPE_" + templateId)
+                        .map(p -> "RECRUITMENT".equalsIgnoreCase(p.getParamValue()))
+                        .orElse(false));
     }
 
     /** Nội dung điều khoản center nhập khi tạo lớp (classterms:{classId}), nếu có. */
@@ -1307,7 +1319,8 @@ public class ContractServiceImpl implements ContractService {
     private ContractTemplate findActiveTemplate() {
         return contractTemplateRepository.findAll().stream()
                 .filter(t -> t.getStatus() == ContractTemplateStatus.ACTIVE)
-                .filter(t -> !isRecruitmentTemplate(t.getTemplateId()))
+                .filter(t -> !isRecruitmentTemplate(t))
+                .sorted((a, b) -> Boolean.compare(Boolean.TRUE.equals(b.getDefaultTemplate()), Boolean.TRUE.equals(a.getDefaultTemplate())))
                 .findFirst()
                 .orElse(null);
     }

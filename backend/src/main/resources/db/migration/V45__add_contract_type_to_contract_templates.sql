@@ -5,8 +5,13 @@
 --   RECRUITMENT: Thỏa thuận hợp tác tuyển dụng gia sư (Trung tâm <-> Gia sư)
 --   SPECIALIZED_GUARANTEE: Hợp đồng cam kết đầu ra / luyện thi chứng chỉ quốc tế (Học viên <-> Gia sư/Trung tâm)
 
-ALTER TABLE contract_templates
-    ADD COLUMN contract_type VARCHAR(50) NOT NULL DEFAULT 'CENTER_CLASS' AFTER content;
+SET @col := (SELECT COUNT(*) FROM information_schema.COLUMNS
+    WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'contract_templates'
+      AND COLUMN_NAME = 'contract_type');
+SET @ddl := IF(@col = 0,
+    'ALTER TABLE contract_templates ADD COLUMN contract_type VARCHAR(50) NOT NULL DEFAULT \'CENTER_CLASS\' AFTER content',
+    'SELECT 1');
+PREPARE stmt FROM @ddl; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- Cập nhật dữ liệu cho các mẫu hiện có
 UPDATE contract_templates

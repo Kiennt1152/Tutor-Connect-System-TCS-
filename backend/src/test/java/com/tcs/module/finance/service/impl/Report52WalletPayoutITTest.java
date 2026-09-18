@@ -53,9 +53,11 @@ import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
+import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.security.AuthHelper;
 import com.tcs.security.UserPrincipal;
 import java.math.BigDecimal;
@@ -110,6 +112,8 @@ public class Report52WalletPayoutITTest {
     @Mock private DisputeRepository disputeRepository;
     @Mock private UserRepository userRepository;
     @Mock private PlatformAdminRepository platformAdminRepository;
+    @Mock private com.tcs.module.finance.repository.WalletRepository walletRepository;
+    @Mock private TutorRepository tutorRepository;
     @Mock private TutorCenterRepository tutorCenterRepository;
     @Mock private EscrowService escrowService;
     @Mock private CenterRequestFeeService centerRequestFeeService;
@@ -136,6 +140,14 @@ public class Report52WalletPayoutITTest {
         wallet.setAvailableBalance(new BigDecimal("250000.00"));
         wallet.setFrozenBalance(new BigDecimal("50000.00"));
         wallet.setStatus(WalletStatus.ACTIVE);
+        org.mockito.Mockito.lenient().when(tutorRepository.existsByUser_UserIdAndVerificationStatus(
+                        USER_ID,
+                        ProfileVerificationStatus.VERIFIED))
+                .thenReturn(true);
+        org.mockito.Mockito.lenient().when(tutorCenterRepository.existsByUser_UserIdAndVerificationStatus(
+                        USER_ID,
+                        ProfileVerificationStatus.VERIFIED))
+                .thenReturn(true);
         ReflectionTestUtils.setField(financeService, "directDepositEnabled", true);
         ReflectionTestUtils.setField(financeService, "simulateTopupEnabled", true);
         reconciliationService = new PaymentReconciliationService(

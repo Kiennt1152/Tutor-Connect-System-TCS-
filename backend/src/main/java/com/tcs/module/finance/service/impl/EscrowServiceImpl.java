@@ -43,16 +43,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Implementation of the Smart Escrow Wallet and Multi-party Settlement Service.
- * <p>
- * Core Responsibilities:
- * <ul>
- *   <li>BF-06 (Wallet & Payment): Locking tuition funds into escrow upon enrollment or assignment.</li>
- *   <li>BF-08 (Dispute & Settlement): Releasing escrow funds to tutor/center upon class completion or refunding client upon approved dispute.</li>
- *   <li>Multi-party Fee Deduction: Computing platform commission fee dynamically based on system parameters.</li>
- *   <li>Audit Logging & Financial Journaling: Ensuring strict ledger reconciliation with zero negative balance guarantee (NFR-COM01).</li>
- * </ul>
- *
+ * ====================================================================================================
+ * [UC-40] [UC-58] [UC-46] DỊCH VỤ QUẢN TRỊ KÝ QUỸ ESCROW & ĐỐI SOÁT TÀI CHÍNH ĐA BÊN (ESCROW SERVICE)
+ * ====================================================================================================
+ * Thành phần nghiệp vụ tài chính cốt lõi đảm bảo giao dịch an toàn trên nền tảng:
+ * 1. [UC-58] Quản trị vòng đời Ký quỹ: Phong tỏa tiền học phí (HELD), Đóng băng khi có tranh chấp (DISPUTED).
+ * 2. [UC-40] Giải ngân học phí (Escrow Release): Chuyển tiền từ tài khoản bảo chứng sang ví gia sư / trung tâm sau khi hoàn tất lớp học.
+ * 3. Hoàn tiền ký quỹ (Escrow Refund): Hoàn trả tiền vào ví phụ huynh khi hủy lớp hoặc giải quyết tranh chấp thành công.
+ * 4. [UC-46] Khấu trừ phí dịch vụ sàn linh hoạt (resolvePlatformFeeRate): Ưu tiên áp dụng mức phí riêng của trung tâm gia sư (nếu có), ngược lại áp dụng mức phí mặc định toàn sàn (2%).
+ * 5. Đảm bảo tính toàn vẹn tài chính: Bút toán đối soát hai chiều, cam kết số dư ví không bao giờ âm (Zero Negative Balance Guarantee).
+ * 
+ * @author mduc1011-swp (Đức)
  * @see com.tcs.module.finance.service.EscrowService
  * @see com.tcs.module.finance.entity.EscrowTransaction
  */

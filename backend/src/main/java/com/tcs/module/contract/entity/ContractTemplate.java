@@ -39,6 +39,9 @@ public class ContractTemplate {
     @Column(name = "content", columnDefinition = "TEXT", nullable = false)
     private String content;
 
+    @Column(name = "contract_type", length = 50, nullable = false)
+    private String contractType = "CENTER_CLASS";
+
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "created_by", nullable = false)
     private User createdBy;
