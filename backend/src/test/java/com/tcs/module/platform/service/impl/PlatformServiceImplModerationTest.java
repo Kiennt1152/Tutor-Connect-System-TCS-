@@ -1031,9 +1031,12 @@ class PlatformServiceImplModerationTest {
             IllegalArgumentException ex = assertThrows(IllegalArgumentException.class,
                     () -> service.updateUserStatus(TARGET_USER_ID, request(null)));
             assertEquals("Trạng thái không được để trống", ex.getMessage());
+            // hàm insert equal/insert not equal - test oracle - test đầu ra thực tế với mong đợi để xem pass hay failed.,
+            // nếu đầu ra mong đợi trùng với đầu ra thực tế thì hàm insert equal trả về true là pass,  nếu khác thì trả failed là failed
+            // các file đuôi Test là test script, auto - test script / manual - ko cần test script
+            // Tool dùng để test là JUnit5 và Mockito
             verify(userRepository, never()).save(any());
         }
-
         @Test
         @DisplayName("UTCID03 (A) - doi tuong la tai khoan quan tri vien -> chan")
         void utcid03_targetIsAdmin() {

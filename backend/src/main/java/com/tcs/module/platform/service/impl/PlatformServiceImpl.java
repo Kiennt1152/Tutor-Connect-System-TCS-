@@ -203,6 +203,7 @@ public class PlatformServiceImpl implements PlatformService {
         auditLogService.record("UPDATE_USER_STATUS", "User", userId, java.util.Map.of("oldStatus", oldStatus), java.util.Map.of("newStatus", request.getStatus()));
         return platformMapper.toUserListItem(saved, profiles);
     }
+// kiểm thử phủ nhánh và phủ câu lệnh, phủ câu lệnh thì có thể phủ nhánh, còn phủ nhánh thì chắc chắn phủ câu lệnh
 
     // =========================================================================
     // LUỒNG 8: BẢNG ĐIỀU KHIỂN QUẢN TRỊ & GIÁM SÁT CHỈ SỐ SỨC KHỎE DASHBOARD (UC-56)

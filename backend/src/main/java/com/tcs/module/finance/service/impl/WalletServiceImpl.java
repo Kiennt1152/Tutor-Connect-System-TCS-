@@ -192,6 +192,7 @@ public class WalletServiceImpl implements WalletService {
         if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
             throw new BusinessException("Số tiền nạp phải lớn hơn 0");
         }
+        // test biên, áp dụng cho các trường hợp đầu vào là 1 giải số
         Wallet wallet = walletRepository.findByUser_UserId(userId)
                 .orElseGet(() -> createWallet(userId));
 
