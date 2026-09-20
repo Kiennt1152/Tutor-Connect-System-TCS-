@@ -476,7 +476,9 @@ export default function ContractDetailPage() {
     contract.status === 'ACTIVE' ||
     contract.status === 'COMPLETED';
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
-  const canCreateIssue = contract.classId != null;
+  const issueClosedBySettlement =
+    contract.status === 'COMPLETED' && contract.escrowPayment?.escrowStatus === 'RELEASED';
+  const canCreateIssue = contract.classId != null && !issueClosedBySettlement;
   const selectedPayoutBank = findBankByName(payoutBankName);
   const displayTuitionFee = contract.totalTuitionAmount ?? contract.tuitionFee;
   const needsRefundPayoutInfo =

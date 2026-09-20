@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
+import { APP_ROUTES } from '../../../shared/constants/routes';
 import { disputeApi } from '../api/disputeApi';
 import type { EvidenceUploadResponse, ParticipantDispute } from '../types/disputeTypes';
 import './MyDisputesPage.css';
@@ -15,6 +16,7 @@ const dateText = (text: string) => new Date(text).toLocaleString('vi-VN');
 
 export default function MyDisputesPage() {
   const location = useLocation();
+  const navigate = useNavigate();
   const classId = (location.state as { classId?: number } | null)?.classId;
   const [items, setItems] = useState<ParticipantDispute[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
@@ -34,9 +36,19 @@ export default function MyDisputesPage() {
     setItems(current => current.map(i => i.disputeId === item.disputeId ? item : i));
     setNotice(message);
   };
+  const goBack = () => {
+    if (window.history.length > 1 && location.key !== 'default') {
+      navigate(-1);
+      return;
+    }
+    navigate(APP_ROUTES.contract);
+  };
   return <>
     <HomeNavbar />
     <main className="my-disputes">
+      <button className="my-disputes__back" type="button" onClick={goBack}>
+        ← Quay lại
+      </button>
       <header className="my-disputes__heading">
         <h1>Tranh chấp của tôi</h1>
         <button className="tcs-btn tcs-btn--ghost" onClick={() => void reload()} disabled={loading}>Làm mới</button>

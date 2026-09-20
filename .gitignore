@@ -10,6 +10,10 @@ postman/
 backend/.env
 frontend/.env
 
+# IDE local project metadata
+.idea/
+*.iml
+
 # Cấu hình mail bí mật (App Password) — KHÔNG commit
 secret-mail.properties
 secret-ai.properties
@@ -24,3 +28,12 @@ backend/*.log
 
 # SonarQube temporary scan artifacts
 .scannerwork/
+
+# Codex/local temporary working files
+.codex_tmp/
+
+# Local scratch/merge-helper artifacts
+scratch/
+migration_backup/
+conflicts.txt
+resolve.js

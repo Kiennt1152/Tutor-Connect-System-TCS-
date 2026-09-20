@@ -1,4 +1,16 @@
 .my-disputes { max-width: 1180px; margin: 0 auto; padding: 28px 20px 64px; color: #182230; }
+.my-disputes__back {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #c2410c;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  margin: 0 0 16px;
+  cursor: pointer;
+}
+.my-disputes__back:hover { color: #ea580c; }
 .my-disputes__heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
 .my-disputes h1 { font-size: 26px; margin: 0; }
 .my-disputes h2 { font-size: 21px; overflow-wrap: anywhere; }

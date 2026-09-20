@@ -68,6 +68,9 @@ const getEscrowLabel = (escrow: EscrowPaymentInfo | null | undefined) => {
   };
 };
 
+const getEscrowCode = (escrow: EscrowPaymentInfo) =>
+  escrow.referenceCode?.trim() || (escrow.escrowId ? `#${escrow.escrowId}` : '—');
+
 export default function ContractListPage() {
   const { contracts, loading, error, reload } = useContractList();
   const { user } = useAuth();
@@ -249,11 +252,11 @@ export default function ContractListPage() {
                 <table className="contract-table">
                   <thead>
                     <tr>
-                      <th>Escrow</th>
+                      <th>Mã escrow</th>
                       <th>Hợp đồng</th>
                       <th>Lớp học</th>
                       <th>Số tiền escrow</th>
-                      <th>Escrow</th>
+                      <th>Trạng thái</th>
                       <th>Thanh toán</th>
                       <th>Cập nhật</th>
                       <th />
@@ -274,8 +277,7 @@ export default function ContractListPage() {
                         <tr key={contract.contractId}>
                           <td>
                             <div className="contract-escrow-code">
-                              <strong>#{escrow.escrowId}</strong>
-                              <code>{escrow.referenceCode ?? '—'}</code>
+                              <code title={getEscrowCode(escrow)}>{getEscrowCode(escrow)}</code>
                             </div>
                           </td>
                           <td className="contract-table__title">{contract.contractNo}</td>
