@@ -12,22 +12,25 @@
    ngăn cách bằng một đường kẻ mảnh thay vì là một thẻ card riêng. */
 .tfc-panel {
   border-top: 1px dashed #e3e9f2;
-  margin-top: 4px;
-  padding-top: 14px;
+  margin-top: 2px;
+  padding-top: 10px;
 }
-/* flex-start: tiêu đề xuống 2 dòng thì nút "Cách tính ?" vẫn nằm ngang dòng đầu. */
-.tfc-panel__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-.tfc-panel__title { margin: 0 0 6px; font-size: 17px; font-weight: 800; color: #12233b; }
+/* Chỉ còn một nút sau khi bỏ "Cách tính ?" nên canh giữa thay vì space-between. */
+.tfc-panel__head { display: flex; align-items: flex-start; justify-content: center; gap: 10px; }
+.tfc-panel__title { margin: 0 0 4px; font-size: 15px; font-weight: 800; color: #12233b; }
 /* Nút mở popup công thức — thay cho khối <details> nằm chình ình trong panel trước đây. */
 .tfc-formula-btn {
   flex: 0 0 auto; border: 1px solid #cfd8e3; background: #f7f9fc; color: #ea580c;
-  border-radius: 999px; padding: 4px 12px; font-size: 12.5px; font-weight: 600; cursor: pointer;
+  border-radius: 999px; padding: 3px 11px; font-size: 11.5px; font-weight: 600; cursor: pointer;
   transition: border-color 0.15s, background 0.15s;
 }
 .tfc-formula-btn:hover { border-color: #ea580c; background: #fff7ed; }
 .tfc-formula-modal { max-width: 560px; padding: 24px; }
 .tfc-formula-modal__title { margin: 0 0 14px; font-size: 18px; font-weight: 800; color: #12233b; }
-.tfc-panel__desc { margin: 0 0 16px; font-size: 12.5px; line-height: 1.55; color: #5b6b7f; }
+.tfc-panel__desc {
+  margin: 0 0 10px; font-size: 11.5px; line-height: 1.45; color: #5b6b7f;
+  text-align: center;
+}
 .tfc-panel__desc strong { color: #12233b; }
 
 /* Thẻ form nằm trong hero (căn giữa) — nền warm bao quanh giống màn Tìm gia sư. */
@@ -40,22 +43,22 @@
 .tfc-search {
   background: #fff;
   border: 1px solid #e3e9f2;
-  border-radius: 14px;
-  padding: 16px 18px;
-  box-shadow: 0 8px 24px rgba(18, 35, 59, 0.06);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 18px rgba(18, 35, 59, 0.05);
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 9px;
 }
-.tfc-search__row { display: flex; gap: 12px; }
+.tfc-search__row { display: flex; gap: 9px; }
 .tfc-search__box { position: relative; flex: 1; display: flex; align-items: center; }
 .tfc-search__input {
   width: 100%;
   /* Chừa chỗ bên phải cho nút ✕; bên trái không còn icon nên thụt vào như ô nhập thường. */
-  padding: 12px 40px 12px 16px;
+  padding: 9px 36px 9px 13px;
   border: 1px solid #cfd8e3;
-  border-radius: 10px;
-  font-size: 15px;
+  border-radius: 9px;
+  font-size: 14px;
   color: #12233b;
   background: #fff;
 }
@@ -65,12 +68,12 @@
   border-radius: 6px; background: #eef2f7; color: #5b6b7f; cursor: pointer; font-size: 12px;
 }
 .tfc-search__clear:hover { background: #e0e6ee; }
-.tfc-search__btn { flex: 0 0 auto; padding: 12px 26px; font-size: 15px; border-radius: 10px; }
+.tfc-search__btn { flex: 0 0 auto; padding: 9px 22px; font-size: 14px; border-radius: 9px; }
 /* Câu ví dụ dưới ô gõ nhanh — thụt bằng mép trong của input, chừa chỗ nút "Tìm". */
 .tfc-search__hint {
   margin: -4px 0 0;
-  font-size: 12.5px;
-  line-height: 1.4;
+  font-size: 11.5px;
+  line-height: 1.35;
   color: #8592a3;
 }
 .tfc-search__hint em { font-style: normal; color: #5b6b7f; }
@@ -116,7 +119,7 @@
 }
 .tfc-priority__left { min-width: 0; }
 .tfc-priority__right { min-width: 0; }
-.tfc-weight-list { display: flex; flex-direction: column; gap: 4px; }
+.tfc-weight-list { display: flex; flex-direction: column; gap: 2px; }
 /* Chưa bấm "Tìm lớp" → thanh trượt mờ và không tương tác được. */
 .tfc-panel.is-locked .tfc-weight-list { opacity: 0.45; pointer-events: none; user-select: none; }
 .tfc-weight input[type="range"]:disabled { cursor: not-allowed; }
@@ -139,10 +142,13 @@
 .tfc-weight-intro { margin: 0 0 10px; font-size: 12px; line-height: 1.45; color: #5b6b7f; }
 .tfc-weight-legend { color: #8592a3; font-size: 11.5px; }
 .tfc-weight { margin-bottom: 2px; }
-.tfc-weight__head { display: flex; justify-content: space-between; font-size: 13px; color: #12233b; margin-bottom: 0; }
+.tfc-weight__head { display: flex; justify-content: space-between; font-size: 12px; color: #12233b; margin-bottom: 0; }
 .tfc-weight__val { font-weight: 700; color: #ea580c; white-space: nowrap; }
 .tfc-weight__val.is-zero { color: #94a3b5; }
-.tfc-weight input[type="range"] { width: 100%; height: 18px; margin: 0; accent-color: #ea580c; }
+.tfc-weight input[type="range"] { width: 100%; height: 15px; margin: 0; accent-color: #ea580c; }
+/* Tiêu chí câu tìm không nêu -> tự bỏ qua, phần của nó chia cho các tiêu chí còn lại. */
+.tfc-weight.is-off { opacity: 0.5; }
+.tfc-weight.is-off .tfc-weight__val { color: #94a3b5; font-weight: 600; }
 .tfc-weight__scale { display: flex; justify-content: space-between; font-size: 10.5px; color: #b0bac6; margin-top: -2px; }
 .tfc-results__head {
   display: flex; align-items: center; gap: 12px; justify-content: space-between;
@@ -167,14 +173,17 @@
 .tfc-notice--warn strong { color: #6b4500; }
 .tfc-state { background: #fff; border: 1px dashed #cfd8e3; border-radius: 12px; padding: 28px; text-align: center; color: #5b6b7f; }
 .tfc-state--error { border-color: #f0b7b2; color: #c62828; }
-/* 2 lớp / hàng (6 lớp / trang = 2 cột × 3 hàng). */
+/* Thẻ không kéo quá rộng: tự điền cột tối thiểu 320px — màn rộng thành 3 lớp / hàng
+   (6 lớp / trang = 3 cột × 2 hàng). */
 .tfc-list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
   gap: 14px;
-  align-items: stretch;
+  /* Mỗi thẻ cao theo đúng nội dung của nó. Nếu kéo bằng nhau (stretch), lớp ít
+     thông tin (không có mục tiêu / yêu cầu gia sư) sẽ hở một mảng trắng lớn
+     giữa phần chip và nút "Xem chi tiết". */
+  align-items: start;
 }
-.tfc-list .tfc-card { height: 100%; }
 
 /* Phân trang. */
 .tfc-pager {
@@ -215,34 +224,81 @@
 .tfc-score--high { background: linear-gradient(135deg, #2e7d32, #43a047); }
 .tfc-score--mid { background: linear-gradient(135deg, #ef6c00, #fb8c00); }
 .tfc-score--low { background: linear-gradient(135deg, #78909c, #90a4ae); }
-.tfc-card__body { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.tfc-card__top { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+/* Mỗi tiêu chí đã chiếm một hàng riêng nên cột trái rất hẹp; để nút ở cột phải như trước
+   sẽ thành hai khối lệch nhau. Nay thân thẻ xếp dọc, nút trải hết bề ngang ở đáy. */
+.tfc-card__body {
+  flex: 1; min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+.tfc-card__top {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+}
 .tfc-card__title { margin: 0; font-size: 16.5px; font-weight: 700; line-height: 1.4; color: #12233b; }
 .tfc-card__id { font-size: 12px; color: #8592a3; }
 /* Môn · khối · địa điểm dạng pill cho dễ quét mắt, không lẫn vào phần mô tả bên dưới. */
-.tfc-card__meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 12px; }
-.tfc-card__meta span {
-  font-size: 12.5px; color: #43546a; background: #f4f7fb; border: 1px solid #e8eef6;
-  border-radius: 999px; padding: 4px 10px;
+/* Mỗi tiêu chí một hàng để gia sư đọc lướt theo chiều dọc. Chip trải hết bề ngang thẻ:
+   có cùng bề rộng thì năm nhãn mới thẳng hàng, giá trị cũng thẳng lề phải. */
+.tfc-card__meta {
+  display: flex; flex-direction: column;
+  gap: 6px; margin-top: 10px;
 }
-/* Học phí và lịch học là hai tiêu chí gia sư nhìn đầu tiên -> tô đậm hơn các chip khác. */
+/* Một tone cam duy nhất cho cả năm chip. */
+.tfc-card__meta > span {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  font-size: 12.5px; color: #b8461a; background: #fff4ec; border: 1px solid #fbd9c3;
+  border-radius: 999px; padding: 4px 12px;
+}
+/* Giá trị dài thì xuống hàng trong chip, canh phải cho khớp lề. */
+.tfc-card__meta-val {
+  min-width: 0;
+  text-align: right;
+}
+/* Nhãn đen, không co lại để luôn nằm đúng một cột bên trái. */
+.tfc-card__meta-key {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: #12233b;
+}
+.tfc-card__meta-key::after {
+  content: ':';
+}
+/* Cùng màu thì học phí phải in đậm mới nổi — con số gia sư nhìn đầu tiên. */
 .tfc-card__meta span[title^="Học phí"] {
-  color: #b8461a; background: #fff4ec; border-color: #fbd9c3; font-weight: 600;
+  font-weight: 600;
 }
-.tfc-card__meta span[title^="Lịch học"] {
-  color: #1d4ed8; background: #eef3ff; border-color: #d7e2fb;
+/* Vị trí trong lưới thân thẻ (xem .tfc-card__body phía trên). Markup chỉ dựng khối này khi lớp
+   có mô tả / mục tiêu / yêu cầu, nên không còn khoảng trống thừa. */
+.tfc-card__info { display: flex; flex-direction: column; gap: 7px; margin-top: 10px; }
+/* Giữ luật của main: nếu khối rỗng lọt vào thì cũng không chiếm chỗ. */
+.tfc-card__info:empty { display: none; }
+/* Mô tả lớp: cắt gọn 2 dòng cho các thẻ đều nhau. */
+.tfc-card__desc {
+  margin: 0; font-size: 13px; line-height: 1.5; color: #5b6b7f;
+  display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; overflow-wrap: anywhere;
 }
-.tfc-card__info { display: flex; flex-direction: column; gap: 7px; margin-bottom: 14px; }
-/* Icon tách thành cột riêng để dòng dài xuống hàng vẫn thẳng lề, không chui xuống dưới icon. */
+/* Bỏ icon nên không cần tách cột nữa: để block cho nhãn và nội dung chảy liền mạch,
+   dòng dài xuống hàng vẫn thẳng lề trái. */
 .tfc-card__info-row {
   margin: 0; font-size: 13px; line-height: 1.5; color: #43546a;
-  display: flex; align-items: flex-start; gap: 8px;
 }
-.tfc-card__ico { flex: 0 0 auto; line-height: 1.5; }
 .tfc-card__info-row strong { color: #12233b; font-weight: 600; }
 .tfc-card__actions {
-  display: flex; justify-content: flex-end; gap: 10px;
-  margin-top: auto; padding-top: 14px; border-top: 1px solid #f0f4f9;
+  /* margin-top: auto đẩy nút xuống đáy thẻ — các thẻ cùng hàng bị kéo cao bằng nhau thì
+     hàng nút vẫn thẳng nhau. */
+  margin-top: auto;
+  padding-top: 14px;
+  display: flex; gap: 10px;
+}
+/* Chia đều bề ngang ô cho mọi nút: flex-basis 0 nên bề rộng không còn phụ thuộc độ dài
+   chữ ("✓ Đã ứng tuyển" vẫn bằng "Xem chi tiết"). Đệm ngang thu lại vì bề rộng đã do
+   flex quyết định; nowrap để nhãn không gãy dòng khi thẻ hẹp. */
+.tfc-card__actions > * {
+  flex: 1 1 0;
+  min-width: 0;
+  padding-inline: 12px;
+  white-space: nowrap;
 }
 .tfc-btn { border: none; border-radius: 8px; padding: 9px 18px; font-size: 14px; font-weight: 600; cursor: pointer; }
 .tfc-btn--primary { background: #ea580c; color: #fff; }
@@ -317,6 +373,22 @@
 .apl-field input, .apl-field textarea { border: 1px solid #cfd8e3; border-radius: 8px; padding: 9px 12px; font-size: 14px; font-family: inherit; }
 .apl-field input:focus, .apl-field textarea:focus { outline: none; border-color: #ea580c; }
 .apl-error { margin: 0; color: #c62828; font-size: 13px; font-weight: 500; }
+.apl-warning {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0 0 14px;
+  padding: 12px 14px;
+  border: 1px solid #f2d19b;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #8a4b0f;
+  font-size: 13px;
+  line-height: 1.45;
+}
+.apl-warning strong {
+  color: #7c2d12;
+}
 /* Bỏ khoảng trống thừa giữa ô "Lời nhắn" và cảnh báo cuối modal */
 .cdm__body > .cdm-section:last-of-type { margin-bottom: 8px; }
 .cdm__body > .cdm-section:last-of-type .apl-field { margin-bottom: 0; }
@@ -550,22 +622,22 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 .tfc-chip {
   display: inline-flex;
   align-items: baseline;
-  gap: 6px;
-  padding: 6px 12px;
+  gap: 5px;
+  padding: 4px 10px;
   border: 1px solid #fbd9c3;
   border-radius: 999px;
   background: #fff7ed;
-  font-size: 13.5px;
+  font-size: 12.5px;
   font-weight: 700;
   color: #12233b;
 }
 .tfc-chip__key {
-  font-size: 11.5px;
+  font-size: 10.5px;
   font-weight: 700;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -582,3 +654,44 @@
   cursor: pointer;
 }
 .tfc-chips__clear:hover { color: #c2410c; }
+
+/* ---------- Trùng thời gian bận gia sư đã đăng ký (chỉ nhắc, không chặn) ---------- */
+.tfc-card__busy {
+  margin: 10px 0 0;
+  padding: 7px 10px;
+  border-radius: 8px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.tfc-card__busy strong {
+  color: #78350f;
+}
+.tfc-busy-notice {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  color: #92400e;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.tfc-busy-notice strong {
+  display: block;
+  color: #78350f;
+}
+.tfc-busy-notice ul {
+  margin: 6px 0;
+  padding-left: 18px;
+}
+.tfc-busy-notice span {
+  display: block;
+  font-size: 12.5px;
+}
+/* Trong modal "Xem chi tiết" banner nằm ngoài .cdm__body (padding 24px) nên tự thêm lề cho thẳng nội dung. */
+.cdm > .tfc-busy-notice {
+  margin: 12px 24px 0;
+}

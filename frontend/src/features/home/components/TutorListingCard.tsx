@@ -20,10 +20,18 @@ const initials = (name: string) =>
     .map((part) => part.charAt(0).toUpperCase())
     .join('');
 
-const bioSnippet = (bio: string | null) => {
-  const text = bio?.trim();
-  if (!text) return 'Gia sư tận tâm, sẵn sàng đồng hành cùng học viên trên nền tảng TCS.';
-  return text.length > 120 ? `${text.slice(0, 120)}…` : text;
+/** Hiển thị giới tính bằng tiếng Việt. */
+const genderLabel = (gender: string) => {
+  switch (gender.trim().toUpperCase()) {
+    case 'MALE':
+      return 'Nam';
+    case 'FEMALE':
+      return 'Nữ';
+    case 'OTHER':
+      return 'Khác';
+    default:
+      return gender;
+  }
 };
 
 export function TutorListingCard({
@@ -70,15 +78,12 @@ export function TutorListingCard({
         {tutor.gender ? (
           <div className="tcs-listing-card__row">
             <span className="tcs-listing-card__label">Giới tính</span>
-            <span className="tcs-listing-card__value">{tutor.gender}</span>
+            <span className="tcs-listing-card__value">{genderLabel(tutor.gender)}</span>
           </div>
         ) : null}
       </div>
 
-      <p className="tcs-listing-card__bio">{bioSnippet(tutor.bio)}</p>
-
       <div className="tcs-listing-card__foot">
-        <span className="tcs-listing-card__status">Sẵn sàng nhận lớp</span>
         <div className="tcs-listing-card__actions">
           <Link
             className="tcs-btn tcs-btn--ghost tcs-listing-card__review"

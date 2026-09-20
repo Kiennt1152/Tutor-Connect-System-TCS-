@@ -1,43 +1,107 @@
 /* Yêu cầu mở lớp — phía phụ huynh (trang Trung tâm) */
 
-.cr-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 16px;
-  margin-top: 16px;
+/* ---------- Trang "Trung tâm": theo bố cục trang "Tìm lớp" ----------
+   Hero cam nhạt (tcs-home-hero) → khung tìm kiếm trắng → danh sách thẻ (tcs-listing-card). */
+
+.ctr-hero {
+  padding-bottom: var(--space-2xl);
 }
 
-.cr-card {
+.ctr-intro {
+  margin-bottom: var(--space-lg);
+}
+
+.ctr-panel {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 18px;
-  border: 1px solid #e2e8f0;
+  gap: 12px;
+  /* Không kéo hết bề ngang: vừa một ô tìm + nút, canh giữa ngay dưới tiêu đề. */
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 10px 12px;
+  border: 1px solid var(--color-border);
   border-radius: 14px;
-  background: #fff;
+  background: var(--color-surface-2);
+  box-shadow: 0 8px 24px rgba(18, 35, 59, 0.06);
 }
 
-.cr-card__name {
-  margin: 0;
-  font-size: 16px;
-  font-weight: 700;
-  color: #0f172a;
+.ctr-panel .tcs-find-search {
+  margin-bottom: 0;
 }
-
-.cr-card__desc {
-  margin: 0;
-  font-size: 13px;
-  color: #64748b;
+/* Kéo giãn thay vì canh giữa: ô nhập có viền 1px còn nút thì không, canh giữa sẽ lệch 1px.
+   Ô nhập cũng phải giãn theo khung chứa nó, nếu không chỉ khung giãn còn ô vẫn thấp hơn. */
+.ctr-panel .tcs-find-search__bar {
+  align-items: stretch;
+}
+.ctr-panel .tcs-find-search__field {
+  display: flex;
+}
+.ctr-panel .tcs-find-search__field .tcs-find-search__input {
   flex: 1;
 }
-
-.cr-card__meta {
-  font-size: 12px;
-  color: #94a3b8;
+/* Ô nhập đã nằm trong khung có viền và bóng rồi nên bỏ bóng riêng, hạ chiều cao cho gọn. */
+.ctr-panel .tcs-find-search__input {
+  padding: 10px 40px 10px 14px;
+  box-shadow: none;
+}
+.ctr-panel .tcs-find-search__btn {
+  padding: 10px 22px;
 }
 
-.cr-card__actions {
-  margin-top: 8px;
+.ctr-results {
+  margin-top: var(--space-xl);
+}
+
+.ctr-results__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 18px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.ctr-results__title {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--color-text-primary);
+  text-wrap: balance;
+}
+
+.ctr-state {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 28px;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 12px;
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.ctr-state__reset {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: 600;
+  color: var(--color-primary);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.ctr-state__reset:hover {
+  color: var(--color-primary-dark);
+}
+
+@media (max-width: 640px) {
+  .ctr-results__title {
+    font-size: 19px;
+  }
 }
 
 .cr-request-tip {

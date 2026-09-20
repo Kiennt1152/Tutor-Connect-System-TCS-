@@ -55,6 +55,20 @@ import org.mockito.quality.Strictness;
 import org.springframework.data.domain.Page;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
+/**
+ * ============================================================================
+ * KIỂM THỬ TỰ ĐỘNG NHẮN TIN NHÓM THỜI GIAN THỰC (UNIT TEST GROUP CHAT)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các ca kiểm thử nhóm chat:
+ *   - Tạo nhóm trò chuyện (3-20 thành viên) và gửi thông báo cho các thành viên.
+ *   - Đổi tên nhóm và kiểm tra quyền Owner.
+ *   - Thêm thành viên vào nhóm và kiểm tra giới hạn 20 thành viên.
+ *   - Xóa thành viên khỏi nhóm và kiểm tra quyền Owner.
+ *   - Chuyển quyền Trưởng nhóm (Transfer Owner) cho thành viên khác.
+ *   - Rời nhóm (Leave Group) và ràng buộc Owner phải chuyển quyền trước khi rời.
+ */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class ChatServiceImplGroupTest {

@@ -15,6 +15,7 @@ export default function AiFloatingWidget() {
   const isAdmin = hasRole(role, 'PLATFORM_ADMIN');
 
   const [isOpen, setIsOpen] = useState(false);
+  const [widgetSessionId, setWidgetSessionId] = useState<number | undefined>(undefined);
   const [messages, setMessages] = useState<AiMessage[]>([
     {
       messageId: 0,
@@ -50,7 +51,7 @@ export default function AiFloatingWidget() {
 
     const tempUserMsg: AiMessage = {
       messageId: Date.now(),
-      sessionId: 0,
+      sessionId: widgetSessionId || 0,
       role: 'user',
       content: text,
       createdAt: new Date().toISOString(),
@@ -58,14 +59,17 @@ export default function AiFloatingWidget() {
     setMessages(prev => [...prev, tempUserMsg]);
 
     try {
-      const resp = await aiApi.chat({ message: text });
+      const resp = await aiApi.chat({ message: text, sessionId: widgetSessionId });
       setMessages(prev => [...prev, resp]);
+      if (!widgetSessionId && resp.sessionId) {
+        setWidgetSessionId(resp.sessionId);
+      }
     } catch {
       setMessages(prev => [
         ...prev,
         {
           messageId: Date.now() + 1,
-          sessionId: 0,
+          sessionId: widgetSessionId || 0,
           role: 'assistant',
           content: '⚠️ Hệ thống AI đang bận. Vui lòng thử lại sau.',
           createdAt: new Date().toISOString(),
@@ -77,6 +81,9 @@ export default function AiFloatingWidget() {
   };
 
   const goToFullPage = () => {
+    if (widgetSessionId) {
+      sessionStorage.setItem('ai_current_session', String(widgetSessionId));
+    }
     setIsOpen(false);
     navigate(APP_ROUTES.aiAssistant);
   };

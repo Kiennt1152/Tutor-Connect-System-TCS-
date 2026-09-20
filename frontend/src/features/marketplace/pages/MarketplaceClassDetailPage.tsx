@@ -39,6 +39,13 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+function errorCode(error: unknown): string | undefined {
+  if (axios.isAxiosError(error) && typeof error.response?.data?.code === 'string') {
+    return error.response.data.code;
+  }
+  return undefined;
+}
+
 function formatCurrency(value: number): string {
   return `${new Intl.NumberFormat('vi-VN').format(value)} đ`;
 }
@@ -94,8 +101,18 @@ export default function MarketplaceClassDetailPage() {
       setRegMessage(res.data?.message ?? 'Đăng ký thành công');
       load(); // cập nhật sĩ số / trạng thái
     } catch (err) {
+      if (errorCode(err) === 'VERIFICATION_REQUIRED') {
+        navigate(APP_ROUTES.verification, {
+          state: {
+            notice: 'Bạn cần xác minh hồ sơ gia sư trước khi ứng tuyển lớp học.',
+          },
+        });
+        return;
+      }
       setRegStatus('error');
       setRegMessage(extractError(err, 'Đăng ký thất bại.'));
+      // Tải lại lớp: nếu thực ra đã đăng ký rồi (vd. ở tab khác) thì nút tự chuyển sang khoá.
+      load();
     }
   };
 
@@ -133,7 +150,14 @@ export default function MarketplaceClassDetailPage() {
     isClient && Boolean(depLinkStatus?.legalProceduresDelegatedToParent);
   const legalHolderName = depLinkStatus?.legalAccountHolderName;
 
+  // Gia sư không được xem lớp của trung tâm từ trang tìm lớp. Ngoại lệ: mở từ lịch lớp trung tâm
+  // của chính mình (có assignmentId) — gia sư đó đã được trung tâm phân công.
+  const hiddenCenterClass =
+    isTutor && data?.classType === 'CENTER' && !(Number(searchParams.get('assignmentId')) > 0);
+
   const isOpen = data?.status === 'OPEN';
+  // Đã đăng ký lớp này rồi (mọi trạng thái) -> khoá nút; backend cũng chặn đăng ký trùng.
+  const myRegistration = isClient ? (data?.myRegistrationStatus ?? null) : null;
   const sortedSchedule = data
     ? [...data.schedule].sort((a, b) => a.dayOfWeek - b.dayOfWeek || a.startTime.localeCompare(b.startTime))
     : [];
@@ -142,14 +166,18 @@ export default function MarketplaceClassDetailPage() {
     <>
       <VerificationHeader />
       <div className="mk-page">
-        <button className="mk-back" type="button" onClick={() => navigate('/marketplace')}>
+        <button className="mk-back" type="button" onClick={() => navigate(APP_ROUTES.classFinder)}>
           ← Quay lại Tìm lớp
         </button>
 
         {status === 'loading' && <div className="mk-state">Đang tải chi tiết lớp…</div>}
         {status === 'error' && <div className="mk-state">{loadError}</div>}
 
-        {status === 'success' && data && (
+        {status === 'success' && hiddenCenterClass && (
+          <div className="mk-state">Lớp của trung tâm do trung tâm tự bố trí gia sư — gia sư không xem được lớp này.</div>
+        )}
+
+        {status === 'success' && data && !hiddenCenterClass && (
           <div className="mk-detail">
             <div className="mk-detail__main">
               <div className="mk-detail__titlebar">
@@ -235,7 +263,44 @@ export default function MarketplaceClassDetailPage() {
                     {regStatus === 'error' && (
                       <div className="mk-alert mk-alert--error">{regMessage}</div>
                     )}
-                    {isClient && needsDob ? (
+                    {myRegistration ? (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                        <button
+                          className="mk-btn mk-btn--locked mk-btn--block"
+                          type="button"
+                          disabled
+                        >
+                          ✓ Bạn đã đăng ký lớp này
+                        </button>
+                        <p className="mk-note">
+                          {myRegistration === 'PENDING_SIGNATURE'
+                            ? delegatedToParent
+                              ? `Hợp đồng đang chờ phụ huynh${legalHolderName ? ` (${legalHolderName})` : ''} ký và thanh toán.`
+                              : 'Hợp đồng đang chờ bạn ký và thanh toán để chính thức vào lớp.'
+                            : myRegistration === 'ENROLLED'
+                              ? 'Bạn đang học lớp này.'
+                              : myRegistration === 'COMPLETED'
+                                ? 'Bạn đã hoàn thành lớp này.'
+                                : 'Bạn đã rời lớp này nên không thể đăng ký lại.'}
+                        </p>
+                        {myRegistration === 'PENDING_SIGNATURE' && !delegatedToParent && (
+                          <button
+                            className="mk-btn mk-btn--secondary mk-btn--block"
+                            type="button"
+                            onClick={() => navigate(APP_ROUTES.contract)}
+                          >
+                            Đi tới Hợp đồng
+                          </button>
+                        )}
+                        {data.status === 'IN_PROGRESS' && (
+                          <ChatButton
+                            contextType="CLASS_ACTIVE"
+                            contextId={data.classId}
+                            label="Chat với bên liên quan"
+                          />
+                        )}
+                      </div>
+                    ) : isClient && needsDob ? (
                       // Backend yêu cầu ngày sinh để xác định <18; thiếu -> điều hướng cập nhật hồ sơ.
                       <div className="mk-alert mk-alert--warn" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
                         <span>

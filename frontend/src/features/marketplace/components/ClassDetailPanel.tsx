@@ -44,7 +44,6 @@ export function ClassDetailPanel({ raw, subjects, grades }: Props) {
   }, [grades, form.gradeId, raw.gradeName]);
 
   const dayLabel = (v: string) => DAY_OF_WEEK_OPTIONS.find((d) => d.value === v)?.label ?? v;
-  const hm = (t: string) => (t === '23:59' ? '00:00' : t);
   const whenOf = (s: ClassFormValues['slots'][number]) =>
     form.scheduleMode === 'WEEKLY' ? dayLabel(s.day) : `${weekdayVi(s.date)} ${s.date}`;
   const dayIndex = (v: string) => {
@@ -155,7 +154,7 @@ export function ClassDetailPanel({ raw, subjects, grades }: Props) {
                   <ul>
                     {rows.map((s, i) => (
                       <li key={i}>
-                        🗓️ {whenOf(s)} — <strong>{s.session}</strong> ({hm(s.start)}–{hm(s.end)})
+                        🗓️ {whenOf(s)} — <strong>{s.session}</strong> ({s.start}–{s.end})
                       </li>
                     ))}
                   </ul>

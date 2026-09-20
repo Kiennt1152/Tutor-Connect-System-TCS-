@@ -59,12 +59,15 @@ import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.profile.entity.PlatformAdmin;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
+import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.platform.service.AuditLogService;
 import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.security.AuthHelper;
+import com.tcs.security.UserPrincipal;
 import com.tcs.security.UserPrincipal;
 import java.math.RoundingMode;
 import java.net.URLEncoder;
@@ -116,6 +119,7 @@ public class FinanceServiceImpl implements FinanceService {
     private static final String BANK_TRANSFER_TYPE = "BANK_TRANSFER";
     private static final String PAYMENT_METHOD_ACTIVE = "ACTIVE";
     private static final String PAYMENT_METHOD_INACTIVE = "INACTIVE";
+    private static final String WALLET_VERIFICATION_REQUIRED = "Vui lòng xác minh hồ sơ trước khi tạo hoặc sử dụng ví.";
     private static final Pattern WITHDRAWAL_REQUEST_ALIAS_PATTERN =
             Pattern.compile("(?i)\\bWITHDRAW\\s*-\\s*(\\d+)\\b");
 
@@ -130,6 +134,7 @@ public class FinanceServiceImpl implements FinanceService {
     private final DisputeRepository disputeRepository;
     private final UserRepository userRepository;
     private final PlatformAdminRepository platformAdminRepository;
+    private final TutorRepository tutorRepository;
     private final TutorCenterRepository tutorCenterRepository;
     private final EscrowService escrowService;
     private final CenterRequestFeeService centerRequestFeeService;
@@ -936,13 +941,55 @@ public class FinanceServiceImpl implements FinanceService {
     }
 
     private Long requireEarningWalletUserId() {
-        authHelper.requireRole(UserRole.TUTOR, UserRole.TUTOR_CENTER);
-        return authHelper.currentUserId();
+        UserPrincipal principal = authHelper.requireRole(UserRole.TUTOR, UserRole.TUTOR_CENTER);
+        Long userId = currentUserId(principal);
+        requireVerifiedEarningProfile(userId, principal != null ? principal.getRole() : null);
+        return userId;
     }
 
     private Long requireCenterWalletUserId() {
-        authHelper.requireRole(UserRole.TUTOR_CENTER);
+        UserPrincipal principal = authHelper.requireRole(UserRole.TUTOR_CENTER);
+        Long userId = currentUserId(principal);
+        requireVerifiedEarningProfile(userId, UserRole.TUTOR_CENTER);
+        return userId;
+    }
+
+    private Long currentUserId(UserPrincipal principal) {
+        if (principal != null && principal.getUserId() != null) {
+            return principal.getUserId();
+        }
         return authHelper.currentUserId();
+    }
+
+    private void requireVerifiedEarningProfile(Long userId, UserRole role) {
+        if (userId == null) {
+            throw new BusinessException("Yêu cầu đăng nhập");
+        }
+
+        boolean verified;
+        if (role == UserRole.TUTOR) {
+            verified = isVerifiedTutor(userId);
+        } else if (role == UserRole.TUTOR_CENTER) {
+            verified = isVerifiedTutorCenter(userId);
+        } else {
+            verified = isVerifiedTutor(userId) || isVerifiedTutorCenter(userId);
+        }
+
+        if (!verified) {
+            throw new BusinessException(WALLET_VERIFICATION_REQUIRED);
+        }
+    }
+
+    private boolean isVerifiedTutor(Long userId) {
+        return tutorRepository.existsByUser_UserIdAndVerificationStatus(
+                userId,
+                ProfileVerificationStatus.VERIFIED);
+    }
+
+    private boolean isVerifiedTutorCenter(Long userId) {
+        return tutorCenterRepository.existsByUser_UserIdAndVerificationStatus(
+                userId,
+                ProfileVerificationStatus.VERIFIED);
     }
 
     private void validateTopupAmount(DepositRequest request) {

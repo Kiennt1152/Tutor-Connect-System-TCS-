@@ -147,7 +147,13 @@ export default function CenterTutorsPage() {
                               const ps = APP_STATUS_LABELS[p.applicationStatus];
                               return (
                                 <span className="rc-applied__item" key={p.recruitmentId}>
-                                  {p.postTitle ?? `Tin #${p.recruitmentId}`}
+                                  {/* Tiêu đề dài bị cắt bằng "…"; rê chuột để xem đủ. */}
+                                  <span
+                                    className="rc-applied__title"
+                                    title={p.postTitle ?? `Tin #${p.recruitmentId}`}
+                                  >
+                                    {p.postTitle ?? `Tin #${p.recruitmentId}`}
+                                  </span>
                                   <span className={`rc-status rc-status--${ps.cls}`}>
                                     {ps.label}
                                   </span>

@@ -98,10 +98,11 @@
   color: var(--color-primary);
 }
 
+/* Một trang 6 tin, xếp 3 trên 3 dưới (xem PAGE_SIZE trong ClassBoardPage.tsx). */
 .tcs-classboard .tcs-class-list,
 .cboard-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: var(--space-md);
   align-items: start;
 }
@@ -110,6 +111,14 @@
   display: flex;
   justify-content: center;
   margin-top: var(--space-lg);
+}
+
+/* Màn vừa: 3 cột bóp thẻ quá hẹp -> về 2 cột trước khi về 1 cột. */
+@media (max-width: 1100px) {
+  .tcs-classboard .tcs-class-list,
+  .cboard-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 
 @media (max-width: 720px) {
@@ -346,6 +355,37 @@
   font-size: var(--fs-h4);
   font-weight: 700;
   color: var(--color-text-primary);
+}
+
+/* Bấm vào thẻ trung tâm để mở hồ sơ: link ở tên phủ toàn thẻ. */
+.tcs-center-card {
+  position: relative;
+}
+
+.tcs-center-card__link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.tcs-center-card__link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.tcs-center-card:hover .tcs-center-card__link {
+  color: var(--color-primary);
+}
+
+.tcs-center-card__link:focus-visible {
+  outline: none;
+}
+
+.tcs-center-card__link:focus-visible::after {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
 }
 
 .tcs-center-card__desc {
@@ -1364,67 +1404,66 @@
   gap: 14px;
 }
 
-.tcs-section--tutors .tcs-listing-card {
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card {
   gap: 10px;
   padding: 14px;
   border-radius: 14px;
 }
 
 /* Đầu thẻ */
-.tcs-section--tutors .tcs-listing-card__top {
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__top {
   gap: 10px;
 }
-.tcs-section--tutors .tcs-listing-card__profile {
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__profile {
   gap: 10px;
 }
-.tcs-section--tutors .tcs-listing-card__avatar {
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__avatar {
   width: 40px;
   height: 40px;
   font-size: var(--fs-body-sm);
 }
-.tcs-section--tutors .tcs-listing-card__name {
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__name {
   font-size: var(--fs-body-lg);
 }
-.tcs-section--tutors .tcs-listing-card__badge {
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__badge {
   margin-top: 2px;
   padding: 1px 7px;
 }
-.tcs-section--tutors .tcs-listing-card__price-value {
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__price-value {
   font-size: var(--fs-h4);
 }
-.tcs-section--tutors .tcs-listing-card__price-unit {
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__price-unit {
   font-size: var(--fs-badge);
 }
 
 /* Ba dòng thông tin: bỏ viền đứt trên/dưới, thu khoảng cách */
-.tcs-section--tutors .tcs-listing-card__meta {
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__meta {
   gap: 3px;
   padding: 8px 0;
   border-top: 1px solid var(--color-border);
   border-bottom: 0;
 }
-.tcs-section--tutors .tcs-listing-card__row {
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__row {
   gap: var(--space-sm);
   font-size: var(--fs-body-sm);
   line-height: 1.45;
 }
 
 /* Mô tả gọn còn 2 dòng */
-.tcs-section--tutors .tcs-listing-card__bio {
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__bio {
   -webkit-line-clamp: 2;
   line-clamp: 2;
   line-height: 1.45;
 }
 
-/* Chân thẻ */
-.tcs-section--tutors .tcs-listing-card__status {
-  padding: 3px 9px;
-  font-size: var(--fs-badge);
-}
-.tcs-section--tutors .tcs-listing-card__foot .tcs-btn {
-  height: 32px;
-  padding: 0 12px;
+/* Chân thẻ — hai nút bằng nhau, chia đôi bề ngang thẻ (theo main; nhãn trạng thái đã bỏ khỏi
+   markup nên không còn rule cho nó). Áp thêm cho lưới --fill để thẻ ở trang Trung tâm và
+   hồ sơ trung tâm cùng cỡ với thẻ ở trang chủ. */
+:is(.tcs-section--tutors, .tcs-listing-grid--fill) .tcs-listing-card__foot .tcs-btn {
+  height: 36px;
+  padding: 0 10px;
   font-size: var(--fs-body-sm);
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {

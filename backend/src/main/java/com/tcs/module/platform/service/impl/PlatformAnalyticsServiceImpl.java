@@ -38,13 +38,29 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * DỊCH VỤ PHÂN TÍCH VÀ THỐNG KÊ TOÀN DIỆN NỀN TẢNG (PLATFORM ANALYTICS SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả chức năng:
+ *   - Tổng hợp số liệu vận hành: Người dùng, Gia sư, Phụ huynh, Trung tâm, Lớp học, Hợp đồng, Tranh chấp.
+ *   - Thống kê dòng tiền tài chính: Tổng tiền nạp (Deposit), Rút (Withdrawal), Escrow (Ký quỹ, Giải ngân, Hoàn trả), Doanh thu phí sàn.
+ *   - Lập báo cáo tự động định kỳ (Scheduled Daily Report) phục vụ kiểm toán và theo dõi hiệu suất.
+ *   - Xuất dữ liệu CSV an toàn: Giới hạn số dòng chống tràn bộ nhớ (OOM), chèn UTF-8 BOM cho Excel tiếng Việt,
+ *     và lọc chống lỗ hổng CSV Formula Injection (DDE Injection).
+ */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
+    /** Tiền tố mã giao dịch thu phí nền tảng */
     private static final String PLATFORM_FEE_REFERENCE_PREFIX = "PLATFORM_FEE-";
 
+    /** Giới hạn số dòng tối đa khi xuất báo cáo CSV nhằm chống nghẽn bộ nhớ */
     private static final int MAX_EXPORT_ROWS = 10_000;
+    /** Khoảng thời gian xuất báo cáo mặc định (90 ngày gần nhất) */
     private static final int DEFAULT_EXPORT_DAYS = 90;
 
     private final UserRepository userRepository;
@@ -59,6 +75,11 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
     private final SystemParameterRepository systemParameterRepository;
     private final com.tcs.module.platform.service.AuditLogService auditLogService;
 
+    /**
+     * Tác vụ tự động sinh báo cáo tổng kết hàng ngày và ghi nhận vào Audit Log.
+     * 
+     * @return số lượng báo cáo được tạo (1 nếu thành công)
+     */
     @Override
     @Transactional
     public int generateScheduledDailyReport() {

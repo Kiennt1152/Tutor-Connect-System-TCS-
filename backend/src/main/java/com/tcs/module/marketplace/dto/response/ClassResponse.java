@@ -1,5 +1,6 @@
 package com.tcs.module.marketplace.dto.response;
 
+import com.tcs.module.marketplace.enums.ClassStudentStatus;
 import com.tcs.module.marketplace.enums.ClassType;
 import com.tcs.module.marketplace.enums.LessonMode;
 import com.tcs.module.marketplace.enums.RecurringType;
@@ -10,6 +11,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
+import lombok.Setter;
 
 @Getter
 @Builder
@@ -42,6 +44,12 @@ public class ClassResponse {
     private ClassType classType;
     private Integer maxStudents;
     private long enrolledCount;
+    /**
+     * Trạng thái đăng ký học của NGƯỜI ĐANG XEM ở lớp này (null = chưa đăng ký). Chỉ có ở API chi
+     * tiết lớp; khác null thì giao diện khoá nút "Đăng ký học" — backend cũng chặn đăng ký trùng.
+     */
+    @Setter
+    private ClassStudentStatus myRegistrationStatus;
     private boolean canRequestTermination;
     private boolean refundAllowed;
     private String refundBlockedReason;
@@ -63,6 +71,11 @@ public class ClassResponse {
     private LocalDateTime createdAt;
     /** Hạn hiển thị (đăng lớp + 30 ngày); null nếu không tính hạn. Chỉ có với lớp OPEN. */
     private LocalDateTime expiresAt;
+    /**
+     * Hạn 48 giờ ký hợp đồng + chuyển tiền ký quỹ, tính từ lúc chọn gia sư. Quá hạn thì lớp tự
+     * mở lại cho các gia sư đã ứng tuyển. Null = không đang đếm ngược.
+     */
+    private LocalDateTime matchDeadlineAt;
     private Long applicationCount;
     private Long assignmentId;
 

@@ -1,5 +1,6 @@
 package com.tcs.module.profile.service.impl;
 
+import com.tcs.common.util.SlotTime;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.module.catalog.entity.Grade;
@@ -16,6 +17,7 @@ import com.tcs.module.profile.dto.request.LinkChildAccountRequest;
 import com.tcs.module.profile.dto.request.LinkChildRequest;
 import com.tcs.module.profile.dto.request.LinkGuardianRequest;
 import com.tcs.module.profile.dto.request.TutorAvailabilityRequest;
+import com.tcs.module.profile.dto.request.TutorBusyTimeRequest;
 import com.tcs.module.profile.dto.request.TutorCertificateRequest;
 import com.tcs.module.profile.dto.request.TutorEducationRequest;
 import com.tcs.module.profile.dto.request.TutorExperienceRequest;
@@ -27,6 +29,7 @@ import com.tcs.module.profile.dto.response.GuardianProfileResponse;
 import com.tcs.module.profile.dto.response.ProfileResponse;
 import com.tcs.module.profile.dto.response.PublicTutorProfileResponse;
 import com.tcs.module.profile.dto.response.TutorAvailabilityResponse;
+import com.tcs.module.profile.dto.response.TutorBusyTimeResponse;
 import com.tcs.module.profile.dto.response.TutorCertificateResponse;
 import com.tcs.module.profile.dto.response.TutorEducationResponse;
 import com.tcs.module.profile.dto.response.TutorExperienceResponse;
@@ -35,6 +38,7 @@ import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.ParentChildLink;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorAvailability;
+import com.tcs.module.profile.entity.TutorBusyTime;
 import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.entity.TutorExperience;
 import com.tcs.module.profile.enums.ParentChildLinkStatus;
@@ -44,6 +48,7 @@ import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.ParentChildLinkRepository;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorAvailabilityRepository;
+import com.tcs.module.profile.repository.TutorBusyTimeRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.TutorCertificateRepository;
 import com.tcs.module.profile.repository.TutorEducationRepository;
@@ -104,6 +109,7 @@ public class ProfileServiceImpl implements ProfileService {
     private final GradeRepository gradeRepository;
     private final TutorExperienceRepository tutorExperienceRepository;
     private final TutorAvailabilityRepository tutorAvailabilityRepository;
+    private final TutorBusyTimeRepository tutorBusyTimeRepository;
     private final TutorEducationRepository tutorEducationRepository;
     private final TutorCertificateRepository tutorCertificateRepository;
     private final VerificationService verificationService;
@@ -602,6 +608,163 @@ public class ProfileServiceImpl implements ProfileService {
                 availabilityId, null, null);
     }
 
+    /** Một lần đăng ký tối đa bằng số ngày của tháng dài nhất — màn hình chọn theo từng tháng. */
+    private static final int MAX_BUSY_DATES_PER_REQUEST = 31;
+
+    private static final int MAX_BUSY_NOTE_LENGTH = 255;
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<TutorBusyTimeResponse> getMyBusyTimes(java.time.YearMonth month) {
+        Tutor tutor = requireTutor(loadContext());
+        java.time.YearMonth target = month != null ? month : java.time.YearMonth.now();
+        return tutorBusyTimeRepository
+                .findByTutor_TutorIdAndBusyDateBetweenOrderByBusyDateAscStartTimeAsc(
+                        tutor.getTutorId(), target.atDay(1), target.atEndOfMonth())
+                .stream()
+                .map(this::toBusyTimeResponse)
+                .toList();
+    }
+
+    /**
+     * Đăng ký bận cho nhiều ngày một lượt, ăn cả hoặc hỏng cả: có ngày lỗi thì không lưu ngày
+     * nào, để gia sư không phải đoán ngày nào đã vào ngày nào chưa.
+     *
+     * <p>Luật trùng: trên cùng một ngày, bận cả ngày không đi chung với bất kỳ khung nào khác;
+     * hai khung giờ không được chồng nhau (chạm mép như 08:00–10:00 và 10:00–12:00 thì được).
+     */
+    @Override
+    @Transactional
+    public List<TutorBusyTimeResponse> addBusyTimes(TutorBusyTimeRequest request) {
+        Tutor tutor = requireTutor(loadContext());
+        if (request == null || request.getDates() == null || request.getDates().isEmpty()) {
+            throw new IllegalArgumentException("Hãy chọn ít nhất một ngày bận");
+        }
+        List<LocalDate> dates = request.getDates().stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .sorted()
+                .toList();
+        if (dates.isEmpty()) {
+            throw new IllegalArgumentException("Hãy chọn ít nhất một ngày bận");
+        }
+        if (dates.size() > MAX_BUSY_DATES_PER_REQUEST) {
+            throw new IllegalArgumentException(
+                    "Mỗi lần chỉ đăng ký tối đa " + MAX_BUSY_DATES_PER_REQUEST + " ngày");
+        }
+        if (dates.get(0).isBefore(LocalDate.now())) {
+            throw new IllegalArgumentException("Không đăng ký bận cho ngày đã qua");
+        }
+
+        // Rỗng = bận cả ngày; ngược lại là các khoảng giờ bận (đã sắp theo giờ bắt đầu).
+        List<java.time.LocalTime[]> ranges = busyRangesOf(request);
+        boolean allDay = ranges.isEmpty();
+
+        String note = StringUtils.hasText(request.getNote()) ? request.getNote().trim() : null;
+        if (note != null && note.length() > MAX_BUSY_NOTE_LENGTH) {
+            throw new IllegalArgumentException("Ghi chú tối đa " + MAX_BUSY_NOTE_LENGTH + " ký tự");
+        }
+
+        List<LocalDate> clashes = tutorBusyTimeRepository
+                .findByTutor_TutorIdAndBusyDateIn(tutor.getTutorId(), dates)
+                .stream()
+                .filter(existing -> allDay || existing.isAllDay()
+                        || ranges.stream().anyMatch(r ->
+                                SlotTime.overlaps(r[0], r[1], existing.getStartTime(), existing.getEndTime())))
+                .map(TutorBusyTime::getBusyDate)
+                .distinct()
+                .sorted()
+                .toList();
+        if (!clashes.isEmpty()) {
+            java.time.format.DateTimeFormatter fmt = java.time.format.DateTimeFormatter.ofPattern("dd/MM");
+            String list = clashes.stream()
+                    .map(fmt::format)
+                    .collect(java.util.stream.Collectors.joining(", "));
+            throw new IllegalArgumentException("Đã có lịch bận trùng giờ vào ngày " + list);
+        }
+
+        // Mỗi ngày: một dòng "cả ngày", hoặc một dòng cho từng khoảng giờ bận.
+        List<java.time.LocalTime[]> rowsPerDay = allDay
+                ? java.util.Collections.singletonList(new java.time.LocalTime[] {null, null})
+                : ranges;
+        List<TutorBusyTime> toSave = dates.stream().flatMap(date -> rowsPerDay.stream().map(r -> {
+            TutorBusyTime busy = new TutorBusyTime();
+            busy.setTutor(tutor);
+            busy.setBusyDate(date);
+            busy.setStartTime(r[0]);
+            busy.setEndTime(r[1]);
+            busy.setNote(note);
+            return busy;
+        })).toList();
+        List<TutorBusyTime> saved = tutorBusyTimeRepository.saveAll(toSave);
+        // audit_logs.entity_id là NOT NULL: ghi mỗi ngày một dòng kèm id thật, không gộp cả lượt với id null.
+        List<TutorBusyTimeResponse> responses = saved.stream().map(this::toBusyTimeResponse).toList();
+        for (TutorBusyTimeResponse row : responses) {
+            auditLogService.record(tutor.getUser().getUserId(), "ADD_BUSY_TIME", "TutorBusyTime",
+                    row.getBusyTimeId(), null, row);
+        }
+        return responses;
+    }
+
+    /** Tối đa số khoảng giờ trong một lượt — giao diện chỉ có sáng / chiều / tối. */
+    private static final int MAX_BUSY_RANGES_PER_REQUEST = 6;
+
+    /**
+     * Chuẩn hoá khung giờ bận của một lượt đăng ký. Trả danh sách rỗng khi bận cả ngày.
+     * Các khoảng không được chồng nhau (chạm mép như 06:00–12:00 và 12:00–18:00 thì được).
+     */
+    private List<java.time.LocalTime[]> busyRangesOf(TutorBusyTimeRequest request) {
+        List<java.time.LocalTime[]> ranges = new java.util.ArrayList<>();
+        if (request.getRanges() != null && !request.getRanges().isEmpty()) {
+            if (request.getRanges().size() > MAX_BUSY_RANGES_PER_REQUEST) {
+                throw new IllegalArgumentException(
+                        "Mỗi lần chỉ chọn tối đa " + MAX_BUSY_RANGES_PER_REQUEST + " khung giờ bận");
+            }
+            for (TutorBusyTimeRequest.TimeRange r : request.getRanges()) {
+                if (r == null) {
+                    continue;
+                }
+                ranges.add(validBusyRange(r.getStartTime(), r.getEndTime()));
+            }
+        } else if (request.getStartTime() != null || request.getEndTime() != null) {
+            ranges.add(validBusyRange(request.getStartTime(), request.getEndTime()));
+        }
+        ranges.sort(java.util.Comparator.comparingInt(r -> SlotTime.startMinute(r[0])));
+        for (int i = 1; i < ranges.size(); i++) {
+            java.time.LocalTime[] prev = ranges.get(i - 1);
+            java.time.LocalTime[] cur = ranges.get(i);
+            if (SlotTime.overlaps(prev[0], prev[1], cur[0], cur[1])) {
+                throw new IllegalArgumentException("Các khung giờ bận trong cùng một lượt đang chồng lên nhau");
+            }
+        }
+        return ranges;
+    }
+
+    private java.time.LocalTime[] validBusyRange(java.time.LocalTime start, java.time.LocalTime end) {
+        if (start == null || end == null) {
+            throw new IllegalArgumentException("Nhập đủ giờ bắt đầu và kết thúc, hoặc chọn bận cả ngày");
+        }
+        if (!SlotTime.isValidRange(start, end)) {
+            throw new IllegalArgumentException("Giờ kết thúc phải sau giờ bắt đầu");
+        }
+        return new java.time.LocalTime[] {start, end};
+    }
+
+    @Override
+    @Transactional
+    public void deleteBusyTime(Long busyTimeId) {
+        Tutor tutor = requireTutor(loadContext());
+        TutorBusyTime busy = tutorBusyTimeRepository
+                .findById(busyTimeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy lịch bận"));
+        if (!busy.getTutor().getTutorId().equals(tutor.getTutorId())) {
+            throw new ForbiddenException("Không có quyền xóa lịch này");
+        }
+        tutorBusyTimeRepository.delete(busy);
+        auditLogService.record(tutor.getUser().getUserId(), "DELETE_BUSY_TIME", "TutorBusyTime",
+                busyTimeId, null, null);
+    }
+
     @Override
     @Transactional
     public com.tcs.module.identity.dto.response.VerificationResponse submitVerification(
@@ -619,6 +782,19 @@ public class ProfileServiceImpl implements ProfileService {
         return verificationService.submitVerification(request);
     }
 
+    /**
+     * Tải lên và cập nhật ảnh đại diện (Avatar) cho người dùng hiện tại (UC-08).
+     * 
+     * Quy trình xử lý:
+     *   1. Kiểm tra tính hợp lệ của file (không rỗng, dung lượng <= 5MB).
+     *   2. Nhận diện MIME Type thực tế từ Magic Bytes ở đầu file thông qua FileMagicDetector (ngăn chặn tấn công mạo danh đuôi file).
+     *   3. Lưu trữ file ảnh vào thư mục cấu hình `storagePath/avatars/user-{userId}.ext`.
+     *   4. Cập nhật đường dẫn URL ảnh đại diện vào bảng hồ sơ tương ứng theo vai trò (Client, Tutor, TutorCenter).
+     *   5. Ghi vết kiểm toán (Audit Log) cho thao tác UPLOAD_AVATAR.
+     * 
+     * @param file file ảnh tải lên từ client (MultipartFile)
+     * @return đường dẫn tĩnh URL tới file ảnh đã lưu (/uploads/avatars/user-x.ext)
+     */
     @Override
     @Transactional
     public String uploadAvatar(MultipartFile file) {
@@ -629,6 +805,7 @@ public class ProfileServiceImpl implements ProfileService {
             throw new IllegalArgumentException("Kích thước ảnh không được vượt quá 5MB");
         }
 
+        // Kiểm tra chữ ký file (Magic Bytes) để xác định định dạng ảnh thực sự
         String detectedMime = detectAvatarMime(file);
         if (!ALLOWED_AVATAR_TYPES.contains(detectedMime)) {
             throw new IllegalArgumentException("Chỉ chấp nhận file ảnh (JPEG, PNG, WEBP, GIF)");
@@ -667,6 +844,12 @@ public class ProfileServiceImpl implements ProfileService {
         return avatarUrl;
     }
 
+    /**
+     * Đọc Magic Bytes từ luồng InputStream của file để nhận diện MIME Type chính xác.
+     * 
+     * @param file đối tượng MultipartFile cần kiểm tra
+     * @return chuỗi MIME Type (ví dụ: image/jpeg, image/png)
+     */
     private String detectAvatarMime(MultipartFile file) {
         try (BufferedInputStream bis = new BufferedInputStream(file.getInputStream())) {
             String detected = FileMagicDetector.detect(bis);
@@ -686,6 +869,7 @@ public class ProfileServiceImpl implements ProfileService {
         return ctx.client();
     }
 
+    @SuppressWarnings("deprecation")
     private DependentLinkStatusResponse buildDependentLinkStatus(Client client) {
         LocalDate dateOfBirth = client.getDateOfBirth();
         boolean dateOfBirthMissing = dateOfBirth == null;
@@ -722,6 +906,7 @@ public class ProfileServiceImpl implements ProfileService {
                 .childrenLinkOptional(childrenLinkOptional)
                 .linkedChildrenCount(linkedChildrenCount)
                 .profileLinkComplete(profileLinkComplete)
+                // Legacy frontend clients still read canProceedToPayment; keep it in sync with profileLinkComplete.
                 .canProceedToPayment(profileLinkComplete)
                 .legalProceduresDelegatedToParent(legalProceduresDelegatedToParent)
                 .parentApprovalRequired(legalProceduresDelegatedToParent)
@@ -1100,6 +1285,17 @@ public class ProfileServiceImpl implements ProfileService {
                 .name(c.getName())
                 .issuer(c.getIssuer())
                 .issueDate(c.getIssueDate())
+                .build();
+    }
+
+    private TutorBusyTimeResponse toBusyTimeResponse(TutorBusyTime b) {
+        return TutorBusyTimeResponse.builder()
+                .busyTimeId(b.getBusyTimeId())
+                .busyDate(b.getBusyDate())
+                .startTime(b.getStartTime())
+                .endTime(b.getEndTime())
+                .allDay(b.isAllDay())
+                .note(b.getNote())
                 .build();
     }
 

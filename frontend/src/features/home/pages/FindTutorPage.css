@@ -11,10 +11,12 @@
 
 /* Thanh tìm kiếm gia sư */
 .tcs-find-search {
+  margin-bottom: 20px;
+}
+.tcs-find-search__bar {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 20px;
 }
 .tcs-find-search__field {
   position: relative;
@@ -34,6 +36,13 @@
 .tcs-find-search__input::placeholder {
   color: #97a4b6;
 }
+/* Ẩn nút xóa mặc định của input[type=search]: Chrome vẽ dấu X xám lệch tâm, Safari vẽ kiểu
+   khác, Firefox không vẽ gì — thay bằng nút .tcs-find-search__clear để mọi trình như nhau. */
+.tcs-find-search__input::-webkit-search-cancel-button,
+.tcs-find-search__input::-webkit-search-decoration {
+  -webkit-appearance: none;
+  appearance: none;
+}
 .tcs-find-search__input:focus {
   outline: none;
   border-color: #ea5a1c;
@@ -42,8 +51,12 @@
 .tcs-find-search__clear {
   position: absolute;
   right: 12px;
-  width: 26px;
-  height: 26px;
+  /* Canh giữa theo chiều cao ô; thiếu top/transform thì nút rơi xuống dưới ô nhập. */
+  top: 50%;
+  transform: translateY(-50%);
+  padding: 0;
+  width: 22px;
+  height: 22px;
   border: none;
   border-radius: 50%;
   background: #eef2f7;
@@ -58,6 +71,10 @@
 .tcs-find-search__clear:hover {
   background: #ea5a1c;
   color: #fff;
+}
+.tcs-find-search__clear:focus-visible {
+  outline: 2px solid #ea5a1c;
+  outline-offset: 2px;
 }
 .tcs-find-search__btn {
   flex-shrink: 0;
@@ -76,43 +93,14 @@
   background: #c2410c;
 }
 
-/* Phân trang danh sách gia sư */
-.tcs-pagination {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 28px;
-}
-.tcs-pagination__nav,
-.tcs-pagination__page {
-  min-width: 40px;
-  height: 40px;
-  padding: 0 12px;
-  border-radius: 10px;
-  border: 1px solid #e3e9f2;
-  background: #fff;
-  color: #33465e;
-  font-size: 14px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
-}
-.tcs-pagination__nav:hover:not(:disabled),
-.tcs-pagination__page:hover:not(.tcs-pagination__page--active) {
-  border-color: #ea5a1c;
-  color: #ea5a1c;
-}
-.tcs-pagination__nav:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-.tcs-pagination__page--active {
-  background: linear-gradient(92deg, #ea5a1c 0%, #f08f34 100%);
-  border-color: transparent;
-  color: #fff;
-  box-shadow: 0 4px 12px rgba(234, 90, 28, 0.24);
+
+@media (max-width: 640px) {
+  .tcs-find-search__bar {
+    flex-wrap: wrap;
+  }
+  .tcs-find-search__field {
+    flex-basis: 100%;
+  }
 }
 
 .tcs-find-listbar {
@@ -358,4 +346,32 @@
 .tcs-header__nav-link--active {
   color: var(--tcs-brand, #ea5a1c);
   font-weight: 700;
+}
+
+/* Dải câu mẫu dưới thanh tìm kiếm — dạy cú pháp gõ thẳng tiêu chí. */
+.tcs-find-examples {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin-top: 10px;
+}
+.tcs-find-examples__label {
+  font-size: 12.5px;
+  color: #7b8794;
+}
+/* Chỉ là ví dụ để đọc — cố ý không viền, không con trỏ bấm, để không trông như nút. */
+.tcs-find-examples__item {
+  font-size: 12.5px;
+  font-style: italic;
+  color: #5b6b7f;
+}
+.tcs-find-examples__item::before {
+  content: '“';
+}
+.tcs-find-examples__item::after {
+  content: '”';
+}
+.tcs-find-examples__item:not(:last-child)::after {
+  content: '”,';
 }

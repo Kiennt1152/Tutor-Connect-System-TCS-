@@ -138,4 +138,23 @@ public class TutoringClass {
      */
     @Column(name = "expires_at")
     private LocalDateTime expiresAt;
+
+    /**
+     * Hạn 48 giờ để hai bên ký hợp đồng và client chuyển tiền ký quỹ, tính từ lúc client chọn
+     * gia sư (lớp vào MATCHED). Quá hạn mà chưa ký đủ / chưa có tiền vào escrow thì lớp tự mở
+     * lại cho các gia sư đã ứng tuyển từ trước. Null = không đang đếm ngược.
+     */
+    @Column(name = "match_deadline_at")
+    private LocalDateTime matchDeadlineAt;
+
+    /**
+     * Ảnh chụp {@code detailsJson} trước khi áp giá của gia sư được chọn. Giữ để khi hủy ghép
+     * còn trả lớp về đúng nội dung mà các ứng viên còn lại đã ứng tuyển.
+     */
+    @Column(name = "pre_match_details_json", columnDefinition = "TEXT")
+    private String preMatchDetailsJson;
+
+    /** Ảnh chụp học phí trước khi áp giá của gia sư được chọn. */
+    @Column(name = "pre_match_tuition_fee", precision = 12, scale = 2)
+    private BigDecimal preMatchTuitionFee;
 }

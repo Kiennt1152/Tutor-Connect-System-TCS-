@@ -95,7 +95,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/tutors/**")
                         .permitAll()
                         // Danh sách trung tâm đã xác minh: ai cũng xem được (để phụ huynh chọn).
-                        .requestMatchers(HttpMethod.GET, "/api/marketplace/centers")
+                        .requestMatchers(HttpMethod.GET, "/api/marketplace/centers", "/api/marketplace/centers/*")
                         .permitAll()
                         // Recruitment: các GET cần đăng nhập phải đứng TRƯỚC GET công khai bên dưới.
                         .requestMatchers(HttpMethod.GET, "/api/center/recruitment/my-posts")
@@ -161,13 +161,16 @@ public class SecurityConfig {
                                 "/api/profile/experiences/**",
                                 "/api/profile/educations/**",
                                 "/api/profile/certificates/**",
-                                "/api/profile/availability/**")
+                                "/api/profile/availability/**",
+                                "/api/profile/busy-times/**")
                         .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.POST, "/api/profile/verification/submit")
                         .hasAnyRole(RbacConstants.TUTOR, RbacConstants.TUTOR_CENTER)
                         .requestMatchers("/api/profile/**")
                         .hasAnyRole(RbacConstants.BUSINESS_ROLES)
 
+                        .requestMatchers(HttpMethod.GET, "/api/marketplace/busy-conflicts")
+                        .hasRole(RbacConstants.TUTOR)
                         .requestMatchers(HttpMethod.GET, "/api/marketplace/lessons/mine", "/api/marketplace/assignments/mine")
                         .hasAnyRole(RbacConstants.CLIENT, RbacConstants.TUTOR)
                         .requestMatchers(
@@ -209,6 +212,8 @@ public class SecurityConfig {
 
                         .requestMatchers(
                                 "/api/center/classes/**",
+                                "/api/center/students/**",
+                                "/api/center/finance/**",
                                 "/api/center/tutors",
                                 "/api/center/class-requests",
                                 "/api/center/class-requests/**",

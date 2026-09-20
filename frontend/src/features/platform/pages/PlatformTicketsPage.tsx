@@ -1,3 +1,20 @@
+/**
+ * ============================================================================
+ * TRANG QUẢN LÝ VÀ TIẾP NHẬN YÊU CẦU HỖ TRỢ (PLATFORM TICKETS MANAGEMENT PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các chức năng hỗ trợ khách hàng và vận hành:
+ *   - Hiển thị danh sách Support Ticket với bộ lọc đa chiều (Trạng thái, Phân loại, Mức ưu tiên, Từ khóa).
+ *   - Xem chi tiết Ticket, chuỗi tin nhắn trao đổi (Thread messages), và thông tin người gửi.
+ *   - Phản hồi Ticket và tự động đo lường First Response SLA.
+ *   - Cập nhật phân loại danh mục (Category) và độ ưu tiên (Priority - Urgent/High/Medium/Low).
+ *   - Đóng hoặc Giải quyết Ticket (RESOLVED / CLOSED) kèm ghi chú xử lý.
+ *   - Gộp Ticket trùng lặp của cùng một khách hàng (Merge Tickets).
+ *   - Chuyển tiếp sự cố sang luồng Xử lý Tranh chấp & Báo cáo (Redirect to Dispute & Reports).
+ *   - Trực tiếp ban hành án phạt từ modal chi tiết (Issue Penalty Modal).
+ */
+
 import { createPortal } from 'react-dom';
 import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -18,15 +35,17 @@ import type {
 import { IssuePenaltyModal } from '../components/IssuePenaltyModal';
 import './PlatformTicketsPage.css';
 
-/* ── Inline badge helper ── */
+/* ── Inline badge helper: Hiển thị nhãn trạng thái ticket ── */
 function TicketStatusBadge({ tone, label }: { tone: string; label: string }) {
   return <span className={`tcs-badge tcs-badge--status-${tone}`}>{label}</span>;
 }
+
+/* ── Inline badge helper: Hiển thị nhãn độ ưu tiên ticket ── */
 function TicketPriorityBadge({ tone, label }: { tone: string; label: string }) {
   return <span className={`tcs-badge tcs-badge--priority-${tone}`}>{label}</span>;
 }
 
-/* ── Ticket detail modal ── */
+/* ── Modal chi tiết và xử lý Ticket của Admin ── */
 type TicketModalProps = {
   ticketId: string;
   onClose: () => void;

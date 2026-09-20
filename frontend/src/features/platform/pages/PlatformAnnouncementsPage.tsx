@@ -1,3 +1,16 @@
+/**
+ * ============================================================================
+ * TRANG QUẢN TRỊ THÔNG BÁO HỆ THỐNG (PLATFORM ANNOUNCEMENTS PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả các tính năng quản trị thông báo:
+ *   - Hiển thị danh sách thông báo/banner toàn nền tảng.
+ *   - Tạo mới hoặc cập nhật thông báo (Tiêu đề, Nội dung, Thời hạn hiển thị, Bật/Tắt).
+ *   - Phân luồng đối tượng nhận thông báo (Học viên, Gia sư, Trung tâm, Quản trị viên).
+ *   - Thao tác nhanh bật/tắt (Toggle active) hoặc xóa thông báo có hộp thoại xác nhận.
+ */
+
 import type { FormEvent } from 'react';
 import { useState, useEffect } from 'react';
 import { ConfirmDialog, Pagination } from '../../../shared/components';

@@ -147,32 +147,34 @@
 .tcs-listing-card__foot {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--space-sm);
   margin-top: auto;
 }
 
-.tcs-listing-card__status {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: var(--radius-pill);
-  background: var(--color-success-light);
-  color: var(--color-success);
-  font-size: var(--fs-body-sm);
-  font-weight: 600;
-}
-
+/* Hai nút chia đều bề ngang thẻ cho cân đối. */
 .tcs-listing-card__actions {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   align-items: center;
   gap: var(--space-sm);
+  width: 100%;
+}
+
+/* Thẻ chỉ có MỘT nút (vd. thẻ trung tâm khi khách chưa đăng nhập): nút chiếm trọn hàng,
+   vì lưới nút của main chia sẵn 2 cột bằng nhau. */
+.tcs-listing-card__actions > :only-child {
+  grid-column: 1 / -1;
 }
 
 .tcs-listing-card__foot .tcs-btn {
-  height: 36px;
-  padding: 0 var(--space-md);
+  height: 38px;
+  padding: 0 var(--space-sm);
   font-size: var(--fs-body-sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
 }
 
 .tcs-listing-card__review {
@@ -181,6 +183,71 @@
 
 .tcs-listing-card--compact {
   padding: var(--space-md);
+}
+
+/* Lưới tự điền cột (cùng thông số mục gia sư ở trang chủ): ít thẻ vẫn giữ đúng bề rộng thẻ.
+   Kích thước thẻ gọn trong lưới này dùng chung rule với trang chủ (HomePage.css). */
+.tcs-listing-grid--fill {
+  grid-template-columns: repeat(auto-fill, minmax(288px, 1fr));
+  gap: 14px;
+}
+
+@media (max-width: 640px) {
+  .tcs-listing-grid--fill {
+    grid-template-columns: 1fr;
+  }
+}
+
+.tcs-listing-card__avatar {
+  overflow: hidden;
+}
+
+.tcs-listing-card__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tcs-listing-card__actions--end {
+  margin-left: auto;
+}
+
+/* Thẻ bấm được cả khối: link ở tên phủ toàn thẻ, chân thẻ nổi lên trên để các nút bấm riêng. */
+.tcs-listing-card--link {
+  position: relative;
+}
+
+.tcs-listing-card__cover-link {
+  color: inherit;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.tcs-listing-card__cover-link::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: inherit;
+}
+
+.tcs-listing-card--link:hover .tcs-listing-card__cover-link {
+  color: var(--color-primary);
+}
+
+.tcs-listing-card__cover-link:focus-visible {
+  outline: none;
+}
+
+.tcs-listing-card__cover-link:focus-visible::after {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+  border-radius: 14px;
+}
+
+.tcs-listing-card--link .tcs-listing-card__foot {
+  position: relative;
+  z-index: 2;
 }
 
 .tcs-quick-grid {
@@ -279,7 +346,6 @@
   color: var(--color-primary-dark);
   background: var(--color-primary-xlight);
 }
-
 .tcs-promo {
   display: flex;
   align-items: center;
@@ -407,5 +473,65 @@
   .tcs-promo {
     flex-direction: column;
     align-items: flex-start;
+  }
+}
+
+/* Phân trang danh sách (gia sư, lớp...) — dùng chung nhiều trang */
+.tcs-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 28px;
+}
+.tcs-pagination__nav,
+.tcs-pagination__page {
+  min-width: 40px;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #e3e9f2;
+  background: #fff;
+  color: #33465e;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.tcs-pagination__nav:hover:not(:disabled),
+.tcs-pagination__page:hover:not(.tcs-pagination__page--active) {
+  border-color: #ea5a1c;
+  color: #ea5a1c;
+}
+.tcs-pagination__nav:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.tcs-pagination__page--active {
+  background: linear-gradient(92deg, #ea5a1c 0%, #f08f34 100%);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(234, 90, 28, 0.24);
+}
+
+/* Lưới 3 thẻ mỗi hàng — dùng cho các danh sách phân trang 6 gia sư/trang (2 hàng × 3 thẻ).
+   Selector kép để thắng .tcs-section--tutors .tcs-listing-grid (auto-fill 4 cột). */
+.tcs-listing-grid--3col,
+.tcs-section--tutors .tcs-listing-grid.tcs-listing-grid--3col {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 1024px) {
+  .tcs-listing-grid--3col,
+  .tcs-section--tutors .tcs-listing-grid.tcs-listing-grid--3col {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .tcs-listing-grid--3col,
+  .tcs-section--tutors .tcs-listing-grid.tcs-listing-grid--3col {
+    grid-template-columns: 1fr;
   }
 }

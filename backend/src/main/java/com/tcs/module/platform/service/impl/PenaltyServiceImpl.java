@@ -39,6 +39,19 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * DỊCH VỤ QUẢN LÝ VÀ THỰC THI CHẾ TÀI XỬ PHẠT (PENALTY SERVICE IMPLEMENTATION)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp
+ * Mô tả nghiệp vụ:
+ *   - Quản trị viên ban hành các hình phạt (Cấm tạm thời, Cấm vĩnh viễn, Cảnh cáo, Hạn chế tính năng).
+ *   - Tự động thay đổi trạng thái tài khoản người dùng (ACTIVE <-> BANNED) tương ứng với án phạt.
+ *   - Tác vụ định kỳ Scheduled tự động quét và mãn hạn các án phạt cấm tạm thời, khôi phục tài khoản người dùng.
+ *   - Kiểm tra ràng buộc hợp lệ: không tự phạt bản thân, không phạt Admin khác, kiểm tra nguồn xử lý (Dispute, Ticket, Report, Circumvention).
+ *   - Ghi vết Audit Log và gửi thông báo Notification tự động tới người dùng bị phạt.
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -55,12 +68,20 @@ public class PenaltyServiceImpl implements PenaltyService {
     private final AuditLogService auditLogService;
     private final NotificationDispatchService notificationDispatchService;
 
+    /** Tập hợp các loại án phạt dẫn đến việc khóa tài khoản người dùng */
     private static final Set<UserPenaltyType> BAN_TYPES = Set.of(
             UserPenaltyType.TEMPORARY_BAN, UserPenaltyType.PERMANENT_BAN);
 
+    /** Tập hợp các nguồn gốc tạo án phạt hợp lệ từ các phân hệ khác nhau */
     private static final Set<String> ALLOWED_SOURCE_TYPES = Set.of(
             "REPORT", "CIRCUMVENTION", "DISPUTE", "TICKET", "DIRECT");
 
+    /**
+     * Lấy thông tin tài khoản Quản trị viên (PlatformAdmin) hiện tại đang thực hiện thao tác.
+     * 
+     * @return đối tượng PlatformAdmin của phiên làm việc hiện tại
+     * @throws ResourceNotFoundException nếu không tìm thấy hồ sơ quản trị viên
+     */
     private PlatformAdmin currentAdminOrThrow() {
         Long adminUserId = authHelper.requireRole(UserRole.PLATFORM_ADMIN).getUserId();
         return platformAdminRepository.findByUser_UserId(adminUserId)
@@ -96,6 +117,17 @@ public class PenaltyServiceImpl implements PenaltyService {
         log.info("Expired {} overdue user penalties", overdue.size());
     }
 
+    /**
+     * Tìm kiếm và phân trang danh sách án phạt theo bộ lọc đa chiều.
+     * 
+     * @param userId     ID người dùng cần lọc (hoặc null nếu xem tất cả)
+     * @param status     trạng thái án phạt (ACTIVE, EXPIRED, REVOKED)
+     * @param type       loại án phạt (WARNING, TEMPORARY_BAN, PERMANENT_BAN, FEATURE_RESTRICTION)
+     * @param sourceType nguồn gốc phát sinh án phạt (REPORT, DISPUTE, TICKET,...)
+     * @param page       chỉ số trang (0-indexed)
+     * @param size       số lượng phần tử trên mỗi trang
+     * @return danh sách án phạt đã được phân trang và đóng gói DTO
+     */
     @Override
     @Transactional
     public PagePenaltyResponse listPenalties(Long userId, UserPenaltyStatus status, UserPenaltyType type, String sourceType, int page, int size) {
@@ -116,6 +148,12 @@ public class PenaltyServiceImpl implements PenaltyService {
                 .build();
     }
 
+    /**
+     * Ban hành một quyết định xử phạt người dùng vi phạm quy chế nền tảng.
+     * 
+     * @param request thông tin chi tiết về án phạt (userId, loại phạt, lý do, bằng chứng, thời hạn)
+     * @return thông tin án phạt vừa được khởi tạo và lưu trữ
+     */
     // Luồng 13 - Bước 4: Admin ban hành quyết định xử phạt vi phạm
     @Override
     @Transactional
@@ -224,6 +262,13 @@ public class PenaltyServiceImpl implements PenaltyService {
         return toResponse(penalty);
     }
 
+    /**
+     * Thu hồi/hủy bỏ một quyết định xử phạt đang có hiệu lực và khôi phục tài khoản nếu đủ điều kiện.
+     * 
+     * @param penaltyId ID án phạt cần thu hồi
+     * @param request   lý do thu hồi án phạt từ Admin
+     * @return thông tin án phạt sau khi thu hồi
+     */
     @Override
     @Transactional
     public PenaltyResponse revokePenalty(Long penaltyId, RevokePenaltyRequest request) {
@@ -239,12 +284,14 @@ public class PenaltyServiceImpl implements PenaltyService {
             throw new IllegalStateException("Chỉ có thể thu hồi hình phạt đang hoạt động");
         }
 
+        // Cập nhật trạng thái án phạt sang REVOKED
         penalty.setStatus(UserPenaltyStatus.REVOKED);
         penalty.setRevokedAt(LocalDateTime.now());
         penalty.setRevokedReason(request.getRevokedReason());
         userPenaltyRepository.save(penalty);
         auditLogService.record("REVOKE_PENALTY", "UserPenalty", penalty.getPenaltyId(), null, request);
 
+        // Khôi phục trạng thái người dùng về ACTIVE nếu không còn án cấm nào khác
         User user = penalty.getUser();
         if (!hasActiveBan(user.getUserId())) {
             user.setStatus(UserStatus.ACTIVE);

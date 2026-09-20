@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ExpiryBadge } from '../../../shared/components/ExpiryBadge';
 import { money, slotLabel } from '../hooks/useClassSearch';
 import { roundScore, type MatchResult } from '../matching/tutorMatching';
+import type { ClassBusyConflict } from '../types/marketplaceTypes';
 import './tutorFindClass.css';
 
 interface CardProps {
@@ -12,6 +13,8 @@ interface CardProps {
   readonly showScore: boolean;
   /** Nút ở đáy thẻ. Gia sư thì "Ứng tuyển", phụ huynh thì "Xem chi tiết". */
   readonly actions?: ReactNode;
+  /** Gia sư: các buổi của lớp trùng thời gian bận đã đăng ký (null = không trùng / không phải gia sư). */
+  readonly busyConflict?: ClassBusyConflict | null;
 }
 
 /**
@@ -25,6 +28,7 @@ export function ClassResultCard({
   gradeName,
   showScore,
   actions,
+  busyConflict,
 }: CardProps) {
   const { parsed, breakdown } = result;
   const c = parsed.raw;
@@ -87,39 +91,61 @@ export function ClassResultCard({
         </div>
         {/* Năm chip này chính là 5 tiêu chí đang được chấm điểm (S · E · L · P · T),
             bày sẵn ra thẻ để gia sư khỏi phải mở "Xem chi tiết" mới đối chiếu được.
-            Lớp nhiều môn mỗi môn một giá thì hiện dạng khoảng "150.000đ – 200.000đ". */}
+            Lớp nhiều môn mỗi môn một giá thì hiện dạng khoảng "150.000đ – 200.000đ".
+            Thứ tự: môn học → địa chỉ → học phí → lịch học → khối học, mỗi tiêu chí một hàng. */}
         <div className="tfc-card__meta">
-          <span title="Môn học (S)">📚 {subjectLabel}</span>
-          <span title="Khối lớp (E)">🎓 {gradeLabel}</span>
-          <span title="Địa điểm (L)">📍 {location}</span>
-          {feeLabel && <span title="Học phí (P)">💰 {feeLabel}</span>}
-          {slotLabels.length > 0 && (
-            <span title="Lịch học (T)">
-              🕒 {slotLabels.join(' · ')}
-              {scheduleSummary && ` (${scheduleSummary})`}
+          {/* Nhãn và giá trị là hai phần tử riêng để CSS dồn nhãn về trái, giá trị về phải. */}
+          <span title="Môn học (S)">
+            <b className="tfc-card__meta-key">Môn</b>
+            <span className="tfc-card__meta-val">{subjectLabel}</span>
+          </span>
+          <span title="Địa điểm (L)">
+            <b className="tfc-card__meta-key">Địa điểm</b>
+            <span className="tfc-card__meta-val">{location}</span>
+          </span>
+          {feeLabel && (
+            <span title="Học phí (P)">
+              <b className="tfc-card__meta-key">Học phí</b>
+              <span className="tfc-card__meta-val">{feeLabel}</span>
             </span>
           )}
+          {slotLabels.length > 0 && (
+            <span title="Lịch học (T)">
+              <b className="tfc-card__meta-key">Lịch học</b>
+              <span className="tfc-card__meta-val">
+                {slotLabels.join(' · ')}
+                {scheduleSummary && ` (${scheduleSummary})`}
+              </span>
+            </span>
+          )}
+          <span title="Khối lớp (E)">
+            <b className="tfc-card__meta-key">Khối học</b>
+            <span className="tfc-card__meta-val">{gradeLabel}</span>
+          </span>
         </div>
 
-        <div className="tfc-card__info">
-          {learningGoal && (
-            <p className="tfc-card__info-row">
-              <span className="tfc-card__ico" aria-hidden>🎯</span>
-              <span>
+        {busyConflict && (
+          <p className="tfc-card__busy" role="note">
+            <strong>Trùng thời gian bận ({busyConflict.conflictCount} buổi):</strong> {busyConflict.summary}
+          </p>
+        )}
+
+        {/* Chỉ dựng khung khi lớp có mục tiêu / yêu cầu — tránh để trống một khoảng trên thẻ. */}
+        {(learningGoal || tutorRequirement) && (
+          <div className="tfc-card__info">
+            {learningGoal && (
+              <p className="tfc-card__info-row">
                 <strong>Mục tiêu:</strong> {learningGoal}
-              </span>
-            </p>
-          )}
-          {tutorRequirement && (
-            <p className="tfc-card__info-row">
-              <span className="tfc-card__ico" aria-hidden>🧑‍🏫</span>
-              <span>
+              </p>
+            )}
+            {tutorRequirement && (
+              <p className="tfc-card__info-row">
                 <strong>Yêu cầu gia sư:</strong> {tutorRequirement}
-              </span>
-            </p>
-          )}
-          {/* Lịch học đã nằm ở chip 🕒 phía trên (kèm số buổi/tuần) nên bỏ dòng này. */}
-        </div>
+              </p>
+            )}
+            {/* Lịch học đã nằm ở chip 🕒 phía trên (kèm số buổi/tuần) nên bỏ dòng này. */}
+          </div>
+        )}
 
         {actions && <div className="tfc-card__actions">{actions}</div>}
       </div>

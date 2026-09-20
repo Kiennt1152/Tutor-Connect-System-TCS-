@@ -32,6 +32,11 @@
   height: 40px;
 }
 
+.ft-trigger:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
 .ft-thumb {
   width: 100%;
   height: 100%;

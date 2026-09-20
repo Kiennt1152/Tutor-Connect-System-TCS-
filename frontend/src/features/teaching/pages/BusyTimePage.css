@@ -1,0 +1,465 @@
+/* Trang đăng ký thời gian bận của gia sư — lịch tháng bên trái, bảng thao tác bên phải. */
+.bsy-page {
+  min-height: 100vh;
+  background: #f5f7fb;
+}
+.bsy-main {
+  /* Chỉ đặt lề trên/dưới — viết tắt `padding` sẽ xóa lề ngang của .tcs-container, nội dung dính mép màn hình. */
+  padding-top: 20px;
+  padding-bottom: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.bsy-back {
+  align-self: flex-start;
+  color: #ea580c;
+  font-weight: 600;
+  font-size: 14px;
+  text-decoration: none;
+}
+.bsy-back:hover {
+  text-decoration: underline;
+}
+.bsy-heading h1 {
+  margin: 0 0 4px;
+  font-size: 26px;
+  font-weight: 800;
+  color: #12233b;
+}
+.bsy-heading p {
+  margin: 0;
+  font-size: 14px;
+  color: #5b6b7f;
+}
+.bsy-heading strong {
+  color: #12233b;
+}
+
+.bsy-alert {
+  padding: 10px 14px;
+  border-radius: 10px;
+  font-size: 14px;
+}
+.bsy-alert--ok {
+  background: #e8f5e9;
+  color: #1b5e20;
+  border: 1px solid #c8e6c9;
+}
+.bsy-alert--err {
+  background: #fdecea;
+  color: #b71c1c;
+  border: 1px solid #f5c6c2;
+}
+
+.bsy-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 16px;
+  align-items: start;
+}
+
+/* ---------- Lịch tháng ---------- */
+.bsy-calendar,
+.bsy-panel {
+  background: #fff;
+  border: 1px solid #e3e9f2;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 4px 14px rgba(18, 35, 59, 0.04);
+}
+.bsy-calendar__bar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+.bsy-calendar__title {
+  margin: 0;
+  min-width: 170px;
+  text-align: center;
+  font-size: 20px;
+  font-weight: 800;
+  color: #12233b;
+}
+.bsy-nav {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1px solid #e3e9f2;
+  background: #fff;
+  color: #12233b;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.bsy-nav:hover {
+  border-color: #ea580c;
+  background: #fff7ed;
+}
+
+.bsy-summary {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+  margin: 12px 0 14px;
+}
+/* Ba màu dùng xuyên suốt: xanh dương = dạy, cam = bận, xanh lá = rảnh. */
+.bsy-legend {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+.bsy-legend::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.bsy-legend--teach {
+  color: #1d4ed8;
+  background: #eef3ff;
+}
+.bsy-legend--busy {
+  color: #c2410c;
+  background: #fff4ec;
+}
+.bsy-legend--free {
+  color: #15803d;
+  background: #ecfdf3;
+}
+
+.bsy-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+.bsy-weekday {
+  border: none;
+  background: transparent;
+  padding: 6px 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #5b6b7f;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.bsy-weekday:hover {
+  background: #fff7ed;
+  color: #ea580c;
+}
+
+.bsy-cell {
+  min-height: 92px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 3px;
+  text-align: left;
+  border: 1px solid #e8eef6;
+  border-radius: 10px;
+  background: #fff;
+  font: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.bsy-cell:hover:not(:disabled) {
+  border-color: #fdba74;
+}
+.bsy-cell--pad {
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+.bsy-cell--busy {
+  background: #fffaf5;
+}
+.bsy-cell--past {
+  background: #f8fafc;
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.bsy-cell--today .bsy-cell__day {
+  background: #12233b;
+  color: #fff;
+}
+.bsy-cell--selected {
+  border-color: #ea580c;
+  background: #fff7ed;
+  box-shadow: 0 0 0 2px rgba(234, 88, 12, 0.25);
+}
+.bsy-cell__day {
+  align-self: flex-start;
+  min-width: 24px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #12233b;
+  text-align: center;
+}
+
+.bsy-tag {
+  display: block;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.5;
+  padding: 0 5px;
+  border-radius: 5px;
+}
+.bsy-tag--teach {
+  color: #1d4ed8;
+  background: #eef3ff;
+}
+.bsy-tag--busy {
+  color: #c2410c;
+  background: #ffedd5;
+}
+.bsy-tag--free {
+  color: #15803d;
+  background: #ecfdf3;
+}
+.bsy-tag--more {
+  color: #5b6b7f;
+  background: #f1f5f9;
+}
+
+.bsy-hint {
+  margin: 12px 0 0;
+  font-size: 12.5px;
+  color: #7b8794;
+  text-align: center;
+}
+
+/* ---------- Bảng thao tác ---------- */
+.bsy-panel {
+  position: sticky;
+  top: 88px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.bsy-panel__title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  color: #12233b;
+}
+.bsy-panel__block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  min-width: 0;
+}
+.bsy-panel__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bsy-label {
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #33465e;
+}
+.bsy-muted {
+  margin: 0;
+  font-size: 13px;
+  color: #7b8794;
+}
+.bsy-link {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #ea580c;
+  cursor: pointer;
+}
+.bsy-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.bsy-chip {
+  border: 1px solid #fbd9c3;
+  background: #fff4ec;
+  color: #b8461a;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.bsy-modes {
+  gap: 6px;
+}
+.bsy-mode {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border: 1px solid #e3e9f2;
+  border-radius: 10px;
+  font-size: 13.5px;
+  color: #33465e;
+  cursor: pointer;
+}
+.bsy-mode.is-active {
+  border-color: #ea580c;
+  background: #fff7ed;
+  color: #12233b;
+  font-weight: 600;
+}
+.bsy-mode input {
+  accent-color: #ea580c;
+}
+.bsy-input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 1px solid #d8e0ea;
+  border-radius: 8px;
+  background: #fff;
+  font: inherit;
+  font-size: 13.5px;
+  color: #12233b;
+}
+.bsy-input:focus {
+  outline: none;
+  border-color: #ea580c;
+  box-shadow: 0 0 0 3px rgba(234, 88, 12, 0.14);
+}
+
+.bsy-warn,
+.bsy-info {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  line-height: 1.45;
+}
+.bsy-warn {
+  background: #fdecea;
+  color: #b71c1c;
+}
+.bsy-info {
+  background: #eef3ff;
+  color: #1e3a8a;
+}
+
+.bsy-submit {
+  border: none;
+  border-radius: 10px;
+  padding: 11px 16px;
+  background: #ea580c;
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+.bsy-submit:hover:not(:disabled) {
+  background: #c2410c;
+}
+.bsy-submit:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.bsy-list {
+  padding-top: 12px;
+  border-top: 1px dashed #e3e9f2;
+}
+.bsy-list ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 260px;
+  overflow-y: auto;
+}
+.bsy-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: #fffaf5;
+  font-size: 13px;
+}
+.bsy-list__date {
+  flex: 0 0 auto;
+  font-weight: 700;
+  color: #c2410c;
+}
+.bsy-list__time {
+  flex: 1;
+  min-width: 0;
+  color: #33465e;
+}
+.bsy-list__time em {
+  color: #7b8794;
+}
+.bsy-list__del {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  border: none;
+  border-radius: 50%;
+  background: #f1f5f9;
+  color: #5b6b7f;
+  font-size: 11px;
+  cursor: pointer;
+}
+.bsy-list__del:hover {
+  background: #ea580c;
+  color: #fff;
+}
+
+@media (max-width: 1024px) {
+  .bsy-layout {
+    grid-template-columns: 1fr;
+  }
+  .bsy-panel {
+    position: static;
+  }
+}
+@media (max-width: 640px) {
+  .bsy-cell {
+    min-height: 64px;
+    padding: 4px;
+  }
+  /* Màn nhỏ: chỉ để chấm màu, chữ không đủ chỗ. */
+  .bsy-tag {
+    font-size: 0;
+    height: 5px;
+    padding: 0;
+  }
+}
+
+/* "Cả ngày" là lối tắt tick đủ 3 buổi — tách nhẹ khỏi danh sách buổi bên dưới. */
+.bsy-mode--all {
+  margin-bottom: 2px;
+  font-weight: 600;
+}
+.bsy-modes .bsy-muted strong {
+  color: #c2410c;
+}

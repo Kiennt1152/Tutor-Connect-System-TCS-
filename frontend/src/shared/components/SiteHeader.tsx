@@ -55,12 +55,12 @@ function buildNavLinks(role: UserRole): NavLinkItem[] {
       { key: 'centers', label: 'Trung tâm', to: APP_ROUTES.centers },
     ];
   }
-  // Trung tâm: xem danh sách lớp đang mở (gồm lớp do trung tâm tạo) + trang giới thiệu công khai;
-  // quản lý sâu qua nút "Quản lý trung tâm".
+  // Trung tâm: tìm gia sư phù hợp và xem đánh giá công khai; phần vận hành dùng nút
+  // "Quản lý trung tâm" ở bên phải, không đưa lại trang public "Trung tâm" lên navbar.
   if (role === 'TUTOR_CENTER') {
     return [
-      { key: 'find-class', label: 'Tìm lớp', to: APP_ROUTES.classFinder },
-      { key: 'centers', label: 'Trung tâm', to: APP_ROUTES.centers },
+      { key: 'find-tutor', label: 'Tìm gia sư', to: APP_ROUTES.findTutor },
+      { key: 'reviews', label: 'Đánh giá', to: APP_ROUTES.tutorReviews },
     ];
   }
   // Admin: không có nav khám phá (dùng khu vực quản trị riêng).
@@ -127,7 +127,7 @@ export function SiteHeader({ active }: SiteHeaderProps) {
           ))}
           {showHomeAnchors && (
             <>
-              {/* "Đánh giá" mở trang riêng /danh-gia (danh sách gia sư + số sao). */}
+              {/* "Đánh giá" mở trang riêng /reviews (danh sách gia sư + số sao). */}
               <Link
                 to={APP_ROUTES.tutorReviews}
                 className={[
@@ -154,7 +154,43 @@ export function SiteHeader({ active }: SiteHeaderProps) {
                   Quản lý trung tâm
                 </Link>
               ) : null}
-              {showTeaching ? (
+              {showTeaching && hasRole(role, 'TUTOR') ? (
+                // Gia sư: nút mở menu chọn giữa xem lịch dạy và đăng ký thời gian bận. Dùng <button>
+                // chứ không phải <Link> để bấm vào chỉ mở menu (focus-within), không nhảy trang.
+                <div className="tcs-profile-menu tcs-header__schedule-menu">
+                  <button
+                    type="button"
+                    className="tcs-btn tcs-btn--ghost tcs-btn--header tcs-header__shortcut"
+                    aria-haspopup="menu"
+                  >
+                    Lịch dạy cá nhân
+                    <svg
+                      className="tcs-header__schedule-caret"
+                      viewBox="0 0 12 12"
+                      width="12"
+                      height="12"
+                      aria-hidden="true"
+                    >
+                      <path
+                        d="M2.5 4.5 6 8l3.5-3.5"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  </button>
+                  <div className="tcs-profile-menu__dropdown" role="menu">
+                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.teaching} role="menuitem">
+                      Xem lịch dạy
+                    </Link>
+                    <Link className="tcs-profile-menu__item" to={APP_ROUTES.busyTimes} role="menuitem">
+                      Đăng ký thời gian bận
+                    </Link>
+                  </div>
+                </div>
+              ) : showTeaching ? (
                 <Link className="tcs-btn tcs-btn--ghost tcs-btn--header tcs-header__shortcut" to={APP_ROUTES.teaching}>
                   {hasRole(role, 'CLIENT') ? 'Lịch học cá nhân' : 'Lịch dạy cá nhân'}
                 </Link>

@@ -10,6 +10,7 @@ import com.tcs.module.marketplace.dto.request.RescheduleLessonRequest;
 import com.tcs.module.marketplace.dto.response.ApplicantResponse;
 import com.tcs.module.marketplace.dto.response.AssignmentResponse;
 import com.tcs.module.marketplace.dto.response.ContractViewResponse;
+import com.tcs.module.marketplace.dto.response.CenterProfileResponse;
 import com.tcs.module.marketplace.dto.response.CenterSummaryResponse;
 import com.tcs.module.marketplace.dto.response.ClassRequestResponse;
 import com.tcs.module.marketplace.dto.response.ClassResponse;
@@ -82,6 +83,12 @@ public class MarketplaceController {
         return marketplaceService.listCenters();
     }
 
+    /** Hồ sơ công khai của một trung tâm (trang "Xem hồ sơ" từ danh sách trung tâm). */
+    @GetMapping("/centers/{centerId}")
+    public CenterProfileResponse getCenterProfile(@PathVariable Long centerId) {
+        return marketplaceService.getCenterProfile(centerId);
+    }
+
     @PostMapping("/centers/{centerId}/class-requests")
     @ResponseStatus(HttpStatus.CREATED)
     public ClassRequestResponse createClassRequest(
@@ -151,6 +158,13 @@ public class MarketplaceController {
     @GetMapping("/classes/{classId}/applications")
     public List<ApplicantResponse> listApplicants(@PathVariable Long classId) {
         return marketplaceService.listApplicants(classId);
+    }
+
+    /** Gia sư kiểm tra trước: lớp nào trùng thời gian bận đã đăng ký, ví dụ {@code ?classIds=1,2,3}. */
+    @GetMapping("/busy-conflicts")
+    public List<com.tcs.module.marketplace.dto.response.ClassBusyConflictResponse> listMyBusyConflicts(
+            @RequestParam List<Long> classIds) {
+        return marketplaceService.listMyBusyConflicts(classIds);
     }
 
     @PostMapping("/classes/{classId}/applications/{applicationId}/choose")

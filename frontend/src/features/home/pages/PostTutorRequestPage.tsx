@@ -17,7 +17,7 @@ import './FindTutorPage.css';
 
 /*
  * ============================================================================
- * MÀN "ĐĂNG YÊU CẦU TÌM GIA SƯ"  —  route /dang-yeu-cau-tim-gia-su
+ * MÀN "ĐĂNG YÊU CẦU TÌM GIA SƯ"  —  route /post-tutor-request
  * ============================================================================
  *
  * TỆP NÀY LÀM GÌ
@@ -116,8 +116,8 @@ export default function PostTutorRequestPage() {
       <main>
         <section className="tcs-home-hero tcs-find-hero">
           <div className="tcs-container">
-            <Link className="tcs-find-back tcs-find-back--btn" to={APP_ROUTES.findTutor}>
-              ← Quay lại danh sách gia sư
+            <Link className="tcs-find-back tcs-find-back--btn" to={APP_ROUTES.marketplace}>
+              ← Yêu cầu tìm gia sư của tôi
             </Link>
             <div className="tcs-find-hero__intro">
               <h1 className="tcs-find-title tcs-find-title--compact">

@@ -6,15 +6,16 @@ import { useUpdateUserStatus } from '../hooks/usePlatformMutations';
 import { useUserList } from '../hooks/useUserList';
 import type { UserRole, UserStatus } from '../types/platformTypes';
 
+// Quản trị chỉ còn hai trạng thái: Hoạt động và Đã khóa. Tài khoản SUSPENDED cũ (nếu có)
+// được coi như đã khóa: hiện nhãn "Đã khóa" và chỉ còn nút Kích hoạt.
+type AdminStatus = 'ACTIVE' | 'BANNED';
+
 function statusBadgeClass(status: UserStatus) {
-  if (status === 'ACTIVE') return 'tcs-badge tcs-badge--active';
-  if (status === 'SUSPENDED') return 'tcs-badge tcs-badge--suspended';
-  return 'tcs-badge tcs-badge--banned';
+  return status === 'ACTIVE' ? 'tcs-badge tcs-badge--active' : 'tcs-badge tcs-badge--banned';
 }
 
-const STATUS_ACTION_LABELS: Record<UserStatus, string> = {
+const STATUS_ACTION_LABELS: Record<AdminStatus, string> = {
   ACTIVE: 'Kích hoạt',
-  SUSPENDED: 'Tạm ngưng',
   BANNED: 'Khóa',
 };
 
@@ -25,20 +26,13 @@ type StatusDialogConfig = {
   describe: (name: string) => string;
 };
 
-const STATUS_DIALOG: Record<UserStatus, StatusDialogConfig> = {
+const STATUS_DIALOG: Record<AdminStatus, StatusDialogConfig> = {
   BANNED: {
     title: 'Khóa tài khoản',
     confirmLabel: 'Khóa',
     variant: 'danger',
     describe: (name) =>
       `Khóa tài khoản "${name}"? Người dùng sẽ không thể đăng nhập và email không thể đăng ký lại.`,
-  },
-  SUSPENDED: {
-    title: 'Tạm ngưng tài khoản',
-    confirmLabel: 'Tạm ngưng',
-    variant: 'warning',
-    describe: (name) =>
-      `Tạm ngưng tài khoản "${name}"? Người dùng vẫn đăng nhập được nhưng sẽ bị giới hạn quyền (triển khai sau).`,
   },
   ACTIVE: {
     title: 'Kích hoạt tài khoản',
@@ -51,7 +45,7 @@ const STATUS_DIALOG: Record<UserStatus, StatusDialogConfig> = {
 type PendingStatusChange = {
   userId: string;
   displayName: string;
-  nextStatus: UserStatus;
+  nextStatus: AdminStatus;
 };
 
 export default function PlatformUsersPage() {
@@ -69,7 +63,7 @@ export default function PlatformUsersPage() {
   const requestStatusChange = (
     userId: string,
     displayName: string,
-    nextStatus: UserStatus,
+    nextStatus: AdminStatus,
     role: UserRole,
   ) => {
     if (role === 'PLATFORM_ADMIN') return;
@@ -117,7 +111,6 @@ export default function PlatformUsersPage() {
           >
             <option value="">Tất cả trạng thái</option>
             <option value="ACTIVE">Hoạt động</option>
-            <option value="SUSPENDED">Tạm ngưng</option>
             <option value="BANNED">Đã khóa</option>
           </select>
           <select
@@ -204,19 +197,6 @@ export default function PlatformUsersPage() {
                                 </button>
                               )}
                               {user.status === 'ACTIVE' && (
-                                <button
-                                  className="tcs-btn tcs-btn--warning tcs-btn--badge"
-                                  type="button"
-                                  disabled={mutationStatus === 'loading'}
-                                  title={STATUS_ACTION_LABELS.SUSPENDED}
-                                  onClick={() =>
-                                    requestStatusChange(user.id, user.displayName, 'SUSPENDED', user.role)
-                                  }
-                                >
-                                  Tạm ngưng
-                                </button>
-                              )}
-                              {user.status !== 'BANNED' && (
                                 <button
                                   className="tcs-btn tcs-btn--danger tcs-btn--badge"
                                   type="button"

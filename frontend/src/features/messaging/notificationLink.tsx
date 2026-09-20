@@ -55,6 +55,15 @@ export function notificationLink(
     return null;
   }
 
+  // Đơn ứng tuyển vào tin tuyển gia sư. Thiếu nhánh này thì rơi xuống `case 'APPLICATION'` và
+  // gia sư bị đưa sang Lịch cá nhân. Đơn được duyệt nay gắn vào hợp đồng (nhánh CONTRACT bên
+  // dưới); ở đây còn lại đơn bị từ chối và các thông báo cũ đã lỡ gắn vào đơn.
+  if (n.referenceType === 'RECRUITMENT_APPLICATION') {
+    if (role === 'TUTOR') return `${APP_ROUTES.recruitment}?tab=mine`;
+    if (role === 'TUTOR_CENTER') return '/center/recruitment';
+    return null;
+  }
+
   // Hợp đồng: việc cần làm là ký hoặc thanh toán ký quỹ, phải về trang Hợp đồng.
   // referenceId ở đây là classId (lúc gửi thông báo chưa chắc đã có hợp đồng),
   // nên chỉ mở danh sách chứ không ghép thành /contract/{id}.

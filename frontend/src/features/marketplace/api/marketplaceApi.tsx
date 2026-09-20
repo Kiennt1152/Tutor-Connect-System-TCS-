@@ -4,6 +4,7 @@ import type {
   CatalogOption,
   ClassTerminationResponse,
   CreateClassTerminationRequest,
+  CenterProfile,
   CenterSummary,
   ClassRequest,
   ClassRequestPayload,
@@ -12,6 +13,7 @@ import type {
   LocationOption,
   MarketplaceClass,
   TutorProfileCard,
+  ClassBusyConflict,
 } from '../types/marketplaceTypes';
 
 export const MARKETPLACE_API_BASE = '/marketplace';
@@ -59,6 +61,12 @@ export const marketplaceApi = {
 
   listMyAppliedClassIds: () =>
     axiosClient.get<number[]>('/marketplace/applications/mine').then((r) => r.data),
+
+  /** Gia sư: lớp nào (trong danh sách) có buổi trùng thời gian bận đã đăng ký. Chỉ trả lớp CÓ trùng. */
+  listMyBusyConflicts: (classIds: number[]) =>
+    axiosClient
+      .get<ClassBusyConflict[]>('/marketplace/busy-conflicts', { params: { classIds: classIds.join(',') } })
+      .then((r) => r.data),
 
   getMyTutorProfile: () =>
     axiosClient.get<TutorProfileCard>('/profile/me').then((r) => r.data),
@@ -177,6 +185,9 @@ export const marketplaceApi = {
   // ----- Yêu cầu mở lớp gửi tới một trung tâm (phía phụ huynh) -----
   listCenters() {
     return axiosClient.get<CenterSummary[]>(`${MARKETPLACE_API_BASE}/centers`);
+  },
+  getCenterProfile(centerId: number | string) {
+    return axiosClient.get<CenterProfile>(`${MARKETPLACE_API_BASE}/centers/${centerId}`);
   },
   createClassRequest(centerId: number, payload: CreateClassRequestPayload) {
     return axiosClient.post<ClassRequest>(

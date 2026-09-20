@@ -38,6 +38,15 @@
 
 .tcs-header__inner > .app-logo {
   flex: 0 0 auto;
+  /* Ảnh logo có nhiều viền trong suốt nên được phóng 140px, cao hơn header (64px). Khoá khung
+     link bằng chiều cao header để vùng bấm không thò xuống đè nội dung bên dưới
+     (vd. link "← Quay lại" ngay dưới header bị bấm nhầm thành về trang chủ). */
+  align-self: stretch;
+}
+
+.tcs-header__inner > .app-logo .app-logo__image {
+  /* Phần ảnh tràn ra ngoài vẫn hiển thị nhưng không nhận click. */
+  pointer-events: none;
 }
 
 .tcs-header__nav {
@@ -77,6 +86,24 @@
 
 .tcs-header__shortcut {
   white-space: nowrap;
+}
+
+.tcs-header__schedule-menu > .tcs-header__shortcut {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tcs-header__schedule-caret {
+  flex: none;
+  opacity: 0.7;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.tcs-header__schedule-menu:hover .tcs-header__schedule-caret,
+.tcs-header__schedule-menu:focus-within .tcs-header__schedule-caret {
+  opacity: 1;
+  transform: rotate(180deg);
 }
 
 .tcs-home-profile-btn {

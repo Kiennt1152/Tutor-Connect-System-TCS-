@@ -71,6 +71,7 @@ export function AdminEscrowQueue() {
             <tr>
               <th>Escrow</th>
               <th>Tham chiếu</th>
+              <th>Loại giao dịch</th>
               <th>Người trả</th>
               <th>Người nhận</th>
               <th>Số tiền</th>
@@ -80,13 +81,19 @@ export function AdminEscrowQueue() {
           <tbody>
             {items.length === 0 && (
               <tr>
-                <td colSpan={6}>Không có escrow phù hợp.</td>
+                <td colSpan={7}>Không có escrow phù hợp.</td>
               </tr>
             )}
             {paginatedItems.map((item) => (
               <tr key={item.escrowId}>
                 <td>#{item.escrowId}</td>
                 <td>{item.referenceCode ?? '—'}</td>
+                <td>
+                  <div style={{ fontWeight: 700 }}>{item.transactionTypeLabel}</div>
+                  <div style={{ color: '#64748b', fontSize: '12px', marginTop: '4px' }}>
+                    {item.classTitle ? `Lớp: ${item.classTitle}` : 'Chưa liên kết lớp'}
+                  </div>
+                </td>
                 <td>{item.payerEmail}</td>
                 <td>{item.beneficiaryEmail ?? '—'}</td>
                 <td>{item.amount.toLocaleString('vi-VN')} VND</td>

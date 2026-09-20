@@ -16,8 +16,21 @@ const axiosClient = axios.create({
 function isAuthEndpoint(url: string) {
   return (
     url.includes('/identity/login') ||
+    url.includes('/identity/logout') ||
     url.includes('/identity/register') ||
     url.includes('/identity/password/')
+  );
+}
+
+function isPublicEndpoint(url: string) {
+  return (
+    url.startsWith('/ai') ||
+    url.includes('/ai/') ||
+    url.startsWith('/catalog') ||
+    url.includes('/catalog/') ||
+    url.startsWith('/marketplace') ||
+    url.includes('/marketplace/') ||
+    url.startsWith('/files/public')
   );
 }
 
@@ -35,12 +48,17 @@ function redirectToExpiredSession() {
 axiosClient.interceptors.request.use((config) => {
   const requestUrl = config.url ?? '';
   const token = authStorage.getToken();
-  if (token && !isAuthEndpoint(requestUrl) && authStorage.isSessionExpired()) {
-    redirectToExpiredSession();
-    return Promise.reject(new Error('Phiên đăng nhập đã hết hạn.'));
+  if (token && authStorage.isSessionExpired()) {
+    if (isPublicEndpoint(requestUrl)) {
+      authStorage.clearAll();
+    } else if (!isAuthEndpoint(requestUrl)) {
+      redirectToExpiredSession();
+      return Promise.reject(new Error('Phiên đăng nhập đã hết hạn.'));
+    }
   }
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
+  const currentToken = authStorage.getToken();
+  if (currentToken) {
+    config.headers.Authorization = `Bearer ${currentToken}`;
   }
   return config;
 });
@@ -54,21 +72,24 @@ axiosClient.interceptors.response.use(
     const path = window.location.pathname;
     const requestUrl = error.config?.url ?? '';
 
-    if (status === 401 && !isAuthEndpoint(requestUrl) && path !== APP_ROUTES.login && !isRedirectingToLogin) {
+    const isAiEndpoint = requestUrl.startsWith('/ai') || requestUrl.includes('/ai');
+
+    if (status === 401 && !isAuthEndpoint(requestUrl) && !isAiEndpoint && path !== APP_ROUTES.login && !isRedirectingToLogin) {
       redirectToExpiredSession();
     }
 
-    const isAiEndpoint = requestUrl.includes('/api/ai');
     if (status === 403 && !isAuthEndpoint(requestUrl) && !isAiEndpoint && path !== APP_ROUTES.forbidden) {
       window.location.assign(APP_ROUTES.forbidden);
     }
 
     if (error.code === 'ERR_NETWORK' || !error.response) {
-      return Promise.reject(
-        new Error(
-          'Không thể kết nối đến máy chủ. Vui lòng kiểm tra backend đang chạy và CORS đã được cấu hình.',
-        ),
+      // Giữ lại error.code: nơi gọi cần phân biệt "backend đang tắt/restart" với
+      // "server trả 401" — mất kết nối thì KHÔNG được coi là phiên hỏng.
+      const networkError: Error & { code?: string } = new Error(
+        'Không thể kết nối đến máy chủ. Vui lòng kiểm tra backend đang chạy và CORS đã được cấu hình.',
       );
+      networkError.code = error.code ?? 'ERR_NETWORK';
+      return Promise.reject(networkError);
     }
 
     return Promise.reject(error);

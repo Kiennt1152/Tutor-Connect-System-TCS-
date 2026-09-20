@@ -283,6 +283,35 @@
   gap: 8px;
   margin-top: 8px;
 }
+/* Không ô nào được co nhỏ hơn nội dung (ngày kèm biểu tượng lịch, "Sáng (6h–12h)", "07:30 (1 giờ
+   30 phút)"...). Thiếu chỗ thì xuống dòng theo cụm thay vì bóp ô làm mất chữ. */
+.mkt-slot-row > .mkt-slot-date,
+.mkt-slot-row > .mkt-day-time__session {
+  flex: 0 0 auto;
+}
+/* Cụm giờ: [giờ bắt đầu] [– giờ kết thúc ×]. Hai ô giờ giữ đúng bề rộng tự nhiên (vừa nhãn dài
+   nhất như "07:30 (1 giờ 30 phút)") — không bị bóp mất chữ. Thiếu chỗ thì cả cụm xuống dòng; màn
+   rất hẹp thì "– giờ kết thúc ×" xuống tiếp nhưng vẫn đi liền nhau, nút × không bao giờ đứng lẻ. */
+.mkt-slot-time {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+.mkt-slot-end {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: nowrap;
+}
+.mkt-slot-time .mkt-day-time__session {
+  flex: 0 0 auto;
+}
+.mkt-slot-time .mkt-slot-remove {
+  flex: 0 0 30px;
+}
 .mkt-slot-date {
   padding: 7px 10px;
   border: 1px solid #cfd8e3;
@@ -563,15 +592,58 @@
     grid-template-columns: 1fr;
   }
 }
+/* Màu nhấn theo trạng thái tin — mặc định xám, từng trạng thái ghi đè bên dưới.
+   Dùng biến để viền trên, nền chuyển sắc và màu hover lấy chung một nguồn. */
 .mkt-class-card {
-  background: #fff;
+  --mkt-accent: #90a4ae;
+  --mkt-accent-soft: rgba(144, 164, 174, 0.1);
+  position: relative;
+  overflow: hidden;
+  /* Nền loang nhẹ từ trên xuống cho thẻ bớt trống, không phải mảng trắng phẳng. */
+  background: linear-gradient(180deg, var(--mkt-accent-soft) 0, rgba(255, 255, 255, 0) 150px), #fff;
   border: 1px solid #e3e9f2;
   border-radius: 14px;
-  padding: 18px;
+  padding: 20px 18px 18px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   box-shadow: 0 4px 14px rgba(18, 35, 59, 0.04);
+  transition: transform 0.16s ease, box-shadow 0.16s ease, border-color 0.16s ease;
+}
+/* Vạch màu sát mép trên — nhận ra trạng thái tin từ xa mà không cần đọc chữ. */
+.mkt-class-card::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto;
+  height: 4px;
+  background: var(--mkt-accent);
+}
+.mkt-class-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--mkt-accent);
+  box-shadow: 0 14px 28px rgba(18, 35, 59, 0.1);
+}
+.mkt-class-card--open {
+  --mkt-accent: #2e7d32;
+  --mkt-accent-soft: rgba(46, 125, 50, 0.09);
+}
+.mkt-class-card--matched,
+.mkt-class-card--in_progress {
+  --mkt-accent: #1e88e5;
+  --mkt-accent-soft: rgba(30, 136, 229, 0.09);
+}
+.mkt-class-card--completed {
+  --mkt-accent: #5e35b1;
+  --mkt-accent-soft: rgba(94, 53, 177, 0.09);
+}
+.mkt-class-card--draft {
+  --mkt-accent: #607d8b;
+  --mkt-accent-soft: rgba(96, 125, 139, 0.09);
+}
+.mkt-class-card--cancelled,
+.mkt-class-card--disputed {
+  --mkt-accent: #c62828;
+  --mkt-accent-soft: rgba(198, 40, 40, 0.08);
 }
 .mkt-class-card__top {
   display: flex;
@@ -588,6 +660,7 @@
   font-size: 16px;
   color: #12233b;
   line-height: 1.35;
+  text-align: center;
 }
 .mkt-class-card__meta {
   display: grid;
@@ -607,11 +680,54 @@
   font-weight: 600;
   color: #33465e;
 }
+/* Năm tiêu chí dạng chip, mỗi cái một hàng — giống thẻ bên màn /find-class.
+   Chip trải hết bề ngang thẻ: có cùng bề rộng thì năm nhãn mới thẳng hàng nhau được,
+   đồng thời giá trị cũng thẳng lề phải. */
+.mkt-class-card__chips {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+/* Một tone cam duy nhất cho cả năm chip. */
+.mkt-class-card__chips > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 12.5px;
+  color: #b8461a;
+  background: #fff4ec;
+  border: 1px solid #fbd9c3;
+  border-radius: 999px;
+  padding: 4px 12px;
+}
+/* Giá trị dài thì xuống hàng trong chip, canh phải cho khớp lề. */
+.mkt-class-card__chip-val {
+  min-width: 0;
+  text-align: right;
+}
+/* Cùng màu thì học phí phải in đậm mới nổi — con số gia sư nhìn đầu tiên. */
+.mkt-class-card__chips span[data-key='fee'] {
+  font-weight: 600;
+}
+/* Nhãn đen, không co lại để luôn nằm đúng một cột bên trái. */
+.mkt-class-card__chip-key {
+  flex: 0 0 auto;
+  font-weight: 600;
+  color: #12233b;
+}
+.mkt-class-card__chip-key::after {
+  content: ':';
+}
 .mkt-class-card__goal,
 .mkt-class-card__loc {
   margin: 0;
   font-size: 13px;
   color: #5b6b7f;
+}
+.mkt-class-card__goal strong {
+  color: #33465e;
+  font-weight: 600;
 }
 .mkt-class-card__subjects {
   display: flex;
@@ -700,12 +816,26 @@
   color: #78909c;
 }
 .mkt-class-card--expired {
+  --mkt-accent: #b0bec5;
+  --mkt-accent-soft: rgba(176, 190, 197, 0.12);
   background: #fafbfc;
   border-style: dashed;
+}
+/* Tin đã lưu kho thì đừng nhấc lên khi rê chuột — không còn gì để thao tác. */
+.mkt-class-card--expired:hover {
+  transform: none;
+  border-color: #e3e9f2;
+  box-shadow: 0 4px 14px rgba(18, 35, 59, 0.04);
 }
 .mkt-class-card--expired .mkt-class-card__title,
 .mkt-class-card--expired .mkt-subj-fees__fee {
   color: #78909c;
+}
+/* Tin hết hạn thì bỏ màu nhấn của chip học phí / lịch học cho đỡ chói. */
+.mkt-class-card--expired .mkt-class-card__chips span {
+  color: #78909c;
+  background: #f1f5f9;
+  border-color: #dde3ea;
 }
 .mkt-class-card__archived {
   margin: 0;
@@ -775,16 +905,52 @@
   flex: 1;
   min-width: 0;
 }
+/* Tiêu đề ngắn (dòng "Môn học: …") — một dòng, dài quá thì "…", rê chuột xem đủ. */
 .mkt-req-card__note {
-  margin: 0 0 5px;
-  font-size: 14px;
-  font-weight: 600;
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
   color: var(--color-text-primary);
   line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+/* Chi tiết (lịch học từng môn + ghi chú): chữ nhỏ, thu gọn 2 dòng. */
+.mkt-req-card__details {
+  margin: 0 0 8px;
+}
+.mkt-req-card__details-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--color-text-secondary);
+  overflow-wrap: anywhere;
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+.mkt-req-card__details-text.is-open {
+  display: block;
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+}
+.mkt-req-card__details-toggle {
+  margin-top: 2px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--color-primary);
+  cursor: pointer;
+}
+.mkt-req-card__details-toggle:hover {
+  color: var(--color-primary-dark);
+  text-decoration: underline;
 }
 .mkt-req-card__meta {
   display: flex;
@@ -1273,6 +1439,15 @@
 }
 .mk-btn--block {
   width: 100%;
+}
+/* Nút đã khoá hẳn (vd. học viên đã đăng ký lớp): xám, không mờ cam như disabled thường. */
+.mk-btn--locked,
+.mk-btn--locked:disabled {
+  background: var(--color-surface-3);
+  border-color: var(--color-border-strong);
+  color: var(--color-text-secondary);
+  opacity: 1;
+  cursor: not-allowed;
 }
 
 @media (max-width: 780px) {

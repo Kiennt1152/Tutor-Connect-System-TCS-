@@ -22,11 +22,11 @@ VERIFICATION,TUTOR_VERIFICATION_HELP,cần giấy tờ gì để duyệt hồ s�
 VERIFICATION,TUTOR_VERIFICATION_HELP,hồ sơ xác minh bị từ chối vì sao,TUTOR_VERIFICATION,ANY,FAQ,/profile,FAQ_CARDS,L1_CLARIFICATION,false,ho so bi tu choi
 VERIFICATION,TUTOR_VERIFICATION_HELP,xác minh hồ sơ trung tâm gia sư,TUTOR_VERIFICATION,ANY,FAQ,/profile,FAQ_CARDS,L1_CLARIFICATION,false,xac minh trung tam
 VERIFICATION,TUTOR_VERIFICATION_HELP,kiểm tra trạng thái xác minh,TUTOR_VERIFICATION,ANY,FAQ,/profile,FAQ_CARDS,L1_CLARIFICATION,false,trang thai duyet ho so
-MARKETPLACE,FIND_TUTOR,Tìm cho tôi gia sư môn Toán lớp 12 khu vực Cầu Giấy dưới 250k,FIND_TUTOR,ANY,TUTOR,/tim-gia-su,TUTOR_CARDS,L3_NO_DATA,true,tim gia su toan 12 cau giay
-MARKETPLACE,FIND_TUTOR,tìm gia sư tiếng anh giao tiếp,FIND_TUTOR,ANY,TUTOR,/tim-gia-su,TUTOR_CARDS,L3_NO_DATA,true,tim gia su tieng anh
-MARKETPLACE,FIND_TUTOR,thuê gia sư hóa lớp 11 đống đa,FIND_TUTOR,ANY,TUTOR,/tim-gia-su,TUTOR_CARDS,L3_NO_DATA,true,thue gia su hoa 11
-MARKETPLACE,FIND_CLASS,tìm lớp toán 10 đang mở,FIND_CLASS,ANY,CLASS,/lop-hoc,CLASS_CARDS,L3_NO_DATA,true,tim lop toan 10
-MARKETPLACE,FIND_CLASS,danh sách lớp học đang tuyển gia sư,FIND_CLASS,ANY,CLASS,/lop-hoc,CLASS_CARDS,L3_NO_DATA,true,danh sach lop dang mo
+MARKETPLACE,FIND_TUTOR,Tìm cho tôi gia sư môn Toán lớp 12 khu vực Cầu Giấy dưới 250k,FIND_TUTOR,ANY,TUTOR,/find-tutor,TUTOR_CARDS,L3_NO_DATA,true,tim gia su toan 12 cau giay
+MARKETPLACE,FIND_TUTOR,tìm gia sư tiếng anh giao tiếp,FIND_TUTOR,ANY,TUTOR,/find-tutor,TUTOR_CARDS,L3_NO_DATA,true,tim gia su tieng anh
+MARKETPLACE,FIND_TUTOR,thuê gia sư hóa lớp 11 đống đa,FIND_TUTOR,ANY,TUTOR,/find-tutor,TUTOR_CARDS,L3_NO_DATA,true,thue gia su hoa 11
+MARKETPLACE,FIND_CLASS,tìm lớp toán 10 đang mở,FIND_CLASS,ANY,CLASS,/class-finder,CLASS_CARDS,L3_NO_DATA,true,tim lop toan 10
+MARKETPLACE,FIND_CLASS,danh sách lớp học đang tuyển gia sư,FIND_CLASS,ANY,CLASS,/class-finder,CLASS_CARDS,L3_NO_DATA,true,danh sach lop dang mo
 MARKETPLACE,CREATE_CLASS,đăng bài tìm gia sư,CREATE_CLASS,PARENT,FAQ,/tao-lop,FAQ_CARDS,L1_CLARIFICATION,false,tao lop tim gia su
 MARKETPLACE,CREATE_CLASS,tạo yêu cầu học mới,CREATE_CLASS,PARENT,FAQ,/tao-lop,FAQ_CARDS,L1_CLARIFICATION,false,tao yeu cau hoc
 TUTOR_OPS,TUTOR_SCHEDULE_VIEW,xem lịch dạy của gia sư ở đâu,FAQ_SUPPORT,TUTOR,FAQ,/tutor/schedule,FAQ_CARDS,L4_PERMISSION,false,xem lich day gia su

@@ -190,7 +190,7 @@ class AiServiceImplChatPipelineTest {
 
         when(intentService.classifyAndExtractDetailed(anyString(), any(), any())).thenReturn(
             new AiIntentService.DetailedIntentResult(
-                AiDomain.MARKETPLACE, AiSubIntent.FIND_TUTOR, AiIntent.FIND_TUTOR, 0.95, Map.of("subject", "Toán"), "/tim-gia-su"
+                AiDomain.MARKETPLACE, AiSubIntent.FIND_TUTOR, AiIntent.FIND_TUTOR, 0.95, Map.of("subject", "Toán"), "/find-tutor"
             )
         );
 

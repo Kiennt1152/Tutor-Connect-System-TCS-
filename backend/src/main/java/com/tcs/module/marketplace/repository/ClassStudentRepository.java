@@ -14,12 +14,19 @@ public interface ClassStudentRepository extends JpaRepository<ClassStudent, Long
     /** Check trùng theo CHÍNH học sinh (email tài khoản đăng ký) — 2 con cùng phụ huynh vẫn đăng ký được. */
     boolean existsByTutoringClass_ClassIdAndStudentEmail(Long classId, String studentEmail);
 
+    /** Cùng điều kiện chặn trùng ở trên, lấy luôn bản ghi để biết trạng thái đăng ký hiện tại. */
+    java.util.Optional<ClassStudent> findFirstByTutoringClass_ClassIdAndStudentEmail(
+            Long classId, String studentEmail);
+
     /** Đã có bất kỳ học viên nào đăng ký lớp (mọi trạng thái, kể cả chờ ký hợp đồng). */
     boolean existsByTutoringClass_ClassId(Long classId);
 
     long countByTutoringClass_ClassIdAndStatus(Long classId, ClassStudentStatus status);
 
     List<ClassStudent> findByTutoringClass_ClassIdAndStatus(Long classId, ClassStudentStatus status);
+
+    /** Toàn bộ học viên của lớp — mọi trạng thái, theo thứ tự ghi danh (dùng khi xuất Excel). */
+    List<ClassStudent> findByTutoringClass_ClassIdOrderByEnrolledAtAsc(Long classId);
 
     /** Các học viên do một người dùng (phụ huynh) ghi danh — để client xem lịch học lớp đã đăng ký. */
     List<ClassStudent> findByEnrolledByUser_UserIdAndStatus(Long userId, ClassStudentStatus status);

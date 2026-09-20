@@ -4,6 +4,8 @@ import com.tcs.exception.BusinessException;
 import com.tcs.exception.ResourceNotFoundException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.common.event.EscrowFunded;
+import com.tcs.exception.BusinessException;
+import com.tcs.exception.ForbiddenException;
 import com.tcs.module.finance.dto.request.DepositRequest;
 import com.tcs.module.finance.dto.request.CreateWithdrawalRequest;
 import com.tcs.module.finance.dto.request.PaymentMethodRequest;
@@ -44,8 +46,11 @@ import com.tcs.module.marketplace.entity.ClassStudent;
 import com.tcs.module.marketplace.entity.TutoringClass;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.entity.Tutor;
+import com.tcs.module.profile.enums.ProfileVerificationStatus;
 import com.tcs.module.profile.enums.UserRole;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
+import com.tcs.module.profile.repository.TutorCenterRepository;
+import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.platform.service.PenaltyAccessService;
 import com.tcs.security.AuthHelper;
 import java.math.BigDecimal;
@@ -71,9 +76,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -122,6 +129,10 @@ class FinanceServiceImplTest {
     private PlatformAdminRepository platformAdminRepository;
 
     @Mock
+    private TutorRepository tutorRepository;
+
+    @Mock
+    private TutorCenterRepository tutorCenterRepository;
     private com.tcs.module.finance.repository.CenterRequestFeeHoldRepository centerRequestFeeHoldRepository;
 
     @Mock
@@ -145,6 +156,14 @@ class FinanceServiceImplTest {
         wallet.setAvailableBalance(new BigDecimal("250000.00"));
         wallet.setFrozenBalance(new BigDecimal("50000.00"));
         wallet.setStatus(WalletStatus.ACTIVE);
+        lenient().when(tutorRepository.existsByUser_UserIdAndVerificationStatus(
+                        USER_ID,
+                        ProfileVerificationStatus.VERIFIED))
+                .thenReturn(true);
+        lenient().when(tutorCenterRepository.existsByUser_UserIdAndVerificationStatus(
+                        USER_ID,
+                        ProfileVerificationStatus.VERIFIED))
+                .thenReturn(true);
         ReflectionTestUtils.setField(financeService, "directDepositEnabled", true);
         ReflectionTestUtils.setField(financeService, "simulateTopupEnabled", true);
     }
@@ -193,6 +212,21 @@ class FinanceServiceImplTest {
     }
 
     /** Sheet financeCreateTopup - UTCID01 (N): ví trung tâm/gia sư, chưa có phiên nạp -> tạo phiên PENDING kèm mã QR */
+    @Test
+    @DisplayName("createMyWallet rejects unverified tutor and center wallets")
+    void createMyWalletRejectsUnverifiedWallets() {
+        when(authHelper.currentUserId()).thenReturn(USER_ID);
+        when(tutorRepository.existsByUser_UserIdAndVerificationStatus(USER_ID, ProfileVerificationStatus.VERIFIED))
+                .thenReturn(false);
+        when(tutorCenterRepository.existsByUser_UserIdAndVerificationStatus(USER_ID, ProfileVerificationStatus.VERIFIED))
+                .thenReturn(false);
+
+        BusinessException exception = assertThrows(BusinessException.class, () -> financeService.createMyWallet());
+
+        assertEquals("Vui lòng xác minh hồ sơ trước khi tạo hoặc sử dụng ví.", exception.getMessage());
+        verify(walletService, never()).create(anyLong());
+    }
+
     @Test
     @DisplayName("createTopup creates a pending center wallet deposit QR session")
     void createTopupCreatesPendingCenterSession() {
