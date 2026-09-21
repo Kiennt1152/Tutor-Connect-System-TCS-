@@ -12,7 +12,7 @@ import { ReviewFormModal } from '../../reviews/components/ReviewFormModal';
 import { reviewApi } from '../../reviews/api/reviewApi';
 import type { ReviewableAssignment } from '../../reviews/types/reviewTypes';
 import { useTeaching } from '../hooks/useTeaching';
-import { hhmmDisplay, toIsoDate } from '../../../shared/utils/format';
+import { formatDateVi as formatDate, hhmmDisplay, toIsoDate } from '../../../shared/utils/format';
 import {
   CLASS_STATUS_LABELS,
   REQUEST_STATUS_LABELS,
@@ -22,8 +22,6 @@ import {
 } from '../types/teachingTypes';
 import { ContractDeadline } from '../../../shared/components/ContractDeadline';
 import './TeachingPage.css';
-
-const WEEKDAYS = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
 const CLASS_STATUS_TONES: Record<string, string> = {
   OPEN: 'info',
@@ -42,13 +40,6 @@ function classStatusTone(status?: string | null): string {
 
 function classStatusLabel(status?: string | null): string {
   return status ? (CLASS_STATUS_LABELS[status] ?? status) : 'Chưa rõ trạng thái';
-}
-
-/** Định dạng ngày "yyyy-MM-dd" thành "Thứ x, dd/MM/yyyy". */
-function formatDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  return `${WEEKDAYS[date.getDay()]}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
 }
 
 /**
