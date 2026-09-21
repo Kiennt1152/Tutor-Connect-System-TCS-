@@ -456,6 +456,11 @@
   .tcs-header__shortcut {
     display: none;
   }
+
+  /* Specific rule above uses `>` and otherwise keeps this control visible on mobile. */
+  .tcs-header__schedule-menu > .tcs-header__shortcut {
+    display: none;
+  }
 }
 
 @media (max-width: 768px) {

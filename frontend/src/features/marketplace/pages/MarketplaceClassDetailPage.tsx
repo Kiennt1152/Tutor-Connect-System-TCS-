@@ -156,6 +156,7 @@ export default function MarketplaceClassDetailPage() {
     isTutor && data?.classType === 'CENTER' && !(Number(searchParams.get('assignmentId')) > 0);
 
   const isOpen = data?.status === 'OPEN';
+  const showDisputeShortcut = (isClient || isTutor) && data?.status === 'DISPUTED';
   // Đã đăng ký lớp này rồi (mọi trạng thái) -> khoá nút; backend cũng chặn đăng ký trùng.
   const myRegistration = isClient ? (data?.myRegistrationStatus ?? null) : null;
   const sortedSchedule = data
@@ -432,6 +433,12 @@ export default function MarketplaceClassDetailPage() {
                 </div>
               ) : null}
 
+              {showDisputeShortcut && (
+                <button className="mk-btn mk-btn--secondary mk-btn--block" type="button"
+                  onClick={() => navigate(APP_ROUTES.myDisputes, { state: { classId: data.classId } })}>
+                  Xem tranh chấp
+                </button>
+              )}
               {canRequestTermination ? (
                 <div className="mk-class-actions">
                   <div className="mk-enroll__head">

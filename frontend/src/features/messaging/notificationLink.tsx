@@ -89,7 +89,7 @@ export function notificationLink(
   if (n.referenceType === 'DISPUTE') {
     if (isAdmin) return APP_ROUTES.platformReports;
     if (role === 'TUTOR_CENTER') return APP_ROUTES.centerReports;
-    return APP_ROUTES.contract;
+    return APP_ROUTES.myDisputes;
   }
 
   if (n.referenceType === 'REFUND_REQUEST') {
