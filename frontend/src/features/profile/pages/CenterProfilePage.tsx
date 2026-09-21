@@ -1,3 +1,22 @@
+/**
+ * ============================================================================
+ * [UC-08] TRANG QUẢN LÝ HỒ SƠ TRUNG TÂM GIA SƯ (CENTER PROFILE PAGE)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-09-13
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Quản lý thông tin pháp nhân trung tâm gia sư (Tên trung tâm, địa chỉ, giấy phép kinh doanh, mô tả hoạt động).
+ *    - Xem trạng thái xác minh doanh nghiệp và hồ sơ pháp lý từ Ban quản trị sàn.
+ *    - Cập nhật số điện thoại liên hệ, website và thông tin đại diện.
+ * 
+ * 2. Luồng xử lý chính:
+ *    - Bước 1: Nạp thông tin trung tâm từ useProfile.
+ *    - Bước 2: Hiển thị form thông tin và danh mục tài liệu pháp lý đã tải lên.
+ *    - Bước 3: Gửi cập nhật thông tin trung tâm qua profileApi.updateProfile().
+ * ============================================================================
+ */
+
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';

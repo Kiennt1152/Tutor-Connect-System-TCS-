@@ -114,16 +114,27 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 /**
- * Implementation of E-Contract Lifecycle and Reputation Management Service.
- * <p>
- * Core Responsibilities:
- * <ul>
- *   <li>Auto Contract Generation (FT-24): Generating legally structured e-contracts from templates with dynamic metadata.</li>
- *   <li>Multi-Party Digital Signing: Two-factor OTP signature verification with 5-minute expiry and rate limiting.</li>
- *   <li>Cooperation Agreements (BF-03): Managing center-tutor employment contracts and automated 48-hour expiration.</li>
- *   <li>Review & Reputation Engine (BF-07): Multi-criteria reviews, response threads, and dynamic tutor rating calculation.</li>
- * </ul>
- *
+ * ====================================================================================================
+ * [UC-44] [BF-03] [BF-07] DỊCH VỤ QUẢN LÝ VÒNG ĐỜI HỢP ĐỒNG ĐIỆN TỬ & KÝ SỐ OTP (E-CONTRACT SERVICE)
+ * ====================================================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-06-23
+ * 
+ * 1. Mục đích & Chức năng cốt lõi:
+ *    - Quản lý toàn bộ vòng đời của Hợp đồng điện tử trên hệ thống Tutor Connect System (TCS).
+ *    - [FT-24 / UC-44]: Tự động sinh nội dung hợp đồng pháp lý từ mẫu hợp đồng (Template) và siêu dữ liệu (Metadata).
+ *    - [UC-44]: Quy trình ký kết số 2 lớp xác thực OTP (Two-Factor OTP) qua Email với thời hạn 5 phút và chống spam.
+ *    - [BF-03]: Quản lý thỏa thuận hợp tác việc làm giữa Trung tâm gia sư và Gia sư, cơ chế tự động hủy sau 48h quá hạn.
+ *    - [BF-07]: Động cơ đánh giá uy tín (Review & Reputation Engine), tính điểm sao trung bình và phản hồi đa chiều.
+ * 
+ * 2. Luồng xử lý nghiệp vụ chính (Core Execution Flow):
+ *    - Luồng 1 (Tạo hợp đồng): Kiểm tra quyền -> Tải Template hợp đồng -> Điền thông tin các bên (Client, Tutor, Center, Học phí, Lịch học) -> Khởi tạo hợp đồng trạng thái PENDING.
+ *    - Luồng 2 (Gửi OTP ký số): Kiểm tra quyền người ký -> Sinh ngẫu nhiên mã OTP 6 số -> Mã hóa/Lưu vào bảng contract_otps (hạn 5 phút) -> Gửi Email mã OTP qua ContractEmailService.
+ *    - Luồng 3 (Xác thực OTP & Ký số): Nhận mã OTP -> So khớp mã OTP chưa hết hạn -> Cập nhật trạng thái ký SIGNED trong contract_signatures.
+ *      + Nếu tất cả các bên tham gia đã ký: Chuyển Contract sang trạng thái SIGNED/ACTIVE.
+ *      + Tự động kích hoạt thanh toán giữ tiền bảo chứng (Escrow Hold) nếu là hợp đồng dạy kèm.
+ *    - Luồng 4 (Đánh giá & Xếp hạng): Hoàn thành hợp đồng -> Phụ huynh/Gia sư chấm điểm (1-5 sao) và để lại nhận xét -> Hệ thống tính toán lại Tutor Reputation Score.
+ * ====================================================================================================
  * @see com.tcs.module.contract.service.ContractService
  * @see com.tcs.module.contract.entity.Contract
  */

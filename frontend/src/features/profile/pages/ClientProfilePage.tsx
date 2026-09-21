@@ -1,3 +1,23 @@
+/**
+ * ============================================================================
+ * [UC-08] TRANG QUẢN LÝ HỒ SƠ PHỤ HUYNH (CLIENT PROFILE PAGE)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-09-13
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Quản lý thông tin cá nhân của Phụ huynh / Học viên (Họ tên, ngày sinh, giới tính, địa chỉ, ảnh đại diện).
+ *    - Quản lý hồ sơ người phụ thuộc (Child Profiles) để phân công cho các lớp học kèm.
+ *    - Tải lên và xác minh căn cước công dân (CCCD / eKYC) phục vụ an toàn sàn.
+ * 
+ * 2. Luồng xử lý chính:
+ *    - Bước 1: Khởi tạo form dữ liệu từ props profile ban đầu.
+ *    - Bước 2: Cho phép chỉnh sửa thông tin, tải ảnh avatar lên qua profileApi.uploadAvatar().
+ *    - Bước 3: Thêm / sửa / xóa thông tin hồ sơ con cái (Child profiles).
+ *    - Bước 4: Lưu cập nhật hồ sơ qua profileApi.updateProfile(), hiển thị thông báo thành công.
+ * ============================================================================
+ */
+
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';

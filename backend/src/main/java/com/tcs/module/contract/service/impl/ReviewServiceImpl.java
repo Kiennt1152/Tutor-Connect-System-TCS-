@@ -17,6 +17,24 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * [BF-07] [UC-44] TRIỂN KHAI DỊCH VỤ ĐÁNH GIÁ VÀ XẾP HẠNG UY TÍN (REVIEW SERVICE IMPL)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-07-13
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Xử lý lưu trữ đánh giá sao và bình luận của Phụ huynh đối với Gia sư sau mỗi lớp học.
+ *    - Kiểm tra tính hợp lệ: Người đánh giá phải là người tham gia lớp học và lớp đã kết thúc.
+ *    - Đảm bảo mỗi phân công lớp học (ClassAssignment) chỉ được gửi 1 lần đánh giá chính thức.
+ * 
+ * 2. Luồng xử lý chính:
+ *    - Bước 1: Xác thực người dùng hiện tại qua AuthHelper.
+ *    - Bước 2: Kiểm tra ClassAssignment tồn tại và thuộc về người dùng.
+ *    - Bước 3: Tạo mới thực thể Review, lưu vào cơ sở dữ liệu và ánh xạ sang ReviewResponse.
+ * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {

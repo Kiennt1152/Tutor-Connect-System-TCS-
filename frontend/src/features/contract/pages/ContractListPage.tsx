@@ -1,3 +1,22 @@
+/**
+ * ============================================================================
+ * [UC-44] TRANG DANH SÁCH HỢP ĐỒNG ĐIỆN TỬ (CONTRACT LIST PAGE)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-07-10
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Hiển thị danh sách tất cả các hợp đồng liên quan đến người dùng hiện tại (Phụ huynh, Gia sư, Trung tâm).
+ *    - Phân loại trạng thái hợp đồng: Chờ ký (PENDING), Đã ký (SIGNED), Đang hoạt động (ACTIVE), Hoàn thành (COMPLETED), v.v.
+ *    - Hiển thị thông tin ký quỹ (Escrow Status) và thanh toán liên quan trực tiếp trên từng thẻ hợp đồng.
+ * 
+ * 2. Luồng xử lý chính:
+ *    - Bước 1: Gọi useContractList() để tải danh sách hợp đồng theo vai trò người dùng từ API /api/contract/my.
+ *    - Bước 2: Hiển thị bộ lọc theo trạng thái và tìm kiếm.
+ *    - Bước 3: Điều hướng người dùng tới trang chi tiết ký kết / xem chi tiết hợp đồng (/contracts/:id).
+ * ============================================================================
+ */
+
 import { useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { useContractList } from '../hooks/useContract';

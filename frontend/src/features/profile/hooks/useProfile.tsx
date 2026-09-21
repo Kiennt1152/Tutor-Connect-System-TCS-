@@ -1,3 +1,21 @@
+/**
+ * ============================================================================
+ * [UC-08] CUSTOM HOOK QUẢN LÝ DỮ LIỆU HỒ SƠ NGƯỜI DÙNG (USE PROFILE HOOK)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-07-02
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Quản lý vòng đời dữ liệu hồ sơ người dùng đăng nhập hiện tại (Client, Tutor, Center).
+ *    - Cung cấp các thao tác tải lại dữ liệu (reload), cập nhật hồ sơ (updateProfile) và tải ảnh đại diện (uploadAvatar).
+ * 
+ * 2. Luồng xử lý chính:
+ *    - Bước 1: Gọi profileApi.getMe() khi mount component để lấy profile và cờ firstLogin.
+ *    - Bước 2: Quản lý các cờ loading, saving, uploadingAvatar cho giao diện hiển thị trạng thái mượt mà.
+ *    - Bước 3: Đảm bảo đồng bộ dữ liệu sau khi người dùng lưu thông tin hoặc đổi avatar.
+ * ============================================================================
+ */
+
 import { useCallback, useEffect, useState } from 'react';
 import { profileApi } from '../api/profileApi';
 import type { ProfileResponse, UpdateProfileRequest } from '../types/profileTypes';

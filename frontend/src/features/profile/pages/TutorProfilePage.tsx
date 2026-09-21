@@ -1,3 +1,22 @@
+/**
+ * ============================================================================
+ * [UC-08] TRANG QUẢN LÝ HỒ SƠ GIA SƯ (TUTOR PROFILE PAGE)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-09-13
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Quản lý hồ sơ năng lực gia sư (Họ tên, tiểu sử Bio, kinh nghiệm giảng dạy, học phí theo giờ).
+ *    - Quản lý trạng thái xác thực hồ sơ (UNDER_VERIFY, VERIFIED, REJECTED) và thông tin căn cước CCCD.
+ *    - Cho phép cập nhật mật khẩu và thông tin liên hệ công khai trên sàn gia sư.
+ * 
+ * 2. Luồng xử lý chính:
+ *    - Bước 1: Load thông tin gia sư từ context useProfile.
+ *    - Bước 2: Hiển thị trạng thái kiểm duyệt hồ sơ từ Platform Admin.
+ *    - Bước 3: Cho phép chỉnh sửa thông tin giảng dạy, học phí và submit cập nhật qua profileApi.updateProfile().
+ * ============================================================================
+ */
+
 import type { FormEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
