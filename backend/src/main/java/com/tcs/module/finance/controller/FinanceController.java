@@ -35,6 +35,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ====================================================================================================
+ * [UC-39 / UC-40] QUẢN TRỊ TÀI CHÍNH VÀ VÍ ĐIỆN TỬ (FINANCE CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Quản lý ví điện tử cá nhân: Tra cứu số dư khả dụng, số dư tạm giữ và lịch sử giao dịch.
+ * 2. Khởi tạo yêu cầu nạp tiền, rút tiền về tài khoản ngân hàng và thanh toán ký quỹ hợp đồng.
+ * 3. Xử lý phê duyệt hoặc từ chối các yêu cầu rút tiền từ người dùng trên toàn hệ thống.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @RestController
 @RequestMapping("/api/finance")
 @RequiredArgsConstructor

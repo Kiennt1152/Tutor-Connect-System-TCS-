@@ -122,11 +122,11 @@ import org.springframework.util.StringUtils;
 
 /**
  * ============================================================================
- * DỊCH VỤ QUẢN TRỊ NỀN TẢNG TOÀN DIỆN (PLATFORM SERVICE IMPLEMENTATION)
+ * [BF-10] DỊCH VỤ QUẢN TRỊ NỀN TẢNG TOÀN DIỆN (PLATFORM SERVICE IMPLEMENTATION)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mô tả các phân hệ & nghiệp vụ quản trị:
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-06-23
+ * * 1. Mục đích & Chức năng:
  *   - Quản lý người dùng và hồ sơ đa vai trò (User & Profile Management).
  *   - Phê duyệt/từ chối hồ sơ xác minh danh tính và bằng cấp (KYC / Verification Workflow).
  *   - Tiếp nhận, xử lý báo cáo vi phạm, đánh giá tiêu cực và sự cố lớp học (Reports & Disputes).
@@ -134,6 +134,22 @@ import org.springframework.util.StringUtils;
  *   - Tác vụ tự động quét và nâng cấp độ ưu tiên cho ticket quá hạn phản hồi (SLA Escalation Scanner).
  *   - Gộp các ticket trùng lặp (Merge Tickets) và chuyển tiếp sự cố sang phân hệ tranh chấp (Dispute Redirect).
  *   - Bảng điều khiển quản trị (Admin Dashboard) tổng hợp chỉ số KPI, biểu đồ tài chính và dòng tiền.
+ * * 2. Luồng xử lý chính (Core Execution Flow):
+ *   - Luồng duyệt KYC: Tải hồ sơ -> Đánh giá tính hợp lệ CCCD/Bằng cấp -> Duyệt VERIFIED hoặc Từ chối REJECTED kèm lý do -> Gửi thông báo tới User.
+ *   - Luồng SLA Ticket: Quét định kỳ ticket OPEN/IN_PROGRESS quá hạn phản hồi -> Nâng cấp độ ưu tiên (LOW -> MEDIUM -> HIGH -> URGENT) -> Gửi thông báo cảnh báo trực ban.
+ *   - Luồng Gộp Ticket: Kiểm tra cùng tác giả và chủ đề -> Hợp nhất tin nhắn sang Ticket chính -> Đóng Ticket phụ với trạng thái MERGED.
+ *   - Luồng Chuyển Tranh Chấp: Liên kết Ticket sự cố với lớp học tương ứng -> Khởi tạo Dispute tự động -> Khóa tạm thời giải ngân Escrow.
+ * ============================================================================
+ */
+/**
+ * ====================================================================================================
+ * [UC-56] DỊCH VỤ ĐIỀU HÀNH TỔNG THỂ NỀN TẢNG (PLATFORM SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Cung cấp dữ liệu tóm tắt cho Bảng điều khiển Quản trị viên (Admin Dashboard Overview).
+ * 2. Tổng hợp các cảnh báo khẩn cấp cần can thiệp: Tranh chấp quá hạn, báo cáo lách sàn, yêu cầu rút tiền.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
  */
 @Slf4j
 @Service
@@ -392,7 +408,6 @@ public class PlatformServiceImpl implements PlatformService {
     public DashboardResponse getDashboard(LocalDate from, LocalDate to, String granularity) {
         LocalDate effectiveFrom = from != null ? from : LocalDate.now().minusDays(30);
         LocalDate effectiveTo = to != null ? to : LocalDate.now();
-        
         com.tcs.module.platform.dto.response.TaskQueueSummaryResponse taskSummary = taskQueueService.getSummary();
         com.tcs.module.platform.dto.response.AnalyticsSummaryResponse analyticsSummary = analyticsService.getSummary(effectiveFrom, effectiveTo);
 
@@ -408,7 +423,6 @@ public class PlatformServiceImpl implements PlatformService {
                 .escrowExposure(taskSummary.getMoneyAtRisk())
                 .unhandledReports(taskSummary.getOpenReports())
                 .build();
-        
         // Luồng 8 - Phân vùng 2: Khối dòng tiền tài chính & Tỷ lệ phí sàn (Financial Flow)
         com.tcs.module.platform.dto.response.FinancialFlowResponse financialFlow = com.tcs.module.platform.dto.response.FinancialFlowResponse.builder()
                 .moneyIn(analyticsSummary.getMoneyIn())
@@ -462,7 +476,6 @@ public class PlatformServiceImpl implements PlatformService {
         } catch (Exception ignored) {}
 
         List<com.tcs.module.platform.dto.response.ActivityTimelineEntry> activityTimeline = buildActivityTimeline(effectiveFrom, effectiveTo, granularity);
-        
         com.tcs.module.platform.dto.response.HealthMetricsResponse tutorHealth = com.tcs.module.platform.dto.response.HealthMetricsResponse.builder()
                 .totalCount(analyticsSummary.getTotalTutors())
                 .activeCount(activeTutors)
@@ -470,7 +483,6 @@ public class PlatformServiceImpl implements PlatformService {
                 .newCount(newTutors)
                 .recentlyActiveCount(recentlyActiveTutors)
                 .build();
-                
         com.tcs.module.platform.dto.response.HealthMetricsResponse centerHealth = com.tcs.module.platform.dto.response.HealthMetricsResponse.builder()
                 .totalCount(analyticsSummary.getTotalCenters())
                 .activeCount(activeCenters)
@@ -478,7 +490,6 @@ public class PlatformServiceImpl implements PlatformService {
                 .newCount(newCenters)
                 .recentlyActiveCount(recentlyActiveCenters)
                 .build();
-                
         com.tcs.module.platform.dto.response.HealthMetricsResponse classHealth = com.tcs.module.platform.dto.response.HealthMetricsResponse.builder()
                 .totalCount(totalClassCount)
                 .activeCount(activeClasses)
@@ -2168,11 +2179,9 @@ public class PlatformServiceImpl implements PlatformService {
             LocalDate from, LocalDate to, String granularity) {
         List<com.tcs.module.platform.dto.response.ActivityTimelineEntry> timeline = new ArrayList<>();
         LocalDate cursor = from;
-        
         while (!cursor.isAfter(to)) {
             LocalDate periodEnd;
             String label;
-            
             if ("MONTH".equalsIgnoreCase(granularity)) {
                 periodEnd = cursor.withDayOfMonth(cursor.lengthOfMonth());
                 if (periodEnd.isAfter(to)) periodEnd = to;
@@ -2185,19 +2194,15 @@ public class PlatformServiceImpl implements PlatformService {
                 periodEnd = cursor;
                 label = cursor.toString();
             }
-            
             LocalDateTime start = cursor.atStartOfDay();
             LocalDateTime end = periodEnd.plusDays(1).atStartOfDay();
-            
             long newUsers = userRepository.countByCreatedAtBetween(start, end);
             long newTutors = tutorRepository.countByCreatedAtBetween(start, end);
             long newCenters = tutorCenterRepository.countByCreatedAtBetween(start, end);
             long newClasses = tutoringClassRepository.countByCreatedAtBetween(start, end);
             long newTickets = supportTicketRepository.countByCreatedAtBetween(start, end);
-            
             long activeTutors = tutorRepository.countByUserStatus(com.tcs.module.identity.enums.UserStatus.ACTIVE);
             long activeCenters = tutorCenterRepository.countByUserStatus(com.tcs.module.identity.enums.UserStatus.ACTIVE);
-            
             java.math.BigDecimal moneyIn = paymentTransactionRepository.sumAmountByStatusAndTypeInAndCreatedAtBetween(
                     com.tcs.module.finance.enums.PaymentTransactionStatus.SUCCESS,
                     java.util.List.of(
@@ -2222,16 +2227,13 @@ public class PlatformServiceImpl implements PlatformService {
             java.math.BigDecimal platformFeeRevenue = sumPlatformFeeRevenue(start, end);
             // UC-41 Fix: Không cộng platformFeeRevenue vào moneyIn vì phí sàn là doanh thu nội bộ,
             // không phải tiền người dùng nạp vào. Đồng nhất với getSummary() trong PlatformAnalyticsServiceImpl.
-            
             java.math.BigDecimal netMovement = moneyIn.subtract(moneyOut);
-            
             timeline.add(com.tcs.module.platform.dto.response.ActivityTimelineEntry.builder()
                     .label(label).newUsers(newUsers).newTutors(newTutors).newCenters(newCenters)
                     .newClasses(newClasses).newTickets(newTickets).activeTutors(activeTutors)
                     .activeCenters(activeCenters).moneyIn(moneyIn).moneyOut(moneyOut)
                     .netMovement(netMovement).platformFeeRevenue(platformFeeRevenue)
                     .build());
-            
             if ("MONTH".equalsIgnoreCase(granularity)) {
                 cursor = cursor.plusMonths(1).withDayOfMonth(1);
             } else if ("WEEK".equalsIgnoreCase(granularity)) {

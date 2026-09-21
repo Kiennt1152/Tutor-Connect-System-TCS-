@@ -57,6 +57,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ====================================================================================================
+ * [UC-15] DỊCH VỤ HỒ SƠ & NĂNG LỰC GIA SƯ (TUTOR SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Quản lý hồ sơ học vấn, bằng cấp, chứng chỉ và môn học chuyên môn của gia sư.
+ * 2. Thiết lập bảng giá học phí theo giờ và quản lý khung thời gian rảnh nhận lớp.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

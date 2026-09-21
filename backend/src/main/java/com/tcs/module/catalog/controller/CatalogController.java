@@ -23,6 +23,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ====================================================================================================
+ * [UC-55] DANH MỤC DỮ LIỆU DÙNG CHUNG HỆ THỐNG (CATALOG CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Cung cấp danh mục môn học chuẩn, khối lớp học (từ tiểu học đến THPT) và trình độ giảng dạy.
+ * 2. Cung cấp danh sách các ngân hàng thương mại Việt Nam (VietQR / Napas) phục vụ chuyển khoản.
+ * 3. Danh mục tỉnh/thành phố và khu vực hỗ trợ lọc lớp học theo khoảng cách địa lý.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 @RestController
 @RequestMapping("/api/catalog")
 @RequiredArgsConstructor
@@ -51,8 +62,7 @@ public class CatalogController {
     /**
      * [UC-67] Tra cứu danh sách FAQ công khai dành cho học viên và gia sư (/help).
      * Hỗ trợ tìm kiếm theo danh mục phân loại hoặc từ khóa câu hỏi/nội dung.
-     * 
-     * @param category Danh mục FAQ (tùy chọn, ví dụ: 'PAYMENT', 'POLICY', 'ACCOUNT')
+     *     * @param category Danh mục FAQ (tùy chọn, ví dụ: 'PAYMENT', 'POLICY', 'ACCOUNT')
      * @param keyword Từ khóa tìm kiếm trong câu hỏi hoặc câu trả lời
      * @return Danh sách FAQ {@link FaqResponse} thỏa mãn điều kiện lọc
      */
@@ -66,8 +76,7 @@ public class CatalogController {
 
     /**
      * [UC-65] Hỏi đáp nhanh với trợ lý Chatbot hỗ trợ người dùng trên nền tảng.
-     * 
-     * @param request Câu hỏi người dùng {@link ChatbotAskRequest}
+     *     * @param request Câu hỏi người dùng {@link ChatbotAskRequest}
      * @return Câu trả lời gợi ý {@link ChatbotAskResponse}
      */
     @PostMapping("/chatbot/ask")
@@ -81,8 +90,7 @@ public class CatalogController {
     /**
      * [UC-67] Danh sách toàn bộ FAQ cho trang quản trị Admin (/platform/faq).
      * Hiển thị cả các mục đang ẩn/vô hiệu hóa, hỗ trợ lọc theo danh mục và từ khóa.
-     * 
-     * @param category Danh mục phân loại FAQ
+     *     * @param category Danh mục phân loại FAQ
      * @param keyword Từ khóa tìm kiếm
      * @return Danh sách đầy đủ các mục FAQ {@link FaqResponse}
      */
@@ -97,8 +105,7 @@ public class CatalogController {
     /**
      * [UC-67] Thêm mới câu hỏi thường gặp FAQ vào kho tri thức nền tảng.
      * Tự động tạo vector embedding để phục vụ tìm kiếm ngữ nghĩa RAG nếu bật AI pipeline.
-     * 
-     * @param request Dữ liệu FAQ mới {@link UpsertFaqRequest}
+     *     * @param request Dữ liệu FAQ mới {@link UpsertFaqRequest}
      * @return FAQ vừa tạo thành công {@link FaqResponse}
      */
     @PostMapping("/faq")
@@ -108,8 +115,7 @@ public class CatalogController {
 
     /**
      * [UC-67] Cập nhật nội dung, tiêu đề hoặc trạng thái hiển thị của một câu hỏi FAQ.
-     * 
-     * @param faqId ID của mục FAQ cần chỉnh sửa
+     *     * @param faqId ID của mục FAQ cần chỉnh sửa
      * @param request Dữ liệu cập nhật {@link UpsertFaqRequest}
      * @return FAQ sau khi cập nhật thành công {@link FaqResponse}
      */
@@ -121,8 +127,7 @@ public class CatalogController {
     /**
      * [UC-67] Xóa một câu hỏi FAQ khỏi kho tri thức.
      * Đồng thời loại bỏ các chunk tương ứng trong cơ sở dữ liệu vector/retrieval.
-     * 
-     * @param faqId ID của mục FAQ cần xóa
+     *     * @param faqId ID của mục FAQ cần xóa
      */
     @DeleteMapping("/faq/{faqId}")
     public void deleteFaqEntry(@PathVariable Long faqId) {

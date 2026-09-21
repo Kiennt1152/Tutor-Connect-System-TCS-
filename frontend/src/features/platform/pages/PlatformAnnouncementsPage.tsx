@@ -1,14 +1,27 @@
 /**
  * ============================================================================
- * TRANG QUẢN TRỊ THÔNG BÁO HỆ THỐNG (PLATFORM ANNOUNCEMENTS PAGE)
+ * [UC-59] QUẢN TRỊ BẢN TIN & THÔNG BÁO TOÀN SÀN (PLATFORM ANNOUNCEMENTS PAGE)
  * ============================================================================
  * 
- * Tác giả: mduc1011-swp
- * Mô tả các tính năng quản trị thông báo:
- *   - Hiển thị danh sách thông báo/banner toàn nền tảng.
- *   - Tạo mới hoặc cập nhật thông báo (Tiêu đề, Nội dung, Thời hạn hiển thị, Bật/Tắt).
- *   - Phân luồng đối tượng nhận thông báo (Học viên, Gia sư, Trung tâm, Quản trị viên).
- *   - Thao tác nhanh bật/tắt (Toggle active) hoặc xóa thông báo có hộp thoại xác nhận.
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Màn hình dành cho Quản trị viên quản lý các bản tin chính sách, bảo trì và tin tức khuyến mãi toàn sàn.
+ *   - Cung cấp công cụ phát hành thông báo chính xác theo vai trò đối tượng tiếp nhận.
+ * 
+ * Chức năng chính:
+ *   1. Danh sách thông báo: Quản lý các bản tin hiện có, thời hạn hiển thị và trạng thái kích hoạt.
+ *   2. Soạn thảo thông báo: Thiết lập tiêu đề, nội dung, vai trò đích (Tất cả, Gia sư, Phụ huynh, Trung tâm).
+ *   3. Bật/tắt nhanh: Thay đổi trạng thái hiển thị trực tiếp trên danh sách mà không cần sửa bài.
+ *   4. Xóa thông báo: Thu hồi các bản tin đã hết hạn hoặc không còn phù hợp.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên tải danh sách các bản tin thông báo từ API backend.
+ *   - Bước 2: Nhấn "Tạo thông báo mới", điền thông tin nội dung và thiết lập thời gian bắt đầu/kết thúc.
+ *   - Bước 3: Lưu bản tin, hệ thống cập nhật cấu hình tham số động trên toàn sàn.
+ *   - Bước 4: Bật/tắt hoặc xóa bản tin khi đã hết thời hạn thông báo.
+ * ============================================================================
  */
 
 import type { FormEvent } from 'react';

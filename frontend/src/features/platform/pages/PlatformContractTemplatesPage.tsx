@@ -1,3 +1,29 @@
+/**
+ * ============================================================================
+ * [BF-10] QUẢN TRỊ MẪU HỢP ĐỒNG GIẢNG DẠY SÀN (CONTRACT TEMPLATES PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-09-17
+ * 
+ * Mô tả Use Case:
+ *   - Thiết lập và quản lý các điều khoản mẫu cho hợp đồng giảng dạy cá nhân và hợp đồng lớp trung tâm.
+ *   - Đảm bảo tính pháp lý chuẩn hóa, tỷ lệ đền bù và bảo vệ quyền lợi hai bên trong giao dịch gia sư.
+ * 
+ * Chức năng chính:
+ *   1. Quản lý danh sách mẫu hợp đồng: Phân loại theo loại hình (Lớp cá nhân 1-1, Lớp liên kết Trung tâm).
+ *   2. Soạn thảo điều khoản: Tùy biến nội dung điều khoản cam kết, thời hạn thanh toán và tỷ lệ hoàn tiền.
+ *   3. Quản lý biến động (Placeholders): Sử dụng các thẻ thế chỗ tự động (Tên gia sư, Học phí, Lịch học, Mã hợp đồng).
+ *   4. Xem trước bản in: Hiển thị mẫu hợp đồng hoàn chỉnh trước khi ban hành áp dụng chính thức.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên tải danh sách mẫu hợp đồng đang được áp dụng trên sàn.
+ *   - Bước 2: Chọn mẫu cần điều chỉnh nội dung điều khoản pháp lý hoặc quyền nghĩa vụ.
+ *   - Bước 3: Xem trước bản mẫu với dữ liệu giả lập để kiểm tra định dạng trình bày.
+ *   - Bước 4: Lưu mẫu hợp đồng mới, hệ thống kích hoạt áp dụng cho các hợp đồng phát sinh tiếp theo.
+ * ============================================================================
+ */
+
 import React, { useEffect, useState } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { platformApi } from '../api/platformApi';

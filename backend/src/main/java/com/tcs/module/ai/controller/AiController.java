@@ -13,13 +13,11 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * ============================================================================
- * PHÂN HỆ AI & TRỢ LÝ THÔNG MINH RAG CHATBOT (AI MODULE & RAG CONTROLLER)
+ * [UC-65] PHÂN HỆ TRỢ LÝ TRÍ TUỆ NHÂN TẠO & RAG CHATBOT (AI RAG CONTROLLER)
  * ============================================================================
- * 
- * Mã Use Case: [UC-65] Trợ lý ảo AI & Hỏi đáp thông minh toàn sàn
- * Tác giả: mduc1011-swp (Đức)
- * 
- * Chức năng tổng quan:
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-07-29
+ * * 1. Mục đích & Chức năng:
  *   - Tiếp nhận câu hỏi trò chuyện từ Widget AI nổi (Floating Chat Widget) trên toàn bộ hệ thống.
  *   - Hỗ trợ cả 2 chế độ:
  *       1. Người dùng vãng lai / Chưa đăng nhập (Guest): Trả lời chính sách, bảng giá, hướng dẫn sử dụng.
@@ -28,6 +26,11 @@ import org.springframework.web.bind.annotation.*;
  *   - Quản lý phiên hội thoại (Chat Sessions) và lịch sử trao đổi tin nhắn (Session Messages).
  *   - Tích hợp kiến trúc RAG nâng cao (Retrieval-Augmented Generation):
  *       Semantic Cache -> Rule Intent -> Hybrid Search (Vector/BM25) -> Dynamic Context -> Anti-Hallucination.
+ * * 2. Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận câu hỏi từ ChatRequest và nhận diện User ID (nếu có).
+ *   - Bước 2: Kích hoạt Pipeline RAG qua aiService.chat(request, userId).
+ *   - Bước 3: Trả về AiMessageResponse kèm tham chiếu Card gia sư/lớp học và câu hỏi làm rõ.
+ * ============================================================================
  */
 @RestController
 @RequestMapping("/api/ai")
@@ -39,8 +42,7 @@ public class AiController {
 
     /**
      * [UC-65 - Bước 1]: Tiếp nhận câu hỏi trò chuyện và sinh câu trả lời thông minh từ AI RAG Pipeline.
-     * 
-     * Luồng thực thi (RAG Pipeline Execution Flow):
+     *     * Luồng thực thi (RAG Pipeline Execution Flow):
      *   1. Nhận diện danh tính người dùng (authHelper.currentUserIdOrNull): Xác định Guest hay User.
      *   2. Semantic Cache: Kiểm tra xem câu hỏi tương tự đã có câu trả lời lưu trong Cache chưa.
      *   3. Phân loại Ý định (Intent Classification): Phân tích ngữ nghĩa để biết người dùng muốn:
@@ -51,8 +53,7 @@ public class AiController {
      *   6. Gọi Multi-LLM (Provider Routing): Điều phối qua Groq, Cerebras, DeepSeek hoặc Gemini.
      *   7. Kiểm duyệt ảo giác (Hallucination Guard): Xác minh số liệu, tiền tệ, cam kết không bịa đặt.
      *   8. Gắn Reference Cards: Tự động đính kèm thẻ Gia sư/Lớp học/FAQ gợi ý trực quan cho UI.
-     * 
-     * @param request Chứa sessionId (nếu tiếp tục phiên cũ), message (câu hỏi) và domain ngữ cảnh
+     *     * @param request Chứa sessionId (nếu tiếp tục phiên cũ), message (câu hỏi) và domain ngữ cảnh
      * @return {@link AiMessageResponse} Câu trả lời đã kiểm duyệt, gợi ý tiếp theo và danh sách thẻ tham chiếu
      */
     @PostMapping("/chat")
@@ -62,12 +63,10 @@ public class AiController {
 
     /**
      * [UC-65 - Quản lý phiên]: Lấy danh sách các phiên hội thoại của người dùng hiện tại.
-     * 
-     * Nghiệp vụ:
+     *     * Nghiệp vụ:
      *   - Cho phép người dùng xem lại danh sách các chủ đề đã từng hỏi AI trước đây.
      *   - Nếu là Guest (chưa đăng nhập), chỉ trả về các phiên tạm của session hiện tại.
-     * 
-     * @return Danh sách các phiên {@link AiSessionResponse} kèm tiêu đề tự động tóm tắt và thời gian tạo
+     *     * @return Danh sách các phiên {@link AiSessionResponse} kèm tiêu đề tự động tóm tắt và thời gian tạo
      */
     @GetMapping("/sessions")
     public List<AiSessionResponse> getUserSessions() {
@@ -76,11 +75,9 @@ public class AiController {
 
     /**
      * [UC-65 - Lịch sử hội thoại]: Xem chi tiết toàn bộ tin nhắn trong một phiên hội thoại cụ thể.
-     * 
-     * Kiểm tra bảo mật:
+     *     * Kiểm tra bảo mật:
      *   - Chỉ chủ sở hữu của phiên hội thoại (hoặc Admin) mới có quyền đọc lịch sử tin nhắn của phiên đó.
-     * 
-     * @param sessionId ID của phiên hội thoại cần tra cứu
+     *     * @param sessionId ID của phiên hội thoại cần tra cứu
      * @return Danh sách các tin nhắn {@link AiMessageResponse} theo thứ tự thời gian tăng dần
      */
     @GetMapping("/sessions/{sessionId}/messages")
@@ -90,11 +87,9 @@ public class AiController {
 
     /**
      * [UC-65 - Xóa dữ liệu]: Xóa vĩnh viễn một phiên hội thoại và toàn bộ tin nhắn liên quan.
-     * 
-     * Nghiệp vụ:
+     *     * Nghiệp vụ:
      *   - Hỗ trợ người dùng dọn dẹp lịch sử trò chuyện để bảo đảm quyền riêng tư cá nhân.
-     * 
-     * @param sessionId ID phiên hội thoại cần xóa
+     *     * @param sessionId ID phiên hội thoại cần xóa
      */
     @DeleteMapping("/sessions/{sessionId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)

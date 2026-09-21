@@ -1,3 +1,29 @@
+/**
+ * ============================================================================
+ * [BF-10] QUẢN TRỊ & GIÁM SÁT LỚP HỌC TOÀN NỀN TẢNG (PLATFORM CLASSES PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-09-17
+ * 
+ * Mô tả Use Case:
+ *   - Quản trị viên kiểm duyệt, giám sát toàn bộ các lớp học đăng tuyển của Phụ huynh và Trung tâm gia sư.
+ *   - Đảm bảo nội dung yêu cầu lớp học đúng quy chuẩn đạo đức và chính sách vận hành của sàn.
+ * 
+ * Chức năng chính:
+ *   1. Quản lý danh sách lớp học: Lọc theo trạng thái (Đang mở, Đã có gia sư, Đang giảng dạy, Đã đóng, Đã hủy).
+ *   2. Phân loại loại hình lớp: Phân biệt lớp học cá nhân và lớp học trực thuộc Trung tâm gia sư liên kết.
+ *   3. Giám sát chi tiết lớp: Xem môn học, lịch học, học phí, địa chỉ và thông tin đối tác ký hợp đồng.
+ *   4. Đóng/Hủy lớp vi phạm: Can thiệp đình chỉ lớp học khi phát hiện thông tin không chuẩn mực hoặc có tranh chấp.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên truy vấn danh sách lớp học toàn sàn kèm bộ lọc trạng thái và từ khóa.
+ *   - Bước 2: Xem xét chi tiết nội dung bài đăng tuyển lớp và các ứng viên gia sư đăng ký.
+ *   - Bước 3: Kiểm tra tính hợp lệ của học phí và yêu cầu đào tạo.
+ *   - Bước 4: Thực hiện đóng lớp hoặc cảnh báo tài khoản nếu phát hiện dấu hiệu vi phạm quy chế.
+ * ============================================================================
+ */
+
 import { useEffect, useState, useMemo, useCallback } from 'react';
 import { AdminLayout } from '../components/AdminLayout';
 import { platformApi } from '../api/platformApi';
@@ -266,7 +292,7 @@ export default function PlatformClassesPage() {
   return (
     <AdminLayout
       title="Giám sát lớp học"
-      subtitle="Theo dõi toàn bộ các lớp học, tiến độ giảng dạy và tình trạng hoạt động trên nền tảng TCS (UC-21)"
+      subtitle="Theo dõi toàn bộ các lớp học, tiến độ giảng dạy và tình trạng hoạt động trên nền tảng TCS"
     >
       <div className="pc-page">
         {/* Navigation Tabs */}
@@ -283,7 +309,7 @@ export default function PlatformClassesPage() {
             className={`tcs-btn ${activeTab === 'schedule' ? 'tcs-btn--primary' : 'tcs-btn--ghost'}`}
             onClick={() => setActiveTab('schedule')}
           >
-            Giám sát Lịch học theo ngày (UC-21)
+            Giám sát Lịch học theo ngày
           </button>
         </div>
 

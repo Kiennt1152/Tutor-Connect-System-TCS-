@@ -1,5 +1,25 @@
 package com.tcs.module.ai.service.provider;
 
+/**
+ * ============================================================================
+ * [UC-65] DTO YÊU CẦU SINH PHẢN HỒI AI (AI PROVIDER CHAT REQUEST)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Đóng gói các tham số yêu cầu sinh phản hồi gửi tới các mô hình AI bao gồm prompt, lịch sử và siêu tham số.
+ * 
+ * Chức năng chính:
+ *   1. Chứa nội dung System Prompt và câu hỏi người dùng.
+ *   2. Chứa tham số cấu hình nhiệt độ (temperature) và độ dài tối đa (maxTokens).
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Khởi tạo từ tầng điều phối AiProviderRouter.
+ *   - Bước 2: Truyền sang các client chuyên biệt để chuyển đổi sang định dạng JSON của từng nhà cung cấp.
+ *  * ============================================================================
+ */
 public record AiProviderChatRequest(
     String systemPrompt,
     String userPrompt,

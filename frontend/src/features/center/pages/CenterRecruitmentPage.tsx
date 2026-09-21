@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-09] MÀN HÌNH GIAO DIỆN CENTERRECRUITMENTPAGE
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị và điều phối các chức năng nghiệp vụ của phân hệ CenterRecruitmentPage.
+ * 2. Đảm bảo trải nghiệm người dùng tối ưu và đồng bộ dữ liệu với hệ thống Backend.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';

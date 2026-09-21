@@ -1,19 +1,26 @@
 /**
  * ============================================================================
- * [UC-08] TRANG QUẢN LÝ HỒ SƠ GIA SƯ (TUTOR PROFILE PAGE)
+ * [UC-08] HỒ SƠ CHUYÊN MÔN & THIẾT LẬP GIA SƯ (TUTOR PROFILE PAGE)
  * ============================================================================
- * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
- * Ngày tạo      : 2026-09-13
  * 
- * 1. Mục đích & Chức năng:
- *    - Quản lý hồ sơ năng lực gia sư (Họ tên, tiểu sử Bio, kinh nghiệm giảng dạy, học phí theo giờ).
- *    - Quản lý trạng thái xác thực hồ sơ (UNDER_VERIFY, VERIFIED, REJECTED) và thông tin căn cước CCCD.
- *    - Cho phép cập nhật mật khẩu và thông tin liên hệ công khai trên sàn gia sư.
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-09-13
  * 
- * 2. Luồng xử lý chính:
- *    - Bước 1: Load thông tin gia sư từ context useProfile.
- *    - Bước 2: Hiển thị trạng thái kiểm duyệt hồ sơ từ Platform Admin.
- *    - Bước 3: Cho phép chỉnh sửa thông tin giảng dạy, học phí và submit cập nhật qua profileApi.updateProfile().
+ * Mô tả Use Case:
+ *   - Thiết lập và hoàn thiện hồ sơ năng lực giảng dạy của Gia sư trên nền tảng.
+ *   - Làm cơ sở dữ liệu để phụ huynh tìm kiếm và hệ thống AI gợi ý ghép lớp phù hợp.
+ * 
+ * Chức năng chính:
+ *   1. Hồ sơ cá nhân & Chuyên môn: Cập nhật tiểu sử, trường đại học, chuyên ngành và kinh nghiệm.
+ *   2. Danh mục môn dạy & Biểu phí: Thiết lập các môn học giảng dạy, khối lớp và mức học phí theo giờ.
+ *   3. Chứng chỉ năng lực: Tải lên bằng cấp, chứng chỉ ngoại ngữ phục vụ kiểm duyệt KYC.
+ *   4. Lịch rảnh giảng dạy: Cấu hình các khung giờ có thể nhận lớp trong tuần.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tải dữ liệu hồ sơ gia sư và trạng thái xác minh danh tính hiện tại.
+ *   - Bước 2: Gia sư chỉnh sửa thông tin giới thiệu, môn học và mức giá mong muốn.
+ *   - Bước 3: Bấm lưu thông tin, hệ thống gửi dữ liệu lên backend cập nhật hồ sơ.
+ *   - Bước 4: Cập nhật dữ liệu vào kho tìm kiếm gia sư công khai toàn sàn.
  * ============================================================================
  */
 

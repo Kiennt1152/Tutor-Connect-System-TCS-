@@ -8,16 +8,29 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
- * ====================================================================================================
- * [UC-65] ĐIỀU PHỐI KHẢ NĂNG & KIỂM SOÁT QUYỀN TRUY XUẤT AI (AI CAPABILITY ROUTER & RBAC POLICY)
- * ====================================================================================================
- * Thành phần quyết định chiến lược xử lý cho từng phân hệ nghiệp vụ (Domain & Sub-Intent):
- * 1. RBAC Guard: Xác định các vai trò người dùng được phép kích hoạt năng lực (PLATFORM_ADMIN, TUTOR, CLIENT, GUEST).
- * 2. Card Policy: Quy định loại UI card được trả về frontend (Tutor Cards, Class Cards, FAQ Cards, Deep-link Only).
- * 3. Guard Type: Kích hoạt các bộ tiền kiểm và hậu kiểm đặc thù (Loại bỏ tên gia sư bịa đặt, bảo vệ số liệu thống kê, chặn rò rỉ số dư ví).
- * 4. Fallback Strategy: Cung cấp thông điệp điều hướng trực quan khi người dùng chưa đăng nhập hoặc không đủ thẩm quyền.
+ * ============================================================================
+ * [UC-65] ĐIỀU PHỐI KHẢ NĂNG & KIỂM SOÁT QUYỀN TRUY XUẤT AI (AI CAPABILITY ROUTER)
+ * ============================================================================
  * 
- * @author mduc1011-swp (Đức)
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Điều phối năng lực AI và kiểm soát chính sách phân quyền truy xuất dữ liệu (RBAC Policy) cho trợ lý ảo TCS.
+ *   - Xác định loại thẻ tương tác (UI Card Policy) và chiến lược bảo vệ thông tin nhạy cảm theo vai trò người dùng.
+ * 
+ * Chức năng chính:
+ *   1. Kiểm soát quyền truy cập RBAC: Phê duyệt hoặc từ chối thực thi ý định theo vai trò (GUEST, CLIENT, TUTOR, ADMIN).
+ *   2. Định chế thẻ hiển thị (Card Policy): Xác định loại Card được đính kèm (Tutor Card, Class Card, FAQ Card, Admin Deep Link).
+ *   3. Kích hoạt bộ kiểm soát ảo giác: Kích hoạt bộ lọc chuyên biệt chống bịa đặt tên gia sư, lộ số dư ví hoặc sai lệch số liệu sàn.
+ *   4. Điều hướng dự phòng: Cung cấp thông điệp gợi ý trực quan khi người dùng chưa đăng nhập hoặc không đủ thẩm quyền.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận tên miền nghiệp vụ (AiDomain) và ý định chi tiết (AiSubIntent).
+ *   - Bước 2: Tra cứu chính sách năng lực đã cấu hình tương ứng trong bảng quy tắc.
+ *   - Bước 3: Đối chiếu vai trò hiện tại của người dùng với danh sách vai trò được phép (allowedRoles).
+ *   - Bước 4: Trả về kết quả phê duyệt hoặc thông điệp từ chối điều hướng người dùng phù hợp.
+ * ============================================================================
  */
 @Service
 public class AiCapabilityRouter {

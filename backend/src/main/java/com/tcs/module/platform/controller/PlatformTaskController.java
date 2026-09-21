@@ -9,6 +9,29 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ============================================================================
+ * [UC-64] ĐIỀU PHỐI HÀNG ĐỢI TÁC VỤ QUẢN TRỊ (PLATFORM TASK CONTROLLER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Điểm kết nối API phục vụ hàng đợi trực ban khẩn cấp của Quản trị viên hệ thống.
+ *   - Tập trung các luồng phê duyệt và giải quyết khiếu nại giúp nâng cao tốc độ phản hồi vận hành.
+ * 
+ * Chức năng chính:
+ *   1. Báo cáo tổng quan hàng đợi: Thống kê tổng task tồn đọng, task vi phạm SLA và tổng số tiền rủi ro tài chính.
+ *   2. Tra cứu tác vụ phân trang: Danh sách việc cần xử lý tập hợp từ KYC, Báo cáo lách sàn, Ticket, Rút tiền, Hoàn tiền, Tranh chấp.
+ *   3. Bộ lọc điều phối: Phân luồng theo loại hình tác vụ, mức độ ưu tiên nghiệp vụ và cờ cảnh báo quá hạn cam kết SLA.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Dashboard trực ban gọi API `getSummary` để hiển thị các chỉ số đo lường hiệu suất.
+ *   - Bước 2: Quản trị viên truy vấn danh sách công việc `listTasks` kèm bộ lọc theo thẩm quyền.
+ *   - Bước 3: `taskQueueService` truy xuất và tính toán thứ tự ưu tiên, trả về danh sách đã phân trang.
+ * ============================================================================
+ */
 @RestController
 @RequestMapping("/api/platform/tasks")
 @RequiredArgsConstructor

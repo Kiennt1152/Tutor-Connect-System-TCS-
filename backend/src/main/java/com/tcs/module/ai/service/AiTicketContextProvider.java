@@ -9,6 +9,27 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] NGỮ CẢNH TRẠNG THÁI VÉ HỖ TRỢ NGƯỜI DÙNG (TICKET CONTEXT PROVIDER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp trạng thái các yêu cầu hỗ trợ (Support Tickets) gần nhất của người dùng phục vụ hỏi đáp tiến độ xử lý.
+ * 
+ * Chức năng chính:
+ *   1. Truy vấn tiến độ vé hỗ trợ: Đọc danh sách các ticket đang mở và phản hồi mới nhất từ nhân viên CSKH.
+ *   2. Tạo ngữ cảnh tóm tắt: Đóng gói mã ticket, tiêu đề và trạng thái thành dạng ngắn gọn cho LLM.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Xác định userId của người dùng hiện tại.
+ *   - Bước 2: Truy vấn bảng SupportTicket và lấy các yêu cầu hỗ trợ trong vòng 30 ngày.
+ *   - Bước 3: Tiêm ngữ cảnh vào prompt giúp AI trả lời chính xác tiến độ giải quyết sự cố.
+ * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class AiTicketContextProvider {

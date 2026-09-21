@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH BẢNG GIÁ & CHÍNH SÁCH SÀN (CATALOG FAQ INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Phân loại các câu hỏi thắc mắc về học phí trung bình, chính sách học thử, đổi gia sư và quy trình vận hành sàn.
+ * 
+ * Chức năng chính:
+ *   1. Nhận diện thắc mắc bảng giá: Bắt các từ khóa về mức học phí, chi phí thuê gia sư, giá theo buổi.
+ *   2. Nhận diện chính sách sàn: Bắt các câu hỏi về học thử, đổi gia sư, tiêu chuẩn tuyển chọn.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận câu truy vấn đã chuẩn hóa không dấu.
+ *   - Bước 2: So khớp mẫu câu hỏi chính sách/học phí với độ tin cậy 0.95.
+ *   - Bước 3: Trả về AiDomain.CATALOG_FAQ và liên kết điều hướng /find-tutor.
+ * ============================================================================
+ */
 @Component
 public class CatalogFaqIntentRule implements IntentRule {
 

@@ -1,19 +1,25 @@
 /**
  * ============================================================================
- * [UC-08] TRANG QUẢN LÝ HỒ SƠ TRUNG TÂM GIA SƯ (CENTER PROFILE PAGE)
+ * [UC-08] HỒ SƠ PHÁP LÝ & TỔ CHỨC TRUNG TÂM GIA SƯ (CENTER PROFILE PAGE)
  * ============================================================================
- * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
- * Ngày tạo      : 2026-09-13
  * 
- * 1. Mục đích & Chức năng:
- *    - Quản lý thông tin pháp nhân trung tâm gia sư (Tên trung tâm, địa chỉ, giấy phép kinh doanh, mô tả hoạt động).
- *    - Xem trạng thái xác minh doanh nghiệp và hồ sơ pháp lý từ Ban quản trị sàn.
- *    - Cập nhật số điện thoại liên hệ, website và thông tin đại diện.
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-09-13
  * 
- * 2. Luồng xử lý chính:
- *    - Bước 1: Nạp thông tin trung tâm từ useProfile.
- *    - Bước 2: Hiển thị form thông tin và danh mục tài liệu pháp lý đã tải lên.
- *    - Bước 3: Gửi cập nhật thông tin trung tâm qua profileApi.updateProfile().
+ * Mô tả Use Case:
+ *   - Quản lý hồ sơ pháp lý, địa chỉ trụ sở và thông tin vận hành của Trung tâm gia sư.
+ *   - Xác lập tư cách pháp nhân trên sàn phục vụ đăng tuyển gia sư và mở lớp học liên kết.
+ * 
+ * Chức năng chính:
+ *   1. Hồ sơ doanh nghiệp: Tên trung tâm, mã số thuế, giấy phép hoạt động và người đại diện pháp luật.
+ *   2. Thông tin liên hệ: Trụ sở chính, các chi nhánh đào tạo, hotline và email hỗ trợ khách hàng.
+ *   3. Hồ sơ kiểm duyệt: Tải lên giấy chứng nhận đăng ký kinh doanh phục vụ phê duyệt đối tác.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tải thông tin định danh trung tâm từ API quản lý hồ sơ.
+ *   - Bước 2: Hiển thị form thông tin tổ chức, người đại diện và tài liệu pháp lý.
+ *   - Bước 3: Đại diện trung tâm cập nhật thông tin và nhấn "Lưu hồ sơ".
+ *   - Bước 4: Gửi dữ liệu tới backend, đồng bộ hồ sơ xác minh đối tác uy tín.
  * ============================================================================
  */
 

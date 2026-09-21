@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH AN TOÀN & CHỐNG GIAO DỊCH NGOÀI SÀN (TRUST SAFETY INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Phát hiện các hành vi hoặc câu hỏi có dấu hiệu giao dịch ngoài sàn (Circumvention) hoặc báo cáo lừa đảo.
+ * 
+ * Chức năng chính:
+ *   1. Cảnh báo giao dịch ngoài: Bắt các cụm từ đề cập trả tiền mặt riêng, trao đổi số Zalo để né phí sàn.
+ *   2. Hướng dẫn báo cáo vi phạm: Cung cấp quy trình báo cáo hành vi thiếu trung thực.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quét từ khóa nhạy cảm về trao đổi thông tin liên lạc ngoài luồng.
+ *   - Bước 2: Gán miền AiDomain.TRUST_SAFETY với thông điệp cảnh báo rủi ro lừa đảo.
+ *   - Bước 3: Khuyến nghị người dùng thực hiện giao dịch qua hệ thống bảo chứng Escrow.
+ * ============================================================================
+ */
 @Component
 public class TrustSafetyIntentRule implements IntentRule {
 

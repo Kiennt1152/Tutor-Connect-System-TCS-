@@ -1,3 +1,12 @@
+/**
+ * ====================================================================================================
+ * [UC-09] MÀN HÌNH GIAO DIỆN LOGINPAGE
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị và điều phối các chức năng nghiệp vụ của phân hệ LoginPage.
+ * 2. Đảm bảo trải nghiệm người dùng tối ưu và đồng bộ dữ liệu với hệ thống Backend.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 import { useState, type FormEvent } from 'react';
 import { useLogin } from '../hooks/useLogin';
 import type { LoginFormValues } from '../types/authTypes';

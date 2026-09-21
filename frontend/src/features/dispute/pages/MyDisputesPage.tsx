@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-23] MÀN HÌNH KHIẾU NẠI & TRANH CHẤP CỦA TÔI (MY DISPUTES PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị danh sách các khiếu nại tranh chấp hợp đồng do người dùng tạo hoặc liên quan.
+ * 2. Theo dõi tiến độ phân xử, xem giải trình của đối phương và tải thêm chứng cứ.
+ * 3. Nhận thông báo phán quyết và cập nhật số tiền hoàn/giải ngân thực tế.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';

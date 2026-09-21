@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-03] MÀN HÌNH XÁC THỰC KÍCH HOẠT TÀI KHOẢN (VERIFICATION PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Nhập mã OTP xác thực email để hoàn tất kích hoạt tài khoản mới đăng ký.
+ * 2. Cung cấp chức năng gửi lại mã OTP khi mã cũ hết hiệu lực.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import axios from 'axios';

@@ -13,6 +13,27 @@ import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] NGỮ CẢNH DỮ LIỆU BẢNG ĐIỀU KHIỂN QUẢN TRỊ (ADMIN DASHBOARD CONTEXT)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp số liệu tổng quan về sức khỏe hệ thống, tỷ lệ ghép lớp thành công và tranh chấp cho Quản trị viên.
+ * 
+ * Chức năng chính:
+ *   1. Tổng hợp chỉ số quản trị: Đọc số liệu giao dịch, người dùng mới và số ca khiếu nại đang xử lý.
+ *   2. Kiểm soát quyền Admin: Chỉ cung cấp ngữ cảnh này khi người dùng có vai trò PLATFORM_ADMIN.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Kiểm tra vai trò của người dùng hiện tại có phải là Quản trị viên.
+ *   - Bước 2: Đọc số liệu phân tích mới nhất từ PlatformAnalyticsService.
+ *   - Bước 3: Định dạng thành văn bản ngữ cảnh hỗ trợ trả lời các câu hỏi điều hành sàn.
+ * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class AiAdminDashboardContextProvider {

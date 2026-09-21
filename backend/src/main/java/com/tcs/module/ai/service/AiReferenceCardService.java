@@ -20,7 +20,25 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * Service to extract and hydrate reference cards (tutors, classes, FAQs) in batch from the database.
+ * ============================================================================
+ * [UC-65] ĐÓNG GÓI THẺ GIAO DIỆN TƯƠNG TÁC AI (AI REFERENCE CARD SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Tạo các thẻ UI tương tác đính kèm câu trả lời của AI (Tutor Cards, Class Cards, FAQ Cards, Deep-link Buttons).
+ * 
+ * Chức năng chính:
+ *   1. Sinh thẻ gia sư: Đóng gói avatar, đánh giá sao, học phí và nút bấm xem hồ sơ.
+ *   2. Sinh thẻ lớp học: Đóng gói thông tin lớp, môn học, địa chỉ và nút đăng ký nhận lớp.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận danh sách thực thể nghiệp vụ được trích xuất từ phản hồi AI.
+ *   - Bước 2: Tạo cấu trúc DTO thẻ tương tác chuẩn theo CardPolicy.
+ *   - Bước 3: Đính kèm danh sách thẻ vào kết quả trả về cho giao diện Frontend.
+ * ============================================================================
  */
 @Slf4j
 @Service

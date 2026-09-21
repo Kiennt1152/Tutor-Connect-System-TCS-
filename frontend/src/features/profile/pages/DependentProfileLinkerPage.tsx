@@ -1,3 +1,12 @@
+/**
+ * ====================================================================================================
+ * [UC-09] MÀN HÌNH GIAO DIỆN DEPENDENTPROFILELINKERPAGE
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị và điều phối các chức năng nghiệp vụ của phân hệ DependentProfileLinkerPage.
+ * 2. Đảm bảo trải nghiệm người dùng tối ưu và đồng bộ dữ liệu với hệ thống Backend.
+ * * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';

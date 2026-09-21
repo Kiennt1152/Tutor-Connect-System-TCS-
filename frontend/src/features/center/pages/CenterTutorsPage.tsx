@@ -1,3 +1,12 @@
+/**
+ * ====================================================================================================
+ * [UC-45] MÀN HÌNH QUẢN LÝ GIA SƯ TRỰC THUỘC TRUNG TÂM (CENTER TUTORS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Danh sách gia sư đã gia nhập trung tâm, thông tin hợp đồng hợp tác và chuyên môn.
+ * 2. Phê duyệt đơn đăng ký tham gia trung tâm và kiểm tra chứng chỉ năng lực gia sư.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';

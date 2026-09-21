@@ -25,6 +25,27 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * [UC-65] NẠP & ĐÁNH CHỈ MỤC KHO TRI THỨC HỆ THỐNG (KNOWLEDGE INDEXER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Tiếp nhận, phân đoạn (Chunking) và đánh chỉ mục vector cho các tài liệu chính sách, cẩm nang và FAQ của nền tảng.
+ * 
+ * Chức năng chính:
+ *   1. Phân đoạn tài liệu: Cắt văn bản dài thành các đoạn nhỏ có kích thước tối ưu kèm phần gối đầu (overlap).
+ *   2. Đánh chỉ mục vector: Sinh embedding và lưu trữ vào bảng ai_knowledge_chunks phục vụ tìm kiếm.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Đọc nội dung tài liệu chính sách hoặc cẩm nang hướng dẫn mới cập nhật.
+ *   - Bước 2: Phân tích và chia nhỏ thành các đoạn tri thức mạch lạc.
+ *   - Bước 3: Sinh vector embedding và lưu vào CSDL kèm thông tin phân quyền truy cập.
+ * ============================================================================
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

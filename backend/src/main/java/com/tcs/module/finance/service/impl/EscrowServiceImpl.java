@@ -43,19 +43,30 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * ====================================================================================================
+ * ============================================================================
  * [UC-40] [UC-58] [UC-46] DỊCH VỤ QUẢN TRỊ KÝ QUỸ ESCROW & ĐỐI SOÁT TÀI CHÍNH ĐA BÊN (ESCROW SERVICE)
- * ====================================================================================================
- * Thành phần nghiệp vụ tài chính cốt lõi đảm bảo giao dịch an toàn trên nền tảng:
- * 1. [UC-58] Quản trị vòng đời Ký quỹ: Phong tỏa tiền học phí (HELD), Đóng băng khi có tranh chấp (DISPUTED).
- * 2. [UC-40] Giải ngân học phí (Escrow Release): Chuyển tiền từ tài khoản bảo chứng sang ví gia sư / trung tâm sau khi hoàn tất lớp học.
- * 3. Hoàn tiền ký quỹ (Escrow Refund): Hoàn trả tiền vào ví phụ huynh khi hủy lớp hoặc giải quyết tranh chấp thành công.
- * 4. [UC-46] Khấu trừ phí dịch vụ sàn linh hoạt (resolvePlatformFeeRate): Ưu tiên áp dụng mức phí riêng của trung tâm gia sư (nếu có), ngược lại áp dụng mức phí mặc định toàn sàn (2%).
- * 5. Đảm bảo tính toàn vẹn tài chính: Bút toán đối soát hai chiều, cam kết số dư ví không bao giờ âm (Zero Negative Balance Guarantee).
+ * ============================================================================
  * 
- * @author mduc1011-swp (Đức)
- * @see com.tcs.module.finance.service.EscrowService
- * @see com.tcs.module.finance.entity.EscrowTransaction
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Đồng tác giả: tienanh6677 (Nguyễn Tiến Anh)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp dịch vụ quản trị và vận hành toàn diện dòng tiền ký quỹ Escrow bảo vệ an toàn giao dịch giữa Phụ huynh, Gia sư và Trung tâm.
+ *   - Quản lý vòng đời phong tỏa học phí, giải ngân tiền giảng dạy và tự động áp dụng chính sách tỷ lệ phí sàn theo quy định.
+ * 
+ * Chức năng chính:
+ *   1. Phong tỏa tiền học phí (Hold Escrow): Tạm giữ tiền học phí của phụ huynh khi hợp đồng được ký kết, đảm bảo nguồn tiền sẵn sàng chi trả.
+ *   2. Giải ngân học phí (Release Escrow): Tự động chuyển tiền bảo chứng vào ví gia sư/trung tâm sau khi buổi học hoặc khóa học hoàn tất.
+ *   3. Hoàn trả tiền ký quỹ (Refund Escrow): Hoàn tiền bảo chứng về ví phụ huynh khi hợp đồng bị hủy hoặc có quyết định bồi hoàn từ hòa giải.
+ *   4. Xác định tỷ lệ phí dịch vụ (Platform Fee Resolution): Áp dụng linh hoạt mức phí thỏa thuận riêng của trung tâm hoặc mức phí mặc định của sàn.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận lệnh phong tỏa ký quỹ từ sự kiện tạo hợp đồng (holdContractEscrow).
+ *   - Bước 2: Kiểm tra số dư ví phụ huynh, tạo bút toán giao dịch ký quỹ với trạng thái HELD.
+ *   - Bước 3: Tiếp nhận lệnh giải ngân sau khi hoàn tất nghiệm thu giảng dạy (releaseEscrow).
+ *   - Bước 4: Trích khấu trừ phí sàn, cộng số dư khả dụng vào ví gia sư/trung tâm và cập nhật trạng thái RELEASED.
+ * ============================================================================
  */
 @Slf4j
 @Service

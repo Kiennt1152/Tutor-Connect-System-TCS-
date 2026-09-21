@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH QUẢN TRỊ NỀN TẢNG (PLATFORM ADMIN INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Nhận diện các truy vấn phục vụ Quản trị viên sàn như kiểm tra nhật ký kiểm toán, cấu hình tham số và xử phạt vi phạm.
+ * 
+ * Chức năng chính:
+ *   1. Nhận diện thao tác quản trị: Bắt từ khóa audit logs, tham số hệ thống, ban hành chế tài xử phạt.
+ *   2. Bảo vệ thẩm quyền: Hỗ trợ chuyển tiếp cho lớp RBAC Guard kiểm soát quyền hạn.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Nhận diện từ khóa mang tính chất quản trị vận hành toàn hệ thống.
+ *   - Bước 2: Gán miền AiDomain.PLATFORM_ADMIN.
+ *   - Bước 3: Cung cấp liên kết sâu tới bảng điều khiển quản trị /platform.
+ * ============================================================================
+ */
 @Component
 public class PlatformAdminIntentRule implements IntentRule {
 

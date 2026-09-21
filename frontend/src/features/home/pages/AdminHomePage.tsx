@@ -1,3 +1,14 @@
+/**
+ * ====================================================================================================
+ * [UC-09] MÀN HÌNH GIAO DIỆN ADMINHOMEPAGE
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị và điều phối các chức năng nghiệp vụ của phân hệ AdminHomePage.
+ * 2. Đảm bảo trải nghiệm người dùng tối ưu và đồng bộ dữ liệu với hệ thống Backend.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 import { Link } from 'react-router-dom';
 import { AppLogo } from '../../../shared/components/AppLogo';
 import { LogoutButton } from '../../../shared/components/LogoutButton';

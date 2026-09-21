@@ -17,6 +17,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ====================================================================================================
+ * [UC-16] DỊCH VỤ DỜI LỊCH & BÙ BUỔI HỌC (RESCHEDULE SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tiếp nhận đề xuất dời lịch hoặc bù buổi học bị gián đoạn từ phía gia sư hoặc học viên.
+ * 2. Xác nhận đồng thuận từ bên còn lại trước khi chính thức cập nhật thời khóa biểu lớp học.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 @Service
 @RequiredArgsConstructor
 public class RescheduleServiceImpl implements RescheduleService {

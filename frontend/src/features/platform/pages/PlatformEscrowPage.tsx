@@ -1,3 +1,14 @@
+/**
+ * ====================================================================================================
+ * [UC-58] MÀN HÌNH QUẢN TRỊ KÝ QUỸ BẢO CHỨNG ESCROW (PLATFORM ESCROW PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Giám sát toàn bộ các khoản ký quỹ đang phong tỏa (HELD) và đang tranh chấp (DISPUTED).
+ * 2. Can thiệp giải phóng hoặc hoàn tiền khẩn cấp theo quyết định hòa giải.
+ * 3. Đối soát số dư tài khoản bảo chứng đảm bảo tính toàn vẹn tài chính toàn sàn.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 import { Link } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { AdminEscrowQueue } from '../components/AdminEscrowQueue';

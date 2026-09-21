@@ -1,15 +1,14 @@
 /**
- * ============================================================================
- * TRANG BẢNG ĐIỀU KHIỂN QUẢN TRỊ TỔNG QUAN (PLATFORM ADMIN DASHBOARD PAGE)
- * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mô tả các thành phần và chỉ số chính:
- *   - Thống kê toàn cảnh hệ thống: Người dùng, Gia sư, Lớp học, Doanh thu, Escrow.
- *   - Theo dõi hàng đợi trực ban (Urgent Action Queue): Hồ sơ chờ duyệt, Tranh chấp, Rút tiền, Quá hạn SLA.
- *   - Giám sát luồng tri thức AI (AI Knowledge Base Stats & Re-indexing Trigger).
- *   - Lọc dữ liệu theo thời gian (Hôm nay, 7 ngày, 30 ngày, Tháng này, Tùy chọn khoảng ngày).
- *   - Biểu đồ biến động tài chính (Tiền vào, Tiền ra, Ròng, Doanh thu phí sàn).
+ * ====================================================================================================
+ * [UC-56] BẢNG ĐIỀU KHIỂN QUẢN TRỊ TRUNG TÂM (PLATFORM DASHBOARD PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tổng hợp các chỉ số hoạt động cốt lõi của sàn: Doanh thu, số lớp mở, người dùng mới.
+ * 2. Cảnh báo các vụ việc khẩn cấp: Tranh chấp quá hạn, sự cố lớp học, rút tiền chờ duyệt.
+ * 3. Điều phối lối tắt truy cập các phân hệ quản trị chuyên sâu trên nền tảng.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
  */
 
 import { useState } from 'react';
@@ -384,7 +383,6 @@ export default function PlatformDashboardPage() {
                 </div>
               </div>
             </section>
-            
             {/* Center Health */}
             <section className="adm-dashboard-section">
               <div className="adm-dashboard-section__head">
@@ -422,7 +420,6 @@ export default function PlatformDashboardPage() {
                 </div>
               </div>
             </section>
-            
             {/* Class Health */}
             <section className="adm-dashboard-section">
               <div className="adm-dashboard-section__head">

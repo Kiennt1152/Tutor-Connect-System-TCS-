@@ -8,6 +8,27 @@ import java.util.Set;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] KIỂM SOÁT VÀ KHỬ ẢO GIÁC DỮ LIỆU AI (AI HALLUCINATION GUARD)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Rà soát và loại bỏ các thông tin bịa đặt không có thật trong hệ thống (tên gia sư giả mạo, mức phí sai lệch).
+ * 
+ * Chức năng chính:
+ *   1. Khử tên gia sư bịa đặt: Đối chiếu danh sách tên gia sư trong câu trả lời với CSDL thực tế.
+ *   2. Kiểm định số liệu tài chính: Ngăn chặn mô hình khẳng định số dư ví hoặc doanh thu không có căn cứ.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận văn bản phản hồi do mô hình ngôn ngữ vừa sinh ra.
+ *   - Bước 2: Bóc tách các thực thể có tên riêng và số liệu tài chính bằng Regex.
+ *   - Bước 3: Xác thực với CSDL; nếu sai lệch thì thay thế bằng nội dung an toàn đã kiểm chứng.
+ * ============================================================================
+ */
 @Slf4j
 @Service
 public class AiHallucinationGuard {

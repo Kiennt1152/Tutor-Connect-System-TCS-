@@ -1,20 +1,25 @@
 /**
  * ============================================================================
- * [UC-08] TRANG QUẢN LÝ HỒ SƠ PHỤ HUYNH (CLIENT PROFILE PAGE)
+ * [UC-08] HỒ SƠ & THIẾT LẬP TÀI KHOẢN PHỤ HUYNH (CLIENT PROFILE PAGE)
  * ============================================================================
- * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
- * Ngày tạo      : 2026-09-13
  * 
- * 1. Mục đích & Chức năng:
- *    - Quản lý thông tin cá nhân của Phụ huynh / Học viên (Họ tên, ngày sinh, giới tính, địa chỉ, ảnh đại diện).
- *    - Quản lý hồ sơ người phụ thuộc (Child Profiles) để phân công cho các lớp học kèm.
- *    - Tải lên và xác minh căn cước công dân (CCCD / eKYC) phục vụ an toàn sàn.
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-09-13
  * 
- * 2. Luồng xử lý chính:
- *    - Bước 1: Khởi tạo form dữ liệu từ props profile ban đầu.
- *    - Bước 2: Cho phép chỉnh sửa thông tin, tải ảnh avatar lên qua profileApi.uploadAvatar().
- *    - Bước 3: Thêm / sửa / xóa thông tin hồ sơ con cái (Child profiles).
- *    - Bước 4: Lưu cập nhật hồ sơ qua profileApi.updateProfile(), hiển thị thông báo thành công.
+ * Mô tả Use Case:
+ *   - Quản lý thông tin cá nhân và hồ sơ gia đình của Phụ huynh học sinh.
+ *   - Cho phép thiết lập danh sách học sinh phụ thuộc (con cái) để thuận tiện cho việc đăng ký lớp học.
+ * 
+ * Chức năng chính:
+ *   1. Thông tin phụ huynh: Cập nhật họ tên, số điện thoại, địa chỉ cư trú và ảnh đại diện.
+ *   2. Quản lý học sinh phụ thuộc: Thêm mới, chỉnh sửa thông tin lớp học và học lực của con cái.
+ *   3. Thiết lập bảo mật: Đổi mật khẩu tài khoản và quản lý phương thức nhận thông báo học tập.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Hook tải dữ liệu hồ sơ người dùng hiện tại từ API backend.
+ *   - Bước 2: Hiển thị thông tin cá nhân trên biểu mẫu cho phép chỉnh sửa.
+ *   - Bước 3: Người dùng cập nhật thông tin và bấm "Lưu thay đổi".
+ *   - Bước 4: Gửi dữ liệu cập nhật qua API, đồng bộ lại trạng thái thông tin tài khoản.
  * ============================================================================
  */
 

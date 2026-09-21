@@ -10,20 +10,19 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * ============================================================================
- * PHÂN HỆ QUẢN TRỊ GIAO DỊCH KÝ QUỸ ESCROW TOÀN SÀN (ADMIN ESCROW CONTROLLER)
+ * [BF-10] [UC-58] [UC-40] PHÂN HỆ QUẢN TRỊ GIAO DỊCH KÝ QUỸ ESCROW (ADMIN ESCROW CONTROLLER)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp (Đức)
- * Các Use Case liên quan:
- *   - [UC-40] Quản lý & Phê duyệt giải ngân thanh toán Escrow
- *   - [UC-58] Quản trị vòng đời & trạng thái giao dịch Ký quỹ Escrow (FUNDED, RELEASED, DISPUTED, ON_HOLD, REFUNDED)
- * 
- * Nghiệp vụ cốt lõi:
- *   - Escrow là cơ chế bảo vệ kép giữa Phụ huynh (Payer) và Gia sư/Trung tâm (Beneficiary):
- *     1. Phụ huynh ký quỹ 100% học phí trước khi lớp bắt đầu. Tiền được đóng băng an toàn trong ví Escrow hệ thống.
- *     2. Trong suốt quá trình học, tiền không bị thất thoát và được bảo đảm bởi TCS Smart Escrow Contract.
- *     3. Khi lớp học hoàn thành hợp lệ (hoặc theo từng cột mốc), tiền được giải ngân (RELEASE) về ví người thụ hưởng.
- *     4. Trường hợp có sự cố hoặc hủy lớp, tiền được phán xử hoàn lại (REFUND) minh bạch.
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-07-29
+ * * 1. Mục đích & Chức năng:
+ *   - Quản trị toàn bộ các giao dịch ký quỹ Escrow bảo chứng giữa Phụ huynh, Gia sư và Trung tâm.
+ *   - Quản lý vòng đời ký quỹ: FUNDED (Đã nạp), RELEASED (Đã giải ngân), DISPUTED (Tranh chấp), ON_HOLD (Tạm giữ), REFUNDED (Hoàn trả).
+ *   - Hỗ trợ Admin can thiệp đóng băng hoặc giải ngân trong các trường hợp phán quyết tranh chấp.
+ * * 2. Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận các bộ lọc trạng thái và khoảng thời gian từ Admin Console.
+ *   - Bước 2: Gọi AdminEscrowService để truy vấn dữ liệu từ bảng escrow_transactions.
+ *   - Bước 3: Trả về danh sách phân trang AdminEscrowPageResponse kèm số liệu thống kê.
+ * ============================================================================
  */
 @RestController
 @RequestMapping("/api/platform/escrows")
@@ -34,8 +33,7 @@ public class AdminEscrowController {
 
     /**
      * [UC-58 & UC-40]: Tra cứu, lọc và phân trang toàn bộ giao dịch ký quỹ trên sàn.
-     * 
-     * Bộ lọc nghiệp vụ:
+     *     * Bộ lọc nghiệp vụ:
      *   - {@code status}: Lọc theo 6 trạng thái ký quỹ:
      *       * PENDING: Chờ client nạp tiền
      *       * FUNDED: Đã nạp thành công, đang phong tỏa bảo vệ quyền lợi
@@ -47,8 +45,7 @@ public class AdminEscrowController {
      *   - {@code reference}: Tìm theo mã giao dịch (ESC-CLS-xxx)
      *   - {@code payer}: Tìm theo email hoặc tên phụ huynh thanh toán
      *   - {@code beneficiary}: Tìm theo email hoặc tên gia sư/trung tâm nhận tiền
-     * 
-     * @return {@link AdminEscrowPageResponse} Danh sách giao dịch phân trang kèm tổng số tiền ký quỹ
+     *     * @return {@link AdminEscrowPageResponse} Danh sách giao dịch phân trang kèm tổng số tiền ký quỹ
      */
     @GetMapping
     public AdminEscrowPageResponse search(
@@ -68,13 +65,11 @@ public class AdminEscrowController {
 
     /**
      * [UC-40]: Xem chi tiết hồ sơ một khoản ký quỹ Escrow.
-     * 
-     * Thông tin bao gồm:
+     *     * Thông tin bao gồm:
      *   - Số tiền ký quỹ gốc, phí nền tảng ước tính hoặc đã trừ, số tiền thực nhận.
      *   - Thông tin hợp đồng liên kết (Contract ID, Assignment ID, Class ID).
      *   - Tiến độ buổi học, trạng thái điểm danh và lịch sử giải ngân/hoàn tiền.
-     * 
-     * @param escrowId ID của bản ghi ký quỹ cần tra cứu
+     *     * @param escrowId ID của bản ghi ký quỹ cần tra cứu
      * @return {@link AdminEscrowResponse} Chi tiết toàn diện của giao dịch ký quỹ
      */
     @GetMapping("/{escrowId}")

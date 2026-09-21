@@ -12,14 +12,28 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * ====================================================================================================
- * [UC-60] KIỂM SOÁT QUYỀN HẠN TÍNH NĂNG THEO CHẾ TÀI XỬ PHẠT (PENALTY FEATURE RESTRICTION GUARD)
- * ====================================================================================================
- * Dịch vụ cổng chắn (Access Guard) kiểm tra tính năng bị hạn chế trên tài khoản người dùng:
- * 1. Chặn quyền sử dụng tính năng (Chat, Tạo lớp, Nhận lớp, Đăng tuyển) nếu tài khoản có án phạt FEATURE_RESTRICTION đang hiệu lực.
- * 2. Ném lỗi ForbiddenException kèm thông điệp rõ ràng cho frontend xử lý giao diện.
+ * ============================================================================
+ * [UC-63] HIỆN THỰC CỔNG CHẮN KIỂM SOÁT TÍNH NĂNG (PENALTY ACCESS SERVICE IMPL)
+ * ============================================================================
  * 
- * @author mduc1011-swp (Đức)
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-11
+ * 
+ * Mô tả Use Case:
+ *   - Hiện thực cổng chắn bảo vệ các tính năng nghiệp vụ trước các tài khoản đang chịu chế tài xử phạt.
+ *   - Chặn tức thì các hành vi vi phạm khi người dùng cố tình thực hiện thao tác bị cấm.
+ * 
+ * Chức năng chính:
+ *   1. Kiểm tra án phạt hiệu lực: Truy vấn các án phạt `FEATURE_RESTRICTION` chưa hết hạn của người dùng.
+ *   2. Phân tích chi tiết hạn chế: Giải mã danh sách mã tính năng bị cấm lưu trong án phạt.
+ *   3. Ngăn chặn và cảnh báo: Ném `ForbiddenException` kèm thông điệp chi tiết để giao diện hiển thị cho người dùng.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận ID người dùng và mã tính năng cần kiểm tra (`requireFeature`).
+ *   - Bước 2: Truy xuất danh sách án phạt đang hoạt động của người dùng từ `UserPenaltyRepository`.
+ *   - Bước 3: Lọc các án phạt hạn chế tính năng còn trong thời hạn hiệu lực.
+ *   - Bước 4: Nếu phát hiện mã tính năng nằm trong danh sách bị cấm, ném ngoại lệ `ForbiddenException`.
+ * ============================================================================
  */
 @Service
 @RequiredArgsConstructor

@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-10] MÀN HÌNH TÌM KIẾM LỚP HỌC NÂNG CAO (CLASS FINDER PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tìm kiếm lớp học tối ưu theo khoảng cách địa lý và thời gian rảnh của gia sư.
+ * 2. Đề xuất lớp học phù hợp tự động bằng thuật toán gợi ý thông minh.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SiteHeader } from '../../home/components/SiteHeader';

@@ -94,6 +94,17 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ====================================================================================================
+ * [UC-39 / UC-40] DỊCH VỤ ĐIỀU PHỐI GIAO DỊCH TÀI CHÍNH (FINANCE SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Quản trị vòng đời giao dịch nạp tiền, rút tiền, chuyển khoản và hoàn phí trên hệ thống.
+ * 2. Phối hợp xác thực biến động số dư tài khoản ngân hàng thông qua mã tham chiếu duy nhất.
+ * 3. Đảm bảo nguyên tắc kép kế toán (Double-Entry Bookkeeping) và chống chi vượt số dư ví.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @Service
 @RequiredArgsConstructor
 public class FinanceServiceImpl implements FinanceService {

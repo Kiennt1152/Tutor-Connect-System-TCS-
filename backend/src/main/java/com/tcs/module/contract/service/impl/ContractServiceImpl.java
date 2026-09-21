@@ -116,18 +116,16 @@ import org.springframework.util.StringUtils;
 /**
  * ====================================================================================================
  * [UC-44] [BF-03] [BF-07] DỊCH VỤ QUẢN LÝ VÒNG ĐỜI HỢP ĐỒNG ĐIỆN TỬ & KÝ SỐ OTP (E-CONTRACT SERVICE)
- * ====================================================================================================
- * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
- * Ngày tạo      : 2026-06-23
- * 
- * 1. Mục đích & Chức năng cốt lõi:
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * * 1. Mục đích & Chức năng cốt lõi:
  *    - Quản lý toàn bộ vòng đời của Hợp đồng điện tử trên hệ thống Tutor Connect System (TCS).
  *    - [FT-24 / UC-44]: Tự động sinh nội dung hợp đồng pháp lý từ mẫu hợp đồng (Template) và siêu dữ liệu (Metadata).
  *    - [UC-44]: Quy trình ký kết số 2 lớp xác thực OTP (Two-Factor OTP) qua Email với thời hạn 5 phút và chống spam.
  *    - [BF-03]: Quản lý thỏa thuận hợp tác việc làm giữa Trung tâm gia sư và Gia sư, cơ chế tự động hủy sau 48h quá hạn.
  *    - [BF-07]: Động cơ đánh giá uy tín (Review & Reputation Engine), tính điểm sao trung bình và phản hồi đa chiều.
- * 
- * 2. Luồng xử lý nghiệp vụ chính (Core Execution Flow):
+ * * 2. Luồng xử lý nghiệp vụ chính (Core Execution Flow):
  *    - Luồng 1 (Tạo hợp đồng): Kiểm tra quyền -> Tải Template hợp đồng -> Điền thông tin các bên (Client, Tutor, Center, Học phí, Lịch học) -> Khởi tạo hợp đồng trạng thái PENDING.
  *    - Luồng 2 (Gửi OTP ký số): Kiểm tra quyền người ký -> Sinh ngẫu nhiên mã OTP 6 số -> Mã hóa/Lưu vào bảng contract_otps (hạn 5 phút) -> Gửi Email mã OTP qua ContractEmailService.
  *    - Luồng 3 (Xác thực OTP & Ký số): Nhận mã OTP -> So khớp mã OTP chưa hết hạn -> Cập nhật trạng thái ký SIGNED trong contract_signatures.
@@ -443,8 +441,7 @@ public class ContractServiceImpl implements ContractService {
 
     /**
      * Gửi mã OTP xác thực ký hợp đồng điện tử qua email cho người dùng (UC-44).
-     * 
-     * @param contractId ID hợp đồng cần ký
+     *     * @param contractId ID hợp đồng cần ký
      * @return OtpSentResponse chứa thông tin email được che (masked) và thông điệp xác nhận
      */
     @Override
@@ -459,8 +456,7 @@ public class ContractServiceImpl implements ContractService {
 
     /**
      * Thực hiện ký hợp đồng điện tử bằng mã OTP đã nhận qua email (UC-44).
-     * 
-     * Quy trình xử lý:
+     *     * Quy trình xử lý:
      *   1. Kiểm tra mã OTP không để trống.
      *   2. Ràng buộc pháp lý: Người ký không được là trẻ vị thành niên và phải hoàn tất thông tin CCCD.
      *   3. Xác định vai trò của người ký (PartyRole: CLIENT, TUTOR, CENTER) và kiểm tra trạng thái hợp đồng.
@@ -471,8 +467,7 @@ public class ContractServiceImpl implements ContractService {
      *      - Chuyển trạng thái hợp đồng sang SIGNED.
      *      - Khóa tiền ký quỹ (Escrow Lock) và phát sự kiện ContractSigned.
      *      - Phát sự kiện CooperationContractSigned hoặc StudentContractSigned cho các module liên quan.
-     * 
-     * @param contractId ID hợp đồng điện tử
+     *     * @param contractId ID hợp đồng điện tử
      * @param request    chứa mã OTP người dùng nhập
      * @return đối tượng ContractResponse chứa đầy đủ thông tin hợp đồng sau khi ký
      */

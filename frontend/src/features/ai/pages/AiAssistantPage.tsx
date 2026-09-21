@@ -1,15 +1,27 @@
 /**
  * ============================================================================
- * TRANG TRỢ LÝ THÔNG MINH AI ASSISTANT (AI ASSISTANT PAGE)
+ * [UC-65] TRỢ LÝ ẢO AI & HỎI ĐÁP TÌM KIẾM THÔNG MINH (AI ASSISTANT PAGE)
  * ============================================================================
  * 
- * Tác giả: mduc1011-swp
- * Mô tả các tính năng cốt lõi:
- *   - Giao diện trò chuyện tương tác với Trợ lý AI nền tảng TCS (Universal AI Assistant).
- *   - Quản lý phiên hội thoại đa luồng (Sessions): Tạo mới, đổi tên, xóa, tìm kiếm lịch sử trò chuyện.
- *   - Hiển thị phản hồi định dạng Markdown, trích dẫn nguồn tri thức RAG (Grounding References / Citations).
- *   - Hiển thị thẻ gợi ý tương tác (Action Buttons, Quick Suggestions, Deep Link tới gia sư/lớp học/hợp đồng).
- *   - Hỗ trợ copy tin nhắn, tự động cuộn (Auto-scroll), và thích ứng màn hình di động (Responsive Sidebar).
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Giao diện trò chuyện tương tác với trợ lý AI sàn Tutor Connect System.
+ *   - Hỗ trợ giải đáp chính sách nền tảng, tìm kiếm gợi ý gia sư và lớp học theo ngôn ngữ tự nhiên.
+ * 
+ * Chức năng chính:
+ *   1. Trò chuyện thời gian thực: Gửi câu hỏi và nhận câu trả lời phân tích ngữ cảnh từ AI.
+ *   2. Gợi ý thực thể thông minh: Tự động hiển thị các thẻ gia sư và lớp học phù hợp với nhu cầu.
+ *   3. Trích dẫn nguồn tri thức: Hiển thị căn cứ nguồn câu trả lời (FAQ, Chính sách bảo chứng Escrow).
+ *   4. Quản lý lịch sử hội thoại: Lưu vết các phiên trò chuyện và hỗ trợ xóa cuộc trò chuyện.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Người dùng nhập nội dung thắc mắc hoặc yêu cầu tìm lớp vào ô chat.
+ *   - Bước 2: Gọi API trợ lý AI (`aiApi.chat`), hệ thống kích hoạt đường ống RAG và bộ đệm ngữ nghĩa.
+ *   - Bước 3: Trả về câu trả lời đã qua hậu kiểm chống ảo giác (Hallucination Guard).
+ *   - Bước 4: Hiển thị câu trả lời kèm thẻ gợi ý thực thể gia sư/lớp học để người dùng bấm xem chi tiết.
+ * ============================================================================
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -108,7 +120,6 @@ export default function AiAssistantPage() {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  
   // Local UI States
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [historySearch, setHistorySearch] = useState('');
@@ -118,7 +129,6 @@ export default function AiAssistantPage() {
   const [sessionToDelete, setSessionToDelete] = useState<AiSession | null>(null);
   const [deletingSession, setDeletingSession] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -341,14 +351,10 @@ export default function AiAssistantPage() {
             <span style={{ fontSize: '1.2rem', lineHeight: 1 }}>+</span> Cuộc trò chuyện mới
           </button>
         </div>
-        
         <div style={{ padding: '0 1rem 0.5rem' }}>
           <div style={{ position: 'relative' }}>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: 'absolute', left: '0.75rem', top: '50%', transform: 'translateY(-50%)', color: '#5f6368' }}><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm cuộc trò chuyện..." 
-              value={historySearch}
+            <input              type="text"              placeholder="Tìm kiếm cuộc trò chuyện..."              value={historySearch}
               onChange={e => setHistorySearch(e.target.value)}
               style={{ width: '100%', padding: '0.5rem 0.5rem 0.5rem 2rem', borderRadius: '8px', border: '1px solid #e3e3e3', fontSize: '0.85rem' }}
             />
@@ -425,7 +431,6 @@ export default function AiAssistantPage() {
           ) : (
             messages.map((m, idx) => {
               const genericSources = m.sources?.filter(s => !['TUTOR', 'CLASS', 'FAQ'].includes(s.sourceType)) || [];
-              
               return (
                 <div key={m.messageId || idx} className={`ai-message-row ${m.role}`}>
                   <div className="ai-avatar">
@@ -594,13 +599,10 @@ export default function AiAssistantPage() {
                               </span>
                             )}
                           </div>
-                          
                           {/* Rewritten Query Accordion */}
                           {m.rewrittenQuery && (
                             <div className={`ai-accordion ${expandedQueryId === m.messageId ? 'open' : ''}`} style={{ marginTop: '0.5rem', background: 'transparent' }}>
-                              <div 
-                                className="ai-accordion-header" 
-                                style={{ padding: '0.4rem 0.5rem', background: 'transparent', fontSize: '0.8rem', color: '#1a73e8' }}
+                              <div                                className="ai-accordion-header"                                style={{ padding: '0.4rem 0.5rem', background: 'transparent', fontSize: '0.8rem', color: '#1a73e8' }}
                                 onClick={() => setExpandedQueryId(expandedQueryId === m.messageId ? null : (m.messageId || 0))}
                               >
                                 <span>🔍 AI hiểu câu hỏi là...</span>
@@ -613,12 +615,10 @@ export default function AiAssistantPage() {
                               )}
                             </div>
                           )}
-                          
 
                         </>
                       )}
                     </div>
-                    
                     {/* Action Bar */}
                     {m.role === 'assistant' && (
                       <div className="ai-message-actions">

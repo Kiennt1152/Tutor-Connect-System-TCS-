@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-07] MÀN HÌNH THÔNG TIN TÀI KHOẢN QUẢN TRỊ (PLATFORM PROFILE PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị thông tin cá nhân và quyền hạn quản trị viên hệ thống.
+ * 2. Hỗ trợ đổi mật khẩu bảo mật và kích hoạt xác thực hai yếu tố.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 import { Link } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { useAuth } from '../../../shared/auth/AuthProvider';

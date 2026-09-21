@@ -7,6 +7,27 @@ import java.util.Locale;
 import java.util.Map;
 import org.springframework.stereotype.Component;
 
+/**
+ * ============================================================================
+ * [UC-65] HIỆU CHUẨN ĐỘ TIN CẬY Ý ĐỊNH (CONFIDENCE CALIBRATOR)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Đo lường và hiệu chuẩn độ tin cậy của các bộ phân loại ý định đảm bảo kích hoạt đúng hành động nghiệp vụ.
+ * 
+ * Chức năng chính:
+ *   1. Hiệu chuẩn điểm số: Điều chỉnh ngưỡng phân định giữa ý định rõ ràng và mơ hồ.
+ *   2. Đánh giá biên độ an toàn: Ngăn chặn kích hoạt hành động nhạy cảm khi điểm số quá thấp.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Nhận điểm số thô từ bộ phân loại ý định.
+ *   - Bước 2: Áp dụng hàm sigmoid/hiệu chuẩn dựa trên độ dài câu và số lượng từ khóa khớp.
+ *   - Bước 3: Trả về độ tin cậy chuẩn hóa từ 0.0 đến 1.0.
+ * ============================================================================
+ */
 @Component
 public class ConfidenceCalibrator {
 

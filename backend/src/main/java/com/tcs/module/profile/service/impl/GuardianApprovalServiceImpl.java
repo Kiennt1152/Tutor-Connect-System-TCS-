@@ -30,6 +30,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * ====================================================================================================
+ * [UC-06] DỊCH VỤ XÁC NHẬN BẢO HỘ VỊ THÀNH NIÊN (GUARDIAN APPROVAL SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Quản lý việc gửi thư xác nhận bảo hộ tới phụ huynh của học viên dưới 18 tuổi.
+ * 2. Ghi nhận thời điểm và chữ ký đồng thuận tham gia nền tảng của người giám hộ.
+ * * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 @Service
 @RequiredArgsConstructor
 public class GuardianApprovalServiceImpl implements GuardianApprovalService {

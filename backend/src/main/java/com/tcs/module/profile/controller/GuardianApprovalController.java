@@ -10,6 +10,17 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ====================================================================================================
+ * [UC-06] XÁC NHẬN ĐỒNG THUẬN NGƯỜI GIÁM HỘ (GUARDIAN APPROVAL CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Thu thập thông tin liên lạc và cam kết của phụ huynh/người giám hộ cho học viên vị thành niên.
+ * 2. Gửi yêu cầu xác nhận bảo trợ qua email và ghi nhận biên bản chấp thuận tham gia lớp học.
+ * 3. Đảm bảo tính pháp lý và an toàn cho học sinh dưới 18 tuổi khi tham gia học kèm trực tuyến.
+ * * @author Nguyễn Trung Kiên (Kiennt1152)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 @RestController
 @RequestMapping("/api/profile/guardian/approvals")
 @RequiredArgsConstructor

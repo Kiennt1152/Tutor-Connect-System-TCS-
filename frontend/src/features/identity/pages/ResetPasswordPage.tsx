@@ -1,3 +1,29 @@
+/**
+ * ============================================================================
+ * [UC-01] THIẾT LẬP MẬT KHẨU MỚI BẰNG TOKEN (RESET PASSWORD PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-07
+ * 
+ * Mô tả Use Case:
+ *   - Tiếp nhận người dùng từ đường dẫn liên kết an toàn trong email khôi phục mật khẩu.
+ *   - Xác minh tính toàn vẹn của mã token và cho phép đặt lại mật khẩu bảo mật mới.
+ * 
+ * Chức năng chính:
+ *   1. Xác thực Token: Trích xuất và kiểm tra mã xác thực trên đường dẫn URL.
+ *   2. Kiểm tra độ mạnh mật khẩu: Đảm bảo mật khẩu mới đủ độ dài và các ký tự bảo mật quy định.
+ *   3. Cập nhật mật khẩu mới: Xác nhận đổi mật khẩu thành công và hủy bỏ hiệu lực của token cũ.
+ *   4. Tự động điều hướng: Chuyển hướng người dùng về trang đăng nhập sau khi hoàn tất.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Người dùng nhấp vào link trong email, mở màn hình Đặt lại mật khẩu kèm tham số token.
+ *   - Bước 2: Nhập mật khẩu mới và nhập lại xác nhận mật khẩu.
+ *   - Bước 3: Nhấn "Cập nhật mật khẩu", gọi API `identityApi.resetPassword`.
+ *   - Bước 4: Hệ thống cập nhật mật khẩu mã hóa mới vào CSDL và điều hướng về trang Đăng nhập.
+ * ============================================================================
+ */
+
 import type { FormEvent } from 'react';
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';

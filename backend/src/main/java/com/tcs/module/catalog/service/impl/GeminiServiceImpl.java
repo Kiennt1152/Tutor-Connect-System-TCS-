@@ -14,6 +14,30 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+/**
+ * ============================================================================
+ * [UC-65] HIỆN THỰC TÍCH HỢP MÔ HÌNH NGÔN NGỮ GOOGLE GEMINI (GEMINI SERVICE IMPL)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-13
+ * 
+ * Mô tả Use Case:
+ *   - Hiện thực hóa việc kết nối REST API và trao đổi dữ liệu với mô hình nền tảng Google Gemini.
+ *   - Đóng vai trò lớp trợ lý hỏi đáp dự phòng hỗ trợ giải đáp chính sách và nghiệp vụ cho người dùng sàn.
+ * 
+ * Chức năng chính:
+ *   1. Giao tiếp LLM Gemini: Đóng gói và gửi prompt hội thoại tới Google Gemini REST API qua RestClient.
+ *   2. Định cấu hình tham số sinh văn bản: Điều chỉnh nhiệt độ, độ dài tối đa đảm bảo phản hồi chuẩn mực.
+ *   3. Xử lý lỗi và an toàn: Bắt ngoại lệ mạng, vượt hạn mức (Rate Limit) và phản hồi an toàn cho người dùng.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận câu hỏi cần giải đáp từ người dùng (askQuestion).
+ *   - Bước 2: Thiết lập System Prompt định hình phong cách trợ lý nền tảng Tutor Connect System.
+ *   - Bước 3: Gửi yêu cầu HTTP POST tới Google Gemini API với khóa xác thực được bảo vệ.
+ *   - Bước 4: Bóc tách nội dung văn bản trả về từ response JSON và chuyển tiếp cho tầng xử lý hiển thị.
+ * ============================================================================
+ */
 @Service
 @Slf4j
 public class GeminiServiceImpl implements GeminiService {

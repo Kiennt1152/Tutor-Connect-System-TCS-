@@ -1,3 +1,29 @@
+/**
+ * ============================================================================
+ * [UC-59] GIÁM SÁT & THẨM ĐỊNH HÀNH VI LÁCH NỀN TẢNG (PLATFORM CIRCUMVENTION PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-11
+ * 
+ * Mô tả Use Case:
+ *   - Màn hình kiểm duyệt các sự kiện nghi vấn người dùng cố tình trao đổi thông tin để giao dịch ngoài sàn.
+ *   - Ngăn chặn nguy cơ quỵt tiền học phí, đảm bảo an toàn giao dịch qua cơ chế ký quỹ bảo chứng Escrow.
+ * 
+ * Chức năng chính:
+ *   1. Danh sách nghi vấn vi phạm: Hiển thị các sự kiện bị AI/Regex gắn cờ kèm điểm rủi ro (Risk Score).
+ *   2. Thẩm định bằng chứng hội thoại: Đọc ngữ cảnh tin nhắn trước và sau vi phạm trong phòng chat.
+ *   3. Phán quyết xử lý: Xác nhận vi phạm (CONFIRMED) hoặc bác bỏ cảnh báo sai lệch (DISMISSED).
+ *   4. Liên thông chế tài: Chuyển trực tiếp sang màn hình ban hành án phạt khi đã xác nhận vi phạm.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên tải danh sách các sự kiện lách sàn đang chờ thẩm định (PENDING_REVIEW).
+ *   - Bước 2: Bấm xem chi tiết để tải lịch sử đoạn hội thoại chứa từ khóa vi phạm.
+ *   - Bước 3: Đưa ra quyết định phê duyệt hoặc hủy bỏ nghi vấn kèm ghi chú thẩm định.
+ *   - Bước 4: Nếu vi phạm thật, mở modal ban hành chế tài khóa tài khoản hoặc cảnh cáo.
+ * ============================================================================
+ */
+
 import { useCallback, useEffect, useState } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { Pagination } from '../../../shared/components';

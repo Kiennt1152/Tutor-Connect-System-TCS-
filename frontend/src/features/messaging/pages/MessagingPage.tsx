@@ -1,3 +1,15 @@
+/**
+ * ====================================================================================================
+ * [UC-50 / UC-51] MÀN HÌNH HỘI THOẠI TRỰC TUYẾN (MESSAGING PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Trò chuyện trực tuyến thời gian thực giữa Phụ huynh, Gia sư và Trung tâm.
+ * 2. Hỗ trợ gửi hình ảnh, bài tập đính kèm và kiểm tra trạng thái đã đọc.
+ * 3. Tích hợp bộ lọc cảnh báo giao dịch ngoài sàn bảo vệ quyền lợi người dùng.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
+
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';

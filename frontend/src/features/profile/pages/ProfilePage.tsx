@@ -1,19 +1,15 @@
 /**
- * ============================================================================
- * [UC-08] TRANG QUẢN LÝ HỒ SƠ CÁ NHÂN & ĐIỀU PHỐI (USER PROFILE DISPATCHER)
- * ============================================================================
- * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
- * Ngày tạo      : 2026-06-23
- * 
- * 1. Mục đích & Chức năng:
- *    - Là trang trung tâm điều phối giao diện hồ sơ người dùng theo vai trò (Role-Based Profile Dispatcher).
- *    - Phân tách hiển thị tương ứng: ClientProfilePage (Phụ huynh), TutorProfilePage (Gia sư), CenterProfilePage (Trung tâm).
- *    - Quản lý trạng thái loading, kiểm tra xác thực và tự động điều hướng hoàn tất hồ sơ lần đầu (First-login Onboarding).
- * 
- * 2. Luồng xử lý chính:
- *    - Bước 1: Gọi useProfile() để lấy thông tin tài khoản người dùng hiện tại từ /api/profile/me.
- *    - Bước 2: Dựa vào role (ROLE_CLIENT, ROLE_TUTOR, ROLE_TUTOR_CENTER) để render giao diện phù hợp.
- * ============================================================================
+ * ====================================================================================================
+ * [UC-07] MÀN HÌNH HỒ SƠ CÁ NHÂN NGƯỜI DÙNG (USER PROFILE PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Xem và cập nhật thông tin cá nhân, ảnh đại diện, số điện thoại và địa chỉ liên lạc.
+ * 2. Quản lý liên kết tài khoản ngân hàng phục vụ nạp rút tiền an toàn.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
  */
 
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';

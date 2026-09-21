@@ -16,6 +16,16 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ====================================================================================================
+ * [UC-53] DỊCH VỤ PHÂN PHỐI THÔNG BÁO ĐA KÊNH (NOTIFICATION DISPATCH SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Điều phối gửi thông báo đồng thời qua các kênh: Chuông In-App, Email và Webhook.
+ * 2. Theo dõi trạng thái đã gửi, lỗi gửi và cơ chế thử lại tự động khi gặp sự cố mạng.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 @Service
 @RequiredArgsConstructor
 public class NotificationDispatchServiceImpl implements NotificationDispatchService {

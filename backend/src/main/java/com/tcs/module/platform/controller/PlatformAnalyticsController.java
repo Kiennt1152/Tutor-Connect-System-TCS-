@@ -23,23 +23,26 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * ============================================================================
- * PHÂN HỆ PHÂN TÍCH TÀI CHÍNH, DOANH THU & SỔ CÁI TOÀN SÀN (FINANCIAL ANALYTICS)
+ * [UC-41] [UC-43] [UC-58] [UC-60] PHÂN TÍCH TÀI CHÍNH, DOANH THU & SỔ CÁI TOÀN SÀN (PLATFORM ANALYTICS CONTROLLER)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp (Đức)
- * Các Use Case liên quan:
- *   - [UC-41] Báo cáo tài chính & Phân tích doanh thu toàn sàn
- *   - [UC-43] Xuất báo cáo tài chính dạng tệp CSV UTF-8 kèm ghi vết kiểm toán
- *   - [UC-58] Sổ cái kế toán giao dịch tài chính đa chiều (Financial Ledger)
- * 
- * Mục tiêu nghiệp vụ:
- *   - Cung cấp cho Quản trị viên bức tranh tài chính toàn diện và minh bạch:
- *     1. Dòng tiền vào (INFLOW): Nạp tiền vào ví, Ký quỹ lớp học (Escrow Deposit), Phí xử lý yêu cầu.
- *     2. Dòng tiền ra (OUTFLOW): Rút tiền về ngân hàng (Withdrawal Completed), Hoàn tiền ký quỹ (Escrow Refund).
- *     3. Doanh thu thực tế nền tảng (PLATFORM REVENUE): Khấu trừ 2% (hoặc tỷ lệ phí riêng của trung tâm) khi giải ngân.
- *     4. Tiền đang phong tỏa (FROZEN / ESCROW HOLDING): Các khoản học phí đang được bảo lưu an toàn.
- *     5. Phân rã chi tiết theo từng đối tượng: Trung tâm gia sư (Centers), Gia sư cá nhân (Tutors), Phụ huynh (Clients).
- *     6. Sổ cái giao dịch chi tiết (Ledger) đối soát từng mã bút toán (Reference Code), chiều dòng tiền, người thực hiện.
+ * * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * * Mô tả Use Case:
+ *   - [UC-41] Báo cáo tài chính & Phân tích doanh thu toàn sàn theo khoảng thời gian.
+ *   - [UC-43] Xuất báo cáo tài chính dạng tệp CSV UTF-8 kèm ghi vết kiểm toán (Audit Trail).
+ *   - [UC-58] Sổ cái kế toán giao dịch tài chính đa chiều (Financial Ledger).
+ *   - [UC-60] Thống kê chỉ số vận hành nền tảng (người dùng mới, tỷ lệ khớp lớp, tăng trưởng).
+ * * Chức năng chính:
+ *   1. Báo cáo tổng quan tài chính: Dòng tiền vào (INFLOW), dòng tiền ra (OUTFLOW), doanh thu thực tế nền tảng (PLATFORM REVENUE), tiền ký quỹ phong tỏa (ESCROW HOLDING).
+ *   2. Báo cáo phân rã đa đối tượng: Thống kê chi tiết cho Trung tâm gia sư (Centers), Gia sư cá nhân (Tutors), Phụ huynh học sinh (Clients).
+ *   3. Sổ cái giao dịch tài chính: Đối soát từng mã bút toán (Reference Code), chiều dòng tiền, loại giao dịch và thời gian thực hiện.
+ *   4. Xuất file CSV: Tải dữ liệu báo cáo chuẩn UTF-8 BOM phục vụ báo cáo kế toán, tự động ghi vết hành vi kiểm toán (Audit Log).
+ * * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên truy vấn báo cáo tài chính tổng quan theo mốc ngày (`getFinancialSummary`).
+ *   - Bước 2: Xem chi tiết hiệu quả tài chính của từng nhóm người dùng (`getCenterAnalytics`, `getTutorAnalytics`, `getClientAnalytics`).
+ *   - Bước 3: Tra cứu, lọc sổ cái tài chính phân trang (`getFinancialLedger`) theo chiều dòng tiền và loại giao dịch.
+ *   - Bước 4: Yêu cầu xuất báo cáo CSV (`exportFinancialLedgerCsv`), hệ thống tạo tệp stream tải về và ghi vết nhật ký kiểm toán bất biến.
+ * ============================================================================
  */
 @RestController
 @RequestMapping("/api/platform/analytics")
@@ -51,15 +54,13 @@ public class PlatformAnalyticsController {
 
     /**
      * [UC-41]: Báo cáo tổng quan tài chính toàn sàn theo khoảng thời gian.
-     * 
-     * Các chỉ số tính toán bao gồm:
+     *     * Các chỉ số tính toán bao gồm:
      *   - Tổng số dư khả dụng (Available Balance) của toàn bộ ví người dùng.
      *   - Tổng tiền đang phong tỏa ký quỹ (Frozen / Escrow Balance).
      *   - Tổng dòng tiền vào (Total Inflow), Dòng tiền ra (Total Outflow), Dòng tiền ròng (Net Flow).
      *   - Doanh thu phí sàn thực tế đã thu (Platform Fee Income).
      *   - Bảng phân rã chi tiết từng loại giao dịch phát sinh (Deposit, Withdrawal, Escrow, Refund, Fee).
-     * 
-     * @param from Ngày bắt đầu thống kê (tùy chọn)
+     *     * @param from Ngày bắt đầu thống kê (tùy chọn)
      * @param to Ngày kết thúc thống kê (tùy chọn)
      * @return {@link AnalyticsSummaryResponse} Báo cáo tài chính tổng quan toàn sàn
      */
@@ -72,14 +73,12 @@ public class PlatformAnalyticsController {
 
     /**
      * [UC-41]: Phân tích chỉ số tài chính và hoạt động kinh doanh của từng Trung tâm Gia sư.
-     * 
-     * Các chỉ số chi tiết cho mỗi trung tâm:
+     *     * Các chỉ số chi tiết cho mỗi trung tâm:
      *   - Tổng lớp học đang mở / hoàn thành, số học viên ghi danh.
      *   - Tổng doanh thu lớp học, số tiền đã giải ngân về trung tâm.
      *   - Tiền đang giữ trong ký quỹ lớp học, số dư ví khả dụng.
      *   - Số tiền đã rút thành công và các yêu cầu rút tiền đang chờ duyệt.
-     * 
-     * @param from Ngày bắt đầu
+     *     * @param from Ngày bắt đầu
      * @param to Ngày kết thúc
      * @return Danh sách báo cáo tài chính của các trung tâm gia sư
      */
@@ -93,13 +92,11 @@ public class PlatformAnalyticsController {
 
     /**
      * [UC-41]: Phân tích chỉ số thu nhập và hoạt động của từng Gia sư cá nhân.
-     * 
-     * Các chỉ số:
+     *     * Các chỉ số:
      *   - Số lớp học phụ trách, số lớp hoàn thành, đánh giá sao trung bình.
      *   - Tổng thu nhập gia sư kiếm được, số tiền ký quỹ đang chờ giải ngân.
      *   - Số tiền đã rút về tài khoản ngân hàng cá nhân, số dư ví hiện tại.
-     * 
-     * @param from Ngày bắt đầu
+     *     * @param from Ngày bắt đầu
      * @param to Ngày kết thúc
      * @return Danh sách chỉ số tài chính của các gia sư
      */
@@ -113,14 +110,12 @@ public class PlatformAnalyticsController {
 
     /**
      * [UC-41]: Phân tích mức chi tiêu và dòng tiền nạp/hoàn của từng Khách hàng / Phụ huynh (Client).
-     * 
-     * Các chỉ số:
+     *     * Các chỉ số:
      *   - Tổng số tiền nạp vào sàn (Total Deposited).
      *   - Tổng tiền đang ký quỹ cho các con theo học (Active Escrow).
      *   - Tổng tiền đã được hoàn trả sau phán xử/hủy lớp (Total Refunded).
      *   - Số dư ví khả dụng còn lại.
-     * 
-     * @param from Ngày bắt đầu
+     *     * @param from Ngày bắt đầu
      * @param to Ngày kết thúc
      * @return Danh sách chỉ số tài chính của phụ huynh
      */
@@ -134,14 +129,12 @@ public class PlatformAnalyticsController {
 
     /**
      * [UC-58]: Sổ cái tài chính toàn hệ thống (Financial Ledger) tra cứu đa chiều.
-     * 
-     * Tính năng:
+     *     * Tính năng:
      *   - Hỗ trợ lọc theo Vai trò thực hiện: CLIENT, TUTOR, TUTOR_CENTER, PLATFORM_ADMIN.
      *   - Lọc theo Chiều dòng tiền: IN (Tiền vào sàn) hoặc OUT (Tiền ra khỏi sàn).
      *   - Tìm kiếm linh hoạt theo Mã giao dịch (Reference Code), Tên người thực hiện, Email.
      *   - Lọc theo khoảng thời gian và phân trang dữ liệu chuẩn hóa.
-     * 
-     * @param role Vai trò người thực hiện giao dịch
+     *     * @param role Vai trò người thực hiện giao dịch
      * @param direction Chiều dòng tiền ('IN' hoặc 'OUT')
      * @param search Từ khóa tìm kiếm
      * @param from Ngày bắt đầu
@@ -165,14 +158,12 @@ public class PlatformAnalyticsController {
 
     /**
      * [UC-43]: Xuất báo cáo tài chính ra tệp tin CSV chuẩn UTF-8 (có BOM cho Excel).
-     * 
-     * Nghiệp vụ:
+     *     * Nghiệp vụ:
      *   - Hỗ trợ các loại báo cáo: 'summary' (tổng quan sàn), 'centers' (trung tâm),
      *     'tutors' (gia sư), 'clients' (phụ huynh), 'users' (toàn bộ người dùng).
      *   - Tự động ghi vết vào Nhật ký kiểm toán (Audit Log) với action {@code EXPORT_ANALYTICS}
      *     để kiểm soát việc tải xuất dữ liệu tài chính nhạy cảm.
-     * 
-     * @param type Loại báo cáo cần xuất ('summary', 'centers', 'tutors', 'clients', 'users')
+     *     * @param type Loại báo cáo cần xuất ('summary', 'centers', 'tutors', 'clients', 'users')
      * @param format Định dạng xuất (chỉ hỗ trợ 'csv')
      * @param from Ngày bắt đầu
      * @param to Ngày kết thúc
@@ -200,8 +191,7 @@ public class PlatformAnalyticsController {
 
     /**
      * Kích hoạt thủ công tác vụ chốt số và lưu Snapshot báo cáo tài chính định kỳ.
-     * 
-     * @return Thông báo kết quả và số lượng bản ghi snapshot được tạo
+     *     * @return Thông báo kết quả và số lượng bản ghi snapshot được tạo
      */
     @PostMapping("/scheduled-reports/trigger")
     public java.util.Map<String, Object> triggerScheduledReport() {

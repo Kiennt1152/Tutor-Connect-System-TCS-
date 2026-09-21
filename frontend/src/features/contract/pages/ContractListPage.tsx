@@ -1,19 +1,27 @@
 /**
  * ============================================================================
- * [UC-44] TRANG DANH SÁCH HỢP ĐỒNG ĐIỆN TỬ (CONTRACT LIST PAGE)
+ * [UC-20] [UC-44] DANH SÁCH HỢP ĐỒNG GIẢNG DẠY (CONTRACT LIST PAGE)
  * ============================================================================
- * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
- * Ngày tạo      : 2026-07-10
  * 
- * 1. Mục đích & Chức năng:
- *    - Hiển thị danh sách tất cả các hợp đồng liên quan đến người dùng hiện tại (Phụ huynh, Gia sư, Trung tâm).
- *    - Phân loại trạng thái hợp đồng: Chờ ký (PENDING), Đã ký (SIGNED), Đang hoạt động (ACTIVE), Hoàn thành (COMPLETED), v.v.
- *    - Hiển thị thông tin ký quỹ (Escrow Status) và thanh toán liên quan trực tiếp trên từng thẻ hợp đồng.
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Đồng tác giả: tienanh6677 (Nguyễn Tiến Anh), NguyenHK186858 (Hoàng Khôi Nguyên)
+ * Ngày tạo: 2026-07-10
  * 
- * 2. Luồng xử lý chính:
- *    - Bước 1: Gọi useContractList() để tải danh sách hợp đồng theo vai trò người dùng từ API /api/contract/my.
- *    - Bước 2: Hiển thị bộ lọc theo trạng thái và tìm kiếm.
- *    - Bước 3: Điều hướng người dùng tới trang chi tiết ký kết / xem chi tiết hợp đồng (/contracts/:id).
+ * Mô tả Use Case:
+ *   - Màn hình quản lý tập trung toàn bộ hợp đồng giảng dạy của người dùng (Phụ huynh, Gia sư, Trung tâm).
+ *   - Theo dõi xuyên suốt vòng đời hợp đồng từ khi khởi tạo, ký số hai bên, ký quỹ Escrow đến khi hoàn tất.
+ * 
+ * Chức năng chính:
+ *   1. Phân loại theo trạng thái: Tabs lọc hợp đồng Chưa ký (Draft), Chờ ký (Pending), Đang chạy (Active), Hoàn thành (Completed), Đã hủy (Cancelled).
+ *   2. Tóm tắt thông tin hợp đồng: Đối tác ký kết, mã hợp đồng, môn học, tổng số buổi và tổng giá trị thanh toán.
+ *   3. Tìm kiếm và lọc linh hoạt: Tìm kiếm theo từ khóa tên lớp, tên đối tác hoặc ngày tạo.
+ *   4. Điều hướng thao tác nhanh: Chuyển hướng tới trang chi tiết để ký số OTP hoặc thanh toán ký quỹ bảo chứng.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Hook `useContractList` tự động gọi API lấy danh sách hợp đồng của người dùng đăng nhập.
+ *   - Bước 2: Giao diện phân loại danh sách vào các nhóm tab trạng thái và tính toán số lượng.
+ *   - Bước 3: Người dùng tìm kiếm hoặc lọc danh sách hợp đồng theo nhu cầu đối soát.
+ *   - Bước 4: Nhấn chọn một hợp đồng để mở trang chi tiết hợp đồng (`/contracts/{contractId}`).
  * ============================================================================
  */
 

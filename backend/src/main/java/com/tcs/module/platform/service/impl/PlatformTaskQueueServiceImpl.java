@@ -28,21 +28,26 @@ import java.util.stream.Collectors;
 
 /**
  * ============================================================================
- * DỊCH VỤ HÀNG ĐỢI NHIỆM VỤ TRỰC BAN KHẨN CẤP (PLATFORM TASK QUEUE SERVICE)
+ * [UC-64] HÀNG ĐỢI TÁC VỤ TRỰC BAN & ĐIỀU PHỐI NHIỆM VỤ KHẨN CẤP (TASK QUEUE SERVICE)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mô tả chức năng:
- *   - Tập hợp toàn bộ nhiệm vụ chờ xử lý từ các phân hệ khác nhau vào một bảng điều khiển duy nhất:
- *     1. Xác minh danh tính/bằng cấp (Verification)
- *     2. Báo cáo vi phạm & Nghi vấn lách sàn (Report / Circumvention)
- *     3. Yêu cầu hỗ trợ kỹ thuật & khiếu nại (Support Ticket)
- *     4. Yêu cầu rút tiền số dư ví (Withdrawal)
- *     5. Yêu cầu hoàn tiền học phí (Refund Request)
- *     6. Tranh chấp ký quỹ Escrow (Dispute)
- *   - Tính toán hạn chót xử lý (SLA Due Date) và cờ cảnh báo quá hạn (SlaBreached).
- *   - Đo lường tổng giá trị tài chính rủi ro (Escrow Exposure / Money At Risk).
- *   - Phân loại, sắp xếp ưu tiên theo độ khẩn cấp (URGENT > HIGH > MEDIUM > LOW).
+ * * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Đồng tác giả: tienanh6677 (Nguyễn Tiến Anh)
+ * Ngày tạo: 2026-07-29
+ * * Mô tả Use Case:
+ *   - Tập hợp và điều phối toàn bộ các nhiệm vụ cần xử lý khẩn cấp từ các phân hệ vào một hàng đợi duy nhất.
+ *   - Giúp Quản trị viên trực ban phản ứng nhanh với các vấn đề an ninh, tài chính và trải nghiệm người dùng.
+ * * Chức năng chính:
+ *   1. Tập hợp đa nguồn nhiệm vụ: Xác minh danh tính KYC, Báo cáo vi phạm & Lách sàn, Ticket hỗ trợ, Yêu cầu rút tiền, Hoàn tiền học phí, Tranh chấp ký quỹ.
+ *   2. Tính toán cam kết dịch vụ (SLA): Xác định hạn chót xử lý (Due Date) và cờ vi phạm cam kết (slaBreached).
+ *   3. Đo lường giá trị rủi ro tài chính: Tính tổng tiền ký quỹ/giao dịch đang bị phong tỏa chờ quyết định (Money At Risk).
+ *   4. Phân cấp mức độ ưu tiên: Tự động gắn nhãn mức độ ưu tiên nghiệp vụ (URGENT > HIGH > MEDIUM > LOW).
+ *   5. Hỗ trợ phân trang và lọc: Lọc tác vụ theo phân hệ, mức độ ưu tiên, tình trạng vi phạm hạn xử lý.
+ * * Luồng xử lý chính:
+ *   - Bước 1: Admin tải bảng thông số tổng quan (`getSummary`), tính tổng task tồn đọng và tiền rủi ro.
+ *   - Bước 2: Tải danh sách tác vụ phân trang (`getTasks`), hệ thống truy vấn từ 6 repository tương ứng.
+ *   - Bước 3: Chuẩn hóa dữ liệu sang cấu trúc `TaskItemResponse`, tính toán SLA và độ ưu tiên.
+ *   - Bước 4: Sắp xếp danh sách theo thứ tự khẩn cấp và trả về cho bàn trực ban của Quản trị viên.
+ * ============================================================================
  */
 @Service
 @RequiredArgsConstructor
@@ -62,8 +67,7 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
 
     /**
      * Tổng hợp các chỉ số thống kê hàng đợi nhiệm vụ trực ban của Admin.
-     * 
-     * @return đối tượng TaskQueueSummaryResponse chứa số lượng công việc theo từng nhóm và mức ưu tiên
+     *     * @return đối tượng TaskQueueSummaryResponse chứa số lượng công việc theo từng nhóm và mức ưu tiên
      */
     // Luồng 8 - Phân vùng 1 & 5: Tổng hợp số lượng công việc tồn đọng (Tickets, Báo cáo, Rút tiền, Tiền rủi ro)
     @Override
@@ -94,7 +98,6 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
 
         // Đếm tổng số task trễ hạn SLA
         long overdueCount = allItems.stream().filter(t -> Boolean.TRUE.equals(t.getSlaBreached())).count();
-        
         // Tính tổng số tiền rủi ro đang bị tranh chấp hoặc chờ hoàn tiền (Escrow Exposure)
         BigDecimal moneyAtRisk = allItems.stream()
                 .filter(t -> ("DISPUTE".equals(t.getTaskType()) || "REFUND_REQUEST".equals(t.getTaskType())) && t.getAmount() != null)
@@ -119,7 +122,6 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
     @Override
     public PageTaskItemResponse listTasks(String type, String priority, Boolean slaBreached, int page, int size) {
         List<TaskItemResponse> allItems = getAllTasks();
-        
         if (type != null && !type.isBlank() && !"ALL".equalsIgnoreCase(type)) {
             allItems = allItems.stream()
                     .filter(t -> type.equalsIgnoreCase(t.getTaskType()))
@@ -156,7 +158,6 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
                 .totalPages(totalPages)
                 .build();
     }
-    
     public List<TaskItemResponse> getAllTasks() {
         List<TaskItemResponse> allItems = new ArrayList<>();
         LocalDateTime now = LocalDateTime.now();
@@ -189,7 +190,6 @@ public class PlatformTaskQueueServiceImpl implements PlatformTaskQueueService {
             LocalDateTime created = r.getCreatedAt();
             LocalDateTime dueAt = created.plusHours(24);
             boolean isCircumvention = r.getCategory() == ReportCategory.PLATFORM_CIRCUMVENTION;
-            
             allItems.add(TaskItemResponse.builder()
                     .taskId((isCircumvention ? "CIRCUMVENTION-" : "REPORT-") + r.getReportId())
                     .taskType(isCircumvention ? "CIRCUMVENTION" : "REPORT")

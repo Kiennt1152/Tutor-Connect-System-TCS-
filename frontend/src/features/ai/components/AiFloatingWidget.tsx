@@ -1,3 +1,19 @@
+/**
+ * ============================================================================
+ * [UC-65] WIDGET TRỢ LÝ AI NỔI TOÀN SÀN (AI FLOATING WIDGET)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-07-29
+ * * 1. Mục đích & Chức năng:
+ *    - Nút bấm và popup hội thoại AI nổi ở góc phải màn hình, xuất hiện trên toàn bộ các trang của hệ thống.
+ *    - Cho phép cả khách vãng lai (Guest) và người dùng đăng nhập truy vấn chính sách, tìm lớp hoặc tìm gia sư tức thì.
+ *    - Tự động gợi ý câu hỏi nhanh (Quick Prompts) và chuyển hướng nhanh sang trang chuyên biệt AiAssistantPage.
+ * * 2. Luồng xử lý chính:
+ *    - Bước 1: Người dùng nhấn biểu tượng AI -> Mở rộng khung chat nổi.
+ *    - Bước 2: Gửi câu hỏi -> Gọi API aiApi.chat() -> Hiển thị câu trả lời dạng markdown cùng nút hành động.
+ * ============================================================================
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { aiApi } from '../api/aiApi';

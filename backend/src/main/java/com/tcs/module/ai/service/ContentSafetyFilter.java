@@ -5,6 +5,27 @@ import java.util.Locale;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] BỘ LỌC AN TOÀN NỘI DUNG ĐẦU VÀO (CONTENT SAFETY FILTER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Bộ lọc tiền kiểm tra quét nội dung độc hại, chống tấn công Jailbreak và bóc tách dữ liệu cá nhân nhạy cảm.
+ * 
+ * Chức năng chính:
+ *   1. Phát hiện tấn công bẻ khóa: Ngăn chặn các câu lệnh ép AI đóng vai độc hại hoặc tiết lộ System Prompt.
+ *   2. Phát hiện nội dung thô tục: Chặn các từ ngữ xúc phạm hoặc quấy rối người dùng khác.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận chuỗi câu hỏi thô từ người dùng.
+ *   - Bước 2: Kiểm tra đối chiếu với danh sách mẫu tấn công và biểu thức quy tắc an toàn.
+ *   - Bước 3: Phê duyệt câu hỏi hoặc kích hoạt cơ chế từ chối an toàn ngay tại tầng đầu vào.
+ * ============================================================================
+ */
 @Service
 public class ContentSafetyFilter {
 

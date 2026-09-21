@@ -63,17 +63,33 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * ============================================================================
- * DỊCH VỤ PHÂN TÍCH VÀ THỐNG KÊ TOÀN DIỆN NỀN TẢNG (PLATFORM ANALYTICS SERVICE)
+ * [UC-41] [UC-43] DỊCH VỤ PHÂN TÍCH VÀ THỐNG KÊ TOÀN DIỆN NỀN TẢNG (PLATFORM ANALYTICS SERVICE)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mô tả chức năng:
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-07-29
+ * * 1. Mục đích & Chức năng:
  *   - Tổng hợp số liệu vận hành: Người dùng, Gia sư, Phụ huynh, Trung tâm, Lớp học, Hợp đồng, Tranh chấp.
  *   - Thống kê dòng tiền tài chính: Tổng tiền nạp (Deposit), Rút (Withdrawal), Escrow (Ký quỹ, Giải ngân, Hoàn trả), Doanh thu phí sàn.
  *   - Phân tích chi tiết theo từng Trung tâm, Gia sư, Phụ huynh và Sổ cái giao dịch thời gian thực.
  *   - Lập báo cáo tự động định kỳ (Scheduled Daily Report) phục vụ kiểm toán và theo dõi hiệu suất.
  *   - Xuất dữ liệu CSV an toàn: Giới hạn số dòng chống tràn bộ nhớ (OOM), chèn UTF-8 BOM cho Excel tiếng Việt,
  *     và lọc chống lỗ hổng CSV Formula Injection (DDE Injection).
+ * * 2. Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận khoảng thời gian lọc (TimeFilterValue) từ Admin.
+ *   - Bước 2: Truy vấn dữ liệu tài chính đa nguồn từ PaymentTransaction, EscrowTransaction và FinancialJournal.
+ *   - Bước 3: Tính toán tỷ suất tăng trưởng, doanh thu ròng, phí sàn và số dư bảo chứng chưa giải ngân.
+ *   - Bước 4: Trả về DTO tổng hợp hoặc xuất tệp CSV báo cáo tải về.
+ * ============================================================================
+ */
+/**
+ * ====================================================================================================
+ * [UC-60] DỊCH VỤ TỔNG HỢP SỐ LIỆU PHÂN TÍCH NỀN TẢNG (PLATFORM ANALYTICS SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Thu thập và tổng hợp số liệu giao dịch, doanh thu phí sàn, số người dùng mới theo mốc thời gian.
+ * 2. Tính toán các chỉ số sức khỏe nền tảng: Tỷ lệ tranh chấp, tỷ lệ hoàn thành hợp đồng, thời gian ghép lớp.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
  */
 @Service
 @RequiredArgsConstructor
@@ -108,8 +124,7 @@ public class PlatformAnalyticsServiceImpl implements PlatformAnalyticsService {
 
     /**
      * Tác vụ tự động sinh báo cáo tổng kết hàng ngày và ghi nhận vào Audit Log.
-     * 
-     * @return số lượng báo cáo được tạo (1 nếu thành công)
+     *     * @return số lượng báo cáo được tạo (1 nếu thành công)
      */
     @Override
     @Transactional

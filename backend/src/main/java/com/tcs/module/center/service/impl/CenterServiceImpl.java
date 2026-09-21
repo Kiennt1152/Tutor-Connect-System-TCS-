@@ -148,6 +148,17 @@ import org.springframework.context.event.EventListener;
  * @see com.tcs.module.center.service.CenterService
  * @see com.tcs.module.center.entity.RecruitmentPost
  */
+/**
+ * ====================================================================================================
+ * [UC-45 / UC-46] DỊCH VỤ QUẢN TRỊ TRUNG TÂM GIA SƯ (CENTER SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Quản lý hồ sơ pháp lý, phê duyệt gia sư trực thuộc và điều phối lớp học của trung tâm.
+ * 2. Phân công gia sư nhận lớp, kiểm soát tiến độ giảng dạy và báo cáo chất lượng lớp học.
+ * 3. Tính toán hoa hồng và đối soát phí dịch vụ định kỳ giữa trung tâm và gia sư trực thuộc.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -787,8 +798,7 @@ public class CenterServiceImpl implements CenterService {
             }
             RefundPayoutInfo payoutInfo = resolveRefundPayoutInfo(classStudent);
             if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
-                log.warn("[Center] Bo qua refund tu dong cho classStudent={} vi thieu payout info", 
-                        classStudent.getClassStudentId());
+                log.warn("[Center] Bo qua refund tu dong cho classStudent={} vi thieu payout info",                        classStudent.getClassStudentId());
                 continue;
             }
             try {

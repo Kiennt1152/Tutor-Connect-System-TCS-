@@ -1,3 +1,18 @@
+/**
+ * ====================================================================================================
+ * [UC-23 / UC-30] MÀN HÌNH QUẢN LÝ BÁO CÁO VI PHẠM & TRANH CHẤP (PLATFORM REPORTS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hàng đợi tiếp nhận báo cáo vi phạm, khiếu nại hoàn tiền và sự cố lớp học (UC-30).
+ * 2. Cung cấp công cụ phân xử tranh chấp tài chính theo tỷ lệ số buổi (Pro-rata).
+ * 3. Hỗ trợ liên kết ban hành chế tài xử phạt đối với người dùng vi phạm.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
+
 import { useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type ReactNode } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { getApiErrorMessage } from '../../../shared/api/apiError';

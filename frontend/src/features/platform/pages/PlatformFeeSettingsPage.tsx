@@ -1,3 +1,15 @@
+/**
+ * ====================================================================================================
+ * [UC-46 / UC-57] MÀN HÌNH CẤU HÌNH TỶ LỆ PHÍ NỀN TẢNG (PLATFORM FEE SETTINGS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Thiết lập tỷ lệ phần trăm phí dịch vụ sàn áp dụng cho lớp học gia sư tự do.
+ * 2. Cấu hình chính sách ưu đãi phí nhượng quyền cho từng trung tâm gia sư đối tác.
+ * 3. Mô phỏng tính toán doanh thu dự kiến khi điều chỉnh mức phí.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
+
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';

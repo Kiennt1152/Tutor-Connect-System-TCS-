@@ -23,17 +23,27 @@ import org.springframework.transaction.annotation.Transactional;
  * ============================================================================
  * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
  * Ngày tạo      : 2026-07-13
- * 
- * 1. Mục đích & Chức năng:
+ * * 1. Mục đích & Chức năng:
  *    - Xử lý lưu trữ đánh giá sao và bình luận của Phụ huynh đối với Gia sư sau mỗi lớp học.
  *    - Kiểm tra tính hợp lệ: Người đánh giá phải là người tham gia lớp học và lớp đã kết thúc.
  *    - Đảm bảo mỗi phân công lớp học (ClassAssignment) chỉ được gửi 1 lần đánh giá chính thức.
- * 
- * 2. Luồng xử lý chính:
+ * * 2. Luồng xử lý chính:
  *    - Bước 1: Xác thực người dùng hiện tại qua AuthHelper.
  *    - Bước 2: Kiểm tra ClassAssignment tồn tại và thuộc về người dùng.
  *    - Bước 3: Tạo mới thực thể Review, lưu vào cơ sở dữ liệu và ánh xạ sang ReviewResponse.
  * ============================================================================
+ */
+/**
+ * ====================================================================================================
+ * [UC-22 / UC-55] DỊCH VỤ ĐÁNH GIÁ & PHẢN HỒI GIA SƯ (REVIEW SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tiếp nhận đánh giá sao và nhận xét của học viên/phụ huynh sau khi hoàn thành hợp đồng.
+ * 2. Cho phép gia sư phản hồi nhận xét và tính toán lại điểm uy tín (Reputation Score).
+ * 3. Hỗ trợ Quản trị viên kiểm duyệt, ẩn hoặc xóa các đánh giá có nội dung vi phạm tiêu chuẩn cộng đồng.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
  */
 @Service
 @RequiredArgsConstructor

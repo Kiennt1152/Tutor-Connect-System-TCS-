@@ -13,6 +13,27 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @lombok.extern.slf4j.Slf4j
+/**
+ * ============================================================================
+ * [UC-65] ĐIỀU PHỐI PHÂN LOẠI Ý ĐỊNH AI (AI INTENT SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp dịch vụ phân tích ý định người dùng kết hợp đa tầng (Quy tắc, Vector tương tự và LLM Zero-shot).
+ * 
+ * Chức năng chính:
+ *   1. Phân tích ý định 3 tầng: Xác định Tên miền nghiệp vụ (Domain), Ý định phụ (SubIntent) và Thực thể.
+ *   2. Định tuyến luồng xử lý: Điều hướng câu truy vấn tới bộ xử lý chuyên biệt tương ứng.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Chuẩn hóa câu hỏi tiếng Việt và kiểm tra quy tắc IntentRuleRegistry.
+ *   - Bước 2: Nếu chưa rõ ràng, sử dụng bộ phân loại FewShot hoặc LLM dự phòng.
+ *   - Bước 3: Trả về kết quả phân loại hoàn chỉnh phục vụ truy xuất tri thức.
+ * ============================================================================
+ */
 @Service
 public class AiIntentService {
 

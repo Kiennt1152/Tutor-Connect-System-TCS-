@@ -34,26 +34,30 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * ====================================================================================================
- * [UC-65] TRỢ LÝ AI HỖ TRỢ THÔNG MINH RAG CHATBOT & ĐIỀU PHỐI ĐA MÔ HÌNH (AI RAG SERVICE ORCHESTRATOR)
- * ====================================================================================================
- * Lõi điều phối chính của Module AI phục vụ Trợ lý thông minh TCS (Tutor Connect System).
- * Hiện thực hóa quy trình 12 bước RAG (Retrieval-Augmented Generation) đạt chuẩn Enterprise:
+ * ============================================================================
+ * [UC-65] TRỢ LÝ AI HỖ TRỢ THÔNG MINH RAG & ĐIỀU PHỐI ĐA MÔ HÌNH (AI SERVICE IMPL)
+ * ============================================================================
  * 
- * 1.  Content Safety & Prompt Injection Guard: Quét nội dung độc hại, injection hoặc rò rỉ dữ liệu riêng tư.
- * 2.  Synonym & Follow-up Expansion: Chuẩn hóa tiếng Việt, nhận diện đại từ chỉ định thay thế ("anh ấy", "môn này").
- * 3.  Semantic Cache Check: Phục vụ ngay dưới 50ms nếu có câu hỏi tương tự với ngưỡng tương đồng Jaccard/Cosine >= 0.85.
- * 4.  3-Tier Intent Classification: Phân loại 3 tầng (Domain / SubIntent / Entity Extraction) tối ưu hóa truy vấn.
- * 5.  Fast-Path Safety & Out-of-Scope Gating: Trả lời lập tức các câu chào hỏi/cảm ơn; từ chối lịch sự câu hỏi ngoài phạm vi.
- * 6.  Query Rewriting: Tái cấu trúc câu hỏi người dùng dựa trên ngữ cảnh lịch sử hội thoại gần nhất.
- * 7.  Capability Policy & RBAC Guard: Kiểm tra thẩm quyền truy cập theo vai trò người dùng (GUEST, CLIENT, TUTOR, ADMIN).
- * 8.  Hybrid Vector & BM25 Retrieval: Tìm kiếm kết hợp vector embedding (Cosine) và từ khóa chính xác (BM25).
- * 9.  Business Context Injection: Tự động bổ sung dữ liệu động thời gian thực (Gia sư, Lớp học, Ví tiền, Số liệu sàn).
- * 10. Contextual Window Expansion: Ghép nối các chunk tri thức liền kề tăng độ mạch lạc cho thông tin truy xuất.
- * 11. Grounding Evaluation & LLM Multi-Provider: Đánh giá độ tin cậy nguồn tin, gọi định tuyến mô hình (Groq, Cerebras, DeepSeek, Gemini).
- * 12. Hallucination Guard & Reference Cards: Quét hậu kỳ chống bịa đặt dữ liệu (scrubbing), đóng gói Card UI tương tác.
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Đồng tác giả: khanhvqhe176783 (Vũ Quốc Khánh)
+ * Ngày tạo: 2026-07-29
  * 
- * @author mduc1011-swp (Đức)
+ * Mô tả Use Case:
+ *   - Bộ điều phối trung tâm của phân hệ Trợ lý ảo AI Assistant phục vụ nền tảng Tutor Connect System.
+ *   - Triển khai quy trình RAG (Retrieval-Augmented Generation) 12 bước doanh nghiệp kết hợp tìm kiếm kết hợp (Hybrid Search).
+ * 
+ * Chức năng chính:
+ *   1. Kiểm duyệt & Chuẩn hóa: Quét an toàn nội dung, chống Prompt Injection và làm giàu từ đồng nghĩa tiếng Việt.
+ *   2. Phân loại ý định & Truy xuất: Phân loại ý định 3 tầng, kiểm tra quyền RBAC và truy xuất tri thức vector + BM25.
+ *   3. Tiêm ngữ cảnh nghiệp vụ: Bổ sung dữ liệu động thời gian thực (hồ sơ gia sư, trạng thái lớp, số dư ví) vào ngữ cảnh.
+ *   4. Đánh giá nguồn tin & Khử ảo giác: Kiểm soát ảo giác dữ liệu, gọi đa nhà cung cấp LLM và đính kèm Card UI tương tác.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận câu hỏi chat và lịch sử hội thoại từ người dùng (chat).
+ *   - Bước 2: Kiểm tra bộ nhớ đệm ngữ nghĩa (Semantic Cache) để phản hồi tức thì nếu câu hỏi đã có sẵn.
+ *   - Bước 3: Tái cấu trúc câu hỏi (Query Rewriting), phân loại Intent và truy xuất tri thức phù hợp.
+ *   - Bước 4: Gọi mô hình ngôn ngữ lớn qua Multi-Provider Router, khử ảo giác và đóng gói phản hồi kèm thẻ gợi ý.
+ * ============================================================================
  */
 @Slf4j
 @Service

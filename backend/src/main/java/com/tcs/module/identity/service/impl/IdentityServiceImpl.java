@@ -77,6 +77,17 @@ import org.springframework.transaction.annotation.Transactional;
  * @see com.tcs.module.identity.service.IdentityService
  * @see com.tcs.module.identity.entity.User
  */
+/**
+ * ====================================================================================================
+ * [UC-01 / UC-02] DỊCH VỤ XÁC THỰC & BẢO MẬT TÀI KHOẢN (IDENTITY SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Đăng ký tài khoản mới, mã hóa mật khẩu theo thuật toán BCrypt và phân quyền vai trò (RBAC).
+ * 2. Xác thực đăng nhập, phát hành cặp token JWT (Access Token & Refresh Token).
+ * 3. Xử lý đặt lại mật khẩu với cơ chế bảo vệ chống vét cạn (Rate-Limiting).
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

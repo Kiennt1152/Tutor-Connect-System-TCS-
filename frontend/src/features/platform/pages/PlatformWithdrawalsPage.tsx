@@ -1,3 +1,14 @@
+/**
+ * ====================================================================================================
+ * [UC-40] MÀN HÌNH DUYỆT YÊU CẦU RÚT TIỀN VÍ (PLATFORM WITHDRAWALS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Danh sách yêu cầu rút tiền về tài khoản ngân hàng của gia sư và phụ huynh.
+ * 2. Kiểm tra tính hợp lệ của tài khoản ngân hàng chính chủ và số dư ví trước khi duyệt.
+ * 3. Kích hoạt lệnh chuyển khoản tự động hoặc từ chối yêu cầu kèm lý do rõ ràng.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';

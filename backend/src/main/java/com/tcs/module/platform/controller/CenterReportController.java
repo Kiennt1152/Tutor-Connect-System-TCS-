@@ -12,6 +12,16 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ====================================================================================================
+ * [UC-46] BÁO CÁO & ĐỐI SOÁT TÀI CHÍNH TRUNG TÂM (CENTER REPORT CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Cung cấp API thống kê doanh thu lớp học và đối soát hoa hồng cho các trung tâm gia sư.
+ * 2. Tính toán phí yêu cầu dịch vụ sàn (Center Request Fee) dựa trên thỏa thuận nhượng quyền.
+ * 3. Xuất bảng kê chi tiết các khoản thanh toán phục vụ công tác kế toán định kỳ.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 @RestController
 @RequestMapping("/api/center/reports")
 @RequiredArgsConstructor

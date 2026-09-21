@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH TÀI CHÍNH & VÍ TIỀN (FINANCE INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Nhận diện các thắc mắc về số dư ví, nạp tiền học phí, rút tiền thu nhập và đối soát tiền bảo chứng Escrow.
+ * 
+ * Chức năng chính:
+ *   1. Nhận diện nạp/rút tiền: Bắt từ khóa nạp ví VNPAY/SePay, rút tiền về tài khoản ngân hàng.
+ *   2. Nhận diện bảo chứng Escrow: Giải thích cơ chế giữ tiền học phí an toàn và điều kiện hoàn tiền.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận câu hỏi về ví tiền hoặc giao dịch tài chính.
+ *   - Bước 2: Phân loại ý định FINANCE_WALLET hoặc FINANCE_ESCROW.
+ *   - Bước 3: Trả về AiDomain.FINANCE và liên kết tới trang ví /finance.
+ * ============================================================================
+ */
 @Component
 public class FinanceIntentRule implements IntentRule {
 

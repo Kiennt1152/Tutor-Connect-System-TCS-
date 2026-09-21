@@ -15,16 +15,27 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * ====================================================================================================
- * [UC-67] TỰ ĐỘNG TỔNG HỢP & ĐỀ XUẤT BẢN NHÁP FAQ TỪ TICKET HỖ TRỢ (DYNAMIC FAQ GENERATION SERVICE)
- * ====================================================================================================
- * Dịch vụ phân tích tự động các phiếu khiếu nại/hỗ trợ (Support Tickets) lặp lại để sinh FAQ nháp:
- * 1. Nightly Scheduled Task: Chạy ngầm định kỳ lúc 02:00 AM hàng ngày quét toàn bộ ticket giải quyết trong 7 ngày qua.
- * 2. Topic Clustering: Gom cụm các ticket theo danh mục (Category) và từ khóa chuẩn hóa (Vietnamese Text Normalizer).
- * 3. Min Occurrence Filtering: Chỉ tạo bản thảo FAQ nếu một chủ đề xuất hiện từ 2 lần trở lên (minOccurrences).
- * 4. Draft State Persistence: Lưu vào bảng FAQ với trạng thái nháp (is_active = false) chờ Admin phê duyệt trước khi công khai.
- * 
- * @author mduc1011-swp (Đức)
+ * ============================================================================
+ * [UC-67] TỰ ĐỘNG TỔNG HỢP & KHAI PHÁ FAQ TỪ TICKET HỖ TRỢ (FAQ GENERATION SERVICE)
+ * ============================================================================
+ * * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-22
+ * * Mô tả Use Case:
+ *   - Phân tích tự động các phiếu hỗ trợ kỹ thuật (Support Tickets) nhằm phát hiện các thắc mắc lặp lại.
+ *   - Tự động sinh bản thảo câu hỏi thường gặp (FAQ Draft) giúp giảm tải công việc cho đội ngũ hỗ trợ.
+ * * Chức năng chính:
+ *   1. Tác vụ quét ngầm tự động (Nightly Job): Định kỳ 02:00 AM hàng ngày quét toàn bộ ticket trong 7 ngày gần nhất.
+ *   2. Thuật toán gom cụm chủ đề: Chuẩn hóa tiếng Việt và phân loại câu hỏi theo danh mục (Category) và từ khóa chính.
+ *   3. Lọc ngưỡng tần suất xuất hiện: Chỉ tự động tạo câu hỏi nếu chủ đề xuất hiện từ 2 lần trở lên (minOccurrences).
+ *   4. Lưu trữ bản nháp an toàn: Bản ghi được tạo với cờ `isActive = false`, đảm bảo kiểm duyệt trước khi công khai.
+ *   5. Kích hoạt thủ công: Cho phép Quản trị viên chủ động chạy tác vụ khai phá với tham số tùy biến.
+ * * Luồng xử lý chính:
+ *   - Bước 1: Scheduler hoặc Admin gọi hàm `generateFaqsFromRecentTickets` với số ngày quét và ngưỡng lặp.
+ *   - Bước 2: Truy xuất danh sách ticket gần đây từ `SupportTicketRepository`.
+ *   - Bước 3: Chuẩn hóa nội dung, gom cụm các ticket có cùng nhóm chủ đề bằng thuật toán phân tích chuỗi.
+ *   - Bước 4: Khởi tạo các bản ghi `FaqEntry` dưới dạng dự thảo (Draft) và lưu vào `FaqEntryRepository`.
+ *   - Bước 5: Quản trị viên duyệt và chỉnh sửa câu trả lời trước khi bật công khai cho người dùng và bot AI.
+ * ============================================================================
  */
 @Slf4j
 @Service

@@ -26,26 +26,16 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * ============================================================================
- * [UC-44] PHÂN HỆ HỢP ĐỒNG ĐIỆN TỬ & KÝ SỐ OTP (E-CONTRACT CONTROLLER)
- * ============================================================================
- * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
- * Ngày tạo      : 2026-06-23
- * 
- * 1. Mục đích & Chức năng:
- *    - Cung cấp các RESTful API quản lý vòng đời Hợp đồng điện tử giữa Phụ huynh,
- *      Gia sư và Trung tâm gia sư theo quy định tại UC-44 (M4 - DucHM).
- *    - Quản lý quy trình ký kết số 2 lớp bảo mật thông qua mã xác thực OTP qua Email.
- *    - Tích hợp luồng đánh giá (Review), phản hồi đánh giá và tra cứu độ uy tín gia sư.
- * 
- * 2. Luồng xử lý chính (Core Execution Flow):
- *    - Bước 1 (Sinh hợp đồng): Tiếp nhận yêu cầu tạo hợp đồng từ yêu cầu tìm gia sư hoặc lớp học.
- *    - Bước 2 (Gửi OTP ký số): Phát sinh mã OTP 6 chữ số ngẫu nhiên, lưu bảng contract_otps (hạn 5 phút)
- *      và gửi email bảo mật tới bên tham gia ký.
- *    - Bước 3 (Ký hợp đồng): Xác thực mã OTP đầu vào, ghi nhận chữ ký điện tử (contract_signatures),
- *      khi cả 2 bên hoàn tất ký, trạng thái hợp đồng chuyển thành SIGNED/ACTIVE và kích hoạt giữ tiền Escrow.
- *    - Bước 4 (Đánh giá sau hoàn thành): Cho phép các bên gửi đánh giá sao và nhận xét sau khi kết thúc hợp đồng.
- * ============================================================================
+ * ====================================================================================================
+ * [UC-20 / UC-21 / UC-44] PHÂN HỆ HỢP ĐỒNG ĐIỆN TỬ & KÝ SỐ OTP (CONTRACT CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Khởi tạo bản thảo hợp đồng dạy kèm giữa Phụ huynh/Học viên và Gia sư hoặc Trung tâm.
+ * 2. Quản lý quy trình ký kết số 2 lớp bảo mật thông qua mã xác thực OTP qua Email.
+ * 3. Kích hoạt bảo chứng Escrow khi ký xong và tiếp nhận đánh giá chất lượng dạy học sau hoàn thành.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
  */
 @RestController
 @RequestMapping("/api/contract")

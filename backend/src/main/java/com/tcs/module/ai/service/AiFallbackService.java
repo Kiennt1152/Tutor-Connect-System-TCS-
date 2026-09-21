@@ -9,8 +9,25 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
- * 6-level hierarchical fallback engine for the TCS AI Assistant.
- * Granular slot-aware, context-sensitive clarification & actionable guidance.
+ * ============================================================================
+ * [UC-65] PHẢN HỒI DỰ PHÒNG & TỪ CHỐI AN TOÀN (AI FALLBACK SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp các thông điệp phản hồi lịch sự, từ chối an toàn khi câu hỏi nằm ngoài phạm vi hoặc không đủ thẩm quyền.
+ * 
+ * Chức năng chính:
+ *   1. Phản hồi ngoài phạm vi: Hướng dẫn người dùng tập trung vào các chủ đề giáo dục và gia sư.
+ *   2. Phản hồi thiếu quyền: Gợi ý đăng nhập hoặc nâng cấp tài khoản khi truy cập tính năng giới hạn.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận mã lý do chuyển hướng (OUT_OF_SCOPE, PERMISSION_DENIED, RATE_LIMITED).
+ *   - Bước 2: Lựa chọn mẫu câu phản hồi thân thiện phù hợp với bối cảnh.
+ *   - Bước 3: Trả về phản hồi kèm các gợi ý câu hỏi tiếp theo cho người dùng.
+ * ============================================================================
  */
 @Service
 public class AiFallbackService {

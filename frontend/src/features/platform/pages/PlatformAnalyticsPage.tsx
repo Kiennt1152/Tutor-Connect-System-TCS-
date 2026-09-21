@@ -1,14 +1,27 @@
 /**
  * ============================================================================
- * TRANG BÁO CÁO PHÂN TÍCH VÀ THỐNG KÊ KINH DOANH (PLATFORM ANALYTICS PAGE)
+ * [UC-41] [UC-58] [UC-60] DASHBOARD PHÂN TÍCH TÀI CHÍNH & VẬN HÀNH SÀN (PLATFORM ANALYTICS)
  * ============================================================================
  * 
- * Tác giả: mduc1011-swp
- * Mô tả các tính năng phân tích và xuất dữ liệu:
- *   - Hiển thị bảng tổng hợp tài chính (Tổng nạp, Rút, Escrow ký quỹ, Doanh thu phí sàn).
- *   - Biểu đồ và bảng phân rã loại giao dịch (Transaction Breakdown) theo chiều IN/OUT.
- *   - Xuất file báo cáo CSV đa dạng: Danh sách người dùng, Lớp học, Doanh thu, Dòng tiền (Cashflow), Phân loại giao dịch.
- *   - Lọc dữ liệu linh hoạt theo khoảng thời gian thực tế.
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Bảng điều khiển phân tích số liệu tài chính, doanh thu và sổ cái dòng tiền toàn hệ thống.
+ *   - Phục vụ việc ra quyết định chiến lược vận hành và đối soát kế toán định kỳ của Quản trị viên.
+ * 
+ * Chức năng chính:
+ *   1. Báo cáo tài chính tổng quan: Dòng tiền vào, dòng tiền ra, doanh thu phí sàn và tiền ký quỹ bảo chứng đang giữ.
+ *   2. Phân tích chi tiết đối tượng: Thống kê hiệu quả hoạt động của Trung tâm gia sư, Gia sư cá nhân và Phụ huynh.
+ *   3. Sổ cái giao dịch đa chiều: Tra cứu đối soát từng bút toán giao dịch chi tiết trong hệ thống.
+ *   4. Xuất báo cáo CSV: Tải tệp dữ liệu kế toán UTF-8 BOM kèm ghi nhận nhật ký kiểm toán.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên thiết lập khoảng thời gian cần thống kê báo cáo tài chính.
+ *   - Bước 2: Giao diện gọi API phân tích tổng hợp và vẽ biểu đồ dòng tiền trực quan.
+ *   - Bước 3: Xem bảng phân rã chi tiết hoặc lọc sổ cái giao dịch theo loại thanh toán.
+ *   - Bước 4: Bấm "Xuất CSV" để tải tệp đối soát kế toán về máy tính.
+ * ============================================================================
  */
 
 import { useEffect, useState, useCallback } from 'react';

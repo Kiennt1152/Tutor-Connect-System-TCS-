@@ -1,3 +1,15 @@
+/**
+ * ====================================================================================================
+ * [UC-08] MÀN HÌNH QUẢN LÝ NGƯỜI DÙNG TOÀN SÀN (PLATFORM USERS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Danh sách tra cứu toàn bộ tài khoản Học viên, Gia sư và Trung tâm gia sư.
+ * 2. Quản lý trạng thái tài khoản: Hoạt động, Tạm khóa, Đình chỉ hoặc Đã xóa.
+ * 3. Xem hồ sơ chi tiết, lịch sử giao dịch và điểm uy tín của từng người dùng.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 import { useState } from 'react';
 import { ConfirmDialog, Pagination } from '../../../shared/components';
 import type { ConfirmDialogVariant } from '../../../shared/components';

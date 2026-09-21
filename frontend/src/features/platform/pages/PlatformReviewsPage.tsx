@@ -1,3 +1,14 @@
+/**
+ * ====================================================================================================
+ * [UC-22 / UC-55] MÀN HÌNH KIỂM DUYỆT ĐÁNH GIÁ GIA SƯ (PLATFORM REVIEWS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hàng đợi kiểm duyệt các đánh giá sao và nhận xét bị người dùng báo cáo vi phạm.
+ * 2. Xem xét nội dung phản hồi hai chiều giữa phụ huynh và gia sư.
+ * 3. Thực hiện ẩn hoặc xóa vĩnh viễn các bình luận mang tính xúc phạm, sai sự thật.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { APP_ROUTES } from '../../../shared/constants/routes';

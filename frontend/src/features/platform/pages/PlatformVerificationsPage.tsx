@@ -1,3 +1,15 @@
+/**
+ * ====================================================================================================
+ * [UC-05] MÀN HÌNH PHÊ DUYỆT HỒ SƠ ĐỊNH DANH EKYC (PLATFORM VERIFICATIONS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Xem xét hình ảnh CCCD 2 mặt và thông tin cá nhân của gia sư gửi xác minh.
+ * 2. Phê duyệt hoặc từ chối cấp chứng nhận tích xanh uy tín cho tài khoản.
+ * 3. Bảo mật dữ liệu định danh theo quy định bảo vệ thông tin cá nhân.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';

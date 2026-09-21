@@ -30,6 +30,15 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * ====================================================================================================
+ * [UC-05] DỊCH VỤ ĐỊNH DANH ĐIỆN TỬ CCCD (CCCD SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Lưu trữ và kiểm tra tính hợp lệ của số CCCD, ngày cấp và hình ảnh 2 mặt căn cước.
+ * 2. Cung cấp luồng phê duyệt hoặc từ chối hồ sơ định danh cá nhân của gia sư và học viên.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 @Service
 @Slf4j
 @RequiredArgsConstructor

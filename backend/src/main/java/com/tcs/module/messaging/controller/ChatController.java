@@ -28,6 +28,32 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ============================================================================
+ * [UC-50] [BF-09] TIN NHẮN TỨC THỜI & HỘI THOẠI TRỰC TUYẾN (CHAT CONTROLLER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-04
+ * 
+ * Mô tả Use Case:
+ *   - Kênh trao đổi thông tin trực tiếp và tức thì giữa Phụ huynh, Học sinh, Gia sư và Trung tâm.
+ *   - Đảm bảo an toàn giao dịch nhờ việc lưu vết và liên kết hội thoại với các lớp học và hợp đồng.
+ * 
+ * Chức năng chính:
+ *   1. Quản lý danh sách hội thoại: Lấy danh sách cuộc trò chuyện cá nhân và nhóm người dùng đang tham gia.
+ *   2. Khởi tạo hội thoại: Bắt đầu hội thoại 1-1 hoặc hội thoại theo ngữ cảnh nghiệp vụ (Lớp học, Hợp đồng).
+ *   3. Quản lý phòng chat nhóm: Tạo nhóm, cập nhật tên nhóm, thêm/xóa thành viên, chuyển quyền sở hữu và rời nhóm.
+ *   4. Phân trang tin nhắn và gửi tin: Tải lịch sử tin nhắn theo trang, gửi tin nhắn văn bản mới.
+ *   5. Đánh dấu đã đọc: Cập nhật mốc thời gian đọc tin nhắn gần nhất của thành viên.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Người dùng truy vấn danh sách hội thoại (`getMyConversations`).
+ *   - Bước 2: Mở hoặc tạo hội thoại mới với người dùng đích (`startOrGetConversation`).
+ *   - Bước 3: Lấy danh sách tin nhắn theo phân trang (`getMessages`) và gọi API đánh dấu đã đọc (`markAsRead`).
+ *   - Bước 4: Gửi tin nhắn mới (`sendMessage`), hệ thống lưu tin và kích hoạt thông báo cho các thành viên.
+ * ============================================================================
+ */
 @RestController
 @RequestMapping("/api/messaging")
 @RequiredArgsConstructor

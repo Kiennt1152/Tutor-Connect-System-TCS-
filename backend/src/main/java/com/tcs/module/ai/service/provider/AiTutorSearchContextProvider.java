@@ -17,6 +17,26 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * [UC-65] NGỮ CẢNH HỒ SƠ GIA SƯ PHÙ HỢP (TUTOR SEARCH CONTEXT PROVIDER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Truy vấn danh sách top gia sư đã được xác thực thông tin phục vụ đề xuất gia sư kèm thẻ giao diện.
+ * 
+ * Chức năng chính:
+ *   1. Truy vấn gia sư uy tín: Lọc gia sư theo môn học, khu vực địa lý và điểm đánh giá cao.
+ *   2. Tạo dữ liệu thẻ tương tác: Chuẩn bị thông tin đại diện để tạo Tutor Card cho giao diện chat.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Bóc tách môn học và yêu cầu từ truy vấn của học viên.
+ *   - Bước 2: Tìm kiếm gia sư tương ứng trong CSDL và định dạng thành ngữ cảnh tiêm vào LLM.
+ *  * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class AiTutorSearchContextProvider {

@@ -40,6 +40,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ====================================================================================================
+ * [UC-03] DỊCH VỤ KIỂM TRA MÃ XÁC THỰC OTP (VERIFICATION SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Phát sinh mã xác thực OTP ngẫu nhiên với thời gian hiệu lực giới hạn.
+ * 2. So khớp mã OTP người dùng nhập vào và hủy mã ngay sau khi sử dụng thành công (One-Time Use).
+ * 3. Khóa tạm thời khi người dùng nhập sai quá số lần quy định để phòng chống tấn công dò mã.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

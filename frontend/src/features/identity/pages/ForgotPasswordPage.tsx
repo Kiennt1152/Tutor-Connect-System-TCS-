@@ -1,3 +1,29 @@
+/**
+ * ============================================================================
+ * [UC-01] QUÊN MẬT KHẨU & YÊU CẦU ĐẶT LẠI QUA EMAIL (FORGOT PASSWORD PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-07
+ * 
+ * Mô tả Use Case:
+ *   - Cho phép người dùng khôi phục quyền truy cập tài khoản khi bị quên mật khẩu đăng nhập.
+ *   - Gửi liên kết đặt lại mật khẩu bảo mật kèm mã token có thời hạn sử dụng giới hạn về email.
+ * 
+ * Chức năng chính:
+ *   1. Tiếp nhận yêu cầu: Nhập địa chỉ email đăng ký tài khoản cần khôi phục.
+ *   2. Kiểm tra tính hợp lệ: Xác thực định dạng email và cơ chế chống spam yêu cầu liên tục.
+ *   3. Gửi email hướng dẫn: Hệ thống gửi đường dẫn kèm token bảo mật một lần tới hộp thư người dùng.
+ *   4. Thông báo và điều hướng: Hiển thị hướng dẫn kiểm tra hòm thư đến hoặc quay lại đăng nhập.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Người dùng nhập địa chỉ email vào biểu mẫu quên mật khẩu.
+ *   - Bước 2: Nhấn "Gửi yêu cầu", client gọi API `identityApi.forgotPassword`.
+ *   - Bước 3: Backend kiểm tra, sinh mã token bí mật và gửi email hướng dẫn đặt lại mật khẩu.
+ *   - Bước 4: Giao diện hiển thị màn hình xác nhận yêu cầu thành công và hướng dẫn bước tiếp theo.
+ * ============================================================================
+ */
+
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';

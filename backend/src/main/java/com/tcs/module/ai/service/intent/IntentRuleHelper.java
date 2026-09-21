@@ -6,7 +6,25 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Shared static helper methods for token matching, phrase checking, and teencode expansion.
+ * ============================================================================
+ * [UC-65] TRỢ THỦ XỬ LÝ TỪ KHÓA & MẪU CÂU Ý ĐỊNH (INTENT RULE HELPER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp các hàm tiện ích tĩnh hỗ trợ kiểm tra từ khóa, cụm từ và từ viết tắt cho các bộ phân loại ý định.
+ * 
+ * Chức năng chính:
+ *   1. Kiểm tra từ đơn và cụm từ: Xác thực sự xuất hiện chính xác của từ khóa trong văn bản chuẩn hóa.
+ *   2. Nhận diện từ viết tắt: Hỗ trợ các từ viết tắt phổ biến trong giáo dục (THPT, THCS, ĐHQG...).
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận chuỗi truy vấn và danh sách từ khóa cần tìm kiếm.
+ *   - Bước 2: Thực hiện so khớp biên từ (Token Boundary) tránh nhận diện sai từ ghép.
+ *   - Bước 3: Trả về kết quả đúng/sai phục vụ phân loại ý định.
+ * ============================================================================
  */
 public final class IntentRuleHelper {
 

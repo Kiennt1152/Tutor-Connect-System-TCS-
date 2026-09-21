@@ -13,21 +13,29 @@ import java.time.LocalDateTime;
 
 /**
  * ============================================================================
- * PHÂN HỆ GIÁM SÁT NHẬT KÝ KIỂM TOÁN HỆ THỐNG (SYSTEM AUDIT LOG CONTROLLER)
+ * [UC-61] GIÁM SÁT & TRA CỨU NHẬT KÝ KIỂM TOÁN HỆ THỐNG (AUDIT LOG CONTROLLER)
  * ============================================================================
  * 
- * Mã Use Case: [UC-61] Giám sát & Tra cứu nhật ký kiểm toán hệ thống (Audit Trail)
- * Tác giả: mduc1011-swp (Đức)
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
  * 
- * Nghiệp vụ bảo mật & Pháp lý:
- *   - Mọi thao tác quản trị nhạy cảm trên sàn đều bắt buộc phải được ghi nhận bất biến (Immutable Audit Log):
- *       * Khóa/mở tài khoản người dùng, đổi quyền, reset mật khẩu.
- *       * Duyệt/từ chối hồ sơ xác minh căn cước, bằng cấp, giấy phép kinh doanh.
- *       * Phán xử tranh chấp tiền ký quỹ Escrow, phê duyệt lệnh hoàn tiền.
- *       * Ban hành hoặc thu hồi án phạt vi phạm quy chế sàn.
- *       * Điều chỉnh tỷ lệ phí nền tảng, xuất báo cáo tài chính.
- *   - Nhật ký kiểm toán lưu lại đầy đủ: Actor ID, Actor Role, Action, Entity Type, Entity ID,
- *     Giá trị cũ (Old Value), Giá trị mới (New Value), IP/User Agent và Dấu thời gian (Timestamp).
+ * Mô tả Use Case:
+ *   - Cung cấp API giám sát và tra cứu lịch sử kiểm toán (Audit Trail) bất biến trên toàn hệ thống.
+ *   - Hỗ trợ thanh tra pháp lý, đối soát giao dịch và quy trách nhiệm rõ ràng cho mọi hành động quản trị.
+ * 
+ * Chức năng chính:
+ *   1. Tìm kiếm và phân trang nhật ký: Tra cứu toàn bộ các thao tác nhạy cảm (Tài chính, Phí sàn, Phê duyệt KYC, Chế tài).
+ *   2. Bộ lọc đa chiều: Lọc theo người thao tác (actorId, actorRole), loại hành vi (action), đối tượng tác động (entityType).
+ *   3. Lọc theo mốc thời gian: Giới hạn khoảng thời gian kiểm toán (`from` -> `to`).
+ *   4. Tìm kiếm từ khóa: Tìm kiếm nội dung mô tả hoặc dữ liệu thay đổi trong payload JSON.
+ *   5. Minh bạch dữ liệu: Trả về trạng thái cũ (oldValue) và trạng thái mới (newValue) cùng địa chỉ IP và trình duyệt thực hiện.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên gửi request tra cứu nhật ký với các tiêu chí lọc (`getAuditLogs`).
+ *   - Bước 2: Hệ thống tiếp nhận bộ lọc và gọi `auditLogService.getAuditLogs`.
+ *   - Bước 3: Truy vấn bản ghi từ CSDL, ánh xạ thông tin người thực hiện thông qua `PlatformMapper`.
+ *   - Bước 4: Trả về dữ liệu phân trang `PageAuditLogResponse` hiển thị trên bảng nhật ký kiểm toán.
+ * ============================================================================
  */
 @RestController
 @RequestMapping("/api/platform/audit-logs")
@@ -38,16 +46,14 @@ public class AuditLogController {
 
     /**
      * [UC-61]: Tìm kiếm, lọc đa chiều và phân trang nhật ký kiểm toán hệ thống.
-     * 
-     * Bộ lọc nghiệp vụ:
+     *     * Bộ lọc nghiệp vụ:
      *   - {@code actorId}: ID người thực hiện thao tác (Admin, User).
      *   - {@code actorRole}: Vai trò người thao tác (PLATFORM_ADMIN, TUTOR_CENTER, v.v.).
      *   - {@code action}: Loại hành động (UPDATE_USER_STATUS, APPROVE_VERIFICATION, RESOLVE_DISPUTE, ISSUE_PENALTY, UPDATE_CENTER_FEE...).
      *   - {@code entityType}: Loại đối tượng bị tác động (USER, TUTOR_CENTER, ESCROW, VERIFICATION, REVIEW...).
      *   - {@code keyword}: Tìm kiếm nội dung mô tả hoặc thay đổi dữ liệu JSON.
      *   - {@code from}, {@code to}: Khoảng thời gian phát sinh hành động.
-     * 
-     * @return {@link PageAuditLogResponse} Danh sách bản ghi nhật ký kiểm toán phân trang
+     *     * @return {@link PageAuditLogResponse} Danh sách bản ghi nhật ký kiểm toán phân trang
      */
     @GetMapping
     public PageAuditLogResponse search(

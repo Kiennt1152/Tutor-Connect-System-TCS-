@@ -1,3 +1,15 @@
+/**
+ * ====================================================================================================
+ * [UC-01] MÀN HÌNH ĐĂNG NHẬP TÀI KHOẢN (LOGIN PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Xác thực đăng nhập người dùng bằng email và mật khẩu an toàn.
+ * 2. Cấp phát JWT token truy cập hệ thống và phân hướng giao diện theo vai trò người dùng.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';

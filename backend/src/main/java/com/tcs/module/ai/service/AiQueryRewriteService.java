@@ -7,6 +7,27 @@ import java.util.Locale;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] TÁI CẤU TRÚC & GIẢI MÃ ĐẠI TỪ CÂU HỎI (QUERY REWRITE SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Viết lại câu hỏi người dùng dựa trên ngữ cảnh lịch sử chat, thay thế các đại từ chỉ định ("ông ấy", "lớp này").
+ * 
+ * Chức năng chính:
+ *   1. Giải mã đại từ chỉ định: Thay thế "thầy ấy", "môn này" bằng tên gia sư và môn học cụ thể từ lượt chat trước.
+ *   2. Mở rộng câu hỏi ngắn: Biến câu hỏi cộc lốc thành câu truy vấn đầy đủ ngữ nghĩa phục vụ tìm kiếm.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận câu hỏi hiện tại và 2 lượt trao đổi gần nhất.
+ *   - Bước 2: Phân tích đại từ liên kết và tạo câu hỏi độc lập (Standalone Query).
+ *   - Bước 3: Chuyển câu hỏi đã được làm giàu cho bộ truy xuất tri thức Vector và BM25.
+ * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class AiQueryRewriteService {

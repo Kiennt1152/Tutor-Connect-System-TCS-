@@ -1,14 +1,26 @@
 /**
  * ============================================================================
- * TRANG TRUNG TÂM TRỢ GIÚP VÀ HỎI ĐÁP CÔNG KHAI (PUBLIC HELP & FAQ CENTER)
+ * [BF-09] [UC-67] TRUNG TÂM TRỢ GIÚP & HỎI ĐÁP THƯỜNG GẶP (HELP PAGE)
  * ============================================================================
  * 
- * Tác giả: mduc1011-swp
- * Mô tả:
- *   - Trung tâm hỗ trợ trực tuyến công khai dành cho tất cả người dùng nền tảng.
- *   - Tìm kiếm nhanh câu hỏi thường gặp (FAQ) theo từ khóa và danh mục chủ đề (Học viên, Gia sư, Trung tâm, Thanh toán,...).
- *   - Danh mục câu hỏi dạng Accordion (Đóng/Mở câu trả lời).
- *   - Phân trang câu hỏi và liên kết trực tiếp tới Trợ lý AI và Luồng tạo Ticket hỗ trợ.
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-18
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp cổng thông tin hướng dẫn sử dụng và giải đáp các câu hỏi thường gặp cho toàn bộ người dùng.
+ *   - Hướng dẫn quy trình ký quỹ bảo chứng Escrow, giải quyết tranh chấp và tìm gia sư an toàn.
+ * 
+ * Chức năng chính:
+ *   1. Tra cứu câu hỏi FAQ: Tìm kiếm nhanh câu hỏi - câu trả lời theo từ khóa thông minh.
+ *   2. Phân loại danh mục: Lọc câu hỏi theo nhóm chủ đề (Chung, Phụ huynh, Gia sư, Tài chính, Lớp học).
+ *   3. Điều hướng hỗ trợ chuyên sâu: Hướng dẫn mở Ticket hỗ trợ kỹ thuật khi gặp sự cố chưa có câu trả lời.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tải danh sách các câu hỏi thường gặp FAQ đang xuất bản từ backend.
+ *   - Bước 2: Người dùng tìm kiếm thắc mắc trên thanh tìm kiếm hoặc lọc theo danh mục.
+ *   - Bước 3: Mở rộng nội dung để xem chi tiết câu trả lời và các lưu ý nghiệp vụ.
+ *   - Bước 4: Nhấn liên kết chuyển sang trang tạo Ticket nếu cần đội ngũ hỗ trợ trực tiếp.
+ * ============================================================================
  */
 
 import { useState, useEffect, type FormEvent } from 'react';
@@ -115,7 +127,6 @@ const CATEGORY_MAP: Record<string, string> = {
 
 export default function HelpPage() {
   const { user } = useAuth();
-  
   // LUỒNG 1 - BƯỚC 1 & 7: Quản lý trạng thái tìm kiếm FAQ, bộ lọc danh mục và phân trang
   const { status, items, keyword, setKeyword, category, setCategory, errorMessage, reload } = useFaqSearch();
   const [openFaqId, setOpenFaqId] = useState<number | null>(null);

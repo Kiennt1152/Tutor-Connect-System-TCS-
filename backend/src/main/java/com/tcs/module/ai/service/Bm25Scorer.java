@@ -5,6 +5,27 @@ import com.tcs.module.ai.util.VietnameseTextNormalizer;
 import java.util.*;
 import org.springframework.stereotype.Component;
 
+/**
+ * ============================================================================
+ * [UC-65] THUẬT TOÁN CHẤM ĐIỂM TỪ KHÓA CHÍNH XÁC (BM25 SCORER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Hiện thực thuật toán xếp hạng BM25 (Best Matching 25) phục vụ tìm kiếm từ khóa chính xác trong quy trình Hybrid Search.
+ * 
+ * Chức năng chính:
+ *   1. Tính toán trọng số TF-IDF: Đo lường tần suất xuất hiện và độ hiếm của từ khóa trong kho tri thức.
+ *   2. Chấm điểm đoạn văn bản: Xếp hạng độ liên quan giữa câu hỏi người dùng và các chunk tài liệu.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Bóc tách danh sách token từ câu truy vấn đã chuẩn hóa.
+ *   - Bước 2: Tính toán điểm số BM25 đối với từng chunk trong cơ sở tri thức.
+ *   - Bước 3: Trả về danh sách điểm số kết hợp cùng điểm tương đồng Cosine vector.
+ * ============================================================================
+ */
 @Component
 public class Bm25Scorer {
 
