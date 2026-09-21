@@ -141,16 +141,6 @@ import org.springframework.util.StringUtils;
  *   - Luồng Chuyển Tranh Chấp: Liên kết Ticket sự cố với lớp học tương ứng -> Khởi tạo Dispute tự động -> Khóa tạm thời giải ngân Escrow.
  * ============================================================================
  */
-/**
- * ====================================================================================================
- * [UC-56] DỊCH VỤ ĐIỀU HÀNH TỔNG THỂ NỀN TẢNG (PLATFORM SERVICE IMPLEMENTATION)
- * ====================================================================================================
- * Nghiệp vụ chính:
- * 1. Cung cấp dữ liệu tóm tắt cho Bảng điều khiển Quản trị viên (Admin Dashboard Overview).
- * 2. Tổng hợp các cảnh báo khẩn cấp cần can thiệp: Tranh chấp quá hạn, báo cáo lách sàn, yêu cầu rút tiền.
- * * @author Hoàng Minh Đức (mduc1011-swp)
- * @author Nguyễn Tiến Anh (tienanh6677)
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor

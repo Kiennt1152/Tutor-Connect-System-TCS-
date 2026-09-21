@@ -81,16 +81,6 @@ import org.springframework.transaction.annotation.Transactional;
  *   - Bước 4: Trả về DTO tổng hợp hoặc xuất tệp CSV báo cáo tải về.
  * ============================================================================
  */
-/**
- * ====================================================================================================
- * [UC-60] DỊCH VỤ TỔNG HỢP SỐ LIỆU PHÂN TÍCH NỀN TẢNG (PLATFORM ANALYTICS SERVICE IMPLEMENTATION)
- * ====================================================================================================
- * Nghiệp vụ chính:
- * 1. Thu thập và tổng hợp số liệu giao dịch, doanh thu phí sàn, số người dùng mới theo mốc thời gian.
- * 2. Tính toán các chỉ số sức khỏe nền tảng: Tỷ lệ tranh chấp, tỷ lệ hoàn thành hợp đồng, thời gian ghép lớp.
- * * @author Hoàng Minh Đức (mduc1011-swp)
- * @author Nguyễn Tiến Anh (tienanh6677)
- */
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)

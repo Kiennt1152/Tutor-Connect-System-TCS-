@@ -1,3 +1,18 @@
+/**
+ * ============================================================================
+ * [BF-10 / BF-09] API CLIENT QUẢN TRỊ NỀN TẢNG & HỖ TRỢ KHÁCH HÀNG (PLATFORM API)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-06-23
+ * 
+ * Mô tả:
+ *   - Tập hợp toàn bộ các hàm gọi RESTful API từ Frontend lên Backend phục vụ:
+ *     1. Bảng điều khiển quản trị Admin Dashboard và phân tích số liệu tài chính [UC-56, UC-41, UC-43].
+ *     2. Quản lý người dùng, duyệt hồ sơ eKYC CCCD, xử phạt vi phạm và kiểm toán [UC-07, UC-11, UC-60, UC-61].
+ *     3. Quản trị hệ thống phiếu hỗ trợ khách hàng (Support Ticket), SLA và FAQ [UC-63, UC-66, UC-67].
+ *     4. Quản lý ký quỹ Escrow, biểu phí sàn, mẫu hợp đồng và phát hiện lách sàn [UC-58, UC-46, UC-45, UC-59].
+ * ============================================================================
+ */
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
   AdminDisputeReviewApiResponse,

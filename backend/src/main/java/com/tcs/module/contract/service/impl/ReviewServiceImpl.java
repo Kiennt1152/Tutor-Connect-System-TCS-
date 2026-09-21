@@ -33,18 +33,6 @@ import org.springframework.transaction.annotation.Transactional;
  *    - Bước 3: Tạo mới thực thể Review, lưu vào cơ sở dữ liệu và ánh xạ sang ReviewResponse.
  * ============================================================================
  */
-/**
- * ====================================================================================================
- * [UC-22 / UC-55] DỊCH VỤ ĐÁNH GIÁ & PHẢN HỒI GIA SƯ (REVIEW SERVICE IMPLEMENTATION)
- * ====================================================================================================
- * Nghiệp vụ chính:
- * 1. Tiếp nhận đánh giá sao và nhận xét của học viên/phụ huynh sau khi hoàn thành hợp đồng.
- * 2. Cho phép gia sư phản hồi nhận xét và tính toán lại điểm uy tín (Reputation Score).
- * 3. Hỗ trợ Quản trị viên kiểm duyệt, ẩn hoặc xóa các đánh giá có nội dung vi phạm tiêu chuẩn cộng đồng.
- * * @author Vũ Quốc Khánh (khanhvqhe176783)
- * @author Hoàng Minh Đức (mduc1011-swp)
- * @author Nguyễn Tiến Anh (tienanh6677)
- */
 @Service
 @RequiredArgsConstructor
 public class ReviewServiceImpl implements ReviewService {

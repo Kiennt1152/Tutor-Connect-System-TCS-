@@ -77,16 +77,6 @@ import org.springframework.util.StringUtils;
  *   - Bước 4: Tạo thông báo Notification tới các bên nhận tin nếu đang offline.
  * ============================================================================
  */
-/**
- * ====================================================================================================
- * [UC-50] DỊCH VỤ TRÒ CHUYỆN THỜI GIAN THỰC (CHAT SERVICE IMPLEMENTATION)
- * ====================================================================================================
- * Nghiệp vụ chính:
- * 1. Điều phối gửi nhận tin nhắn WebSocket giữa các bên trong phòng chat.
- * 2. Lưu trữ tin nhắn vào cơ sở dữ liệu và kích hoạt thông báo đẩy khi người nhận offline.
- * 3. Kiểm duyệt nội dung tin nhắn tự động để ngăn ngừa vi phạm quy chế sàn.
- * * @author Hoàng Minh Đức (mduc1011-swp)
- */
 @Service
 @RequiredArgsConstructor
 public class ChatServiceImpl implements ChatService {

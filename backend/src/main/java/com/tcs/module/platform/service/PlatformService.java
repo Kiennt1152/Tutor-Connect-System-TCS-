@@ -27,6 +27,22 @@ import com.tcs.module.platform.enums.SupportTicketStatus;
 import com.tcs.module.profile.enums.UserRole;
 import java.util.List;
 
+/**
+ * ============================================================================
+ * [BF-10] GIAO DIỆN QUẢN TRỊ NỀN TẢNG TOÀN DIỆN (PLATFORM SERVICE INTERFACE)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-06-23
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Định nghĩa các phương thức nghiệp vụ quản trị sàn cho Quản trị viên (Platform Admin).
+ *    - Quản lý người dùng, tài khoản đa vai trò và phân quyền hệ thống [UC-07].
+ *    - Thẩm định danh tính, phê duyệt hồ sơ xác minh KYC CCCD / Bằng cấp [UC-11].
+ *    - Quản lý, xử lý báo cáo vi phạm, sự cố lớp học [UC-30, UC-52] và kiểm duyệt đánh giá [UC-55].
+ *    - Tiếp nhận, xử lý khiếu nại qua hệ thống Support Ticket, tự động leo thang SLA [UC-63, UC-66].
+ *    - Quản lý mẫu hợp đồng điện tử Master [UC-45] và cấu hình biểu phí sàn [UC-46].
+ * ============================================================================
+ */
 public interface PlatformService {
 
     PageUserListResponse getUsers(int page, int size, UserStatus status, UserRole role, String keyword);

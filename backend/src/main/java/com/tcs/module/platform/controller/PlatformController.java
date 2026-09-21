@@ -64,17 +64,6 @@ import org.springframework.web.bind.annotation.RestController;
  *   - Bước 4: Trả về dữ liệu chuẩn hóa DTO cho giao diện Admin.
  * ============================================================================
  */
-/**
- * ====================================================================================================
- * [UC-56] TỔNG QUAN QUẢN TRỊ TOÀN SÀN (PLATFORM CONTROLLER)
- * ====================================================================================================
- * Nghiệp vụ chính:
- * 1. Bảng điều khiển trung tâm (Admin Dashboard) hiển thị các chỉ số vận hành quan trọng nhất.
- * 2. Tổng hợp số lượng tranh chấp chờ giải quyết, sự cố lớp học và hồ sơ eKYC cần phê duyệt.
- * 3. Điều phối truy cập nhanh đến các module chức năng quản trị chuyên sâu trên nền tảng.
- * * @author Hoàng Minh Đức (mduc1011-swp)
- * @author Nguyễn Tiến Anh (tienanh6677)
- */
 @RestController
 @RequestMapping("/api/platform")
 @RequiredArgsConstructor
