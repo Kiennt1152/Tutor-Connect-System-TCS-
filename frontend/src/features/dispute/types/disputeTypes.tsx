@@ -71,3 +71,18 @@ export interface EvidenceUploadResponse {
   mimeType: string;
   fileSize: number;
 }
+
+export interface ParticipantDispute {
+  disputeId: number;
+  classId: number | null;
+  classTitle: string;
+  status: DisputeStatus;
+  description: string;
+  evidenceUrls: string[];
+  resolution: string | null;
+  createdAt: string;
+  canRespond: boolean;
+  canWithdraw: boolean;
+  withdrawalBlockedReason: string | null;
+  updates: { author: string; note: string; createdAt: string }[];
+}

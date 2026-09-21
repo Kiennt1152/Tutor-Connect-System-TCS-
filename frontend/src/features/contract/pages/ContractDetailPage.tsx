@@ -476,7 +476,9 @@ export default function ContractDetailPage() {
     contract.status === 'ACTIVE' ||
     contract.status === 'COMPLETED';
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
-  const canCreateIssue = contract.classId != null;
+  const issueClosedBySettlement =
+    contract.status === 'COMPLETED' && contract.escrowPayment?.escrowStatus === 'RELEASED';
+  const canCreateIssue = contract.classId != null && !issueClosedBySettlement;
   const selectedPayoutBank = findBankByName(payoutBankName);
   const displayTuitionFee = contract.totalTuitionAmount ?? contract.tuitionFee;
   const needsRefundPayoutInfo =
@@ -541,6 +543,12 @@ export default function ContractDetailPage() {
             >
               Báo cáo sự cố
             </button>
+            {classDetailUrl ? (
+              <button className="tcs-btn tcs-btn--ghost" type="button"
+                onClick={() => navigate(APP_ROUTES.myDisputes, { state: { classId: contract.classId } })}>
+                Xem tranh chấp
+              </button>
+            ) : null}
             {classDetailUrl ? (
               <Link
                 className="tcs-btn tcs-btn--primary"

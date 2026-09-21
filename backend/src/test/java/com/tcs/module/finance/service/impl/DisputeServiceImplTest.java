@@ -604,7 +604,7 @@ class DisputeServiceImplTest {
         request.setStatus(DisputeStatus.RESOLVED);
         request.setResolution("Chấp nhận khiếu nại và chuyển sang bước giải ngân");
 
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(disputeRepository.save(dispute)).thenReturn(dispute);
 
         AdminDisputeReviewResponse response = disputeService.resolveDispute(31L, request);
@@ -642,7 +642,7 @@ class DisputeServiceImplTest {
         request.setStatus(DisputeStatus.RESOLVED);
         request.setResolution("Đồng ý chấm dứt hợp đồng và giải ngân cho gia sư");
 
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(classTerminationRequestRepository.findFirstByAssignment_AssignmentIdOrderByCreatedAtDesc(7L))
                 .thenReturn(Optional.of(termination));
         when(contractRepository.findByAssignment_AssignmentId(7L)).thenReturn(Optional.of(contract));
@@ -677,7 +677,7 @@ class DisputeServiceImplTest {
         request.setAction(DisputeResolutionAction.CONTINUE_CLASS);
         request.setResolution("Sự cố đã được xử lý, lớp tiếp tục theo lịch học");
 
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(classTerminationRequestRepository.findFirstByAssignment_AssignmentIdOrderByCreatedAtDesc(7L))
                 .thenReturn(Optional.empty());
         when(disputeRepository.save(dispute)).thenReturn(dispute);
@@ -721,7 +721,7 @@ class DisputeServiceImplTest {
 
         when(authHelper.currentUserId()).thenReturn(900L);
         when(userRepository.findById(900L)).thenReturn(Optional.of(admin));
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(refundRequestRepository.save(any(RefundRequest.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(classTerminationRequestRepository.findFirstByAssignment_AssignmentIdOrderByCreatedAtDesc(7L))
                 .thenReturn(Optional.of(termination));
@@ -769,7 +769,7 @@ class DisputeServiceImplTest {
 
         when(authHelper.currentUserId()).thenReturn(900L);
         when(userRepository.findById(900L)).thenReturn(Optional.of(admin));
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(lessonRepository.findByTutoringClass_ClassId(99L))
                 .thenReturn(List.of(
                         lesson(1L, AttendanceStatus.COMPLETED),
@@ -805,7 +805,7 @@ class DisputeServiceImplTest {
         request.setStatus(DisputeStatus.WAITING);
         request.setResolution("Cần người báo cáo bổ sung bằng chứng buổi học");
 
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(disputeRepository.save(dispute)).thenReturn(dispute);
 
         AdminDisputeReviewResponse response = disputeService.resolveDispute(31L, request);
@@ -837,7 +837,7 @@ class DisputeServiceImplTest {
                 UserRole.TUTOR_CENTER,
                 UserRole.PLATFORM_ADMIN))
                 .thenReturn(principal(reporter, UserRole.CLIENT));
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(disputeRepository.save(dispute)).thenReturn(dispute);
 
         DisputeResponse response = disputeService.submitAdditionalEvidence(31L, request);
@@ -867,7 +867,7 @@ class DisputeServiceImplTest {
         request.setStatus(DisputeStatus.WAITING);
         request.setResolution("Mở lại để kiểm tra thêm bằng chứng");
 
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
 
         assertThrows(BusinessException.class, () -> disputeService.resolveDispute(31L, request));
         verify(disputeRepository, never()).save(any());
@@ -907,7 +907,7 @@ class DisputeServiceImplTest {
                 UserRole.TUTOR_CENTER,
                 UserRole.PLATFORM_ADMIN))
                 .thenReturn(principal(reporter, UserRole.CLIENT));
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(escrowService.holdForDispute(11L, "Bổ sung bằng chứng mới cần admin xem lại")).thenReturn(heldEscrow);
         when(disputeRepository.save(dispute)).thenReturn(dispute);
 
@@ -945,7 +945,7 @@ class DisputeServiceImplTest {
                 UserRole.TUTOR_CENTER,
                 UserRole.PLATFORM_ADMIN))
                 .thenReturn(principal(otherUser, UserRole.CLIENT));
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
 
         assertThrows(ForbiddenException.class, () -> disputeService.appealDispute(31L, request));
         verify(escrowService, never()).holdForDispute(any(), any());
@@ -970,7 +970,7 @@ class DisputeServiceImplTest {
                 UserRole.TUTOR_CENTER,
                 UserRole.PLATFORM_ADMIN))
                 .thenReturn(principal(reporter, UserRole.CLIENT));
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
 
         assertThrows(BusinessException.class, () -> disputeService.appealDispute(31L, request));
         verify(escrowService, never()).holdForDispute(any(), any());

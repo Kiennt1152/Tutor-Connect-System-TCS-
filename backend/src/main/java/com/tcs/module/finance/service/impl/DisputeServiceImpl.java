@@ -15,6 +15,10 @@ import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
 import com.tcs.module.finance.dto.request.SubmitDisputeEvidenceRequest;
 import com.tcs.module.finance.dto.response.AdminDisputeReviewResponse;
 import com.tcs.module.finance.dto.response.DisputeResponse;
+import com.tcs.module.finance.dto.response.ParticipantDisputeResponse;
+import com.tcs.module.finance.dto.request.WithdrawDisputeRequest;
+import com.tcs.module.profile.repository.MediaFileRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tcs.module.finance.entity.Dispute;
 import com.tcs.module.finance.entity.EscrowTransaction;
 import com.tcs.module.finance.entity.PaymentTransaction;
@@ -104,6 +108,183 @@ public class DisputeServiceImpl implements DisputeService {
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final ContractRepository contractRepository;
     private final EscrowService escrowService;
+    private final MediaFileRepository mediaFileRepository;
+
+    private static final String EXPLANATION_ACTION = "Người tham gia gửi giải trình";
+    private static final String WITHDRAWAL_ACTION = "Người gửi rút tranh chấp";
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ParticipantDisputeResponse> listMyDisputes(Long classId) {
+        Long userId = authHelper.requireRole(UserRole.CLIENT, UserRole.TUTOR, UserRole.TUTOR_CENTER).getUserId();
+        return disputeRepository.findForParticipant(classId, userId).stream()
+                .map(dispute -> toParticipantResponse(dispute, userId)).toList();
+    }
+
+    @Override
+    @Transactional
+    public ParticipantDisputeResponse submitExplanation(Long disputeId, SubmitDisputeEvidenceRequest request) {
+        Long userId = authHelper.requireRole(UserRole.CLIENT, UserRole.TUTOR, UserRole.TUTOR_CENTER).getUserId();
+        String note = normalizeParticipantNote(request != null ? request.getNote() : null);
+        Dispute dispute = requireParticipantDispute(disputeId, userId);
+        if (dispute.getStatus() == DisputeStatus.RESOLVED) {
+            throw new BusinessException("Tranh chấp đã kết thúc, không thể gửi thêm giải trình.");
+        }
+        List<String> urls = parseEvidenceUrls(request.getEvidenceUrls());
+        if (urls.size() > 5) {
+            throw new IllegalArgumentException("Mỗi lần gửi tối đa 5 ảnh bằng chứng.");
+        }
+        for (String url : urls) {
+            var file = mediaFileRepository.findFirstByFileUrl(url)
+                    .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy ảnh bằng chứng đã tải lên."));
+            if (file.getUploadedBy() == null || !Objects.equals(file.getUploadedBy().getUserId(), userId)) {
+                throw new ForbiddenException("Chỉ được gửi ảnh do chính bạn tải lên.");
+            }
+            if (!Set.of("image/jpeg", "image/png", "image/webp").contains(file.getMimeType())) {
+                throw new IllegalArgumentException("Bằng chứng chỉ nhận ảnh JPG, PNG hoặc WEBP.");
+            }
+        }
+        Report report = dispute.getReport();
+        report.setEvidenceUrls(appendEvidenceUrls(report.getEvidenceUrls(), String.join("\n", urls)));
+        reportRepository.save(report);
+        DisputeStatus previous = dispute.getStatus();
+        dispute.setStatus(DisputeStatus.UNDER_INVESTIGATION);
+        disputeRepository.save(dispute);
+        auditDispute(dispute, EXPLANATION_ACTION, jsonObject("status", previous),
+                jsonObject("note", note, "evidenceUrls", String.join("\n", urls), "status", dispute.getStatus()));
+        notifyPlatformAdmins("Có giải trình mới", "Tranh chấp #" + disputeId + " có giải trình mới.", dispute);
+        notifyParticipants(dispute, "Có giải trình mới", "Tranh chấp #" + disputeId + " đã nhận thêm giải trình.");
+        return toParticipantResponse(dispute, userId);
+    }
+
+    @Override
+    @Transactional
+    public ParticipantDisputeResponse withdrawDispute(Long disputeId, WithdrawDisputeRequest request) {
+        Long userId = authHelper.requireRole(UserRole.CLIENT).getUserId();
+        String reason = normalizeParticipantNote(request != null ? request.getReason() : null);
+        Dispute dispute = requireParticipantDispute(disputeId, userId);
+        if (!Objects.equals(dispute.getReport().getReporter().getUserId(), userId)) {
+            throw new ForbiddenException("Chỉ người gửi mới được rút tranh chấp.");
+        }
+        String blocked = withdrawalBlockedReason(dispute, userId);
+        if (blocked != null) throw new BusinessException(blocked);
+
+        DisputeStatus previous = dispute.getStatus();
+        closeDispute(dispute);
+        dispute.setResolution("Người gửi đã rút tranh chấp: " + reason);
+        disputeRepository.save(dispute);
+        EscrowTransaction escrow = dispute.getEscrowTransaction();
+        // Never remove a hold created by another open case or financial request.
+        if (!disputeRepository.existsByEscrowTransaction_EscrowIdAndStatusNot(
+                escrow.getEscrowId(), DisputeStatus.RESOLVED)) {
+            restoreEscrowForContinuation(dispute);
+        }
+        TutoringClass cls = resolveTutoringClass(dispute.getReport(), escrow.getAssignment(), escrow.getClassStudent());
+        if (cls != null && !disputeRepository.existsOtherOpenForClass(cls.getClassId(), disputeId)
+                && !reportRepository.existsByTargetTypeAndTargetIdAndStatus(
+                        ReportTargetType.CLASS, cls.getClassId(), ReportStatus.PENDING)) {
+            restoreClassForContinuation(dispute);
+        }
+        auditDispute(dispute, WITHDRAWAL_ACTION, jsonObject("status", previous),
+                jsonObject("note", reason, "status", DisputeStatus.RESOLVED));
+        notifyPlatformAdmins("Tranh chấp đã được rút", dispute.getResolution(), dispute);
+        notifyParticipants(dispute, "Tranh chấp đã được rút", dispute.getResolution());
+        return toParticipantResponse(dispute, userId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean canReadDisputeEvidence(String fileUrl, Long userId) {
+        if (!StringUtils.hasText(fileUrl) || userId == null) return false;
+        var file = mediaFileRepository.findFirstByFileUrl(fileUrl).orElse(null);
+        if (file == null || file.getUploadedBy() == null) return false;
+        Long ownerId = file.getUploadedBy().getUserId();
+        return disputeRepository.findForParticipant(null, userId).stream()
+                .filter(d -> parseEvidenceUrls(d.getReport().getEvidenceUrls()).contains(fileUrl))
+                .anyMatch(d -> Objects.equals(d.getReport().getReporter().getUserId(), ownerId)
+                        || hasVerifiedEvidenceSubmission(d.getDisputeId(), fileUrl, ownerId));
+    }
+
+    private boolean hasVerifiedEvidenceSubmission(Long disputeId, String fileUrl, Long ownerId) {
+        for (AuditLog entry : auditLogRepository.findByEntityTypeAndEntityIdOrderByCreatedAtAsc("DISPUTE", disputeId)) {
+            if (!EXPLANATION_ACTION.equals(entry.getAction()) || entry.getActor() == null
+                    || !Objects.equals(entry.getActor().getUserId(), ownerId)) continue;
+            try {
+                String urls = new ObjectMapper().readTree(entry.getNewValue()).path("evidenceUrls").asText("");
+                if (parseEvidenceUrls(urls).contains(fileUrl)) return true;
+            } catch (Exception ignored) {
+                // A malformed legacy audit entry must not grant private-file access.
+            }
+        }
+        return false;
+    }
+
+    private Dispute requireParticipantDispute(Long disputeId, Long userId) {
+        if (disputeId == null) throw new IllegalArgumentException("Thiếu tranh chấp.");
+        Dispute dispute = disputeRepository.findForUpdate(disputeId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tranh chấp"));
+        if (!isDisputeParticipant(dispute, userId)) {
+            throw new ForbiddenException("Bạn không thuộc tranh chấp này.");
+        }
+        return dispute;
+    }
+
+    private String normalizeParticipantNote(String text) {
+        String value = text == null ? "" : text.trim();
+        if (value.length() < 10 || value.length() > 4000) {
+            throw new IllegalArgumentException("Nội dung cần từ 10 đến 4.000 ký tự.");
+        }
+        return value;
+    }
+
+    private String withdrawalBlockedReason(Dispute dispute, Long userId) {
+        if (dispute.getReport() == null || dispute.getReport().getReporter() == null
+                || !Objects.equals(dispute.getReport().getReporter().getUserId(), userId)) {
+            return "Chỉ người gửi mới được rút tranh chấp.";
+        }
+        if (dispute.getStatus() == DisputeStatus.RESOLVED) return "Tranh chấp đã có kết quả xử lý.";
+        EscrowTransaction escrow = dispute.getEscrowTransaction();
+        if (escrow == null || escrow.getStatus() != EscrowStatus.DISPUTED) {
+            return "Khoản ký quỹ không còn ở trạng thái có thể rút tranh chấp.";
+        }
+        if (refundRequestRepository.existsByEscrowTransaction_EscrowIdAndStatus(escrow.getEscrowId(), RefundRequestStatus.PENDING)
+                || refundRequestRepository.existsByEscrowTransaction_EscrowIdAndStatus(escrow.getEscrowId(), RefundRequestStatus.APPROVED)) {
+            return "Khoản ký quỹ đang có yêu cầu hoàn tiền cần xử lý.";
+        }
+        ClassTerminationRequest termination = latestTerminationRequest(escrow.getAssignment(), escrow.getClassStudent());
+        if (termination != null && (termination.getStatus() == ClassTerminationStatus.PENDING
+                || termination.getStatus() == ClassTerminationStatus.APPROVED)) {
+            return "Lớp đang có yêu cầu chấm dứt cần xử lý; chưa thể tự rút tranh chấp.";
+        }
+        return null;
+    }
+
+    private ParticipantDisputeResponse toParticipantResponse(Dispute dispute, Long userId) {
+        EscrowTransaction escrow = dispute.getEscrowTransaction();
+        TutoringClass cls = resolveTutoringClass(dispute.getReport(), escrow.getAssignment(), escrow.getClassStudent());
+        List<ParticipantDisputeResponse.Update> updates = new ArrayList<>();
+        for (AuditLog log : auditLogRepository.findByEntityTypeAndEntityIdOrderByCreatedAtAsc("DISPUTE", dispute.getDisputeId())) {
+            if (!EXPLANATION_ACTION.equals(log.getAction()) && !WITHDRAWAL_ACTION.equals(log.getAction())) continue;
+            try {
+                String note = new ObjectMapper().readTree(log.getNewValue()).path("note").asText("");
+                updates.add(new ParticipantDisputeResponse.Update(
+                        log.getActor() != null ? log.getActor().getEmail() : "Người tham gia", note, log.getCreatedAt()));
+            } catch (Exception ignored) {
+                // Old audit entries may not contain structured participant messages.
+            }
+        }
+        String blocked = withdrawalBlockedReason(dispute, userId);
+        boolean client = authHelper.hasRole("CLIENT");
+        return ParticipantDisputeResponse.builder()
+                .disputeId(dispute.getDisputeId()).classId(cls != null ? cls.getClassId() : null)
+                .classTitle(cls != null ? cls.getTitle() : "Tranh chấp")
+                .status(dispute.getStatus()).description(RefundPayoutInfoCodec.stripFromReason(dispute.getReport().getDescription()))
+                .evidenceUrls(parseEvidenceUrls(dispute.getReport().getEvidenceUrls()))
+                .resolution(dispute.getResolution()).createdAt(dispute.getCreatedAt())
+                .canRespond(dispute.getStatus() != DisputeStatus.RESOLVED)
+                .canWithdraw(client && blocked == null).withdrawalBlockedReason(client ? blocked : null)
+                .updates(updates).build();
+    }
 
     @Override
     @Transactional
@@ -243,7 +424,7 @@ public class DisputeServiceImpl implements DisputeService {
         }
 
         String resolution = normalizeResolution(request.getResolution());
-        Dispute dispute = disputeRepository.findById(disputeId)
+        Dispute dispute = disputeRepository.findForUpdate(disputeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tranh chấp"));
         requireCanReviewDispute(reviewer, dispute);
         if (dispute.getStatus() == DisputeStatus.RESOLVED) {
@@ -396,7 +577,7 @@ public class DisputeServiceImpl implements DisputeService {
         }
 
         String reason = normalizeAppealReason(request.getReason());
-        Dispute dispute = disputeRepository.findById(disputeId)
+        Dispute dispute = disputeRepository.findForUpdate(disputeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tranh chấp"));
         if (dispute.getStatus() != DisputeStatus.RESOLVED) {
             throw new BusinessException("Chỉ tranh chấp đã xử lý mới có thể khiếu nại/mở lại");
@@ -826,7 +1007,7 @@ public class DisputeServiceImpl implements DisputeService {
             throw new IllegalArgumentException("Bằng chứng bổ sung là bắt buộc");
         }
 
-        Dispute dispute = disputeRepository.findById(disputeId)
+        Dispute dispute = disputeRepository.findForUpdate(disputeId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy tranh chấp"));
         if (dispute.getStatus() != DisputeStatus.WAITING) {
             throw new BusinessException("Chỉ tranh chấp đang chờ bổ sung bằng chứng mới nhận thêm bằng chứng");
@@ -1303,7 +1484,11 @@ public class DisputeServiceImpl implements DisputeService {
                     && Objects.equals(classStudent.getEnrolledByUser().getUserId(), userId)) {
                 return true;
             }
-            return isClassParticipant(classStudent.getTutoringClass(), userId);
+            TutoringClass cls = classStudent.getTutoringClass();
+            return isClassParticipant(cls, userId) || (cls != null && classAssignmentRepository
+                    .findByApplication_TutoringClass_ClassIdAndStatus(cls.getClassId(), ClassAssignmentStatus.ACTIVE)
+                    .stream().anyMatch(a -> a.getTutor() != null && a.getTutor().getUser() != null
+                            && Objects.equals(a.getTutor().getUser().getUserId(), userId)));
         }
 
         return false;

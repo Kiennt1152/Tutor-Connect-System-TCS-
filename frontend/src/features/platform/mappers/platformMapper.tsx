@@ -231,7 +231,7 @@ const VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
 const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
   FRAUD: 'Sai sự thật / gian lận',
   ABUSE: 'Lăng mạ / xúc phạm',
-  SPAM: 'Spam',
+  SPAM: 'Tin rác',
   INAPPROPRIATE: 'Nội dung không phù hợp',
   PLATFORM_CIRCUMVENTION: 'Lách sàn nền tảng',
   OTHER: 'Lý do khác',

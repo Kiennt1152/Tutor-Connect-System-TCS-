@@ -5,6 +5,8 @@ import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
 import com.tcs.module.finance.dto.request.SubmitDisputeEvidenceRequest;
+import com.tcs.module.finance.dto.request.WithdrawDisputeRequest;
+import com.tcs.module.finance.dto.response.ParticipantDisputeResponse;
 import com.tcs.module.finance.dto.response.AdminDisputeReviewResponse;
 import com.tcs.module.finance.dto.response.DisputeResponse;
 import com.tcs.module.finance.enums.DisputeStatus;
@@ -42,6 +44,23 @@ public class DisputeController {
     private final DisputeService disputeService;
     private final FileStorageService fileStorageService;
     private final AuthHelper authHelper;
+
+    @GetMapping("/api/disputes/mine")
+    public List<ParticipantDisputeResponse> myDisputes(@RequestParam(required = false) Long classId) {
+        return disputeService.listMyDisputes(classId);
+    }
+
+    @PostMapping("/api/disputes/{disputeId}/explanation")
+    public ParticipantDisputeResponse explain(
+            @PathVariable Long disputeId, @RequestBody SubmitDisputeEvidenceRequest request) {
+        return disputeService.submitExplanation(disputeId, request);
+    }
+
+    @PostMapping("/api/disputes/{disputeId}/withdraw")
+    public ParticipantDisputeResponse withdraw(
+            @PathVariable Long disputeId, @RequestBody WithdrawDisputeRequest request) {
+        return disputeService.withdrawDispute(disputeId, request);
+    }
 
     @GetMapping("/api/disputes")
     public List<AdminDisputeReviewResponse> listDisputes(@RequestParam(required = false) DisputeStatus status) {
