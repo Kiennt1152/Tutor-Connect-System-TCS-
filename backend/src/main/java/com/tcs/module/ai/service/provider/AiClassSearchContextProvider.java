@@ -125,7 +125,7 @@ public class AiClassSearchContextProvider {
             case "toan", "toan hoc" -> containsWordOrPhrase(text, "toan", "toan hoc", "giai tich", "hinh hoc", "dai so", "math", "khoi a", "khoi a1", "khoi b", "khoi d");
             case "ly", "vat ly" -> containsWordOrPhrase(text, "vat ly", "mon ly", "day ly", "physics", "khoi a", "khoi a1");
             case "hoa", "hoa hoc" -> containsWordOrPhrase(text, "hoa hoc", "mon hoa", "day hoa", "chemistry", "khoi a", "khoi b");
-            case "anh", "tieng anh", "ngoai ngu" -> containsWordOrPhrase(text, "tieng anh", "anh van", "ielts", "toeic", "toefl", "english", "mon anh", "day anh", "khoi d", "khoi a1");
+            case "anh", "tieng anh", "tieng anh ielts", "tieng anh toeic", "ngoai ngu", "ielts", "toeic" -> containsWordOrPhrase(text, "tieng anh", "anh van", "ielts", "toeic", "toefl", "english", "mon anh", "day anh", "khoi d", "khoi a1");
             case "van", "ngu van", "van hoc" -> containsWordOrPhrase(text, "ngu van", "van hoc", "mon van", "day van", "khoi d", "khoi c", "chuyen van", "van cap 2", "van cap 3");
             case "tin", "tin hoc", "lap trinh" -> containsWordOrPhrase(text, "tin hoc", "lap trinh", "scratch", "python", "java", "c++", "coding", "mon tin", "day tin");
             case "sinh", "sinh hoc" -> containsWordOrPhrase(text, "sinh hoc", "mon sinh", "day sinh", "biology", "khoi b");

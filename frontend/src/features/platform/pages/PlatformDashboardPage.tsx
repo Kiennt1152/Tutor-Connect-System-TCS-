@@ -165,7 +165,7 @@ export default function PlatformDashboardPage() {
                 <p className="adm-kpi-mono-card__sub">Đang chờ hòa giải</p>
               </Link>
 
-              <Link className="adm-kpi-mono-card" to={APP_ROUTES.platformReports + "?tab=disputes"}>
+              <Link className="adm-kpi-mono-card" to={APP_ROUTES.platformReports + "?tab=class-issues"}>
                 <div className="adm-kpi-mono-card__head">
                   <AdminIcon name="message" size="sm" />
                   <span>Báo cáo Vi phạm / Lách sàn</span>

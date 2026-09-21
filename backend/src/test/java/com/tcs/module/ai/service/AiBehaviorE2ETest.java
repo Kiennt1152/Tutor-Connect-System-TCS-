@@ -44,7 +44,7 @@ class AiBehaviorE2ETest {
 
         var human = fallbackService.checkLevel0Safety(AiSubIntent.HUMAN_SUPPORT_REQUEST);
         assertThat(human).isNotNull();
-        assertThat(human.suggestedRoute()).isEqualTo("/support/tickets");
+        assertThat(human.suggestedRoute()).isEqualTo("/messaging/tickets");
     }
 
     @Test

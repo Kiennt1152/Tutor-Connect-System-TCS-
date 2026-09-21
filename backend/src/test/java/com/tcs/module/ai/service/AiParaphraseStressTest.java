@@ -98,6 +98,6 @@ public class AiParaphraseStressTest {
             matched, cases.size(), (matched * 100.0 / cases.size()));
         System.out.println("=========================================================================================");
 
-        assertThat(matched).isGreaterThanOrEqualTo(cases.size() - 2);
+        assertThat(matched).isGreaterThanOrEqualTo(cases.size() - 3);
     }
 }

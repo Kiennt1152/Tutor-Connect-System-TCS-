@@ -20,6 +20,83 @@ import { APP_ROUTES, tutorProfilePath } from '../../../shared/constants/routes';
 import { ConfirmDialog } from '../../../shared/components';
 import './AiAssistantPage.css';
 
+function parseBold(str: string): (string | React.ReactNode)[] {
+  const parts: (string | React.ReactNode)[] = [];
+  const boldRegex = /\*\*([^*]+)\*\*/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = boldRegex.exec(str)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(str.substring(lastIndex, match.index));
+    }
+    parts.push(
+      <strong key={`b-${match.index}`} style={{ fontWeight: 600 }}>
+        {match[1]}
+      </strong>
+    );
+    lastIndex = boldRegex.lastIndex;
+  }
+
+  if (lastIndex < str.length) {
+    parts.push(str.substring(lastIndex));
+  }
+
+  return parts;
+}
+
+function renderFormattedContent(text: string, navigate: (to: string) => void) {
+  if (!text) return null;
+  const lines = text.split('\n');
+
+  return lines.map((line, lIdx) => {
+    const parts: (string | React.ReactNode)[] = [];
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(line)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(...parseBold(line.substring(lastIndex, match.index)));
+      }
+      const label = match[1];
+      let url = match[2];
+      if (url.startsWith('/support/tickets')) {
+        url = url.replace('/support/tickets', '/messaging/tickets');
+      }
+      parts.push(
+        <a
+          key={`lnk-${lIdx}-${match.index}`}
+          href={url}
+          style={{
+            color: '#ea580c',
+            textDecoration: 'underline',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate(url);
+          }}
+        >
+          {label}
+        </a>
+      );
+      lastIndex = linkRegex.lastIndex;
+    }
+
+    if (lastIndex < line.length) {
+      parts.push(...parseBold(line.substring(lastIndex)));
+    }
+
+    return (
+      <div key={lIdx} style={{ minHeight: line.trim() ? undefined : '0.5rem', lineHeight: '1.6' }}>
+        {parts}
+      </div>
+    );
+  });
+}
+
 export default function AiAssistantPage() {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<AiSession[]>([]);
@@ -361,7 +438,49 @@ export default function AiAssistantPage() {
                   <div className="ai-bubble-container">
                     {/* Username if needed (omitted for clean look) */}
                     <div className="ai-bubble">
-                      <div style={{ whiteSpace: 'pre-wrap' }}>{m.content}</div>
+                      <div style={{ whiteSpace: 'pre-wrap' }}>
+                        {renderFormattedContent(m.content, navigate)}
+                      </div>
+
+                      {/* Action Button for Suggested Routes / Tickets */}
+                      {m.role === 'assistant' && (m.suggestedRoute || m.content.includes('/messaging/tickets')) && (
+                        <div style={{ marginTop: '0.75rem' }}>
+                          <button
+                            type="button"
+                            className="ai-mini-card-btn"
+                            style={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '0.4rem',
+                              background: '#0f172a',
+                              color: '#fff',
+                              padding: '0.45rem 0.85rem',
+                              borderRadius: '6px',
+                              fontWeight: 600,
+                              fontSize: '0.85rem',
+                              cursor: 'pointer',
+                              border: 'none',
+                            }}
+                            onClick={() => {
+                              let route = m.suggestedRoute || '/messaging/tickets?action=create&subject=Sự+cố+nạp+tiền+chưa+cộng+số+dư';
+                              if (route.startsWith('/support/tickets')) {
+                                route = route.replace('/support/tickets', '/messaging/tickets');
+                              }
+                              navigate(route);
+                            }}
+                          >
+                            {(m.suggestedRoute?.includes('ticket') || m.content.includes('Ticket') || m.content.includes('ticket'))
+                              ? '🎫 Gửi yêu cầu hỗ trợ (Ticket) →'
+                              : m.suggestedRoute?.includes('find-tutor')
+                              ? '🔍 Tìm gia sư ngay →'
+                              : m.suggestedRoute?.includes('finance')
+                              ? '💳 Quản lý Ví tiền →'
+                              : m.suggestedRoute?.includes('tao-lop')
+                              ? '📝 Đăng tin tạo lớp →'
+                              : 'Xem chi tiết liên quan →'}
+                          </button>
+                        </div>
+                      )}
 
                       {/* Render Generic Sources (Accordion) */}
                       {genericSources.length > 0 && (

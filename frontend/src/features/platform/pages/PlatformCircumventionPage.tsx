@@ -58,7 +58,8 @@ export default function PlatformCircumventionPage() {
   }
 
   async function review(item: CircumventionEventApiResponse, decision: 'CONFIRMED' | 'DISMISSED') {
-    const note = window.prompt(decision === 'CONFIRMED' ? 'Ghi chú xác nhận' : 'Lý do bỏ qua', '') ?? '';
+    const note = window.prompt(decision === 'CONFIRMED' ? 'Ghi chú xác nhận' : 'Lý do bỏ qua', '');
+    if (note === null) return;
     setBusyId(item.eventId);
     try {
       await platformApi.reviewCircumventionEvent(item.eventId, decision, note);

@@ -124,13 +124,13 @@ public class AiCapabilityRouter {
 
         Map.entry(AiDomain.MESSAGING_TICKET, new CapabilityPolicy(
             Set.of("FAQ", "TICKET"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Bạn có thể tạo yêu cầu hỗ trợ hoặc khiếu nại trực tiếp tại mục 'Hỗ trợ & Khiếu nại'."
         )),
 
         Map.entry(AiDomain.TRUST_SAFETY, new CapabilityPolicy(
             Set.of("FAQ", "POLICY"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "TCS nghiêm cấm hành vi lách sàn và thu tiền ngoài hệ thống. Vui lòng gửi báo cáo hoặc mở tranh chấp tại mục 'Hỗ trợ & Khiếu nại'."
         )),
 
@@ -151,7 +151,7 @@ public class AiCapabilityRouter {
         // Safety & Conversation
         Map.entry(AiSubIntent.HUMAN_SUPPORT_REQUEST, new CapabilityPolicy(
             Set.of(), false, Set.of(), false, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Bạn có thể kết nối ngay với đội ngũ hỗ trợ tại mục 'Hỗ trợ & Khiếu nại'."
         )),
         Map.entry(AiSubIntent.BOT_CAPABILITY_ASK, new CapabilityPolicy(
@@ -278,29 +278,29 @@ public class AiCapabilityRouter {
         )),
         Map.entry(AiSubIntent.SUPPORT_TICKET_CREATE, new CapabilityPolicy(
             Set.of("FAQ"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Bạn có thể gửi yêu cầu hỗ trợ hoặc tạo phiếu khiếu nại tại mục 'Hỗ trợ & Khiếu nại'."
         )),
         Map.entry(AiSubIntent.SUPPORT_TICKET_STATUS, new CapabilityPolicy(
             Set.of("FAQ"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Kiểm tra trạng thái và tiến độ xử lý ticket tại mục 'Hỗ trợ & Khiếu nại'."
         )),
         Map.entry(AiSubIntent.SUPPORT_TICKET_SLA, new CapabilityPolicy(
             Set.of("FAQ"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Thời gian phản hồi cam kết SLA là 24h đối với yêu cầu thông thường."
         )),
 
         // Trust & Safety
         Map.entry(AiSubIntent.REPORT_CIRCUMVENTION, new CapabilityPolicy(
             Set.of("FAQ", "POLICY"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "TCS bảo vệ giao dịch qua Escrow. Báo cáo lách sàn hoặc gian lận được tiếp nhận tại mục 'Hỗ trợ & Khiếu nại'."
         )),
         Map.entry(AiSubIntent.DISPUTE_OPEN_HELP, new CapabilityPolicy(
             Set.of("FAQ", "POLICY"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Tranh chấp lớp học có thể được mở khi có vi phạm cam kết giảng dạy (như gia sư bỏ dạy, đi muộn quá 30 phút) tại mục 'Hỗ trợ & Khiếu nại' để Admin can thiệp giải quyết và hoàn tiền Escrow."
         )),
         Map.entry(AiSubIntent.PENALTY_EXPLAIN, new CapabilityPolicy(

@@ -25,7 +25,7 @@ public class TrustSafetyIntentRule implements IntentRule {
         if (containsAny(normalized, "tranh chap", "mo tranh chap", "khi nao nen mo tranh chap", "tai bang chung tranh chap",
                 "khieu nai gia su", "khieu nai lop hoc bi huy", "giai quyet tranh chap", "mo khieu nai", "khieu nai",
                 "bo day", "gia su bo day", "bo tiet", "gia su bo tiet", "nghi day khong phep", "gia su khong den day", "khong den day", "bo ngang")) {
-            return new ClassificationDetail(AiDomain.TRUST_SAFETY, AiSubIntent.DISPUTE_OPEN_HELP, AiIntent.TICKET_SUPPORT, 0.95, "/support/tickets");
+            return new ClassificationDetail(AiDomain.TRUST_SAFETY, AiSubIntent.DISPUTE_OPEN_HELP, AiIntent.TICKET_SUPPORT, 0.95, "/messaging/tickets");
         }
 
         if (containsAny(normalized, "bi phat", "phat canh cao", "che tai khi vi pham", "tru diem uy tin", "tai khoan bi phat", "quy dinh phat vi pham",
@@ -34,7 +34,7 @@ public class TrustSafetyIntentRule implements IntentRule {
         }
 
         if (containsAny(normalized, "to cao vi pham", "bao cao nguoi dung vi pham", "to cao", "bao cao vi pham", "bao cao nguoi dung", "lua dao", "bi lua")) {
-            return new ClassificationDetail(AiDomain.TRUST_SAFETY, AiSubIntent.REPORT_USER_CREATE, AiIntent.TICKET_SUPPORT, 0.95, "/support/tickets");
+            return new ClassificationDetail(AiDomain.TRUST_SAFETY, AiSubIntent.REPORT_USER_CREATE, AiIntent.TICKET_SUPPORT, 0.95, "/messaging/tickets");
         }
 
         return null;

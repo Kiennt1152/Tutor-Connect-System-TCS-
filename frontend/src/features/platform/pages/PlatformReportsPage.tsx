@@ -12,7 +12,6 @@ import {
   type BankOption,
 } from '../../finance/components/BankPicker';
 import { AdminLayout } from '../components/AdminLayout';
-import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { platformApi } from '../api/platformApi';
 import { useDisputeReviewList } from '../hooks/useDisputeReviewList';
 import {
@@ -1837,10 +1836,19 @@ export default function PlatformReportsPage() {
       setSelectedClassReportId(null);
       return;
     }
+    if (targetId && (targetTab === 'reports' || targetTab === 'class-issues')) {
+      const targetMatch = filteredClassReports.find(
+        (item: ReportItem) => String(item.id) === String(targetId) || String(item.raw?.reportId) === String(targetId)
+      );
+      if (targetMatch) {
+        setSelectedClassReportId(targetMatch.id);
+        return;
+      }
+    }
     if (!selectedClassReportId || !filteredClassReports.some((item: ReportItem) => item.id === selectedClassReportId)) {
       setSelectedClassReportId(filteredClassReports[0].id);
     }
-  }, [filteredClassReports, selectedClassReportId]);
+  }, [filteredClassReports, selectedClassReportId, targetId, targetTab]);
 
   useEffect(() => {
     if (!targetTab) return;
@@ -1857,6 +1865,7 @@ export default function PlatformReportsPage() {
 
   useEffect(() => {
     if (!targetId || disputes.items.length === 0) return;
+    if (targetTab && targetTab !== 'disputes') return;
     if (handledTargetIdRef.current === targetId) return;
     const match = disputes.items.find((item) =>
       String(item.id) === String(targetId)
@@ -1868,7 +1877,7 @@ export default function PlatformReportsPage() {
       disputes.selectDispute(match);
       setActiveTab('disputes');
     }
-  }, [disputes.items, targetId, disputes]);
+  }, [disputes.items, targetId, targetTab, disputes]);
 
   const openDisputeCount = disputes.items.filter((item) => item.status !== 'RESOLVED').length;
   const heldEscrowCount = disputes.items.filter((item) => isEscrowHeldForDispute(item.escrowStatus)).length;
@@ -1882,10 +1891,19 @@ export default function PlatformReportsPage() {
       setSelectedReviewReportId(null);
       return;
     }
+    if (targetId && targetTab === 'reviews') {
+      const targetMatch = reviewReports.find(
+        (item) => String(item.id) === String(targetId) || String(item.raw?.reportId) === String(targetId)
+      );
+      if (targetMatch) {
+        setSelectedReviewReportId(targetMatch.id);
+        return;
+      }
+    }
     if (!selectedReviewReportId || !reviewReports.some((item) => item.id === selectedReviewReportId)) {
       setSelectedReviewReportId(reviewReports[0].id);
     }
-  }, [reviewReports, selectedReviewReportId]);
+  }, [reviewReports, selectedReviewReportId, targetId, targetTab]);
 
   const selectDispute = (item: DisputeReviewItem) => {
     disputes.selectDispute(item);
@@ -1923,8 +1941,6 @@ export default function PlatformReportsPage() {
           <p className="adm-summary-card__value">{openReviewReportCount}</p>
         </article>
       </div>
-
-      <AdminTimeFilter showGranularity={false} />
 
       {/* Tabs chuyển đổi phân hệ */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '1.25rem', flexWrap: 'wrap' }}>

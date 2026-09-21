@@ -153,12 +153,14 @@ export const ADMIN_STATS: AdminStatConfig[] = [
     label: 'Lớp học',
     tone: 'default',
     icon: 'book',
+    to: APP_ROUTES.platformClasses,
   },
   {
     key: 'activeClasses',
     label: 'Lớp đang diễn ra',
     tone: 'primary',
     icon: 'book',
+    to: APP_ROUTES.platformClasses,
   },
   {
     key: 'pendingVerifications',
@@ -186,7 +188,7 @@ export const ADMIN_STATS: AdminStatConfig[] = [
     label: 'Tranh chấp giao dịch',
     tone: 'warn',
     icon: 'flag',
-    to: APP_ROUTES.platformTasks,
+    to: `${APP_ROUTES.platformReports}?tab=disputes`,
   },
 ];
 
@@ -195,13 +197,13 @@ export const ADMIN_PRIORITY_ITEMS = [
     key: 'openDisputes' as const,
     label: 'Tranh chấp giao dịch',
     icon: 'flag' as const,
-    to: APP_ROUTES.platformTasks,
+    to: `${APP_ROUTES.platformReports}?tab=disputes`,
   },
   {
     key: 'pendingWithdrawals' as const,
     label: 'Rút tiền chờ duyệt',
     icon: 'check-square' as const,
-    to: APP_ROUTES.platformTasks,
+    to: APP_ROUTES.platformWithdrawals,
   },
   {
     key: 'pendingVerifications' as const,

@@ -490,6 +490,12 @@ public class PlatformServiceImpl implements PlatformService {
         return DashboardResponse.builder()
                 .totalUsers(analyticsSummary.getTotalUsers())
                 .totalClasses(analyticsSummary.getTotalClasses())
+                .pendingVerifications(taskSummary.getPendingVerifications())
+                .openReports(taskSummary.getOpenReports())
+                .openTickets(taskSummary.getOpenTickets())
+                .pendingWithdrawals(taskSummary.getPendingWithdrawals())
+                .pendingRefunds(taskSummary.getPendingRefunds())
+                .openDisputes(taskSummary.getOpenDisputes())
                 .riskSummary(riskSummary)
                 .financialFlow(financialFlow)
                 .tutorHealth(tutorHealth)
@@ -1446,12 +1452,14 @@ public class PlatformServiceImpl implements PlatformService {
             ticket.setPriority(newPriority);
             supportTicketRepository.save(ticket);
 
-            // Ghi Audit Log hành động SLA_BREACH_ESCALATION
+            Map<String, Object> oldValues = new java.util.HashMap<>();
+            oldValues.put("oldPriority", oldPriority);
+            oldValues.put("slaBreached", false);
             auditLogService.record(
                     "SLA_BREACH_ESCALATION",
                     "SupportTicket",
                     ticket.getTicketId(),
-                    Map.of("oldPriority", oldPriority, "slaBreached", false),
+                    oldValues,
                     Map.of("newPriority", newPriority, "slaBreached", true));
 
             // Gửi thông báo nhắc nhở cảnh báo khẩn cấp đến Admin

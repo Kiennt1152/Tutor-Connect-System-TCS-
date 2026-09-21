@@ -27,8 +27,22 @@ public class DashboardResponse {
     
     private List<DashboardAlertResponse> alerts;
 
+    // Operational priority counters for backward compatibility & home stats
+    private long pendingVerifications;
+    private long openReports;
+    private long openTickets;
+    private long pendingWithdrawals;
+    private long pendingRefunds;
+    private long openDisputes;
+
     public long getTotalUsers() { return totalUsers; }
     public long getTotalClasses() { return totalClasses; }
+    public long getPendingVerifications() { return pendingVerifications; }
+    public long getOpenReports() { return openReports; }
+    public long getOpenTickets() { return openTickets; }
+    public long getPendingWithdrawals() { return pendingWithdrawals; }
+    public long getPendingRefunds() { return pendingRefunds; }
+    public long getOpenDisputes() { return openDisputes; }
     public RiskSummaryResponse getRiskSummary() { return riskSummary; }
     public FinancialFlowResponse getFinancialFlow() { return financialFlow; }
     public HealthMetricsResponse getTutorHealth() { return tutorHealth; }

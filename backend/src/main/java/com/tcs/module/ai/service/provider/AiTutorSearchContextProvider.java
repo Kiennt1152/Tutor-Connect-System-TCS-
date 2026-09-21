@@ -138,7 +138,7 @@ public class AiTutorSearchContextProvider {
             case "toan", "toan hoc", "math" -> containsWordOrPhrase(bioNorm, "toan", "toan hoc", "giai tich", "hinh hoc", "dai so", "math", "khoi a", "khoi a1", "khoi b", "khoi d");
             case "ly", "vat ly", "physics" -> containsWordOrPhrase(bioNorm, "vat ly", "mon ly", "day ly", "gia su ly", "physics", "khoi a", "khoi a1");
             case "hoa", "hoa hoc", "chemistry" -> containsWordOrPhrase(bioNorm, "hoa hoc", "mon hoa", "day hoa", "gia su hoa", "chemistry", "khoi a", "khoi b");
-            case "anh", "tieng anh", "ngoai ngu", "ielts", "toeic", "english" -> containsWordOrPhrase(bioNorm, "tieng anh", "anh van", "ielts", "toeic", "toefl", "english", "mon anh", "day anh", "gia su anh", "khoi d", "khoi a1");
+            case "anh", "tieng anh", "tieng anh ielts", "tieng anh toeic", "ngoai ngu", "ielts", "toeic", "english" -> containsWordOrPhrase(bioNorm, "tieng anh", "anh van", "ielts", "toeic", "toefl", "english", "mon anh", "day anh", "gia su anh", "khoi d", "khoi a1");
             case "van", "ngu van", "van hoc", "literature" -> containsWordOrPhrase(bioNorm, "ngu van", "van hoc", "mon van", "day van", "gia su van", "khoi d", "khoi c", "chuyen van", "van cap 2", "van cap 3", "van 10", "van 11", "van 12", "van 9", "van 8", "van 7", "van 6");
             case "tin", "tin hoc", "lap trinh", "python", "lap trinh python", "coding", "scratch", "java", "c++" -> containsWordOrPhrase(bioNorm, "tin hoc", "lap trinh", "scratch", "python", "java", "c++", "coding", "mon tin", "day tin", "gia su tin");
             case "sinh", "sinh hoc", "biology" -> containsWordOrPhrase(bioNorm, "sinh hoc", "mon sinh", "day sinh", "gia su sinh", "biology", "khoi b");

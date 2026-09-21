@@ -19,7 +19,6 @@ import { createPortal } from 'react-dom';
 import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
-import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { Pagination } from '../../../shared/components';
 import {
   useAdminTicketDetail,
@@ -709,8 +708,6 @@ export default function PlatformTicketsPage() {
           <p className="adm-summary-card__value">{data?.totalElements ?? '—'}</p>
         </article>
       </div>
-
-      <AdminTimeFilter showGranularity={false} />
 
       <div className="adm-card">
         <div className="adm-ticket-filters">

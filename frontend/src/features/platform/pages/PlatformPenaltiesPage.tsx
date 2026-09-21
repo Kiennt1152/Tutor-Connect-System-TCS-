@@ -16,7 +16,6 @@ import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
-import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { Pagination } from '../../../shared/components';
 import { platformApi } from '../api/platformApi';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
@@ -230,8 +229,6 @@ export default function PlatformPenaltiesPage() {
           </button>
         </div>
       </div>
-
-      <AdminTimeFilter showGranularity={false} />
 
       {/* Filters */}
       <div className="adm-penalty-filters">

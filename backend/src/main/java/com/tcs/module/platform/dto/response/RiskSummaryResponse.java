@@ -22,4 +22,10 @@ public class RiskSummaryResponse {
     public long getPendingRefunds() { return pendingRefunds; }
     public BigDecimal getEscrowExposure() { return escrowExposure; }
     public long getUnhandledReports() { return unhandledReports; }
+
+    // Frontend compatibility aliases
+    public long getHighRiskTasks() { return overdueTickets; }
+    public BigDecimal getMoneyAtRisk() { return escrowExposure != null ? escrowExposure : BigDecimal.ZERO; }
+    public long getActiveDisputes() { return openDisputes; }
+    public long getUnresolvedReports() { return unhandledReports; }
 }

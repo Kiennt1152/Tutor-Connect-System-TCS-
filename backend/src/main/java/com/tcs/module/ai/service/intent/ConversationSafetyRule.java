@@ -84,7 +84,7 @@ public class ConversationSafetyRule implements IntentRule {
 
         // HUMAN_SUPPORT_REQUEST
         if (containsAny(normalized, "gap nguoi ho tro", "gap nhan vien", "gap admin", "cham soc khach hang", "gap cskh", "gap tong dai", "cho toi gap nguoi ho tro")) {
-            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.HUMAN_SUPPORT_REQUEST, AiIntent.TICKET_SUPPORT, 1.0, "/support/tickets");
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.HUMAN_SUPPORT_REQUEST, AiIntent.TICKET_SUPPORT, 1.0, "/messaging/tickets");
         }
 
         // ARITHMETIC / OUT_OF_SCOPE CALCULATION & HOMEWORK

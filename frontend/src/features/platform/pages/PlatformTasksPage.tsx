@@ -14,7 +14,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
-import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { Pagination } from '../../../shared/components';
 import { platformApi } from '../api/platformApi';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
@@ -134,7 +133,6 @@ export default function PlatformTasksPage() {
 
   return (
     <AdminLayout title="Hàng đợi công việc" subtitle="Quản lý và xử lý các yêu cầu, báo cáo trên hệ thống.">
-      <AdminTimeFilter showGranularity={false} />
       {summary && (
         <div className="adm-task-kpis">
           <article 

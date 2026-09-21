@@ -19,14 +19,14 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   }).format(value);
 
-const toPercent = (paramValue: string | null | undefined) => {
+const toPercent = (paramValue: string | number | null | undefined) => {
   const parsed = Number(paramValue);
   if (!Number.isFinite(parsed)) return '2';
   return String(Number((parsed * 100).toFixed(4)));
 };
 
 const toRateValue = (percentValue: string) => {
-  const normalized = percentValue.replace(',', '.').trim();
+  const normalized = percentValue.replace('%', '').replace(',', '.').trim();
   const parsed = Number(normalized);
   if (!Number.isFinite(parsed)) return null;
   return Number((parsed / 100).toFixed(6)).toString();
@@ -91,9 +91,9 @@ export default function PlatformFeeSettingsPage() {
   }, []);
 
   const preview = useMemo(() => {
-    const normalized = feePercent.replace(',', '.').trim();
+    const normalized = feePercent.replace('%', '').replace(',', '.').trim();
     const percent = Number(normalized);
-    if (!Number.isFinite(percent) || percent < 0) {
+    if (!Number.isFinite(percent) || percent < 0 || percent > 50) {
       return null;
     }
     const escrowAmount = 1000000;
@@ -111,10 +111,25 @@ export default function PlatformFeeSettingsPage() {
     setMessage('');
     setErrorMessage('');
 
-    const normalized = feePercent.replace(',', '.').trim();
-    const percent = Number(normalized);
-    if (!Number.isFinite(percent) || percent < 0 || percent > 50) {
-      setErrorMessage('Phí nền tảng phải nằm trong khoảng 0% đến 50%.');
+    const raw = feePercent.replace('%', '').replace(',', '.').trim();
+    if (!raw) {
+      setErrorMessage('Vui lòng nhập tỷ lệ phí nền tảng.');
+      return;
+    }
+
+    const percent = Number(raw);
+    if (!Number.isFinite(percent)) {
+      setErrorMessage('Tỷ lệ phí phải là một số hợp lệ.');
+      return;
+    }
+
+    if (percent < 0) {
+      setErrorMessage('Tỷ lệ phí không được là số âm. Phí nền tảng phải là số dương từ 0% đến 50%.');
+      return;
+    }
+
+    if (percent > 50) {
+      setErrorMessage('Tỷ lệ phí vượt quá giới hạn tối đa cho phép (50%). Phí nền tảng phải nằm trong khoảng từ 0% đến 50%.');
       return;
     }
 
@@ -168,9 +183,25 @@ export default function PlatformFeeSettingsPage() {
     if (!editingCenter) return;
 
     setModalError('');
-    const parsedPercent = Number(editPercent.replace(',', '.').trim());
-    if (!Number.isFinite(parsedPercent) || parsedPercent < 0 || parsedPercent > 50) {
-      setModalError('Tỷ lệ phí phải nằm trong khoảng từ 0% đến 50%.');
+    const raw = editPercent.replace('%', '').replace(',', '.').trim();
+    if (!raw) {
+      setModalError('Vui lòng nhập tỷ lệ phí cho trung tâm.');
+      return;
+    }
+
+    const parsedPercent = Number(raw);
+    if (!Number.isFinite(parsedPercent)) {
+      setModalError('Tỷ lệ phí phải là một số hợp lệ.');
+      return;
+    }
+
+    if (parsedPercent < 0) {
+      setModalError('Tỷ lệ phí không được là số âm. Phí tùy chỉnh phải là số dương từ 0% đến 50%.');
+      return;
+    }
+
+    if (parsedPercent > 50) {
+      setModalError('Tỷ lệ phí vượt quá giới hạn tối đa cho phép (50%). Phí tùy chỉnh phải nằm trong khoảng từ 0% đến 50%.');
       return;
     }
 
@@ -193,7 +224,7 @@ export default function PlatformFeeSettingsPage() {
   };
 
   const handleResetCenterFee = async (center: CenterFeeConfigApiResponse) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn khôi phục mức phí của "${center.companyName}" về mức mặc định toàn sàn (${((center.defaultPlatformFeeRate ?? 0.02) * 100).toFixed(0)}%)?`)) {
+    if (!window.confirm(`Bạn có chắc chắn muốn khôi phục mức phí của "${center.companyName}" về mức mặc định toàn sàn (${toPercent(center.defaultPlatformFeeRate)}%)?`)) {
       return;
     }
 
@@ -222,8 +253,8 @@ export default function PlatformFeeSettingsPage() {
 
   // Modal Preview Calculation
   const modalPreview = useMemo(() => {
-    const parsed = Number(editPercent.replace(',', '.').trim());
-    if (!Number.isFinite(parsed) || parsed < 0) return null;
+    const parsed = Number(editPercent.replace('%', '').replace(',', '.').trim());
+    if (!Number.isFinite(parsed) || parsed < 0 || parsed > 50) return null;
     const sample = 2000000;
     const fee = Math.round((sample * parsed) / 100);
     return {
@@ -261,24 +292,44 @@ export default function PlatformFeeSettingsPage() {
           )}
 
           {status === 'success' && (
-            <form className="fee-settings-form" onSubmit={(event) => void handleSubmit(event)}>
+            <form className="fee-settings-form" onSubmit={(event) => void handleSubmit(event)} noValidate>
               <label className="adm-field-group" htmlFor="platform-fee-rate">
                 <span>Tỷ lệ phí mặc định (%)</span>
                 <div className="fee-settings-input">
                   <input
                     id="platform-fee-rate"
                     className="adm-field"
-                    type="number"
-                    min="0"
-                    max="50"
-                    step="0.01"
+                    type="text"
+                    inputMode="decimal"
                     value={feePercent}
-                    onChange={(event) => setFeePercent(event.target.value)}
-                    placeholder="Ví dụ: 2"
+                    onChange={(event) => {
+                      setFeePercent(event.target.value);
+                      if (errorMessage) setErrorMessage('');
+                      if (message) setMessage('');
+                    }}
+                    placeholder="Ví dụ: 2 hoặc 3.5"
                     required
                   />
                   <span>%</span>
                 </div>
+                {(() => {
+                  const val = Number(feePercent.replace('%', '').replace(',', '.').trim());
+                  if (Number.isFinite(val) && val < 0) {
+                    return (
+                      <div style={{ color: '#dc2626', fontSize: '0.82rem', marginTop: '4px', fontWeight: 500 }}>
+                        ⚠️ Tỷ lệ phí không được là số âm (tối thiểu 0%).
+                      </div>
+                    );
+                  }
+                  if (Number.isFinite(val) && val > 50) {
+                    return (
+                      <div style={{ color: '#dc2626', fontSize: '0.82rem', marginTop: '4px', fontWeight: 500 }}>
+                        ⚠️ Tỷ lệ phí vượt quá giới hạn tối đa cho phép (tối đa 50%).
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
               </label>
 
               <div className="fee-settings-note">
@@ -418,7 +469,7 @@ export default function PlatformFeeSettingsPage() {
                         </span>
                       ) : (
                         <span className="center-badge center-badge--default">
-                          Mặc định sàn ({((center.defaultPlatformFeeRate ?? 0.02) * 100).toFixed(0)}%)
+                          Mặc định sàn ({toPercent(center.defaultPlatformFeeRate)}%)
                         </span>
                       )}
                     </td>
@@ -467,7 +518,7 @@ export default function PlatformFeeSettingsPage() {
               </button>
             </div>
 
-            <form onSubmit={(e) => void handleSaveCenterFee(e)}>
+            <form onSubmit={(e) => void handleSaveCenterFee(e)} noValidate>
               <div className="center-fee-modal__body">
                 {modalError && <div className="adm-alert adm-alert--error">{modalError}</div>}
 
@@ -475,18 +526,37 @@ export default function PlatformFeeSettingsPage() {
                   <span>Tỷ lệ phí tùy chỉnh (%)</span>
                   <div className="fee-settings-input" style={{ maxWidth: '100%' }}>
                     <input
-                      type="number"
+                      type="text"
+                      inputMode="decimal"
                       className="adm-field"
-                      min="0"
-                      max="50"
-                      step="0.01"
                       value={editPercent}
-                      onChange={(e) => setEditPercent(e.target.value)}
+                      onChange={(e) => {
+                        setEditPercent(e.target.value);
+                        if (modalError) setModalError('');
+                      }}
                       placeholder="Ví dụ: 1.5"
                       required
                     />
                     <span>%</span>
                   </div>
+                  {(() => {
+                    const val = Number(editPercent.replace('%', '').replace(',', '.').trim());
+                    if (Number.isFinite(val) && val < 0) {
+                      return (
+                        <div style={{ color: '#dc2626', fontSize: '0.82rem', marginTop: '4px', fontWeight: 500 }}>
+                          ⚠️ Tỷ lệ phí không được là số âm (tối thiểu 0%).
+                        </div>
+                      );
+                    }
+                    if (Number.isFinite(val) && val > 50) {
+                      return (
+                        <div style={{ color: '#dc2626', fontSize: '0.82rem', marginTop: '4px', fontWeight: 500 }}>
+                          ⚠️ Tỷ lệ phí vượt quá giới hạn tối đa cho phép (tối đa 50%).
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                   <div className="center-fee-quick-rates">
                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', alignSelf: 'center' }}>
                       Gợi ý:

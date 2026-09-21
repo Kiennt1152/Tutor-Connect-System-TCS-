@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type { MessageResponse } from '../types/messagingTypes';
 import { MessageBubble } from './MessageBubble';
 
@@ -19,15 +19,44 @@ export function MessageThread({
 }: MessageThreadProps) {
   const bottomRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const prevScrollHeightRef = useRef<number>(0);
+  const isPrependingRef = useRef<boolean>(false);
+  const isInitialLoadRef = useRef<boolean>(true);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' });
+    if (messages.length === 0) {
+      isInitialLoadRef.current = true;
+      isPrependingRef.current = false;
+    }
   }, [messages.length]);
+
+  useLayoutEffect(() => {
+    const el = containerRef.current;
+    if (!el || messages.length === 0) return;
+
+    if (isPrependingRef.current) {
+      // Khi nạp tin nhắn cũ ở đầu: giữ nguyên vị trí màn hình đọc
+      const diff = el.scrollHeight - prevScrollHeightRef.current;
+      el.scrollTop = diff;
+      isPrependingRef.current = false;
+    } else if (isInitialLoadRef.current) {
+      // Lần đầu mở hội thoại: cuộn tức thì xuống tin nhắn mới nhất
+      el.scrollTop = el.scrollHeight;
+      requestAnimationFrame(() => {
+        isInitialLoadRef.current = false;
+      });
+    } else {
+      // Tin nhắn mới được gửi đi hoặc nhận qua realtime
+      bottomRef.current?.scrollIntoView({ block: 'end' });
+    }
+  }, [messages]);
 
   function handleScroll() {
     const el = containerRef.current;
-    if (!el || !hasMore || loading) return;
+    if (!el || !hasMore || loading || isInitialLoadRef.current) return;
     if (el.scrollTop < 80) {
+      prevScrollHeightRef.current = el.scrollHeight;
+      isPrependingRef.current = true;
       onLoadMore();
     }
   }

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
-import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { Pagination } from '../../../shared/components';
 import { useWithdrawalDecision } from '../hooks/usePlatformMutations';
 import { useWithdrawalList } from '../hooks/useWithdrawalList';
@@ -193,8 +192,6 @@ export default function PlatformWithdrawalsPage() {
           </article>
         </section>
       )}
-
-      <AdminTimeFilter showGranularity={false} />
 
       <div className="adm-card pw-card">
         <div className="adm-toolbar pw-toolbar">

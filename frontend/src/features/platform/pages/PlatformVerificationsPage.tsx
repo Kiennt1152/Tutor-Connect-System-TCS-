@@ -313,7 +313,7 @@ export default function PlatformVerificationsPage() {
                         <span className="pv-kv__k">Số điện thoại</span>
                         <span className="pv-kv__v">{detail.submitterPhone ?? '—'}</span>
                       </div>
-                      {Object.entries(detail.submitterDetails).map(([k, v]) => (
+                      {Object.entries(detail.submitterDetails || {}).map(([k, v]) => (
                         <div className="pv-kv__row" key={k}>
                           <span className="pv-kv__k">{k}</span>
                           <span className="pv-kv__v">{v}</span>

@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import HomePage from '../features/home/pages/HomePage';
 import FindTutorPage from '../features/home/pages/FindTutorPage';
 import PostTutorRequestPage from '../features/home/pages/PostTutorRequestPage';
@@ -539,6 +539,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/support/tickets" element={<Navigate to={APP_ROUTES.messagingTickets} replace />} />
         </Routes>
         <WalletActivationPrompt />
         <AiFloatingWidget />

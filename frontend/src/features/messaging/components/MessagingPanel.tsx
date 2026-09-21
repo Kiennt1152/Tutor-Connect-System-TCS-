@@ -11,6 +11,7 @@
  */
 
 import { useState, type FormEvent } from 'react';
+import { useSearchParams, useLocation } from 'react-router-dom';
 import { EvidencePreviewList } from '../../../shared/components/EvidencePreviewList';
 import type { SupportTicketCategory, SupportTicketPriority } from '../types/messagingTypes';
 import { useCreateTicket, useTicketDetail, useTicketList, useTicketMutations } from '../hooks/useMessaging';
@@ -110,13 +111,21 @@ const PRIORITIES: { value: SupportTicketPriority; label: string }[] = [
 type CreateTicketProps = {
   onCancel: () => void;
   onCreated: () => void;
+  initialSubject?: string;
+  initialCategory?: SupportTicketCategory;
 };
 
-function CreateTicketForm({ onCancel, onCreated }: CreateTicketProps) {
-  const [category, setCategory] = useState<SupportTicketCategory>('INQUIRY');
-  const [subject, setSubject] = useState('');
-  const [description, setDescription] = useState('');
-  const [priority, setPriority] = useState<SupportTicketPriority>('LOW');
+function CreateTicketForm({ onCancel, onCreated, initialSubject = '', initialCategory = 'INQUIRY' }: CreateTicketProps) {
+  const [category, setCategory] = useState<SupportTicketCategory>(initialCategory);
+  const [subject, setSubject] = useState(initialSubject);
+  const [description, setDescription] = useState(
+    initialSubject.toLowerCase().includes('nap tien') || initialSubject.toLowerCase().includes('nạp tiền')
+      ? 'Tôi chuyển khoản nạp tiền vào ví nhưng sau 2 tiếng vẫn chưa thấy hệ thống cộng số dư. Đính kèm biên lai chuyển khoản và mã giao dịch để nhờ TCS kiểm tra và đối soát cộng tiền thủ công.'
+      : ''
+  );
+  const [priority, setPriority] = useState<SupportTicketPriority>(
+    initialSubject.toLowerCase().includes('nap tien') || initialSubject.toLowerCase().includes('nạp tiền') ? 'HIGH' : 'LOW'
+  );
 
   const { status, errorMessage, submit } = useCreateTicket(onCreated);
 
@@ -399,7 +408,16 @@ type MessagingPanelProps = {
 };
 
 export function MessagingPanel({ defaultView = 'list' }: MessagingPanelProps) {
-  const [view, setView] = useState<View>(defaultView);
+  const [searchParams] = useSearchParams();
+  const location = useLocation();
+
+  const actionParam = searchParams.get('action') || (location.state as any)?.action;
+  const initialSubject = searchParams.get('subject') || (location.state as any)?.subject || '';
+  const initialCategory = ((searchParams.get('category') as SupportTicketCategory) ||
+    (location.state as any)?.category ||
+    (initialSubject.toLowerCase().includes('nap tien') || initialSubject.toLowerCase().includes('nạp tiền') ? 'SYSTEM_ERROR' : 'INQUIRY')) as SupportTicketCategory;
+
+  const [view, setView] = useState<View>(actionParam === 'create' ? 'create' : defaultView);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [listKey, setListKey] = useState(0);
 
@@ -426,6 +444,8 @@ export function MessagingPanel({ defaultView = 'list' }: MessagingPanelProps) {
         <CreateTicketForm
           onCancel={() => setView('list')}
           onCreated={handleCreated}
+          initialSubject={initialSubject}
+          initialCategory={initialCategory}
         />
       )}
       {view === 'detail' && selectedId && (

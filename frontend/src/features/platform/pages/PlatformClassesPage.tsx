@@ -618,9 +618,11 @@ export default function PlatformClassesPage() {
                           <div className="cs-chips">
                             {c.subjectName && <span className="cs-chip">{c.subjectName}</span>}
                             {c.gradeName && <span className="cs-chip">{c.gradeName}</span>}
-                            <span className="cs-chip">
-                              {LESSON_MODE_LABELS[c.lessonMode] || c.lessonMode}
-                            </span>
+                            {c.lessonMode && (
+                              <span className="cs-chip">
+                                {LESSON_MODE_LABELS[c.lessonMode] || c.lessonMode}
+                              </span>
+                            )}
                             {c.rescheduled && (
                               <span className="cs-chip cs-chip--resched">{c.rescheduleNote || 'Có đổi lịch / dạy thay'}</span>
                             )}

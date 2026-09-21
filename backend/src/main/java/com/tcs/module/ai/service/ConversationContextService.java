@@ -124,7 +124,9 @@ public class ConversationContextService {
                 normalized.contains("gia bao nhieu") || normalized.contains("gia mot buoi") || normalized.contains("gia 1 buoi") ||
                 normalized.contains("hoc phi bao nhieu") || normalized.contains("chi phi bao nhieu") || normalized.contains("bao nhieu mot buoi") ||
                 normalized.contains("bao nhieu 1 buoi") || normalized.equals("gia bao nhieu") || normalized.equals("hoc phi bao nhieu") ||
-                normalized.startsWith("gia ") || normalized.startsWith("hoc phi ") || normalized.startsWith("chi phi ");
+                normalized.startsWith("gia ") || normalized.startsWith("hoc phi ") || normalized.startsWith("chi phi ") ||
+                containsAny(normalized, "hoc thu", "day thu", "buoi dau", "buoi hoc dau", "doi gia su", "doi nguoi day", "co duoc khong", "co duoc hoc thu") ||
+                normalized.startsWith("vay ") || normalized.startsWith("the ") || normalized.startsWith("co duoc ");
 
         if (!isFollowUp) {
             return currentQuery;
@@ -152,6 +154,30 @@ public class ConversationContextService {
                 }
             }
             return expanded.toString().trim();
+        }
+
+        // 1.5. Trial lesson / Tutor change inquiries ("vậy có được học thử buổi đầu không?", "học thử thế nào?")
+        if (containsAny(normalized, "hoc thu", "day thu", "buoi dau", "doi gia su", "doi nguoi day")) {
+            String subjectContext = null;
+            if (!currentHasSubject && ctx.lastEntities() != null && ctx.lastEntities().containsKey("subject")) {
+                subjectContext = ctx.lastEntities().get("subject");
+            } else if (!currentHasSubject && ctx.lastQuery() != null) {
+                String lqNorm = VietnameseTextNormalizer.removeDiacritics(ctx.lastQuery().toLowerCase(Locale.ROOT));
+                if (lqNorm.contains("ielts")) subjectContext = "tiếng Anh IELTS";
+                else if (lqNorm.contains("toeic")) subjectContext = "tiếng Anh TOEIC";
+                else if (lqNorm.contains("tieng anh")) subjectContext = "tiếng Anh";
+                else if (lqNorm.contains("toan")) subjectContext = "Toán";
+                else if (lqNorm.contains("van")) subjectContext = "Ngữ văn";
+                else if (lqNorm.contains("ly")) subjectContext = "Vật lý";
+                else if (lqNorm.contains("hoa")) subjectContext = "Hóa học";
+            }
+
+            if (subjectContext != null) {
+                String base = currentQuery.endsWith("?") ? currentQuery.substring(0, currentQuery.length() - 1).trim() : currentQuery.trim();
+                expanded.setLength(0);
+                expanded.append(base).append(" đối với gia sư môn ").append(subjectContext).append("?");
+                return expanded.toString().trim();
+            }
         }
 
         // 2. Subject / Grade Switch Follow-up ("còn toán thì sao?", "thế còn môn lý?", "còn lớp 10?")
@@ -237,7 +263,9 @@ public class ConversationContextService {
                 normalized.contains("gia bao nhieu") || normalized.contains("gia mot buoi") || normalized.contains("gia 1 buoi") ||
                 normalized.contains("hoc phi bao nhieu") || normalized.contains("chi phi bao nhieu") || normalized.contains("bao nhieu mot buoi") ||
                 normalized.contains("bao nhieu 1 buoi") || normalized.equals("gia bao nhieu") || normalized.equals("hoc phi bao nhieu") ||
-                normalized.startsWith("gia ") || normalized.startsWith("hoc phi ") || normalized.startsWith("chi phi ");
+                normalized.startsWith("gia ") || normalized.startsWith("hoc phi ") || normalized.startsWith("chi phi ") ||
+                containsAny(normalized, "hoc thu", "day thu", "buoi dau", "buoi hoc dau", "doi gia su", "doi nguoi day", "co duoc khong", "co duoc hoc thu") ||
+                normalized.startsWith("vay ") || normalized.startsWith("the ") || normalized.startsWith("co duoc ");
 
         if (!isFollowUpPattern) {
             return new FollowUpResolution(false, null, null, currentEntities);

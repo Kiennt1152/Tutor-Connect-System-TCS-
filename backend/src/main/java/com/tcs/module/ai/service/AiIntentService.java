@@ -319,7 +319,15 @@ public class AiIntentService {
         } else if (lower.contains("tiếng hàn") || normalized.contains("tieng han") || normalized.contains("korean") || lower.contains("topik")) {
             entities.put("subject", "Tiếng Hàn");
         } else if (lower.contains("tiếng anh") || normalized.contains("tieng anh") || normalized.contains("ielts") || normalized.contains("toeic") || lower.contains("english") || lower.contains("môn anh") || normalized.contains("gia su anh") || normalized.contains("lop anh")) {
-            entities.put("subject", "Anh");
+            if (lower.contains("ielts") || normalized.contains("ielts")) {
+                entities.put("subject", "tiếng Anh IELTS");
+                entities.put("certLevel", "IELTS");
+            } else if (lower.contains("toeic") || normalized.contains("toeic")) {
+                entities.put("subject", "tiếng Anh TOEIC");
+                entities.put("certLevel", "TOEIC");
+            } else {
+                entities.put("subject", "Anh");
+            }
         } else if (lower.contains("vật lý") || lower.contains("môn lý") || normalized.contains("vat ly") || lower.contains("physics") || normalized.contains("gia su ly") || normalized.contains("lop ly")) {
             entities.put("subject", "Lý");
         } else if (lower.contains("hóa học") || lower.contains("môn hóa") || normalized.contains("hoa hoc") || lower.contains("chemistry") || normalized.contains("gia su hoa") || normalized.contains("lop hoa") || (lower.contains("hóa") && !lower.contains("chuyển hóa") && !lower.contains("tài khóa"))) {

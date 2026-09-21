@@ -50,7 +50,9 @@ const ROLE_LABELS: Record<AnnouncementTargetRole, string> = {
 function formatDateTime(value: string | null) {
   if (!value) return '—';
   try {
-    return new Date(value).toLocaleString('vi-VN');
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return date.toLocaleString('vi-VN');
   } catch {
     return value;
   }
@@ -58,6 +60,9 @@ function formatDateTime(value: string | null) {
 
 function toInput(value: string | null) {
   if (!value) return '';
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(value)) {
+    return value.slice(0, 16);
+  }
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return '';
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -70,8 +75,8 @@ function toPayload(form: FormState): UpsertAnnouncementApiRequest {
     content: form.content,
     targetRole: form.targetRole === '' ? null : form.targetRole,
     active: form.active,
-    startsAt: form.startsAt ? new Date(form.startsAt).toISOString() : null,
-    endsAt: form.endsAt ? new Date(form.endsAt).toISOString() : null,
+    startsAt: form.startsAt ? (form.startsAt.length === 16 ? `${form.startsAt}:00` : form.startsAt) : null,
+    endsAt: form.endsAt ? (form.endsAt.length === 16 ? `${form.endsAt}:00` : form.endsAt) : null,
   };
 }
 

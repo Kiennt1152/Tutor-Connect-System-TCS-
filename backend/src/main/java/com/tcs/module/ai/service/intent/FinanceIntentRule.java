@@ -18,6 +18,14 @@ public class FinanceIntentRule implements IntentRule {
 
     @Override
     public ClassificationDetail classify(String normalized, String lower) {
+        // Incident / Delayed Wallet Top-up -> Route directly to Support Ticket Creation
+        if (containsAny(normalized, "chua thay cong tien", "chua nhan duoc tien", "chua vao vi", "chua duoc cong tien",
+                "chua cong tien", "chua thay vao so du", "chua thay vao vi", "loi nap tien", "su co nap tien",
+                "2 tieng chua thay", "chuyen khoan lau", "nap tien bi loi", "nap vi bi loi", "chuyen tien ma chua thay",
+                "chuyen khoan ma chua", "nap tien chua vao", "nap vi chua vao", "chua thay cong vao so du")) {
+            return new ClassificationDetail(AiDomain.MESSAGING_TICKET, AiSubIntent.SUPPORT_TICKET_CREATE, AiIntent.TICKET_SUPPORT, 0.98, "/messaging/tickets?action=create&subject=Sự+cố+nạp+tiền+chưa+cộng+số+dư");
+        }
+
         if (containsAny(normalized, "nap tien", "topup", "sepay", "nap qua qr", "nap vi", "phuong thuc thanh toan", "chuyen khoan nap tien", "noi dung chuyen khoan", "ghi sai noi dung")) {
             return new ClassificationDetail(AiDomain.FINANCE_WALLET, AiSubIntent.WALLET_TOPUP, AiIntent.PAYMENT_SUPPORT, 0.95, "/finance");
         }

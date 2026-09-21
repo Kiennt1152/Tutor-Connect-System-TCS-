@@ -20,6 +20,7 @@ import com.tcs.module.ai.service.provider.AiPublicPlatformStatsContextProvider;
 import com.tcs.module.ai.service.provider.AiTutorFinanceContextProvider;
 import com.tcs.module.ai.service.provider.AiTutorSearchContextProvider;
 import com.tcs.module.ai.util.VietnameseTextNormalizer;
+import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 import com.tcs.module.profile.repository.ClientRepository;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
@@ -575,11 +576,28 @@ public class AiServiceImpl implements AiService {
 
         // Trial Lesson & Changing Tutor
         if (normalized.contains("hoc thu") || lower.contains("học thử") || normalized.contains("doi gia su") || lower.contains("đổi gia sư") || normalized.contains("khong hop") || lower.contains("không hợp")) {
-            return """
-                **Chính sách Học thử & Đổi gia sư tại TCS:**
-                • **Đổi gia sư:** Nếu sau buổi học đầu tiên cảm thấy phong cách dạy chưa phù hợp với học sinh, phụ huynh có quyền yêu cầu đổi gia sư khác hoàn toàn miễn phí.
-                • **Bảo vệ tài chính qua Escrow:** Tiền đặt cọc của các buổi học chưa diễn ra trong quỹ Escrow sẽ được bảo lưu nguyên vẹn 100% để chuyển sang gia sư mới hoặc hoàn về ví của bạn.
-                • Bạn chỉ cần vào mục [Lớp học của tôi](/parent/classes) hoặc gửi yêu cầu tại mục [Hỗ trợ & Khiếu nại](/support/tickets) để được đổi người dạy nhanh chóng.
+            String subjectContext = "";
+            if (normalized.contains("ielts") || lower.contains("ielts")) {
+                subjectContext = " môn **tiếng Anh IELTS** (cũng như các môn học khác trên TCS)";
+            } else if (normalized.contains("toeic") || lower.contains("toeic")) {
+                subjectContext = " môn **tiếng Anh TOEIC** (cũng như các môn học khác trên TCS)";
+            } else if (normalized.contains("tieng anh") || lower.contains("tiếng anh")) {
+                subjectContext = " môn **Tiếng Anh** (cũng như các môn học khác trên TCS)";
+            } else if (normalized.contains("toan") || lower.contains("toán")) {
+                subjectContext = " môn **Toán** (cũng như các môn học khác trên TCS)";
+            }
+            
+            String header = subjectContext.isEmpty() 
+                ? "**Chính sách Học thử & Đổi gia sư tại TCS:**"
+                : "**Chính sách Học thử & Đổi gia sư đối với" + subjectContext + ":**";
+
+            return header + """
+
+                • **Chính sách học thử:** TCS hoàn toàn khuyến khích và cho phép phụ huynh cùng gia sư tự do thỏa thuận buổi học thử đầu tiên (có thể miễn phí hoặc tính phí theo thỏa thuận).
+                • **Thỏa thuận trong Hợp đồng:** Điều khoản về buổi học thử, cam kết mục tiêu học tập (ví dụ mục tiêu band điểm IELTS) và lộ trình giảng dạy đều được ghi nhận minh bạch vào Hợp đồng dịch vụ điện tử tại [Quản lý Hợp đồng](/contracts) trước khi bắt đầu.
+                • **Đổi gia sư miễn phí:** Nếu sau buổi học đầu tiên cảm thấy phương pháp dạy chưa phù hợp với học sinh, phụ huynh có toàn quyền yêu cầu đổi gia sư khác hoàn toàn miễn phí.
+                • **Bảo vệ tài chính qua Escrow:** Toàn bộ học phí các buổi tiếp theo được bảo lưu an toàn 100% trong quỹ ký quỹ Escrow và chỉ giải ngân sau khi phụ huynh xác nhận buổi học đạt chất lượng cam kết.
+                • Bạn có thể trao đổi trực tiếp với gia sư qua [Tin nhắn](/messaging) hoặc gửi yêu cầu tại [Yêu cầu hỗ trợ (Ticket)](/messaging/tickets).
                 """;
         }
 
@@ -664,8 +682,8 @@ public class AiServiceImpl implements AiService {
         if (subIntent == AiSubIntent.DISPUTE_OPEN_HELP || normalized.contains("bo day") || lower.contains("bỏ dạy") || lower.contains("bỏ tiết")) {
             return """
                 **Xử lý khi gia sư bỏ dạy hoặc vi phạm cam kết buổi học:**
-                1. **Trao đổi trực tiếp:** Nhắn tin với gia sư qua mục [Tin nhắn](/chat) để làm rõ nguyên nhân.
-                2. **Mở khiếu nại / Tranh chấp:** Nếu gia sư bỏ dạy không lý do hoặc không liên lạc được, phụ huynh truy cập mục [Hỗ trợ & Khiếu nại](/support/tickets) để tạo Phiếu khiếu nại tranh chấp lớp học.
+                1. **Trao đổi trực tiếp:** Nhắn tin với gia sư qua mục [Tin nhắn](/messaging) để làm rõ nguyên nhân.
+                2. **Mở khiếu nại / Tranh chấp:** Nếu gia sư bỏ dạy không lý do hoặc không liên lạc được, phụ huynh truy cập mục [Hỗ trợ & Khiếu nại](/messaging/tickets) để tạo Phiếu khiếu nại tranh chấp lớp học.
                 3. **Bảo vệ tài chính qua Escrow:** Quản trị viên TCS sẽ đối chiếu dữ liệu điểm danh, xác minh vi phạm và **hoàn trả 100% tiền đặt cọc trong quỹ Escrow** về ví của phụ huynh. Gia sư vi phạm sẽ bị trừ điểm uy tín hoặc khóa tài khoản.
                 """;
         }
@@ -691,7 +709,7 @@ public class AiServiceImpl implements AiService {
         if (subIntent == AiSubIntent.TUTOR_ATTENDANCE_MARK || lower.contains("điểm danh")) {
             return """
                 **Hướng dẫn điểm danh buổi học dành cho gia sư:**
-                1. Sau mỗi buổi dạy, gia sư truy cập mục [Lớp học của tôi](/tutor/classes), chọn lớp học tương ứng.
+                1. Sau mỗi buổi dạy, gia sư truy cập mục [Lớp học của tôi](/classes), chọn lớp học tương ứng.
                 2. Chọn buổi học trong danh sách và bấm nút **"Điểm danh"**.
                 3. **Trường hợp quên điểm danh hôm qua:** Bạn vẫn có thể điểm danh bổ sung trong vòng **24 giờ** kể từ khi buổi học kết thúc. Nếu quá 24 giờ, vui lòng tạo phiếu hỗ trợ để Admin kiểm tra và hỗ trợ đối soát.
                 """;
@@ -712,6 +730,34 @@ public class AiServiceImpl implements AiService {
                 • **Hủy lớp trước 24 giờ:** Học viên được hoàn trả **100%** số tiền đặt cọc trong Escrow về ví.
                 • **Hủy lớp trong vòng 12 - 24 giờ:** Hoàn lại **50%** tiền cọc, 50% còn lại bồi thường cho gia sư.
                 • **Khi có tranh chấp (Gia sư bỏ dạy, dạy sai cam kết):** Admin xem xét và hoàn trả **100%** tiền ký quỹ cho phụ huynh.
+                """;
+        }
+
+        // Delayed Payment / Top-up Incident (IT-BOT-007)
+        if (containsAny(normalized, "chua thay cong tien", "chua vao vi", "chua nhan duoc tien", "chua duoc cong tien", "chua cong tien", "chua thay vao so du", "chua thay vao vi", "2 tieng", "chuyen khoan lau", "nap tien bi loi", "chuyen tien ma chua thay", "chuyen khoan ma chua", "nap tien chua vao", "nap vi chua vao") ||
+            (subIntent == AiSubIntent.SUPPORT_TICKET_CREATE && (normalized.contains("nap") || normalized.contains("chuyen khoan")))) {
+            return """
+                **Xử lý sự cố nạp tiền vào ví chưa thấy cộng số dư:**
+                • **Thời gian xử lý tự động:** Thông thường qua cổng thanh toán tự động VietQR (SePay), số dư sẽ được cộng vào ví của bạn trong vòng **10 – 30 giây**.
+                • **Nguyên nhân chậm trễ:** Nếu sau 2 tiếng vẫn chưa thấy tiền vào số dư ví, sự cố thường xuất phát từ:
+                  1. Hệ thống ngân hàng người chuyển xử lý giao dịch chậm hoặc nghẽn mạng liên ngân hàng.
+                  2. Chuyển khoản sai hoặc thiếu mã nội dung chuyển khoản (Memo Code) nên hệ thống SePay không thể tự động khớp ví nhận.
+                • **Hướng dẫn giải quyết ngay:**
+                  1. Chuẩn bị ảnh chụp **Biên lai chuyển khoản thành công** (thể hiện rõ mã giao dịch, số tiền và nội dung chuyển khoản).
+                  2. Bấm vào liên kết **[Gửi yêu cầu hỗ trợ (Ticket)](/messaging/tickets?action=create&subject=Sự+cố+nạp+tiền+chưa+cộng+số+dư)** để tạo Ticket sự cố mới.
+                  3. Chọn phân loại **"Lỗi hệ thống"** hoặc **"Sự cố nạp tiền"**, đính kèm hình ảnh biên lai ngân hàng.
+                • **Cam kết SLA:** Bộ phận Kế toán & Quản trị viên TCS sẽ đối soát sao kê ngân hàng và cộng tiền thủ công vào ví cho bạn trong vòng **15 – 30 phút**.
+                """;
+        }
+
+        if (subIntent == AiSubIntent.SUPPORT_TICKET_CREATE) {
+            return """
+                **Hướng dẫn tạo Ticket yêu cầu hỗ trợ hoặc báo cáo sự cố:**
+                1. Truy cập mục **[Yêu cầu hỗ trợ (Ticket)](/messaging/tickets)** trên hệ thống TCS.
+                2. Bấm nút **"Tạo yêu cầu mới"** (Create Ticket).
+                3. Chọn chủ đề sự cố (Nạp/rút tiền, Lớp học, Hợp đồng, Điểm danh hoặc Khiếu nại).
+                4. Nhập chi tiết vấn đề bạn đang gặp phải, đính kèm hình ảnh biên lai hoặc bằng chứng (nếu có) và bấm **"Gửi yêu cầu"**.
+                5. Nhân viên CSKH & Kỹ thuật TCS sẽ phản hồi và xử lý nhanh chóng theo đúng cam kết SLA.
                 """;
         }
 

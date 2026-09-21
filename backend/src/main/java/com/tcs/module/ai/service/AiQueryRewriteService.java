@@ -21,20 +21,21 @@ public class AiQueryRewriteService {
         }
 
         String lower = currentMessage.toLowerCase(Locale.ROOT);
-        boolean isFollowUp = lower.contains("r\u1ebb h\u01a1n") || lower.contains("g\u1ea7n h\u01a1n") || 
-                             lower.contains("online") || lower.contains("n\u1eef") || 
-                             lower.contains("nam") || lower.contains("kh\u00e1c") || 
-                             lower.contains("th\u00eam") || lower.contains("cao h\u01a1n") || 
-                             lower.contains("th\u1ea5p h\u01a1n");
+        boolean isFollowUp = lower.contains("rẻ hơn") || lower.contains("gần hơn") || 
+                             lower.contains("online") || lower.contains("nữ") || 
+                             lower.contains("nam") || lower.contains("khác") || 
+                             lower.contains("thêm") || lower.contains("cao hơn") || 
+                             lower.contains("thấp hơn") ||
+                             lower.contains("học thử") || lower.contains("buổi đầu") ||
+                             lower.contains("vậy có") || lower.contains("thế có") ||
+                             lower.contains("được không") || lower.contains("đổi gia sư");
         
         if (isFollowUp) {
             for (int i = history.size() - 1; i >= Math.max(0, history.size() - 6); i--) {
                 AiChatMessage msg = history.get(i);
                 if ("user".equals(msg.getRole())) {
                     IntentClassifier.IntentResult prevIntent = intentClassifier.classify(msg.getContent());
-                    if (prevIntent.intent() == AiIntent.FIND_TUTOR || prevIntent.intent() == AiIntent.FIND_CLASS) {
-                        return new RewriteResult(msg.getContent() + " v\u00e0 c\u00f3 t\u00ednh ch\u1ea5t: " + currentMessage, true, prevIntent.intent());
-                    }
+                    return new RewriteResult(msg.getContent() + " và câu hỏi tiếp nối: " + currentMessage, true, currentIntent);
                 }
             }
         }

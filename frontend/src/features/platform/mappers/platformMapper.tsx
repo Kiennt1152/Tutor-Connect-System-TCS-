@@ -98,11 +98,11 @@ export function mapDashboardResponse(response: DashboardApiResponse): PlatformDa
     totalCenters: response.totalCenters || 0,
     totalClasses: response.totalClasses || 0,
     activeClasses: response.activeClasses || 0,
-    pendingVerifications: response.pendingVerifications || 0,
-    openReports: response.openReports || 0,
-    openTickets: response.openTickets || 0,
-    pendingWithdrawals: response.pendingWithdrawals || 0,
-    openDisputes: response.openDisputes || 0,
+    pendingVerifications: response.pendingVerifications ?? (response as any).taskSummary?.pendingVerifications ?? 0,
+    openReports: response.openReports ?? (response as any).taskSummary?.openReports ?? 0,
+    openTickets: response.openTickets ?? (response as any).taskSummary?.openTickets ?? 0,
+    pendingWithdrawals: response.pendingWithdrawals ?? (response as any).taskSummary?.pendingWithdrawals ?? 0,
+    openDisputes: response.openDisputes ?? (response as any).taskSummary?.openDisputes ?? 0,
     totalRevenue: response.totalRevenue || 0,
     platformFeeRevenue: response.platformFeeRevenue || 0,
     alerts: (response.alerts || []).map((a) => ({
@@ -126,7 +126,12 @@ export function mapDashboardResponse(response: DashboardApiResponse): PlatformDa
     netMovement: response.netMovement || 0,
     escrowHeld: response.escrowHeld || 0,
     activityTimeline: response.activityTimeline || [],
-    riskSummary: response.riskSummary || {
+    riskSummary: response.riskSummary ? {
+      highRiskTasks: (response.riskSummary as any).highRiskTasks ?? (response.riskSummary as any).overdueTickets ?? 0,
+      moneyAtRisk: (response.riskSummary as any).moneyAtRisk ?? (response.riskSummary as any).escrowExposure ?? 0,
+      activeDisputes: (response.riskSummary as any).activeDisputes ?? (response.riskSummary as any).openDisputes ?? 0,
+      unresolvedReports: (response.riskSummary as any).unresolvedReports ?? (response.riskSummary as any).unhandledReports ?? 0,
+    } : {
       highRiskTasks: 0, moneyAtRisk: 0, activeDisputes: 0, unresolvedReports: 0
     },
     financialFlow: response.financialFlow || {
