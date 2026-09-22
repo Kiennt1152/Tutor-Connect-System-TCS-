@@ -4497,6 +4497,15 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         // Môn học không bắt buộc: phụ huynh chỉ gửi nguyện vọng ngắn gọn, môn nằm trong nội dung.
         // Nếu có gửi categoryId thì kiểm tra tồn tại.
         Category category = resolveCategory(request.getCategoryId());
+        boolean duplicate = classRequestStore.findByClient(creator.getUserId()).stream()
+                .anyMatch(d -> center.getCenterId().equals(d.centerId())
+                        && (ClassRequestStore.STATUS_PAYMENT_PENDING.equals(d.status())
+                                || ClassRequestStore.STATUS_PENDING.equals(d.status())
+                                || ClassRequestStore.STATUS_SEARCHING.equals(d.status()))
+                        && request.getNote().trim().equalsIgnoreCase(d.note()));
+        if (duplicate) {
+            throw new IllegalArgumentException("Bạn đã có yêu cầu tương tự đang chờ xử lý tại trung tâm này.");
+        }
         long pending = classRequestStore.findByClient(creator.getUserId()).stream()
                 .filter(d -> ClassRequestStore.STATUS_PAYMENT_PENDING.equals(d.status())
                         || ClassRequestStore.STATUS_PENDING.equals(d.status())
