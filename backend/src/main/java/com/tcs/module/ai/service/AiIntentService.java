@@ -13,6 +13,27 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @lombok.extern.slf4j.Slf4j
+/**
+ * ============================================================================
+ * [UC-65] ĐIỀU PHỐI PHÂN LOẠI Ý ĐỊNH AI (AI INTENT SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp dịch vụ phân tích ý định người dùng kết hợp đa tầng (Quy tắc, Vector tương tự và LLM Zero-shot).
+ * 
+ * Chức năng chính:
+ *   1. Phân tích ý định 3 tầng: Xác định Tên miền nghiệp vụ (Domain), Ý định phụ (SubIntent) và Thực thể.
+ *   2. Định tuyến luồng xử lý: Điều hướng câu truy vấn tới bộ xử lý chuyên biệt tương ứng.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Chuẩn hóa câu hỏi tiếng Việt và kiểm tra quy tắc IntentRuleRegistry.
+ *   - Bước 2: Nếu chưa rõ ràng, sử dụng bộ phân loại FewShot hoặc LLM dự phòng.
+ *   - Bước 3: Trả về kết quả phân loại hoàn chỉnh phục vụ truy xuất tri thức.
+ * ============================================================================
+ */
 @Service
 public class AiIntentService {
 
@@ -319,7 +340,15 @@ public class AiIntentService {
         } else if (lower.contains("tiếng hàn") || normalized.contains("tieng han") || normalized.contains("korean") || lower.contains("topik")) {
             entities.put("subject", "Tiếng Hàn");
         } else if (lower.contains("tiếng anh") || normalized.contains("tieng anh") || normalized.contains("ielts") || normalized.contains("toeic") || lower.contains("english") || lower.contains("môn anh") || normalized.contains("gia su anh") || normalized.contains("lop anh")) {
-            entities.put("subject", "Anh");
+            if (lower.contains("ielts") || normalized.contains("ielts")) {
+                entities.put("subject", "tiếng Anh IELTS");
+                entities.put("certLevel", "IELTS");
+            } else if (lower.contains("toeic") || normalized.contains("toeic")) {
+                entities.put("subject", "tiếng Anh TOEIC");
+                entities.put("certLevel", "TOEIC");
+            } else {
+                entities.put("subject", "Anh");
+            }
         } else if (lower.contains("vật lý") || lower.contains("môn lý") || normalized.contains("vat ly") || lower.contains("physics") || normalized.contains("gia su ly") || normalized.contains("lop ly")) {
             entities.put("subject", "Lý");
         } else if (lower.contains("hóa học") || lower.contains("môn hóa") || normalized.contains("hoa hoc") || lower.contains("chemistry") || normalized.contains("gia su hoa") || normalized.contains("lop hoa") || (lower.contains("hóa") && !lower.contains("chuyển hóa") && !lower.contains("tài khóa"))) {

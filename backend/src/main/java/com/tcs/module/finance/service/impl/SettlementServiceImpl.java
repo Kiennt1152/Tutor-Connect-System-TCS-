@@ -38,6 +38,31 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * ============================================================================
+ * [UC-23] [UC-40] DỊCH VỤ QUYẾT TOÁN TÀI CHÍNH & HOÀN TIỀN (SETTLEMENT SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Đồng tác giả: tienanh6677 (Nguyễn Tiến Anh)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Xử lý quyết toán tài chính, phân bổ tiền bảo chứng và giải quyết yêu cầu hoàn tiền cho người dùng sau khi kết thúc lớp hoặc có tranh chấp.
+ *   - Hỗ trợ thực thi lệnh bồi hoàn tiền mặt hoặc hoàn trả về tài khoản ngân hàng liên kết.
+ * 
+ * Chức năng chính:
+ *   1. Quyết toán tranh chấp: Phân chia tỷ lệ tiền bảo chứng giữa phụ huynh và gia sư dựa trên phán quyết của Quản trị viên.
+ *   2. Xử lý chấm dứt hợp đồng: Thực hiện hoàn trả số tiền các buổi học chưa diễn ra khi hai bên đồng thuận kết thúc sớm.
+ *   3. Quản lý yêu cầu hoàn tiền (Refund Request): Tiếp nhận và xử lý chuyển tiền hoàn trả về tài khoản ngân hàng hoặc ví nội bộ.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận chỉ thị quyết toán hoặc yêu cầu hoàn tiền (executeRefund).
+ *   - Bước 2: Kiểm tra trạng thái giao dịch ký quỹ liên quan trong CSDL và tính toán số tiền hoàn/giải ngân.
+ *   - Bước 3: Cập nhật trạng thái yêu cầu hoàn tiền thành COMPLETED và gọi EscrowService để chuyển khoản.
+ *   - Bước 4: Lưu vết đối soát tài chính và bắn sự kiện thông báo kết quả cho các bên liên quan.
+ * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class SettlementServiceImpl implements SettlementService {

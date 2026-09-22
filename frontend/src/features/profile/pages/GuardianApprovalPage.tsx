@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-06] MÀN HÌNH ĐỒNG THUẬN NGƯỜI GIÁM HỘ (GUARDIAN APPROVAL PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Xác nhận cam kết bảo trợ và đồng thuận cho học viên dưới 18 tuổi tham gia lớp học.
+ * 2. Đảm bảo quyền lợi và sự an toàn tối đa cho học sinh vị thành niên trên sàn.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 import { Link } from 'react-router-dom';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { SiteFooter } from '../../home/components/SiteFooter';

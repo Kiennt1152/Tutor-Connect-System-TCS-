@@ -1,3 +1,14 @@
+/**
+ * ====================================================================================================
+ * [UC-01] MÀN HÌNH ĐĂNG KÝ TÀI KHOẢN (REGISTER PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Cho phép người dùng đăng ký tài khoản theo vai trò: Học viên/Phụ huynh, Gia sư, Trung tâm.
+ * 2. Kiểm tra định dạng thông tin, mật khẩu mạnh và gửi email xác thực kích hoạt.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import axios from 'axios';

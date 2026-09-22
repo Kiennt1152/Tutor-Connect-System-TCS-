@@ -1,25 +1,32 @@
 /**
  * ============================================================================
- * TRANG QUẢN LÝ VÀ TIẾP NHẬN YÊU CẦU HỖ TRỢ (PLATFORM TICKETS MANAGEMENT PAGE)
+ * [BF-09] [UC-64] QUẢN TRỊ & GIẢI QUYẾT PHIẾU HỖ TRỢ KỸ THUẬT (PLATFORM TICKETS PAGE)
  * ============================================================================
  * 
- * Tác giả: mduc1011-swp
- * Mô tả các chức năng hỗ trợ khách hàng và vận hành:
- *   - Hiển thị danh sách Support Ticket với bộ lọc đa chiều (Trạng thái, Phân loại, Mức ưu tiên, Từ khóa).
- *   - Xem chi tiết Ticket, chuỗi tin nhắn trao đổi (Thread messages), và thông tin người gửi.
- *   - Phản hồi Ticket và tự động đo lường First Response SLA.
- *   - Cập nhật phân loại danh mục (Category) và độ ưu tiên (Priority - Urgent/High/Medium/Low).
- *   - Đóng hoặc Giải quyết Ticket (RESOLVED / CLOSED) kèm ghi chú xử lý.
- *   - Gộp Ticket trùng lặp của cùng một khách hàng (Merge Tickets).
- *   - Chuyển tiếp sự cố sang luồng Xử lý Tranh chấp & Báo cáo (Redirect to Dispute & Reports).
- *   - Trực tiếp ban hành án phạt từ modal chi tiết (Issue Penalty Modal).
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-18
+ * 
+ * Mô tả Use Case:
+ *   - Bảng điều khiển dành cho Quản trị viên tiếp nhận và xử lý toàn bộ phiếu khiếu nại, hỗ trợ của khách hàng.
+ *   - Đảm bảo cam kết thời gian phản hồi (SLA) và chất lượng giải quyết thắc mắc của người dùng sàn.
+ * 
+ * Chức năng chính:
+ *   1. Quản lý danh sách ticket: Phân loại theo trạng thái (OPEN, IN_PROGRESS, RESOLVED, CLOSED) và mức độ ưu tiên.
+ *   2. Xử lý khiếu nại: Xem chi tiết nội dung, bằng chứng đính kèm và thông tin tài khoản người gửi.
+ *   3. Phản hồi và đóng ticket: Soạn câu trả lời giải quyết vấn đề, cập nhật trạng thái và thông báo người dùng.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên lọc danh sách các ticket chưa được giải quyết trên hệ thống.
+ *   - Bước 2: Mở xem chi tiết nội dung khiếu nại và các tài liệu đính kèm đối soát.
+ *   - Bước 3: Nhập phản hồi giải quyết chính thức và cập nhật trạng thái sang RESOLVED.
+ *   - Bước 4: Hệ thống gửi thông báo kết quả tới hộp thư và tài khoản của người gửi ticket.
+ * ============================================================================
  */
 
 import { createPortal } from 'react-dom';
 import { useState, type FormEvent } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
-import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { Pagination } from '../../../shared/components';
 import {
   useAdminTicketDetail,
@@ -710,8 +717,6 @@ export default function PlatformTicketsPage() {
         </article>
       </div>
 
-      <AdminTimeFilter showGranularity={false} />
-
       <div className="adm-card">
         <div className="adm-ticket-filters">
           <select
@@ -837,7 +842,7 @@ export default function PlatformTicketsPage() {
                         <td>
                           {ticket.slaBreached ? (
                             <span className="tcs-badge" style={{ background: '#fee2e2', color: '#dc2626', fontWeight: 600, fontSize: '0.75rem' }}>
-                              🚨 Quá hạn
+                              Quá hạn
                             </span>
                           ) : ticket.dueAt ? (
                             <span style={{ fontSize: '0.78rem', color: '#4a5568' }}>{ticket.dueAt}</span>

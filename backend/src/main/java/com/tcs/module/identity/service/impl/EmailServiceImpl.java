@@ -14,6 +14,16 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+/**
+ * ====================================================================================================
+ * [UC-01 / UC-03] DỊCH VỤ GỬI EMAIL XÁC THỰC DANH TÍNH (IDENTITY EMAIL SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Gửi thư xác nhận đăng ký tài khoản kèm liên kết kích hoạt an toàn.
+ * 2. Gửi mã OTP phục vụ quy trình xác thực email và khôi phục mật khẩu người dùng.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @Service("identityEmailService")
 @RequiredArgsConstructor
 @Slf4j

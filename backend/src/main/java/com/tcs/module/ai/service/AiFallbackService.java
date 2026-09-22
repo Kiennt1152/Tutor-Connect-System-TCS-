@@ -9,8 +9,25 @@ import java.util.Set;
 import org.springframework.stereotype.Service;
 
 /**
- * 6-level hierarchical fallback engine for the TCS AI Assistant.
- * Granular slot-aware, context-sensitive clarification & actionable guidance.
+ * ============================================================================
+ * [UC-65] PHẢN HỒI DỰ PHÒNG & TỪ CHỐI AN TOÀN (AI FALLBACK SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp các thông điệp phản hồi lịch sự, từ chối an toàn khi câu hỏi nằm ngoài phạm vi hoặc không đủ thẩm quyền.
+ * 
+ * Chức năng chính:
+ *   1. Phản hồi ngoài phạm vi: Hướng dẫn người dùng tập trung vào các chủ đề giáo dục và gia sư.
+ *   2. Phản hồi thiếu quyền: Gợi ý đăng nhập hoặc nâng cấp tài khoản khi truy cập tính năng giới hạn.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận mã lý do chuyển hướng (OUT_OF_SCOPE, PERMISSION_DENIED, RATE_LIMITED).
+ *   - Bước 2: Lựa chọn mẫu câu phản hồi thân thiện phù hợp với bối cảnh.
+ *   - Bước 3: Trả về phản hồi kèm các gợi ý câu hỏi tiếp theo cho người dùng.
+ * ============================================================================
  */
 @Service
 public class AiFallbackService {
@@ -62,7 +79,7 @@ public class AiFallbackService {
     public FallbackResult checkLevel0Safety(AiSubIntent subIntent) {
         String msg = LEVEL_0_MESSAGES.get(subIntent);
         if (msg != null) {
-            String route = subIntent == AiSubIntent.HUMAN_SUPPORT_REQUEST ? "/support/tickets" : null;
+            String route = subIntent == AiSubIntent.HUMAN_SUPPORT_REQUEST ? "/messaging/tickets" : null;
             return new FallbackResult(0, msg, route, List.of());
         }
         return null;
@@ -149,7 +166,7 @@ public class AiFallbackService {
             return new FallbackResult(
                 1,
                 "Bạn cần hỗ trợ xử lý sự cố hoặc khiếu nại? Vui lòng chọn nội dung bên dưới:",
-                "/support/tickets",
+                "/messaging/tickets",
                 List.of(
                     "Tạo phiếu yêu cầu hỗ trợ (Ticket)",
                     "Báo cáo hành vi lách sàn / vi phạm quy định",
@@ -301,9 +318,9 @@ public class AiFallbackService {
     public FallbackResult getLevel5HumanEscalation() {
         return new FallbackResult(
             5,
-            "Có vẻ vấn đề của bạn cần sự can thiệp trực tiếp từ bộ phận Chăm sóc khách hàng TCS. Bạn vui lòng tạo một phiếu hỗ trợ tại mục **Yêu cầu hỗ trợ (/support/tickets)** để chuyên viên liên hệ giải quyết sớm nhất.",
-            "/support/tickets",
-            List.of("Tạo ticket hỗ trợ (/support/tickets)", "Trung tâm trợ giúp (/help)")
+            "Có vẻ vấn đề của bạn cần sự can thiệp trực tiếp từ bộ phận Chăm sóc khách hàng TCS. Bạn vui lòng tạo một phiếu hỗ trợ tại mục **Yêu cầu hỗ trợ (/messaging/tickets)** để chuyên viên liên hệ giải quyết sớm nhất.",
+            "/messaging/tickets",
+            List.of("Tạo ticket hỗ trợ (/messaging/tickets)", "Trung tâm trợ giúp (/help)")
         );
     }
 

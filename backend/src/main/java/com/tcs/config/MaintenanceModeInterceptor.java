@@ -14,16 +14,20 @@ import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
  * ============================================================================
- * INTERCEPTOR BẢO TRÌ HỆ THỐNG TOÀN NỀN TẢNG (MAINTENANCE MODE INTERCEPTOR)
+ * [BF-10] INTERCEPTOR BẢO TRÌ HỆ THỐNG TOÀN NỀN TẢNG (MAINTENANCE MODE INTERCEPTOR)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mục đích:
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ * * 1. Mục đích & Chức năng:
  *   - Kiểm soát và chặn các yêu cầu ghi dữ liệu (POST, PUT, PATCH, DELETE) khi hệ thống
  *     được kích hoạt cờ bảo trì trong bảng SystemParameter (MAINTENANCE_MODE = "true").
  *   - Cho phép các yêu cầu đọc (GET, OPTIONS, HEAD), các API xác thực/quản trị, hoặc
  *     yêu cầu từ người dùng có quyền PLATFORM_ADMIN tiếp tục hoạt động để xử trị bảo trì.
  *   - Trả về mã lỗi HTTP 503 Service Unavailable chuẩn RESTful cùng thông điệp tiếng Việt thân thiện.
+ * * 2. Luồng xử lý chính:
+ *   - Bước 1: Tiền kiểm tra preHandle trước khi vào Controller.
+ *   - Bước 2: Bỏ qua kiểm tra nếu request là GET hoặc gọi vào /api/platform / /api/auth.
+ *   - Bước 3: Tra cứu cờ MAINTENANCE_MODE từ cache/DB, nếu active và user không phải Admin -> trả về 503 JSON.
+ * ============================================================================
  */
 @Slf4j
 @Component
@@ -49,8 +53,7 @@ public class MaintenanceModeInterceptor implements HandlerInterceptor {
 
     /**
      * Tiền xử lý yêu cầu HTTP trước khi chuyển tới Controller.
-     * 
-     * @param request  đối tượng HttpServletRequest của client
+     *     * @param request  đối tượng HttpServletRequest của client
      * @param response đối tượng HttpServletResponse phản hồi client
      * @param handler  bộ xử lý đích (Controller handler)
      * @return {@code true} nếu cho phép yêu cầu tiếp tục; {@code false} nếu chặn lại

@@ -30,7 +30,12 @@
   - [5. Run with Docker Compose](#5-run-with-docker-compose)
 - [8. API Documentation (Swagger / OpenAPI)](#8-api-documentation-swagger--openapi)
 - [9. Testing & Quality Assurance](#9-testing--quality-assurance)
-- [10. Development Team](#10-development-team)
+- [10. Development Team & Role Allocation](#10-development-team--role-allocation)
+- [11. Git Commit History & Team Contribution Log](#11-git-commit-history--team-contribution-log)
+  - [11.1 Repository Activity Overview](#111-repository-activity-overview)
+  - [11.2 Individual Contribution Matrix](#112-individual-contribution-matrix)
+  - [11.3 Milestone & Sprint Commit Timeline](#113-milestone--sprint-commit-timeline)
+  - [11.4 Git Workflow & Branching Strategy](#114-git-workflow--branching-strategy)
 
 ---
 
@@ -327,13 +332,125 @@ npx sonar-scanner
 
 ---
 
-## 10. Development Team
+## 10. Development Team & Role Allocation
 
-| Full Name | Role | Responsibilities |
-|---|:---:|---|
-| **Nguyen Trung Kien** | Tech Lead / Developer | System Architecture, Escrow FinTech, AI Engine, Deployment |
-| **Hoang Khoi Nguyen** | Business Analyst / PM | Product Requirements (PRD), Use Cases (UCS), Testing Plan |
-| **Development Team Members** | Dev & QA | Feature Engineering, L1/L2 Test Suite, Quality Assurance |
+The project is developed by a team of 5 software engineering students from **FPT University** (Capstone Project 2026):
+
+| No. | Full Name | Student ID (MSSV) | Git Username | Role | Primary Responsibilities |
+|:---:|---|:---:|:---:|:---:|---|
+| 1 | **Nguyen Trung Kien** | HE181152 | `Kiennt1152` / `kinne` | **Tech Lead & Architect** | Overall system architecture, B2B SaaS CRM for Centers, Docker containerization, CI/CD pipeline, Code Review. |
+| 2 | **Nguyen Tien Anh** | HE141766 | `tienanh6677` | **Backend & FinTech Lead** | Finance module, Smart Escrow lifecycle, SePay QR & Webhook integration, Settlement & Refund engine, Wallet security. |
+| 3 | **Hoang Minh Duc** | HE187354 | `mduc1011-swp` | **Fullstack & Platform/AI Lead** | E-Contract & OTP signing, Platform Admin & Governance (Audit, Penalty, Analytics, Tasks), RAG AI Engine & Multi-LLM routing, Frontend Admin & Contract UI. |
+| 4 | **Vu Quoc Khanh** | HE176783 | `khanhvqhe176783` | **Fullstack & Marketplace Lead** | Open Tutoring Marketplace, Class management (Private & Center), Class activation workflow, Tutor attendance & scheduling, Review & reputation system. |
+| 5 | **Hoang Khoi Nguyen** | HE186858 | `NguyenHK186858` | **BA & Security/Identity Lead** | Identity & Access Management (JWT, OAuth2 Google), Profile KYC/KYB (Citizen ID/CCCD, degrees, guardian linking), PRD/UCS documentation, QA test plan. |
+
+---
+
+## 11. Git Commit History & Team Contribution Log
+
+### 11.1 Repository Activity Overview
+
+* **Total Commits on Main Branch**: **643 commits**
+* **Development Period**: **June 2026 – September 2026** (4 Months continuous iterative development)
+* **Code Coverage**: ~747 Backend Java source files, ~401 Frontend TSX/TS modules, 113 Integration/Unit test suites.
+* **Commit Distribution Across Sprints / Months**:
+
+```
+Month / Sprint                  Commits   Distribution Bar
+─────────────────────────────────────────────────────────────────
+2026-06 (Sprint 1 - Inception)    46      █████ (7.2%)
+2026-07 (Sprint 2 - Core Flows)  211      ██████████████████████ (32.8%)
+2026-08 (Sprint 3 - Peak Sprint) 318      ████████████████████████████████ (49.5%)
+2026-09 (Sprint 4 - Hardening)    68      ███████ (10.6%)
+─────────────────────────────────────────────────────────────────
+Total                            643      100.0%
+```
+
+---
+
+### 11.2 Individual Contribution Matrix
+
+The table below demonstrates individual developer contribution, active development timeline, and core use cases delivered as recorded in the Git history:
+
+| Developer Name | MSSV | Git Account | Commits | Ratio | Active Period | Core Modules & Key Deliverables |
+|---|:---:|:---:|:---:|:---:|:---:|---|
+| **Nguyen Tien Anh** | HE141766 | `tienanh6677` | **175** | **27.2%** | 2026-06-23 → 2026-09-21 | **Finance & Smart Escrow Module**: `EscrowService`, `WalletService`, `SettlementService`, `WithdrawalService`, SePay QR webhook listener, dual-entry accounting journal, L1/L2 finance integration test suite (`Report52*`). |
+| **Hoang Minh Duc** | HE187354 | `mduc1011-swp` | **161** | **25.0%** | 2026-07-02 → 2026-09-21 | **E-Contract, Platform Admin & AI Assistant**: Contract OTP lifecycle (`ContractService`), Platform Governance (`AuditLogService`, `PenaltyService`, `CircumventionService`, `PlatformAnalyticsService`), RAG Chatbot (`AiServiceImpl`, 16 `IntentRule` strategies, Multi-LLM provider router), Admin/Contract frontend pages. |
+| **Vu Quoc Khanh** | HE176783 | `khanhvqhe176783` | **146** | **22.7%** | 2026-06-24 → 2026-09-17 | **Marketplace & Tutoring Operations**: `TutoringClassService`, `ClassAssignmentService`, `ClassActivationService`, Tutor application flow, Attendance check-in, Timetable scheduling, Review & Rating system (`ReviewService`). |
+| **Hoang Khoi Nguyen** | HE186858 | `NguyenHK186858` | **97** | **15.1%** | 2026-07-01 → 2026-09-17 | **Identity, KYC & Documentation**: JWT Authentication, Google OAuth2, Password reset via OTP, Profile verification (`CccdService`, `GuardianApprovalService`, `VerificationService`), PRD, UCS, Test Design Specification. |
+| **Nguyen Trung Kien** | HE181152 | `Kiennt1152` / `kinne` | **54** | **8.4%** | 2026-06-02 → 2026-08-26 | **Architecture & B2B SaaS CRM**: Monorepo skeleton, Spring Security filter chain, Center workforce management (`CenterTutorMembership`), Flyway DB migrations (V1–V10), Docker Compose configuration, Code review. |
+| *Other / Configuration* | — | *Co-authors* | **10** | **1.6%** | 2026-06-30 | Initial boilerplate setup, SonarQube configuration files, project metadata. |
+
+---
+
+### 11.3 Milestone & Sprint Commit Timeline
+
+```mermaid
+timeline
+    title Tutor Connect System (TCS) - Git Commit & Milestone History
+    section Phase 1: Inception (June 2026)
+        Sprint 1 : Base Architecture Setup
+                 : Flyway Schema (V1..V10)
+                 : Docker & CI/CD Pipeline
+                 : 46 Commits Recorded
+    section Phase 2: Core Flows (July 2026)
+        Sprint 2 : Identity & OAuth2 Google
+                 : Profile KYC & Citizen ID
+                 : Marketplace & Tutoring Classes
+                 : E-Contract & Escrow Lock Core
+                 : 211 Commits Recorded
+    section Phase 3: Advanced SaaS & AI (August 2026)
+        Sprint 3 : B2B SaaS CRM for Centers
+                 : FinTech SePay Instant QR Webhook
+                 : RAG AI Engine (Groq/Cerebras/Gemini)
+                 : Platform Governance (Audit, Penalty, Analytics)
+                 : 318 Commits Recorded (Peak)
+    section Phase 4: Quality & UAT (September 2026)
+        Sprint 4 : SonarQube Security Grade A
+                 : L1/L2 Integration Test Suite (113 tests)
+                 : Code Standardization (Checklist #4)
+                 : Production Deployment Preparation
+                 : 68 Commits Recorded
+```
+
+#### Detailed Milestone Log:
+
+* **Phase 1: Project Inception & Infrastructure (June 2026 — 46 commits)**
+  * Established Spring Boot 4.0.6 (Java 21) backend and React 19 + TypeScript + Vite frontend.
+  * Configured Flyway database migration pipeline with versioned SQL scripts.
+  * Setup Docker Compose for local development (MySQL 8.0, Redis cache, SonarQube 9000).
+* **Phase 2: Core Business Flows (July 2026 — 211 commits)**
+  * Implemented Identity & Auth (`/api/v1/auth`): JWT access/refresh token rotation, Google OAuth2 login.
+  * Implemented Digital KYC (`/api/v1/profile`): Encrypted CCCD upload, Degree certificate review, Minor student guardian linking.
+  * Implemented Marketplace (`/api/v1/marketplace`): Private class posting, tutor application matching algorithm.
+  * Implemented E-Contracting (`/api/v1/contracts`): Contract PDF rendering, 2-party digital OTP agreement.
+* **Phase 3: Advanced SaaS, FinTech & AI Engine (August 2026 — 318 commits)**
+  * Implemented B2B SaaS CRM (`/api/v1/center`): Bulk Excel student import, center tutor roster, curriculum classes.
+  * Implemented FinTech Escrow (`/api/v1/finance`): SePay instant QR webhook, lesson-by-lesson milestone disbursement, automated refund.
+  * Implemented AI Assistant Engine (`/api/v1/ai`): Enterprise RAG pipeline with 16 domain intent rules, BM25 + Cosine hybrid retrieval, multi-LLM failover (Groq, Cerebras, DeepSeek, Google Gemini).
+  * Implemented Platform Administration (`/api/v1/platform`): Circumvention detection, audit logs, system fee configuration, user sanctions.
+* **Phase 4: Quality Hardening & Graduation Defense (September 2026 — 68 commits)**
+  * Comprehensive L1/L2 testing: 113 integration test cases verifying end-to-end user journeys.
+  * SonarQube Security Scan: Achieved Grade A with 0 Security Vulnerabilities and 0 Critical Bugs.
+  * Code Standard Compliance: Fully standardized file header Javadoc/TSX comments adhering to Capstone Checklist #4.
+
+---
+
+### 11.4 Git Workflow & Branching Strategy
+
+The repository follows a modified **Gitflow Workflow** to guarantee branch stability and clear traceability:
+
+* `main`: Protected production-ready branch; only merges passing CI/CD and SonarQube scans.
+* `develop`: Integration branch where tested features converge.
+* `feature/*`: Dedicated topic branches for individual use cases:
+  * `feature/user`: Identity, Profile KYC & User settings.
+  * `feature/escrow`: FinTech, Wallet, SePay Webhook & Settlement.
+  * `feature/contract`: E-Contracting, OTP verification & Review engine.
+  * `feature/marketplace`: Class board, tutor search & application flow.
+  * `feature/center`: B2B SaaS CRM, bulk import & center curriculum classes.
+  * `feature/platform`: Governance, audit logs, circumvention & platform analytics.
+  * `feature/ai`: AI RAG Assistant, intent rules & LLM provider clients.
+* **Commit Message Standard**: Follows Conventional Commits specification (`feat:`, `fix:`, `refactor:`, `test:`, `docs:`, `chore:`) referencing specific Use Case IDs (e.g. `feat(escrow): [UC-58] implement milestone release logic`).
 
 ---
 

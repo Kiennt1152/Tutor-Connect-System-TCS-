@@ -39,6 +39,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * ====================================================================================================
+ * [UC-46] DỊCH VỤ TÍNH PHÍ YÊU CẦU DỊCH VỤ TRUNG TÂM (CENTER REQUEST FEE SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tính toán biểu phí sàn áp dụng riêng cho các giao dịch và lớp học của trung tâm gia sư.
+ * 2. Tự động trích trừ phí nhượng quyền hoặc hoa hồng kết nối khi lớp học được kích hoạt.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

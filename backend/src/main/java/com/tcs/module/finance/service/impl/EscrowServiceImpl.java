@@ -30,6 +30,7 @@ import com.tcs.module.marketplace.entity.TutorApplication;
 import com.tcs.module.marketplace.repository.ClassAssignmentRepository;
 import com.tcs.module.marketplace.repository.ClassStudentRepository;
 import com.tcs.module.profile.entity.PlatformAdmin;
+import com.tcs.module.profile.entity.TutorCenter;
 import com.tcs.module.profile.repository.PlatformAdminRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -42,18 +43,30 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * Implementation of the Smart Escrow Wallet and Multi-party Settlement Service.
- * <p>
- * Core Responsibilities:
- * <ul>
- *   <li>BF-06 (Wallet & Payment): Locking tuition funds into escrow upon enrollment or assignment.</li>
- *   <li>BF-08 (Dispute & Settlement): Releasing escrow funds to tutor/center upon class completion or refunding client upon approved dispute.</li>
- *   <li>Multi-party Fee Deduction: Computing platform commission fee dynamically based on system parameters.</li>
- *   <li>Audit Logging & Financial Journaling: Ensuring strict ledger reconciliation with zero negative balance guarantee (NFR-COM01).</li>
- * </ul>
- *
- * @see com.tcs.module.finance.service.EscrowService
- * @see com.tcs.module.finance.entity.EscrowTransaction
+ * ============================================================================
+ * [UC-40] [UC-58] [UC-46] DỊCH VỤ QUẢN TRỊ KÝ QUỸ ESCROW & ĐỐI SOÁT TÀI CHÍNH ĐA BÊN (ESCROW SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Đồng tác giả: tienanh6677 (Nguyễn Tiến Anh)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp dịch vụ quản trị và vận hành toàn diện dòng tiền ký quỹ Escrow bảo vệ an toàn giao dịch giữa Phụ huynh, Gia sư và Trung tâm.
+ *   - Quản lý vòng đời phong tỏa học phí, giải ngân tiền giảng dạy và tự động áp dụng chính sách tỷ lệ phí sàn theo quy định.
+ * 
+ * Chức năng chính:
+ *   1. Phong tỏa tiền học phí (Hold Escrow): Tạm giữ tiền học phí của phụ huynh khi hợp đồng được ký kết, đảm bảo nguồn tiền sẵn sàng chi trả.
+ *   2. Giải ngân học phí (Release Escrow): Tự động chuyển tiền bảo chứng vào ví gia sư/trung tâm sau khi buổi học hoặc khóa học hoàn tất.
+ *   3. Hoàn trả tiền ký quỹ (Refund Escrow): Hoàn tiền bảo chứng về ví phụ huynh khi hợp đồng bị hủy hoặc có quyết định bồi hoàn từ hòa giải.
+ *   4. Xác định tỷ lệ phí dịch vụ (Platform Fee Resolution): Áp dụng linh hoạt mức phí thỏa thuận riêng của trung tâm hoặc mức phí mặc định của sàn.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận lệnh phong tỏa ký quỹ từ sự kiện tạo hợp đồng (holdContractEscrow).
+ *   - Bước 2: Kiểm tra số dư ví phụ huynh, tạo bút toán giao dịch ký quỹ với trạng thái HELD.
+ *   - Bước 3: Tiếp nhận lệnh giải ngân sau khi hoàn tất nghiệm thu giảng dạy (releaseEscrow).
+ *   - Bước 4: Trích khấu trừ phí sàn, cộng số dư khả dụng vào ví gia sư/trung tâm và cập nhật trạng thái RELEASED.
+ * ============================================================================
  */
 @Slf4j
 @Service
@@ -353,7 +366,7 @@ public class EscrowServiceImpl implements EscrowService {
             walletService.releaseLockedFunds(payerUserId, grossAmount, reference);
         }
 
-        BigDecimal feeRate = resolvePlatformFeeRate();
+        BigDecimal feeRate = resolvePlatformFeeRate(escrow);
         BigDecimal platformFee = grossAmount.multiply(feeRate).setScale(2, RoundingMode.HALF_UP);
         String feeSummary = formatPlatformFeeSummary(feeRate, platformFee);
         Long beneficiaryUserId = beneficiaryUserId(escrow);
@@ -424,6 +437,26 @@ public class EscrowServiceImpl implements EscrowService {
         feeTransaction.setReferenceCode(reference);
         feeTransaction.setProcessedAt(LocalDateTime.now());
         paymentTransactionRepository.save(feeTransaction);
+    }
+
+    private BigDecimal resolvePlatformFeeRate(EscrowTransaction escrow) {
+        if (escrow != null) {
+            TutorCenter center = null;
+            if (escrow.getClassStudent() != null && escrow.getClassStudent().getTutoringClass() != null) {
+                center = escrow.getClassStudent().getTutoringClass().getCenter();
+            } else if (escrow.getAssignment() != null
+                    && escrow.getAssignment().getApplication() != null
+                    && escrow.getAssignment().getApplication().getTutoringClass() != null) {
+                center = escrow.getAssignment().getApplication().getTutoringClass().getCenter();
+            }
+            if (center != null && center.getCustomFeeRate() != null) {
+                BigDecimal customRate = center.getCustomFeeRate();
+                if (customRate.compareTo(BigDecimal.ZERO) >= 0 && customRate.compareTo(new BigDecimal("0.50")) <= 0) {
+                    return customRate;
+                }
+            }
+        }
+        return resolvePlatformFeeRate();
     }
 
     private BigDecimal resolvePlatformFeeRate() {

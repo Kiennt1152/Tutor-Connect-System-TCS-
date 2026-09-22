@@ -3,6 +3,13 @@ package com.tcs.module.platform.service.impl;
 import com.tcs.exception.BusinessException;
 import com.tcs.exception.ForbiddenException;
 import com.tcs.exception.ResourceNotFoundException;
+import com.tcs.module.center.dto.request.SaveContractTemplateRequest;
+import com.tcs.module.center.dto.response.ContractTemplateResponse;
+import com.tcs.module.contract.entity.ContractTemplate;
+import com.tcs.module.contract.enums.ContractTemplateStatus;
+import com.tcs.module.contract.repository.ContractTemplateRepository;
+import com.tcs.module.catalog.repository.SystemParameterRepository;
+import com.tcs.module.catalog.entity.SystemParameter;
 import com.tcs.module.contract.entity.Review;
 import com.tcs.module.contract.enums.ReviewStatus;
 import com.tcs.module.contract.enums.ReviewType;
@@ -20,8 +27,10 @@ import com.tcs.module.identity.entity.VerificationHistory;
 import com.tcs.module.identity.enums.UserStatus;
 import com.tcs.module.identity.repository.VerificationHistoryRepository;
 import com.tcs.module.identity.repository.UserRepository;
+import com.tcs.module.platform.dto.request.CreateUserAdminRequest;
 import com.tcs.module.platform.dto.request.ModerateReviewRequest;
 import com.tcs.module.platform.dto.request.UpdateUserStatusRequest;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import com.tcs.module.platform.dto.response.AdminReviewResponse;
 import com.tcs.module.platform.dto.response.PageUserListResponse;
 import com.tcs.module.platform.dto.response.UserListItemResponse;
@@ -33,6 +42,9 @@ import com.tcs.module.profile.entity.Client;
 import com.tcs.module.profile.entity.PlatformAdmin;
 import com.tcs.module.profile.entity.Tutor;
 import com.tcs.module.profile.entity.TutorCenter;
+import com.tcs.module.platform.dto.response.CenterFeeConfigResponse;
+import com.tcs.module.platform.dto.request.UpdateCenterFeeRequest;
+import java.math.BigDecimal;
 import com.tcs.module.identity.entity.VerificationDocument;
 import com.tcs.module.identity.entity.VerificationRequest;
 import com.tcs.module.identity.enums.VerificationStatus;
@@ -90,6 +102,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -109,11 +122,11 @@ import org.springframework.util.StringUtils;
 
 /**
  * ============================================================================
- * DỊCH VỤ QUẢN TRỊ NỀN TẢNG TOÀN DIỆN (PLATFORM SERVICE IMPLEMENTATION)
+ * [BF-10] DỊCH VỤ QUẢN TRỊ NỀN TẢNG TOÀN DIỆN (PLATFORM SERVICE IMPLEMENTATION)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mô tả các phân hệ & nghiệp vụ quản trị:
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-06-23
+ * * 1. Mục đích & Chức năng:
  *   - Quản lý người dùng và hồ sơ đa vai trò (User & Profile Management).
  *   - Phê duyệt/từ chối hồ sơ xác minh danh tính và bằng cấp (KYC / Verification Workflow).
  *   - Tiếp nhận, xử lý báo cáo vi phạm, đánh giá tiêu cực và sự cố lớp học (Reports & Disputes).
@@ -121,6 +134,12 @@ import org.springframework.util.StringUtils;
  *   - Tác vụ tự động quét và nâng cấp độ ưu tiên cho ticket quá hạn phản hồi (SLA Escalation Scanner).
  *   - Gộp các ticket trùng lặp (Merge Tickets) và chuyển tiếp sự cố sang phân hệ tranh chấp (Dispute Redirect).
  *   - Bảng điều khiển quản trị (Admin Dashboard) tổng hợp chỉ số KPI, biểu đồ tài chính và dòng tiền.
+ * * 2. Luồng xử lý chính (Core Execution Flow):
+ *   - Luồng duyệt KYC: Tải hồ sơ -> Đánh giá tính hợp lệ CCCD/Bằng cấp -> Duyệt VERIFIED hoặc Từ chối REJECTED kèm lý do -> Gửi thông báo tới User.
+ *   - Luồng SLA Ticket: Quét định kỳ ticket OPEN/IN_PROGRESS quá hạn phản hồi -> Nâng cấp độ ưu tiên (LOW -> MEDIUM -> HIGH -> URGENT) -> Gửi thông báo cảnh báo trực ban.
+ *   - Luồng Gộp Ticket: Kiểm tra cùng tác giả và chủ đề -> Hợp nhất tin nhắn sang Ticket chính -> Đóng Ticket phụ với trạng thái MERGED.
+ *   - Luồng Chuyển Tranh Chấp: Liên kết Ticket sự cố với lớp học tương ứng -> Khởi tạo Dispute tự động -> Khóa tạm thời giải ngân Escrow.
+ * ============================================================================
  */
 @Slf4j
 @Service
@@ -157,6 +176,16 @@ public class PlatformServiceImpl implements PlatformService {
     private final com.tcs.module.platform.service.PlatformAnalyticsService analyticsService;
     private final com.tcs.module.profile.service.CccdService cccdService;
     private final NotificationDispatchService notificationDispatchService;
+    private final ContractTemplateRepository contractTemplateRepository;
+    private final SystemParameterRepository systemParameterRepository;
+    private final PasswordEncoder passwordEncoder;
+    private final com.tcs.module.marketplace.repository.ScheduleSlotRepository scheduleSlotRepository;
+    private final com.tcs.module.marketplace.repository.ClassAssignmentRepository classAssignmentRepository;
+    private final com.tcs.module.marketplace.repository.ClassStudentRepository classStudentRepository;
+    private final com.tcs.module.marketplace.repository.LessonRepository lessonRepository;
+    private final com.tcs.module.marketplace.repository.LessonAttendanceRepository lessonAttendanceRepository;
+    private final com.tcs.module.marketplace.service.RescheduleService rescheduleService;
+    private final com.tcs.module.marketplace.service.SubstitutionService substitutionService;
 
     @jakarta.persistence.PersistenceContext
     private jakarta.persistence.EntityManager entityManager;
@@ -193,6 +222,81 @@ public class PlatformServiceImpl implements PlatformService {
 
     @Override
     @Transactional
+    public UserListItemResponse createUser(CreateUserAdminRequest request) {
+        if (request.getEmail() == null || request.getEmail().isBlank()) {
+            throw new IllegalArgumentException("Email không được để trống");
+        }
+        String email = request.getEmail().trim().toLowerCase();
+        if (userRepository.existsByEmail(email)) {
+            throw new IllegalArgumentException("Email đã tồn tại trong hệ thống");
+        }
+        String phone = request.getPhone() != null ? request.getPhone().trim() : null;
+        if (phone != null && phone.startsWith("+84")) {
+            phone = "0" + phone.substring(3);
+        }
+        if (phone != null && !phone.isBlank() && userRepository.existsByPhone(phone)) {
+            throw new IllegalArgumentException("Số điện thoại đã tồn tại trong hệ thống");
+        }
+        if (request.getPassword() == null || request.getPassword().length() < 6) {
+            throw new IllegalArgumentException("Mật khẩu phải có ít nhất 6 ký tự");
+        }
+        if (request.getRole() == null) {
+            throw new IllegalArgumentException("Vai trò không được để trống");
+        }
+        String displayName = request.getDisplayName() != null ? request.getDisplayName().trim() : "";
+        if (displayName.isBlank()) {
+            throw new IllegalArgumentException("Họ và tên không được để trống");
+        }
+
+        User user = new User();
+        user.setEmail(email);
+        user.setPhone(phone);
+        user.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        user.setStatus(request.getStatus() != null ? request.getStatus() : UserStatus.ACTIVE);
+        User savedUser = userRepository.save(user);
+
+        switch (request.getRole()) {
+            case PLATFORM_ADMIN -> {
+                PlatformAdmin admin = new PlatformAdmin();
+                admin.setUser(savedUser);
+                admin.setFullName(displayName);
+                platformAdminRepository.save(admin);
+            }
+            case TUTOR -> {
+                Tutor tutor = new Tutor();
+                tutor.setUser(savedUser);
+                tutor.setFullName(displayName);
+                tutor.setGender(com.tcs.module.profile.enums.Gender.OTHER);
+                tutor.setPhone(phone);
+                tutorRepository.save(tutor);
+            }
+            case TUTOR_CENTER -> {
+                TutorCenter center = new TutorCenter();
+                center.setUser(savedUser);
+                center.setCompanyName(displayName);
+                center.setPhone(phone);
+                center.setAddress("N/A");
+                tutorCenterRepository.save(center);
+            }
+            case CLIENT -> {
+                Client client = new Client();
+                client.setUser(savedUser);
+                client.setFullName(displayName);
+                client.setPhone(phone);
+                clientRepository.save(client);
+            }
+            default -> throw new IllegalArgumentException("Vai trò không hợp lệ");
+        }
+
+        auditLogService.record("CREATE_USER", "User", savedUser.getUserId(), null,
+                Map.of("email", email, "role", request.getRole().name(), "displayName", displayName));
+
+        UserProfileBundle profiles = loadProfiles(savedUser.getUserId());
+        return platformMapper.toUserListItem(savedUser, profiles);
+    }
+
+    @Override
+    @Transactional
     public UserListItemResponse updateUserStatus(Long userId, UpdateUserStatusRequest request) {
         if (request.getStatus() == null) {
             throw new IllegalArgumentException("Trạng thái không được để trống");
@@ -218,6 +322,74 @@ public class PlatformServiceImpl implements PlatformService {
         return platformMapper.toUserListItem(saved, profiles);
     }
 
+    @Override
+    @Transactional
+    public UserListItemResponse updateUser(Long userId, com.tcs.module.platform.dto.request.UpdateUserAdminRequest request) {
+        User user = findUserOrThrow(userId);
+        UserProfileBundle profiles = loadProfiles(userId);
+        UserRole role = platformMapper.resolveRole(profiles);
+
+        if (request.getStatus() != null) {
+            if (role == UserRole.PLATFORM_ADMIN && request.getStatus() != UserStatus.ACTIVE) {
+                throw new IllegalArgumentException("Không thể vô hiệu hóa tài khoản quản trị viên");
+            }
+            user.setStatus(request.getStatus());
+        }
+
+        String newPhone = request.getPhone() != null ? request.getPhone().trim() : null;
+        if (newPhone != null && newPhone.startsWith("+84")) {
+            newPhone = "0" + newPhone.substring(3);
+        }
+        if (newPhone != null && !newPhone.isBlank() && !newPhone.equals(user.getPhone())) {
+            if (userRepository.existsByPhone(newPhone)) {
+                throw new IllegalArgumentException("Số điện thoại đã tồn tại trong hệ thống");
+            }
+            user.setPhone(newPhone);
+        }
+
+        String displayName = request.getDisplayName() != null ? request.getDisplayName().trim() : null;
+
+        if (profiles.platformAdmin() != null) {
+            if (displayName != null && !displayName.isBlank()) {
+                profiles.platformAdmin().setFullName(displayName);
+                platformAdminRepository.save(profiles.platformAdmin());
+            }
+        } else if (profiles.tutor() != null) {
+            if (displayName != null && !displayName.isBlank()) {
+                profiles.tutor().setFullName(displayName);
+            }
+            if (newPhone != null) {
+                profiles.tutor().setPhone(newPhone);
+            }
+            tutorRepository.save(profiles.tutor());
+        } else if (profiles.tutorCenter() != null) {
+            if (displayName != null && !displayName.isBlank()) {
+                profiles.tutorCenter().setCompanyName(displayName);
+            }
+            if (newPhone != null) {
+                profiles.tutorCenter().setPhone(newPhone);
+            }
+            tutorCenterRepository.save(profiles.tutorCenter());
+        } else if (profiles.client() != null) {
+            if (displayName != null && !displayName.isBlank()) {
+                profiles.client().setFullName(displayName);
+            }
+            if (newPhone != null) {
+                profiles.client().setPhone(newPhone);
+            }
+            clientRepository.save(profiles.client());
+        }
+
+        User saved = userRepository.save(user);
+        auditLogService.record("UPDATE_USER_PROFILE", "User", userId, null,
+                java.util.Map.of("displayName", displayName != null ? displayName : "",
+                        "phone", newPhone != null ? newPhone : "",
+                        "status", request.getStatus() != null ? request.getStatus().name() : ""));
+
+        UserProfileBundle updatedProfiles = loadProfiles(userId);
+        return platformMapper.toUserListItem(saved, updatedProfiles);
+    }
+
     // =========================================================================
     // LUỒNG 8: BẢNG ĐIỀU KHIỂN QUẢN TRỊ & GIÁM SÁT CHỈ SỐ SỨC KHỎE DASHBOARD (UC-56)
     // =========================================================================
@@ -226,7 +398,6 @@ public class PlatformServiceImpl implements PlatformService {
     public DashboardResponse getDashboard(LocalDate from, LocalDate to, String granularity) {
         LocalDate effectiveFrom = from != null ? from : LocalDate.now().minusDays(30);
         LocalDate effectiveTo = to != null ? to : LocalDate.now();
-        
         com.tcs.module.platform.dto.response.TaskQueueSummaryResponse taskSummary = taskQueueService.getSummary();
         com.tcs.module.platform.dto.response.AnalyticsSummaryResponse analyticsSummary = analyticsService.getSummary(effectiveFrom, effectiveTo);
 
@@ -242,7 +413,6 @@ public class PlatformServiceImpl implements PlatformService {
                 .escrowExposure(taskSummary.getMoneyAtRisk())
                 .unhandledReports(taskSummary.getOpenReports())
                 .build();
-        
         // Luồng 8 - Phân vùng 2: Khối dòng tiền tài chính & Tỷ lệ phí sàn (Financial Flow)
         com.tcs.module.platform.dto.response.FinancialFlowResponse financialFlow = com.tcs.module.platform.dto.response.FinancialFlowResponse.builder()
                 .moneyIn(analyticsSummary.getMoneyIn())
@@ -296,7 +466,6 @@ public class PlatformServiceImpl implements PlatformService {
         } catch (Exception ignored) {}
 
         List<com.tcs.module.platform.dto.response.ActivityTimelineEntry> activityTimeline = buildActivityTimeline(effectiveFrom, effectiveTo, granularity);
-        
         com.tcs.module.platform.dto.response.HealthMetricsResponse tutorHealth = com.tcs.module.platform.dto.response.HealthMetricsResponse.builder()
                 .totalCount(analyticsSummary.getTotalTutors())
                 .activeCount(activeTutors)
@@ -304,7 +473,6 @@ public class PlatformServiceImpl implements PlatformService {
                 .newCount(newTutors)
                 .recentlyActiveCount(recentlyActiveTutors)
                 .build();
-                
         com.tcs.module.platform.dto.response.HealthMetricsResponse centerHealth = com.tcs.module.platform.dto.response.HealthMetricsResponse.builder()
                 .totalCount(analyticsSummary.getTotalCenters())
                 .activeCount(activeCenters)
@@ -312,7 +480,6 @@ public class PlatformServiceImpl implements PlatformService {
                 .newCount(newCenters)
                 .recentlyActiveCount(recentlyActiveCenters)
                 .build();
-                
         com.tcs.module.platform.dto.response.HealthMetricsResponse classHealth = com.tcs.module.platform.dto.response.HealthMetricsResponse.builder()
                 .totalCount(totalClassCount)
                 .activeCount(activeClasses)
@@ -324,6 +491,12 @@ public class PlatformServiceImpl implements PlatformService {
         return DashboardResponse.builder()
                 .totalUsers(analyticsSummary.getTotalUsers())
                 .totalClasses(analyticsSummary.getTotalClasses())
+                .pendingVerifications(taskSummary.getPendingVerifications())
+                .openReports(taskSummary.getOpenReports())
+                .openTickets(taskSummary.getOpenTickets())
+                .pendingWithdrawals(taskSummary.getPendingWithdrawals())
+                .pendingRefunds(taskSummary.getPendingRefunds())
+                .openDisputes(taskSummary.getOpenDisputes())
                 .riskSummary(riskSummary)
                 .financialFlow(financialFlow)
                 .tutorHealth(tutorHealth)
@@ -1280,12 +1453,14 @@ public class PlatformServiceImpl implements PlatformService {
             ticket.setPriority(newPriority);
             supportTicketRepository.save(ticket);
 
-            // Ghi Audit Log hành động SLA_BREACH_ESCALATION
+            Map<String, Object> oldValues = new java.util.HashMap<>();
+            oldValues.put("oldPriority", oldPriority);
+            oldValues.put("slaBreached", false);
             auditLogService.record(
                     "SLA_BREACH_ESCALATION",
                     "SupportTicket",
                     ticket.getTicketId(),
-                    Map.of("oldPriority", oldPriority, "slaBreached", false),
+                    oldValues,
                     Map.of("newPriority", newPriority, "slaBreached", true));
 
             // Gửi thông báo nhắc nhở cảnh báo khẩn cấp đến Admin
@@ -1994,11 +2169,9 @@ public class PlatformServiceImpl implements PlatformService {
             LocalDate from, LocalDate to, String granularity) {
         List<com.tcs.module.platform.dto.response.ActivityTimelineEntry> timeline = new ArrayList<>();
         LocalDate cursor = from;
-        
         while (!cursor.isAfter(to)) {
             LocalDate periodEnd;
             String label;
-            
             if ("MONTH".equalsIgnoreCase(granularity)) {
                 periodEnd = cursor.withDayOfMonth(cursor.lengthOfMonth());
                 if (periodEnd.isAfter(to)) periodEnd = to;
@@ -2011,19 +2184,15 @@ public class PlatformServiceImpl implements PlatformService {
                 periodEnd = cursor;
                 label = cursor.toString();
             }
-            
             LocalDateTime start = cursor.atStartOfDay();
             LocalDateTime end = periodEnd.plusDays(1).atStartOfDay();
-            
             long newUsers = userRepository.countByCreatedAtBetween(start, end);
             long newTutors = tutorRepository.countByCreatedAtBetween(start, end);
             long newCenters = tutorCenterRepository.countByCreatedAtBetween(start, end);
             long newClasses = tutoringClassRepository.countByCreatedAtBetween(start, end);
             long newTickets = supportTicketRepository.countByCreatedAtBetween(start, end);
-            
             long activeTutors = tutorRepository.countByUserStatus(com.tcs.module.identity.enums.UserStatus.ACTIVE);
             long activeCenters = tutorCenterRepository.countByUserStatus(com.tcs.module.identity.enums.UserStatus.ACTIVE);
-            
             java.math.BigDecimal moneyIn = paymentTransactionRepository.sumAmountByStatusAndTypeInAndCreatedAtBetween(
                     com.tcs.module.finance.enums.PaymentTransactionStatus.SUCCESS,
                     java.util.List.of(
@@ -2046,17 +2215,15 @@ public class PlatformServiceImpl implements PlatformService {
             );
 
             java.math.BigDecimal platformFeeRevenue = sumPlatformFeeRevenue(start, end);
-            moneyIn = moneyIn.add(platformFeeRevenue);
-            
+            // UC-41 Fix: Không cộng platformFeeRevenue vào moneyIn vì phí sàn là doanh thu nội bộ,
+            // không phải tiền người dùng nạp vào. Đồng nhất với getSummary() trong PlatformAnalyticsServiceImpl.
             java.math.BigDecimal netMovement = moneyIn.subtract(moneyOut);
-            
             timeline.add(com.tcs.module.platform.dto.response.ActivityTimelineEntry.builder()
                     .label(label).newUsers(newUsers).newTutors(newTutors).newCenters(newCenters)
                     .newClasses(newClasses).newTickets(newTickets).activeTutors(activeTutors)
                     .activeCenters(activeCenters).moneyIn(moneyIn).moneyOut(moneyOut)
                     .netMovement(netMovement).platformFeeRevenue(platformFeeRevenue)
                     .build());
-            
             if ("MONTH".equalsIgnoreCase(granularity)) {
                 cursor = cursor.plusMonths(1).withDayOfMonth(1);
             } else if ("WEEK".equalsIgnoreCase(granularity)) {
@@ -2079,4 +2246,353 @@ public class PlatformServiceImpl implements PlatformService {
                         : java.math.BigDecimal.ZERO)
                 .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
     }
+
+    private static final String TEMPLATE_TYPE_PREFIX = "CONTRACT_TEMPLATE_TYPE_";
+    private static final String TEMPLATE_TYPE_RECRUITMENT = "RECRUITMENT";
+    private static final String TEMPLATE_TYPE_CLASS = "CLASS";
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ContractTemplateResponse> listContractTemplates() {
+        return contractTemplateRepository.findAll().stream()
+                .filter(t -> t.getStatus() != ContractTemplateStatus.ARCHIVED)
+                .map(this::toTemplateResponse)
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public ContractTemplateResponse createContractTemplate(SaveContractTemplateRequest request) {
+        if (!org.springframework.util.StringUtils.hasText(request.getName())) {
+            throw new IllegalArgumentException("Tên mẫu hợp đồng là bắt buộc");
+        }
+        if (!org.springframework.util.StringUtils.hasText(request.getContent())) {
+            throw new IllegalArgumentException("Nội dung mẫu hợp đồng là bắt buộc");
+        }
+        ContractTemplate t = new ContractTemplate();
+        t.setName(request.getName().trim());
+        t.setContent(request.getContent().trim());
+        String contractType = org.springframework.util.StringUtils.hasText(request.getContractType())
+                ? request.getContractType().trim()
+                : "CENTER_CLASS";
+        t.setContractType(contractType);
+        User currentUser = userRepository.findById(authHelper.currentUserId())
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy thông tin quản trị viên"));
+        t.setCreatedBy(currentUser);
+        t.setCenter(null);
+        t.setDefaultTemplate(false);
+        t.setStatus(ContractTemplateStatus.ACTIVE);
+        ContractTemplate saved = contractTemplateRepository.save(t);
+        saveTemplateType(saved.getTemplateId(), contractType);
+        return toTemplateResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public ContractTemplateResponse updateContractTemplate(Long templateId, SaveContractTemplateRequest request) {
+        ContractTemplate t = contractTemplateRepository.findById(templateId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mẫu hợp đồng: " + templateId));
+        if (org.springframework.util.StringUtils.hasText(request.getName())) {
+            t.setName(request.getName().trim());
+        }
+        if (org.springframework.util.StringUtils.hasText(request.getContent())) {
+            t.setContent(request.getContent().trim());
+        }
+        if (org.springframework.util.StringUtils.hasText(request.getContractType())) {
+            String contractType = request.getContractType().trim();
+            t.setContractType(contractType);
+            saveTemplateType(t.getTemplateId(), contractType);
+        }
+        ContractTemplate saved = contractTemplateRepository.save(t);
+        return toTemplateResponse(saved);
+    }
+
+    @Override
+    @Transactional
+    public void deleteContractTemplate(Long templateId) {
+        ContractTemplate t = contractTemplateRepository.findById(templateId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy mẫu hợp đồng: " + templateId));
+        t.setStatus(ContractTemplateStatus.ARCHIVED);
+        contractTemplateRepository.save(t);
+    }
+
+    private ContractTemplateResponse toTemplateResponse(ContractTemplate t) {
+        String type = org.springframework.util.StringUtils.hasText(t.getContractType())
+                ? t.getContractType()
+                : findTemplateType(t.getTemplateId());
+        return ContractTemplateResponse.builder()
+                .templateId(t.getTemplateId())
+                .name(t.getName())
+                .content(t.getContent())
+                .contractType(type)
+                .defaultTemplate(Boolean.TRUE.equals(t.getDefaultTemplate()))
+                .status(t.getStatus() != null ? t.getStatus().name() : "ACTIVE")
+                .system(t.getCenter() == null)
+                .build();
+    }
+
+    private void saveTemplateType(Long templateId, String contractType) {
+        String value = contractType != null ? contractType.trim() : TEMPLATE_TYPE_CLASS;
+        // Lưu theo prefix Platform Admin
+        saveParam(TEMPLATE_TYPE_PREFIX + templateId, value, "Loại mẫu hợp đồng (Platform)");
+        // Đồng bộ theo prefix Center / Contract module ("tpltype:")
+        saveParam("tpltype:" + templateId, TEMPLATE_TYPE_RECRUITMENT.equalsIgnoreCase(value) ? TEMPLATE_TYPE_RECRUITMENT : TEMPLATE_TYPE_CLASS, "Loại mẫu hợp đồng (Center/Contract)");
+    }
+
+    private void saveParam(String key, String value, String desc) {
+        com.tcs.module.catalog.entity.SystemParameter param = systemParameterRepository.findByParamKey(key)
+                .orElseGet(com.tcs.module.catalog.entity.SystemParameter::new);
+        param.setParamKey(key);
+        param.setParamValue(value);
+        param.setDescription(desc);
+        systemParameterRepository.save(param);
+    }
+
+    private String findTemplateType(Long templateId) {
+        return systemParameterRepository.findByParamKey(TEMPLATE_TYPE_PREFIX + templateId)
+                .map(com.tcs.module.catalog.entity.SystemParameter::getParamValue)
+                .orElseGet(() -> systemParameterRepository.findByParamKey("tpltype:" + templateId)
+                        .map(com.tcs.module.catalog.entity.SystemParameter::getParamValue)
+                        .orElse(TEMPLATE_TYPE_CLASS));
+    }
+
+    // =========================================================================
+    // LUỒNG GIÁM SÁT LỊCH HỌC TOÀN HỆ THỐNG THEO NGÀY (UC-21, ROLE: ADMIN)
+    // =========================================================================
+    @Override
+    @Transactional(readOnly = true)
+    public List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getPlatformSchedule(LocalDate date) {
+        authHelper.requireRole(UserRole.PLATFORM_ADMIN);
+        LocalDate d = date != null ? date : LocalDate.now();
+        int weekday = d.getDayOfWeek().getValue();
+
+        // UC-21 Performance Fix: Chỉ load lớp đang hoạt động thay vì toàn bộ lớp (tránh tràn bộ nhớ)
+        List<TutoringClass> allClasses = tutoringClassRepository.findByStatusIn(
+                java.util.List.of(
+                        com.tcs.module.marketplace.enums.TutoringClassStatus.OPEN,
+                        com.tcs.module.marketplace.enums.TutoringClassStatus.MATCHED,
+                        com.tcs.module.marketplace.enums.TutoringClassStatus.IN_PROGRESS));
+        Map<Long, TutoringClass> classMap = allClasses.stream()
+                .collect(Collectors.toMap(TutoringClass::getClassId, Function.identity(), (a, b) -> a));
+
+        List<com.tcs.module.marketplace.dto.RescheduleEntry> approved =
+                rescheduleService.listApprovedByClassIds(classMap.keySet());
+        Set<Long> movedAway = approved.stream()
+                .filter(e -> e.originalDate().equals(d))
+                .map(com.tcs.module.marketplace.dto.RescheduleEntry::classId)
+                .collect(Collectors.toSet());
+
+        Map<Long, com.tcs.module.marketplace.dto.SubstitutionEntry> subOnDate = substitutionService
+                .listApprovedByClassIds(classMap.keySet()).stream()
+                .filter(e -> e.date().equals(d))
+                .collect(Collectors.toMap(com.tcs.module.marketplace.dto.SubstitutionEntry::classId, e -> e, (a, b) -> a));
+
+        List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> result = new ArrayList<>();
+
+        for (TutoringClass c : allClasses) {
+            if (c.getStartDate() == null || c.getEndDate() == null
+                    || d.isBefore(c.getStartDate()) || d.isAfter(c.getEndDate())
+                    || movedAway.contains(c.getClassId())) {
+                continue;
+            }
+            com.tcs.module.center.dto.response.CenterScheduleClassResponse item = buildPlatformScheduleItem(c, d, weekday);
+            if (item != null) {
+                applyPlatformSubstitution(item, subOnDate.get(c.getClassId()));
+                result.add(item);
+            }
+        }
+
+        java.time.format.DateTimeFormatter dMm = java.time.format.DateTimeFormatter.ofPattern("dd/MM");
+        for (com.tcs.module.marketplace.dto.RescheduleEntry e : approved) {
+            if (!e.newDate().equals(d)) {
+                continue;
+            }
+            TutoringClass c = classMap.get(e.classId());
+            if (c == null) {
+                continue;
+            }
+            com.tcs.module.center.dto.response.CenterScheduleClassResponse item =
+                    buildPlatformScheduleItem(c, d, e.originalDate().getDayOfWeek().getValue());
+            if (item != null) {
+                if (e.newStartTime() != null && e.newEndTime() != null) {
+                    item.setSlots(List.of(com.tcs.module.center.dto.response.ScheduleSlotResponse.builder()
+                            .dayOfWeek(d.getDayOfWeek().getValue())
+                            .startTime(e.newStartTime())
+                            .endTime(e.newEndTime())
+                            .build()));
+                }
+                item.setRescheduled(true);
+                item.setRescheduleNote("Dời từ " + e.originalDate().format(dMm));
+                result.add(item);
+            }
+        }
+
+        return result;
+    }
+
+    private com.tcs.module.center.dto.response.CenterScheduleClassResponse buildPlatformScheduleItem(
+            TutoringClass c, LocalDate date, int weekday) {
+        List<com.tcs.module.marketplace.entity.ScheduleSlot> slotsToday = scheduleSlotRepository.findByTutoringClass_ClassId(c.getClassId()).stream()
+                .filter(s -> s.getDayOfWeek() != null && s.getDayOfWeek() == weekday)
+                .sorted(Comparator.comparing(com.tcs.module.marketplace.entity.ScheduleSlot::getStartTime))
+                .toList();
+        if (slotsToday.isEmpty()) {
+            return null;
+        }
+
+        com.tcs.module.marketplace.entity.ClassAssignment assignment = classAssignmentRepository
+                .findFirstByApplication_TutoringClass_ClassIdAndStatus(c.getClassId(), com.tcs.module.marketplace.enums.ClassAssignmentStatus.ACTIVE)
+                .orElse(null);
+        List<com.tcs.module.marketplace.entity.ClassStudent> students = classStudentRepository
+                .findByTutoringClass_ClassIdAndStatus(c.getClassId(), com.tcs.module.marketplace.enums.ClassStudentStatus.ENROLLED);
+
+        Map<Long, String> attendanceByStudent = new HashMap<>();
+        com.tcs.module.marketplace.entity.ScheduleSlot repSlot = slotsToday.get(0);
+        int seq = (int) Math.max(0, ChronoUnit.DAYS.between(c.getStartDate(), date));
+        lessonRepository
+                .findFirstByTutoringClass_ClassIdAndSlot_SlotIdAndSequenceNo(
+                        c.getClassId(), repSlot.getSlotId(), seq)
+                .ifPresent(lesson -> lessonAttendanceRepository.findByLesson_LessonId(lesson.getLessonId())
+                        .forEach(a -> attendanceByStudent.put(
+                                a.getClassStudent().getClassStudentId(), a.getStatus().name())));
+
+        List<com.tcs.module.center.dto.response.StudentAttendanceResponse> studentItems = students.stream()
+                .map(s -> com.tcs.module.center.dto.response.StudentAttendanceResponse.builder()
+                        .classStudentId(s.getClassStudentId())
+                        .studentName(s.getStudentName())
+                        .studentPhone(s.getStudentPhone())
+                        .status(attendanceByStudent.get(s.getClassStudentId()))
+                        .build())
+                .toList();
+
+        List<com.tcs.module.center.dto.response.ScheduleSlotResponse> slotResponses = slotsToday.stream()
+                .map(s -> com.tcs.module.center.dto.response.ScheduleSlotResponse.builder()
+                        .slotId(s.getSlotId())
+                        .dayOfWeek(s.getDayOfWeek())
+                        .startTime(s.getStartTime())
+                        .endTime(s.getEndTime())
+                        .build())
+                .toList();
+
+        return com.tcs.module.center.dto.response.CenterScheduleClassResponse.builder()
+                .classId(c.getClassId())
+                .title(c.getTitle())
+                .subjectName(c.getSubject() != null ? c.getSubject().getSubjectName() : null)
+                .gradeName(c.getGrade() != null ? c.getGrade().getGradeName() : null)
+                .lessonMode(c.getLessonMode())
+                .slots(slotResponses)
+                .assignedTutorId(assignment != null ? assignment.getTutor().getTutorId() : null)
+                .assignedTutorName(assignment != null ? assignment.getTutor().getFullName() : null)
+                .studentCount(students.size())
+                .students(studentItems)
+                .attendanceTaken(!attendanceByStudent.isEmpty())
+                .build();
+    }
+
+    private void applyPlatformSubstitution(
+            com.tcs.module.center.dto.response.CenterScheduleClassResponse item,
+            com.tcs.module.marketplace.dto.SubstitutionEntry sub) {
+        if (sub == null) return;
+        String mainName = item.getAssignedTutorName();
+        Tutor assistant = sub.tutorId() != null
+                ? tutorRepository.findById(sub.tutorId()).orElse(null) : null;
+        if (assistant != null) {
+            item.setAssignedTutorId(assistant.getTutorId());
+            item.setAssignedTutorName(assistant.getFullName());
+        }
+        item.setSubstituted(true);
+        item.setSubstituteNote("Dạy thay" + (mainName != null ? " cho " + mainName : ""));
+    }
+
+    // =========================================================================
+    // UC-46: CẤU HÌNH PHÍ RIÊNG BIỆT CHO TRUNG TÂM GIA SƯ (CUSTOM CENTER FEES)
+    // =========================================================================
+
+    private BigDecimal resolveDefaultPlatformFeeRate() {
+        BigDecimal fallback = new BigDecimal("0.02");
+        if (systemParameterRepository == null) {
+            return fallback;
+        }
+        return systemParameterRepository.findByParamKey("PLATFORM_FEE_RATE")
+                .map(p -> {
+                    try {
+                        BigDecimal parsed = new BigDecimal(p.getParamValue().trim());
+                        return parsed.compareTo(BigDecimal.ZERO) >= 0 && parsed.compareTo(new BigDecimal("0.50")) <= 0
+                                ? parsed : fallback;
+                    } catch (RuntimeException e) {
+                        return fallback;
+                    }
+                })
+                .orElse(fallback);
+    }
+
+    private String formatFeePercent(BigDecimal rate) {
+        if (rate == null) {
+            return "0%";
+        }
+        return rate.multiply(new BigDecimal("100")).stripTrailingZeros().toPlainString() + "%";
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<CenterFeeConfigResponse> listCenterFeeConfigs() {
+        BigDecimal defaultRate = resolveDefaultPlatformFeeRate();
+        List<TutorCenter> centers = tutorCenterRepository.findAll();
+        return centers.stream()
+                .map(center -> mapToCenterFeeConfigResponse(center, defaultRate))
+                .sorted(Comparator.comparing(CenterFeeConfigResponse::getCompanyName, Comparator.nullsLast(String.CASE_INSENSITIVE_ORDER)))
+                .toList();
+    }
+
+    @Override
+    @Transactional
+    public CenterFeeConfigResponse updateCenterFeeConfig(Long centerId, UpdateCenterFeeRequest request) {
+        TutorCenter center = tutorCenterRepository.findById(centerId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy trung tâm gia sư với ID: " + centerId));
+
+        BigDecimal newRate = request != null ? request.getCustomFeeRate() : null;
+        if (newRate != null) {
+            if (newRate.compareTo(BigDecimal.ZERO) < 0 || newRate.compareTo(new BigDecimal("0.5000")) > 0) {
+                throw new BusinessException("Tỷ lệ phí tùy chỉnh phải nằm trong khoảng 0% đến 50% (0.0000 đến 0.5000)");
+            }
+        }
+
+        BigDecimal oldRate = center.getCustomFeeRate();
+        center.setCustomFeeRate(newRate);
+        tutorCenterRepository.save(center);
+
+        auditLogService.record("UPDATE_CENTER_FEE", "TUTOR_CENTER", centerId, oldRate, newRate);
+
+        BigDecimal defaultRate = resolveDefaultPlatformFeeRate();
+        return mapToCenterFeeConfigResponse(center, defaultRate);
+    }
+
+    @Override
+    @Transactional
+    public CenterFeeConfigResponse resetCenterFeeConfig(Long centerId) {
+        UpdateCenterFeeRequest req = new UpdateCenterFeeRequest();
+        req.setCustomFeeRate(null);
+        req.setReason("Khôi phục về tỷ lệ phí mặc định của sàn");
+        return updateCenterFeeConfig(centerId, req);
+    }
+
+    private CenterFeeConfigResponse mapToCenterFeeConfigResponse(TutorCenter center, BigDecimal defaultRate) {
+        BigDecimal customRate = center.getCustomFeeRate();
+        BigDecimal effectiveRate = customRate != null ? customRate : defaultRate;
+        return CenterFeeConfigResponse.builder()
+                .centerId(center.getCenterId())
+                .userId(center.getUser() != null ? center.getUser().getUserId() : null)
+                .companyName(center.getCompanyName())
+                .licenseNo(center.getLicenseNo())
+                .email(center.getUser() != null ? center.getUser().getEmail() : null)
+                .phone(center.getPhone())
+                .verificationStatus(center.getVerificationStatus() != null ? center.getVerificationStatus().name() : null)
+                .customFeeRate(customRate)
+                .effectiveFeeRate(effectiveRate)
+                .custom(customRate != null)
+                .effectiveFeeRatePercent(formatFeePercent(effectiveRate))
+                .defaultPlatformFeeRate(defaultRate)
+                .build();
+    }
 }
+

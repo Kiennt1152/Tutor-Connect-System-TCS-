@@ -1,3 +1,15 @@
+/**
+ * ====================================================================================================
+ * [UC-39 / UC-40] MÀN HÌNH QUẢN LÝ VÍ & LỊCH SỬ GIAO DỊCH (FINANCE PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Quản lý số dư ví khả dụng, nạp tiền trực tuyến quét mã QR qua cổng SePay.
+ * 2. Khởi tạo yêu cầu rút tiền về tài khoản ngân hàng liên kết an toàn, bảo mật.
+ * 3. Sao kê chi tiết toàn bộ lịch sử biến động số dư: Nạp, Rút, Ký quỹ, Giải ngân.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 import { type MouseEvent, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';

@@ -1,3 +1,12 @@
+/**
+ * ====================================================================================================
+ * [UC-45] MÀN HÌNH THỜI KHÓA BIỂU TỔNG THỂ TRUNG TÂM (CENTER SCHEDULE PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Lịch biểu tổng hợp tất cả các ca dạy của các lớp và gia sư thuộc trung tâm.
+ * 2. Phát hiện trùng lịch và điều phối ca dạy thay (Substitution) khi gia sư bận.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';

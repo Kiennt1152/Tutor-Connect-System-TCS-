@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH HỢP ĐỒNG & ĐÁNH GIÁ (CONTRACT REVIEW INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Xử lý ý định tra cứu hợp đồng dạy học, ký kết điện tử, hủy hợp đồng và viết đánh giá nhận xét gia sư.
+ * 
+ * Chức năng chính:
+ *   1. Nhận diện nghiệp vụ hợp đồng: Bắt từ khóa về hợp đồng dạy học, điều khoản cam kết, ký số OTP.
+ *   2. Nhận diện đánh giá & khiếu nại: Bắt từ khóa viết review, chấm điểm sao và phản ánh chất lượng.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quét từ khóa liên quan đến hợp đồng và đánh giá trong câu hỏi.
+ *   - Bước 2: Xác định ý định CONTRACT_VIEW hoặc REVIEW_SUBMIT.
+ *   - Bước 3: Trả về AiDomain.CONTRACT_REVIEW kèm liên kết trang hợp đồng.
+ * ============================================================================
+ */
 @Component
 public class ContractReviewIntentRule implements IntentRule {
 

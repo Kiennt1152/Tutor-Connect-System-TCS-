@@ -20,6 +20,9 @@ public interface TutoringClassRepository extends JpaRepository<TutoringClass, Lo
     List<TutoringClass> findByStatusIn(java.util.Collection<TutoringClassStatus> statuses);
 
     List<TutoringClass> findByCreator_UserId(Long userId);
+
+    List<TutoringClass> findByCenter_CenterId(Long centerId);
+
     /** Lớp của một trung tâm theo trạng thái, mới tạo trước — dùng cho trang hồ sơ trung tâm. */
     List<TutoringClass> findByCenter_CenterIdAndStatusOrderByCreatedAtDesc(
             Long centerId, TutoringClassStatus status);

@@ -1,5 +1,6 @@
 package com.tcs.module.center.dto.response;
 
+import java.time.LocalDate;
 import java.util.List;
 import lombok.Builder;
 import lombok.Getter;
@@ -40,6 +41,11 @@ public class CenterStatsResponse {
         private long absent;
         private long excused;
         private double attendanceRate;
+        private Integer totalSessions;
+        private Integer completedSessions;
+        private Double progressPercent;
+        private LocalDate startDate;
+        private LocalDate endDate;
     }
 
     @Getter

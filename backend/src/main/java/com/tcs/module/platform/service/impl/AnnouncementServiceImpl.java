@@ -31,16 +31,26 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * ============================================================================
- * DỊCH VỤ QUẢN LÝ THÔNG BÁO TOÀN HỆ THỐNG (SYSTEM ANNOUNCEMENT SERVICE)
+ * [UC-59] DỊCH VỤ QUẢN LÝ BẢN TIN & THÔNG BÁO TOÀN SÀN (ANNOUNCEMENT SERVICE IMPLEMENTATION)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mô tả:
- *   - Quản lý các thông báo/banner toàn nền tảng (System Announcements).
- *   - Lưu trữ danh sách thông báo động dưới dạng JSON trong bảng SystemParameter (SYSTEM_ANNOUNCEMENTS).
- *   - Hỗ trợ định hướng mục tiêu đối tượng (Target Role: Tất cả, Gia sư, Phụ huynh, Trung tâm).
- *   - Thiết lập thời gian hiển thị (StartsAt -> EndsAt) và trạng thái bật/tắt (Active).
- *   - Ghi vết Audit Log cho các hành động Thêm, Sửa, Bật/Tắt, Xóa thông báo.
+ * * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * * Mô tả Use Case:
+ *   - Quản lý và phát hành các bản tin thông báo, cảnh báo chính sách hoặc bảo trì toàn nền tảng.
+ *   - Hỗ trợ hiển thị banner động theo vai trò người dùng và khung thời gian định sẵn.
+ * * Chức năng chính:
+ *   1. Quản lý bản tin thông báo: Thêm mới, chỉnh sửa nội dung, xóa và bật/tắt hiển thị.
+ *   2. Lưu trữ cấu hình động: Lưu dữ liệu dưới định dạng JSON trong bảng SystemParameter (`SYSTEM_ANNOUNCEMENTS`).
+ *   3. Phân phối theo đối tượng: Lọc hiển thị theo vai trò (Tất cả, Gia sư, Phụ huynh, Trung tâm).
+ *   4. Quản lý vòng đời thông báo: Cấu hình mốc thời gian bắt đầu (startsAt), kết thúc (endsAt) và ưu tiên hiển thị.
+ *   5. Ghi vết kiểm toán: Tự động ghi nhận lịch sử thay đổi vào Audit Log phục vụ đối soát.
+ * * Luồng xử lý chính:
+ *   - Bước 1: Admin tạo hoặc cập nhật thông báo (`upsertAnnouncement`) kèm đối tượng đích và thời gian.
+ *   - Bước 2: Đọc tham số `SYSTEM_ANNOUNCEMENTS` từ CSDL, giải mã JSON danh sách thông báo.
+ *   - Bước 3: Cập nhật bản ghi, mã hóa lại thành JSON và lưu vào bảng SystemParameter.
+ *   - Bước 4: Ghi nhận nhật ký kiểm toán hành động (`AuditLogService`).
+ *   - Bước 5: Người dùng tải danh sách thông báo phù hợp vai trò hiện tại (`getActiveAnnouncementsForRole`).
+ * ============================================================================
  */
 @Service
 @RequiredArgsConstructor

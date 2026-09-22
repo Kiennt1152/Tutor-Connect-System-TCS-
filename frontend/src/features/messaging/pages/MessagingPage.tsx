@@ -1,3 +1,15 @@
+/**
+ * ====================================================================================================
+ * [UC-50 / UC-51] MÀN HÌNH HỘI THOẠI TRỰC TUYẾN (MESSAGING PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Trò chuyện trực tuyến thời gian thực giữa Phụ huynh, Gia sư và Trung tâm.
+ * 2. Hỗ trợ gửi hình ảnh, bài tập đính kèm và kiểm tra trạng thái đã đọc.
+ * 3. Tích hợp bộ lọc cảnh báo giao dịch ngoài sàn bảo vệ quyền lợi người dùng.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
+
 import { useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
@@ -100,6 +112,17 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
     void reloadConversations();
   };
 
+  const handleDeleteConversation = (conversationId: number) => {
+    if (selectedConvId === conversationId) {
+      const remaining = conversations.filter((c) => c.conversationId !== conversationId);
+      if (remaining.length > 0) {
+        setSearchParams({ conv: String(remaining[0].conversationId) });
+      } else {
+        setSearchParams({ tab: 'chat' });
+      }
+    }
+  };
+
   const activeConv = conversations.find((c) => c.conversationId === selectedConvId) || null;
 
   return (
@@ -115,7 +138,7 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
               setSearchParams({ tab: 'chat' });
             }}
           >
-            💬 Tin nhắn trực tiếp
+            Tin nhắn trực tiếp
           </button>
           <button
             type="button"
@@ -125,7 +148,7 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
               setSearchParams({ tab: 'tickets' });
             }}
           >
-            🎫 Yêu cầu hỗ trợ (Tickets)
+            Yêu cầu hỗ trợ (Tickets)
           </button>
         </div>
 
@@ -141,6 +164,7 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
                 error={convError}
                 onSelect={handleSelectConv}
                 onNewConversation={() => setShowSearch(true)}
+                onDeleteConversation={handleDeleteConversation}
               />
 
               <div className="msg-thread-panel">
@@ -184,7 +208,11 @@ export default function MessagingPage({ initialTab }: MessagingPageProps) {
                   </>
                 ) : (
                   <div className="msg-thread-panel__empty">
-                    <span style={{ fontSize: '2.5rem' }}>💬</span>
+                    <div className="msg-thread-panel__empty-icon">
+                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                    </div>
                     <p>Chọn một cuộc trò chuyện từ danh sách bên trái để bắt đầu nhắn tin.</p>
                   </div>
                 )}

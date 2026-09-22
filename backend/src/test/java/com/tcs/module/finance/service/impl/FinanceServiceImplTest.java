@@ -131,6 +131,8 @@ class FinanceServiceImplTest {
 
     @Mock
     private TutorCenterRepository tutorCenterRepository;
+
+    @Mock
     private com.tcs.module.finance.repository.CenterRequestFeeHoldRepository centerRequestFeeHoldRepository;
 
     @Mock

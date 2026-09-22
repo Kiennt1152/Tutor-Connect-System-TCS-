@@ -1,3 +1,12 @@
+/**
+ * ====================================================================================================
+ * [UC-10] MÀN HÌNH TÌM LỚP HỌC CHO GIA SƯ (FIND CLASS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Bảng tin lớp học mới cần gia sư với đầy đủ thông tin địa điểm và mức đãi ngộ.
+ * 2. Lọc lớp học theo khu vực gần nhất và thời gian phù hợp với lịch rảnh của gia sư.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SiteHeader } from '../components/SiteHeader';

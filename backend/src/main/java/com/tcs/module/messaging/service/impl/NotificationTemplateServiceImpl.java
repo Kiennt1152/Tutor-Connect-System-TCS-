@@ -21,6 +21,31 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * [UC-35] HIỆN THỰC QUẢN TRỊ MẪU THÔNG BÁO & RENDER PLACEHOLDER (NOTIFICATION TEMPLATE SERVICE IMPL)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Dịch vụ hiện thực hóa việc quản trị mẫu thông báo động toàn sàn và nội suy biến số thời gian thực.
+ *   - Tự động ghi vết kiểm toán Audit Log cho các thao tác cấu hình mẫu thông báo.
+ * 
+ * Chức năng chính:
+ *   1. CRUD mẫu thông báo: Quản lý tiêu đề, nội dung, mã sự kiện và kênh gửi thông báo.
+ *   2. Phân tích placeholder: Nhận diện biến số động định dạng {{variableName}} bằng biểu thức chính quy Regex.
+ *   3. Render bản xem trước (Preview): Điền dữ liệu giả lập vào mẫu để kiểm tra hiển thị trước khi gửi thật.
+ *   4. Ghi vết kiểm toán: Tự động ghi nhận lịch sử thay đổi vào AuditLogService đảm bảo an toàn vận hành.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận yêu cầu tạo/sửa template, bóc tách danh sách placeholders qua Pattern Regex.
+ *   - Bước 2: Kiểm tra tính toàn vẹn cấu trúc và lưu vào bảng notification_templates.
+ *   - Bước 3: Ghi vết thay đổi vào nhật ký kiểm toán AuditLogService.
+ *   - Bước 4: Phục vụ render thông báo động cho các luồng gửi thông báo tự động toàn hệ thống.
+ * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class NotificationTemplateServiceImpl implements NotificationTemplateService {

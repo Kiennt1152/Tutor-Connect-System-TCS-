@@ -1,3 +1,20 @@
+/**
+ * ============================================================================
+ * [UC-44] CUSTOM HOOKS QUẢN LÝ DỮ LIỆU HỢP ĐỒNG (USE CONTRACT HOOKS)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-07-10
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Đóng gói logic state management và bất đồng bộ khi tương tác với API hợp đồng.
+ *    - Cung cấp các hooks: useContractList (danh sách), useContractDetail (chi tiết), useSignContract (ký kết).
+ * 
+ * 2. Luồng xử lý chính:
+ *    - Quản lý các trạng thái: loading, error, reload tự động.
+ *    - Xử lý các thao tác gửi OTP, xác thực OTP và cập nhật trạng thái ký theo thời gian thực.
+ * ============================================================================
+ */
+
 import { useCallback, useEffect, useState } from 'react';
 import { contractApi } from '../api/contractApi';
 import type {

@@ -1,3 +1,22 @@
+/**
+ * ============================================================================
+ * [UC-44] CLIENT API TƯƠNG TÁC HỢP ĐỒNG ĐIỆN TỬ (CONTRACT API CLIENT)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-07-10
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Cung cấp các hàm gọi HTTP Axios Client tới các endpoint backend /api/contract/*.
+ *    - Hỗ trợ tạo hợp đồng, gửi OTP, xác thực ký số, tra cứu danh sách và chi tiết hợp đồng.
+ * 
+ * 2. Các hàm API chính:
+ *    - getMyContracts: Lấy danh sách hợp đồng của người dùng đăng nhập.
+ *    - getContractById: Lấy thông tin chi tiết một hợp đồng theo ID.
+ *    - sendOtp: Yêu cầu hệ thống phát sinh và gửi OTP ký số qua Email.
+ *    - signWithOtp: Gửi mã OTP xác thực và hoàn tất ký số hợp đồng.
+ * ============================================================================
+ */
+
 import axiosClient from '../../../shared/api/axiosClient';
 import { authStorage } from '../../../shared/auth/authStorage';
 import type {

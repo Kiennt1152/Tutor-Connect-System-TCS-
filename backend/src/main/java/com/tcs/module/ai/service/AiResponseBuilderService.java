@@ -9,7 +9,25 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 
 /**
- * Service to build standard AiMessageResponse instances across all chat pipeline execution paths.
+ * ============================================================================
+ * [UC-65] CHUẨN HÓA & ĐÓNG GÓI PHẢN HỒI AI (AI RESPONSE BUILDER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Xử lý hậu kỳ văn bản từ LLM, loại bỏ định dạng thừa, làm sạch Markdown và gắn siêu dữ liệu nguồn tin.
+ * 
+ * Chức năng chính:
+ *   1. Làm sạch văn bản: Loại bỏ khoảng trắng thừa, thẻ HTML lỗi hoặc cú pháp Markdown bị hỏng.
+ *   2. Gắn metadata nguồn: Ghi nhận nhà cung cấp LLM, thời gian phản hồi và danh sách nguồn trích dẫn.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận phản hồi thô từ nhà cung cấp mô hình ngôn ngữ.
+ *   - Bước 2: Chuẩn hóa định dạng Markdown và kiểm tra độ hoàn chỉnh câu từ.
+ *   - Bước 3: Đóng gói thành đối tượng phản hồi hoàn chỉnh gửi về client.
+ * ============================================================================
  */
 @Service
 public class AiResponseBuilderService {

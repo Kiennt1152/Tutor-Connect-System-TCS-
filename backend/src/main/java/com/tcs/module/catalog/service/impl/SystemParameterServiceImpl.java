@@ -18,6 +18,31 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * [UC-57] HIỆN THỰC CẤU HÌNH THAM SỐ TOÀN SÀN (SYSTEM PARAMETER SERVICE IMPL)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Hiện thực hóa dịch vụ quản trị các tham số cấu hình vận hành và bảo mật trên toàn hệ thống.
+ *   - Đảm bảo cơ chế tự động bảo vệ các tham số cốt lõi và ghi vết kiểm toán đầy đủ cho mọi thay đổi.
+ * 
+ * Chức năng chính:
+ *   1. Danh mục tham số: Tra cứu, tìm kiếm và phân nhóm cấu hình theo tiền tố tính năng.
+ *   2. Thêm mới và cập nhật: Lưu trữ tham số và giá trị cấu hình vào CSDL.
+ *   3. Bảo vệ khóa cốt lõi: Ngăn chặn xóa hoặc sửa đổi trái phép các tham số bắt buộc sàn (PLATFORM_FEE_RATE, ESCROW_HOLD_DAYS).
+ *   4. Ghi vết kiểm toán: Tự động ghi nhật ký Audit Log mỗi khi có thao tác thêm, sửa hoặc xóa tham số.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên gửi yêu cầu truy vấn hoặc cập nhật tham số cấu hình.
+ *   - Bước 2: Kiểm tra tính hợp lệ và danh sách khóa bắt buộc không thể xóa (`MANDATORY_KEYS`).
+ *   - Bước 3: Thực hiện lưu thay đổi vào bảng `system_parameters`.
+ *   - Bước 4: Ghi nhận sự kiện vào `AuditLogService` để phục vụ thanh tra hệ thống.
+ * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class SystemParameterServiceImpl implements SystemParameterService {

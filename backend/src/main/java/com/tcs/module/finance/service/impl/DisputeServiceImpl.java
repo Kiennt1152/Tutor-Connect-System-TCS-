@@ -87,6 +87,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * ====================================================================================================
+ * [UC-23 / UC-30] DỊCH VỤ GIẢI QUYẾT TRANH CHẤP & PHÂN BỔ KÝ QUỸ (DISPUTE SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tiếp nhận và quản lý hồ sơ tranh chấp hợp đồng, khiếu nại hoàn tiền và sự cố lớp học (UC-30).
+ * 2. Lưu trữ bằng chứng hình ảnh, biên bản sự việc và ghi nhận giải trình của các bên liên quan.
+ * 3. Tự động đề xuất phương án phân bổ tài chính theo tỷ lệ số buổi đã học (Pro-rata Settlement).
+ * 4. Xử lý kháng cáo tranh chấp, liên kết ban hành chế tài và chốt quyết toán dứt điểm.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @Service
 @RequiredArgsConstructor
 public class DisputeServiceImpl implements DisputeService {

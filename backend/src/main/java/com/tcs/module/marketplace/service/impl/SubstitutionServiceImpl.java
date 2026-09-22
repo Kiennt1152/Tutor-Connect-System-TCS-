@@ -18,6 +18,15 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ====================================================================================================
+ * [UC-17] DỊCH VỤ ĐỔI GIA SƯ DẠY THAY (SUBSTITUTION SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hỗ trợ trung tâm gia sư hoặc gia sư chính đề xuất người dạy thay khi có lịch bận đột xuất.
+ * 2. Kiểm tra chứng chỉ và năng lực của gia sư dạy thay trước khi gửi yêu cầu cho phụ huynh duyệt.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 @Service
 @RequiredArgsConstructor
 public class SubstitutionServiceImpl implements SubstitutionService {

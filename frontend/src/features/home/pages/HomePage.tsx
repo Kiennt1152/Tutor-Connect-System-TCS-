@@ -1,3 +1,17 @@
+/**
+ * ====================================================================================================
+ * [UC-09] TRANG CHỦ HỆ THỐNG TCS (HOME PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Trang giới thiệu nền tảng kết nối gia sư uy tín hàng đầu cho phụ huynh và gia sư.
+ * 2. Hiển thị danh sách gia sư tiêu biểu, lớp học mới mở và hướng dẫn tham gia sàn.
+ * 3. Tích hợp tìm kiếm nhanh theo môn học và bảng điều hướng dịch vụ.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { centerProfilePath } from '../../../shared/constants/routes';

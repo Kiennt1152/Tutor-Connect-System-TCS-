@@ -1,3 +1,15 @@
+/**
+ * ====================================================================================================
+ * [UC-15] MÀN HÌNH LỊCH DẠY HỌC CỦA GIA SƯ (TEACHING SCHEDULE PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Thời khóa biểu các ca dạy trong tuần của gia sư, liên kết phòng học trực tuyến.
+ * 2. Thực hiện điểm danh buổi học, ghi nhận tiến độ kiến thức đã truyền đạt.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';

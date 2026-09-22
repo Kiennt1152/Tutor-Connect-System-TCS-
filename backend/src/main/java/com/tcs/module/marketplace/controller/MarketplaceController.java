@@ -35,6 +35,18 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ====================================================================================================
+ * [UC-10 / UC-11] SÀN KẾT NỐI LỚP HỌC & ỨNG TUYỂN GIA SƯ (MARKETPLACE CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Đăng bài tìm gia sư mới, quản lý yêu cầu lớp học và trạng thái tuyển chọn gia sư.
+ * 2. Cung cấp bộ lọc tìm kiếm lớp học theo môn học, khối lớp, khu vực địa lý và học phí.
+ * 3. Cho phép gia sư nộp hồ sơ ứng tuyển (Apply), phụ huynh duyệt hồ sơ và chốt thỏa thuận.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @RestController
 @RequestMapping("/api/marketplace")
 @RequiredArgsConstructor

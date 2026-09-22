@@ -53,7 +53,34 @@ export function ChatButton({
       disabled={loading}
       title={error || text}
     >
-      <span className="tcs-chat-btn__icon">{loading ? '⌛' : '💬'}</span>
+      <span className="tcs-chat-btn__icon">
+        {loading ? (
+          <svg
+            className="tcs-chat-spinner"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+          >
+            <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+          </svg>
+        ) : (
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+        )}
+      </span>
       <span className="tcs-chat-btn__text">{error || (loading ? 'Đang kết nối...' : text)}</span>
     </button>
   );

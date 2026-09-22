@@ -1,3 +1,12 @@
+/**
+ * ====================================================================================================
+ * [UC-10] MÀN HÌNH ĐĂNG TIN TÌM GIA SƯ (POST TUTOR REQUEST PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Biểu mẫu đăng tin tìm gia sư: Nhập thông tin học viên, môn học, thời khóa biểu và ngân sách.
+ * 2. Hệ thống tự động kiểm tra tính hợp lệ và xuất bản lớp lên sàn Marketplace.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 import { useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';

@@ -30,6 +30,15 @@ export interface UpdateUserStatusApiRequest {
   status: UserStatus;
 }
 
+export interface CreateUserApiRequest {
+  email: string;
+  password: string;
+  displayName: string;
+  phone?: string;
+  role: UserRole;
+  status?: UserStatus;
+}
+
 export interface UserListItem {
   id: string;
   email: string;
@@ -1170,6 +1179,7 @@ export interface AnalyticsSummaryApiResponse {
   moneyOut?: number;
   netMovement?: number;
   platformRevenue?: number;
+  pendingWithdrawals?: number;
   escrowFlow?: EscrowFlowApi;
   transactionTypeBreakdown?: TransactionTypeBreakdownApi[];
   platformFeeRate: number;
@@ -1218,3 +1228,101 @@ export interface CircumventionConversationApiResponse {
   }>;
   hasMore: boolean;
 }
+
+export interface CenterFinancialAnalyticsApiResponse {
+  centerId: number;
+  companyName: string;
+  licenseNo: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  totalClasses: number;
+  activeClasses: number;
+  completedClasses: number;
+  totalTutors: number;
+  newTutorsInPeriod: number;
+  moneyIn: number;
+  moneyOut: number;
+  escrowHeld: number;
+  escrowReleased: number;
+  platformFeePaid: number;
+  walletBalance: number;
+}
+
+export interface TutorFinancialAnalyticsApiResponse {
+  tutorId: number;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  verificationStatus: string;
+  totalClasses: number;
+  activeClasses: number;
+  completedClasses: number;
+  newClassesInPeriod: number;
+  totalEarnings: number;
+  totalWithdrawn: number;
+  pendingWithdrawals: number;
+  escrowHolding: number;
+  availableBalance: number;
+  averageRating: number;
+}
+
+export interface ClientFinancialAnalyticsApiResponse {
+  clientId: number;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  totalClassesRegistered: number;
+  activeClasses: number;
+  completedClasses: number;
+  totalDeposited: number;
+  totalRefunded: number;
+  activeEscrow: number;
+  availableBalance: number;
+}
+
+export interface FinancialLedgerItemApiResponse {
+  transactionId: number;
+  referenceCode: string;
+  type: string;
+  typeLabel: string;
+  direction: 'IN' | 'OUT';
+  amount: number;
+  status: string;
+  description: string | null;
+  actorUserId: number | null;
+  actorName: string;
+  actorEmail: string;
+  actorRole: string;
+  relatedEntity: string | null;
+  createdAt: string;
+}
+
+export interface PageFinancialLedgerApiResponse {
+  content: FinancialLedgerItemApiResponse[];
+  page: number;
+  size: number;
+  totalElements: number;
+  totalPages: number;
+}
+
+export interface CenterFeeConfigApiResponse {
+  centerId: number;
+  userId: number | null;
+  companyName: string;
+  licenseNo: string | null;
+  email: string | null;
+  phone: string | null;
+  verificationStatus: string | null;
+  customFeeRate: number | null;
+  effectiveFeeRate: number;
+  custom: boolean;
+  effectiveFeeRatePercent: string;
+  defaultPlatformFeeRate: number;
+}
+
+export interface UpdateCenterFeeApiRequest {
+  customFeeRate: number | null;
+  reason?: string;
+}
+

@@ -7,6 +7,27 @@ import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] CÁ NHÂN HÓA TRUY VẤN NGƯỜI DÙNG (USER PREFERENCE SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Theo dõi và lưu trữ sở thích tìm kiếm của người dùng (môn học yêu thích, khu vực quận huyện, ngân sách).
+ * 
+ * Chức năng chính:
+ *   1. Học sở thích tìm kiếm: Tự động ghi nhận môn học và khu vực người dùng thường quan tâm.
+ *   2. Tái cá nhân hóa kết quả: Ưu tiên xếp hạng kết quả phù hợp với hồ sơ học tập cá nhân.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận truy vấn kèm định danh tài khoản người dùng.
+ *   - Bước 2: Đọc hồ sơ sở thích từ bộ nhớ đệm hoặc cơ sở dữ liệu.
+ *   - Bước 3: Áp dụng hệ số trọng số ưu tiên khi xếp hạng gợi ý lớp/gia sư.
+ * ============================================================================
+ */
 @Slf4j
 @Service
 public class UserPreferenceService {

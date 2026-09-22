@@ -22,6 +22,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ====================================================================================================
+ * [UC-51] LỊCH SỬ TIN NHẮN & TỆP ĐÍNH KÈM (MESSAGING CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Truy xuất lịch sử trò chuyện phân trang, hỗ trợ tìm kiếm tin nhắn cũ theo từ khóa.
+ * 2. Đánh dấu trạng thái đã nhận, đã xem và đếm số lượng tin nhắn chưa đọc của từng cuộc hội thoại.
+ * 3. Quản lý truyền tải tệp đính kèm (hình ảnh bài tập, tài liệu PDF giảng dạy) trong khung chat.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @RestController
 @RequestMapping("/api/messaging")
 @RequiredArgsConstructor

@@ -1,7 +1,17 @@
+/**
+ * ====================================================================================================
+ * [UC-40] MÀN HÌNH DUYỆT YÊU CẦU RÚT TIỀN VÍ (PLATFORM WITHDRAWALS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Danh sách yêu cầu rút tiền về tài khoản ngân hàng của gia sư và phụ huynh.
+ * 2. Kiểm tra tính hợp lệ của tài khoản ngân hàng chính chủ và số dư ví trước khi duyệt.
+ * 3. Kích hoạt lệnh chuyển khoản tự động hoặc từ chối yêu cầu kèm lý do rõ ràng.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
-import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { Pagination } from '../../../shared/components';
 import { useWithdrawalDecision } from '../hooks/usePlatformMutations';
 import { useWithdrawalList } from '../hooks/useWithdrawalList';
@@ -61,8 +71,17 @@ export default function PlatformWithdrawalsPage() {
     approveWithdrawal,
     rejectWithdrawal,
     markTransferFailed,
+    completeWithdrawal,
     reset: resetDecision,
   } = useWithdrawalDecision();
+
+  const handleComplete = async (withdrawalId: string) => {
+    if (!window.confirm('Bạn xác nhận đã chuyển khoản thành công số tiền này cho người dùng? Giao dịch sẽ chuyển sang trạng thái HOÀN TẤT và được cộng ngay vào Tiền ra khỏi Sàn (Money Out) trên Báo cáo tài chính.')) {
+      return;
+    }
+    const ok = await completeWithdrawal(withdrawalId);
+    if (ok) reload();
+  };
   const [decisionDialog, setDecisionDialog] = useState<{
     type: 'reject' | 'transferFailed';
     withdrawalId: string;
@@ -184,8 +203,6 @@ export default function PlatformWithdrawalsPage() {
           </article>
         </section>
       )}
-
-      <AdminTimeFilter showGranularity={false} />
 
       <div className="adm-card pw-card">
         <div className="adm-toolbar pw-toolbar">
@@ -330,13 +347,38 @@ export default function PlatformWithdrawalsPage() {
                         <td>
                           <div className="pw-actions">
                             {item.canApprove && (
+                              <>
+                                <button
+                                  className="tcs-btn tcs-btn--primary pw-action-btn"
+                                  type="button"
+                                  style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }}
+                                  disabled={decisionStatus === 'loading'}
+                                  onClick={() => handleComplete(String(item.raw.withdrawalId))}
+                                  title="Duyệt và xác nhận đã chuyển tiền thành công: Cập nhật ngay vào Tiền ra trên báo cáo"
+                                >
+                                  Duyệt & Đã chuyển
+                                </button>
+                                <button
+                                  className="tcs-btn tcs-btn--ghost pw-action-btn"
+                                  type="button"
+                                  disabled={decisionStatus === 'loading'}
+                                  onClick={() => handleApprove(String(item.raw.withdrawalId))}
+                                  title="Chỉ duyệt đơn (tiền sẽ ở trạng thái Chờ chuyển khoản, chưa trừ ngay vào Tiền ra)"
+                                >
+                                  Chỉ duyệt
+                                </button>
+                              </>
+                            )}
+                            {item.status === 'APPROVED' && item.raw.withdrawalId != null && (
                               <button
                                 className="tcs-btn tcs-btn--primary pw-action-btn"
                                 type="button"
+                                style={{ backgroundColor: '#10b981', borderColor: '#10b981', color: '#fff' }}
                                 disabled={decisionStatus === 'loading'}
-                                onClick={() => handleApprove(String(item.raw.withdrawalId))}
+                                onClick={() => handleComplete(String(item.raw.withdrawalId))}
+                                title="Xác nhận tiền đã được chuyển thành công tới tài khoản ngân hàng, cộng vào Tiền ra"
                               >
-                                Duyệt
+                                Xác nhận Đã chuyển
                               </button>
                             )}
                             {item.canReject && (
@@ -361,7 +403,7 @@ export default function PlatformWithdrawalsPage() {
                                 Báo lỗi chuyển
                               </button>
                             )}
-                            {!item.canApprove && !item.canReject && !item.canMarkTransferFailed && (
+                            {!item.canApprove && item.status !== 'APPROVED' && !item.canReject && !item.canMarkTransferFailed && (
                               <span className="pw-actions__empty">—</span>
                             )}
                           </div>

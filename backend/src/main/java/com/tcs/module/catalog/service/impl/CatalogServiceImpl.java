@@ -44,6 +44,16 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * ====================================================================================================
+ * [UC-55] DỊCH VỤ DANH MỤC DỮ LIỆU DÙNG CHUNG HỆ THỐNG (CATALOG SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Cung cấp dữ liệu danh mục môn học, khối lớp, cấp độ và danh sách ngân hàng Việt Nam.
+ * 2. Quản lý tra cứu danh mục tỉnh/thành phố và quận/huyện hỗ trợ tìm kiếm lớp học.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 @Service
 @RequiredArgsConstructor
 public class CatalogServiceImpl implements CatalogService {

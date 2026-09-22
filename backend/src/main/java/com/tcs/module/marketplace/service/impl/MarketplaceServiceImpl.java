@@ -189,6 +189,18 @@ import org.springframework.util.StringUtils;
  * @see com.tcs.module.marketplace.service.MarketplaceService
  * @see com.tcs.module.marketplace.entity.TutoringClass
  */
+/**
+ * ====================================================================================================
+ * [UC-10 / UC-11] DỊCH VỤ KẾT NỐI LỚP HỌC VÀ GIA SƯ (MARKETPLACE SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Quản lý vòng đời bài đăng tìm lớp: Tạo mới, cập nhật yêu cầu, đóng bài đăng khi đã ghép lớp.
+ * 2. Xử lý luồng gia sư nộp hồ sơ ứng tuyển (Apply), hiển thị danh sách ứng viên cho phụ huynh.
+ * 3. Cung cấp thuật toán tìm kiếm và lọc lớp học theo môn học, khu vực, học phí và lịch rảnh.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -4485,6 +4497,15 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         // Môn học không bắt buộc: phụ huynh chỉ gửi nguyện vọng ngắn gọn, môn nằm trong nội dung.
         // Nếu có gửi categoryId thì kiểm tra tồn tại.
         Category category = resolveCategory(request.getCategoryId());
+        boolean duplicate = classRequestStore.findByClient(creator.getUserId()).stream()
+                .anyMatch(d -> center.getCenterId().equals(d.centerId())
+                        && (ClassRequestStore.STATUS_PAYMENT_PENDING.equals(d.status())
+                                || ClassRequestStore.STATUS_PENDING.equals(d.status())
+                                || ClassRequestStore.STATUS_SEARCHING.equals(d.status()))
+                        && request.getNote().trim().equalsIgnoreCase(d.note()));
+        if (duplicate) {
+            throw new IllegalArgumentException("Bạn đã có yêu cầu tương tự đang chờ xử lý tại trung tâm này.");
+        }
         long pending = classRequestStore.findByClient(creator.getUserId()).stream()
                 .filter(d -> ClassRequestStore.STATUS_PAYMENT_PENDING.equals(d.status())
                         || ClassRequestStore.STATUS_PENDING.equals(d.status())

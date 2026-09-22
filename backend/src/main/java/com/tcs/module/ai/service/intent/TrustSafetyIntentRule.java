@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH AN TOÀN & CHỐNG GIAO DỊCH NGOÀI SÀN (TRUST SAFETY INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Phát hiện các hành vi hoặc câu hỏi có dấu hiệu giao dịch ngoài sàn (Circumvention) hoặc báo cáo lừa đảo.
+ * 
+ * Chức năng chính:
+ *   1. Cảnh báo giao dịch ngoài: Bắt các cụm từ đề cập trả tiền mặt riêng, trao đổi số Zalo để né phí sàn.
+ *   2. Hướng dẫn báo cáo vi phạm: Cung cấp quy trình báo cáo hành vi thiếu trung thực.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quét từ khóa nhạy cảm về trao đổi thông tin liên lạc ngoài luồng.
+ *   - Bước 2: Gán miền AiDomain.TRUST_SAFETY với thông điệp cảnh báo rủi ro lừa đảo.
+ *   - Bước 3: Khuyến nghị người dùng thực hiện giao dịch qua hệ thống bảo chứng Escrow.
+ * ============================================================================
+ */
 @Component
 public class TrustSafetyIntentRule implements IntentRule {
 
@@ -25,7 +46,7 @@ public class TrustSafetyIntentRule implements IntentRule {
         if (containsAny(normalized, "tranh chap", "mo tranh chap", "khi nao nen mo tranh chap", "tai bang chung tranh chap",
                 "khieu nai gia su", "khieu nai lop hoc bi huy", "giai quyet tranh chap", "mo khieu nai", "khieu nai",
                 "bo day", "gia su bo day", "bo tiet", "gia su bo tiet", "nghi day khong phep", "gia su khong den day", "khong den day", "bo ngang")) {
-            return new ClassificationDetail(AiDomain.TRUST_SAFETY, AiSubIntent.DISPUTE_OPEN_HELP, AiIntent.TICKET_SUPPORT, 0.95, "/support/tickets");
+            return new ClassificationDetail(AiDomain.TRUST_SAFETY, AiSubIntent.DISPUTE_OPEN_HELP, AiIntent.TICKET_SUPPORT, 0.95, "/messaging/tickets");
         }
 
         if (containsAny(normalized, "bi phat", "phat canh cao", "che tai khi vi pham", "tru diem uy tin", "tai khoan bi phat", "quy dinh phat vi pham",
@@ -34,7 +55,7 @@ public class TrustSafetyIntentRule implements IntentRule {
         }
 
         if (containsAny(normalized, "to cao vi pham", "bao cao nguoi dung vi pham", "to cao", "bao cao vi pham", "bao cao nguoi dung", "lua dao", "bi lua")) {
-            return new ClassificationDetail(AiDomain.TRUST_SAFETY, AiSubIntent.REPORT_USER_CREATE, AiIntent.TICKET_SUPPORT, 0.95, "/support/tickets");
+            return new ClassificationDetail(AiDomain.TRUST_SAFETY, AiSubIntent.REPORT_USER_CREATE, AiIntent.TICKET_SUPPORT, 0.95, "/messaging/tickets");
         }
 
         return null;

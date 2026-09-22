@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-09] MÀN HÌNH GIAO DIỆN CENTERCONTRACTTEMPLATESPAGE
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị và điều phối các chức năng nghiệp vụ của phân hệ CenterContractTemplatesPage.
+ * 2. Đảm bảo trải nghiệm người dùng tối ưu và đồng bộ dữ liệu với hệ thống Backend.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';
@@ -19,12 +29,15 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
-type TemplateForm = { name: string; content: string; contractType: 'CLASS' | 'RECRUITMENT' };
-const EMPTY: TemplateForm = { name: '', content: '', contractType: 'CLASS' };
+type TemplateForm = { name: string; content: string; contractType: string };
+const EMPTY: TemplateForm = { name: '', content: '', contractType: 'CENTER_CLASS' };
 
-const TYPE_LABEL: Record<'CLASS' | 'RECRUITMENT', string> = {
-  CLASS: 'Hợp đồng học viên / dạy lớp',
+const TYPE_LABEL: Record<string, string> = {
+  CENTER_CLASS: 'Hợp đồng dạy lớp trung tâm',
+  PRIVATE_TUTORING: 'Hợp đồng dạy kèm 1:1 cá nhân',
   RECRUITMENT: 'Hợp đồng tuyển dụng gia sư',
+  SPECIALIZED_GUARANTEE: 'Hợp đồng cam kết đầu ra / luyện thi',
+  CLASS: 'Hợp đồng học viên / dạy lớp',
 };
 
 /** Quản lý mẫu hợp đồng của trung tâm (tạo/sửa; mẫu hệ thống chỉ xem). */
@@ -155,15 +168,16 @@ export default function CenterContractTemplatesPage() {
                     className="cct-select"
                     value={form.contractType}
                     onChange={(e) =>
-                      setForm({ ...form, contractType: e.target.value as 'CLASS' | 'RECRUITMENT' })
+                      setForm({ ...form, contractType: e.target.value })
                     }
                   >
-                    <option value="CLASS">{TYPE_LABEL.CLASS}</option>
+                    <option value="CENTER_CLASS">{TYPE_LABEL.CENTER_CLASS}</option>
+                    <option value="PRIVATE_TUTORING">{TYPE_LABEL.PRIVATE_TUTORING}</option>
                     <option value="RECRUITMENT">{TYPE_LABEL.RECRUITMENT}</option>
+                    <option value="SPECIALIZED_GUARANTEE">{TYPE_LABEL.SPECIALIZED_GUARANTEE}</option>
                   </select>
                   <p className="cct-hint">
-                    Hợp đồng tuyển dụng gửi cho gia sư khi duyệt — không có Loại lớp / Số buổi / Học
-                    phí.
+                    Hợp đồng tuyển dụng gửi cho gia sư khi duyệt tuyển dụng; Hợp đồng dạy lớp dùng khi ghi danh học viên.
                   </p>
                 </div>
                 <div className="cct-field cct-field--full">
@@ -228,7 +242,7 @@ export default function CenterContractTemplatesPage() {
                   <div className="cct-tpl__head">
                     <div className="cct-tpl__title">
                       <strong>{t.name}</strong>
-                      <span className="cct-type-chip">{TYPE_LABEL[t.contractType ?? 'CLASS']}</span>
+                      <span className="cct-type-chip">{TYPE_LABEL[t.contractType ?? 'CENTER_CLASS'] || t.contractType}</span>
                       {t.system && <span className="cct-badge">Mẫu hệ thống</span>}
                       {t.defaultTemplate && (
                         <span className="cct-badge cct-badge--primary">Mặc định</span>
@@ -256,7 +270,7 @@ export default function CenterContractTemplatesPage() {
                   <div className="cct-tpl__preview">
                     <ContractDocumentPreview
                       name={t.name}
-                      contractType={t.contractType ?? 'CLASS'}
+                      contractType={t.contractType ?? 'CENTER_CLASS'}
                       content={t.content}
                       info={info}
                     />
@@ -292,7 +306,7 @@ export default function CenterContractTemplatesPage() {
             <div className="cct-modal__body">
               <ContractDocumentPreview
                 name={previewTpl.name}
-                contractType={previewTpl.contractType ?? 'CLASS'}
+                contractType={previewTpl.contractType ?? 'CENTER_CLASS'}
                 content={previewTpl.content}
                 info={info}
               />

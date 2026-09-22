@@ -43,6 +43,18 @@ import org.springframework.web.multipart.MultipartFile;
 
 import jakarta.validation.Valid;
 
+/**
+ * ====================================================================================================
+ * [UC-07] QUẢN LÝ HỒ SƠ NGƯỜI DÙNG ĐA VAI TRÒ (PROFILE CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Cung cấp API cập nhật thông tin cá nhân, ảnh đại diện và tiểu sử cho từng vai trò người dùng.
+ * 2. Quản lý thông tin tài khoản ngân hàng liên kết phục vụ công tác nạp rút tiền an toàn.
+ * 3. Tra cứu lịch sử hoạt động, danh sách lớp học đã tham gia và tiến độ học tập cá nhân.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @RestController
 @RequestMapping("/api/profile")
 @RequiredArgsConstructor

@@ -30,6 +30,28 @@ import com.tcs.module.profile.repository.TutorRepository;
 import com.tcs.module.profile.repository.TutorCenterRepository;
 import com.tcs.module.profile.repository.ClientRepository;
 
+/**
+ * ============================================================================
+ * [UC-61] NHẬT KÝ KIỂM TOÁN HỆ THỐNG BẤT BIẾN (AUDIT LOG SERVICE IMPLEMENTATION)
+ * ============================================================================
+ * * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * * Mô tả Use Case:
+ *   - Ghi nhận và lưu trữ nhật ký kiểm toán (Audit Trail) bất biến cho toàn bộ nền tảng.
+ *   - Phục vụ việc thanh tra, truy vết trách nhiệm và đối soát các thao tác quản trị nhạy cảm.
+ * * Chức năng chính:
+ *   1. Ghi nhận hành vi quản trị: Lưu vết mọi thay đổi tài chính, phí nền tảng, phê duyệt KYC, xử lý khiếu nại, chế tài.
+ *   2. Lưu vết trạng thái thay đổi: Ghi nhận giá trị cũ (oldValue) và mới (newValue) dưới định dạng JSON.
+ *   3. Ghi vết ngữ cảnh mạng: Tự động trích xuất IP client, User-Agent từ `HttpServletRequest` qua Spring RequestContext.
+ *   4. Đảm bảo tính bất biến (Immutable): Chỉ hỗ trợ ghi mới (INSERT) và đọc (SELECT), tuyệt đối không sửa hoặc xóa.
+ *   5. Truy vấn và ánh xạ dữ liệu: Hỗ trợ phân trang, lọc theo module, hành động và làm giàu thông tin người thực hiện.
+ * * Luồng xử lý chính:
+ *   - Bước 1: Service nghiệp vụ gọi hàm `logAction` hoặc `logActionWithPayload`.
+ *   - Bước 2: Hệ thống phân giải `User` thực hiện và trích xuất IP/User-Agent từ context HTTP hiện hành.
+ *   - Bước 3: Tạo bản ghi thực thể `AuditLog` và lưu vào CSDL thông qua `AuditLogRepository`.
+ *   - Bước 4: Admin tra cứu nhật ký (`getAuditLogs`), service phân trang và làm giàu thông tin người dùng qua mapper.
+ * ============================================================================
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -131,7 +153,6 @@ public class AuditLogServiceImpl implements AuditLogService {
     private AuditLogResponse toResponse(AuditLog auditLog) {
         User actor = auditLog.getActor();
         String actorRole = null;
-        
         if (actor != null) {
             UserProfileBundle profiles = loadProfiles(actor.getUserId());
             actorRole = platformMapper.resolveRole(profiles).name();

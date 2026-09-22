@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-09] MÀN HÌNH GIAO DIỆN CENTERSTATSPAGE
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị và điều phối các chức năng nghiệp vụ của phân hệ CenterStatsPage.
+ * 2. Đảm bảo trải nghiệm người dùng tối ưu và đồng bộ dữ liệu với hệ thống Backend.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';
@@ -30,6 +40,21 @@ function StackedBar({ present, absent, excused }: { present: number; absent: num
       <div style={{ width: `${pct(excused)}%`, background: C_EXCUSED }} />
     </div>
   );
+}
+
+function classStatusBadge(status?: string) {
+  switch (status) {
+    case 'IN_PROGRESS':
+      return <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#dbeafe', color: '#1d4ed8' }}>Đang diễn ra</span>;
+    case 'OPEN':
+      return <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#fef3c7', color: '#b45309' }}>Đang mở</span>;
+    case 'COMPLETED':
+      return <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#dcfce7', color: '#15803d' }}>Hoàn thành</span>;
+    case 'CANCELLED':
+      return <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#fee2e2', color: '#b91c1c' }}>Đã hủy</span>;
+    default:
+      return status ? <span style={{ padding: '2px 8px', borderRadius: 6, fontSize: 11, fontWeight: 600, background: '#f3f4f6', color: '#4b5563' }}>{status}</span> : null;
+  }
 }
 
 function Card({ label, value, color }: { label: string; value: string | number; color?: string }) {
@@ -238,15 +263,47 @@ export default function CenterStatsPage() {
                 filteredClasses.map((c) => (
                   <div
                     key={c.classId}
-                    style={{ display: 'grid', gridTemplateColumns: '1fr 2fr auto', gap: 12, alignItems: 'center', padding: '6px 0' }}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 6,
+                      padding: '10px 0',
+                      borderBottom: '1px solid #f3f4f6',
+                    }}
                   >
-                    <div style={{ fontSize: 13, fontWeight: 600 }}>
-                      {c.title}
-                      {c.tutorName ? <span style={{ color: '#9ca3af', fontWeight: 400 }}> · {c.tutorName}</span> : null}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 14, fontWeight: 700, color: '#111827' }}>{c.title}</span>
+                        {classStatusBadge(c.status)}
+                        {c.tutorName && <span style={{ color: '#6b7280', fontSize: 12 }}>· GV: <strong>{c.tutorName}</strong></span>}
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 12, color: '#6b7280' }}>
+                        {c.totalSessions != null && c.totalSessions > 0 && (
+                          <span>
+                            Tiến độ: <strong>{c.completedSessions ?? 0}/{c.totalSessions} buổi</strong> ({c.progressPercent ?? 0}%)
+                          </span>
+                        )}
+                        {c.startDate && (
+                          <span>Thời gian: {c.startDate} {c.endDate ? `→ ${c.endDate}` : ''}</span>
+                        )}
+                        <span style={{ fontWeight: 600, color: '#16a34a' }}>{c.attendanceRate}% có mặt</span>
+                      </div>
                     </div>
-                    <StackedBar present={c.present} absent={c.absent} excused={c.excused} />
-                    <div style={{ fontSize: 12, color: '#6b7280', whiteSpace: 'nowrap' }}>
-                      {c.attendanceRate}% có mặt
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, alignItems: 'center' }}>
+                      {c.totalSessions != null && c.totalSessions > 0 && (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                          <span style={{ fontSize: 11, color: '#9ca3af', minWidth: 55 }}>Tiến độ:</span>
+                          <div style={{ flex: 1, height: 8, background: '#e5e7eb', borderRadius: 4, overflow: 'hidden' }}>
+                            <div style={{ width: `${Math.min(100, c.progressPercent ?? 0)}%`, height: '100%', background: '#2563eb', borderRadius: 4 }} />
+                          </div>
+                        </div>
+                      )}
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 11, color: '#9ca3af', minWidth: 55 }}>Điểm danh:</span>
+                        <div style={{ flex: 1 }}>
+                          <StackedBar present={c.present} absent={c.absent} excused={c.excused} />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 ))

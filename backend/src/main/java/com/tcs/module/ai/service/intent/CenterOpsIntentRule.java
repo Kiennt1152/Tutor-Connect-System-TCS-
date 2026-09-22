@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH VẬN HÀNH TRUNG TÂM GIA SƯ (CENTER OPS INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Nhận diện các truy vấn liên quan đến quản lý lớp học, phân công gia sư và điều hành hoạt động của Trung tâm.
+ * 
+ * Chức năng chính:
+ *   1. Nhận diện quản trị trung tâm: Nhận biết yêu cầu tạo lớp, quản lý hợp đồng và lịch dạy của trung tâm.
+ *   2. Điều hướng trang quản trị: Cung cấp liên kết tới màn hình quản lý dành cho đối tác trung tâm.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận câu truy vấn và kiểm tra các từ khóa quản trị trung tâm.
+ *   - Bước 2: Ánh xạ sang miền AiDomain.CENTER_OPS với độ tin cậy cao.
+ *   - Bước 3: Trả về thông tin điều hướng trang quản trị trung tâm.
+ * ============================================================================
+ */
 @Component
 public class CenterOpsIntentRule implements IntentRule {
 

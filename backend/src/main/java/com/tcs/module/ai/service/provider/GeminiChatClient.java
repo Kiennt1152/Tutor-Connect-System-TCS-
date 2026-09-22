@@ -12,6 +12,26 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * ============================================================================
+ * [UC-65] KẾT NỐI MÔ HÌNH GOOGLE GEMINI (GEMINI CHAT CLIENT)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Tích hợp mô hình Google Gemini 2.0 Flash đa phương thức và khả năng truy xuất thông tin phong phú.
+ * 
+ * Chức năng chính:
+ *   1. Hỗ trợ ngữ cảnh dài: Tiếp nhận các prompt ngữ cảnh lớn gồm nhiều chunk tri thức.
+ *   2. Chốt chặn dự phòng cuối cùng: Đảm bảo người dùng luôn nhận được phản hồi nếu các nguồn khác gặp sự cố.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Định dạng request theo cấu trúc nội dung Google Generative AI.
+ *   - Bước 2: Gửi truy vấn và bóc tách văn bản trả về cho hệ thống.
+ *  * ============================================================================
+ */
 @Slf4j
 public class GeminiChatClient implements AiChatProviderClient {
 

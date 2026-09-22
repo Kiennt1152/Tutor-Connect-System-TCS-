@@ -1,20 +1,32 @@
 /**
  * ============================================================================
- * TRANG HÀNG ĐỢI NHIỆM VỤ TRỰC BAN KHẨN CẤP (PLATFORM TASK QUEUE PAGE)
+ * [UC-64] HÀNG ĐỢI NHIỆM VỤ TRỰC BAN KHẨN CẤP (PLATFORM TASK QUEUE PAGE)
  * ============================================================================
  * 
- * Tác giả: mduc1011-swp
- * Mô tả các tính năng bảng điều khiển nhiệm vụ:
- *   - Tập hợp các nhiệm vụ cần xử lý ngay: Xác minh hồ sơ, Báo cáo vi phạm, Support Ticket, Rút tiền, Hoàn tiền, Tranh chấp.
- *   - Thống kê tổng số công việc, số task vi phạm hạn chót SLA, và tổng số tiền rủi ro đang bị treo (Money At Risk).
- *   - Sắp xếp và phân loại thông minh theo mức độ khẩn cấp (Urgent > High > Medium > Low).
- *   - Điều hướng người dùng trực tiếp tới trang và modal xử lý chi tiết tương ứng.
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Bảng điều khiển trực ban trung tâm hỗ trợ Quản trị viên theo dõi và xử lý các vấn đề phát sinh.
+ *   - Ưu tiên xử lý các trường hợp vi phạm cam kết SLA và các giao dịch có độ rủi ro tài chính cao.
+ * 
+ * Chức năng chính:
+ *   1. Tập hợp đa nhiệm vụ: Xác minh hồ sơ, Báo cáo vi phạm, Khiếu nại hỗ trợ, Rút tiền, Hoàn tiền, Tranh chấp.
+ *   2. Thống kê chỉ số trực ban: Tổng số việc tồn đọng, số task quá hạn SLA, tổng tiền rủi ro (Money At Risk).
+ *   3. Phân cấp mức độ ưu tiên: Hiển thị badge màu phân loại (Khẩn cấp, Cao, Trung bình, Thấp).
+ *   4. Bộ lọc đa tiêu chí: Lọc theo loại tác vụ, mức độ ưu tiên, cờ vi phạm SLA và từ khóa tìm kiếm.
+ *   5. Điều hướng xử lý thông minh: Chuyển hướng Quản trị viên trực tiếp đến phân hệ và bản ghi tương ứng.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Hook tải dữ liệu tổng quan (`getTaskQueueSummary`) và danh sách tác vụ (`getTasks`).
+ *   - Bước 2: Hiển thị 3 chỉ số KPI đầu trang và danh sách tác vụ phân trang.
+ *   - Bước 3: Quản trị viên lọc theo mức độ ưu tiên khẩn cấp hoặc vi phạm SLA để xử lý trước.
+ *   - Bước 4: Nhấn nút hành động "Xử lý ngay", hệ thống điều hướng trực tiếp sang module xử lý tương ứng.
+ * ============================================================================
  */
-
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
-import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { Pagination } from '../../../shared/components';
 import { platformApi } from '../api/platformApi';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
@@ -134,7 +146,6 @@ export default function PlatformTasksPage() {
 
   return (
     <AdminLayout title="Hàng đợi công việc" subtitle="Quản lý và xử lý các yêu cầu, báo cáo trên hệ thống.">
-      <AdminTimeFilter showGranularity={false} />
       {summary && (
         <div className="adm-task-kpis">
           <article 

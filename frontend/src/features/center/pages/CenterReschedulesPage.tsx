@@ -1,3 +1,12 @@
+/**
+ * ====================================================================================================
+ * [UC-09] MÀN HÌNH GIAO DIỆN CENTERRESCHEDULESPAGE
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị và điều phối các chức năng nghiệp vụ của phân hệ CenterReschedulesPage.
+ * 2. Đảm bảo trải nghiệm người dùng tối ưu và đồng bộ dữ liệu với hệ thống Backend.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';

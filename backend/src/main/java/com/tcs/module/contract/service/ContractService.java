@@ -16,6 +16,25 @@ import com.tcs.module.contract.entity.Contract;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * ============================================================================
+ * [UC-44] GIAO DIỆN DỊCH VỤ HỢP ĐỒNG ĐIỆN TỬ (E-CONTRACT SERVICE INTERFACE)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-06-23
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Định nghĩa các hợp đồng nghiệp vụ cho việc tạo, ký số, giải ngân và quản lý vòng đời hợp đồng.
+ *    - Hỗ trợ cả 2 loại hợp đồng: Thỏa thuận hợp tác Trung tâm - Gia sư (BF-03) và Hợp đồng dạy kèm Phụ huynh - Gia sư (UC-44).
+ *    - Tích hợp chữ ký số 2FA qua OTP Email và đánh giá uy tín sau hoàn thành (BF-07).
+ * 
+ * 2. Các nghiệp vụ chính:
+ *    - generateCooperationContract / generatePrivateClassContract: Tự động phát sinh hợp đồng từ mẫu pháp lý.
+ *    - sendSigningOtp / signContractWithOtp: Sinh mã OTP bảo mật gửi qua Email và xác thực chữ ký số 2 bên.
+ *    - checkSignatureStatus: Kiểm tra trạng thái ký của các bên tham gia (Client, Tutor, Center).
+ *    - createReview / replyReview: Quản trị đánh giá phản hồi chất lượng đào tạo và tính điểm uy tín.
+ * ============================================================================
+ */
 public interface ContractService {
 
     /**

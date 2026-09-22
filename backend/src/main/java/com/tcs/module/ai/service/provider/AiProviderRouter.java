@@ -10,6 +10,31 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import jakarta.annotation.PostConstruct;
 
+/**
+ * ============================================================================
+ * [UC-65] ĐIỀU PHỐI ĐA MÔ HÌNH NGÔN NGỮ LỚN & CHUYỂN ĐỔI DỰ PHÒNG (MULTI-LLM PROVIDER ROUTER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Quản trị và định tuyến linh hoạt các nhà cung cấp mô hình ngôn ngữ lớn (Multi-LLM Provider Router) cho hệ thống AI TCS.
+ *   - Đảm bảo độ sẵn sàng cao, tự động chuyển mạch dự phòng (Failover) và bảo vệ hệ thống trước sự cố gián đoạn mạng hoặc quá tải.
+ * 
+ * Chức năng chính:
+ *   1. Định tuyến theo thứ tự ưu tiên: Khởi tạo chuỗi gọi tuần tự theo cấu hình (Groq -> Cerebras -> DeepSeek -> Gemini).
+ *   2. Chuyển đổi dự phòng tự động (Failover): Bắt lỗi vượt hạn mức (429 Rate Limit) hoặc Timeout để chuyển ngay sang nhà cung cấp kế tiếp.
+ *   3. Quản lý thời gian hồi phục (Cooldown): Đưa nhà cung cấp bị sự cố vào chế độ nghỉ tạm thời (cooldown 60s) trước khi kích hoạt lại.
+ *   4. Kiểm soát thời hạn sinh tối đa (Deadline Guard): Đảm bảo tổng thời gian phản hồi không vượt quá ngưỡng trần quy định (20 giây).
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận yêu cầu sinh phản hồi ngôn ngữ kèm prompt và tham số nhiệt độ (routeChat).
+ *   - Bước 2: Lựa chọn nhà cung cấp khả dụng có độ ưu tiên cao nhất đang không ở trong trạng thái Cooldown.
+ *   - Bước 3: Gửi yêu cầu sinh văn bản với thời gian chờ giới hạn cho từng provider.
+ *   - Bước 4: Nếu thành công thì trả về kết quả; nếu gặp lỗi thì ghi nhận Cooldown và chuyển sang provider tiếp theo trong chuỗi.
+ * ============================================================================
+ */
 @Slf4j
 @Service
 public class AiProviderRouter {

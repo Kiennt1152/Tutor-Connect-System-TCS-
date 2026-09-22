@@ -7,6 +7,27 @@ import com.tcs.module.ai.util.VietnameseTextNormalizer;
 import java.util.*;
 import org.springframework.stereotype.Component;
 
+/**
+ * ============================================================================
+ * [UC-65] PHÂN LOẠI Ý ĐỊNH BẰNG HỌC MẪU ÍT (FEW-SHOT INTENT CLASSIFIER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Sử dụng kỹ thuật so khớp vector với tập mẫu ví dụ tiêu biểu (Few-shot examples) để phân loại các câu hỏi phức tạp.
+ * 
+ * Chức năng chính:
+ *   1. Lưu trữ tập vector mẫu: Duy trì bảng vector biểu diễn cho các mẫu câu hỏi điển hình.
+ *   2. Tìm kiếm láng giềng gần nhất: So khớp vector câu hỏi với tập mẫu để gán nhãn ý định.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Sinh vector embedding cho câu hỏi truy vấn của người dùng.
+ *   - Bước 2: Tính khoảng cách Cosine với tập vector mẫu đã được gán nhãn trước.
+ *   - Bước 3: Trả về ý định có khoảng cách gần nhất kèm điểm tương đồng.
+ * ============================================================================
+ */
 @Component
 public class FewShotIntentClassifier {
 

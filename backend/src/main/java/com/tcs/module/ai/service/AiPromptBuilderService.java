@@ -8,6 +8,27 @@ import java.util.List;
 import java.util.Locale;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] XÂY DỰNG PROMPT HỆ THỐNG ĐỘNG (AI PROMPT BUILDER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Lắp ghép System Prompt động kết hợp tri thức truy xuất, ngữ cảnh nghiệp vụ và quy tắc ứng xử của trợ lý ảo.
+ * 
+ * Chức năng chính:
+ *   1. Lắp ghép ngữ cảnh tri thức: Ghép nối các chunk tài liệu đã được kiểm duyệt vào khu vực Context.
+ *   2. Tiêm chỉ thị an toàn: Đính kèm quy định phong cách trả lời ngắn gọn, thân thiện và trung thực.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Thu thập ngữ cảnh tri thức, lịch sử hội thoại và thông tin nghiệp vụ thời gian thực.
+ *   - Bước 2: Áp dụng khuôn mẫu Prompt chuẩn tối ưu cho các mô hình Llama và Gemini.
+ *   - Bước 3: Trả về chuỗi Prompt hoàn chỉnh sẵn sàng gửi cho Router điều phối LLM.
+ * ============================================================================
+ */
 @Service
 public class AiPromptBuilderService {
 
@@ -31,7 +52,7 @@ public class AiPromptBuilderService {
         } else if ("TUTOR".equals(userRole) || "TUTOR_CENTER".equals(userRole)) {
             sb.append("Vai trò người dùng: Gia sư / Trung tâm gia sư. Sẵn sàng hỗ trợ nghiệp vụ nhận lớp, lịch dạy, ví tiền, và hỗ trợ soạn giáo án, câu hỏi ôn tập, đề kiểm tra bài học.\n");
         } else {
-            sb.append("Phong cách: Thân thiện, thông minh, chuyên nghiệp, súc tích, sử dụng gạch đầu dòng rõ ràng khi liệt kê. Khi dẫn liên kết, luôn dùng Markdown có tên nhãn tiếng Việt rõ ràng (ví dụ: [Tìm gia sư](/find-tutor), [Lớp học](/class-finder), [Tạo lớp học](/tao-lop), [Ví tiền](/finance), [Hợp đồng](/contracts), [Hỗ trợ](/support/tickets), [Trợ giúp](/help), [Hồ sơ cá nhân](/profile)). TUYỆT ĐỐI KHÔNG viết đường dẫn kỹ thuật thô như /class-finder/{id} hay /profile trong văn bản.\n");
+            sb.append("Phong cách: Thân thiện, thông minh, chuyên nghiệp, súc tích, sử dụng gạch đầu dòng rõ ràng khi liệt kê. Khi dẫn liên kết, luôn dùng Markdown có tên nhãn tiếng Việt rõ ràng (ví dụ: [Tìm gia sư](/find-tutor), [Lớp học](/class-finder), [Tạo lớp học](/tao-lop), [Ví tiền](/finance), [Hợp đồng](/contracts), [Hỗ trợ](/messaging/tickets), [Trợ giúp](/help), [Hồ sơ cá nhân](/profile)). TUYỆT ĐỐI KHÔNG viết đường dẫn kỹ thuật thô như /class-finder/{id} hay /profile trong văn bản.\n");
         }
 
         // 3. Domain Rules & Strict Grounding

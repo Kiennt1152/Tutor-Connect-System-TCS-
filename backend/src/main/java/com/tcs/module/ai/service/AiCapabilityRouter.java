@@ -7,9 +7,37 @@ import java.util.Map;
 import java.util.Set;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] ĐIỀU PHỐI KHẢ NĂNG & KIỂM SOÁT QUYỀN TRUY XUẤT AI (AI CAPABILITY ROUTER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Điều phối năng lực AI và kiểm soát chính sách phân quyền truy xuất dữ liệu (RBAC Policy) cho trợ lý ảo TCS.
+ *   - Xác định loại thẻ tương tác (UI Card Policy) và chiến lược bảo vệ thông tin nhạy cảm theo vai trò người dùng.
+ * 
+ * Chức năng chính:
+ *   1. Kiểm soát quyền truy cập RBAC: Phê duyệt hoặc từ chối thực thi ý định theo vai trò (GUEST, CLIENT, TUTOR, ADMIN).
+ *   2. Định chế thẻ hiển thị (Card Policy): Xác định loại Card được đính kèm (Tutor Card, Class Card, FAQ Card, Admin Deep Link).
+ *   3. Kích hoạt bộ kiểm soát ảo giác: Kích hoạt bộ lọc chuyên biệt chống bịa đặt tên gia sư, lộ số dư ví hoặc sai lệch số liệu sàn.
+ *   4. Điều hướng dự phòng: Cung cấp thông điệp gợi ý trực quan khi người dùng chưa đăng nhập hoặc không đủ thẩm quyền.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận tên miền nghiệp vụ (AiDomain) và ý định chi tiết (AiSubIntent).
+ *   - Bước 2: Tra cứu chính sách năng lực đã cấu hình tương ứng trong bảng quy tắc.
+ *   - Bước 3: Đối chiếu vai trò hiện tại của người dùng với danh sách vai trò được phép (allowedRoles).
+ *   - Bước 4: Trả về kết quả phê duyệt hoặc thông điệp từ chối điều hướng người dùng phù hợp.
+ * ============================================================================
+ */
 @Service
 public class AiCapabilityRouter {
 
+    /**
+     * Chính sách quy định loại Card hiển thị đính kèm phản hồi của AI.
+     */
     public enum CardPolicy {
         NONE,
         TUTOR_CARDS,
@@ -21,6 +49,9 @@ public class AiCapabilityRouter {
         MIXED_ALLOWED
     }
 
+    /**
+     * Bộ tiền kiểm/hậu kiểm chuyên biệt áp dụng cho từng miền dữ liệu.
+     */
     public enum GuardType {
         TUTOR_NAME_SCRUB,
         STATS_NUMBER_GUARD,
@@ -28,6 +59,9 @@ public class AiCapabilityRouter {
         NONE
     }
 
+    /**
+     * Bản ghi định nghĩa toàn bộ quy tắc nghiệp vụ cho một Domain/SubIntent.
+     */
     public record CapabilityPolicy(
         Set<String> allowedSourceTypes,
         boolean requireAuth,
@@ -103,13 +137,13 @@ public class AiCapabilityRouter {
 
         Map.entry(AiDomain.MESSAGING_TICKET, new CapabilityPolicy(
             Set.of("FAQ", "TICKET"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Bạn có thể tạo yêu cầu hỗ trợ hoặc khiếu nại trực tiếp tại mục 'Hỗ trợ & Khiếu nại'."
         )),
 
         Map.entry(AiDomain.TRUST_SAFETY, new CapabilityPolicy(
             Set.of("FAQ", "POLICY"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "TCS nghiêm cấm hành vi lách sàn và thu tiền ngoài hệ thống. Vui lòng gửi báo cáo hoặc mở tranh chấp tại mục 'Hỗ trợ & Khiếu nại'."
         )),
 
@@ -130,7 +164,7 @@ public class AiCapabilityRouter {
         // Safety & Conversation
         Map.entry(AiSubIntent.HUMAN_SUPPORT_REQUEST, new CapabilityPolicy(
             Set.of(), false, Set.of(), false, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Bạn có thể kết nối ngay với đội ngũ hỗ trợ tại mục 'Hỗ trợ & Khiếu nại'."
         )),
         Map.entry(AiSubIntent.BOT_CAPABILITY_ASK, new CapabilityPolicy(
@@ -257,29 +291,29 @@ public class AiCapabilityRouter {
         )),
         Map.entry(AiSubIntent.SUPPORT_TICKET_CREATE, new CapabilityPolicy(
             Set.of("FAQ"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Bạn có thể gửi yêu cầu hỗ trợ hoặc tạo phiếu khiếu nại tại mục 'Hỗ trợ & Khiếu nại'."
         )),
         Map.entry(AiSubIntent.SUPPORT_TICKET_STATUS, new CapabilityPolicy(
             Set.of("FAQ"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Kiểm tra trạng thái và tiến độ xử lý ticket tại mục 'Hỗ trợ & Khiếu nại'."
         )),
         Map.entry(AiSubIntent.SUPPORT_TICKET_SLA, new CapabilityPolicy(
             Set.of("FAQ"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Thời gian phản hồi cam kết SLA là 24h đối với yêu cầu thông thường."
         )),
 
         // Trust & Safety
         Map.entry(AiSubIntent.REPORT_CIRCUMVENTION, new CapabilityPolicy(
             Set.of("FAQ", "POLICY"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "TCS bảo vệ giao dịch qua Escrow. Báo cáo lách sàn hoặc gian lận được tiếp nhận tại mục 'Hỗ trợ & Khiếu nại'."
         )),
         Map.entry(AiSubIntent.DISPUTE_OPEN_HELP, new CapabilityPolicy(
             Set.of("FAQ", "POLICY"), false, Set.of(), true, false,
-            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/support/tickets",
+            CardPolicy.TICKET_LINK_ONLY, GuardType.NONE, "/messaging/tickets",
             "Tranh chấp lớp học có thể được mở khi có vi phạm cam kết giảng dạy (như gia sư bỏ dạy, đi muộn quá 30 phút) tại mục 'Hỗ trợ & Khiếu nại' để Admin can thiệp giải quyết và hoàn tiền Escrow."
         )),
         Map.entry(AiSubIntent.PENALTY_EXPLAIN, new CapabilityPolicy(

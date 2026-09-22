@@ -45,6 +45,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+/**
+ * ====================================================================================================
+ * [UC-51] DỊCH VỤ TRUY XUẤT LỊCH SỬ TIN NHẮN (MESSAGING SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Cung cấp danh sách các cuộc trò chuyện gần nhất kèm tin nhắn mới nhất và số tin chưa đọc.
+ * 2. Hỗ trợ tải lịch sử chat phân trang và tìm kiếm tin nhắn cũ theo mốc thời gian.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 @Service
 @RequiredArgsConstructor
 public class MessagingServiceImpl implements MessagingService {
@@ -110,7 +121,6 @@ public class MessagingServiceImpl implements MessagingService {
         User user = userRepository
                 .findById(authHelper.currentUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy người dùng"));
-        
         SupportTicket ticket = new SupportTicket();
         ticket.setUser(user);
         ticket.setCategory(request.getCategory());

@@ -16,10 +16,26 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
- * =========================================================================
- * LUỒNG 2: BỘ NHỚ ĐỆM NGỮ NGHĨA SEMANTIC CACHE SERVICE (UC-65)
- * =========================================================================
- * Lưu trữ và phục vụ tức thì (<50ms) các câu hỏi có độ tương đồng ngữ nghĩa Jaccard >= 0.85
+ * ============================================================================
+ * [UC-65] BỘ NHỚ ĐỆM NGỮ NGHĨA THÔNG MINH (AI SEMANTIC CACHE SERVICE)
+ * ============================================================================
+ * * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-22
+ * * Mô tả Use Case:
+ *   - Lưu trữ và phân phối kết quả phản hồi AI tức thì (<50ms) cho các câu hỏi trùng lặp hoặc tương đương ý nghĩa.
+ *   - Giảm thiểu độ trễ phản hồi và tiết kiệm chi phí gọi API tới các nhà cung cấp mô hình lớn bên ngoài.
+ * * Chức năng chính:
+ *   1. So khớp băm chuẩn xác: Băm SHA-256 câu hỏi sau khi chuẩn hóa tiếng Việt và từ điển đồng nghĩa TCS.
+ *   2. So khớp tương đồng ngữ nghĩa: Tính toán khoảng cách Vector Cosine giữa các câu hỏi với ngưỡng tương đồng >= 0.85.
+ *   3. Quản lý vòng đời bộ đệm (TTL): Tự động thu hồi bản ghi hết hạn và giải phóng bộ nhớ khi đạt hạn mức lưu trữ.
+ *   4. Ghi vết hiệu năng (Hit Tracking): Tăng biến đếm `hitCount` và cập nhật mốc thời gian truy vấn gần nhất.
+ *   5. Làm sạch bộ đệm theo yêu cầu: Hỗ trợ dọn sạch toàn bộ cache khi cập nhật dữ liệu tri thức hoặc lúc khởi động.
+ * * Luồng xử lý chính:
+ *   - Bước 1: Chuẩn hóa câu hỏi (`VietnameseTextNormalizer`, `synonymService`) và tính hash SHA-256.
+ *   - Bước 2: Tra cứu cache theo hash; nếu không thấy, đối chiếu tương đồng vector với các bản ghi hợp lệ.
+ *   - Bước 3: Nếu trúng đệm (Hit), tăng `hitCount`, cập nhật `lastAccessedAt` và trả ngay kết quả về cho client.
+ *   - Bước 4: Nếu trượt đệm (Miss), lưu kết quả mới do LLM sinh ra vào cache thông qua phương thức `put`.
+ * ============================================================================
  */
 @Slf4j
 @Service
@@ -57,7 +73,6 @@ public class AiSemanticCacheService {
         // 1. Kiểm tra khớp chính xác chuỗi sau chuẩn hóa (Exact Normalized Match)
         String normalized = synonymService != null ? synonymService.normalizeQuery(query) : query.trim().toLowerCase(Locale.ROOT);
         String queryHash = hashQuery(normalized, userRole);
-        
         Optional<AiQueryCache> exactMatch = cacheRepository.findByQueryHash(queryHash);
         if (exactMatch.isPresent() && !isExpired(exactMatch.get())) {
             AiQueryCache cache = exactMatch.get();
@@ -66,37 +81,30 @@ public class AiSemanticCacheService {
             }
             cache.incrementHit();
             cacheRepository.save(cache);
-            log.info("Cache HIT (exact): query='{}', cacheId={}, hits={}", 
-                     query, cache.getCacheId(), cache.getHitCount());
+            log.info("Cache HIT (exact): query='{}', cacheId={}, hits={}",                     query, cache.getCacheId(), cache.getHitCount());
             return Optional.of(toCachedResponse(cache));
         }
 
         // 2. Try semantic similarity search (if embedding provided)
         if (queryEmbedding != null && queryEmbedding.length > 0) {
             List<AiQueryCache> candidates = cacheRepository.findByDomainAndActive(null, LocalDateTime.now());
-            
             for (AiQueryCache candidate : candidates) {
                 if ("PLATFORM_STATS".equals(candidate.getSubIntent())) {
                     continue;
                 }
                 if (candidate.getEmbeddingJson() == null || candidate.getEmbeddingJson().isBlank()) continue;
-                
                 try {
                     double[] cachedEmbedding = objectMapper.readValue(
                         candidate.getEmbeddingJson(), double[].class);
-                    
                     double similarity = cosineSimilarity(queryEmbedding, cachedEmbedding);
-                    
                     if (similarity >= SIMILARITY_THRESHOLD) {
                         candidate.incrementHit();
                         cacheRepository.save(candidate);
-                        log.info("Cache HIT (semantic): query='{}', similarity={}, cacheId={}, hits={}", 
-                                 query, similarity, candidate.getCacheId(), candidate.getHitCount());
+                        log.info("Cache HIT (semantic): query='{}', similarity={}, cacheId={}, hits={}",                                 query, similarity, candidate.getCacheId(), candidate.getHitCount());
                         return Optional.of(toCachedResponse(candidate));
                     }
                 } catch (Exception e) {
-                    log.debug("Failed to parse embedding for cache {}: {}", 
-                              candidate.getCacheId(), e.getMessage());
+                    log.debug("Failed to parse embedding for cache {}: {}",                              candidate.getCacheId(), e.getMessage());
                 }
             }
         }
@@ -114,12 +122,9 @@ public class AiSemanticCacheService {
      * Store query and response in cache with double[] embedding.
      */
     @Transactional
-    public void put(String query, String normalizedQuery, String response, 
-                    String intent, String domain, String subIntent, 
-                    Double confidenceScore, Integer sourceCount,
+    public void put(String query, String normalizedQuery, String response,                    String intent, String domain, String subIntent,                    Double confidenceScore, Integer sourceCount,
                     String referencedTutorIds, String referencedClassIds, String referencedFaqIds,
                     String userRole, double[] embedding) {
-        
         if (query == null || response == null) return;
 
         // Check cache size limit
@@ -130,7 +135,6 @@ public class AiSemanticCacheService {
         }
 
         String queryHash = hashQuery(normalizedQuery != null ? normalizedQuery : query, userRole);
-        
         // Don't cache if already exists
         if (cacheRepository.findByQueryHash(queryHash).isPresent()) {
             return;
@@ -169,9 +173,7 @@ public class AiSemanticCacheService {
     }
 
     @Transactional
-    public void put(String query, String normalizedQuery, String response, 
-                    String intent, String domain, String subIntent, 
-                    Double confidenceScore, Integer sourceCount,
+    public void put(String query, String normalizedQuery, String response,                    String intent, String domain, String subIntent,                    Double confidenceScore, Integer sourceCount,
                     String referencedTutorIds, String referencedClassIds, String referencedFaqIds,
                     String userRole) {
         put(query, normalizedQuery, response, intent, domain, subIntent, confidenceScore,
@@ -210,13 +212,9 @@ public class AiSemanticCacheService {
     public CacheStats getStats() {
         long totalCaches = cacheRepository.countTotalCaches();
         long cacheHits = cacheRepository.countCacheHits();
-        
         List<AiQueryCache> popular = cacheRepository.findActivePopularCaches(LocalDateTime.now());
-        int avgHits = popular.isEmpty() ? 0 : 
-            (int) popular.stream().mapToInt(AiQueryCache::getHitCount).average().orElse(0);
-        
-        return new CacheStats(totalCaches, cacheHits, avgHits, 
-                              !popular.isEmpty() ? popular.get(0).getHitCount() : 0);
+        int avgHits = popular.isEmpty() ? 0 :            (int) popular.stream().mapToInt(AiQueryCache::getHitCount).average().orElse(0);
+        return new CacheStats(totalCaches, cacheHits, avgHits,                              !popular.isEmpty() ? popular.get(0).getHitCount() : 0);
     }
 
     private boolean isExpired(AiQueryCache cache) {
@@ -242,7 +240,6 @@ public class AiSemanticCacheService {
             MessageDigest digest = MessageDigest.getInstance("SHA-256");
             String input = (query + "|" + (userRole != null ? userRole : "GUEST")).toLowerCase();
             byte[] hash = digest.digest(input.getBytes(StandardCharsets.UTF_8));
-            
             StringBuilder hexString = new StringBuilder();
             for (byte b : hash) {
                 String hex = Integer.toHexString(0xff & b);
@@ -260,19 +257,15 @@ public class AiSemanticCacheService {
         if (vec1 == null || vec2 == null || vec1.length == 0 || vec2.length == 0 || vec1.length != vec2.length) {
             return 0.0;
         }
-        
         double dotProduct = 0.0;
         double norm1 = 0.0;
         double norm2 = 0.0;
-        
         for (int i = 0; i < vec1.length; i++) {
             dotProduct += vec1[i] * vec2[i];
             norm1 += vec1[i] * vec1[i];
             norm2 += vec2[i] * vec2[i];
         }
-        
         if (norm1 == 0.0 || norm2 == 0.0) return 0.0;
-        
         return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
     }
 

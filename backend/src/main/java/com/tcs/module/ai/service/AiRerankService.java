@@ -15,6 +15,27 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] XẾP HẠNG LẠI TÀI LIỆU TRUY XUẤT (AI RERANK SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Hợp nhất và xếp hạng lại kết quả từ hai nguồn tìm kiếm Vector và BM25 bằng thuật toán Reciprocal Rank Fusion (RRF).
+ * 
+ * Chức năng chính:
+ *   1. Hợp nhất danh sách xếp hạng: Kết hợp kết quả tìm kiếm ngữ nghĩa và tìm kiếm từ khóa chính xác.
+ *   2. Chấm điểm tương quan sâu: Tái sắp xếp các đoạn tri thức liên quan nhất lên đầu danh sách.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận 2 danh sách kết quả từ tìm kiếm Vector và tìm kiếm BM25.
+ *   - Bước 2: Áp dụng công thức tính điểm RRF (1 / (k + rank)).
+ *   - Bước 3: Trả về danh sách top K đoạn tri thức có điểm số cao nhất cho Prompt Builder.
+ * ============================================================================
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

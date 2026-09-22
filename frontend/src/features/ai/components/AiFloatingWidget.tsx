@@ -1,3 +1,19 @@
+/**
+ * ============================================================================
+ * [UC-65] WIDGET TRỢ LÝ AI NỔI TOÀN SÀN (AI FLOATING WIDGET)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-07-29
+ * * 1. Mục đích & Chức năng:
+ *    - Nút bấm và popup hội thoại AI nổi ở góc phải màn hình, xuất hiện trên toàn bộ các trang của hệ thống.
+ *    - Cho phép cả khách vãng lai (Guest) và người dùng đăng nhập truy vấn chính sách, tìm lớp hoặc tìm gia sư tức thì.
+ *    - Tự động gợi ý câu hỏi nhanh (Quick Prompts) và chuyển hướng nhanh sang trang chuyên biệt AiAssistantPage.
+ * * 2. Luồng xử lý chính:
+ *    - Bước 1: Người dùng nhấn biểu tượng AI -> Mở rộng khung chat nổi.
+ *    - Bước 2: Gửi câu hỏi -> Gọi API aiApi.chat() -> Hiển thị câu trả lời dạng markdown cùng nút hành động.
+ * ============================================================================
+ */
+
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { aiApi } from '../api/aiApi';
@@ -6,6 +22,83 @@ import { APP_ROUTES } from '../../../shared/constants/routes';
 import { useAuth } from '../../../shared/auth/AuthProvider';
 import { normalizeRole, hasRole } from '../../../shared/auth/rbac';
 import './AiFloatingWidget.css';
+
+function parseBold(str: string): (string | React.ReactNode)[] {
+  const parts: (string | React.ReactNode)[] = [];
+  const boldRegex = /\*\*([^*]+)\*\*/g;
+  let lastIndex = 0;
+  let match;
+
+  while ((match = boldRegex.exec(str)) !== null) {
+    if (match.index > lastIndex) {
+      parts.push(str.substring(lastIndex, match.index));
+    }
+    parts.push(
+      <strong key={`b-${match.index}`} style={{ fontWeight: 600 }}>
+        {match[1]}
+      </strong>
+    );
+    lastIndex = boldRegex.lastIndex;
+  }
+
+  if (lastIndex < str.length) {
+    parts.push(str.substring(lastIndex));
+  }
+
+  return parts;
+}
+
+function renderFormattedContent(text: string, navigate: (to: string) => void) {
+  if (!text) return null;
+  const lines = text.split('\n');
+
+  return lines.map((line, lIdx) => {
+    const parts: (string | React.ReactNode)[] = [];
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    let lastIndex = 0;
+    let match;
+
+    while ((match = linkRegex.exec(line)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(...parseBold(line.substring(lastIndex, match.index)));
+      }
+      const label = match[1];
+      let url = match[2];
+      if (url.startsWith('/support/tickets')) {
+        url = url.replace('/support/tickets', '/messaging/tickets');
+      }
+      parts.push(
+        <a
+          key={`lnk-${lIdx}-${match.index}`}
+          href={url}
+          style={{
+            color: '#ea580c',
+            textDecoration: 'underline',
+            fontWeight: 600,
+            cursor: 'pointer',
+          }}
+          onClick={(e) => {
+            e.preventDefault();
+            navigate(url);
+          }}
+        >
+          {label}
+        </a>
+      );
+      lastIndex = linkRegex.lastIndex;
+    }
+
+    if (lastIndex < line.length) {
+      parts.push(...parseBold(line.substring(lastIndex)));
+    }
+
+    return (
+      <div key={lIdx} style={{ minHeight: line.trim() ? undefined : '0.4rem', lineHeight: '1.4' }}>
+        {parts}
+      </div>
+    );
+  });
+}
 
 export default function AiFloatingWidget() {
   const navigate = useNavigate();
@@ -98,7 +191,10 @@ export default function AiFloatingWidget() {
       {isHomepage && (
         <button
           className="ai-widget-button ai-widget-button--support"
-          onClick={() => navigate(APP_ROUTES.help)}
+          onClick={() => {
+            navigate(APP_ROUTES.help);
+            window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+          }}
           title="Hỗ trợ khách hàng"
         >
           <span className="ai-widget-button__icon" aria-hidden="true">☎</span>
@@ -140,7 +236,40 @@ export default function AiFloatingWidget() {
                     borderBottomLeftRadius: m.role === 'assistant' ? '0.2rem' : '1rem',
                   }}
                 >
-                  {m.content}
+                  {renderFormattedContent(m.content, navigate)}
+                  {m.role === 'assistant' && (m.suggestedRoute || m.content.includes('/messaging/tickets')) && (
+                    <div style={{ marginTop: '0.5rem' }}>
+                      <button
+                        type="button"
+                        style={{
+                          background: '#0f172a',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '0.35rem 0.65rem',
+                          fontSize: '0.8rem',
+                          cursor: 'pointer',
+                          fontWeight: 600,
+                          display: 'inline-block',
+                        }}
+                        onClick={() => {
+                          let route = m.suggestedRoute || '/messaging/tickets?action=create&subject=Sự+cố+nạp+tiền+chưa+cộng+số+dư';
+                          if (route.startsWith('/support/tickets')) {
+                            route = route.replace('/support/tickets', '/messaging/tickets');
+                          }
+                          navigate(route);
+                        }}
+                      >
+                        {(m.suggestedRoute?.includes('ticket') || m.content.includes('Ticket') || m.content.includes('ticket'))
+                          ? '🎫 Gửi Ticket hỗ trợ →'
+                          : m.suggestedRoute?.includes('find-tutor')
+                          ? '🔍 Tìm gia sư →'
+                          : m.suggestedRoute?.includes('finance')
+                          ? '💳 Ví tiền →'
+                          : 'Xem chi tiết →'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
             ))}

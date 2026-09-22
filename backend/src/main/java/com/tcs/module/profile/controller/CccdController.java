@@ -13,6 +13,16 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
 /** Thông tin CCCD của người dùng (đọc QR tự điền + xác nhận) — dùng cho khối BÊN B hợp đồng. */
+/**
+ * ====================================================================================================
+ * [UC-05] ĐỊNH DANH ĐIỆN TỬ & XÁC THỰC CCCD (CCCD CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tiếp nhận tải lên ảnh chụp 2 mặt Căn cước công dân (CCCD) từ gia sư và học viên.
+ * 2. Lưu trữ bảo mật thông tin số thẻ, ngày cấp, nơi cấp phục vụ xác minh danh tính (eKYC).
+ * 3. Cung cấp giao diện cho Quản trị viên duyệt hồ sơ định danh và phê duyệt quyền nhận lớp.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 @RestController
 @RequestMapping("/api/profile/cccd")
 @RequiredArgsConstructor

@@ -1,16 +1,26 @@
 /**
  * ============================================================================
- * TRANG CẤU HÌNH THAM SỐ TOÀN HỆ THỐNG (SYSTEM PARAMETERS CONFIG PAGE)
+ * [UC-57] CẤU HÌNH THAM SỐ TOÀN HỆ THỐNG (SYSTEM PARAMETERS CONFIG PAGE)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mô tả các tính năng quản trị cấu hình:
- *   - Quản lý các tham số vận hành cốt lõi: Tỷ lệ phí nền tảng (PLATFORM_FEE_RATE), Trạng thái bảo trì (MAINTENANCE_MODE), SLA response,...
- *   - Thêm mới, chỉnh sửa giá trị cấu hình theo thời gian thực (Hot-reload configuration).
- *   - Phân nhóm tham số theo tiền tố (Prefix) và tìm kiếm từ khóa.
- *   - Ghi nhận Audit Log cho mọi thay đổi tham số hệ thống.
+ * * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * * Mô tả Use Case:
+ *   - Quản trị viên cấu hình động các tham số vận hành nghiệp vụ và bảo mật trên toàn hệ thống.
+ *   - Cho phép thay đổi cấu hình mà không cần dừng hoặc khởi động lại ứng dụng (Hot-reload).
+ * * Chức năng chính:
+ *   1. Quản lý tham số cốt lõi: Tỷ lệ phí nền tảng, trạng thái bật/tắt bảo trì hệ thống, thời hạn SLA phản hồi.
+ *   2. Phân nhóm tham số: Lọc theo tiền tố chức năng (AUTH_, PLATFORM_, FEE_, RAG_) và tìm kiếm từ khóa.
+ *   3. Thêm mới và điều chỉnh giá trị: Giao diện trực quan cho phép chỉnh sửa tham số dạng chuỗi, số hoặc JSON.
+ *   4. Xóa tham số không còn sử dụng với hộp thoại xác nhận cảnh báo an toàn.
+ *   5. Ghi vết kiểm toán: Mọi thao tác cấu hình đều được ghi nhận vào nhật ký kiểm toán bất biến.
+ * * Luồng xử lý chính:
+ *   - Bước 1: Hook `useSystemParameterList` tự động tải danh sách cấu hình và nhóm tiền tố.
+ *   - Bước 2: Quản trị viên lọc hoặc tìm kiếm tham số cần điều chỉnh trong bảng danh mục.
+ *   - Bước 3: Nhập thông tin sửa đổi trên biểu mẫu hoặc nhấn nút Xóa tham số.
+ *   - Bước 4: Xác nhận và gửi dữ liệu qua mutation API (`useSystemParameterMutations`).
+ *   - Bước 5: Hệ thống làm mới danh sách và áp dụng giá trị cấu hình mới ngay lập tức.
+ * ============================================================================
  */
-
 import type { FormEvent } from 'react';
 import { useState, useEffect } from 'react';
 import { ConfirmDialog, Pagination } from '../../../shared/components';

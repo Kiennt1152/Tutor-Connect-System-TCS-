@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH HỒ SƠ & GIÁM HỘ HỌC VIÊN (PROFILE GUARDIAN INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Phân loại các câu hỏi về cập nhật hồ sơ cá nhân, liên kết tài khoản phụ huynh với học sinh và phê duyệt giám hộ.
+ * 
+ * Chức năng chính:
+ *   1. Nhận diện cập nhật hồ sơ: Bắt từ khóa chỉnh sửa thông tin, đổi avatar, cập nhật tiểu sử.
+ *   2. Nhận diện giám hộ học viên: Bắt từ khóa liên kết tài khoản con, xác nhận người giám hộ.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: So khớp các mẫu câu hỏi về quản lý hồ sơ và mối quan hệ giám hộ.
+ *   - Bước 2: Phân loại sang AiDomain.PROFILE_GUARDIAN.
+ *   - Bước 3: Trả về liên kết màn hình hồ sơ cá nhân /profile.
+ * ============================================================================
+ */
 @Component
 public class ProfileGuardianIntentRule implements IntentRule {
 

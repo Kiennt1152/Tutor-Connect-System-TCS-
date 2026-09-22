@@ -8,7 +8,25 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 /**
- * Registry and orchestrator for all domain-specific IntentRule strategy components.
+ * ============================================================================
+ * [UC-65] ĐĂNG KÝ & ĐIỀU PHỐI QUY TẮC Ý ĐỊNH (INTENT RULE REGISTRY)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Quản lý danh mục tập trung tất cả các quy tắc IntentRule và điều phối thực thi theo thứ tự ưu tiên.
+ * 
+ * Chức năng chính:
+ *   1. Tập hợp quy tắc: Tự động phát hiện và đăng ký tất cả bean Spring thực thi IntentRule.
+ *   2. Sắp xếp ưu tiên: Sắp xếp các quy tắc theo priority tăng dần để thực thi bộ lọc nhạy cảm trước.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Khởi tạo danh sách quy tắc khi khởi động ứng dụng Spring Boot.
+ *   - Bước 2: Lặp qua từng quy tắc theo thứ tự ưu tiên khi nhận truy vấn người dùng.
+ *   - Bước 3: Trả về kết quả phân loại đầu tiên đạt độ tin cậy thỏa mãn.
+ * ============================================================================
  */
 @Slf4j
 @Component

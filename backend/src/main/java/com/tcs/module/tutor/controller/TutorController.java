@@ -20,6 +20,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ====================================================================================================
+ * [UC-15] HỒ SƠ NĂNG LỰC & LỊCH DẠY GIA SƯ (TUTOR CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tra cứu và hiển thị hồ sơ năng lực gia sư, bằng cấp, chứng chỉ và điểm đánh giá sao.
+ * 2. Quản lý khung giờ rảnh (Availability Schedule) để học viên đăng ký học kèm linh hoạt.
+ * 3. Cung cấp API cập nhật biểu phí giảng dạy theo giờ và môn học thế mạnh của gia sư.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 @RestController
 @RequestMapping("/api/tutor")
 @RequiredArgsConstructor

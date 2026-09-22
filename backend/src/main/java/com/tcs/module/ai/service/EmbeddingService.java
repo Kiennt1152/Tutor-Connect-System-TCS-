@@ -14,6 +14,27 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] DỊCH VỤ SINH VECTOR ĐẶC TRƯNG NGỮ NGHĨA (EMBEDDING SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Chuyển đổi văn bản tiếng Việt thành vector nhúng đa chiều phục vụ tìm kiếm ngữ nghĩa Cosine Similarity.
+ * 
+ * Chức năng chính:
+ *   1. Sinh vector ngữ nghĩa: Chuyển đổi câu truy vấn hoặc đoạn tài liệu thành mảng số thực float[].
+ *   2. Đệm vector truy vấn: Lưu trữ vector của các câu hỏi thường gặp giảm tải tài nguyên tính toán.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Nhận văn bản đầu vào và tiền xử lý chuẩn hóa ký tự.
+ *   - Bước 2: Gọi mô hình trích xuất vector đặc trưng ngữ nghĩa.
+ *   - Bước 3: Trả về mảng vector phục vụ đối soát tương đồng trong CSDL Vector.
+ * ============================================================================
+ */
 @Slf4j
 @Service
 public class EmbeddingService {

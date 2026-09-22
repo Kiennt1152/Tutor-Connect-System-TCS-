@@ -1,18 +1,17 @@
 /**
- * ============================================================================
- * TRANG BẢNG ĐIỀU KHIỂN QUẢN TRỊ TỔNG QUAN (PLATFORM ADMIN DASHBOARD PAGE)
- * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mô tả các thành phần và chỉ số chính:
- *   - Thống kê toàn cảnh hệ thống: Người dùng, Gia sư, Lớp học, Doanh thu, Escrow.
- *   - Theo dõi hàng đợi trực ban (Urgent Action Queue): Hồ sơ chờ duyệt, Tranh chấp, Rút tiền, Quá hạn SLA.
- *   - Giám sát luồng tri thức AI (AI Knowledge Base Stats & Re-indexing Trigger).
- *   - Lọc dữ liệu theo thời gian (Hôm nay, 7 ngày, 30 ngày, Tháng này, Tùy chọn khoảng ngày).
- *   - Biểu đồ biến động tài chính (Tiền vào, Tiền ra, Ròng, Doanh thu phí sàn).
+ * ====================================================================================================
+ * [UC-56] BẢNG ĐIỀU KHIỂN QUẢN TRỊ TRUNG TÂM (PLATFORM DASHBOARD PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tổng hợp các chỉ số hoạt động cốt lõi của sàn: Doanh thu, số lớp mở, người dùng mới.
+ * 2. Cảnh báo các vụ việc khẩn cấp: Tranh chấp quá hạn, sự cố lớp học, rút tiền chờ duyệt.
+ * 3. Điều phối lối tắt truy cập các phân hệ quản trị chuyên sâu trên nền tảng.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
 import { usePlatformDashboard } from '../hooks/usePlatformDashboard';
@@ -20,55 +19,43 @@ import { useAuth } from '../../../shared/auth/AuthProvider';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { AdminIcon } from '../components/AdminIcons';
 import { AdminTimeFilter, type TimeFilterValue } from '../components/AdminTimeFilter';
-import { platformApi } from '../api/platformApi';
-import type { AiKnowledgeStatsApiResponse } from '../types/platformTypes';
 import './PlatformDashboardPage.css';
 
 const formatCount = (value: any) =>
   new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 0 }).format(typeof value === 'number' ? value : 0);
 
 export default function PlatformDashboardPage() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [from, setFrom] = useState(searchParams.get('from') || '');
   const [to, setTo] = useState(searchParams.get('to') || '');
   const [granularity, setGranularity] = useState(searchParams.get('granularity')?.toUpperCase() || 'DAY');
   const [taskFilter, setTaskFilter] = useState<'ALL' | 'SLA' | 'URGENT' | 'MONEY'>('ALL');
+  const [hideEmptyTimelineDays, setHideEmptyTimelineDays] = useState(false);
 
-  const { status, data, reload } = usePlatformDashboard(from, to, granularity);
+  const { status, data, reload, isRefreshing } = usePlatformDashboard(from, to, granularity);
   const { user } = useAuth();
   const greetingName = user?.displayName?.trim() || user?.email?.split('@')[0] || 'Admin';
 
   const [lastUpdated, setLastUpdated] = useState<string>(() => new Date().toLocaleTimeString('vi-VN'));
-  const [aiStats, setAiStats] = useState<AiKnowledgeStatsApiResponse | null>(null);
-  const [reindexing, setReindexing] = useState(false);
-  const [reindexMessage, setReindexMessage] = useState<string | null>(null);
 
-  const fetchAiStats = useCallback(async () => {
-    try {
-      const res = await platformApi.getAiKnowledgeStats();
-      setAiStats(res.data);
-    } catch (e) {
-      console.error(e);
-    }
-  }, []);
+  const applyTimelineFilter = (newFrom: string, newTo: string, newGranularity?: string) => {
+    setFrom(newFrom);
+    setTo(newTo);
+    if (newGranularity) setGranularity(newGranularity);
+    setLastUpdated(new Date().toLocaleTimeString('vi-VN'));
 
-  useEffect(() => {
-    fetchAiStats();
-  }, [fetchAiStats]);
+    const nextParams = new URLSearchParams(searchParams);
+    if (newFrom) nextParams.set('from', newFrom); else nextParams.delete('from');
+    if (newTo) nextParams.set('to', newTo); else nextParams.delete('to');
+    if (newGranularity) nextParams.set('granularity', newGranularity.toLowerCase());
+    setSearchParams(nextParams, { replace: true, preventScrollReset: true } as any);
+  };
 
-  const handleReindex = async () => {
-    setReindexing(true);
-    setReindexMessage(null);
-    try {
-      const res = await platformApi.reindexAiKnowledge();
-      const s = res.data;
-      setReindexMessage(`Đã đánh chỉ mục thành công: ${s.indexed} mới, ${s.updated} cập nhật, ${s.unchanged} không đổi.`);
-      fetchAiStats();
-    } catch (err: any) {
-      setReindexMessage(err?.response?.data?.message || 'Không thể reindex AI. Vui lòng kiểm tra kết nối backend.');
-    } finally {
-      setReindexing(false);
-    }
+  const applyTimelinePreset = (days: number) => {
+    const toDate = new Date();
+    const fromDate = new Date();
+    fromDate.setDate(toDate.getDate() - days);
+    applyTimelineFilter(fromDate.toISOString().slice(0, 10), toDate.toISOString().slice(0, 10));
   };
 
   const handleTimeFilterChange = (val: TimeFilterValue) => {
@@ -99,7 +86,7 @@ export default function PlatformDashboardPage() {
   return (
     <AdminLayout
       title="Trung tâm Vận hành TCS"
-      subtitle="Bảng điều khiển tác vụ ưu tiên, giám sát rủi ro tài chính Escrow và sức khỏe toàn hệ thống"
+      subtitle="Bảng điều khiển tác vụ ưu tiên, giám sát rủi ro tài chính Escrow và tình trạng hoạt động toàn hệ thống"
     >
       {/* Controls & Filter Bar (Monochrome) */}
       <AdminTimeFilter
@@ -116,14 +103,14 @@ export default function PlatformDashboardPage() {
         }
       />
 
-      {status === 'loading' && (
+      {status === 'loading' && !data && (
         <div className="adm-state adm-state--loading">
           <span className="adm-spinner" aria-hidden="true" />
           Đang tổng hợp dữ liệu điều hành hệ thống...
         </div>
       )}
 
-      {status === 'error' && (
+      {status === 'error' && !data && (
         <div className="adm-card adm-error-card">
           <p className="adm-error-card__title">Không tải được dữ liệu bảng điều khiển</p>
           <p className="adm-muted">Vui lòng kiểm tra kết nối máy chủ backend và thử lại.</p>
@@ -133,12 +120,11 @@ export default function PlatformDashboardPage() {
         </div>
       )}
 
-      {status === 'success' && data && (
+      {data && (
         <>
           {/* Welcome & Command Status Banner (Monochrome) */}
           <section className="adm-welcome-card">
             <div className="adm-welcome-card__main">
-              <p className="adm-welcome-card__eyebrow">TCS Operations Command Center</p>
               <h2 className="adm-welcome-card__title">Xin chào, {greetingName}</h2>
               <p className="adm-welcome-card__desc">
                 Hiện có <strong>{formatCount(data.pendingVerifications)}</strong> hồ sơ xác minh cần duyệt,{' '}
@@ -178,7 +164,7 @@ export default function PlatformDashboardPage() {
                 <p className="adm-kpi-mono-card__sub">Đang chờ hòa giải</p>
               </Link>
 
-              <Link className="adm-kpi-mono-card" to={APP_ROUTES.platformReports + "?tab=disputes"}>
+              <Link className="adm-kpi-mono-card" to={APP_ROUTES.platformReports + "?tab=class-issues"}>
                 <div className="adm-kpi-mono-card__head">
                   <AdminIcon name="message" size="sm" />
                   <span>Báo cáo Vi phạm / Lách sàn</span>
@@ -363,7 +349,7 @@ export default function PlatformDashboardPage() {
             {/* Tutor Health */}
             <section className="adm-dashboard-section">
               <div className="adm-dashboard-section__head">
-                <h2 className="adm-dashboard-section__title">Sức khỏe Gia sư</h2>
+                <h2 className="adm-dashboard-section__title">Gia sư đang hoạt động</h2>
                 <Link to="/platform/users?role=TUTOR" className="adm-sublink">Xem danh sách →</Link>
               </div>
               <div className="adm-health-card">
@@ -397,11 +383,10 @@ export default function PlatformDashboardPage() {
                 </div>
               </div>
             </section>
-            
             {/* Center Health */}
             <section className="adm-dashboard-section">
               <div className="adm-dashboard-section__head">
-                <h2 className="adm-dashboard-section__title">Sức khỏe Trung tâm</h2>
+                <h2 className="adm-dashboard-section__title">Trung tâm đang hoạt động</h2>
                 <Link to="/platform/users?role=TUTOR_CENTER" className="adm-sublink">Xem danh sách →</Link>
               </div>
               <div className="adm-health-card">
@@ -435,11 +420,10 @@ export default function PlatformDashboardPage() {
                 </div>
               </div>
             </section>
-            
             {/* Class Health */}
             <section className="adm-dashboard-section">
               <div className="adm-dashboard-section__head">
-                <h2 className="adm-dashboard-section__title">Sức khỏe Lớp Học</h2>
+                <h2 className="adm-dashboard-section__title">Lớp học đang hoạt động</h2>
                 <Link to="/platform/classes" className="adm-sublink">Xem danh sách →</Link>
               </div>
               <div className="adm-health-card">
@@ -477,107 +461,128 @@ export default function PlatformDashboardPage() {
 
           {/* Activity Timeline Bar Chart (Monochrome SVG/CSS) */}
           {data.activityTimeline && data.activityTimeline.length > 0 && (() => {
-            const maxMoney = Math.max(...data.activityTimeline.map((i: any) => Math.max(i.moneyIn || 0, i.moneyOut || 0)), 1);
+            const timelineItems = hideEmptyTimelineDays
+              ? data.activityTimeline.filter((item: any) => (item.moneyIn || 0) > 0 || (item.moneyOut || 0) > 0)
+              : data.activityTimeline;
+            const maxMoney = Math.max(...timelineItems.map((i: any) => Math.max(i.moneyIn || 0, i.moneyOut || 0)), 1);
             return (
               <section className="adm-dashboard-section" style={{ marginTop: '2rem' }}>
-                <div className="adm-dashboard-section__head">
+                <div className="adm-dashboard-section__head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
                   <div>
                     <h2 className="adm-dashboard-section__title">Biểu đồ Dòng tiền Hoạt động (Activity Timeline)</h2>
-                    <p className="adm-dashboard-section__desc">Phân bố dòng tiền theo đơn vị {granularity === 'DAY' ? 'Ngày' : granularity === 'WEEK' ? 'Tuần' : 'Tháng'}</p>
+                    <p className="adm-dashboard-section__desc">
+                      Phân bố dòng tiền theo đơn vị {granularity === 'DAY' ? 'Ngày' : granularity === 'WEEK' ? 'Tuần' : 'Tháng'}
+                      {from && to ? ` (Từ ${from} đến ${to})` : ' (30 ngày gần nhất)'}
+                    </p>
                   </div>
-                </div>
-                <div className="adm-timeline-bars">
-                  {data.activityTimeline.map((item: any, idx: number) => (
-                    <div className="adm-timeline-row" key={idx}>
-                      <span className="adm-timeline-label">{item.label}</span>
-                      <div className="adm-timeline-bar-group">
-                        <div className="adm-timeline-bar-wrapper">
-                          <div className="adm-timeline-bar adm-timeline-bar--in" style={{ width: `${((item.moneyIn || 0) / maxMoney) * 100}%` }} />
-                        </div>
-                        <div className="adm-timeline-bar-wrapper">
-                          <div className="adm-timeline-bar adm-timeline-bar--out" style={{ width: `${((item.moneyOut || 0) / maxMoney) * 100}%` }} />
-                        </div>
-                      </div>
-                      <div className="adm-timeline-values">
-                        <span className="adm-timeline-val--in">+{(item.moneyIn || 0).toLocaleString('vi-VN')} ₫</span>
-                        <span className="adm-timeline-val--out">-{(item.moneyOut || 0).toLocaleString('vi-VN')} ₫</span>
-                        <span className="adm-timeline-val--net">
-                          Net: {(item.netMovement || 0).toLocaleString('vi-VN')} ₫
-                        </span>
-                      </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    {/* Quick Range Presets */}
+                    <div style={{ display: 'inline-flex', gap: '0.25rem' }}>
+                      <button
+                        type="button"
+                        className={`adm-filter-btn adm-filter-btn--sm ${from && to && (Math.round((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 3600 * 24)) <= 7) ? 'adm-filter-btn--active' : ''}`}
+                        onClick={() => applyTimelinePreset(7)}
+                      >
+                        7 ngày
+                      </button>
+                      <button
+                        type="button"
+                        className={`adm-filter-btn adm-filter-btn--sm ${from && to && (Math.round((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 3600 * 24)) > 7 && Math.round((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 3600 * 24)) <= 14) ? 'adm-filter-btn--active' : ''}`}
+                        onClick={() => applyTimelinePreset(14)}
+                      >
+                        14 ngày
+                      </button>
+                      <button
+                        type="button"
+                        className={`adm-filter-btn adm-filter-btn--sm ${!from || (!to) || (Math.round((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 3600 * 24)) > 14 && Math.round((new Date(to).getTime() - new Date(from).getTime()) / (1000 * 3600 * 24)) <= 31) ? 'adm-filter-btn--active' : ''}`}
+                        onClick={() => applyTimelinePreset(30)}
+                      >
+                        30 ngày
+                      </button>
                     </div>
-                  ))}
-                  <div className="adm-timeline-legend">
-                    <span><span className="adm-timeline-dot adm-timeline-dot--in" /> Tiền vào (IN - Nạp ví & Escrow)</span>
-                    <span><span className="adm-timeline-dot adm-timeline-dot--out" /> Tiền ra (OUT - Rút tiền & Hoàn tiền)</span>
+
+                    {/* Granularity Switcher */}
+                    <select
+                      className="adm-time-filter__granularity"
+                      style={{ height: '28px', fontSize: '0.75rem', padding: '0 0.5rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1' }}
+                      value={granularity.toLowerCase()}
+                      onChange={(e) => applyTimelineFilter(from, to, e.target.value.toUpperCase())}
+                    >
+                      <option value="day">Theo ngày</option>
+                      <option value="week">Theo tuần</option>
+                      <option value="month">Theo tháng</option>
+                    </select>
+
+                    {/* Custom Date Range Inputs */}
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
+                      <input
+                        type="date"
+                        className="adm-time-filter__input"
+                        style={{ height: '28px', fontSize: '0.75rem', padding: '0 0.35rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1' }}
+                        value={from}
+                        onChange={(e) => applyTimelineFilter(e.target.value, to)}
+                        placeholder="Từ ngày"
+                      />
+                      <span style={{ color: '#94a3b8', fontSize: '0.75rem' }}>→</span>
+                      <input
+                        type="date"
+                        className="adm-time-filter__input"
+                        style={{ height: '28px', fontSize: '0.75rem', padding: '0 0.35rem', borderRadius: '0.375rem', border: '1px solid #cbd5e1' }}
+                        value={to}
+                        onChange={(e) => applyTimelineFilter(from, e.target.value)}
+                        placeholder="Đến ngày"
+                      />
+                    </div>
+
+                    {/* Hide Zero Activity Days Toggle */}
+                    <label style={{ display: 'inline-flex', alignItems: 'center', gap: '0.35rem', fontSize: '0.75rem', color: '#475569', cursor: 'pointer', marginLeft: '0.25rem', userSelect: 'none' }}>
+                      <input
+                        type="checkbox"
+                        checked={hideEmptyTimelineDays}
+                        onChange={(e) => setHideEmptyTimelineDays(e.target.checked)}
+                      />
+                      Ẩn ngày 0 ₫
+                    </label>
                   </div>
                 </div>
+
+                {timelineItems.length === 0 ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: '#64748b', fontSize: '0.875rem' }}>
+                    Không có giao dịch dòng tiền nào phát sinh trong khoảng thời gian đã chọn.
+                  </div>
+                ) : (
+                  <div className="adm-timeline-bars" style={{ opacity: isRefreshing ? 0.6 : 1, transition: 'opacity 0.2s ease' }}>
+                    {timelineItems.map((item: any, idx: number) => (
+                      <div className="adm-timeline-row" key={idx}>
+                        <span className="adm-timeline-label">{item.label}</span>
+                        <div className="adm-timeline-bar-group">
+                          <div className="adm-timeline-bar-wrapper">
+                            <div className="adm-timeline-bar adm-timeline-bar--in" style={{ width: `${((item.moneyIn || 0) / maxMoney) * 100}%` }} />
+                          </div>
+                          <div className="adm-timeline-bar-wrapper">
+                            <div className="adm-timeline-bar adm-timeline-bar--out" style={{ width: `${((item.moneyOut || 0) / maxMoney) * 100}%` }} />
+                          </div>
+                        </div>
+                        <div className="adm-timeline-values">
+                          <span className="adm-timeline-val--in">+{(item.moneyIn || 0).toLocaleString('vi-VN')} ₫</span>
+                          <span className="adm-timeline-val--out">-{(item.moneyOut || 0).toLocaleString('vi-VN')} ₫</span>
+                          <span className="adm-timeline-val--net">
+                            Net: {(item.netMovement || 0).toLocaleString('vi-VN')} ₫
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                    <div className="adm-timeline-legend">
+                      <span><span className="adm-timeline-dot adm-timeline-dot--in" /> Tiền vào (IN - Nạp ví & Escrow)</span>
+                      <span><span className="adm-timeline-dot adm-timeline-dot--out" /> Tiền ra (OUT - Rút tiền & Hoàn tiền)</span>
+                    </div>
+                  </div>
+                )}
               </section>
             );
           })()}
 
-          {/* AI Knowledge Base Diagnostics & Reindex Control */}
-          <section className="adm-dashboard-section" style={{ marginTop: '2rem', marginBottom: '2rem' }}>
-            <div className="adm-dashboard-section__head">
-              <div>
-                <h2 className="adm-dashboard-section__title">AI Knowledge Base & RAG Index Diagnostics</h2>
-                <p className="adm-dashboard-section__desc">
-                  Trạng thái nguồn tri thức RAG và Tìm kiếm thông minh cho Trợ lý AI hệ thống TCS.
-                </p>
-              </div>
-              <button
-                type="button"
-                className="adm-btn-solid"
-                disabled={reindexing}
-                onClick={handleReindex}
-              >
-                {reindexing ? 'Đang reindex...' : 'Đánh chỉ mục lại (Reindex All)'}
-              </button>
-            </div>
-
-            {(!aiStats || aiStats.totalChunks === 0) && (
-              <div className="adm-alert-box">
-                [Cảnh báo] Cơ sở dữ liệu tri thức AI hiện đang trống (0 chunks). Hãy bấm <strong>"Đánh chỉ mục lại (Reindex All)"</strong> ở trên để nạp tri thức FAQ, Gia sư, Lớp học và Chính sách vào bộ nhớ RAG của AI.
-              </div>
-            )}
-
-            {reindexMessage && (
-              <div className="adm-success-box">
-                {reindexMessage}
-              </div>
-            )}
-
-            <div className="adm-kpi-mono-grid" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
-              <div className="adm-kpi-mono-card">
-                <span className="adm-kpi-mono-card__head">Tổng số Chunks</span>
-                <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.totalChunks || 0)}</p>
-              </div>
-              <div className="adm-kpi-mono-card">
-                <span className="adm-kpi-mono-card__head">FAQ & Hướng dẫn</span>
-                <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.bySourceType?.FAQ || 0)}</p>
-              </div>
-              <div className="adm-kpi-mono-card">
-                <span className="adm-kpi-mono-card__head">Gia sư (Active)</span>
-                <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.bySourceType?.TUTOR || 0)}</p>
-              </div>
-              <div className="adm-kpi-mono-card">
-                <span className="adm-kpi-mono-card__head">Lớp học (Open)</span>
-                <p className="adm-kpi-mono-card__value">{formatCount(aiStats?.bySourceType?.CLASS || 0)}</p>
-              </div>
-              <div className="adm-kpi-mono-card">
-                <span className="adm-kpi-mono-card__head">Chính sách & Docs</span>
-                <p className="adm-kpi-mono-card__value">
-                  {formatCount((aiStats?.bySourceType?.POLICY || 0) + (aiStats?.bySourceType?.SYSTEM_DOC || 0))}
-                </p>
-              </div>
-            </div>
-
-            {aiStats?.lastIndexedAt && (
-              <p className="adm-subtext" style={{ marginTop: '0.75rem' }}>
-                Thời điểm đánh chỉ mục gần nhất: <strong>{new Date(aiStats.lastIndexedAt).toLocaleString('vi-VN')}</strong>
-              </p>
-            )}
-          </section>
         </>
       )}
     </AdminLayout>
