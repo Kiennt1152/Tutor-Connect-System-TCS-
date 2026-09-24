@@ -298,10 +298,18 @@ export const TERMINATION_STATUS_LABELS: Record<string, string> = {
   COMPLETED: 'Đã hoàn thành',
 };
 
+function stripUseCasePrefix(value: string | null | undefined) {
+  const cleaned = value?.trim().replace(/^\s*\[[^\]]+\]\s*/i, '').trim();
+  return cleaned || '—';
+}
+
 function extractClassIssueUserDescription(description: string | null | undefined) {
   if (!description?.trim()) return '—';
   const beforeHandling =
-    description.split('[UC-30]')[0].split('[UC-55]')[0].trim() || description.trim();
+    stripUseCasePrefix(description)
+      .split('[UC-30]')[0]
+      .split('[UC-55]')[0]
+      .trim() || description.trim();
   const marker = 'Mô tả:';
   const markerIndex = beforeHandling.indexOf(marker);
   if (markerIndex < 0) return beforeHandling;
@@ -346,7 +354,7 @@ export function mapReportItem(item: ReportApiResponse): ReportItem {
     classStatus: item.classStatus ? (CLASS_STATUS_LABELS[item.classStatus] ?? item.classStatus) : '—',
     category: item.category,
     categoryLabel: REPORT_CATEGORY_LABELS[item.category] ?? item.category,
-    description: item.description?.trim() || '—',
+    description: stripUseCasePrefix(item.description),
     userDescription: extractClassIssueUserDescription(item.description),
     evidenceUrlList,
     evidenceCount: evidenceUrlList.length,
@@ -436,7 +444,7 @@ export function mapDisputeReviewItem(item: AdminDisputeReviewApiResponse): Dispu
     reporter,
     target: `${targetType} ${targetId}`,
     category,
-    description: item.description?.trim() || '—',
+    description: stripUseCasePrefix(item.description),
     evidenceCount: item.evidenceUrlList?.length ?? 0,
     escrowStatus,
     escrowStatusLabel: escrowStatus ? (ESCROW_STATUS_LABELS[escrowStatus] ?? escrowStatus) : '—',

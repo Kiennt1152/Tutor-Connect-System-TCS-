@@ -294,7 +294,7 @@ public class DisputeServiceImpl implements DisputeService {
                 .evidenceUrls(parseEvidenceUrls(dispute.getReport().getEvidenceUrls()))
                 .resolution(dispute.getResolution()).createdAt(dispute.getCreatedAt())
                 .canRespond(dispute.getStatus() != DisputeStatus.RESOLVED)
-                .canWithdraw(client && blocked == null).withdrawalBlockedReason(client ? blocked : null)
+                .canWithdraw(client && blocked == null).withdrawalBlockedReason(blocked)
                 .updates(updates).build();
     }
 

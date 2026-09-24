@@ -129,8 +129,17 @@ function DisputeDetail({ item, onUpdated }: {
   };
 
   return <article className="my-disputes__detail">
-    <h2>{item.classTitle}</h2>
-    <p className="my-disputes__status">{labels[item.status]}</p>
+    <header className="my-disputes__detail-head">
+      <div>
+        <p className="my-disputes__eyebrow">Chi tiết tranh chấp</p>
+        <h2>{item.classTitle}</h2>
+        <div className="my-disputes__meta">
+          <span>Mã tranh chấp #{item.disputeId}</span>
+          <span>Gửi lúc {dateText(item.createdAt)}</span>
+        </div>
+      </div>
+      <p className="my-disputes__status" role="status">{labels[item.status]}</p>
+    </header>
     <section><h3>Nội dung báo cáo</h3><p className="my-disputes__text">{item.description}</p></section>
     {item.evidenceUrls.length > 0 && <section><h3>Bằng chứng</h3><div className="my-disputes__files">
       {item.evidenceUrls.map(url => <FileThumbnail key={url} src={url} fileName={url.split('/').pop() ?? 'Ảnh bằng chứng'}
@@ -177,7 +186,11 @@ function DisputeDetail({ item, onUpdated }: {
         </div>
       </>}
     </section>}
-    {!item.canWithdraw && item.status !== 'RESOLVED' && item.withdrawalBlockedReason &&
-      <p>{item.withdrawalBlockedReason}</p>}
+    {!item.canWithdraw && item.status !== 'RESOLVED' && (
+      <div className="my-disputes__permission-note" role="note">
+        <strong>Quyền rút tranh chấp</strong>
+        <span>{item.withdrawalBlockedReason || 'Chỉ người gửi mới được rút tranh chấp.'}</span>
+      </div>
+    )}
   </article>;
 }

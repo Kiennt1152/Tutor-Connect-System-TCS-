@@ -20,8 +20,52 @@
 .my-disputes__item { display: flex; flex-direction: column; text-align: left; gap: 8px; padding: 16px; border: 1px solid #d6dce4; border-radius: 6px; background: #fff; color: inherit; cursor: pointer; overflow-wrap: anywhere; }
 .my-disputes__item.is-selected { border-color: #e95d0c; background: #fff7ef; }
 .my-disputes__item span, .my-disputes__status { color: #665429; font-size: 14px; }
-.my-disputes__detail { min-width: 0; }
+.my-disputes__detail {
+  min-width: 0;
+  border: 1px solid #d6dce4;
+  border-radius: 10px;
+  background: #fff;
+  padding: 24px;
+  box-shadow: 0 4px 14px rgba(24, 34, 48, 0.04);
+}
+.my-disputes__detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid #dce2e9;
+}
+.my-disputes__eyebrow {
+  margin: 0 0 8px;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.my-disputes__detail h2 { margin: 0; line-height: 1.25; }
+.my-disputes__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin-top: 10px;
+  color: #647184;
+  font-size: 13px;
+}
+.my-disputes__status {
+  flex: 0 0 auto;
+  margin: 0;
+  padding: 6px 10px;
+  border: 1px solid #fed7aa;
+  border-radius: 999px;
+  background: #fff7ed;
+  color: #9a3412;
+  font-weight: 700;
+  white-space: nowrap;
+}
 .my-disputes__detail section { border-top: 1px solid #dce2e9; padding: 20px 0; }
+.my-disputes__detail > section:first-of-type { border-top: 0; }
 .my-disputes__text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
 .my-disputes__field { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; font-weight: 600; }
 .my-disputes textarea { width: 100%; box-sizing: border-box; border: 1px solid #b9c3d1; border-radius: 6px; padding: 12px; font: inherit; resize: vertical; min-height: 90px; }
@@ -33,8 +77,24 @@
 .my-disputes__update { border-left: 3px solid #d7e5e0; padding: 8px 14px; margin-bottom: 14px; overflow-wrap: anywhere; }
 .my-disputes small { color: #647184; }
 .my-disputes__actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.my-disputes__permission-note {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 4px;
+  padding: 14px 16px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: #fff7ed;
+  color: #9a3412;
+  line-height: 1.5;
+}
+.my-disputes__permission-note strong { color: #7c2d12; }
 @media (max-width: 760px) {
   .my-disputes__layout { grid-template-columns: minmax(0, 1fr); }
   .my-disputes { padding: 22px 14px 48px; }
   .my-disputes__heading { align-items: flex-start; }
+  .my-disputes__detail { padding: 18px; }
+  .my-disputes__detail-head { flex-direction: column; gap: 12px; }
+  .my-disputes__status { align-self: flex-start; }
 }
