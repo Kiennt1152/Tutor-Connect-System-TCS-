@@ -52,6 +52,60 @@ function classStatusLabel(status?: string | null): string {
   return status ? (CLASS_STATUS_LABELS[status] ?? status) : 'Chưa rõ trạng thái';
 }
 
+/** Phần tên môn trong tiêu đề tự sinh: "Cần tìm gia sư môn Toán, Vật lý". */
+const TITLE_SUBJECT_MARKER = ' môn ';
+
+/**
+ * Tên lớp, gạch ngang những môn gia sư KHÔNG nhận dạy.
+ *
+ * <p>Lớp đăng "Toán, Vật lý" mà gia sư chỉ nhận Toán: để nguyên tiêu đề thì người học tưởng vẫn
+ * còn học Vật lý, mà bỏ hẳn tên môn đó đi thì mất dấu vết môn đã rớt. Gạch ngang giữ được cả hai —
+ * thấy mình đã đăng gì, và thấy môn nào không còn.</p>
+ *
+ * <p>Căn cứ là danh sách môn THỰC DẠY của phân công, không phải tiêu đề. Tiêu đề chỉ là chuỗi chữ,
+ * còn môn thực dạy lấy từ giá gia sư đã báo trong đơn ứng tuyển.</p>
+ */
+function ClassTitleWithDroppedSubjects({
+  title,
+  taughtSubjects,
+}: {
+  title: string;
+  taughtSubjects: string[];
+}) {
+  const at = title.indexOf(TITLE_SUBJECT_MARKER);
+  if (at < 0 || taughtSubjects.length === 0) return <>{title}</>;
+
+  const head = title.slice(0, at + TITLE_SUBJECT_MARKER.length);
+  const listed = title
+    .slice(at + TITLE_SUBJECT_MARKER.length)
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const taught = new Set(taughtSubjects.map((s) => s.trim()));
+
+  // Tiêu đề do người dùng tự đặt (hoặc bị cắt ngắn) thì không khớp được môn nào — giữ nguyên,
+  // thà không gạch còn hơn gạch nhầm một môn đang học.
+  if (!listed.some((s) => taught.has(s))) return <>{title}</>;
+
+  return (
+    <>
+      {head}
+      {listed.map((subject, i) => (
+        <span key={subject}>
+          {i > 0 ? ', ' : ''}
+          {taught.has(subject) ? (
+            subject
+          ) : (
+            <s className="tch-class__subject--dropped" title="Gia sư không nhận dạy môn này">
+              {subject}
+            </s>
+          )}
+        </span>
+      ))}
+    </>
+  );
+}
+
 /**
  * Trang lịch dạy (gia sư) / lịch học (client) của lớp riêng: lời mời nhận lớp, thời khoá biểu tuần,
  * yêu cầu đổi lịch, điểm danh, đánh giá gia sư và hoàn thành lớp.
@@ -245,7 +299,12 @@ export default function TeachingPage() {
                     <li key={a.assignmentId} className="tch-class">
                       <div className="tch-class__info">
                         <div className="tch-class__topline">
-                          <span className="tch-class__title">{a.classTitle}</span>
+                          <span className="tch-class__title">
+                            <ClassTitleWithDroppedSubjects
+                              title={a.classTitle}
+                              taughtSubjects={a.subjectNames ?? []}
+                            />
+                          </span>
                           <span
                             className={`tch-class-status tch-class-status--${classStatusTone(
                               a.classStatus,
@@ -255,7 +314,7 @@ export default function TeachingPage() {
                           </span>
                         </div>
                         <span className="tch-class__meta">
-                          {isClient && a.tutorName ? `👩‍🏫 ${a.tutorName} · ` : ''}
+                          {isClient && a.tutorName ? `${a.tutorName} · ` : ''}
                           {(a.subjectNames ?? []).join(', ') || '—'} · {a.lessonCount} buổi
                         </span>
                       </div>

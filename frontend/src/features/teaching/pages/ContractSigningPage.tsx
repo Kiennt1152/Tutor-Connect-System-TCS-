@@ -25,8 +25,16 @@ import type {
   EscrowStatus,
   PaymentTransactionStatus,
 } from '../../contract/types/contractTypes';
-import { classToForm, totalBudget, weeksForCycle } from '../../marketplace/mappers/marketplaceMapper';
+import {
+  classToForm,
+  repeatWeeksOf,
+  restWeeksOf,
+  studyWeeksOf,
+  totalBudget,
+  weeksForCycle,
+} from '../../marketplace/mappers/marketplaceMapper';
 import { DAY_OF_WEEK_OPTIONS } from '../../marketplace/types/marketplaceTypes';
+import type { ClassFormValues } from '../../marketplace/types/marketplaceTypes';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import './ContractSigningPage.css';
 
@@ -122,6 +130,26 @@ const LOCKED_DEFAULT_LINES = new Set<string>([
   'Bảo đảm giờ học cho học viên đúng lịch; nếu nghỉ phải báo trước và dạy bù.',
 ]);
 
+/**
+ * Câu mô tả chu kỳ lặp cho hợp đồng: nói rõ tuần nào học VÀ tuần nào nghỉ.
+ *
+ * Trang tin chỉ ghi "học tuần 1, 2 trong mỗi 4 tuần" — đủ để xem lướt. Nhưng hợp đồng là văn bản
+ * hai bên ký: Điều 1 mà chỉ có "Thứ 2 06:00–07:00" thì đọc ra thành học đều mọi tuần, trong khi
+ * lịch thực sinh ra bỏ hẳn tuần 3 và 4. Ghi thẳng cả phần nghỉ để sau này không tranh cãi về
+ * những tuần không có buổi dạy.
+ *
+ * Trả về null khi không có tuần nghỉ nào (học hàng tuần) hoặc lịch chọn theo ngày cụ thể — thêm
+ * câu này vào mấy trường hợp đó chỉ làm rối.
+ */
+function studyCycleSentence(form: ClassFormValues): string | null {
+  if (form.scheduleMode !== 'WEEKLY') return null;
+  const cycle = repeatWeeksOf(form);
+  const off = restWeeksOf(form);
+  if (cycle <= 1 || off.length === 0) return null;
+  return `Chu kỳ lặp ${cycle} tuần — học tuần ${studyWeeksOf(form).join(', ')};`
+    + ` nghỉ tuần ${off.join(', ')} (không có buổi dạy).`;
+}
+
 /** Tách điều khoản bổ sung thành từng dòng (bỏ dòng trống) để hiển thị dạng danh sách. */
 function termsLines(text: string): string[] {
   return text
@@ -137,27 +165,33 @@ function termsLines(text: string): string[] {
 export default function ContractSigningPage() {
   const location = useLocation();
   const navigate = useNavigate();
+  const navState = location.state as { assignmentId?: number; from?: string } | null;
   // Vào từ trang Lịch dạy: mã phân công đi kèm trong state của router.
-  const stateAssignmentId = Number((location.state as { assignmentId?: number } | null)?.assignmentId);
+  const stateAssignmentId = Number(navState?.assignmentId);
   /**
-   * Vào từ chuông thông báo: chỉ có ?classId= trên URL.
+   * Vào từ "Hợp đồng của tôi" hoặc từ chuông thông báo: chỉ có ?classId= trên URL.
    *
    * Thông báo được gửi lúc chưa chắc đã có phân công nên nó mang mã LỚP, không mang mã phân công.
    * Mà link trong chuông là một chuỗi URL thuần, không đính kèm được state của router — nên phải
-   * tra ngược từ classId ra assignmentId ở đây.
+   * tra ngược từ classId ra assignmentId ở đây, rồi giấu mã lớp khỏi thanh địa chỉ.
    */
   const classIdParam = Number(new URLSearchParams(location.search).get('classId'));
   const [resolvedAssignmentId, setResolvedAssignmentId] = useState(0);
   const assignmentId = stateAssignmentId || resolvedAssignmentId;
+  /** Còn phải tra assignmentId từ ?classId= hay chưa — trong lúc đó chưa được kết luận là thiếu mã. */
+  const needsResolve = !stateAssignmentId && !!classIdParam && !resolvedAssignmentId;
 
   /**
    * Nút quay lại trả người dùng về đúng nơi họ vừa rời đi.
    *
-   * Vào từ Lịch dạy thì về Lịch dạy; vào từ "Hợp đồng của tôi" hoặc từ chuông (cả hai đều mang
-   * ?classId=) thì về trang Hợp đồng. Cố định một đích sẽ ném người dùng sang màn khác hẳn với
-   * màn họ vừa bấm.
+   * Vào từ Lịch dạy thì về Lịch dạy; vào từ "Hợp đồng của tôi" hoặc từ chuông thì về trang Hợp
+   * đồng. Cố định một đích sẽ ném người dùng sang màn khác hẳn với màn họ vừa bấm.
+   *
+   * Không dò theo ?classId= được, vì mã lớp bị gỡ khỏi URL ngay sau khi tra xong — lối vào phải
+   * được ghi lại trong state (`from`) thì mới còn sau bước thay thế URL đó.
    */
-  const backTarget = classIdParam && !stateAssignmentId
+  const cameFromContract = navState?.from === 'contract' || (!!classIdParam && !stateAssignmentId);
+  const backTarget = cameFromContract
     ? { path: APP_ROUTES.contract, label: 'Quay về hợp đồng của tôi' }
     : { path: APP_ROUTES.teaching, label: 'Quay lại lịch dạy' };
 
@@ -200,7 +234,7 @@ export default function ContractSigningPage() {
 
   // Tra assignmentId từ ?classId= khi người dùng tới đây bằng link trong chuông thông báo.
   useEffect(() => {
-    if (stateAssignmentId || !classIdParam) return;
+    if (!needsResolve) return;
     let cancelled = false;
     teachingApi
       .listMyAssignments()
@@ -209,6 +243,13 @@ export default function ContractSigningPage() {
         const match = list.find((a) => a.classId === classIdParam);
         if (match) {
           setResolvedAssignmentId(match.assignmentId);
+          // Giấu mã lớp khỏi thanh địa chỉ: chuyển nó vào state của router rồi thay thế URL
+          // hiện tại (replace, không đẩy thêm một bước lịch sử để nút Back của trình duyệt
+          // không quay về chính trang này). `from` giữ lại lối vào cho nút quay lại.
+          navigate(APP_ROUTES.signContract, {
+            replace: true,
+            state: { assignmentId: match.assignmentId, from: 'contract' },
+          });
           return;
         }
         setLoadError('Không tìm thấy hợp đồng lớp riêng nào của bạn cho lớp này.');
@@ -222,12 +263,12 @@ export default function ContractSigningPage() {
     return () => {
       cancelled = true;
     };
-  }, [stateAssignmentId, classIdParam]);
+  }, [needsResolve, classIdParam, navigate]);
 
   useEffect(() => {
+    // Đang tra từ ?classId= thì chưa kết luận là thiếu — để effect ở trên trả lời.
+    if (needsResolve) return;
     if (!assignmentId) {
-      // Đang tra từ ?classId= thì chưa kết luận là thiếu — để effect ở trên trả lời.
-      if (classIdParam && !stateAssignmentId) return;
       setLoadError('Thiếu mã lời mời nhận lớp.');
       setStatus('error');
       return;
@@ -245,7 +286,7 @@ export default function ContractSigningPage() {
         setLoadError(extractError(err));
         setStatus('error');
       });
-  }, [assignmentId, classIdParam, stateAssignmentId]);
+  }, [assignmentId, needsResolve]);
 
   useEffect(() => {
     if (!contract) return;
@@ -575,6 +616,7 @@ export default function ContractSigningPage() {
                   Thời gian học: từ {fmtDate(contract.startDate)} đến {fmtDate(contract.endDate)}
                   {` (${amounts.months} tháng)`}.
                 </li>
+                {studyCycleSentence(form) && <li>{studyCycleSentence(form)}</li>}
                 <li>Lịch học cụ thể theo từng môn:</li>
               </ul>
               <ul className="ksign-ul ksign-ul--sched">

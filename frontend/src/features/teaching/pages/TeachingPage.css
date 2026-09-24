@@ -167,6 +167,12 @@
   color: #12233b;
   font-size: 14px;
 }
+/* Môn gia sư không nhận dạy: gạch ngang + làm nhạt để không tranh chỗ với môn đang học thật. */
+.tch-class__subject--dropped {
+  color: #8a97a8;
+  font-weight: 500;
+  text-decoration-thickness: 1px;
+}
 .tch-class__meta {
   font-size: 13px;
   color: #5b6b7f;
