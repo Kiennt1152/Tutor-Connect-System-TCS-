@@ -180,6 +180,7 @@ public class LessonReminderService {
         Map<String, Object> vars = Map.of(
                 "activity", activity,
                 "subjectName", subjectName,
+                "timePart", timePart,
                 "startTime", startTime,
                 "endTime", endTime,
                 "classTitle", classTitle);

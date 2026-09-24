@@ -12,6 +12,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { SiteHeader } from '../../home/components/SiteHeader';
 import { SiteFooter } from '../../home/components/SiteFooter';
+import { useAuth } from '../../../shared/auth/AuthProvider';
 import { marketplaceApi } from '../api/marketplaceApi';
 import { ClassResultCard } from '../components/ClassResultCard';
 import { useClassSearch } from '../hooks/useClassSearch';
@@ -27,6 +28,7 @@ const PAGE_SIZE = 6;
 
 export default function ClassFinderPage() {
   const navigate = useNavigate();
+  const { isAuthenticated } = useAuth();
   const [classes, setClasses] = useState<ClassResponse[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
   const [subjects, setSubjects] = useState<CatalogOption[]>([]);
@@ -48,13 +50,14 @@ export default function ClassFinderPage() {
     marketplaceApi
       .listOpenClasses()
       .then((data) => {
-        // Trang này để phụ huynh/học viên ĐĂNG KÝ HỌC -> chỉ lớp của trung tâm. Tin tìm gia sư
-        // của phụ huynh (PRIVATE, kể cả tin của chính mình) chỉ dành cho gia sư ứng tuyển.
-        setClasses(data.filter((c) => c.classType === 'CENTER'));
+        // Khách chưa đăng nhập: xem được mọi lớp đang mở. Đã đăng nhập thì trang này để phụ
+        // huynh/học viên ĐĂNG KÝ HỌC -> chỉ lớp của trung tâm; tin tìm gia sư của phụ huynh
+        // (PRIVATE, kể cả tin của chính mình) chỉ dành cho gia sư ứng tuyển.
+        setClasses(isAuthenticated ? data.filter((c) => c.classType === 'CENTER') : data);
         setStatus('success');
       })
       .catch(() => setStatus('error'));
-  }, []);
+  }, [isAuthenticated]);
 
   // Đúng thanh tìm của màn gia sư: ô gõ nhanh + 5 ô lọc + 5 thanh trượt ưu tiên.
   const search = useClassSearch({ subjects, grades, provinces, classes });

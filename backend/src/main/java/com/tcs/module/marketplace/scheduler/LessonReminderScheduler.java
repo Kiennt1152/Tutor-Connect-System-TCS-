@@ -16,7 +16,6 @@ import com.tcs.module.messaging.enums.NotificationType;
 import com.tcs.module.messaging.service.NotificationDispatchService;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -96,16 +95,13 @@ public class LessonReminderScheduler {
         }
     }
 
+    /**
+     * Gửi thẳng nội dung "ngày mai" — không dùng mẫu LESSON_REMINDER: mẫu đó là nhắc buổi HÔM NAY
+     * và cần biến môn/giờ/lớp, truyền vào đây thì thông báo lộ nguyên {{subjectName}}.
+     */
     private void notify(User user, String title, String content, Long classId) {
-        notificationDispatchService.notifyUserFromTemplate(
-                user,
-                NotificationType.SYSTEM,
-                "LESSON_REMINDER",
-                Map.of("title", title, "content", content),
-                title,
-                content,
-                "CLASS_ACTIVE",
-                classId);
+        notificationDispatchService.notifyUser(
+                user, NotificationType.SYSTEM, title, content, "CLASS_ACTIVE", classId);
     }
 
     private boolean isActive(TutoringClass c) {
