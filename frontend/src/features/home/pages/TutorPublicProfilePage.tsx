@@ -35,6 +35,17 @@ function initialsOf(name: string): string {
   );
 }
 
+/**
+ * Điểm sao để hiển thị: chưa có lượt đánh giá nào thì là 0, không lấy điểm đã lưu sẵn.
+ *
+ * Gia sư mới có thể mang sẵn một điểm trong hồ sơ (dữ liệu seed, hoặc điểm cũ còn lại sau khi
+ * admin ẩn hết đánh giá). Hiện con số đó khi chưa ai đánh giá là nói sai với người xem — cạnh nó
+ * lại ghi "0 đánh giá". Số lượt đánh giá mới là căn cứ, không phải điểm lưu trong hồ sơ.
+ */
+function displayRating(ratingAvg: number | null | undefined, totalReviews: number): number {
+  return totalReviews > 0 ? Number(ratingAvg) || 0 : 0;
+}
+
 /** Định dạng ngày theo kiểu Việt Nam. */
 function formatDate(iso: string): string {
   return new Date(iso).toLocaleDateString('vi-VN');
@@ -189,7 +200,8 @@ function ProfileHeader({ data }: { readonly data: TutorReputation }) {
         </div>
         <div className="tp-header__stats">
           <span className="tp-header__rating">
-            <span className="tp-star">★</span> {Number(data.ratingAvg).toFixed(1)}
+            <span className="tp-star">★</span>{' '}
+            {displayRating(data.ratingAvg, data.totalReviews).toFixed(1)}
             <span className="tp-header__count"> ({data.totalReviews} đánh giá)</span>
           </span>
           <span>🎓 {data.experienceYears} năm kinh nghiệm</span>
@@ -306,14 +318,15 @@ function ReputationSummary({
   readonly onSelectStar: (star: StarFilter) => void;
 }) {
   const total = data.totalReviews;
+  const score = displayRating(data.ratingAvg, total);
   return (
     <section className="tp-card tp-summary">
       <h2 className="tp-card__title">Danh tiếng</h2>
 
       <div className="tp-summary__overall">
-        <div className="tp-summary__score">{Number(data.ratingAvg).toFixed(1)}</div>
+        <div className="tp-summary__score">{score.toFixed(1)}</div>
         <div>
-          <StarRating value={Math.round(Number(data.ratingAvg))} readOnly size={20} />
+          <StarRating value={Math.round(score)} readOnly size={20} />
           <p className="tp-muted tp-summary__count">{total} lượt đánh giá</p>
         </div>
       </div>
