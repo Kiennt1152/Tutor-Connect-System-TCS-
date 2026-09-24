@@ -137,7 +137,29 @@ function termsLines(text: string): string[] {
 export default function ContractSigningPage() {
   const location = useLocation();
   const navigate = useNavigate();
-  const assignmentId = Number((location.state as { assignmentId?: number } | null)?.assignmentId);
+  // Vào từ trang Lịch dạy: mã phân công đi kèm trong state của router.
+  const stateAssignmentId = Number((location.state as { assignmentId?: number } | null)?.assignmentId);
+  /**
+   * Vào từ chuông thông báo: chỉ có ?classId= trên URL.
+   *
+   * Thông báo được gửi lúc chưa chắc đã có phân công nên nó mang mã LỚP, không mang mã phân công.
+   * Mà link trong chuông là một chuỗi URL thuần, không đính kèm được state của router — nên phải
+   * tra ngược từ classId ra assignmentId ở đây.
+   */
+  const classIdParam = Number(new URLSearchParams(location.search).get('classId'));
+  const [resolvedAssignmentId, setResolvedAssignmentId] = useState(0);
+  const assignmentId = stateAssignmentId || resolvedAssignmentId;
+
+  /**
+   * Nút quay lại trả người dùng về đúng nơi họ vừa rời đi.
+   *
+   * Vào từ Lịch dạy thì về Lịch dạy; vào từ "Hợp đồng của tôi" hoặc từ chuông (cả hai đều mang
+   * ?classId=) thì về trang Hợp đồng. Cố định một đích sẽ ném người dùng sang màn khác hẳn với
+   * màn họ vừa bấm.
+   */
+  const backTarget = classIdParam && !stateAssignmentId
+    ? { path: APP_ROUTES.contract, label: 'Quay về hợp đồng của tôi' }
+    : { path: APP_ROUTES.teaching, label: 'Quay lại lịch dạy' };
 
   const [contract, setContract] = useState<ContractView | null>(null);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -176,8 +198,36 @@ export default function ContractSigningPage() {
     return () => clearTimeout(t);
   }, [cooldown]);
 
+  // Tra assignmentId từ ?classId= khi người dùng tới đây bằng link trong chuông thông báo.
+  useEffect(() => {
+    if (stateAssignmentId || !classIdParam) return;
+    let cancelled = false;
+    teachingApi
+      .listMyAssignments()
+      .then((list) => {
+        if (cancelled) return;
+        const match = list.find((a) => a.classId === classIdParam);
+        if (match) {
+          setResolvedAssignmentId(match.assignmentId);
+          return;
+        }
+        setLoadError('Không tìm thấy hợp đồng lớp riêng nào của bạn cho lớp này.');
+        setStatus('error');
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        setLoadError(extractError(err));
+        setStatus('error');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [stateAssignmentId, classIdParam]);
+
   useEffect(() => {
     if (!assignmentId) {
+      // Đang tra từ ?classId= thì chưa kết luận là thiếu — để effect ở trên trả lời.
+      if (classIdParam && !stateAssignmentId) return;
       setLoadError('Thiếu mã lời mời nhận lớp.');
       setStatus('error');
       return;
@@ -195,7 +245,7 @@ export default function ContractSigningPage() {
         setLoadError(extractError(err));
         setStatus('error');
       });
-  }, [assignmentId]);
+  }, [assignmentId, classIdParam, stateAssignmentId]);
 
   useEffect(() => {
     if (!contract) return;
@@ -449,8 +499,8 @@ export default function ContractSigningPage() {
       <SiteHeader />
       <main className="tcs-container ksign-main">
         <div className="ksign-bar">
-          <button type="button" className="ksign-btn ksign-btn--ghost" onClick={() => navigate(APP_ROUTES.teaching)}>
-            ← Quay lại lịch dạy
+          <button type="button" className="ksign-btn ksign-btn--ghost" onClick={() => navigate(backTarget.path)}>
+            ← {backTarget.label}
           </button>
           <h1 className="ksign-h1">Ký hợp đồng làm gia sư</h1>
           {/* Hợp đồng chỉ sống 48 giờ; tiền vào ký quỹ rồi thì hết đếm ngược. */}

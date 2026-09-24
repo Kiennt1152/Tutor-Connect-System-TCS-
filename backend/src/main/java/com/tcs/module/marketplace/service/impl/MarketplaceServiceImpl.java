@@ -218,6 +218,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
      */
     private static final String CONTRACT_CONTEXT_TYPE = "CONTRACT";
 
+    /**
+     * referenceType của thông báo về hợp đồng LỚP RIÊNG (PRIVATE).
+     *
+     * <p>Tách khỏi {@link #CONTRACT_CONTEXT_TYPE} vì hai loại hợp đồng ký ở hai nơi khác nhau:
+     * hợp đồng ghi danh lớp trung tâm ký ở màn "Hợp đồng của tôi" (/contract), còn hợp đồng lớp
+     * riêng ký ở trang "Ký hợp đồng làm gia sư" (/teaching/sign-contract) và KHÔNG được liệt kê
+     * ở /contract. Dùng chung một referenceType thì chuông đẩy cả hai về /contract, và người có
+     * lớp riêng bấm vào sẽ thấy một danh sách không có hợp đồng của mình.</p>
+     */
+    private static final String PRIVATE_CONTRACT_CONTEXT_TYPE = "PRIVATE_CONTRACT";
+
     private final AuthHelper authHelper;
     private final UserRepository userRepository;
     private final ClientRepository clientRepository;
@@ -257,6 +268,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
     private final CenterTutorMembershipRepository centerTutorMembershipRepository;
     private final ClassRequestStore classRequestStore;
     private final CenterRequestFeeService centerRequestFeeService;
+    private final com.tcs.module.marketplace.service.ClassTitleService classTitleService;
     private final ContractService contractService;
     private final LessonReminderService lessonReminderService;
     private final EmailOtpRepository emailOtpRepository;
@@ -282,10 +294,6 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             "T2", 1, "T3", 2, "T4", 3, "T5", 4, "T6", 5, "T7", 6, "CN", 7);
 
     private static final BigDecimal MIN_RATE_PER_HOUR = BigDecimal.valueOf(50_000);
-
-    private static final String OTHER_SUBJECT_KEY = "other";
-
-    private static final int TITLE_MAX_LENGTH = 150;
 
     private static final Pattern GRADE_NUMBER_PATTERN =
             Pattern.compile("^Lớp\\s+(\\d+)$", Pattern.CASE_INSENSITIVE);
@@ -442,20 +450,14 @@ public class MarketplaceServiceImpl implements MarketplaceService {
         return autoTitle(request.getDetailsJson(), subject, grade);
     }
 
-    /** Sinh tiêu đề mặc định "Cần tìm gia sư môn A, B", cắt ngắn nếu vượt độ dài tối đa của cột. */
+    /**
+     * Sinh tiêu đề mặc định "Cần tìm gia sư môn A, B".
+     *
+     * <p>Quy tắc nằm ở {@link com.tcs.module.marketplace.service.ClassTitleService} vì bộ lập lịch
+     * hạn 48 giờ cũng phải sinh lại đúng chuỗi này khi lớp mở lại.</p>
+     */
     private String autoTitle(String detailsJson, Subject subject, Grade grade) {
-        List<String> names = subjectNamesFromJson(detailsJson);
-        if (names.isEmpty() && subject != null) {
-            names = List.of(subject.getSubjectName());
-        }
-        StringBuilder sb = new StringBuilder("Cần tìm gia sư");
-        if (!names.isEmpty()) {
-            sb.append(" môn ").append(String.join(", ", names));
-        }
-        String title = sb.toString();
-        return title.length() > TITLE_MAX_LENGTH
-                ? title.substring(0, TITLE_MAX_LENGTH - 1) + "…"
-                : title;
+        return classTitleService.autoTitle(detailsJson, subject);
     }
 
     /**
@@ -655,22 +657,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
     /** Đọc danh sách mã môn (subjectIds) trong detailsJson của lớp; JSON lỗi hoặc không có thì trả danh sách rỗng. */
     private List<String> subjectKeysFromJson(String detailsJson) {
-        if (!StringUtils.hasText(detailsJson)) {
-            return List.of();
-        }
-        try {
-            JsonNode ids = objectMapper.readTree(detailsJson).path("subjectIds");
-            if (!ids.isArray()) {
-                return List.of();
-            }
-            List<String> keys = new ArrayList<>();
-            for (JsonNode id : ids) {
-                keys.add(id.asText());
-            }
-            return keys;
-        } catch (JsonProcessingException e) {
-            return List.of();
-        }
+        return classTitleService.subjectKeys(detailsJson);
     }
 
     /** Mã các môn của lớp: ưu tiên detailsJson, không có thì lấy môn chính của lớp. */
@@ -693,44 +680,12 @@ public class MarketplaceServiceImpl implements MarketplaceService {
 
     /** Đổi mã môn trong detailsJson thành tên môn (môn "Khác" lấy tên người dùng tự gõ) để hiển thị/sinh tiêu đề. */
     private List<String> subjectNamesFromJson(String detailsJson) {
-        List<String> keys = subjectKeysFromJson(detailsJson);
-        if (keys.isEmpty()) {
-            return List.of();
-        }
-        JsonNode root = null;
-        try {
-            root = objectMapper.readTree(detailsJson);
-        } catch (JsonProcessingException ignored) {
-        }
-        String legacyOther = root != null ? root.path("subjectOther").asText("").trim() : "";
-        JsonNode subjectOthers = root != null ? root.path("subjectOthers") : null;
-        List<String> names = new ArrayList<>();
-        for (String key : keys) {
-            if (isOtherSubjectKey(key)) {
-                String name = "";
-                if (subjectOthers != null && subjectOthers.isObject()) {
-                    name = subjectOthers.path(key).asText("").trim();
-                }
-                if (!StringUtils.hasText(name)) {
-                    name = legacyOther;
-                }
-                names.add(StringUtils.hasText(name) ? name : "Môn học khác");
-                continue;
-            }
-            try {
-                subjectRepository.findById(Long.valueOf(key))
-                        .map(Subject::getSubjectName)
-                        .ifPresent(names::add);
-            } catch (NumberFormatException ignored) {
-            }
-        }
-        return names;
+        return classTitleService.subjectNames(detailsJson);
     }
 
     /** Mã môn có phải môn "Khác" (người dùng tự nhập tên) hay không. */
     private boolean isOtherSubjectKey(String key) {
-        return OTHER_SUBJECT_KEY.equals(key)
-                || (key != null && key.startsWith(OTHER_SUBJECT_KEY + ":"));
+        return classTitleService.isOtherSubjectKey(key);
     }
 
     /** Mức giá cao nhất trong các môn; không có môn nào thì trả giá dự phòng. Dùng làm giá tiêu đề của đơn/lớp. */
@@ -825,7 +780,17 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             tutoringClass.setPreMatchDetailsJson(tutoringClass.getDetailsJson());
             tutoringClass.setPreMatchTuitionFee(tutoringClass.getTuitionFee());
         }
+        // Phải hỏi TRƯỚC khi applyTutorRatesToClass thu hẹp subjectIds, vì sau đó danh sách môn đã
+        // đổi thì không còn đối chiếu được tiêu đề hiện tại với tiêu đề tự sinh của lớp gốc nữa.
+        boolean titleFollowsSubjects = classTitleService.isAutoTitle(
+                tutoringClass.getTitle(), tutoringClass.getDetailsJson(), tutoringClass.getSubject());
         applyTutorRatesToClass(tutoringClass, chosen);
+        // Lớp đăng "Toán, Vật lý" mà gia sư chỉ nhận Toán thì tên lớp rút lại còn "Cần tìm gia sư
+        // môn Toán" — tên phải khớp với môn thực dạy, vì nó theo lớp suốt sang hợp đồng và lịch học.
+        if (titleFollowsSubjects) {
+            tutoringClass.setTitle(
+                    classTitleService.autoTitle(tutoringClass.getDetailsJson(), tutoringClass.getSubject()));
+        }
         tutoringClass.setStatus(TutoringClassStatus.MATCHED);
         // Đồng hồ 48 giờ: hết hạn mà chưa ký đủ + chưa có tiền vào escrow thì lớp tự mở lại.
         tutoringClass.setMatchDeadlineAt(LocalDateTime.now().plusHours(MATCH_CONTRACT_HOURS));
@@ -1474,7 +1439,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return;
         }
         String content = "Phụ huynh/học sinh đã ký hợp đồng lớp \"" + c.getTitle()
-                + "\". Vui lòng mở mục Hợp đồng để ký xác nhận và bắt đầu lớp.";
+                + "\". Vui lòng mở trang Ký hợp đồng (trong Lịch dạy) để ký xác nhận và bắt đầu lớp.";
         notificationDispatchService.notifyUserFromTemplate(
                 assignment.getTutor().getUser(),
                 com.tcs.module.messaging.enums.NotificationType.APPLICATION,
@@ -1482,7 +1447,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 Map.of("classTitle", c.getTitle()),
                 "Bên A đã ký hợp đồng — mời bạn ký",
                 content,
-                CONTRACT_CONTEXT_TYPE,
+                PRIVATE_CONTRACT_CONTEXT_TYPE,
                 c.getClassId());
     }
 
@@ -1491,7 +1456,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
             return;
         }
         String content = "Hợp đồng lớp \"" + c.getTitle()
-                + "\" đã được ký xong. Vui lòng mở mục Hợp đồng để quét mã thanh toán ký quỹ.";
+                + "\" đã được ký xong. Vui lòng mở trang Ký hợp đồng để quét mã thanh toán ký quỹ.";
         notificationDispatchService.notifyUserFromTemplate(
                 c.getCreator(),
                 com.tcs.module.messaging.enums.NotificationType.APPLICATION,
@@ -1499,7 +1464,7 @@ public class MarketplaceServiceImpl implements MarketplaceService {
                 Map.of("classTitle", c.getTitle()),
                 "Hợp đồng đã hoàn tất - vui lòng thanh toán ký quỹ",
                 content,
-                CONTRACT_CONTEXT_TYPE,
+                PRIVATE_CONTRACT_CONTEXT_TYPE,
                 c.getClassId());
     }
 

@@ -65,6 +65,15 @@ export function notificationLink(
     return null;
   }
 
+  // Hợp đồng lớp RIÊNG: ký ở trang "Ký hợp đồng làm gia sư", không nằm trong danh sách
+  // /contract. Đẩy về /contract thì người dùng mở ra chỉ thấy danh sách trống rỗng.
+  // referenceId là classId — trang ký tự tra ra phân công tương ứng.
+  if (n.referenceType === 'PRIVATE_CONTRACT') {
+    return n.referenceId
+      ? `${APP_ROUTES.signContract}?classId=${n.referenceId}`
+      : APP_ROUTES.teaching;
+  }
+
   // Hợp đồng: việc cần làm là ký hoặc thanh toán ký quỹ, phải về trang Hợp đồng.
   // referenceId ở đây là classId (lúc gửi thông báo chưa chắc đã có hợp đồng),
   // nên chỉ mở danh sách chứ không ghép thành /contract/{id}.
