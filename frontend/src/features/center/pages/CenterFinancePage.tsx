@@ -1,3 +1,12 @@
+/**
+ * ====================================================================================================
+ * [UC-46] MÀN HÌNH QUẢN LÝ TÀI CHÍNH TRUNG TÂM (CENTER FINANCE PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Theo dõi số dư ví trung tâm, các khoản phí dịch vụ sàn đã khấu trừ.
+ * 2. Thực hiện yêu cầu thanh toán hoặc rút doanh thu về tài khoản ngân hàng trung tâm.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 import { useEffect, useMemo, useState } from 'react';
 import axios from 'axios';
 import { VerificationHeader } from '../../../shared/components/VerificationHeader';

@@ -27,11 +27,31 @@ import com.tcs.module.platform.enums.SupportTicketStatus;
 import com.tcs.module.profile.enums.UserRole;
 import java.util.List;
 
+/**
+ * ============================================================================
+ * [BF-10] GIAO DIỆN QUẢN TRỊ NỀN TẢNG TOÀN DIỆN (PLATFORM SERVICE INTERFACE)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-06-23
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Định nghĩa các phương thức nghiệp vụ quản trị sàn cho Quản trị viên (Platform Admin).
+ *    - Quản lý người dùng, tài khoản đa vai trò và phân quyền hệ thống [UC-07].
+ *    - Thẩm định danh tính, phê duyệt hồ sơ xác minh KYC CCCD / Bằng cấp [UC-11].
+ *    - Quản lý, xử lý báo cáo vi phạm, sự cố lớp học [UC-30, UC-52] và kiểm duyệt đánh giá [UC-55].
+ *    - Tiếp nhận, xử lý khiếu nại qua hệ thống Support Ticket, tự động leo thang SLA [UC-63, UC-66].
+ *    - Quản lý mẫu hợp đồng điện tử Master [UC-45] và cấu hình biểu phí sàn [UC-46].
+ * ============================================================================
+ */
 public interface PlatformService {
 
     PageUserListResponse getUsers(int page, int size, UserStatus status, UserRole role, String keyword);
 
+    UserListItemResponse createUser(com.tcs.module.platform.dto.request.CreateUserAdminRequest request);
+
     UserListItemResponse updateUserStatus(Long userId, UpdateUserStatusRequest request);
+
+    UserListItemResponse updateUser(Long userId, com.tcs.module.platform.dto.request.UpdateUserAdminRequest request);
 
     DashboardResponse getDashboard(LocalDate from, LocalDate to, String granularity);
 
@@ -85,4 +105,29 @@ public interface PlatformService {
 
     /** Admin chuyển tiếp ticket hỗ trợ sang luồng xử lý tranh chấp BF-08 (BF09-TC07). */
     SupportTicketDetailResponse redirectTicketToDispute(Long ticketId, com.tcs.module.platform.dto.request.RedirectDisputeRequest request);
+
+    /** UC-45: Quản lý mẫu hợp đồng điện tử (E-Contract Templates) cho Admin. */
+    List<com.tcs.module.center.dto.response.ContractTemplateResponse> listContractTemplates();
+
+    com.tcs.module.center.dto.response.ContractTemplateResponse createContractTemplate(
+            com.tcs.module.center.dto.request.SaveContractTemplateRequest request);
+
+    com.tcs.module.center.dto.response.ContractTemplateResponse updateContractTemplate(
+            Long templateId, com.tcs.module.center.dto.request.SaveContractTemplateRequest request);
+
+    void deleteContractTemplate(Long templateId);
+
+    /** UC-21: Giám sát lịch học và điểm danh toàn hệ thống theo ngày cho Admin. */
+    List<com.tcs.module.center.dto.response.CenterScheduleClassResponse> getPlatformSchedule(java.time.LocalDate date);
+
+    /** UC-46: Lấy danh sách cấu hình phí của các trung tâm gia sư. */
+    List<com.tcs.module.platform.dto.response.CenterFeeConfigResponse> listCenterFeeConfigs();
+
+    /** UC-46: Cập nhật tỷ lệ phí riêng cho một trung tâm gia sư. */
+    com.tcs.module.platform.dto.response.CenterFeeConfigResponse updateCenterFeeConfig(
+            Long centerId, com.tcs.module.platform.dto.request.UpdateCenterFeeRequest request);
+
+    /** UC-46: Xóa cấu hình phí riêng của trung tâm (quay về dùng phí mặc định sàn). */
+    com.tcs.module.platform.dto.response.CenterFeeConfigResponse resetCenterFeeConfig(Long centerId);
 }
+

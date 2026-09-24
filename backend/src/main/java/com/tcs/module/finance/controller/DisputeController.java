@@ -5,6 +5,8 @@ import com.tcs.module.finance.dto.request.CreateClassIssueRequest;
 import com.tcs.module.finance.dto.request.CreateDisputeRequest;
 import com.tcs.module.finance.dto.request.ResolveDisputeRequest;
 import com.tcs.module.finance.dto.request.SubmitDisputeEvidenceRequest;
+import com.tcs.module.finance.dto.request.WithdrawDisputeRequest;
+import com.tcs.module.finance.dto.response.ParticipantDisputeResponse;
 import com.tcs.module.finance.dto.response.AdminDisputeReviewResponse;
 import com.tcs.module.finance.dto.response.DisputeResponse;
 import com.tcs.module.finance.enums.DisputeStatus;
@@ -29,6 +31,17 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * ====================================================================================================
+ * [UC-23 / UC-30] TIẾP NHẬN & ĐIỀU PHỐI TRANH CHẤP KÝ QUỸ (DISPUTE CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tiếp nhận khiếu nại tranh chấp hợp đồng và báo cáo sự cố lớp học từ học viên và gia sư.
+ * 2. Cung cấp API tải lên bằng chứng vi phạm, ghi nhận biên bản đối chất giữa hai bên.
+ * 3. Hỗ trợ Quản trị viên ra phán quyết phân bổ tài chính theo tỷ lệ buổi học (Pro-rata).
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @RestController
 @RequiredArgsConstructor
 public class DisputeController {
@@ -42,6 +55,23 @@ public class DisputeController {
     private final DisputeService disputeService;
     private final FileStorageService fileStorageService;
     private final AuthHelper authHelper;
+
+    @GetMapping("/api/disputes/mine")
+    public List<ParticipantDisputeResponse> myDisputes(@RequestParam(required = false) Long classId) {
+        return disputeService.listMyDisputes(classId);
+    }
+
+    @PostMapping("/api/disputes/{disputeId}/explanation")
+    public ParticipantDisputeResponse explain(
+            @PathVariable Long disputeId, @RequestBody SubmitDisputeEvidenceRequest request) {
+        return disputeService.submitExplanation(disputeId, request);
+    }
+
+    @PostMapping("/api/disputes/{disputeId}/withdraw")
+    public ParticipantDisputeResponse withdraw(
+            @PathVariable Long disputeId, @RequestBody WithdrawDisputeRequest request) {
+        return disputeService.withdrawDispute(disputeId, request);
+    }
 
     @GetMapping("/api/disputes")
     public List<AdminDisputeReviewResponse> listDisputes(@RequestParam(required = false) DisputeStatus status) {

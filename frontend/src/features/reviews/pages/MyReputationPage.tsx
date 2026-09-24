@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-09] MÀN HÌNH GIAO DIỆN MYREPUTATIONPAGE
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị và điều phối các chức năng nghiệp vụ của phân hệ MyReputationPage.
+ * 2. Đảm bảo trải nghiệm người dùng tối ưu và đồng bộ dữ liệu với hệ thống Backend.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';

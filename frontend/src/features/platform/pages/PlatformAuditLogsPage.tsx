@@ -1,14 +1,27 @@
 /**
  * ============================================================================
- * TRANG NHẬT KÝ KIỂM TOÁN VẬN HÀNH HỆ THỐNG (PLATFORM AUDIT LOGS PAGE)
+ * [UC-61] TRA CỨU & THANH TRA NHẬT KÝ KIỂM TOÁN HỆ THỐNG (PLATFORM AUDIT LOGS PAGE)
  * ============================================================================
  * 
- * Tác giả: mduc1011-swp
- * Mô tả các tính năng kiểm toán và truy vết:
- *   - Ghi nhận và hiển thị toàn bộ hoạt động quan trọng trên hệ thống (Auth, Users, Classes, Contracts, Tickets, Penalties, Finance, Escrow).
- *   - Lọc nhật ký theo Hành động (Action), Loại đối tượng (Entity Type), ID đối tượng, và Từ khóa.
- *   - Xem chi tiết giá trị cũ (Old Value) và giá trị mới (New Value) dạng JSON để đối soát thay đổi.
- *   - Ánh xạ nhãn tiếng Việt thân thiện cho từng mã hành động của hệ thống.
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Màn hình thanh tra và giám sát lịch sử kiểm toán (Audit Trail) bất biến của toàn hệ thống.
+ *   - Giúp ban quản trị truy vết mọi hành vi thay đổi dữ liệu nhạy cảm liên quan đến tiền bạc, hợp đồng và chế tài.
+ * 
+ * Chức năng chính:
+ *   1. Danh sách kiểm toán phân trang: Tra cứu các hành động quản trị theo dòng thời gian chính xác tới từng giây.
+ *   2. Bộ lọc đa chiều: Lọc theo người thực hiện, loại hành vi (Action), loại đối tượng (Entity) và mốc thời gian.
+ *   3. Xem chi tiết JSON Diff: Hiển thị bảng so sánh trực quan giữa giá trị cũ (Old Value) và giá trị mới (New Value).
+ *   4. Thông tin truy cập an ninh: Xem địa chỉ IP và trình duyệt của người thực hiện thao tác.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tải danh sách nhật ký kiểm toán phân trang từ API backend.
+ *   - Bước 2: Quản trị viên nhập từ khóa hoặc thiết lập bộ lọc theo phân hệ cần thanh tra.
+ *   - Bước 3: Bấm vào một bản ghi để mở modal xem chi tiết payload thay đổi dữ liệu.
+ *   - Bước 4: Đối soát trách nhiệm người thực hiện phục vụ báo cáo an ninh sàn.
+ * ============================================================================
  */
 
 import { useState, useEffect, useCallback } from 'react';

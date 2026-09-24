@@ -4,6 +4,27 @@ import com.tcs.module.ai.constants.AiConstants;
 import com.tcs.module.ai.entity.AiKnowledgeChunk;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] LỌC QUYỀN TRUY CẬP TRI THỨC THEO VAI TRÒ (PERMISSION FILTER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Lọc các đoạn văn bản tri thức dựa trên vai trò của người dùng (GUEST, CLIENT, TUTOR, PLATFORM_ADMIN).
+ * 
+ * Chức năng chính:
+ *   1. Lọc chunk nội bộ: Loại bỏ các tài liệu quy trình nội bộ của Admin khỏi kết quả tìm kiếm của khách.
+ *   2. Bảo vệ tài liệu nhạy cảm: Đảm bảo người dùng chỉ xem được các tài liệu hướng dẫn phù hợp với vai trò.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận danh sách chunk tri thức được truy xuất từ cơ sở dữ liệu.
+ *   - Bước 2: Đối chiếu trường `allowed_roles` của từng chunk với vai trò của người dùng.
+ *   - Bước 3: Loại bỏ các chunk không đủ thẩm quyền trước khi gửi cho Prompt Builder.
+ * ============================================================================
+ */
 @Service
 public class AiPermissionFilterService {
 

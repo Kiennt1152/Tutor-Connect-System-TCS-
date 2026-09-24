@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-13] MÀN HÌNH LỊCH HỌC CỦA HỌC VIÊN (CLIENT SCHEDULE PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Thời khóa biểu trực quan theo tuần/tháng các buổi học đã được lên lịch.
+ * 2. Theo dõi trạng thái từng buổi học, đánh dấu điểm danh và báo cáo sự cố khi cần.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import axios from 'axios';

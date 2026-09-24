@@ -5,7 +5,7 @@ CONVERSATION_SAFETY,THANKS,cảm ơn bạn,OUT_OF_SCOPE,ANY,NONE,,NONE,L0_FAST_P
 CONVERSATION_SAFETY,BOT_CAPABILITY_ASK,bạn làm được gì,FAQ_SUPPORT,ANY,FAQ,,FAQ_CARDS,L0_FAST_PATH,false,bot lam duoc gi
 CONVERSATION_SAFETY,SMALL_TALK,bạn là ai,OUT_OF_SCOPE,ANY,NONE,,NONE,L0_FAST_PATH,false,who are you
 CONVERSATION_SAFETY,PROFANITY_OR_FRUSTRATION,đm bot ngu,OUT_OF_SCOPE,ANY,NONE,,NONE,L0_FAST_PATH,false,vcl lua dao
-CONVERSATION_SAFETY,HUMAN_SUPPORT_REQUEST,cho tôi gặp người hỗ trợ,TICKET_SUPPORT,ANY,NONE,/support/tickets,TICKET_LINK_ONLY,L0_FAST_PATH,false,gap nhan vien cskh
+CONVERSATION_SAFETY,HUMAN_SUPPORT_REQUEST,cho tôi gặp người hỗ trợ,TICKET_SUPPORT,ANY,NONE,/messaging/tickets,TICKET_LINK_ONLY,L0_FAST_PATH,false,gap nhan vien cskh
 CONVERSATION_SAFETY,GIBBERISH,asdfghjklzxcv,OUT_OF_SCOPE,ANY,NONE,,NONE,L0_FAST_PATH,false,twyalk
 IDENTITY_AUTH,LOGIN_HELP,làm sao đăng nhập tài khoản,FAQ_SUPPORT,ANY,FAQ,/login,FAQ_CARDS,L1_CLARIFICATION,false,lam sao dang nhap
 IDENTITY_AUTH,REGISTER_HELP,hướng dẫn đăng ký tài khoản,FAQ_SUPPORT,ANY,FAQ,/register,FAQ_CARDS,L1_CLARIFICATION,false,huong dan dang ky
@@ -51,13 +51,13 @@ CONTRACT_REVIEW,CONTRACT_SIGN_OTP,ký hợp đồng lớp học bằng mã OTP,F
 CONTRACT_REVIEW,REVIEW_CREATE_HELP,đánh giá gia sư sau khóa học,FAQ_SUPPORT,PARENT,FAQ,/classes,FAQ_CARDS,L1_CLARIFICATION,false,danh gia gia su
 CONTRACT_REVIEW,REPUTATION_VIEW_HELP,độ uy tín gia sư tính thế nào,FAQ_SUPPORT,ANY,FAQ,/profile,FAQ_CARDS,L1_CLARIFICATION,false,uy tin gia su
 MESSAGING_TICKET,MESSAGING_OPEN_HELP,nhắn tin với gia sư ở đâu,FAQ_SUPPORT,AUTHENTICATED,FAQ,/chat,FAQ_CARDS,L1_CLARIFICATION,false,nhan tin voi phu huynh
-MESSAGING_TICKET,SUPPORT_TICKET_CREATE,hướng dẫn tạo ticket khiếu nại gia sư,TICKET_SUPPORT,AUTHENTICATED,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,tao ticket ho tro
-MESSAGING_TICKET,SUPPORT_TICKET_STATUS,kiểm tra trạng thái ticket hỗ trợ,TICKET_SUPPORT,AUTHENTICATED,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,kiem tra trang thai ticket
-MESSAGING_TICKET,SUPPORT_TICKET_SLA,thời gian phản hồi SLA của ticket là bao lâu,TICKET_SUPPORT,ANY,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,quy dinh sla phan hoi
-TRUST_SAFETY,REPORT_CIRCUMVENTION,Làm sao báo cáo gia sư lách sàn?,TICKET_SUPPORT,ANY,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,bao cao gia su lach san
-TRUST_SAFETY,REPORT_CIRCUMVENTION,tố cáo gia sư thu tiền ngoài sàn,TICKET_SUPPORT,ANY,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,to cao thu tien ngoai san
-TRUST_SAFETY,DISPUTE_OPEN_HELP,Khi nào nên mở tranh chấp lớp học?,TICKET_SUPPORT,AUTHENTICATED,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,khi nao nen mo tranh chap
-TRUST_SAFETY,DISPUTE_OPEN_HELP,tải bằng chứng tranh chấp lên hệ thống,TICKET_SUPPORT,AUTHENTICATED,FAQ,/support/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,tai bang chung tranh chap
+MESSAGING_TICKET,SUPPORT_TICKET_CREATE,hướng dẫn tạo ticket khiếu nại gia sư,TICKET_SUPPORT,AUTHENTICATED,FAQ,/messaging/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,tao ticket ho tro
+MESSAGING_TICKET,SUPPORT_TICKET_STATUS,kiểm tra trạng thái ticket hỗ trợ,TICKET_SUPPORT,AUTHENTICATED,FAQ,/messaging/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,kiem tra trang thai ticket
+MESSAGING_TICKET,SUPPORT_TICKET_SLA,thời gian phản hồi SLA của ticket là bao lâu,TICKET_SUPPORT,ANY,FAQ,/messaging/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,quy dinh sla phan hoi
+TRUST_SAFETY,REPORT_CIRCUMVENTION,Làm sao báo cáo gia sư lách sàn?,TICKET_SUPPORT,ANY,FAQ,/messaging/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,bao cao gia su lach san
+TRUST_SAFETY,REPORT_CIRCUMVENTION,tố cáo gia sư thu tiền ngoài sàn,TICKET_SUPPORT,ANY,FAQ,/messaging/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,to cao thu tien ngoai san
+TRUST_SAFETY,DISPUTE_OPEN_HELP,Khi nào nên mở tranh chấp lớp học?,TICKET_SUPPORT,AUTHENTICATED,FAQ,/messaging/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,khi nao nen mo tranh chap
+TRUST_SAFETY,DISPUTE_OPEN_HELP,tải bằng chứng tranh chấp lên hệ thống,TICKET_SUPPORT,AUTHENTICATED,FAQ,/messaging/tickets,TICKET_LINK_ONLY,L1_CLARIFICATION,false,tai bang chung tranh chap
 TRUST_SAFETY,PENALTY_EXPLAIN,tài khoản bị phạt cảnh cáo,TICKET_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,tai khoan bi phat
 TRUST_SAFETY,PENALTY_EXPLAIN,chế tài khi vi phạm quy định sàn,TICKET_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,quy dinh phat vi pham
 CATALOG_FAQ,FAQ_SEARCH,TCS là gì?,FAQ_SUPPORT,ANY,FAQ,/help,FAQ_CARDS,L1_CLARIFICATION,false,tcs la gi

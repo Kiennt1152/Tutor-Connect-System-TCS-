@@ -14,7 +14,25 @@ import org.springframework.stereotype.Service;
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.*;
 
 /**
- * Production Intent Classifier orchestrating Fast-Path, Domain-Specific Intent Rules, and Few-Shot Exemplars.
+ * ============================================================================
+ * [UC-65] BỘ PHÂN LOẠI Ý ĐỊNH TRUY VẤN LAI (HYBRID INTENT CLASSIFIER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Lõi phân loại ý định người dùng kết hợp giữa hệ thống luật (Rules), so khớp vector và học tăng cường.
+ * 
+ * Chức năng chính:
+ *   1. Phân loại đa tầng: Xác định phân hệ nghiệp vụ, ý định cụ thể và trích xuất thực thể liên quan.
+ *   2. Điều hướng thông minh: Tự động cung cấp đường dẫn giao diện phù hợp với nhu cầu người dùng.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Chuẩn hóa câu hỏi (bỏ dấu tiếng Việt, mở rộng từ đồng nghĩa).
+ *   - Bước 2: Chạy kiểm tra qua chuỗi IntentRuleRegistry.
+ *   - Bước 3: Trả về kết quả phân loại chi tiết hoặc chuyển tiếp sang bộ phân loại dự phòng.
+ * ============================================================================
  */
 @Service
 public class IntentClassifier {

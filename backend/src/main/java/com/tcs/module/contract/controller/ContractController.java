@@ -25,6 +25,18 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ====================================================================================================
+ * [UC-20 / UC-21 / UC-44] PHÂN HỆ HỢP ĐỒNG ĐIỆN TỬ & KÝ SỐ OTP (CONTRACT CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Khởi tạo bản thảo hợp đồng dạy kèm giữa Phụ huynh/Học viên và Gia sư hoặc Trung tâm.
+ * 2. Quản lý quy trình ký kết số 2 lớp bảo mật thông qua mã xác thực OTP qua Email.
+ * 3. Kích hoạt bảo chứng Escrow khi ký xong và tiếp nhận đánh giá chất lượng dạy học sau hoàn thành.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 @RestController
 @RequestMapping("/api/contract")
 @RequiredArgsConstructor

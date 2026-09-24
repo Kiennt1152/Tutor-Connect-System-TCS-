@@ -59,17 +59,23 @@ import org.springframework.util.StringUtils;
 
 /**
  * ============================================================================
- * DỊCH VỤ NHẮN TIN TRÒ CHUYỆN THỜI GIAN THỰC (REAL-TIME CHAT SERVICE)
+ * [BF-09] [UC-36] DỊCH VỤ NHẮN TIN TRÒ CHUYỆN THỜI GIAN THỰC (REAL-TIME CHAT SERVICE)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mô tả các tính năng cốt lõi:
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-08-05
+ * * 1. Mục đích & Chức năng:
  *   - Trò chuyện trực tiếp 1-1 (Direct Conversation) giữa Phụ huynh, Gia sư, Trung tâm và Quản trị viên.
  *   - Trò chuyện theo ngữ cảnh lớp học/tuyển dụng/hợp đồng (Context Conversations).
  *   - Quản lý nhóm trò chuyện (Group Chat): Tạo nhóm (3-20 thành viên), đổi tên nhóm, thêm/xóa thành viên, chuyển quyền Trưởng nhóm (Owner).
  *   - Phát hiện và ngăn chặn tin nhắn có dấu hiệu lách sàn (Circumvention Detection).
  *   - Đồng bộ tin nhắn thời gian thực qua WebSocket (STOMP / SimpMessagingTemplate) và thông báo Notification.
  *   - Kiểm tra quyền truy cập và ràng buộc người dùng bị phạt (Penalty Access Service).
+ * * 2. Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận tin nhắn gửi từ client qua WebSocket STOMP hoặc REST API.
+ *   - Bước 2: Kiểm duyệt nội dung qua CircumventionService (quét số điện thoại, link lôi kéo ngoài sàn).
+ *   - Bước 3: Lưu Message vào cơ sở dữ liệu và phát tin nhắn qua topic WebSocket /topic/conversation.{id}.
+ *   - Bước 4: Tạo thông báo Notification tới các bên nhận tin nếu đang offline.
+ * ============================================================================
  */
 @Service
 @RequiredArgsConstructor
@@ -106,8 +112,7 @@ public class ChatServiceImpl implements ChatService {
 
     /**
      * Lấy danh sách toàn bộ các cuộc trò chuyện mà người dùng hiện tại đang tham gia.
-     * 
-     * @return danh sách cuộc trò chuyện được định dạng ConversationResponse
+     *     * @return danh sách cuộc trò chuyện được định dạng ConversationResponse
      */
     @Override
     @Transactional(readOnly = true)
@@ -437,7 +442,7 @@ public class ChatServiceImpl implements ChatService {
     public List<UserSummaryResponse> listUsers(String keyword) {
         Long currentUserId = authHelper.currentUserId();
         Pageable pageable = PageRequest.of(0, 20);
-        Page<User> users = userRepository.searchUsers(UserStatus.ACTIVE, keyword, pageable);
+        Page<User> users = userRepository.searchUsersByNameOnly(UserStatus.ACTIVE, keyword, pageable);
         return users.getContent().stream()
                 .filter(u -> !u.getUserId().equals(currentUserId))
                 .map(this::toUserSummary)

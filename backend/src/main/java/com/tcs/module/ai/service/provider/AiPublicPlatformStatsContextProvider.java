@@ -14,6 +14,26 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * [UC-65] NGỮ CẢNH SỐ LIỆU VẬN HÀNH TOÀN SÀN (PLATFORM STATS CONTEXT PROVIDER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp số liệu thống kê công khai (số gia sư, số lớp học thành công, đánh giá trung bình) cho AI.
+ * 
+ * Chức năng chính:
+ *   1. Tổng hợp số liệu thời gian thực: Thống kê nhanh số lượng thành viên và lớp học đang hoạt động.
+ *   2. Bảo vệ số liệu nhạy cảm: Chỉ cung cấp số liệu công khai, không để lộ doanh thu bảo mật.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Đọc số liệu tổng quan từ bộ nhớ đệm hoặc repository.
+ *   - Bước 2: Ghép vào ngữ cảnh hỗ trợ AI trả lời các câu hỏi về quy mô sàn.
+ *  * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class AiPublicPlatformStatsContextProvider {

@@ -1,3 +1,12 @@
+/**
+ * ====================================================================================================
+ * [UC-15] MÀN HÌNH CÀI ĐẶT LỊCH BẬN GIA SƯ (BUSY TIME PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Đánh dấu các khung giờ bận trong tuần để hệ thống không ghép lớp vào khung giờ đó.
+ * 2. Tự động đồng bộ lịch rảnh lên sàn tìm kiếm gia sư.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SiteHeader } from '../../home/components/SiteHeader';

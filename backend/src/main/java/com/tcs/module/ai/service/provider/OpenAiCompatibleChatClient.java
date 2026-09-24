@@ -13,6 +13,26 @@ import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * ============================================================================
+ * [UC-65] KẾT NỐI MÔ HÌNH TƯƠNG THÍCH OPENAI (OPENAI COMPATIBLE CLIENT)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Lớp kết nối dùng chung cho tất cả các nhà cung cấp hỗ trợ giao thức chuẩn OpenAI Chat Completions.
+ * 
+ * Chức năng chính:
+ *   1. Tái sử dụng mã nguồn: Đóng gói logic HTTP RestClient, Header Bearer và JSON Mapping.
+ *   2. Bắt lỗi đồng bộ: Chuẩn hóa các mã lỗi HTTP 401, 429, 500 thành ngoại lệ nghiệp vụ.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận endpoint URL, Model ID và API Key tương ứng.
+ *   - Bước 2: Thực thi cuộc gọi REST chuẩn và trả về đối tượng phản hồi.
+ *  * ============================================================================
+ */
 @Slf4j
 public abstract class OpenAiCompatibleChatClient implements AiChatProviderClient {
 

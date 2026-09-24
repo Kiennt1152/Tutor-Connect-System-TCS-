@@ -22,6 +22,16 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * ====================================================================================================
+ * [UC-03] XÁC MINH DANH TÍNH & KÍCH HOẠT TÀI KHOẢN (VERIFICATION CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tiếp nhận và kiểm tra mã xác thực OTP kích hoạt tài khoản qua hòm thư điện tử (Email).
+ * 2. Cung cấp API gửi lại mã OTP (Resend OTP) khi mã cũ hết hạn hoặc thất lạc.
+ * 3. Hoàn tất kích hoạt trạng thái tài khoản cho phép người dùng tham gia giao dịch trên sàn.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 @RestController
 @RequestMapping("/api/identity/verification")
 @RequiredArgsConstructor

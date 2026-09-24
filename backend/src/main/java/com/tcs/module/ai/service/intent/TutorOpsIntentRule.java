@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH TÁC NGHIỆP DẠY HỌC GIA SƯ (TUTOR OPS INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Xử lý các câu hỏi về lịch dạy, điểm danh từng buổi, đăng ký giờ bận và nhận thù lao dạy học.
+ * 
+ * Chức năng chính:
+ *   1. Nhận diện điểm danh: Bắt từ khóa điểm danh học viên, xác nhận buổi học đã diễn ra.
+ *   2. Nhận diện lịch trình giảng dạy: Bắt từ khóa xem thời khóa biểu, đăng ký thời gian bận.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Nhận diện câu hỏi tác nghiệp giảng dạy của gia sư.
+ *   - Bước 2: Phân loại vào AiDomain.TUTOR_OPS.
+ *   - Bước 3: Cung cấp liên kết tới trang quản lý lịch dạy /tutor/schedule.
+ * ============================================================================
+ */
 @Component
 public class TutorOpsIntentRule implements IntentRule {
 

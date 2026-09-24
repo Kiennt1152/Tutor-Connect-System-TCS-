@@ -1,3 +1,14 @@
+/**
+ * ====================================================================================================
+ * [UC-09] MÀN HÌNH GIAO DIỆN TUTORATTENDANCEPAGE
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị và điều phối các chức năng nghiệp vụ của phân hệ TutorAttendancePage.
+ * 2. Đảm bảo trải nghiệm người dùng tối ưu và đồng bộ dữ liệu với hệ thống Backend.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';

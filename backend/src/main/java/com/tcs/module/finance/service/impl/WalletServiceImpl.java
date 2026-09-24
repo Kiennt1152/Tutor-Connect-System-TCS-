@@ -30,6 +30,16 @@ import org.springframework.transaction.annotation.Transactional;
  * Available balance is money the user can use or withdraw.
  * Frozen balance is money locked for withdrawal / escrow-like operations until the flow is completed.
  */
+/**
+ * ====================================================================================================
+ * [UC-39] DỊCH VỤ VÍ ĐIỆN TỬ NGƯỜI DÙNG (WALLET SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Quản lý số dư khả dụng (Available Balance) và số dư đóng băng (Locked Balance) của từng tài khoản.
+ * 2. Cung cấp API cộng/trừ tiền ví an toàn với khóa bi quan (Pessimistic Locking) chống Race Condition.
+ * 3. Ghi vết toàn bộ biến động số dư vào sổ phụ sao kê tài chính.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 @Service
 @RequiredArgsConstructor
 public class WalletServiceImpl implements WalletService {

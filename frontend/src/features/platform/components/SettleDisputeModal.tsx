@@ -101,7 +101,7 @@ export function SettleDisputeModal({
       return;
     }
     if (totalAllocated !== escrowAmount) {
-      setError(`Tổng tiền hoàn và giải ngân (${totalAllocated.toLocaleString('vi-VN')} ₫) phải bằng chính xác số tiền Escrow (${escrowAmount.toLocaleString('vi-VN')} ₫).`);
+      setError(`Tổng tiền hoàn và giải ngân (${totalAllocated.toLocaleString('vi-VN')} ₫) phải bằng chính xác số tiền ký quỹ (${escrowAmount.toLocaleString('vi-VN')} ₫).`);
       return;
     }
     if (adminNotes.trim().length < 20) {
@@ -149,7 +149,7 @@ export function SettleDisputeModal({
         </div>
 
         <div className="adm-settle-modal__escrow-banner">
-          <span>Tổng số tiền Escrow cần phân bổ:</span>
+          <span>Tổng số tiền ký quỹ cần phân bổ:</span>
           <strong>{escrowAmount.toLocaleString('vi-VN')} ₫</strong>
         </div>
 
@@ -222,17 +222,17 @@ export function SettleDisputeModal({
           {totalAllocated === escrowAmount ? (
             <div className="adm-settle-success-bar">
               <span>✓</span>
-              <span>Tổng phân bổ khớp chính xác với 100% Escrow ({escrowAmount.toLocaleString('vi-VN')} ₫).</span>
+              <span>Tổng phân bổ khớp chính xác với 100% tiền ký quỹ ({escrowAmount.toLocaleString('vi-VN')} ₫).</span>
             </div>
           ) : totalAllocated < escrowAmount ? (
             <div className="adm-settle-error">
               <span>⚠️</span>
-              <span>Chưa phân bổ hết Escrow (còn thiếu <strong>{remaining.toLocaleString('vi-VN')} ₫</strong>). Backend yêu cầu tổng giải ngân + hoàn tiền phải bằng 100% Escrow.</span>
+              <span>Chưa phân bổ hết tiền ký quỹ (còn thiếu <strong>{remaining.toLocaleString('vi-VN')} ₫</strong>). Hệ thống yêu cầu tổng giải ngân + hoàn tiền phải bằng 100% số tiền ký quỹ.</span>
             </div>
           ) : (
             <div className="adm-settle-error">
               <span>⚠️</span>
-              <span>Tổng phân bổ vượt quá Escrow <strong>{(totalAllocated - escrowAmount).toLocaleString('vi-VN')} ₫</strong>. Vui lòng điều chỉnh lại.</span>
+              <span>Tổng phân bổ vượt quá tiền ký quỹ <strong>{(totalAllocated - escrowAmount).toLocaleString('vi-VN')} ₫</strong>. Vui lòng điều chỉnh lại.</span>
             </div>
           )}
 
@@ -256,7 +256,7 @@ export function SettleDisputeModal({
               type="submit"
               className="btn-submit"
               disabled={submitting || !isValidAllocation || !isValidNotes}
-              title={!isValidAllocation ? 'Tổng số tiền phân bổ phải bằng đúng 100% số tiền Escrow' : !isValidNotes ? 'Ghi chú phải có ít nhất 20 ký tự' : undefined}
+              title={!isValidAllocation ? 'Tổng số tiền phân bổ phải bằng đúng 100% số tiền ký quỹ' : !isValidNotes ? 'Ghi chú phải có ít nhất 20 ký tự' : undefined}
             >
               {submitting ? 'Đang xử lý...' : 'Xác nhận giải quyết'}
             </button>

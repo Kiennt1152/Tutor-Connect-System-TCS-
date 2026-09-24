@@ -8,6 +8,15 @@ import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
+/**
+ * ====================================================================================================
+ * [UC-52] DỊCH VỤ GỬI EMAIL THÔNG BÁO HỆ THỐNG (MESSAGING EMAIL SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Gửi các thông báo tự động: Nhắc lịch học, thông báo hợp đồng mới, kết quả xử lý khiếu nại.
+ * 2. Điền dữ liệu biến động vào các khuôn mẫu email HTML có sẵn.
+ * * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 @Service("messagingEmailService")
 @Slf4j
 public class EmailServiceImpl implements EmailService {

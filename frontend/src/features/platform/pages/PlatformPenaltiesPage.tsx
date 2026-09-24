@@ -1,30 +1,37 @@
 /**
  * ============================================================================
- * TRANG QUẢN TRỊ CHẾ TÀI VÀ XỬ PHẠT VI PHẠM (PLATFORM PENALTIES PAGE)
+ * [UC-60] [UC-63] THI HÀNH CHẾ TÀI & KỶ LUẬT VI PHẠM (PLATFORM PENALTIES PAGE)
  * ============================================================================
  * 
- * Tác giả: mduc1011-swp
- * Mô tả các tính năng xử lý kỷ luật nền tảng:
- *   - Hiển thị danh sách các quyết định xử phạt (Cảnh cáo, Hạn chế tính năng, Cấm tạm thời, Cấm vĩnh viễn).
- *   - Lọc án phạt theo Trạng thái (Đang hiệu lực, Đã hết hạn, Đã thu hồi) và Phân loại nguồn xử lý.
- *   - Modal ban hành án phạt mới (Issue Penalty) với kiểm tra thời hạn và ràng buộc lý do tối thiểu 20 ký tự.
- *   - Modal thu hồi án phạt (Revoke Penalty) và khôi phục tài khoản người dùng về hoạt động bình thường.
- *   - Điều hướng trực tiếp tới nguồn phát sinh án phạt (Report, Dispute, Ticket, Circumvention).
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Bảng điều khiển quản lý các án phạt vi phạm quy chế hoạt động trên toàn nền tảng Tutor Connect.
+ *   - Đảm bảo quy trình xử lý kỷ luật minh bạch, có bằng chứng xác đáng và hỗ trợ cơ chế phục hồi tài khoản.
+ * 
+ * Chức năng chính:
+ *   1. Danh sách án phạt: Lọc theo trạng thái (Đang hiệu lực, Đã thu hồi, Đã hết hạn), loại phạt và người bị phạt.
+ *   2. Ban hành án phạt mới: Áp dụng các mức chế tài (Cảnh cáo, Cấm chat, Cấm đăng lớp, Khóa tài khoản).
+ *   3. Thu hồi án phạt trước hạn: Cho phép Quản trị viên giải trình và gỡ bỏ án phạt khi khiếu nại thành công.
+ *   4. Xem nguồn gốc vi phạm: Liên kết trực tiếp tới sự kiện lách sàn, tranh chấp hoặc báo cáo vi phạm liên quan.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tải danh sách án phạt phân trang từ API `penaltyApi.list`.
+ *   - Bước 2: Quản trị viên nhấn "Ban hành chế tài", điền thông tin vi phạm, mức phạt và thời hạn.
+ *   - Bước 3: Gửi yêu cầu thi hành án phạt, hệ thống khóa quyền truy cập của người dùng tương ứng.
+ *   - Bước 4: Xem xét đơn phúc khảo và bấm "Thu hồi án phạt" nếu người dùng chứng minh vô tội.
+ * ============================================================================
  */
 
 import { useState, useEffect, useCallback, type FormEvent } from 'react';
 import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { AdminLayout } from '../components/AdminLayout';
-import { AdminTimeFilter } from '../components/AdminTimeFilter';
 import { Pagination } from '../../../shared/components';
 import { platformApi } from '../api/platformApi';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
-import type { 
-  PenaltyApiResponse, 
-  PenaltyType, 
-  PenaltyStatus, 
-  PenaltyFilters,
+import type {  PenaltyApiResponse,  PenaltyType,  PenaltyStatus,  PenaltyFilters,
   IssuePenaltyApiRequest
 } from '../types/platformTypes';
 import { resolvePenaltySourceRoute } from '../utils/penaltySourceUtils';
@@ -163,7 +170,6 @@ export default function PlatformPenaltiesPage() {
         // Convert datetime-local to ISO string
         payload.expiresAt = new Date(payload.expiresAt).toISOString();
       }
-      
       await platformApi.issuePenalty(payload);
       setIsIssueModalOpen(false);
       fetchPenalties();
@@ -202,9 +208,7 @@ export default function PlatformPenaltiesPage() {
   };
 
   return (
-    <AdminLayout 
-      title="Xử phạt người dùng" 
-      subtitle="Quản lý và áp dụng các hình thức xử phạt"
+    <AdminLayout      title="Xử phạt người dùng"      subtitle="Quản lý và áp dụng các hình thức xử phạt"
     >
       {/* Summary Cards */}
       <div className="adm-summary-row" style={{ display: 'flex', gap: '16px', marginBottom: '24px' }}>
@@ -221,17 +225,13 @@ export default function PlatformPenaltiesPage() {
           <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{summary.bans}</div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <button 
-            className="adm-action-btn" 
-            style={{ padding: '8px 16px', background: 'var(--primary-color, #2563eb)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+          <button            className="adm-action-btn"            style={{ padding: '8px 16px', background: 'var(--primary-color, #2563eb)', color: '#fff', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
             onClick={openIssueModal}
           >
             Tạo xử phạt
           </button>
         </div>
       </div>
-
-      <AdminTimeFilter showGranularity={false} />
 
       {/* Filters */}
       <div className="adm-penalty-filters">
@@ -256,12 +256,7 @@ export default function PlatformPenaltiesPage() {
           <option value="TICKET">Khiếu nại / Ticket (TICKET)</option>
           <option value="DIRECT">Trực tiếp (DIRECT)</option>
         </select>
-        <input 
-          type="number" 
-          placeholder="ID Người dùng" 
-          value={userIdFilter} 
-          onChange={(e) => setUserIdFilter(e.target.value)} 
-        />
+        <input          type="number"          placeholder="ID Người dùng"          value={userIdFilter}          onChange={(e) => setUserIdFilter(e.target.value)}        />
         <button onClick={handleFilterReset}>Làm mới</button>
       </div>
 
@@ -331,13 +326,13 @@ export default function PlatformPenaltiesPage() {
                     {p.reason}
                   </td>
                   <td style={{ padding: '12px 16px' }}>{new Date(p.startsAt).toLocaleDateString('vi-VN')}</td>
-                  <td style={{ padding: '12px 16px' }}>{p.expiresAt ? new Date(p.expiresAt).toLocaleDateString('vi-VN') : '-'}</td>
+                  <td style={{ padding: '12px 16px' }}>{p.expiresAt ? new Date(p.expiresAt).toLocaleDateString('vi-VN') : 'Vô thời hạn'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     <span className={`tcs-badge tcs-badge--status-${PENALTY_STATUS_TONES[p.status]}`} style={{ padding: '4px 8px', borderRadius: '999px', fontSize: '12px' }}>
                       {PENALTY_STATUS_LABELS[p.status]}
                     </span>
                   </td>
-                  <td style={{ padding: '12px 16px' }}>{p.issuedByName || '-'}</td>
+                  <td style={{ padding: '12px 16px' }}>{p.issuedByName || 'Quản trị viên'}</td>
                   <td style={{ padding: '12px 16px' }}>
                     {p.status === 'ACTIVE' && (
                       <button className="adm-action-btn" onClick={() => openRevokeModal(p)}>
@@ -372,18 +367,11 @@ export default function PlatformPenaltiesPage() {
             <form className="adm-penalty-form" onSubmit={handleIssueSubmit}>
               <div className="form-group">
                 <label>ID Người dùng</label>
-                <input 
-                  type="number" 
-                  value={issueForm.userId || ''} 
-                  onChange={e => setIssueForm({...issueForm, userId: Number(e.target.value)})} 
-                  required 
-                />
+                <input                  type="number"                  value={issueForm.userId || ''}                  onChange={e => setIssueForm({...issueForm, userId: Number(e.target.value)})}                  required                />
               </div>
               <div className="form-group">
                 <label>Loại xử phạt</label>
-                <select 
-                  value={issueForm.penaltyType} 
-                  onChange={e => setIssueForm({...issueForm, penaltyType: e.target.value as PenaltyType})}
+                <select                  value={issueForm.penaltyType}                  onChange={e => setIssueForm({...issueForm, penaltyType: e.target.value as PenaltyType})}
                 >
                   <option value="WARNING">Cảnh cáo</option>
                   <option value="FEATURE_RESTRICTION">Hạn chế tính năng</option>
@@ -391,35 +379,21 @@ export default function PlatformPenaltiesPage() {
                   <option value="PERMANENT_BAN">Cấm vĩnh viễn</option>
                 </select>
               </div>
-              
               {issueForm.penaltyType === 'TEMPORARY_BAN' && (
                 <div className="form-group">
                   <label>Thời gian hết hạn</label>
-                  <input 
-                    type="datetime-local" 
-                    value={issueForm.expiresAt || ''} 
-                    onChange={e => setIssueForm({...issueForm, expiresAt: e.target.value})} 
-                    required 
-                  />
+                  <input                    type="datetime-local"                    value={issueForm.expiresAt || ''}                    onChange={e => setIssueForm({...issueForm, expiresAt: e.target.value})}                    required                  />
                 </div>
               )}
 
               <div className="form-group">
                 <label>Lý do</label>
-                <textarea 
-                  value={issueForm.reason} 
-                  onChange={e => setIssueForm({...issueForm, reason: e.target.value})} 
-                  required 
-                />
+                <textarea                  value={issueForm.reason}                  onChange={e => setIssueForm({...issueForm, reason: e.target.value})}                  required                />
               </div>
 
               <div className="form-group">
                 <label>Bằng chứng (URL) - Tùy chọn</label>
-                <input 
-                  type="text" 
-                  value={issueForm.evidenceUrls || ''} 
-                  onChange={e => setIssueForm({...issueForm, evidenceUrls: e.target.value})} 
-                />
+                <input                  type="text"                  value={issueForm.evidenceUrls || ''}                  onChange={e => setIssueForm({...issueForm, evidenceUrls: e.target.value})}                />
               </div>
 
               <div className="form-actions">
@@ -442,11 +416,7 @@ export default function PlatformPenaltiesPage() {
             <form className="adm-penalty-form" onSubmit={handleRevokeSubmit}>
               <div className="form-group">
                 <label>Lý do thu hồi</label>
-                <textarea 
-                  value={revokeReason} 
-                  onChange={e => setRevokeReason(e.target.value)} 
-                  required 
-                />
+                <textarea                  value={revokeReason}                  onChange={e => setRevokeReason(e.target.value)}                  required                />
               </div>
               <div className="form-actions">
                 <button type="button" className="btn-cancel" onClick={() => setIsRevokeModalOpen(false)}>Hủy</button>

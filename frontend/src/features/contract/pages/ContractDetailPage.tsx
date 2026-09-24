@@ -1,3 +1,26 @@
+/**
+ * ============================================================================
+ * [UC-44] TRANG CHI TIẾT HỢP ĐỒNG & KÝ SỐ XÁC THỰC OTP (CONTRACT DETAIL & OTP SIGNING PAGE)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-07-10
+ * 
+ * 1. Mục đích & Chức năng:
+ *    - Xem toàn văn nội dung hợp đồng điện tử pháp lý, thông tin điều khoản, biểu phí, thông tin các bên.
+ *    - Thực hiện quy trình Ký kết số 2 lớp xác thực OTP (Two-Factor Authentication OTP) qua Email.
+ *    - Tích hợp nạp tiền giữ tiền bảo chứng (Escrow Deposit) qua cổng thanh toán QR code tự động.
+ *    - Cho phép in hợp đồng (Print preview) và khiếu nại / hủy hợp đồng khi có sự cố.
+ * 
+ * 2. Luồng xử lý chính:
+ *    - Bước 1: Tải chi tiết hợp đồng theo ID từ useParams() qua hook useContractDetail(contractId).
+ *    - Bước 2: Kiểm tra trạng thái ký của người dùng hiện tại (đã ký hay chưa ký).
+ *    - Bước 3 (Yêu cầu gửi OTP): Nhấn "Nhận mã OTP qua Email" -> Gọi API contractApi.sendOtp(contractId) -> Bắt đầu đếm ngược 60s.
+ *    - Bước 4 (Ký hợp đồng): Nhập mã 6 chữ số -> Nhấn "Ký hợp đồng" -> Gọi contractApi.signWithOtp(contractId, { otp })
+ *      -> Cập nhật giao diện sang trạng thái đã ký.
+ *    - Bước 5 (Thanh toán bảo chứng): Nếu là phụ huynh và hợp đồng đã ký 2 bên, hiển thị mã QR thanh toán học phí Escrow.
+ * ============================================================================
+ */
+
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import axios from 'axios';
@@ -476,7 +499,9 @@ export default function ContractDetailPage() {
     contract.status === 'ACTIVE' ||
     contract.status === 'COMPLETED';
   const signRequired = contract.status === 'DRAFT' || contract.status === 'PENDING';
-  const canCreateIssue = contract.classId != null;
+  const issueClosedBySettlement =
+    contract.status === 'COMPLETED' && contract.escrowPayment?.escrowStatus === 'RELEASED';
+  const canCreateIssue = contract.classId != null && !issueClosedBySettlement;
   const selectedPayoutBank = findBankByName(payoutBankName);
   const displayTuitionFee = contract.totalTuitionAmount ?? contract.tuitionFee;
   const needsRefundPayoutInfo =
@@ -541,6 +566,12 @@ export default function ContractDetailPage() {
             >
               Báo cáo sự cố
             </button>
+            {classDetailUrl ? (
+              <button className="tcs-btn tcs-btn--ghost" type="button"
+                onClick={() => navigate(APP_ROUTES.myDisputes, { state: { classId: contract.classId } })}>
+                Xem tranh chấp
+              </button>
+            ) : null}
             {classDetailUrl ? (
               <Link
                 className="tcs-btn tcs-btn--primary"

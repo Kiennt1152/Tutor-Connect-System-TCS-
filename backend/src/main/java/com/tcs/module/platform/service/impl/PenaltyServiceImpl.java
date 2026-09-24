@@ -41,16 +41,26 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * ============================================================================
- * DỊCH VỤ QUẢN LÝ VÀ THỰC THI CHẾ TÀI XỬ PHẠT (PENALTY SERVICE IMPLEMENTATION)
+ * [UC-63] DỊCH VỤ THI HÀNH CHẾ TÀI XỬ PHẠT (PENALTY SERVICE IMPLEMENTATION)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mô tả nghiệp vụ:
- *   - Quản trị viên ban hành các hình phạt (Cấm tạm thời, Cấm vĩnh viễn, Cảnh cáo, Hạn chế tính năng).
- *   - Tự động thay đổi trạng thái tài khoản người dùng (ACTIVE <-> BANNED) tương ứng với án phạt.
- *   - Tác vụ định kỳ Scheduled tự động quét và mãn hạn các án phạt cấm tạm thời, khôi phục tài khoản người dùng.
- *   - Kiểm tra ràng buộc hợp lệ: không tự phạt bản thân, không phạt Admin khác, kiểm tra nguồn xử lý (Dispute, Ticket, Report, Circumvention).
- *   - Ghi vết Audit Log và gửi thông báo Notification tự động tới người dùng bị phạt.
+ * * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * * Mô tả Use Case:
+ *   - Ban hành và quản lý các quyết định xử phạt kỷ luật người dùng vi phạm quy chế hoạt động của nền tảng.
+ *   - Tự động thay đổi quyền truy cập và trạng thái tài khoản tương ứng với mức độ vi phạm.
+ * * Chức năng chính:
+ *   1. Ban hành chế tài xử phạt: Cảnh cáo (Warning), Khóa tạm thời (Temporary Ban), Cấm vĩnh viễn (Permanent Ban).
+ *   2. Tự động đồng bộ trạng thái tài khoản: Cập nhật trạng thái User (ACTIVE <-> BANNED) ngay khi có hiệu lực.
+ *   3. Thu hồi án phạt trước hạn: Cho phép Quản trị viên hủy bỏ hoặc gỡ bỏ án phạt kèm lý do giải trình.
+ *   4. Tự động mãn hạn án phạt: Cron job quét định kỳ để hoàn trả quyền truy cập khi thời hạn cấm kết thúc.
+ *   5. Ghi vết kiểm toán & Thông báo: Tự động ghi nhật ký Audit Log và gửi thông báo trực tiếp đến người bị phạt.
+ * * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên khởi tạo lệnh xử phạt (`issuePenalty`) từ khiếu nại, báo cáo vi phạm hoặc phát hiện lách sàn.
+ *   - Bước 2: Hệ thống kiểm tra ràng buộc nghiệp vụ (không tự phạt mình, không phạt Admin khác, kiểm tra nguồn gốc).
+ *   - Bước 3: Tạo bản ghi `UserPenalty`, khóa tài khoản người dùng nếu là án phạt cấm đăng nhập.
+ *   - Bước 4: Gửi thông báo Notification và ghi nhật ký kiểm toán hệ thống (`AuditLogService`).
+ *   - Bước 5: Tác vụ ngầm định kỳ (`autoExpirePenalties`) tự động chuyển trạng thái án phạt sang EXPIRED và mở khóa tài khoản.
+ * ============================================================================
  */
 @Slf4j
 @Service
@@ -78,8 +88,7 @@ public class PenaltyServiceImpl implements PenaltyService {
 
     /**
      * Lấy thông tin tài khoản Quản trị viên (PlatformAdmin) hiện tại đang thực hiện thao tác.
-     * 
-     * @return đối tượng PlatformAdmin của phiên làm việc hiện tại
+     *     * @return đối tượng PlatformAdmin của phiên làm việc hiện tại
      * @throws ResourceNotFoundException nếu không tìm thấy hồ sơ quản trị viên
      */
     private PlatformAdmin currentAdminOrThrow() {
@@ -119,8 +128,7 @@ public class PenaltyServiceImpl implements PenaltyService {
 
     /**
      * Tìm kiếm và phân trang danh sách án phạt theo bộ lọc đa chiều.
-     * 
-     * @param userId     ID người dùng cần lọc (hoặc null nếu xem tất cả)
+     *     * @param userId     ID người dùng cần lọc (hoặc null nếu xem tất cả)
      * @param status     trạng thái án phạt (ACTIVE, EXPIRED, REVOKED)
      * @param type       loại án phạt (WARNING, TEMPORARY_BAN, PERMANENT_BAN, FEATURE_RESTRICTION)
      * @param sourceType nguồn gốc phát sinh án phạt (REPORT, DISPUTE, TICKET,...)
@@ -134,7 +142,6 @@ public class PenaltyServiceImpl implements PenaltyService {
         Pageable pageable = PageRequest.of(page, size);
         String normalizedSourceType = (sourceType != null && !sourceType.isBlank()) ? sourceType.trim().toUpperCase(Locale.ROOT) : null;
         Page<UserPenalty> penaltyPage = userPenaltyRepository.search(userId, status, type, normalizedSourceType, pageable);
-        
         List<PenaltyResponse> content = penaltyPage.getContent().stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
@@ -150,8 +157,7 @@ public class PenaltyServiceImpl implements PenaltyService {
 
     /**
      * Ban hành một quyết định xử phạt người dùng vi phạm quy chế nền tảng.
-     * 
-     * @param request thông tin chi tiết về án phạt (userId, loại phạt, lý do, bằng chứng, thời hạn)
+     *     * @param request thông tin chi tiết về án phạt (userId, loại phạt, lý do, bằng chứng, thời hạn)
      * @return thông tin án phạt vừa được khởi tạo và lưu trữ
      */
     // Luồng 13 - Bước 4: Admin ban hành quyết định xử phạt vi phạm
@@ -181,13 +187,11 @@ public class PenaltyServiceImpl implements PenaltyService {
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Loại hình phạt không hợp lệ: " + request.getPenaltyType());
         }
-        
         if (penaltyType == UserPenaltyType.TEMPORARY_BAN) {
             if (request.getExpiresAt() == null || request.getExpiresAt().isBefore(LocalDateTime.now())) {
                 throw new IllegalArgumentException("Thời gian hết hạn không hợp lệ cho cấm tạm thời");
             }
         }
-        
         if (penaltyType == UserPenaltyType.PERMANENT_BAN) {
             request.setExpiresAt(null);
         }
@@ -196,9 +200,7 @@ public class PenaltyServiceImpl implements PenaltyService {
         }
 
         String rawSourceType = request.getSourceType();
-        String sourceType = (rawSourceType != null && !rawSourceType.isBlank()) 
-                ? rawSourceType.trim().toUpperCase(Locale.ROOT) 
-                : null;
+        String sourceType = (rawSourceType != null && !rawSourceType.isBlank())                ? rawSourceType.trim().toUpperCase(Locale.ROOT)                : null;
         Long sourceId = request.getSourceId();
 
         if (sourceType != null) {
@@ -264,8 +266,7 @@ public class PenaltyServiceImpl implements PenaltyService {
 
     /**
      * Thu hồi/hủy bỏ một quyết định xử phạt đang có hiệu lực và khôi phục tài khoản nếu đủ điều kiện.
-     * 
-     * @param penaltyId ID án phạt cần thu hồi
+     *     * @param penaltyId ID án phạt cần thu hồi
      * @param request   lý do thu hồi án phạt từ Admin
      * @return thông tin án phạt sau khi thu hồi
      */
@@ -350,10 +351,8 @@ public class PenaltyServiceImpl implements PenaltyService {
     private PenaltyResponse toResponse(UserPenalty penalty) {
         User user = penalty.getUser();
         String displayName = user.getEmail(); // Fallback to email as requested
-        
         PlatformAdmin admin = penalty.getIssuedBy();
         String adminName = admin != null && admin.getFullName() != null ? admin.getFullName() : (admin != null && admin.getUser() != null ? admin.getUser().getEmail() : "Unknown");
-        
         return PenaltyResponse.builder()
                 .penaltyId(penalty.getPenaltyId())
                 .userId(user.getUserId())

@@ -1,3 +1,16 @@
+/**
+ * ====================================================================================================
+ * [UC-10 / UC-11] MÀN HÌNH SÀN LỚP HỌC & TÌM KIẾM GIA SƯ (MARKETPLACE PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị danh sách các lớp học đang tuyển gia sư trên toàn hệ thống.
+ * 2. Bộ lọc đa tiêu chí: Môn học, khối lớp, khu vực, hình thức học (Online/Offline) và học phí.
+ * 3. Hỗ trợ gia sư nộp hồ sơ ứng tuyển (Apply) vào các lớp học phù hợp năng lực.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import axios from 'axios';

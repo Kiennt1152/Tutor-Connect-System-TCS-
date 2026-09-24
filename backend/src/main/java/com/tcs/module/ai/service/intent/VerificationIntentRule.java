@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH XÁC THỰC CCCD & BẰNG CẤP (VERIFICATION INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Phân loại các câu hỏi về quy trình tải ảnh CCCD/bằng cấp, thời gian xét duyệt và trạng thái xác thực hồ sơ.
+ * 
+ * Chức năng chính:
+ *   1. Nhận diện tải hồ sơ xác thực: Bắt từ khóa nộp bằng đại học, chụp căn cước công dân.
+ *   2. Nhận diện tiến độ phê duyệt: Bắt từ khóa bao lâu được duyệt hồ sơ, kiểm duyệt tài khoản.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quét từ khóa liên quan đến chứng minh nhân thân và bằng cấp chuyên môn.
+ *   - Bước 2: Phân loại sang AiDomain.VERIFICATION.
+ *   - Bước 3: Trả về liên kết màn hình nộp hồ sơ xác thực.
+ * ============================================================================
+ */
 @Component
 public class VerificationIntentRule implements IntentRule {
 

@@ -1,3 +1,15 @@
+/**
+ * ====================================================================================================
+ * [UC-01] MÀN HÌNH ĐĂNG NHẬP TÀI KHOẢN (LOGIN PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Xác thực đăng nhập người dùng bằng email và mật khẩu an toàn.
+ * 2. Cấp phát JWT token truy cập hệ thống và phân hướng giao diện theo vai trò người dùng.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Nguyễn Trung Kiên (Kiennt1152)
+ */
 import type { FormEvent } from 'react';
 import { useEffect, useRef, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
@@ -128,6 +140,9 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState(sessionExpired ? 'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.' : '');
+  const [success, setSuccess] = useState(
+    () => (location.state as { message?: string } | null)?.message ?? '',
+  );
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const tokenClientRef = useRef<TokenClient | null>(null);
@@ -218,8 +233,9 @@ export default function LoginPage() {
     return <Navigate to={resolvePostLoginPath(from, user?.role)} replace />;
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    setSuccess('');
     setError('');
     // Kiem tra truoc khi goi API: tranh loi "must not be blank" tho tu backend.
     const emailBlank = !email.trim();
@@ -403,6 +419,7 @@ export default function LoginPage() {
               <Link to="/forgot-password" className="reg-link">Quên mật khẩu?</Link>
             </p>
 
+            {success && <div className="reg-alert reg-alert--success">{success}</div>}
             {error && <div className="reg-alert reg-alert--error">{error}</div>}
 
             <button type="submit" className="reg-btn reg-btn--block" disabled={loading}>

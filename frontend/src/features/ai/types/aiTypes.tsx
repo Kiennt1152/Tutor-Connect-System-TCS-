@@ -47,6 +47,9 @@ export interface AiMessage {
   referencedFaqs?: FaqReference[];
   sources?: AiSourceResponse[];
   intent?: string;
+  domain?: string;
+  subIntent?: string;
+  suggestedRoute?: string;
   answerMode?: 'RAG' | 'LLM' | 'FALLBACK';
   confidenceScore?: number;
   confidenceLevel?: 'HIGH' | 'MEDIUM' | 'LOW';

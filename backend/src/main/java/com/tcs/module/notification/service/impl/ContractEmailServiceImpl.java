@@ -11,6 +11,15 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 
+/**
+ * ====================================================================================================
+ * [UC-20 / UC-44] DỊCH VỤ GỬI EMAIL THÔNG BÁO HỢP ĐỒNG (CONTRACT EMAIL SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Soạn và gửi email chứa mã OTP ký hợp đồng bảo mật tới hòm thư của học viên và gia sư.
+ * 2. Gửi bản sao hợp đồng điện tử đã ký hoàn tất định dạng PDF đính kèm qua email.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @Slf4j
 @Service
 public class ContractEmailServiceImpl implements EmailService {

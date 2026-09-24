@@ -30,6 +30,28 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * [UC-59] PHÁT HIỆN & GIÁM SÁT HÀNH VI LÁCH NỀN TẢNG (CIRCUMVENTION DETECTION SERVICE)
+ * ============================================================================
+ * * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-11
+ * * Mô tả Use Case:
+ *   - Phát hiện, ngăn chặn và lưu vết các hành vi cố tình giao dịch ngoài sàn (lách nền tảng).
+ *   - Bảo vệ quyền lợi an toàn giao dịch qua Escrow và bảo toàn doanh thu phí nền tảng.
+ * * Chức năng chính:
+ *   1. Quét tin nhắn thời gian thực: Áp dụng Regex nhận diện số điện thoại, email, URL và tài khoản mạng xã hội.
+ *   2. Đánh giá điểm rủi ro (Risk Score): Tính điểm vi phạm lũy tiến và gắn cờ cảnh báo khi vượt ngưỡng.
+ *   3. Thẩm định bằng chứng đối soát: Truy xuất ngữ cảnh các tin nhắn trước và sau vi phạm trong cuộc trò chuyện.
+ *   4. Phán quyết xử lý: Admin xác nhận vi phạm (CONFIRMED) hoặc bác bỏ (DISMISSED), liên thông ban hành chế tài.
+ *   5. Ghi vết kiểm toán: Lưu lại lịch sử thẩm định của Quản trị viên vào Audit Log.
+ * * Luồng xử lý chính:
+ *   - Bước 1: Khi tin nhắn được gửi, hệ thống gọi `scanMessage` kiểm tra nội dung theo 4 bộ lọc Regex.
+ *   - Bước 2: Nếu phát hiện từ khóa lách sàn, tạo bản ghi `CircumventionEvent` với trạng thái PENDING_REVIEW.
+ *   - Bước 3: Admin mở màn hình kiểm duyệt, đọc bằng chứng và ngữ cảnh hội thoại (`getConversationContext`).
+ *   - Bước 4: Admin phê duyệt (`reviewCircumventionEvent`), hệ thống cập nhật kết luận và ghi log kiểm toán.
+ * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class CircumventionServiceImpl implements CircumventionService {

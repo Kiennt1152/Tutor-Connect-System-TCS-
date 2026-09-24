@@ -7,7 +7,7 @@ type UserSearchModalProps = {
   open: boolean;
   onClose: () => void;
   onSelectUser: (user: UserSummaryResponse) => void;
-  onCreateGroup: (name: string, users: UserSummaryResponse[]) => Promise<void>;
+  onCreateGroup?: (name: string, users: UserSummaryResponse[]) => Promise<void>;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -41,7 +41,8 @@ export function UserSearchModal({
       messagingApi
         .listUsers(keyword)
         .then((data) => {
-          if (!cancelled) setUsers(data);
+          // Chỉ hiển thị người dùng thông thường, ẩn Platform Admin (liên hệ Admin qua Ticket hỗ trợ)
+          if (!cancelled) setUsers(data.filter((u) => u.role !== 'PLATFORM_ADMIN'));
         })
         .catch(() => {
           if (!cancelled) setError('Không thể tìm người dùng');
@@ -75,6 +76,7 @@ export function UserSearchModal({
   const handleCreateGroup = async () => {
     const normalizedName = groupName.trim();
     if (normalizedName.length < 3 || normalizedName.length > 80 || selected.length < 2) return;
+    if (!onCreateGroup) return;
     setSubmitting(true);
     setError(null);
     try {
@@ -92,52 +94,73 @@ export function UserSearchModal({
     <div className="msg-modal-overlay" onClick={onClose}>
       <div className="msg-user-search-modal" onClick={(event) => event.stopPropagation()}>
         <div className="msg-modal__header">
-          <h2>Cuộc trò chuyện mới</h2>
+          <h2>Tạo cuộc trò chuyện</h2>
           <button type="button" className="msg-modal__close" onClick={onClose} aria-label="Đóng">
             ×
           </button>
         </div>
 
-        <div className="msg-new-mode" role="tablist" aria-label="Loại cuộc trò chuyện">
+        <div className="msg-new-mode" role="tablist" aria-label="Hình thức trò chuyện">
           <button
             type="button"
-            className={mode === 'direct' ? 'msg-new-mode__item msg-new-mode__item--active' : 'msg-new-mode__item'}
+            className={`msg-new-mode__item ${mode === 'direct' ? 'msg-new-mode__item--active' : ''}`}
             onClick={() => setMode('direct')}
           >
             Trực tiếp
           </button>
           <button
             type="button"
-            className={mode === 'group' ? 'msg-new-mode__item msg-new-mode__item--active' : 'msg-new-mode__item'}
+            className={`msg-new-mode__item ${mode === 'group' ? 'msg-new-mode__item--active' : ''}`}
             onClick={() => setMode('group')}
           >
-            Nhóm
+            Tạo nhóm
           </button>
         </div>
 
         <div className="msg-user-search-modal__body">
           {mode === 'group' && (
-            <div className="msg-group-create__name">
-              <label htmlFor="group-name">Tên nhóm</label>
+            <div className="msg-group-header-input">
+              <div className="msg-group-camera-badge" title="Nhóm mới">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                  <circle cx="9" cy="7" r="4"/>
+                  <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                  <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                </svg>
+              </div>
               <input
-                id="group-name"
                 type="text"
-                className="msg-search-input"
-                placeholder="Ví dụ: Nhóm học Toán 12"
+                className="msg-group-name-field"
+                placeholder="Đặt tên nhóm (ví dụ: Nhóm học Toán 12)..."
                 value={groupName}
                 maxLength={80}
                 onChange={(event) => setGroupName(event.target.value)}
               />
-              <span>{groupName.trim().length}/80 ký tự</span>
+              <span className="msg-group-name-len">{groupName.trim().length}/80</span>
             </div>
           )}
 
           {mode === 'group' && selected.length > 0 && (
-            <div className="msg-group-create__selected">
+            <div className="msg-group-selected-strip">
               {selected.map((user) => (
-                <button key={user.userId} type="button" onClick={() => toggleUser(user)}>
-                  {user.displayName} ×
-                </button>
+                <div
+                  key={user.userId}
+                  className="msg-selected-bubble"
+                  onClick={() => toggleUser(user)}
+                  title={`Bỏ chọn ${user.displayName}`}
+                >
+                  <div className="msg-selected-bubble__avatar" style={{ backgroundColor: getAvatarColor(user.userId) }}>
+                    {user.avatarUrl ? (
+                      <img src={user.avatarUrl} alt="" />
+                    ) : (
+                      <span>{getInitials(user.displayName)}</span>
+                    )}
+                    <span className="msg-selected-bubble__close">×</span>
+                  </div>
+                  <span className="msg-selected-bubble__name">
+                    {user.displayName.trim().split(' ').slice(-1)[0]}
+                  </span>
+                </div>
               ))}
             </div>
           )}
@@ -146,12 +169,11 @@ export function UserSearchModal({
             <input
               type="text"
               className="msg-search-input"
-              placeholder="Tìm theo tên, email hoặc số điện thoại..."
+              placeholder={mode === 'group' ? 'Tìm thành viên thêm vào nhóm...' : 'Tìm kiếm người dùng theo tên...'}
               value={keyword}
               onChange={(event) => setKeyword(event.target.value)}
               autoFocus={mode === 'direct'}
             />
-            {mode === 'group' && <span>{selected.length}/19 đã chọn</span>}
           </div>
 
           <div className="msg-user-search-modal__list">
@@ -168,7 +190,7 @@ export function UserSearchModal({
                   <button
                     key={user.userId}
                     type="button"
-                    className={`msg-user-search-modal__item${isSelected ? ' msg-user-search-modal__item--selected' : ''}`}
+                    className={`msg-user-search-modal__item ${isSelected ? 'msg-user-search-modal__item--selected' : ''}`}
                     onClick={() => toggleUser(user)}
                   >
                     <div className="msg-avatar" style={{ backgroundColor: getAvatarColor(user.userId) }}>
@@ -184,7 +206,15 @@ export function UserSearchModal({
                         {ROLE_LABELS[user.role] ?? user.role}
                       </span>
                     </div>
-                    {mode === 'group' && <span className="msg-member-check">{isSelected ? '✓' : '+'}</span>}
+                    {mode === 'group' && (
+                      <div className={`msg-round-checkbox ${isSelected ? 'msg-round-checkbox--checked' : ''}`}>
+                        {isSelected && (
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"/>
+                          </svg>
+                        )}
+                      </div>
+                    )}
                   </button>
                 );
               })
@@ -192,18 +222,27 @@ export function UserSearchModal({
           </div>
 
           {mode === 'group' && (
-            <div className="msg-group-create__actions">
-              <button type="button" className="tcs-btn tcs-btn--ghost" onClick={onClose}>
-                Hủy
-              </button>
-              <button
-                type="button"
-                className="tcs-btn tcs-btn--primary"
-                disabled={submitting || groupName.trim().length < 3 || selected.length < 2}
-                onClick={handleCreateGroup}
-              >
-                {submitting ? 'Đang tạo...' : 'Tạo nhóm'}
-              </button>
+            <div className="msg-group-create__footer">
+              <div className="msg-group-create__count">
+                {selected.length > 0 ? (
+                  <span>Đã chọn: <strong>{selected.length}</strong>/19</span>
+                ) : (
+                  <span>Chọn tối thiểu 2 người</span>
+                )}
+              </div>
+              <div className="msg-group-create__btns">
+                <button type="button" className="btn-ghost" onClick={onClose}>
+                  Hủy
+                </button>
+                <button
+                  type="button"
+                  className="btn-primary"
+                  disabled={submitting || groupName.trim().length < 3 || selected.length < 2}
+                  onClick={handleCreateGroup}
+                >
+                  {submitting ? 'Đang tạo...' : 'Tạo nhóm'}
+                </button>
+              </div>
             </div>
           )}
         </div>

@@ -118,6 +118,24 @@ public interface PaymentTransactionRepository extends JpaRepository<PaymentTrans
             @Param("from") LocalDateTime from,
             @Param("to") LocalDateTime to);
 
+    List<PaymentTransaction> findByWallet_WalletIdAndTypeAndStatus(
+            Long walletId,
+            PaymentTransactionType type,
+            PaymentTransactionStatus status);
+
+    @Query("SELECT pt FROM PaymentTransaction pt " +
+           "WHERE (:type IS NULL OR pt.type = :type) " +
+           "AND (:status IS NULL OR pt.status = :status) " +
+           "AND (:from IS NULL OR pt.createdAt >= :from) " +
+           "AND (:to IS NULL OR pt.createdAt <= :to) " +
+           "ORDER BY pt.createdAt DESC")
+    Page<PaymentTransaction> findLedgerTransactions(
+            @Param("type") PaymentTransactionType type,
+            @Param("status") PaymentTransactionStatus status,
+            @Param("from") LocalDateTime from,
+            @Param("to") LocalDateTime to,
+            Pageable pageable);
+
     List<PaymentTransaction> findByStatusAndCreatedAtBetween(
             PaymentTransactionStatus status, LocalDateTime from, LocalDateTime to);
 

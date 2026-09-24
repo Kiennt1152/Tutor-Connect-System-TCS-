@@ -1,16 +1,30 @@
 /**
  * ============================================================================
- * TRANG QUẢN TRỊ KHO TRI THỨC VÀ HỎI ĐÁP FAQ (PLATFORM FAQ MANAGEMENT PAGE)
+ * [UC-65] [UC-67] QUẢN TRỊ KHO TRI THỨC VÀ HỎI ĐÁP FAQ (PLATFORM FAQ PAGE)
  * ============================================================================
  * 
- * Tác giả: mduc1011-swp
- * Mô tả các tính năng quản lý FAQ:
- *   - Quản lý bộ câu hỏi - trả lời thường gặp (FAQ Knowledge Base) phục vụ khách hàng và luồng RAG của AI.
- *   - Thêm mới, chỉnh sửa, xóa và sắp xếp thứ tự ưu tiên hiển thị (sortOrder).
- *   - Lọc danh mục câu hỏi (Chung, Phụ huynh, Gia sư, Trung tâm, Tài chính, Lớp học).
- *   - Bật/tắt trạng thái xuất bản (Published / Hidden) trên trang Trợ giúp công khai.
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-25
+ * 
+ * Mô tả Use Case:
+ *   - Quản lý bộ câu hỏi - trả lời thường gặp (FAQ Knowledge Base) phục vụ khách hàng trên cổng Trợ giúp.
+ *   - Đóng vai trò là nguồn tri thức cốt lõi được vector hóa phục vụ đường ống AI RAG của nền tảng.
+ * 
+ * Chức năng chính:
+ *   1. Quản trị tri thức FAQ: Thêm mới, chỉnh sửa nội dung, xóa câu hỏi và điều chỉnh thứ tự ưu tiên hiển thị.
+ *   2. Phân loại theo chuyên mục: Chung, Phụ huynh, Gia sư, Trung tâm gia sư, Tài chính & Ký quỹ, Lớp học.
+ *   3. Kiểm duyệt và xuất bản: Bật/tắt trạng thái công khai (Published / Hidden) cho các câu hỏi do AI đề xuất.
+ *   4. Tìm kiếm và lọc linh hoạt: Tìm nhanh theo từ khóa câu hỏi/câu trả lời và theo danh mục nghiệp vụ.
+ *   5. Hỗ trợ thao tác an toàn: Cảnh báo xác nhận khi xóa bản ghi tri thức để tránh mất mát dữ liệu đào tạo RAG.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Hook `useFaqList` tải danh mục câu hỏi FAQ từ API backend.
+ *   - Bước 2: Quản trị viên lọc theo danh mục hoặc từ khóa để kiểm tra nội dung giải đáp.
+ *   - Bước 3: Chọn câu hỏi để chỉnh sửa hoặc điền thông tin vào form tạo mới (`UpsertFaqRequest`).
+ *   - Bước 4: Gửi dữ liệu qua mutation API (`useFaqMutations`), làm mới bảng dữ liệu tức thì.
+ *   - Bước 5: Dữ liệu FAQ mới được đồng bộ vào Vector Store qua tác vụ re-index của hệ sinh thái AI.
+ * ============================================================================
  */
-
 import type { FormEvent } from 'react';
 import { useState, useEffect } from 'react';
 import { ConfirmDialog, Pagination } from '../../../shared/components';

@@ -309,7 +309,7 @@ class Report52DisputeServiceITTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
         when(authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER))
                 .thenReturn(new UserPrincipal(admin, UserRole.PLATFORM_ADMIN));
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(disputeRepository.save(any(Dispute.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         var response = disputeService.resolveDispute(31L, request);
@@ -349,7 +349,7 @@ class Report52DisputeServiceITTest {
         when(userRepository.findById(1L)).thenReturn(Optional.of(admin));
         when(authHelper.requireRole(UserRole.PLATFORM_ADMIN, UserRole.TUTOR_CENTER))
                 .thenReturn(new UserPrincipal(admin, UserRole.PLATFORM_ADMIN));
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(disputeRepository.save(any(Dispute.class))).thenAnswer(invocation -> invocation.getArgument(0));
         when(escrowTransactionRepository.save(any(EscrowTransaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -402,7 +402,7 @@ class Report52DisputeServiceITTest {
         when(authHelper.requireRole(UserRole.CLIENT, UserRole.TUTOR, UserRole.TUTOR_CENTER, UserRole.PLATFORM_ADMIN))
                 .thenReturn(new UserPrincipal(client, UserRole.CLIENT));
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(client));
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(escrowService.holdForDispute(11L, "Tôi có thêm bằng chứng mới cần được xem xét"))
                 .thenReturn(dispute.getEscrowTransaction());
         when(disputeRepository.save(any(Dispute.class))).thenAnswer(invocation -> invocation.getArgument(0));
@@ -430,7 +430,7 @@ class Report52DisputeServiceITTest {
         when(authHelper.requireRole(UserRole.CLIENT, UserRole.TUTOR, UserRole.TUTOR_CENTER, UserRole.PLATFORM_ADMIN))
                 .thenReturn(new UserPrincipal(client, UserRole.CLIENT));
         when(userRepository.findById(USER_ID)).thenReturn(Optional.of(client));
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
         when(disputeRepository.save(any(Dispute.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         DisputeResponse response = disputeService.submitAdditionalEvidence(31L, request);
@@ -606,7 +606,7 @@ class Report52DisputeServiceITTest {
 
         when(authHelper.requireRole(UserRole.CLIENT, UserRole.TUTOR, UserRole.TUTOR_CENTER, UserRole.PLATFORM_ADMIN))
                 .thenReturn(new UserPrincipal(client, UserRole.CLIENT));
-        when(disputeRepository.findById(31L)).thenReturn(Optional.of(dispute));
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(dispute));
 
         BusinessException exception = assertThrows(
                 BusinessException.class,

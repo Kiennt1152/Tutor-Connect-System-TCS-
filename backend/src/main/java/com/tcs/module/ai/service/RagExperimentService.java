@@ -6,6 +6,27 @@ import java.util.concurrent.atomic.AtomicLong;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] THỬ NGHIỆM & ĐÁNH GIÁ HIỆU SUẤT RAG (RAG EXPERIMENT SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp cơ chế A/B testing và đo lường định lượng chất lượng truy xuất tri thức của hệ thống RAG.
+ * 
+ * Chức năng chính:
+ *   1. Đo lường độ trễ: Ghi nhận thời gian thực thi của từng công đoạn trong chuỗi RAG.
+ *   2. Đánh giá chất lượng: Lưu vết điểm số độ chính xác (Precision/Recall) cho từng câu hỏi kiểm thử.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Kích hoạt chế độ kiểm thử hoặc tiếp nhận yêu cầu đo điểm chuẩn.
+ *   - Bước 2: Thu thập số liệu hiệu năng của bộ truy xuất tri thức.
+ *   - Bước 3: Tổng hợp báo cáo thống kê phục vụ tối ưu hóa thuật toán.
+ * ============================================================================
+ */
 @Slf4j
 @Service
 public class RagExperimentService {

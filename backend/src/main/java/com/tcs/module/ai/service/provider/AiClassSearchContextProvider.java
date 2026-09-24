@@ -13,6 +13,26 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] NGỮ CẢNH DỮ LIỆU LỚP HỌC THỜI GIAN THỰC (CLASS SEARCH CONTEXT PROVIDER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Truy vấn các lớp học mới đăng phù hợp để tiêm trực tiếp vào System Prompt của AI Assistant.
+ * 
+ * Chức năng chính:
+ *   1. Truy vấn lớp học mở: Tìm kiếm lớp học đang tuyển gia sư theo môn học và cấp học.
+ *   2. Định dạng văn bản ngữ cảnh: Rút gọn thông tin lớp thành dạng Markdown súc tích cho LLM.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Phân tích từ khóa tìm lớp từ câu hỏi người dùng.
+ *   - Bước 2: Truy vấn CSDL TutoringClass và chuyển đổi thành văn bản ngữ cảnh ngắn gọn.
+ *  * ============================================================================
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -125,7 +145,7 @@ public class AiClassSearchContextProvider {
             case "toan", "toan hoc" -> containsWordOrPhrase(text, "toan", "toan hoc", "giai tich", "hinh hoc", "dai so", "math", "khoi a", "khoi a1", "khoi b", "khoi d");
             case "ly", "vat ly" -> containsWordOrPhrase(text, "vat ly", "mon ly", "day ly", "physics", "khoi a", "khoi a1");
             case "hoa", "hoa hoc" -> containsWordOrPhrase(text, "hoa hoc", "mon hoa", "day hoa", "chemistry", "khoi a", "khoi b");
-            case "anh", "tieng anh", "ngoai ngu" -> containsWordOrPhrase(text, "tieng anh", "anh van", "ielts", "toeic", "toefl", "english", "mon anh", "day anh", "khoi d", "khoi a1");
+            case "anh", "tieng anh", "tieng anh ielts", "tieng anh toeic", "ngoai ngu", "ielts", "toeic" -> containsWordOrPhrase(text, "tieng anh", "anh van", "ielts", "toeic", "toefl", "english", "mon anh", "day anh", "khoi d", "khoi a1");
             case "van", "ngu van", "van hoc" -> containsWordOrPhrase(text, "ngu van", "van hoc", "mon van", "day van", "khoi d", "khoi c", "chuyen van", "van cap 2", "van cap 3");
             case "tin", "tin hoc", "lap trinh" -> containsWordOrPhrase(text, "tin hoc", "lap trinh", "scratch", "python", "java", "c++", "coding", "mon tin", "day tin");
             case "sinh", "sinh hoc" -> containsWordOrPhrase(text, "sinh hoc", "mon sinh", "day sinh", "biology", "khoi b");

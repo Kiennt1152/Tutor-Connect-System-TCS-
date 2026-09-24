@@ -24,6 +24,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * ====================================================================================================
+ * [UC-04] DỊCH VỤ LƯU TRỮ VÀ XỬ LÝ TỆP TIN BẢO MẬT (FILE STORAGE SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Tiếp nhận và kiểm tra định dạng tệp (Magic Bytes Detector) ngăn chặn tải mã độc hại.
+ * 2. Lưu trữ an toàn các tệp nhạy cảm (Ảnh CCCD, bằng cấp, chứng chỉ, biên bản tranh chấp).
+ * 3. Quản lý đường dẫn truy cập bảo mật và sinh chữ ký URL tạm thời.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j

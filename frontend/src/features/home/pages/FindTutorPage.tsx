@@ -1,3 +1,12 @@
+/**
+ * ====================================================================================================
+ * [UC-14] MÀN HÌNH TÌM KIẾM GIA SƯ (FIND TUTOR PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Danh bạ gia sư toàn sàn với bộ lọc theo môn học, khu vực, đánh giá sao và học phí.
+ * 2. Xem hồ sơ năng lực, lịch rảnh và gửi yêu cầu mời dạy kèm trực tiếp.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { SiteHeader } from '../components/SiteHeader';

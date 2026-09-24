@@ -1,0 +1,40 @@
+.my-disputes { max-width: 1180px; margin: 0 auto; padding: 28px 20px 64px; color: #182230; }
+.my-disputes__back {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #c2410c;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  margin: 0 0 16px;
+  cursor: pointer;
+}
+.my-disputes__back:hover { color: #ea580c; }
+.my-disputes__heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.my-disputes h1 { font-size: 26px; margin: 0; }
+.my-disputes h2 { font-size: 21px; overflow-wrap: anywhere; }
+.my-disputes h3 { font-size: 16px; margin: 0 0 12px; }
+.my-disputes__layout { display: grid; grid-template-columns: minmax(230px, 320px) minmax(0, 1fr); gap: 28px; }
+.my-disputes__list { display: flex; flex-direction: column; gap: 10px; align-self: start; }
+.my-disputes__item { display: flex; flex-direction: column; text-align: left; gap: 8px; padding: 16px; border: 1px solid #d6dce4; border-radius: 6px; background: #fff; color: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.my-disputes__item.is-selected { border-color: #e95d0c; background: #fff7ef; }
+.my-disputes__item span, .my-disputes__status { color: #665429; font-size: 14px; }
+.my-disputes__detail { min-width: 0; }
+.my-disputes__detail section { border-top: 1px solid #dce2e9; padding: 20px 0; }
+.my-disputes__text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.my-disputes__field { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; font-weight: 600; }
+.my-disputes textarea { width: 100%; box-sizing: border-box; border: 1px solid #b9c3d1; border-radius: 6px; padding: 12px; font: inherit; resize: vertical; min-height: 90px; }
+.my-disputes input[type=file] { max-width: 100%; font-weight: 400; }
+.my-disputes__files { display: grid; gap: 10px; margin-bottom: 14px; min-width: 0; }
+.my-disputes__files .ft { min-width: 0; }
+.my-disputes__error { color: #b42318; background: #fef3f2; padding: 12px; overflow-wrap: anywhere; }
+.my-disputes__notice { color: #067647; background: #ecfdf3; padding: 12px; }
+.my-disputes__update { border-left: 3px solid #d7e5e0; padding: 8px 14px; margin-bottom: 14px; overflow-wrap: anywhere; }
+.my-disputes small { color: #647184; }
+.my-disputes__actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+@media (max-width: 760px) {
+  .my-disputes__layout { grid-template-columns: minmax(0, 1fr); }
+  .my-disputes { padding: 22px 14px 48px; }
+  .my-disputes__heading { align-items: flex-start; }
+}

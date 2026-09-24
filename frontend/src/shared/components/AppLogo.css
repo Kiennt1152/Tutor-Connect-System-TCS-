@@ -6,6 +6,8 @@
   font-size: 17px;
   color: var(--color-text-primary);
   text-decoration: none;
+  max-height: 56px;
+  overflow: hidden;
 }
 
 .app-logo__image {

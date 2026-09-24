@@ -9,6 +9,28 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+/**
+ * ============================================================================
+ * [UC-65] TRUY VẤN TRI THỨC LAI HYBRID VECTOR & BM25 (AI RETRIEVAL SERVICE)
+ * ============================================================================
+ * * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-14
+ * * Mô tả Use Case:
+ *   - Tìm kiếm và trích xuất ngữ cảnh tri thức liên quan từ cơ sở dữ liệu tri thức của hệ thống.
+ *   - Phục vụ đường ống xử lý RAG (Retrieval-Augmented Generation) cho trợ lý AI sàn Tutor Connect.
+ * * Chức năng chính:
+ *   1. Tìm kiếm Vector ngữ nghĩa (Dense Cosine Similarity): Bắt trọn ý nghĩa và câu hỏi đồng nghĩa.
+ *   2. Tìm kiếm từ khóa chuẩn xác (Sparse BM25 Engine): Khớp chính xác tên môn, khối lớp, học phí và điều khoản.
+ *   3. Hợp nhất điểm số xếp hạng (Hybrid Score Fusion): Kết hợp trọng số giữa vector ngữ nghĩa và từ khóa.
+ *   4. Kiểm soát phân quyền dữ liệu (Permission Filter): Loại bỏ các thông tin vượt thẩm quyền người dùng trước khi sinh text.
+ *   5. Hỗ trợ thực nghiệm RAG (A/B Testing): Ghi nhận số liệu phục vụ đánh giá hiệu năng từng chiến lược trích xuất.
+ * * Luồng xử lý chính:
+ *   - Bước 1: Nhận câu truy vấn và quyền người dùng (`retrieveRelevantChunks`).
+ *   - Bước 2: Tạo vector embedding cho văn bản câu hỏi qua `EmbeddingService`.
+ *   - Bước 3: Truy vấn song song Vector Cosine và chấm điểm từ khóa BM25 đối với toàn bộ tri thức khả dụng.
+ *   - Bước 4: Lọc tri thức theo vai trò người dùng (`permissionFilterService`) và trả về Top-K đoạn trích xuất sắc nhất.
+ * ============================================================================
+ */
 @Slf4j
 @Service
 public class AiRetrievalService {

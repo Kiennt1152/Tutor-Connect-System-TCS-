@@ -1,3 +1,15 @@
+/**
+ * ====================================================================================================
+ * [UC-05] MÀN HÌNH PHÊ DUYỆT HỒ SƠ ĐỊNH DANH EKYC (PLATFORM VERIFICATIONS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Xem xét hình ảnh CCCD 2 mặt và thông tin cá nhân của gia sư gửi xác minh.
+ * 2. Phê duyệt hoặc từ chối cấp chứng nhận tích xanh uy tín cho tài khoản.
+ * 3. Bảo mật dữ liệu định danh theo quy định bảo vệ thông tin cá nhân.
+ * * @author Hoàng Minh Đức (mduc1011-swp)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import axios from 'axios';
@@ -232,7 +244,7 @@ export default function PlatformVerificationsPage() {
                         </span>
                       </td>
                       <td>{item.submittedAt}</td>
-                      <td>{item.reviewedAt}</td>
+                      <td>{item.reviewedAt && item.reviewedAt !== '—' ? item.reviewedAt : 'Chưa duyệt'}</td>
                       <td className="adm-table__actions">
                         <button
                           className="tcs-btn tcs-btn--primary tcs-btn--sm"
@@ -313,7 +325,7 @@ export default function PlatformVerificationsPage() {
                         <span className="pv-kv__k">Số điện thoại</span>
                         <span className="pv-kv__v">{detail.submitterPhone ?? '—'}</span>
                       </div>
-                      {Object.entries(detail.submitterDetails).map(([k, v]) => (
+                      {Object.entries(detail.submitterDetails || {}).map(([k, v]) => (
                         <div className="pv-kv__row" key={k}>
                           <span className="pv-kv__k">{k}</span>
                           <span className="pv-kv__v">{v}</span>

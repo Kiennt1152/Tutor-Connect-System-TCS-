@@ -11,6 +11,8 @@ import com.tcs.module.platform.repository.ReportRepository;
 import com.tcs.module.profile.entity.MediaFile;
 import com.tcs.module.profile.repository.MediaFileRepository;
 import com.tcs.security.AuthHelper;
+import com.tcs.module.finance.service.DisputeService;
+import com.tcs.exception.ForbiddenException;
 import java.net.URI;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -28,13 +30,30 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Serves sensitive uploaded files (CCCD, business licenses, verification documents)
- * through an authenticated endpoint with owner + admin access control.
- *
- * <p>Public files (avatars) are still served directly via /uploads/public/** (permitAll).
- * Private files are accessed via /api/files/private/{fileId} which checks that the
- * requesting user is either the file owner, a PLATFORM_ADMIN, or the owner of
- * the CENTER class whose report/dispute contains the file.</p>
+ * ============================================================================
+ * [UC-04] PHÂN PHỐI & KIỂM SOÁT BẢO MẬT TỆP TIN TẢI LÊN (FILE ACCESS CONTROLLER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Đồng tác giả: tienanh6677 (Nguyễn Tiến Anh)
+ * Ngày tạo: 2026-08-11
+ * 
+ * Mô tả Use Case:
+ *   - Kiểm soát truy cập bảo mật đối với các tệp tin và tài liệu nhạy cảm được tải lên hệ thống.
+ *   - Chống tấn công khai thác trực tiếp tệp tin (IDOR) cho các hình ảnh CCCD, chứng chỉ và bằng chứng tranh chấp.
+ * 
+ * Chức năng chính:
+ *   1. Bảo vệ tài liệu định danh: Chỉ cho phép chủ sở hữu tệp tin hoặc Quản trị viên sàn truy cập.
+ *   2. Thẩm định quyền liên quan: Cho phép Trung tâm gia sư xem xét chứng cứ khi có tranh chấp liên quan đến lớp của mình.
+ *   3. Phân phối an toàn (Secure Streaming): Trả về luồng tài nguyên kèm định dạng MIME tương ứng.
+ *   4. Bảo vệ đường dẫn: Ngăn chặn duyệt thư mục trái phép (Path Traversal Protection).
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Yêu cầu tải hoặc xem tệp gửi tới `/api/files/private/{fileId}`.
+ *   - Bước 2: Kiểm tra phiên đăng nhập và định danh người dùng qua `AuthHelper`.
+ *   - Bước 3: Xác minh quyền sở hữu tệp tin (chủ sở hữu, Platform Admin hoặc bên liên quan).
+ *   - Bước 4: Tải file từ đường dẫn lưu trữ và stream trả về cho trình duyệt.
+ * ============================================================================
  */
 @RestController
 @RequiredArgsConstructor
@@ -45,6 +64,7 @@ public class FileAccessController {
     private final ReportRepository reportRepository;
     private final TutoringClassRepository tutoringClassRepository;
     private final AuthHelper authHelper;
+    private final DisputeService disputeService;
 
     @Value("${tcs.file.storage.path:uploads}")
     private String storagePath;
@@ -122,8 +142,10 @@ public class FileAccessController {
                 && !isAdmin
                 && isCenterOwnerOfReportedClass(file, userId);
 
-        if (!isOwner && !isAdmin && !isCenterOwner) {
-            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Access denied");
+        boolean isDisputeParticipant = !isOwner && !isAdmin && !isCenterOwner
+                && disputeService.canReadDisputeEvidence(file.getFileUrl(), userId);
+        if (!isOwner && !isAdmin && !isCenterOwner && !isDisputeParticipant) {
+            throw new ForbiddenException("Bạn không có quyền xem tệp này");
         }
     }
 

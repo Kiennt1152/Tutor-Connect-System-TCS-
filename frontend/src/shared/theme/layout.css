@@ -42,6 +42,7 @@
      link bằng chiều cao header để vùng bấm không thò xuống đè nội dung bên dưới
      (vd. link "← Quay lại" ngay dưới header bị bấm nhầm thành về trang chủ). */
   align-self: stretch;
+  max-height: 64px;
 }
 
 .tcs-header__inner > .app-logo .app-logo__image {
@@ -454,6 +455,11 @@
   }
 
   .tcs-header__shortcut {
+    display: none;
+  }
+
+  /* Specific rule above uses `>` and otherwise keeps this control visible on mobile. */
+  .tcs-header__schedule-menu > .tcs-header__shortcut {
     display: none;
   }
 }

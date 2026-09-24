@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-09] MÀN HÌNH GIAO DIỆN CENTERSPAGE
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Hiển thị và điều phối các chức năng nghiệp vụ của phân hệ CentersPage.
+ * 2. Đảm bảo trải nghiệm người dùng tối ưu và đồng bộ dữ liệu với hệ thống Backend.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';
@@ -374,7 +384,6 @@ export default function CentersPage() {
                   ))}
                 </div>
               )}
-  
               {isClient && (
                 <div className="cr-request-tip">
                   <div>

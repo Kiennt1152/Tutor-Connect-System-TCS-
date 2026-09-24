@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-46] MÀN HÌNH BÁO CÁO KINH DOANH TRUNG TÂM (CENTER REPORTS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Thống kê doanh thu, số buổi đã dạy, hoa hồng trung tâm và số dư đối soát.
+ * 2. Xuất bảng kê tài chính chi tiết phục vụ chi trả lương cho gia sư.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ */
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { EvidencePreviewList as SharedEvidencePreviewList } from '../../../shared/components/EvidencePreviewList';

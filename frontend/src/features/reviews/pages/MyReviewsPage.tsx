@@ -1,3 +1,13 @@
+/**
+ * ====================================================================================================
+ * [UC-22] MÀN HÌNH QUẢN LÝ ĐÁNH GIÁ CỦA TÔI (MY REVIEWS PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Xem lại các đánh giá sao và phản hồi nhận xét từ học viên sau các khóa học.
+ * 2. Phản hồi giải trình hoặc cảm ơn học viên để tăng độ uy tín cá nhân.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { HomeNavbar } from '../../../shared/components/HomeNavbar';

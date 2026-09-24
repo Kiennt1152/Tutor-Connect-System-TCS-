@@ -1,3 +1,12 @@
+/**
+ * ====================================================================================================
+ * [UC-15] MÀN HÌNH HỒ SƠ CÔNG KHAI GIA SƯ (TUTOR PUBLIC PROFILE PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Xem chi tiết lý lịch học vấn, kinh nghiệm giảng dạy, chứng chỉ và video giới thiệu gia sư.
+ * 2. Xem các đánh giá nhận xét từ phụ huynh trước đó và đặt lịch học trực tiếp.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ */
 import { useCallback, useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link, useLocation } from 'react-router-dom';

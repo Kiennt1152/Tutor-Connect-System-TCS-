@@ -12,6 +12,26 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * [UC-65] NGỮ CẢNH SỐ DƯ & TÀI CHÍNH CÁ NHÂN (TUTOR FINANCE CONTEXT PROVIDER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Cung cấp thông tin số dư ví và trạng thái giải ngân an toàn phục vụ trả lời riêng tư cho người dùng đã đăng nhập.
+ * 
+ * Chức năng chính:
+ *   1. Tra cứu số dư ví cá nhân: Kiểm tra số dư khả dụng và tiền đang ký quỹ của chính người dùng.
+ *   2. Kiểm soát quyền bảo mật: Tuyệt đối không cho phép truy vấn số dư của người dùng khác.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Xác thực danh tính người dùng hiện tại qua phiên đăng nhập.
+ *   - Bước 2: Truy vấn bảng ví Wallet và tạo văn bản ngữ cảnh tài chính cá nhân an toàn.
+ *  * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class AiTutorFinanceContextProvider {

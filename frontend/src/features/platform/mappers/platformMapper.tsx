@@ -98,11 +98,11 @@ export function mapDashboardResponse(response: DashboardApiResponse): PlatformDa
     totalCenters: response.totalCenters || 0,
     totalClasses: response.totalClasses || 0,
     activeClasses: response.activeClasses || 0,
-    pendingVerifications: response.pendingVerifications || 0,
-    openReports: response.openReports || 0,
-    openTickets: response.openTickets || 0,
-    pendingWithdrawals: response.pendingWithdrawals || 0,
-    openDisputes: response.openDisputes || 0,
+    pendingVerifications: response.pendingVerifications ?? (response as any).taskSummary?.pendingVerifications ?? 0,
+    openReports: response.openReports ?? (response as any).taskSummary?.openReports ?? 0,
+    openTickets: response.openTickets ?? (response as any).taskSummary?.openTickets ?? 0,
+    pendingWithdrawals: response.pendingWithdrawals ?? (response as any).taskSummary?.pendingWithdrawals ?? 0,
+    openDisputes: response.openDisputes ?? (response as any).taskSummary?.openDisputes ?? 0,
     totalRevenue: response.totalRevenue || 0,
     platformFeeRevenue: response.platformFeeRevenue || 0,
     alerts: (response.alerts || []).map((a) => ({
@@ -126,20 +126,43 @@ export function mapDashboardResponse(response: DashboardApiResponse): PlatformDa
     netMovement: response.netMovement || 0,
     escrowHeld: response.escrowHeld || 0,
     activityTimeline: response.activityTimeline || [],
-    riskSummary: response.riskSummary || {
+    riskSummary: response.riskSummary ? {
+      highRiskTasks: (response.riskSummary as any).highRiskTasks ?? (response.riskSummary as any).overdueTickets ?? 0,
+      moneyAtRisk: (response.riskSummary as any).moneyAtRisk ?? (response.riskSummary as any).escrowExposure ?? 0,
+      activeDisputes: (response.riskSummary as any).activeDisputes ?? (response.riskSummary as any).openDisputes ?? 0,
+      unresolvedReports: (response.riskSummary as any).unresolvedReports ?? (response.riskSummary as any).unhandledReports ?? 0,
+    } : {
       highRiskTasks: 0, moneyAtRisk: 0, activeDisputes: 0, unresolvedReports: 0
     },
     financialFlow: response.financialFlow || {
       moneyIn: 0, moneyOut: 0, netMovement: 0, escrowHeld: 0, platformFeeRevenue: 0,
       deposits: 0, escrowDeposits: 0, withdrawals: 0, refunds: 0, openEscrowCount: 0, settledCount: 0, feeRate: 0
     },
-    classHealth: response.classHealth || {
+    classHealth: response.classHealth ? {
+      total: (response.classHealth as any).totalCount ?? response.classHealth.total ?? 0,
+      active: (response.classHealth as any).activeCount ?? response.classHealth.active ?? 0,
+      verified: (response.classHealth as any).verifiedCount ?? response.classHealth.verified ?? 0,
+      newCount: (response.classHealth as any).newCount ?? 0,
+      activeRate: response.classHealth.activeRate ?? 0,
+    } : {
       total: 0, active: 0, verified: 0, newCount: 0, activeRate: 0
     },
-    tutorHealth: response.tutorHealth || {
+    tutorHealth: response.tutorHealth ? {
+      total: (response.tutorHealth as any).totalCount ?? response.tutorHealth.total ?? 0,
+      active: (response.tutorHealth as any).activeCount ?? response.tutorHealth.active ?? 0,
+      verified: (response.tutorHealth as any).verifiedCount ?? response.tutorHealth.verified ?? 0,
+      newTutors: (response.tutorHealth as any).newCount ?? (response.tutorHealth as any).newTutors ?? 0,
+      activeRate: response.tutorHealth.activeRate ?? 0,
+    } : {
       total: 0, active: 0, verified: 0, newTutors: 0, activeRate: 0
     },
-    centerHealth: response.centerHealth || {
+    centerHealth: response.centerHealth ? {
+      total: (response.centerHealth as any).totalCount ?? response.centerHealth.total ?? 0,
+      active: (response.centerHealth as any).activeCount ?? response.centerHealth.active ?? 0,
+      verified: (response.centerHealth as any).verifiedCount ?? response.centerHealth.verified ?? 0,
+      newCenters: (response.centerHealth as any).newCount ?? (response.centerHealth as any).newCenters ?? 0,
+      activeRate: response.centerHealth.activeRate ?? 0,
+    } : {
       total: 0, active: 0, verified: 0, newCenters: 0, activeRate: 0
     },
     queuePreview: response.queuePreview || [],
@@ -208,7 +231,7 @@ const VERIFICATION_STATUS_LABELS: Record<VerificationStatus, string> = {
 const REPORT_CATEGORY_LABELS: Record<ReportCategory, string> = {
   FRAUD: 'Sai sự thật / gian lận',
   ABUSE: 'Lăng mạ / xúc phạm',
-  SPAM: 'Spam',
+  SPAM: 'Tin rác',
   INAPPROPRIATE: 'Nội dung không phù hợp',
   PLATFORM_CIRCUMVENTION: 'Lách sàn nền tảng',
   OTHER: 'Lý do khác',
@@ -219,7 +242,7 @@ const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
   RESOLVED: 'Đã xử lý',
 };
 
-const CLASS_STATUS_LABELS: Record<string, string> = {
+export const CLASS_STATUS_LABELS: Record<string, string> = {
   DRAFT: 'Nháp',
   OPEN: 'Đang mở',
   MATCHED: 'Đã ghép',
@@ -237,35 +260,42 @@ const WITHDRAWAL_STATUS_LABELS: Record<WithdrawalRequestStatus, string> = {
   COMPLETED: 'Thành công',
 };
 
-const REFUND_STATUS_LABELS: Record<RefundRequestStatus, string> = {
+export const REFUND_STATUS_LABELS: Record<RefundRequestStatus, string> = {
   PENDING: 'Chờ xử lý',
   APPROVED: 'Đã duyệt',
   REJECTED: 'Từ chối',
   COMPLETED: 'Đã hoàn tiền',
 };
 
-const DISPUTE_STATUS_LABELS: Record<DisputeStatus, string> = {
+export const DISPUTE_STATUS_LABELS: Record<DisputeStatus, string> = {
   OPEN: 'Mới mở',
   UNDER_INVESTIGATION: 'Đang xem xét',
   WAITING: 'Chờ bổ sung',
   RESOLVED: 'Đã xử lý',
 };
 
-const ESCROW_STATUS_LABELS: Record<EscrowStatus, string> = {
+export const ESCROW_STATUS_LABELS: Record<EscrowStatus, string> = {
   PENDING: 'Chờ khóa',
-  FUNDED: 'Đã khóa',
+  FUNDED: 'Đã khóa ký quỹ',
   ON_HOLD: 'Tạm giữ',
   DISPUTED: 'Tranh chấp',
   RELEASED: 'Đã giải ngân',
   REFUNDED: 'Đã hoàn tiền',
 };
 
-const TARGET_TYPE_LABELS: Record<string, string> = {
+export const TARGET_TYPE_LABELS: Record<string, string> = {
   USER: 'Người dùng',
   TUTOR: 'Gia sư',
   CLASS: 'Lớp học',
   REVIEW: 'Đánh giá',
   MESSAGE: 'Tin nhắn',
+};
+
+export const TERMINATION_STATUS_LABELS: Record<string, string> = {
+  PENDING: 'Chờ xử lý',
+  APPROVED: 'Đã duyệt',
+  REJECTED: 'Từ chối',
+  COMPLETED: 'Đã hoàn thành',
 };
 
 function extractClassIssueUserDescription(description: string | null | undefined) {

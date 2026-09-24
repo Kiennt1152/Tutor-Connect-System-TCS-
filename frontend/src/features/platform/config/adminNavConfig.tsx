@@ -47,6 +47,8 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
     items: [
       { to: APP_ROUTES.platformTasks, label: 'Hàng đợi công việc', icon: 'check-square' as any },
       { to: APP_ROUTES.platformAnalytics, label: 'Báo cáo & Phân tích', icon: 'bar-chart' },
+      { to: APP_ROUTES.platformClasses, label: 'Giám sát lớp học', icon: 'folder' },
+      { to: APP_ROUTES.platformContractTemplates, label: 'Mẫu hợp đồng', icon: 'folder' },
       { to: APP_ROUTES.platformUsers, label: 'Người dùng', icon: 'users' },
       { to: APP_ROUTES.catalog, label: 'Danh mục', icon: 'folder' },
       { to: APP_ROUTES.platformVerifications, label: 'Xác minh', icon: 'shield' },
@@ -61,7 +63,7 @@ export const ADMIN_NAV_GROUPS: AdminNavGroup[] = [
       { to: APP_ROUTES.platformNotificationTemplates, label: 'Mẫu thông báo', icon: 'message' },
       { to: APP_ROUTES.platformPenalties, label: 'Xử phạt', icon: 'flag' },
       { to: APP_ROUTES.platformCircumvention, label: 'Phát hiện né nền tảng', icon: 'shield' },
-      { to: APP_ROUTES.platformAuditLogs, label: 'Nhật ký hoạt động', icon: 'shield' },
+      { to: APP_ROUTES.platformAuditLogs, label: 'Nhật ký kiểm toán hệ thống', icon: 'shield' },
       { to: APP_ROUTES.platformParameters, label: 'Cấu hình hệ thống', icon: 'folder' },
     ],
   },
@@ -151,12 +153,14 @@ export const ADMIN_STATS: AdminStatConfig[] = [
     label: 'Lớp học',
     tone: 'default',
     icon: 'book',
+    to: APP_ROUTES.platformClasses,
   },
   {
     key: 'activeClasses',
     label: 'Lớp đang diễn ra',
     tone: 'primary',
     icon: 'book',
+    to: APP_ROUTES.platformClasses,
   },
   {
     key: 'pendingVerifications',
@@ -184,7 +188,7 @@ export const ADMIN_STATS: AdminStatConfig[] = [
     label: 'Tranh chấp giao dịch',
     tone: 'warn',
     icon: 'flag',
-    to: APP_ROUTES.platformTasks,
+    to: `${APP_ROUTES.platformReports}?tab=disputes`,
   },
 ];
 
@@ -193,13 +197,13 @@ export const ADMIN_PRIORITY_ITEMS = [
     key: 'openDisputes' as const,
     label: 'Tranh chấp giao dịch',
     icon: 'flag' as const,
-    to: APP_ROUTES.platformTasks,
+    to: `${APP_ROUTES.platformReports}?tab=disputes`,
   },
   {
     key: 'pendingWithdrawals' as const,
     label: 'Rút tiền chờ duyệt',
     icon: 'check-square' as const,
-    to: APP_ROUTES.platformTasks,
+    to: APP_ROUTES.platformWithdrawals,
   },
   {
     key: 'pendingVerifications' as const,

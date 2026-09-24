@@ -1,3 +1,16 @@
+/**
+ * ====================================================================================================
+ * [UC-11] MÀN HÌNH CHI TIẾT YÊU CẦU LỚP HỌC (MARKETPLACE CLASS DETAIL PAGE)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Xem đầy đủ thông tin mô tả yêu cầu học viên, thời khóa biểu và ngân sách học phí.
+ * 2. Cho phép gia sư gửi đề xuất ứng tuyển kèm lời nhắn thuyết phục phụ huynh.
+ * 3. Hiển thị danh sách ứng viên cho phụ huynh lựa chọn và chốt lịch phỏng vấn/dạy thử.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import axios from 'axios';
@@ -157,6 +170,7 @@ export default function MarketplaceClassDetailPage() {
     isTutor && data?.classType === 'CENTER' && !(Number(searchParams.get('assignmentId')) > 0);
 
   const isOpen = data?.status === 'OPEN';
+  const showDisputeShortcut = (isClient || isTutor) && data?.status === 'DISPUTED';
   // Đã đăng ký lớp này rồi (mọi trạng thái) -> khoá nút; backend cũng chặn đăng ký trùng.
   const myRegistration = isClient ? (data?.myRegistrationStatus ?? null) : null;
   const sortedSchedule = data
@@ -433,6 +447,12 @@ export default function MarketplaceClassDetailPage() {
                 </div>
               ) : null}
 
+              {showDisputeShortcut && (
+                <button className="mk-btn mk-btn--secondary mk-btn--block" type="button"
+                  onClick={() => navigate(APP_ROUTES.myDisputes, { state: { classId: data.classId } })}>
+                  Xem tranh chấp
+                </button>
+              )}
               {canRequestTermination ? (
                 <div className="mk-class-actions">
                   <div className="mk-enroll__head">

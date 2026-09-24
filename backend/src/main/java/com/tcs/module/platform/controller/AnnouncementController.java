@@ -15,6 +15,32 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ============================================================================
+ * [UC-59] QUẢN LÝ BẢN TIN & THÔNG BÁO TOÀN SÀN (ANNOUNCEMENT CONTROLLER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Quản trị viên quản lý và phát hành các thông báo chính sách, sự kiện và lịch bảo trì tới các nhóm người dùng.
+ *   - Phân phối tin tức chính xác tới từng đối tượng mục tiêu: Gia sư, Phụ huynh, Trung tâm hoặc toàn bộ hệ thống.
+ * 
+ * Chức năng chính:
+ *   1. Danh sách thông báo: Truy xuất toàn bộ danh sách thông báo quản trị viên đã cấu hình.
+ *   2. Tạo và cập nhật: Soạn thảo thông báo mới hoặc điều chỉnh nội dung, liên kết và thời hạn hiển thị.
+ *   3. Chuyển đổi trạng thái: Bật hoặc tắt nhanh hiển thị của bản tin trên trang chủ và giao diện người dùng.
+ *   4. Xóa thông báo: Thu hồi vĩnh viễn các bản tin không còn phù hợp.
+ *   5. Ghi vết kiểm toán: Lưu lịch sử thao tác vào Audit Log phục vụ thanh tra.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên truy vấn danh sách thông báo qua API `getAnnouncements`.
+ *   - Bước 2: Tạo hoặc cập nhật thông báo với dữ liệu đối tượng và thời gian bắt đầu/kết thúc (`upsertAnnouncement`).
+ *   - Bước 3: Chuyển đổi trạng thái kích hoạt thông báo khi cần (`toggleAnnouncement`).
+ *   - Bước 4: Xóa thông báo đã hết hạn hiệu lực (`deleteAnnouncement`).
+ * ============================================================================
+ */
 @RestController
 @RequestMapping("/api/platform/announcements")
 @RequiredArgsConstructor

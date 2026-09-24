@@ -148,6 +148,17 @@ import org.springframework.context.event.EventListener;
  * @see com.tcs.module.center.service.CenterService
  * @see com.tcs.module.center.entity.RecruitmentPost
  */
+/**
+ * ====================================================================================================
+ * [UC-45 / UC-46] DỊCH VỤ QUẢN TRỊ TRUNG TÂM GIA SƯ (CENTER SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Quản lý hồ sơ pháp lý, phê duyệt gia sư trực thuộc và điều phối lớp học của trung tâm.
+ * 2. Phân công gia sư nhận lớp, kiểm soát tiến độ giảng dạy và báo cáo chất lượng lớp học.
+ * 3. Tính toán hoa hồng và đối soát phí dịch vụ định kỳ giữa trung tâm và gia sư trực thuộc.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -189,6 +200,7 @@ public class CenterServiceImpl implements CenterService {
     private final com.tcs.module.profile.service.CccdService cccdService;
     private final com.tcs.module.identity.repository.UserRepository userRepository;
     private final com.tcs.module.messaging.service.NotificationDispatchService notificationDispatchService;
+    private final com.tcs.module.platform.service.PlatformAnalyticsService platformAnalyticsService;
 
     private static final DateTimeFormatter D_MM = DateTimeFormatter.ofPattern("dd/MM");
 
@@ -786,8 +798,7 @@ public class CenterServiceImpl implements CenterService {
             }
             RefundPayoutInfo payoutInfo = resolveRefundPayoutInfo(classStudent);
             if (!RefundPayoutInfoCodec.hasCompletePayout(payoutInfo)) {
-                log.warn("[Center] Bo qua refund tu dong cho classStudent={} vi thieu payout info", 
-                        classStudent.getClassStudentId());
+                log.warn("[Center] Bo qua refund tu dong cho classStudent={} vi thieu payout info",                        classStudent.getClassStudentId());
                 continue;
             }
             try {
@@ -1925,6 +1936,19 @@ public class CenterServiceImpl implements CenterService {
                 activeCount++;
             }
 
+            int totalSessions = c.getNumberOfSessions() != null ? c.getNumberOfSessions() : lessons.size();
+            int completedSessions = (int) lessons.stream()
+                    .filter(l -> l.getAttendanceStatus() == com.tcs.module.marketplace.enums.AttendanceStatus.COMPLETED
+                            || l.getTutorCheckInAt() != null
+                            || (l.getLessonDate() != null && l.getLessonDate().isBefore(java.time.LocalDate.now())))
+                    .count();
+            if (c.getStatus() == TutoringClassStatus.COMPLETED && totalSessions > 0) {
+                completedSessions = totalSessions;
+            }
+            double progressPercent = totalSessions > 0
+                    ? Math.min(100.0, Math.round((double) completedSessions / totalSessions * 1000.0) / 10.0)
+                    : 0.0;
+
             classStats.add(CenterStatsResponse.ClassStat.builder()
                     .classId(c.getClassId())
                     .title(c.getTitle())
@@ -1936,6 +1960,11 @@ public class CenterServiceImpl implements CenterService {
                     .absent(cA)
                     .excused(cE)
                     .attendanceRate(rate(cP, cP + cA + cE))
+                    .totalSessions(totalSessions)
+                    .completedSessions(completedSessions)
+                    .progressPercent(progressPercent)
+                    .startDate(c.getStartDate())
+                    .endDate(c.getEndDate())
                     .build());
 
             for (ClassStudent s : students) {
@@ -3098,12 +3127,16 @@ public class CenterServiceImpl implements CenterService {
         ContractTemplate t = new ContractTemplate();
         t.setName(request.getName().trim());
         t.setContent(request.getContent().trim());
+        String contractType = StringUtils.hasText(request.getContractType())
+                ? request.getContractType().trim()
+                : "CENTER_CLASS";
+        t.setContractType(contractType);
         t.setCreatedBy(center.getUser());
         t.setCenter(center);
         t.setDefaultTemplate(false);
         t.setStatus(ContractTemplateStatus.ACTIVE);
         ContractTemplate saved = contractTemplateRepository.save(t);
-        saveTemplateType(saved.getTemplateId(), request.getContractType());
+        saveTemplateType(saved.getTemplateId(), contractType);
         return toTemplateResponse(saved);
     }
 
@@ -3124,19 +3157,24 @@ public class CenterServiceImpl implements CenterService {
         if (StringUtils.hasText(request.getContent())) {
             t.setContent(request.getContent().trim());
         }
-        ContractTemplate saved = contractTemplateRepository.save(t);
         if (StringUtils.hasText(request.getContractType())) {
-            saveTemplateType(saved.getTemplateId(), request.getContractType());
+            String contractType = request.getContractType().trim();
+            t.setContractType(contractType);
+            saveTemplateType(t.getTemplateId(), contractType);
         }
+        ContractTemplate saved = contractTemplateRepository.save(t);
         return toTemplateResponse(saved);
     }
 
     private ContractTemplateResponse toTemplateResponse(ContractTemplate t) {
+        String type = StringUtils.hasText(t.getContractType())
+                ? t.getContractType()
+                : findTemplateType(t.getTemplateId());
         return ContractTemplateResponse.builder()
                 .templateId(t.getTemplateId())
                 .name(t.getName())
                 .content(t.getContent())
-                .contractType(findTemplateType(t.getTemplateId()))
+                .contractType(type)
                 .defaultTemplate(Boolean.TRUE.equals(t.getDefaultTemplate()))
                 .status(t.getStatus() != null ? t.getStatus().name() : null)
                 .system(t.getCenter() == null)
@@ -3230,6 +3268,19 @@ public class CenterServiceImpl implements CenterService {
     private String findTemplateType(Long templateId) {
         return systemParameterRepository.findByParamKey(TEMPLATE_TYPE_PREFIX + templateId)
                 .map(SystemParameter::getParamValue)
-                .orElse(TEMPLATE_TYPE_CLASS);
+                .orElseGet(() -> systemParameterRepository.findByParamKey("CONTRACT_TEMPLATE_TYPE_" + templateId)
+                        .map(SystemParameter::getParamValue)
+                        .orElse(TEMPLATE_TYPE_CLASS));
+    }
+
+    // =========================================================================
+    // UC-41: BÁO CÁO TÀI CHÍNH RIÊNG CHO TRUNG TÂM (TUTOR CENTER FINANCIAL REPORT)
+    // =========================================================================
+    @Override
+    @Transactional(readOnly = true)
+    public com.tcs.module.platform.dto.response.CenterFinancialAnalyticsResponse getCenterFinancialReport(
+            LocalDate from, LocalDate to) {
+        TutorCenter center = requireCenter();
+        return platformAnalyticsService.getCenterAnalyticsByCenterId(center.getCenterId(), from, to);
     }
 }

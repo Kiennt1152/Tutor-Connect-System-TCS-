@@ -126,7 +126,7 @@ export function IssuePenaltyModal({
 
         {sourceType && sourceId && (
           <div className="adm-penalty-modal__source-badge">
-            📌 Nguồn xử lý: <strong>{sourceType} #{sourceId}</strong>
+            Nguồn xử lý: <strong>{sourceType} #{sourceId}</strong>
           </div>
         )}
 

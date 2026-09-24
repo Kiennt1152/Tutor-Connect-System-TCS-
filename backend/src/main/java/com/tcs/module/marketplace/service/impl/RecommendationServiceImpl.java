@@ -17,6 +17,30 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * ============================================================================
+ * [UC-12] [UC-14] DỊCH VỤ GỢI Ý LỚP HỌC VÀ GIA SƯ THÔNG MINH (RECOMMENDATION SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-14
+ * 
+ * Mô tả Use Case:
+ *   - Hệ thống gợi ý gia sư và lớp học thông minh sử dụng thuật toán chấm điểm độ tương đồng đa tiêu chí.
+ *   - Tối ưu hóa việc kết nối giữa nhu cầu học tập của phụ huynh/học viên và năng lực giảng dạy của gia sư.
+ * 
+ * Chức năng chính:
+ *   1. Gợi ý gia sư cho lớp học: Phân tích yêu cầu môn học, khối lớp, ngân sách và địa điểm để xếp hạng top gia sư phù hợp nhất.
+ *   2. Gợi ý lớp học cho gia sư: Đề xuất các yêu cầu tìm gia sư mới phù hợp với hồ sơ chuyên môn và khoảng cách di chuyển của gia sư.
+ *   3. Ghi vết gợi ý (Recommendation Log): Lưu trữ lịch sử đề xuất phục vụ đánh giá hiệu quả thuật toán matching.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận mã lớp học cần tìm gia sư (recommendTutors).
+ *   - Bước 2: Thu thập thông tin chi tiết môn học, khối lớp, mức học phí và vị trí địa lý của lớp học.
+ *   - Bước 3: Tính toán điểm số tương thích (Matching Score) cho từng ứng viên gia sư đã được xác thực hồ sơ.
+ *   - Bước 4: Sắp xếp theo điểm số từ cao xuống thấp, ghi log hệ thống và trả về danh sách top đề xuất.
+ * ============================================================================
+ */
 @Service
 @RequiredArgsConstructor
 public class RecommendationServiceImpl implements RecommendationService {

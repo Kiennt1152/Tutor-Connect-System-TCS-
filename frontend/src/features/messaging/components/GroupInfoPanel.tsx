@@ -1,13 +1,18 @@
 /**
  * ============================================================================
- * BẢNG THÔNG TIN VÀ QUẢN LÝ NHÓM CHAT (GROUP INFO & MANAGEMENT PANEL)
+ * [BF-09] [UC-36] BẢNG THÔNG TIN VÀ QUẢN LÝ NHÓM CHAT (GROUP INFO & MANAGEMENT PANEL)
  * ============================================================================
- * 
- * Tác giả: mduc1011-swp
- * Mô tả:
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-08-05
+ * * 1. Mục đích & Chức năng:
  *   - Hiển thị danh sách thành viên nhóm chat và thông tin vai trò (Owner / Member).
  *   - Chức năng quản trị dành cho Trưởng nhóm (Owner): Đổi tên nhóm, Thêm thành viên mới (tối đa 20 người), Xóa thành viên, Chuyển quyền Trưởng nhóm.
  *   - Cho phép thành viên tự rời nhóm (Leave Group) sau khi đã xử lý bàn giao quyền chủ nhóm.
+ * * 2. Luồng xử lý chính:
+ *   - Bước 1: Nạp danh sách thành viên nhóm từ messagingApi.getGroupMembers(conversationId).
+ *   - Bước 2: Kiểm tra quyền của người dùng hiện tại (nếu là Owner -> kích hoạt các nút quản lý).
+ *   - Bước 3: Thực hiện thay đổi cấu hình nhóm qua API và gửi thông báo sự kiện tới cả nhóm.
+ * ============================================================================
  */
 
 import { useEffect, useMemo, useState } from 'react';

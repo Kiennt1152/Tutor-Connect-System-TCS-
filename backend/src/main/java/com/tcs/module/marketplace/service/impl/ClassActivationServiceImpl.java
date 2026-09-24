@@ -16,6 +16,27 @@ import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * [UC-12] [UC-15] DỊCH VỤ KÍCH HOẠT LỚP HỌC CHÍNH THỨC (CLASS ACTIVATION SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-07-29
+ * 
+ * Mô tả Use Case:
+ *   - Kiểm tra điều kiện tiên quyết và kích hoạt trạng thái lớp học sang Đang diễn ra sau khi hợp đồng được ký và ký quỹ hoàn tất.
+ * 
+ * Chức năng chính:
+ *   1. Kiểm tra điều kiện mở lớp: Xác thực hợp đồng đã được hai bên ký số và tiền học phí đã vào trạng thái ký quỹ.
+ *   2. Khởi tạo lịch trình giảng dạy: Kích hoạt trạng thái lớp IN_PROGRESS và tạo lịch học chi tiết cho từng buổi.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Lắng nghe sự kiện ContractSigned hoặc EscrowFunded từ hệ thống.
+ *   - Bước 2: Kiểm tra đối chiếu tính sẵn sàng của lớp học và các bên tham gia.
+ *   - Bước 3: Cập nhật trạng thái lớp học và gửi thông báo nhắc lịch buổi học đầu tiên.
+ * ============================================================================
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor

@@ -6,8 +6,25 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 /**
- * TCS-specific Synonym and Query Expansion Service.
- * Expands queries with domain-specific synonyms to improve retrieval recall.
+ * ============================================================================
+ * [UC-65] MỞ RỘNG TỪ ĐỒNG NGHĨA GIÁO DỤC (TCS SYNONYM SERVICE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Từ điển mở rộng từ đồng nghĩa tiếng Việt chuyên ngành sư phạm, cách nói địa phương và ngôn ngữ mạng (teencode).
+ * 
+ * Chức năng chính:
+ *   1. Mở rộng thuật ngữ môn học: Quy đổi Toán 12, Đại số, Hình học về môn Toán chuẩn.
+ *   2. Chuẩn hóa teencode: Dịch các từ viết tắt tuổi teen (mik, mk, thik, k, hk) sang từ chuẩn.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Phân tách câu hỏi thành các cụm từ có nghĩa.
+ *   - Bước 2: Tra cứu bảng từ đồng nghĩa và bổ sung các biến thể tương đương vào truy vấn.
+ *   - Bước 3: Trả về câu truy vấn phong phú tăng độ bao phủ của bộ tìm kiếm.
+ * ============================================================================
  */
 @Slf4j
 @Service

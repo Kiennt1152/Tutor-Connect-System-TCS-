@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH TÀI KHOẢN & XÁC THỰC (IDENTITY AUTH INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Phân loại các vấn đề đăng nhập, đăng ký tài khoản mới, quên mật khẩu và quản lý thông tin bảo mật.
+ * 
+ * Chức năng chính:
+ *   1. Nhận diện xác thực tài khoản: Bắt từ khóa đăng nhập, tạo tài khoản gia sư/phụ huynh.
+ *   2. Nhận diện khôi phục mật khẩu: Bắt từ khóa quên mật khẩu, đổi mật khẩu và mã OTP.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quét các mẫu câu hỏi liên quan đến tài khoản và quyền truy cập.
+ *   - Bước 2: Gán miền AiDomain.IDENTITY_AUTH và gán độ tin cậy cao.
+ *   - Bước 3: Cung cấp liên kết trang đăng nhập /login hoặc quên mật khẩu /forgot-password.
+ * ============================================================================
+ */
 @Component
 public class IdentityAuthIntentRule implements IntentRule {
 

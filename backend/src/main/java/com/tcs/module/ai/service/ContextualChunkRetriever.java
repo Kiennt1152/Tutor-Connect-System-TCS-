@@ -4,6 +4,27 @@ import com.tcs.module.ai.entity.AiKnowledgeChunk;
 import java.util.*;
 import org.springframework.stereotype.Component;
 
+/**
+ * ============================================================================
+ * [UC-65] MỞ RỘNG NGỮ CẢNH TRI THỨC LIỀN KỀ (CONTEXTUAL CHUNK RETRIEVER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Mở rộng cửa sổ ngữ cảnh bằng cách tự động ghép nối các đoạn văn bản liền trước và liền sau chunk được tìm thấy.
+ * 
+ * Chức năng chính:
+ *   1. Ghép nối đoạn liền kề: Đọc thêm chunk trước và sau theo chỉ mục tài liệu (chunk_index +/- 1).
+ *   2. Đảm bảo tính mạch lạc: Khắc phục nhược điểm câu từ bị cắt ngang giữa các đoạn chunk.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Tiếp nhận danh sách chunk tri thức đạt điểm tương đồng cao nhất.
+ *   - Bước 2: Truy vấn CSDL để lấy các chunk lân cận cùng thuộc tài liệu nguồn.
+ *   - Bước 3: Hợp nhất nội dung theo đúng thứ tự logic cung cấp cho Prompt Builder.
+ * ============================================================================
+ */
 @Component
 public class ContextualChunkRetriever {
 

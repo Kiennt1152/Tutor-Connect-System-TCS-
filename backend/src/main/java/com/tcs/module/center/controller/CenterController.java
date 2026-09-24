@@ -43,6 +43,17 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ====================================================================================================
+ * [UC-45 / UC-46] ĐIỀU HÀNH & PHÂN CÔNG LỚP TRUNG TÂM GIA SƯ (CENTER CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Quản lý danh sách gia sư thuộc quyền quản lý của trung tâm và phân công giảng dạy.
+ * 2. Tiếp nhận và xử lý các yêu cầu mở lớp học quy mô trung tâm.
+ * 3. Quản trị biểu phí nhượng quyền và kiểm soát chất lượng đào tạo nội bộ.
+ * * @author Hoàng Khôi Nguyên (NguyenHK186858)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @RestController
 @RequestMapping("/api/center")
 @RequiredArgsConstructor
@@ -371,5 +382,15 @@ public class CenterController {
     @PostMapping("/substitutions/decision")
     public SubstitutionResponse decideSubstitution(@RequestBody SubstitutionDecisionBody request) {
         return centerService.decideSubstitution(request);
+    }
+
+    // =========================================================================
+    // UC-41: BÁO CÁO TÀI CHÍNH RIÊNG CHO TRUNG TÂM (TUTOR CENTER FINANCIAL REPORT)
+    // =========================================================================
+    @GetMapping("/financial-report")
+    public com.tcs.module.platform.dto.response.CenterFinancialAnalyticsResponse getCenterFinancialReport(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+        return centerService.getCenterFinancialReport(from, to);
     }
 }

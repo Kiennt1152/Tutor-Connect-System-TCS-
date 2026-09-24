@@ -31,6 +31,17 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * ====================================================================================================
+ * [UC-01 / UC-02] XÁC THỰC & PHÂN QUYỀN TÀI KHOẢN (IDENTITY CONTROLLER)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Xử lý đăng ký tài khoản mới cho các vai trò: Phụ huynh/Học viên, Gia sư, Trung tâm.
+ * 2. Xác thực đăng nhập hệ thống, cấp phát bộ mã JWT Token (Access Token & Refresh Token).
+ * 3. Quản lý quy trình quên mật khẩu, gửi mã xác thực OTP qua email và đặt lại mật khẩu an toàn.
+ * * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @RestController
 @RequestMapping("/api/identity")
 @RequiredArgsConstructor

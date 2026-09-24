@@ -9,6 +9,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.containsAny;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC Ý ĐỊNH TÌM KIẾM GIA SƯ & LỚP HỌC (MARKETPLACE INTENT RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Xử lý các truy vấn tìm kiếm gia sư theo môn học, tìm lớp dạy thêm và hướng dẫn đăng tin tìm gia sư.
+ * 
+ * Chức năng chính:
+ *   1. Nhận diện tìm gia sư: Bắt từ khóa tìm gia sư Toán, Lý, Hóa, Tiếng Anh, Luyện thi đại học.
+ *   2. Nhận diện tìm lớp dạy: Bắt từ khóa lớp mới cần gia sư, nhận lớp dạy kèm tại nhà.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Nhận diện nhu cầu kết nối giảng dạy từ câu hỏi của người dùng.
+ *   - Bước 2: Phân loại vào AiDomain.MARKETPLACE với ý định SEARCH_TUTOR hoặc SEARCH_CLASS.
+ *   - Bước 3: Trả về liên kết điều hướng tới chợ lớp học /marketplace hoặc /find-tutor.
+ * ============================================================================
+ */
 @Component
 public class MarketplaceIntentRule implements IntentRule {
 

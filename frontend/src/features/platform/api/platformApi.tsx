@@ -1,3 +1,18 @@
+/**
+ * ============================================================================
+ * [BF-10 / BF-09] API CLIENT QUẢN TRỊ NỀN TẢNG & HỖ TRỢ KHÁCH HÀNG (PLATFORM API)
+ * ============================================================================
+ * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo      : 2026-06-23
+ * 
+ * Mô tả:
+ *   - Tập hợp toàn bộ các hàm gọi RESTful API từ Frontend lên Backend phục vụ:
+ *     1. Bảng điều khiển quản trị Admin Dashboard và phân tích số liệu tài chính [UC-56, UC-41, UC-43].
+ *     2. Quản lý người dùng, duyệt hồ sơ eKYC CCCD, xử phạt vi phạm và kiểm toán [UC-07, UC-11, UC-60, UC-61].
+ *     3. Quản trị hệ thống phiếu hỗ trợ khách hàng (Support Ticket), SLA và FAQ [UC-63, UC-66, UC-67].
+ *     4. Quản lý ký quỹ Escrow, biểu phí sàn, mẫu hợp đồng và phát hiện lách sàn [UC-58, UC-46, UC-45, UC-59].
+ * ============================================================================
+ */
 import axiosClient from '../../../shared/api/axiosClient';
 import type {
   AdminDisputeReviewApiResponse,
@@ -8,6 +23,7 @@ import type {
   AppealDisputeApiRequest,
   AuditLogFilters,
   CloseTicketApiRequest,
+  CreateUserApiRequest,
   DashboardApiResponse,
   DisputeStatus,
   ExecuteRefundApiRequest,
@@ -55,6 +71,12 @@ import type {
   CircumventionEventApiResponse,
   AiKnowledgeStatsApiResponse,
   AiKnowledgeReindexApiResponse,
+  CenterFinancialAnalyticsApiResponse,
+  TutorFinancialAnalyticsApiResponse,
+  ClientFinancialAnalyticsApiResponse,
+  PageFinancialLedgerApiResponse,
+  CenterFeeConfigApiResponse,
+  UpdateCenterFeeApiRequest,
 } from '../types/platformTypes';
 import {
   buildTicketListQuery,
@@ -77,6 +99,10 @@ export const platformApi = {
     return axiosClient.get<PageUserListApiResponse>(`${BASE}/users?${buildUserListQuery(filters)}`);
   },
 
+  createUser(payload: CreateUserApiRequest) {
+    return axiosClient.post<UserListItemApiResponse>(`${BASE}/users`, payload);
+  },
+
   getWithdrawals(filters: WithdrawalListFilters) {
     return axiosClient.get<PageAdminWithdrawalApiResponse>(
       `/finance/withdrawals?${buildWithdrawalListQuery(filters)}`,
@@ -97,6 +123,10 @@ export const platformApi = {
 
   markWithdrawalTransferFailed(withdrawalId: string, payload: WithdrawalDecisionApiRequest) {
     return axiosClient.post(`/finance/withdrawals/${withdrawalId}/transfer-failed`, payload);
+  },
+
+  completeWithdrawal(withdrawalId: string, payload?: WithdrawalDecisionApiRequest) {
+    return axiosClient.post(`/finance/withdrawals/${withdrawalId}/complete`, payload || {});
   },
 
   updateUserStatus(userId: string, payload: UpdateUserStatusApiRequest) {
@@ -341,12 +371,96 @@ export const platformApi = {
     return axiosClient.get<AnalyticsSummaryApiResponse>(`${BASE}/analytics/summary?${params}`);
   },
 
-  exportAnalyticsCsv(type: 'users' | 'classes' | 'revenue' | 'cashflow' | 'transaction-breakdown', from?: string, to?: string) {
+  getCenterAnalytics(from?: string, to?: string) {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return axiosClient.get<CenterFinancialAnalyticsApiResponse[]>(`${BASE}/analytics/entities/centers?${params}`);
+  },
+
+  getTutorAnalytics(from?: string, to?: string) {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return axiosClient.get<TutorFinancialAnalyticsApiResponse[]>(`${BASE}/analytics/entities/tutors?${params}`);
+  },
+
+  getClientAnalytics(from?: string, to?: string) {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return axiosClient.get<ClientFinancialAnalyticsApiResponse[]>(`${BASE}/analytics/entities/clients?${params}`);
+  },
+
+  getFinancialLedger(filters?: {
+    role?: string;
+    direction?: string;
+    search?: string;
+    from?: string;
+    to?: string;
+    page?: number;
+    size?: number;
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.role) params.set('role', filters.role);
+    if (filters?.direction) params.set('direction', filters.direction);
+    if (filters?.search) params.set('search', filters.search);
+    if (filters?.from) params.set('from', filters.from);
+    if (filters?.to) params.set('to', filters.to);
+    if (typeof filters?.page === 'number') params.set('page', String(filters.page));
+    if (typeof filters?.size === 'number') params.set('size', String(filters.size));
+    return axiosClient.get<PageFinancialLedgerApiResponse>(`${BASE}/analytics/ledger?${params}`);
+  },
+
+  exportAnalyticsCsv(type: string, from?: string, to?: string) {
     const params = new URLSearchParams({ type, format: 'csv' });
     if (from) params.set('from', from);
     if (to) params.set('to', to);
     return axiosClient.get<Blob>(`${BASE}/analytics/export?${params}`, {
       responseType: 'blob',
     });
+  },
+
+  getClasses(status?: string) {
+    const params = new URLSearchParams();
+    if (status) params.set('status', status);
+    return axiosClient.get<any[]>(`/marketplace/classes${params.toString() ? `?${params}` : ''}`);
+  },
+
+  getClassDetail(classId: number | string) {
+    return axiosClient.get<any>(`/marketplace/classes/${classId}`);
+  },
+
+  getPlatformSchedule(date?: string) {
+    const q = date ? `?date=${date}` : '';
+    return axiosClient.get<import('../../center/types/centerTypes').ScheduleClass[]>(`${BASE}/classes/schedule${q}`);
+  },
+
+  getContractTemplates() {
+    return axiosClient.get<any[]>(`${BASE}/contract-templates`);
+  },
+
+  createContractTemplate(payload: { name: string; content: string; contractType?: string }) {
+    return axiosClient.post<any>(`${BASE}/contract-templates`, payload);
+  },
+
+  updateContractTemplate(templateId: number, payload: { name: string; content: string; contractType?: string }) {
+    return axiosClient.put<any>(`${BASE}/contract-templates/${templateId}`, payload);
+  },
+
+  deleteContractTemplate(templateId: number) {
+    return axiosClient.delete(`${BASE}/contract-templates/${templateId}`);
+  },
+
+  getCenterFeeConfigs() {
+    return axiosClient.get<CenterFeeConfigApiResponse[]>(`${BASE}/fees/centers`);
+  },
+
+  updateCenterFeeConfig(centerId: number, payload: UpdateCenterFeeApiRequest) {
+    return axiosClient.put<CenterFeeConfigApiResponse>(`${BASE}/fees/centers/${centerId}`, payload);
+  },
+
+  resetCenterFeeConfig(centerId: number) {
+    return axiosClient.delete<CenterFeeConfigApiResponse>(`${BASE}/fees/centers/${centerId}`);
   },
 };

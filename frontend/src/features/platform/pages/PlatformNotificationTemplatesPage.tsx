@@ -1,3 +1,29 @@
+/**
+ * ============================================================================
+ * [BF-09] QUẢN TRỊ MẪU THÔNG BÁO & EMAIL HỆ THỐNG (NOTIFICATION TEMPLATES PAGE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-11
+ * 
+ * Mô tả Use Case:
+ *   - Quản lý các mẫu email và thông báo đẩy (Push Notification) gửi tự động tới người dùng khi có sự kiện.
+ *   - Chuẩn hóa ngôn từ và hình ảnh thương hiệu trong các thông báo ký quỹ, xác thực OTP và báo cáo học tập.
+ * 
+ * Chức năng chính:
+ *   1. Danh sách mẫu thông báo: Phân loại theo loại sự kiện (Xác thực OTP, Ký hợp đồng, Ký quỹ Escrow, Án phạt).
+ *   2. Soạn thảo mẫu nội dung: Trình biên tập hỗ trợ cả định dạng văn bản thuần và mẫu email HTML động.
+ *   3. Quản lý biến thế chỗ (Variables): Chèn động tên người nhận, mã OTP, số tiền, hạn chót xử lý.
+ *   4. Gửi email thử nghiệm: Cho phép Admin gửi email test về hòm thư của mình để kiểm tra hiển thị.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Quản trị viên chọn mẫu sự kiện cần chỉnh sửa trong danh mục thông báo.
+ *   - Bước 2: Soạn thảo tiêu đề và nội dung thông báo kèm các thẻ biến thay thế.
+ *   - Bước 3: Gửi thử nghiệm email xem trước trên các thiết bị di động và máy tính.
+ *   - Bước 4: Lưu cấu hình, hệ thống áp dụng ngay cho các tiến trình thông báo tự động.
+ * ============================================================================
+ */
+
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { getApiErrorMessage } from '../../../shared/api/apiError';
 import { AdminLayout } from '../components/AdminLayout';

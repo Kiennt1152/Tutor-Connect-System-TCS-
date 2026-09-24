@@ -25,6 +25,27 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+/**
+ * ============================================================================
+ * [UC-65] NẠP & ĐÁNH CHỈ MỤC KHO TRI THỨC HỆ THỐNG (KNOWLEDGE INDEXER)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Tiếp nhận, phân đoạn (Chunking) và đánh chỉ mục vector cho các tài liệu chính sách, cẩm nang và FAQ của nền tảng.
+ * 
+ * Chức năng chính:
+ *   1. Phân đoạn tài liệu: Cắt văn bản dài thành các đoạn nhỏ có kích thước tối ưu kèm phần gối đầu (overlap).
+ *   2. Đánh chỉ mục vector: Sinh embedding và lưu trữ vào bảng ai_knowledge_chunks phục vụ tìm kiếm.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Đọc nội dung tài liệu chính sách hoặc cẩm nang hướng dẫn mới cập nhật.
+ *   - Bước 2: Phân tích và chia nhỏ thành các đoạn tri thức mạch lạc.
+ *   - Bước 3: Sinh vector embedding và lưu vào CSDL kèm thông tin phân quyền truy cập.
+ * ============================================================================
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -160,12 +181,22 @@ public class KnowledgeIndexerService {
                 "- Hợp đồng có giá trị pháp lý ràng buộc về quyền lợi, nghĩa vụ, lịch dạy, mức học phí và điều khoản bồi thường khi vi phạm.",
                 Map.of("category", "CONTRACT", "tags", "hop_dong,ky_otp,hop_dong_dien_tu,contracts"), stats);
 
+        indexChunk(KnowledgeSourceType.POLICY, "POLICY_TRIAL_LESSON_AND_CHANGE_TUTOR",
+                "Chính sách Học thử, Thỏa thuận Hợp đồng và Đổi gia sư",
+                "Chính sách Học thử và Thỏa thuận Hợp đồng gia sư trên TCS:\n" +
+                "- Buổi học thử: TCS hoàn toàn cho phép và khuyến khích phụ huynh và gia sư (bao gồm gia sư tiếng Anh IELTS và các môn khác) tự do thỏa thuận buổi học thử đầu tiên (có thể miễn phí hoặc tính phí thỏa thuận).\n" +
+                "- Điều khoản hợp đồng: Hai bên có thể đưa điều khoản buổi học thử và cam kết mục tiêu học tập vào Hợp đồng điện tử 3 bên tại /contracts trước khi bắt đầu khóa học chính thức.\n" +
+                "- Đổi gia sư miễn phí: Nếu sau buổi học đầu tiên cảm thấy phong cách giảng dạy chưa phù hợp, phụ huynh có quyền yêu cầu đổi gia sư khác hoàn toàn miễn phí.\n" +
+                "- Bảo vệ tài chính: Học phí các buổi chưa học được lưu giữ an toàn 100% trong quỹ ký quỹ Escrow và có thể hoàn trả hoặc chuyển tiếp sang gia sư mới.\n" +
+                "- Hỗ trợ: Quản lý lớp học tại /classes hoặc gửi yêu cầu hỗ trợ tại /messaging/tickets.",
+                Map.of("category", "POLICY", "tags", "hoc_thu,day_thu,buoi_dau,doi_gia_su,hop_dong,ielts,tieng_anh"), stats);
+
         indexChunk(KnowledgeSourceType.POLICY, "POLICY_REFUND_AND_DISPUTE", 
                 "Chính sách Hoàn tiền và Giải quyết tranh chấp",
                 "Quy trình Hoàn tiền (Refund) và Giải quyết tranh chấp (Dispute):\n" +
                 "- Hủy lớp học trước 24 giờ kể từ lịch học: Học viên được hoàn trả 100% số tiền đặt cọc trong Escrow về ví.\n" +
                 "- Hủy lớp học trước 12 giờ: Học viên được hoàn 50% tiền cọc, 50% còn lại bồi thường cho gia sư.\n" +
-                "- Sau khi lớp học đã bắt đầu hoặc phát sinh khiếu nại (gia sư vắng mặt không phép, dạy sai cam kết, gian lận): Các bên có quyền mở Tranh chấp (Dispute) tại /support/tickets. Admin sẽ xem xét chứng cứ trong 48 giờ và ra quyết định phân bổ 100% Escrow (hoàn tiền cho học viên, giải ngân cho gia sư, hoặc chia tỷ lệ bồi hoàn).",
+                "- Sau khi lớp học đã bắt đầu hoặc phát sinh khiếu nại (gia sư vắng mặt không phép, dạy sai cam kết, gian lận): Các bên có quyền mở Tranh chấp (Dispute) tại /messaging/tickets. Admin sẽ xem xét chứng cứ trong 48 giờ và ra quyết định phân bổ 100% Escrow (hoàn tiền cho học viên, giải ngân cho gia sư, hoặc chia tỷ lệ bồi hoàn).",
                 Map.of("category", "DISPUTE", "tags", "hoan_tien,tranh_chap,refund,dispute,khieu_nai"), stats);
 
         indexChunk(KnowledgeSourceType.POLICY, "POLICY_REPUTATION_AND_REVIEWS",
@@ -181,13 +212,13 @@ public class KnowledgeIndexerService {
                 "Chính sách Phòng chống Lách sàn và Xử phạt vi phạm",
                 "Quy định Chống Lách sàn (Platform Circumvention):\n" +
                 "- Nghiêm cấm mọi hành vi gia sư, trung tâm hoặc học viên chủ động gạ gẫm, chia sẻ thông tin liên lạc riêng (SĐT, Zalo, STK ngân hàng) nhằm giao dịch ngoài sàn để trốn phí nền tảng 10%.\n" +
-                "- Hệ thống tự động phát hiện và nhận báo cáo vi phạm lách sàn tại /support/tickets (Report Category: PLATFORM_CIRCUMVENTION / FRAUD).\n" +
+                "- Hệ thống tự động phát hiện và nhận báo cáo vi phạm lách sàn tại /messaging/tickets (Report Category: PLATFORM_CIRCUMVENTION / FRAUD).\n" +
                 "- Mức xử phạt: Cảnh cáo lần đầu (Warning), phạt trừ tiền ví, đình chỉ tài khoản tạm thời (Suspension) hoặc Khóa tài khoản vĩnh viễn (Ban) và phong tỏa số dư ví đối với các trường hợp cố tình tái phạm nghiêm trọng.",
                 Map.of("category", "PENALTY", "tags", "lach_san,xu_phat,circumvention,gian_lan,to_cao"), stats);
 
         indexChunk(KnowledgeSourceType.POLICY, "POLICY_SUPPORT_TICKETS_SLA",
                 "Chính sách Hỗ trợ khách hàng, Gửi Ticket khiếu nại và Cam kết SLA",
-                "Quy định Tiếp nhận & Xử lý Ticket hỗ trợ tại /support/tickets:\n" +
+                "Quy định Tiếp nhận & Xử lý Ticket hỗ trợ tại /messaging/tickets:\n" +
                 "- Người dùng có thể tạo Ticket để yêu cầu hỗ trợ tài khoản, nạp/rút tiền, báo cáo sự cố kỹ thuật hoặc tranh chấp lớp học.\n" +
                 "- Cam kết thời gian phản hồi SLA:\n" +
                 "  + Mức độ Khẩn cấp (CRITICAL - ví dụ lỗi nạp tiền, sự cố an toàn): Phản hồi trong vòng 2 - 4 giờ.\n" +

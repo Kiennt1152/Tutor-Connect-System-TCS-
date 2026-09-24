@@ -134,6 +134,7 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/finance/withdrawals/*/approve",
                                 "/api/finance/withdrawals/*/reject",
+                                "/api/finance/withdrawals/*/complete",
                                 "/api/finance/withdrawals/*/transfer-failed")
                         .hasRole(RbacConstants.PLATFORM_ADMIN)
                         .requestMatchers(HttpMethod.GET, "/api/finance/settlements/preview/*")
@@ -243,6 +244,8 @@ public class SecurityConfig {
                         .hasRole(RbacConstants.TUTOR_CENTER)
 
                         // --- Issue, dispute & refund ---
+                        .requestMatchers(HttpMethod.GET, "/api/disputes/mine")
+                        .hasAnyRole(RbacConstants.BUSINESS_ROLES)
                         .requestMatchers(HttpMethod.GET, "/api/disputes", "/api/disputes/**")
                         .hasAnyRole(RbacConstants.PLATFORM_ADMIN, RbacConstants.TUTOR_CENTER)
                         .requestMatchers(HttpMethod.POST, "/api/disputes/*/resolve")

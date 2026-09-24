@@ -135,12 +135,30 @@ export function useWithdrawalDecision() {
     [],
   );
 
+  const completeWithdrawal = useCallback(
+    async (withdrawalId: string, payload?: WithdrawalDecisionApiRequest): Promise<boolean> => {
+      setStatus('loading');
+      setErrorMessage(null);
+      try {
+        await platformApi.completeWithdrawal(withdrawalId, payload);
+        setStatus('success');
+        return true;
+      } catch (error) {
+        console.error('Lỗi xác nhận hoàn tất rút tiền:', error);
+        setErrorMessage(getApiErrorMessage(error, 'Không thể xác nhận hoàn tất rút tiền.'));
+        setStatus('error');
+        return false;
+      }
+    },
+    [],
+  );
+
   const reset = useCallback(() => {
     setStatus('idle');
     setErrorMessage(null);
   }, []);
 
-  return { status, errorMessage, approveWithdrawal, rejectWithdrawal, markTransferFailed, reset };
+  return { status, errorMessage, approveWithdrawal, rejectWithdrawal, markTransferFailed, completeWithdrawal, reset };
 }
 
 export function useResolveDispute() {

@@ -1,4 +1,4 @@
-import { BrowserRouter, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import HomePage from '../features/home/pages/HomePage';
 import FindTutorPage from '../features/home/pages/FindTutorPage';
 import PostTutorRequestPage from '../features/home/pages/PostTutorRequestPage';
@@ -18,6 +18,8 @@ import PlatformProfilePage from '../features/platform/pages/PlatformProfilePage'
 import PlatformReportsPage from '../features/platform/pages/PlatformReportsPage';
 import PlatformReviewsPage from '../features/platform/pages/PlatformReviewsPage';
 import PlatformUsersPage from '../features/platform/pages/PlatformUsersPage';
+import PlatformClassesPage from '../features/platform/pages/PlatformClassesPage';
+import PlatformContractTemplatesPage from '../features/platform/pages/PlatformContractTemplatesPage';
 import PlatformVerificationsPage from '../features/platform/pages/PlatformVerificationsPage';
 import PlatformWithdrawalsPage from '../features/platform/pages/PlatformWithdrawalsPage';
 import PlatformFeeSettingsPage from '../features/platform/pages/PlatformFeeSettingsPage';
@@ -54,6 +56,7 @@ import MarketplaceClassDetailPage from '../features/marketplace/pages/Marketplac
 import CatalogPage from '../features/catalog/pages/CatalogPage';
 import ContractListPage from '../features/contract/pages/ContractListPage';
 import ContractDetailPage from '../features/contract/pages/ContractDetailPage';
+import MyDisputesPage from '../features/dispute/pages/MyDisputesPage';
 import MessagingPage from '../features/messaging/pages/MessagingPage';
 import TicketsPage from '../features/messaging/pages/TicketsPage';
 import MyReviewsPage from '../features/reviews/pages/MyReviewsPage';
@@ -216,6 +219,14 @@ export default function App() {
             element={
               <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
                 <ContractDetailPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.myDisputes}
+            element={
+              <ProtectedRoute roles={['CLIENT', 'TUTOR', 'TUTOR_CENTER']}>
+                <MyDisputesPage />
               </ProtectedRoute>
             }
           />
@@ -384,6 +395,22 @@ export default function App() {
             }
           />
           <Route
+            path={APP_ROUTES.platformClasses}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformClassesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path={APP_ROUTES.platformContractTemplates}
+            element={
+              <ProtectedRoute roles={['PLATFORM_ADMIN']}>
+                <PlatformContractTemplatesPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
             path={APP_ROUTES.platformUsers}
             element={
               <ProtectedRoute roles={['PLATFORM_ADMIN']}>
@@ -521,6 +548,7 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+          <Route path="/support/tickets" element={<Navigate to={APP_ROUTES.messagingTickets} replace />} />
         </Routes>
         <WalletActivationPrompt />
         <AiFloatingWidget />

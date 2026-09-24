@@ -21,6 +21,7 @@ public class AnalyticsSummaryResponse {
     BigDecimal platformFeeRate;
     BigDecimal deposits;
     BigDecimal withdrawals;
+    BigDecimal pendingWithdrawals;
     BigDecimal escrowHeld;
     BigDecimal escrowReleased;
     BigDecimal escrowRefunded;

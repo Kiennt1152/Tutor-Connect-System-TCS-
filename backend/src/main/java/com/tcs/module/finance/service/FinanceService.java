@@ -54,6 +54,8 @@ public interface FinanceService {
 
     WithdrawalResponse approveWithdrawal(Long withdrawalId);
 
+    WithdrawalResponse completeWithdrawalManual(Long withdrawalId, WithdrawalDecisionRequest request);
+
     WithdrawalResponse rejectWithdrawal(Long withdrawalId, WithdrawalDecisionRequest request);
 
     WithdrawalResponse markWithdrawalTransferFailed(Long withdrawalId, WithdrawalDecisionRequest request);

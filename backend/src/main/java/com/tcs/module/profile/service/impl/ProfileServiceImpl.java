@@ -83,6 +83,17 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
+/**
+ * ====================================================================================================
+ * [UC-07] DỊCH VỤ QUẢN LÝ HỒ SƠ NGƯỜI DÙNG (PROFILE SERVICE IMPLEMENTATION)
+ * ====================================================================================================
+ * Nghiệp vụ chính:
+ * 1. Cập nhật hồ sơ cá nhân, thông tin liên hệ, tiểu sử và ảnh đại diện cho các vai trò.
+ * 2. Liên kết thông tin số tài khoản ngân hàng chính chủ phục vụ thanh toán nạp rút.
+ * * @author Vũ Quốc Khánh (khanhvqhe176783)
+ * @author Nguyễn Tiến Anh (tienanh6677)
+ * @author Hoàng Minh Đức (mduc1011-swp)
+ */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -794,15 +805,13 @@ public class ProfileServiceImpl implements ProfileService {
 
     /**
      * Tải lên và cập nhật ảnh đại diện (Avatar) cho người dùng hiện tại (UC-08).
-     * 
-     * Quy trình xử lý:
+     *     * Quy trình xử lý:
      *   1. Kiểm tra tính hợp lệ của file (không rỗng, dung lượng <= 5MB).
      *   2. Nhận diện MIME Type thực tế từ Magic Bytes ở đầu file thông qua FileMagicDetector (ngăn chặn tấn công mạo danh đuôi file).
      *   3. Lưu trữ file ảnh vào thư mục cấu hình `storagePath/avatars/user-{userId}.ext`.
      *   4. Cập nhật đường dẫn URL ảnh đại diện vào bảng hồ sơ tương ứng theo vai trò (Client, Tutor, TutorCenter).
      *   5. Ghi vết kiểm toán (Audit Log) cho thao tác UPLOAD_AVATAR.
-     * 
-     * @param file file ảnh tải lên từ client (MultipartFile)
+     *     * @param file file ảnh tải lên từ client (MultipartFile)
      * @return đường dẫn tĩnh URL tới file ảnh đã lưu (/uploads/avatars/user-x.ext)
      */
     @Override
@@ -856,8 +865,7 @@ public class ProfileServiceImpl implements ProfileService {
 
     /**
      * Đọc Magic Bytes từ luồng InputStream của file để nhận diện MIME Type chính xác.
-     * 
-     * @param file đối tượng MultipartFile cần kiểm tra
+     *     * @param file đối tượng MultipartFile cần kiểm tra
      * @return chuỗi MIME Type (ví dụ: image/jpeg, image/png)
      */
     private String detectAvatarMime(MultipartFile file) {
@@ -1014,6 +1022,19 @@ public class ProfileServiceImpl implements ProfileService {
             tutor.setGender(request.getGender());
         }
         if (request.getBio() != null) tutor.setBio(request.getBio());
+
+        LocalDate effectiveDob = tutor.getDateOfBirth();
+        Integer exp = request.getExperienceYears() != null ? request.getExperienceYears() : tutor.getExperienceYears();
+        if (exp != null && effectiveDob != null) {
+            int age = AgeUtils.ageAt(effectiveDob, LocalDate.now());
+            int maxAllowedExp = Math.max(0, age - 15);
+            if (exp > maxAllowedExp) {
+                throw new IllegalArgumentException(
+                        "Số năm kinh nghiệm không hợp lý so với độ tuổi hiện tại (gia sư " + age
+                                + " tuổi chỉ có thể có tối đa " + maxAllowedExp + " năm kinh nghiệm)");
+            }
+        }
+
         if (request.getExperienceYears() != null) tutor.setExperienceYears(request.getExperienceYears());
         if (request.getHourlyRate() != null) tutor.setHourlyRate(request.getHourlyRate());
         tutorRepository.save(tutor);

@@ -8,6 +8,27 @@ import org.springframework.stereotype.Component;
 
 import static com.tcs.module.ai.service.intent.IntentRuleHelper.*;
 
+/**
+ * ============================================================================
+ * [UC-65] QUY TẮC AN TOÀN HỘI THOẠI & CHẶN TẤN CÔNG (CONVERSATION SAFETY RULE)
+ * ============================================================================
+ * 
+ * Tác giả: mduc1011-swp (Hoàng Minh Đức - HE187354)
+ * Ngày tạo: 2026-08-24
+ * 
+ * Mô tả Use Case:
+ *   - Kiểm soát an toàn tầng đầu vào, ngăn chặn câu hỏi độc hại, thô tục hoặc tấn công bẻ khóa Prompt Injection.
+ * 
+ * Chức năng chính:
+ *   1. Chặn Prompt Injection: Nhận diện nỗ lực yêu cầu quên ngữ cảnh hệ thống (ignore instructions).
+ *   2. Lọc từ ngữ độc hại: Phát hiện các nội dung thô tục, quấy rối và từ chối xử lý an toàn.
+ * 
+ * Luồng xử lý chính:
+ *   - Bước 1: Thực thi ở độ ưu tiên cao nhất trong chuỗi quy tắc (priority = 1).
+ *   - Bước 2: Quét các mẫu tấn công injection hoặc từ ngữ vi phạm tiêu chuẩn cộng đồng.
+ *   - Bước 3: Trả về AiDomain.CONVERSATION_SAFETY để kích hoạt phản hồi từ chối lịch sự.
+ * ============================================================================
+ */
 @Component
 public class ConversationSafetyRule implements IntentRule {
 
@@ -84,7 +105,7 @@ public class ConversationSafetyRule implements IntentRule {
 
         // HUMAN_SUPPORT_REQUEST
         if (containsAny(normalized, "gap nguoi ho tro", "gap nhan vien", "gap admin", "cham soc khach hang", "gap cskh", "gap tong dai", "cho toi gap nguoi ho tro")) {
-            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.HUMAN_SUPPORT_REQUEST, AiIntent.TICKET_SUPPORT, 1.0, "/support/tickets");
+            return new ClassificationDetail(AiDomain.CONVERSATION_SAFETY, AiSubIntent.HUMAN_SUPPORT_REQUEST, AiIntent.TICKET_SUPPORT, 1.0, "/messaging/tickets");
         }
 
         // ARITHMETIC / OUT_OF_SCOPE CALCULATION & HOMEWORK

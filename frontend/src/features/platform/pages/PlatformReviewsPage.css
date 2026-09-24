@@ -71,15 +71,28 @@
 }
 
 .adm-table--reviews .adm-table__notes {
-  max-width: 260px;
+  max-width: 280px;
+  min-width: 180px;
   font-size: 0.85rem;
   font-style: italic;
   color: var(--color-text-primary);
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .adm-table--reviews .adm-table__notes .adm-table__sub {
   font-style: normal;
   font-size: 0.78rem;
+  margin-top: 4px;
+  color: var(--color-text-secondary);
+}
+
+.adm-review__status-col {
+  min-width: 170px;
+  max-width: 260px;
+  white-space: normal !important;
+  vertical-align: top;
 }
 
 .adm-review__report-alert {
@@ -100,13 +113,35 @@
 
 .adm-review__report-reason {
   display: block;
-  margin-top: 4px;
-  max-width: 220px;
-  font-size: 0.75rem;
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border-left: 3px solid #ef4444;
+  border-radius: 4px;
+  max-width: 240px;
+  font-size: 0.76rem;
+  line-height: 1.45;
+  color: var(--color-text-secondary);
+  white-space: normal !important;
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .adm-table--reviews td:nth-child(7) {
   font-size: 0.82rem;
   color: var(--color-text-secondary);
   white-space: nowrap;
+  min-width: 130px;
 }
+
+.adm-table--reviews td:last-child {
+  white-space: nowrap;
+  min-width: 160px;
+}
+
+.adm-table--reviews .adm-row-actions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: nowrap;
+}
+

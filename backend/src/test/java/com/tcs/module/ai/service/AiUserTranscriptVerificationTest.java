@@ -234,4 +234,66 @@ public class AiUserTranscriptVerificationTest {
         assertThat(resp.getContent()).contains("Tìm gia sư").contains("Tạo lớp học");
         assertThat(resp.getReferencedTutors()).isEmpty();
     }
+
+    @Test
+    @DisplayName("Verify IT-BOT-005: Multi-turn contextual conversation for IELTS trial lesson")
+    void testMultiTurnTrialLessonForIeltsContext() {
+        AiChatSession session = new AiChatSession();
+        session.setTitle("IELTS multi-turn session");
+        sessionRepository.save(session);
+
+        // Turn 1: Ask about IELTS tuition fee
+        ChatRequest req1 = new ChatRequest();
+        req1.setSessionId(session.getSessionId());
+        req1.setMessage("Học phí gia sư tiếng Anh IELTS khoảng bao nhiêu?");
+        AiMessageResponse resp1 = aiService.chat(req1, null);
+        assertThat(resp1).isNotNull();
+        assertThat(resp1.getContent()).isNotBlank();
+
+        // Turn 2: Follow-up question about trial lesson
+        ChatRequest req2 = new ChatRequest();
+        req2.setSessionId(session.getSessionId());
+        req2.setMessage("Vậy có được học thử buổi đầu không?");
+        AiMessageResponse resp2 = aiService.chat(req2, null);
+        assertThat(resp2).isNotNull();
+        assertThat(resp2.getContent()).isNotBlank();
+
+        // Must understand context is IELTS English tutoring
+        assertThat(resp2.getContent().toLowerCase())
+                .satisfiesAnyOf(
+                        c -> assertThat(c).contains("tiếng anh ielts"),
+                        c -> assertThat(c).contains("ielts"),
+                        c -> assertThat(c).contains("tiếng anh")
+                );
+
+        // Must mention trial lesson policy and contract agreement
+        assertThat(resp2.getContent().toLowerCase())
+                .satisfiesAnyOf(
+                        c -> assertThat(c).contains("học thử"),
+                        c -> assertThat(c).contains("dạy thử")
+                );
+        assertThat(resp2.getContent().toLowerCase()).contains("hợp đồng");
+
+        // Must NOT contain dead routes
+        assertThat(resp2.getContent()).doesNotContain("/parent/classes");
+        assertThat(resp2.getContent()).doesNotContain("/support/tickets");
+    }
+
+    @Test
+    @DisplayName("Verify IT-BOT-007: Delayed wallet deposit incident routes to support ticket")
+    void testDelayedWalletDepositTicketRouting() {
+        ChatRequest req = new ChatRequest();
+        req.setMessage("Tôi chuyển khoản nạp ví nhưng đã 2 tiếng chưa thấy cộng tiền vào số dư");
+
+        AiMessageResponse resp = aiService.chat(req, null);
+        assertThat(resp).isNotNull();
+        assertThat(resp.getDomain()).isEqualTo("MESSAGING_TICKET");
+        assertThat(resp.getSubIntent()).isEqualTo("SUPPORT_TICKET_CREATE");
+        assertThat(resp.getSuggestedRoute()).contains("/messaging/tickets");
+
+        // Guidance on receipt, VietQR and SLA
+        assertThat(resp.getContent()).contains("biên lai").contains("Ticket");
+        assertThat(resp.getContent()).contains("/messaging/tickets");
+        assertThat(resp.getContent()).doesNotContain("/support/tickets");
+    }
 }
