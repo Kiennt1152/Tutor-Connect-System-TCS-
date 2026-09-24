@@ -1139,7 +1139,7 @@ public class PlatformServiceImpl implements PlatformService {
         if (!StringUtils.hasText(description)) {
             return null;
         }
-        String userPart = description.split("\\[UC-30\\]")[0].split("\\[UC-55\\]")[0].trim();
+        String userPart = description.split("\\[UC-49\\]")[0].split("\\[UC-30\\]")[0].split("\\[UC-55\\]")[0].trim();
         return StringUtils.hasText(userPart) ? userPart : description.trim();
     }
 
@@ -1737,7 +1737,7 @@ public class PlatformServiceImpl implements PlatformService {
         EscrowTransaction escrow = resolveSingleEscrowForClassIssue(report);
         EscrowTransaction heldEscrow = escrowService.holdForDispute(
                 escrow.getEscrowId(),
-                "UC30 " + resolutionActionLabel(action) + ": " + notes);
+                "UC49 " + resolutionActionLabel(action) + ": " + notes);
 
         Dispute dispute = new Dispute();
         dispute.setReport(report);
@@ -1782,7 +1782,7 @@ public class PlatformServiceImpl implements PlatformService {
             String notes) {
 
         String prefix = StringUtils.hasText(currentDescription) ? currentDescription.trim() : "";
-        String handlingNote = "[UC-30] Xử lý sự cố lớp học\n"
+        String handlingNote = "[UC-49] Can thiệp sự cố lớp học\n"
                 + "Hành động: " + resolutionActionLabel(action) + "\n"
                 + "Ghi chú: " + notes.trim() + "\n"
                 + "Thời gian xử lý: " + LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS);

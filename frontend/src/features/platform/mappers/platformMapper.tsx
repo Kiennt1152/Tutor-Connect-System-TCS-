@@ -301,7 +301,7 @@ export const TERMINATION_STATUS_LABELS: Record<string, string> = {
 function extractClassIssueUserDescription(description: string | null | undefined) {
   if (!description?.trim()) return '—';
   const beforeHandling =
-    description.split('[UC-30]')[0].split('[UC-55]')[0].trim() || description.trim();
+    description.split('[UC-49]')[0].split('[UC-52]')[0].split('[UC-30]')[0].split('[UC-55]')[0].trim() || description.trim();
   const marker = 'Mô tả:';
   const markerIndex = beforeHandling.indexOf(marker);
   if (markerIndex < 0) return beforeHandling;

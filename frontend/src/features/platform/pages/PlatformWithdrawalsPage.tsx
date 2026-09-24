@@ -1,13 +1,14 @@
 /**
  * ====================================================================================================
- * [UC-40] MÀN HÌNH DUYỆT YÊU CẦU RÚT TIỀN VÍ (PLATFORM WITHDRAWALS PAGE)
+ * [BF-06 / UC-40] MÀN HÌNH QUẢN TRỊ DUYỆT RÚT TIỀN VÍ (PLATFORM WITHDRAWALS PAGE)
  * ====================================================================================================
- * Nghiệp vụ chính:
- * 1. Danh sách yêu cầu rút tiền về tài khoản ngân hàng của gia sư và phụ huynh.
- * 2. Kiểm tra tính hợp lệ của tài khoản ngân hàng chính chủ và số dư ví trước khi duyệt.
- * 3. Kích hoạt lệnh chuyển khoản tự động hoặc từ chối yêu cầu kèm lý do rõ ràng.
- * * @author Hoàng Minh Đức (mduc1011-swp)
- * @author Nguyễn Tiến Anh (tienanh6677)
+ * Phân công trách nhiệm:
+ * 1. Core FinTech & Backend API (/api/finance/withdrawals): Nguyễn Tiến Anh (tienanh6677 - FinTech Lead).
+ * 2. Giao diện Quản trị & Tích hợp Admin Portal: Hoàng Minh Đức (mduc1011-swp - Platform Lead).
+ * 3. Nghiệp vụ: Admin duyệt yêu cầu rút tiền ví, kiểm tra số dư và xác nhận chuyển khoản ngân hàng.
+ * 
+ * @author Hoàng Minh Đức (mduc1011-swp) - Fullstack Platform Lead (Thiết kế & Tích hợp Admin Console)
+ * @author Nguyễn Tiến Anh (tienanh6677) - FinTech Lead (Thiết kế Core Nghiệp vụ Rút tiền & Ký quỹ)
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';

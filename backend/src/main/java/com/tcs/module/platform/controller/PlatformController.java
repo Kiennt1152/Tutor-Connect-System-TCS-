@@ -50,7 +50,7 @@ import org.springframework.web.bind.annotation.RestController;
  *   - [UC-07] Quản lý & Phân quyền tài khoản người dùng
  *   - [UC-11] Thẩm định danh tính & Phê duyệt hồ sơ xác minh (KYC / CCCD / Bằng cấp)
  *   - [UC-21] Giám sát lịch học & Điểm danh toàn sàn theo ngày
- *   - [UC-30] Xử lý sự cố lớp học với 7 phương án can thiệp
+ *   - [UC-49 / UC-52] Can thiệp sự cố lớp học với 7 phương án nghiệp vụ & Chuyển tiếp tranh chấp Escrow
  *   - [UC-45] Quản lý mẫu hợp đồng điện tử Master (E-Contract Templates)
  *   - [UC-46] Cấu hình biểu phí sàn & Tỷ lệ phí riêng cho từng trung tâm gia sư
  *   - [UC-53] Xem & Thống kê đánh giá, phản hồi
@@ -251,11 +251,11 @@ public class PlatformController {
     }
 
     // =========================================================================
-    // [UC-30]: XỬ LÝ SỰ CỐ LỚP HỌC (CLASS ISSUES INTERVENTION)
+    // [UC-49 / UC-52]: CAN THIỆP SỰ CỐ LỚP HỌC (CLASS ISSUES INTERVENTION)
     // =========================================================================
 
     /**
-     * [UC-30]: Can thiệp và xử lý sự cố lớp học với 7 phương án nghiệp vụ toàn diện.
+     * [UC-49 / UC-52]: Can thiệp và xử lý sự cố lớp học với 7 phương án nghiệp vụ toàn diện.
      *     * Các phương án xử lý (ClassIssueResolutionAction):
      *   1. CANCEL_CLASS: Hủy lớp học và thu hồi các quyền liên quan.
      *   2. CHANGE_TUTOR: Thay đổi gia sư phụ trách lớp mà không làm gián đoạn lịch học.

@@ -1,13 +1,14 @@
 /**
  * ====================================================================================================
- * [UC-23 / UC-30] MÀN HÌNH QUẢN LÝ BÁO CÁO VI PHẠM & TRANH CHẤP (PLATFORM REPORTS PAGE)
+ * [UC-52 / UC-49] MÀN HÌNH QUẢN LÝ BÁO CÁO VI PHẠM & CAN THIỆP SỰ CỐ LỚP HỌC (PLATFORM REPORTS PAGE)
  * ====================================================================================================
  * Nghiệp vụ chính:
- * 1. Hàng đợi tiếp nhận báo cáo vi phạm, khiếu nại hoàn tiền và sự cố lớp học (UC-30).
- * 2. Cung cấp công cụ phân xử tranh chấp tài chính theo tỷ lệ số buổi (Pro-rata).
- * 3. Hỗ trợ liên kết ban hành chế tài xử phạt đối với người dùng vi phạm.
- * * @author Hoàng Minh Đức (mduc1011-swp)
- * @author Nguyễn Tiến Anh (tienanh6677)
+ * 1. Hàng đợi tiếp nhận báo cáo vi phạm, khiếu nại hoàn tiền và can thiệp sự cố lớp học (UC-52 / UC-49).
+ * 2. Cung cấp công cụ phân xử tranh chấp tài chính theo tỷ lệ số buổi (Pro-rata) kết nối FinTech BF-08.
+ * 3. Hỗ trợ liên kết ban hành chế tài xử phạt đối với người dùng vi phạm (UC-60).
+ * 
+ * @author Hoàng Minh Đức (mduc1011-swp) - Platform Lead (Thiết kế & Tích hợp Admin Console)
+ * @author Nguyễn Tiến Anh (tienanh6677) - FinTech Lead (Thiết kế Core Tranh chấp & Ký quỹ Escrow)
  * @author Hoàng Khôi Nguyên (NguyenHK186858)
  * @author Vũ Quốc Khánh (khanhvqhe176783)
  * @author Nguyễn Trung Kiên (Kiennt1152)
@@ -1889,7 +1890,7 @@ function ClassIssueReportDetail({
       )}
 
       <section className="pd-section">
-        <h3 className="pd-section__title">Phán quyết & Hướng giải quyết của Quản trị viên (UC-30)</h3>
+        <h3 className="pd-section__title">Phán quyết can thiệp sự cố lớp học (UC-49 / BF-10)</h3>
         {!canResolve ? (
           <div className="adm-alert adm-alert--success">
             Báo cáo sự cố này đã được giải quyết.
@@ -1931,7 +1932,7 @@ function ClassIssueReportDetail({
 
             <div className="pd-resolution-actions">
               <button className="tcs-btn tcs-btn--primary" type="submit" disabled={submitting}>
-                {submitting ? 'Đang xử lý...' : 'Lưu quyết định xử lý (UC-30)'}
+                {submitting ? 'Đang xử lý...' : 'Lưu phán quyết can thiệp sự cố'}
               </button>
             </div>
           </form>
@@ -2065,7 +2066,7 @@ export default function PlatformReportsPage() {
   return (
     <AdminLayout
       title="Báo cáo & tranh chấp"
-      subtitle="Theo dõi báo cáo vi phạm, giải quyết sự cố lớp học (UC-30) và tranh chấp tài chính Escrow."
+      subtitle="Theo dõi báo cáo vi phạm, can thiệp sự cố lớp học (UC-49 / BF-10) và tranh chấp tài chính Escrow."
     >
       <div className="adm-summary-row">
         <article className="adm-summary-card adm-summary-card--warn">
@@ -2073,7 +2074,7 @@ export default function PlatformReportsPage() {
           <p className="adm-summary-card__value">{openDisputeCount}</p>
         </article>
         <article className="adm-summary-card adm-summary-card--warn">
-          <p className="adm-summary-card__label">Sự cố lớp học chờ xử lý (UC-30)</p>
+          <p className="adm-summary-card__label">Sự cố lớp học chờ xử lý (UC-49)</p>
           <p className="adm-summary-card__value">{openClassReportCount}</p>
         </article>
         <article className="adm-summary-card">
@@ -2100,7 +2101,7 @@ export default function PlatformReportsPage() {
           className={`tcs-btn ${activeTab === 'class-issues' ? 'tcs-btn--primary' : 'tcs-btn--ghost'}`}
           onClick={() => setActiveTab('class-issues')}
         >
-          Sự cố lớp học (UC-30) ({classReports.length}{openClassReportCount > 0 ? ` · ${openClassReportCount} chờ duyệt` : ''})
+          Sự cố lớp học (UC-49) ({classReports.length}{openClassReportCount > 0 ? ` · ${openClassReportCount} chờ duyệt` : ''})
         </button>
         <button
           type="button"
@@ -2191,13 +2192,13 @@ export default function PlatformReportsPage() {
         </section>
       )}
 
-      {/* TAB 2: SỰ CỐ LỚP HỌC (UC-30 RESOLVE CLASS ISSUES) */}
+      {/* TAB 2: SỰ CỐ LỚP HỌC (UC-49 / BF-10) */}
       {activeTab === 'class-issues' && (
         <section id="section-class-issues" className="pd-console" aria-label="Hàng đợi sự cố lớp học">
           <div className="adm-card pd-console__list">
             <div className="pd-card-head">
               <div>
-                <h2 className="pd-card-head__title">Sự cố lớp học (UC-30)</h2>
+                <h2 className="pd-card-head__title">Sự cố lớp học (UC-49 / BF-10)</h2>
                 <p className="pd-card-head__meta">
                   {classReports.length} sự cố · {openClassReportCount} chờ xử lý
                 </p>

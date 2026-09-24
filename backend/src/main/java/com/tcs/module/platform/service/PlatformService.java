@@ -38,7 +38,7 @@ import java.util.List;
  *    - Định nghĩa các phương thức nghiệp vụ quản trị sàn cho Quản trị viên (Platform Admin).
  *    - Quản lý người dùng, tài khoản đa vai trò và phân quyền hệ thống [UC-07].
  *    - Thẩm định danh tính, phê duyệt hồ sơ xác minh KYC CCCD / Bằng cấp [UC-11].
- *    - Quản lý, xử lý báo cáo vi phạm, sự cố lớp học [UC-30, UC-52] và kiểm duyệt đánh giá [UC-55].
+ *    - Quản lý, xử lý báo cáo vi phạm, sự cố lớp học [UC-49, UC-52] và kiểm duyệt đánh giá [UC-55].
  *    - Tiếp nhận, xử lý khiếu nại qua hệ thống Support Ticket, tự động leo thang SLA [UC-63, UC-66].
  *    - Quản lý mẫu hợp đồng điện tử Master [UC-45] và cấu hình biểu phí sàn [UC-46].
  * ============================================================================

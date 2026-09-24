@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 
 /**
  * ============================================================================
- * [BF-10] [UC-58] [UC-40] PHÂN HỆ QUẢN TRỊ GIAO DỊCH KÝ QUỸ ESCROW (ADMIN ESCROW CONTROLLER)
+ * [BF-10] [UC-58] PHÂN HỆ QUẢN TRỊ GIAO DỊCH KÝ QUỸ ESCROW (ADMIN ESCROW CONTROLLER)
  * ============================================================================
  * Tác giả       : mduc1011-swp (Hoàng Minh Đức - HE187354)
  * Ngày tạo      : 2026-07-29
@@ -32,7 +32,7 @@ public class AdminEscrowController {
     private final AdminEscrowService service;
 
     /**
-     * [UC-58 & UC-40]: Tra cứu, lọc và phân trang toàn bộ giao dịch ký quỹ trên sàn.
+     * [UC-58]: Tra cứu, lọc và phân trang toàn bộ giao dịch ký quỹ trên sàn.
      *     * Bộ lọc nghiệp vụ:
      *   - {@code status}: Lọc theo 6 trạng thái ký quỹ:
      *       * PENDING: Chờ client nạp tiền
@@ -64,7 +64,7 @@ public class AdminEscrowController {
     }
 
     /**
-     * [UC-40]: Xem chi tiết hồ sơ một khoản ký quỹ Escrow.
+     * [UC-58]: Xem chi tiết hồ sơ một khoản ký quỹ Escrow.
      *     * Thông tin bao gồm:
      *   - Số tiền ký quỹ gốc, phí nền tảng ước tính hoặc đã trừ, số tiền thực nhận.
      *   - Thông tin hợp đồng liên kết (Contract ID, Assignment ID, Class ID).
