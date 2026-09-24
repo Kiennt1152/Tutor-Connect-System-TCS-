@@ -1,4 +1,4 @@
--- V45: Sửa mẫu nhắc buổi học (LESSON_REMINDER).
+-- V46: Sửa mẫu nhắc buổi học (LESSON_REMINDER).
 --  - Gia sư nhận "buổi dạy", người học nhận "buổi học" ({{activity}}); buổi không có giờ thì bỏ phần "lúc …" ({{timePart}}).
 --  - Thông báo cũ của lớp trung tâm bị lộ nguyên {{subjectName}} (bộ nhắc "ngày mai" gọi nhầm mẫu này) -> thay bằng câu chung.
 UPDATE notification_templates
