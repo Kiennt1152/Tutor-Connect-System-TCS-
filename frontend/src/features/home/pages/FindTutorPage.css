@@ -375,3 +375,30 @@
 .tcs-find-examples__item:not(:last-child)::after {
   content: '”,';
 }
+
+/* Tiêu chí đã bóc được từ câu tìm kiếm.
+   Khác hẳn hàng ví dụ ngay trên: ví dụ là chữ nghiêng không viền (đọc cho biết), còn đây là
+   trạng thái thật của bộ lọc nên có nền + viền để nhìn ra ngay là hai thứ khác nhau. */
+.tcs-find-criteria {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+.tcs-find-criteria__label {
+  font-size: 12.5px;
+  color: #7b8794;
+}
+.tcs-find-criteria__chip {
+  font-size: 12.5px;
+  color: #4a5766;
+  background: #fff4ec;
+  border: 1px solid #ffd9c2;
+  border-radius: 999px;
+  padding: 3px 10px;
+}
+.tcs-find-criteria__chip b {
+  color: #d2571f;
+  font-weight: 600;
+}

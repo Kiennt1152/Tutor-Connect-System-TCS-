@@ -183,6 +183,7 @@ public class ContractServiceImpl implements ContractService {
     private final LessonRepository lessonRepository;
     private final LessonAttendanceRepository lessonAttendanceRepository;
     private final com.tcs.module.profile.service.CccdService cccdService;
+    private final com.tcs.module.marketplace.service.ClassTitleService classTitleService;
 
     // ─── VIEW CONTRACT (4.2) ──────────────────────────────────────────────────
 
@@ -2662,6 +2663,12 @@ public class ContractServiceImpl implements ContractService {
                         reviewClass != null && reviewClass.getSubject() != null
                                 ? reviewClass.getSubject().getSubjectName()
                                 : null)
+                // Danh sách môn thực dạy, để giao diện gạch được môn có trong tiêu đề mà gia sư
+                // không nhận. Môn chính của lớp (subjectName) không nói lên điều đó.
+                .subjectNames(
+                        reviewClass != null
+                                ? classTitleService.subjectNames(reviewClass.getDetailsJson())
+                                : java.util.List.of())
                 .anonymous(review.isAnonymous())
                 .reviewerDisplayName(resolveReviewerDisplayName(review))
                 .createdAt(review.getCreatedAt())

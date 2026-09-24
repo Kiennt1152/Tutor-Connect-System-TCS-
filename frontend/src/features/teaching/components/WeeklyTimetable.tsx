@@ -327,7 +327,7 @@ function LessonChip({
       {onReview && done && (
         reviewed ? (
           <span className="wtt-chip__reviewed" title="Bạn đã đánh giá gia sư cho buổi học này">
-            ✓ Đã đánh giá
+            ✓ Đã đánh giá gia sư
           </span>
         ) : (
           <button

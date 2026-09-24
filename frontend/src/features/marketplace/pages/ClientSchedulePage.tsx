@@ -84,6 +84,19 @@ export default function ClientSchedulePage() {
     loadReviewables();
   }, [loadReviewables]);
 
+  /**
+   * Lớp đã dùng hết lượt đánh giá hay chưa.
+   *
+   * Thẻ ở đây là một buổi trong ngày, không mang lessonId, nên không đối chiếu được từng buổi như
+   * lịch cá nhân. Căn cứ dùng được là quota theo LỚP: đã gửi đánh giá và không còn lượt nào nữa.
+   * Chỉ xét `reviewable` là chưa đủ — lớp chưa có buổi nào diễn ra cũng cho `false`, mà đó là
+   * "chưa đánh giá được", không phải "đã đánh giá".
+   */
+  const isFullyReviewed = (classId: number) => {
+    const match = reviewables.find((a) => a.classId === classId);
+    return !!match && match.reviewsSubmitted > 0 && !match.reviewable;
+  };
+
   /** Mở form đánh giá gia sư của lớp; chưa có buổi đã học hoặc đã đánh giá đủ thì hiện thông báo. */
   function openReview(classId: number) {
     const match = reviewables.find((a) => a.classId === classId);
@@ -244,15 +257,23 @@ export default function ClientSchedulePage() {
                             {c.classCompleted && (
                               <div className="tw-card__meta">✓ Đã hoàn thành</div>
                             )}
-                            {c.assignedTutorName && (
-                              <button
-                                type="button"
-                                className="cs-review-btn"
-                                onClick={() => openReview(c.classId)}
-                              >
-                                Đánh giá gia sư
-                              </button>
-                            )}
+                            {c.assignedTutorName &&
+                              (isFullyReviewed(c.classId) ? (
+                                <span
+                                  className="cs-review-done"
+                                  title="Bạn đã đánh giá gia sư cho lớp này"
+                                >
+                                  ✓ Đã đánh giá gia sư
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  className="cs-review-btn"
+                                  onClick={() => openReview(c.classId)}
+                                >
+                                  Đánh giá gia sư
+                                </button>
+                              ))}
                           </div>
                         ))
                       )}

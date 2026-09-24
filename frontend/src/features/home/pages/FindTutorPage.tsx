@@ -56,6 +56,37 @@ const EMPTY_FILTERS: Filters = {
 /** Các tiêu chí ô tìm kiếm hiểu được (chỉ để đọc, không bấm được). */
 const SEARCH_EXAMPLES = ['Tên', 'Giới tính', 'Giá tiền', 'Kinh nghiệm', 'Số sao'];
 
+/** Nhãn giới tính để hiện lại cho người dùng xem. */
+const GENDER_DISPLAY: Record<Exclude<Gender, ''>, string> = {
+  MALE: 'Nam',
+  FEMALE: 'Nữ',
+  OTHER: 'Khác',
+};
+
+/**
+ * Liệt kê tiêu chí mà bộ phân tích đã bóc được từ câu tìm kiếm.
+ *
+ * Ô tìm kiếm nhận câu tự do rồi tự đoán ra tiêu chí, nên người dùng không có cách nào biết nó
+ * đã hiểu mình thế nào — gõ "nam" ra ít kết quả thì không rõ là lọc theo giới tính hay theo tên.
+ * Bày thẳng tiêu chí đã áp dụng thì kết quả tự giải thích được nó từ đâu ra.
+ *
+ * CỐ Ý không liệt kê phần chữ còn lại (keyword). Hàng này chỉ nói về đúng những tiêu chí mà ô
+ * tìm tuyên bố hiểu được ở hàng ví dụ ngay trên. Chữ không bóc ra được tiêu chí nào — "toán"
+ * chẳng hạn — vẫn được dùng để khớp tên/mô tả, nhưng gọi nó là một "tiêu chí đang lọc" thì sai:
+ * người đọc sẽ tưởng hệ thống nhận ra môn học, trong khi thực chất chỉ là so chuỗi.
+ */
+function appliedCriteria(f: Filters): { label: string; value: string }[] {
+  const out: { label: string; value: string }[] = [];
+  if (f.queryGender) out.push({ label: 'Giới tính', value: GENDER_DISPLAY[f.queryGender] });
+  if (f.maxPrice) {
+    out.push({ label: 'Học phí', value: `≤ ${Number(f.maxPrice).toLocaleString('vi-VN')}đ/giờ` });
+  }
+  if (f.minExperience) out.push({ label: 'Kinh nghiệm', value: `≥ ${f.minExperience} năm` });
+  if (f.minRating) out.push({ label: 'Đánh giá', value: `≥ ${f.minRating} sao` });
+  if (f.verifiedOnly) out.push({ label: 'Hồ sơ', value: 'Đã xác minh' });
+  return out;
+}
+
 
 /** Đổi chuỗi số (bỏ ký tự lạ) sang số dương; không hợp lệ thì 0 (coi như không lọc). */
 const toNumber = (value: string) => {
@@ -207,6 +238,9 @@ export default function FindTutorPage() {
     currentPage * PAGE_SIZE,
   );
 
+  /** Tiêu chí đã áp dụng, hiện ngay dưới ô tìm để người dùng biết câu mình gõ được hiểu ra sao. */
+  const criteria = useMemo(() => appliedCriteria(applied), [applied]);
+
   const isFiltered =
     applied.keyword !== '' ||
     applied.queryGender !== '' ||
@@ -315,6 +349,18 @@ export default function FindTutorPage() {
                   </span>
                 ))}
               </div>
+
+              {/* Cho người dùng thấy câu mình gõ đã được hiểu thành những tiêu chí nào. */}
+              {criteria.length > 0 && (
+                <div className="tcs-find-criteria">
+                  <span className="tcs-find-criteria__label">Đang lọc theo:</span>
+                  {criteria.map((c) => (
+                    <span key={c.label} className="tcs-find-criteria__chip">
+                      {c.label}: <b>{c.value}</b>
+                    </span>
+                  ))}
+                </div>
+              )}
 
             </form>
 

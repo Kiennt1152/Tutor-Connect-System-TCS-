@@ -17,6 +17,7 @@ import { CriteriaBreakdown } from '../components/CriteriaBreakdown';
 import { ReportReviewModal } from '../components/ReportReviewModal';
 import { reviewApi } from '../api/reviewApi';
 import type { ReviewResponse, TutorReputation } from '../types/reviewTypes';
+import { ClassTitleWithDroppedSubjects } from '../../../shared/components/ClassTitleWithDroppedSubjects';
 import '../../home/pages/TutorPublicProfilePage.css';
 
 const STAR_ROWS = [5, 4, 3, 2, 1] as const;
@@ -219,7 +220,10 @@ function ReviewCard({
         <span className="tp-review__overall">{r.rating.toFixed(1)}/5</span>
         {r.classTitle ? (
           <span className="tp-review__class">
-            {r.classTitle}
+            <ClassTitleWithDroppedSubjects
+              title={r.classTitle}
+              taughtSubjects={r.subjectNames ?? []}
+            />
             {r.subjectName ? ` · ${r.subjectName}` : ''}
           </span>
         ) : null}
