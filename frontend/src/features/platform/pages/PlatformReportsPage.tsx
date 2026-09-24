@@ -29,11 +29,9 @@ import {
 import { AdminLayout } from '../components/AdminLayout';
 import { platformApi } from '../api/platformApi';
 import { useDisputeReviewList } from '../hooks/useDisputeReviewList';
-import {
-  useAppealDispute,
-  useResolveDispute,
-} from '../hooks/usePlatformMutations';
+import { useAppealDispute, useResolveDispute } from '../hooks/usePlatformMutations';
 import { useReportList } from '../hooks/useReportList';
+import { formatClassIssueDescription } from '../mappers/platformMapper';
 import type {
   AdminDisputeReviewApiResponse,
   ClassIssueResolutionAction,
@@ -1430,7 +1428,7 @@ function DisputeDetail({
       </section>
 
       <section className="pd-section">
-        <h3 className="pd-section__title">Báo cáo</h3>
+        <h3 className="pd-section__title">Nội dung báo cáo</h3>
         <div className="pd-info-grid">
           <InfoRow label="Mã báo cáo" value={detail.reportId ? `#${detail.reportId}` : '—'} />
           <InfoRow label="Người báo cáo" value={detail.reporterEmail ?? detail.reporterId} />
@@ -1439,7 +1437,9 @@ function DisputeDetail({
           <InfoRow label="Danh mục" value={labelFromMap(detail.category, REPORT_CATEGORY_LABELS)} />
           <InfoRow label="Tạo lúc" value={formatDateTime(detail.reportCreatedAt)} />
         </div>
-        <p className="pd-description">{detail.description ?? '—'}</p>
+        <p className="pd-description pd-description--report">
+          {formatClassIssueDescription(detail.description)}
+        </p>
       </section>
 
       <section className="pd-section">

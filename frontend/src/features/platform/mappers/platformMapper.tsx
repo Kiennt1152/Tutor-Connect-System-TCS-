@@ -298,23 +298,102 @@ export const TERMINATION_STATUS_LABELS: Record<string, string> = {
   COMPLETED: 'Đã hoàn thành',
 };
 
+export const CLASS_ISSUE_TYPE_LABELS: Record<string, string> = {
+  TUTOR_ABSENT: 'Gia sư vắng mặt',
+  CLIENT_ABSENT: 'Học viên/phụ huynh vắng mặt',
+  TECHNICAL_ISSUE: 'Sự cố kỹ thuật',
+  INAPPROPRIATE_BEHAVIOR: 'Hành vi không phù hợp',
+  SCHEDULE_CONFLICT: 'Xung đột lịch học',
+  QUALITY_ISSUE: 'Chất lượng buổi học',
+  PAYMENT_OR_REFUND: 'Thanh toán/hoàn tiền',
+  OTHER: 'Khác',
+};
+
+export const CLASS_ISSUE_ACTION_LABELS: Record<string, string> = {
+  CONTINUE_CLASS: 'Tiếp tục lớp học',
+  RESCHEDULE: 'Sắp xếp lại lịch học',
+  REPLACE_TUTOR: 'Đổi gia sư',
+  REFUND_REVIEW: 'Yêu cầu xem xét hoàn tiền',
+  ESCALATE_DISPUTE: 'Chuyển thành tranh chấp',
+  TERMINATE_CLASS: 'Đề nghị chấm dứt lớp',
+  OTHER: 'Khác',
+};
+
 function stripUseCasePrefix(value: string | null | undefined) {
   const cleaned = value?.trim().replace(/^\s*\[[^\]]+\]\s*/i, '').trim();
   return cleaned || '—';
 }
 
-function extractClassIssueUserDescription(description: string | null | undefined) {
+const CLASS_ISSUE_FIELD_PATTERN =
+  'Mã loại sự cố|Loại sự cố|Buổi\\/ngày liên quan|Ngày xảy ra|Mã hướng xử lý|Hướng xử lý mong muốn|Mô tả';
+
+function isClassIssueDescription(value: string) {
+  return /Báo cáo sự cố lớp học|Mã loại sự cố:|Loại sự cố:|Mã hướng xử lý:|Hướng xử lý mong muốn:|Mô tả:/i.test(value);
+}
+
+function classIssueFieldValue(label: string, value: string) {
+  if (/^Loại sự cố$/i.test(label)) {
+    return CLASS_ISSUE_TYPE_LABELS[value] ?? value;
+  }
+  if (/^Hướng xử lý mong muốn$/i.test(label)) {
+    return CLASS_ISSUE_ACTION_LABELS[value] ?? value;
+  }
+  return value;
+}
+
+/**
+ * Converts the legacy class-issue description into a user-facing Vietnamese summary.
+ * Older records contain a use-case prefix and enum codes; new records may already
+ * contain display labels, so the formatter accepts both forms.
+ */
+export function formatClassIssueDescription(description: string | null | undefined) {
   if (!description?.trim()) return '—';
-  const beforeHandling =
-    stripUseCasePrefix(description)
-      .split('[UC-30]')[0]
-      .split('[UC-55]')[0]
-      .trim() || description.trim();
-  const marker = 'Mô tả:';
-  const markerIndex = beforeHandling.indexOf(marker);
-  if (markerIndex < 0) return beforeHandling;
-  const body = beforeHandling.slice(markerIndex + marker.length).trim();
-  return body || beforeHandling;
+  const cleaned = stripUseCasePrefix(description);
+  if (!isClassIssueDescription(cleaned)) return cleaned;
+
+  const normalized = cleaned
+    .replace(/^Báo cáo sự cố lớp học\s*/i, '')
+    .replace(new RegExp(`\\s+(?=(?:${CLASS_ISSUE_FIELD_PATTERN}):)`, 'gi'), '\n');
+  const detailLines: string[] = [];
+  const descriptionLines: string[] = [];
+  let readingDescription = false;
+
+  for (const rawLine of normalized.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    if (!line || /^Báo cáo sự cố lớp học$/i.test(line)) continue;
+    if (readingDescription) {
+      descriptionLines.push(line);
+      continue;
+    }
+
+    const separator = line.indexOf(':');
+    if (separator <= 0) {
+      detailLines.push(line);
+      continue;
+    }
+    const label = line.slice(0, separator).trim();
+    const value = line.slice(separator + 1).trim();
+    if (/^Mã loại sự cố$|^Mã hướng xử lý$/i.test(label)) continue;
+    if (/^Mô tả$/i.test(label)) {
+      readingDescription = true;
+      if (value) descriptionLines.push(value);
+      continue;
+    }
+    detailLines.push(`${label}: ${classIssueFieldValue(label, value)}`);
+  }
+
+  if (descriptionLines.length > 0) {
+    detailLines.push('Mô tả:');
+    detailLines.push(...descriptionLines);
+  }
+  return detailLines.join('\n').trim() || cleaned;
+}
+
+export function extractClassIssueUserDescription(description: string | null | undefined) {
+  const formatted = formatClassIssueDescription(description);
+  const markerIndex = formatted.indexOf('Mô tả:');
+  if (markerIndex < 0) return formatted;
+  return formatted.slice(markerIndex + 'Mô tả:'.length).trim() || '—';
 }
 
 export function mapVerificationItem(item: VerificationRequestApiResponse): VerificationRequestItem {
@@ -354,18 +433,22 @@ export function mapReportItem(item: ReportApiResponse): ReportItem {
     classStatus: item.classStatus ? (CLASS_STATUS_LABELS[item.classStatus] ?? item.classStatus) : '—',
     category: item.category,
     categoryLabel: REPORT_CATEGORY_LABELS[item.category] ?? item.category,
-    description: stripUseCasePrefix(item.description),
+    description: formatClassIssueDescription(item.description),
     userDescription: extractClassIssueUserDescription(item.description),
     evidenceUrlList,
     evidenceCount: evidenceUrlList.length,
     status: item.status,
     statusLabel: REPORT_STATUS_LABELS[item.status] ?? item.status,
     issueType: item.issueType?.trim() || '—',
-    issueTypeLabel: item.issueTypeLabel?.trim() || '—',
+    issueTypeLabel: CLASS_ISSUE_TYPE_LABELS[item.issueType?.trim() ?? '']
+      ?? item.issueTypeLabel?.trim()
+      ?? '—',
     lessonRef: item.lessonRef?.trim() || '—',
     occurredAt: formatDate(item.occurredAt),
     requestedAction: item.requestedAction?.trim() || '—',
-    requestedActionLabel: item.requestedActionLabel?.trim() || '—',
+    requestedActionLabel: CLASS_ISSUE_ACTION_LABELS[item.requestedAction?.trim() ?? '']
+      ?? item.requestedActionLabel?.trim()
+      ?? '—',
     linkedDisputeId: item.linkedDisputeId,
     createdAt: formatDateTime(item.createdAt),
     updatedAt: formatDateTime(item.updatedAt),
@@ -444,7 +527,7 @@ export function mapDisputeReviewItem(item: AdminDisputeReviewApiResponse): Dispu
     reporter,
     target: `${targetType} ${targetId}`,
     category,
-    description: stripUseCasePrefix(item.description),
+    description: formatClassIssueDescription(item.description),
     evidenceCount: item.evidenceUrlList?.length ?? 0,
     escrowStatus,
     escrowStatusLabel: escrowStatus ? (ESCROW_STATUS_LABELS[escrowStatus] ?? escrowStatus) : '—',
