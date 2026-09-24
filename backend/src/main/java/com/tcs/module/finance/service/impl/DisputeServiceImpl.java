@@ -172,7 +172,7 @@ public class DisputeServiceImpl implements DisputeService {
     @Override
     @Transactional
     public ParticipantDisputeResponse withdrawDispute(Long disputeId, WithdrawDisputeRequest request) {
-        Long userId = authHelper.requireRole(UserRole.CLIENT).getUserId();
+        Long userId = authHelper.requireRole(UserRole.CLIENT, UserRole.TUTOR, UserRole.TUTOR_CENTER).getUserId();
         String reason = normalizeParticipantNote(request != null ? request.getReason() : null);
         Dispute dispute = requireParticipantDispute(disputeId, userId);
         if (!Objects.equals(dispute.getReport().getReporter().getUserId(), userId)) {
@@ -286,7 +286,6 @@ public class DisputeServiceImpl implements DisputeService {
             }
         }
         String blocked = withdrawalBlockedReason(dispute, userId);
-        boolean client = authHelper.hasRole("CLIENT");
         return ParticipantDisputeResponse.builder()
                 .disputeId(dispute.getDisputeId()).classId(cls != null ? cls.getClassId() : null)
                 .classTitle(cls != null ? cls.getTitle() : "Tranh chấp")
@@ -294,7 +293,7 @@ public class DisputeServiceImpl implements DisputeService {
                 .evidenceUrls(parseEvidenceUrls(dispute.getReport().getEvidenceUrls()))
                 .resolution(dispute.getResolution()).createdAt(dispute.getCreatedAt())
                 .canRespond(dispute.getStatus() != DisputeStatus.RESOLVED)
-                .canWithdraw(client && blocked == null).withdrawalBlockedReason(blocked)
+                .canWithdraw(blocked == null).withdrawalBlockedReason(blocked)
                 .updates(updates).build();
     }
 

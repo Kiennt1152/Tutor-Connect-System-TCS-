@@ -67,6 +67,43 @@
 .my-disputes__detail section { border-top: 1px solid #dce2e9; padding: 20px 0; }
 .my-disputes__detail > section:first-of-type { border-top: 0; }
 .my-disputes__text { white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.6; }
+.my-disputes__report-section { padding-top: 24px !important; }
+.my-disputes__section-heading { margin-bottom: 14px; }
+.my-disputes__section-kicker {
+  margin: 0 0 4px;
+  color: #c2410c;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.my-disputes__section-heading h3 { margin: 0; font-size: 19px; }
+.my-disputes__report-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  padding: 16px;
+  border: 1px solid #d7e1eb;
+  border-left: 4px solid #e95d0c;
+  border-radius: 8px;
+  background: #f8fafc;
+}
+.my-disputes__report-field { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.my-disputes__report-field span {
+  color: #647184;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.my-disputes__report-field strong { overflow-wrap: anywhere; line-height: 1.45; }
+.my-disputes__description-box {
+  margin-top: 14px;
+  padding: 16px;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  background: #fffaf5;
+}
+.my-disputes__description-label { margin: 0 0 8px; color: #9a3412; font-weight: 800; }
 .my-disputes__field { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; font-weight: 600; }
 .my-disputes textarea { width: 100%; box-sizing: border-box; border: 1px solid #b9c3d1; border-radius: 6px; padding: 12px; font: inherit; resize: vertical; min-height: 90px; }
 .my-disputes input[type=file] { max-width: 100%; font-weight: 400; }
@@ -97,4 +134,5 @@
   .my-disputes__detail { padding: 18px; }
   .my-disputes__detail-head { flex-direction: column; gap: 12px; }
   .my-disputes__status { align-self: flex-start; }
+  .my-disputes__report-summary { grid-template-columns: minmax(0, 1fr); }
 }

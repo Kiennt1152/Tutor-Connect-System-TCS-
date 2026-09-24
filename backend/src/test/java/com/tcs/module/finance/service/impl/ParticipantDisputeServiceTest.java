@@ -140,6 +140,22 @@ class ParticipantDisputeServiceTest {
     }
 
     @Test
+    void tutorReporterCanWithdrawDispute() {
+        Dispute d = fixture();
+        d.getReport().setReporter(d.getEscrowTransaction().getAssignment().getTutor().getUser());
+        loginParticipant(d.getReport().getReporter(), UserRole.TUTOR);
+        when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(d));
+
+        var result = service.withdrawDispute(31L, withdrawal());
+
+        assertEquals(DisputeStatus.RESOLVED, result.getStatus());
+        assertFalse(result.isCanWithdraw());
+        assertEquals(ReportStatus.RESOLVED, d.getReport().getStatus());
+        assertEquals(EscrowStatus.FUNDED, d.getEscrowTransaction().getStatus());
+        verify(escrowService, never()).apply(any());
+    }
+
+    @Test
     void clientCannotWithdrawSomeoneElsesReportEvenIfPayer() {
         Dispute d = fixture(); d.getReport().setReporter(user(2L)); loginClient(1L);
         when(disputeRepository.findForUpdate(31L)).thenReturn(Optional.of(d));
@@ -199,7 +215,7 @@ class ParticipantDisputeServiceTest {
         when(authHelper.requireRole(UserRole.CLIENT, UserRole.TUTOR, UserRole.TUTOR_CENTER)).thenReturn(new UserPrincipal(user, role));
     }
     private void loginClient(Long id) {
-        when(authHelper.requireRole(UserRole.CLIENT)).thenReturn(new UserPrincipal(user(id), UserRole.CLIENT));
+        loginParticipant(user(id), UserRole.CLIENT);
     }
     private SubmitDisputeEvidenceRequest explanation() {
         SubmitDisputeEvidenceRequest r = new SubmitDisputeEvidenceRequest();

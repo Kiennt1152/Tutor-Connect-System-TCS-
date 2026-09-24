@@ -15,14 +15,120 @@ import { HomeNavbar } from '../../../shared/components/HomeNavbar';
 import { FileThumbnail } from '../../../shared/components/FileThumbnail';
 import { APP_ROUTES } from '../../../shared/constants/routes';
 import { disputeApi } from '../api/disputeApi';
-import type { EvidenceUploadResponse, ParticipantDispute } from '../types/disputeTypes';
+import type {
+  ClassIssueRequestedAction,
+  ClassIssueType,
+  EvidenceUploadResponse,
+  ParticipantDispute,
+} from '../types/disputeTypes';
 import './MyDisputesPage.css';
 
 const labels = { OPEN: 'Mới gửi', UNDER_INVESTIGATION: 'Đang xem xét', WAITING: 'Chờ bổ sung', RESOLVED: 'Đã kết thúc' };
+const issueTypeLabels: Record<ClassIssueType, string> = {
+  TUTOR_ABSENT: 'Gia sư vắng mặt',
+  CLIENT_ABSENT: 'Học viên/phụ huynh vắng mặt',
+  TECHNICAL_ISSUE: 'Sự cố kỹ thuật',
+  INAPPROPRIATE_BEHAVIOR: 'Hành vi không phù hợp',
+  SCHEDULE_CONFLICT: 'Xung đột lịch học',
+  QUALITY_ISSUE: 'Chất lượng buổi học',
+  PAYMENT_OR_REFUND: 'Thanh toán/hoàn tiền',
+  OTHER: 'Khác',
+};
+const requestedActionLabels: Record<ClassIssueRequestedAction, string> = {
+  CONTINUE_CLASS: 'Tiếp tục lớp học',
+  RESCHEDULE: 'Sắp xếp lại lịch học',
+  REPLACE_TUTOR: 'Đổi gia sư',
+  REFUND_REVIEW: 'Yêu cầu xem xét hoàn tiền',
+  ESCALATE_DISPUTE: 'Chuyển thành tranh chấp',
+  TERMINATE_CLASS: 'Đề nghị chấm dứt lớp',
+  OTHER: 'Khác',
+};
 const errorText = (error: unknown) => axios.isAxiosError(error)
   ? error.response?.data?.message ?? 'Không thực hiện được. Vui lòng thử lại.'
   : 'Không thực hiện được. Vui lòng thử lại.';
 const dateText = (text: string) => new Date(text).toLocaleString('vi-VN');
+const stripUseCasePrefix = (text: string) => text.replace(/^\s*\[UC-\d+\]\s*/i, '').trim();
+
+type ReportField = { label: string; value: string };
+type ParsedDisputeDescription = { fields: ReportField[]; description: string };
+
+function parseDisputeDescription(raw: string): ParsedDisputeDescription {
+  const fields = new Map<string, string>();
+  const bodyLines: string[] = [];
+  const looseLines: string[] = [];
+  let bodyStarted = false;
+  let issueTypeCode = '';
+  let requestedActionCode = '';
+
+  for (const originalLine of raw.split(/\r?\n/)) {
+    const line = stripUseCasePrefix(originalLine);
+    if (!line || line === 'Báo cáo sự cố lớp học') continue;
+    if (line === 'Mô tả:') {
+      bodyStarted = true;
+      continue;
+    }
+    if (bodyStarted) {
+      bodyLines.push(line);
+      continue;
+    }
+
+    const separator = line.indexOf(':');
+    if (separator <= 0) {
+      looseLines.push(line);
+      continue;
+    }
+    const label = line.slice(0, separator).trim();
+    const value = line.slice(separator + 1).trim();
+    if (/^Mã loại sự cố$/i.test(label)) {
+      issueTypeCode = value;
+      continue;
+    }
+    if (/^Mã hướng xử lý$/i.test(label)) {
+      requestedActionCode = value;
+      continue;
+    }
+    if (/^Loại sự cố$/i.test(label)) {
+      fields.set('Loại sự cố', issueTypeLabels[value as ClassIssueType] ?? value);
+      continue;
+    }
+    if (/^Hướng xử lý mong muốn$/i.test(label)) {
+      fields.set('Hướng xử lý mong muốn', requestedActionLabels[value as ClassIssueRequestedAction] ?? value);
+      continue;
+    }
+    fields.set(label, value);
+  }
+
+  if (!fields.has('Loại sự cố') && issueTypeCode) {
+    fields.set('Loại sự cố', issueTypeLabels[issueTypeCode as ClassIssueType] ?? issueTypeCode);
+  }
+  if (!fields.has('Hướng xử lý mong muốn') && requestedActionCode) {
+    fields.set(
+      'Hướng xử lý mong muốn',
+      requestedActionLabels[requestedActionCode as ClassIssueRequestedAction] ?? requestedActionCode,
+    );
+  }
+
+  return {
+    fields: Array.from(fields, ([label, value]) => ({ label, value })),
+    description: (bodyLines.length ? bodyLines : looseLines).join('\n').trim() || 'Không có mô tả chi tiết.',
+  };
+}
+
+function DisputeDescription({ value }: { value: string }) {
+  const parsed = parseDisputeDescription(value);
+  return <div className="my-disputes__report">
+    {parsed.fields.length > 0 && <div className="my-disputes__report-summary">
+      {parsed.fields.map(field => <div className="my-disputes__report-field" key={field.label}>
+        <span>{field.label}</span>
+        <strong>{field.value}</strong>
+      </div>)}
+    </div>}
+    <div className="my-disputes__description-box">
+      <p className="my-disputes__description-label">Mô tả</p>
+      <p className="my-disputes__text">{parsed.description}</p>
+    </div>
+  </div>;
+}
 
 export default function MyDisputesPage() {
   const location = useLocation();
@@ -140,7 +246,13 @@ function DisputeDetail({ item, onUpdated }: {
       </div>
       <p className="my-disputes__status" role="status">{labels[item.status]}</p>
     </header>
-    <section><h3>Nội dung báo cáo</h3><p className="my-disputes__text">{item.description}</p></section>
+    <section className="my-disputes__report-section">
+      <div className="my-disputes__section-heading">
+        <p className="my-disputes__section-kicker">Báo cáo sự cố</p>
+        <h3>Nội dung báo cáo</h3>
+      </div>
+      <DisputeDescription value={item.description} />
+    </section>
     {item.evidenceUrls.length > 0 && <section><h3>Bằng chứng</h3><div className="my-disputes__files">
       {item.evidenceUrls.map(url => <FileThumbnail key={url} src={url} fileName={url.split('/').pop() ?? 'Ảnh bằng chứng'}
         mimeType={/\.webp$/i.test(url) ? 'image/webp' : /\.png$/i.test(url) ? 'image/png' : 'image/jpeg'}
