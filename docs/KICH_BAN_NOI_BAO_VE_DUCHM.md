@@ -32,13 +32,13 @@
 ---
 
 ### // LUỒNG 1: TRA CỨU DANH MỤC FAQ CÔNG KHAI
-*(Vị trí code: `CatalogController.java:60`, `CatalogServiceImpl.java:200`, `FaqEntryRepository.java:14`)*
+*(Vị trí code: `CatalogController.java:62, L72`, `CatalogServiceImpl.java:200`, `FaqEntryRepository.java:14`)*
 
 > *"Dạ thưa thầy cô, em xin phép trình bày **LUỒNG 1: Tra cứu & Tìm kiếm Danh mục FAQ Công khai**:
 > 
 > ⬇️ **Chiều đi xuống (Request & Truy vấn CSDL):**
-> 1. *Tại **Frontend UI** (`HelpPage.tsx`), người dùng nhập từ khóa tìm kiếm và chọn danh mục, React gửi request `GET /api/catalog/faqs?category=...&keyword=...`.*
-> 2. *Tại **REST Controller** (`CatalogController.java`), hàm `getPublicFaqs()` tiếp nhận query params và gọi sang Service Interface `catalogService.getFaqEntries(category, keyword)`.*
+> 1. *Tại **Frontend UI** (`HelpPage.tsx`), người dùng nhập từ khóa tìm kiếm và chọn danh mục, React gửi request `GET /api/catalog/faq?category=...&keyword=...`.*
+> 2. *Tại **REST Controller** (`CatalogController.java`), hàm `getFaqEntries()` tiếp nhận query params và gọi sang Service Interface `catalogService.getFaqEntries(category, keyword)`.*
 > 3. *Tại **Service Interface** (`CatalogService.java`), hợp đồng trừu tượng định nghĩa chữ ký hàm.*
 > 4. *Tại **Service Impl** (`CatalogServiceImpl.java`), việc đầu tiên là ServiceImpl **gọi ngay xuống Tầng 5 Repository** hàm:  
 >    `faqEntryRepository.findByPublishedTrueAndCategoryOrderBySortOrderAscFaqIdAsc(category)`  
@@ -413,13 +413,13 @@
 ---
 
 ### LUỒNG 17: QUẢN LÝ MẪU HỢP ĐỒNG MASTER
-*(Vị trí code: `PlatformController.java:480`, `PlatformServiceImpl.java:2265`)*
+*(Vị trí code: `PlatformController.java:441`, `PlatformServiceImpl.java:2265`)*
 
 > *"Dạ thưa thầy cô, quy trình quản trị mẫu hợp đồng khung:
 > 
 > ⬇️ **Chiều đi xuống (Request):**
 > 1. *Tại **Frontend UI** (`PlatformContractTemplatesPage.tsx`), Admin soạn nội dung hợp đồng khung, gửi `POST /api/platform/contract-templates`.*
-> 2. *Tại **REST Controller** (`PlatformController.java`), gọi `platformService.createContractTemplate()`.*
+> 2. *Tại **REST Controller** (`PlatformController.java:441`), gọi `platformService.createContractTemplate()`.*
 > 3. *Tại **Service Interface**, định nghĩa hàm tạo mẫu hợp đồng.*
 > 4. *Tại **Service Impl** (`PlatformServiceImpl.java`), gán phiên bản hiệu lực, gọi `contractTemplateRepository.save(template)` và gọi `auditLogService.record("CREATE_CONTRACT_TEMPLATE", ...)`.*
 > 5. *Tại **Repository**, `ContractTemplateRepository.save()` sinh SQL INSERT.*
@@ -434,13 +434,13 @@
 ---
 
 ### LUỒNG 18: CẤU HÌNH TỶ LỆ PHÍ ĐỐI TÁC TRUNG TÂM
-*(Vị trí code: `PlatformController.java:420`, `PlatformServiceImpl.java:2549`)*
+*(Vị trí code: `PlatformController.java:510`, `PlatformServiceImpl.java:2549`)*
 
 > *"Dạ thưa thầy cô, luồng thiết lập tỷ lệ hoa hồng riêng cho từng trung tâm gia sư:
 > 
 > ⬇️ **Chiều đi xuống (Request):**
-> 1. *Tại **Frontend UI** (`PlatformFeeSettingsPage.tsx`), Admin nhập mức phí chiết khấu riêng, gửi `PUT /api/platform/centers/{id}/fee`.*
-> 2. *Tại **REST Controller** (`PlatformController.java`), gọi `platformService.updateCenterFeeConfig()`.*
+> 1. *Tại **Frontend UI** (`PlatformFeeSettingsPage.tsx`), Admin nhập mức phí chiết khấu riêng, gửi `PUT /api/platform/fees/centers/{centerId}`.*
+> 2. *Tại **REST Controller** (`PlatformController.java:510`), gọi `platformService.updateCenterFeeConfig()`.*
 > 3. *Tại **Service Interface**, định nghĩa hàm cấu hình phí trung tâm.*
 > 4. *Tại **Service Impl** (`PlatformServiceImpl.java`), kiểm tra ngưỡng tỷ lệ hợp lệ, gọi `tutorCenterRepository.save(center)` cập nhật và gọi `auditLogService.record("UPDATE_CENTER_FEE", ...)`.*
 > 5. *Tại **Repository**, `TutorCenterRepository.save()` thực thi SQL UPDATE.*
@@ -476,13 +476,13 @@
 ---
 
 ### LUỒNG 20: HỢP ĐỒNG ĐIỆN TỬ KÝ SỐ OTP (UC-44)
-*(Vị trí code: `ContractController.java:80`, `ContractServiceImpl.java:476`)*
+*(Vị trí code: `ContractController.java:176, L193`, `ContractServiceImpl.java:476`)*
 
 > *"Dạ thưa thầy cô, quy trình ký kết hợp đồng điện tử qua mã OTP:
 > 
 > ⬇️ **Chiều đi xuống (Request):**
-> 1. *Tại **Frontend UI** (`ContractDetailPage.tsx`), người dùng nhập mã OTP 6 số từ Email, gửi `POST /api/contract/{id}/sign-otp`.*
-> 2. *Tại **REST Controller** (`ContractController.java`), gọi `contractService.signWithOtp()`.*
+> 1. *Tại **Frontend UI** (`ContractDetailPage.tsx`), người dùng yêu cầu OTP và nhập mã OTP 6 số từ Email, gửi `POST /api/contract/{contractId}/sign`.*
+> 2. *Tại **REST Controller** (`ContractController.java:193`), gọi `contractService.signWithOtp()`.*
 > 3. *Tại **Service Interface**, định nghĩa hàm ký số OTP.*
 > 4. *Tại **Service Impl** (`ContractServiceImpl.java`):
 >    - Gọi `emailOtpRepository` xác thực mã OTP còn hạn và chưa bị tiêu thụ.
@@ -501,13 +501,13 @@
 ---
 
 ### LUỒNG 21: ĐÁNH GIÁ SAU BUỔI HỌC & ĐIỂM UY TÍN GIA SƯ
-*(Vị trí code: `ContractController.java:48`, `ReviewServiceImpl.java:45`, `ContractServiceImpl.java:2580`)*
+*(Vị trí code: `ContractController.java:54`, `ReviewServiceImpl.java:45`, `ContractServiceImpl.java:2580`)*
 
 > *"Dạ thưa thầy cô, luồng đánh giá sao và cập nhật điểm uy tín:
 > 
 > ⬇️ **Chiều đi xuống (Request):**
 > 1. *Tại **Frontend UI** (`ContractDetailPage.tsx`), học viên chấm điểm sao (1 - 5 sao) và nhận xét, gửi `POST /api/contract/reviews`.*
-> 2. *Tại **REST Controller** (`ContractController.java`), gọi `reviewService.createReview()`.*
+> 2. *Tại **REST Controller** (`ContractController.java:54`), gọi `reviewService.createReview()`.*
 > 3. *Tại **Service Interface**, `ReviewService` định nghĩa tạo đánh giá, `ContractService` định nghĩa tính uy tín.*
 > 4. *Tại **Service Impl** (`ReviewServiceImpl.java`), gọi `reviewRepository.save(review)` lưu vào bảng `reviews`. Sau đó kích hoạt gọi sang Service liên module `contractService.recomputeTutorReputation(tutorId)` để tính lại trung bình cộng số sao của gia sư trên toàn sàn và gọi `tutorRepository.save(tutor)` cập nhật vào hồ sơ.*
 > 5. *Tại **Repository**, `ReviewRepository.save()` và `TutorRepository.save()`.*
@@ -522,13 +522,13 @@
 ---
 
 ### LUỒNG 22: QUÊN MẬT KHẨU OTP QUA EMAIL (DEF-62)
-*(Vị trí code: `IdentityController.java:75`, `IdentityServiceImpl.java:519`)*
+*(Vị trí code: `IdentityController.java:107-123`, `IdentityServiceImpl.java:519`)*
 
 > *"Dạ thưa thầy cô, luồng đặt lại mật khẩu an toàn qua OTP Email:
 > 
 > ⬇️ **Chiều đi xuống (Request):**
-> 1. *Tại **Frontend UI** (`ResetPasswordPage.tsx`), người dùng nhập mã xác thực OTP từ Email và mật khẩu mới, gửi `POST /api/identity/reset-password`.*
-> 2. *Tại **REST Controller** (`IdentityController.java`), gọi `identityService.resetPassword()`.*
+> 1. *Tại **Frontend UI** (`ResetPasswordPage.tsx`), người dùng yêu cầu mã tại `/password/forgot`, nhập mã xác thực OTP từ Email và mật khẩu mới, gửi `POST /api/identity/password/reset`.*
+> 2. *Tại **REST Controller** (`IdentityController.java:119`), gọi `identityService.resetPassword()`.*
 > 3. *Tại **Service Interface**, định nghĩa hàm reset password.*
 > 4. *Tại **Service Impl** (`IdentityServiceImpl.java`):
 >    - Gọi `passwordResetTokenRepository.findByToken(request.getToken())` kiểm tra token còn hạn và chưa dùng.
@@ -548,13 +548,13 @@
 ---
 
 ### LUỒNG 23: THAY ĐỔI MẬT KHẨU NGƯỜI DÙNG (CHANGE PASSWORD)
-*(Vị trí code: `IdentityController.java:65`, `IdentityServiceImpl.java:432`)*
+*(Vị trí code: `IdentityController.java:101`, `IdentityServiceImpl.java:432`)*
 
 > *"Dạ thưa thầy cô, luồng đổi mật khẩu trong trang cá nhân:
 > 
 > ⬇️ **Chiều đi xuống (Request):**
-> 1. *Tại **Frontend UI** (`ProfilePage.tsx`), người dùng nhập mật khẩu hiện tại và mật khẩu mới, gửi `POST /api/identity/change-password`.*
-> 2. *Tại **REST Controller** (`IdentityController.java`), gọi `identityService.changePassword()`.*
+> 1. *Tại **Frontend UI** (`ProfilePage.tsx`), người dùng nhập mật khẩu hiện tại và mật khẩu mới, gửi `PUT /api/identity/password`.*
+> 2. *Tại **REST Controller** (`IdentityController.java:101`), gọi `identityService.changePassword()`.*
 > 3. *Tại **Service Interface**, định nghĩa hàm đổi mật khẩu.*
 > 4. *Tại **Service Impl** (`IdentityServiceImpl.java`):
 >    - Lấy user hiện tại qua `authHelper.currentUserId()`.
@@ -598,13 +598,13 @@
 ---
 
 ### LUỒNG 25: TẢI ẢNH ĐẠI DIỆN KIỂM TRA MAGIC BYTES CHỐNG MÃ ĐỘC (UC-08)
-*(Vị trí code: `ProfileController.java:45`, `ProfileServiceImpl.java:809`)*
+*(Vị trí code: `ProfileController.java:236`, `ProfileServiceImpl.java:809`)*
 
 > *"Dạ thưa thầy cô, luồng tải ảnh đại diện an toàn:
 > 
 > ⬇️ **Chiều đi xuống (Request):**
-> 1. *Tại **Frontend UI** (`TutorProfilePage.tsx`), người dùng chọn tệp ảnh tải lên, gửi `POST /api/profile/avatar` dạng `multipart/form-data`.*
-> 2. *Tại **REST Controller** (`ProfileController.java`), gọi `profileService.uploadAvatar()`.*
+> 1. *Tại **Frontend UI** (`TutorProfilePage.tsx`), người dùng chọn tệp ảnh tải lên, gửi `POST /api/profile/me/avatar` dạng `multipart/form-data`.*
+> 2. *Tại **REST Controller** (`ProfileController.java:236`), gọi `profileService.uploadAvatar()`.*
 > 3. *Tại **Service Interface**, định nghĩa hàm upload avatar.*
 > 4. *Tại **Service Impl** (`ProfileServiceImpl.java`):
 >    - Đọc mảng byte đầu tiên của file để kiểm tra **Magic Bytes** thực tế (PNG: `89 50 4E 47`, JPEG: `FF D8 FF`), chặn đứng các tệp mã độc giả mạo đuôi ảnh (`.php`, `.exe`).
@@ -622,13 +622,13 @@
 ---
 
 ### LUỒNG 26: ĐĂNG XUẤT & THU HỒI PHIÊN JWT BẰNG TOKEN_VERSION (LOGOUT)
-*(Vị trí code: `IdentityController.java:55`, `IdentityServiceImpl.java:390`, `JwtAuthenticationFilter.java:45`)*
+*(Vị trí code: `IdentityController.java:78`, `IdentityServiceImpl.java:390`, `JwtAuthenticationFilter.java:45`)*
 
 > *"Dạ thưa thầy cô, cơ chế thu hồi phiên JWT không cần Redis:
 > 
 > ⬇️ **Chiều đi xuống (Request):**
 > 1. *Người dùng bấm Đăng xuất, xóa token ở client và gửi `POST /api/identity/logout`.*
-> 2. *Tại **REST Controller** (`IdentityController.java`), gọi `identityService.logout()`.*
+> 2. *Tại **REST Controller** (`IdentityController.java:78`), gọi `identityService.logout()`.*
 > 3. *Tại **Service Interface**, định nghĩa hàm đăng xuất.*
 > 4. *Tại **Service Impl** (`IdentityServiceImpl.java`), lấy user qua `authHelper.currentUserId()`, thực hiện thao tác cốt lõi:  
 >    **`user.setTokenVersion(user.getTokenVersion() + 1L)`**, tăng giá trị phiên đăng nhập thêm 1 đơn vị, gọi `userRepository.save(user)` và gọi `auditLogService.record("LOGOUT", ...)`.*
