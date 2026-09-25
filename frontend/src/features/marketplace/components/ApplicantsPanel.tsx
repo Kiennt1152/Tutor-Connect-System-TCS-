@@ -24,6 +24,10 @@ interface Props {
   readonly onChosen?: () => void;
 }
 
+/**
+ * Khung "Gia sư ứng tuyển" của chủ lớp: giải thích AI + Top 5, hoặc đồng hồ 48 giờ khi đã chọn;
+ * thẻ ứng viên với nút chọn (xác nhận rồi chuyển sang ký hợp đồng) và từ chối (kèm lý do).
+ */
 export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) {
   const [applicants, setApplicants] = useState<ApplicantResponse[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -62,14 +66,17 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
   // Đồng hồ chỉ chạy khi lớp đang chờ ký hợp đồng (MATCHED); lớp đã vào học thì backend gỡ hạn.
   const deadline = alreadyChosen && !tutorAccepted ? target.matchDeadlineAt : null;
 
+  /** Hàm tra tên môn theo id (môn "khác" lấy tên chủ lớp gõ). */
   const subjectName = useMemo(() => {
     const form = classToForm(target);
     const m = new Map(subjects.map((s) => [String(s.id), s.name]));
     return (id: string) =>
       isOtherSubject(id) ? form.subjectOthers[id]?.trim() || 'Môn khác' : (m.get(id) ?? `#${id}`);
   }, [target, subjects]);
+  /** Mã các môn của lớp (để biết môn nào gia sư báo giá). */
   const classSubjectIds = useMemo(() => classToForm(target).subjectIds, [target]);
 
+  /** Chọn gia sư: gọi API, đánh dấu ứng viên đã chọn, rồi chuyển thẳng sang trang ký hợp đồng của lớp. */
   async function handleChoose(applicationId: number) {
     setChoosingId(applicationId);
     setNotice(null);
@@ -100,6 +107,7 @@ export function ApplicantsPanel({ classId, target, subjects, onChosen }: Props) 
     }
   }
 
+  /** Từ chối ứng viên kèm lý do, bỏ khỏi danh sách và hiện thông báo. */
   async function handleReject(applicationId: number, reason: string) {
     setRejectingId(applicationId);
     setNotice(null);
@@ -292,6 +300,10 @@ interface CardProps {
   readonly onDetail: () => void;
 }
 
+/**
+ * Thẻ một ứng viên: hạng Top, tên, xác minh, % phù hợp, đánh giá, kinh nghiệm, học phí từng môn, thư ngỏ,
+ * cảnh báo trùng lịch bận và các nút xem chi tiết/chọn/từ chối.
+ */
 function ApplicantCard({
   applicant: a,
   subjectName,
@@ -437,6 +449,7 @@ function ApplicantCard({
   );
 }
 
+/** Lấy câu lỗi từ phản hồi API; không có thì dùng câu mặc định. */
 function extractError(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;

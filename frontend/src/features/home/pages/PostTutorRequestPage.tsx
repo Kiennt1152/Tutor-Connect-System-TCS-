@@ -77,6 +77,7 @@ import './FindTutorPage.css';
  *      Muốn xem một tin trông ra sao thì đọc cột đó là đủ.
  */
 
+/** Lấy câu lỗi từ phản hồi API; không có thì dùng câu mặc định. */
 function extractError(err: unknown): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;
@@ -86,6 +87,7 @@ function extractError(err: unknown): string {
   return 'Có lỗi xảy ra. Vui lòng thử lại.';
 }
 
+/** Trang "Đăng yêu cầu tìm gia sư": form tạo tin (chỉ tài khoản client), báo thành công và cho tạo tin khác. */
 export default function PostTutorRequestPage() {
   const { user, isAuthenticated } = useAuth();
   const isClient = user?.role === 'CLIENT';
@@ -96,6 +98,7 @@ export default function PostTutorRequestPage() {
   const [created, setCreated] = useState<ClassResponse | null>(null);
   const [formKey, setFormKey] = useState(0);
 
+  /** Tạo tin tìm gia sư (chặn nếu không phải client); thành công thì hiện kết quả. */
   async function handleSubmit(payload: ClassRequestPayload) {
     if (!isClient) {
       setError('Vui lòng đăng nhập bằng tài khoản Client (Phụ huynh/Học viên) để đăng yêu cầu.');
@@ -113,6 +116,7 @@ export default function PostTutorRequestPage() {
     }
   }
 
+  /** Xoá kết quả/lỗi và dựng lại form trống để đăng tin khác. */
   function resetForm() {
     setCreated(null);
     setError(null);

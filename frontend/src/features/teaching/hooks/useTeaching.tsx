@@ -10,6 +10,7 @@ import type {
 
 type LoadStatus = 'loading' | 'success' | 'error';
 
+/** Lấy câu lỗi từ phản hồi API; không có thì dùng câu dự phòng. */
 function extractError(err: unknown, fallback: string): string {
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as { message?: string } | undefined;
@@ -18,6 +19,7 @@ function extractError(err: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Hook tải các buổi học của một lớp (bỏ qua kết quả nếu component đã bị gỡ). */
 export function useClassLessons(classId: number) {
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [lessons, setLessons] = useState<LessonResponse[]>([]);
@@ -41,6 +43,7 @@ export function useClassLessons(classId: number) {
   return { status, lessons };
 }
 
+/** Hook đếm số lời mời nhận lớp đang chờ của gia sư (để hiện số trên menu); tắt thì luôn 0. */
 export function usePendingInviteCount(enabled: boolean) {
   const [count, setCount] = useState(0);
 
@@ -63,6 +66,10 @@ export function usePendingInviteCount(enabled: boolean) {
   return enabled ? count : 0;
 }
 
+/**
+ * Hook dữ liệu màn lịch dạy/lịch học: phân công, buổi học, yêu cầu đổi lịch và các thao tác
+ * (nhận/từ chối lớp, điểm danh, đổi lịch, duyệt/thu hồi, hoàn thành lớp) kèm thông báo kết quả.
+ */
 export function useTeaching() {
   const [status, setStatus] = useState<LoadStatus>('loading');
   const [assignments, setAssignments] = useState<AssignmentResponse[]>([]);
@@ -71,6 +78,7 @@ export function useTeaching() {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  /** Tải lại phân công, buổi học và yêu cầu đổi lịch cùng lúc (lỗi ở buổi học/yêu cầu không làm hỏng cả trang). */
   const reload = useCallback(async () => {
     setStatus('loading');
     try {
@@ -92,6 +100,9 @@ export function useTeaching() {
     void reload();
   }, [reload]);
 
+  /**
+   * Chạy một thao tác: xoá thông báo cũ, gọi API, hiện câu kết quả và tải lại; lỗi thì hiện câu lỗi, trả về true/false.
+   */
   const run = useCallback(
     async (action: () => Promise<{ message: string }>, fallbackError: string) => {
       setNotice(null);
@@ -117,11 +128,15 @@ export function useTeaching() {
     notice,
     error,
     reload,
+    /** Nhận lớp. */
     accept: (id: number) => run(() => teachingApi.acceptAssignment(id), 'Nhận lớp thất bại.'),
+    /** Từ chối lời mời nhận lớp. */
     decline: (id: number) => run(() => teachingApi.declineAssignment(id), 'Từ chối lớp thất bại.'),
+    /** Điểm danh có mặt/vắng cho buổi học. */
     attend: (id: number, present: boolean) =>
       run(() => teachingApi.markAttendance(id, present), 'Điểm danh thất bại.'),
 
+    /** Gửi yêu cầu đổi lịch một buổi. */
     requestReschedule: (lessonId: number, payload: RescheduleLessonPayload) =>
       run(
         () =>
@@ -130,10 +145,13 @@ export function useTeaching() {
             .then(() => ({ message: 'Đã gửi yêu cầu đổi lịch — chờ bên còn lại duyệt.' })),
         'Gửi yêu cầu đổi lịch thất bại.',
       ),
+    /** Duyệt/từ chối yêu cầu đổi lịch. */
     decideRequest: (requestId: number, approve: boolean, note?: string) =>
       run(() => teachingApi.decideRequest(requestId, approve, note), 'Xử lý yêu cầu thất bại.'),
+    /** Thu hồi yêu cầu đổi lịch. */
     cancelRequest: (requestId: number) =>
       run(() => teachingApi.cancelRequest(requestId), 'Thu hồi yêu cầu thất bại.'),
+    /** Gia sư bấm hoàn thành lớp. */
     confirmCompletion: (classId: number) =>
       run(() => teachingApi.confirmClassCompletion(classId), 'Hoàn thành lớp thất bại.'),
   };

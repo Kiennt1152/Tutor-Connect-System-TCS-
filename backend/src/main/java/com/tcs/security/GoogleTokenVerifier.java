@@ -63,10 +63,12 @@ public class GoogleTokenVerifier {
         return new GooglePayload(email, name);
     }
 
+    /** Gọi GET tới URL của Google và đọc JSON trả về. */
     private JsonNode getJson(String url) {
         return send(HttpRequest.newBuilder(URI.create(url)).GET().build());
     }
 
+    /** Gọi GET kèm access token (Bearer) để lấy thông tin tài khoản Google. */
     private JsonNode getJsonWithBearer(String url, String accessToken) {
         return send(HttpRequest.newBuilder(URI.create(url))
                 .header("Authorization", "Bearer " + accessToken)
@@ -74,6 +76,7 @@ public class GoogleTokenVerifier {
                 .build());
     }
 
+    /** Gửi request HTTP và đọc JSON; lỗi mạng hoặc bị gián đoạn thì báo lỗi rõ ràng. */
     private JsonNode send(HttpRequest request) {
         try {
             HttpResponse<String> response =
@@ -96,6 +99,7 @@ public class GoogleTokenVerifier {
         private final String email;
         private final String name;
 
+        /** Thông tin đã xác thực từ Google: email và tên. */
         public GooglePayload(String email, String name) {
             this.email = email;
             this.name = name;

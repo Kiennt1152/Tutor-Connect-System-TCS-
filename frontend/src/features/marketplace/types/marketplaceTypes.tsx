@@ -294,8 +294,10 @@ export const LEARNING_GOAL_OTHER = 'Khác';
 
 export const OTHER_SUBJECT = 'other';
 export const OTHER_PREFIX = 'other:';
+/** Mã môn có phải môn "khác" (người dùng tự gõ tên) hay không. */
 export const isOtherSubject = (id: string): boolean =>
   id === OTHER_SUBJECT || id.startsWith(OTHER_PREFIX);
+/** Sinh mã tạm duy nhất cho một môn "khác" mới. */
 export const newOtherSubjectId = (): string =>
   `${OTHER_PREFIX}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 

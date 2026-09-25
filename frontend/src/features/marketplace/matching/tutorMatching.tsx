@@ -67,6 +67,7 @@ export const DEFAULT_WEIGHTS: MatchWeights = {
   grade: 5,
 };
 
+/** Bộ tiêu chí tìm lớp rỗng với trọng số mặc định. */
 export function emptyCriteria(): TutorCriteria {
   return {
     subjectIds: [],
@@ -83,6 +84,7 @@ export function emptyCriteria(): TutorCriteria {
   };
 }
 
+/** Mã thứ (CN, T2..T7) của một ngày "yyyy-MM-dd". */
 function weekdayCode(dateStr: string): string {
   if (!dateStr) return '';
   const d = new Date(`${dateStr}T00:00:00`);
@@ -114,6 +116,7 @@ export interface ParsedClass {
   feeMin: number;
 }
 
+/** Đọc lớp từ API thành dạng dùng để chấm điểm: môn, khối, địa điểm, hình thức, lịch (thứ/buổi), học phí. */
 export function parseClass(raw: ClassResponse): ParsedClass {
   let form: (Partial<ClassFormValues> & { subjectOther?: string }) | null = null;
   if (raw.detailsJson) {
@@ -205,6 +208,7 @@ export interface MatchResult {
   breakdown: MatchBreakdown;
 }
 
+/** Tên môn "khác" của lớp có khớp (chứa nhau, bỏ dấu) với môn người tìm gõ không. */
 function otherSubjectMatches(classText: string, wanted: string): boolean {
   const a = normalizeName(classText);
   const b = normalizeName(wanted);
@@ -309,6 +313,9 @@ function locationHalf(want: string, got: string): number {
   return want === got ? 1 : 0;
 }
 
+/**
+ * Điểm Địa điểm (0..1): online loại trừ học tại chỗ; tỉnh khớp 0,5 + phường khớp 0,5 (không nêu phường thì chỉ xét tỉnh).
+ */
 function scoreLocation(pc: ParsedClass, c: TutorCriteria): number {
   const isOnline = pc.lessonMode === 'ONLINE';
 
@@ -403,6 +410,7 @@ export function scheduleHalves(pc: ParsedClass, c: TutorCriteria): ScheduleHalve
   return { day: ratio(wantDays, (s) => s.day), session: ratio(wantSessions, (s) => s.session) };
 }
 
+/** Điểm Lịch học (0..1): trung bình phần thứ và phần buổi đã nêu; không nêu lịch thì 1. */
 function scoreSchedule(pc: ParsedClass, c: TutorCriteria): number {
   if (c.availability.length === 0) return 1; // gia sư linh hoạt -> bỏ qua tiêu chí
   const { day, session } = scheduleHalves(pc, c);
@@ -465,6 +473,10 @@ export function criteriaShares(c: TutorCriteria): Record<keyof MatchWeights, Cri
   return out;
 }
 
+/**
+ * Chấm điểm một lớp: tính 5 tiêu chí S/L/P/T/E, chia đều 100% cho tiêu chí có nêu nhân mức ưu tiên/5,
+ * cộng thành % phù hợp; mọi thanh trượt về 0 thì 100%.
+ */
 export function scoreClass(pc: ParsedClass, c: TutorCriteria): MatchBreakdown {
   const values: Record<keyof MatchWeights, number> = {
     subject: scoreSubject(pc, c),

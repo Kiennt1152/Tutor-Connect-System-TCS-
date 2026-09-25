@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { LessonResponse, RescheduleLessonPayload } from '../types/teachingTypes';
 import {
+  MIDNIGHT_END,
   endMinutes,
+  formatDateVi,
   hhmm,
   hhmmDisplay,
   isValidTimeRange,
@@ -12,23 +14,42 @@ import {
 import { SESSION_OPTIONS } from '../../marketplace/types/marketplaceTypes';
 import './LessonRequestDialog.css';
 
-const toMinutes = (t: string) => {
-  const [h, m] = t.split(':').map(Number);
-  return h * 60 + m;
-};
-
+/**
+ * Đổi số phút trong ngày thành "HH:mm"; 1440 phút là mốc NỬA ĐÊM nên trả về "00:00"
+ * (quy ước chung của hệ thống — xem MIDNIGHT_END, bản backend là SlotTime).
+ */
 const minutesToHhmm = (mins: number) =>
-  `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
+  mins >= 24 * 60
+    ? MIDNIGHT_END
+    : `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 
-function buildTimeSlots(min: string, max: string, step = 30): string[] {
+/**
+ * Các mốc GIỜ BẮT ĐẦU chọn được trong một buổi: từ đầu buổi tới mốc muộn nhất mà buổi học
+ * dài `durationMin` vẫn kết thúc trước (hoặc đúng) lúc hết buổi.
+ *
+ * <p>Cuối buổi Tối là "00:00" — tức 24:00 (1440 phút) của chính ngày hôm đó, KHÔNG phải 0h
+ * đầu ngày. Vì vậy mốc cuối buổi phải đi qua {@link endMinutes}; so sánh chuỗi hoặc tính tay
+ * sẽ ra 0 phút và buổi Tối không còn mốc giờ nào để chọn.</p>
+ */
+function buildStartOptions(
+  sessionMin: string,
+  sessionMax: string,
+  durationMin: number,
+  step = 30,
+): string[] {
+  const from = startMinutes(sessionMin);
+  const latestStart = endMinutes(sessionMax) - durationMin;
+  if (!Number.isFinite(from) || !Number.isFinite(latestStart) || latestStart < from) return [];
+
   const out: string[] = [];
-  for (let x = toMinutes(min); x <= toMinutes(max); x += step) {
-    out.push(`${String(Math.floor(x / 60)).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`);
-  }
-  if (out.length > 0 && out[out.length - 1] !== max) out.push(max);
+  for (let x = from; x <= latestStart; x += step) out.push(minutesToHhmm(x));
+  // Bước nhảy có thể không rơi đúng mốc muộn nhất -> bổ sung để không mất giờ hợp lệ cuối cùng.
+  const last = minutesToHhmm(latestStart);
+  if (out[out.length - 1] !== last) out.push(last);
   return out;
 }
 
+/** Nhãn thời lượng, ví dụ "1 giờ 30 phút". */
 function durationLabel(mins: number): string {
   if (mins <= 0) return '';
   const h = Math.floor(mins / 60);
@@ -36,6 +57,7 @@ function durationLabel(mins: number): string {
   return [h ? `${h} giờ` : '', m ? `${m} phút` : ''].filter(Boolean).join(' ');
 }
 
+/** Suy ra buổi (Sáng/Chiều/Tối) từ giờ bắt đầu. */
 function sessionOf(start: string): string {
   if (start && start >= '18:00') return 'Tối';
   if (start && start >= '12:00') return 'Chiều';
@@ -77,23 +99,23 @@ export function LessonRequestDialog({
   const [busy, setBusy] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
+  /** Ngày hôm nay dạng "yyyy-MM-dd" (tính một lần khi mở hộp thoại). */
   const todayIso = useMemo(() => toIsoDate(new Date()), []);
+  /** Giờ hiện tại "HH:mm" (để chặn chọn giờ đã qua trong hôm nay). */
   const nowHm = useMemo(() => new Date().toTimeString().slice(0, 5), []);
   const isToday = date === todayIso;
 
   const sess = SESSION_OPTIONS.find((o) => o.value === session) ?? SESSION_OPTIONS[0];
-  const maxEndMin = toMinutes(sess.max);
 
   // Giờ bắt đầu hợp lệ: nằm trong buổi và start + độ dài không vượt quá cuối buổi.
   const startOptions = useMemo(() => {
-    const slots = buildTimeSlots(sess.min, sess.max).filter(
-      (t) => toMinutes(t) + durationMin <= maxEndMin,
-    );
+    const slots = buildStartOptions(sess.min, sess.max, durationMin);
     return isToday ? slots.filter((t) => t > nowHm) : slots;
-  }, [sess.min, sess.max, maxEndMin, durationMin, isToday, nowHm]);
+  }, [sess.min, sess.max, durationMin, isToday, nowHm]);
 
+  /** Giờ kết thúc = giờ bắt đầu + thời lượng buổi (chạm nửa đêm thì là "00:00"). */
   const endTime = useMemo(
-    () => minutesToHhmm(toMinutes(startTime) + durationMin),
+    () => minutesToHhmm(startMinutes(startTime) + durationMin),
     [startTime, durationMin],
   );
 
@@ -113,8 +135,9 @@ export function LessonRequestDialog({
   /** Buổi bắt đầu lúc t (dài durationMin) có đè lên buổi nào không. */
   const clashAt = useMemo(
     () => (t: string) => {
-      const end = minutesToHhmm(toMinutes(t) + durationMin);
-      return busyRanges.find((b) => t < b.end && b.start < end) ?? null;
+      const end = minutesToHhmm(startMinutes(t) + durationMin);
+      // Qua slotOverlaps vì giờ kết thúc có thể là "00:00" (nửa đêm) — so chuỗi sẽ sai.
+      return busyRanges.find((b) => slotOverlaps(t, end, b.start, b.end)) ?? null;
     },
     [busyRanges, durationMin],
   );
@@ -135,7 +158,7 @@ export function LessonRequestDialog({
         slotOverlaps(startTime, endTime, hhmm(l.startTime), hhmm(l.endTime)),
     );
     return clash
-      ? `Khung giờ này trùng với buổi "${clash.classTitle}" ngày ${date} (${hhmm(clash.startTime)}–${hhmm(clash.endTime)}). Vui lòng chọn giờ hoặc ngày khác.`
+      ? `Khung giờ này trùng với buổi "${clash.classTitle}" ${formatDateVi(date)} (${hhmmDisplay(clash.startTime)}–${hhmmDisplay(clash.endTime)}). Vui lòng chọn giờ hoặc ngày khác.`
       : null;
   }, [date, startTime, endTime, existingLessons, lesson.lessonId]);
 
@@ -146,6 +169,7 @@ export function LessonRequestDialog({
     }
   }, [freeStartOptions, startTime]);
 
+  /** Đổi buổi: đặt giờ bắt đầu mặc định của buổi và xoá lỗi đang hiện. */
   function changeSession(value: string) {
     const preset = SESSION_OPTIONS.find((o) => o.value === value) ?? SESSION_OPTIONS[0];
     setSession(value);
@@ -153,11 +177,16 @@ export function LessonRequestDialog({
     setLocalError(null);
   }
 
+  /**
+   * Kiểm tra form đổi lịch: có lý do, ngày, giờ hợp lệ, không ở quá khứ, khác lịch cũ và không trùng lịch khác;
+   * trả về câu lỗi đầu tiên hoặc null.
+   */
   function validate(): string | null {
     if (!reason.trim()) return 'Vui lòng nhập lý do đổi lịch.';
     if (!date) return 'Chọn ngày học.';
     if (!startTime || !endTime) return 'Chọn giờ bắt đầu.';
-    if (startTime >= endTime) return 'Giờ kết thúc phải sau giờ bắt đầu.';
+    // isValidTimeRange chứ không so chuỗi: "00:00" ở giờ kết thúc là nửa đêm, không phải 0h.
+    if (!isValidTimeRange(startTime, endTime)) return 'Giờ kết thúc phải sau giờ bắt đầu.';
     if (date < todayIso) return 'Không thể xếp buổi học vào ngày đã qua.';
     if (date === todayIso && startTime <= nowHm)
       return 'Giờ học hôm nay đã qua — chọn giờ muộn hơn.';
@@ -172,6 +201,7 @@ export function LessonRequestDialog({
     return null;
   }
 
+  /** Gửi yêu cầu đổi lịch sau khi kiểm tra; thành công thì đóng hộp thoại. */
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const problem = validate();
@@ -211,8 +241,8 @@ export function LessonRequestDialog({
         <p className="lrd__current">
           Buổi {lesson.sequenceNo} · {lesson.classTitle}
           <br />
-          Hiện tại: <strong>{lesson.lessonDate}</strong> ({hhmmDisplay(lesson.startTime)}–
-          {hhmmDisplay(lesson.endTime)})
+          Hiện tại: <strong>{formatDateVi(lesson.lessonDate)}</strong> ({hhmmDisplay(lesson.startTime)}
+          –{hhmmDisplay(lesson.endTime)})
         </p>
 
         <form className="lrd__form" onSubmit={(e) => void handleSubmit(e)}>
@@ -226,6 +256,9 @@ export function LessonRequestDialog({
               min={toIsoDate(new Date())}
               onChange={(e) => setDate(e.target.value)}
             />
+            {/* Ô <input type="date"> hiển thị theo ngôn ngữ trình duyệt (có máy ra MM/DD/YYYY),
+                nên in lại ngày đã chọn bằng tiếng Việt để người dùng không đọc nhầm. */}
+            {date && <span className="lrd__hint">{formatDateVi(date)}</span>}
           </label>
 
           <label className="tcs-field">
@@ -250,7 +283,7 @@ export function LessonRequestDialog({
             </p>
           ) : freeStartOptions.length === 0 ? (
             <p className="lrd__err">
-              Buổi {sess.label} ngày {date} đã kín lịch — chọn buổi khác hoặc ngày khác.
+              Buổi {sess.label} {formatDateVi(date)} đã kín lịch — chọn buổi khác hoặc ngày khác.
             </p>
           ) : (
             <div className="lrd__row">

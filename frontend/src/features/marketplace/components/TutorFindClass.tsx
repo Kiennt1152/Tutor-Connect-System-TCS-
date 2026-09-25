@@ -64,6 +64,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   // Quay lại tab thì tải lại ngầm: gia sư thường mở tab khác xem hồ sơ rồi quay về,
   // lúc đó danh sách cần cập nhật (lớp mới đăng, lớp đã bị người khác nhận).
   useEffect(() => {
+    /** Quay lại tab thì tải lại danh sách lớp ngầm. */
     const onFocus = () => loadClasses(true);
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -127,6 +128,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
   // Bỏ lịch bận ở tab khác rồi quay lại thì phải mở khoá nút ngay -> tính lại khi cửa sổ được focus.
   const [busyCheckTick, setBusyCheckTick] = useState(0);
   useEffect(() => {
+    /** Quay lại tab thì kiểm tra lại trùng lịch bận (gia sư có thể vừa sửa lịch bận ở tab khác). */
     const onFocus = () => setBusyCheckTick((t) => t + 1);
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
@@ -153,6 +155,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
 
   const selectedNames = search.subjectNames;
 
+  /** Mở form ứng tuyển; gia sư chưa xác minh thì chuyển sang trang xác minh. */
   function openApply(target: ClassResponse) {
     setNotice(null);
     if (profileVerified === false) {
@@ -169,6 +172,7 @@ export function TutorFindClass({ subjects, grades, provinces }: Props) {
     navigate(APP_ROUTES.verification, { state: { notice: message } });
   }
 
+  /** Sau khi nộp đơn: đánh dấu lớp đã ứng tuyển, hiện thông báo và đóng form. */
   function handleApplied(classId: number) {
     setApplied((s) => new Set(s).add(classId));
     setNotice('Đã gửi đơn ứng tuyển thành công.');

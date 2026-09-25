@@ -7,13 +7,16 @@ import type { ReviewableAssignment } from '../types/reviewTypes';
 type ReviewFormModalProps = {
   assignment: ReviewableAssignment;
   edit?: boolean;
+  /** Đóng hộp thoại không lưu. */
   onClose: () => void;
+  /** Gọi sau khi gửi/sửa đánh giá thành công. */
   onSubmitted: () => void;
 };
 
 const MAX_COMMENT = 1000;
 const MAX_DISPLAY_NAME = 100;
 
+/** Lấy câu lỗi từ phản hồi API; không có thì dùng câu dự phòng. */
 function extractError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
     return error.response.data.message;
@@ -21,6 +24,7 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Đọc điểm từng tiêu chí đã lưu (criteriaJson) thành map mã tiêu chí -> điểm để điền sẵn khi sửa. */
 function parseScores(criteriaJson: string | null): Record<string, number> {
   if (!criteriaJson) return {};
   try {
@@ -36,6 +40,10 @@ function parseScores(criteriaJson: string | null): Record<string, number> {
   }
 }
 
+/**
+ * Hộp thoại đánh giá gia sư (gửi mới hoặc sửa bản gần nhất): chọn công khai/ẩn danh + bút danh,
+ * chấm 5 tiêu chí, nhận xét, hiện điểm tổng tạm tính rồi gửi.
+ */
 export function ReviewFormModal({ assignment, edit, onClose, onSubmitted }: ReviewFormModalProps) {
   const isEdit = Boolean(edit) && assignment.reviewed && assignment.reviewId != null;
   const [scores, setScores] = useState<Record<string, number>>(() =>
@@ -51,16 +59,19 @@ export function ReviewFormModal({ assignment, edit, onClose, onSubmitted }: Revi
 
   const answered = Object.keys(scores).length;
   const total = REVIEW_CRITERIA.length;
+  /** Điểm tổng tạm tính = trung bình các tiêu chí đã chấm (1 chữ số thập phân). */
   const overall = useMemo(() => {
     if (answered === 0) return 0;
     const sum = Object.values(scores).reduce((a, b) => a + b, 0);
     return Math.round((sum / answered) * 10) / 10;
   }, [scores, answered]);
 
+  /** Chọn mức điểm cho một tiêu chí. */
   function pick(code: string, score: number) {
     setScores((prev) => ({ ...prev, [code]: score }));
   }
 
+  /** Kiểm tra đã chấm đủ tiêu chí rồi gửi đánh giá mới hoặc cập nhật đánh giá; lỗi thì hiện câu lỗi. */
   async function handleSubmit() {
     setError('');
     if (answered < total) {

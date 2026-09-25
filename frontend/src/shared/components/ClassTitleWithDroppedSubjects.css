@@ -1,0 +1,6 @@
+/* Môn gia sư không nhận dạy: gạch ngang + làm nhạt để không tranh chỗ với môn đang học thật. */
+.tcs-subject--dropped {
+  color: #8a97a8;
+  font-weight: 500;
+  text-decoration-thickness: 1px;
+}

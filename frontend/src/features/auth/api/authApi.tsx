@@ -27,6 +27,7 @@ export const authApi = {
     axiosClient
       .post<RegisterResponse>(`${AUTH_API_BASE}/register`, payload)
       .then((response) => response.data),
+  /** Gọi API đăng nhập email/mật khẩu (dùng bởi trang đăng nhập cũ). */
   login: (payload: LoginPayload) =>
     axiosClient
       .post<LoginResponse>(`${AUTH_API_BASE}/login`, payload)

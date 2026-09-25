@@ -8,6 +8,7 @@ export const reportApi = {
       targetType: 'USER', targetId: userId, category, description: description.trim(),
     });
   },
+  /** Gửi báo cáo một đánh giá (loại REVIEW) với lý do và mô tả. */
   reportReview(reviewId: number, category: ReportCategory, description?: string) {
     return axiosClient.post('/messaging/reports', {
       targetType: 'REVIEW',

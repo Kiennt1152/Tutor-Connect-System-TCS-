@@ -629,6 +629,19 @@
   color: #fff;
 }
 
+/* Đã đánh giá xong: là trạng thái chứ không phải nút — bỏ viền và con trỏ bấm để không ai bấm hụt. */
+.cs-review-done {
+  display: block;
+  margin-top: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  background: #e8f5e9;
+  color: #2e7d32;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
 /* Trạng thái điểm danh trên thẻ lịch của học viên (ClientSchedulePage). */
 .cs-att-row {
   display: flex;

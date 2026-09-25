@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { hhmmDisplay } from '../../../shared/utils/format';
+import { formatDateVi as formatDate, hhmmDisplay } from '../../../shared/utils/format';
 import {
   ASSIGNMENT_STATUS_LABELS,
   ATTENDANCE_STATUS_LABELS,
@@ -9,19 +9,11 @@ import {
 } from '../types/teachingTypes';
 import './ClassDetailModal.css';
 
-const WEEKDAYS = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-
 const LESSON_MODE_LABELS: Record<string, string> = {
   ONLINE: 'Trực tuyến',
   OFFLINE: 'Trực tiếp',
   HYBRID: 'Kết hợp',
 };
-
-function formatDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  return `${WEEKDAYS[date.getDay()]}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
-}
 
 interface Props {
   readonly assignment: AssignmentResponse | null;
@@ -31,7 +23,9 @@ interface Props {
   readonly onClose: () => void;
 }
 
+/** Hộp thoại chi tiết lớp trên lịch dạy/lịch học: thông tin phân công và danh sách buổi học. */
 export function ClassDetailModal({ assignment, lessons, classTitle, isClient, onClose }: Props) {
+  /** Buổi học sắp theo ngày rồi giờ bắt đầu. */
   const sorted = useMemo(
     () => [...lessons].sort((a, b) => a.lessonDate.localeCompare(b.lessonDate) || a.startTime.localeCompare(b.startTime)),
     [lessons],

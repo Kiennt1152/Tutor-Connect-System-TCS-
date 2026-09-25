@@ -12,6 +12,7 @@ export type AuthUser = {
   status: string;
 };
 
+/** Đọc người dùng đã lưu trong localStorage (JSON lỗi thì null). */
 function readStoredUser(): AuthUser | null {
   const raw = localStorage.getItem(USER_KEY);
   if (!raw) return null;
@@ -22,6 +23,7 @@ function readStoredUser(): AuthUser | null {
   }
 }
 
+/** Lưu token và thông tin người dùng sau khi đăng nhập vào localStorage. */
 function persist(auth: AuthResponse): AuthUser {
   const user: AuthUser = { userId: auth.userId, email: auth.email, status: auth.status };
   localStorage.setItem(TOKEN_KEY, auth.accessToken);
@@ -29,6 +31,7 @@ function persist(auth: AuthResponse): AuthUser {
   return user;
 }
 
+/** Lấy câu lỗi từ phản hồi API (message hoặc lỗi đầu tiên); không có thì câu dự phòng. */
 function extractError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error)) {
     const data = error.response?.data as Record<string, string> | undefined;
@@ -44,6 +47,7 @@ export function useIdentity() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /** Đăng nhập, lưu phiên; lỗi thì ghi câu lỗi và ném tiếp. */
   const login = useCallback(async (payload: LoginRequest) => {
     setLoading(true);
     setError(null);
@@ -58,6 +62,7 @@ export function useIdentity() {
     }
   }, []);
 
+  /** Đăng xuất phía trình duyệt: xoá token và người dùng đã lưu. */
   const logout = useCallback(() => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);

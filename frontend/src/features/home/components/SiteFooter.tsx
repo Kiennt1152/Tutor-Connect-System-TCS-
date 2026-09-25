@@ -2,6 +2,7 @@ import { AppLogo } from '../../../shared/components/AppLogo';
 import { FOOTER_LINKS } from '../config/homeContent';
 import '../pages/HomePage.css';
 
+/** Chân trang dùng chung cho các trang công khai. */
 export function SiteFooter() {
   return (
     <footer className="tcs-footer">

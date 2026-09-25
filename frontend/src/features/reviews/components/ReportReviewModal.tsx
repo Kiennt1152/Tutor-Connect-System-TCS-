@@ -14,7 +14,9 @@ type ReportReviewModalProps = {
   title?: string;
   intro?: string;
   options?: ReportCategoryOption[];
+  /** Đóng hộp thoại không gửi. */
   onClose: () => void;
+  /** Gọi sau khi gửi báo cáo thành công. */
   onReported: () => void;
 };
 
@@ -24,6 +26,7 @@ const DEFAULT_DESCRIPTION =
 
 const MAX_DESCRIPTION = 1000;
 
+/** Lấy câu lỗi từ phản hồi API; không có thì dùng câu dự phòng. */
 function extractError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
     return error.response.data.message;
@@ -31,6 +34,7 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Hộp thoại báo cáo một đánh giá (hoặc phản hồi của gia sư): chọn lý do, mô tả thêm rồi gửi cho admin. */
 export function ReportReviewModal({
   reviewId,
   subtitle,
@@ -45,6 +49,7 @@ export function ReportReviewModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
+  /** Bắt buộc chọn lý do rồi gửi báo cáo; lỗi thì hiện câu lỗi. */
   async function handleSubmit() {
     setError('');
     if (!category) {

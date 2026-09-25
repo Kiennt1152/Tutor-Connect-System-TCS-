@@ -18,6 +18,7 @@ const NON_ASCII_REGEX = /[^\x21-\x7E]/;
 
 type FieldErrors = Partial<Record<keyof LoginFormValues, string>>;
 
+/** Kiểm tra form đăng nhập (email hợp lệ, mật khẩu không trống, không dấu/khoảng trắng); trả về lỗi từng ô. */
 function validate(values: LoginFormValues): FieldErrors {
   const errors: FieldErrors = {};
   if (!values.email.trim()) {
@@ -33,6 +34,7 @@ function validate(values: LoginFormValues): FieldErrors {
   return errors;
 }
 
+/** Thanh đầu trang đăng nhập (logo + link trang chủ). */
 function Header() {
   return (
     <header className="tcs-header">
@@ -51,6 +53,7 @@ function Header() {
   );
 }
 
+/** Icon con mắt để ẩn/hiện mật khẩu. */
 function EyeIcon({ off }: { off: boolean }) {
   return off ? (
     <svg
@@ -85,6 +88,7 @@ function EyeIcon({ off }: { off: boolean }) {
   );
 }
 
+/** Trang đăng nhập email/mật khẩu (bản cũ trong features/auth — router hiện dùng features/identity/pages/LoginPage). */
 export default function LoginPage() {
   const { submitting, formError, login } = useLogin();
   const [values, setValues] = useState<LoginFormValues>({ email: '', password: '' });
@@ -92,6 +96,7 @@ export default function LoginPage() {
   const [touched, setTouched] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  /** Cập nhật một ô của form; nếu đã bấm gửi một lần thì kiểm tra lại ngay. */
   const update = (name: keyof LoginFormValues, value: string) => {
     setValues((prev) => ({ ...prev, [name]: value }));
     if (touched) {
@@ -99,6 +104,7 @@ export default function LoginPage() {
     }
   };
 
+  /** Kiểm tra form rồi đăng nhập; thành công thì về trang chủ. */
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setTouched(true);

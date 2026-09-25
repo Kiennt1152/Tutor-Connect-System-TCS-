@@ -8,6 +8,7 @@ import type { NotificationItem } from '../../features/messaging/api/notification
 import type { AnnouncementApiResponse } from '../../features/platform/types/platformTypes';
 import './NotificationBell.css';
 
+/** Khoảng thời gian tương đối ("vừa xong", "5 phút trước", "2 ngày trước"). */
 function timeAgo(iso: string): string {
   const then = new Date(iso).getTime();
   if (Number.isNaN(then)) return '';
@@ -38,6 +39,7 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
   const historyReadCount = items.filter((n) => n.isRead).length;
   const visible = showRead ? items : items.filter((n) => !n.isRead);
 
+  /** Mở/đóng bảng thông báo (mỗi lần mở thì ẩn lại các thông báo đã đọc). */
   function togglePanel() {
     if (!open) {
       setShowRead(false);
@@ -45,6 +47,7 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
     setOpen((v) => !v);
   }
 
+  /** Bấm một thông báo: đánh dấu đã đọc, đóng bảng và chuyển tới trang liên quan (nếu có). */
   function handleItemClick(n: NotificationItem) {
     if (!n.isRead) void markRead(n.notificationId);
     const link = notificationLink(n, user?.role);
@@ -54,6 +57,7 @@ export function NotificationBell({ enabled = false }: { readonly enabled?: boole
 
   useEffect(() => {
     if (!open) return;
+    /** Bấm ra ngoài bảng thông báo thì đóng bảng. */
     function onDown(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
     }

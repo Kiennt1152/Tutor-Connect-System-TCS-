@@ -65,6 +65,7 @@ public class HomeServiceImpl implements HomeService {
                 .build();
     }
 
+    /** Đổi môn học sang DTO cho trang chủ (id dạng chuỗi + tên). */
     private SubjectResponse toSubject(Subject subject) {
         return SubjectResponse.builder()
                 .id(subject.getSubjectId() != null ? subject.getSubjectId().toString() : null)

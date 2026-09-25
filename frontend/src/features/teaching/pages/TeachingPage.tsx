@@ -22,7 +22,7 @@ import { ReviewFormModal } from '../../reviews/components/ReviewFormModal';
 import { reviewApi } from '../../reviews/api/reviewApi';
 import type { ReviewableAssignment } from '../../reviews/types/reviewTypes';
 import { useTeaching } from '../hooks/useTeaching';
-import { hhmmDisplay, toIsoDate } from '../../../shared/utils/format';
+import { formatDateVi as formatDate, hhmmDisplay, toIsoDate } from '../../../shared/utils/format';
 import {
   CLASS_STATUS_LABELS,
   REQUEST_STATUS_LABELS,
@@ -31,9 +31,8 @@ import {
   type RescheduleRequestResponse,
 } from '../types/teachingTypes';
 import { ContractDeadline } from '../../../shared/components/ContractDeadline';
+import { ClassTitleWithDroppedSubjects } from '../../../shared/components/ClassTitleWithDroppedSubjects';
 import './TeachingPage.css';
-
-const WEEKDAYS = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
 const CLASS_STATUS_TONES: Record<string, string> = {
   OPEN: 'info',
@@ -54,12 +53,10 @@ function classStatusLabel(status?: string | null): string {
   return status ? (CLASS_STATUS_LABELS[status] ?? status) : 'Chưa rõ trạng thái';
 }
 
-function formatDate(iso: string): string {
-  const [y, m, d] = iso.split('-').map(Number);
-  const date = new Date(y, m - 1, d);
-  return `${WEEKDAYS[date.getDay()]}, ${String(d).padStart(2, '0')}/${String(m).padStart(2, '0')}/${y}`;
-}
-
+/**
+ * Trang lịch dạy (gia sư) / lịch học (client) của lớp riêng: lời mời nhận lớp, thời khoá biểu tuần,
+ * yêu cầu đổi lịch, điểm danh, đánh giá gia sư và hoàn thành lớp.
+ */
 export default function TeachingPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -85,6 +82,7 @@ export default function TeachingPage() {
   const [reviewables, setReviewables] = useState<ReviewableAssignment[]>([]);
   const [activeReview, setActiveReview] = useState<ReviewableAssignment | null>(null);
   const [reviewNotice, setReviewNotice] = useState<string | null>(null);
+  /** Client: tải danh sách lớp có thể đánh giá (để mở form đánh giá từ thời khoá biểu). */
   const loadReviewables = () => {
     if (!isClient) return;
     reviewApi
@@ -96,6 +94,7 @@ export default function TeachingPage() {
     loadReviewables();
   }, [isClient]);
 
+  /** Mở form đánh giá gia sư của lớp; chưa có buổi đã học hoặc đã đánh giá đủ thì hiện thông báo. */
   function openReviewByClass(classId: number) {
     const match = reviewables.find((a) => a.classId === classId);
     if (!match) {
@@ -109,6 +108,7 @@ export default function TeachingPage() {
     setActiveReview(match);
   }
 
+  /** Mở form đánh giá từ một buổi học trên thời khoá biểu. */
   const openReview = (lesson: LessonResponse) => openReviewByClass(lesson.classId);
 
   const [confirmAction, setConfirmAction] = useState<
@@ -246,7 +246,12 @@ export default function TeachingPage() {
                     <li key={a.assignmentId} className="tch-class">
                       <div className="tch-class__info">
                         <div className="tch-class__topline">
-                          <span className="tch-class__title">{a.classTitle}</span>
+                          <span className="tch-class__title">
+                            <ClassTitleWithDroppedSubjects
+                              title={a.classTitle}
+                              taughtSubjects={a.subjectNames ?? []}
+                            />
+                          </span>
                           <span
                             className={`tch-class-status tch-class-status--${classStatusTone(
                               a.classStatus,
@@ -256,7 +261,7 @@ export default function TeachingPage() {
                           </span>
                         </div>
                         <span className="tch-class__meta">
-                          {isClient && a.tutorName ? `👩‍🏫 ${a.tutorName} · ` : ''}
+                          {isClient && a.tutorName ? `${a.tutorName} · ` : ''}
                           {(a.subjectNames ?? []).join(', ') || '—'} · {a.lessonCount} buổi
                         </span>
                       </div>
@@ -473,6 +478,7 @@ function CompletionCell({
   }
 }
 
+/** Thẻ một yêu cầu đổi lịch/thêm buổi: thông tin lịch cũ/mới, lý do, trạng thái và nút duyệt/từ chối/thu hồi. */
 function RequestCard({
   request: r,
   onApprove,
@@ -542,6 +548,7 @@ function RequestCard({
   );
 }
 
+/** Thẻ lời mời nhận lớp của gia sư: thông tin lớp, hạn 48 giờ, nút ký hợp đồng hoặc từ chối. */
 function InviteCard({
   assignment: a,
   onSign,

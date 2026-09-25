@@ -131,6 +131,7 @@ export function IconChevronRight({ className }: IconProps) {
   );
 }
 
+/** Icon ngôi sao cho menu admin. */
 export function IconStar({ className }: IconProps) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">

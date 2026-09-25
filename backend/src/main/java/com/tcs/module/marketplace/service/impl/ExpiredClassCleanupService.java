@@ -28,6 +28,7 @@ public class ExpiredClassCleanupService {
     @PersistenceContext
     private EntityManager em;
 
+    /** Tạo service dọn tin hết hạn; mỗi tin được xoá trong một transaction riêng. */
     public ExpiredClassCleanupService(TutoringClassRepository tutoringClassRepository,
                                       PlatformTransactionManager transactionManager) {
         this.tutoringClassRepository = tutoringClassRepository;

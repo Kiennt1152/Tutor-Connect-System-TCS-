@@ -21,6 +21,7 @@ import { StarRating } from '../components/StarRating';
 import { CriteriaBreakdown } from '../components/CriteriaBreakdown';
 import './MyReviewsPage.css';
 
+/** Lấy câu lỗi từ phản hồi API; không có thì dùng câu dự phòng. */
 function extractError(error: unknown, fallback: string): string {
   if (axios.isAxiosError(error) && typeof error.response?.data?.message === 'string') {
     return error.response.data.message;
@@ -28,12 +29,14 @@ function extractError(error: unknown, fallback: string): string {
   return fallback;
 }
 
+/** Định dạng ngày theo kiểu Việt Nam (null -> rỗng). */
 function formatDate(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
   return d.toLocaleDateString('vi-VN');
 }
 
+/** Trang "Đánh giá của tôi" của khách: mục "Chờ đánh giá" và "Đã đánh giá", mở form đánh giá/sửa. */
 export default function MyReviewsPage() {
   const [items, setItems] = useState<ReviewableAssignment[]>([]);
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -41,6 +44,7 @@ export default function MyReviewsPage() {
   const [active, setActive] = useState<{ item: ReviewableAssignment; edit: boolean } | null>(null);
   const [toast, setToast] = useState('');
 
+  /** Tải danh sách lớp chờ đánh giá / đã đánh giá. */
   const load = useCallback(() => {
     setStatus('loading');
     reviewApi
@@ -59,6 +63,7 @@ export default function MyReviewsPage() {
     load();
   }, [load]);
 
+  /** Sau khi gửi/sửa đánh giá: đóng form, hiện thông báo 4 giây và tải lại danh sách. */
   function handleSubmitted() {
     const wasEdit = active?.edit;
     setActive(null);
@@ -155,6 +160,10 @@ export default function MyReviewsPage() {
   );
 }
 
+/**
+ * Thẻ lớp đã đánh giá: đánh giá gần nhất, tiêu chí, chế độ hiển thị, số lần đã đánh giá,
+ * phản hồi của gia sư, nút sửa và nút báo cáo phản hồi.
+ */
 function DoneReviewCard({
   item,
   onEdit,
