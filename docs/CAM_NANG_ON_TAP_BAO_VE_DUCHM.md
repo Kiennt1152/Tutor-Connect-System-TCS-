@@ -2,203 +2,234 @@
 ## DÀNH RIÊNG CHO: HOÀNG MINH ĐỨC (DucHM — HE187354 / `mduc1011-swp`)
 **Dự án**: Tutor Connect System (TCS) — Hệ thống kết nối Gia sư thông minh  
 **Khung giờ bảo vệ chính thức**: **10:50 – 12:20, Thứ Bảy ngày 26/09/2026**  
+**Kiến trúc chuẩn**: Spring Boot 3-Tier Enterprise Architecture (Mô hình 6 Tầng Chuẩn)  
 **Mục tiêu**: Làm chủ 100% luồng code, giải thích tường minh từ UI đến CSDL, tự tin bảo vệ xuất sắc trước hội đồng.
 
 ---
 
+# 🏛️ MÔ HÌNH 6 TẦNG KIẾN TRÚC SPRING BOOT (6-TIER ARCHITECTURE)
+*(Khi thầy cô yêu cầu giải thích luồng, bạn luôn trình bày theo đúng 6 mắt xích này)*
+
+```
+[Tầng 1: Frontend UI]         -> React Component, Form, Modal & Axios API Request
+          │
+          ▼
+[Tầng 2: REST Controller]     -> Nhận HTTP Request, Validate Payload DTO (@Valid)
+          │
+          ▼
+[Tầng 3: Service Interface]   -> Định nghĩa hợp đồng trừu tượng (Abstraction / Dependency Inversion)
+          │
+          ▼
+[Tầng 4: Service Impl]        -> Xử lý nghiệp vụ chính, bảo mật, SLA, transactional (@Transactional)
+          │
+          ▼
+[Tầng 5: Repository Interface]-> Spring Data JPA Interface (JpaRepository) & Custom JPQL Query (@Query)
+          │
+          ▼
+[Tầng 6: Entity & Database]   -> Thực thể JPA ánh xạ Bảng CSDL MySQL & Cột dữ liệu tác động
+```
+
+---
+
 # MỤC LỤC
-1. [PHẦN 1: BẢNG MA TRẬN TRA CỨU NHANH 1 GIÂY (CHEAT SHEET MATRIX)](#phần-1-bảng-ma-trận-tra-cứu-nhanh-1-giây-cheat-sheet-matrix)
-2. [PHẦN 2: GIẢI PHẪU CHI TIẾT TỪNG LUỒNG CODE THỰC CHIẾN](#phần-2-giải-phẫu-chi-tiết-từng-luồng-code-thực-chiến)
+1. [PHẦN 1: BẢNG MA TRẬN TRA CỨU NHANH 6 TẦNG (CHEAT SHEET MATRIX)](#phần-1-bảng-ma-trận-tra-cứu-nhanh-6-tầng-cheat-sheet-matrix)
+2. [PHẦN 2: GIẢI PHẪU CHI TIẾT TỪNG LUỒNG CODE THỰC CHIẾN 6 TẦNG](#phần-2-giải-phẫu-chi-tiết-từng-luồng-code-thực-chiến-6-tầng)
    - [CHƯƠNG 1: PHÂN HỆ HỖ TRỢ KHÁCH HÀNG (BF-09)](#chương-1-phân-hệ-hỗ-trợ-khách-hàng-bf-09)
    - [CHƯƠNG 2: PHÂN HỆ ĐIỀU HÀNH SÀN & BẢO MẬT (BF-10)](#chương-2-phân-hệ-điều-hành-sàn--bảo-mật-bf-10)
    - [CHƯƠNG 3: TRỢ LÝ ẢO AI UNIVERSAL RAG 12 BƯỚC (UC-65)](#chương-3-trợ-lý-ảo-ai-universal-rag-12-bước-uc-65)
-   - [CHƯƠNG 4: HỢP ĐỒNG ĐIỆN TỬ KÝ SỐ OTP & HỒ SƠ ĐA VAI TRÒ (UC-44 & M4)](#chương-4-hợp-đồng-điện-tử-ký-số-otp--hồ-sơ-đa-vai-trò-uc-44--m4)
-3. [PHẦN 3: KỊCH BẢN THUYẾT TRÌNH MẪU "5 BƯỚC CHỈ CODE"](#phần-3-kịch-bản-thuyết-trình-mẫu-5-bước-chỉ-code)
+   - [CHƯƠNG 4: HỢP ĐỒNG ĐIỆN TỬ OTP & HỒ SƠ 3 VAI TRÒ (UC-44, M4, UC-08)](#chương-4-hợp-đồng-điện-tử-otp--hồ-sơ-3-vai-trò-uc-44-m4-uc-08)
+3. [PHẦN 3: KỊCH BẢN THUYẾT TRÌNH MẪU "CHỈ CODE 6 BƯỚC"](#phần-3-kịch-bản-thuyết-trình-mẫu-chỉ-code-6-bước)
 4. [PHẦN 4: BỘ CÂU HỎI PHẢN BIỆN "BẪY" CỦA HỘI ĐỒNG & CÂU TRẢ LỜI MẪU](#phần-4-bộ-câu-hỏi-phản-biện-bẫy-của-hội-đồng--câu-trả-lời-mẫu)
 
 ---
 
-# PHẦN 1: BẢNG MA TRẬN TRA CỨU NHANH 1 GIÂY (CHEAT SHEET MATRIX)
-*(Bảng này được thiết kế để mở sẵn trên một góc màn hình máy tính lúc bảo vệ. Thầy cô hỏi chức năng nào, bạn liếc mắt 1 giây là biết mở file nào dòng nào!)*
+# PHẦN 1: BẢNG MA TRẬN TRA CỨU NHANH 6 TẦNG (CHEAT SHEET MATRIX)
+*(Bảng này mở sẵn trên một góc màn hình lúc bảo vệ. Thầy cô hỏi chức năng nào, liếc 1 giây là biết mở file nào dòng nào!)*
 
-| STT | Tên Chức Năng / Use Case | File Giao Diện Frontend | Endpoint API | Backend Controller | Backend Service Implementation | Bảng CSDL Tác Động |
-| :---: | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1** | **User gửi Ticket hỗ trợ** | `MessagingPanel.tsx` (L120) | `POST /api/messaging/tickets` | `MessagingController.java` (L110) | `MessagingServiceImpl.java` (L120) | `support_tickets`, `ticket_messages` |
-| **2** | **Admin lọc & xem danh sách Ticket** | `PlatformTicketsPage.tsx` (L25) | `GET /api/platform/tickets` | `PlatformController.java` (L102) | `PlatformServiceImpl.java` (L1176) | `support_tickets` |
-| **3** | **Admin mở Ticket (Auto-Assign PIC)** | `PlatformTicketsPage.tsx` (L63) | `GET /api/platform/tickets/{id}` | `PlatformController.java` (L334) | `PlatformServiceImpl.java` (L1201) | `support_tickets` (`assigned_admin_id`, `status='IN_PROGRESS'`) |
-| **4** | **Admin phản hồi Ticket (First Response SLA)** | `PlatformTicketsPage.tsx` (L94) | `POST /api/platform/tickets/{id}/respond` | `PlatformController.java` (L346) | `PlatformServiceImpl.java` (L1278) | `ticket_messages`, `support_tickets` (`response_sla_ms`), `audit_logs` |
-| **5** | **Đóng / Giải quyết Ticket** | `PlatformTicketsPage.tsx` (L99) | `POST /api/platform/tickets/{id}/close` | `PlatformController.java` (L353) | `PlatformServiceImpl.java` (L1322) | `support_tickets` (`resolved_at`, `closed_at`), `audit_logs` |
-| **6** | **Gộp Ticket trùng lặp (Merge Ticket)** | `PlatformTicketsPage.tsx` (L103) | `POST /api/platform/tickets/{id}/merge` | `PlatformController.java` (L359) | `PlatformServiceImpl.java` (L1360) | `ticket_messages`, `support_tickets` (`status='CLOSED'`), `audit_logs` |
-| **7** | **Quét & nâng cấp quá hạn SLA (Job/API)** | `useAdminTickets.tsx` (L45) | `POST /api/platform/tickets/scan-sla` | `PlatformController.java` (L365) | `PlatformServiceImpl.java` (L1433) | `support_tickets` (`priority`, `sla_breached=true`), `notifications` |
-| **8** | **Chuyển Ticket sang Tranh chấp Escrow** | `PlatformTicketsPage.tsx` (L112) | `POST /api/platform/tickets/{id}/redirect-dispute` | `PlatformController.java` (L371) | `PlatformServiceImpl.java` (L1524) | `reports` (`target_type='CLASS'`), `support_tickets`, `audit_logs` |
-| **9** | **Tra cứu FAQ & Hỗ trợ công khai** | `HelpPage.tsx` (L1) | `GET /api/catalog/faqs` | `CatalogController.java` (L25) | `CatalogServiceImpl.java` (L50) | `faq_entries`, `faq_categories` |
-| **10** | **Quản trị kho tri thức FAQ (Admin CRUD)** | `PlatformFaqPage.tsx` (L1) | `/api/catalog/admin/faqs` | `CatalogController.java` (L80) | `CatalogServiceImpl.java` (L120) | `faq_entries` |
-| **11** | **Admin Dashboard KPI & Sức khỏe sàn** | `PlatformDashboardPage.tsx` (L1) | `GET /api/platform/dashboard` | `PlatformController.java` (L158) | `PlatformServiceImpl.java` (L320) | `users`, `tutoring_classes`, `disputes`, `wallets` |
-| **12** | **Quản lý User & Khóa Token JWT** | `PlatformUsersPage.tsx` (L1) | `PATCH /api/platform/users/{id}/status` | `PlatformController.java` (L135) | `PlatformServiceImpl.java` (L285) | `users` (`token_version`, `status`) |
-| **13** | **Thẩm định danh tính eKYC CCCD / Bằng cấp** | `PlatformVerificationsPage.tsx` (L1) | `POST /api/platform/verifications/{id}/review` | `PlatformController.java` (L230) | `PlatformServiceImpl.java` (L650) | `verification_requests`, `verification_histories`, `tutors` |
-| **14** | **Xử lý sự cố lớp học (7 phương án)** | `PlatformReportsPage.tsx` (L1) | `POST /api/platform/reports/{id}/resolve-issue` | `PlatformController.java` (L260) | `PlatformServiceImpl.java` (L850) | `reports`, `tutoring_classes`, `escrow_transactions` |
-| **15** | **Xử phạt người dùng (User Penalties)** | `PlatformPenaltiesPage.tsx` (L1) | `POST /api/platform/penalties` | `PlatformPenaltyController.java` (L45) | `PenaltyServiceImpl.java` (L50) | `user_penalties`, `audit_logs` |
-| **16** | **Chặn tính năng khi bị phạt** | Tích hợp liên module | `PenaltyAccessService.requireFeature()` | Filter / Interceptor | `PenaltyAccessServiceImpl.java` (L40) | `user_penalties` |
-| **17** | **Phát hiện & cảnh báo Lách sàn** | `PlatformCircumventionPage.tsx` (L1) | `GET /api/platform/circumventions` | `CircumventionController.java` (L30) | `CircumventionServiceImpl.java` (L45) | `circumvention_detections` |
-| **18** | **Giám sát Nhật ký Kiểm toán (Audit Logs)** | `PlatformAuditLogsPage.tsx` (L1) | `GET /api/platform/audit-logs` | `AuditLogController.java` (L30) | `AuditLogServiceImpl.java` (L40) | `audit_logs` |
-| **19** | **Báo cáo Tài chính & Xuất CSV an toàn** | `PlatformAnalyticsPage.tsx` (L1) | `GET /api/platform/analytics/export-csv` | `PlatformAnalyticsController.java` (L80) | `PlatformAnalyticsServiceImpl.java` (L350) | `payment_transactions`, `escrow_transactions`, `wallets` |
-| **20** | **Quản trị dòng tiền ký quỹ Escrow** | `PlatformEscrowPage.tsx` (L1) | `GET /api/platform/escrow` | `AdminEscrowController.java` (L30) | `AdminEscrowServiceImpl.java` (L50) | `escrow_transactions` |
-| **21** | **Cấu hình biểu phí sàn & Phí đối tác** | `PlatformFeeSettingsPage.tsx` (L1) | `PUT /api/platform/centers/{id}/fee` | `PlatformController.java` (L420) | `PlatformServiceImpl.java` (L1050) | `tutor_centers` (`platform_fee_rate`) |
-| **22** | **Quản lý Mẫu hợp đồng Master** | `PlatformContractTemplatesPage.tsx` (L1) | `POST /api/platform/contract-templates` | `PlatformController.java` (L480) | `PlatformServiceImpl.java` (L2100) | `contract_templates` |
-| **23** | **Trợ lý Ảo AI Universal RAG 12 Bước** | `AiFloatingWidget.tsx`, `AiAssistantPage.tsx` | `POST /api/ai/chat` | `AiController.java` (L50) | `AiServiceImpl.java` (L118) | `ai_chat_sessions`, `ai_chat_messages`, `ai_knowledge_chunks` |
-| **24** | **Hợp đồng điện tử Ký số OTP (UC-44)** | `ContractDetailPage.tsx` (L1) | `POST /api/contract/{id}/sign-otp` | `ContractController.java` (L80) | `ContractServiceImpl.java` (L350) | `contract_otps`, `contract_signatures`, `contracts` |
-| **25** | **Đánh giá sao sau buổi học & Điểm uy tín** | `ContractDetailPage.tsx` (L150) | `POST /api/contract/reviews` | `ContractController.java` (L48) | `ReviewServiceImpl.java` (L59) | `reviews`, `class_assignments` |
-| **26** | **Tách hồ sơ 3 vai trò (Client/Tutor/Center)** | `ClientProfilePage.tsx`, `TutorProfilePage.tsx` | `PUT /api/profile/client` | `ProfileController.java` (L45) | `ProfileServiceImpl.java` (L110) | `clients`, `tutors`, `tutor_centers` |
-| **27** | **Quên mật khẩu OTP qua Email (DEF-62)** | `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx` | `POST /api/identity/reset-password` | `IdentityController.java` (L75) | `IdentityServiceImpl.java` (L230) | `password_reset_tokens`, `users` |
+| STT | Tên Chức Năng / Use Case | Tầng 1: Frontend UI | Tầng 2: Controller & Endpoint | Tầng 3: Service Interface | Tầng 4: Service Implementation | Tầng 5: Repository Interface | Tầng 6: Bảng CSDL Tác Động |
+| :---: | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
+| **1** | **User tạo Ticket khiếu nại** | `MessagingPanel.tsx` (L120) | `MessagingController.java` (L110)<br>`POST /api/messaging/tickets` | `MessagingService.java` (L19)<br>`createSupportTicket()` | `MessagingServiceImpl.java` (L116)<br>`createSupportTicket()` | `SupportTicketRepository.java`<br>`TicketMessageRepository.java` | `support_tickets`, `ticket_messages` |
+| **2** | **Admin lọc & xem danh sách Ticket** | `PlatformTicketsPage.tsx` (L25) | `PlatformController.java` (L318)<br>`GET /api/platform/tickets` | `PlatformService.java` (L84)<br>`getTickets()` | `PlatformServiceImpl.java` (L1176)<br>`getTickets()` | `SupportTicketRepository.java` (L37)<br>`search(status, category, ...)` | `support_tickets` |
+| **3** | **Admin mở Ticket (Auto-Assign PIC)** | `PlatformTicketsPage.tsx` (L63) | `PlatformController.java` (L334)<br>`GET /api/platform/tickets/{id}` | `PlatformService.java` (L89)<br>`getTicketDetail()` | `PlatformServiceImpl.java` (L1201)<br>`getTicketDetail()` | `SupportTicketRepository.java`<br>`findById()`, `save()` | `support_tickets`<br>(`assigned_admin_id`, `status='IN_PROGRESS'`) |
+| **4** | **Admin phản hồi Ticket (First SLA)** | `PlatformTicketsPage.tsx` (L94) | `PlatformController.java` (L346)<br>`POST /api/platform/tickets/{id}/respond` | `PlatformService.java` (L95)<br>`respondToTicket()` | `PlatformServiceImpl.java` (L1278)<br>`respondToTicket()` | `TicketMessageRepository.java`<br>`SupportTicketRepository.java` | `ticket_messages`, `support_tickets`<br>(`response_sla_ms`), `audit_logs` |
+| **5** | **Đóng / Giải quyết Ticket** | `PlatformTicketsPage.tsx` (L99) | `PlatformController.java` (L353)<br>`POST /api/platform/tickets/{id}/close` | `PlatformService.java` (L98)<br>`closeTicket()` | `PlatformServiceImpl.java` (L1322)<br>`closeTicket()` | `SupportTicketRepository.java`<br>`save()` | `support_tickets`<br>(`status`, `resolved_at`, `closed_at`) |
+| **6** | **Gộp Ticket trùng lặp (Merge Ticket)** | `PlatformTicketsPage.tsx` (L103) | `PlatformController.java` (L359)<br>`POST /api/platform/tickets/{id}/merge` | `PlatformService.java` (L101)<br>`mergeTicket()` | `PlatformServiceImpl.java` (L1360)<br>`mergeTicket()` | `TicketMessageRepository.java`<br>`SupportTicketRepository.java` | `ticket_messages`, `support_tickets`<br>(`status='CLOSED'`), `audit_logs` |
+| **7** | **Quét & nâng cấp quá hạn SLA (Job-11)** | `useAdminTickets.tsx` (L45) | `PlatformController.java` (L365)<br>`POST /api/platform/tickets/scan-sla` | `PlatformService.java` (L104)<br>`scanAndEscalateSlaBreaches()` | `PlatformServiceImpl.java` (L1433)<br>`scanAndEscalateSlaBreaches()` | `SupportTicketRepository.java` (L58)<br>`findBreachedCandidateTickets()` | `support_tickets`<br>(`priority`, `sla_breached=true`) |
+| **8** | **Chuyển Ticket sang Tranh chấp Escrow** | `PlatformTicketsPage.tsx` (L112) | `PlatformController.java` (L371)<br>`POST /api/platform/tickets/{id}/redirect-dispute` | `PlatformService.java` (L107)<br>`redirectTicketToDispute()` | `PlatformServiceImpl.java` (L1524)<br>`redirectTicketToDispute()` | `ReportRepository.java`<br>`SupportTicketRepository.java` | `reports` (`target_type='CLASS'`),<br>`support_tickets`, `audit_logs` |
+| **9** | **Tra cứu FAQ & Hỗ trợ công khai** | `HelpPage.tsx` (L1) | `CatalogController.java` (L25)<br>`GET /api/catalog/faqs` | `CatalogService.java`<br>`getPublicFaqEntries()` | `CatalogServiceImpl.java` (L215)<br>`getPublicFaqEntries()` | `FaqEntryRepository.java`<br>`findByPublishedTrue...` | `faq_entries` |
+| **10** | **Quản trị FAQ (Admin CRUD & Duyệt nháp)** | `PlatformFaqPage.tsx` (L1) | `CatalogController.java` (L80)<br>`/api/catalog/admin/faqs` | `CatalogService.java`<br>`createFaqEntry()`, `update...` | `CatalogServiceImpl.java` (L331)<br>`createFaqEntry()`, `update...` | `FaqEntryRepository.java`<br>`save()`, `delete()` | `faq_entries`, `audit_logs` |
+| **11** | **Admin Dashboard KPI & Sức khỏe sàn** | `PlatformDashboardPage.tsx` (L1) | `PlatformController.java` (L158)<br>`GET /api/platform/dashboard` | `PlatformService.java` (L56)<br>`getDashboard()` | `PlatformServiceImpl.java` (L398)<br>`getDashboard()` | `TutorRepository`, `TutoringClassRepository`, `EscrowTransactionRepository` | `users`, `tutoring_classes`,<br>`escrow_transactions`, `wallets` |
+| **12** | **Quản lý User & Khóa Token JWT tức thì** | `PlatformUsersPage.tsx` (L1) | `PlatformController.java` (L135)<br>`PATCH /api/platform/users/{id}/status` | `PlatformService.java` (L49)<br>`updateUserStatus()` | `PlatformServiceImpl.java` (L300)<br>`updateUserStatus()` | `UserRepository.java`<br>`save()` | `users` (`status='BANNED'`, `token_version`),<br>(Filter: `JwtAuthenticationFilter:43`) |
+| **13** | **Thẩm định danh tính eKYC CCCD / Bằng cấp** | `PlatformVerificationsPage.tsx` (L1) | `PlatformController.java` (L199)<br>`POST /api/platform/verifications/{id}/review` | `PlatformService.java` (L62)<br>`reviewVerification()` | `PlatformServiceImpl.java` (L542)<br>`reviewVerification()` | `VerificationRequestRepository`<br>`TutorRepository`, `TutorCenterRepo` | `verification_requests`, `verification_histories`,<br>`tutors.verification_status` |
+| **14** | **Xử lý sự cố lớp học (7 phương án) & Khóa Escrow** | `PlatformReportsPage.tsx` (L1) | `PlatformController.java` (L271)<br>`PATCH /api/platform/reports/{id}/resolve` | `PlatformService.java` (L66)<br>`resolveClassIssue()` | `PlatformServiceImpl.java` (L829 & L1726)<br>`resolveClassIssueReport()` | `ReportRepository`, `DisputeRepository`,<br>`EscrowTransactionRepository` | `reports`, `escrow_transactions` (`ON_HOLD`),<br>`disputes` (`status='OPEN'`) |
+| **15** | **Xử phạt người dùng (User Penalties)** | `PlatformPenaltiesPage.tsx` (L1) | `PlatformPenaltyController.java` (L45)<br>`POST /api/platform/penalties` | `PenaltyService.java`<br>`createPenalty()` | `PenaltyServiceImpl.java` (L50)<br>`createPenalty()` | `UserPenaltyRepository.java`<br>`save()` | `user_penalties`, `audit_logs` |
+| **16** | **Chặn tính năng khi bị phạt (Cross-module Guard)** | Filter / Service Guard liên module | Gọi nội bộ Service | `PenaltyAccessService.java` (L25)<br>`requireFeature(userId, code)` | `PenaltyAccessServiceImpl.java` (L45)<br>`requireFeature(userId, code)` | `UserPenaltyRepository.java`<br>`findByUser_UserIdAndStatus()` | `user_penalties`<br>(Quăng `ForbiddenException`) |
+| **17** | **Phát hiện lách sàn Regex (Circumvention)** | `PlatformCircumventionPage.tsx` (L1) | `CircumventionController.java` (L30)<br>`GET /api/platform/circumventions` | `CircumventionService.java`<br>`inspect()`, `review...` | `CircumventionServiceImpl.java` (L84)<br>`inspect()`, `review...` | `CircumventionEventRepository`<br>`MessageRepository` | `circumvention_detections`, `messages` |
+| **18** | **Giám sát Nhật ký Kiểm toán (Audit Logs)** | `PlatformAuditLogsPage.tsx` (L1) | `AuditLogController.java` (L30)<br>`GET /api/platform/audit-logs` | `AuditLogService.java`<br>`record()`, `getAuditLogs()` | `AuditLogServiceImpl.java` (L76)<br>`record()`, `getAuditLogs()` | `AuditLogRepository.java`<br>`save()`, `search()` | `audit_logs` (Bất biến: Chỉ INSERT & SELECT) |
+| **19** | **Báo cáo Tài chính & Xuất CSV an toàn** | `PlatformAnalyticsPage.tsx` (L1) | `PlatformAnalyticsController.java` (L80)<br>`GET /api/platform/analytics/export-csv` | `PlatformAnalyticsService.java`<br>`exportCsv()` | `PlatformAnalyticsServiceImpl.java` (L359)<br>`exportCsv()`, `escapeCsv()` | `PaymentTransactionRepository`<br>`EscrowTransactionRepository` | `payment_transactions`, `escrow_transactions`,<br>(Chống DDE Injection & UTF-8 BOM `\uFEFF`) |
+| **20** | **Cấu hình biểu phí sàn & Phí đối tác** | `PlatformFeeSettingsPage.tsx` (L1) | `PlatformController.java` (L420)<br>`PUT /api/platform/centers/{id}/fee` | `PlatformService.java` (L127)<br>`updateCenterFeeConfig()` | `PlatformServiceImpl.java` (L2549)<br>`updateCenterFeeConfig()` | `TutorCenterRepository.java`<br>`save()` | `tutor_centers` (`custom_fee_rate`),<br>`audit_logs` |
+| **21** | **Quản lý Mẫu hợp đồng Master** | `PlatformContractTemplatesPage.tsx` (L1) | `PlatformController.java` (L480)<br>`POST /api/platform/contract-templates` | `PlatformService.java` (L112)<br>`createContractTemplate()` | `PlatformServiceImpl.java` (L2265)<br>`createContractTemplate()` | `ContractTemplateRepository.java`<br>`save()` | `contract_templates`<br>(Xóa mềm: `status='ARCHIVED'`) |
+| **22** | **Hợp đồng điện tử Ký số OTP (UC-44)** | `ContractDetailPage.tsx` (L1) | `ContractController.java` (L80)<br>`POST /api/contract/{id}/sign-otp` | `ContractService.java`<br>`signWithOtp()` | `ContractServiceImpl.java` (L476)<br>`signWithOtp()`, `publishSigned()` | `ContractRepository.java`<br>`ContractSignatureRepository.java` | `contracts` (`SIGNED`), `contract_signatures`,<br>`email_otps` (Kích hoạt khóa Escrow) |
+| **23** | **Đánh giá sao sau buổi học & Điểm uy tín** | `ContractDetailPage.tsx` (L150) | `ContractController.java` (L48)<br>`POST /api/contract/reviews` | `ReviewService.java`, `ContractService.java`<br>`recomputeReputation...` | `ReviewServiceImpl.java` (L45)<br>`ContractServiceImpl.java` (L2580) | `ReviewRepository.java`<br>`TutorRepository.java` | `reviews`, `tutors.rating_avg`,<br>`reputation_histories` |
+| **24** | **Trợ lý Ảo AI Universal RAG 12 Bước** | `AiFloatingWidget.tsx`, `AiAssistantPage.tsx` | `AiController.java` (L50)<br>`POST /api/ai/chat` | `AiService.java`<br>`chat()` | `AiServiceImpl.java` (L118)<br>`AiProviderRouter.java` (L40) | `AiChatMessageRepository`<br>`AiKnowledgeChunkRepository` | `ai_chat_messages`, `ai_chat_sessions`,<br>`ai_knowledge_chunks` |
+| **25** | **Quản lý Hồ sơ 3 vai trò & Avatar Onboarding (UC-08)** | `ClientProfilePage.tsx`, `TutorProfilePage.tsx` | `ProfileController.java` (L45)<br>`/api/profile/avatar`, `/profile/me` | `ProfileService.java`<br>`uploadAvatar()`, `addCertificate()` | `ProfileServiceImpl.java` (L809)<br>`uploadAvatar()`, `addCertificate()` | `ClientRepository`, `TutorRepository`,<br>`TutorCertificateRepository` | `clients`, `tutors`, `tutor_certificates`,<br>`tutor_busy_times`, `child_profiles` |
+| **26** | **Quên mật khẩu OTP qua Email (DEF-62)** | `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx` | `IdentityController.java` (L75)<br>`POST /api/identity/reset-password` | `IdentityService.java`<br>`resetPassword()` | `IdentityServiceImpl.java` (L519)<br>`resetPassword()` | `PasswordResetTokenRepository`<br>`UserRepository.java` | `users.password_hash`,<br>`password_reset_tokens` (Dùng 1 lần) |
 
 ---
 
-# PHẦN 2: GIẢI PHẪU CHI TIẾT TỪNG LUỒNG CODE THỰC CHIẾN
+# PHẦN 2: GIẢI PHẪU CHI TIẾT TỪNG LUỒNG CODE THỰC CHIẾN 6 TẦNG
 
 ---
 
 ## CHƯƠNG 1: PHÂN HỆ HỖ TRỢ KHÁCH HÀNG (BF-09)
 
 ### 1.1. Luồng Người Dùng Tạo Ticket Khiếu Nại & Thuật Toán Ép Sàn Priority
-* **Giao diện**: Người dùng đăng nhập (Client hoặc Tutor) truy cập trang hỗ trợ, mở form tại `frontend/src/features/messaging/components/MessagingPanel.tsx` (dòng 120-170).
-* **Payload gửi lên**:
-  ```json
-  {
-    "category": "DISPUTE",
-    "subject": "Gia sư bùng buổi học thứ 3 không lý do",
-    "description": "Tôi đã thanh toán giữ tiền escrow nhưng gia sư không vào lớp...",
-    "priority": "LOW",
-    "targetClassId": 45
-  }
+* **Tầng 1 (UI)**: `MessagingPanel.tsx` (dòng 120-170). Người dùng nhập form, bấm "Gửi yêu cầu hỗ trợ", gọi hàm `handleCreateTicket()`.
+* **Tầng 2 (Controller)**: [`MessagingController.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/messaging/controller/MessagingController.java#L110) nhận tại `@PostMapping("/tickets")`.
+* **Tầng 3 (Service Interface)**: [`MessagingService.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/messaging/service/MessagingService.java#L19) dòng 19:
+  ```java
+  SupportTicketResponse createSupportTicket(CreateSupportTicketRequest request);
   ```
-* **Controller**: `MessagingController.java` nhận tại `@PostMapping("/tickets")` (dòng 110).
-* **Logic Service (`MessagingServiceImpl.java` dòng 120-157)**:
-  1. **Lấy User**: `User user = authHelper.currentUserOrThrow();`
-  2. **Thuật toán ép sàn mức ưu tiên (`escalatePriority` - dòng 180-187)**:
-     ```java
-     SupportTicketPriority floor = CATEGORY_MIN_PRIORITY.getOrDefault(category, SupportTicketPriority.LOW);
-     return requestedPriority.ordinal() > floor.ordinal() ? requestedPriority : floor;
-     ```
-     * Bảng sàn định nghĩa tại dòng 68-72: `DISPUTE` -> ép lên `URGENT`; `SYSTEM_ERROR`/`REPORT_USER` -> ép lên `HIGH`; `BUG_REPORT` -> ép lên `MEDIUM`. Dù người dùng có chọn `LOW` thì hệ thống vẫn tự động ép lên `URGENT`!
-  3. **Tính hạn chót cam kết SLA (`dueAt` - dòng 136 & 190-200)**:
-     * `URGENT`: `now + 4 giờ`
-     * `HIGH`: `now + 12 giờ`
-     * `MEDIUM`: `now + 24 giờ`
-     * `LOW`: `now + 48 giờ`
-  4. **Lưu CSDL & Khởi tạo tin nhắn đầu tiên (dòng 147 & 203-211)**:
-     * `supportTicketRepository.save(ticket)` -> sinh khóa chính `ticket_id`, trạng thái mặc định `OPEN`.
-     * Tạo 1 bản ghi `TicketMessage`: `isFromAdmin = false`, nội dung lấy từ `description`, lưu vào bảng `ticket_messages`.
-  5. **Bắn thông báo Admin (dòng 214-234)**:
-     Gửi Notification thời gian thực cho tất cả Admin đang `ACTIVE` với template `SUPPORT_TICKET_CREATED`.
+* **Tầng 4 (Service Impl)**: [`MessagingServiceImpl.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/messaging/service/impl/MessagingServiceImpl.java#L116-L157) dòng 116-157:
+  1. *Lấy User*: `User user = userRepository.findById(authHelper.currentUserId()).orElseThrow(...)`.
+  2. *Ép sàn độ ưu tiên (`escalatePriority` - dòng 180-187)*:
+     - `DISPUTE` ➡️ Ép sàn lên **`URGENT`** (SLA 4h).
+     - `SYSTEM_ERROR` / `REPORT_USER` ➡️ Ép lên **`HIGH`** (SLA 12h).
+     - `BUG_REPORT` ➡️ Ép lên **`MEDIUM`** (SLA 24h).
+     - `INQUIRY` ➡️ Giữ ở **`LOW`** (SLA 48h).
+  3. *Tính hạn chót SLA*: `ticket.setDueAt(LocalDateTime.now().plusHours(calculateSlaHours(priority)))`.
+  4. *Khởi tạo tin nhắn đầu tiên (`createTicketConversation` - dòng 203)*: Tạo 1 bản ghi `TicketMessage` với `isFromAdmin = false`.
+  5. *Bắn thông báo Admin*: Gửi In-App notification tới toàn bộ `PlatformAdmin` đang `ACTIVE`.
+* **Tầng 5 (Repository Interface)**:
+  - [`SupportTicketRepository.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/repository/SupportTicketRepository.java#L16) kế thừa `JpaRepository<SupportTicket, Long>`: gọi `save(ticket)`.
+  - [`TicketMessageRepository.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/repository/TicketMessageRepository.java#L9) kế thừa `JpaRepository<TicketMessage, Long>`: gọi `save(message)`.
+* **Tầng 6 (CSDL & Entity)**: Thực thể `SupportTicket` lưu bảng `support_tickets` (`status='OPEN'`), thực thể `TicketMessage` lưu bảng `ticket_messages`.
 
 ---
 
-### 1.2. Luồng Admin Tiếp Nhận & Thuật Toán Tự Động Gán PIC (Auto-Assignment)
-* **Giao diện**: Quản trị viên mở bảng điều khiển `PlatformTicketsPage.tsx` (dòng 62-63). Bấm vào xem 1 ticket đang `OPEN`.
-* **API**: `GET /api/platform/tickets/{ticketId}` -> `PlatformController.java` (dòng 334).
-* **Logic Service (`PlatformServiceImpl.java` dòng 1200-1212)**:
+### 1.2. Luồng Admin Tiếp Nhận & Tự Động Gán PIC (Auto-Assignment)
+* **Tầng 1 (UI)**: Quản trị viên mở bảng điều khiển `PlatformTicketsPage.tsx` (dòng 63), bấm vào xem một ticket đang `OPEN`.
+* **Tầng 2 (Controller)**: [`PlatformController.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/controller/PlatformController.java#L334) nhận tại `@GetMapping("/tickets/{ticketId}")`.
+* **Tầng 3 (Service Interface)**: [`PlatformService.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/PlatformService.java#L89) dòng 89:
   ```java
-  SupportTicket ticket = findTicketOrThrow(ticketId);
+  SupportTicketDetailResponse getTicketDetail(Long ticketId);
+  ```
+* **Tầng 4 (Service Impl)**: [`PlatformServiceImpl.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformServiceImpl.java#L1200-L1212) dòng 1200-1212:
+  ```java
   if (ticket.getStatus() == SupportTicketStatus.OPEN) {
       PlatformAdmin admin = currentAdminOrThrow();
       ticket.setAssignedAdmin(admin);
       ticket.setStatus(SupportTicketStatus.IN_PROGRESS);
       ticket = supportTicketRepository.save(ticket);
   }
-  return toTicketDetail(ticket);
   ```
-* **Bản chất nghiệp vụ**: Ngăn ngừa tình trạng 2 admin cùng nhảy vào trả lời 1 khách hàng. Admin nào mở ticket đầu tiên, hệ thống lập tức chốt người đó làm Người chịu trách nhiệm chính (PIC) và chuyển trạng thái từ `OPEN` sang `IN_PROGRESS`.
+* **Tầng 5 (Repository Interface)**: `SupportTicketRepository.java`: gọi `findById(ticketId)` và `save(ticket)`.
+* **Tầng 6 (CSDL & Entity)**: Cập nhật bản ghi trong bảng `support_tickets` (`assigned_admin_id = adminId`, `status = 'IN_PROGRESS'`).
 
 ---
 
 ### 1.3. Luồng Admin Phản Hồi & Đo Lường First Response SLA
-* **Giao diện**: Admin nhập nội dung vào ô trả lời trên modal -> Bấm "Gửi phản hồi" (`handleRespond` - dòng 94 `PlatformTicketsPage.tsx`).
-* **API**: `POST /api/platform/tickets/{ticketId}/respond` -> `PlatformController.java` (dòng 346).
-* **Logic Service (`PlatformServiceImpl.java` dòng 1278-1318)**:
-  1. Tạo thực thể `TicketMessage`: `isFromAdmin = true`, `sender = admin.getUser()`, `content = request.getContent()`, lưu vào bảng `ticket_messages`.
-  2. Cập nhật trạng thái ticket: `ticket.setStatus(SupportTicketStatus.IN_REVIEW);`
-  3. **Đo lường thời gian First Response SLA (dòng 1305-1307)**:
+* **Tầng 1 (UI)**: Admin nhập câu trả lời tại `PlatformTicketsPage.tsx` (dòng 94) bấm "Gửi phản hồi".
+* **Tầng 2 (Controller)**: [`PlatformController.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/controller/PlatformController.java#L346) nhận tại `@PostMapping("/tickets/{ticketId}/respond")`.
+* **Tầng 3 (Service Interface)**: [`PlatformService.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/PlatformService.java#L95) dòng 95:
+  ```java
+  SupportTicketDetailResponse respondToTicket(Long ticketId, RespondTicketRequest request);
+  ```
+* **Tầng 4 (Service Impl)**: [`PlatformServiceImpl.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformServiceImpl.java#L1278-L1318):
+  1. Tạo `TicketMessage`: `isFromAdmin = true`, `sender = admin.getUser()`.
+  2. Đổi trạng thái: `ticket.setStatus(SupportTicketStatus.IN_REVIEW)`.
+  3. **Đo First Response SLA (Dòng 1305)**:
      ```java
      if (ticket.getResponseSlaMs() == null && ticket.getCreatedAt() != null) {
          ticket.setResponseSlaMs(Duration.between(ticket.getCreatedAt(), now).toMillis());
      }
      ```
-     Tính bằng miligiây thời gian từ lúc khách tạo ticket đến lúc Admin có phản hồi đầu tiên.
-  4. Kiểm tra vi phạm: `if (now.isAfter(dueAt)) ticket.setSlaBreached(true);`
-  5. Ghi nhật ký kiểm toán: `auditLogService.record("RESPOND_TICKET", "SupportTicket", ticketId, null, request);`
-  6. Bắn Notification cho khách: "Admin vừa phản hồi yêu cầu hỗ trợ của bạn".
+  4. Đánh dấu `ticket.setSlaBreached(true)` nếu `now.isAfter(ticket.getDueAt())`.
+  5. Ghi Audit Log: `auditLogService.record("RESPOND_TICKET", "SupportTicket", ticketId, null, request)`.
+* **Tầng 5 (Repository Interface)**:
+  - `TicketMessageRepository.java` ➡️ `save(message)`.
+  - `SupportTicketRepository.java` ➡️ `save(ticket)`.
+  - `AuditLogRepository.java` ➡️ `save(auditLog)`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `ticket_messages` (thêm dòng mới), bảng `support_tickets` (`response_sla_ms`, `status='IN_REVIEW'`), bảng `audit_logs`.
 
 ---
 
 ### 1.4. Luồng Đóng / Giải Quyết Ticket
-* **Giao diện**: Admin bấm nút "Giải quyết" (`RESOLVED`) hoặc "Đóng ticket" (`CLOSED`) (`handleClose` - dòng 99 `PlatformTicketsPage.tsx`).
-* **API**: `POST /api/platform/tickets/{ticketId}/close` -> `PlatformController.java` (dòng 353).
-* **Logic Service (`PlatformServiceImpl.java` dòng 1322-1351)**:
-  1. Kiểm tra validation: Chỉ chấp nhận 2 trạng thái `RESOLVED` hoặc `CLOSED`.
-  2. Ghi nhận mốc thời gian: Nếu `RESOLVED` -> gán `resolvedAt = now`. Nếu `CLOSED` -> gán `closedAt = now` (đồng thời nếu `resolvedAt` chưa có thì gán luôn bằng `now`).
-  3. Ghi vết kiểm toán `CLOSE_TICKET` vào bảng `audit_logs`.
-  4. Gửi thông báo hoàn tất về tài khoản người dùng.
+* **Tầng 1 (UI)**: Admin bấm "Giải quyết" hoặc "Đóng" trên `PlatformTicketsPage.tsx` (dòng 99).
+* **Tầng 2 (Controller)**: [`PlatformController.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/controller/PlatformController.java#L353) nhận tại `@PostMapping("/tickets/{ticketId}/close")`.
+* **Tầng 3 (Service Interface)**: [`PlatformService.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/PlatformService.java#L98) dòng 98:
+  ```java
+  SupportTicketDetailResponse closeTicket(Long ticketId, CloseTicketRequest request);
+  ```
+* **Tầng 4 (Service Impl)**: [`PlatformServiceImpl.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformServiceImpl.java#L1322-L1351):
+  - Validate: Chỉ nhận `RESOLVED` hoặc `CLOSED`.
+  - Ghi nhận: Nếu `RESOLVED` gán `resolvedAt = now`. Nếu `CLOSED` gán `closedAt = now`.
+  - Ghi vết kiểm toán `CLOSE_TICKET` vào bảng `audit_logs`.
+* **Tầng 5 (Repository Interface)**: `SupportTicketRepository.java` ➡️ `save(ticket)`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `support_tickets` (`status`, `resolved_at`, `closed_at`).
 
 ---
 
 ### 1.5. 🌟 Thuật Toán Tự Động Quét & Thăng Cấp Quá Hạn SLA (Job-11)
-* **Phương thức**: `scanAndEscalateSlaBreaches()`
-* **Vị trí**: `PlatformServiceImpl.java` (dòng 1433 - 1510).
-* **Cơ chế chạy**: Định kỳ (qua Scheduler hoặc Admin kích hoạt qua `POST /api/platform/tickets/scan-sla`).
-* **Bóc tách 4 bước xử lý**:
-  1. **Tìm kiếm các ticket vi phạm (dòng 1438)**:
-     ```java
-     List<SupportTicket> breachedCandidates = supportTicketRepository.findBreachedCandidateTickets(excludedStatuses, now);
-     ```
-     Điều kiện SQL: `status NOT IN ('RESOLVED', 'CLOSED') AND due_at < now AND sla_breached = false`.
-  2. **Thăng cấp ưu tiên lũy tiến (`escalatePriority` - dòng 1512-1519)**:
-     * `LOW` -> nâng lên `MEDIUM`
-     * `MEDIUM` -> nâng lên `HIGH`
-     * `HIGH` hoặc `URGENT` -> giữ ở `URGENT` (mức cao nhất).
-  3. **Cập nhật dữ liệu & Ghi vết Audit Log (dòng 1452-1464)**:
-     Gán `ticket.setSlaBreached(true)`, lưu CSDL, ghi log hành động `SLA_BREACH_ESCALATION` lưu lại `oldPriority` và `newPriority`.
-  4. **Bắn thông báo kép (2 đầu) (dòng 1466-1506)**:
-     * *Đầu Admin*: Gửi cảnh báo khẩn cấp cho Admin phụ trách (hoặc toàn bộ Admin nếu chưa gán): "Ticket #{id} đã quá hạn phản hồi, tự động nâng lên {newPriority}, yêu cầu xử lý gấp!".
-     * *Đầu Khách hàng*: Bắn thông báo cập nhật tiến độ kèm lời xin lỗi vì sự chậm trễ.
+* **Tầng 1 (Trigger)**: Chạy tự động qua Scheduler định kỳ hoặc Admin kích hoạt qua UI.
+* **Tầng 2 (Controller)**: [`PlatformController.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/controller/PlatformController.java#L365) nhận tại `@PostMapping("/tickets/scan-sla")`.
+* **Tầng 3 (Service Interface)**: [`PlatformService.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/PlatformService.java#L104) dòng 104:
+  ```java
+  int scanAndEscalateSlaBreaches();
+  ```
+* **Tầng 4 (Service Impl)**: [`PlatformServiceImpl.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformServiceImpl.java#L1433-L1519):
+  1. Gọi `supportTicketRepository.findBreachedCandidateTickets(excludedStatuses, now)`.
+  2. Lặp qua các ticket vi phạm, gọi hàm `escalatePriority(oldPriority)`:
+     `LOW` ➡️ `MEDIUM` ➡️ `HIGH` ➡️ `URGENT`.
+  3. Đánh dấu `ticket.setSlaBreached(true)`, lưu CSDL, ghi log `SLA_BREACH_ESCALATION`.
+  4. Bắn thông báo kép: Báo động khẩn cấp tới Admin và gửi lời xin lỗi kèm cập nhật tiến độ tới User.
+* **Tầng 5 (Repository Interface)**: [`SupportTicketRepository.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/repository/SupportTicketRepository.java#L51-L60) (dòng 51-60):
+  ```java
+  @Query("""
+          SELECT t FROM SupportTicket t
+          WHERE t.status NOT IN (:excludedStatuses)
+          AND t.dueAt IS NOT NULL
+          AND t.dueAt < :now
+          AND (t.slaBreached IS NULL OR t.slaBreached = false)
+          """)
+  List<SupportTicket> findBreachedCandidateTickets(
+          @Param("excludedStatuses") List<SupportTicketStatus> excludedStatuses,
+          @Param("now") java.time.LocalDateTime now);
+  ```
+* **Tầng 6 (CSDL & Entity)**: Bảng `support_tickets` (`priority = newPriority`, `sla_breached = true`), bảng `audit_logs`, bảng `notifications`.
 
 ---
 
 ### 1.6. 🌟 Thuật Toán Gộp Ticket Trùng Lặp (Merge Ticket)
-* **Phương thức**: `mergeTicket(sourceTicketId, request)`
-* **Vị trí**: `PlatformServiceImpl.java` (dòng 1360 - 1425).
-* **Bài toán thực tế**: Một khách hàng nôn nóng gửi 3 ticket liên tiếp về cùng 1 sự cố nạp tiền.
-* **Bóc tách 4 bước xử lý**:
-  1. **Kiểm tra 4 điều kiện an toàn nghiêm ngặt (dòng 1365-1382)**:
-     * `sourceTicketId != targetTicketId`: Không được tự gộp vào chính nó.
-     * `sourceTicket.getUser().equals(targetTicket.getUser())`: Bắt buộc 2 ticket phải thuộc **cùng một người dùng** (chống gộp nhầm thông tin của người khác).
-     * `sourceTicket.getStatus() != CLOSED` và `targetTicket.getStatus() != CLOSED`: Không cho phép gộp ticket đã đóng.
-  2. **Di chuyển nội dung khiếu nại sang Ticket đích (dòng 1385-1398)**:
-     Tạo 1 bản ghi `TicketMessage` mới trong Ticket đích với nội dung:
-     ```
-     [HỆ THỐNG - GỘP TICKET]
-     Đã gộp nội dung từ Ticket #{sourceId} ({subject}):
-     {description}
-
-     Lý do gộp: {reason}
-     ```
-  3. **Đóng Ticket nguồn (dòng 1401-1408)**:
-     Chuyển trạng thái Ticket nguồn sang `CLOSED`, gán `closedAt = now`.
-  4. **Ghi Audit Log & Gửi thông báo (dòng 1415 & 1422)**:
-     Ghi hành động `MERGE_TICKET` vào `audit_logs` và bắn thông báo cho người dùng biết yêu cầu của họ đã được gom về Ticket chính để xử lý tập trung.
+* **Tầng 1 (UI)**: `PlatformTicketsPage.tsx` (dòng 103), Admin mở modal gộp ticket, nhập `targetTicketId` và `reason`.
+* **Tầng 2 (Controller)**: [`PlatformController.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/controller/PlatformController.java#L359) nhận tại `@PostMapping("/tickets/{id}/merge")`.
+* **Tầng 3 (Service Interface)**: [`PlatformService.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/PlatformService.java#L101) dòng 101:
+  ```java
+  SupportTicketDetailResponse mergeTicket(Long sourceTicketId, MergeTicketRequest request);
+  ```
+* **Tầng 4 (Service Impl)**: [`PlatformServiceImpl.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformServiceImpl.java#L1360-L1425):
+  - **4 Chốt chặn an toàn**: Không tự gộp chính nó, bắt buộc **cùng `userId`** (`sourceTicket.getUser().equals(targetTicket.getUser())`), cả 2 chưa bị `CLOSED`.
+  - Tạo 1 `TicketMessage` trong ticket đích ghi rõ: `[HỆ THỐNG - GỘP TICKET] Đã gộp nội dung từ Ticket #{sourceId}... Lý do: {reason}`.
+  - Chuyển ticket nguồn thành `CLOSED`, gán `closedAt = now`.
+  - Ghi Audit Log `MERGE_TICKET` và bắn thông báo cho khách hàng.
+* **Tầng 5 (Repository Interface)**:
+  - `TicketMessageRepository.java` ➡️ `save(mergeNotice)` vào ticket đích.
+  - `SupportTicketRepository.java` ➡️ `save(sourceTicket)`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `ticket_messages` (thêm tin nhắn gộp), bảng `support_tickets` (ticket nguồn đóng `CLOSED`).
 
 ---
 
-### 1.7. 🌟 Chuyển Tiếp Sự Cố Sang Tranh Chấp Escrow (Redirect to Dispute)
-* **Phương thức**: `redirectTicketToDispute(ticketId, request)`
-* **Vị trí**: `PlatformServiceImpl.java` (dòng 1524 - 1585).
-* **Bài toán thực tế**: Người dùng gửi ticket phàn nàn "Gia sư bùng buổi học". Đây là sự cố lớp học liên quan đến quyền lợi tài chính, không thể giải quyết bằng chat thông thường.
-* **Luồng tích hợp liên phân hệ (Cross-module Integration)**:
-  1. Lấy `targetClassId` từ request, kiểm tra sự tồn tại của lớp học trong `tutoringClassRepository`.
-  2. Nâng Category của ticket sang `SupportTicketCategory.DISPUTE`.
-  3. Ép mức ưu tiên lên tối thiểu là `HIGH`.
-  4. Tạo tin nhắn hệ thống ghi nhận trong luồng trao đổi: `"[HỆ THỐNG - CHUYỂN TRANH CHẤP] Yêu cầu này đã được chuyển sang luồng Xử lý Tranh chấp..."`.
-  5. **ĐIỂM ĂN ĐIỂM CỐT LÕI (dòng 1571-1580)**:
-     Tự động tạo một bản ghi Báo cáo sự cố (`Report`):
+### 1.7. 🌟 Chuyển Tiếp Sang Tranh Chấp Escrow (Redirect to Dispute)
+* **Tầng 1 (UI)**: `PlatformTicketsPage.tsx` (dòng 112), Admin chọn "Chuyển tranh chấp".
+* **Tầng 2 (Controller)**: [`PlatformController.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/controller/PlatformController.java#L371) nhận tại `@PostMapping("/tickets/{id}/redirect-dispute")`.
+* **Tầng 3 (Service Interface)**: [`PlatformService.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/PlatformService.java#L107) dòng 107:
+  ```java
+  SupportTicketDetailResponse redirectTicketToDispute(Long ticketId, RedirectDisputeRequest request);
+  ```
+* **Tầng 4 (Service Impl)**: [`PlatformServiceImpl.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformServiceImpl.java#L1524-L1580):
+  1. Đổi `ticket.setCategory(DISPUTE)`, ép priority lên tối thiểu `HIGH`.
+  2. Tạo tin nhắn thông báo trong luồng chat của Ticket.
+  3. **Tích hợp liên phân hệ (Dòng 1571-1580)**: Tự động tạo bản ghi Báo cáo sự cố (`Report`):
      ```java
      Report report = new Report();
      report.setReporter(ticket.getUser());
@@ -207,162 +238,281 @@
      report.setStatus(ReportStatus.PENDING);
      reportRepository.save(report);
      ```
-     👉 *Báo cáo này ngay lập tức xuất hiện trên màn hình `/platform/reports` để Quản trị viên can thiệp tạm khóa giải ngân tiền ký quỹ Escrow của lớp học đó!*
+     Báo cáo này hiển thị ngay trên màn hình `/platform/reports` để Admin can thiệp tạm khóa Escrow!
+* **Tầng 5 (Repository Interface)**: `ReportRepository.java` ➡️ `save(report)`, `SupportTicketRepository.java` ➡️ `save(ticket)`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `reports` (`target_type='CLASS'`, `status='PENDING'`), bảng `support_tickets`.
 
 ---
 
 ## CHƯƠNG 2: PHÂN HỆ ĐIỀU HÀNH SÀN & BẢO MẬT (BF-10)
 
-### 2.1. Admin Dashboard (UC-56)
-* **Frontend**: [PlatformDashboardPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformDashboardPage.tsx) -> gọi `GET /api/platform/dashboard`.
-* **Backend**: `PlatformServiceImpl.java` (dòng 320-450).
-* **Nghiệp vụ**: Tổng hợp nhanh 4 khối dữ liệu:
-  * Thẻ KPI vận hành: Tổng số người dùng hoạt động, Số lớp học đang mở, Số tranh chấp chờ xử lý, Số ticket vi phạm SLA.
-  * Cảnh báo khẩn cấp: Yêu cầu rút tiền chưa duyệt, Báo cáo vi phạm chưa xử lý.
-  * Biểu đồ tăng trưởng người dùng theo mốc thời gian.
-
-### 2.2. Quản Trị User & Cơ Chế Vô Hiệu Hóa Token (JWT Invalidation)
-* **Frontend**: [PlatformUsersPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformUsersPage.tsx).
-* **Backend**: `PlatformController.java` (dòng 135) -> `PlatformServiceImpl.java` (dòng 285).
-* **Điểm bảo mật ăn điểm**: Khi Admin đổi trạng thái tài khoản sang `BANNED` hoặc `SUSPENDED`:
+### 2.1. Admin Dashboard KPI (UC-56)
+* **Tầng 1 (UI)**: [PlatformDashboardPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformDashboardPage.tsx).
+* **Tầng 2 (Controller)**: [`PlatformController.java:158`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/controller/PlatformController.java#L158) nhận tại `@GetMapping("/dashboard")`.
+* **Tầng 3 (Service Interface)**: [`PlatformService.java:56`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/PlatformService.java#L56):
   ```java
-  user.setStatus(request.getStatus());
-  user.setTokenVersion(user.getTokenVersion() + 1);
-  userRepository.save(user);
+  DashboardResponse getDashboard(LocalDate from, LocalDate to, String granularity);
   ```
-  👉 *Trong `JwtFilter`, mỗi request gửi lên đều đối soát `tokenVersion` trong claim của token với CSDL. Khi `tokenVersion` tăng lên, toàn bộ token cũ lập tức bị từ chối truy cập (401 Unauthorized), buộc người dùng phải đăng xuất ngay lập tức.*
+* **Tầng 4 (Service Impl)**: [`PlatformServiceImpl.java:398-505`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformServiceImpl.java#L398-L505):
+  - `taskQueueService.getSummary()`: Lấy số ticket quá hạn, tranh chấp mở, báo cáo chưa duyệt.
+  - `analyticsService.getSummary()`: Dòng tiền nạp/rút, tiền giữ trong Escrow, phí sàn.
+  - Tổng hợp số lượng gia sư, trung tâm và lớp học đang hoạt động.
+* **Tầng 5 (Repository Interface)**: `TutorRepository`, `TutorCenterRepository`, `TutoringClassRepository`, `EscrowTransactionRepository`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `users`, `tutors`, `tutor_centers`, `tutoring_classes`, `escrow_transactions`, `support_tickets`.
+
+---
+
+### 2.2. Quản Trị User & Vô Hiệu Hóa Token Tức Thì (JWT Invalidation)
+* **Tầng 1 (UI)**: [PlatformUsersPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformUsersPage.tsx).
+* **Tầng 2 (Controller)**: [`PlatformController.java:135`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/controller/PlatformController.java#L135) nhận tại `@PatchMapping("/users/{id}/status")`.
+* **Tầng 3 (Service Interface)**: [`PlatformService.java:49`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/PlatformService.java#L49):
+  ```java
+  UserListItemResponse updateUserStatus(Long userId, UpdateUserStatusRequest request);
+  ```
+* **Tầng 4 (Service Impl)**: [`PlatformServiceImpl.java:300-323`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformServiceImpl.java#L300-L323):
+  - Chống khóa chéo admin: Không cho phép đổi trạng thái tài khoản `PLATFORM_ADMIN`.
+  - Cập nhật `user.setStatus(BANNED)`.
+  - **Cơ chế chặn tức thì 2 lớp**:
+    1. *Lớp 1*: Tại [`UserPrincipal.java:27`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/security/UserPrincipal.java#L27), `enabled = user.getStatus() == UserStatus.ACTIVE`.
+    2. *Lớp 2*: Trong [`JwtAuthenticationFilter.java:43`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/security/JwtAuthenticationFilter.java#L43), kiểm tra:
+       ```java
+       if (!userDetails.isEnabled() || principal.getTokenVersion() != jwtService.extractTokenVersion(claims)) {
+           filterChain.doFilter(request, response);
+           return;
+       }
+       ```
+       👉 *Request tiếp theo gửi kèm JWT cũ sẽ bị chặn ngay lập tức, trả về 401 Unauthorized!*
+* **Tầng 5 (Repository Interface)**: `UserRepository.java` ➡️ `save(user)`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `users` (`status = 'BANNED'`), bảng `audit_logs`.
+
+---
 
 ### 2.3. Quy Trình Thẩm Định eKYC CCCD / Bằng Cấp (UC-11)
-* **Frontend**: [PlatformVerificationsPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformVerificationsPage.tsx).
-* **Backend**: `PlatformServiceImpl.java` (dòng 650-750).
-* **Luồng xử lý**:
-  * Admin xem ảnh 2 mặt CCCD, bằng cấp chuyên môn đính kèm.
-  * Nếu Duyệt (`VERIFIED`): Cập nhật trạng thái gia sư/trung tâm thành Đã xác minh (`isVerified = true`), cho phép nhận lớp dạy.
-  * Nếu Từ chối (`REJECTED`): **Ràng buộc bắt buộc** `rejectNotes` tối thiểu 10 ký tự để giải thích rõ lý do cho người dùng (ảnh mờ, sai số định danh...) -> bắn thông báo kèm lý do về chuông thông báo.
+* **Tầng 1 (UI)**: [PlatformVerificationsPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformVerificationsPage.tsx).
+* **Tầng 2 (Controller)**: [`PlatformController.java:199`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/controller/PlatformController.java#L199) nhận tại `@PostMapping("/verifications/{id}/review")`.
+* **Tầng 3 (Service Interface)**: [`PlatformService.java:62`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/PlatformService.java#L62):
+  ```java
+  VerificationRequestResponse reviewVerification(Long verificationId, ReviewVerificationRequest request);
+  ```
+* **Tầng 4 (Service Impl)**: [`PlatformServiceImpl.java:542-613`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformServiceImpl.java#L542-L613):
+  - *Chống sửa đồng thời*: So khớp `expectedUpdatedAt` với `verification.getUpdatedAt()`.
+  - *Ép lý do từ chối 10 ký tự*: Nếu `REJECTED`, `adminNotes.length() >= 10`.
+  - *Vô hiệu hóa bản ghi cũ*: `deactivatePreviousVerifiedRequests()` chuyển các CCCD cũ của người này sang hết hiệu lực.
+  - *Đồng bộ trạng thái*: Cập nhật `tutor.setVerificationStatus(VERIFIED)` hoặc `tutorCenter.setVerificationStatus(VERIFIED)`.
+* **Tầng 5 (Repository Interface)**: `VerificationRequestRepository`, `TutorRepository`, `TutorCenterRepository`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `verification_requests`, `verification_histories`, `tutors`, `tutor_centers`.
 
-### 2.4. Xử Phạt Người Dùng (Penalties) & Chặn Quyền Liên Module (UC-60)
-* **Frontend**: [PlatformPenaltiesPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformPenaltiesPage.tsx).
-* **Backend**: `PlatformPenaltyController.java` & `PenaltyServiceImpl.java`.
-* **Cơ chế chặn quyền thực tế**:
-  Trong `PenaltyAccessServiceImpl.java`, hệ thống cung cấp phương thức `requireFeatureNotBanned(userId, featureCode)`:
-  * Khi người dùng vào đăng lớp (`CLASS_POSTING`), nộp đơn dạy (`TUTOR_APPLY`) hoặc gửi tin nhắn (`MESSAGING`), hệ thống sẽ gọi hàm này. Nếu tài khoản có bản ghi phạt còn hiệu lực (`expires_at > now`), hệ thống quăng ra ngoại lệ `ForbiddenException("Tài khoản của bạn đang bị tạm khóa tính năng này!")`.
+---
 
-### 2.5. Phát Hiện Lách Sàn (Circumvention Detection - UC-59)
-* **Frontend**: [PlatformCircumventionPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformCircumventionPage.tsx).
-* **Backend**: `CircumventionServiceImpl.java`.
-* **Cơ chế quét**: Sử dụng Regular Expression (Regex) để tự động quét nội dung tin nhắn và bài đăng:
-  * Nhận dạng số điện thoại (viết số liền: `0912345678`, viết cách: `0912 345 678`, hoặc viết bằng chữ: `không chín một hai...`).
-  * Nhận dạng liên kết và tài khoản mạng xã hội ngoài sàn: `zalo.me`, `facebook.com`, `telegram`.
-  * Khi phát hiện, tự động lưu vào bảng `circumvention_detections` để cảnh báo Admin xử phạt.
+### 2.4. Can Thiệp 7 Phương Án Sự Cố Lớp & Tự Động Khóa Escrow (UC-30 / UC-52)
+* **Tầng 1 (UI)**: [PlatformReportsPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformReportsPage.tsx).
+* **Tầng 2 (Controller)**: [`PlatformController.java:271`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/controller/PlatformController.java#L271) nhận tại `@PatchMapping("/reports/{reportId}/resolve")`.
+* **Tầng 3 (Service Interface)**: [`PlatformService.java:66`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/PlatformService.java#L66):
+  ```java
+  ReportResponse resolveClassIssue(Long reportId, ResolveClassIssueRequest request);
+  ```
+* **Tầng 4 (Service Impl)**: [`PlatformServiceImpl.java:829 & 1726`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformServiceImpl.java#L1726) (`resolveClassIssueReport`):
+  - Áp dụng 7 hành động trong enum `ClassIssueResolutionAction`.
+  - **Tự động khóa Escrow (Dòng 1738)**: Nếu chọn `ESCALATE_TO_DISPUTE` hoặc `TERMINATE_CLASS`:
+    ```java
+    EscrowTransaction escrow = resolveSingleEscrowForClassIssue(report);
+    EscrowTransaction heldEscrow = escrowService.holdForDispute(escrow.getEscrowId(), ...);
+    Dispute dispute = new Dispute();
+    dispute.setReport(report);
+    dispute.setEscrowTransaction(heldEscrow);
+    dispute.setStatus(DisputeStatus.OPEN);
+    disputeRepository.save(dispute);
+    ```
+* **Tầng 5 (Repository Interface)**: `ReportRepository`, `EscrowTransactionRepository`, `DisputeRepository`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `reports`, `escrow_transactions` (`status='ON_HOLD'`), `disputes` (`status='OPEN'`).
 
-### 2.6. Phân Tích Dòng Tiền & Kỹ Thuật Xuất File CSV An Toàn (UC-41, UC-43)
-* **Frontend**: [PlatformAnalyticsPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformAnalyticsPage.tsx).
-* **Backend**: `PlatformAnalyticsServiceImpl.java` (dòng 350-450).
-* **2 Kỹ thuật bảo mật xuất file CSV đạt điểm tối đa**:
-  1. **Phòng chống lỗ hổng CSV Formula Injection (DDE)**:
-     Nếu một ô dữ liệu (tên người dùng, mô tả) bắt đầu bằng các ký tự nguy hiểm: `=`, `+`, `-`, `@` (có thể bị Excel thực thi mã độc khi mở), backend sẽ tự động chèn thêm dấu nháy đơn `'` ở đầu chuỗi để Excel coi đó là văn bản thuần túy.
-  2. **Chèn mã byte UTF-8 BOM (`\ufeff`)**:
-     Chèn 3 byte BOM vào đầu luồng xuất tệp để Microsoft Excel tự động nhận diện bảng mã UTF-8 tiếng Việt, không bao giờ bị lỗi font hay vỡ ký tự có dấu.
+---
+
+### 2.5. Chế Tài Phạt Người Dùng & Chặn Tính Năng Liên Module (UC-60)
+* **Tầng 1 (UI)**: [PlatformPenaltiesPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformPenaltiesPage.tsx).
+* **Tầng 2 (Controller)**: `PlatformPenaltyController.java:45` nhận tại `@PostMapping("/penalties")`.
+* **Tầng 3 (Service Interface)**: `PenaltyAccessService.java:25`:
+  ```java
+  void requireFeature(Long userId, String featureCode);
+  ```
+* **Tầng 4 (Service Impl)**: [`PenaltyAccessServiceImpl.java:45-53`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PenaltyAccessServiceImpl.java#L45-L53):
+  Kiểm tra nếu người dùng có bản ghi phạt còn hiệu lực (`expires_at > now`), lập tức quăng `ForbiddenException`!
+  **4 Điểm Gác Cổng Thực Tế**:
+  - `FinanceServiceImpl.java:178`: `requireFeature(userId, "WITHDRAWAL")` (Chặn rút tiền).
+  - `MarketplaceServiceImpl.java:369`: `requireFeature(creator.getUserId(), "CLASS_POSTING")` (Chặn đăng lớp).
+  - `MarketplaceServiceImpl.java:514`: `requireFeature(tutorId, "CLASS_APPLICATION")` (Chặn nộp hồ sơ).
+  - `ChatServiceImpl.java:394`: `requireFeature(userId, "MESSAGING")` (Chặn gửi tin nhắn).
+* **Tầng 5 (Repository Interface)**: `UserPenaltyRepository.java:findByUser_UserIdAndStatus()`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `user_penalties`.
+
+---
+
+### 2.6. Phát Hiện Lách Sàn Bằng Regex 4 Tầng (UC-59)
+* **Tầng 1 (UI)**: [PlatformCircumventionPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformCircumventionPage.tsx).
+* **Tầng 2 (Controller)**: `CircumventionController.java:30` nhận tại `@GetMapping("/circumventions")`.
+* **Tầng 3 (Service Interface)**: `CircumventionService.java`: `void inspect(Message message);`.
+* **Tầng 4 (Service Impl)**: [`CircumventionServiceImpl.java:65-90`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/CircumventionServiceImpl.java#L65-L90):
+  - **4 Bộ lọc Regex kèm điểm rủi ro**:
+    1. `PHONE` (Điểm 80): `(?<!\d)(?:\+?84|0)(?:[ .-]?\d){9,10}(?!\d)`
+    2. `EMAIL` (Điểm 90): `[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}`
+    3. `URL` (Điểm 70): `(?i)(?:https?://|www\.)\S+`
+    4. `SOCIAL` (Điểm 65): `(?i)(?:zalo|telegram|facebook|fb|instagram)\s*[:@-]?\s*[A-Z0-9_.-]{3,}`
+* **Tầng 5 (Repository Interface)**: `CircumventionEventRepository.java` ➡️ `save(event)`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `circumvention_detections` (`risk_score`, `detected_pattern`).
+
+---
+
+### 2.7. Nhật Ký Kiểm Toán Bất Biến (Audit Logs - UC-61)
+* **Tầng 1 (UI)**: [PlatformAuditLogsPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformAuditLogsPage.tsx).
+* **Tầng 2 (Controller)**: `AuditLogController.java:30` nhận tại `@GetMapping("/audit-logs")`.
+* **Tầng 3 (Service Interface)**: `AuditLogService.java`: `void record(action, entityType, entityId, oldValue, newValue);`.
+* **Tầng 4 (Service Impl)**: [`AuditLogServiceImpl.java:76-115`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/AuditLogServiceImpl.java#L76-L115):
+  - Tuần tự hóa JSON Diff (`oldValue` vs `newValue`) qua Jackson `ObjectMapper`.
+  - Tự động lấy Client IP và Header `User-Agent` từ Spring `RequestContextHolder`.
+  - **Tính bất biến**: Bảng `audit_logs` chỉ có hàm ghi `record` (INSERT) và đọc `getAuditLogs` (SELECT), tuyệt đối không có UPDATE hay DELETE.
+* **Tầng 5 (Repository Interface)**: `AuditLogRepository.java`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `audit_logs`.
+
+---
+
+### 2.8. Báo Cáo Tài Chính & Kỹ Thuật Xuất CSV An Toàn (UC-41, UC-43)
+* **Tầng 1 (UI)**: [PlatformAnalyticsPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformAnalyticsPage.tsx).
+* **Tầng 2 (Controller)**: `PlatformAnalyticsController.java:80` nhận tại `@GetMapping("/analytics/export-csv")`.
+* **Tầng 3 (Service Interface)**: `PlatformAnalyticsService.java`: `byte[] exportCsv(String type, LocalDate from, LocalDate to);`.
+* **Tầng 4 (Service Impl)**: [`PlatformAnalyticsServiceImpl.java:359 & 979`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformAnalyticsServiceImpl.java#L359):
+  1. *Chống DDE Injection (`escapeCsv` - dòng 983)*: Nếu ô bắt đầu bằng `=`, `+`, `-`, `@`, tự động chèn dấu nháy đơn `'` ở đầu chuỗi.
+  2. *Chèn UTF-8 BOM Header (`\uFEFF` - dòng 362)*: Giúp Microsoft Excel hiển thị đúng tiếng Việt có dấu.
+  3. *Chống tràn RAM (OOM)*: Giới hạn tối đa `MAX_EXPORT_ROWS = 10_000` dòng.
+* **Tầng 5 (Repository Interface)**: `PaymentTransactionRepository`, `EscrowTransactionRepository`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `payment_transactions`, `escrow_transactions`.
 
 ---
 
 ## CHƯƠNG 3: TRỢ LÝ ẢO AI UNIVERSAL RAG 12 BƯỚC (UC-65)
 
-Mở file: [backend/src/main/java/com/tcs/module/ai/service/impl/AiServiceImpl.java](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/ai/service/impl/AiServiceImpl.java#L118-L350).
-
-```mermaid
-flowchart TD
-    Q["1. Câu hỏi người dùng"] --> S1["2. Content Safety & Prompt Injection Guard"]
-    S1 --> S2["3. Synonym & Follow-up Expansion (Tiếng Việt)"]
-    S2 --> S3["4. Semantic Cache Check (< 50ms)"]
-    S3 --> S4["5. 3-Tier Intent Classification (12 Rules)"]
-    S4 --> S5["6. Fast-Path (Chào hỏi) / Out-of-scope"]
-    S5 --> S6["7. Query Rewriting (Viết lại câu hỏi)"]
-    S6 --> S7["8. RBAC Policy Guard (Kiểm tra quyền vai trò)"]
-    S7 --> S8["9. Hybrid Search (Vector Cosine + BM25)"]
-    S8 --> S9["10. Business Context Injection (Real-time DB)"]
-    S9 --> S10["11. Contextual Window Expansion"]
-    S10 --> S11["12. Grounding Evaluation & Multi-Provider Router"]
-    S11 --> S12["13. Hallucination Guard & Interactive UI Cards"]
-```
-
-### Chi tiết 12 mắt xích cần thuộc lòng khi thuyết trình:
-1. **Bước 0: Content Safety & Prompt Injection Guard**: Quét từ ngữ thô tục, bậy bạ và ngăn chặn các kỹ thuật lừa AI lộ dữ liệu riêng tư (Prompt Injection / Jailbreak).
-2. **Bước 0.4: Synonym & Follow-up Expansion**: Chuẩn hóa từ lóng tiếng Việt, nhận diện đại từ thay thế trong câu tiếp nối ("ông ấy", "môn này").
-3. **Bước 1: Semantic Cache Check**: Nếu câu hỏi tương tự câu đã từng hỏi trước đó với độ tương đồng Cosine Similarity >= 0.85, hệ thống trả lời ngay dưới 50ms mà không cần gọi API LLM tốn phí.
-4. **Bước 2: 3-Tier Intent Classification**: Phân loại ý định 3 tầng (Domain -> SubIntent -> Trích xuất Entity như tên môn học, mức học phí, quận/huyện) qua 12 Intent Rules chuyên biệt.
-5. **Bước 3: Fast-Path & Out-of-Scope Gating**: Trả lời ngay các câu chào hỏi, cảm ơn; từ chối khéo các câu hỏi không liên quan đến học tập kèm gợi ý dịch vụ sàn.
-6. **Bước 4: Query Rewriting**: Viết lại câu hỏi ngắn cụt ngủn của người dùng thành câu đầy đủ nghĩa dựa vào lịch sử hội thoại gần nhất.
-7. **Bước 5: RBAC Policy Guard**: Chỉ cung cấp thông tin phù hợp với quyền hạn của vai trò đang hỏi (GUEST, CLIENT, TUTOR, ADMIN).
-8. **Bước 6: Hybrid Search (Vector + BM25)**: Tìm kiếm kết hợp vector embedding ngữ nghĩa (Cosine) và tìm kiếm từ khóa chính xác (BM25) trong bảng `ai_knowledge_chunks`.
-9. **Bước 7: Business Context Injection (QUAN TRỌNG NHẤT)**: Truy vấn trực tiếp CSDL thời gian thực để tiêm dữ liệu thật vào System Prompt (Ví dụ: danh sách gia sư đang rảnh, lớp học đang mở, số dư ví hiện tại).
-10. **Bước 8: Contextual Window Expansion**: Ghép nối các đoạn tri thức liền kề trước và sau chunk tìm được để đảm bảo tính mạch lạc của tài liệu.
-11. **Bước 9: Grounding Evaluation & Multi-Provider Router**: Đánh giá độ tin cậy của thông tin truy xuất được, tự động định tuyến gọi mô hình (Gemini, Groq, Cerebras, DeepSeek) để tránh nghẽn hạn mức (rate limit).
-12. **Bước 10: Hallucination Guard & Interactive Cards**: Quét đối chiếu câu trả lời cuối cùng để chống ảo giác (bịa đặt thông tin), đóng gói câu trả lời kèm theo các thẻ UI tương tác (Tutor Card, Class Card) để người dùng bấm vào xem trực tiếp.
+* **Tầng 1 (UI)**: [AiFloatingWidget.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/ai/components/AiFloatingWidget.tsx), [AiAssistantPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/ai/pages/AiAssistantPage.tsx).
+* **Tầng 2 (Controller)**: `AiController.java:50` nhận tại `@PostMapping("/chat")`.
+* **Tầng 3 (Service Interface)**: `AiService.java`: `AiMessageResponse chat(ChatRequest request, Long userId);`.
+* **Tầng 4 (Service Impl)**: [`AiServiceImpl.java:118-238`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/ai/service/impl/AiServiceImpl.java#L118-L238):
+  - *Bước 0*: Quét an toàn nội dung & Prompt Injection (`contentSafetyFilter`).
+  - *Bước 0.4*: Mở rộng từ đồng nghĩa tiếng Việt & câu tiếp nối (`synonymService`).
+  - *Bước 0.5*: Kiểm tra **Semantic Cache** trả về ngay **dưới 50ms** (`semanticCacheService`).
+  - *Bước 1*: Phân loại ý định 3 tầng (Domain / Sub-Intent / Entities) qua 12 Intent Rules.
+  - *Bước 2 & 2.5*: Level 0 Fast-Path (chào hỏi) & Out-of-Scope Gating (chặn câu hỏi ngoài lề).
+  - *Bước 3*: Query Rewriting (viết lại câu hỏi kèm lịch sử chat).
+  - *Bước 4*: Capability Policy & Role Verification (kiểm tra quyền vai trò người dùng).
+  - *Bước 5 & 5.1*: **Real-time Business Context Injection (Dòng 422)**: Truy vấn trực tiếp dữ liệu sống từ MySQL (gia sư rảnh, lớp học đang mở, học phí thực tế).
+  - *Bước 5.5*: Contextual Window Enrichment (mở rộng cửa sổ ngữ cảnh chunk tài liệu).
+  - *Bước 6 & 7*: Đánh giá căn cứ (Grounding Evaluation) & Đóng gói thẻ card tương tác (Tutor Card, Class Card).
+  - *Bước 8*: Gọi bộ định tuyến đa mô hình [`AiProviderRouter.java:40`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/ai/service/provider/AiProviderRouter.java#L40) theo chuỗi ưu tiên:
+    $$\text{Groq (Llama 3)} \longrightarrow \text{Cerebras} \longrightarrow \text{DeepSeek} \longrightarrow \text{Gemini 2.0 Flash}$$
+    *(Failover tự động khi gặp HTTP 429 Rate Limit hoặc Timeout 15s; Cooldown 60s; trần sinh tối đa 20s)*.
+  - *Bước 9*: Hallucination Guard (quét đối soát triệt tiêu ảo giác sau khi sinh).
+  - *Bước 10 & 11*: Lưu tin nhắn CSDL và ghi nhớ vào Semantic Cache.
+* **Tầng 5 (Repository Interface)**:
+  - `AiChatMessageRepository.java` ➡️ `save(message)`.
+  - `AiChatSessionRepository.java` ➡️ `save(session)`.
+  - `AiKnowledgeChunkRepository.java` ➡️ `findByActiveTrue()`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `ai_chat_messages`, `ai_chat_sessions`, `ai_knowledge_chunks`.
 
 ---
 
-## CHƯƠNG 4: HỢP ĐỒNG ĐIỆN TỬ KÝ SỐ OTP & HỒ SƠ ĐA VAI TRÒ (UC-44 & M4)
+## CHƯƠNG 4: HỢP ĐỒNG ĐIỆN TỬ OTP & HỒ SƠ 3 VAI TRÒ (UC-44, M4, UC-08)
 
-### 4.1. Vòng Đời Hợp Đồng Ký Số OTP Qua Email (UC-44)
-* **Controller**: `ContractController.java` (dòng 80).
-* **Service**: `ContractServiceImpl.java` (dòng 350-450).
-* **Quy trình 4 bước ký số 2 lớp**:
-  1. *Khởi tạo*: Tạo hợp đồng từ lớp học thỏa thuận thành công (trạng thái ban đầu `DRAFT`).
-  2. *Gửi OTP ký số*: Hệ thống sinh ngẫu nhiên mã OTP 6 chữ số, băm bảo mật lưu vào bảng `contract_otps` với thời hạn hiệu lực **5 phút**, gửi email bảo mật tới hộp thư của bên ký.
-  3. *Ký xác thực*: Người dùng nhập OTP trên giao diện -> Backend kiểm tra trùng khớp -> Tạo bản ghi chữ ký điện tử trong `contract_signatures` kèm địa chỉ IP và dấu thời gian.
-  4. *Kích hoạt*: Khi **cả 2 bên** (Phụ huynh và Gia sư) đều đã ký đủ -> Trạng thái hợp đồng chuyển thành `ACTIVE` -> Hệ thống kích hoạt trạng thái giữ tiền ký quỹ Escrow.
+### 4.1. Hợp Đồng Điện Tử Ký Số OTP 2 Lớp (UC-44)
+* **Tầng 1 (UI)**: [ContractDetailPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/contract/pages/ContractDetailPage.tsx).
+* **Tầng 2 (Controller)**: [`ContractController.java:80`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/contract/controller/ContractController.java) nhận tại `@PostMapping("/{id}/sign-otp")`.
+* **Tầng 3 (Service Interface)**: `ContractService.java`: `ContractResponse signWithOtp(Long contractId, SignWithOtpRequest request);`.
+* **Tầng 4 (Service Impl)**: [`ContractServiceImpl.java:476-545`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/contract/service/impl/ContractServiceImpl.java#L476-L545):
+  1. *Kiểm tra pháp lý*: `assertSignerNotMinor()` (đủ 18 tuổi) và `assertSignerCccdComplete()` (đã có CCCD).
+  2. *Xác thực OTP*: Gọi `otpService.verify(...)` (tối đa 5 lần thử, hạn 5 phút).
+  3. *Tạo chữ ký số*: Lưu `ContractSignature` với dữ liệu `OTP_VERIFIED:{email}:{signedAt}`.
+  4. *Kích hoạt khi đủ 2 bên ký*: Gọi `isFullySigned(contractId)`, nếu đủ 2 bên thì chuyển `contract.setStatus(SIGNED)` và phát sự kiện `publishContractSigned()` **lập tức khóa tiền ký quỹ Escrow**!
+* **Tầng 5 (Repository Interface)**: `ContractRepository.java`, `ContractSignatureRepository.java`, `OtpRepository.java`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `contracts`, `contract_signatures`, `email_otps`.
+
+---
 
 ### 4.2. Đánh Giá Sao & Tính Lại Điểm Uy Tín Sau Buổi Học
-* **Service**: `ReviewServiceImpl.java` (dòng 59-120).
-* **Ràng buộc nghiệp vụ**:
-  * Chỉ người thực sự tham gia lớp học (Client thuê hoặc Gia sư đứng lớp) mới có quyền đánh giá.
-  * Mỗi phân công lớp học (`ClassAssignment`) chỉ được gửi đánh giá đúng **1 lần duy nhất**.
-  * Sau khi lưu đánh giá vào bảng `reviews`, hệ thống kích hoạt tính toán lại Điểm uy tín trung bình (Reputation Score) của gia sư dựa trên điểm số sao và số lượng đánh giá tích lũy.
-
-### 4.3. Phân Tách Hồ Sơ 3 Vai Trò Riêng Biệt (DEF-UI)
-* Thay vì gộp chung một trang hồ sơ gây nhầm lẫn trường dữ liệu, hệ thống đã tách thành 3 trang chuyên biệt:
-  * [ClientProfilePage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/profile/pages/ClientProfilePage.tsx): Quản lý thông tin phụ huynh và danh sách hồ sơ con cái phụ thuộc (học lực, lớp đang học).
-  * [TutorProfilePage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/profile/pages/TutorProfilePage.tsx): Quản lý hồ sơ gia sư, danh mục các môn dạy, học vị, kinh nghiệm và chứng chỉ giảng dạy.
-  * [CenterProfilePage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/profile/pages/CenterProfilePage.tsx): Quản lý thông tin trung tâm gia sư, mã số thuế, giấy phép hoạt động và danh sách gia sư trực thuộc.
+* **Tầng 1 (UI)**: [ContractDetailPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/contract/pages/ContractDetailPage.tsx) (dòng 150).
+* **Tầng 2 (Controller)**: `ContractController.java:48` nhận tại `@PostMapping("/reviews")`.
+* **Tầng 3 (Service Interface)**: `ReviewService.java`: `ReviewResponse createReview(CreateReviewRequest request);`.
+* **Tầng 4 (Service Impl)**:
+  - [`ReviewServiceImpl.java:95-126`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/contract/service/impl/ReviewServiceImpl.java#L95-L126): Chặn tự đánh giá, chỉ cho phép người trong cuộc, mỗi phân công lớp chỉ được đánh giá đúng 1 lần.
+  - [`ContractServiceImpl.java:2586-2612`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/contract/service/impl/ContractServiceImpl.java#L2586-L2612) (`recomputeTutorReputation`):
+    Lấy đánh giá cuối cùng của mỗi lớp (`finalReviewPerClass`), tính trung bình, cập nhật `tutor.setRatingAvg(newScore)`, lưu lịch sử vào `reputation_histories`.
+* **Tầng 5 (Repository Interface)**: `ReviewRepository.java`, `TutorRepository.java`, `ReputationHistoryRepository.java`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `reviews`, `tutors` (cột `rating_avg`), `reputation_histories`.
 
 ---
 
-# PHẦN 3: KỊCH BẢN THUYẾT TRÌNH MẪU "5 BƯỚC CHỈ CODE"
+### 4.3. Quản Lý Hồ Sơ 3 Vai Trò & Onboarding Lần Đầu (UC-08)
+* **Tầng 1 (UI)**:
+  - [ClientProfilePage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/profile/pages/ClientProfilePage.tsx): Quản lý con cái phụ thuộc (`ChildProfile`).
+  - [TutorProfilePage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/profile/pages/TutorProfilePage.tsx): Chứng chỉ (`TutorCertificate`), Lịch bận theo tuần (`TutorBusyTime`).
+  - [CenterProfilePage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/profile/pages/CenterProfilePage.tsx): Quản lý danh sách gia sư trực thuộc (`CenterTutorMembership`).
+* **Tầng 2 (Controller)**: `ProfileController.java:45` nhận tại `/api/profile`.
+* **Tầng 3 (Service Interface)**: `ProfileService.java`: `uploadAvatar()`, `addCertificate()`, `addBusyTimes()`, `addChildProfile()`.
+* **Tầng 4 (Service Impl)**: [`ProfileServiceImpl.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/profile/service/impl/ProfileServiceImpl.java):
+  - *Tải avatar (Dòng 809)*: Kiểm tra MIME type, dung lượng < 5MB, ghi file `/uploads/`, lưu `avatar_url`.
+  - *Onboarding (Dòng 179)*: Sau khi lưu hồ sơ lần đầu, gán `user.setProfileCompletedAt(now)` để ẩn banner onboarding vĩnh viễn.
+  - *Lịch bận (Dòng 679)*: Kiểm tra đối soát chống trùng khung giờ rảnh/bận (`clashes`).
+* **Tầng 5 (Repository Interface)**: `ClientRepository`, `TutorRepository`, `TutorCenterRepository`, `TutorCertificateRepository`, `TutorBusyTimeRepository`, `ChildProfileRepository`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `clients`, `tutors`, `tutor_centers`, `tutor_certificates`, `tutor_busy_times`, `child_profiles`.
 
-Khi thầy cô yêu cầu: *"Em hãy demo và giải thích luồng hoạt động của tính năng X"*, bạn hãy áp dụng công thức 5 bước chuẩn này để trả lời:
+---
+
+### 4.4. Quên Mật Khẩu OTP Qua Email 2 Giai Đoạn (DEF-62)
+* **Tầng 1 (UI)**: [ForgotPasswordPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/identity/pages/ForgotPasswordPage.tsx), [ResetPasswordPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/identity/pages/ResetPasswordPage.tsx).
+* **Tầng 2 (Controller)**: `IdentityController.java:75` nhận tại `@PostMapping("/reset-password")`.
+* **Tầng 3 (Service Interface)**: `IdentityService.java`: `requestPasswordResetOtp()`, `verifyPasswordResetOtp()`, `resetPassword()`.
+* **Tầng 4 (Service Impl)**: [`IdentityServiceImpl.java:470-533`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/identity/service/impl/IdentityServiceImpl.java#L470-L533):
+  1. *Giai đoạn 1*: Rate limit theo IP (`acquireIpSlot`), gửi OTP 6 số qua email. Khi verify thành công, sinh chuỗi Token ngẫu nhiên (Opaque Reset Token) có hạn 10 phút.
+  2. *Giai đoạn 2*: Người dùng gửi `resetToken` kèm mật khẩu mới. Kiểm tra `token.getUsedAt() == null`, mã hóa BCrypt lưu vào bảng `users`, đánh dấu `token.setUsedAt(now)` (Token dùng 1 lần duy nhất).
+* **Tầng 5 (Repository Interface)**: `PasswordResetTokenRepository.java`, `UserRepository.java`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `users` (cột `password_hash`), bảng `password_reset_tokens`, bảng `email_otps`.
+
+---
+
+# PHẦN 3: KỊCH BẢN THUYẾT TRÌNH MẪU "CHỈ CODE 6 BƯỚC"
+
+Khi thầy cô yêu cầu: *"Em hãy demo và giải thích luồng hoạt động của tính năng X"*, bạn hãy áp dụng công thức 6 bước chuẩn này:
 
 ### Ví dụ Thực Chiến: Trình Bày Tính Năng "Gộp Ticket Trùng Lặp (Merge Ticket)"
 
 > 🎙️ **Kịch bản nói (khoảng 45 giây)**:
 > 
-> *"Dạ thưa thầy/cô, em xin trình bày chức năng Gộp phiếu khiếu nại trùng lặp:*
+> *"Dạ thưa thầy/cô, em xin trình bày chức năng Gộp phiếu khiếu nại trùng lặp theo đúng 6 tầng kiến trúc của hệ thống:*
 > 
-> * **Bước 1 (Nghiệp vụ)**: Tính năng này sinh ra để xử lý tình huống khách hàng nôn nóng gửi nhiều ticket cho cùng 1 vấn đề, giúp tránh việc nhiều admin cùng nhảy vào xử lý gây lãng phí nguồn lực.
-> * **Bước 2 (Frontend)**: Tại màn hình `PlatformTicketsPage.tsx` dòng 103, admin mở modal và bấm nút 'Gộp ticket'. Giao diện yêu cầu nhập mã ticket đích và lý do gộp, sau đó gọi hàm `handleMerge()`.
-> * **Bước 3 (API)**: Frontend gửi request `POST /api/platform/tickets/{id}/merge` kèm payload `{ targetTicketId, reason }`.
-> * **Bước 4 (Controller & Service)**: Request đi qua `PlatformController.java` dòng 359 và chuyển vào `PlatformServiceImpl.java` dòng 1360. Tại đây em áp dụng 4 chốt chặn an toàn: kiểm tra 2 ticket không trùng nhau, phải thuộc cùng 1 người dùng, và không được là ticket đã đóng.
-> * **Bước 5 (Database)**: Hệ thống tạo một bản ghi `TicketMessage` mới trong ticket đích để dời toàn bộ nội dung của ticket nguồn sang, đổi trạng thái ticket nguồn thành `CLOSED`, ghi vết kiểm toán vào bảng `audit_logs` và gửi thông báo cho người dùng."*
+> * **Tầng 1 (UI)**: Tại màn hình `PlatformTicketsPage.tsx` dòng 103, admin bấm nút 'Gộp ticket', nhập mã ticket đích và lý do gộp, gọi hàm `handleMerge()`.
+> * **Tầng 2 (Controller)**: Request gửi qua endpoint `POST /api/platform/tickets/{id}/merge` và được tiếp nhận tại `PlatformController.java` dòng 359.
+> * **Tầng 3 (Service Interface)**: Controller ủy quyền xử lý qua interface `PlatformService.java` dòng 101 với phương thức `mergeTicket(sourceTicketId, request)`.
+> * **Tầng 4 (Service Impl)**: Logic thực thi tại `PlatformServiceImpl.java` dòng 1360. Tại đây em áp dụng 4 chốt chặn an toàn: kiểm tra 2 ticket không trùng nhau, **bắt buộc phải thuộc cùng một người dùng** để tránh lộ thông tin cá nhân, và cả 2 ticket chưa bị đóng.
+> * **Tầng 5 (Repository Interface)**: Hệ thống gọi `TicketMessageRepository.save()` để dời nội dung sang ticket đích, và gọi `SupportTicketRepository.save()` để đóng ticket nguồn.
+> * **Tầng 6 (Database)**: CSDL cập nhật ticket nguồn sang trạng thái `CLOSED`, tạo bản ghi tin nhắn mới trong bảng `ticket_messages` của ticket đích, và ghi vết kiểm toán vào bảng `audit_logs`."*
 
 ---
 
-# PHẦN 4: BỘ CÂU HỎI PHẢN BIỆN "BẪY" CỦA HỘI ĐỒNG & CÂU TRẢ LỜI ĂN TRỌN ĐIỂM
+# PHẦN 4: BỘ CÂU HỎI PHẢN BIỆN "BẪY" CỦA HỘI ĐỒNG & CÂU TRẢ LỜI MẪU
 
-#### ❓ Câu 1: *"Tại sao khi User gửi ticket có Category là DISPUTE thì hệ thống lại ép Priority lên URGENT mà không cho User tự chọn?"*
+#### ❓ Câu 1: *"Tại sao trong Controller em lại tiêm Service Interface thay vì tiêm thẳng ServiceImpl?"*
+* **Trả lời**: *"Dạ thưa thầy cô, đây là việc tuân thủ nguyên lý **Dependency Inversion Principle (chữ D trong SOLID)** và giảm thiểu phụ thuộc chặt (Loose Coupling): Tầng Controller chỉ phụ thuộc vào hợp đồng trừu tượng (Interface), giúp dễ dàng viết Unit Test giả lập bằng `@MockBean` và cho phép mở rộng các cách thực thi nghiệp vụ khác nhau mà không làm thay đổi code của Controller ạ."*
+
+#### ❓ Câu 2: *"Tại sao khi User gửi ticket có Category là DISPUTE thì hệ thống lại ép Priority lên URGENT mà không cho User tự chọn?"*
 * **Trả lời**: *"Dạ, theo phân tích nghiệp vụ, khi xảy ra tranh chấp học phí hoặc sự cố lớp học, quyền lợi tài chính của khách hàng đang bị đe dọa trực tiếp. Nếu để người dùng chọn nhầm độ ưu tiên thấp (như LOW với hạn cam kết SLA là 48h), sàn sẽ bị chậm trễ trong việc can thiệp. Việc ép sàn lên URGENT với SLA 4 giờ giúp sàn xử lý sự cố kịp thời, bảo vệ uy tín nền tảng."*
 
-#### ❓ Câu 2: *"Cơ chế Auto-Assignment khi Admin mở ticket có nhược điểm gì không? Nếu Admin chỉ vô tình bấm vào xem rồi tắt đi mà không làm gì thì ticket có bị 'ngâm' mãi ở trạng thái IN_PROGRESS không?"*
-* **Trả lời**: *"Dạ, đây là một điểm rất hay ạ. Để giải quyết triệt để vấn đề này, hệ thống đã xây dựng thêm tính năng Quét quá hạn SLA (`scanAndEscalateSlaBreaches`). Dù ticket đã được gán cho Admin nào, nếu sau thời gian quy định (tính theo dueAt) mà ticket vẫn chưa có phản hồi hoặc chưa được giải quyết, hệ thống sẽ tự động kích hoạt cảnh báo trực ban và thông báo khẩn cấp tới toàn bộ ban quản trị để tái phân công."*
+#### ❓ Câu 3: *"Cơ chế Auto-Assignment khi Admin mở ticket có nhược điểm gì không? Nếu Admin chỉ vô tình bấm vào xem rồi tắt đi mà không làm gì thì ticket có bị 'ngâm' mãi ở trạng thái IN_PROGRESS không?"*
+* **Trả lời**: *"Dạ, để giải quyết triệt để vấn đề này, hệ thống đã xây dựng thêm tính năng Quét quá hạn SLA (`scanAndEscalateSlaBreaches`). Dù ticket đã được gán cho Admin nào, nếu sau thời gian quy định (tính theo dueAt) mà ticket vẫn chưa có phản hồi hoặc chưa được giải quyết, hệ thống sẽ tự động kích hoạt cảnh báo trực ban và thông báo khẩn cấp tới toàn bộ ban quản trị để tái phân công."*
 
-#### ❓ Câu 3: *"Tại sao khi xuất báo cáo CSV tài chính em lại phải chèn thêm dấu nháy đơn `'` ở đầu ô nếu ô đó bắt đầu bằng dấu `=`, `+`, `-`?"*
+#### ❓ Câu 4: *"Tại sao khi xuất báo cáo CSV tài chính em lại phải chèn thêm dấu nháy đơn `'` ở đầu ô nếu ô đó bắt đầu bằng dấu `=`, `+`, `-`?"*
 * **Trả lời**: *"Dạ, đây là giải pháp phòng chống lỗ hổng bảo mật **CSV / Formula Injection (DDE)**. Kẻ gian có thể cố tình đặt tên hoặc ghi chú chứa các ký tự này để khi Quản trị viên tải file CSV về mở bằng Microsoft Excel, Excel sẽ tự động biên dịch ô đó thành một công thức lệnh hệ điều hành và thực thi mã độc. Việc chèn dấu nháy đơn buộc Excel hiểu đây là chuỗi văn bản thuần túy và vô hiệu hóa công thức nguy hiểm."*
 
-#### ❓ Câu 4: *"Làm thế nào để phân hệ Trợ lý AI không bịa đặt số liệu tài chính hoặc số lượng lớp học đang mở?"*
-* **Trả lời**: *"Dạ, hệ thống áp dụng kỹ thuật RAG kết hợp với 2 mắt xích then chốt: **Bước 7 (Business Context Injection)** và **Bước 10 (Hallucination Guard)** trong `AiServiceImpl.java`. Trước khi gọi LLM, hệ thống truy vấn dữ liệu thực tế thời gian thực từ CSDL MySQL và tiêm thẳng vào ngữ cảnh Prompt. Sau khi nhận kết quả từ LLM, hệ thống chạy bộ lọc đối soát thông tin để đảm bảo câu trả lời phản ánh 100% dữ liệu thực từ CSDL."*
+#### ❓ Câu 5: *"Làm thế nào để phân hệ Trợ lý AI không bịa đặt số liệu tài chính hoặc số lượng lớp học đang mở?"*
+* **Trả lời**: *"Dạ, hệ thống áp dụng kỹ thuật RAG kết hợp với 2 mắt xích then chốt: **Bước 5.1 (Real-time Business Context Injection)** và **Bước 9 (Hallucination Guard)** trong `AiServiceImpl.java`. Trước khi gọi LLM, hệ thống truy vấn dữ liệu thực tế thời gian thực từ CSDL MySQL và tiêm thẳng vào ngữ cảnh Prompt. Sau khi nhận kết quả từ LLM, hệ thống chạy bộ lọc đối soát thông tin để đảm bảo câu trả lời phản ánh 100% dữ liệu thực từ CSDL."*
 
-#### ❓ Câu 5: *"Nếu Quản trị viên khóa tài khoản một người dùng bị vi phạm, làm sao để đảm bảo người dùng đó không tiếp tục dùng JWT Token cũ để gọi API?"*
-* **Trả lời**: *"Dạ, hệ thống áp dụng kỹ thuật `tokenVersion` lưu trong bảng `users`. Mỗi khi Admin cập nhật trạng thái tài khoản sang BANNED hoặc SUSPENDED, backend sẽ tăng giá trị `tokenVersion` lên 1 đơn vị. Trong bộ lọc `JwtFilter`, mỗi request gửi lên đều đối chiếu `tokenVersion` trong payload của token với CSDL. Khi giá trị này lệch nhau, request sẽ lập tức bị chặn với mã lỗi 401 Unauthorized."*
+#### ❓ Câu 6: *"Nếu Quản trị viên khóa tài khoản một người dùng bị vi phạm, làm sao để đảm bảo người dùng đó không tiếp tục dùng JWT Token cũ để gọi API?"*
+* **Trả lời**: *"Dạ, hệ thống áp dụng kỹ thuật 2 lớp bảo vệ: Tại `PlatformServiceImpl.java`, khi Admin đổi trạng thái sang BANNED, thuộc tính `enabled` của UserPrincipal chuyển thành `false`. Trong `JwtAuthenticationFilter`, mỗi request gửi lên đều kiểm tra `userDetails.isEnabled()`. Nếu bị Banned, request lập tức bị từ chối với mã lỗi 401/403 mà không cần chờ token JWT hết hạn ạ."*
 
 ---
 
-*Cẩm nang này đã được lưu trực tiếp vào tệp mã nguồn của bạn tại [docs/CAM_NANG_ON_TAP_BAO_VE_DUCHM.md](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/docs/CAM_NANG_ON_TAP_BAO_VE_DUCHM.md). Bạn có thể mở đọc bất cứ lúc nào trên IDE hoặc in ra giấy để học!*
+*Cẩm nang này đã được cập nhật chuẩn 6 tầng kiến trúc trực tiếp tại [docs/CAM_NANG_ON_TAP_BAO_VE_DUCHM.md](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/docs/CAM_NANG_ON_TAP_BAO_VE_DUCHM.md).*
