@@ -221,6 +221,10 @@ Khi người dùng thực hiện một hành động (ví dụ: bấm nút "Gử
 | **24** | **LUỒNG 2: Trợ lý Ảo AI Universal RAG 12 Bước** | `AiFloatingWidget.tsx`, `AiAssistantPage.tsx` | `AiController.java` (L50)<br>`POST /api/ai/chat` | `AiService.java`<br>`chat()` | `AiServiceImpl.java` (L114)<br>`AiProviderRouter.java` (L40) | `AiChatMessageRepository`<br>`AiKnowledgeChunkRepository` | `ai_chat_messages`, `ai_chat_sessions`,<br>`ai_knowledge_chunks` |
 | **25** | **Quản lý Hồ sơ 3 vai trò & Avatar Onboarding (UC-08)** | `ClientProfilePage.tsx`, `TutorProfilePage.tsx` | `ProfileController.java` (L45)<br>`/api/profile/avatar`, `/profile/me` | `ProfileService.java`<br>`uploadAvatar()`, `addCertificate()` | `ProfileServiceImpl.java` (L809)<br>`uploadAvatar()`, `addCertificate()` | `ClientRepository`, `TutorRepository`,<br>`TutorCertificateRepository` | `clients`, `tutors`, `tutor_certificates`,<br>`tutor_busy_times`, `child_profiles` |
 | **26** | **Quên mật khẩu OTP qua Email (DEF-62)** | `ForgotPasswordPage.tsx`, `ResetPasswordPage.tsx` | `IdentityController.java` (L75)<br>`POST /api/identity/reset-password` | `IdentityService.java`<br>`resetPassword()` | `IdentityServiceImpl.java` (L519)<br>`resetPassword()` | `PasswordResetTokenRepository`<br>`UserRepository.java` | `users.password_hash`,<br>`password_reset_tokens` (Dùng 1 lần) |
+| **27** | **Chat tin nhắn tức thời 1-1 & Nhóm lớp (UC-50)** | `MessagingPage.tsx`, `ChatWindow.tsx` | `ChatController.java` (L58)<br>`/api/messaging/chats` | `ChatService.java`<br>`sendMessage()`, `getMyConversations()` | `ChatServiceImpl.java` (L480)<br>`sendMessage()`, `createGroup()` | `MessageRepository.java`<br>`ConversationRepository.java` | `conversations`, `messages`,<br>`conversation_members` |
+| **28** | **Đổi mật khẩu người dùng (Change Password)** | `ProfilePage.tsx`, `ChangePasswordModal` | `IdentityController.java` (L65)<br>`POST /api/identity/change-password` | `IdentityService.java`<br>`changePassword()` | `IdentityServiceImpl.java` (L432)<br>`changePassword()` | `UserRepository.java`<br>`save()` | `users.password_hash`,<br>`audit_logs` |
+| **29** | **Ký quỹ Escrow, Ví điện tử & Quyết toán (UC-40)** | `PlatformAnalyticsPage.tsx`, `WalletPage.tsx` | `FinanceController.java` (L50)<br>`/api/finance/wallet` | `FinanceService.java`<br>`getMyWallet()`, `deposit()` | `FinanceServiceImpl.java` (L99)<br>`EscrowServiceImpl.java` (L47) | `WalletRepository.java`<br>`EscrowTransactionRepository` | `wallets`, `wallet_transactions`,<br>`escrow_transactions` (Khóa tiền/Giải ngân) |
+| **30** | **Quản lý Bản tin & Thông báo toàn sàn (UC-59)** | `PlatformTasksPage.tsx`, `HomePage.tsx` | `AnnouncementController.java` (L45)<br>`/api/platform/announcements` | `AnnouncementService.java`<br>`upsertAnnouncement()` | `AnnouncementServiceImpl.java` (L45)<br>`upsertAnnouncement()` | `AnnouncementRepository.java`<br>`save()` | `announcements`, `notifications`,<br>`audit_logs` |
 
 ---
 
@@ -807,6 +811,70 @@ Khi người dùng thực hiện một hành động (ví dụ: bấm nút "Gử
 
 ---
 
+### 4.5. Chat Tin Nhắn Tức Thời 1-1 & Nhóm Lớp Học (UC-50)
+* **Tầng 1 (UI)**: [MessagingPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/messaging/pages/MessagingPage.tsx), `ChatWindow.tsx`, `ConversationList.tsx` — Người dùng trò chuyện 1-1 giữa Phụ huynh và Gia sư, hoặc trao đổi trong nhóm chat lớp học.
+* **Tầng 2 (Controller)**: [`ChatController.java:58`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/messaging/controller/ChatController.java#L58) nhận tại `/api/messaging`:
+  - `POST /api/messaging/chats/messages`: Gửi tin nhắn mới.
+  - `GET /api/messaging/chats/conversations`: Lấy danh sách hội thoại của người dùng.
+  - `GET /api/messaging/chats/conversations/{id}/messages`: Phân trang lịch sử tin nhắn.
+  - `POST /api/messaging/chats/groups`: Tạo nhóm chat lớp học.
+* **Tầng 3 (Service Interface)**: [`ChatService.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/messaging/service/ChatService.java):
+  ```java
+  MessageResponse sendMessage(SendMessageRequest request);
+  List<ConversationResponse> getMyConversations();
+  Page<MessageResponse> getMessages(Long conversationId, int page, int size);
+  ```
+* **Tầng 4 (Service Impl)**: [`ChatServiceImpl.java:480`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/messaging/service/impl/ChatServiceImpl.java#L480):
+  - **Chốt chặn 1 (Gác cổng Xử phạt - L394)**: Gọi `penaltyAccessService.requireFeature(senderId, "MESSAGING")` — nếu tài khoản đang dính án phạt cấm nhắn tin thì lập tức quăng `ForbiddenException`!
+  - **Chốt chặn 2 (Quét lách sàn thời gian thực - L490)**: Gọi `circumventionService.inspect(message)` — kiểm tra Regex 4 tầng xem tin nhắn có chứa số điện thoại, link Zalo, email hay không; nếu điểm rủi ro $\ge 65$ tự động lưu vết vi phạm vào bảng `circumvention_detections`.
+  - Lưu tin nhắn vào CSDL và kích hoạt thông báo In-App / WebSocket tới các thành viên hội thoại.
+* **Tầng 5 (Repository Interface)**: `MessageRepository.java`, `ConversationRepository.java`, `ConversationMemberRepository.java`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `conversations`, `messages`, `conversation_members`, `circumvention_detections`.
+
+---
+
+### 4.6. Thay Đổi Mật Khẩu Người Dùng (Change Password)
+* **Tầng 1 (UI)**: [ProfilePage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/profile/pages/ProfilePage.tsx) — Modal đổi mật khẩu trong trang quản lý tài khoản.
+* **Tầng 2 (Controller)**: `IdentityController.java:65` nhận tại `@PostMapping("/change-password")`.
+* **Tầng 3 (Service Interface)**: `IdentityService.java`: `void changePassword(ChangePasswordRequest request);`.
+* **Tầng 4 (Service Impl)**: [`IdentityServiceImpl.java:432`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/identity/service/impl/IdentityServiceImpl.java#L432):
+  - Lấy tài khoản hiện tại từ `authHelper.currentUserId()`.
+  - So khớp mật khẩu cũ qua BCrypt: `passwordEncoder.matches(request.getCurrentPassword(), user.getPasswordHash())`.
+  - Validate định dạng mật khẩu mới và kiểm tra: `passwordEncoder.matches(request.getNewPassword(), user.getPasswordHash())` ➡️ nếu trùng mật khẩu cũ thì quăng ngoại lệ bắt buộc phải đổi mật khẩu khác!
+  - Mã hóa mật khẩu mới: `user.setPasswordHash(passwordEncoder.encode(request.getNewPassword()))`.
+  - Lưu CSDL và ghi vết kiểm toán `CHANGE_PASSWORD` vào bảng `audit_logs`.
+* **Tầng 5 (Repository Interface)**: `UserRepository.java` ➡️ `save(user)`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `users` (cập nhật cột `password_hash`), bảng `audit_logs`.
+
+---
+
+### 4.7. Chuyên Sâu UC-30 & UC-40: Tranh Chấp Sự Cố Lớp & Cơ Chế Ký Quỹ Escrow
+* **Nghiệp vụ UC-30 (Báo Cáo Sự Cố Lớp Học & Giải Quyết Tranh Chấp)**:
+  - Phía Người dùng: Phụ huynh hoặc Gia sư gửi báo cáo sự cố vi phạm xảy ra trong lớp học (`targetType = CLASS`).
+  - Phía Admin: Admin tiếp nhận tại màn hình `/platform/reports`, kích hoạt hàm [`resolveClassIssueReport` (PlatformServiceImpl.java:1726)](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/PlatformServiceImpl.java#L1726) với **7 phương án can thiệp**.
+  - **Tự động khóa Escrow**: Nếu chọn `ESCALATE_TO_DISPUTE` hoặc `TERMINATE_CLASS`, hệ thống tự động gọi `escrowService.holdForDispute()`, chuyển tiền ký quỹ của lớp sang trạng thái `ON_HOLD` và khởi tạo thực thể `Dispute` với `status = 'OPEN'`.
+  - **Điểm uy tín**: Lớp học dính sự cố sẽ kích hoạt hàm tính lại điểm uy tín gia sư ([`ContractServiceImpl.java:2586`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/contract/service/impl/ContractServiceImpl.java#L2586)), làm sụt giảm điểm sao trung bình của gia sư trên sàn.
+* **Nghiệp vụ UC-40 (Quản Trị Ký Quỹ Escrow, Ví Điện Tử & Quyết Toán Dòng Tiền)**:
+  - Phía Ví điện tử: Quản lý số dư ví, nạp tiền tự động qua Cổng thanh toán SePay Webhook ([`FinanceController.java:98`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/finance/controller/FinanceController.java#L98)), tạo yêu cầu rút tiền về ngân hàng.
+  - **Cơ chế Ký quỹ Escrow (Escrow Holding)**: Khi Phụ huynh và Gia sư ký số hợp đồng qua OTP (UC-44), tiền học phí được tự động khóa lại trong quỹ Escrow an toàn của sàn chứ không chuyển thẳng cho gia sư.
+  - **Quyết toán (Settlement - SettlementServiceImpl.java:43)**: Khi lớp học hoàn thành các buổi học và điểm danh đầy đủ, hệ thống tự động trích tỷ lệ **phí sàn** (10% - cấu hình ở UC-58) thu về cho TCS, và giải ngân 90% còn lại vào ví khả dụng của Gia sư/Trung tâm; hoặc hoàn tiền (**Refund**) lại cho Phụ huynh nếu lớp học bị hủy/phán quyết vi phạm.
+* **Bảng CSDL tác động**: `wallets`, `wallet_transactions`, `escrow_transactions` (`HELD`, `ON_HOLD`, `RELEASED`, `REFUNDED`), `reports`, `disputes`.
+
+---
+
+### 4.8. Quản Lý Bản Tin & Thông Báo Toàn Sàn (UC-59 - Announcement Controller)
+* **Tầng 1 (UI)**: [PlatformTasksPage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/platform/pages/PlatformTasksPage.tsx), banner thông báo nổi trên trang chủ [HomePage.tsx](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/frontend/src/features/home/pages/HomePage.tsx).
+* **Tầng 2 (Controller)**: [`AnnouncementController.java:45`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/controller/AnnouncementController.java#L45) nhận tại `/api/platform/announcements`.
+* **Tầng 3 (Service Interface)**: [`AnnouncementService.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/AnnouncementService.java): `upsertAnnouncement()`, `toggleAnnouncement()`, `deleteAnnouncement()`.
+* **Tầng 4 (Service Impl)**: [`AnnouncementServiceImpl.java`](file:///c:/Users/Admin/Documents/GitHub/Tutor-Connect-System-TCS-/backend/src/main/java/com/tcs/module/platform/service/impl/AnnouncementServiceImpl.java):
+  - Admin tạo hoặc chỉnh sửa thông báo chính sách, lịch bảo trì hoặc sự kiện sàn.
+  - Phân loại đối tượng mục tiêu: `ALL`, `TUTOR`, `CLIENT`, `CENTER`.
+  - Tự động phát thông báo In-App thời gian thực tới nhóm người dùng mục tiêu và ghi vết vào `audit_logs`.
+* **Tầng 5 (Repository Interface)**: `AnnouncementRepository.java`.
+* **Tầng 6 (CSDL & Entity)**: Bảng `announcements`, bảng `notifications`, bảng `audit_logs`.
+
+---
+
 # PHẦN 3: KỊCH BẢN THUYẾT TRÌNH MẪU "CHỈ CODE 6 BƯỚC"
 
 Khi thầy cô yêu cầu: *"Em hãy demo và giải thích luồng hoạt động của tính năng X"*, bạn hãy áp dụng công thức 6 bước chuẩn này:
@@ -845,6 +913,15 @@ Khi thầy cô yêu cầu: *"Em hãy demo và giải thích luồng hoạt độ
 
 #### ❓ Câu 6: *"Nếu Quản trị viên khóa tài khoản một người dùng bị vi phạm, làm sao để đảm bảo người dùng đó không tiếp tục dùng JWT Token cũ để gọi API?"*
 * **Trả lời**: *"Dạ, hệ thống áp dụng kỹ thuật 2 lớp bảo vệ: Tại `PlatformServiceImpl.java`, khi Admin đổi trạng thái sang BANNED, thuộc tính `enabled` của UserPrincipal chuyển thành `false`. Trong `JwtAuthenticationFilter`, mỗi request gửi lên đều kiểm tra `userDetails.isEnabled()`. Nếu bị Banned, request lập tức bị từ chối với mã lỗi 401/403 mà không cần chờ token JWT hết hạn ạ."*
+
+#### ❓ Câu 7: *"UC-30 và UC-40 liên kết với nhau như thế nào trong bài toán bảo vệ dòng tiền học sinh?"*
+* **Trả lời**: *"Dạ thưa thầy cô, UC-40 là hạ tầng Ký quỹ Escrow quản lý việc giữ tiền học phí khi hợp đồng được ký số OTP. Còn UC-30 là quy trình xử lý Báo cáo sự cố lớp học. Khi có sự cố nghiêm trọng xảy ra ở UC-30, tại hàm `resolveClassIssueReport`, hệ thống sẽ lập tức can thiệp sang UC-40 để gọi `escrowService.holdForDispute()`, đóng băng số tiền đang ký quỹ không cho giải ngân về ví gia sư, từ đó đảm bảo tiền của học viên luôn an toàn cho tới khi tranh chấp được phán quyết xong ạ."*
+
+#### ❓ Câu 8: *"Làm thế nào để hệ thống ngăn chặn người dùng gửi số điện thoại hoặc link Zalo trong chat tin nhắn?"*
+* **Trả lời**: *"Dạ, tại hàm `sendMessage` trong `ChatServiceImpl.java`, trước khi lưu tin nhắn vào CSDL, em đã tích hợp gọi `CircumventionService.inspect(message)`. Hàm này chạy 4 bộ lọc Regex thời gian thực (nhận diện số điện thoại, email, URL và từ khóa mạng xã hội như Zalo, Telegram). Nếu phát hiện điểm rủi ro vượt ngưỡng an toàn (>= 65 điểm), hệ thống lập tức gắn cờ cảnh báo và lưu vào bảng `circumvention_detections` để Admin thanh tra và xử phạt theo UC-60 ạ."*
+
+#### ❓ Câu 9: *"Tại sao khi người dùng Đổi mật khẩu hoặc Đặt lại mật khẩu thành công em lại phải tăng `token_version` trong bảng users?"*
+* **Trả lời**: *"Dạ thưa thầy cô, JWT là stateless (phi trạng thái) nên sau khi cấp phát, token vẫn có hiệu lực cho đến khi hết hạn. Khi người dùng đổi mật khẩu hoặc bị lộ mật khẩu và đặt lại qua OTP, nếu không có cơ chế thu hồi thì kẻ gian vẫn có thể dùng JWT cũ để tiếp tục gọi API. Bằng cách tăng `token_version` trong bảng `users`, tại `JwtAuthenticationFilter`, hệ thống so khớp `principal.getTokenVersion() != jwtService.extractTokenVersion(claims)`. Khi thấy version lệch nhau, request lập tức bị từ chối 401, buộc kẻ gian phải văng ra khỏi hệ thống ngay lập tức ạ."*
 
 ---
 
