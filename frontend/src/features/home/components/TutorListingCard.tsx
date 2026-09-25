@@ -69,7 +69,13 @@ export function TutorListingCard({
         <div className="tcs-listing-card__row">
           <span className="tcs-listing-card__label">Đánh giá</span>
           <span className="tcs-listing-card__value">
-            <span className="tcs-listing-card__star">★</span> {Number(tutor.ratingAvg).toFixed(1)}
+            {Number(tutor.ratingAvg) > 0 ? (
+              <>
+                <span className="tcs-listing-card__star">★</span> {Number(tutor.ratingAvg).toFixed(1)}
+              </>
+            ) : (
+              <span className="tcs-listing-card__no-rating">Chưa có đánh giá</span>
+            )}
           </span>
         </div>
         <div className="tcs-listing-card__row">
